@@ -83,7 +83,8 @@
       "Bash(timeout 2 ./tools/logs-web.sh:*)",
       "Bash(pnpm run build:*)",
       "Bash(git -C /home/rabin/projects/pmo status --short apps/api/src/modules/cost/)",
-      "Bash(git -C /home/rabin/projects/pmo diff apps/api/src/modules/cost/routes.ts)"
+      "Bash(git -C /home/rabin/projects/pmo diff apps/api/src/modules/cost/routes.ts)",
+      "Bash(xargs ls:*)"
     ],
     "deny": [],
     "ask": [],

@@ -17,7 +17,6 @@ CREATE TABLE app.d_workflow_automation (
     -- Basic Info
     workflow_name TEXT NOT NULL,
     workflow_description TEXT,
-    active_flag BOOLEAN DEFAULT true,
 
     -- Trigger Configuration
     trigger_entity_type TEXT NOT NULL,           -- Entity to watch: 'project', 'task', 'client', etc.

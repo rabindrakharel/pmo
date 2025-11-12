@@ -5,7 +5,7 @@ import { sql } from 'drizzle-orm';
 
 // Response schema matching email template database structure
 const EmailTemplateSchema = Type.Object({
-  id: Type.String(), Type.Null()])),
+  id: Type.String(),
   code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   name: Type.String(),
   subject: Type.String(),
@@ -22,21 +22,23 @@ const EmailTemplateSchema = Type.Object({
   created_ts: Type.String(),
   updated_ts: Type.String(),
   version: Type.Number(),
-  metadata: Type.Optional(Type.Any())});
+  metadata: Type.Optional(Type.Any()),
+});
 
 // Create schema
 const CreateEmailTemplateSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
   subject: Type.String({ minLength: 1 }),
   code: Type.Optional(Type.String()),
-  descr: Type.Optional(Type.String()), Type.String(), Type.Any()])),
+  descr: Type.Optional(Type.String()),
   status: Type.Optional(Type.String()),
   template_schema: Type.Optional(Type.Any()),
   preview_text: Type.Optional(Type.String()),
   from_name: Type.Optional(Type.String()),
   from_email: Type.Optional(Type.String()),
   reply_to_email: Type.Optional(Type.String()),
-  metadata: Type.Optional(Type.Any())});
+  metadata: Type.Optional(Type.Any()),
+});
 
 const UpdateEmailTemplateSchema = Type.Partial(CreateEmailTemplateSchema);
 

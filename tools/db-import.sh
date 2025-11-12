@@ -191,6 +191,7 @@ validate_all_ddls() {
         "XLVIII_d_entity_id_map.ddl"
         "XLIX_d_entity_id_rbac_map.ddl"
         "L_d_cost.ddl"
+        "LI_f_logging.ddl"
     )
 
     for file in "${ddl_files[@]}"; do
@@ -220,7 +221,7 @@ drop_schema() {
 
 # Function to import all DDL files
 import_ddls() {
-    print_status $BLUE "📥 Importing 48 DDL files in dependency order (Roman numerals, VIII skipped)..."
+    print_status $BLUE "📥 Importing 49 DDL files in dependency order (Roman numerals, VIII skipped)..."
 
     # I: Initial setup - Drop and recreate schema
     execute_sql "$DB_PATH/I_schemaCreate.ddl" "I: Schema setup (drop and recreate)"
@@ -303,7 +304,10 @@ import_ddls() {
     # L: Cost tracking table
     execute_sql "$DB_PATH/L_d_cost.ddl" "L: Cost tracking with attachments"
 
-    print_status $GREEN "✅ All 49 DDL files imported successfully (Roman numerals I-L, VIII skipped)"
+    # LI: Central logging table
+    execute_sql "$DB_PATH/LI_f_logging.ddl" "LI: Central audit logging for all entity operations"
+
+    print_status $GREEN "✅ All 50 DDL files imported successfully (Roman numerals I-LI, VIII skipped)"
 }
 
 # Function to validate schema after import
@@ -416,13 +420,14 @@ validate_schema() {
 print_summary() {
     print_status $PURPLE "📋 IMPORT SUMMARY"
     print_status $PURPLE "=================="
-    print_status $CYAN "• PMO Enterprise schema with 49 DDL files (Roman numerals I-L, VIII skipped)"
+    print_status $CYAN "• PMO Enterprise schema with 50 DDL files (Roman numerals I-LI, VIII skipped)"
     print_status $CYAN "• Dependency-ordered import in 15 logical layers"
     print_status $CYAN "• Head/data pattern for temporal entities"
     print_status $CYAN "• 4-level office hierarchy (Office → District → Region → Corporate)"
     print_status $CYAN "• 3-level business hierarchy"
     print_status $CYAN "• Product & Service catalogs (dimensions)"
     print_status $CYAN "• Fact tables: Inventory, Orders, Shipments, Invoices, Quotes, Work Orders, Interactions"
+    print_status $CYAN "• Central audit logging (f_logging) for all entity operations"
     print_status $CYAN "• Event & Calendar system (meetings, appointments, RSVP tracking)"
     print_status $CYAN "• Entity TYPE metadata (d_entity) with parent-child relationships and icons"
     print_status $CYAN "• Entity INSTANCE registry (d_entity_instance_id) for all entity instances"
@@ -446,7 +451,7 @@ print_summary() {
 
 # Main execution
 main() {
-    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 49 DDL FILES (Roman Numerals I-L, VIII Missing)"
+    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 50 DDL FILES (Roman Numerals I-LI, VIII Missing)"
     print_status $PURPLE "=========================================================================="
 
     if [ "$DRY_RUN" = true ]; then

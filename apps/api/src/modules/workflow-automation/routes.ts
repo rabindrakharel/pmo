@@ -22,11 +22,12 @@ const WorkflowAutomationSchema = Type.Object({
   execution_order: Type.Optional(Type.Number()),
   max_executions: Type.Optional(Type.Number()),
   execution_count: Type.Optional(Type.Number()),
-  last_executed_at: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  created_date: Type.Optional(Type.String()),
-  created_by: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  modified_date: Type.Optional(Type.String()),
-  modified_by: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  last_executed_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  from_ts: Type.Optional(Type.String()),
+  to_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  created_ts: Type.Optional(Type.String()),
+  updated_ts: Type.Optional(Type.String()),
+  version: Type.Optional(Type.Number()),
 });
 
 const CreateWorkflowAutomationSchema = Type.Object({

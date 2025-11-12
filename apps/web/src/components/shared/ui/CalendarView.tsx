@@ -512,46 +512,139 @@ export function CalendarView({
       const token = localStorage.getItem('auth_token');
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
-      const url = modalMode === 'create'
-        ? `${apiBaseUrl}/api/v1/person-calendar`
-        : `${apiBaseUrl}/api/v1/person-calendar/${modalData?.id}`;
+      // Editing existing event/slot
+      if (modalMode === 'edit') {
+        const url = `${apiBaseUrl}/api/v1/person-calendar/${modalData?.id}`;
 
-      const method = modalMode === 'create' ? 'POST' : 'PATCH';
+        const metadata = {
+          ...(eventData.event_metadata || eventData.metadata || {}),
+          employee_ids: eventData.employee_ids || [],
+          attendee_ids: eventData.attendee_ids || []
+        };
 
-      // Generate unique code for new events
-      const code = modalMode === 'create'
-        ? `${eventData.person_entity_type.toUpperCase().slice(0, 3)}-CAL-${Date.now()}`
-        : undefined;
+        const response = await fetch(url, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            ...eventData,
+            metadata
+          })
+        });
 
-      // Prepare metadata with employee_ids and attendee_ids
-      const metadata = {
-        ...(eventData.metadata || {}),
-        employee_ids: eventData.employee_ids || [],
-        attendee_ids: eventData.attendee_ids || []
-      };
+        if (!response.ok) {
+          throw new Error('Failed to update event');
+        }
 
-      // Remove employee_ids and attendee_ids from top-level as they should be in metadata
-      const { employee_ids, attendee_ids, ...eventDataWithoutAttendees } = eventData;
-
-      const body = modalMode === 'create'
-        ? { ...eventDataWithoutAttendees, code, name: eventData.title || 'Calendar Slot', metadata }
-        : { ...eventDataWithoutAttendees, metadata };
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to ${modalMode} event`);
+        window.location.reload();
+        return;
       }
 
-      // Refresh data
-      window.location.reload();
+      // Creating new event
+      if (eventData.creation_mode === 'new_event') {
+        // Use unified booking service to create complete event with notifications
+        // Find primary person details
+        const primaryPerson = eventData.person_entity_type === 'employee'
+          ? people.find(p => p.id === eventData.person_entity_id && p.type === 'employee')
+          : people.find(p => p.id === eventData.person_entity_id && p.type === 'customer');
+
+        const assignedEmployee = people.find(p =>
+          p.type === 'employee' &&
+          (eventData.employee_ids?.includes(p.id) || p.id === eventData.person_entity_id)
+        );
+
+        const requestBody = {
+          // Customer details (required even if primary is employee)
+          customerName: primaryPerson?.name || 'Unknown',
+          customerEmail: primaryPerson?.email || '',
+          customerPhone: '', // TODO: Get from person entity
+
+          // Service details (optional - can be null)
+          serviceId: null,
+          serviceName: eventData.event_name || 'Calendar Event',
+          serviceCategory: 'general',
+
+          // Event details
+          eventTitle: eventData.event_name || '',
+          eventDescription: eventData.event_descr || '',
+          eventType: eventData.event_type || 'onsite',
+          eventLocation: eventData.event_addr || '',
+          eventInstructions: eventData.event_instructions || '',
+
+          // Time details
+          startTime: eventData.from_ts,
+          endTime: eventData.to_ts,
+          timezone: eventData.timezone || 'America/Toronto',
+
+          // Assignment
+          assignedEmployeeId: assignedEmployee?.id || eventData.person_entity_id,
+          assignedEmployeeName: assignedEmployee?.name || primaryPerson?.name || 'Unknown',
+
+          // Additional metadata
+          urgencyLevel: 'normal',
+          specialInstructions: eventData.event_instructions || '',
+
+          // Platform/Provider
+          eventPlatformProvider: eventData.event_platform_provider_name || 'office'
+        };
+
+        const response = await fetch(`${apiBaseUrl}/api/v1/person-calendar/create`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Failed to create event:', errorData);
+          throw new Error(errorData.error || 'Failed to create event with unified booking service');
+        }
+
+        const result = await response.json();
+        console.log('Event created successfully:', result);
+
+        // Refresh data
+        window.location.reload();
+      }
+      // Attaching existing event to calendar slot
+      else if (eventData.creation_mode === 'attach_existing') {
+        // Create calendar slot and link to existing event
+        const code = `${eventData.person_entity_type.toUpperCase().slice(0, 3)}-CAL-${Date.now()}`;
+
+        const response = await fetch(`${apiBaseUrl}/api/v1/person-calendar`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            code,
+            name: 'Calendar Slot',
+            person_entity_type: eventData.person_entity_type,
+            person_entity_id: eventData.person_entity_id,
+            from_ts: eventData.from_ts,
+            to_ts: eventData.to_ts,
+            timezone: eventData.timezone || 'America/Toronto',
+            availability_flag: false, // Booked
+            event_id: eventData.existing_event_id, // Link to existing event
+            metadata: {
+              attached_event: true
+            }
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to attach event to calendar');
+        }
+
+        // Refresh data
+        window.location.reload();
+      }
     } catch (error) {
       console.error(`Failed to ${modalMode} event:`, error);
       throw error;

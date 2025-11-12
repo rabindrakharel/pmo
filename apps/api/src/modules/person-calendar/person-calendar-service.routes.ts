@@ -12,12 +12,12 @@ import { createPersonCalendar, cancelPersonCalendar, reschedulePersonCalendar, t
  */
 export async function personCalendarServiceRoutes(fastify: FastifyInstance) {
   /**
-   * POST /api/v1/booking/create
+   * POST /api/v1/person-calendar/create
    * Create a complete person-calendar booking with event, calendar, RSVP, and notifications
    */
   fastify.post<{
     Body: CreatePersonCalendarRequest;
-  }>('/api/v1/booking/create', async (request, reply) => {
+  }>('/api/v1/person-calendar/create', async (request, reply) => {
     try {
       const personCalendarRequest = request.body;
 
@@ -99,13 +99,13 @@ export async function personCalendarServiceRoutes(fastify: FastifyInstance) {
   });
 
   /**
-   * POST /api/v1/booking/:eventId/cancel
+   * POST /api/v1/person-calendar/:eventId/cancel
    * Cancel a person-calendar (soft delete event, release calendar slots)
    */
   fastify.post<{
     Params: { eventId: string };
     Body: { cancellationReason?: string };
-  }>('/api/v1/booking/:eventId/cancel', async (request, reply) => {
+  }>('/api/v1/person-calendar/:eventId/cancel', async (request, reply) => {
     try {
       const { eventId } = request.params;
       const { cancellationReason } = request.body;
@@ -134,7 +134,7 @@ export async function personCalendarServiceRoutes(fastify: FastifyInstance) {
   });
 
   /**
-   * POST /api/v1/booking/:eventId/reschedule
+   * POST /api/v1/person-calendar/:eventId/reschedule
    * Reschedule a person-calendar (update event times, move calendar slots)
    */
   fastify.post<{
@@ -144,7 +144,7 @@ export async function personCalendarServiceRoutes(fastify: FastifyInstance) {
       newEndTime: string | Date;
       rescheduleReason?: string;
     };
-  }>('/api/v1/booking/:eventId/reschedule', async (request, reply) => {
+  }>('/api/v1/person-calendar/:eventId/reschedule', async (request, reply) => {
     try {
       const { eventId } = request.params;
       const { newStartTime, newEndTime, rescheduleReason } = request.body;
