@@ -102,6 +102,7 @@ export type EditType =
   | 'textarea'
   | 'tags'
   | 'jsonb'
+  | 'datatable'
   | 'file'
   | 'dag-select';
 
@@ -651,7 +652,7 @@ export function detectField(
       inputType: 'jsonb',
       component: 'MetadataTable',
       editable: true,
-      editType: 'jsonb',
+      editType: 'datatable', // MetadataTable renders as a datatable editor
       toApi: identityTransform,
       toDisplay: identityTransform,
       pattern: 'JSONB',

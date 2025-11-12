@@ -49,7 +49,7 @@ export interface DataTableColumn {
   editable: boolean;
   editType?: 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time' |
              'select' | 'multiselect' | 'checkbox' | 'textarea' | 'tags' |
-             'jsonb' | 'file' | 'dag-select';
+             'jsonb' | 'datatable' | 'file' | 'dag-select';
 
   // Options
   loadFromSettings?: boolean;
