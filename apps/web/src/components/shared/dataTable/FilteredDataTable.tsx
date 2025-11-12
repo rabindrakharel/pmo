@@ -4,11 +4,11 @@ import { SettingsDataTable } from '../ui/SettingsDataTable';
 import type { Column, RowAction } from '../ui/EntityDataTable';
 import { useNavigate } from 'react-router-dom';
 import { ActionButtonsBar } from '../button/ActionButtonsBar';
-import { ColumnSelector } from '../ui/ColumnSelector';
 import { getEntityConfig, type EntityConfig } from '../../../lib/entityConfig';
 import { transformForApi, transformFromApi } from '../../../lib/data_transform_render';
 import { COLOR_OPTIONS } from '../../../lib/settingsConfig';
 import { useColumnVisibility } from '../../../lib/hooks/useColumnVisibility';
+import { detectField } from '../../../lib/universalFieldDetector';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -70,11 +70,40 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     return config?.apiEndpoint?.includes('/api/v1/setting?datalabel=') || false;
   }, [config]);
 
-  // Get columns from config
+  // Get columns from config - auto-generate if empty (v4.0)
   const configuredColumns: Column[] = useMemo(() => {
     if (!config) return [];
-    return config.columns as Column[];
-  }, [config]);
+
+    // If config has columns defined, use them
+    if (config.columns && config.columns.length > 0) {
+      return config.columns as Column[];
+    }
+
+    // v4.0: Auto-generate columns from data if config.columns is empty
+    if (data && data.length > 0) {
+      const firstRow = data[0];
+      const keys = Object.keys(firstRow);
+
+      // Generate columns using universal field detector
+      return keys
+        .filter(key => key !== 'id') // Hide ID column by default
+        .map(key => {
+          const metadata = detectField(key);
+          return {
+            key,
+            title: metadata.fieldName, // This uses the formatted title from detectField
+            sortable: metadata.sortable,
+            filterable: metadata.filterable,
+            searchable: metadata.searchable,
+            width: metadata.width,
+            visible: metadata.visible,
+            render: metadata.format
+          };
+        });
+    }
+
+    return [];
+  }, [config, data]);
 
   // Use column visibility hook for dynamic column management
   const {
@@ -738,20 +767,6 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
             onBulkDelete={onBulkDelete ? handleBulkDelete : undefined}
             entityType={entityType}
           />
-        )}
-
-        {/* Column selector - always visible for non-settings entities */}
-        {!isSettingsEntity && (
-          <div className={showActionButtons ? '' : 'ml-auto'}>
-            <ColumnSelector
-              allColumns={allColumns}
-              isColumnVisible={isColumnVisible}
-              toggleColumn={toggleColumn}
-              showAllColumns={showAllColumns}
-              hideAllColumns={hideAllColumns}
-              resetToDefault={resetToDefault}
-            />
-          </div>
         )}
       </div>
 

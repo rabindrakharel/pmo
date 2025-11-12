@@ -504,16 +504,7 @@ export function getFieldCapability(column: ColumnDef | FieldDef): FieldCapabilit
     };
   }
 
-  // Rule 7: Check for explicit inlineEditable flag (backward compatibility)
-  if ('inlineEditable' in column && column.inlineEditable) {
-    return {
-      inlineEditable: true,
-      editType: 'text',
-      isFileUpload: false
-    };
-  }
-
-  // Rule 8: Simple text fields (name, descr, etc.) are editable by default
+  // Rule 7: Simple text fields (name, descr, etc.) are editable by default
   // UNLESS they're in a readonly entity or have specific patterns
   const isSimpleTextField = /^(name|descr|description|title|notes|comments?)$/i.test(key);
   if (isSimpleTextField) {
@@ -524,7 +515,7 @@ export function getFieldCapability(column: ColumnDef | FieldDef): FieldCapabilit
     };
   }
 
-  // Rule 9: Special columns that should remain readonly
+  // Rule 8: Special columns that should remain readonly
   // These are typically computed, derived, or reference fields that shouldn't be edited directly
   const isSpecialReadonly = /^(parent_id|parent_type|parent_name|child_count|total_|sum_|avg_|max_|min_)$/i.test(key);
   if (isSpecialReadonly) {
@@ -535,7 +526,7 @@ export function getFieldCapability(column: ColumnDef | FieldDef): FieldCapabilit
     };
   }
 
-  // Rule 10: Actions column is never editable
+  // Rule 9: Actions column is never editable
   if (key === '_actions' || key === '_selection') {
     return {
       inlineEditable: false,

@@ -19,8 +19,8 @@
 -- • Wiki: dl__wiki_publication_status
 -- • Customer: dl__customer_tier, dl__customer_opportunity_funnel
 -- • Quote/Work: dl__quote_stage, dl__work_order_status
--- • Services: dl__service_category, dl__client_service
--- • Org: dl__business_hierarchy_level, dl__office_hierarchy_level, dl__position_level
+-- • Services: dl__client_service_category, dl__client_service
+-- • Org: dl__business_hierarchy_level, dl__office_hierarchy_level, dl__employee_position_level
 -- • Product: dl__product_hierarchy_level
 -- • Other: dl__industry_sector, dl__acquisition_channel
 --
@@ -158,7 +158,7 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
   {"id": 3, "name": "Sub-Class", "descr": "Product sub-class (finest categorization)", "parent_ids": [2], "color_code": "cyan"}
 ]'::jsonb),
 
-('dl__position_level', 'Position Levels', 'Briefcase', '[
+('dl__employee_position_level', 'Employee Position Levels', 'Briefcase', '[
   {"id": 0, "name": "CEO/President", "descr": "Chief Executive Officer or President level", "parent_ids": [], "color_code": "purple"},
   {"id": 1, "name": "C-Level", "descr": "C-Level executives (CFO, CTO, COO, etc.)", "parent_ids": [0], "color_code": "indigo"},
   {"id": 2, "name": "SVP/EVP", "descr": "Senior/Executive Vice President level", "parent_ids": [1], "color_code": "blue"},
@@ -187,20 +187,11 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
   {"id": 5, "name": "Closed Lost", "descr": "Deal lost", "parent_ids": [3], "color_code": "red"}
 ]'::jsonb),
 
-('dl__industry_sector', 'Industry Sectors', 'Building', '[
+('dl__customer_industry_sector', 'Customer Industry Sectors', 'Building', '[
   {"id": 0, "name": "Residential", "descr": "Residential sector", "parent_ids": [], "color_code": "blue"},
   {"id": 1, "name": "Commercial", "descr": "Commercial sector", "parent_ids": [], "color_code": "green"},
   {"id": 2, "name": "Industrial", "descr": "Industrial sector", "parent_ids": [], "color_code": "orange"},
   {"id": 3, "name": "Government", "descr": "Government sector", "parent_ids": [], "color_code": "purple"}
-]'::jsonb),
-
-('dl__acquisition_channel', 'Acquisition Channels', 'Megaphone', '[
-  {"id": 0, "name": "Organic Search", "descr": "Found via Google, Bing (SEO)", "parent_ids": [], "color_code": "green"},
-  {"id": 1, "name": "Paid Search", "descr": "Google Ads, Bing Ads (PPC)", "parent_ids": [], "color_code": "red"},
-  {"id": 2, "name": "Social Media", "descr": "Facebook, Instagram, LinkedIn organic", "parent_ids": [], "color_code": "blue"},
-  {"id": 3, "name": "Referral", "descr": "Word-of-mouth from existing clients", "parent_ids": [], "color_code": "purple"},
-  {"id": 4, "name": "Direct", "descr": "Typed URL directly, bookmarked site", "parent_ids": [], "color_code": "gray"},
-  {"id": 5, "name": "Email Marketing", "descr": "Newsletter, promotional campaigns", "parent_ids": [], "color_code": "cyan"}
 ]'::jsonb),
 
 -- Quote Labels
@@ -226,8 +217,8 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
   {"id": 6, "name": "Rescheduled", "descr": "Work order has been rescheduled", "parent_ids": [0], "color_code": "purple"}
 ]'::jsonb),
 
--- Service Category Labels
-('dl__service_category', 'Service Categories', 'Wrench', '[
+-- Client Service Category Labels
+('dl__client_service_category', 'Client Service Categories', 'Wrench', '[
   {"id": 0, "name": "HVAC", "descr": "Heating, Ventilation, and Air Conditioning services", "parent_ids": [], "color_code": "blue"},
   {"id": 1, "name": "Plumbing", "descr": "Plumbing installation, repair, and maintenance services", "parent_ids": [], "color_code": "cyan"},
   {"id": 2, "name": "Electrical", "descr": "Electrical installation, wiring, and repair services", "parent_ids": [], "color_code": "yellow"},
@@ -295,6 +286,256 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
   {"id": 3, "name": "Secret", "descr": "Secret classification, limited distribution", "parent_ids": [], "color_code": "red"},
   {"id": 4, "name": "Top Secret", "descr": "Top secret, highest level of restriction", "parent_ids": [], "color_code": "red"},
   {"id": 5, "name": "Company Confidential", "descr": "Internal company confidential information", "parent_ids": [], "color_code": "purple"}
+]'::jsonb),
+
+-- Project Type Labels
+('dl__project_type', 'Project Types', 'FolderOpen', '[
+  {"id": 0, "name": "Residential Installation", "descr": "Installation projects for residential properties", "parent_ids": [], "color_code": "blue"},
+  {"id": 1, "name": "Commercial Installation", "descr": "Installation projects for commercial properties", "parent_ids": [], "color_code": "green"},
+  {"id": 2, "name": "Maintenance", "descr": "Ongoing maintenance and service projects", "parent_ids": [], "color_code": "cyan"},
+  {"id": 3, "name": "Repair", "descr": "Emergency or scheduled repair projects", "parent_ids": [], "color_code": "orange"},
+  {"id": 4, "name": "Renovation", "descr": "Renovation and upgrade projects", "parent_ids": [], "color_code": "purple"},
+  {"id": 5, "name": "Consultation", "descr": "Consultation and assessment projects", "parent_ids": [], "color_code": "yellow"}
+]'::jsonb),
+
+-- Task Type Labels
+('dl__task_type', 'Task Types', 'CheckSquare', '[
+  {"id": 0, "name": "Development", "descr": "Development and implementation tasks", "parent_ids": [], "color_code": "blue"},
+  {"id": 1, "name": "Testing", "descr": "Testing and quality assurance tasks", "parent_ids": [], "color_code": "cyan"},
+  {"id": 2, "name": "Documentation", "descr": "Documentation and knowledge base tasks", "parent_ids": [], "color_code": "purple"},
+  {"id": 3, "name": "Review", "descr": "Review and approval tasks", "parent_ids": [], "color_code": "yellow"},
+  {"id": 4, "name": "Support", "descr": "Support and maintenance tasks", "parent_ids": [], "color_code": "green"},
+  {"id": 5, "name": "Meeting", "descr": "Meeting and coordination tasks", "parent_ids": [], "color_code": "orange"}
+]'::jsonb),
+
+-- Employee Type Labels (alias for employment_type for frontend compatibility)
+('dl__employee_type', 'Employee Types', 'Users', '[
+  {"id": 0, "name": "Full-time", "descr": "Full-time permanent employee", "parent_ids": [], "color_code": "green"},
+  {"id": 1, "name": "Part-time", "descr": "Part-time employee with regular schedule", "parent_ids": [], "color_code": "blue"},
+  {"id": 2, "name": "Contract", "descr": "Fixed-term contract employee", "parent_ids": [], "color_code": "purple"},
+  {"id": 3, "name": "Temporary", "descr": "Temporary employee for specific projects", "parent_ids": [], "color_code": "yellow"},
+  {"id": 4, "name": "Intern", "descr": "Student or intern position", "parent_ids": [], "color_code": "cyan"},
+  {"id": 5, "name": "Seasonal", "descr": "Seasonal worker for specific periods", "parent_ids": [], "color_code": "orange"}
+]'::jsonb),
+
+-- Wiki Type Labels
+('dl__wiki_type', 'Wiki Types', 'BookOpen', '[
+  {"id": 0, "name": "Documentation", "descr": "Technical documentation and guides", "parent_ids": [], "color_code": "blue"},
+  {"id": 1, "name": "Knowledge Base", "descr": "Knowledge base articles", "parent_ids": [], "color_code": "purple"},
+  {"id": 2, "name": "Tutorial", "descr": "Step-by-step tutorials and how-tos", "parent_ids": [], "color_code": "green"},
+  {"id": 3, "name": "Best Practices", "descr": "Best practices and standards", "parent_ids": [], "color_code": "cyan"},
+  {"id": 4, "name": "Policy", "descr": "Company policies and procedures", "parent_ids": [], "color_code": "red"},
+  {"id": 5, "name": "FAQ", "descr": "Frequently asked questions", "parent_ids": [], "color_code": "yellow"}
+]'::jsonb),
+
+-- Office Type Labels
+('dl__office_type', 'Office Types', 'Building', '[
+  {"id": 0, "name": "Corporate HQ", "descr": "Corporate headquarters office", "parent_ids": [], "color_code": "purple"},
+  {"id": 1, "name": "Regional Office", "descr": "Regional office managing multiple branches", "parent_ids": [], "color_code": "blue"},
+  {"id": 2, "name": "Branch Office", "descr": "Local branch office serving specific area", "parent_ids": [], "color_code": "green"},
+  {"id": 3, "name": "Service Center", "descr": "Service and support center", "parent_ids": [], "color_code": "cyan"},
+  {"id": 4, "name": "Warehouse", "descr": "Warehouse and distribution center", "parent_ids": [], "color_code": "orange"},
+  {"id": 5, "name": "Remote", "descr": "Remote or virtual office", "parent_ids": [], "color_code": "gray"}
+]'::jsonb),
+
+-- Business Type Labels
+('dl__business_type', 'Business Types', 'Briefcase', '[
+  {"id": 0, "name": "HVAC Services", "descr": "Heating, ventilation, and air conditioning services", "parent_ids": [], "color_code": "blue"},
+  {"id": 1, "name": "Plumbing Services", "descr": "Plumbing installation and repair services", "parent_ids": [], "color_code": "cyan"},
+  {"id": 2, "name": "Electrical Services", "descr": "Electrical installation and maintenance", "parent_ids": [], "color_code": "yellow"},
+  {"id": 3, "name": "General Contracting", "descr": "General construction and contracting", "parent_ids": [], "color_code": "orange"},
+  {"id": 4, "name": "Property Management", "descr": "Property management and maintenance", "parent_ids": [], "color_code": "green"},
+  {"id": 5, "name": "Facility Services", "descr": "Facility management and services", "parent_ids": [], "color_code": "purple"}
+]'::jsonb),
+
+-- Employee Skill Level Labels
+('dl__employee_skill_level', 'Employee Skill Levels', 'Star', '[
+  {"id": 0, "name": "Beginner", "descr": "Beginner level, basic understanding", "parent_ids": [], "color_code": "gray"},
+  {"id": 1, "name": "Intermediate", "descr": "Intermediate level, practical experience", "parent_ids": [], "color_code": "blue"},
+  {"id": 2, "name": "Advanced", "descr": "Advanced level, strong proficiency", "parent_ids": [], "color_code": "cyan"},
+  {"id": 3, "name": "Expert", "descr": "Expert level, deep expertise", "parent_ids": [], "color_code": "green"},
+  {"id": 4, "name": "Master", "descr": "Master level, industry authority", "parent_ids": [], "color_code": "purple"}
+]'::jsonb),
+
+-- Product Category Labels
+('dl__product_category', 'Product Categories', 'Package', '[
+  {"id": 0, "name": "HVAC Equipment", "descr": "Heating and cooling equipment", "parent_ids": [], "color_code": "blue"},
+  {"id": 1, "name": "Plumbing Fixtures", "descr": "Plumbing fixtures and fittings", "parent_ids": [], "color_code": "cyan"},
+  {"id": 2, "name": "Electrical Components", "descr": "Electrical components and supplies", "parent_ids": [], "color_code": "yellow"},
+  {"id": 3, "name": "Tools", "descr": "Tools and equipment", "parent_ids": [], "color_code": "orange"},
+  {"id": 4, "name": "Parts", "descr": "Replacement parts and components", "parent_ids": [], "color_code": "green"},
+  {"id": 5, "name": "Materials", "descr": "Construction and installation materials", "parent_ids": [], "color_code": "purple"}
+]'::jsonb),
+
+-- Product Brand Labels
+('dl__product_brand', 'Product Brands', 'Tag', '[
+  {"id": 0, "name": "Carrier", "descr": "Carrier HVAC systems", "parent_ids": [], "color_code": "blue"},
+  {"id": 1, "name": "Trane", "descr": "Trane heating and cooling", "parent_ids": [], "color_code": "red"},
+  {"id": 2, "name": "Lennox", "descr": "Lennox comfort systems", "parent_ids": [], "color_code": "orange"},
+  {"id": 3, "name": "Rheem", "descr": "Rheem water heating", "parent_ids": [], "color_code": "purple"},
+  {"id": 4, "name": "Kohler", "descr": "Kohler plumbing fixtures", "parent_ids": [], "color_code": "green"},
+  {"id": 5, "name": "Delta", "descr": "Delta faucets and fixtures", "parent_ids": [], "color_code": "cyan"}
+]'::jsonb),
+
+-- Product Item Level Labels (for product hierarchy)
+('dl__product_item_level', 'Product Item Levels', 'Layers', '[
+  {"id": 0, "name": "Category", "descr": "Top-level category classification", "parent_ids": [], "color_code": "purple"},
+  {"id": 1, "name": "Subcategory", "descr": "Subcategory within category", "parent_ids": [0], "color_code": "blue"},
+  {"id": 2, "name": "Product Line", "descr": "Product line within subcategory", "parent_ids": [1], "color_code": "green"},
+  {"id": 3, "name": "SKU", "descr": "Individual SKU item", "parent_ids": [2], "color_code": "cyan"}
+]'::jsonb),
+
+-- Financial Transaction Level Labels (for financial transactions)
+('dl__financial_transaction_level', 'Financial Transaction Levels', 'DollarSign', '[
+  {"id": 0, "name": "Micro", "descr": "Micro transactions under $100", "parent_ids": [], "color_code": "gray"},
+  {"id": 1, "name": "Small", "descr": "Small transactions $100-$1,000", "parent_ids": [], "color_code": "blue"},
+  {"id": 2, "name": "Medium", "descr": "Medium transactions $1,000-$10,000", "parent_ids": [], "color_code": "green"},
+  {"id": 3, "name": "Large", "descr": "Large transactions $10,000-$100,000", "parent_ids": [], "color_code": "yellow"},
+  {"id": 4, "name": "Enterprise", "descr": "Enterprise transactions over $100,000", "parent_ids": [], "color_code": "purple"}
+]'::jsonb),
+
+-- Event Type Labels
+('dl__event_type', 'Event Types', 'Calendar', '[
+  {"id": 0, "name": "Meeting", "descr": "Team or client meetings", "parent_ids": [], "color_code": "blue"},
+  {"id": 1, "name": "Service Call", "descr": "Scheduled service call", "parent_ids": [], "color_code": "green"},
+  {"id": 2, "name": "Training", "descr": "Training session or workshop", "parent_ids": [], "color_code": "purple"},
+  {"id": 3, "name": "Inspection", "descr": "Inspection or site visit", "parent_ids": [], "color_code": "orange"},
+  {"id": 4, "name": "Consultation", "descr": "Client consultation", "parent_ids": [], "color_code": "cyan"},
+  {"id": 5, "name": "Installation", "descr": "Installation appointment", "parent_ids": [], "color_code": "yellow"}
+]'::jsonb),
+
+-- Person Entity Type Labels (for person-calendar system)
+('dl__person_entity_type', 'Person Entity Types', 'User', '[
+  {"id": 0, "name": "Employee", "descr": "Internal employee", "parent_ids": [], "color_code": "blue"},
+  {"id": 1, "name": "Client", "descr": "External client or customer", "parent_ids": [], "color_code": "green"},
+  {"id": 2, "name": "Contractor", "descr": "External contractor or vendor", "parent_ids": [], "color_code": "purple"},
+  {"id": 3, "name": "Partner", "descr": "Business partner", "parent_ids": [], "color_code": "cyan"}
+]'::jsonb),
+
+-- Interaction Type Labels
+('dl__interaction_type', 'Interaction Types', 'MessageSquare', '[
+  {"id": 0, "name": "Phone Call", "descr": "Phone conversation with client", "parent_ids": [], "color_code": "blue"},
+  {"id": 1, "name": "Email", "descr": "Email correspondence", "parent_ids": [], "color_code": "cyan"},
+  {"id": 2, "name": "Meeting", "descr": "In-person or virtual meeting", "parent_ids": [], "color_code": "purple"},
+  {"id": 3, "name": "Site Visit", "descr": "On-site visit to client location", "parent_ids": [], "color_code": "orange"},
+  {"id": 4, "name": "SMS", "descr": "Text message communication", "parent_ids": [], "color_code": "green"},
+  {"id": 5, "name": "Chat", "descr": "Live chat or instant messaging", "parent_ids": [], "color_code": "yellow"}
+]'::jsonb),
+
+-- Interaction Category Labels
+('dl__interaction_category', 'Interaction Categories', 'Tag', '[
+  {"id": 0, "name": "Sales", "descr": "Sales-related interaction", "parent_ids": [], "color_code": "green"},
+  {"id": 1, "name": "Support", "descr": "Customer support interaction", "parent_ids": [], "color_code": "blue"},
+  {"id": 2, "name": "Follow-up", "descr": "Follow-up after service or sale", "parent_ids": [], "color_code": "cyan"},
+  {"id": 3, "name": "Complaint", "descr": "Customer complaint or issue", "parent_ids": [], "color_code": "red"},
+  {"id": 4, "name": "Feedback", "descr": "Customer feedback or review", "parent_ids": [], "color_code": "purple"},
+  {"id": 5, "name": "Inquiry", "descr": "General inquiry or question", "parent_ids": [], "color_code": "yellow"}
+]'::jsonb),
+
+-- Form Type Labels
+('dl__form_type', 'Form Types', 'FileText', '[
+  {"id": 0, "name": "Service Request", "descr": "Service request form", "parent_ids": [], "color_code": "blue"},
+  {"id": 1, "name": "Quote Request", "descr": "Quote or estimate request", "parent_ids": [], "color_code": "green"},
+  {"id": 2, "name": "Work Order", "descr": "Work order form", "parent_ids": [], "color_code": "orange"},
+  {"id": 3, "name": "Inspection Report", "descr": "Inspection or assessment report", "parent_ids": [], "color_code": "purple"},
+  {"id": 4, "name": "Feedback", "descr": "Customer feedback form", "parent_ids": [], "color_code": "cyan"},
+  {"id": 5, "name": "Complaint", "descr": "Complaint or issue report", "parent_ids": [], "color_code": "red"}
+]'::jsonb),
+
+-- Customer Type Labels (alias for compatibility)
+('dl__cust_type', 'Customer Types', 'Users', '[
+  {"id": 0, "name": "Residential", "descr": "Residential homeowner customer", "parent_ids": [], "color_code": "blue"},
+  {"id": 1, "name": "Commercial", "descr": "Commercial business customer", "parent_ids": [], "color_code": "green"},
+  {"id": 2, "name": "Industrial", "descr": "Industrial or manufacturing customer", "parent_ids": [], "color_code": "orange"},
+  {"id": 3, "name": "Government", "descr": "Government or public sector customer", "parent_ids": [], "color_code": "purple"},
+  {"id": 4, "name": "Non-Profit", "descr": "Non-profit organization customer", "parent_ids": [], "color_code": "cyan"}
+]'::jsonb),
+
+-- Customer Status Labels (alias for compatibility, duplicates dl__client_status)
+('dl__cust_status', 'Customer Statuses', 'Users', '[
+  {"id": 0, "name": "Lead", "descr": "Potential customer, initial contact", "parent_ids": [], "color_code": "blue"},
+  {"id": 1, "name": "Active", "descr": "Active customer with ongoing projects", "parent_ids": [], "color_code": "green"},
+  {"id": 2, "name": "Inactive", "descr": "No current projects", "parent_ids": [], "color_code": "gray"},
+  {"id": 3, "name": "Churned", "descr": "Lost customer", "parent_ids": [], "color_code": "red"}
+]'::jsonb),
+
+-- Customer Acquisition Channel (proper naming with entity prefix)
+('dl__customer_acquisition_channel', 'Customer Acquisition Channels', 'Megaphone', '[
+  {"id": 0, "name": "Organic Search", "descr": "Found via Google, Bing (SEO)", "parent_ids": [], "color_code": "green"},
+  {"id": 1, "name": "Paid Search", "descr": "Google Ads, Bing Ads (PPC)", "parent_ids": [], "color_code": "red"},
+  {"id": 2, "name": "Social Media", "descr": "Facebook, Instagram, LinkedIn organic", "parent_ids": [], "color_code": "blue"},
+  {"id": 3, "name": "Referral", "descr": "Word-of-mouth from existing clients", "parent_ids": [], "color_code": "purple"},
+  {"id": 4, "name": "Direct", "descr": "Typed URL directly, bookmarked site", "parent_ids": [], "color_code": "gray"},
+  {"id": 5, "name": "Email Marketing", "descr": "Newsletter, promotional campaigns", "parent_ids": [], "color_code": "cyan"}
+]'::jsonb),
+
+-- Project Risk Level Labels
+('dl__project_risk_level', 'Project Risk Levels', 'AlertTriangle', '[
+  {"id": 0, "name": "Very Low", "descr": "Minimal risk, routine monitoring", "parent_ids": [], "color_code": "green"},
+  {"id": 1, "name": "Low", "descr": "Low risk, standard procedures", "parent_ids": [], "color_code": "blue"},
+  {"id": 2, "name": "Medium", "descr": "Medium risk, requires attention", "parent_ids": [], "color_code": "yellow"},
+  {"id": 3, "name": "High", "descr": "High risk, requires mitigation plan", "parent_ids": [], "color_code": "orange"},
+  {"id": 4, "name": "Critical", "descr": "Critical risk, immediate action required", "parent_ids": [], "color_code": "red"}
+]'::jsonb),
+
+-- Office Operational Status Labels
+('dl__office_operational_status', 'Office Operational Statuses', 'Activity', '[
+  {"id": 0, "name": "Active", "descr": "Currently active and operational", "parent_ids": [], "color_code": "green"},
+  {"id": 1, "name": "Inactive", "descr": "Temporarily inactive", "parent_ids": [], "color_code": "gray"},
+  {"id": 2, "name": "Maintenance", "descr": "Under maintenance", "parent_ids": [], "color_code": "yellow"},
+  {"id": 3, "name": "Archived", "descr": "Archived and no longer in use", "parent_ids": [], "color_code": "red"}
+]'::jsonb),
+
+-- Document Security Classification Labels
+('dl__document_security_classification', 'Document Security Classifications', 'Shield', '[
+  {"id": 0, "name": "Public", "descr": "Public information, no restrictions", "parent_ids": [], "color_code": "green"},
+  {"id": 1, "name": "Internal", "descr": "Internal use only", "parent_ids": [], "color_code": "blue"},
+  {"id": 2, "name": "Confidential", "descr": "Confidential information", "parent_ids": [], "color_code": "yellow"},
+  {"id": 3, "name": "Restricted", "descr": "Restricted access", "parent_ids": [], "color_code": "orange"},
+  {"id": 4, "name": "Secret", "descr": "Secret classification", "parent_ids": [], "color_code": "red"}
+]'::jsonb),
+
+-- Document Publication Status Labels
+('dl__document_publication_status', 'Document Publication Statuses', 'FileText', '[
+  {"id": 0, "name": "Draft", "descr": "Draft state, not published", "parent_ids": [], "color_code": "gray"},
+  {"id": 1, "name": "Review", "descr": "Under review", "parent_ids": [0], "color_code": "yellow"},
+  {"id": 2, "name": "Published", "descr": "Published and visible", "parent_ids": [1], "color_code": "green"},
+  {"id": 3, "name": "Archived", "descr": "Archived but accessible", "parent_ids": [2], "color_code": "blue"}
+]'::jsonb),
+
+-- Project Operational Status Labels
+('dl__project_operational_status', 'Project Operational Statuses', 'Activity', '[
+  {"id": 0, "name": "Active", "descr": "Currently active and operational", "parent_ids": [], "color_code": "green"},
+  {"id": 1, "name": "Inactive", "descr": "Temporarily inactive", "parent_ids": [], "color_code": "gray"},
+  {"id": 2, "name": "Maintenance", "descr": "Under maintenance", "parent_ids": [], "color_code": "yellow"},
+  {"id": 3, "name": "Archived", "descr": "Archived and no longer in use", "parent_ids": [], "color_code": "red"}
+]'::jsonb),
+
+-- Artifact Publication Status Labels
+('dl__artifact_publication_status', 'Artifact Publication Statuses', 'FileText', '[
+  {"id": 0, "name": "Draft", "descr": "Draft state, not published", "parent_ids": [], "color_code": "gray"},
+  {"id": 1, "name": "Review", "descr": "Under review", "parent_ids": [0], "color_code": "yellow"},
+  {"id": 2, "name": "Published", "descr": "Published and visible", "parent_ids": [1], "color_code": "green"},
+  {"id": 3, "name": "Archived", "descr": "Archived but accessible", "parent_ids": [2], "color_code": "blue"}
+]'::jsonb),
+
+-- System Entity Type Labels (for entity registry/metadata)
+('dl__system_entity_type', 'System Entity Types', 'Database', '[
+  {"id": 0, "name": "Project", "descr": "Project entity type", "parent_ids": [], "color_code": "blue"},
+  {"id": 1, "name": "Task", "descr": "Task entity type", "parent_ids": [], "color_code": "green"},
+  {"id": 2, "name": "Client", "descr": "Client entity type", "parent_ids": [], "color_code": "purple"},
+  {"id": 3, "name": "Employee", "descr": "Employee entity type", "parent_ids": [], "color_code": "cyan"},
+  {"id": 4, "name": "Office", "descr": "Office entity type", "parent_ids": [], "color_code": "orange"},
+  {"id": 5, "name": "Business", "descr": "Business entity type", "parent_ids": [], "color_code": "indigo"}
+]'::jsonb),
+
+-- Project Security Classification Labels
+('dl__project_security_classification', 'Project Security Classifications', 'Shield', '[
+  {"id": 0, "name": "Public", "descr": "Public information, no restrictions", "parent_ids": [], "color_code": "green"},
+  {"id": 1, "name": "Internal", "descr": "Internal use only", "parent_ids": [], "color_code": "blue"},
+  {"id": 2, "name": "Confidential", "descr": "Confidential information", "parent_ids": [], "color_code": "yellow"},
+  {"id": 3, "name": "Restricted", "descr": "Restricted access", "parent_ids": [], "color_code": "orange"},
+  {"id": 4, "name": "Secret", "descr": "Secret classification", "parent_ids": [], "color_code": "red"}
 ]'::jsonb);
 
 COMMENT ON TABLE app.setting_datalabel IS 'Unified data label table for all entity labels (stages, statuses, priorities, etc.)';

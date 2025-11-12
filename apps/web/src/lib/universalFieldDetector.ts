@@ -88,6 +88,11 @@ const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
 const FIELD_TITLE_CACHE = new Map<string, string>();
 const MAX_CACHE_SIZE = 500;
 
+// Export cache clearing function for hot reload / testing
+export function clearFieldTitleCache(): void {
+  FIELD_TITLE_CACHE.clear();
+}
+
 function memoizedFieldTitle(fieldKey: string): string {
   if (FIELD_TITLE_CACHE.has(fieldKey)) {
     return FIELD_TITLE_CACHE.get(fieldKey)!;
@@ -105,18 +110,34 @@ function memoizedFieldTitle(fieldKey: string): string {
   return title;
 }
 
+// Clear cache on module hot reload (Vite HMR)
+if (import.meta.hot) {
+  import.meta.hot.accept(() => {
+    clearFieldTitleCache();
+  });
+}
+
 function generateFieldTitleInternal(fieldKey: string): string {
-  // Handle datalabel fields: dl__project_stage → Project Stage
+  // Handle datalabel fields: dl__project_stage → Project Stage (remove 'Dl' prefix)
+  let processedKey = fieldKey;
+
   if (fieldKey.startsWith('dl__')) {
-    return fieldKey
-      .substring(4)
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+    processedKey = fieldKey.substring(4); // Remove 'dl__' prefix
   }
 
+  // Map specific field names
+  if (processedKey === 'descr') {
+    return 'Description';
+  }
+
+  // Replace '_ts' with '_time' before processing
+  processedKey = processedKey.replace(/_ts$/g, '_time');
+
+  // Replace 'cust_' prefix with 'customer_' for proper formatting
+  processedKey = processedKey.replace(/^cust_/, 'customer_');
+
   // Standard snake_case conversion
-  return fieldKey
+  return processedKey
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');

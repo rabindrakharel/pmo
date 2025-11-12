@@ -41,7 +41,8 @@ import {
   renderSettingBadge,
   COLOR_MAP,
   getSettingColor,
-  loadSettingsColors
+  loadSettingsColors,
+  formatRelativeTime
 } from '../../../lib/data_transform_render';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 
@@ -52,7 +53,7 @@ import { generateDataTableConfig, type DataTableColumn } from '../../../lib/view
 import { detectField } from '../../../lib/universalFieldDetector';
 
 /**
- * Helper function to render cell value with automatic currency formatting
+ * Helper function to render cell value with automatic formatting
  */
 function renderCellValue(column: Column, value: any): React.ReactNode {
   // Return empty state if no value
@@ -70,6 +71,11 @@ function renderCellValue(column: Column, value: any): React.ReactNode {
   // Auto-format currency fields
   if (isCurrencyField(column.key) && typeof value === 'number') {
     return formatCurrency(value);
+  }
+
+  // Auto-format timestamp fields (_ts, _at suffixes)
+  if (/_ts$|_at$|timestamp/i.test(column.key)) {
+    return formatRelativeTime(value);
   }
 
   // Default: toString
@@ -446,6 +452,21 @@ export function EntityDataTable<T = any>({
   const filterContainerRef = useRef<HTMLDivElement | null>(null);
   const columnSelectorRef = useRef<HTMLDivElement | null>(null);
 
+  // Update visibleColumns when columns change (e.g., auto-generated columns loaded)
+  // Ensure all new columns are checked by default
+  useEffect(() => {
+    setVisibleColumns(prev => {
+      const newVisible = new Set(prev);
+      // Add any new columns that aren't in the set yet
+      columns.forEach(col => {
+        if (!newVisible.has(col.key)) {
+          newVisible.add(col.key);
+        }
+      });
+      return newVisible;
+    });
+  }, [columns]);
+
   // Bottom scrollbar refs (monday.com style)
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const bottomScrollbarRef = useRef<HTMLDivElement | null>(null);
@@ -605,7 +626,7 @@ export function EntityDataTable<T = any>({
       if (filterContainerRef.current && !filterContainerRef.current.contains(event.target as Node)) {
         setShowFilterDropdown(false);
       }
-      
+
       // Close column selector dropdown
       if (columnSelectorRef.current && !columnSelectorRef.current.contains(event.target as Node)) {
         setShowColumnSelector(false);
@@ -1199,7 +1220,7 @@ export function EntityDataTable<T = any>({
                     <div className="absolute right-0 mt-2 w-56 bg-dark-100 border border-dark-300 rounded-lg shadow-lg z-50">
                       <div className="p-2">
                         <div className="text-sm font-normal text-dark-700 mb-2 px-1">Show Columns</div>
-                        {columns.map(column => (
+                        {columns.filter(column => column.key !== 'id').map(column => (
                           <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-dark-100 rounded cursor-pointer transition-colors">
                             <input
                               type="checkbox"
@@ -1233,7 +1254,7 @@ export function EntityDataTable<T = any>({
                   <div className="absolute right-0 mt-2 w-56 bg-dark-100 border border-dark-300 rounded-lg shadow-lg z-50">
                     <div className="p-2">
                       <div className="text-sm font-normal text-dark-700 mb-2 px-1">Show Columns</div>
-                      {columns.map(column => (
+                      {columns.filter(column => column.key !== 'id').map(column => (
                         <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-dark-100 rounded cursor-pointer transition-colors">
                           <input
                             type="checkbox"

@@ -77,7 +77,9 @@
       "Bash(/tmp/audit-entity-columns.sh)",
       "Bash(node /tmp/remove-manual-renders.js:*)",
       "Bash(timeout 30 /tmp/audit-entity-columns.sh:*)",
-      "Bash(timeout 10 ./tools/test-api.sh:*)"
+      "Bash(timeout 10 ./tools/test-api.sh:*)",
+      "Bash(timeout 30 npm run build:*)",
+      "Bash(timeout 10 npm run dev:*)"
     ],
     "deny": [],
     "ask": [],
