@@ -172,16 +172,87 @@ const dagNodes = await loadDagNodes('dl__project_stage');
 
 **Location**: `apps/web/src/components/shared/entity/EntityFormContainer.tsx`
 
-**Auto-Detection Rules**:
-| Pattern | Field Type | Example |
-|---------|------------|---------|
-| `*_amt`, `*_price`, `*_cost` | Currency input ($ prefix) | `budget_allocated_amt` |
-| `dl__*_stage`, `dl__*_funnel` | DAGVisualizer + dropdown | `dl__project_stage` |
-| `*_ts`, `*_at` | Datetime input | `created_ts` |
-| `tags` | Tags input (array ↔ string) | `tags` |
-| `metadata` | JSONB editor (MetadataTable) | `metadata` |
-| `from_ts` + `to_ts` | DateRangeVisualizer | `from_ts`, `to_ts` |
-| `*_attachment`, `*_file` | S3 presigned upload | `artifact_attachment` |
+**Auto-Detection Logic Centralized in 3 Files**:
+
+### 1. **Column Properties** (for tables)
+**File**: `apps/web/src/lib/fieldCategoryRegistry.ts`
+
+```typescript
+// Pattern-based category detection
+export function getCategoryProperties(fieldKey: string): FieldCategoryConfig {
+  // Detects category by field name pattern
+  if (fieldKey === 'name' || fieldKey === 'title') return FIELD_CATEGORY_REGISTRY.NAME;
+  if (fieldKey === 'code') return FIELD_CATEGORY_REGISTRY.CODE;
+  if (fieldKey.endsWith('_amt') || fieldKey.endsWith('_amount'))
+    return FIELD_CATEGORY_REGISTRY.AMOUNT; // Auto-formats as currency
+  if (fieldKey.endsWith('_ts') || fieldKey.endsWith('_timestamp'))
+    return FIELD_CATEGORY_REGISTRY.TIMESTAMP; // Auto-formats as "3 days ago"
+  if (fieldKey.startsWith('dl__') && (fieldKey.includes('stage') || fieldKey.includes('status')))
+    return FIELD_CATEGORY_REGISTRY.LABEL; // Auto-loads from settings, colored badge
+  // ... 15+ categories total
+}
+```
+
+### 2. **Form Field Types** (for forms)
+**File**: `apps/web/src/components/shared/entity/EntityFormContainer.tsx`
+
+```typescript
+// Field type detection in form rendering
+const isStageField = (fieldKey: string): boolean => {
+  return fieldKey.startsWith('dl__') &&
+         (fieldKey.includes('stage') || fieldKey.includes('funnel'));
+};
+
+const isCurrencyField = (fieldKey: string): boolean => {
+  return fieldKey.endsWith('_amt') || fieldKey.endsWith('_price') || fieldKey.endsWith('_cost');
+};
+
+// Renders appropriate input based on field.type and field name pattern
+if (field.type === 'select' && isStageField(field.key)) {
+  return <DAGVisualizer nodes={dagNodes} currentNodeId={value} />;
+}
+if (field.type === 'number' && isCurrencyField(field.key)) {
+  return <input type="number" prefix="$" />; // Currency input
+}
+if (field.key === 'tags') {
+  return <TagsInput />; // Auto-converts array ↔ string
+}
+if (field.key === 'metadata') {
+  return <MetadataTable />; // JSONB editor
+}
+```
+
+### 3. **Data Transformation** (API ↔ Frontend)
+**File**: `apps/web/src/lib/data_transform_render.tsx`
+
+```typescript
+// Transforms data between API and Frontend
+export function transformForApi(data: Record<string, any>): Record<string, any> {
+  // tags: "tag1, tag2" → ["tag1", "tag2"]
+  if (key === 'tags') transformed[key] = value.split(',').map(s => s.trim());
+  // dates: ISO timestamp → yyyy-MM-dd
+  if (key.endsWith('_date')) transformed[key] = value.split('T')[0];
+  // ... handles 10+ field types
+}
+
+// Detects field capabilities (editable, input type)
+export function getFieldCapability(field: FieldDef): FieldCapability {
+  if (field.key === 'tags') return { inlineEditable: true, editType: 'tags' };
+  if (field.key.endsWith('_amt')) return { inlineEditable: true, editType: 'currency' };
+  // ... detects 15+ field types
+}
+```
+
+**Auto-Detection Summary**:
+| Pattern | Detected Type | Where | Example |
+|---------|--------------|-------|---------|
+| `*_amt`, `*_price`, `*_cost` | Currency input ($ prefix) | fieldCategoryRegistry.ts | `budget_allocated_amt` |
+| `dl__*_stage`, `dl__*_funnel` | DAGVisualizer + dropdown | EntityFormContainer.tsx | `dl__project_stage` |
+| `*_ts`, `*_at` | Datetime input | fieldCategoryRegistry.ts | `created_ts` |
+| `tags` | Tags input (array ↔ string) | data_transform_render.tsx | `tags` |
+| `metadata` | JSONB editor (MetadataTable) | EntityFormContainer.tsx | `metadata` |
+| `from_ts` + `to_ts` | DateRangeVisualizer | EntityFormContainer.tsx | `from_ts`, `to_ts` |
+| `*_attachment`, `*_file` | S3 presigned upload | EntityFormContainer.tsx | `artifact_attachment` |
 
 **Usage**:
 ```tsx
