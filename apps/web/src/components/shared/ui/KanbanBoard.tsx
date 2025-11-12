@@ -1,5 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { MoreVertical } from 'lucide-react';
+
+// ============================================================================
+// NEW: Universal Field Detector Integration
+// ============================================================================
+import { generateKanbanConfig } from '../../../lib/viewConfigGenerator';
+import { loadFieldOptions } from '../../../lib/settingsLoader';
 
 export interface KanbanColumn {
   id: string;
@@ -9,7 +15,31 @@ export interface KanbanColumn {
 }
 
 export interface KanbanBoardProps {
-  columns: KanbanColumn[];
+  // ============================================================================
+  // NEW ARCHITECTURE: Auto-Generation ONLY (Universal Field Detector)
+  // ============================================================================
+  /**
+   * Data array - REQUIRED
+   * Board automatically detects grouping field and generates columns
+   */
+  data: any[];
+
+  /**
+   * Optional: Explicitly specify grouping field (overrides auto-detection)
+   * If not provided, auto-detects: dl__*_stage > dl__*_status > status
+   * @example
+   * groupByField="dl__task_stage"
+   */
+  groupByField?: string;
+
+  /**
+   * Optional data types for JSONB/array detection
+   * @example
+   * dataTypes={{ metadata: 'jsonb', tags: '[]' }}
+   */
+  dataTypes?: Record<string, string>;
+
+  // UI handlers
   onCardClick?: (item: any) => void;
   onCardMove?: (itemId: string, fromColumn: string, toColumn: string) => void;
   renderCard?: (item: any) => React.ReactNode;
@@ -249,12 +279,89 @@ function KanbanColumnComponent({
 }
 
 export function KanbanBoard({
-  columns,
+  data,
+  groupByField: explicitGroupByField,
+  dataTypes,
   onCardClick,
   onCardMove,
   renderCard,
-  emptyMessage = 'No columns to display'
+  emptyMessage = 'No columns to display',
 }: KanbanBoardProps) {
+  // ============================================================================
+  // NEW ARCHITECTURE: Auto-Generation ONLY
+  // ============================================================================
+  const [columns, setColumns] = useState<KanbanColumn[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  // Auto-detect grouping field using universal field detector
+  const detectedConfig = useMemo(() => {
+    if (!data || data.length === 0) return null;
+
+    const fieldKeys = Object.keys(data[0]);
+    return generateKanbanConfig(fieldKeys, dataTypes);
+  }, [data, dataTypes]);
+
+  // Load settings options and generate columns
+  React.useEffect(() => {
+    const generateColumns = async () => {
+      if (!data || data.length === 0) {
+        setColumns([]);
+        return;
+      }
+
+      setIsGenerating(true);
+      try {
+        // Use explicit groupByField if provided, otherwise use detected field
+        const groupField = explicitGroupByField || detectedConfig?.groupByField;
+
+        if (!groupField) {
+          console.warn('[KanbanBoard] No grouping field found');
+          setColumns([]);
+          return;
+        }
+
+        // Load options from settings for the grouping field
+        const options = await loadFieldOptions(groupField);
+
+        if (options.length === 0) {
+          console.warn(`[KanbanBoard] No options found for grouping field: ${groupField}`);
+          setColumns([]);
+          return;
+        }
+
+        // Group items by the grouping field
+        const groupedItems: Record<string, any[]> = {};
+        options.forEach(opt => {
+          groupedItems[opt.value] = [];
+        });
+
+        data.forEach(item => {
+          const groupValue = item[groupField];
+          if (groupValue && groupedItems[groupValue]) {
+            groupedItems[groupValue].push(item);
+          }
+        });
+
+        // Generate KanbanColumn array
+        const generatedColumns: KanbanColumn[] = options.map(opt => ({
+          id: opt.value,
+          title: opt.label,
+          color: opt.metadata?.color_code,
+          items: groupedItems[opt.value] || []
+        }));
+
+        setColumns(generatedColumns);
+      } catch (error) {
+        console.error('[KanbanBoard] Error generating columns:', error);
+        setColumns([]);
+      } finally {
+        setIsGenerating(false);
+      }
+    };
+
+    generateColumns();
+  }, [data, detectedConfig, explicitGroupByField]);
+
   const handleCardMove = (itemId: string, toColumnId: string) => {
     if (!onCardMove) return;
 
@@ -267,6 +374,14 @@ export function KanbanBoard({
       onCardMove(itemId, fromColumn.id, toColumnId);
     }
   };
+
+  if (isGenerating) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-dark-600">Generating Kanban board...</p>
+      </div>
+    );
+  }
 
   if (columns.length === 0) {
     return (

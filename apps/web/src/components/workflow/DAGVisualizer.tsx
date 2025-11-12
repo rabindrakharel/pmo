@@ -1,14 +1,19 @@
 /**
  * DAGVisualizer - Reusable DAG graph visualization component
  *
- * Minimal data structure passed via props:
- * - id: Node identifier
- * - node_name: Display label shown in the node
- * - parent_ids: Array of parent node IDs for drawing arrows
- *
- * Pure rendering component - all data preparation done by parent.
+ * NEW ARCHITECTURE: Auto-detects stage/funnel fields and loads DAG structure
+ * Can work in two modes:
+ * 1. Legacy: Pass nodes array directly
+ * 2. Auto: Pass data record, auto-detects stage field and loads DAG
  */
+import { useState, useEffect, useMemo } from 'react';
 import type { ReactElement } from 'react';
+
+// ============================================================================
+// NEW: Universal Field Detector Integration
+// ============================================================================
+import { generateDAGConfig } from '../../lib/viewConfigGenerator';
+import { loadFieldOptions } from '../../lib/settingsLoader';
 
 export interface DAGNode {
   id: number;           // DAG state index (workflow node position)
@@ -25,14 +30,153 @@ interface NodePosition {
 }
 
 interface DAGVisualizerProps {
-  nodes: DAGNode[];
-  currentNodeId?: number;  // Highlighted/current node
+  // ============================================================================
+  // NEW ARCHITECTURE: Auto-Generation (Universal Field Detector)
+  // ============================================================================
+  /**
+   * Data record containing stage/funnel field
+   * When provided, auto-detects stage field and loads DAG structure
+   * @example
+   * <DAGVisualizer data={project} />
+   * // Auto-detects: dl__project_stage, loads DAG from settings
+   */
+  data?: Record<string, any>;
+
+  /**
+   * Optional: Explicitly specify stage field (overrides auto-detection)
+   * @example
+   * stageField="dl__project_stage"
+   */
+  stageField?: string;
+
+  /**
+   * Optional data types for auto-generation
+   */
+  dataTypes?: Record<string, string>;
+
+  // Legacy props (kept for backward compatibility with existing code)
+  nodes?: DAGNode[];
+  currentNodeId?: number;
   onNodeClick?: (nodeId: number) => void;
 }
 
-export function DAGVisualizer({ nodes, currentNodeId, onNodeClick }: DAGVisualizerProps) {
-  // Use all nodes as-is (parent component handles filtering)
-  const visibleNodes = nodes;
+export function DAGVisualizer({
+  data,
+  stageField: explicitStageField,
+  dataTypes,
+  nodes: legacyNodes,
+  currentNodeId: legacyCurrentNodeId,
+  onNodeClick
+}: DAGVisualizerProps) {
+  // ============================================================================
+  // NEW ARCHITECTURE: Auto-Generation
+  // ============================================================================
+  const [autoNodes, setAutoNodes] = useState<DAGNode[]>([]);
+  const [autoCurrentNodeId, setAutoCurrentNodeId] = useState<number | undefined>();
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  // Auto-detect stage field using universal field detector
+  const detectedConfig = useMemo(() => {
+    if (!data) return null;
+
+    const fieldKeys = Object.keys(data);
+    return generateDAGConfig(fieldKeys, dataTypes);
+  }, [data, dataTypes]);
+
+  // Load DAG structure from settings
+  useEffect(() => {
+    const loadDAGStructure = async () => {
+      if (!data) {
+        setAutoNodes([]);
+        setAutoCurrentNodeId(undefined);
+        return;
+      }
+
+      setIsGenerating(true);
+      try {
+        // Use explicit stageField if provided, otherwise use detected field
+        const stageFieldKey = explicitStageField || detectedConfig?.stageField;
+
+        if (!stageFieldKey) {
+          console.warn('[DAGVisualizer] No stage field found');
+          setAutoNodes([]);
+          setAutoCurrentNodeId(undefined);
+          return;
+        }
+
+        // Extract datalabel from field name (e.g., dl__project_stage → dl__project_stage)
+        const datalabel = detectedConfig?.datalabel || stageFieldKey;
+
+        // Load DAG structure from settings
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+        const token = localStorage.getItem('auth_token');
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (token) headers.Authorization = `Bearer ${token}`;
+
+        const response = await fetch(`${API_BASE_URL}/api/v1/setting?datalabel=${datalabel}&raw=true`, { headers });
+        if (!response.ok) {
+          console.error('[DAGVisualizer] Failed to load DAG structure');
+          setAutoNodes([]);
+          setAutoCurrentNodeId(undefined);
+          return;
+        }
+
+        const result = await response.json();
+
+        if (result.data && Array.isArray(result.data)) {
+          const dagNodes: DAGNode[] = result.data.map((item: any) => {
+            let parentIds: number[] = [];
+            if (Array.isArray(item.parent_ids)) {
+              parentIds = item.parent_ids;
+            } else if (item.parent_id !== null && item.parent_id !== undefined) {
+              parentIds = [item.parent_id];
+            }
+
+            return {
+              id: item.id,
+              node_name: item.name,
+              parent_ids: parentIds
+            };
+          });
+
+          setAutoNodes(dagNodes);
+
+          // Set current node based on data value
+          const currentStageValue = data[stageFieldKey];
+          if (currentStageValue) {
+            // Find node by name or id
+            const currentNode = dagNodes.find(n =>
+              n.node_name === currentStageValue || n.id === currentStageValue
+            );
+            setAutoCurrentNodeId(currentNode?.id);
+          }
+        } else {
+          setAutoNodes([]);
+          setAutoCurrentNodeId(undefined);
+        }
+      } catch (error) {
+        console.error('[DAGVisualizer] Error loading DAG structure:', error);
+        setAutoNodes([]);
+        setAutoCurrentNodeId(undefined);
+      } finally {
+        setIsGenerating(false);
+      }
+    };
+
+    loadDAGStructure();
+  }, [data, detectedConfig, explicitStageField]);
+
+  // Use auto-generated or legacy nodes
+  const visibleNodes = legacyNodes || autoNodes;
+  const currentNodeId = legacyCurrentNodeId !== undefined ? legacyCurrentNodeId : autoCurrentNodeId;
+
+  if (isGenerating) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-dark-600">Loading workflow...</p>
+      </div>
+    );
+  }
 
   // Find all ancestor nodes of the current node (completed nodes)
   const findCompletedNodes = (): Set<number> => {

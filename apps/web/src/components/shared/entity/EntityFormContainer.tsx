@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { EntityConfig, FieldDef } from '../../../lib/entityConfig';
 import {
   loadFieldOptions,
@@ -13,6 +13,12 @@ import { formatRelativeTime, formatFriendlyDate, formatCurrency, isCurrencyField
 import { MetadataTable } from './MetadataTable';
 import { QuoteItemsRenderer } from './QuoteItemsRenderer';
 import { getBadgeClass, textStyles } from '../../../lib/designSystem';
+
+// ============================================================================
+// NEW: Universal Field Detector Integration
+// ============================================================================
+import { generateFormConfig, type FormField } from '../../../lib/viewConfigGenerator';
+import { detectField } from '../../../lib/universalFieldDetector';
 
 /**
  * Helper function to render badge with color based on field type and value
@@ -37,11 +43,39 @@ function renderFieldBadge(fieldKey: string, value: string): React.ReactNode {
  */
 
 interface EntityFormContainerProps {
-  config: EntityConfig;
+  config?: EntityConfig;              // Now optional - can be auto-generated
   data: Record<string, any>;
   isEditing: boolean;
   onChange: (fieldKey: string, value: any) => void;
   mode?: 'create' | 'edit';
+
+  // ============================================================================
+  // NEW: Auto-Generation Support (Universal Field Detector Integration)
+  // ============================================================================
+  /**
+   * Auto-generate form fields from data using universal field detector
+   * When true and config is not provided, automatically detects field types
+   * and generates appropriate field configurations
+   *
+   * @example
+   * <EntityFormContainer data={project} autoGenerateFields isEditing onChange={handleChange} />
+   * // Automatically detects: budget_allocated_amt → currency, dl__project_stage → DAG, etc.
+   */
+  autoGenerateFields?: boolean;
+
+  /**
+   * Optional data types for auto-generation (for JSONB/array detection)
+   * @example
+   * dataTypes={{ metadata: 'jsonb', tags: '[]' }}
+   */
+  dataTypes?: Record<string, string>;
+
+  /**
+   * Required fields for auto-generated forms
+   * @example
+   * requiredFields={['name', 'code']}
+   */
+  requiredFields?: string[];
 }
 
 export function EntityFormContainer({
@@ -49,8 +83,44 @@ export function EntityFormContainer({
   data,
   isEditing,
   onChange,
-  mode = 'edit'
+  mode = 'edit',
+  autoGenerateFields = false,
+  dataTypes,
+  requiredFields = []
 }: EntityFormContainerProps) {
+  // ============================================================================
+  // AUTO-GENERATION: Universal Field Detector Integration
+  // ============================================================================
+  // Convert FormField to FieldDef format for backward compatibility
+  const fields = useMemo(() => {
+    // If config provided with fields, use them (backward compatibility)
+    if (config?.fields && config.fields.length > 0) {
+      return config.fields;
+    }
+
+    // Auto-generate if enabled and data exists
+    if (autoGenerateFields && Object.keys(data).length > 0) {
+      const fieldKeys = Object.keys(data);
+      const generatedConfig = generateFormConfig(fieldKeys, {
+        dataTypes,
+        requiredFields
+      });
+
+      // Convert FormField to FieldDef format
+      return generatedConfig.editableFields.map(field => ({
+        key: field.key,
+        label: field.label,
+        type: field.type as any, // FormField.type matches FieldDef.type
+        required: generatedConfig.requiredFields.includes(field.key),
+        readonly: !field.editable,
+        loadOptionsFromSettings: field.loadFromSettings,
+        loadOptionsFromEntity: field.loadFromEntity,
+      } as FieldDef));
+    }
+
+    // Fallback: empty fields
+    return [];
+  }, [config, autoGenerateFields, data, dataTypes, requiredFields]);
   const [settingOptions, setSettingOptions] = useState<Map<string, SettingOption[]>>(new Map());
   const [entityOptions, setEntityOptions] = useState<Map<string, SettingOption[]>>(new Map());
   const [dagNodes, setDagNodes] = useState<Map<string, DAGNode[]>>(new Map());
@@ -124,19 +194,19 @@ export function EntityFormContainer({
   // Load setting options on mount
   useEffect(() => {
     const loadAllOptions = async () => {
-      if (!config) return;
+      if (!fields || fields.length === 0) return;
 
       const settingsMap = new Map<string, SettingOption[]>();
       const entitiesMap = new Map<string, SettingOption[]>();
       const dagNodesMap = new Map<string, DAGNode[]>();
 
       // Find all fields that need dynamic settings
-      const fieldsNeedingSettings = config.fields.filter(
+      const fieldsNeedingSettings = fields.filter(
         field => field.loadOptionsFromSettings && (field.type === 'select' || field.type === 'multiselect')
       );
 
       // Find all fields that need entity options
-      const fieldsNeedingEntityOptions = config.fields.filter(
+      const fieldsNeedingEntityOptions = fields.filter(
         field => field.loadOptionsFromEntity && (field.type === 'select' || field.type === 'multiselect')
       );
 
@@ -189,7 +259,7 @@ export function EntityFormContainer({
     };
 
     loadAllOptions();
-  }, [config]);
+  }, [fields]);
 
   // Render field based on configuration
   const renderField = (field: FieldDef) => {
@@ -585,7 +655,7 @@ export function EntityFormContainer({
   const excludedFields = mode === 'create'
     ? ['title', 'slug', 'id', 'tags', 'created_ts', 'updated_ts']
     : ['name', 'title', 'code', 'slug', 'id', 'tags', 'created_ts', 'updated_ts'];
-  const visibleFields = config.fields.filter(f => !excludedFields.includes(f.key));
+  const visibleFields = fields.filter(f => !excludedFields.includes(f.key));
 
   return (
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200">
