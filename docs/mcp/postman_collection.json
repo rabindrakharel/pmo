@@ -1,0 +1,897 @@
+{
+  "info": {
+    "name": "PMO MCP API",
+    "description": "Complete Model Context Protocol API for PMO Enterprise Platform\n\n## Features\n- 100+ endpoints across 25+ categories\n- JWT authentication\n- RBAC permission system\n- Auto-enrichment for AI agents\n\n## Quick Start\n1. Set environment variables (baseUrl, email, password)\n2. Run 'Auth / Login' to get JWT token\n3. Token is automatically saved to {{authToken}} variable\n4. All other requests use Bearer token authentication\n\n## Environment Variables\n- `baseUrl`: http://localhost:4000\n- `email`: james.miller@huronhome.ca\n- `password`: password123\n- `authToken`: (auto-populated after login)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "pmo-mcp-api",
+    "version": "4.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "customerId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "taskId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "bookingId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Save auth token to environment variable",
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('authToken', response.token);",
+                  "    console.log('Auth token saved:', response.token.substring(0, 20) + '...');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            },
+            "description": "Authenticate user and obtain JWT token"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "profile"]
+            },
+            "description": "Get authenticated user profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Permissions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/permissions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "permissions"]
+            },
+            "description": "Get user permissions"
+          },
+          "response": []
+        }
+      ],
+      "description": "Authentication endpoints for JWT token management"
+    },
+    {
+      "name": "Customer",
+      "item": [
+        {
+          "name": "List Customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cust?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cust"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Items per page"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Search query",
+                  "disabled": true
+                },
+                {
+                  "key": "active_flag",
+                  "value": "true",
+                  "description": "Filter by active status",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List customers with pagination and filtering"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Customer by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cust/{{customerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cust", "{{customerId}}"]
+            },
+            "description": "Get specific customer by UUID"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Save customer ID to variable",
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('customerId', response.id);",
+                  "    console.log('Customer ID saved:', response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"primary_phone\": \"+1 555 123 4567\",\n  \"primary_email\": \"john.doe@example.com\",\n  \"primary_address\": \"353531 Edmonton Avenue\",\n  \"city\": \"Palo Alto\",\n  \"province\": \"CA\",\n  \"postal_code\": \"94301\",\n  \"country\": \"USA\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cust",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cust"]
+            },
+            "description": "Create new customer. Only name is required."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Customer",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"primary_phone\": \"+1 555 999 8888\",\n  \"city\": \"San Francisco\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cust/{{customerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cust", "{{customerId}}"]
+            },
+            "description": "Update customer information"
+          },
+          "response": []
+        },
+        {
+          "name": "Search by Phone",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cust?query_primary_phone=+15551234567",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cust"],
+              "query": [
+                {
+                  "key": "query_primary_phone",
+                  "value": "+15551234567",
+                  "description": "Search by phone number"
+                }
+              ]
+            },
+            "description": "Search for customer by phone number"
+          },
+          "response": []
+        }
+      ],
+      "description": "Customer profile management operations"
+    },
+    {
+      "name": "Task",
+      "item": [
+        {
+          "name": "List Tasks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/task?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "task"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "dl__task_stage",
+                  "value": "in_progress",
+                  "description": "Filter by stage",
+                  "disabled": true
+                },
+                {
+                  "key": "dl__task_priority",
+                  "value": "high",
+                  "description": "Filter by priority",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List tasks with filtering"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Task by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/task/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "task", "{{taskId}}"]
+            },
+            "description": "Get specific task by UUID"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Task (Auto-Enriched)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Save task ID to variable",
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('taskId', response.id);",
+                  "    console.log('Task ID saved:', response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Fix plumbing leak\",\n  \"code\": \"TASK-2025-001\",\n  \"descr\": \"Customer reported water leak in kitchen\",\n  \"dl__task_stage\": \"backlog\",\n  \"dl__task_priority\": \"high\",\n  \"estimated_hours\": 4,\n  \"metadata\": {\n    \"customer_id\": \"{{customerId}}\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/task",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "task"]
+            },
+            "description": "Create task - MCP auto-enriches description with customer data and conversation history"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Task",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dl__task_stage\": \"in_progress\",\n  \"actual_hours\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/task/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "task", "{{taskId}}"]
+            },
+            "description": "Update task information"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Task Status (Kanban)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"task_status\": \"in_progress\",\n  \"position\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/task/{{taskId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "task", "{{taskId}}", "status"]
+            },
+            "description": "Update task status on Kanban board"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Kanban Board",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/task/kanban",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "task", "kanban"],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "",
+                  "description": "Optional project filter",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get Kanban board view"
+          },
+          "response": []
+        },
+        {
+          "name": "Add Case Note",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Customer called to confirm appointment. Will be home all day.\",\n  \"content_type\": \"case_note\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/task/{{taskId}}/case-note",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "task", "{{taskId}}", "case-note"]
+            },
+            "description": "Add case note to task"
+          },
+          "response": []
+        }
+      ],
+      "description": "Task and workflow management operations"
+    },
+    {
+      "name": "Calendar & Booking",
+      "item": [
+        {
+          "name": "Book Appointment (Auto-Enriched)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Save booking ID to variable",
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('bookingId', response.id);",
+                  "    console.log('Booking ID saved:', response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slot_ids\": [\"slot-uuid-1\"],\n  \"title\": \"Service: Plumbing Repair\",\n  \"instructions\": \"Customer needs kitchen sink fixed\",\n  \"metadata\": {\n    \"attendees\": [\n      {\n        \"name\": \"John Doe\",\n        \"phone\": \"+1 555 123 4567\",\n        \"type\": \"customer\"\n      },\n      {\n        \"name\": \"Jane Tech\",\n        \"email\": \"jane@huronhome.ca\",\n        \"type\": \"employee\"\n      }\n    ],\n    \"task_id\": \"{{taskId}}\",\n    \"service_type\": \"plumbing_service\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/person-calendar/book",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "person-calendar", "book"]
+            },
+            "description": "Book calendar appointment - MCP auto-enriches with task reference and attendees"
+          },
+          "response": []
+        },
+        {
+          "name": "Search Availability",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/person-calendar/search",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "person-calendar", "search"],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "2025-11-15",
+                  "disabled": true
+                },
+                {
+                  "key": "end_date",
+                  "value": "2025-11-30",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Search for available appointment slots"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Booking",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/person-calendar/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "person-calendar", "{{bookingId}}"]
+            },
+            "description": "Get booking details by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Booking",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/person-calendar/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "person-calendar", "{{bookingId}}"]
+            },
+            "description": "Cancel an appointment booking"
+          },
+          "response": []
+        }
+      ],
+      "description": "Appointment booking and scheduling operations"
+    },
+    {
+      "name": "Entity Linkage",
+      "item": [
+        {
+          "name": "List Linkages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/entity-linkage",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "entity-linkage"],
+              "query": [
+                {
+                  "key": "parent_entity_type",
+                  "value": "project",
+                  "disabled": true
+                },
+                {
+                  "key": "parent_entity_id",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List entity linkages (relationships)"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Linkage",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"parent_entity_type\": \"project\",\n  \"parent_entity_id\": \"proj-uuid-123\",\n  \"child_entity_type\": \"task\",\n  \"child_entity_id\": \"{{taskId}}\",\n  \"relationship_type\": \"belongs_to\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/entity-linkage",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "entity-linkage"]
+            },
+            "description": "Create relationship between two entities"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Linkage",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/entity-linkage/:linkageId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "entity-linkage", ":linkageId"],
+              "variable": [
+                {
+                  "key": "linkageId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Delete entity linkage"
+          },
+          "response": []
+        }
+      ],
+      "description": "Entity relationship management operations"
+    },
+    {
+      "name": "Settings",
+      "item": [
+        {
+          "name": "Get Settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/setting?category=task_stage",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "setting"],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "task_stage",
+                  "description": "Settings category"
+                }
+              ]
+            },
+            "description": "Get system settings by category"
+          },
+          "response": []
+        }
+      ],
+      "description": "System settings and configuration operations"
+    },
+    {
+      "name": "RBAC",
+      "item": [
+        {
+          "name": "Check Permission",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entity_type\": \"project\",\n  \"entity_id\": \"proj-uuid\",\n  \"action\": \"edit\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rbac/check",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "rbac", "check"]
+            },
+            "description": "Check if user has specific permission"
+          },
+          "response": []
+        },
+        {
+          "name": "List Permissions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rbac/permissions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "rbac", "permissions"]
+            },
+            "description": "List all user permissions"
+          },
+          "response": []
+        }
+      ],
+      "description": "Role-based access control operations"
+    },
+    {
+      "name": "Complete Service Flow",
+      "item": [
+        {
+          "name": "1. Authenticate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('authToken', response.token);",
+                  "    console.log('✓ Step 1: Authenticated');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"james.miller@huronhome.ca\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2. Search Customer by Phone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.results.length > 0) {",
+                  "        pm.collectionVariables.set('customerId', response.results[0].id);",
+                  "        console.log('✓ Step 2: Found existing customer');",
+                  "    } else {",
+                  "        console.log('✓ Step 2: No customer found, will create new');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cust?query_primary_phone=+15559998888",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cust"],
+              "query": [
+                {
+                  "key": "query_primary_phone",
+                  "value": "+15559998888"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3. Create Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('customerId', response.id);",
+                  "    console.log('✓ Step 3: Created customer:', response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mike Johnson\",\n  \"primary_phone\": \"+1 555 999 8888\",\n  \"primary_address\": \"789 Goodrich Road\",\n  \"city\": \"Minneapolis\",\n  \"province\": \"Minnesota\",\n  \"postal_code\": \"55437\",\n  \"country\": \"USA\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cust",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cust"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4. Create Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('taskId', response.id);",
+                  "    console.log('✓ Step 4: Created task:', response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Backyard assistance - Mike Johnson\",\n  \"dl__task_stage\": \"backlog\",\n  \"dl__task_priority\": \"high\",\n  \"metadata\": {\n    \"customer_id\": \"{{customerId}}\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/task",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "task"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5. Book Appointment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('bookingId', response.id);",
+                  "    console.log('✓ Step 5: Booked appointment:', response.id);",
+                  "    console.log('');",
+                  "    console.log('✅ Complete service flow finished successfully!');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slot_ids\": [\"slot-uuid-1\"],\n  \"title\": \"Service: Backyard assistance\",\n  \"metadata\": {\n    \"task_id\": \"{{taskId}}\",\n    \"attendees\": [\n      {\n        \"name\": \"Mike Johnson\",\n        \"phone\": \"+1 555 999 8888\",\n        \"type\": \"customer\"\n      },\n      {\n        \"name\": \"John Doe\",\n        \"email\": \"john@huronhome.ca\",\n        \"type\": \"employee\"\n      }\n    ]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/person-calendar/book",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "person-calendar", "book"]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Complete customer service flow: Auth → Customer → Task → Appointment"
+    }
+  ]
+}

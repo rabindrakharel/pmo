@@ -84,7 +84,9 @@
       "Bash(pnpm run build:*)",
       "Bash(git -C /home/rabin/projects/pmo status --short apps/api/src/modules/cost/)",
       "Bash(git -C /home/rabin/projects/pmo diff apps/api/src/modules/cost/routes.ts)",
-      "Bash(xargs ls:*)"
+      "Bash(xargs ls:*)",
+      "Bash(timeout 30 sh -c 'tail -f /proc/$(pgrep -f \"\"\"\"npm run build\"\"\"\" | head -1)/fd/1 2>/dev/null')",
+      "Bash(pnpm -F @pmo/web run build:*)"
     ],
     "deny": [],
     "ask": [],

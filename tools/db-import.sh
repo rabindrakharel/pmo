@@ -190,8 +190,9 @@ validate_all_ddls() {
         "XLVII_d_entity_instance_backfill.ddl"
         "XLVIII_d_entity_id_map.ddl"
         "XLIX_d_entity_id_rbac_map.ddl"
-        "L_d_cost.ddl"
         "LI_f_logging.ddl"
+        "LII_f_revenue.ddl"
+        "LIII_f_expense.ddl"
     )
 
     for file in "${ddl_files[@]}"; do
@@ -221,7 +222,7 @@ drop_schema() {
 
 # Function to import all DDL files
 import_ddls() {
-    print_status $BLUE "📥 Importing 49 DDL files in dependency order (Roman numerals, VIII skipped)..."
+    print_status $BLUE "📥 Importing 50 DDL files in dependency order (Roman numerals, VIII and L skipped)..."
 
     # I: Initial setup - Drop and recreate schema
     execute_sql "$DB_PATH/I_schemaCreate.ddl" "I: Schema setup (drop and recreate)"
@@ -301,13 +302,14 @@ import_ddls() {
     execute_sql "$DB_PATH/XLVIII_d_entity_id_map.ddl" "XLVIII: Entity instance relationships"
     execute_sql "$DB_PATH/XLIX_d_entity_id_rbac_map.ddl" "XLIX: RBAC permission mapping"
 
-    # L: Cost tracking table
-    execute_sql "$DB_PATH/L_d_cost.ddl" "L: Cost tracking with attachments"
-
     # LI: Central logging table
     execute_sql "$DB_PATH/LI_f_logging.ddl" "LI: Central audit logging for all entity operations"
 
-    print_status $GREEN "✅ All 50 DDL files imported successfully (Roman numerals I-LI, VIII skipped)"
+    # LII-LIII: Revenue and Expense tracking (CRA T2125) - replaces old d_cost table
+    execute_sql "$DB_PATH/LII_f_revenue.ddl" "LII: Revenue fact table with CRA T2125 categories"
+    execute_sql "$DB_PATH/LIII_f_expense.ddl" "LIII: Expense fact table with CRA T2125 categories"
+
+    print_status $GREEN "✅ All 50 DDL files imported successfully (Roman numerals I-LIII, VIII and L skipped)"
 }
 
 # Function to validate schema after import

@@ -1,0 +1,17 @@
+The unknown people are anonymous calls to the real estate agent. The real estate agent will pick up a call in the mobile app that is a Twilo number. So the whole 
+conversation is recorded after the customer hangs up. That conversation is basically transcribed, goes to the DeepGram thing, and then hits the LLM endpoint. And it 
+generates a new customer record. Then uses MCP to create that customer as an early lead. So basically, that whole conversation gave a new data called customer who is a 
+lead. And it can also set up a new calendar booking or appointment and all of that. But what it does is depending on the customer's ask or need, it also creates a task on 
+the calendar. Assigning it to that person who the customer called. So customer creation and task creation happens. But if the customer was previous customer who already 
+existed, and that customer is asking for some service, then the task calendar booking will be created on top of that existing customer. The real estate agent can set up the
+ calendar booking whatsoever, but the notification goes to the calendar of real estate agent and the calling anonymous customer or a known customer, but it also sends a 
+text message to both of them. Or if they are using the mobile app, it does send a push notification to both of them, depending on when the meeting is scheduled or all 
+that.\
+/home/rabin/projects/pmo/docs/0 business operations/customer_interactions_to_lead_nurturing_to_service.\
+Rewrite the entire business use case with the business semantics on the top of the document, followed by technical building blocks, system design, tooling, and the process 
+flow, and a little bit of how does a mobile app look like, because this exact thing is going to be a new software that is built on the platform. So what you have right now,
+ all the data model, all the building blocks, component, pattern, design patterns are the building blocks that can be used to build a new software. So what I'm talking 
+about, the real estate agent use case is a new software that will be built on the platform, software platform. So we are sort of like a self-service software platform where
+ real estate, I mean, people can come with a use case and build their software. Thank you. 
+ 
+ Rewrite the entire business use case with the business semantics on the top of the document, followed by technical building blocks, system design, tooling, and the process flow, and a little bit of how does a mobile app look like, because this exact thing is going to be a new software that is built on the platform. So what you have right now, all the data model, all the building blocks, component, pattern, design patterns are the building blocks that can be used to build a new software. So what I'm talking about, the real estate agent use case is a new software that will be built on the platform, software platform. So we are sort of like a self-service software platform where real estate, I mean, people can come with a use case and build their software. Thank you.

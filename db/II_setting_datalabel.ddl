@@ -536,6 +536,54 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
   {"id": 2, "name": "Confidential", "descr": "Confidential information", "parent_ids": [], "color_code": "yellow"},
   {"id": 3, "name": "Restricted", "descr": "Restricted access", "parent_ids": [], "color_code": "orange"},
   {"id": 4, "name": "Secret", "descr": "Secret classification", "parent_ids": [], "color_code": "red"}
+]'::jsonb),
+
+-- Revenue Category Labels (CRA T2125 Based)
+('dl__revenue_category', 'Revenue Categories', 'TrendingUp', '[
+  {"id": 0, "name": "Sales, Commissions, or Fees", "descr": "Revenue from sales, commissions, or fees for services", "parent_ids": [], "color_code": "green"},
+  {"id": 1, "name": "Other Income", "descr": "Miscellaneous income, refunds, rebates, rental income", "parent_ids": [], "color_code": "blue"},
+  {"id": 2, "name": "Interest Income", "descr": "Interest earned from bank accounts and investments", "parent_ids": [], "color_code": "cyan"},
+  {"id": 3, "name": "Grants or Subsidies", "descr": "Government grants, wage subsidies, training grants", "parent_ids": [], "color_code": "purple"},
+  {"id": 4, "name": "Inventory Adjustments", "descr": "Inventory gains and write-down reversals", "parent_ids": [], "color_code": "yellow"}
+]'::jsonb),
+
+-- Revenue Subcategory Labels (CRA T2125 Based)
+('dl__revenue_subcategory', 'Revenue Subcategories', 'DollarSign', '[
+  {"id": 0, "name": "Retail Sales", "descr": "Revenue from selling goods at retail", "parent_ids": [], "color_code": "green"},
+  {"id": 1, "name": "Wholesale Sales", "descr": "Revenue from wholesale of goods", "parent_ids": [], "color_code": "green"},
+  {"id": 2, "name": "Online Sales", "descr": "Revenue from online channels", "parent_ids": [], "color_code": "green"},
+  {"id": 3, "name": "Service Income", "descr": "Fees for services performed", "parent_ids": [], "color_code": "green"},
+  {"id": 4, "name": "Project Income", "descr": "Milestone or contract-based revenue", "parent_ids": [], "color_code": "green"},
+  {"id": 5, "name": "Commissions Earned", "descr": "Income from commissions", "parent_ids": [], "color_code": "green"},
+  {"id": 6, "name": "Miscellaneous Income", "descr": "Non-core income not captured elsewhere", "parent_ids": [], "color_code": "blue"},
+  {"id": 7, "name": "Refunds and Rebates", "descr": "Supplier rebates, cashbacks", "parent_ids": [], "color_code": "blue"},
+  {"id": 8, "name": "Rental Income", "descr": "Income from leasing property/equipment", "parent_ids": [], "color_code": "blue"},
+  {"id": 9, "name": "Bank Interest", "descr": "Interest earned on deposits", "parent_ids": [], "color_code": "cyan"},
+  {"id": 10, "name": "Investment Interest", "descr": "Interest from investments", "parent_ids": [], "color_code": "cyan"},
+  {"id": 11, "name": "Government Wage Subsidy", "descr": "Government wage or business subsidies", "parent_ids": [], "color_code": "purple"},
+  {"id": 12, "name": "Training or Program Grant", "descr": "Government or program training grant", "parent_ids": [], "color_code": "purple"},
+  {"id": 13, "name": "Inventory Gain", "descr": "Positive adjustment due to count/valuation", "parent_ids": [], "color_code": "yellow"},
+  {"id": 14, "name": "Inventory Write-Down Reversal", "descr": "Reversal of prior write-down", "parent_ids": [], "color_code": "yellow"}
+]'::jsonb),
+
+-- Expense Category Labels (CRA T2125 Based)
+('dl__expense_category', 'Expense Categories', 'Receipt', '[
+  {"id": 0, "name": "Advertising", "descr": "Promotional and advertising costs (CRA Line 8521)", "parent_ids": [], "color_code": "blue"},
+  {"id": 1, "name": "Meals and Entertainment (50%)", "descr": "Meals/entertainment with 50% deductibility (CRA Line 8523)", "parent_ids": [], "color_code": "orange"}
+]'::jsonb),
+
+-- Expense Subcategory Labels (CRA T2125 Based)
+('dl__expense_subcategory', 'Expense Subcategories', 'FileText', '[
+  {"id": 0, "name": "Google Ads", "descr": "Google advertising campaigns", "parent_ids": [], "color_code": "blue"},
+  {"id": 1, "name": "Facebook/Instagram Ads", "descr": "Social media advertising", "parent_ids": [], "color_code": "blue"},
+  {"id": 2, "name": "Print – Flyers/Brochures", "descr": "Print advertising materials", "parent_ids": [], "color_code": "blue"},
+  {"id": 3, "name": "Radio Advertising", "descr": "Radio ad campaigns", "parent_ids": [], "color_code": "blue"},
+  {"id": 4, "name": "TV Advertising", "descr": "Television advertising", "parent_ids": [], "color_code": "blue"},
+  {"id": 5, "name": "Sponsorships", "descr": "Event and organization sponsorships", "parent_ids": [], "color_code": "blue"},
+  {"id": 6, "name": "Website Promotions/SEO", "descr": "Website promotion and SEO services", "parent_ids": [], "color_code": "blue"},
+  {"id": 7, "name": "Business Meals", "descr": "Business meals with clients/prospects (50% deductible)", "parent_ids": [], "color_code": "orange"},
+  {"id": 8, "name": "Client Entertainment", "descr": "Client entertainment events (50% deductible)", "parent_ids": [], "color_code": "orange"},
+  {"id": 9, "name": "Staff Functions (50%)", "descr": "Staff functions and team meals (50% deductible)", "parent_ids": [], "color_code": "orange"}
 ]'::jsonb);
 
 COMMENT ON TABLE app.setting_datalabel IS 'Unified data label table for all entity labels (stages, statuses, priorities, etc.)';

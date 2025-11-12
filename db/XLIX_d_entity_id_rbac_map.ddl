@@ -111,7 +111,7 @@ FROM app.d_employee e
 CROSS JOIN (VALUES
   ('office'), ('biz'), ('business'), ('project'), ('task'), ('worksite'), ('cust'),
   ('role'), ('position'), ('artifact'), ('wiki'), ('form'), ('report'), ('employee'),
-  ('org'), ('hr'), ('linkage'), ('marketing'), ('cost'), ('revenue'),
+  ('org'), ('hr'), ('linkage'), ('marketing'), ('expense'), ('revenue'),
   ('service'), ('product'), ('quote'), ('work_order')
 ) AS entities(entity_type)
 WHERE e.email = 'james.miller@huronhome.ca';

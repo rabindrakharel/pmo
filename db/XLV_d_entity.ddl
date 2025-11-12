@@ -69,7 +69,7 @@ VALUES (
     {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 2},
     {"entity": "wiki", "ui_icon": "BookOpen", "ui_label": "Wiki", "order": 3},
     {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 4},
-    {"entity": "cost", "ui_icon": "DollarSign", "ui_label": "Costs", "order": 5},
+    {"entity": "expense", "ui_icon": "Receipt", "ui_label": "Expenses", "order": 5},
     {"entity": "revenue", "ui_icon": "TrendingUp", "ui_label": "Revenue", "order": 6}
   ]'::jsonb,
   10
@@ -84,7 +84,7 @@ VALUES (
   'Building2',
   '[
     {"entity": "project", "ui_icon": "FolderOpen", "ui_label": "Projects", "order": 1},
-    {"entity": "cost", "ui_icon": "DollarSign", "ui_label": "Costs", "order": 2},
+    {"entity": "expense", "ui_icon": "Receipt", "ui_label": "Expenses", "order": 2},
     {"entity": "revenue", "ui_icon": "TrendingUp", "ui_label": "Revenue", "order": 3}
   ]'::jsonb,
   20
@@ -102,7 +102,7 @@ VALUES (
     {"entity": "wiki", "ui_icon": "BookOpen", "ui_label": "Wiki", "order": 2},
     {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 3},
     {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 4},
-    {"entity": "cost", "ui_icon": "DollarSign", "ui_label": "Costs", "order": 5},
+    {"entity": "expense", "ui_icon": "Receipt", "ui_label": "Expenses", "order": 5},
     {"entity": "revenue", "ui_icon": "TrendingUp", "ui_label": "Revenue", "order": 6}
   ]'::jsonb,
   30
@@ -118,7 +118,7 @@ VALUES (
   '[
     {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 1},
     {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 2},
-    {"entity": "cost", "ui_icon": "DollarSign", "ui_label": "Costs", "order": 3},
+    {"entity": "expense", "ui_icon": "Receipt", "ui_label": "Expenses", "order": 3},
     {"entity": "revenue", "ui_icon": "TrendingUp", "ui_label": "Revenue", "order": 4}
   ]'::jsonb,
   40
@@ -135,7 +135,7 @@ VALUES (
     {"entity": "project", "ui_icon": "FolderOpen", "ui_label": "Projects", "order": 1},
     {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 2},
     {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 3},
-    {"entity": "cost", "ui_icon": "DollarSign", "ui_label": "Costs", "order": 4},
+    {"entity": "expense", "ui_icon": "Receipt", "ui_label": "Expenses", "order": 4},
     {"entity": "revenue", "ui_icon": "TrendingUp", "ui_label": "Revenue", "order": 5}
   ]'::jsonb,
   50
@@ -332,13 +332,13 @@ VALUES (
   180
 );
 
--- Cost entity type (leaf node - no children)
+-- Expense entity type (leaf node - no children)
 INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
-  'cost',
-  'Cost',
-  'Costs',
-  'DollarSign',
+  'expense',
+  'Expense',
+  'Expenses',
+  'Receipt',
   '[]'::jsonb,
   190
 );
