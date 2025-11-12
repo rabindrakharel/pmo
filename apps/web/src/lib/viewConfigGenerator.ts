@@ -37,7 +37,7 @@ export interface ViewConfig {
 export interface DataTableColumn {
   key: string;
   title: string;
-  visible: boolean;
+  visible: boolean;              // false = hide from UI, but still in data for API calls
   sortable: boolean;
   filterable: boolean;
   searchable: boolean;
@@ -53,6 +53,22 @@ export interface DataTableColumn {
   loadFromSettings?: boolean;
   loadFromEntity?: string;
 }
+
+/**
+ * IMPORTANT: visible=false means "don't show as a column in UI"
+ * BUT the field is still fetched from API and present in row data.
+ *
+ * Example: 'id' field
+ * - visible: false → No column shown in table
+ * - BUT row.id exists → Can be used for edit/delete API calls
+ *
+ * Use case:
+ * <EntityDataTable
+ *   columns={config.visibleColumns}  // 'id' column NOT rendered
+ *   onEdit={(row) => api.update(row.id, data)}  // row.id IS available
+ *   onDelete={(row) => api.delete(row.id)}      // row.id IS available
+ * />
+ */
 
 export interface DataTableConfig {
   columns: DataTableColumn[];

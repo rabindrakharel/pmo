@@ -382,12 +382,12 @@ export function detectField(
   const key = fieldKey.toLowerCase();
 
   // ========================================================================
-  // PATTERN 1: SYSTEM FIELDS (readonly, often hidden)
+  // PATTERN 1: SYSTEM FIELDS (readonly, often hidden from UI)
   // ========================================================================
   if (PATTERNS.system.regex.test(key)) {
     return {
       fieldName: generateFieldTitle(fieldKey),
-      visible: key === 'id' ? false : true, // Hide primary key
+      visible: key === 'id' ? false : true, // Hide 'id' column from UI (but still in data!)
       sortable: true,
       filterable: false,
       searchable: false,

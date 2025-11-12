@@ -80,6 +80,51 @@ const config = generateViewConfig(fieldKeys, options);
 
 ---
 
+## 🔑 Important: `id` Field Handling
+
+**Critical Distinction**: `visible: false` ≠ "not in data"
+
+```typescript
+// API returns data with 'id'
+const apiResponse = [
+  { id: 'uuid-123', name: 'Project Alpha', budget_allocated_amt: 50000 },
+  { id: 'uuid-456', name: 'Project Beta', budget_allocated_amt: 75000 }
+];
+
+// Generate config
+const config = generateDataTableConfig(['id', 'name', 'budget_allocated_amt']);
+
+// config.visibleColumns = [
+//   { key: 'name', visible: true, ... },
+//   { key: 'budget_allocated_amt', visible: true, ... }
+// ] → 'id' NOT in visibleColumns
+
+// config.hiddenColumns = ['id'] → 'id' is hidden
+
+// BUT: The table component receives FULL data including 'id'
+<EntityDataTable
+  columns={config.visibleColumns}  // Only shows 'name', 'budget_allocated_amt'
+  data={apiResponse}               // Has 'id', 'name', 'budget_allocated_amt'
+  onEdit={(row) => {
+    console.log(row.id);           // ✅ 'uuid-123' - AVAILABLE!
+    api.update(row.id, editedData); // ✅ Can call backend
+  }}
+/>
+
+// USER SEES: 2 columns (name, budget)
+// BACKEND GETS: row.id for API calls
+// PERFECT: Security + Functionality
+```
+
+**Why This Matters**:
+- ✅ User doesn't see ugly UUIDs in table
+- ✅ Backend can call `PUT /api/project/:id` with `row.id`
+- ✅ Delete/Edit handlers work: `onDelete={(row) => api.delete(row.id)}`
+- ✅ Inline editing sends `id` in request
+- ✅ Navigation works: `onClick={() => navigate(\`/project/\${row.id}\`)}`
+
+---
+
 ## 🔄 View-Specific Adapters
 
 ### 1. DataTable Config
@@ -100,10 +145,19 @@ const config = generateDataTableConfig([
 
 // Use in EntityDataTable
 <EntityDataTable
-  columns={config.visibleColumns}          // Only visible columns
+  columns={config.visibleColumns}          // Only visible columns (NO 'id' column)
   searchFields={config.searchableFields}   // Only searchable
   editableColumns={config.editableColumns} // Only editable
+  data={rows}                              // INCLUDES row.id in data!
+  onEdit={(row) => api.update(row.id, data)}    // row.id available
+  onDelete={(row) => api.delete(row.id)}        // row.id available
 />
+
+// IMPORTANT: 'id' behavior
+// ✅ visible: false → NO column shown in UI
+// ✅ row.id exists → Available for API calls (edit, delete, etc.)
+// ✅ Backend needs id → Always fetch it from API
+// ✅ User never sees id → Hidden from table
 
 // Result:
 // visibleColumns = [
