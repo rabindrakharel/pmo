@@ -1,8 +1,8 @@
 # Calendar System - Multi-Person Availability & Booking Management
 
 **Status:** Production-Ready
-**Version:** 1.0.0
-**Last Updated:** 2025-11-05
+**Version:** 2.0.0
+**Last Updated:** 2025-11-12
 **Entity Code:** `calendar`
 **API Endpoint:** `/api/v1/person-calendar`
 **Database Table:** `d_entity_person_calendar`

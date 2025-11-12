@@ -1,7 +1,7 @@
 # PMO Platform API Developer Guide
 
 > **Complete guide for developing APIs following strict PMO Platform standards**
-> Version: 3.1.0 | Last Updated: 2025-11-11
+> Version: 4.0.0 | Last Updated: 2025-11-12
 
 ---
 
@@ -22,7 +22,7 @@
 
 ## Overview
 
-The PMO Platform API follows a **DRY-first, factory-driven architecture** that serves 30+ entity types through universal patterns. This guide enforces **strict standards** to ensure consistency, maintainability, and security.
+The PMO Platform API follows a **DRY-first, factory-driven architecture** that serves **48 API modules** covering **27+ entity types** through universal patterns. This guide enforces **strict standards** to ensure consistency, maintainability, and security.
 
 ### Core Principles
 
@@ -33,6 +33,16 @@ The PMO Platform API follows a **DRY-first, factory-driven architecture** that s
 5. **Audit trail** - Track created_ts, updated_ts, created_by, updated_by
 6. **Pagination by default** - List endpoints must paginate
 7. **Universal error handling** - Use standardized error responses
+
+### Platform Statistics
+
+| Metric | Count |
+|--------|-------|
+| **API Modules** | 48 |
+| **Entity Types** | 27+ |
+| **Database Tables** | 50 |
+| **Endpoints** | 200+ |
+| **Factory Patterns** | 2 (Child Entity, Delete) |
 
 ---
 
@@ -55,7 +65,7 @@ The PMO Platform API follows a **DRY-first, factory-driven architecture** that s
    Extracts user ID from token.sub
 
 4. RBAC Check
-   resolveUnifiedAbilities(userId)
+   Query app.entity_id_rbac_map
    Check permissions for resource
 
 5. Execute Request
@@ -79,8 +89,16 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const userId = request.user.sub;
 
       // Check RBAC permissions
-      const abilities = await resolveUnifiedAbilities(userId);
-      if (!abilities.canReadEntity('project')) {
+      const access = await db.execute(sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${userId}
+          AND rbac.entity = 'project'
+          AND (rbac.entity_id = 'all' OR rbac.entity_id = ${id}::text)
+          AND rbac.active_flag = true
+          AND 0 = ANY(rbac.permission)
+      `);
+
+      if (access.length === 0) {
         return reply.code(403).send({ error: 'Forbidden' });
       }
 
@@ -103,11 +121,10 @@ fastify.get('/api/v1/project', async (request, reply) => {
 
 ### RBAC Permission System
 
-**Standard:** Use unified scope-based permissions from `app.rel_employee_scope_unified`
+**Standard:** Use unified scope-based permissions from `app.entity_id_rbac_map`
 
 ```typescript
-// apps/api/src/lib/authz.ts
-
+// Permission levels (array indices in rbac.permission)
 export enum Permission {
   read = 0,     // READ access
   create = 1,   // CREATE access
@@ -117,31 +134,27 @@ export enum Permission {
   owner = 5     // OWNER access
 }
 
-export interface UnifiedAbilities {
-  canReadEntity(entityType: string): boolean;
-  canCreateEntity(entityType: string): boolean;
-  canUpdateEntity(entityType: string, entityId: string): boolean;
-  canDeleteEntity(entityType: string, entityId: string): boolean;
-  isAdmin(): boolean;
-}
-
-// Usage in routes
-const abilities = await resolveUnifiedAbilities(userId);
-
-if (!abilities.canReadEntity('project')) {
-  return reply.code(403).send({ error: 'Forbidden: Insufficient permissions' });
-}
+// Universal RBAC check pattern
+const access = await db.execute(sql`
+  SELECT 1 FROM app.entity_id_rbac_map rbac
+  WHERE rbac.empid = ${userId}
+    AND rbac.entity = ${entityType}
+    AND (rbac.entity_id = 'all' OR rbac.entity_id = ${entityId}::text)
+    AND rbac.active_flag = true
+    AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+    AND ${permissionLevel} = ANY(rbac.permission)
+`);
 ```
 
 ### Standard RBAC Checks
 
-| Operation | Permission Required | Check Method |
+| Operation | Permission Required | Check Pattern |
 |-----------|-------------------|--------------|
-| GET /api/v1/{entity} | Read | `abilities.canReadEntity(entityType)` |
-| GET /api/v1/{entity}/:id | Read | `abilities.canReadEntity(entityType)` |
-| POST /api/v1/{entity} | Create | `abilities.canCreateEntity(entityType)` |
-| PUT /api/v1/{entity}/:id | Update | `abilities.canUpdateEntity(entityType, id)` |
-| DELETE /api/v1/{entity}/:id | Delete | `abilities.canDeleteEntity(entityType, id)` |
+| GET /api/v1/{entity} | Read (0) | `0 = ANY(rbac.permission)` |
+| GET /api/v1/{entity}/:id | Read (0) | `0 = ANY(rbac.permission)` |
+| POST /api/v1/{entity} | Create (1) | `1 = ANY(rbac.permission)` |
+| PUT /api/v1/{entity}/:id | Update (2) | `2 = ANY(rbac.permission)` |
+| DELETE /api/v1/{entity}/:id | Delete (3) | `3 = ANY(rbac.permission)` |
 
 ---
 
@@ -151,24 +164,26 @@ if (!abilities.canReadEntity('project')) {
 
 ### 1. Child Entity Route Factory
 
+**File:** `apps/api/src/lib/child-entity-route-factory.ts`
+
 **Pattern:** Automatically creates `GET /api/v1/{parent}/:id/{child}` endpoints
 
 ```typescript
-// apps/api/src/lib/child-entity-route-factory.ts
-
 import { createChildEntityEndpoint } from '@/lib/child-entity-route-factory.js';
 
 // ✅ CORRECT: Use factory
 createChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
 createChildEntityEndpoint(fastify, 'project', 'artifact', 'd_artifact');
 createChildEntityEndpoint(fastify, 'project', 'form', 'd_form_head');
+createChildEntityEndpoint(fastify, 'project', 'wiki', 'd_wiki');
 
 // Factory handles:
-// - Authentication
-// - RBAC checks
-// - Pagination
+// - Authentication (JWT validation)
+// - RBAC checks (permission array check)
+// - Pagination (page/limit query params)
 // - Parent-child relationship query via d_entity_id_map
-// - Error handling
+// - Error handling (401, 403, 500)
+// - Type validation (TypeBox schemas)
 ```
 
 **What the factory generates:**
@@ -177,30 +192,64 @@ createChildEntityEndpoint(fastify, 'project', 'form', 'd_form_head');
 // GET /api/v1/project/:id/task
 fastify.get(`/api/v1/${parentEntity}/:id/${childEntity}`, {
   preHandler: [fastify.authenticate],
+  schema: {
+    params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
+    querystring: Type.Object({
+      page: Type.Optional(Type.Integer({ minimum: 1 })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
+    })
+  },
   handler: async (request, reply) => {
-    const userId = request.user.sub;
-    const parentId = request.params.id;
+    const { id: parentId } = request.params;
+    const { page = 1, limit = 20 } = request.query;
+    const userId = request.user?.sub;
 
     // RBAC check
-    const abilities = await resolveUnifiedAbilities(userId);
-    if (!abilities.canReadEntity(childEntity)) {
-      return reply.code(403).send({ error: 'Forbidden' });
+    const access = await db.execute(sql`
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${userId}
+        AND rbac.entity = ${parentEntity}
+        AND (rbac.entity_id = ${parentId}::text OR rbac.entity_id = 'all')
+        AND rbac.active_flag = true
+        AND 0 = ANY(rbac.permission)
+    `);
+
+    if (access.length === 0) {
+      return reply.status(403).send({ error: 'Forbidden' });
     }
 
     // Query child entities via d_entity_id_map
-    const children = await db.execute(sql`
+    const offset = (page - 1) * limit;
+    const data = await db.execute(sql`
       SELECT c.*
-      FROM ${sql.raw(`app.${childTable}`)} c
-      JOIN app.d_entity_id_map eim ON c.id = eim.child_entity_id
-      WHERE eim.parent_entity_type = ${parentEntity.toUpperCase()}
-        AND eim.parent_entity_id = ${parentId}
-        AND eim.child_entity_type = ${childEntity.toUpperCase()}
+      FROM app.${sql.identifier(childTable)} c
+      INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = c.id::text
+      WHERE eim.parent_entity_id = ${parentId}
+        AND eim.parent_entity_type = ${parentEntity}
+        AND eim.child_entity_type = ${childEntity}
+        AND eim.active_flag = true
         AND c.active_flag = true
       ORDER BY c.created_ts DESC
       LIMIT ${limit} OFFSET ${offset}
     `);
 
-    return reply.send({ data: children.rows, total, page, limit });
+    const countResult = await db.execute(sql`
+      SELECT COUNT(*) as total
+      FROM app.${sql.identifier(childTable)} c
+      INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = c.id::text
+      WHERE eim.parent_entity_id = ${parentId}
+        AND eim.parent_entity_type = ${parentEntity}
+        AND eim.child_entity_type = ${childEntity}
+        AND eim.active_flag = true
+        AND c.active_flag = true
+    `);
+
+    return {
+      data,
+      total: Number(countResult[0]?.total || 0),
+      page,
+      limit
+    };
   }
 });
 ```
@@ -228,17 +277,24 @@ fastify.get('/api/v1/project/:id/form', async (request, reply) => {
 
 ### 2. Entity Delete Route Factory
 
+**File:** `apps/api/src/lib/entity-delete-route-factory.ts`
+
 **Pattern:** Universal soft-delete with cascading cleanup
 
 ```typescript
-// apps/api/src/lib/entity-delete-route-factory.ts
-
-import { createEntityDeleteEndpoint } from '@/lib/entity-delete-route-factory.js';
+import { createEntityDeleteEndpoint, universalEntityDelete } from '@/lib/entity-delete-route-factory.js';
 
 // ✅ CORRECT: Use factory for delete endpoints
 createEntityDeleteEndpoint(fastify, 'task');
 createEntityDeleteEndpoint(fastify, 'project');
 createEntityDeleteEndpoint(fastify, 'employee');
+
+// With custom cleanup (e.g., delete S3 files before DB delete)
+createEntityDeleteEndpoint(fastify, 'artifact', {
+  customCleanup: async (artifactId) => {
+    await deleteS3Files(artifactId);
+  }
+});
 
 // Factory automatically handles:
 // 1. Soft-delete from main entity table (active_flag = false)
@@ -253,42 +309,41 @@ createEntityDeleteEndpoint(fastify, 'employee');
 export async function universalEntityDelete(
   entityType: string,
   entityId: string,
-  options?: { skipRegistry?: boolean; skipLinkages?: boolean }
+  options?: {
+    skipRegistry?: boolean;
+    skipLinkages?: boolean;
+    customCleanup?: () => Promise<void>;
+  }
 ): Promise<void> {
+  // Optional: Run custom cleanup first
+  if (options?.customCleanup) {
+    await options.customCleanup();
+  }
+
   // STEP 1: Soft-delete from main entity table
   await db.execute(sql`
-    UPDATE ${sql.raw(`app.d_${entityType}`)}
-    SET active_flag = false, updated_ts = NOW()
-    WHERE id = ${entityId}
+    UPDATE app.${sql.identifier(getEntityTable(entityType))}
+    SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
+    WHERE id::text = ${entityId}
   `);
 
   // STEP 2: Soft-delete from entity instance registry
   if (!options?.skipRegistry) {
     await db.execute(sql`
       UPDATE app.d_entity_instance_id
-      SET active_flag = false
-      WHERE entity_type = ${entityType.toUpperCase()}
-        AND entity_id = ${entityId}
+      SET active_flag = false, updated_ts = NOW()
+      WHERE entity_type = ${entityType}
+        AND entity_id::text = ${entityId}
     `);
   }
 
-  // STEP 3: Soft-delete as child (parent → this entity)
+  // STEP 3 & 4: Soft-delete linkages (both as parent and child)
   if (!options?.skipLinkages) {
     await db.execute(sql`
       UPDATE app.d_entity_id_map
-      SET active_flag = false
-      WHERE child_entity_type = ${entityType.toUpperCase()}
-        AND child_entity_id = ${entityId}
-    `);
-  }
-
-  // STEP 4: Soft-delete as parent (this entity → children)
-  if (!options?.skipLinkages) {
-    await db.execute(sql`
-      UPDATE app.d_entity_id_map
-      SET active_flag = false
-      WHERE parent_entity_type = ${entityType.toUpperCase()}
-        AND parent_entity_id = ${entityId}
+      SET active_flag = false, updated_ts = NOW()
+      WHERE (child_entity_type = ${entityType} AND child_entity_id::text = ${entityId})
+         OR (parent_entity_type = ${entityType} AND parent_entity_id::text = ${entityId})
     `);
   }
 }
@@ -318,19 +373,28 @@ CREATE TABLE IF NOT EXISTS app.d_project (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(50) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
-    description TEXT,
-    status VARCHAR(50),
-    priority VARCHAR(50),
+    descr TEXT,
+
+    -- Entity-specific fields
+    project_status VARCHAR(50),
+    project_stage VARCHAR(50),
+    manager_employee_id UUID,
+    budget_allocated_amt DECIMAL(15,2),
+    start_date DATE,
+    end_date DATE,
 
     -- Standard audit fields (REQUIRED)
     active_flag BOOLEAN DEFAULT TRUE,
+    from_ts TIMESTAMPTZ DEFAULT NOW(),
+    to_ts TIMESTAMPTZ,
     created_ts TIMESTAMPTZ DEFAULT NOW(),
     updated_ts TIMESTAMPTZ DEFAULT NOW(),
     created_by UUID,
     updated_by UUID,
-
-    -- Version control
     version INTEGER DEFAULT 1,
+
+    -- Metadata
+    metadata JSONB,
 
     -- Indexes
     CONSTRAINT uk_project_code UNIQUE (code)
@@ -338,14 +402,16 @@ CREATE TABLE IF NOT EXISTS app.d_project (
 
 CREATE INDEX IF NOT EXISTS idx_project_active ON app.d_project(active_flag);
 CREATE INDEX IF NOT EXISTS idx_project_created_ts ON app.d_project(created_ts);
+CREATE INDEX IF NOT EXISTS idx_project_status ON app.d_project(project_status);
 ```
 
 **Standards:**
 - ✅ Table name: `app.d_{entity}` (singular)
 - ✅ Primary key: `id UUID`
 - ✅ Unique code field: `code VARCHAR(50)`
-- ✅ Audit fields: `active_flag`, `created_ts`, `updated_ts`, `created_by`, `updated_by`
-- ✅ Indexes on: `active_flag`, `created_ts`
+- ✅ Audit fields: `active_flag`, `from_ts`, `to_ts`, `created_ts`, `updated_ts`, `created_by`, `updated_by`, `version`
+- ✅ Indexes on: `active_flag`, `created_ts`, status/stage fields
+- ✅ JSONB metadata field for flexibility
 
 ### Step 2: Drizzle Schema Definition
 
@@ -353,27 +419,39 @@ CREATE INDEX IF NOT EXISTS idx_project_created_ts ON app.d_project(created_ts);
 
 ```typescript
 // apps/api/src/db/schema/project.ts
-import { pgTable, uuid, varchar, text, boolean, timestamp, integer } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, boolean, timestamp, integer, decimal, date, jsonb } from 'drizzle-orm/pg-core';
 
 export const projectTable = pgTable('d_project', {
   id: uuid('id').primaryKey().defaultRandom(),
   code: varchar('code', { length: 50 }).notNull().unique(),
   name: varchar('name', { length: 255 }).notNull(),
-  description: text('description'),
-  status: varchar('status', { length: 50 }),
-  priority: varchar('priority', { length: 50 }),
+  descr: text('descr'),
+
+  // Entity-specific fields
+  projectStatus: varchar('project_status', { length: 50 }),
+  projectStage: varchar('project_stage', { length: 50 }),
+  managerEmployeeId: uuid('manager_employee_id'),
+  budgetAllocatedAmt: decimal('budget_allocated_amt', { precision: 15, scale: 2 }),
+  startDate: date('start_date'),
+  endDate: date('end_date'),
 
   // Audit fields
   activeFlag: boolean('active_flag').default(true),
+  fromTs: timestamp('from_ts', { withTimezone: true }).defaultNow(),
+  toTs: timestamp('to_ts', { withTimezone: true }),
   createdTs: timestamp('created_ts', { withTimezone: true }).defaultNow(),
   updatedTs: timestamp('updated_ts', { withTimezone: true }).defaultNow(),
   createdBy: uuid('created_by'),
   updatedBy: uuid('updated_by'),
-  version: integer('version').default(1)
+  version: integer('version').default(1),
+
+  // Metadata
+  metadata: jsonb('metadata')
 }, (table) => ({
   // Indexes
   activeIdx: index('idx_project_active').on(table.activeFlag),
-  createdIdx: index('idx_project_created_ts').on(table.createdTs)
+  createdIdx: index('idx_project_created_ts').on(table.createdTs),
+  statusIdx: index('idx_project_status').on(table.projectStatus)
 }));
 
 export type Project = typeof projectTable.$inferSelect;
@@ -398,54 +476,85 @@ import type { Project, NewProject } from '@/db/schema/project.js';
 
 export class ProjectService {
   /**
-   * List projects with pagination
-   * Standard: All list methods must paginate
+   * List projects with pagination and RBAC filtering
    */
   async list(params: {
     page?: number;
     limit?: number;
     status?: string;
     userId: string;
-  }): Promise<{ data: Project[]; total: number }> {
+  }): Promise<{ data: Project[]; total: number; page: number; limit: number }> {
     const page = params.page || 1;
     const limit = Math.min(params.limit || 20, 100); // Max 100
     const offset = (page - 1) * limit;
 
-    // Build query with filters
-    let whereClause = sql`active_flag = true`;
+    // Build WHERE clause
+    let conditions = [
+      sql`p.active_flag = true`,
+      sql`EXISTS (
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${params.userId}
+          AND rbac.entity = 'project'
+          AND (rbac.entity_id = 'all' OR rbac.entity_id = p.id::text)
+          AND rbac.active_flag = true
+          AND 0 = ANY(rbac.permission)
+      )`
+    ];
+
     if (params.status) {
-      whereClause = sql`${whereClause} AND status = ${params.status}`;
+      conditions.push(sql`p.project_status = ${params.status}`);
     }
+
+    const whereClause = sql.join(conditions, sql` AND `);
 
     // Get total count
     const countResult = await db.execute(sql`
       SELECT COUNT(*) as total
-      FROM app.d_project
+      FROM app.d_project p
       WHERE ${whereClause}
     `);
     const total = parseInt(countResult.rows[0]?.total || '0');
 
     // Get paginated data
     const result = await db.execute(sql`
-      SELECT *
-      FROM app.d_project
+      SELECT
+        p.*,
+        e.name as manager_name
+      FROM app.d_project p
+      LEFT JOIN app.d_employee e ON p.manager_employee_id = e.id
       WHERE ${whereClause}
-      ORDER BY created_ts DESC
+      ORDER BY p.created_ts DESC
       LIMIT ${limit} OFFSET ${offset}
     `);
 
-    return { data: result.rows as Project[], total };
+    return {
+      data: result.rows as Project[],
+      total,
+      page,
+      limit
+    };
   }
 
   /**
-   * Get single project by ID
-   * Standard: Return null if not found (not 404 error)
+   * Get single project by ID with RBAC check
    */
-  async getById(id: string): Promise<Project | null> {
+  async getById(id: string, userId: string): Promise<Project | null> {
     const result = await db.execute(sql`
-      SELECT *
-      FROM app.d_project
-      WHERE id = ${id} AND active_flag = true
+      SELECT
+        p.*,
+        e.name as manager_name
+      FROM app.d_project p
+      LEFT JOIN app.d_employee e ON p.manager_employee_id = e.id
+      WHERE p.id::text = ${id}
+        AND p.active_flag = true
+        AND EXISTS (
+          SELECT 1 FROM app.entity_id_rbac_map rbac
+          WHERE rbac.empid = ${userId}
+            AND rbac.entity = 'project'
+            AND (rbac.entity_id = 'all' OR rbac.entity_id = ${id})
+            AND rbac.active_flag = true
+            AND 0 = ANY(rbac.permission)
+        )
     `);
 
     return result.rows[0] as Project || null;
@@ -453,16 +562,17 @@ export class ProjectService {
 
   /**
    * Create project
-   * Standard: Return created entity with ID
    */
   async create(data: NewProject, userId: string): Promise<Project> {
     const result = await db.execute(sql`
       INSERT INTO app.d_project (
-        code, name, description, status, priority,
+        code, name, descr, project_status, project_stage,
+        manager_employee_id, budget_allocated_amt, start_date,
         created_by, updated_by
       ) VALUES (
-        ${data.code}, ${data.name}, ${data.description},
-        ${data.status}, ${data.priority},
+        ${data.code}, ${data.name}, ${data.descr},
+        ${data.projectStatus}, ${data.projectStage},
+        ${data.managerEmployeeId}, ${data.budgetAllocatedAmt}, ${data.startDate},
         ${userId}, ${userId}
       )
       RETURNING *
@@ -473,35 +583,36 @@ export class ProjectService {
 
   /**
    * Update project
-   * Standard: Increment version, update updated_ts
    */
   async update(id: string, data: Partial<Project>, userId: string): Promise<Project> {
     const result = await db.execute(sql`
       UPDATE app.d_project
       SET
         name = COALESCE(${data.name}, name),
-        description = COALESCE(${data.description}, description),
-        status = COALESCE(${data.status}, status),
-        priority = COALESCE(${data.priority}, priority),
+        descr = COALESCE(${data.descr}, descr),
+        project_status = COALESCE(${data.projectStatus}, project_status),
+        project_stage = COALESCE(${data.projectStage}, project_stage),
+        manager_employee_id = COALESCE(${data.managerEmployeeId}, manager_employee_id),
+        budget_allocated_amt = COALESCE(${data.budgetAllocatedAmt}, budget_allocated_amt),
         updated_by = ${userId},
         updated_ts = NOW(),
         version = version + 1
-      WHERE id = ${id} AND active_flag = true
+      WHERE id::text = ${id} AND active_flag = true
       RETURNING *
     `);
 
     if (result.rows.length === 0) {
-      throw new Error('Project not found');
+      throw new Error('Project not found or access denied');
     }
 
     return result.rows[0] as Project;
   }
 
   /**
-   * Soft-delete project
-   * Standard: Use factory function for consistency
+   * Soft-delete project (use factory function)
    */
   async delete(id: string): Promise<void> {
+    const { universalEntityDelete } = await import('@/lib/entity-delete-route-factory.js');
     await universalEntityDelete('project', id);
   }
 }
@@ -512,6 +623,7 @@ export const projectService = new ProjectService();
 **Service Layer Standards:**
 - ✅ Use class-based services
 - ✅ All list methods paginate (default 20, max 100)
+- ✅ RBAC checks in SQL queries
 - ✅ Return null for not found (not errors)
 - ✅ Update `updated_ts`, `updated_by`, `version` on every update
 - ✅ Use soft-deletes via `universalEntityDelete()`
@@ -524,8 +636,10 @@ export const projectService = new ProjectService();
 ```typescript
 // apps/api/src/modules/project/routes.ts
 import type { FastifyInstance } from 'fastify';
+import { Type } from '@sinclair/typebox';
 import { projectService } from './service.js';
-import { resolveUnifiedAbilities } from '@/lib/authz.js';
+import { createChildEntityEndpoint } from '@/lib/child-entity-route-factory.js';
+import { createEntityDeleteEndpoint } from '@/lib/entity-delete-route-factory.js';
 
 export async function projectRoutes(fastify: FastifyInstance) {
   // LIST: GET /api/v1/project
@@ -534,44 +648,26 @@ export async function projectRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ['Project'],
       summary: 'List projects',
-      querystring: {
-        type: 'object',
-        properties: {
-          page: { type: 'integer', minimum: 1, default: 1 },
-          limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
-          status: { type: 'string' }
-        }
-      },
+      querystring: Type.Object({
+        page: Type.Optional(Type.Integer({ minimum: 1, default: 1 })),
+        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 20 })),
+        status: Type.Optional(Type.String())
+      }),
       response: {
-        200: {
-          type: 'object',
-          properties: {
-            data: { type: 'array' },
-            total: { type: 'integer' },
-            page: { type: 'integer' },
-            limit: { type: 'integer' }
-          }
-        }
+        200: Type.Object({
+          data: Type.Array(Type.Any()),
+          total: Type.Integer(),
+          page: Type.Integer(),
+          limit: Type.Integer()
+        })
       }
     },
     handler: async (request, reply) => {
       const userId = request.user.sub;
+      const { page, limit, status } = request.query as any;
 
-      // RBAC check
-      const abilities = await resolveUnifiedAbilities(userId);
-      if (!abilities.canReadEntity('project')) {
-        return reply.code(403).send({ error: 'Forbidden' });
-      }
-
-      const { page = 1, limit = 20, status } = request.query as any;
       const result = await projectService.list({ page, limit, status, userId });
-
-      return reply.send({
-        data: result.data,
-        total: result.total,
-        page,
-        limit
-      });
+      return reply.send(result);
     }
   });
 
@@ -581,27 +677,18 @@ export async function projectRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ['Project'],
       summary: 'Get project by ID',
-      params: {
-        type: 'object',
-        properties: {
-          id: { type: 'string', format: 'uuid' }
-        },
-        required: ['id']
-      }
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      })
     },
     handler: async (request, reply) => {
       const userId = request.user.sub;
       const { id } = request.params as { id: string };
 
-      // RBAC check
-      const abilities = await resolveUnifiedAbilities(userId);
-      if (!abilities.canReadEntity('project')) {
-        return reply.code(403).send({ error: 'Forbidden' });
-      }
+      const project = await projectService.getById(id, userId);
 
-      const project = await projectService.getById(id);
       if (!project) {
-        return reply.code(404).send({ error: 'Project not found' });
+        return reply.code(404).send({ error: 'Project not found or access denied' });
       }
 
       return reply.send(project);
@@ -614,30 +701,22 @@ export async function projectRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ['Project'],
       summary: 'Create project',
-      body: {
-        type: 'object',
-        required: ['code', 'name'],
-        properties: {
-          code: { type: 'string', maxLength: 50 },
-          name: { type: 'string', maxLength: 255 },
-          description: { type: 'string' },
-          status: { type: 'string' },
-          priority: { type: 'string' }
-        }
-      }
+      body: Type.Object({
+        code: Type.String({ maxLength: 50 }),
+        name: Type.String({ maxLength: 255 }),
+        descr: Type.Optional(Type.String()),
+        project_status: Type.Optional(Type.String()),
+        project_stage: Type.Optional(Type.String()),
+        manager_employee_id: Type.Optional(Type.String({ format: 'uuid' })),
+        budget_allocated_amt: Type.Optional(Type.Number()),
+        start_date: Type.Optional(Type.String({ format: 'date' }))
+      })
     },
     handler: async (request, reply) => {
       const userId = request.user.sub;
-
-      // RBAC check
-      const abilities = await resolveUnifiedAbilities(userId);
-      if (!abilities.canCreateEntity('project')) {
-        return reply.code(403).send({ error: 'Forbidden' });
-      }
-
       const data = request.body as any;
-      const project = await projectService.create(data, userId);
 
+      const project = await projectService.create(data, userId);
       return reply.code(201).send(project);
     }
   });
@@ -652,52 +731,31 @@ export async function projectRoutes(fastify: FastifyInstance) {
     handler: async (request, reply) => {
       const userId = request.user.sub;
       const { id } = request.params as { id: string };
-
-      // RBAC check
-      const abilities = await resolveUnifiedAbilities(userId);
-      if (!abilities.canUpdateEntity('project', id)) {
-        return reply.code(403).send({ error: 'Forbidden' });
-      }
-
       const data = request.body as any;
-      const project = await projectService.update(id, data, userId);
 
+      const project = await projectService.update(id, data, userId);
       return reply.send(project);
     }
   });
 
-  // DELETE: DELETE /api/v1/project/:id
-  fastify.delete('/api/v1/project/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      tags: ['Project'],
-      summary: 'Delete project'
-    },
-    handler: async (request, reply) => {
-      const userId = request.user.sub;
-      const { id } = request.params as { id: string };
+  // DELETE: DELETE /api/v1/project/:id (using factory)
+  createEntityDeleteEndpoint(fastify, 'project');
 
-      // RBAC check
-      const abilities = await resolveUnifiedAbilities(userId);
-      if (!abilities.canDeleteEntity('project', id)) {
-        return reply.code(403).send({ error: 'Forbidden' });
-      }
-
-      await projectService.delete(id);
-
-      return reply.code(204).send();
-    }
-  });
+  // CHILD ENTITY ENDPOINTS (using factory)
+  createChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
+  createChildEntityEndpoint(fastify, 'project', 'wiki', 'd_wiki');
+  createChildEntityEndpoint(fastify, 'project', 'artifact', 'd_artifact');
+  createChildEntityEndpoint(fastify, 'project', 'form', 'd_form_head');
 }
 ```
 
 **Route Layer Standards:**
 - ✅ Every route has `preHandler: [fastify.authenticate]`
 - ✅ Extract userId from `request.user.sub`
-- ✅ Check RBAC before business logic
-- ✅ Use Fastify schema validation
+- ✅ Use Fastify schema validation (TypeBox)
 - ✅ Return 403 for forbidden, 404 for not found, 201 for created
 - ✅ Tag routes for OpenAPI grouping
+- ✅ Use factory patterns for delete and child entity routes
 
 ### Step 5: Register Routes
 
@@ -707,9 +765,9 @@ export async function projectRoutes(fastify: FastifyInstance) {
 // Add to route registration
 import { projectRoutes } from './project/routes.js';
 
-export async function registerRoutes(fastify: FastifyInstance) {
+export async function registerAllRoutes(fastify: FastifyInstance) {
   // ... existing routes
-  await fastify.register(projectRoutes);
+  await projectRoutes(fastify);
 }
 ```
 
@@ -730,16 +788,20 @@ PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app -c "\dt app.d_project"
 ./tools/test-api.sh GET /api/v1/project
 
 # Test CREATE endpoint
-./tools/test-api.sh POST /api/v1/project '{"code":"PROJ001","name":"Test Project","status":"ACTIVE"}'
+./tools/test-api.sh POST /api/v1/project '{"code":"PROJ001","name":"Test Project","project_status":"active"}'
 
 # Test GET endpoint
 ./tools/test-api.sh GET /api/v1/project/{id}
 
 # Test UPDATE endpoint
-./tools/test-api.sh PUT /api/v1/project/{id} '{"status":"COMPLETED"}'
+./tools/test-api.sh PUT /api/v1/project/{id} '{"project_status":"completed"}'
 
 # Test DELETE endpoint
 ./tools/test-api.sh DELETE /api/v1/project/{id}
+
+# Test child entity endpoints
+./tools/test-api.sh GET /api/v1/project/{id}/task
+./tools/test-api.sh GET /api/v1/project/{id}/wiki
 ```
 
 ---
@@ -778,7 +840,7 @@ const projects = await db
   .where(
     and(
       eq(projectTable.activeFlag, true),
-      eq(projectTable.status, 'ACTIVE')
+      eq(projectTable.projectStatus, 'active')
     )
   )
   .orderBy(desc(projectTable.createdTs))
@@ -797,23 +859,31 @@ projects.forEach(p => {
 const result = await db.execute(sql`
   SELECT
     p.*,
-    e.name as manager_name
+    e.name as manager_name,
+    COUNT(t.id) as task_count
   FROM app.d_project p
-  LEFT JOIN app.d_employee e ON p.created_by = e.id
+  LEFT JOIN app.d_employee e ON p.manager_employee_id = e.id
+  LEFT JOIN app.d_entity_id_map eim ON eim.parent_entity_id = p.id::text
+    AND eim.parent_entity_type = 'project'
+    AND eim.child_entity_type = 'task'
+    AND eim.active_flag = true
+  LEFT JOIN app.d_task t ON t.id::text = eim.child_entity_id
+    AND t.active_flag = true
   WHERE p.active_flag = true
-    AND p.status = ${status}
+    AND p.project_status = ${status}
+  GROUP BY p.id, e.name
   ORDER BY p.created_ts DESC
   LIMIT ${limit} OFFSET ${offset}
 `);
 
-const projects = result.rows as Project[];
+const projects = result.rows as (Project & { manager_name: string; task_count: number })[];
 ```
 
 #### ❌ WRONG: Unsafe String Concatenation
 
 ```typescript
 // NEVER do this - SQL injection vulnerability!
-const query = `SELECT * FROM app.d_project WHERE status = '${status}'`;
+const query = `SELECT * FROM app.d_project WHERE project_status = '${status}'`;
 const result = await db.execute(query); // ❌ UNSAFE
 ```
 
@@ -831,21 +901,30 @@ await db.transaction(async (tx) => {
 
   const projectId = project.rows[0].id;
 
-  // Step 2: Create linkage
+  // Step 2: Create linkage to business
   await tx.execute(sql`
     INSERT INTO app.d_entity_id_map (
       parent_entity_type, parent_entity_id,
       child_entity_type, child_entity_id
     ) VALUES (
-      'CLIENT', ${clientId},
-      'PROJECT', ${projectId}
+      'business', ${businessId},
+      'project', ${projectId}::text
     )
   `);
 
   // Step 3: Create registry entry
   await tx.execute(sql`
     INSERT INTO app.d_entity_instance_id (entity_type, entity_id)
-    VALUES ('PROJECT', ${projectId})
+    VALUES ('project', ${projectId}::text)
+  `);
+
+  // Step 4: Grant owner permission to creator
+  await tx.execute(sql`
+    INSERT INTO app.entity_id_rbac_map (
+      empid, entity, entity_id, permission, active_flag
+    ) VALUES (
+      ${userId}, 'project', ${projectId}::text, ARRAY[0,1,2,3,4,5], true
+    )
   `);
 });
 ```
@@ -855,7 +934,7 @@ await db.transaction(async (tx) => {
 | Pattern | Standard | Example |
 |---------|----------|---------|
 | **Simple queries** | Use Drizzle query builder | `db.select().from(table).where(...)` |
-| **Complex queries** | Use `sql`` template | `db.execute(sql`SELECT ... JOIN ...`)` |
+| **Complex queries** | Use `sql`` template` | `db.execute(sql`SELECT ... JOIN ...`)` |
 | **Parameters** | Always use parameterized queries | `sql`WHERE id = ${id}`` |
 | **Transactions** | Use `db.transaction()` for multi-step | See example above |
 | **Type safety** | Export and use inferred types | `Project`, `NewProject` |
@@ -890,10 +969,9 @@ await db.transaction(async (tx) => {
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 4. RBAC AUTHORIZATION                                       │
-│    resolveUnifiedAbilities(userId)                          │
-│    Query: app.rel_employee_scope_unified                    │
-│    Check: abilities.canReadEntity('project')                │
+│ 4. RBAC AUTHORIZATION (SQL-embedded)                        │
+│    EXISTS check in app.entity_id_rbac_map                   │
+│    Check: 0 = ANY(rbac.permission)                          │
 │    If false → 403 Forbidden                                 │
 └────────────────────┬────────────────────────────────────────┘
                      │
@@ -908,13 +986,13 @@ await db.transaction(async (tx) => {
 ┌─────────────────────────────────────────────────────────────┐
 │ 6. ORM LAYER (Drizzle)                                      │
 │    db.execute(sql`SELECT ... FROM app.d_project ...`)       │
-│    Execute parameterized query                              │
+│    Execute parameterized query with RBAC                    │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ 7. DATABASE (PostgreSQL)                                    │
-│    Query execution                                          │
+│    Query execution with JOINs                               │
 │    Return rows                                              │
 └────────────────────┬────────────────────────────────────────┘
                      │
@@ -923,6 +1001,7 @@ await db.transaction(async (tx) => {
 │ 8. DATA TRANSFORMATION                                      │
 │    Convert DB rows to TypeScript objects                    │
 │    Apply computed fields (JOINs)                            │
+│    Calculate totals, pagination metadata                    │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ▼
@@ -953,9 +1032,9 @@ await db.transaction(async (tx) => {
 ┌─────────────────────────────────────────────────────────────┐
 │ STEP 2: Create Parent-Child Linkage                        │
 │ INSERT INTO app.d_entity_id_map (                           │
-│   parent_entity_type = 'PROJECT',                           │
+│   parent_entity_type = 'project',                           │
 │   parent_entity_id = 'abc-123',                             │
-│   child_entity_type = 'TASK',                               │
+│   child_entity_type = 'task',                               │
 │   child_entity_id = 'def-456'                               │
 │ )                                                           │
 └────────────────────┬────────────────────────────────────────┘
@@ -964,8 +1043,19 @@ await db.transaction(async (tx) => {
 ┌─────────────────────────────────────────────────────────────┐
 │ STEP 3: Create Entity Registry Entry                       │
 │ INSERT INTO app.d_entity_instance_id (                      │
-│   entity_type = 'TASK',                                     │
+│   entity_type = 'task',                                     │
 │   entity_id = 'def-456'                                     │
+│ )                                                           │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│ STEP 4: Grant RBAC Permissions                             │
+│ INSERT INTO app.entity_id_rbac_map (                        │
+│   empid = userId,                                           │
+│   entity = 'task',                                          │
+│   entity_id = 'def-456',                                    │
+│   permission = ARRAY[0,1,2,3,4,5]                           │
 │ )                                                           │
 └────────────────────┬────────────────────────────────────────┘
                      │
@@ -987,12 +1077,12 @@ Every API endpoint MUST follow these standards:
 #### Authentication & Authorization
 - [ ] Has `preHandler: [fastify.authenticate]`
 - [ ] Extracts userId from `request.user.sub`
-- [ ] Calls `resolveUnifiedAbilities(userId)`
-- [ ] Checks appropriate permission (read/create/update/delete)
+- [ ] RBAC check embedded in SQL query (for list endpoints)
+- [ ] Explicit RBAC check for single entity operations
 - [ ] Returns 403 Forbidden if unauthorized
 
 #### Data Integrity
-- [ ] Uses soft-deletes (`active_flag = false`)
+- [ ] Uses soft-deletes (`active_flag = false`, `to_ts = NOW()`)
 - [ ] Never hard-deletes records
 - [ ] Updates `updated_ts`, `updated_by`, `version` on every update
 - [ ] Sets `created_by` on entity creation
@@ -1007,7 +1097,7 @@ Every API endpoint MUST follow these standards:
 
 #### Schema Validation
 - [ ] Defines Fastify schema for request validation
-- [ ] Validates params, query, body
+- [ ] Validates params, query, body using TypeBox
 - [ ] Sets tags for OpenAPI grouping
 - [ ] Includes summary/description
 
@@ -1028,7 +1118,7 @@ Before merging API code:
 
 1. **Security:**
    - [ ] All routes have authentication
-   - [ ] RBAC checks before business logic
+   - [ ] RBAC checks in SQL or explicit checks
    - [ ] No SQL injection vulnerabilities
    - [ ] No hardcoded credentials
 
@@ -1076,12 +1166,12 @@ Do you need child entity endpoints (e.g., /project/:id/task)?
 Is the query simple (single table, basic filters)?
 │
 ├─ YES → Use Drizzle query builder
-│         Example: db.select().from(projectTable).where(eq(projectTable.status, 'ACTIVE'))
+│         Example: db.select().from(projectTable).where(eq(projectTable.projectStatus, 'active'))
 │
 └─ NO → Does the query need JOINs or complex logic?
           │
           ├─ YES → Use sql`` template
-          │         Example: Multi-table JOINs with computed fields
+          │         Example: Multi-table JOINs with computed fields, RBAC checks
           │
           └─ NO → Still prefer query builder for type safety
 ```
@@ -1092,7 +1182,7 @@ Is the query simple (single table, basic filters)?
 Does the operation modify multiple tables?
 │
 ├─ YES → Use db.transaction()
-│         Example: Create entity + linkage + registry entry
+│         Example: Create entity + linkage + registry + RBAC
 │
 └─ NO → Does failure require rollback?
           │
@@ -1119,7 +1209,7 @@ Is this a new business concept?
           └─ NO → Is it a settings/configuration?
                     │
                     ├─ YES → Add to settings table
-                    │         Example: datalabel_task_status
+                    │         Example: setting_datalabel_task_priority
                     │
                     └─ NO → Create new entity
 ```
@@ -1152,15 +1242,16 @@ PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app
 
 ```typescript
 // Check RBAC permissions
-const abilities = await resolveUnifiedAbilities(userId);
-console.log('User abilities:', abilities);
-console.log('Can read project:', abilities.canReadEntity('project'));
+const access = await db.execute(sql`
+  SELECT * FROM app.entity_id_rbac_map
+  WHERE empid = ${userId}
+    AND entity = 'project'
+    AND (entity_id = 'all' OR entity_id = ${projectId})
+    AND active_flag = true
+`);
 
-// Verify user has permissions in database
-PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app -c "
-  SELECT * FROM app.rel_employee_scope_unified
-  WHERE emp_id = 'user-id-here'
-"
+console.log('Access records:', access);
+console.log('Has permission 0 (read):', access.some(r => r.permission.includes(0)));
 ```
 
 #### 404 Not Found Error
@@ -1168,10 +1259,12 @@ PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app -c "
 ```typescript
 // Check entity exists and is active
 const result = await db.execute(sql`
-  SELECT * FROM app.d_project WHERE id = ${id}
+  SELECT * FROM app.d_project
+  WHERE id::text = ${id}
 `);
 console.log('Entity found:', result.rows.length > 0);
 console.log('Active flag:', result.rows[0]?.active_flag);
+console.log('To timestamp:', result.rows[0]?.to_ts);
 ```
 
 #### Empty Child Entity List
@@ -1181,11 +1274,12 @@ console.log('Active flag:', result.rows[0]?.active_flag);
 const linkages = await db.execute(sql`
   SELECT * FROM app.d_entity_id_map
   WHERE parent_entity_id = ${parentId}
-    AND parent_entity_type = 'PROJECT'
-    AND child_entity_type = 'TASK'
+    AND parent_entity_type = 'project'
+    AND child_entity_type = 'task'
     AND active_flag = true
 `);
 console.log('Linkages found:', linkages.rows.length);
+console.log('Linkages:', linkages.rows);
 ```
 
 ---
@@ -1196,30 +1290,61 @@ console.log('Linkages found:', linkages.rows.length);
 
 ```typescript
 // Return entities with computed fields from JOINs
-async list(params: { page: number; limit: number }): Promise<{ data: any[]; total: number }> {
+async list(params: { page: number; limit: number; userId: string }) {
+  const offset = (params.page - 1) * params.limit;
+
   const result = await db.execute(sql`
     SELECT
       p.*,
       e.name as manager_name,
-      c.name as client_name,
+      b.name as business_name,
       (
         SELECT COUNT(*)
         FROM app.d_task t
-        JOIN app.d_entity_id_map eim ON t.id = eim.child_entity_id
-        WHERE eim.parent_entity_id = p.id
-          AND eim.parent_entity_type = 'PROJECT'
-          AND eim.child_entity_type = 'TASK'
+        INNER JOIN app.d_entity_id_map eim ON t.id::text = eim.child_entity_id
+        WHERE eim.parent_entity_id = p.id::text
+          AND eim.parent_entity_type = 'project'
+          AND eim.child_entity_type = 'task'
+          AND eim.active_flag = true
           AND t.active_flag = true
       ) as task_count
     FROM app.d_project p
-    LEFT JOIN app.d_employee e ON p.created_by = e.id
-    LEFT JOIN app.d_client c ON p.client_id = c.id
+    LEFT JOIN app.d_employee e ON p.manager_employee_id = e.id
+    LEFT JOIN app.d_business b ON p.business_id = b.id
     WHERE p.active_flag = true
+      AND EXISTS (
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${params.userId}
+          AND rbac.entity = 'project'
+          AND (rbac.entity_id = 'all' OR rbac.entity_id = p.id::text)
+          AND rbac.active_flag = true
+          AND 0 = ANY(rbac.permission)
+      )
     ORDER BY p.created_ts DESC
-    LIMIT ${params.limit} OFFSET ${(params.page - 1) * params.limit}
+    LIMIT ${params.limit} OFFSET ${offset}
   `);
 
-  return { data: result.rows, total: 0 }; // Compute total separately
+  // Get total count
+  const countResult = await db.execute(sql`
+    SELECT COUNT(*) as total
+    FROM app.d_project p
+    WHERE p.active_flag = true
+      AND EXISTS (
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.empid = ${params.userId}
+          AND rbac.entity = 'project'
+          AND (rbac.entity_id = 'all' OR rbac.entity_id = p.id::text)
+          AND rbac.active_flag = true
+          AND 0 = ANY(rbac.permission)
+      )
+  `);
+
+  return {
+    data: result.rows,
+    total: Number(countResult.rows[0]?.total || 0),
+    page: params.page,
+    limit: params.limit
+  };
 }
 ```
 
@@ -1227,7 +1352,7 @@ async list(params: { page: number; limit: number }): Promise<{ data: any[]; tota
 
 ```typescript
 // Create task and link to project
-async createTask(data: { name: string; project_id: string }, userId: string): Promise<Task> {
+async createTask(data: { name: string; project_id: string }, userId: string) {
   return await db.transaction(async (tx) => {
     // Step 1: Create task
     const taskResult = await tx.execute(sql`
@@ -1243,12 +1368,27 @@ async createTask(data: { name: string; project_id: string }, userId: string): Pr
         parent_entity_type, parent_entity_id,
         child_entity_type, child_entity_id
       ) VALUES (
-        'PROJECT', ${data.project_id},
-        'TASK', ${task.id}
+        'project', ${data.project_id},
+        'task', ${task.id}::text
       )
     `);
 
-    return task as Task;
+    // Step 3: Create registry entry
+    await tx.execute(sql`
+      INSERT INTO app.d_entity_instance_id (entity_type, entity_id)
+      VALUES ('task', ${task.id}::text)
+    `);
+
+    // Step 4: Grant creator full permissions
+    await tx.execute(sql`
+      INSERT INTO app.entity_id_rbac_map (
+        empid, entity, entity_id, permission, active_flag
+      ) VALUES (
+        ${userId}, 'task', ${task.id}::text, ARRAY[0,1,2,3,4,5], true
+      )
+    `);
+
+    return task;
   });
 }
 ```
@@ -1258,13 +1398,14 @@ async createTask(data: { name: string; project_id: string }, userId: string): Pr
 ```typescript
 // Delete entity and all linkages
 async delete(id: string): Promise<void> {
+  // Use universal delete factory
   await universalEntityDelete('project', id);
 
-  // universalEntityDelete() handles:
-  // 1. Soft-delete project (active_flag = false)
+  // universalEntityDelete() automatically handles:
+  // 1. Soft-delete project (active_flag=false, to_ts=NOW())
   // 2. Soft-delete registry entry (d_entity_instance_id)
-  // 3. Soft-delete as parent (project → tasks linkages)
-  // 4. Soft-delete as child (client → project linkages)
+  // 3. Soft-delete as parent (project → tasks, wiki, etc. linkages)
+  // 4. Soft-delete as child (business → project linkages)
 }
 ```
 
@@ -1278,31 +1419,58 @@ async list(filters: {
   assignee_id?: string;
   page: number;
   limit: number;
-}): Promise<{ data: Task[]; total: number }> {
-  let whereClauses = [sql`active_flag = true`];
+  userId: string;
+}) {
+  let conditions = [
+    sql`t.active_flag = true`,
+    sql`EXISTS (
+      SELECT 1 FROM app.entity_id_rbac_map rbac
+      WHERE rbac.empid = ${filters.userId}
+        AND rbac.entity = 'task'
+        AND (rbac.entity_id = 'all' OR rbac.entity_id = t.id::text)
+        AND rbac.active_flag = true
+        AND 0 = ANY(rbac.permission)
+    )`
+  ];
 
   if (filters.status) {
-    whereClauses.push(sql`status = ${filters.status}`);
+    conditions.push(sql`t.task_status = ${filters.status}`);
   }
   if (filters.priority) {
-    whereClauses.push(sql`priority = ${filters.priority}`);
+    conditions.push(sql`t.task_priority = ${filters.priority}`);
   }
   if (filters.assignee_id) {
-    whereClauses.push(sql`assignee_id = ${filters.assignee_id}`);
+    conditions.push(sql`t.assignee_employee_id = ${filters.assignee_id}`);
   }
 
-  const whereClause = whereClauses.reduce((acc, clause, idx) =>
-    idx === 0 ? clause : sql`${acc} AND ${clause}`
-  );
+  const whereClause = sql.join(conditions, sql` AND `);
+  const offset = (filters.page - 1) * filters.limit;
 
   const result = await db.execute(sql`
-    SELECT * FROM app.d_task
+    SELECT
+      t.*,
+      e.name as assignee_name,
+      p.name as project_name
+    FROM app.d_task t
+    LEFT JOIN app.d_employee e ON t.assignee_employee_id = e.id
+    LEFT JOIN app.d_project p ON t.project_id = p.id
     WHERE ${whereClause}
-    ORDER BY created_ts DESC
-    LIMIT ${filters.limit} OFFSET ${(filters.page - 1) * filters.limit}
+    ORDER BY t.created_ts DESC
+    LIMIT ${filters.limit} OFFSET ${offset}
   `);
 
-  return { data: result.rows as Task[], total: 0 };
+  const countResult = await db.execute(sql`
+    SELECT COUNT(*) as total
+    FROM app.d_task t
+    WHERE ${whereClause}
+  `);
+
+  return {
+    data: result.rows,
+    total: Number(countResult.rows[0]?.total || 0),
+    page: filters.page,
+    limit: filters.limit
+  };
 }
 ```
 
@@ -1313,18 +1481,27 @@ async list(filters: {
 // Returns dropdown options from settings tables
 fastify.get('/api/v1/entity/task/options', {
   preHandler: [fastify.authenticate],
+  schema: {
+    tags: ['Settings'],
+    summary: 'Get task dropdown options'
+  },
   handler: async (request, reply) => {
     const options = await db.execute(sql`
       SELECT
-        (SELECT json_agg(json_build_object('value', code, 'label', name))
-         FROM app.datalabel_task_status
-         WHERE active_flag = true) as status,
-        (SELECT json_agg(json_build_object('value', code, 'label', name))
-         FROM app.datalabel_task_priority
-         WHERE active_flag = true) as priority,
-        (SELECT json_agg(json_build_object('value', id, 'label', name))
+        (SELECT json_agg(json_build_object('value', code, 'label', name, 'display_order', display_order, 'color', color_code))
+         FROM app.setting_datalabel
+         WHERE datalabel = 'dl__task_status'
+           AND active_flag = true
+         ORDER BY display_order) as status,
+        (SELECT json_agg(json_build_object('value', code, 'label', name, 'display_order', display_order, 'color', color_code))
+         FROM app.setting_datalabel
+         WHERE datalabel = 'dl__task_priority'
+           AND active_flag = true
+         ORDER BY display_order) as priority,
+        (SELECT json_agg(json_build_object('value', id::text, 'label', name))
          FROM app.d_employee
-         WHERE active_flag = true) as assignees
+         WHERE active_flag = true
+         ORDER BY name) as assignees
     `);
 
     return reply.send(options.rows[0]);
@@ -1349,10 +1526,23 @@ fastify.get('/api/v1/entity/task/options', {
 9. **Document in OpenAPI** - Keep spec updated
 10. **Enforce standards strictly** - No exceptions
 
+### Current Module Inventory
+
+**48 API Modules:**
+- **Core entities (13)**: auth, employee, task, project, role, cust, worksite, wiki, artifact, form, reports, interaction, collab
+- **Hierarchies (3)**: office-hierarchy, business-hierarchy, product-hierarchy
+- **Product & Operations (8)**: service, product, quote, work_order, inventory, order, shipment, invoice
+- **Financial (1)**: cost
+- **Calendar & Events (4)**: event, person-calendar, event-person-calendar, booking
+- **Infrastructure (11)**: schema, meta, setting, entity, entity-options, rbac, linkage, shared, upload, s3-backend, email-template
+- **Workflow (2)**: workflow, workflow-automation
+- **AI & Messaging (3)**: chat, message-data, task-data
+- **Flat entities (3)**: office, business, worksite (non-hierarchical versions)
+
 ### Getting Help
 
 **Documentation References:**
-- Universal Entity System: `docs/entity_design_pattern/universal_entity_system.md`
+- Entity System v4.0: `docs/entity_design_pattern/ENTITY_SYSTEM_V4.md`
 - Data Model: `docs/datamodel/datamodel.md`
 - OpenAPI Spec: `docs/api/openapi.yaml`
 - Tools Guide: `docs/tools.md`
@@ -1366,6 +1556,7 @@ fastify.get('/api/v1/entity/task/options', {
 
 ---
 
-**Last Updated:** 2025-11-11
-**Version:** 3.1.0
+**Last Updated:** 2025-11-12
+**Version:** 4.0.0
+**Modules:** 48
 **For Questions:** Refer to OpenAPI spec or existing entity modules as examples

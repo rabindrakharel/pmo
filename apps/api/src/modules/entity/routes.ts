@@ -763,6 +763,154 @@ export async function entityRoutes(fastify: FastifyInstance) {
   });
 
   /**
+   * PUT /api/v1/entity/type/:entity_code/configure
+   * Update entity configuration including custom columns
+   * Stores columns configuration in metadata JSONB field
+   */
+  fastify.put('/api/v1/entity/type/:entity_code/configure', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        entity_code: Type.String()
+      }),
+      body: Type.Object({
+        code: Type.String(),
+        name: Type.Optional(Type.String()),
+        ui_label: Type.Optional(Type.String()),
+        ui_icon: Type.Optional(Type.String()),
+        display_order: Type.Optional(Type.Number()),
+        columns: Type.Array(Type.Object({
+          id: Type.String(),
+          column_name: Type.String(),
+          data_type: Type.Union([
+            Type.Literal('text'),
+            Type.Literal('number'),
+            Type.Literal('date'),
+            Type.Literal('boolean'),
+            Type.Literal('json')
+          ]),
+          description: Type.String(),
+          required: Type.Boolean(),
+          order: Type.Number()
+        }))
+      }),
+      response: {
+        200: Type.Object({
+          success: Type.Boolean(),
+          message: Type.String(),
+          data: Type.Object({
+            code: Type.String(),
+            name: Type.String(),
+            ui_label: Type.String(),
+            ui_icon: Type.Optional(Type.String()),
+            display_order: Type.Number(),
+            columns: Type.Array(Type.Any())
+          })
+        }),
+        400: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async (request, reply) => {
+    const { entity_code } = request.params as { entity_code: string };
+    const { code, name, ui_label, ui_icon, display_order, columns } = request.body as any;
+    const normalizedCode = normalizeEntityType(entity_code);
+
+    try {
+      // Validate that the entity exists
+      const existingEntity = await db.execute(sql`
+        SELECT code, name, ui_label, ui_icon, display_order, metadata
+        FROM app.d_entity
+        WHERE code = ${normalizedCode}
+        LIMIT 1
+      `);
+
+      if (existingEntity.length === 0) {
+        return reply.status(404).send({
+          error: `Entity type not found: ${entity_code}`
+        });
+      }
+
+      // Parse existing metadata
+      let metadata = existingEntity[0].metadata || {};
+      if (typeof metadata === 'string') {
+        metadata = JSON.parse(metadata);
+      }
+
+      // Store columns in metadata
+      metadata.columns = columns;
+
+      // Build update query
+      const setClauses: string[] = ['updated_ts = NOW()'];
+      const values: any[] = [];
+
+      // Add metadata with columns
+      setClauses.push(`metadata = $${values.length + 1}`);
+      values.push(JSON.stringify(metadata));
+
+      // Add other optional updates
+      if (name !== undefined && name !== existingEntity[0].name) {
+        setClauses.push(`name = $${values.length + 1}`);
+        values.push(name);
+      }
+      if (ui_label !== undefined && ui_label !== existingEntity[0].ui_label) {
+        setClauses.push(`ui_label = $${values.length + 1}`);
+        values.push(ui_label);
+      }
+      if (ui_icon !== undefined && ui_icon !== existingEntity[0].ui_icon) {
+        setClauses.push(`ui_icon = $${values.length + 1}`);
+        values.push(ui_icon);
+      }
+      if (display_order !== undefined && display_order !== existingEntity[0].display_order) {
+        setClauses.push(`display_order = $${values.length + 1}`);
+        values.push(display_order);
+      }
+
+      // Execute update
+      values.push(normalizedCode);
+      const updateQuery = `
+        UPDATE app.d_entity
+        SET ${setClauses.join(', ')}
+        WHERE code = $${values.length}
+        RETURNING code, name, ui_label, ui_icon, display_order, metadata
+      `;
+
+      const result = await client.unsafe(updateQuery, values);
+
+      if (result.length === 0) {
+        return reply.status(500).send({
+          error: 'Failed to update entity configuration'
+        });
+      }
+
+      const updatedEntity = result[0];
+
+      // Parse metadata to extract columns
+      let parsedMetadata = updatedEntity.metadata || {};
+      if (typeof parsedMetadata === 'string') {
+        parsedMetadata = JSON.parse(parsedMetadata);
+      }
+
+      return {
+        success: true,
+        message: `Entity "${updatedEntity.name}" configuration updated successfully`,
+        data: {
+          code: updatedEntity.code,
+          name: updatedEntity.name,
+          ui_label: updatedEntity.ui_label,
+          ui_icon: updatedEntity.ui_icon,
+          display_order: updatedEntity.display_order,
+          columns: parsedMetadata.columns || []
+        }
+      };
+    } catch (error) {
+      fastify.log.error('Error updating entity configuration:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
    * GET /api/v1/entity/child-counts/:entity_type/:entity_id
    * Get counts of all child entities for a parent entity instance
    * Used for tab badges (e.g., "Tasks (12)")

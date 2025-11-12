@@ -1,0 +1,837 @@
+openapi: 3.1.0
+info:
+  title: PMO MCP API
+  version: 4.0.0
+  description: |
+    Model Context Protocol (MCP) API for the PMO Enterprise Platform.
+
+    Provides AI-accessible tools for:
+    - Project management
+    - Customer service
+    - Task tracking
+    - Appointment scheduling
+    - Financial operations
+
+    ## Key Features
+    - 100+ endpoints across 25+ categories
+    - JWT authentication
+    - RBAC permission system
+    - Auto-enrichment for AI agents
+    - Session memory integration
+
+  contact:
+    name: PMO Platform Team
+    email: support@huronhome.ca
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:4000/api/v1
+    description: Local development server
+  - url: http://100.26.224.246:4000/api/v1
+    description: Production server
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization operations
+  - name: Customer
+    description: Customer profile management operations
+  - name: Task
+    description: Task and workflow management operations
+  - name: Project
+    description: Project management operations
+  - name: Calendar
+    description: Appointment booking and scheduling operations
+  - name: Employee
+    description: Employee management operations
+  - name: Financial
+    description: Cost, revenue, and invoice tracking operations
+  - name: Linkage
+    description: Entity relationship management operations
+  - name: Settings
+    description: System settings and configuration operations
+  - name: RBAC
+    description: Role-based access control operations
+
+paths:
+  /auth/login:
+    post:
+      operationId: auth_login
+      summary: Authenticate user
+      description: Authenticate user with email and password to obtain JWT token
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: User email address
+                  example: james.miller@huronhome.ca
+                password:
+                  type: string
+                  format: password
+                  description: User password
+                  example: password123
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT authentication token
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  expiresIn:
+                    type: integer
+                    description: Token expiration time in seconds
+                    example: 86400
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/profile:
+    get:
+      operationId: auth_get_profile
+      summary: Get user profile
+      description: Retrieve authenticated user's profile information
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /cust:
+    get:
+      operationId: customer_list
+      summary: List customers
+      description: Retrieve a paginated list of customers with optional filtering
+      tags:
+        - Customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          description: Search query
+          schema:
+            type: string
+        - name: query_primary_phone
+          in: query
+          description: Filter by phone number
+          schema:
+            type: string
+        - name: active_flag
+          in: query
+          description: Filter by active status
+          schema:
+            type: string
+            enum: ['true', 'false']
+      responses:
+        '200':
+          description: List retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Customer'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      operationId: customer_create
+      summary: Create customer
+      description: |
+        Create a new customer profile with contact information and address.
+        Only name is required; all other fields are optional.
+      tags:
+        - Customer
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerCreate'
+      responses:
+        '201':
+          description: Customer created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /cust/{id}:
+    get:
+      operationId: customer_get
+      summary: Get customer by ID
+      description: Retrieve a specific customer by their UUID
+      tags:
+        - Customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Customer UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Customer retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      operationId: customer_update
+      summary: Update customer
+      description: Update an existing customer's information
+      tags:
+        - Customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Customer UUID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerUpdate'
+      responses:
+        '200':
+          description: Customer updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+
+  /task:
+    get:
+      operationId: task_list
+      summary: List tasks
+      description: Retrieve a paginated list of tasks with optional filtering
+      tags:
+        - Task
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: dl__task_stage
+          in: query
+          description: Filter by task stage
+          schema:
+            type: string
+            enum: [backlog, in_progress, blocked, done, cancelled]
+        - name: dl__task_priority
+          in: query
+          description: Filter by priority
+          schema:
+            type: string
+            enum: [low, medium, high, urgent]
+      responses:
+        '200':
+          description: List retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Task'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      operationId: task_create
+      summary: Create task
+      description: |
+        Create a new task with auto-enrichment from session context.
+        MCP automatically injects customer data and conversation history.
+      tags:
+        - Task
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreate'
+      responses:
+        '201':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+
+  /task/{id}:
+    get:
+      operationId: task_get
+      summary: Get task by ID
+      tags:
+        - Task
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Task retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+
+  /person-calendar/book:
+    post:
+      operationId: person_calendar_book
+      summary: Book appointment
+      description: |
+        Book a calendar appointment with auto-enrichment.
+        MCP automatically adds task references and attendee information.
+      tags:
+        - Calendar
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalendarBookingCreate'
+      responses:
+        '201':
+          description: Appointment booked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalendarBooking'
+
+  /entity-linkage:
+    get:
+      operationId: linkage_list
+      summary: List entity linkages
+      description: Retrieve relationships between entities
+      tags:
+        - Linkage
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: parent_entity_type
+          in: query
+          schema:
+            type: string
+        - name: parent_entity_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Linkages retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EntityLinkage'
+
+    post:
+      operationId: linkage_create
+      summary: Create entity linkage
+      description: Create a relationship between two entities (parent-child)
+      tags:
+        - Linkage
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntityLinkageCreate'
+      responses:
+        '201':
+          description: Linkage created successfully
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /auth/login endpoint
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        employee_id:
+          type: string
+          format: uuid
+        roles:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    Customer:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Customer UUID
+        name:
+          type: string
+          description: Customer full name
+          example: John Doe
+        primary_phone:
+          type: string
+          description: Primary phone number
+          example: "+1 555 123 4567"
+        primary_email:
+          type: string
+          format: email
+          description: Primary email address
+          example: john.doe@example.com
+        primary_address:
+          type: string
+          description: Street address
+          example: "353531 Edmonton Avenue"
+        city:
+          type: string
+          example: Palo Alto
+        province:
+          type: string
+          example: CA
+        postal_code:
+          type: string
+          example: "94301"
+        country:
+          type: string
+          example: USA
+        created_ts:
+          type: string
+          format: date-time
+        updated_ts:
+          type: string
+          format: date-time
+        active_flag:
+          type: boolean
+
+    CustomerCreate:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Customer full name (REQUIRED)
+          example: John Doe
+        primary_phone:
+          type: string
+          example: "+1 555 123 4567"
+        primary_email:
+          type: string
+          format: email
+          example: john.doe@example.com
+        primary_address:
+          type: string
+          example: "353531 Edmonton Avenue"
+        city:
+          type: string
+          example: Palo Alto
+        province:
+          type: string
+          example: CA
+        postal_code:
+          type: string
+          example: "94301"
+        country:
+          type: string
+          example: USA
+
+    CustomerUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        primary_phone:
+          type: string
+        primary_email:
+          type: string
+          format: email
+        primary_address:
+          type: string
+        city:
+          type: string
+        province:
+          type: string
+        postal_code:
+          type: string
+
+    Task:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Fix plumbing leak
+        code:
+          type: string
+          example: TASK-2025-001
+        descr:
+          type: string
+          description: Task description (auto-enriched by MCP)
+        dl__task_stage:
+          type: string
+          enum: [backlog, in_progress, blocked, done, cancelled]
+        dl__task_priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        estimated_hours:
+          type: number
+          example: 4
+        actual_hours:
+          type: number
+        metadata:
+          type: object
+          additionalProperties: true
+        created_ts:
+          type: string
+          format: date-time
+        updated_ts:
+          type: string
+          format: date-time
+
+    TaskCreate:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: Fix plumbing leak
+        code:
+          type: string
+        descr:
+          type: string
+        dl__task_stage:
+          type: string
+          enum: [backlog, in_progress, blocked, done, cancelled]
+        dl__task_priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        estimated_hours:
+          type: number
+        metadata:
+          type: object
+
+    CalendarBooking:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        instructions:
+          type: string
+        slot_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        metadata:
+          type: object
+          properties:
+            attendees:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  email:
+                    type: string
+                  phone:
+                    type: string
+                  type:
+                    type: string
+                    enum: [customer, employee]
+            task_id:
+              type: string
+              format: uuid
+
+    CalendarBookingCreate:
+      type: object
+      required:
+        - slot_ids
+        - title
+      properties:
+        slot_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        title:
+          type: string
+        instructions:
+          type: string
+        metadata:
+          type: object
+
+    EntityLinkage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        parent_entity_type:
+          type: string
+        parent_entity_id:
+          type: string
+          format: uuid
+        child_entity_type:
+          type: string
+        child_entity_id:
+          type: string
+          format: uuid
+        relationship_type:
+          type: string
+
+    EntityLinkageCreate:
+      type: object
+      required:
+        - parent_entity_type
+        - parent_entity_id
+        - child_entity_type
+        - child_entity_id
+      properties:
+        parent_entity_type:
+          type: string
+          example: project
+        parent_entity_id:
+          type: string
+          format: uuid
+        child_entity_type:
+          type: string
+          example: task
+        child_entity_id:
+          type: string
+          format: uuid
+        relationship_type:
+          type: string
+          example: belongs_to
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+        hasMore:
+          type: boolean
+
+    Error:
+      type: object
+      required:
+        - error
+        - statusCode
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Invalid request parameters
+            details:
+              type: object
+              additionalProperties: true
+        statusCode:
+          type: integer
+          example: 400
+        timestamp:
+          type: string
+          format: date-time
+
+  responses:
+    BadRequest:
+      description: Bad request - Invalid parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: BAD_REQUEST
+              message: Invalid request parameters
+            statusCode: 400
+            timestamp: "2025-11-12T10:30:00Z"
+
+    Unauthorized:
+      description: Unauthorized - Missing or invalid token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: Authentication required
+            statusCode: 401
+
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: FORBIDDEN
+              message: Insufficient permissions
+            statusCode: 403
+
+    NotFound:
+      description: Not found - Resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: NOT_FOUND
+              message: Resource not found
+            statusCode: 404
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: INTERNAL_SERVER_ERROR
+              message: An unexpected error occurred
+            statusCode: 500
+
+security:
+  - bearerAuth: []

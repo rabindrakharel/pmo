@@ -1,8 +1,8 @@
 # Calendar-Event Integration Architecture
 
 **Status:** Production-Ready
-**Version:** 1.0.0
-**Last Updated:** 2025-11-10
+**Version:** 2.0.0
+**Last Updated:** 2025-11-12
 **Related Entities:** `calendar`, `event`, `event_person_calendar`
 **Calendar UI Route:** `/calendar`
 **Event API Endpoint:** `/api/v1/event`
