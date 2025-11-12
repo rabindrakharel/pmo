@@ -600,6 +600,7 @@ Database (PostgreSQL, 52 tables)
 | **[Universal Entity System](./docs/entity_design_pattern/universal_entity_system.md)** | Complete DRY entity architecture | Understanding entity pages, column consistency, inline editing | 3 universal pages, EntityConfig, Column consistency v3.1.1, Create-Link-Edit pattern |
 | **[Column Consistency Update](./docs/entity_design_pattern/COLUMN_CONSISTENCY_UPDATE.md)** | v3.1.1 Column consistency implementation | Understanding child entity table behavior | Context-independent columns, API filtering, Verification tests |
 | **[DRY Factory Patterns](./docs/entity_design_pattern/DRY_FACTORY_PATTERNS.md)** | Reusable code generation patterns | Adding new entities with minimal code | Column generation, field generation, field category registry, route factories, API factory |
+| **[Integration Guide](./docs/entity_design_pattern/INTEGRATION_GUIDE.md)** | **⭐ Practical integration examples** | Implementing universal field detector in components | 3-line integration, EntityDataTable, EntityFormContainer, KanbanBoard, DAGVisualizer, Migration checklist |
 | **[Kanban System](./docs/component_Kanban_System.md)** | Task board implementation | Building kanban views, task management | Drag-drop, Column configuration, State transitions |
 | **[Dynamic Forms](./docs/form/form.md)** | JSONB-based form builder | Creating custom forms, form workflows | Form schema, Multi-step wizards, Validation, Submissions |
 | **[AI Chat System](./docs/ai_chat/AI_CHAT_SYSTEM.md)** | Goal-oriented conversational AI platform (v6.0) | Implementing AI-powered customer service | Text chat (SSE), Voice (WebSocket+HTTP), MCP-driven session memory, 60+ API tools, Deep merge, Unified goal agent |
@@ -689,6 +690,8 @@ Entity tabs: UI_UX_PAGE_Components_Modal.md → DynamicChildEntityTabs ⭐
 | **linkage, parent-child, d_entity_id_map, relationships** | `entity_design_pattern/universal_entity_system.md`, `datamodel/datamodel.md` |
 | **column consistency, context-independent, child entity tables** | `entity_design_pattern/COLUMN_CONSISTENCY_UPDATE.md` ⭐, `entity_design_pattern/universal_entity_system.md` |
 | **factory patterns, code generation, generateColumns, generateFields** | `entity_design_pattern/DRY_FACTORY_PATTERNS.md` ⭐ |
+| **universal field detector, auto-detection, generateViewConfig, integration, migration** | `entity_design_pattern/INTEGRATION_GUIDE.md` ⭐ |
+| **detectField, generateDataTableConfig, generateFormConfig, generateKanbanConfig** | `entity_design_pattern/INTEGRATION_GUIDE.md` ⭐ |
 | **database, schema, DDL, tables, relationships** | `datamodel/datamodel.md`, `entity_ui_ux_route_api.md` |
 | **API, endpoints, routes, modules** | `entity_ui_ux_route_api.md`, `ENTITY_OPTIONS_API.md`, `s3_service/S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md` |
 | **frontend, React, components, pages** | `UI_UX_PAGE_Components_Modal.md` ⭐, `entity_design_pattern/universal_entity_system.md`, `entity_ui_ux_route_api.md` |
