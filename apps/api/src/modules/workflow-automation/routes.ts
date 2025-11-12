@@ -272,6 +272,7 @@ export async function workflowAutomationRoutes(fastify: FastifyInstance) {
       body: UpdateWorkflowAutomationSchema,
       response: {
         200: WorkflowAutomationSchema,
+        403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
       },
