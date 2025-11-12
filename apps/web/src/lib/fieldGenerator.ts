@@ -1,4 +1,29 @@
 /**
+ * ⚠️ DEPRECATED - LEGACY CODE (v3.x)
+ *
+ * This file is marked for removal in Entity System v4.0.
+ *
+ * **Why Deprecated:**
+ * - Manual field generation is replaced by auto-generation via viewConfigGenerator.ts
+ * - Components now use autoGenerateFields prop instead of manual configs
+ * - Pattern-based detection eliminates need for manual field definitions
+ *
+ * **Migration Path:**
+ * Instead of:
+ *   fields: generateEntityFields(['name', 'code', 'status'])
+ *
+ * Use:
+ *   <EntityFormContainer data={data} autoGenerateFields />
+ *
+ * **See:**
+ * - docs/entity_design_pattern/ENTITY_SYSTEM_V4.md
+ * - apps/web/src/lib/universalFieldDetector.ts
+ * - apps/web/src/lib/viewConfigGenerator.ts (generateFormConfig)
+ *
+ * **Status:** Currently used by entityConfig.ts (pending migration)
+ *
+ * ---
+ *
  * Centralized Field Generation System
  *
  * Auto-generates field definitions for entity forms using convention-based

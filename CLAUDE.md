@@ -571,7 +571,9 @@ Database (PostgreSQL, 52 tables)
 | Document | Purpose | When to Use | Key Topics |
 |----------|---------|-------------|------------|
 | **[📖 Documentation Index](./docs/README.md)** | **⭐ Complete navigation guide for all 40+ docs** | Finding any documentation quickly by task, keyword, or folder | Folder index, keyword search, reading order, quick reference |
-| **[Universal Entity System](./docs/entity_design_pattern/universal_entity_system.md)** | **⭐ Complete DRY entity architecture guide** | Understanding universal pages, inline editing, create-then-link patterns | 3 universal pages, Default-editable pattern, Column consistency, Inline create-then-link, Entity configuration (v3.1) |
+| **[Entity System v4.0](./docs/entity_design_pattern/ENTITY_SYSTEM_V4.md)** | **⭐⭐⭐ Complete v4.0 architecture guide** | Understanding zero-config, pattern-based entity system | Universal field detector, View config generator, 12 patterns, 15 edit types, 83% performance gain, Migration guide |
+| **[Universal Field Detector v2.0](./docs/entity_design_pattern/UNIVERSAL_FIELD_DETECTOR_V2.md)** | **⭐⭐ Pattern-based field detection system** | Understanding field auto-detection, naming conventions, troubleshooting | 12 detection patterns, Naming conventions, Performance optimization, API reference, Extending detector |
+| **[Universal Entity System](./docs/entity_design_pattern/universal_entity_system.md)** | **⭐ Complete DRY entity architecture guide (v3.1)** | Understanding universal pages, inline editing, create-then-link patterns | 3 universal pages, Default-editable pattern, Column consistency, Inline create-then-link, Entity configuration |
 | **[Entity Metadata Coherence](./docs/entity_design_pattern/ENTITY_METADATA_COHERENCE.md)** | Dynamic entity metadata from d_entity table | Understanding entity metadata API loading, sidebar/tabs/settings | d_entity table, /api/v1/entity/* endpoints, Dynamic icons/labels, Child entity tabs |
 | **[UI/UX Architecture](./docs/entity_ui_ux_route_api.md)** | Complete system architecture from DB to frontend | Understanding the entire platform, data flows, routing | Database layer, API modules, Frontend components, Data flow examples, DRY principles |
 | **[Infrastructure Design](./docs/infra_docs/INFRASTRUCTURE_DESIGN.md)** | AWS cloud infrastructure and deployment | Setting up AWS resources, deployment pipeline | Terraform, EC2, S3, Lambda, EventBridge, Deployment automation |
@@ -597,9 +599,11 @@ Database (PostgreSQL, 52 tables)
 | Document | Purpose | When to Use | Key Topics |
 |----------|---------|-------------|------------|
 | **[UI/UX Reusable Components](./docs/UI_UX_PAGE_Components_Modal.md)** | **⭐ MANDATORY component patterns** | ALL entity development - which component to use where | FilteredDataTable, EntityFormContainer, DAGVisualizer, KanbanBoard, CalendarView, DynamicChildEntityTabs, Field auto-detection, Visualization matrix, Anti-patterns |
-| **[Universal Entity System](./docs/entity_design_pattern/universal_entity_system.md)** | Complete DRY entity architecture | Understanding entity pages, column consistency, inline editing | 3 universal pages, EntityConfig, Column consistency v3.1.1, Create-Link-Edit pattern |
+| **[Entity System v4.0](./docs/entity_design_pattern/ENTITY_SYSTEM_V4.md)** | **⭐⭐⭐ Zero-config entity architecture** | Understanding v4.0 auto-generation, migration from v3.x | Universal field detector, View config generator, 12 patterns, 83% faster, Migration guide |
+| **[Universal Field Detector v2.0](./docs/entity_design_pattern/UNIVERSAL_FIELD_DETECTOR_V2.md)** | **⭐⭐ Pattern-based field detection** | Field auto-detection, naming conventions, extending patterns | 12 patterns (*_amt, dl__*, is_*, *_id), Performance tips, Troubleshooting, API reference |
+| **[Universal Entity System](./docs/entity_design_pattern/universal_entity_system.md)** | Complete DRY entity architecture (v3.1) | Understanding entity pages, column consistency, inline editing | 3 universal pages, EntityConfig, Column consistency v3.1.1, Create-Link-Edit pattern |
 | **[Column Consistency Update](./docs/entity_design_pattern/COLUMN_CONSISTENCY_UPDATE.md)** | v3.1.1 Column consistency implementation | Understanding child entity table behavior | Context-independent columns, API filtering, Verification tests |
-| **[DRY Factory Patterns](./docs/entity_design_pattern/DRY_FACTORY_PATTERNS.md)** | Reusable code generation patterns | Adding new entities with minimal code | Column generation, field generation, field category registry, route factories, API factory |
+| **[DRY Factory Patterns](./docs/entity_design_pattern/DRY_FACTORY_PATTERNS.md)** | ⚠️ DEPRECATED v3.x patterns | Legacy code reference (marked for removal) | generateColumns, generateFields, fieldCategoryRegistry (use v4.0 auto-generation instead) |
 | **[Integration Guide](./docs/entity_design_pattern/INTEGRATION_GUIDE.md)** | **⭐ Practical integration examples** | Implementing universal field detector in components | 3-line integration, EntityDataTable, EntityFormContainer, KanbanBoard, DAGVisualizer, Migration checklist |
 | **[Kanban System](./docs/component_Kanban_System.md)** | Task board implementation | Building kanban views, task management | Drag-drop, Column configuration, State transitions |
 | **[Dynamic Forms](./docs/form/form.md)** | JSONB-based form builder | Creating custom forms, form workflows | Form schema, Multi-step wizards, Validation, Submissions |
@@ -622,7 +626,8 @@ Database (PostgreSQL, 52 tables)
 **🔍 Understanding the Platform:**
 ```
 Start with: docs/README.md → Complete documentation index ⭐⭐⭐
-Then read: entity_design_pattern/universal_entity_system.md → DRY entity architecture ⭐
+Then read: entity_design_pattern/ENTITY_SYSTEM_V4.md → v4.0 zero-config architecture ⭐⭐⭐
+Then read: entity_design_pattern/UNIVERSAL_FIELD_DETECTOR_V2.md → Pattern-based field detection ⭐⭐
 Then read: entity_ui_ux_route_api.md → Complete overview of all layers
 Then read: datamodel/datamodel.md → Understand entities and relationships
 Finally: infra_docs/INFRASTRUCTURE_DESIGN.md → Deployment architecture
@@ -630,16 +635,18 @@ Finally: infra_docs/INFRASTRUCTURE_DESIGN.md → Deployment architecture
 
 **🏗️ Adding New Features:**
 ```
-New entity type: UI_UX_PAGE_Components_Modal.md → Component checklist ⭐
-                 entity_design_pattern/universal_entity_system.md → Universal pages, config, patterns
-                 entity_design_pattern/DRY_FACTORY_PATTERNS.md → Factory patterns
+New entity type: entity_design_pattern/ENTITY_SYSTEM_V4.md → Zero-config v4.0 architecture ⭐⭐⭐
+                 entity_design_pattern/UNIVERSAL_FIELD_DETECTOR_V2.md → Naming conventions ⭐⭐
+                 UI_UX_PAGE_Components_Modal.md → Component checklist ⭐
 Entity-based feature: UI_UX_PAGE_Components_Modal.md → Component selection matrix ⭐
-                     entity_design_pattern/universal_entity_system.md → Inline editing, create-then-link
+                     entity_design_pattern/ENTITY_SYSTEM_V4.md → Auto-generation patterns ⭐⭐⭐
 Parent-child relationships: entity_design_pattern/universal_entity_system.md → Linkage patterns
-Form feature: UI_UX_PAGE_Components_Modal.md → EntityFormContainer field types ⭐
+Form feature: entity_design_pattern/UNIVERSAL_FIELD_DETECTOR_V2.md → 12 field patterns ⭐⭐
+             UI_UX_PAGE_Components_Modal.md → EntityFormContainer field types ⭐
              form/form.md → Dynamic form schemas
 File upload: s3_service/S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md → Attachment workflow
-Dropdown/select: ENTITY_OPTIONS_API.md → Universal options API
+Dropdown/select: entity_design_pattern/UNIVERSAL_FIELD_DETECTOR_V2.md → dl__* pattern ⭐⭐
+                ENTITY_OPTIONS_API.md → Universal options API
 Visualization: UI_UX_PAGE_Components_Modal.md → DAG, Calendar, Kanban, Grid patterns ⭐
 ```
 
@@ -689,9 +696,12 @@ Entity tabs: UI_UX_PAGE_Components_Modal.md → DynamicChildEntityTabs ⭐
 | **inline editing, add row, default-editable** | `entity_design_pattern/universal_entity_system.md` |
 | **linkage, parent-child, d_entity_id_map, relationships** | `entity_design_pattern/universal_entity_system.md`, `datamodel/datamodel.md` |
 | **column consistency, context-independent, child entity tables** | `entity_design_pattern/COLUMN_CONSISTENCY_UPDATE.md` ⭐, `entity_design_pattern/universal_entity_system.md` |
-| **factory patterns, code generation, generateColumns, generateFields** | `entity_design_pattern/DRY_FACTORY_PATTERNS.md` ⭐ |
-| **universal field detector, auto-detection, generateViewConfig, integration, migration** | `entity_design_pattern/INTEGRATION_GUIDE.md` ⭐ |
-| **detectField, generateDataTableConfig, generateFormConfig, generateKanbanConfig** | `entity_design_pattern/INTEGRATION_GUIDE.md` ⭐ |
+| **entity system v4.0, zero-config, pattern-based, auto-generation, migration** | `entity_design_pattern/ENTITY_SYSTEM_V4.md` ⭐⭐⭐ |
+| **universal field detector, detectField, 12 patterns, naming conventions, performance** | `entity_design_pattern/UNIVERSAL_FIELD_DETECTOR_V2.md` ⭐⭐ |
+| **field patterns, *_amt, dl__*, is_*, *_id, *_date, tags, percentage** | `entity_design_pattern/UNIVERSAL_FIELD_DETECTOR_V2.md` ⭐⭐ |
+| **view config generator, generateDataTableConfig, generateFormConfig, autoGenerateColumns** | `entity_design_pattern/ENTITY_SYSTEM_V4.md` ⭐⭐⭐ |
+| **factory patterns, code generation, generateColumns, generateFields** | `entity_design_pattern/DRY_FACTORY_PATTERNS.md` (⚠️ DEPRECATED - use v4.0) |
+| **integration examples, 3-line integration, migration checklist** | `entity_design_pattern/INTEGRATION_GUIDE.md` ⭐ |
 | **database, schema, DDL, tables, relationships** | `datamodel/datamodel.md`, `entity_ui_ux_route_api.md` |
 | **API, endpoints, routes, modules** | `entity_ui_ux_route_api.md`, `ENTITY_OPTIONS_API.md`, `s3_service/S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md` |
 | **frontend, React, components, pages** | `UI_UX_PAGE_Components_Modal.md` ⭐, `entity_design_pattern/universal_entity_system.md`, `entity_ui_ux_route_api.md` |
@@ -861,15 +871,19 @@ MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🎯 For AI/LLM Agents
 
-**Primary Reference:** ⭐ Always start with `docs/entity_design_pattern/universal_entity_system.md` for DRY entity architecture.
+**Primary Reference:** ⭐⭐⭐ Always start with `docs/entity_design_pattern/ENTITY_SYSTEM_V4.md` for v4.0 zero-config architecture.
 
 **Core Architecture References:**
-- Universal Entity System → `docs/entity_design_pattern/universal_entity_system.md` ⭐ **START HERE**
+- **Entity System v4.0** → `docs/entity_design_pattern/ENTITY_SYSTEM_V4.md` ⭐⭐⭐ **START HERE**
+- **Universal Field Detector v2.0** → `docs/entity_design_pattern/UNIVERSAL_FIELD_DETECTOR_V2.md` ⭐⭐
 - UI/UX Architecture → `docs/ui_ux_route_api.md`
 - Database/Schema → `docs/datamodel.md`
 
 **Task-Specific References:**
-- **New Entity Type** → `docs/entity_design_pattern/universal_entity_system.md` (Best Practices section)
+- **New Entity Type** → `docs/entity_design_pattern/ENTITY_SYSTEM_V4.md` (Migration Guide) ⭐⭐⭐
+- **Field Detection** → `docs/entity_design_pattern/UNIVERSAL_FIELD_DETECTOR_V2.md` (12 Patterns) ⭐⭐
+- **Naming Conventions** → `docs/entity_design_pattern/UNIVERSAL_FIELD_DETECTOR_V2.md` (Best Practices) ⭐⭐
+- **Auto-Generation** → `docs/entity_design_pattern/ENTITY_SYSTEM_V4.md` (View Config Generator) ⭐⭐⭐
 - **Add Row / Inline Creation** → `docs/entity_design_pattern/universal_entity_system.md` (Inline Create-Then-Link)
 - **Parent-Child Linkage** → `docs/entity_design_pattern/universal_entity_system.md` (Create-Link-Edit Pattern)
 - **Inline Editing** → `docs/entity_design_pattern/universal_entity_system.md` (Default-Editable Pattern)
