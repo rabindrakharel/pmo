@@ -29,7 +29,7 @@
 -- • cust → project, artifact, form, cost, revenue
 -- • role → employee
 -- • form, quote, order → (have children per child_entities JSONB)
--- • Leaf nodes: employee, wiki, artifact, worksite, position, reports, service, product, etc.
+-- • Leaf nodes: employee, wiki, artifact, worksite, reports, service, product, etc.
 --
 -- =====================================================
 
@@ -211,17 +211,6 @@ VALUES (
   110
 );
 
--- Position entity type (leaf node - no children)
-INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
-VALUES (
-  'position',
-  'Position',
-  'Positions',
-  'Briefcase',
-  '[]'::jsonb,
-  120
-);
-
 -- Reports entity type (leaf node - no children)
 INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
@@ -376,17 +365,6 @@ VALUES (
   205
 );
 
--- Chat entity type (AI Assistant - leaf node - no children)
-INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
-VALUES (
-  'chat',
-  'AI Chat',
-  'AI Assistant',
-  'MessageSquare',
-  '[]'::jsonb,
-  210
-);
-
 -- Event entity type (Universal parent - can have many child entities)
 INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
@@ -522,27 +500,6 @@ VALUES (
   'Zap',
   '[]'::jsonb,
   280
-) ON CONFLICT (code) DO UPDATE SET
-  name = EXCLUDED.name,
-  ui_label = EXCLUDED.ui_label,
-  ui_icon = EXCLUDED.ui_icon,
-  child_entities = EXCLUDED.child_entities,
-  display_order = EXCLUDED.display_order,
-  updated_ts = now();
-
--- Alias for business → biz (for backward compatibility with entity configs that use "biz")
-INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
-VALUES (
-  'biz',
-  'Business',
-  'Businesses',
-  'Building2',
-  '[
-    {"entity": "project", "ui_icon": "FolderOpen", "ui_label": "Projects", "order": 1},
-    {"entity": "cost", "ui_icon": "DollarSign", "ui_label": "Costs", "order": 2},
-    {"entity": "revenue", "ui_icon": "TrendingUp", "ui_label": "Revenue", "order": 3}
-  ]'::jsonb,
-  21
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
   ui_label = EXCLUDED.ui_label,

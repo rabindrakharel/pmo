@@ -659,18 +659,15 @@ export const entityConfigs: Record<string, EntityConfig> = {
   },
 
   // --------------------------------------------------------------------------
-  // BUSINESS (biz)
-  // --------------------------------------------------------------------------
-  // --------------------------------------------------------------------------
   // BUSINESS (Operational Teams Only)
   // --------------------------------------------------------------------------
   // NOTE: Business hierarchy management is separate (d_business_hierarchy table)
   // This config is for operational business units (teams doing actual work)
-  biz: {
-    name: 'biz',
+  business: {
+    name: 'business',
     displayName: 'Business Unit',
     pluralName: 'Business Units',
-    apiEndpoint: '/api/v1/biz',
+    apiEndpoint: '/api/v1/business',
 
     columns: generateStandardColumns(
       ['name', 'code', 'operational_status', 'current_headcount', 'office_id', 'descr', 'active_flag', 'created_ts', 'updated_ts']

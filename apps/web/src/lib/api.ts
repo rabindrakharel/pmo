@@ -292,7 +292,7 @@ export const custApi = {
   },
 };
 
-export const bizApi = {
+export const businessApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; level?: string }) {
     // Convert page-based pagination to limit/offset for API
     const limit = params?.pageSize ?? 20;
@@ -301,68 +301,68 @@ export const bizApi = {
     if (params?.search) query.search = params.search;
     if (params?.level) query.level = params.level;
 
-    const response = await apiClient.get('/api/v1/biz', { params: query });
+    const response = await apiClient.get('/api/v1/business', { params: query });
     return response.data;
   },
 
   async get(id: string) {
-    const response = await apiClient.get(`/api/v1/biz/${id}`);
+    const response = await apiClient.get(`/api/v1/business/${id}`);
     return response.data;
   },
 
   async getProjects(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
     const limit = params?.pageSize ?? 100;
-    const response = await apiClient.get(`/api/v1/biz/${id}/project`, { params: { page, limit } });
+    const response = await apiClient.get(`/api/v1/business/${id}/project`, { params: { page, limit } });
     return response.data;
   },
 
   async getTasks(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
     const limit = params?.pageSize ?? 100;
-    const response = await apiClient.get(`/api/v1/biz/${id}/task`, { params: { page, limit } });
+    const response = await apiClient.get(`/api/v1/business/${id}/task`, { params: { page, limit } });
     return response.data;
   },
 
   async getWikis(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
     const limit = params?.pageSize ?? 100;
-    const response = await apiClient.get(`/api/v1/biz/${id}/wiki`, { params: { page, limit } });
+    const response = await apiClient.get(`/api/v1/business/${id}/wiki`, { params: { page, limit } });
     return response.data;
   },
 
   async getArtifacts(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
     const limit = params?.pageSize ?? 100;
-    const response = await apiClient.get(`/api/v1/biz/${id}/artifact`, { params: { page, limit } });
+    const response = await apiClient.get(`/api/v1/business/${id}/artifact`, { params: { page, limit } });
     return response.data;
   },
 
   async getForms(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
     const limit = params?.pageSize ?? 100;
-    const response = await apiClient.get(`/api/v1/biz/${id}/form`, { params: { page, limit } });
+    const response = await apiClient.get(`/api/v1/business/${id}/form`, { params: { page, limit } });
     return response.data;
   },
 
   async create(data: any) {
-    const response = await apiClient.post('/api/v1/biz', data);
+    const response = await apiClient.post('/api/v1/business', data);
     return response.data;
   },
 
   async update(id: string, data: any) {
-    const response = await apiClient.put(`/api/v1/biz/${id}`, data);
+    const response = await apiClient.put(`/api/v1/business/${id}`, data);
     return response.data;
   },
 
   async delete(id: string) {
-    const response = await apiClient.delete(`/api/v1/biz/${id}`);
+    const response = await apiClient.delete(`/api/v1/business/${id}`);
     return response.data;
   },
 };
 
 // Keep backward compatibility alias
-export const businessApi = bizApi;
+export const bizApi = businessApi;
 
 export const officeApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; level?: string }) {
@@ -1011,8 +1011,8 @@ import { APIFactory } from './api-factory';
 // Core business entities
 APIFactory.register('project', projectApi);
 APIFactory.register('task', taskApi);
-APIFactory.register('biz', bizApi);
-APIFactory.register('business', businessApi); // Alias for biz
+APIFactory.register('business', businessApi);
+APIFactory.register('biz', bizApi); // Alias for business (backward compatibility)
 APIFactory.register('office', officeApi);
 APIFactory.register('org', orgApi); // Alias for office
 
