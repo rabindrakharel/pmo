@@ -660,8 +660,8 @@ export function EntityDataTable<T = any>({
     return showDefaultActions ? [...defaultActions, ...rowActions] : rowActions;
   }, [defaultActions, rowActions, showDefaultActions]);
 
-  const columns = useMemo(() => {
-    let processedColumns = columns.filter(col => visibleColumns.has(col.key));
+  const processedColumns = useMemo(() => {
+    let filteredColumns = columns.filter(col => visibleColumns.has(col.key));
 
     // Add actions column if there are any actions
     if (allActions.length > 0) {
@@ -708,10 +708,10 @@ export function EntityDataTable<T = any>({
         },
       };
 
-      processedColumns = [...processedColumns, actionsColumn];
+      filteredColumns = [...filteredColumns, actionsColumn];
     }
 
-    return processedColumns;
+    return filteredColumns;
   }, [columns, visibleColumns, allActions]);
 
   const handleSort = (field: string) => {
@@ -1310,22 +1310,22 @@ export function EntityDataTable<T = any>({
           <table
             className="w-full divide-y divide-dark-400"
             style={{
-              minWidth: columns.length > 7 ? `${columns.length * 200}px` : '100%',
-              tableLayout: columns.length <= 7 ? 'auto' : 'fixed'
+              minWidth: processedColumns.length > 7 ? `${processedColumns.length * 200}px` : '100%',
+              tableLayout: processedColumns.length <= 7 ? 'auto' : 'fixed'
             }}
           >
             <thead className="bg-gradient-to-r from-dark-100 to-dark-100/80 sticky top-0 z-30 shadow-sm">
               <tr>
-                {columns.map((column, index) => (
+                {processedColumns.map((column, index) => (
                   <th
                     key={column.key}
                     className={`px-6 py-2.5 text-left ${
                       column.sortable ? 'cursor-pointer hover:bg-dark-100/50 transition-colors' : ''
-                    } ${columns.length > 7 ? 'min-w-[200px]' : ''} ${
+                    } ${processedColumns.length > 7 ? 'min-w-[200px]' : ''} ${
                       index === 0 ? 'sticky left-0 z-40 bg-dark-100 shadow-r' : ''
                     }`}
                     style={{
-                      width: columns.length > 7 ? '200px' : (column.width || 'auto'),
+                      width: processedColumns.length > 7 ? '200px' : (column.width || 'auto'),
                       textAlign: column.align || 'left',
                       color: '#37352F',
                       font: "500 13px / 18px 'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
@@ -1394,7 +1394,7 @@ export function EntityDataTable<T = any>({
                               : 'hover:bg-dark-100/30'
                       }`}
                     >
-                    {columns.map((column, colIndex) => {
+                    {processedColumns.map((column, colIndex) => {
                       // ============================================================================
                       // ACTIONS COLUMN - INLINE EDITING PATTERN (Matches SettingsDataTable)
                       // ============================================================================

@@ -50,9 +50,9 @@ const CreateBizSchema = Type.Object({
 
 const UpdateBizSchema = Type.Partial(CreateBizSchema);
 
-export async function bizRoutes(fastify: FastifyInstance) {
+export async function businessRoutes(fastify: FastifyInstance) {
   // List operational business units with filtering
-  fastify.get('/api/v1/biz', {
+  fastify.get('/api/v1/business', {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
@@ -88,13 +88,13 @@ export async function bizRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Direct RBAC filtering - only show biz units user has access to
+      // Direct RBAC filtering - only show business units user has access to
       const baseConditions = [
         sql`(
           EXISTS (
             SELECT 1 FROM app.entity_id_rbac_map rbac
             WHERE rbac.empid = ${userId}::uuid
-              AND rbac.entity = 'biz'
+              AND rbac.entity = 'business'
               AND (rbac.entity_id = b.id::text OR rbac.entity_id = 'all')
               AND rbac.active_flag = true
               AND 0 = ANY(rbac.permission)
@@ -155,7 +155,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
   // d_business table only contains operational teams without parent-child relationships
 
   // Get projects within a business unit
-  fastify.get('/api/v1/biz/:id/project', {
+  fastify.get('/api/v1/business/:id/project', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -178,7 +178,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       }
 
       // Check if user has access to this business unit
-      const hasAccess = await hasPermissionOnEntityId(userId, 'biz', bizId, 'view');
+      const hasAccess = await hasPermissionOnEntityId(userId, 'business', bizId, 'view');
       if (!hasAccess) {
         return reply.status(403).send({ error: 'Access denied for this business unit' });
       }
@@ -234,7 +234,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
   });
 
   // Get business dynamic child entity tabs - for tab navigation
-  fastify.get('/api/v1/biz/:id/dynamic-child-entity-tabs', {
+  fastify.get('/api/v1/business/:id/dynamic-child-entity-tabs', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -265,7 +265,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       }
 
       // Check if user has access to this business unit
-      const hasAccess = await hasPermissionOnEntityId(userId, 'biz', bizId, 'view');
+      const hasAccess = await hasPermissionOnEntityId(userId, 'business', bizId, 'view');
       if (!hasAccess) {
         return reply.status(403).send({ error: 'Access denied for this business unit' });
       }
@@ -380,7 +380,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
   });
 
   // Get creatable entity types within a business unit
-  fastify.get('/api/v1/biz/:id/creatable', {
+  fastify.get('/api/v1/business/:id/creatable', {
 
     schema: {
       params: Type.Object({
@@ -397,7 +397,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
       }
 
       // Check if user has access to this business unit
-      const hasAccess = await hasPermissionOnEntityId(userId, 'biz', bizId, 'view');
+      const hasAccess = await hasPermissionOnEntityId(userId, 'business', bizId, 'view');
       if (!hasAccess) {
         return reply.status(403).send({ error: 'Access denied for this business unit' });
       }
@@ -432,7 +432,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
   });
 
   // Get single business unit
-  fastify.get('/api/v1/biz/:id', {
+  fastify.get('/api/v1/business/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -454,7 +454,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
     }
 
     // Check if employee has permission to view this specific business unit
-    const hasViewAccess = await hasPermissionOnEntityId(userId, 'biz', id, 'view');
+    const hasViewAccess = await hasPermissionOnEntityId(userId, 'business', id, 'view');
     if (!hasViewAccess) {
       return reply.status(403).send({ error: 'Insufficient permissions to view this business unit' });
     }
@@ -488,7 +488,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
   });
 
   // Create business unit
-  fastify.post('/api/v1/biz', {
+  fastify.post('/api/v1/business', {
     preHandler: [fastify.authenticate],
     schema: {
       body: CreateBizSchema,
@@ -570,7 +570,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
   });
 
   // Update business unit
-  fastify.put('/api/v1/biz/:id', {
+  fastify.put('/api/v1/business/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -594,7 +594,7 @@ export async function bizRoutes(fastify: FastifyInstance) {
     }
 
     // Check if employee has permission to modify this specific business unit
-    const hasModifyAccess = await hasPermissionOnEntityId(userId, 'biz', id, 'edit');
+    const hasModifyAccess = await hasPermissionOnEntityId(userId, 'business', id, 'edit');
     if (!hasModifyAccess) {
       return reply.status(403).send({ error: 'Insufficient permissions to modify this business unit' });
     }
@@ -655,5 +655,5 @@ export async function bizRoutes(fastify: FastifyInstance) {
   // 1. app.d_business (base entity table)
   // 2. app.d_entity_instance_id (entity registry)
   // 3. app.d_entity_id_map (linkages in both directions)
-  createEntityDeleteEndpoint(fastify, 'biz');
+  createEntityDeleteEndpoint(fastify, 'business');
 }

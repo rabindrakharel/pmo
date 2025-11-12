@@ -78,7 +78,7 @@ export interface EntityAPI {
 /**
  * Extended Entity API for entities with child relationships
  *
- * Some entities (like project, task, biz, office) have child entity endpoints.
+ * Some entities (like project, task, business, office) have child entity endpoints.
  * This interface extends EntityAPI to include those methods.
  */
 export interface ExtendedEntityAPI extends EntityAPI {
@@ -87,7 +87,7 @@ export interface ExtendedEntityAPI extends EntityAPI {
    *
    * @example
    * projectApi.getTasks(projectId, { page: 1, pageSize: 20 })
-   * bizApi.getProjects(bizId, { page: 1, pageSize: 100 })
+   * businessApi.getProjects(businessId, { page: 1, pageSize: 100 })
    */
   [key: `get${string}`]: (id: string, params?: ListParams) => Promise<PaginatedResponse<any>>;
 }

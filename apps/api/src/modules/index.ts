@@ -15,7 +15,7 @@ import { custRoutes } from './cust/routes.js';
 import { formRoutes } from './form/routes.js';
 import { wikiRoutes } from './wiki/routes.js';
 import { artifactRoutes } from './artifact/routes.js';
-import { bizRoutes } from './biz/routes.js';
+import { businessRoutes } from './business/routes.js';
 import { officeRoutes } from './office/routes.js';
 import { worksiteRoutes } from './worksite/routes.js';
 import { reportsRoutes } from './reports/routes.js';
@@ -127,7 +127,7 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   await formRoutes(fastify);
   await wikiRoutes(fastify);
   await artifactRoutes(fastify);
-  await bizRoutes(fastify);
+  await businessRoutes(fastify);
   await officeRoutes(fastify);
   await worksiteRoutes(fastify);
   await reportsRoutes(fastify);
