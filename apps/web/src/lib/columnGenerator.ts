@@ -1,4 +1,29 @@
 /**
+ * ⚠️ DEPRECATED - LEGACY CODE (v3.x)
+ *
+ * This file is marked for removal in Entity System v4.0.
+ *
+ * **Why Deprecated:**
+ * - Manual column generation is replaced by auto-generation via universalFieldDetector.ts
+ * - Components now use autoGenerateColumns prop instead of manual configs
+ * - Pattern-based detection eliminates need for manual column definitions
+ *
+ * **Migration Path:**
+ * Instead of:
+ *   columns: generateStandardColumns(['name', 'code', 'status'])
+ *
+ * Use:
+ *   <EntityDataTable data={data} autoGenerateColumns />
+ *
+ * **See:**
+ * - docs/entity_design_pattern/ENTITY_SYSTEM_V4.md
+ * - apps/web/src/lib/universalFieldDetector.ts
+ * - apps/web/src/lib/viewConfigGenerator.ts
+ *
+ * **Status:** Currently used by FilteredDataTable (pending migration)
+ *
+ * ---
+ *
  * Centralized Column Generation System
  *
  * Auto-generates column definitions for entity data tables using the

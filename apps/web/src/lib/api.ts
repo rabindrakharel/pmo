@@ -361,9 +361,6 @@ export const businessApi = {
   },
 };
 
-// Keep backward compatibility alias
-export const bizApi = businessApi;
-
 export const officeApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; level?: string }) {
     const response = await apiClient.get('/api/v1/office', { params });
@@ -432,9 +429,6 @@ export const officeApi = {
     return response.data;
   },
 };
-
-// Keep backward compatibility alias
-export const orgApi = officeApi;
 
 export const worksiteApi = {
   async list(params?: { page?: number; pageSize?: number; search?: string; location?: string }) {
@@ -1012,9 +1006,7 @@ import { APIFactory } from './api-factory';
 APIFactory.register('project', projectApi);
 APIFactory.register('task', taskApi);
 APIFactory.register('business', businessApi);
-APIFactory.register('biz', bizApi); // Alias for business (backward compatibility)
 APIFactory.register('office', officeApi);
-APIFactory.register('org', orgApi); // Alias for office
 
 // People & roles
 APIFactory.register('employee', employeeApi);

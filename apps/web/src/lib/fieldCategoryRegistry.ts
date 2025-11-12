@@ -1,4 +1,28 @@
 /**
+ * ⚠️ DEPRECATED - LEGACY CODE (v3.x)
+ *
+ * This file is marked for removal in Entity System v4.0.
+ *
+ * **Why Deprecated:**
+ * - Replaced by universalFieldDetector.ts which uses naming patterns instead of categories
+ * - 12 pattern-based rules replace 100+ manual category assignments
+ * - Auto-detection eliminates need for centralized registry
+ *
+ * **Migration Path:**
+ * Instead of:
+ *   getCategoryProperties('amount') // Manual category lookup
+ *
+ * Use:
+ *   detectField('total_amt') // Auto-detects from naming pattern
+ *
+ * **See:**
+ * - docs/entity_design_pattern/ENTITY_SYSTEM_V4.md
+ * - apps/web/src/lib/universalFieldDetector.ts (Pattern-based detection)
+ *
+ * **Status:** Currently used by columnGenerator.ts (pending migration)
+ *
+ * ---
+ *
  * Field Category Registry - Single Source of Truth
  *
  * This file defines ALL properties for each field category in ONE place:
