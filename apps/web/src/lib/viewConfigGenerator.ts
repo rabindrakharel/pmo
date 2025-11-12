@@ -91,11 +91,15 @@ export function generateDataTableConfig(
   fieldKeys: string[],
   dataTypes?: Record<string, string>
 ): DataTableConfig {
+  // Pre-allocate arrays with estimated capacity (performance optimization)
   const allColumns: DataTableColumn[] = [];
   const visibleColumns: DataTableColumn[] = [];
   const hiddenColumns: string[] = [];
   const editableColumns: DataTableColumn[] = [];
   const searchableFields: string[] = [];
+
+  // Use Set for faster lookups (O(1) vs O(n))
+  const fieldKeysSet = new Set(fieldKeys);
 
   fieldKeys.forEach(key => {
     const meta = detectField(key, dataTypes?.[key]);
@@ -137,9 +141,9 @@ export function generateDataTableConfig(
   const additionalColumns: DataTableColumn[] = [];
   hiddenColumns.forEach(hiddenKey => {
     if (hiddenKey.endsWith('_id') && hiddenKey !== 'id') {
-      const nameKey = hiddenKey.replace(/_id$/, '_name');
-      // Only add if not already in field list
-      if (!fieldKeys.includes(nameKey)) {
+      const nameKey = hiddenKey.slice(0, -3) + '_name';  // Faster than replace()
+      // Use Set for O(1) lookup instead of array includes()
+      if (!fieldKeysSet.has(nameKey)) {
         const nameMeta = detectField(nameKey);
         const nameColumn: DataTableColumn = {
           key: nameKey,
