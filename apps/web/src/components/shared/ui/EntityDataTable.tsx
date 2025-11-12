@@ -45,6 +45,12 @@ import {
 } from '../../../lib/data_transform_render';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 
+// ============================================================================
+// NEW: Universal Field Detector Integration
+// ============================================================================
+import { generateDataTableConfig, type DataTableColumn } from '../../../lib/viewConfigGenerator';
+import { detectField } from '../../../lib/universalFieldDetector';
+
 /**
  * Helper function to render cell value with automatic currency formatting
  */
@@ -247,18 +253,27 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
   );
 }
 
+/**
+ * Column definition - Compatible with both manual and auto-generated configs
+ * Matches DataTableColumn from viewConfigGenerator for seamless integration
+ */
 export interface Column<T = any> {
   key: string;
   title: string;
+  visible?: boolean;              // false = hide from UI, but still in data for API calls
   sortable?: boolean;
   filterable?: boolean;
+  searchable?: boolean;
   render?: (value: any, record: T, allData?: T[]) => React.ReactNode;
   width?: string | number;
   align?: 'left' | 'center' | 'right';
-  // For inline editing with dynamic options
+  // Inline editing (now supports all 15 EditTypes from universal detector)
   editable?: boolean;
-  editType?: 'text' | 'select' | 'number' | 'date';
+  editType?: 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time' |
+             'select' | 'multiselect' | 'checkbox' | 'textarea' | 'tags' |
+             'jsonb' | 'datatable' | 'file' | 'dag-select';
   loadOptionsFromSettings?: boolean;
+  loadFromEntity?: string;         // Load options from entity API (e.g., 'employee', 'project')
   /**
    * Static options for inline editing dropdowns (alternative to loadOptionsFromSettings)
    * Use this when options are hardcoded (e.g., color_code field in settings tables)
@@ -284,7 +299,7 @@ export interface RowAction<T = any> {
 
 export interface EntityDataTableProps<T = any> {
   data: T[];
-  columns: Column<T>[];
+  columns?: Column<T>[];           // Now optional - can be auto-generated
   loading?: boolean;
   pagination?: {
     current: number;
@@ -313,6 +328,27 @@ export interface EntityDataTableProps<T = any> {
   // Inline editing support
   inlineEditable?: boolean;
   editingRow?: string | null;
+
+  // ============================================================================
+  // NEW: Auto-Generation Support (Universal Field Detector Integration)
+  // ============================================================================
+  /**
+   * Auto-generate columns from data using universal field detector
+   * When true and columns prop is not provided, automatically detects field types
+   * and generates appropriate column configurations
+   *
+   * @example
+   * <EntityDataTable data={projects} autoGenerateColumns />
+   * // Automatically detects: budget_allocated_amt → currency, dl__project_stage → DAG, etc.
+   */
+  autoGenerateColumns?: boolean;
+
+  /**
+   * Optional data types for auto-generation (for JSONB/array detection)
+   * @example
+   * dataTypes={{ metadata: 'jsonb', tags: '[]' }}
+   */
+  dataTypes?: Record<string, string>;
   editedData?: any;
   onInlineEdit?: (rowId: string, field: string, value: any) => void;
   onSaveInlineEdit?: (record: T) => void;
@@ -357,11 +393,50 @@ export function EntityDataTable<T = any>({
   onReorder,
   allowAddRow = false,
   onAddRow,
+  autoGenerateColumns = false,
+  dataTypes,
 }: EntityDataTableProps<T>) {
+  // ============================================================================
+  // AUTO-GENERATION: Universal Field Detector Integration
+  // ============================================================================
+  // Auto-generate columns if not provided and autoGenerateColumns is true
+  const columns = useMemo(() => {
+    // If columns explicitly provided, use them (backward compatibility)
+    if (initialColumns && initialColumns.length > 0) {
+      return initialColumns;
+    }
+
+    // Auto-generate if enabled and data exists
+    if (autoGenerateColumns && data.length > 0) {
+      const fieldKeys = Object.keys(data[0]);
+      const generatedConfig = generateDataTableConfig(fieldKeys, dataTypes);
+
+      // Convert DataTableColumn to Column<T> format
+      return generatedConfig.visibleColumns.map(col => ({
+        key: col.key,
+        title: col.title,
+        visible: col.visible,
+        sortable: col.sortable,
+        filterable: col.filterable,
+        searchable: col.searchable,
+        render: col.render,
+        width: col.width,
+        align: col.align,
+        editable: col.editable,
+        editType: col.editType,
+        loadOptionsFromSettings: col.loadFromSettings,
+        loadFromEntity: col.loadFromEntity,
+      } as Column<T>));
+    }
+
+    // Fallback: empty columns
+    return [];
+  }, [initialColumns, autoGenerateColumns, data, dataTypes]);
+
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
-    new Set(initialColumns.map(col => col.key))
+    new Set(columns.map(col => col.key))
   );
   const [showColumnSelector, setShowColumnSelector] = useState(false);
   const [dropdownFilters, setDropdownFilters] = useState<Record<string, string[]>>({});
@@ -398,7 +473,7 @@ export function EntityDataTable<T = any>({
   // ============================================================================
 
   // Auto-detect field capabilities based on naming conventions (Convention over Configuration)
-  const columnCapabilities = useMemo(() => detectColumnCapabilities(initialColumns), [initialColumns]);
+  const columnCapabilities = useMemo(() => detectColumnCapabilities(columns), [columns]);
 
   // State for dynamically loaded setting options
   const [settingOptions, setSettingOptions] = useState<Map<string, SettingOption[]>>(new Map());
@@ -409,14 +484,14 @@ export function EntityDataTable<T = any>({
       const optionsMap = new Map<string, SettingOption[]>();
 
       // First, add static options from column definitions
-      initialColumns.forEach(col => {
+      columns.forEach(col => {
         if (col.options && col.options.length > 0) {
           optionsMap.set(col.key, col.options);
         }
       });
 
       // Find all columns that need dynamic settings using capability detection
-      const columnsNeedingSettings = initialColumns.filter(col => {
+      const columnsNeedingSettings = columns.filter(col => {
         const capability = columnCapabilities.get(col.key);
         return capability?.loadOptionsFromSettings;
       });
@@ -443,13 +518,13 @@ export function EntityDataTable<T = any>({
     if (inlineEditable) {
       loadAllSettingOptions();
     }
-  }, [initialColumns, inlineEditable, columnCapabilities]);
+  }, [columns, inlineEditable, columnCapabilities]);
 
   // Preload colors for all settings columns (for filter dropdowns and inline edit)
   useEffect(() => {
     const preloadColors = async () => {
       // Find all columns with loadOptionsFromSettings
-      const settingsColumns = initialColumns.filter(col => {
+      const settingsColumns = columns.filter(col => {
         const capability = columnCapabilities.get(col.key);
         return col.loadOptionsFromSettings || capability?.loadOptionsFromSettings;
       });
@@ -469,7 +544,7 @@ export function EntityDataTable<T = any>({
     if (filterable || inlineEditable) {
       preloadColors();
     }
-  }, [initialColumns, columnCapabilities, filterable, inlineEditable]);
+  }, [columns, columnCapabilities, filterable, inlineEditable]);
 
   // Helper to get row key
   const getRowKey = (record: T, index: number): string => {
@@ -586,7 +661,7 @@ export function EntityDataTable<T = any>({
   }, [defaultActions, rowActions, showDefaultActions]);
 
   const columns = useMemo(() => {
-    let processedColumns = initialColumns.filter(col => visibleColumns.has(col.key));
+    let processedColumns = columns.filter(col => visibleColumns.has(col.key));
 
     // Add actions column if there are any actions
     if (allActions.length > 0) {
@@ -637,7 +712,7 @@ export function EntityDataTable<T = any>({
     }
 
     return processedColumns;
-  }, [initialColumns, visibleColumns, allActions]);
+  }, [columns, visibleColumns, allActions]);
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -673,7 +748,7 @@ export function EntityDataTable<T = any>({
   };
 
   const getColumnTitle = (columnKey: string) => {
-    return initialColumns.find(col => col.key === columnKey)?.title || columnKey;
+    return columns.find(col => col.key === columnKey)?.title || columnKey;
   };
 
   // Drag and drop handlers
@@ -1005,7 +1080,7 @@ export function EntityDataTable<T = any>({
                     className="appearance-none px-4 py-1.5 pr-10 w-48 border border-dark-400 rounded-xl text-sm bg-dark-100 hover:bg-dark-100 focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 transition-all duration-200 shadow-sm font-normal text-dark-600"
                   >
                     <option value="" className="text-dark-700">Select column...</option>
-                    {initialColumns.filter(col => col.filterable).map(column => (
+                    {columns.filter(col => col.filterable).map(column => (
                       <option key={column.key} value={column.key}>
                         {column.title}
                       </option>
@@ -1040,7 +1115,7 @@ export function EntityDataTable<T = any>({
                             )
                             .map((option) => {
                               // Check if this column has settings options loaded
-                              const selectedColumn = initialColumns.find(col => col.key === selectedFilterColumn);
+                              const selectedColumn = columns.find(col => col.key === selectedFilterColumn);
                               const capability = columnCapabilities.get(selectedFilterColumn);
                               const isSettingsField = selectedColumn?.loadOptionsFromSettings || capability?.loadOptionsFromSettings;
 
@@ -1124,7 +1199,7 @@ export function EntityDataTable<T = any>({
                     <div className="absolute right-0 mt-2 w-56 bg-dark-100 border border-dark-300 rounded-lg shadow-lg z-50">
                       <div className="p-2">
                         <div className="text-sm font-normal text-dark-700 mb-2 px-1">Show Columns</div>
-                        {initialColumns.map(column => (
+                        {columns.map(column => (
                           <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-dark-100 rounded cursor-pointer transition-colors">
                             <input
                               type="checkbox"
@@ -1158,7 +1233,7 @@ export function EntityDataTable<T = any>({
                   <div className="absolute right-0 mt-2 w-56 bg-dark-100 border border-dark-300 rounded-lg shadow-lg z-50">
                     <div className="p-2">
                       <div className="text-sm font-normal text-dark-700 mb-2 px-1">Show Columns</div>
-                      {initialColumns.map(column => (
+                      {columns.map(column => (
                         <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-dark-100 rounded cursor-pointer transition-colors">
                           <input
                             type="checkbox"
@@ -1184,7 +1259,7 @@ export function EntityDataTable<T = any>({
                 {Object.entries(dropdownFilters).map(([columnKey, values]) =>
                   values.map((value) => {
                     // Check if this column is a settings field
-                    const column = initialColumns.find(col => col.key === columnKey);
+                    const column = columns.find(col => col.key === columnKey);
                     const capability = columnCapabilities.get(columnKey);
                     const isSettingsField = column?.loadOptionsFromSettings || capability?.loadOptionsFromSettings;
 
