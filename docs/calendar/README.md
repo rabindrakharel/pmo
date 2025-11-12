@@ -1,6 +1,11 @@
 # Calendar System Documentation
 
-Multi-person availability and booking management system for PMO platform.
+**Status:** ✅ Production-Ready
+**Version:** 2.0.0
+**Last Updated:** 2025-11-12
+**Current Implementation:** Unified Booking Service with AWS SES/SNS Integration
+
+Multi-person availability and booking management system for PMO platform with full event creation, calendar blocking, and notifications.
 
 ---
 
@@ -8,7 +13,7 @@ Multi-person availability and booking management system for PMO platform.
 
 ### Primary Documentation
 
-**[PERSON_CALENDAR_SYSTEM.md](../PERSON_CALENDAR_SYSTEM.md)** - **⭐ Complete unified person-calendar system**
+**[PERSON_CALENDAR_SYSTEM.md](./PERSON_CALENDAR_SYSTEM.md)** - **⭐ Complete unified person-calendar system**
 - Orchestrates Event, Calendar, and Message entities
 - Semantic model: Event + Person = Calendar
 - RBAC-based event ownership (permission[5])
@@ -28,6 +33,13 @@ Multi-person availability and booking management system for PMO platform.
 - Event pane UI/UX guidelines
 - Data model separation
 
+**[CALENDAR_IMPLEMENTATION_SUMMARY.md](./CALENDAR_IMPLEMENTATION_SUMMARY.md)** - Latest implementation
+- November 2025-11-12 implementation details
+- Unified booking service integration
+- CalendarEventModal with tabs (Create New/Attach Existing)
+- AWS SES/SNS messaging integration
+- Multi-table update orchestration
+
 ---
 
 ## 🚀 Quick Start
@@ -37,13 +49,14 @@ Multi-person availability and booking management system for PMO platform.
 http://localhost:5173/calendar
 ```
 
-**Entity Code:** `person-calendar`
+**Entity Code:** `person_calendar`
+
 **API Endpoints:**
-- `/api/v1/person-calendar` - Calendar slots (availability)
+- `/api/v1/person-calendar/create` - **Unified booking service** (recommended)
 - `/api/v1/person-calendar/enriched` - Calendar with full event details
-- `/api/v1/booking/create` - Unified person-calendar service (orchestration)
-- `/api/v1/booking/:eventId/cancel` - Cancel person-calendar
-- `/api/v1/booking/:eventId/reschedule` - Reschedule person-calendar
+- `/api/v1/person-calendar/:eventId/cancel` - Cancel person-calendar
+- `/api/v1/person-calendar/:eventId/reschedule` - Reschedule person-calendar
+- `/api/v1/person-calendar` - Standard calendar CRUD (legacy)
 - `/api/v1/event` - Event entity CRUD
 
 **Database Tables:**
@@ -66,8 +79,19 @@ http://localhost:5173/calendar
 - ✅ Table and Calendar view modes
 - ✅ Drag-and-drop event creation/rescheduling
 
-### Unified Person-Calendar Service (Orchestration)
-- ✅ **One API call** creates complete person-calendar booking:
+### Event Creation - Two Modes
+
+#### 1. Create New Event (Unified Booking Service)
+- **Full event fields from d_event table:**
+  - Event name, description
+  - Event type: onsite/virtual
+  - Platform/venue: Zoom, Teams, Google Meet, Office, Customer Location, etc.
+  - Location address OR meeting URL
+  - Special instructions (access codes, parking, preparation)
+  - Time slot (from_ts, to_ts, timezone)
+  - Multi-select employees and attendees
+
+- **Automatic multi-table updates:**
   1. Event in `d_event` (what/when/where)
   2. Attendees with RSVP in `d_entity_event_person_calendar`
   3. Calendar slots booked in `d_entity_person_calendar` (availability → booked)
@@ -75,17 +99,26 @@ http://localhost:5173/calendar
   5. Event ownership in `entity_id_rbac_map` (assigned employee gets permission[5])
   6. Email/SMS notifications via messaging service (AWS SES/SNS)
 
+#### 2. Attach Existing Event
+- Select from existing events in `d_event`
+- Preview event details (name, type, platform, time, description)
+- Create calendar slot linked to existing event via `event_id`
+- Reuse event across multiple people/time slots
+
+### Unified Person-Calendar Service (Orchestration)
+- ✅ **One API call** creates complete person-calendar booking
 - ✅ **Email Calendar Invites** (.ics via AWS SES):
   - Compatible with Outlook, Gmail, iCloud, Apple Calendar
-  - Automatic calendar blocking
+  - Automatic calendar blocking for all attendees
   - MIME multipart with base64-encoded attachments
   - Includes meeting details, location, attendees, RSVP tracking
-  - Supports onsite and virtual meetings
+  - Supports both onsite and virtual meetings
 
 - ✅ **SMS Notifications** (via AWS SNS):
   - E.164 phone format (+14165551234)
   - Concise appointment confirmations
   - Booking reference numbers
+  - Phone numbers from person entity records
 
 - ✅ **Enriched Calendar API**:
   - Returns calendar slots with full event details in one query
@@ -103,6 +136,7 @@ http://localhost:5173/calendar
 
 **Components:**
 - `CalendarView.tsx` - Week-based calendar grid component
+- `CalendarEventModal.tsx` - Tabbed modal (Create New/Attach Existing)
 - `EntityMainPage.tsx` - Universal page with view switcher
 - `FilteredDataTable.tsx` - Standard table view
 
@@ -111,6 +145,7 @@ http://localhost:5173/calendar
 - `person-calendar.service.ts` - Core orchestration logic
 - `messaging.service.ts` - Email/SMS notifications (AWS SES/SNS)
 - `calendar-enriched.routes.ts` - Enriched calendar data API
+- `routes.ts` - Standard calendar CRUD (legacy)
 
 **Semantic Model:**
 ```
@@ -130,10 +165,10 @@ Messages → Messaging service (AWS SES/SNS)
 
 ## 📖 For Developers
 
-### Create Complete Booking (NEW - Recommended)
+### Create Complete Booking (Unified Service - Recommended)
 
 ```typescript
-// POST /api/v1/booking/create
+// POST /api/v1/person-calendar/create
 // Creates event + calendar + RSVP + sends notifications
 {
   "customerName": "John Thompson",
@@ -153,7 +188,8 @@ Messages → Messaging service (AWS SES/SNS)
   "assignedEmployeeId": "employee-uuid",
   "assignedEmployeeName": "John Miller",
   "urgencyLevel": "normal",
-  "specialInstructions": "Customer has two friendly dogs"
+  "specialInstructions": "Customer has two friendly dogs",
+  "eventPlatformProvider": "office"
 }
 ```
 
@@ -173,7 +209,7 @@ Messages → Messaging service (AWS SES/SNS)
 }
 ```
 
-### Get Enriched Calendar Data (NEW - Recommended)
+### Get Enriched Calendar Data (Recommended)
 
 ```typescript
 // GET /api/v1/person-calendar/enriched
@@ -206,26 +242,18 @@ const { data } = await response.json();
 }
 ```
 
-**Booking Slots:**
+**Attaching to Existing Event:**
 ```typescript
-// PATCH /api/v1/person-calendar/:id
+// POST /api/v1/person-calendar
 {
+  "person_entity_type": "employee",
+  "person_entity_id": "uuid",
+  "from_ts": "2025-11-05T09:00:00-05:00",
+  "to_ts": "2025-11-05T09:15:00-05:00",
   "availability_flag": false,
-  "title": "Client Meeting",
-  "appointment_medium": "onsite",
-  "event_id": "event-uuid"
+  "event_id": "existing-event-uuid"
 }
 ```
-
----
-
-## 🔗 Related Documentation
-
-- **[📅 Booking Calendar System](../../BOOKING_CALENDAR_SYSTEM.md)** - **⭐ START HERE for new implementations**
-- [Universal Entity System](../entity_design_pattern/universal_entity_system.md)
-- [UI/UX Architecture](../entity_ui_ux_route_api.md)
-- [View Modes](../component_Kanban_System.md)
-- [API Factory](../entity_ui_ux_route_api.md#api-layer-31-modules)
 
 ---
 
@@ -233,7 +261,7 @@ const { data } = await response.json();
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     BOOKING SYSTEM TABLES                       │
+│                     CALENDAR SYSTEM TABLES                       │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────┐      ┌──────────────────────────────────┐
@@ -244,12 +272,15 @@ const { data } = await response.json();
 │ name (event title)   │     ││ person_entity_type               │
 │ event_type (onsite/  │     ││ person_entity_id                 │
 │   virtual)           │     ││ from_ts (slot start)             │
-│ from_ts, to_ts       │     ││ to_ts (slot end)                 │
+│ event_platform       │     ││ to_ts (slot end)                 │
 │ event_addr           │     ││ availability_flag (true/false)   │
-└──────────────────────┘     ││ event_id ──────────────────────┘
-            │                │  title, appointment_medium
-            │                │  confirmation_sent_flag
-            ▼                └──────────────────────────────────┘
+│ event_instructions   │     ││ event_id ──────────────────────┘
+│ from_ts, to_ts       │     │  title, appointment_medium
+│ event_metadata       │     │  confirmation_sent_flag
+└──────────────────────┘     │  reminder_sent_flag
+            │                └──────────────────────────────────┘
+            │
+            ▼
 ┌──────────────────────────────────┐      ┌─────────────────────┐
 │ d_entity_event_person_calendar   │      │  d_entity_id_map    │
 │ (RSVP Tracking)                  │      │  (Entity Links)     │
@@ -260,20 +291,33 @@ const { data } = await response.json();
 │ event_rsvp_status (pending/      │      │ child_entity_type   │
 │   accepted/declined)             │      │ child_entity_id     │
 └──────────────────────────────────┘      └─────────────────────┘
+
+            │
+            ▼
+┌──────────────────────────────────┐
+│  entity_id_rbac_map              │
+│  (Ownership & Permissions)       │
+├──────────────────────────────────┤
+│ empid                            │
+│ entity = 'event'                 │
+│ entity_id                        │
+│ permission = [0,1,2,3,4,5]       │
+│   5 = Owner (full control)       │
+└──────────────────────────────────┘
 ```
 
 ---
 
 ## 🔌 API Endpoints
 
-### Unified Booking Service (NEW - Recommended)
+### Unified Person-Calendar Service (Recommended)
 ```
-POST   /api/v1/booking/create           # Create complete booking
-POST   /api/v1/booking/:eventId/cancel   # Cancel booking
-POST   /api/v1/booking/:eventId/reschedule # Reschedule booking
+POST   /api/v1/person-calendar/create           # Create complete booking
+POST   /api/v1/person-calendar/:eventId/cancel   # Cancel booking
+POST   /api/v1/person-calendar/:eventId/reschedule # Reschedule booking
 ```
 
-### Enriched Calendar (NEW - Recommended)
+### Enriched Calendar (Recommended)
 ```
 GET    /api/v1/person-calendar/enriched  # Calendar with full event details
 GET    /api/v1/person-calendar/enriched/:id # Single slot with details
@@ -286,9 +330,6 @@ GET    /api/v1/person-calendar/:id          # Get slot by ID
 POST   /api/v1/person-calendar              # Create new slot
 PATCH  /api/v1/person-calendar/:id          # Update slot
 DELETE /api/v1/person-calendar/:id          # Delete slot
-GET    /api/v1/person-calendar/available    # Query available slots
-POST   /api/v1/person-calendar/book         # Book multiple slots
-POST   /api/v1/person-calendar/cancel       # Cancel booking
 ```
 
 ### Event Entity
@@ -303,6 +344,19 @@ GET    /api/v1/event/:id/attendees      # Get event attendees
 
 ---
 
-**Version:** 2.0.0 (Updated with unified booking system)
+## 🔗 Related Documentation
+
+- **[📅 Person-Calendar System](./PERSON_CALENDAR_SYSTEM.md)** - **⭐ START HERE for new implementations**
+- **[Calendar System Architecture](./CALENDAR_SYSTEM.md)** - UI/UX patterns and components
+- **[Calendar-Event Integration](./CALENDAR_EVENT_INTEGRATION.md)** - Event wrapping in calendar
+- **[Implementation Summary](./CALENDAR_IMPLEMENTATION_SUMMARY.md)** - Latest changes (Nov 2025-11-12)
+- [Universal Entity System](../entity_design_pattern/universal_entity_system.md)
+- [UI/UX Architecture](../entity_ui_ux_route_api.md)
+- [View Modes](../component_Kanban_System.md)
+- [API Factory](../entity_ui_ux_route_api.md#api-layer-31-modules)
+
+---
+
+**Version:** 2.0.0 (Updated with unified booking system & AWS messaging integration)
 **Status:** Production-Ready ✅
-**Last Updated:** 2025-11-11
+**Last Updated:** 2025-11-12

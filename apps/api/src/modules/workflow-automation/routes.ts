@@ -216,7 +216,6 @@ export async function workflowAutomationRoutes(fastify: FastifyInstance) {
         'actions',
         'execution_order',
         'max_executions',
-        'created_by',
       ];
 
       const values = [
@@ -234,7 +233,6 @@ export async function workflowAutomationRoutes(fastify: FastifyInstance) {
         actions,
         data.execution_order ?? 0,
         data.max_executions ?? -1,
-        userId,
       ];
 
       // Escape single quotes in string values
@@ -356,6 +354,8 @@ export async function workflowAutomationRoutes(fastify: FastifyInstance) {
           message: Type.String(),
           execution_count: Type.Number(),
         }),
+        400: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
       },

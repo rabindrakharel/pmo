@@ -2251,59 +2251,13 @@ export const entityConfigs: Record<string, EntityConfig> = {
   // --------------------------------------------------------------------------
   // MESSAGE SCHEMA (Email/SMS/Push Templates)
   // --------------------------------------------------------------------------
-  message_schema: {
-    name: 'message_schema',
-    displayName: 'Message Schema',
-    pluralName: 'Message Schemas',
-    apiEndpoint: '/api/v1/message-schema',
-
-    columns: [], // Auto-generated (v4.0)
-
-    fields: [
-      { key: 'name', label: 'Template Name', type: 'text', required: true },
-      { key: 'code', label: 'Template Code', type: 'text', required: true },
-      {
-        key: 'message_delivery_method',
-        label: 'Delivery Method',
-        type: 'select',
-        required: true,
-        options: [
-          { value: 'EMAIL', label: 'Email' },
-          { value: 'SMS', label: 'SMS' },
-          { value: 'PUSH', label: 'Push Notification' }
-        ]
-      },
-      {
-        key: 'status',
-        label: 'Status',
-        type: 'select',
-        options: [
-          { value: 'draft', label: 'Draft' },
-          { value: 'published', label: 'Published' },
-          { value: 'archived', label: 'Archived' }
-        ]
-      },
-      { key: 'subject', label: 'Subject (Email Only)', type: 'text' },
-      { key: 'descr', label: 'Description', type: 'textarea' },
-      { key: 'from_name', label: 'From Name (Email)', type: 'text' },
-      { key: 'from_email', label: 'From Email', type: 'text' },
-      { key: 'reply_to_email', label: 'Reply To Email', type: 'text' },
-      { key: 'sms_sender_id', label: 'SMS Sender ID', type: 'text' },
-      { key: 'push_priority', label: 'Push Priority', type: 'select', options: [
-        { value: 'normal', label: 'Normal' },
-        { value: 'high', label: 'High' }
-      ]},
-      { key: 'push_ttl', label: 'Push TTL (seconds)', type: 'number' },
-      { key: 'template_schema', label: 'Template Schema', type: 'jsonb' },
-      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
-    ],
-
-    supportedViews: ['table'],
-    defaultView: 'table'
-  },
+  // --------------------------------------------------------------------------
+  // MESSAGE_SCHEMA: REMOVED - Template storage, not user-facing entity
+  // Message templates stored in d_message_schema, managed via internal APIs only
+  // --------------------------------------------------------------------------
 
   // --------------------------------------------------------------------------
-  // MESSAGE (Sent/Scheduled Messages)
+  // MESSAGE (Sent/Scheduled Messages via f_message_data)
   // --------------------------------------------------------------------------
   message: {
     name: 'message',

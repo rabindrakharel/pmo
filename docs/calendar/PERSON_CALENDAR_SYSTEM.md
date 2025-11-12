@@ -160,7 +160,7 @@ Response:
 └─────────────────────────────────────────────────────────────────┘
 
 API Call:
-POST /api/v1/booking/create
+POST /api/v1/person-calendar/create
 
 Request Body:
 {
@@ -235,7 +235,7 @@ Response:
 
 #### Create Person-Calendar Booking
 ```
-POST /api/v1/booking/create
+POST /api/v1/person-calendar/create
 
 Creates complete person-calendar booking with:
 - Event in d_event
@@ -251,7 +251,7 @@ Response: PersonCalendarConfirmation
 
 #### Cancel Person-Calendar
 ```
-POST /api/v1/booking/:eventId/cancel
+POST /api/v1/person-calendar/:eventId/cancel
 
 Cancels person-calendar booking:
 - Soft deletes event
@@ -265,7 +265,7 @@ Response: { success: boolean }
 
 #### Reschedule Person-Calendar
 ```
-POST /api/v1/booking/:eventId/reschedule
+POST /api/v1/person-calendar/:eventId/reschedule
 
 Reschedules person-calendar booking:
 - Updates event times
@@ -486,7 +486,7 @@ const { data } = await response.json();
 
 ```bash
 # Using the test-api.sh tool
-./tools/test-api.sh POST /api/v1/booking/create '{
+./tools/test-api.sh POST /api/v1/person-calendar/create '{
   "customerName": "Test Customer",
   "customerEmail": "test@example.com",
   "customerPhone": "416-555-0000",
@@ -621,7 +621,7 @@ AWS_SES_CONFIGURATION_SET=cohuron-email-tracking
 
 ### Best Practices
 
-✅ **Always use the unified person-calendar service** (`/api/v1/booking/create`)
+✅ **Always use the unified person-calendar service** (`/api/v1/person-calendar/create`)
 ✅ **Use enriched calendar API** for frontend displays with full event details
 ✅ **Pre-seed calendar slots** for employees (9am-8pm, 15-min increments)
 ✅ **Send notifications via messaging service** (email + SMS) after booking confirmation
