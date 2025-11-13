@@ -915,6 +915,32 @@ export const revenueApi = {
     return response.data;
   }};
 
+export const expenseApi = {
+  async list(params?: { page?: number; pageSize?: number; search?: string; expense_category?: string; invoice_currency?: string }) {
+    const response = await apiClient.get('/api/v1/expense', { params });
+    return response.data;
+  },
+
+  async get(id: string) {
+    const response = await apiClient.get(`/api/v1/expense/${id}`);
+    return response.data;
+  },
+
+  async create(data: any) {
+    const response = await apiClient.post('/api/v1/expense', data);
+    return response.data;
+  },
+
+  async update(id: string, data: any) {
+    const response = await apiClient.put(`/api/v1/expense/${id}`, data);
+    return response.data;
+  },
+
+  async delete(id: string) {
+    const response = await apiClient.delete(`/api/v1/expense/${id}`);
+    return response.data;
+  }};
+
 // Entity Options API - Universal options for dropdowns/selects
 export const entityOptionsApi = {
   /**
@@ -1047,6 +1073,7 @@ APIFactory.register('shipment', shipmentApi);
 // Financial
 APIFactory.register('cost', costApi);
 APIFactory.register('revenue', revenueApi);
+APIFactory.register('expense', expenseApi);
 
 // Calendar
 export const calendarApi = {
@@ -1088,9 +1115,17 @@ APIFactory.register('person_calendar', createEntityAPI('/api/v1/person-calendar'
 // Interaction & Communication
 APIFactory.register('interaction', createEntityAPI('/api/v1/interaction'));
 APIFactory.register('message', createEntityAPI('/api/v1/message'));
+APIFactory.register('message_schema', createEntityAPI('/api/v1/message-schema'));
+
+// Workflow
+APIFactory.register('workflow', createEntityAPI('/api/v1/workflow'));
+APIFactory.register('workflow_automation', createEntityAPI('/api/v1/workflow-automation'));
 
 // Booking
 APIFactory.register('booking', createEntityAPI('/api/v1/booking'));
+
+// Reports
+APIFactory.register('reports', createEntityAPI('/api/v1/reports'));
 
 /**
  * Export the APIFactory for use in components

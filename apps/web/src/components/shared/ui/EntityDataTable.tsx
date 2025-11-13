@@ -421,7 +421,8 @@ export function EntityDataTable<T = any>({
         sortable: col.sortable,
         filterable: col.filterable,
         searchable: col.searchable,
-        render: col.render,
+        // Don't set render for fields with loadFromSettings - let renderCellValue handle badge rendering
+        render: col.loadFromSettings ? undefined : col.render,
         width: col.width,
         align: col.align,
         editable: col.editable,
@@ -437,7 +438,9 @@ export function EntityDataTable<T = any>({
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
-    new Set(columns.map(col => col.key))
+    // Only include columns that are explicitly marked as visible
+    // This respects the visible property from universalFieldDetector
+    new Set(columns.filter(col => col.visible !== false).map(col => col.key))
   );
   const [showColumnSelector, setShowColumnSelector] = useState(false);
   const [dropdownFilters, setDropdownFilters] = useState<Record<string, string[]>>({});
@@ -448,14 +451,19 @@ export function EntityDataTable<T = any>({
   const columnSelectorRef = useRef<HTMLDivElement | null>(null);
 
   // Update visibleColumns when columns change (e.g., auto-generated columns loaded)
-  // Ensure all new columns are checked by default
+  // Only add new columns that are marked as visible
   useEffect(() => {
     setVisibleColumns(prev => {
       const newVisible = new Set(prev);
-      // Add any new columns that aren't in the set yet
+      // Add any new columns that aren't in the set yet AND are visible
       columns.forEach(col => {
-        if (!newVisible.has(col.key)) {
+        // Only add if column is visible and not already in the set
+        if (!newVisible.has(col.key) && col.visible !== false) {
           newVisible.add(col.key);
+        }
+        // Remove columns that are now marked as not visible
+        if (newVisible.has(col.key) && col.visible === false) {
+          newVisible.delete(col.key);
         }
       });
       return newVisible;
@@ -1209,7 +1217,14 @@ export function EntityDataTable<T = any>({
                     <div className="absolute right-0 mt-2 w-56 bg-dark-100 border border-dark-300 rounded-lg shadow-lg z-50">
                       <div className="p-2">
                         <div className="text-sm font-normal text-dark-700 mb-2 px-1">Show Columns</div>
-                        {columns.filter(column => column.key !== 'id').map(column => (
+                        {/* Only show columns that aren't system/hidden fields (id, *_id, *_metadata) */}
+                        {columns.filter(column => {
+                          // Skip columns that are explicitly hidden in field detection
+                          if (column.visible === false) return false;
+                          // Also skip 'id' and fields ending with '_id' or containing '_metadata'
+                          if (column.key === 'id' || column.key.endsWith('_id') || column.key.includes('_metadata')) return false;
+                          return true;
+                        }).map(column => (
                           <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-dark-100 rounded cursor-pointer transition-colors">
                             <input
                               type="checkbox"
@@ -1243,7 +1258,14 @@ export function EntityDataTable<T = any>({
                   <div className="absolute right-0 mt-2 w-56 bg-dark-100 border border-dark-300 rounded-lg shadow-lg z-50">
                     <div className="p-2">
                       <div className="text-sm font-normal text-dark-700 mb-2 px-1">Show Columns</div>
-                      {columns.filter(column => column.key !== 'id').map(column => (
+                      {/* Only show columns that aren't system/hidden fields (id, *_id, *_metadata) */}
+                      {columns.filter(column => {
+                        // Skip columns that are explicitly hidden in field detection
+                        if (column.visible === false) return false;
+                        // Also skip 'id' and fields ending with '_id' or containing '_metadata'
+                        if (column.key === 'id' || column.key.endsWith('_id') || column.key.includes('_metadata')) return false;
+                        return true;
+                      }).map(column => (
                         <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-dark-100 rounded cursor-pointer transition-colors">
                           <input
                             type="checkbox"

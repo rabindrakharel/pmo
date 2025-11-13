@@ -613,14 +613,14 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
     <Layout>
       <div className="w-[97%] max-w-[1536px] mx-auto">
         {/* Sticky Header Section */}
-        <div className="sticky top-0 z-20 bg-dark-100 pb-2">
+        <div className="sticky top-0 z-20 bg-white pb-2">
           {/* Header */}
-          <div className="flex items-center justify-between py-2">
-          <div className="flex items-center space-x-3 flex-1 min-w-0">
+          <div className="flex items-center justify-between py-3 border-b border-gray-100">
+          <div className="flex items-center space-x-4 flex-1 min-w-0">
             {/* Exit button on left */}
             <ExitButton entityType={entityType} isDetailPage={true} />
 
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 px-2">
               {/* Compact metadata row using DRY components */}
               <MetadataRow className="overflow-x-auto">
                 {/* Name */}
@@ -673,9 +673,9 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 {/* Created */}
                 {data.created_ts && (
                   <>
-                    <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">created:</span>
+                    <span className="text-gray-400 font-normal text-xs flex-shrink-0">created:</span>
                     <span
-                      className="text-dark-600 font-medium text-xs tracking-tight"
+                      className="text-gray-700 font-medium text-sm"
                       title={formatFriendlyDate(data.created_ts)}
                     >
                       {formatRelativeTime(data.created_ts)}
@@ -688,9 +688,9 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 {/* Updated */}
                 {data.updated_ts && (
                   <>
-                    <span className="text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase">updated:</span>
+                    <span className="text-gray-400 font-normal text-xs flex-shrink-0">updated:</span>
                     <span
-                      className="text-dark-600 font-medium text-xs tracking-tight"
+                      className="text-gray-700 font-medium text-sm"
                       title={formatFriendlyDate(data.updated_ts)}
                     >
                       {formatRelativeTime(data.updated_ts)}
@@ -709,7 +709,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                     fieldKey="version"
                     canCopy={false}
                     badge={
-                      <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-dark-100 text-dark-700 rounded border border-dark-400">
+                      <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-100 rounded">
                         v{data.version}
                       </span>
                     }
@@ -720,7 +720,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
           </div>
 
           {/* Edit/Save/Cancel buttons */}
-          <div className="flex items-center space-x-1.5">
+          <div className="flex items-center space-x-2">
             {!isEditing ? (
               <>
                 {/* Special Design Email button for marketing entity */}
@@ -737,10 +737,10 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 {entityType === 'artifact' && data?.attachment_object_key && (
                   <button
                     onClick={handleDownload}
-                    className="p-2 hover:bg-dark-100 rounded-lg transition-colors"
+                    className="p-2 hover:bg-gray-50 rounded-md transition-colors"
                     title="Download"
                   >
-                    <Download className="h-4 w-4 text-dark-700 stroke-[1.5]" />
+                    <Download className="h-4 w-4 text-gray-600 stroke-[1.5]" />
                   </button>
                 )}
                 {/* Link button for managing entity relationships */}
@@ -750,19 +750,19 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                     childEntityId: id!,
                     childEntityName: data?.name || data?.title
                   })}
-                  className="p-2 hover:bg-dark-100 rounded-lg transition-colors"
+                  className="p-2 hover:bg-gray-50 rounded-md transition-colors"
                   title="Manage links"
                 >
-                  <LinkIcon className="h-4 w-4 text-dark-700 stroke-[1.5]" />
+                  <LinkIcon className="h-4 w-4 text-gray-600 stroke-[1.5]" />
                 </button>
 
                 {/* Share button - available for all entities */}
                 <button
                   onClick={() => setIsShareModalOpen(true)}
-                  className="p-2 hover:bg-dark-100 rounded-lg transition-colors"
+                  className="p-2 hover:bg-gray-50 rounded-md transition-colors"
                   title="Share"
                 >
-                  <Share2 className="h-4 w-4 text-dark-700 stroke-[1.5]" />
+                  <Share2 className="h-4 w-4 text-gray-600 stroke-[1.5]" />
                 </button>
 
                 {/* Edit button */}
@@ -777,27 +777,27 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                       setIsEditing(true);
                     }
                   }}
-                  className="p-2 hover:bg-dark-100 rounded-lg transition-colors"
+                  className="p-2 hover:bg-gray-50 rounded-md transition-colors"
                   title="Edit"
                 >
-                  <Edit2 className="h-4 w-4 text-dark-700 stroke-[1.5]" />
+                  <Edit2 className="h-4 w-4 text-gray-600 stroke-[1.5]" />
                 </button>
               </>
             ) : (
               <>
                 <button
                   onClick={handleCancel}
-                  className="p-2 hover:bg-dark-100 rounded-lg transition-colors"
+                  className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
                   title="Cancel"
                 >
-                  <X className="h-5 w-5 text-dark-700 stroke-[1.5]" />
+                  <X className="h-4 w-4 stroke-[1.5]" />
                 </button>
                 <button
                   onClick={handleSave}
-                  className="p-2 hover:bg-dark-100 rounded-lg transition-colors"
+                  className="p-2 bg-gray-900 hover:bg-gray-800 text-white rounded-md transition-colors"
                   title="Save"
                 >
-                  <Save className="h-4 w-4 text-dark-700 stroke-[1.5]" />
+                  <Save className="h-4 w-4 stroke-[1.5]" />
                 </button>
               </>
             )}
@@ -806,7 +806,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
 
           {/* Sticky Tabs Section */}
           {allTabs && allTabs.length > 0 && (
-            <div className="bg-dark-100 rounded-lg shadow-sm mt-2 overflow-hidden">
+            <div className="mt-4 border-b border-gray-100">
               <DynamicChildEntityTabs
                 title={data?.name || data?.title || config.displayName}
                 parentType={entityType}
@@ -820,7 +820,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
         </div>
 
         {/* Content Area - Shows Overview or Child Entity Table */}
-        <div className="mt-2">
+        <div className="mt-6">
         {isOverviewTab ? (
           // Overview Tab - Entity Details
           <>

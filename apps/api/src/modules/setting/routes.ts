@@ -140,6 +140,37 @@ export async function settingRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Get all datalabels with full metadata (for visualization)
+  fastify.get('/api/v1/setting/datalabels', {
+    schema: {
+      response: {
+        200: Type.Array(Type.Object({
+          datalabel_name: Type.String(),
+          ui_label: Type.String(),
+          ui_icon: Type.Union([Type.String(), Type.Null()]),
+          metadata: Type.Array(Type.Any()),
+        })),
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const results = await db.execute(sql`
+        SELECT
+          datalabel_name,
+          ui_label,
+          ui_icon,
+          metadata
+        FROM app.setting_datalabel
+        ORDER BY datalabel_name
+      `);
+
+      return results;
+    } catch (error) {
+      fastify.log.error('Error fetching datalabels:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
   // Create a new datalabel category
   fastify.post('/api/v1/setting/category', {
     schema: {

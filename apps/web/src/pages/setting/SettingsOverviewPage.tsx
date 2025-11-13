@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/shared';
 import { useSettings } from '../../contexts/SettingsContext';
 import { AddDatalabelModal } from '../../components/shared/modals/AddDatalabelModal';
+import { EntityConfigurationModal } from '../../components/settings/EntityConfigurationModal';
 import * as LucideIcons from 'lucide-react';
 import { getIconComponent } from '../../lib/iconMapping';
 
@@ -54,12 +55,16 @@ interface EntityRow {
   ui_icon?: string;
   display_order: number;
   active_flag: boolean;
+  dl_entity_domain?: string;
   child_entities?: ChildEntity[];
 }
+
+type MainTab = 'entities' | 'entityMapping' | 'secretsVault' | 'integrations' | 'accessControl';
 
 export function SettingsOverviewPage() {
   const navigate = useNavigate();
   const { exitSettingsMode } = useSettings();
+  const [activeMainTab, setActiveMainTab] = useState<MainTab>('entities');
   const [datalabelSettings, setDatalabelSettings] = useState<SettingCard[]>([]);
   const [entities, setEntities] = useState<EntityRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,9 +72,6 @@ export function SettingsOverviewPage() {
   const [mainSearchQuery, setMainSearchQuery] = useState('');
   const [dataLabelsSearchQuery, setDataLabelsSearchQuery] = useState('');
   const [entitiesSearchQuery, setEntitiesSearchQuery] = useState('');
-  const [configExpanded, setConfigExpanded] = useState(true);
-  const [dataLabelsExpanded, setDataLabelsExpanded] = useState(true);
-  const [entitiesExpanded, setEntitiesExpanded] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [modalEntityCode, setModalEntityCode] = useState<string | undefined>(undefined);
   const [modalEntityName, setModalEntityName] = useState<string | undefined>(undefined);
@@ -82,6 +84,10 @@ export function SettingsOverviewPage() {
   });
   const [editingEntityCode, setEditingEntityCode] = useState<string | null>(null);
   const [editingEntityData, setEditingEntityData] = useState<Partial<EntityRow>>({});
+
+  // Entity configuration modal
+  const [selectedEntityForConfig, setSelectedEntityForConfig] = useState<EntityRow | null>(null);
+  const [showEntityConfigModal, setShowEntityConfigModal] = useState(false);
 
   // Child entities management
   const [childEntitiesModalOpen, setChildEntitiesModalOpen] = useState(false);
@@ -105,13 +111,6 @@ export function SettingsOverviewPage() {
       description: 'Configure relationships and connections between different entities',
       icon: LucideIcons.Link,
       href: '/linkage',
-      category: 'Configuration'
-    },
-    {
-      title: 'Workflow Automation',
-      description: 'Set up automated workflows and business process rules',
-      icon: LucideIcons.Zap,
-      href: '/workflow-automation',
       category: 'Configuration'
     },
     {
@@ -349,6 +348,26 @@ export function SettingsOverviewPage() {
     }
   };
 
+  // Handle opening entity configuration modal
+  const handleConfigureEntity = (entity: EntityRow) => {
+    setSelectedEntityForConfig(entity);
+    setShowEntityConfigModal(true);
+  };
+
+  // Handle closing entity configuration modal
+  const handleCloseEntityConfigModal = () => {
+    setShowEntityConfigModal(false);
+    setSelectedEntityForConfig(null);
+  };
+
+  // Handle saving entity configuration
+  const handleSaveEntityConfig = async () => {
+    setShowEntityConfigModal(false);
+    setSelectedEntityForConfig(null);
+    // Refresh entities list
+    await fetchEntities();
+  };
+
   // Handle opening child entities modal
   const handleManageChildren = (entity: EntityRow) => {
     setSelectedEntityForChildren(entity);
@@ -527,153 +546,295 @@ export function SettingsOverviewPage() {
           </div>
         </div>
 
-        {/* Configuration Section - Enhanced */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+        {/* Main Tabs */}
+        <div className="bg-dark-100 rounded-xl p-4 border border-dark-300 mb-8">
+          <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => setConfigExpanded(!configExpanded)}
-              className="flex items-center gap-2.5 hover:opacity-80 transition-all group"
+              onClick={() => setActiveMainTab('entities')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                activeMainTab === 'entities'
+                  ? 'bg-slate-600 text-white shadow-md'
+                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+              }`}
             >
-              <h2 className="text-base font-bold text-dark-700 tracking-tight">Configuration</h2>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-200">
-                {filteredMainSettings.length}
-              </span>
-              <LucideIcons.ChevronDown className={`h-4 w-4 text-dark-600 transition-transform duration-200 group-hover:text-dark-700 ${configExpanded ? 'rotate-0' : '-rotate-90'}`} />
+              <LucideIcons.Database className="h-4 w-4" />
+              Entities ({entities.length})
             </button>
-            {configExpanded && (
-              <div className="relative w-64">
-                <LucideIcons.Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-600" />
-                <input
-                  type="text"
-                  placeholder="Search configuration..."
-                  value={mainSearchQuery}
-                  onChange={(e) => setMainSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-dark-300 rounded-lg bg-dark-100 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 transition-all placeholder:text-dark-500"
-                />
-              </div>
-            )}
+
+            <button
+              onClick={() => setActiveMainTab('entityMapping')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                activeMainTab === 'entityMapping'
+                  ? 'bg-slate-600 text-white shadow-md'
+                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+              }`}
+            >
+              <LucideIcons.Link className="h-4 w-4" />
+              Entity Mapping
+            </button>
+
+
+            <button
+              onClick={() => setActiveMainTab('secretsVault')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                activeMainTab === 'secretsVault'
+                  ? 'bg-slate-600 text-white shadow-md'
+                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+              }`}
+            >
+              <LucideIcons.Lock className="h-4 w-4" />
+              Secrets Vault
+            </button>
+
+            <button
+              onClick={() => setActiveMainTab('integrations')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                activeMainTab === 'integrations'
+                  ? 'bg-slate-600 text-white shadow-md'
+                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+              }`}
+            >
+              <LucideIcons.Plug className="h-4 w-4" />
+              Integrations
+            </button>
+
+            <button
+              onClick={() => setActiveMainTab('accessControl')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                activeMainTab === 'accessControl'
+                  ? 'bg-slate-600 text-white shadow-md'
+                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+              }`}
+            >
+              <LucideIcons.Shield className="h-4 w-4" />
+              Access Control
+            </button>
           </div>
-          {configExpanded && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredMainSettings.map((card) => {
-              const IconComponent = card.icon;
-              return (
-                <button
-                  key={card.href}
-                  onClick={() => navigate(card.href)}
-                  className="group bg-dark-100 border border-dark-300 rounded-xl p-4 hover:border-purple-400 hover:shadow-lg transition-all duration-200 text-left hover:scale-[1.02]"
-                >
-                  <div className="flex items-start gap-3.5">
-                    <div className="p-2.5 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg group-hover:from-purple-100 group-hover:to-blue-100 transition-all duration-200 border border-purple-200 group-hover:border-purple-300">
-                      <IconComponent className="h-5 w-5 text-purple-600 stroke-[1.5]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-bold text-dark-700 mb-1 group-hover:text-purple-700 transition-colors">
-                        {card.title}
-                      </h3>
-                      <p className="text-xs text-dark-600 line-clamp-2 leading-relaxed">{card.description}</p>
-                    </div>
-                  </div>
-                </button>
-              );
-              })}
-            </div>
-          )}
-          {configExpanded && filteredMainSettings.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 bg-dark-100 rounded-xl border border-dark-300">
-              <LucideIcons.Search className="h-10 w-10 text-dark-500 mb-3" />
-              <p className="text-sm font-medium text-dark-700">No results found</p>
-              <p className="text-xs text-dark-600 mt-1">Try a different search term</p>
-            </div>
-          )}
         </div>
 
-        {/* Entities Section - Enhanced */}
-        <div className="mb-8">
+        {/* Entity Mapping Tab */}
+        {activeMainTab === 'entityMapping' && (
+          <div className="bg-white border border-dark-300 rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
+              <LucideIcons.Link className="h-5 w-5" />
+              Entity Mapping
+            </h2>
+            <p className="text-sm text-dark-600 mb-4">
+              Configure parent-child relationships and entity linkages using the <strong>d_entity_id_map</strong> table.
+              Define how entities connect and interact with each other across the system.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredMainSettings.map((card) => {
+                const IconComponent = card.icon;
+                return (
+                  <button
+                    key={card.href}
+                    onClick={() => navigate(card.href)}
+                    className="group bg-dark-100 border border-dark-300 rounded-xl p-4 hover:border-purple-400 hover:shadow-lg transition-all duration-200 text-left hover:scale-[1.02]"
+                  >
+                    <div className="flex items-start gap-3.5">
+                      <div className="p-2.5 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg group-hover:from-purple-100 group-hover:to-blue-100 transition-all duration-200 border border-purple-200 group-hover:border-purple-300">
+                        <IconComponent className="h-5 w-5 text-purple-600 stroke-[1.5]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-bold text-dark-700 mb-1 group-hover:text-purple-700 transition-colors">
+                          {card.title}
+                        </h3>
+                        <p className="text-xs text-dark-600 line-clamp-2 leading-relaxed">{card.description}</p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+
+        {/* Integrations Tab */}
+        {activeMainTab === 'integrations' && (
+          <div className="bg-white border border-dark-300 rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
+              <LucideIcons.Plug className="h-5 w-5" />
+              Integrations
+            </h2>
+            <p className="text-sm text-dark-600 mb-4">
+              Manage external service integrations, API connections, and third-party system configurations.
+              Configure webhooks, OAuth providers, and external data sources.
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
+              <p className="font-medium mb-2">Integration Features</p>
+              <ul className="list-disc list-inside space-y-1 text-blue-700">
+                <li>Connect to third-party APIs and services</li>
+                <li>Configure webhooks for real-time events</li>
+                <li>Set up OAuth providers for authentication</li>
+                <li>Manage API keys and credentials</li>
+                <li>Configure data synchronization schedules</li>
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Secrets Vault Tab */}
+        {activeMainTab === 'secretsVault' && (
+          <div className="bg-white border border-dark-300 rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
+              <LucideIcons.Lock className="h-5 w-5" />
+              Secrets Vault
+            </h2>
+            <p className="text-sm text-dark-600 mb-4">
+              Securely manage API keys, passwords, certificates, and other sensitive credentials.
+              All secrets are encrypted and stored with audit logging for compliance.
+            </p>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-900">
+              <p className="font-medium mb-2">Secrets Management Features</p>
+              <ul className="list-disc list-inside space-y-1 text-green-700">
+                <li>Store API keys and tokens securely</li>
+                <li>Manage database connection strings</li>
+                <li>Store SSL certificates and private keys</li>
+                <li>Environment-specific secret management</li>
+                <li>Audit trail for all secret access</li>
+                <li>Automatic secret rotation policies</li>
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Access Control Tab */}
+        {activeMainTab === 'accessControl' && (
+          <div className="bg-white border border-dark-300 rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
+              <LucideIcons.Shield className="h-5 w-5" />
+              Access Control
+            </h2>
+            <p className="text-sm text-dark-600 mb-4">
+              Manage role-based access control (RBAC), permissions, and security policies.
+              Configure user roles, entity permissions, and access restrictions across the platform.
+            </p>
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-sm text-purple-900">
+              <p className="font-medium mb-2">Access Control Features</p>
+              <ul className="list-disc list-inside space-y-1 text-purple-700">
+                <li>Define custom roles with granular permissions</li>
+                <li>Configure entity-level access controls (view, edit, delete, create)</li>
+                <li>Set up approval workflows and hierarchies</li>
+                <li>Manage user groups and team permissions</li>
+                <li>Configure IP restrictions and access policies</li>
+                <li>Audit logs for all permission changes</li>
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Entities Tab */}
+        {activeMainTab === 'entities' && (
+        <div>
           <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={() => setEntitiesExpanded(!entitiesExpanded)}
-              className="flex items-center gap-2.5 hover:opacity-80 transition-all group"
-            >
-              <h2 className="text-base font-bold text-dark-700 tracking-tight">Entities</h2>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
-                {entities.length}
-              </span>
-              <LucideIcons.ChevronDown className={`h-4 w-4 text-dark-600 transition-transform duration-200 group-hover:text-dark-700 ${entitiesExpanded ? 'rotate-0' : '-rotate-90'}`} />
-            </button>
-            {entitiesExpanded && (
-              <div className="relative w-64">
-                <LucideIcons.Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-600" />
-                <input
-                  type="text"
-                  placeholder="Search entities..."
-                  value={entitiesSearchQuery}
-                  onChange={(e) => setEntitiesSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-dark-300 rounded-lg bg-dark-100 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 transition-all placeholder:text-dark-500"
-                />
-              </div>
-            )}
+            <h2 className="text-base font-bold text-dark-700 tracking-tight">Entities ({entities.length})</h2>
+            <div className="relative w-64">
+              <LucideIcons.Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-600" />
+              <input
+                type="text"
+                placeholder="Search entities..."
+                value={entitiesSearchQuery}
+                onChange={(e) => setEntitiesSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-sm border border-dark-300 rounded-lg bg-dark-100 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 transition-all placeholder:text-dark-500"
+              />
+            </div>
           </div>
 
-          {entitiesExpanded && entitiesLoading ? (
+          {entitiesLoading ? (
             <div className="flex flex-col items-center justify-center py-16 bg-dark-100 rounded-xl border border-dark-300">
               <div className="inline-block animate-spin rounded-full h-10 w-10 border-3 border-dark-300 border-t-green-500"></div>
               <p className="text-sm font-medium text-dark-700 mt-4">Loading entities...</p>
             </div>
-          ) : entitiesExpanded && filteredEntities.length === 0 && !isAddingEntity ? (
+          ) : filteredEntities.length === 0 && !isAddingEntity ? (
             <div className="flex flex-col items-center justify-center py-12 bg-dark-100 rounded-xl border border-dark-300">
               <LucideIcons.Tag className="h-10 w-10 text-dark-500 mb-3" />
               <p className="text-sm font-medium text-dark-700">No entities found</p>
               <p className="text-xs text-dark-600 mt-1">Try adjusting your search</p>
             </div>
-          ) : entitiesExpanded ? (
+          ) : (
             <div className="bg-dark-100 border border-dark-300 rounded-xl overflow-hidden shadow-sm">
               <table className="min-w-full divide-y divide-dark-300">
                 <thead className="bg-dark-50">
                   <tr className="border-b border-dark-300">
-                    <th className="px-4 py-3.5 text-left text-[10px] font-bold text-dark-700 uppercase tracking-wider">Code</th>
-                    <th className="px-4 py-3.5 text-left text-[10px] font-bold text-dark-700 uppercase tracking-wider">Name</th>
-                    <th className="px-4 py-3.5 text-left text-[10px] font-bold text-dark-700 uppercase tracking-wider">UI Label</th>
-                    <th className="px-4 py-3.5 text-left text-[10px] font-bold text-dark-700 uppercase tracking-wider">Icon</th>
-                    <th className="px-4 py-3.5 text-center text-[10px] font-bold text-dark-700 uppercase tracking-wider">Order</th>
-                    <th className="px-4 py-3.5 text-center text-[10px] font-bold text-dark-700 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3.5 text-left text-[10px] font-bold text-dark-700 uppercase tracking-wider">Children</th>
-                    <th className="px-4 py-3.5 text-center text-[10px] font-bold text-dark-700 uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-dark-600 uppercase">Code</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-dark-600 uppercase">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-dark-600 uppercase">UI Label</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-dark-600 uppercase">Domain</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-dark-600 uppercase">Icon</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-dark-600 uppercase">Order</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-dark-600 uppercase">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-dark-600 uppercase">Children</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-dark-600 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-dark-100 divide-y divide-dark-300">
                   {filteredEntities.map((entity) => {
                     const isEditing = editingEntityCode === entity.code;
                     return (
-                      <tr key={entity.code} className={isEditing ? 'bg-dark-100/30' : 'hover:bg-dark-100/50 transition-colors'}>
-                        <td className="px-3 py-2.5">
-                          <span className="text-[11px] font-mono font-medium text-dark-600">{entity.code}</span>
+                      <tr
+                        key={entity.code}
+                        onClick={() => !isEditing && handleConfigureEntity(entity)}
+                        className={isEditing ? 'bg-dark-100/30' : 'hover:bg-blue-50 cursor-pointer transition-colors'}
+                        title={!isEditing ? `Click to configure ${entity.name}` : ''}
+                      >
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-dark-700">{entity.code}</span>
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className="px-4 py-3">
                           {isEditing ? (
                             <input
                               type="text"
                               value={editingEntityData.name ?? entity.name}
                               onChange={(e) => setEditingEntityData({ ...editingEntityData, name: e.target.value })}
-                              className="w-full px-2 py-1 text-[11px] border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30 focus:border-dark-600"
+                              className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                             />
                           ) : (
-                            <span className="text-[11px] font-medium text-dark-600">{entity.name}</span>
+                            <span className="text-sm text-dark-700">{entity.name}</span>
                           )}
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className="px-4 py-3">
                           {isEditing ? (
                             <input
                               type="text"
                               value={editingEntityData.ui_label ?? entity.ui_label}
                               onChange={(e) => setEditingEntityData({ ...editingEntityData, ui_label: e.target.value })}
-                              className="w-full px-2 py-1 text-[11px] border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30 focus:border-dark-600"
+                              className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                             />
                           ) : (
-                            <span className="text-[11px] text-dark-600">{entity.ui_label}</span>
+                            <span className="text-sm text-dark-700">{entity.ui_label}</span>
                           )}
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className="px-4 py-3">
+                          {isEditing ? (
+                            <select
+                              value={editingEntityData.dl_entity_domain ?? entity.dl_entity_domain ?? ''}
+                              onChange={(e) => setEditingEntityData({ ...editingEntityData, dl_entity_domain: e.target.value || undefined })}
+                              className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            >
+                              <option value="">-- None --</option>
+                              <option value="Core Management">Core Management</option>
+                              <option value="Organization">Organization</option>
+                              <option value="Business">Business</option>
+                              <option value="Operations">Operations</option>
+                              <option value="Customers">Customers</option>
+                              <option value="Retail">Retail</option>
+                              <option value="Sales & Finance">Sales & Finance</option>
+                              <option value="Content & Docs">Content & Docs</option>
+                              <option value="Advanced">Advanced</option>
+                            </select>
+                          ) : (
+                            entity.dl_entity_domain ? (
+                              <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                                {entity.dl_entity_domain}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-dark-400">—</span>
+                            )
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
                           {isEditing ? (
                             <div className="relative">
                               <button
@@ -759,47 +920,53 @@ export function SettingsOverviewPage() {
                             </div>
                           )}
                         </td>
-                        <td className="px-3 py-2.5 text-center">
+                        <td className="px-4 py-3 text-center">
                           {isEditing ? (
                             <input
                               type="number"
                               value={editingEntityData.display_order ?? entity.display_order}
                               onChange={(e) => setEditingEntityData({ ...editingEntityData, display_order: parseInt(e.target.value) })}
-                              className="w-16 px-2 py-1 text-[11px] border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30 focus:border-dark-600 text-center"
+                              className="w-16 px-2 py-1 text-sm border border-dark-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-center"
                             />
                           ) : (
-                            <span className="text-[11px] font-medium text-dark-600">{entity.display_order}</span>
+                            <span className="text-sm text-dark-700">{entity.display_order}</span>
                           )}
                         </td>
-                        <td className="px-3 py-2.5 text-center">
+                        <td className="px-4 py-3 text-center">
                           <button
-                            onClick={() => handleToggleEntityActive(entity.code, entity.active_flag)}
-                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-dark-7000 focus:ring-offset-2 ${
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleEntityActive(entity.code, entity.active_flag);
+                            }}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                               entity.active_flag ? 'bg-green-500' : 'bg-dark-300'
                             }`}
                             title={entity.active_flag ? 'Enabled - Click to disable' : 'Disabled - Click to enable'}
                           >
                             <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-dark-100 transition-transform ${
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                                 entity.active_flag ? 'translate-x-5' : 'translate-x-0.5'
                               }`}
                             />
                           </button>
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className="px-4 py-3">
                           <div className="group relative">
                             <button
-                              onClick={() => handleManageChildren(entity)}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] text-dark-700 hover:bg-dark-100 rounded border border-dark-400/60 transition-colors font-medium"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleManageChildren(entity);
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-dark-700 hover:bg-dark-100 rounded border border-dark-300 transition-colors font-medium"
                               title="Manage child entities"
                             >
-                              <LucideIcons.GitBranch className="h-3 w-3" />
+                              <LucideIcons.GitBranch className="h-3.5 w-3.5" />
                               <span>{(entity.child_entities || []).length}</span>
                             </button>
 
                             {/* Tooltip showing child icons */}
                             {(entity.child_entities || []).length > 0 && (
-                              <div className="invisible group-hover:visible absolute left-0 top-8 z-10 bg-dark-900 text-white text-[10px] rounded-lg py-2 px-3 shadow-lg whitespace-nowrap">
+                              <div className="invisible group-hover:visible absolute left-0 top-8 z-10 bg-dark-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg whitespace-nowrap">
                                 <div className="space-y-1">
                                   {(entity.child_entities || []).slice(0, 5).map((child) => {
                                     return (
@@ -813,7 +980,7 @@ export function SettingsOverviewPage() {
                                     );
                                   })}
                                   {(entity.child_entities || []).length > 5 && (
-                                    <div className="text-dark-600 text-[10px]">
+                                    <div className="text-dark-600 text-xs">
                                       +{(entity.child_entities || []).length - 5} more...
                                     </div>
                                   )}
@@ -822,12 +989,15 @@ export function SettingsOverviewPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-1">
                             {isEditing ? (
                               <>
                                 <button
-                                  onClick={() => handleUpdateEntity(entity.code)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateEntity(entity.code);
+                                  }}
                                   className="p-1 text-green-600 hover:bg-green-50 rounded"
                                   title="Save"
                                 >
@@ -836,7 +1006,8 @@ export function SettingsOverviewPage() {
                                   </svg>
                                 </button>
                                 <button
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setEditingEntityCode(null);
                                     setEditingEntityData({});
                                   }}
@@ -851,7 +1022,8 @@ export function SettingsOverviewPage() {
                             ) : (
                               <>
                                 <button
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setEditingEntityCode(entity.code);
                                     setEditingEntityData(entity);
                                   }}
@@ -863,7 +1035,10 @@ export function SettingsOverviewPage() {
                                   </svg>
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteEntity(entity.code, entity.name)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteEntity(entity.code, entity.name);
+                                  }}
                                   className="p-1 text-red-600 hover:bg-red-50 rounded"
                                   title="Delete"
                                 >
@@ -1049,115 +1224,10 @@ export function SettingsOverviewPage() {
                 </div>
               )}
             </div>
-          ) : null}
+          )}
         </div>
+        )}
 
-        {/* Data Labels Section - Enhanced */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={() => setDataLabelsExpanded(!dataLabelsExpanded)}
-              className="flex items-center gap-2.5 hover:opacity-80 transition-all group"
-            >
-              <h2 className="text-base font-bold text-dark-700 tracking-tight">Data Labels</h2>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
-                {datalabelSettings.length}
-              </span>
-              <LucideIcons.ChevronDown className={`h-4 w-4 text-dark-600 transition-transform duration-200 group-hover:text-dark-700 ${dataLabelsExpanded ? 'rotate-0' : '-rotate-90'}`} />
-            </button>
-            {dataLabelsExpanded && (
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => handleOpenAddModal()}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 border border-blue-600 hover:shadow-md transition-all"
-                  title="Add New Datalabel"
-                >
-                  <LucideIcons.Plus className="h-4 w-4 stroke-[2.5]" />
-                  <span>New Label</span>
-                </button>
-                <div className="relative w-64">
-                  <LucideIcons.Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-600" />
-                  <input
-                    type="text"
-                    placeholder="Search data labels..."
-                    value={dataLabelsSearchQuery}
-                    onChange={(e) => setDataLabelsSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-dark-300 rounded-lg bg-dark-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all placeholder:text-dark-500"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {dataLabelsExpanded && loading ? (
-            <div className="flex flex-col items-center justify-center py-16 bg-dark-100 rounded-xl border border-dark-300">
-              <div className="inline-block animate-spin rounded-full h-10 w-10 border-3 border-dark-300 border-t-blue-500"></div>
-              <p className="text-sm font-medium text-dark-700 mt-4">Loading data labels...</p>
-            </div>
-          ) : dataLabelsExpanded && Object.keys(groupedDataLabels).length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 bg-dark-100 rounded-xl border border-dark-300">
-              <LucideIcons.Tag className="h-10 w-10 text-dark-500 mb-3" />
-              <p className="text-sm font-medium text-dark-700">No results found</p>
-              <p className="text-xs text-dark-600 mt-1">Try a different search term</p>
-            </div>
-          ) : dataLabelsExpanded ? (
-            <div className="space-y-4">
-              {Object.entries(groupedDataLabels).map(([entityName, cards]) => {
-                // Get entity code from the first card in this group
-                const firstCard = cards[0];
-                const entityCodeForGroup = firstCard ? getEntityCode(
-                  firstCard.href.replace('/setting/', '').replace(/([A-Z])/g, '_$1').toLowerCase()
-                ) : entityName.toLowerCase();
-
-                return (
-                  <div key={entityName} className="bg-dark-100 border border-dark-300 rounded-xl p-4 shadow-sm hover:border-dark-400 transition-all">
-                    <div className="flex items-center justify-between mb-3.5">
-                      <div className="flex items-center gap-2.5">
-                        <h3 className="text-sm font-bold text-dark-700 uppercase tracking-wide">
-                          {entityName}
-                        </h3>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-dark-200 text-dark-700 border border-dark-300">
-                          {cards.length}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => handleOpenAddModal(entityCodeForGroup, entityName)}
-                        className="p-1.5 rounded-md text-dark-700 hover:bg-blue-100 hover:text-blue-700 transition-all hover:scale-110"
-                        title={`Add datalabel to ${entityName}`}
-                      >
-                        <LucideIcons.Plus className="h-4 w-4 stroke-[2.5]" />
-                      </button>
-                    </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
-                    {cards.map((card) => {
-                      // Get icon component dynamically using the stored icon name
-                      const IconComponent = card.iconName ? getIconComponent(card.iconName) : card.icon;
-                      return (
-                        <button
-                          key={card.href}
-                          onClick={() => navigate(card.href)}
-                          className="group bg-dark-100 border border-dark-300 rounded-lg p-3 hover:bg-dark-50 hover:border-blue-400 hover:shadow-md transition-all text-left hover:scale-[1.02]"
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className="p-1.5 bg-gradient-to-br from-blue-50 to-purple-50 rounded-md border border-blue-200 group-hover:border-blue-300 transition-all">
-                              <IconComponent className="h-4 w-4 text-blue-600 stroke-[1.5] flex-shrink-0" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-xs font-semibold text-dark-700 group-hover:text-blue-700 transition-colors truncate">
-                                {card.title}
-                              </h4>
-                            </div>
-                          </div>
-                        </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
       </div>
 
       {/* Add Datalabel Modal */}
@@ -1349,6 +1419,17 @@ export function SettingsOverviewPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Entity Configuration Modal */}
+      {selectedEntityForConfig && (
+        <EntityConfigurationModal
+          isOpen={showEntityConfigModal}
+          onClose={handleCloseEntityConfigModal}
+          entityCode={selectedEntityForConfig.code}
+          entityName={selectedEntityForConfig.name}
+          onSave={handleSaveEntityConfig}
+        />
       )}
     </Layout>
   );

@@ -591,7 +591,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'name', label: 'Form Name', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'textarea' },
       { key: 'url', label: 'Public Form URL', type: 'text', readonly: true },
-      { key: 'schema', label: 'Form Schema', type: 'jsonb', required: true },
+      { key: 'form_schema', label: 'Form Schema', type: 'jsonb', required: true },
       { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 
@@ -718,7 +718,37 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     fields: [
       { key: 'name', label: 'Role Name', type: 'text', required: true },
+      { key: 'code', label: 'Code', type: 'text' },
+      { key: 'role_code', label: 'Role Code', type: 'text', required: true },
       { key: 'descr', label: 'Description', type: 'textarea' },
+      {
+        key: 'role_category',
+        label: 'Category',
+        type: 'select',
+        required: true,
+        defaultValue: 'operational',
+        options: [
+          { value: 'executive', label: 'Executive' },
+          { value: 'management', label: 'Management' },
+          { value: 'operational', label: 'Operational' },
+          { value: 'technical', label: 'Technical' },
+          { value: 'administrative', label: 'Administrative' }
+        ]
+      },
+      { key: 'reporting_level', label: 'Reporting Level', type: 'number', defaultValue: 0 },
+      { key: 'department_scope', label: 'Department Scope', type: 'text' },
+      { key: 'location_scope', label: 'Location Scope', type: 'text' },
+      { key: 'system_role_flag', label: 'System Role', type: 'checkbox', defaultValue: false },
+      { key: 'management_role_flag', label: 'Management Role', type: 'checkbox', defaultValue: false },
+      { key: 'client_facing_flag', label: 'Client Facing', type: 'checkbox', defaultValue: false },
+      { key: 'safety_critical_flag', label: 'Safety Critical', type: 'checkbox', defaultValue: false },
+      { key: 'background_check_required_flag', label: 'Background Check Required', type: 'checkbox', defaultValue: false },
+      { key: 'bonding_required_flag', label: 'Bonding Required', type: 'checkbox', defaultValue: false },
+      { key: 'licensing_required_flag', label: 'Licensing Required', type: 'checkbox', defaultValue: false },
+      { key: 'required_experience_years', label: 'Required Experience (years)', type: 'number', defaultValue: 0 },
+      { key: 'education_requirements', label: 'Education Requirements', type: 'textarea' },
+      { key: 'required_certifications', label: 'Required Certifications', type: 'jsonb' },
+      { key: 'required_skills', label: 'Required Skills', type: 'jsonb' },
       { key: 'metadata', label: 'Metadata', type: 'jsonb' }
     ],
 

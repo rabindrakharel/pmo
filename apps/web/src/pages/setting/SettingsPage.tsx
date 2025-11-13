@@ -16,7 +16,9 @@ import {
   Package,
   ShoppingCart,
   FileText,
-  Zap
+  Zap,
+  Cable,
+  Tag
 } from 'lucide-react';
 import { EntityConfigurationModal } from '../../components/settings/EntityConfigurationModal';
 import * as LucideIcons from 'lucide-react';
@@ -51,8 +53,11 @@ const DOMAIN_ICONS: Record<string, any> = {
   'Advanced': Zap,
 };
 
+type MainTab = 'entityMapping' | 'workflowAutomation' | 'integrations' | 'entities' | 'dataLabels';
+
 export function SettingsPage() {
   const navigate = useNavigate();
+  const [activeMainTab, setActiveMainTab] = useState<MainTab>('entities');
   const [domains, setDomains] = useState<Domain[]>([]);
   const [selectedDomain, setSelectedDomain] = useState<string>('Overview');
   const [filteredEntities, setFilteredEntities] = useState<Entity[]>([]);
@@ -175,8 +180,149 @@ export function SettingsPage() {
           </div>
         </div>
 
-        {/* Entity Configuration Section */}
-        <div className="bg-white border border-dark-300 rounded-lg p-6">
+        {/* Main Tabs */}
+        <div className="bg-dark-100 rounded-xl p-4 border border-dark-300">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setActiveMainTab('entityMapping')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                activeMainTab === 'entityMapping'
+                  ? 'bg-slate-600 text-white shadow-md'
+                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+              }`}
+            >
+              <LinkIcon className="h-4 w-4" />
+              Entity Mapping
+            </button>
+
+            <button
+              onClick={() => setActiveMainTab('workflowAutomation')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                activeMainTab === 'workflowAutomation'
+                  ? 'bg-slate-600 text-white shadow-md'
+                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+              }`}
+            >
+              <Zap className="h-4 w-4" />
+              Workflow Automation
+            </button>
+
+            <button
+              onClick={() => setActiveMainTab('integrations')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                activeMainTab === 'integrations'
+                  ? 'bg-slate-600 text-white shadow-md'
+                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+              }`}
+            >
+              <Cable className="h-4 w-4" />
+              Integrations
+            </button>
+
+            <button
+              onClick={() => setActiveMainTab('entities')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                activeMainTab === 'entities'
+                  ? 'bg-slate-600 text-white shadow-md'
+                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+              }`}
+            >
+              <Database className="h-4 w-4" />
+              Entities ({totalEntities})
+            </button>
+
+            <button
+              onClick={() => setActiveMainTab('dataLabels')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                activeMainTab === 'dataLabels'
+                  ? 'bg-slate-600 text-white shadow-md'
+                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+              }`}
+            >
+              <Tag className="h-4 w-4" />
+              Data Labels (57)
+            </button>
+          </div>
+        </div>
+
+        {/* Entity Mapping Tab */}
+        {activeMainTab === 'entityMapping' && (
+          <div className="bg-white border border-dark-300 rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
+              <LinkIcon className="h-5 w-5" />
+              Entity Mapping
+            </h2>
+            <p className="text-sm text-dark-600 mb-4">
+              Configure parent-child relationships and entity linkages using the <strong>d_entity_id_map</strong> table.
+              Define how entities connect and interact with each other across the system.
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
+              <p className="font-medium mb-2">Entity Mapping Configuration</p>
+              <ul className="list-disc list-inside space-y-1 text-blue-700">
+                <li>View and edit parent-child entity relationships</li>
+                <li>Configure entity linkage rules and constraints</li>
+                <li>Manage entity hierarchy and navigation paths</li>
+              </ul>
+            </div>
+            <button
+              onClick={() => navigate('/test/linkage')}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              Test Linkage Modal
+            </button>
+          </div>
+        )}
+
+        {/* Workflow Automation Tab */}
+        {activeMainTab === 'workflowAutomation' && (
+          <div className="bg-white border border-dark-300 rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
+              <Zap className="h-5 w-5" />
+              Workflow Automation
+            </h2>
+            <p className="text-sm text-dark-600 mb-4">
+              Configure automated workflows, business process rules, and event-driven actions.
+              Set up triggers, conditions, and actions to automate routine tasks.
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-900">
+              <p className="font-medium mb-2">Workflow Automation Features</p>
+              <ul className="list-disc list-inside space-y-1 text-amber-700">
+                <li>Create automated workflows for entity state transitions</li>
+                <li>Configure event triggers and action rules</li>
+                <li>Set up approval chains and notification flows</li>
+                <li>Define business process automation logic</li>
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Integrations Tab */}
+        {activeMainTab === 'integrations' && (
+          <div className="bg-white border border-dark-300 rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
+              <Cable className="h-5 w-5" />
+              Integrations
+            </h2>
+            <p className="text-sm text-dark-600 mb-4">
+              Manage external service integrations, API connections, and third-party system configurations.
+              Configure webhooks, OAuth providers, and external data sources.
+            </p>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-900">
+              <p className="font-medium mb-2">Available Integrations</p>
+              <ul className="list-disc list-inside space-y-1 text-green-700">
+                <li>AWS Services (S3, SES, SNS, Lambda)</li>
+                <li>Authentication providers (OAuth, SAML, LDAP)</li>
+                <li>External APIs and webhooks</li>
+                <li>MinIO object storage configuration</li>
+                <li>Email service integration (MailHog/SMTP)</li>
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Entities Tab */}
+        {activeMainTab === 'entities' && (
+          <div className="bg-white border border-dark-300 rounded-lg p-6">
           <div className="flex items-center gap-3 mb-4">
             <Database className="h-5 w-5 text-dark-700" />
             <h2 className="text-lg font-semibold text-dark-900">Entity Configuration</h2>
@@ -240,6 +386,20 @@ export function SettingsPage() {
             </div>
           </div>
 
+          {/* Help Text */}
+          {!loading && filteredEntities.length > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2 mb-4">
+              <Database className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-blue-900">
+                <p className="font-medium">Entity Configuration</p>
+                <p className="mt-1 text-blue-700">
+                  <strong>Click on any row</strong> to configure the entity's column metadata, display settings, and more.
+                  You can add, edit, delete, and reorder database columns.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Entities Table */}
           {loading ? (
             <div className="flex items-center justify-center h-64">
@@ -269,7 +429,12 @@ export function SettingsPage() {
                 </thead>
                 <tbody className="divide-y divide-dark-200">
                   {filteredEntities.map((entity) => (
-                    <tr key={entity.code} className="hover:bg-dark-50">
+                    <tr
+                      key={entity.code}
+                      onClick={() => handleConfigureEntity(entity)}
+                      className="hover:bg-blue-50 cursor-pointer transition-colors group"
+                      title={`Click to configure ${entity.name}`}
+                    >
                       <td className="px-4 py-3 text-dark-700">
                         {getIcon(entity.ui_icon)}
                       </td>
@@ -286,15 +451,18 @@ export function SettingsPage() {
                         {entity.display_order}
                       </td>
                       <td className="px-4 py-3 text-center text-dark-600">
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 group-hover:bg-blue-200 transition-colors">
                           {entity.column_metadata?.length || 0}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center">
                           <button
-                            onClick={() => handleConfigureEntity(entity)}
-                            className="flex items-center gap-2 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors text-sm font-medium"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleConfigureEntity(entity);
+                            }}
+                            className="flex items-center gap-2 px-3 py-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors text-sm font-medium"
                             title={`Configure ${entity.name}`}
                           >
                             <Sliders className="h-4 w-4" />
@@ -317,26 +485,92 @@ export function SettingsPage() {
               {searchQuery && ` matching "${searchQuery}"`}
             </div>
           )}
-        </div>
+          </div>
+        )}
 
-        {/* Entity Linkage Section */}
-        <div className="bg-white border border-dark-300 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
-            <LinkIcon className="h-5 w-5" />
-            Entity Linkage System
-          </h2>
-          <p className="text-sm text-dark-600 mb-4">
-            Entity linkage management has been unified into a reusable modal component.
-            Use the <strong>UnifiedLinkageModal</strong> component throughout the application
-            to manage parent-child relationships between entities.
-          </p>
-          <button
-            onClick={() => navigate('/test/linkage')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-          >
-            Test Linkage Modal
-          </button>
-        </div>
+        {/* Data Labels Tab */}
+        {activeMainTab === 'dataLabels' && (
+          <div className="bg-white border border-dark-300 rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
+              <Tag className="h-5 w-5" />
+              Data Labels
+            </h2>
+            <p className="text-sm text-dark-600 mb-4">
+              Manage dropdown options, status workflows, and sequential states for all entity types.
+              Configure data labels stored in the <strong>setting_datalabel</strong> table.
+            </p>
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-sm text-purple-900 mb-6">
+              <p className="font-medium mb-2">Data Label Categories</p>
+              <div className="grid grid-cols-2 gap-2 text-purple-700">
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Project stages and status workflows</li>
+                  <li>Task priority and update types</li>
+                  <li>Client levels and status</li>
+                  <li>Office and business hierarchies</li>
+                  <li>Position and role levels</li>
+                </ul>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Opportunity funnel stages</li>
+                  <li>Industry sectors and acquisition channels</li>
+                  <li>Customer tier classifications</li>
+                  <li>Form approval and submission status</li>
+                  <li>Wiki publication status</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg border border-dark-300 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-dark-50 border-b border-dark-300">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-dark-600 uppercase">Category</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-dark-600 uppercase">Description</th>
+                    <th className="w-24 px-4 py-3 text-center text-xs font-medium text-dark-600 uppercase">Count</th>
+                    <th className="w-32 px-4 py-3 text-center text-xs font-medium text-dark-600 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-dark-200">
+                  <tr className="hover:bg-blue-50">
+                    <td className="px-4 py-3 font-medium text-dark-900">Project Stage</td>
+                    <td className="px-4 py-3 text-dark-600">Sequential workflow stages for projects</td>
+                    <td className="px-4 py-3 text-center text-dark-600">5</td>
+                    <td className="px-4 py-3 text-center">
+                      <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">Configure</button>
+                    </td>
+                  </tr>
+                  <tr className="hover:bg-blue-50">
+                    <td className="px-4 py-3 font-medium text-dark-900">Task Priority</td>
+                    <td className="px-4 py-3 text-dark-600">Priority levels for task management</td>
+                    <td className="px-4 py-3 text-center text-dark-600">4</td>
+                    <td className="px-4 py-3 text-center">
+                      <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">Configure</button>
+                    </td>
+                  </tr>
+                  <tr className="hover:bg-blue-50">
+                    <td className="px-4 py-3 font-medium text-dark-900">Client Status</td>
+                    <td className="px-4 py-3 text-dark-600">Client lifecycle status values</td>
+                    <td className="px-4 py-3 text-center text-dark-600">6</td>
+                    <td className="px-4 py-3 text-center">
+                      <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">Configure</button>
+                    </td>
+                  </tr>
+                  <tr className="hover:bg-blue-50">
+                    <td className="px-4 py-3 font-medium text-dark-900">Customer Tier</td>
+                    <td className="px-4 py-3 text-dark-600">Customer segmentation tiers</td>
+                    <td className="px-4 py-3 text-center text-dark-600">5</td>
+                    <td className="px-4 py-3 text-center">
+                      <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">Configure</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 text-sm text-dark-600">
+              Showing 4 of 57 data label categories
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Entity Configuration Modal */}

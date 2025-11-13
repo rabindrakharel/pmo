@@ -24,6 +24,10 @@ interface CreateEventRequest {
   to_ts: string; // ISO timestamp (event end time)
   timezone?: string; // Default: 'America/Toronto'
   event_metadata?: Record<string, any>;
+  // Optional: Additional organizers (current user is always added as organizer)
+  additional_organizers?: Array<{
+    empid: string;
+  }>;
   // Optional: Attendees to automatically create event-person mappings
   attendees?: Array<{
     person_entity_type: 'employee' | 'client' | 'customer';
@@ -90,25 +94,40 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
       const dataQuery = client`
         SELECT
-          id::text,
-          code,
-          name,
-          descr,
-          event_type,
-          event_platform_provider_name,
-          event_addr,
-          event_instructions,
-          from_ts::text,
-          to_ts::text,
-          timezone,
-          event_metadata,
-          active_flag,
-          created_ts::text,
-          updated_ts::text,
-          version
-        FROM app.d_event
+          e.id::text,
+          e.code,
+          e.name,
+          e.descr,
+          e.event_type,
+          e.event_platform_provider_name,
+          e.event_addr,
+          e.event_instructions,
+          e.from_ts::text,
+          e.to_ts::text,
+          e.timezone,
+          e.event_metadata,
+          e.active_flag,
+          e.created_ts::text,
+          e.updated_ts::text,
+          e.version,
+          -- Get organizers from RBAC (permission[5])
+          (
+            SELECT array_agg(
+              jsonb_build_object(
+                'empid', r.empid::text,
+                'name', emp.name,
+                'email', emp.email
+              )
+            )
+            FROM app.entity_id_rbac_map r
+            LEFT JOIN app.d_employee emp ON r.empid = emp.id
+            WHERE r.entity = 'event'
+              AND r.entity_id = e.id::text
+              AND r.permission @> ARRAY[5]
+          ) as organizers
+        FROM app.d_event e
         ${whereConditions}
-        ORDER BY from_ts DESC, created_ts DESC
+        ORDER BY e.from_ts DESC, e.created_ts DESC
         LIMIT ${limit}
         OFFSET ${offset}
       `;
@@ -124,6 +143,163 @@ export async function eventRoutes(fastify: FastifyInstance) {
     } catch (error) {
       console.error('Error fetching events:', error);
       reply.code(500).send({ error: 'Failed to fetch events' });
+    }
+  });
+
+  /**
+   * GET /api/v1/event/enriched
+   * Get all events with full organizer and attendee details
+   */
+  fastify.get<{
+    Querystring: {
+      from_ts?: string;
+      to_ts?: string;
+      person_id?: string;
+      person_type?: string;
+      page?: number;
+      limit?: number;
+    };
+  }>('/api/v1/event/enriched', async (request, reply) => {
+    try {
+      const { from_ts, to_ts, person_id, person_type } = request.query;
+      const { page, limit, offset } = getPaginationParams(request.query);
+
+      // Build conditions for filtering
+      let whereConditions = client`WHERE e.active_flag = true`;
+
+      if (from_ts) {
+        whereConditions = client`${whereConditions} AND e.from_ts >= ${from_ts}::timestamptz`;
+      }
+
+      if (to_ts) {
+        whereConditions = client`${whereConditions} AND e.to_ts <= ${to_ts}::timestamptz`;
+      }
+
+      // Filter by person involvement (either as organizer or attendee)
+      let personFilter = client``;
+      if (person_id && person_type) {
+        personFilter = client`
+          AND (
+            (e.organizer_id = ${person_id}::uuid AND e.organizer_type = ${person_type})
+            OR EXISTS (
+              SELECT 1 FROM app.d_entity_event_person_calendar epc
+              WHERE epc.event_id = e.id
+                AND epc.person_entity_id = ${person_id}::uuid
+                AND epc.person_entity_type = ${person_type}
+                AND epc.active_flag = true
+            )
+          )
+        `;
+      }
+
+      // Main query with organizers from RBAC
+      const eventsQuery = client`
+        SELECT
+          e.id::text,
+          e.code,
+          e.name,
+          e.descr,
+          e.event_type,
+          e.event_platform_provider_name,
+          e.event_addr,
+          e.event_instructions,
+          e.from_ts::text,
+          e.to_ts::text,
+          e.timezone,
+          e.event_metadata,
+          -- Get organizers from RBAC (permission[5])
+          (
+            SELECT array_agg(
+              jsonb_build_object(
+                'empid', r.empid::text,
+                'name', emp.name,
+                'email', emp.email,
+                'is_organizer', true
+              )
+            )
+            FROM app.entity_id_rbac_map r
+            LEFT JOIN app.d_employee emp ON r.empid = emp.id
+            WHERE r.entity = 'event'
+              AND r.entity_id = e.id::text
+              AND r.permission @> ARRAY[5]
+          ) as organizers
+        FROM app.d_event e
+        ${whereConditions}
+        ${personFilter}
+        ORDER BY e.from_ts ASC
+        LIMIT ${limit}
+        OFFSET ${offset}
+      `;
+
+      const eventsResult = await eventsQuery;
+
+      // Get attendees for all events
+      const eventIds = eventsResult.map(e => e.id);
+      let attendeesResult = [];
+
+      if (eventIds.length > 0) {
+        const attendeesQuery = client`
+          SELECT
+            epc.event_id::text,
+            epc.person_entity_type,
+            epc.person_entity_id::text,
+            epc.event_rsvp_status,
+            CASE
+              WHEN epc.person_entity_type = 'employee' THEN emp.name
+              WHEN epc.person_entity_type = 'customer' THEN cust.name
+            END as person_name,
+            CASE
+              WHEN epc.person_entity_type = 'employee' THEN emp.email
+              WHEN epc.person_entity_type = 'customer' THEN cust.metadata->>'email'
+            END as person_email
+          FROM app.d_entity_event_person_calendar epc
+          LEFT JOIN app.d_employee emp ON epc.person_entity_id = emp.id AND epc.person_entity_type = 'employee'
+          LEFT JOIN app.d_cust cust ON epc.person_entity_id = cust.id AND epc.person_entity_type = 'customer'
+          WHERE epc.event_id = ANY(${eventIds}::uuid[])
+            AND epc.active_flag = true
+          ORDER BY epc.person_entity_type, epc.event_rsvp_status
+        `;
+        attendeesResult = await attendeesQuery;
+      }
+
+      // Group attendees by event
+      const attendeesByEvent = attendeesResult.reduce((acc: any, attendee: any) => {
+        if (!acc[attendee.event_id]) {
+          acc[attendee.event_id] = [];
+        }
+        acc[attendee.event_id].push(attendee);
+        return acc;
+      }, {});
+
+      // Combine events with attendees
+      const enrichedEvents = eventsResult.map(event => ({
+        ...event,
+        attendees: attendeesByEvent[event.id] || []
+      }));
+
+      // Count query
+      const countQuery = client`
+        SELECT COUNT(*) as total
+        FROM app.d_event e
+        ${whereConditions}
+        ${personFilter}
+      `;
+
+      const countResult = await countQuery;
+      const total = parseInt(countResult[0].total);
+
+      reply.code(200).send({
+        data: enrichedEvents,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit)
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching enriched events:', error);
+      reply.code(500).send({ error: 'Failed to fetch enriched events' });
     }
   });
 
@@ -279,8 +455,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
       console.log(`✅ Created event: ${newEvent.code}`);
 
-      // Grant full Owner permissions to event creator via RBAC
-      // Owner permission [5] allows full control including permission management
+      // Grant Owner permissions (permission[5]) to event creator and additional organizers
       const creatorEmpId = request.user?.sub;
       if (creatorEmpId) {
         await client`
@@ -299,6 +474,84 @@ export async function eventRoutes(fastify: FastifyInstance) {
           )
         `;
         console.log(`✅ Granted Owner permissions to creator (empid: ${creatorEmpId})`);
+
+        // Also add creator as an attendee with accepted status
+        const creatorAttendeeCode = `EPC-${eventData.code}-ORGANIZER-${creatorEmpId.substring(0, 8)}`;
+        await client`
+          INSERT INTO app.d_entity_event_person_calendar (
+            code,
+            name,
+            person_entity_type,
+            person_entity_id,
+            event_id,
+            event_rsvp_status,
+            from_ts,
+            to_ts,
+            timezone
+          ) VALUES (
+            ${creatorAttendeeCode},
+            ${`${eventData.name} - Organizer`},
+            'employee',
+            ${creatorEmpId}::uuid,
+            ${newEvent.id}::uuid,
+            'accepted',
+            ${eventData.from_ts}::timestamptz,
+            ${eventData.to_ts}::timestamptz,
+            ${eventData.timezone || 'America/Toronto'}
+          )
+          ON CONFLICT DO NOTHING
+        `;
+        console.log(`✅ Added creator as attendee with accepted RSVP status`);
+      }
+
+      // Grant Owner permissions to additional organizers if provided
+      if (eventData.additional_organizers && eventData.additional_organizers.length > 0) {
+        for (const organizer of eventData.additional_organizers) {
+          await client`
+            INSERT INTO app.entity_id_rbac_map (
+              empid,
+              entity,
+              entity_id,
+              permission,
+              granted_by_empid
+            ) VALUES (
+              ${organizer.empid}::uuid,
+              'event',
+              ${newEvent.id},
+              ARRAY[0,1,2,3,4,5],
+              ${creatorEmpId || organizer.empid}::uuid
+            )
+            ON CONFLICT DO NOTHING
+          `;
+
+          // Also add additional organizer as attendee with accepted status
+          const orgAttendeeCode = `EPC-${eventData.code}-ORGANIZER-${organizer.empid.substring(0, 8)}`;
+          await client`
+            INSERT INTO app.d_entity_event_person_calendar (
+              code,
+              name,
+              person_entity_type,
+              person_entity_id,
+              event_id,
+              event_rsvp_status,
+              from_ts,
+              to_ts,
+              timezone
+            ) VALUES (
+              ${orgAttendeeCode},
+              ${`${eventData.name} - Organizer`},
+              'employee',
+              ${organizer.empid}::uuid,
+              ${newEvent.id}::uuid,
+              'accepted',
+              ${eventData.from_ts}::timestamptz,
+              ${eventData.to_ts}::timestamptz,
+              ${eventData.timezone || 'America/Toronto'}
+            )
+            ON CONFLICT DO NOTHING
+          `;
+        }
+        console.log(`✅ Granted Owner permissions to ${eventData.additional_organizers.length} additional organizers`);
       }
 
       // Create event-person mappings if attendees provided

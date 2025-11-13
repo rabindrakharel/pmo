@@ -85,21 +85,30 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       const keys = Object.keys(firstRow);
 
       // Generate columns using universal field detector
-      return keys
-        .filter(key => key !== 'id') // Hide ID column by default
+      const allGeneratedColumns = keys
         .map(key => {
           const metadata = detectField(key);
-          return {
+          const column = {
             key,
             title: metadata.fieldName, // This uses the formatted title from detectField
             sortable: metadata.sortable,
             filterable: metadata.filterable,
             searchable: metadata.searchable,
             width: metadata.width,
-            visible: metadata.visible,
-            render: metadata.format
+            visible: metadata.visible, // This properly respects the visibility from detectField
+            // Don't set render for fields with loadFromSettings - let renderCellValue handle badge rendering
+            render: metadata.loadFromSettings ? undefined : metadata.format,
+            // Add missing properties for proper datalabel rendering
+            loadOptionsFromSettings: metadata.loadFromSettings,
+            editable: metadata.editable,
+            editType: metadata.editType,
+            align: metadata.align
           };
+
+          return column;
         });
+
+      return allGeneratedColumns.filter(col => col.visible !== false); // Only include visible columns
     }
 
     return [];

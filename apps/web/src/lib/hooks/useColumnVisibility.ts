@@ -130,13 +130,13 @@ export function useColumnVisibility(
 ): UseColumnVisibilityReturn {
   const storageKey = `${STORAGE_KEY_PREFIX}${entityType}`;
 
-  // Discover all available columns from data
-  const discoveredKeys = useMemo(() => discoverColumnsFromData(data), [data]);
-
-  // Merge configured and discovered columns
+  // Only use configured columns - don't discover from data
+  // This respects the filtering done by the parent component
   const allColumns = useMemo(() => {
-    return mergeColumns(configuredColumns, discoveredKeys);
-  }, [configuredColumns, discoveredKeys]);
+    // If columns are already configured, use them as-is
+    // Don't merge with discovered columns as that would add back filtered columns
+    return configuredColumns;
+  }, [configuredColumns]);
 
   // Initialize visibility state from localStorage or defaults
   const [visibilityState, setVisibilityState] = useState<ColumnVisibilityState>(() => {
@@ -149,11 +149,15 @@ export function useColumnVisibility(
       console.warn('Failed to load column visibility from localStorage:', error);
     }
 
-    // Default: all columns visible
+    // Default: respect column's visible property, or use defaultVisible
     const initial: ColumnVisibilityState = {};
     allColumns.forEach(col => {
       const key = typeof col === 'string' ? col : col.key;
-      initial[key] = defaultVisible;
+      // Respect the column's own visible property if it exists
+      const colVisible = typeof col === 'object' && col.visible !== undefined
+        ? col.visible
+        : defaultVisible;
+      initial[key] = colVisible;
     });
     return initial;
   });
@@ -165,7 +169,11 @@ export function useColumnVisibility(
       allColumns.forEach(col => {
         const key = typeof col === 'string' ? col : col.key;
         if (!(key in updated)) {
-          updated[key] = defaultVisible;
+          // Respect the column's own visible property if it exists
+          const colVisible = typeof col === 'object' && col.visible !== undefined
+            ? col.visible
+            : defaultVisible;
+          updated[key] = colVisible;
         }
       });
       return updated;
@@ -223,12 +231,16 @@ export function useColumnVisibility(
     return visibilityState[columnKey] !== false;
   };
 
-  // Reset to default (show all)
+  // Reset to default (respect column's visible property)
   const resetToDefault = () => {
     const updated: ColumnVisibilityState = {};
     allColumns.forEach(col => {
       const key = typeof col === 'string' ? col : col.key;
-      updated[key] = defaultVisible;
+      // Respect the column's own visible property if it exists
+      const colVisible = typeof col === 'object' && col.visible !== undefined
+        ? col.visible
+        : defaultVisible;
+      updated[key] = colVisible;
     });
     setVisibilityState(updated);
 

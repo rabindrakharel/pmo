@@ -928,6 +928,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
               ui_label: Type.String(),
               ui_icon: Type.Optional(Type.String()),
               column_metadata: Type.Array(Type.Any()),
+              data_labels: Type.Array(Type.String()),
               display_order: Type.Number()
             }))
           }))
@@ -946,6 +947,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
           ui_icon,
           dl_entity_domain,
           column_metadata,
+          data_labels,
           display_order
         FROM app.d_entity
         WHERE active_flag = true
@@ -968,12 +970,22 @@ export async function entityRoutes(fastify: FastifyInstance) {
           columnMetadata = [];
         }
 
+        // Parse data_labels
+        let dataLabels = row.data_labels || [];
+        if (typeof dataLabels === 'string') {
+          dataLabels = JSON.parse(dataLabels);
+        }
+        if (!Array.isArray(dataLabels)) {
+          dataLabels = [];
+        }
+
         const entity = {
           code: row.code,
           name: row.name,
           ui_label: row.ui_label,
           ui_icon: row.ui_icon,
           column_metadata: columnMetadata,
+          data_labels: dataLabels,
           display_order: row.display_order
         };
 
@@ -1070,6 +1082,123 @@ export async function entityRoutes(fastify: FastifyInstance) {
     } catch (error) {
       fastify.log.error('Error fetching child entity counts:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * PUT /api/v1/entity/:code/configure
+   * Update entity configuration (column_metadata, display settings)
+   * Allows users to configure entity schema and metadata
+   */
+  fastify.put('/api/v1/entity/:code/configure', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        code: Type.String()
+      }),
+      body: Type.Object({
+        code: Type.String(),
+        name: Type.String(),
+        ui_label: Type.String(),
+        ui_icon: Type.String(),
+        display_order: Type.Number(),
+        dl_entity_domain: Type.Union([Type.String(), Type.Null()]),
+        column_metadata: Type.Array(Type.Object({
+          orderid: Type.Number(),
+          name: Type.String(),
+          descr: Type.Union([Type.String(), Type.Null()]),
+          datatype: Type.String(),
+          is_nullable: Type.Boolean(),
+          default_value: Type.Union([Type.String(), Type.Null()])
+        })),
+        data_labels: Type.Optional(Type.Array(Type.String()))
+      }),
+      response: {
+        200: Type.Object({
+          success: Type.Boolean(),
+          message: Type.String(),
+          entity: Type.Object({
+            code: Type.String(),
+            name: Type.String(),
+            ui_label: Type.String(),
+            ui_icon: Type.String(),
+            display_order: Type.Number(),
+            dl_entity_domain: Type.Union([Type.String(), Type.Null()]),
+            column_count: Type.Number()
+          })
+        }),
+        400: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async (request, reply) => {
+    const { code } = request.params as { code: string };
+    const { name, ui_label, ui_icon, display_order, dl_entity_domain, column_metadata, data_labels } = request.body as any;
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      // Validate column_metadata
+      if (!column_metadata || !Array.isArray(column_metadata) || column_metadata.length === 0) {
+        return reply.status(400).send({ error: 'column_metadata is required and must be a non-empty array' });
+      }
+
+      // Check for duplicate column names
+      const columnNames = column_metadata.map(c => c.name.toLowerCase());
+      const duplicates = columnNames.filter((name, index) => columnNames.indexOf(name) !== index);
+      if (duplicates.length > 0) {
+        return reply.status(400).send({ error: `Duplicate column names: ${duplicates.join(', ')}` });
+      }
+
+      // Verify entity exists
+      const entityCheck = await db.execute(sql`
+        SELECT code FROM app.d_entity
+        WHERE code = ${code}
+        LIMIT 1
+      `);
+
+      if (entityCheck.length === 0) {
+        return reply.status(404).send({ error: `Entity "${code}" not found` });
+      }
+
+      // Update entity configuration
+      await db.execute(sql`
+        UPDATE app.d_entity
+        SET
+          name = ${name},
+          ui_label = ${ui_label},
+          ui_icon = ${ui_icon},
+          display_order = ${display_order},
+          dl_entity_domain = ${dl_entity_domain},
+          column_metadata = ${JSON.stringify(column_metadata)}::jsonb,
+          data_labels = ${JSON.stringify(data_labels || [])}::jsonb,
+          updated_ts = NOW()
+        WHERE code = ${code}
+      `);
+
+      fastify.log.info(`Entity configuration updated: ${code} by user ${userId}`);
+
+      return {
+        success: true,
+        message: `Entity "${name}" configuration updated successfully`,
+        entity: {
+          code,
+          name,
+          ui_label,
+          ui_icon,
+          display_order,
+          dl_entity_domain,
+          column_count: column_metadata.length
+        }
+      };
+    } catch (error) {
+      fastify.log.error('Error updating entity configuration:', error as any);
+      return reply.status(500).send({ error: 'Failed to update entity configuration' });
     }
   });
 }

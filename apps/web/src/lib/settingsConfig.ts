@@ -181,6 +181,10 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
   { key: 'industrySector', datalabel: 'dl__industry_sector', displayName: 'Industry Sector', pluralName: 'Industry Sectors' },
   { key: 'acquisitionChannel', datalabel: 'dl__acquisition_channel', displayName: 'Acquisition Channel', pluralName: 'Acquisition Channels' },
   { key: 'customerTier', datalabel: 'dl__customer_tier', displayName: 'Customer Tier', pluralName: 'Customer Tiers' },
+  { key: 'expenseCategory', datalabel: 'dl__expense_category', displayName: 'Expense Category', pluralName: 'Expense Categories' },
+  { key: 'expenseSubcategory', datalabel: 'dl__expense_subcategory', displayName: 'Expense Subcategory', pluralName: 'Expense Subcategories' },
+  { key: 'revenueCategory', datalabel: 'dl__revenue_category', displayName: 'Revenue Category', pluralName: 'Revenue Categories' },
+  { key: 'revenueSubcategory', datalabel: 'dl__revenue_subcategory', displayName: 'Revenue Subcategory', pluralName: 'Revenue Subcategories' },
 ];
 
 // ============================================================================

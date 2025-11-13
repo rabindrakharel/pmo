@@ -43,6 +43,7 @@ import { ProfilePage } from './pages/profile';
 import { LabelsPage } from './pages/labels';
 import { DataLabelPage, IntegrationsPage, SettingsOverviewPage, EntityLinkagePage, SettingDetailPage } from './pages/setting';
 import { EntityDesignerPage } from './pages/setting/EntityDesignerPage';
+import DataLabelsVisualizationPage from './pages/setting/DataLabelsVisualizationPage';
 import { SecurityPage } from './pages/security';
 import { BillingPage } from './pages/billing';
 import { LinkagePage } from './pages/LinkagePage';
@@ -165,6 +166,11 @@ function AppRoutes() {
       {/* Auto-Generated Entity Routes */}
       {generateEntityRoutes()}
 
+      {/* Special Routes - Calendar (defaults to calendar view) */}
+      <Route path="/calendar" element={<ProtectedRoute><EntityMainPage entityType="event" defaultView="calendar" /></ProtectedRoute>} />
+      <Route path="/calendar/new" element={<ProtectedRoute><EntityCreatePage entityType="event" /></ProtectedRoute>} />
+      <Route path="/calendar/:id" element={<ProtectedRoute><EntityDetailPage entityType="event" /></ProtectedRoute>} />
+
       {/* Special Routes - Wiki (custom create/edit pages) */}
       <Route path="/wiki" element={<ProtectedRoute><EntityMainPage entityType="wiki" /></ProtectedRoute>} />
       <Route path="/wiki/new" element={<ProtectedRoute><WikiEditorPage /></ProtectedRoute>} />
@@ -231,6 +237,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <DataLabelPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/data-labels-viz"
+        element={
+          <ProtectedRoute>
+            <DataLabelsVisualizationPage />
           </ProtectedRoute>
         }
       />

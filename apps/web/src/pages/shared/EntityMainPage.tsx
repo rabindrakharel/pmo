@@ -28,12 +28,13 @@ import { useSidebar } from '../../contexts/SidebarContext';
 
 interface EntityMainPageProps {
   entityType: string;
+  defaultView?: ViewMode;
 }
 
-export function EntityMainPage({ entityType }: EntityMainPageProps) {
+export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps) {
   const navigate = useNavigate();
   const config = getEntityConfig(entityType);
-  const [view, setView] = useViewMode(entityType);
+  const [view, setView] = useViewMode(entityType, defaultView);
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

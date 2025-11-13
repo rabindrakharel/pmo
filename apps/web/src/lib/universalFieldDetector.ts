@@ -576,9 +576,12 @@ export function detectField(
 
   // PATTERN 11: JSONB (using Set for O(1) lookup)
   if (PATTERNS.jsonb.names.has(key) || dataType?.includes('jsonb')) {
+    // Hide metadata fields from table view (but keep in data for detail views)
+    const isMetadata = key.includes('metadata');
+
     return {
       fieldName: memoizedFieldTitle(fieldKey),
-      visible: true,
+      visible: !isMetadata,  // Hide metadata from tables, but keep in forms/detail views
       sortable: false,
       filterable: false,
       searchable: false,

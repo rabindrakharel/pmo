@@ -920,8 +920,8 @@ export function MetadataField({
   inputWidth = '10rem',
   badge
 }: MetadataFieldProps) {
-  const labelClass = 'text-dark-600 font-medium text-3xs flex-shrink-0 tracking-wide uppercase';
-  const valueClass = `text-dark-600 font-medium text-xs tracking-tight ${className}`;
+  const labelClass = 'text-gray-400 font-normal text-xs flex-shrink-0';
+  const valueClass = `text-gray-700 font-medium text-sm ${className}`;
 
   if (!value && !isEditing) return null;
 
@@ -956,13 +956,13 @@ export function MetadataField({
           {canCopy && onCopy && (
             <button
               onClick={() => onCopy(value, fieldKey)}
-              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-dark-100 rounded transition-all duration-200"
+              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-100 rounded transition-all duration-200"
               title={`Copy ${label.toLowerCase()}`}
             >
               {copiedField === fieldKey ? (
                 <Check className="h-3 w-3 text-green-600" />
               ) : (
-                <Copy className="h-3 w-3 text-dark-600 hover:text-dark-700" />
+                <Copy className="h-3 w-3 text-gray-400 hover:text-gray-600" />
               )}
             </button>
           )}
@@ -984,7 +984,7 @@ interface MetadataRowProps {
  */
 export function MetadataRow({ children, className = '' }: MetadataRowProps) {
   return (
-    <div className={`flex items-center gap-2 flex-wrap ${className}`}>
+    <div className={`flex items-center gap-3 flex-wrap ${className}`}>
       {children}
     </div>
   );
@@ -1001,5 +1001,5 @@ interface MetadataSeparatorProps {
  */
 export function MetadataSeparator({ show = true }: MetadataSeparatorProps) {
   if (!show) return null;
-  return <span className="text-gray-300 flex-shrink-0 mx-0.5 opacity-50">·</span>;
+  return <span className="text-gray-200 flex-shrink-0 mx-2">·</span>;
 }

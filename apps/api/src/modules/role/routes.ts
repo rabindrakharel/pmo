@@ -8,29 +8,39 @@ const RoleSchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
-  roleType: Type.Optional(Type.String()),
-  roleCategory: Type.Optional(Type.String()),
-  authorityLevel: Type.Optional(Type.String()),
-  approvalLimit: Type.Optional(Type.Number()),
-  delegationAllowed: Type.Optional(Type.Boolean()),
-  active: Type.Boolean(),
-  fromTs: Type.String(),
-  toTs: Type.Optional(Type.String()),
-  created: Type.String(),
-  updated: Type.String(),
-  attr: Type.Optional(Type.Any())});
+  role_code: Type.Optional(Type.String()),
+  role_category: Type.Optional(Type.String()),
+  reporting_level: Type.Optional(Type.Number()),
+  required_experience_years: Type.Optional(Type.Number()),
+  management_role_flag: Type.Optional(Type.Boolean()),
+  client_facing_flag: Type.Optional(Type.Boolean()),
+  safety_critical_flag: Type.Optional(Type.Boolean()),
+  background_check_required_flag: Type.Optional(Type.Boolean()),
+  bonding_required_flag: Type.Optional(Type.Boolean()),
+  licensing_required_flag: Type.Optional(Type.Boolean()),
+  active_flag: Type.Boolean(),
+  from_ts: Type.String(),
+  to_ts: Type.Optional(Type.String()),
+  created_ts: Type.String(),
+  updated_ts: Type.String(),
+  metadata: Type.Optional(Type.Any())});
 
 const CreateRoleSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
-  roleType: Type.Optional(Type.String()),
-  roleCategory: Type.Optional(Type.String()),
-  authorityLevel: Type.Optional(Type.String()),
-  approvalLimit: Type.Optional(Type.Number()),
-  delegationAllowed: Type.Optional(Type.Boolean()),
-  active: Type.Optional(Type.Boolean()),
-  fromTs: Type.Optional(Type.String({ format: 'date-time' })),
-  attr: Type.Optional(Type.Any())});
+  role_code: Type.Optional(Type.String()),
+  role_category: Type.Optional(Type.String()),
+  reporting_level: Type.Optional(Type.Number()),
+  required_experience_years: Type.Optional(Type.Number()),
+  management_role_flag: Type.Optional(Type.Boolean()),
+  client_facing_flag: Type.Optional(Type.Boolean()),
+  safety_critical_flag: Type.Optional(Type.Boolean()),
+  background_check_required_flag: Type.Optional(Type.Boolean()),
+  bonding_required_flag: Type.Optional(Type.Boolean()),
+  licensing_required_flag: Type.Optional(Type.Boolean()),
+  active_flag: Type.Optional(Type.Boolean()),
+  from_ts: Type.Optional(Type.String({ format: 'date-time' })),
+  metadata: Type.Optional(Type.Any())});
 
 const UpdateRoleSchema = Type.Partial(CreateRoleSchema);
 
@@ -82,6 +92,11 @@ export async function roleRoutes(fastify: FastifyInstance) {
           reporting_level,
           required_experience_years,
           management_role_flag,
+          client_facing_flag,
+          safety_critical_flag,
+          background_check_required_flag,
+          bonding_required_flag,
+          licensing_required_flag,
           active_flag,
           from_ts,
           to_ts,
@@ -94,26 +109,8 @@ export async function roleRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      // Transform database results to match schema
-      const transformedRoles = roles.map((role: any) => ({
-        id: role.id,
-        name: role.name,
-        descr: role.descr,
-        roleType: role.role_code,
-        roleCategory: role.role_category,
-        authorityLevel: role.reporting_level,
-        approvalLimit: role.required_experience_years,
-        delegationAllowed: role.management_role_flag,
-        active: role.active_flag,
-        fromTs: role.from_ts,
-        toTs: role.to_ts,
-        created: role.created_ts,
-        updated: role.updated_ts,
-
-        attr: role.metadata
-      }));
-
-      return createPaginatedResponse(transformedRoles, total, limit, offset);
+      // Return data directly in snake_case format (no transformation needed)
+      return createPaginatedResponse(roles, total, limit, offset);
     } catch (error) {
       fastify.log.error('Error fetching roles:');
       return reply.status(500).send({ error: 'Internal server error' });

@@ -40,6 +40,156 @@ export function detectField(key: string, value?: any): FieldMetadata {
 
 ---
 
+## Fields Hidden from Tables (But Available in Detail Views)
+
+### Background
+Certain fields contain data that:
+- Is **essential for backend operations** (IDs for API calls)
+- Is **too lengthy for table display** (metadata JSONB objects)
+- Should be **visible in detail/form views** but not in data tables
+
+### Hidden Field Patterns
+
+#### 1. **Primary and Foreign Key IDs** (`id`, `*_id`)
+**Pattern:** Fields ending with `_id`
+
+**Examples:** `id`, `project_id`, `employee_id`, `office_id`
+
+**Behavior:**
+- ✅ **Available in row data** → Used for edit/delete/view API calls
+- ❌ **Hidden from table columns** → Not displayed as a column
+- ✅ **Auto-generated name column** → `project_id` → shows `project_name` instead
+
+**Example:**
+```typescript
+// Field: 'project_id'
+detectField('project_id')
+// → { visible: false, ... }  // Hidden from table
+
+// Auto-generated field: 'project_name'
+// → { visible: true, ... }   // Shown in table instead
+```
+
+**Table Display:**
+```
+| Name       | Project Name      | Status   | Priority |
+|------------|-------------------|----------|----------|
+| Task Alpha | Website Redesign  | In Progress | High  |
+```
+
+**Row Data (includes hidden fields):**
+```javascript
+{
+  id: "abc-123",              // Hidden, but used for actions
+  name: "Task Alpha",
+  project_id: "def-456",      // Hidden, but used for API
+  project_name: "Website Redesign",  // Shown
+  status: "In Progress",
+  priority: "High"
+}
+```
+
+#### 2. **Metadata JSONB Fields** (`*metadata*`, `metadata`)
+**Pattern:** Fields containing "metadata"
+
+**Examples:** `metadata`, `column_metadata`, `request_metadata`
+
+**Behavior:**
+- ✅ **Available in row data** → Accessible in detail views
+- ❌ **Hidden from table columns** → Too lengthy for table display
+- ✅ **Shown in detail page** → Full JSON viewer in EntityDetailPage
+
+**Example:**
+```typescript
+detectField('column_metadata')
+// → { visible: false, renderType: 'json', component: 'MetadataTable' }
+```
+
+**Table Display:**
+```
+| Code    | Name     | Domain      | Display Order |
+|---------|----------|-------------|---------------|
+| project | Project  | Core Mgmt   | 10            |
+```
+
+**Detail View Display:**
+```
+Overview Tab:
+- Code: project
+- Name: Project
+- Domain: Core Management
+- Display Order: 10
+- Column Metadata: [JSON Viewer with expand/collapse]
+    {
+      "columns": [
+        { "name": "id", "type": "uuid", ... },
+        { "name": "name", "type": "varchar", ... }
+      ]
+    }
+```
+
+### Implementation Details
+
+**In `universalFieldDetector.ts`:**
+```typescript
+// Pattern 8: Foreign Keys
+if (key.endsWith('_id') && key !== 'id') {
+  return {
+    visible: false,  // Hide from tables
+    // ... but still in data for API operations
+  };
+}
+
+// Pattern 11: JSONB with metadata check
+if (PATTERNS.jsonb.names.has(key) || dataType?.includes('jsonb')) {
+  const isMetadata = key.includes('metadata');
+  return {
+    visible: !isMetadata,  // Hide metadata from tables
+    // ... but still editable in detail views
+  };
+}
+```
+
+**In `viewConfigGenerator.ts`:**
+```typescript
+// Columns with visible=false are:
+// 1. Added to hiddenColumns array
+// 2. Still present in row data
+// 3. Available for API operations
+
+if (meta.visible) {
+  visibleColumns.push(column);  // Shown in table
+} else {
+  hiddenColumns.push(key);      // Hidden, but in data
+}
+```
+
+### Usage Guidelines
+
+**✅ DO:**
+- Use `row.id` for edit/delete operations
+- Use `row.project_id` for API calls and navigation
+- Display `row.project_name` in tables
+- Show metadata in detail views with MetadataTable component
+
+**❌ DON'T:**
+- Display `id` or `*_id` fields as table columns
+- Show `metadata` fields in data tables
+- Remove these fields from API responses
+- Make assumptions about field availability based on visibility
+
+### API Contract
+
+**Important:** `visible: false` does NOT mean the field is excluded from:
+- API responses
+- Row data objects
+- Edit/delete operations
+- Detail page forms
+
+It ONLY means: "Don't render as a table column"
+
+---
+
 ## 12 Detection Patterns (Priority Order)
 
 ### Pattern 1: System Fields (Readonly)
@@ -236,23 +386,27 @@ detectField('contact_email')
 - `type`: 'foreignkey'
 - `editType`: 'select'
 - `options`: Loaded from referenced entity API
+- **`visible`: false** → Hidden from table columns (but available in row data)
 
 **Example:**
 ```typescript
 detectField('project_id')
-// → { type: 'foreignkey', editType: 'select', entityRef: 'project' }
+// → { type: 'foreignkey', editType: 'select', entityRef: 'project', visible: false }
 ```
 
 **Rendering:**
 - Display: Entity name (not ID) via `*_name` field
 - Input: Dropdown with entity list
 - **Note:** UI shows `project_name`, not `project_id`
+- **Table:** `project_id` column is hidden, but `row.project_id` is available for API operations
 
 **Auto-Generated Name Column:**
 ```typescript
 // If field is 'project_id', detector also generates:
 { key: 'project_name', type: 'reference', visible: true }
 ```
+
+**⚠️ Important:** See [Fields Hidden from Tables](#fields-hidden-from-tables-but-available-in-detail-views) for complete details on ID field visibility.
 
 ---
 
