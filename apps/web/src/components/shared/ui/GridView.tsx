@@ -170,7 +170,7 @@ export function GridView<T = any>({
     return (
       <div
         key={item.key}
-        className={`bg-dark-100 rounded-lg border border-dark-300 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${
+        className={`bg-dark-100 rounded-md border border-dark-300 shadow-sm hover:shadow-sm transition-all duration-200 cursor-pointer ${
           isSelected ? 'ring-2 ring-dark-7000 border-dark-3000' : ''
         } ${cardSizeClasses[cardSize]} ${item.className || ''}`}
         onClick={() => {
@@ -186,7 +186,7 @@ export function GridView<T = any>({
             <img
               src={item.image}
               alt={item.title}
-              className="w-full h-32 object-cover rounded-lg"
+              className="w-full h-32 object-cover rounded-md"
             />
           </div>
         )}
@@ -279,7 +279,7 @@ export function GridView<T = any>({
 
   if (loading) {
     return (
-      <div className="bg-dark-100 rounded-lg shadow-sm border border-dark-300">
+      <div className="bg-dark-100 rounded-md shadow-sm border border-dark-300">
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700"></div>
           <span
@@ -298,7 +298,7 @@ export function GridView<T = any>({
   }
 
   return (
-    <div className={`bg-dark-100 rounded-lg shadow-sm border border-dark-300 ${className}`}>
+    <div className={`bg-dark-100 rounded-md shadow-sm border border-dark-300 ${className}`}>
       {(searchable || (filterable && filters.length > 0)) && (
         <div className="p-4 border-b border-dark-300 bg-dark-100">
           <div className="flex items-center justify-between space-x-4">
@@ -310,7 +310,7 @@ export function GridView<T = any>({
                   placeholder="Search items..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-1.5 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-1.5 border border-dark-400 rounded-md text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                 />
               </div>
             )}
@@ -322,7 +322,7 @@ export function GridView<T = any>({
                     key={filter.key}
                     value={activeFilters[filter.key] || ''}
                     onChange={(e) => handleFilterChange(filter.key, e.target.value)}
-                    className="px-3 py-1.5 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+                    className="px-3 py-1.5 border border-dark-400 rounded-md text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                   >
                     <option value="">{filter.label}</option>
                     {filter.options.map((option) => (

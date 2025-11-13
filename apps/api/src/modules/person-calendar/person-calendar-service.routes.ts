@@ -28,12 +28,8 @@ export async function personCalendarServiceRoutes(fastify: FastifyInstance) {
       if (!personCalendarRequest.customerPhone) {
         return reply.code(400).send({ error: 'customerPhone is required' });
       }
-      if (!personCalendarRequest.serviceId) {
-        return reply.code(400).send({ error: 'serviceId is required' });
-      }
-      if (!personCalendarRequest.serviceName) {
-        return reply.code(400).send({ error: 'serviceName is required' });
-      }
+      // serviceId and serviceName are optional for calendar-only events
+      // They're only required if you're booking a specific service
       if (!personCalendarRequest.eventTitle) {
         return reply.code(400).send({ error: 'eventTitle is required' });
       }

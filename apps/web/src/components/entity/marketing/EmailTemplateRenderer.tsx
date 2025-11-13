@@ -161,7 +161,7 @@ export function EmailTemplateRenderer({ template }: EmailTemplateRendererProps) 
   return (
     <div className="email-template-preview">
       {/* Email Metadata Header */}
-      <div className="bg-dark-100 border border-dark-300 rounded-lg p-4 mb-4">
+      <div className="bg-dark-100 border border-dark-300 rounded-md p-4 mb-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
             <div className="text-xs font-semibold text-dark-700 uppercase mb-1">From</div>
@@ -186,7 +186,7 @@ export function EmailTemplateRenderer({ template }: EmailTemplateRendererProps) 
       </div>
 
       {/* Email Preview Container */}
-      <div className="bg-dark-100 border border-dark-400 rounded-lg overflow-hidden shadow-sm">
+      <div className="bg-dark-100 border border-dark-400 rounded-md overflow-hidden shadow-sm">
         {/* Email Client Toolbar (fake for realism) */}
         <div className="bg-dark-100 border-b border-dark-400 px-4 py-2 flex items-center space-x-2">
           <div className="flex space-x-1">

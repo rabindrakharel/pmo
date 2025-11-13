@@ -455,7 +455,7 @@ export function AdvancedFormBuilder({
         <div className="flex items-center space-x-3">
           <button
             onClick={handleCancel}
-            className="h-10 w-10 bg-dark-100 border border-dark-300 rounded-lg flex items-center justify-center hover:bg-dark-100"
+            className="h-10 w-10 bg-dark-100 border border-dark-300 rounded-md flex items-center justify-center hover:bg-dark-100"
             title="Back"
           >
             <ArrowLeft className="h-5 w-5 text-dark-600 stroke-[1.5]" />
@@ -475,7 +475,7 @@ export function AdvancedFormBuilder({
             <button
               onClick={saveDraft}
               disabled={savingDraft || !title}
-              className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-sm font-normal rounded text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center px-3 py-2 border border-dark-400 text-sm font-normal rounded text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 disabled:opacity-50 transition-colors"
             >
               <Save className="h-4 w-4 mr-2 stroke-[1.5]" />
               {savingDraft ? 'Saving Draft..' : 'Save Draft'}
@@ -485,7 +485,7 @@ export function AdvancedFormBuilder({
             <button
               onClick={handleSaveForm}
               disabled={saving || !title || fields.length === 0}
-              className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-dark-700 hover:bg-dark-800 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-normal rounded text-white bg-slate-600 hover:bg-slate-700 disabled:opacity-50 transition-colors"
             >
               <Save className="h-4 w-4 mr-2 stroke-[1.5]" />
               {saving ? 'Publishing...' : 'Publish Form'}
@@ -504,7 +504,7 @@ export function AdvancedFormBuilder({
           </div>
           <button
             onClick={addStep}
-            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-dark-700 hover:bg-dark-800 transition-colors"
+            className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-normal rounded text-white bg-slate-600 hover:bg-slate-700 transition-colors"
           >
             <Plus className="h-4 w-4 mr-2 stroke-[1.5]" />
             Add Step
@@ -526,7 +526,7 @@ export function AdvancedFormBuilder({
               <div key={step.id} className="relative group">
                 <button
                   onClick={() => navigateToStep(index)}
-                  className={`px-3 py-2 rounded-lg text-sm font-normal transition-colors min-w-0 flex items-center space-x-2 ${
+                  className={`px-3 py-2 rounded-md text-sm font-normal transition-colors min-w-0 flex items-center space-x-2 ${
                     index === currentStepIndex
                       ? 'bg-dark-100 text-dark-700 border border-dark-400'
                       : 'bg-dark-100 text-dark-700 hover:bg-dark-100 border border-dark-300'
@@ -590,7 +590,7 @@ export function AdvancedFormBuilder({
                 placeholder="Search field types..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 border border-dark-400 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+                className="w-full pl-10 pr-3 py-2 border border-dark-400 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-500/50 focus:border-transparent"
               />
             </div>
 
@@ -636,7 +636,7 @@ export function AdvancedFormBuilder({
                     <input
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                      className="px-3 py-2 text-sm border border-dark-400 rounded-md"
                     />
                   </div>
                   <div className="flex flex-col">
@@ -645,7 +645,7 @@ export function AdvancedFormBuilder({
                       value={descr}
                       onChange={(e) => setDescr(e.target.value)}
                       placeholder="Optional"
-                      className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                      className="px-3 py-2 text-sm border border-dark-400 rounded-md"
                     />
                   </div>
                 </div>
@@ -655,7 +655,7 @@ export function AdvancedFormBuilder({
                 <SortableContext items={currentStepFields.map(f => f.id)} strategy={rectSortingStrategy}>
                   <DroppableFormCanvas>
                     {currentStepFields.length === 0 ? (
-                      <div className="h-96 border border-dashed border-dark-400 rounded-lg flex flex-col items-center justify-center text-dark-700">
+                      <div className="h-96 border border-dashed border-dark-400 rounded-md flex flex-col items-center justify-center text-dark-700">
                         <Layers className="h-8 w-8 mb-2 text-dark-600 stroke-[1.5]" />
                         <p className="text-sm">No fields in this step yet</p>
                         <p className="text-xs text-dark-600">Drag field types from the palette or click to add them to {currentStep?.title}</p>
@@ -704,7 +704,7 @@ export function AdvancedFormBuilder({
 
         <DragOverlay dropAnimation={{ duration: 200, easing: 'ease' }}>
           {activeId ? (
-            <div className="px-4 py-3 rounded-lg bg-dark-100 border-2 border-dark-600 shadow-2xl">
+            <div className="px-4 py-3 rounded-md bg-dark-100 border-2 border-dark-600 shadow-2xl">
               {activeId.includes('field-type-') ? (
                 <div className="flex items-center space-x-2 text-sm font-normal text-dark-700">
                   <Plus className="h-4 w-4 stroke-[1.5]" />

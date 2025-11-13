@@ -65,7 +65,7 @@ export function SecurityPage() {
   return (
     <Layout>
       <div className="max-w-4xl mx-auto space-y-8">
-        <div className="bg-dark-100 shadow rounded-lg">
+        <div className="bg-dark-100 shadow rounded-md">
           <div className="px-4 py-5 sm:p-6">
             <div className="flex items-center mb-6">
               <Shield className="h-5 w-5 text-dark-700 stroke-[1.5] mr-3" />

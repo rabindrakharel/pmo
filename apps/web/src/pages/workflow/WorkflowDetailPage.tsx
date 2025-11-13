@@ -258,7 +258,7 @@ export function WorkflowDetailPage() {
   if (error || !workflowData) {
     return (
       <Layout>
-        <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
+        <div className="p-6 bg-red-50 border border-red-200 rounded-md">
           <p className="text-red-600">Error: {error || 'Workflow not found'}</p>
         </div>
       </Layout>
@@ -360,7 +360,7 @@ export function WorkflowDetailPage() {
         </div>
 
         {/* Workflow DAG Visualization */}
-        <div className="bg-dark-100 border border-dark-300 rounded-lg p-5">
+        <div className="bg-dark-100 border border-dark-300 rounded-md p-5">
           <div className="flex items-center gap-2 text-dark-700 mb-3">
             <GitBranch className="h-4 w-4" />
             <h3 className="text-sm font-medium">Workflow Entity Graph</h3>
@@ -381,7 +381,7 @@ export function WorkflowDetailPage() {
 
         {/* Selected Entity Details */}
         {selectedEntity && (
-          <div className="bg-dark-100 border-2 border-dark-3000 rounded-lg shadow-lg">
+          <div className="bg-dark-100 border-2 border-dark-3000 rounded-md shadow-lg">
             {/* Compact Entity Header - Sticky */}
             <div className="sticky top-14 z-10 bg-dark-100 border-b border-dark-300 px-6 pt-6 pb-3">
               <div className="flex items-center gap-2 flex-wrap overflow-x-auto">
@@ -474,7 +474,7 @@ export function WorkflowDetailPage() {
               )}
 
               {entityError && (
-                <div className={`p-4 border rounded-lg text-sm ${
+                <div className={`p-4 border rounded-md text-sm ${
                   entityError.includes('not been created')
                     ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
                     : 'bg-red-50 border-red-200 text-red-600'

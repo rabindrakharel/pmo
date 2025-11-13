@@ -84,12 +84,12 @@ export function IntegrationsPage() {
   return (
     <Layout>
       <div className="max-w-7xl mx-auto">
-        <div className="bg-dark-100 shadow rounded-lg">
+        <div className="bg-dark-100 shadow rounded-md">
           <div className="px-4 py-5 sm:p-6">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
-                <div className="p-2 bg-dark-100 border border-dark-400 rounded-lg mr-3">
+                <div className="p-2 bg-dark-100 border border-dark-400 rounded-md mr-3">
                   <Plug className="h-5 w-5 text-dark-600 stroke-[1.5]" />
                 </div>
                 <div>
@@ -107,7 +107,7 @@ export function IntegrationsPage() {
             </div>
 
             {/* Info Banner */}
-            <div className="bg-dark-100 border border-dark-300 rounded-lg p-4 mb-6">
+            <div className="bg-dark-100 border border-dark-300 rounded-md p-4 mb-6">
               <div className="flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-dark-700 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
@@ -127,11 +127,11 @@ export function IntegrationsPage() {
                 return (
                   <div
                     key={integration.id}
-                    className={`border rounded-lg p-5 transition-all hover:shadow-md ${getCategoryColor(integration.category)}`}
+                    className={`border rounded-md p-5 transition-all hover:shadow-sm ${getCategoryColor(integration.category)}`}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-dark-100 rounded-lg shadow-sm">
+                        <div className="p-2 bg-dark-100 rounded-md shadow-sm">
                           <IntegrationIcon className="h-5 w-5 text-dark-600" />
                         </div>
                         <div>

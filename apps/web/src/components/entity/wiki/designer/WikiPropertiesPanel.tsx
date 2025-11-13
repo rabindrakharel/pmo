@@ -54,7 +54,7 @@ export function WikiPropertiesPanel({
                 <select
                   value={selectedBlock.level || 1}
                   onChange={(e) => onUpdateBlock({ level: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                 >
                   {[1, 2, 3, 4, 5, 6].map((level) => (
                     <option key={level} value={level}>
@@ -72,7 +72,7 @@ export function WikiPropertiesPanel({
                 <select
                   value={selectedBlock.level || 1}
                   onChange={(e) => onUpdateBlock({ level: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                 >
                   <option value={1}>Bulleted</option>
                   <option value={2}>Numbered</option>
@@ -92,7 +92,7 @@ export function WikiPropertiesPanel({
                       onUpdateBlock({
                         properties: { ...selectedBlock.properties, src: e.target.value }})
                     }
-                    className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                     placeholder="https://example.com/image.jpg"
                   />
                 </div>
@@ -105,7 +105,7 @@ export function WikiPropertiesPanel({
                       onUpdateBlock({
                         properties: { ...selectedBlock.properties, alt: e.target.value }})
                     }
-                    className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                     placeholder="Image description"
                   />
                 </div>
@@ -123,7 +123,7 @@ export function WikiPropertiesPanel({
                     onUpdateBlock({
                       properties: { ...selectedBlock.properties, src: e.target.value }})
                   }
-                  className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                   placeholder="https://www.youtube.com/embed/..."
                 />
                 <p className="mt-1 text-xs text-dark-700">
@@ -146,7 +146,7 @@ export function WikiPropertiesPanel({
                       onUpdateBlock({
                         properties: { ...selectedBlock.properties, rows: parseInt(e.target.value) }})
                     }
-                    className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -160,7 +160,7 @@ export function WikiPropertiesPanel({
                       onUpdateBlock({
                         properties: { ...selectedBlock.properties, cols: parseInt(e.target.value) }})
                     }
-                    className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                   />
                 </div>
               </>
@@ -184,7 +184,7 @@ export function WikiPropertiesPanel({
           type="text"
           value={icon}
           onChange={(e) => onUpdateIcon(e.target.value)}
-          className="w-full px-3 py-2 border border-dark-400 rounded-lg text-2xl text-center focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+          className="w-full px-3 py-2 border border-dark-400 rounded-md text-2xl text-center focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
           placeholder="📄"
         />
       </div>
@@ -200,7 +200,7 @@ export function WikiPropertiesPanel({
             <button
               key={option.value}
               onClick={() => onUpdateCover(option.value)}
-              className={`w-full flex items-center space-x-3 p-2 rounded-lg border-2 transition-all ${
+              className={`w-full flex items-center space-x-3 p-2 rounded-md border-2 transition-all ${
                 cover === option.value ? 'border-dark-3000' : 'border-transparent hover:border-dark-400'
               }`}
             >
@@ -221,7 +221,7 @@ export function WikiPropertiesPanel({
           type="text"
           value={pagePath}
           onChange={(e) => onUpdatePath(e.target.value)}
-          className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent font-mono"
+          className="w-full px-3 py-2 border border-dark-400 rounded-md text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent font-mono"
           placeholder="/wiki"
         />
       </div>

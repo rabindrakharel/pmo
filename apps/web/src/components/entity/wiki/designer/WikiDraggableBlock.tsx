@@ -111,7 +111,7 @@ export function WikiDraggableBlock({
       case 'code': {
         const textareaRef = useAutoResizeTextarea(block.content || '');
         return (
-          <div className="bg-dark-900 text-gray-100 rounded-lg p-4 font-mono text-sm">
+          <div className="bg-dark-900 text-gray-100 rounded-md p-4 font-mono text-sm">
             <textarea
               ref={textareaRef}
               value={block.content || ''}
@@ -217,7 +217,7 @@ export function WikiDraggableBlock({
 
       case 'image':
         return (
-          <div className="border-2 border-dashed border-dark-400 rounded-lg p-6 text-center" onClick={onSelect}>
+          <div className="border-2 border-dashed border-dark-400 rounded-md p-6 text-center" onClick={onSelect}>
             {block.properties?.src ? (
               <img
                 src={block.properties.src}
@@ -235,7 +235,7 @@ export function WikiDraggableBlock({
 
       case 'video':
         return (
-          <div className="border-2 border-dashed border-dark-400 rounded-lg p-6 text-center" onClick={onSelect}>
+          <div className="border-2 border-dashed border-dark-400 rounded-md p-6 text-center" onClick={onSelect}>
             {block.properties?.src ? (
               <div className="aspect-video">
                 <iframe

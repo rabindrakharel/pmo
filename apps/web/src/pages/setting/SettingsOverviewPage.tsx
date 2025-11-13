@@ -529,7 +529,7 @@ export function SettingsOverviewPage() {
           <div className="flex items-center gap-4">
             <button
               onClick={exitSettingsMode}
-              className="p-2 rounded-lg text-dark-700 hover:bg-dark-200 transition-all hover:scale-105"
+              className="p-2 rounded-md text-dark-700 hover:bg-dark-200 transition-all hover:scale-105"
               title="Exit Settings"
             >
               <LucideIcons.ArrowLeft className="h-5 w-5 stroke-[2]" />
@@ -551,59 +551,59 @@ export function SettingsOverviewPage() {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setActiveMainTab('entities')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
                 activeMainTab === 'entities'
-                  ? 'bg-slate-600 text-white shadow-md'
-                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                  ? 'bg-slate-600 text-white shadow-sm'
+                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
               }`}
             >
-              <LucideIcons.Database className="h-4 w-4" />
+              <LucideIcons.Database className="h-3.5 w-3.5" />
               Entities ({entities.length})
             </button>
 
             <button
               onClick={() => setActiveMainTab('entityMapping')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
                 activeMainTab === 'entityMapping'
-                  ? 'bg-slate-600 text-white shadow-md'
-                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                  ? 'bg-slate-600 text-white shadow-sm'
+                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
               }`}
             >
-              <LucideIcons.Link className="h-4 w-4" />
+              <LucideIcons.Link className="h-3.5 w-3.5" />
               Entity Mapping
             </button>
 
 
             <button
               onClick={() => setActiveMainTab('secretsVault')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
                 activeMainTab === 'secretsVault'
-                  ? 'bg-slate-600 text-white shadow-md'
-                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                  ? 'bg-slate-600 text-white shadow-sm'
+                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
               }`}
             >
-              <LucideIcons.Lock className="h-4 w-4" />
+              <LucideIcons.Lock className="h-3.5 w-3.5" />
               Secrets Vault
             </button>
 
             <button
               onClick={() => setActiveMainTab('integrations')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
                 activeMainTab === 'integrations'
-                  ? 'bg-slate-600 text-white shadow-md'
-                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                  ? 'bg-slate-600 text-white shadow-sm'
+                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
               }`}
             >
-              <LucideIcons.Plug className="h-4 w-4" />
+              <LucideIcons.Plug className="h-3.5 w-3.5" />
               Integrations
             </button>
 
             <button
               onClick={() => setActiveMainTab('accessControl')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
                 activeMainTab === 'accessControl'
-                  ? 'bg-slate-600 text-white shadow-md'
-                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                  ? 'bg-slate-600 text-white shadow-sm'
+                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
               }`}
             >
               <LucideIcons.Shield className="h-4 w-4" />
@@ -614,7 +614,7 @@ export function SettingsOverviewPage() {
 
         {/* Entity Mapping Tab */}
         {activeMainTab === 'entityMapping' && (
-          <div className="bg-white border border-dark-300 rounded-lg p-6">
+          <div className="bg-white border border-dark-300 rounded-md p-6">
             <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
               <LucideIcons.Link className="h-5 w-5" />
               Entity Mapping
@@ -633,7 +633,7 @@ export function SettingsOverviewPage() {
                     className="group bg-dark-100 border border-dark-300 rounded-xl p-4 hover:border-purple-400 hover:shadow-lg transition-all duration-200 text-left hover:scale-[1.02]"
                   >
                     <div className="flex items-start gap-3.5">
-                      <div className="p-2.5 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg group-hover:from-purple-100 group-hover:to-blue-100 transition-all duration-200 border border-purple-200 group-hover:border-purple-300">
+                      <div className="p-2.5 bg-gradient-to-br from-purple-50 to-blue-50 rounded-md group-hover:from-purple-100 group-hover:to-blue-100 transition-all duration-200 border border-purple-200 group-hover:border-purple-300">
                         <IconComponent className="h-5 w-5 text-purple-600 stroke-[1.5]" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -653,7 +653,7 @@ export function SettingsOverviewPage() {
 
         {/* Integrations Tab */}
         {activeMainTab === 'integrations' && (
-          <div className="bg-white border border-dark-300 rounded-lg p-6">
+          <div className="bg-white border border-dark-300 rounded-md p-6">
             <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
               <LucideIcons.Plug className="h-5 w-5" />
               Integrations
@@ -662,7 +662,7 @@ export function SettingsOverviewPage() {
               Manage external service integrations, API connections, and third-party system configurations.
               Configure webhooks, OAuth providers, and external data sources.
             </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 text-sm text-blue-900">
               <p className="font-medium mb-2">Integration Features</p>
               <ul className="list-disc list-inside space-y-1 text-blue-700">
                 <li>Connect to third-party APIs and services</li>
@@ -677,7 +677,7 @@ export function SettingsOverviewPage() {
 
         {/* Secrets Vault Tab */}
         {activeMainTab === 'secretsVault' && (
-          <div className="bg-white border border-dark-300 rounded-lg p-6">
+          <div className="bg-white border border-dark-300 rounded-md p-6">
             <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
               <LucideIcons.Lock className="h-5 w-5" />
               Secrets Vault
@@ -686,7 +686,7 @@ export function SettingsOverviewPage() {
               Securely manage API keys, passwords, certificates, and other sensitive credentials.
               All secrets are encrypted and stored with audit logging for compliance.
             </p>
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-900">
+            <div className="bg-green-50 border border-green-200 rounded-md p-4 text-sm text-green-900">
               <p className="font-medium mb-2">Secrets Management Features</p>
               <ul className="list-disc list-inside space-y-1 text-green-700">
                 <li>Store API keys and tokens securely</li>
@@ -702,7 +702,7 @@ export function SettingsOverviewPage() {
 
         {/* Access Control Tab */}
         {activeMainTab === 'accessControl' && (
-          <div className="bg-white border border-dark-300 rounded-lg p-6">
+          <div className="bg-white border border-dark-300 rounded-md p-6">
             <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
               <LucideIcons.Shield className="h-5 w-5" />
               Access Control
@@ -711,7 +711,7 @@ export function SettingsOverviewPage() {
               Manage role-based access control (RBAC), permissions, and security policies.
               Configure user roles, entity permissions, and access restrictions across the platform.
             </p>
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-sm text-purple-900">
+            <div className="bg-purple-50 border border-purple-200 rounded-md p-4 text-sm text-purple-900">
               <p className="font-medium mb-2">Access Control Features</p>
               <ul className="list-disc list-inside space-y-1 text-purple-700">
                 <li>Define custom roles with granular permissions</li>
@@ -737,7 +737,7 @@ export function SettingsOverviewPage() {
                 placeholder="Search entities..."
                 value={entitiesSearchQuery}
                 onChange={(e) => setEntitiesSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-dark-300 rounded-lg bg-dark-100 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 transition-all placeholder:text-dark-500"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-dark-300 rounded-md bg-dark-100 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 transition-all placeholder:text-dark-500"
               />
             </div>
           </div>
@@ -852,7 +852,7 @@ export function SettingsOverviewPage() {
 
                               {/* Icon Picker Dropdown */}
                               {showEntityIconPicker && (
-                                <div className="absolute left-0 top-full mt-1 z-50 bg-dark-100 rounded-lg shadow-xl border border-dark-300 p-3 w-96">
+                                <div className="absolute left-0 top-full mt-1 z-50 bg-dark-100 rounded-md shadow-xl border border-dark-300 p-3 w-96">
                                   <div className="mb-2">
                                     <div className="relative">
                                       <LucideIcons.Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-dark-600" />
@@ -966,7 +966,7 @@ export function SettingsOverviewPage() {
 
                             {/* Tooltip showing child icons */}
                             {(entity.child_entities || []).length > 0 && (
-                              <div className="invisible group-hover:visible absolute left-0 top-8 z-10 bg-dark-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg whitespace-nowrap">
+                              <div className="invisible group-hover:visible absolute left-0 top-8 z-10 bg-dark-900 text-white text-xs rounded-md py-2 px-3 shadow-lg whitespace-nowrap">
                                 <div className="space-y-1">
                                   {(entity.child_entities || []).slice(0, 5).map((child) => {
                                     return (
@@ -1105,7 +1105,7 @@ export function SettingsOverviewPage() {
 
                           {/* Icon Picker Dropdown */}
                           {showNewEntityIconPicker && (
-                            <div className="absolute left-0 top-full mt-1 z-50 bg-dark-100 rounded-lg shadow-xl border border-dark-300 p-3 w-96">
+                            <div className="absolute left-0 top-full mt-1 z-50 bg-dark-100 rounded-md shadow-xl border border-dark-300 p-3 w-96">
                               <div className="mb-2">
                                 <div className="relative">
                                   <LucideIcons.Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-dark-600" />
@@ -1250,7 +1250,7 @@ export function SettingsOverviewPage() {
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-dark-300">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-dark-100 rounded-lg">
+                <div className="p-2 bg-dark-100 rounded-md">
                   <LucideIcons.GitBranch className="h-5 w-5 text-dark-700" />
                 </div>
                 <div>
@@ -1268,7 +1268,7 @@ export function SettingsOverviewPage() {
                   setSelectedEntityForChildren(null);
                   setChildSearchQuery('');
                 }}
-                className="p-2 rounded-lg text-dark-600 hover:text-dark-700 hover:bg-dark-100 transition-colors"
+                className="p-2 rounded-md text-dark-600 hover:text-dark-700 hover:bg-dark-100 transition-colors"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1289,7 +1289,7 @@ export function SettingsOverviewPage() {
                       return (
                         <div
                           key={child.entity}
-                          className="flex items-center justify-between px-3 py-2 bg-dark-100 rounded-lg border border-dark-300"
+                          className="flex items-center justify-between px-3 py-2 bg-dark-100 rounded-md border border-dark-300"
                         >
                           <div className="flex items-center gap-2">
                             <div className="relative">
@@ -1309,7 +1309,7 @@ export function SettingsOverviewPage() {
 
                               {/* Icon Picker Dropdown */}
                               {showIconPicker && selectedChildForIconChange === child.entity && (
-                                <div className="absolute left-0 top-8 z-50 bg-dark-100 rounded-lg shadow-xl border border-dark-300 p-2 w-64">
+                                <div className="absolute left-0 top-8 z-50 bg-dark-100 rounded-md shadow-xl border border-dark-300 p-2 w-64">
                                   <div className="mb-2">
                                     <p className="text-xs font-medium text-dark-600 mb-1">Select Icon</p>
                                   </div>
@@ -1369,7 +1369,7 @@ export function SettingsOverviewPage() {
                     value={childSearchQuery}
                     onChange={(e) => setChildSearchQuery(e.target.value)}
                     placeholder="Search entities..."
-                    className="w-full pl-8 pr-3 py-2 text-xs border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-700/30 focus:border-dark-600"
+                    className="w-full pl-8 pr-3 py-2 text-xs border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-700/30 focus:border-dark-600"
                   />
                 </div>
                 <div className="max-h-40 overflow-y-auto space-y-1">
@@ -1386,7 +1386,7 @@ export function SettingsOverviewPage() {
                         <button
                           key={entity.code}
                           onClick={() => handleAddChild(selectedEntityForChildren.code, entity.code)}
-                          className="w-full flex items-center justify-between px-3 py-2 bg-dark-100 hover:bg-dark-100 rounded-lg border border-dark-300 transition-colors text-left"
+                          className="w-full flex items-center justify-between px-3 py-2 bg-dark-100 hover:bg-dark-100 rounded-md border border-dark-300 transition-colors text-left"
                         >
                           <div className="flex items-center gap-2">
                             {(() => {
@@ -1412,7 +1412,7 @@ export function SettingsOverviewPage() {
                   setSelectedEntityForChildren(null);
                   setChildSearchQuery('');
                 }}
-                className="px-4 py-2 text-sm font-medium text-dark-600 hover:bg-dark-100 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-dark-600 hover:bg-dark-100 rounded-md transition-colors"
               >
                 Done
               </button>

@@ -191,7 +191,7 @@ export function CanvasEmailDesigner({ template, onSave }: CanvasEmailDesignerPro
       <div className="bg-dark-100 border-b border-dark-300 px-6 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center space-x-4">
           <h2 className="text-lg font-semibold text-dark-600">{template.name}</h2>
-          <div className="flex items-center space-x-1 bg-dark-100 rounded-lg p-1">
+          <div className="flex items-center space-x-1 bg-dark-100 rounded-md p-1">
             <button
               onClick={() => setViewMode('design')}
               className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
@@ -214,7 +214,7 @@ export function CanvasEmailDesigner({ template, onSave }: CanvasEmailDesignerPro
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="px-4 py-2 bg-dark-700 text-white rounded-lg text-sm font-medium hover:bg-dark-800 transition-colors flex items-center space-x-2 disabled:opacity-50"
+          className="px-3 py-2 bg-slate-600 text-white rounded-md text-sm font-medium hover:bg-slate-700 transition-colors shadow-sm flex items-center space-x-2 disabled:opacity-50"
         >
           <Save className="h-4 w-4" />
           <span>{isSaving ? 'Saving...' : 'Save'}</span>

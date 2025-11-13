@@ -47,7 +47,7 @@ export function FormPropertiesPanel({
                 type="text"
                 value={selectedField.label}
                 onChange={(e) => onUpdateField({ label: e.target.value })}
-                className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+                className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                 placeholder="Enter field label"
               />
             </div>
@@ -59,7 +59,7 @@ export function FormPropertiesPanel({
                 type="text"
                 value={selectedField.name}
                 onChange={(e) => onUpdateField({ name: e.target.value })}
-                className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent font-mono text-sm"
+                className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent font-mono text-sm"
                 placeholder="field_name"
               />
             </div>
@@ -72,7 +72,7 @@ export function FormPropertiesPanel({
                   type="text"
                   value={selectedField.placeholder || ''}
                   onChange={(e) => onUpdateField({ placeholder: e.target.value })}
-                  className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                   placeholder="Enter placeholder text"
                 />
               </div>
@@ -84,7 +84,7 @@ export function FormPropertiesPanel({
               <textarea
                 value={selectedField.descr || ''}
                 onChange={(e) => onUpdateField({ descr: e.target.value })}
-                className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+                className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                 placeholder="Optional help text"
                 rows={2}
               />
@@ -118,7 +118,7 @@ export function FormPropertiesPanel({
                           newOptions[index] = e.target.value;
                           onUpdateField({ options: newOptions });
                         }}
-                        className="flex-1 px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
+                        className="flex-1 px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
                         placeholder={`Option ${index + 1}`}
                       />
                       <button
@@ -137,7 +137,7 @@ export function FormPropertiesPanel({
                       const newOptions = [...(selectedField.options || []), `Option ${(selectedField.options || []).length + 1}`];
                       onUpdateField({ options: newOptions });
                     }}
-                    className="w-full px-3 py-2 border border-dark-400 border-dashed rounded-lg text-sm text-dark-700 hover:bg-dark-100"
+                    className="w-full px-3 py-2 border border-dark-400 border-dashed rounded-md text-sm text-dark-700 hover:bg-dark-100"
                   >
                     + Add Option
                   </button>
@@ -155,7 +155,7 @@ export function FormPropertiesPanel({
                       type="number"
                       value={selectedField.min || ''}
                       onChange={(e) => onUpdateField({ min: e.target.value ? parseInt(e.target.value) : undefined })}
-                      className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
                     />
                   </div>
                   <div>
@@ -164,7 +164,7 @@ export function FormPropertiesPanel({
                       type="number"
                       value={selectedField.max || ''}
                       onChange={(e) => onUpdateField({ max: e.target.value ? parseInt(e.target.value) : undefined })}
-                      className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
                     />
                   </div>
                 </div>
@@ -181,7 +181,7 @@ export function FormPropertiesPanel({
                       type="number"
                       value={selectedField.min || 0}
                       onChange={(e) => onUpdateField({ min: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
                     />
                   </div>
                   <div>
@@ -190,7 +190,7 @@ export function FormPropertiesPanel({
                       type="number"
                       value={selectedField.max || 100}
                       onChange={(e) => onUpdateField({ max: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
                     />
                   </div>
                   <div>
@@ -199,7 +199,7 @@ export function FormPropertiesPanel({
                       type="number"
                       value={selectedField.step || 1}
                       onChange={(e) => onUpdateField({ step: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent text-sm"
                     />
                   </div>
                 </div>
@@ -224,7 +224,7 @@ export function FormPropertiesPanel({
           type="text"
           value={title}
           onChange={(e) => onUpdateTitle(e.target.value)}
-          className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+          className="w-full px-3 py-2 border border-dark-400 rounded-md text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
           placeholder="Enter form title"
         />
       </div>
@@ -238,7 +238,7 @@ export function FormPropertiesPanel({
         <textarea
           value={description}
           onChange={(e) => onUpdateDescription(e.target.value)}
-          className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+          className="w-full px-3 py-2 border border-dark-400 rounded-md text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
           placeholder="Optional form description"
           rows={3}
         />
@@ -254,7 +254,7 @@ export function FormPropertiesPanel({
               type="text"
               value={currentStep.title}
               onChange={(e) => onUpdateStep({ title: e.target.value })}
-              className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+              className="w-full px-3 py-2 border border-dark-400 rounded-md text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
               placeholder="Step title"
             />
           </div>
@@ -264,7 +264,7 @@ export function FormPropertiesPanel({
             <textarea
               value={currentStep.description || ''}
               onChange={(e) => onUpdateStep({ description: e.target.value })}
-              className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+              className="w-full px-3 py-2 border border-dark-400 rounded-md text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
               placeholder="Optional step description"
               rows={2}
             />

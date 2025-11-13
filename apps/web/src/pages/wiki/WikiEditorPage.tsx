@@ -201,7 +201,7 @@ export function WikiEditorPage() {
           <p className="text-red-600 mb-4">{error || 'Page not found'}</p>
           <button
             onClick={() => navigate('/wiki')}
-            className="px-4 py-2 bg-dark-700 text-white rounded-lg hover:bg-dark-800"
+            className="px-4 py-2 bg-dark-700 text-white rounded-md hover:bg-dark-800"
           >
             Back to Wiki
           </button>
@@ -237,7 +237,7 @@ export function WikiEditorPage() {
 
       {/* Success Toast */}
       {saveSuccess && (
-        <div className="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in z-50">
+        <div className="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-md shadow-lg flex items-center gap-2 animate-fade-in z-50">
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
@@ -267,7 +267,7 @@ export function WikiEditorPage() {
       {/* Exit Confirmation Modal */}
       {showExitConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-dark-100 rounded-lg shadow-xl max-w-md w-full mx-4">
+          <div className="bg-dark-100 rounded-md shadow-xl max-w-md w-full mx-4">
             <div className="p-6">
               <h3 className="text-lg font-semibold text-dark-600 mb-2">
                 Exit Wiki Editor?
@@ -278,13 +278,13 @@ export function WikiEditorPage() {
               <div className="flex gap-3">
                 <button
                   onClick={handleExitWithoutSaving}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors font-medium"
                 >
                   Exit Without Saving
                 </button>
                 <button
                   onClick={() => setShowExitConfirm(false)}
-                  className="flex-1 px-4 py-2 bg-dark-200 text-dark-600 rounded-lg hover:bg-dark-300 transition-colors font-medium"
+                  className="flex-1 px-4 py-2 bg-dark-200 text-dark-600 rounded-md hover:bg-dark-300 transition-colors font-medium"
                 >
                   Cancel
                 </button>

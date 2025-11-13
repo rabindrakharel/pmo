@@ -85,7 +85,7 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
         </div>
         <button
           onClick={onDelete}
-          className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+          className="p-2 hover:bg-red-50 rounded-md transition-colors"
           title="Delete element"
         >
           <Trash2 className="h-4 w-4 text-red-600" />
@@ -94,7 +94,7 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
 
       <div className="space-y-4">
         {/* Element Type Badge */}
-        <div className="bg-dark-100 border border-dark-400 rounded-lg p-2 text-center">
+        <div className="bg-dark-100 border border-dark-400 rounded-md p-2 text-center">
           <span className="text-xs font-semibold text-dark-700 uppercase">{element.type}</span>
         </div>
 
@@ -104,14 +104,14 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
           <div className="flex space-x-2">
             <button
               onClick={onBringToFront}
-              className="flex-1 px-3 py-2 bg-dark-100 hover:bg-dark-200 rounded-lg text-sm font-medium flex items-center justify-center space-x-2 transition-colors"
+              className="flex-1 px-3 py-2 bg-dark-100 hover:bg-dark-200 rounded-md text-sm font-medium flex items-center justify-center space-x-2 transition-colors"
             >
               <ArrowUp className="h-4 w-4" />
               <span>Front</span>
             </button>
             <button
               onClick={onSendToBack}
-              className="flex-1 px-3 py-2 bg-dark-100 hover:bg-dark-200 rounded-lg text-sm font-medium flex items-center justify-center space-x-2 transition-colors"
+              className="flex-1 px-3 py-2 bg-dark-100 hover:bg-dark-200 rounded-md text-sm font-medium flex items-center justify-center space-x-2 transition-colors"
             >
               <ArrowDown className="h-4 w-4" />
               <span>Back</span>
@@ -172,7 +172,7 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
                   <button
                     key={align}
                     onClick={() => onUpdate({ styles: { ...element.styles, textAlign: align } })}
-                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                       element.styles.textAlign === align
                         ? 'bg-dark-100 text-dark-700 border-2 border-dark-500'
                         : 'bg-dark-100 hover:bg-dark-200 border-2 border-transparent'
@@ -210,7 +210,7 @@ export function PropertiesPanel({ element, onUpdate, onDelete, onBringToFront, o
                   <button
                     key={weight}
                     onClick={() => onUpdate({ styles: { ...element.styles, fontWeight: weight } })}
-                    className={`flex-1 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    className={`flex-1 px-3 py-2 rounded-md text-sm transition-colors ${
                       element.styles.fontWeight === weight
                         ? 'bg-dark-100 text-dark-700 border-2 border-dark-500'
                         : 'bg-dark-100 hover:bg-dark-200 border-2 border-transparent'

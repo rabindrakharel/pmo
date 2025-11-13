@@ -186,7 +186,7 @@ export function LandingPage() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0 flex items-center">
-                <div className="h-8 w-8 bg-gradient-to-r from-blue-600 to-purple-700 rounded-lg flex items-center justify-center">
+                <div className="h-8 w-8 bg-gradient-to-r from-blue-600 to-purple-700 rounded-md flex items-center justify-center">
                   <Brain className="h-5 w-5 text-white" />
                 </div>
                 <span className="ml-2 text-xl font-bold text-dark-600">OperationOS</span>
@@ -210,7 +210,7 @@ export function LandingPage() {
               </Link>
               <Link
                 to="/signup"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 transition-all shadow-sm hover:shadow-md"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 transition-all shadow-sm hover:shadow-sm"
               >
                 Get Started
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -242,28 +242,28 @@ export function LandingPage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 to="/signup"
-                className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 transition-all shadow-lg hover:shadow-xl"
+                className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-medium rounded-md text-white bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 transition-all shadow-lg hover:shadow-xl"
               >
                 Get Started
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
               <a
                 href="#vision"
-                className="inline-flex items-center justify-center px-8 py-4 border border-dark-400 text-base font-medium rounded-lg text-dark-600 bg-dark-100 hover:bg-dark-100 transition-all shadow-sm hover:shadow-md"
+                className="inline-flex items-center justify-center px-8 py-4 border border-dark-400 text-base font-medium rounded-md text-dark-600 bg-dark-100 hover:bg-dark-100 transition-all shadow-sm hover:shadow-sm"
               >
                 Book a Demo
               </a>
             </div>
             <div className="mt-12 flex flex-wrap items-center justify-center gap-6 text-sm text-dark-700">
-              <div className="flex items-center bg-white/50 px-4 py-2 rounded-lg border border-dark-200">
+              <div className="flex items-center bg-white/50 px-4 py-2 rounded-md border border-dark-200">
                 <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
                 <span className="font-medium">AI-powered automation</span>
               </div>
-              <div className="flex items-center bg-white/50 px-4 py-2 rounded-lg border border-dark-200">
+              <div className="flex items-center bg-white/50 px-4 py-2 rounded-md border border-dark-200">
                 <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
                 <span className="font-medium">Seamless integrations</span>
               </div>
-              <div className="flex items-center bg-white/50 px-4 py-2 rounded-lg border border-dark-200">
+              <div className="flex items-center bg-white/50 px-4 py-2 rounded-md border border-dark-200">
                 <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
                 <span className="font-medium">Enterprise-grade security</span>
               </div>
@@ -340,7 +340,7 @@ export function LandingPage() {
                 key={index}
                 className="bg-dark-100 p-8 rounded-xl shadow-sm hover:shadow-lg transition-all border border-dark-300 hover:border-purple-300"
               >
-                <div className="h-12 w-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center mb-4">
+                <div className="h-12 w-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-md flex items-center justify-center mb-4">
                   <value.icon className="h-6 w-6 text-white" />
                 </div>
                 <h3 className="text-xl font-semibold text-dark-600 mb-2">{value.title}</h3>
@@ -366,9 +366,9 @@ export function LandingPage() {
             {capabilities.map((capability, index) => (
               <div
                 key={index}
-                className="bg-dark-100 p-8 rounded-xl shadow-sm hover:shadow-md transition-all border border-dark-300"
+                className="bg-dark-100 p-8 rounded-xl shadow-sm hover:shadow-sm transition-all border border-dark-300"
               >
-                <div className="h-12 w-12 bg-gradient-to-r from-purple-400 to-blue-500 rounded-lg flex items-center justify-center mb-4">
+                <div className="h-12 w-12 bg-gradient-to-r from-purple-400 to-blue-500 rounded-md flex items-center justify-center mb-4">
                   <capability.icon className="h-6 w-6 text-white" />
                 </div>
                 <h3 className="text-xl font-semibold text-dark-600 mb-2">{capability.title}</h3>
@@ -526,9 +526,9 @@ export function LandingPage() {
                 </ul>
                 <Link
                   to="/signup"
-                  className={`block w-full text-center px-6 py-3 rounded-lg font-medium transition-all ${
+                  className={`block w-full text-center px-6 py-3 rounded-md font-medium transition-all ${
                     plan.popular
-                      ? 'bg-gradient-to-r from-blue-600 to-purple-700 text-white hover:from-blue-700 hover:to-purple-800 shadow-md hover:shadow-lg'
+                      ? 'bg-gradient-to-r from-blue-600 to-purple-700 text-white hover:from-blue-700 hover:to-purple-800 shadow-sm hover:shadow-lg'
                       : 'bg-dark-100 text-dark-600 hover:bg-dark-200'
                   }`}
                 >
@@ -555,7 +555,7 @@ export function LandingPage() {
             {testimonials.map((testimonial, index) => (
               <div
                 key={index}
-                className="bg-dark-100 p-8 rounded-xl shadow-sm hover:shadow-md transition-all border border-dark-300"
+                className="bg-dark-100 p-8 rounded-xl shadow-sm hover:shadow-sm transition-all border border-dark-300"
               >
                 <div className="flex items-center mb-4">
                   {[...Array(testimonial.rating)].map((_, i) => (
@@ -591,14 +591,14 @@ export function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               to="/signup"
-              className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-medium rounded-lg text-purple-700 bg-white hover:bg-gray-50 transition-all shadow-lg hover:shadow-xl"
+              className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-medium rounded-md text-purple-700 bg-white hover:bg-gray-50 transition-all shadow-lg hover:shadow-xl"
             >
               Get Started
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
             <a
               href="#pricing"
-              className="inline-flex items-center justify-center px-8 py-4 border-2 border-white text-base font-medium rounded-lg text-white bg-transparent hover:bg-white/10 transition-all"
+              className="inline-flex items-center justify-center px-8 py-4 border-2 border-white text-base font-medium rounded-md text-white bg-transparent hover:bg-white/10 transition-all"
             >
               View Pricing
             </a>
@@ -612,7 +612,7 @@ export function LandingPage() {
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
               <div className="flex items-center mb-4">
-                <div className="h-8 w-8 bg-gradient-to-r from-blue-600 to-purple-700 rounded-lg flex items-center justify-center">
+                <div className="h-8 w-8 bg-gradient-to-r from-blue-600 to-purple-700 rounded-md flex items-center justify-center">
                   <Brain className="h-5 w-5 text-white" />
                 </div>
                 <span className="ml-2 text-xl font-bold text-white">OperationOS</span>

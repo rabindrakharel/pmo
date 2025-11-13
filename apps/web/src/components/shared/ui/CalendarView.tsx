@@ -51,8 +51,8 @@ interface DragState {
 }
 
 const PERSON_TYPE_COLORS = {
-  employee: { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-300', dot: 'bg-blue-500' },
-  customer: { bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-300', dot: 'bg-purple-500' }
+  employee: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300', dot: 'bg-green-500' },
+  customer: { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-300', dot: 'bg-orange-500' }
 };
 
 export function CalendarView({
@@ -136,11 +136,8 @@ export function CalendarView({
 
         setPeople(allPeople);
 
-        // Auto-select first few people
-        if (allPeople.length > 0) {
-          const initialSelected = new Set(allPeople.slice(0, Math.min(3, allPeople.length)).map(p => p.id));
-          setSelectedPersonIds(initialSelected);
-        }
+        // Don't auto-select anyone - calendar should only show events for explicitly selected people
+        // Users must select employees/customers to see their events
       } catch (error) {
         console.error('Failed to fetch people:', error);
       } finally {
@@ -193,10 +190,14 @@ export function CalendarView({
     });
   };
 
-  // Filter data by selected people
+  // Filter data by selected people - only show events tied to selected people
   const filteredData = useMemo(() => {
-    if (selectedPersonIds.size === 0) return data;
-    return data.filter(slot => selectedPersonIds.has(slot.person_entity_id));
+    // Calendar should only show events tied to selected people
+    // If no people selected, show no events (not all events)
+    if (selectedPersonIds.size === 0) return [];
+    return data.filter(slot =>
+      slot.person_entity_id && selectedPersonIds.has(slot.person_entity_id)
+    );
   }, [data, selectedPersonIds]);
 
   // Group people by type
@@ -559,18 +560,13 @@ export function CalendarView({
           // Customer details (required even if primary is employee)
           customerName: primaryPerson?.name || 'Unknown',
           customerEmail: primaryPerson?.email || '',
-          customerPhone: '', // TODO: Get from person entity
-
-          // Service details (optional - can be null)
-          serviceId: null,
-          serviceName: eventData.event_name || 'Calendar Event',
-          serviceCategory: 'general',
+          customerPhone: primaryPerson?.phone || primaryPerson?.email || 'N/A',
 
           // Event details
-          eventTitle: eventData.event_name || '',
-          eventDescription: eventData.event_descr || '',
+          eventTitle: eventData.event_name || eventData.name || 'Calendar Event',
+          eventDescription: eventData.event_descr || eventData.descr || '',
           eventType: eventData.event_type || 'onsite',
-          eventLocation: eventData.event_addr || '',
+          eventLocation: eventData.event_addr || 'Office',
           eventInstructions: eventData.event_instructions || '',
 
           // Time details
@@ -712,7 +708,7 @@ export function CalendarView({
                   className="w-full flex items-center justify-between p-3 hover:bg-dark-50 transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-blue-600" />
+                    <User className="h-4 w-4 text-slate-600" />
                     <span className="text-sm font-medium text-dark-600">Employees ({peopleByType.employee.length})</span>
                   </div>
                   {expandedSections.has('employee') ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -728,7 +724,7 @@ export function CalendarView({
                         value={employeeSearchTerm}
                         onChange={(e) => setEmployeeSearchTerm(e.target.value)}
                         placeholder="Search employees..."
-                        className="w-full pl-7 pr-2 py-1.5 text-xs border border-dark-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full pl-7 pr-2 py-1.5 text-xs border border-dark-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500"
                       />
                     </div>
 
@@ -754,7 +750,7 @@ export function CalendarView({
                           });
                           setSelectedPersonIds(next);
                         }}
-                        className="h-4 w-4 rounded border-2 border-dark-400 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer transition-all"
+                        className="h-4 w-4 rounded border-2 border-dark-400 text-slate-600 focus:ring-2 focus:ring-slate-500 focus:ring-offset-0 cursor-pointer transition-all"
                       />
                       <span className="text-xs font-medium text-dark-600">Select All</span>
                     </label>
@@ -769,7 +765,7 @@ export function CalendarView({
                               type="checkbox"
                               checked={selectedPersonIds.has(person.id)}
                               onChange={() => togglePerson(person.id)}
-                              className="h-4 w-4 rounded border-2 border-dark-400 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer transition-all"
+                              className="h-4 w-4 rounded border-2 border-dark-400 text-slate-600 focus:ring-2 focus:ring-slate-500 focus:ring-offset-0 cursor-pointer transition-all"
                             />
                             <span className="text-xs text-dark-600 truncate flex-1">{person.name}</span>
                           </label>
@@ -791,7 +787,7 @@ export function CalendarView({
                   className="w-full flex items-center justify-between p-3 hover:bg-dark-50 transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-purple-600" />
+                    <Users className="h-4 w-4 text-orange-600" />
                     <span className="text-sm font-medium text-dark-600">Customers ({peopleByType.customer.length})</span>
                   </div>
                   {expandedSections.has('customer') ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -804,7 +800,7 @@ export function CalendarView({
                         type="checkbox"
                         checked={peopleByType.customer.every(p => selectedPersonIds.has(p.id))}
                         onChange={() => toggleAllType('customer')}
-                        className="h-4 w-4 rounded border-2 border-dark-400 text-purple-600 focus:ring-2 focus:ring-purple-500 focus:ring-offset-0 cursor-pointer transition-all"
+                        className="h-4 w-4 rounded border-2 border-dark-400 text-orange-600 focus:ring-2 focus:ring-orange-500 focus:ring-offset-0 cursor-pointer transition-all"
                       />
                       <span className="text-xs font-medium text-dark-600">Select All</span>
                     </label>
@@ -814,7 +810,7 @@ export function CalendarView({
                           type="checkbox"
                           checked={selectedPersonIds.has(person.id)}
                           onChange={() => togglePerson(person.id)}
-                          className="h-4 w-4 rounded border-2 border-dark-400 text-purple-600 focus:ring-2 focus:ring-purple-500 focus:ring-offset-0 cursor-pointer transition-all"
+                          className="h-4 w-4 rounded border-2 border-dark-400 text-orange-600 focus:ring-2 focus:ring-orange-500 focus:ring-offset-0 cursor-pointer transition-all"
                         />
                         <span className="text-xs text-dark-600 truncate flex-1">{person.name}</span>
                       </label>
@@ -874,7 +870,7 @@ export function CalendarView({
           </div>
 
           {/* Calendar Grid */}
-          <div className="border border-dark-300 rounded-lg overflow-hidden">
+          <div className="border border-dark-300 rounded-md overflow-hidden">
             <div className="overflow-x-auto max-h-[calc(100vh-220px)]">
               <table className="w-full border-collapse select-none">
                 <thead className="sticky top-0 z-10">
@@ -908,7 +904,7 @@ export function CalendarView({
                           <td
                             key={dayIdx}
                             className={`border border-dark-300 px-1 py-1 text-xs align-top ${
-                              isInSelection ? 'bg-blue-100 border-blue-400' : ''
+                              isInSelection ? 'bg-slate-100 border-slate-400' : ''
                             } ${isDragOver ? 'bg-yellow-100 border-yellow-400' : ''} cursor-pointer`}
                             onMouseDown={() => handleMouseDown(day, hour, minute, slots[0])}
                             onMouseEnter={() => handleMouseEnter(day, hour, minute)}
@@ -974,7 +970,7 @@ export function CalendarView({
                                       </div>
 
                                       {/* Hover indicator */}
-                                      <div className="absolute inset-0 ring-2 ring-blue-400 ring-opacity-0 group-hover:ring-opacity-40 rounded transition-all pointer-events-none" />
+                                      <div className="absolute inset-0 ring-2 ring-slate-400 ring-opacity-0 group-hover:ring-opacity-40 rounded transition-all pointer-events-none" />
                                     </div>
                                   );
                                 })}
@@ -997,15 +993,15 @@ export function CalendarView({
               <span>Available</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-blue-100 border border-blue-200 rounded" />
+              <div className="w-3 h-3 bg-green-100 border border-green-200 rounded" />
               <span>Employee Booked</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-purple-100 border border-purple-300 rounded" />
+              <div className="w-3 h-3 bg-orange-100 border border-orange-300 rounded" />
               <span>Customer Booked</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-blue-100 border border-blue-400 rounded" />
+              <div className="w-3 h-3 bg-green-100 border border-green-400 rounded" />
               <span>Drag Selection</span>
             </div>
           </div>
@@ -1014,11 +1010,20 @@ export function CalendarView({
           {filteredData.length === 0 && (
             <div className="text-center py-12">
               <CalendarIcon className="h-12 w-12 text-dark-400 mx-auto mb-3" />
-              <p className="text-dark-600 text-sm">{emptyMessage}</p>
-              {selectedPersonIds.size > 0 && (
-                <p className="text-dark-700 text-xs mt-1">
-                  No calendar slots found for the selected {selectedPersonIds.size === 1 ? 'person' : 'people'}
-                </p>
+              {selectedPersonIds.size === 0 ? (
+                <>
+                  <p className="text-dark-600 text-sm font-medium">Select people to view their events</p>
+                  <p className="text-dark-700 text-xs mt-1">
+                    Choose employees or customers from the sidebar to see their calendar events
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-dark-600 text-sm">{emptyMessage}</p>
+                  <p className="text-dark-700 text-xs mt-1">
+                    No calendar events found for the selected {selectedPersonIds.size === 1 ? 'person' : 'people'}
+                  </p>
+                </>
               )}
             </div>
           )}

@@ -150,7 +150,7 @@ export function EntityEditModal({
       {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
         <div
-          className="relative bg-dark-100 rounded-lg shadow-xl w-full max-h-[90vh] overflow-hidden"
+          className="relative bg-white rounded-md shadow-sm w-full max-h-[90vh] overflow-hidden"
           style={{ maxWidth: '1165px' }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -175,17 +175,17 @@ export function EntityEditModal({
               <button
                 onClick={handleCancel}
                 disabled={saving}
-                className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-sm font-normal rounded text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center px-3 py-2 border border-dark-400 text-sm font-normal rounded-md text-dark-600 bg-white hover:bg-white hover:border-dark-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <X className="h-4 w-4 mr-2 stroke-[1.5]" />
+                <X className="h-3.5 w-3.5 mr-2 stroke-[1.5]" />
                 Cancel
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving || loading}
-                className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-normal rounded text-white bg-dark-700 hover:bg-dark-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-normal rounded-md text-white bg-slate-600 hover:bg-slate-700 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Save className="h-4 w-4 mr-2 stroke-[1.5]" />
+                <Save className="h-3.5 w-3.5 mr-2 stroke-[1.5]" />
                 {saving ? 'Saving...' : 'Save'}
               </button>
             </div>
@@ -194,7 +194,7 @@ export function EntityEditModal({
           {/* Content - Matches EntityDetailPage content area */}
           <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 80px)' }}>
             {error && (
-              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
                 <p className="text-sm text-red-800">{error}</p>
               </div>
             )}

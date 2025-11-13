@@ -66,7 +66,7 @@ export function ImageBlockEditor({ block, onUpdate }: ImageBlockEditorProps) {
       {!block.content ? (
         <div
           {...getRootProps()}
-          className={`p-8 border-2 border-dashed rounded-lg m-4 cursor-pointer transition-colors ${
+          className={`p-8 border-2 border-dashed rounded-md m-4 cursor-pointer transition-colors ${
             isDragActive ? 'border-dark-3000 bg-dark-100' : 'border-dark-400 hover:border-dark-600'
           }`}
         >
@@ -92,7 +92,7 @@ export function ImageBlockEditor({ block, onUpdate }: ImageBlockEditorProps) {
                 onCropComplete={onCropComplete}
                 onZoomChange={setZoom}
               />
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-dark-100 rounded-lg shadow-lg p-4 flex items-center space-x-4">
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-dark-100 rounded-md shadow-sm p-4 flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <label className="text-sm font-medium">Zoom:</label>
                   <input
@@ -107,13 +107,13 @@ export function ImageBlockEditor({ block, onUpdate }: ImageBlockEditorProps) {
                 </div>
                 <button
                   onClick={handleCropSave}
-                  className="px-4 py-2 bg-dark-700 text-white rounded-lg text-sm font-medium hover:bg-dark-800"
+                  className="px-3 py-2 bg-slate-600 text-white rounded-md text-sm font-medium hover:bg-slate-700 shadow-sm"
                 >
                   Apply Crop
                 </button>
                 <button
                   onClick={() => setShowCropper(false)}
-                  className="px-4 py-2 bg-dark-200 text-dark-600 rounded-lg text-sm font-medium hover:bg-dark-300"
+                  className="px-4 py-2 bg-dark-200 text-dark-600 rounded-md text-sm font-medium hover:bg-dark-300"
                 >
                   Cancel
                 </button>
@@ -134,14 +134,14 @@ export function ImageBlockEditor({ block, onUpdate }: ImageBlockEditorProps) {
               <div className="mt-4 flex items-center justify-center space-x-2">
                 <button
                   onClick={() => setShowCropper(true)}
-                  className="px-3 py-2 bg-dark-100 hover:bg-dark-200 rounded-lg text-sm font-medium flex items-center space-x-2"
+                  className="px-3 py-2 bg-dark-100 hover:bg-dark-200 rounded-md text-sm font-medium flex items-center space-x-2"
                 >
                   <Crop className="h-4 w-4" />
                   <span>Crop Image</span>
                 </button>
                 <button
                   onClick={() => onUpdate({ content: '' })}
-                  className="px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm font-medium flex items-center space-x-2"
+                  className="px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-sm font-medium flex items-center space-x-2"
                 >
                   <X className="h-4 w-4" />
                   <span>Remove</span>

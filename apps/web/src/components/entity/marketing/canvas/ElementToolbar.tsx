@@ -54,7 +54,7 @@ export function ElementToolbar({ onAddElement }: ElementToolbarProps) {
             <button
               key={element.type}
               onClick={() => onAddElement(element.type)}
-              className="w-full flex items-start space-x-3 p-3 rounded-lg border-2 border-dark-300 hover:border-dark-3000 hover:bg-dark-100 transition-all group text-left"
+              className="w-full flex items-start space-x-3 p-3 rounded-md border-2 border-dark-300 hover:border-dark-3000 hover:bg-dark-100 transition-all group text-left"
             >
               <div className={`p-2 rounded-md bg-${element.color}-100 group-hover:bg-${element.color}-200 transition-colors flex-shrink-0`}>
                 <Icon className={`h-5 w-5 text-${element.color}-600`} />

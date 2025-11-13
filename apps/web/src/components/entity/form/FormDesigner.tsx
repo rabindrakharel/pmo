@@ -19,7 +19,7 @@ function DroppableFormCanvas({ children }: { children: React.ReactNode }) {
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-[400px] transition-colors ${isOver ? 'bg-dark-100 border-2 border-dark-500 border-dashed rounded-lg' : ''}`}
+      className={`min-h-[400px] transition-colors ${isOver ? 'bg-dark-100 border-2 border-dark-500 border-dashed rounded-md' : ''}`}
     >
       {children}
     </div>
@@ -306,7 +306,7 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
     if (viewMode === 'preview') {
       return (
         <div className="max-w-4xl mx-auto">
-          <div className="bg-dark-100 rounded-xl shadow-lg p-12">
+          <div className="bg-dark-100 rounded-xl shadow-sm p-12">
             <h1 className="text-3xl font-bold text-dark-600 mb-3">{title || 'Untitled Form'}</h1>
             {description && <p className="text-base text-dark-700 mb-8">{description}</p>}
 
@@ -329,12 +329,12 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
                       <button
                         key={step.id}
                         onClick={() => setCurrentStepIndex(index)}
-                        className={`flex-1 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                        className={`flex-1 px-4 py-3 rounded-md text-sm font-medium transition-all ${
                           index === currentStepIndex
-                            ? 'bg-dark-700 text-white shadow-md'
+                            ? 'bg-slate-600 text-white shadow-sm'
                             : index < currentStepIndex
                             ? 'bg-green-100 text-green-700 border border-green-200'
-                            : 'bg-dark-100 text-dark-700 border border-dark-300'
+                            : 'bg-white text-dark-700 border border-dark-300'
                         }`}
                       >
                         <div className="flex items-center justify-center space-x-2">
@@ -350,7 +350,7 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
                   {/* Progress Bar */}
                   <div className="relative h-2 bg-dark-200 rounded-full overflow-hidden mb-4">
                     <div
-                      className="absolute top-0 left-0 h-full bg-dark-700 transition-all duration-300"
+                      className="absolute top-0 left-0 h-full bg-slate-600 transition-all duration-300"
                       style={{ width: `${((currentStepIndex + 1) / steps.length) * 100}%` }}
                     />
                   </div>
@@ -370,14 +370,14 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
                 <button
                   disabled={currentStepIndex === 0}
                   onClick={() => setCurrentStepIndex((i) => i - 1)}
-                  className="px-4 py-2 bg-dark-200 text-dark-600 text-sm font-medium rounded-lg hover:bg-dark-300 disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 bg-dark-200 text-dark-600 text-sm font-medium rounded-md hover:bg-dark-300 disabled:opacity-50 transition-colors"
                 >
                   Previous
                 </button>
                 <button
                   disabled={currentStepIndex === steps.length - 1}
                   onClick={() => setCurrentStepIndex((i) => i + 1)}
-                  className="px-4 py-2 bg-dark-700 text-white text-sm font-medium rounded-lg hover:bg-dark-800 disabled:opacity-50 transition-colors"
+                  className="px-3 py-2 bg-slate-600 text-white text-sm font-medium rounded-md hover:bg-slate-700 disabled:opacity-50 transition-colors"
                 >
                   Next
                 </button>
@@ -390,7 +390,7 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
 
     // Design mode
     return (
-      <div className="max-w-5xl mx-auto bg-dark-100 rounded-lg shadow-lg overflow-hidden">
+      <div className="max-w-5xl mx-auto bg-dark-100 rounded-md shadow-sm overflow-hidden">
         {/* Header Section */}
         <div className="px-16 pt-12 pb-6 border-b border-dark-300">
           <input
@@ -434,7 +434,7 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
             </div>
             <button
               onClick={addStep}
-              className="px-3 py-1.5 bg-dark-700 text-white rounded-lg text-xs font-medium hover:bg-dark-800 flex items-center space-x-1 transition-colors"
+              className="px-3 py-2 bg-slate-600 text-white rounded-md text-xs font-medium hover:bg-slate-700 flex items-center space-x-1 transition-colors"
             >
               <Plus className="h-3 w-3" />
               <span>Add Step</span>
@@ -448,7 +448,7 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
                 <div key={step.id} className="relative group">
                   <button
                     onClick={() => setCurrentStepIndex(index)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                    className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all ${
                       index === currentStepIndex
                         ? 'bg-dark-100 text-dark-700 border-2 border-dark-500 shadow-sm'
                         : 'bg-dark-100 text-dark-700 hover:bg-dark-100 border-2 border-dark-300'
@@ -483,7 +483,7 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
               <button
                 onClick={() => setCurrentStepIndex((i) => Math.max(0, i - 1))}
                 disabled={currentStepIndex === 0}
-                className="px-3 py-1.5 text-sm font-medium text-dark-600 bg-dark-100 rounded-lg hover:bg-dark-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center space-x-1"
+                className="px-3 py-2 text-sm font-medium text-white bg-slate-600 rounded-md hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center space-x-1"
               >
                 <ChevronLeft className="h-4 w-4" />
                 <span>Previous</span>
@@ -494,7 +494,7 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
               <button
                 onClick={() => setCurrentStepIndex((i) => Math.min(steps.length - 1, i + 1))}
                 disabled={currentStepIndex === steps.length - 1}
-                className="px-3 py-1.5 text-sm font-medium text-dark-600 bg-dark-100 rounded-lg hover:bg-dark-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center space-x-1"
+                className="px-3 py-1.5 text-sm font-medium text-dark-600 bg-dark-100 rounded-md hover:bg-dark-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center space-x-1"
               >
                 <span>Next</span>
                 <ChevronRight className="h-4 w-4" />
@@ -619,14 +619,14 @@ export function FormDesigner({ formData, onSave, onSaveDraft, onExit, actions = 
       {/* Drag Overlay */}
       <DragOverlay dropAnimation={{ duration: 200, easing: 'ease' }}>
         {activeId && activeId.startsWith('field-type-') ? (
-          <div className="px-4 py-3 rounded-lg bg-dark-100 border-2 border-dark-600 shadow-2xl">
+          <div className="px-4 py-3 rounded-md bg-dark-100 border-2 border-dark-600 shadow-2xl">
             <div className="flex items-center space-x-2 text-sm font-medium text-dark-700">
               <Plus className="h-4 w-4" />
               <span>Adding field...</span>
             </div>
           </div>
         ) : activeId ? (
-          <div className="px-4 py-3 rounded-lg bg-dark-100 border-2 border-dark-600 shadow-2xl">
+          <div className="px-4 py-3 rounded-md bg-dark-100 border-2 border-dark-600 shadow-2xl">
             <div className="text-sm font-medium text-dark-600">Moving field...</div>
           </div>
         ) : null}

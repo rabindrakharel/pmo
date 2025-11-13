@@ -16,18 +16,18 @@ interface CreateEventRequest {
   code: string;
   name: string;
   descr?: string;
+  event_action_entity_type: 'service' | 'product' | 'project' | 'task' | 'quote';
+  event_action_entity_id: string;
+  organizer_employee_id?: string; // Defaults to current user if not provided
   event_type: 'onsite' | 'virtual';
   event_platform_provider_name: string; // 'zoom', 'teams', 'google_meet', 'physical_hall', 'office', etc.
+  venue_type?: string; // 'conference_room', 'office', 'warehouse', 'customer_site', 'remote', etc.
   event_addr?: string; // Physical address OR meeting URL
   event_instructions?: string;
   from_ts: string; // ISO timestamp (event start time)
   to_ts: string; // ISO timestamp (event end time)
   timezone?: string; // Default: 'America/Toronto'
   event_metadata?: Record<string, any>;
-  // Optional: Additional organizers (current user is always added as organizer)
-  additional_organizers?: Array<{
-    empid: string;
-  }>;
   // Optional: Attendees to automatically create event-person mappings
   attendees?: Array<{
     person_entity_type: 'employee' | 'client' | 'customer';
@@ -98,8 +98,12 @@ export async function eventRoutes(fastify: FastifyInstance) {
           e.code,
           e.name,
           e.descr,
+          e.event_action_entity_type,
+          e.event_action_entity_id::text,
+          e.organizer_employee_id::text,
           e.event_type,
           e.event_platform_provider_name,
+          e.venue_type,
           e.event_addr,
           e.event_instructions,
           e.from_ts::text,
@@ -110,21 +114,16 @@ export async function eventRoutes(fastify: FastifyInstance) {
           e.created_ts::text,
           e.updated_ts::text,
           e.version,
-          -- Get organizers from RBAC (permission[5])
+          -- Get organizer details
           (
-            SELECT array_agg(
-              jsonb_build_object(
-                'empid', r.empid::text,
-                'name', emp.name,
-                'email', emp.email
-              )
+            SELECT jsonb_build_object(
+              'empid', emp.id::text,
+              'name', emp.name,
+              'email', emp.email
             )
-            FROM app.entity_id_rbac_map r
-            LEFT JOIN app.d_employee emp ON r.empid = emp.id
-            WHERE r.entity = 'event'
-              AND r.entity_id = e.id::text
-              AND r.permission @> ARRAY[5]
-          ) as organizers
+            FROM app.d_employee emp
+            WHERE emp.id = e.organizer_employee_id
+          ) as organizer
         FROM app.d_event e
         ${whereConditions}
         ORDER BY e.from_ts DESC, e.created_ts DESC
@@ -178,51 +177,61 @@ export async function eventRoutes(fastify: FastifyInstance) {
       // Filter by person involvement (either as organizer or attendee)
       let personFilter = client``;
       if (person_id && person_type) {
-        personFilter = client`
-          AND (
-            (e.organizer_id = ${person_id}::uuid AND e.organizer_type = ${person_type})
-            OR EXISTS (
+        if (person_type === 'employee') {
+          personFilter = client`
+            AND (
+              e.organizer_employee_id = ${person_id}::uuid
+              OR EXISTS (
+                SELECT 1 FROM app.d_entity_event_person_calendar epc
+                WHERE epc.event_id = e.id
+                  AND epc.person_entity_id = ${person_id}::uuid
+                  AND epc.person_entity_type = ${person_type}
+                  AND epc.active_flag = true
+              )
+            )
+          `;
+        } else {
+          personFilter = client`
+            AND EXISTS (
               SELECT 1 FROM app.d_entity_event_person_calendar epc
               WHERE epc.event_id = e.id
                 AND epc.person_entity_id = ${person_id}::uuid
                 AND epc.person_entity_type = ${person_type}
                 AND epc.active_flag = true
             )
-          )
-        `;
+          `;
+        }
       }
 
-      // Main query with organizers from RBAC
+      // Main query with organizer details
       const eventsQuery = client`
         SELECT
           e.id::text,
           e.code,
           e.name,
           e.descr,
+          e.event_action_entity_type,
+          e.event_action_entity_id::text,
+          e.organizer_employee_id::text,
           e.event_type,
           e.event_platform_provider_name,
+          e.venue_type,
           e.event_addr,
           e.event_instructions,
           e.from_ts::text,
           e.to_ts::text,
           e.timezone,
           e.event_metadata,
-          -- Get organizers from RBAC (permission[5])
+          -- Get organizer details
           (
-            SELECT array_agg(
-              jsonb_build_object(
-                'empid', r.empid::text,
-                'name', emp.name,
-                'email', emp.email,
-                'is_organizer', true
-              )
+            SELECT jsonb_build_object(
+              'empid', emp.id::text,
+              'name', emp.name,
+              'email', emp.email
             )
-            FROM app.entity_id_rbac_map r
-            LEFT JOIN app.d_employee emp ON r.empid = emp.id
-            WHERE r.entity = 'event'
-              AND r.entity_id = e.id::text
-              AND r.permission @> ARRAY[5]
-          ) as organizers
+            FROM app.d_employee emp
+            WHERE emp.id = e.organizer_employee_id
+          ) as organizer
         FROM app.d_event e
         ${whereConditions}
         ${personFilter}
@@ -320,8 +329,12 @@ export async function eventRoutes(fastify: FastifyInstance) {
           code,
           name,
           descr,
+          event_action_entity_type,
+          event_action_entity_id::text,
+          organizer_employee_id::text,
           event_type,
           event_platform_provider_name,
+          venue_type,
           event_addr,
           event_instructions,
           from_ts::text,
@@ -399,6 +412,8 @@ export async function eventRoutes(fastify: FastifyInstance) {
     try {
       const eventData = request.body;
       const eventId = uuidv4();
+      const creatorEmpId = request.user?.sub;
+      const organizerEmpId = eventData.organizer_employee_id || creatorEmpId;
 
       // Create event
       const insertQuery = client`
@@ -407,8 +422,12 @@ export async function eventRoutes(fastify: FastifyInstance) {
           code,
           name,
           descr,
+          event_action_entity_type,
+          event_action_entity_id,
+          organizer_employee_id,
           event_type,
           event_platform_provider_name,
+          venue_type,
           event_addr,
           event_instructions,
           from_ts,
@@ -420,8 +439,12 @@ export async function eventRoutes(fastify: FastifyInstance) {
           ${eventData.code},
           ${eventData.name},
           ${eventData.descr || null},
+          ${eventData.event_action_entity_type},
+          ${eventData.event_action_entity_id}::uuid,
+          ${organizerEmpId}::uuid,
           ${eventData.event_type},
           ${eventData.event_platform_provider_name},
+          ${eventData.venue_type || null},
           ${eventData.event_addr || null},
           ${eventData.event_instructions || null},
           ${eventData.from_ts}::timestamptz,
@@ -433,8 +456,12 @@ export async function eventRoutes(fastify: FastifyInstance) {
           id::text,
           code,
           name,
+          event_action_entity_type,
+          event_action_entity_id::text,
+          organizer_employee_id::text,
           event_type,
           event_platform_provider_name,
+          venue_type,
           from_ts::text,
           to_ts::text,
           created_ts::text
@@ -455,8 +482,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
       console.log(`✅ Created event: ${newEvent.code}`);
 
-      // Grant Owner permissions (permission[5]) to event creator and additional organizers
-      const creatorEmpId = request.user?.sub;
+      // Grant Owner permissions (permission[5]) to event creator
       if (creatorEmpId) {
         await client`
           INSERT INTO app.entity_id_rbac_map (
@@ -475,8 +501,8 @@ export async function eventRoutes(fastify: FastifyInstance) {
         `;
         console.log(`✅ Granted Owner permissions to creator (empid: ${creatorEmpId})`);
 
-        // Also add creator as an attendee with accepted status
-        const creatorAttendeeCode = `EPC-${eventData.code}-ORGANIZER-${creatorEmpId.substring(0, 8)}`;
+        // Also add organizer as an attendee with accepted status
+        const organizerAttendeeCode = `EPC-${eventData.code}-ORGANIZER-${organizerEmpId.substring(0, 8)}`;
         await client`
           INSERT INTO app.d_entity_event_person_calendar (
             code,
@@ -489,10 +515,10 @@ export async function eventRoutes(fastify: FastifyInstance) {
             to_ts,
             timezone
           ) VALUES (
-            ${creatorAttendeeCode},
+            ${organizerAttendeeCode},
             ${`${eventData.name} - Organizer`},
             'employee',
-            ${creatorEmpId}::uuid,
+            ${organizerEmpId}::uuid,
             ${newEvent.id}::uuid,
             'accepted',
             ${eventData.from_ts}::timestamptz,
@@ -501,57 +527,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           )
           ON CONFLICT DO NOTHING
         `;
-        console.log(`✅ Added creator as attendee with accepted RSVP status`);
-      }
-
-      // Grant Owner permissions to additional organizers if provided
-      if (eventData.additional_organizers && eventData.additional_organizers.length > 0) {
-        for (const organizer of eventData.additional_organizers) {
-          await client`
-            INSERT INTO app.entity_id_rbac_map (
-              empid,
-              entity,
-              entity_id,
-              permission,
-              granted_by_empid
-            ) VALUES (
-              ${organizer.empid}::uuid,
-              'event',
-              ${newEvent.id},
-              ARRAY[0,1,2,3,4,5],
-              ${creatorEmpId || organizer.empid}::uuid
-            )
-            ON CONFLICT DO NOTHING
-          `;
-
-          // Also add additional organizer as attendee with accepted status
-          const orgAttendeeCode = `EPC-${eventData.code}-ORGANIZER-${organizer.empid.substring(0, 8)}`;
-          await client`
-            INSERT INTO app.d_entity_event_person_calendar (
-              code,
-              name,
-              person_entity_type,
-              person_entity_id,
-              event_id,
-              event_rsvp_status,
-              from_ts,
-              to_ts,
-              timezone
-            ) VALUES (
-              ${orgAttendeeCode},
-              ${`${eventData.name} - Organizer`},
-              'employee',
-              ${organizer.empid}::uuid,
-              ${newEvent.id}::uuid,
-              'accepted',
-              ${eventData.from_ts}::timestamptz,
-              ${eventData.to_ts}::timestamptz,
-              ${eventData.timezone || 'America/Toronto'}
-            )
-            ON CONFLICT DO NOTHING
-          `;
-        }
-        console.log(`✅ Granted Owner permissions to ${eventData.additional_organizers.length} additional organizers`);
+        console.log(`✅ Added organizer as attendee with accepted RSVP status`);
       }
 
       // Create event-person mappings if attendees provided

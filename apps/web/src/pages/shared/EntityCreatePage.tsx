@@ -376,7 +376,7 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
           <div className="flex items-center space-x-4">
             <button
               onClick={handleCancel}
-              className="p-2 hover:bg-dark-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-dark-100 rounded-md transition-colors"
             >
               <ArrowLeft className="h-5 w-5 text-dark-700 stroke-[1.5]" />
             </button>
@@ -414,7 +414,7 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
             <p className="text-sm text-red-800">{error}</p>
           </div>
         )}

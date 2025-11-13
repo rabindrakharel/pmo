@@ -77,14 +77,14 @@ export function EntityPreviewPanel() {
                   href={detailPageUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 text-dark-600 hover:text-dark-700 hover:bg-dark-100 rounded-lg transition-colors"
+                  className="p-2 text-dark-600 hover:text-dark-700 hover:bg-dark-100 rounded-md transition-colors"
                   title="Open in new tab"
                 >
                   <ExternalLink className="h-4 w-4" />
                 </a>
                 <button
                   onClick={closeEntityPreview}
-                  className="p-2 text-dark-600 hover:text-dark-700 hover:bg-dark-100 rounded-lg transition-colors"
+                  className="p-2 text-dark-600 hover:text-dark-700 hover:bg-dark-100 rounded-md transition-colors"
                   title="Close preview (ESC)"
                 >
                   <X className="h-5 w-5" />

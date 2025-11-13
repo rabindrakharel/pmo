@@ -104,7 +104,7 @@ export function PublicFormPage() {
   if (submitted) {
     return (
       <div className="min-h-screen bg-dark-100 flex items-center justify-center">
-        <div className="max-w-md w-full bg-dark-100 rounded-lg shadow-lg p-8 text-center">
+        <div className="max-w-md w-full bg-dark-100 rounded-md shadow-lg p-8 text-center">
           <CheckCircle className="h-16 w-16 text-green-500 stroke-[1.5] mx-auto mb-4" />
           <h2 className="text-sm font-normal text-dark-600 mb-2">Thank You!</h2>
           <p className="text-dark-700 mb-6">Your form has been submitted successfully.</p>
@@ -113,7 +113,7 @@ export function PublicFormPage() {
               setSubmitted(false);
               setFormData({});
             }}
-            className="px-6 py-2 bg-dark-700 text-white rounded-lg hover:bg-dark-800"
+            className="px-6 py-2 bg-dark-700 text-white rounded-md hover:bg-dark-800"
           >
             Submit Another Response
           </button>
@@ -135,7 +135,7 @@ export function PublicFormPage() {
   return (
     <div className="min-h-screen bg-dark-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
-        <div className="bg-dark-100 rounded-lg shadow-lg overflow-hidden">
+        <div className="bg-dark-100 rounded-md shadow-lg overflow-hidden">
           {/* Header */}
           <div className="bg-gradient-to-r from-dark-700 to-purple-600 px-8 py-6">
             <h1 className="text-sm font-normal text-white">{form?.name}</h1>
@@ -147,7 +147,7 @@ export function PublicFormPage() {
           {/* Form */}
           <div className="px-8 py-6">
             {error && (
-              <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
                 <div className="flex">
                   <AlertCircle className="h-5 w-5 text-red-400 stroke-[1.5]" />
                   <p className="ml-3 text-sm text-red-700">{error}</p>
@@ -170,7 +170,7 @@ export function PublicFormPage() {
                       placeholder={field.placeholder}
                       value={formData[field.name] || ''}
                       onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                      className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
                       rows={4}
                     />
                   ) : field.type === 'select' ? (
@@ -179,7 +179,7 @@ export function PublicFormPage() {
                       required={field.required}
                       value={formData[field.name] || ''}
                       onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                      className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
                     >
                       <option value="">Select...</option>
                       {field.options?.map((opt: any) => (
@@ -196,7 +196,7 @@ export function PublicFormPage() {
                       placeholder={field.placeholder}
                       value={formData[field.name] || ''}
                       onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                      className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
                     />
                   )}
                 </div>
@@ -206,7 +206,7 @@ export function PublicFormPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full bg-dark-700 text-white py-3 px-6 rounded-lg font-normal hover:bg-dark-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-dark-700 text-white py-3 px-6 rounded-md font-normal hover:bg-dark-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submitting ? 'Submitting...' : 'Submit'}
                 </button>

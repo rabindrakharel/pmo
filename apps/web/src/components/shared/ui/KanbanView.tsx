@@ -83,7 +83,7 @@ export function KanbanView({
     return (
       <div className="text-center py-12">
         <div className="max-w-md mx-auto">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+          <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
             <p
               className="text-red-800 mb-2"
               style={{
@@ -147,7 +147,7 @@ export function KanbanView({
     );
   }
 
-  // Render Kanban board
+  // Render Kanban board with pre-built columns from settings
   return (
     <KanbanBoard
       columns={columns}

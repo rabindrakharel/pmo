@@ -316,7 +316,7 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
           <p className="text-red-600">{error}</p>
           <button
             onClick={loadChildData}
-            className="mt-4 px-4 py-2 bg-dark-700 text-white rounded-lg hover:bg-dark-800"
+            className="mt-4 px-4 py-2 bg-dark-700 text-white rounded-md hover:bg-dark-800"
           >
             Retry
           </button>
@@ -327,7 +327,7 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
     // KANBAN VIEW - Settings-driven, no fallbacks
     if (view === 'kanban' && config.kanban) {
       return (
-        <div className="bg-dark-100 rounded-lg shadow p-6 h-full overflow-x-auto">
+        <div className="bg-dark-100 rounded-md shadow p-6 h-full overflow-x-auto">
           <KanbanView
             config={config}
             data={data}
@@ -342,7 +342,7 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
     // GRID VIEW
     if (view === 'grid' && config.grid) {
       return (
-        <div className="bg-dark-100 rounded-lg shadow p-6">
+        <div className="bg-dark-100 rounded-md shadow p-6">
           <GridView
             items={data}
             onItemClick={handleRowClick}

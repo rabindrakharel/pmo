@@ -109,7 +109,7 @@ export default function DataLabelsVisualizationPage() {
             return (
               <div
                 key={domain}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow"
+                className="bg-white rounded-md shadow-sm border border-gray-200 p-4 hover:shadow-sm transition-shadow"
               >
                 <div className="flex items-start gap-3">
                   <div className="text-blue-600 mt-1">
@@ -141,7 +141,7 @@ export default function DataLabelsVisualizationPage() {
             const domainLabels = groupedLabels[domain];
 
             return (
-              <div key={domain} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div key={domain} className="bg-white rounded-md shadow-sm border border-gray-200 p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                   {React.createElement(
                     getIcon(domainLabels[0]?.ui_icon || 'Tag'),

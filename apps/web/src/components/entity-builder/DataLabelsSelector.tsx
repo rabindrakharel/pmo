@@ -137,7 +137,7 @@ export function DataLabelsSelector({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600"></div>
       </div>
     );
   }
@@ -156,13 +156,13 @@ export function DataLabelsSelector({
   return (
     <div className="space-y-4">
       {/* Info Banner */}
-      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+      <div className="p-3 bg-slate-50 border border-slate-200 rounded-md">
         <div className="flex items-start gap-2">
-          <Tag className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-blue-900">
-            <strong>Filtered for this entity:</strong> Showing only data labels for <span className="font-mono bg-blue-100 px-1.5 py-0.5 rounded">{entityCode}</span>
+          <Tag className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
+          <div className="text-sm text-slate-900">
+            <strong>Filtered for this entity:</strong> Showing only data labels for <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded">{entityCode}</span>
             {allDataLabels.length === 0 && (
-              <span className="block mt-1 text-blue-700">
+              <span className="block mt-1 text-slate-700">
                 No data labels found for this entity. Data labels must be named <span className="font-mono">dl__{entityCode}_*</span>
               </span>
             )}
@@ -195,7 +195,7 @@ export function DataLabelsSelector({
             placeholder="Search data labels..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-2 pl-10 border border-dark-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-4 py-2 pl-10 border border-dark-300 rounded-md focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
           />
           <Tag className="absolute left-3 top-2.5 h-5 w-5 text-dark-400" />
         </div>
@@ -203,7 +203,7 @@ export function DataLabelsSelector({
 
       {/* Data Labels List */}
       {allDataLabels.length > 0 && (
-        <div className="border border-dark-300 rounded-lg divide-y divide-dark-200 max-h-96 overflow-y-auto">
+        <div className="border border-dark-300 rounded-md divide-y divide-dark-200 max-h-96 overflow-y-auto">
           {domains.length === 0 ? (
             <div className="p-8 text-center text-dark-500">
               No data labels found matching "{searchTerm}"
@@ -239,9 +239,9 @@ export function DataLabelsSelector({
                     onClick={() => selectAllInDomain(domain, domainLabels)}
                     className={`text-xs font-medium px-2 py-1 rounded ${
                       allSelected
-                        ? 'text-blue-700 bg-blue-100 hover:bg-blue-200'
+                        ? 'text-slate-700 bg-slate-100 hover:bg-slate-200'
                         : someSelected
-                        ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
+                        ? 'text-slate-600 bg-slate-50 hover:bg-slate-100'
                         : 'text-dark-600 bg-dark-100 hover:bg-dark-200'
                     }`}
                   >
@@ -261,14 +261,14 @@ export function DataLabelsSelector({
                           key={label.datalabel_name}
                           onClick={() => toggleDataLabel(label.datalabel_name)}
                           className={`w-full flex items-center gap-3 p-3 hover:bg-white transition-colors border-b border-dark-200 last:border-b-0 ${
-                            isSelected ? 'bg-blue-50' : ''
+                            isSelected ? 'bg-slate-50' : ''
                           }`}
                         >
                           {/* Checkbox */}
                           <div
                             className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center ${
                               isSelected
-                                ? 'bg-blue-600 border-blue-600'
+                                ? 'bg-slate-600 border-slate-600'
                                 : 'border-dark-300 bg-white'
                             }`}
                           >
@@ -306,10 +306,10 @@ export function DataLabelsSelector({
 
       {/* Selected Data Labels Summary */}
       {selectedDataLabels.length > 0 && (
-        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-md">
           <div className="flex items-center gap-2 mb-2">
-            <Tag className="h-4 w-4 text-blue-600" />
-            <span className="text-sm font-medium text-blue-900">
+            <Tag className="h-4 w-4 text-slate-600" />
+            <span className="text-sm font-medium text-slate-900">
               Selected Data Labels ({selectedDataLabels.length})
             </span>
           </div>
@@ -323,9 +323,9 @@ export function DataLabelsSelector({
               return (
                 <div
                   key={datalabelName}
-                  className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-blue-300 rounded text-xs"
+                  className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-slate-300 rounded text-xs"
                 >
-                  <Icon className="h-3 w-3 text-blue-600" />
+                  <Icon className="h-3 w-3 text-slate-600" />
                   <span className="text-dark-900">{label.ui_label}</span>
                   <button
                     onClick={() => toggleDataLabel(datalabelName)}

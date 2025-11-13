@@ -28,27 +28,24 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-      />
+    <>
+      {/* Backdrop - Following design system v10.0 */}
+      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Modal */}
-      <div className="flex min-h-full items-center justify-center p-4">
+      {/* Modal Container */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
-          className={`relative bg-dark-100 rounded-xl shadow-2xl w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col`}
+          className={`bg-dark-100 rounded-xl shadow-2xl w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-dark-300">
-            <h2 className="text-lg font-semibold text-dark-600">{title}</h2>
+            <h2 className="text-lg font-semibold text-dark-700">{title}</h2>
             <button
               onClick={onClose}
-              className="p-1 hover:bg-dark-100 rounded-lg transition-colors"
+              className="p-1 hover:bg-dark-200 rounded-md transition-colors"
             >
-              <X className="h-5 w-5 text-dark-700" />
+              <X className="h-5 w-5 text-dark-500" />
             </button>
           </div>
 
@@ -59,12 +56,12 @@ export const Modal: React.FC<ModalProps> = ({
 
           {/* Footer */}
           {footer && (
-            <div className="px-6 py-4 border-t border-dark-300 flex items-center justify-end gap-2">
+            <div className="px-6 py-4 border-t border-dark-300 flex justify-end gap-2">
               {footer}
             </div>
           )}
         </div>
       </div>
-    </div>
+    </>
   );
 };

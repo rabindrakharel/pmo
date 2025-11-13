@@ -440,7 +440,7 @@ export function EntityAssignmentDataTable({
 
   if (loading) {
     return (
-      <div className="bg-dark-100 shadow rounded-lg p-6">
+      <div className="bg-white shadow rounded-md p-6">
         <h3 className="text-sm font-normal text-dark-600 mb-4">Parent Entity Assignments</h3>
         <div className="flex items-center text-dark-700">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-dark-700 mr-2"></div>
@@ -452,7 +452,7 @@ export function EntityAssignmentDataTable({
 
 
   return (
-    <div className="bg-dark-100 shadow rounded-lg p-4 mb-6">
+    <div className="bg-white shadow rounded-md p-4 mb-6">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-normal text-dark-600">Parent Entity Assignments</h3>
         <div className="flex items-center gap-2">
@@ -462,12 +462,12 @@ export function EntityAssignmentDataTable({
           {effectiveCanAssign && (
             <button
               onClick={isEditMode ? handleSaveChanges : () => setIsEditMode(true)}
-              className={`inline-flex items-center px-3 py-1.5 border shadow-sm text-xs font-normal rounded focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+              className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-0 transition-all ${
                 showSavedMessage
-                  ? 'border-green-300 text-green-700 bg-green-50 focus:ring-green-500'
+                  ? 'border-green-300 text-green-700 bg-green-50 focus:ring-green-500/50'
                   : isEditMode
-                    ? 'border-dark-500 text-dark-700 bg-dark-100 hover:bg-dark-100 focus:ring-dark-7000'
-                    : 'border-dark-400 text-dark-600 bg-dark-100 hover:bg-dark-100 focus:ring-dark-7000'
+                    ? 'border-slate-600 text-white bg-slate-600 hover:bg-slate-700 focus:ring-slate-500/50 shadow-sm'
+                    : 'border-dark-300 text-dark-700 bg-white hover:border-dark-400 focus:ring-slate-500/30'
               }`}
             >
               {showSavedMessage ? (
@@ -609,7 +609,7 @@ export function EntityAssignmentDataTable({
 
               {/* Search Results Dropdown */}
               {showSearchInput && (
-                <div className="search-dropdown absolute top-full left-0 mt-1 w-80 bg-dark-100 border border-dark-300 rounded shadow-lg z-50 max-h-64 overflow-y-auto" style={{ maxHeight: '256px' }}>
+                <div className="search-dropdown absolute top-full left-0 mt-1 w-80 bg-dark-100 border border-dark-300 rounded shadow-sm z-50 max-h-64 overflow-y-auto" style={{ maxHeight: '256px' }}>
                   {Object.keys(getGroupedAvailableParents()).length === 0 ? (
                     <div className="p-3 text-center text-dark-700 text-xs">
                       {searchTerm ? 'No matching entities found' : 'No entities available'}

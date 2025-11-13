@@ -455,7 +455,7 @@ export function DAGVisualizer({
   };
 
   return (
-    <div className="w-full overflow-x-auto bg-dark-100 rounded-lg p-4">
+    <div className="w-full overflow-x-auto bg-dark-100 rounded-md p-4">
       <svg width={maxX} height={maxY} className="min-w-full">
         {/* Define arrow marker */}
         <defs>

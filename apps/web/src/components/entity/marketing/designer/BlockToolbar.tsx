@@ -61,7 +61,7 @@ export function BlockToolbar({ onAddBlock }: BlockToolbarProps) {
             <button
               key={blockType.type}
               onClick={() => onAddBlock(blockType.type)}
-              className="w-full flex items-start space-x-3 p-3 rounded-lg border border-dark-300 hover:border-dark-3000 hover:bg-dark-100 transition-all group"
+              className="w-full flex items-start space-x-3 p-3 rounded-md border border-dark-300 hover:border-dark-3000 hover:bg-dark-100 transition-all group"
             >
               <div className={`p-2 rounded-md bg-${blockType.color}-100 group-hover:bg-${blockType.color}-200 transition-colors`}>
                 <Icon className={`h-5 w-5 text-${blockType.color}-600`} />

@@ -557,7 +557,7 @@ export function EntityFormContainer({
           return (
             <div className="space-y-3">
               {/* Display actual stage value from entity table */}
-              <div className="flex items-center gap-3 p-3 bg-dark-100 border border-dark-300 rounded-lg">
+              <div className="flex items-center gap-3 p-3 bg-dark-100 border border-dark-300 rounded-md">
                 <span className="text-sm font-semibold text-dark-600">Current Stage:</span>
                 {renderFieldBadge(field.key, value || 'Not Set')}
               </div>
@@ -702,7 +702,7 @@ export function EntityFormContainer({
                     relative break-words rounded-md px-3 py-2 -ml-3
                     transition-all duration-300 ease-out
                     ${isEditing
-                      ? 'bg-gray-50 hover:bg-gray-100 hover:shadow-sm focus-within:bg-white focus-within:shadow-md focus-within:border focus-within:border-blue-200'
+                      ? 'bg-gray-50 hover:bg-gray-100 hover:shadow-sm focus-within:bg-white focus-within:shadow-sm focus-within:border focus-within:border-blue-200'
                       : 'hover:bg-gray-50'
                     }
                     text-sm text-gray-700 tracking-tight leading-normal

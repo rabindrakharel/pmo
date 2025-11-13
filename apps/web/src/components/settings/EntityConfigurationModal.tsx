@@ -268,12 +268,12 @@ export function EntityConfigurationModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-[85vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-md shadow-sm w-full max-w-7xl h-[85vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-dark-300 flex items-center justify-between bg-gradient-to-r from-blue-50 to-white">
+        <div className="p-6 border-b border-dark-300 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white">
           <div>
             <h2 className="text-2xl font-bold text-dark-900 flex items-center gap-2">
-              <Database className="h-6 w-6 text-blue-600" />
+              <Database className="h-6 w-6 text-slate-600" />
               Configure Entity: {entityName}
             </h2>
             <p className="text-sm text-dark-600 mt-1">
@@ -288,7 +288,7 @@ export function EntityConfigurationModal({
           </div>
           <button
             onClick={onClose}
-            className="text-dark-600 hover:text-dark-900 p-2 hover:bg-dark-100 rounded-lg transition-colors"
+            className="text-dark-600 hover:text-dark-900 p-2 hover:bg-dark-100 rounded-md transition-colors"
             title="Close"
           >
             <X className="h-6 w-6" />
@@ -297,7 +297,7 @@ export function EntityConfigurationModal({
 
         {/* Error Message */}
         {error && (
-          <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-300 rounded-lg flex items-start gap-3">
+          <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-300 rounded-md flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-red-900">Error</p>
@@ -312,10 +312,10 @@ export function EntityConfigurationModal({
             {/* Metadata Tab */}
             <button
               onClick={() => setActiveTab('metadata')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
                 activeTab === 'metadata'
-                  ? 'bg-slate-600 text-white shadow-md'
-                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                  ? 'bg-slate-600 text-white shadow-sm'
+                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
               }`}
             >
               <Database className="h-4 w-4" />
@@ -325,10 +325,10 @@ export function EntityConfigurationModal({
             {/* Data Labels Tab */}
             <button
               onClick={() => setActiveTab('datalabels')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
                 activeTab === 'datalabels'
-                  ? 'bg-slate-600 text-white shadow-md'
-                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                  ? 'bg-slate-600 text-white shadow-sm'
+                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
               }`}
             >
               <Tag className="h-4 w-4" />
@@ -347,10 +347,10 @@ export function EntityConfigurationModal({
             {/* UI/UX Tab */}
             <button
               onClick={() => setActiveTab('uiux')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
                 activeTab === 'uiux'
-                  ? 'bg-slate-600 text-white shadow-md'
-                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                  ? 'bg-slate-600 text-white shadow-sm'
+                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
               }`}
             >
               <Eye className="h-4 w-4" />
@@ -361,7 +361,7 @@ export function EntityConfigurationModal({
 
         {/* Sub-Tabs (Second Level) - Only shown when Data Labels tab is active */}
         {activeTab === 'datalabels' && availableDataLabels.length > 0 && (
-          <div className="px-6 py-3 bg-blue-50/50 border-b border-dark-200">
+          <div className="px-6 py-3 bg-slate-50/50 border-b border-dark-200">
             <div className="flex flex-wrap gap-2">
               {availableDataLabels.map((datalabelName) => (
                 <button
@@ -369,7 +369,7 @@ export function EntityConfigurationModal({
                   onClick={() => setActiveDataLabel(datalabelName)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
                     activeDataLabel === datalabelName
-                      ? 'bg-blue-600 text-white shadow-sm'
+                      ? 'bg-slate-600 text-white shadow-sm'
                       : 'bg-white text-dark-600 border border-dark-300 hover:border-dark-400'
                   }`}
                 >
@@ -385,14 +385,14 @@ export function EntityConfigurationModal({
         <div className="flex-1 overflow-y-auto p-6 bg-dark-50 min-h-0">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-600 mb-4"></div>
               <p className="text-sm text-dark-600">Loading entity configuration...</p>
             </div>
           ) : (
             <>
               {/* Metadata Tab Content */}
               {activeTab === 'metadata' && (
-                <div className="bg-white rounded-lg border border-dark-300 p-6">
+                <div className="bg-white rounded-md border border-dark-300 p-6">
                   <div className="mb-6">
                     <h3 className="text-lg font-medium text-dark-900 mb-2">
                       Metadata
@@ -412,11 +412,11 @@ export function EntityConfigurationModal({
 
               {/* Data Labels Tab Content - shows SettingsDataTable for active data label */}
               {activeTab === 'datalabels' && (
-                <div className="bg-white rounded-lg border border-dark-300 p-6">
+                <div className="bg-white rounded-md border border-dark-300 p-6">
                   {activeDataLabel ? (
                     loadingDatalabel ? (
                       <div className="text-center py-12">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600 mx-auto mb-4"></div>
                         <p className="text-sm text-dark-600">Loading {formatDataLabelName(activeDataLabel)} data...</p>
                       </div>
                     ) : (
@@ -561,7 +561,7 @@ export function EntityConfigurationModal({
                     </div>
                   ) : (
                     <div className="text-center py-12">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600 mx-auto mb-4"></div>
                       <p className="text-sm text-dark-600">Loading data labels...</p>
                     </div>
                   )}
@@ -570,7 +570,7 @@ export function EntityConfigurationModal({
 
               {/* UI/UX Tab Content */}
               {activeTab === 'uiux' && (
-                <div className="bg-white rounded-lg border border-dark-300 p-6">
+                <div className="bg-white rounded-md border border-dark-300 p-6">
                   <div className="mb-6">
                     <h3 className="text-lg font-medium text-dark-900 mb-2">
                       Display Settings
@@ -596,7 +596,7 @@ export function EntityConfigurationModal({
                         type="text"
                         value={entityData.ui_label}
                         onChange={(e) => setEntityData(prev => ({ ...prev, ui_label: e.target.value }))}
-                        className="w-full px-3 py-2 border border-dark-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-dark-300 rounded-md focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                         placeholder="e.g., Projects, Tasks, Employees"
                       />
                       <p className="text-xs text-dark-500 mt-1">
@@ -612,7 +612,7 @@ export function EntityConfigurationModal({
                         type="text"
                         value={entityData.name}
                         onChange={(e) => setEntityData(prev => ({ ...prev, name: e.target.value }))}
-                        className="w-full px-3 py-2 border border-dark-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-dark-300 rounded-md focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                         placeholder="e.g., Project, Task, Employee"
                       />
                       <p className="text-xs text-dark-500 mt-1">
@@ -627,7 +627,7 @@ export function EntityConfigurationModal({
                       <select
                         value={entityData.dl_entity_domain || ''}
                         onChange={(e) => setEntityData(prev => ({ ...prev, dl_entity_domain: e.target.value || null }))}
-                        className="w-full px-3 py-2 border border-dark-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-dark-300 rounded-md focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                       >
                         <option value="">-- Select Domain --</option>
                         <option value="Core Management">Core Management</option>
@@ -666,7 +666,7 @@ export function EntityConfigurationModal({
             <button
               onClick={handleSave}
               disabled={saving || loading || entityData.column_metadata.length === 0}
-              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 px-3 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Save className="h-4 w-4" />
               {saving ? 'Saving...' : 'Save Configuration'}

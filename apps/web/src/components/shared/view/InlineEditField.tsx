@@ -67,7 +67,7 @@ export function InlineEditField({
                 <button
                   onClick={() => onSave(fieldName)}
                   disabled={saving}
-                  className="px-3 py-1 bg-dark-700 text-white text-sm rounded hover:bg-dark-800 disabled:opacity-50"
+                  className="px-3 py-1 bg-slate-600 text-white text-sm rounded hover:bg-slate-700 shadow-sm disabled:opacity-50"
                 >
                   {saving ? 'Saving...' : 'Save'}
                 </button>

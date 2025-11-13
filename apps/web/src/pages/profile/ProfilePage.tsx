@@ -89,7 +89,7 @@ export function ProfilePage() {
                   <input
                     {...register('name')}
                     type="text"
-                    className="block w-full px-4 py-3 border border-dark-300 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent transition-colors duration-200"
+                    className="block w-full px-4 py-3 border border-dark-300 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent transition-colors duration-200"
                     placeholder="Enter your full name"
                   />
                   {errors.name && (
@@ -104,7 +104,7 @@ export function ProfilePage() {
                   <input
                     {...register('email')}
                     type="email"
-                    className="block w-full px-4 py-3 border border-dark-300 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent transition-colors duration-200"
+                    className="block w-full px-4 py-3 border border-dark-300 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent transition-colors duration-200"
                     placeholder="Enter your email address"
                   />
                   {errors.email && (
@@ -117,7 +117,7 @@ export function ProfilePage() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-normal rounded-lg shadow-sm text-white bg-gradient-to-r from-dark-700 to-purple-600 hover:from-dark-800 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-7000 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-normal rounded-md shadow-sm text-white bg-gradient-to-r from-dark-700 to-purple-600 hover:from-dark-800 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-7000 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 >
                   {isLoading ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -136,13 +136,13 @@ export function ProfilePage() {
           <div className="p-6">
             <h3 className="text-sm font-normal text-dark-600 mb-4">Account Information</h3>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div className="bg-dark-100 rounded-lg p-4">
+              <div className="bg-dark-100 rounded-md p-4">
                 <label className="block text-sm font-normal text-dark-600 mb-1">User ID</label>
                 <div className="text-sm font-mono text-dark-600 break-all">
                   {user?.id}
                 </div>
               </div>
-              <div className="bg-dark-100 rounded-lg p-4">
+              <div className="bg-dark-100 rounded-md p-4">
                 <label className="block text-sm font-normal text-dark-600 mb-1">Member Since</label>
                 <div className="flex items-center text-sm text-dark-600">
                   <Calendar className="h-4 w-4 text-dark-700 stroke-[1.5] mr-2" />

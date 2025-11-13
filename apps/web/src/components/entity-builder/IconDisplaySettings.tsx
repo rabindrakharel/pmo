@@ -89,14 +89,14 @@ export function IconDisplaySettings({
 
         {/* Current Icon Preview */}
         <div className="flex items-center gap-4 mb-4">
-          <div className="p-4 bg-dark-100 rounded-lg border-2 border-dark-300">
+          <div className="p-4 bg-dark-100 rounded-md border-2 border-dark-300">
             <SelectedIcon className="h-8 w-8 text-dark-700" />
           </div>
           <div>
             <p className="text-sm font-medium text-dark-900">{icon}</p>
             <button
               onClick={() => setShowIconPicker(!showIconPicker)}
-              className="text-sm text-blue-600 hover:text-blue-700"
+              className="text-sm text-slate-600 hover:text-slate-700"
             >
               {showIconPicker ? 'Hide icon picker' : 'Change icon'}
             </button>
@@ -105,7 +105,7 @@ export function IconDisplaySettings({
 
         {/* Icon Picker Grid */}
         {showIconPicker && (
-          <div className="border border-dark-300 rounded-lg p-4 bg-white">
+          <div className="border border-dark-300 rounded-md p-4 bg-white">
             {categories.map((category) => {
               const categoryIcons = commonIcons.filter(i => i.category === category);
               return (
@@ -122,9 +122,9 @@ export function IconDisplaySettings({
                           setShowIconPicker(false);
                         }}
                         className={`
-                          p-3 rounded-md border-2 transition-all hover:border-blue-400 hover:bg-blue-50
+                          p-3 rounded-md border-2 transition-all hover:border-slate-400 hover:bg-slate-50
                           ${icon === name
-                            ? 'border-blue-500 bg-blue-50'
+                            ? 'border-slate-500 bg-slate-50'
                             : 'border-dark-200 bg-white'
                           }
                         `}
@@ -173,7 +173,7 @@ export function IconDisplaySettings({
       </div>
 
       {/* Preview Card */}
-      <div className="bg-dark-50 border border-dark-300 rounded-lg p-4">
+      <div className="bg-dark-50 border border-dark-300 rounded-md p-4">
         <h4 className="text-sm font-medium text-dark-700 mb-3">Preview</h4>
         <div className="bg-white rounded-md p-3 border border-dark-200">
           <div className="flex items-center gap-3">

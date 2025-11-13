@@ -175,6 +175,7 @@ validate_all_ddls() {
         "XXXII_f_industry_workflow_events.ddl"
         "XXXIII_f_interaction.ddl"
         "XXXIV_d_event.ddl"
+        "XXXIV_d_event_organizer_link.ddl"
         "XXXV_d_entity_person_calendar.ddl"
         "XXXVI_d_entity_event_person_calendar.ddl"
         "XXXVII_orchestrator_session.ddl"
@@ -280,6 +281,7 @@ import_ddls() {
 
     # XXXIV-XXXVI: Event & calendar system
     execute_sql "$DB_PATH/XXXIV_d_event.ddl" "XXXIV: Event entities (meetings, appointments)"
+    execute_sql "$DB_PATH/XXXIV_d_event_organizer_link.ddl" "XXXIV: Event organizer linkage"
     execute_sql "$DB_PATH/XXXV_d_entity_person_calendar.ddl" "XXXV: Person calendar (availability slots)"
     execute_sql "$DB_PATH/XXXVI_d_entity_event_person_calendar.ddl" "XXXVI: Event-person calendar (RSVP tracking)"
 

@@ -219,7 +219,7 @@ export function ColumnMetadataEditor({ columns, onChange, entityCode }: ColumnMe
         <button
           onClick={handleAddColumn}
           disabled={isAddingNew}
-          className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-3 py-2 bg-slate-600 text-white text-sm rounded-md hover:bg-slate-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus className="h-4 w-4" />
           Add Column
@@ -227,18 +227,18 @@ export function ColumnMetadataEditor({ columns, onChange, entityCode }: ColumnMe
       </div>
 
       {/* Info Banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
-        <Info className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
-        <div className="text-xs text-blue-900">
+      <div className="bg-slate-50 border border-slate-200 rounded-md p-3 flex items-start gap-2">
+        <Info className="h-4 w-4 text-slate-600 flex-shrink-0 mt-0.5" />
+        <div className="text-xs text-slate-900">
           <p className="font-medium">Column Configuration</p>
-          <p className="mt-1 text-blue-700">
+          <p className="mt-1 text-slate-700">
             Define the database schema for this entity. System columns (id, created_ts, etc.) are protected and cannot be deleted.
           </p>
         </div>
       </div>
 
       {/* Columns Table */}
-      <div className="border border-dark-300 rounded-lg overflow-hidden">
+      <div className="border border-dark-300 rounded-md overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-dark-50 border-b border-dark-300">
             <tr>
@@ -263,7 +263,7 @@ export function ColumnMetadataEditor({ columns, onChange, entityCode }: ColumnMe
                         type="text"
                         value={editForm.name || ''}
                         onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                        className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                        className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-2 focus:ring-slate-500 focus:border-slate-500 font-mono"
                         placeholder="column_name"
                         disabled={isSystemColumn(column.name)}
                       />
@@ -272,7 +272,7 @@ export function ColumnMetadataEditor({ columns, onChange, entityCode }: ColumnMe
                       <select
                         value={editForm.datatype || ''}
                         onChange={(e) => setEditForm({ ...editForm, datatype: e.target.value })}
-                        className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                       >
                         {dataTypes.map(type => (
                           <option key={type} value={type}>{type}</option>
@@ -292,7 +292,7 @@ export function ColumnMetadataEditor({ columns, onChange, entityCode }: ColumnMe
                         type="text"
                         value={editForm.default_value || ''}
                         onChange={(e) => setEditForm({ ...editForm, default_value: e.target.value || null })}
-                        className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                        className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-2 focus:ring-slate-500 focus:border-slate-500 font-mono"
                         placeholder="NULL"
                       />
                     </td>
@@ -301,7 +301,7 @@ export function ColumnMetadataEditor({ columns, onChange, entityCode }: ColumnMe
                         type="text"
                         value={editForm.descr || ''}
                         onChange={(e) => setEditForm({ ...editForm, descr: e.target.value || null })}
-                        className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                         placeholder="Description"
                       />
                     </td>
@@ -339,7 +339,7 @@ export function ColumnMetadataEditor({ columns, onChange, entityCode }: ColumnMe
                         <span className="text-xs font-mono text-dark-500">{column.name}</span>
                       </div>
                     </td>
-                    <td className="px-3 py-2 font-mono text-blue-600">{column.datatype}</td>
+                    <td className="px-3 py-2 font-mono text-slate-600">{column.datatype}</td>
                     <td className="px-3 py-2 text-center">
                       {column.is_nullable ? (
                         <span className="text-dark-600">✓</span>
@@ -372,7 +372,7 @@ export function ColumnMetadataEditor({ columns, onChange, entityCode }: ColumnMe
                         <button
                           onClick={() => handleEdit(index)}
                           disabled={editingIndex !== null || isAddingNew}
-                          className="p-1 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                          className="p-1 text-slate-600 hover:bg-slate-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
                           title="Edit"
                         >
                           <Edit2 className="h-4 w-4" />
@@ -401,7 +401,7 @@ export function ColumnMetadataEditor({ columns, onChange, entityCode }: ColumnMe
                     type="text"
                     value={editForm.name || ''}
                     onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                    className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-2 focus:ring-slate-500 focus:border-slate-500 font-mono"
                     placeholder="column_name"
                     autoFocus
                   />
@@ -410,7 +410,7 @@ export function ColumnMetadataEditor({ columns, onChange, entityCode }: ColumnMe
                   <select
                     value={editForm.datatype || 'varchar'}
                     onChange={(e) => setEditForm({ ...editForm, datatype: e.target.value })}
-                    className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                   >
                     {dataTypes.map(type => (
                       <option key={type} value={type}>{type}</option>
@@ -430,7 +430,7 @@ export function ColumnMetadataEditor({ columns, onChange, entityCode }: ColumnMe
                     type="text"
                     value={editForm.default_value || ''}
                     onChange={(e) => setEditForm({ ...editForm, default_value: e.target.value || null })}
-                    className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                    className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-2 focus:ring-slate-500 focus:border-slate-500 font-mono"
                     placeholder="NULL"
                   />
                 </td>
@@ -439,7 +439,7 @@ export function ColumnMetadataEditor({ columns, onChange, entityCode }: ColumnMe
                     type="text"
                     value={editForm.descr || ''}
                     onChange={(e) => setEditForm({ ...editForm, descr: e.target.value || null })}
-                    className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-2 py-1 text-sm border border-dark-300 rounded focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                     placeholder="Description"
                   />
                 </td>

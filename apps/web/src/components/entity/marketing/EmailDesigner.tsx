@@ -121,7 +121,7 @@ export function EmailDesigner({ template, onSave }: EmailDesignerProps) {
       <div className="bg-dark-100 border-b border-dark-300 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <h2 className="text-lg font-semibold text-dark-600">{template.name}</h2>
-          <div className="flex items-center space-x-1 bg-dark-100 rounded-lg p-1">
+          <div className="flex items-center space-x-1 bg-dark-100 rounded-md p-1">
             <button
               onClick={() => setViewMode('design')}
               className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${viewMode === 'design' ? 'bg-dark-100 text-dark-600 shadow-sm' : 'text-dark-700 hover:text-dark-600'}`}
@@ -147,7 +147,7 @@ export function EmailDesigner({ template, onSave }: EmailDesignerProps) {
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setShowStylePanel(!showStylePanel)}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 ${showStylePanel ? 'bg-dark-100 text-dark-700' : 'text-dark-600 hover:bg-dark-100'}`}
+            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${showStylePanel ? 'bg-dark-100 text-dark-700' : 'text-dark-600 hover:bg-dark-100'}`}
           >
             <Settings className="h-4 w-4" />
             <span>Global Styles</span>
@@ -155,7 +155,7 @@ export function EmailDesigner({ template, onSave }: EmailDesignerProps) {
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="px-4 py-2 bg-dark-700 text-white rounded-lg text-sm font-medium hover:bg-dark-800 transition-colors flex items-center space-x-2 disabled:opacity-50"
+            className="px-3 py-2 bg-slate-600 text-white rounded-md text-sm font-medium hover:bg-slate-700 transition-colors shadow-sm flex items-center space-x-2 disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
             <span>{isSaving ? 'Saving...' : 'Save'}</span>
@@ -175,7 +175,7 @@ export function EmailDesigner({ template, onSave }: EmailDesignerProps) {
         {/* Center Canvas */}
         <div className="flex-1 overflow-y-auto p-6">
           {viewMode === 'design' ? (
-            <div className="max-w-3xl mx-auto bg-dark-100 rounded-lg shadow-lg">
+            <div className="max-w-3xl mx-auto bg-dark-100 rounded-md shadow-sm">
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={schema.blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
                   {schema.blocks.length === 0 ? (
@@ -202,7 +202,7 @@ export function EmailDesigner({ template, onSave }: EmailDesignerProps) {
             <EmailPreviewPanel template={{ ...template, template_schema: schema }} />
           ) : (
             <div className="max-w-4xl mx-auto">
-              <pre className="bg-dark-900 text-gray-100 rounded-lg p-6 overflow-x-auto">
+              <pre className="bg-dark-900 text-gray-100 rounded-md p-6 overflow-x-auto">
                 <code>{JSON.stringify(schema, null, 2)}</code>
               </pre>
             </div>

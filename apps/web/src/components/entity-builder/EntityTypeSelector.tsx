@@ -56,7 +56,7 @@ export function EntityTypeSelector({ value, onChange }: EntityTypeSelectorProps)
             key={type.id}
             onClick={() => onChange(type.id)}
             className={`
-              relative p-5 rounded-lg border-2 cursor-pointer transition-all
+              relative p-5 rounded-md border-2 cursor-pointer transition-all
               ${isSelected
                 ? `border-${type.color}-500 bg-${type.color}-50`
                 : 'border-dark-300 bg-white hover:border-dark-400'

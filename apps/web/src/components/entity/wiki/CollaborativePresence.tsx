@@ -136,7 +136,7 @@ export function CollaborativeCursor({ users, blockId }: CollaborativeCursorProps
       {usersInBlock.map((user) => (
         <div
           key={user.clientId}
-          className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold text-white border border-white shadow-lg"
+          className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold text-white border border-white shadow-sm"
           style={{ backgroundColor: user.color }}
           title={`${user.name} is editing here`}
         >

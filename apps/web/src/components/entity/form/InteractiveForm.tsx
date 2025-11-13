@@ -54,11 +54,11 @@ function MenuButtonFieldWrapper({ field }: { field: BuilderField }) {
       'px-4 py-2 text-sm';
 
     const styleClasses =
-      field.menuButtonStyle === 'primary' ? 'bg-dark-700 text-white hover:bg-dark-800 shadow-sm' :
-      field.menuButtonStyle === 'secondary' ? 'bg-dark-600 text-white hover:bg-dark-700 shadow-sm' :
+      field.menuButtonStyle === 'primary' ? 'bg-slate-600 text-white hover:bg-slate-700 shadow-sm' :
+      field.menuButtonStyle === 'secondary' ? 'bg-slate-600 text-white hover:bg-slate-700 shadow-sm' :
       'border-2 border-dark-400 bg-dark-100 text-dark-600 hover:bg-dark-100';
 
-    return `inline-flex items-center space-x-2 rounded-lg font-medium transition-colors ${sizeClasses} ${styleClasses}`;
+    return `inline-flex items-center space-x-2 rounded-md font-medium transition-colors ${sizeClasses} ${styleClasses}`;
   };
 
   return (
@@ -87,7 +87,7 @@ function MenuButtonFieldWrapper({ field }: { field: BuilderField }) {
           </button>
 
           {isDropdownOpen && (
-            <div className="absolute z-10 mt-2 bg-dark-100 border border-dark-300 rounded-lg shadow-lg py-2 min-w-[200px] left-0">
+            <div className="absolute z-10 mt-2 bg-dark-100 border border-dark-300 rounded-md shadow-sm py-2 min-w-[200px] left-0">
               {field.menuButtonItems!.map((item) => (
                 <button
                   key={item.id}
@@ -599,7 +599,7 @@ export function InteractiveForm({
       fieldType: field.type
     });
 
-    const baseInputClass = `w-full px-3 py-2 border rounded-lg text-sm transition-colors ${
+    const baseInputClass = `w-full px-3 py-2 border rounded-md text-sm transition-colors ${
       hasError
         ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
         : 'border-dark-400 focus:border-dark-3000 focus:ring-dark-700'
@@ -703,7 +703,7 @@ export function InteractiveForm({
                     value={opt.value}
                     checked={value === opt.value}
                     onChange={(e) => handleFieldChange(field.name, e.target.value)}
-                    className="text-dark-700 focus:ring-dark-7000"
+                    className="text-dark-700 focus:ring-slate-500/50"
                     required={field.required && i === 0}
                   />
                   <span className="text-sm text-dark-600">{opt.label}</span>
@@ -739,7 +739,7 @@ export function InteractiveForm({
                         : currentValues.filter(v => v !== opt.value);
                       handleFieldChange(field.name, newValues);
                     }}
-                    className="rounded text-dark-700 focus:ring-dark-7000"
+                    className="rounded text-dark-700 focus:ring-slate-500/50"
                   />
                   <span className="text-sm text-dark-600">{opt.label}</span>
                 </label>
@@ -774,7 +774,7 @@ export function InteractiveForm({
                     };
                     handleFieldChange(field.name, newValue);
                   }}
-                  className="mt-0.5 rounded text-dark-700 focus:ring-dark-7000 h-4 w-4"
+                  className="mt-0.5 rounded text-dark-700 focus:ring-slate-500/50 h-4 w-4"
                   required={field.required}
                 />
                 <div className="flex-1">
@@ -826,7 +826,7 @@ export function InteractiveForm({
                 }
               }}
               accept={field.accept}
-              className="w-full text-sm text-dark-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-dark-100 file:text-dark-700 hover:file:bg-dark-100"
+              className="w-full text-sm text-dark-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-dark-100 file:text-dark-700 hover:file:bg-dark-100"
               required={field.required}
               disabled={uploadingFiles[field.name]}
             />
@@ -904,7 +904,7 @@ export function InteractiveForm({
 
       case 'wiki':
         return (
-          <div className="border border-dark-300 rounded-lg overflow-hidden">
+          <div className="border border-dark-300 rounded-md overflow-hidden">
             <div className="bg-dark-100 border-b border-dark-300 px-4 py-2 flex items-center space-x-2">
               <BookOpen className="h-4 w-4 text-dark-700" />
               <span className="text-sm font-semibold text-dark-600">{field.wikiTitle || 'Documentation'}</span>
@@ -1130,20 +1130,20 @@ export function InteractiveForm({
       )}
 
       {submitStatus === 'success' && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center space-x-3">
+        <div className="bg-green-50 border border-green-200 rounded-md p-4 flex items-center space-x-3">
           <CheckCircle className="h-5 w-5 text-green-600" />
           <p className="text-green-800 font-medium">{submitMessage}</p>
         </div>
       )}
 
       {submitStatus === 'error' && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
+        <div className="bg-red-50 border border-red-200 rounded-md p-4 flex items-center space-x-3">
           <AlertCircle className="h-5 w-5 text-red-600" />
           <p className="text-red-800 font-medium">{submitMessage}</p>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4 bg-dark-100 rounded-lg border border-dark-300 p-6">
+      <form onSubmit={handleSubmit} className="space-y-4 bg-dark-100 rounded-md border border-dark-300 p-6">
         {displayFields.length === 0 && (
           <div className="text-dark-700 text-center py-8">
             <Layers className="h-6 w-6 mx-auto mb-2 text-dark-600" />
@@ -1177,7 +1177,7 @@ export function InteractiveForm({
               <button
                 type="button"
                 onClick={handlePrevious}
-                className="px-4 py-2 border border-dark-400 rounded-lg text-sm font-normal text-dark-600 bg-dark-100 hover:bg-dark-100 transition-colors"
+                className="px-4 py-2 border border-dark-400 rounded-md text-sm font-normal text-dark-600 bg-dark-100 hover:bg-dark-100 transition-colors"
               >
                 Previous
               </button>
@@ -1194,7 +1194,7 @@ export function InteractiveForm({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-dark-700 hover:bg-dark-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-7000 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="inline-flex items-center px-6 py-2.5 border border-transparent rounded-md text-sm font-medium text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isSubmitting ? (
                 <>

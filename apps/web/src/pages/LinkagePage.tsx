@@ -694,7 +694,7 @@ export function LinkagePage() {
                 }
               }}
               disabled={!entityPreviewData}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 entityPreviewData
                   ? 'bg-dark-100 text-dark-600 hover:bg-dark-200 hover:text-dark-600'
                   : 'bg-dark-100 text-dark-600 cursor-not-allowed'

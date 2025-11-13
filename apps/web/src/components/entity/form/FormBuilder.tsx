@@ -415,7 +415,7 @@ export function SignatureCanvas({
   };
 
   return (
-    <div className="relative border border-dark-400 rounded-lg bg-dark-100">
+    <div className="relative border border-dark-400 rounded-md bg-dark-100">
       <canvas
         ref={canvasRef}
         onMouseDown={startDrawing}
@@ -456,20 +456,20 @@ export function AddressInput({ disabled = false }: { disabled?: boolean }) {
         disabled={disabled}
         type="text"
         placeholder="Street Address"
-        className="w-full px-3 py-2 border border-dark-400 rounded-lg bg-dark-100 text-dark-600"
+        className="w-full px-3 py-2 border border-dark-400 rounded-md bg-dark-100 text-dark-600"
       />
       <div className="grid grid-cols-2 gap-2">
         <input
           disabled={disabled}
           type="text"
           placeholder="City"
-          className="px-3 py-2 border border-dark-400 rounded-lg bg-dark-100 text-dark-600"
+          className="px-3 py-2 border border-dark-400 rounded-md bg-dark-100 text-dark-600"
         />
         <input
           disabled={disabled}
           type="text"
           placeholder="State/Province"
-          className="px-3 py-2 border border-dark-400 rounded-lg bg-dark-100 text-dark-600"
+          className="px-3 py-2 border border-dark-400 rounded-md bg-dark-100 text-dark-600"
         />
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -477,13 +477,13 @@ export function AddressInput({ disabled = false }: { disabled?: boolean }) {
           disabled={disabled}
           type="text"
           placeholder="ZIP/Postal Code"
-          className="px-3 py-2 border border-dark-400 rounded-lg bg-dark-100 text-dark-600"
+          className="px-3 py-2 border border-dark-400 rounded-md bg-dark-100 text-dark-600"
         />
         <input
           disabled={disabled}
           type="text"
           placeholder="Country"
-          className="px-3 py-2 border border-dark-400 rounded-lg bg-dark-100 text-dark-600"
+          className="px-3 py-2 border border-dark-400 rounded-md bg-dark-100 text-dark-600"
         />
       </div>
     </div>
@@ -523,12 +523,12 @@ export function GeoLocationInput({ disabled = false }: { disabled?: boolean }) {
           type="text"
           value={location}
           readOnly
-          className="flex-1 px-3 py-2 border border-dark-400 rounded-lg bg-dark-100 text-dark-600"
+          className="flex-1 px-3 py-2 border border-dark-400 rounded-md bg-dark-100 text-dark-600"
         />
         <button
           disabled={disabled || loading}
           onClick={getCurrentLocation}
-          className="px-3 py-1.5 text-sm font-normal bg-dark-1000 text-white rounded hover:bg-dark-700 disabled:opacity-50 flex items-center space-x-1"
+          className="px-3 py-2 text-sm font-medium bg-slate-600 text-white rounded-md hover:bg-slate-700 shadow-sm disabled:opacity-50 flex items-center gap-2 transition-all"
           type="button"
         >
           <Navigation className="h-4 w-4 stroke-[1.5]" />
@@ -708,7 +708,7 @@ export function SearchableSelect({
           placeholder={placeholder}
           disabled={disabled}
           required={required}
-          className="w-full px-3 py-2 pr-20 text-sm border border-dark-400 rounded-lg bg-dark-100 text-dark-600 focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100 disabled:text-dark-700"
+          className="w-full px-3 py-2 pr-20 text-sm border border-dark-400 rounded-md bg-dark-100 text-dark-600 focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100 disabled:text-dark-700"
           autoComplete="off"
         />
         <div className="absolute inset-y-0 right-0 flex items-center pr-2 gap-1">
@@ -732,7 +732,7 @@ export function SearchableSelect({
       </div>
 
       {isOpen && !disabled && (
-        <div className="absolute z-50 w-full mt-1 bg-dark-100 border border-dark-400 rounded-lg shadow-lg max-h-60 overflow-auto">
+        <div className="absolute z-50 w-full mt-1 bg-dark-100 border border-dark-400 rounded-md shadow-sm max-h-60 overflow-auto">
           {filteredOptions.length === 0 ? (
             <div className="px-3 py-2 text-sm text-dark-700 text-center">
               No options found
@@ -902,7 +902,7 @@ export function SearchableMultiSelect({
         type="button"
         onClick={toggleDropdown}
         disabled={disabled}
-        className={`w-full px-3 py-2 text-sm border border-dark-400 rounded-lg bg-dark-100 text-left focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100 disabled:text-dark-700 ${
+        className={`w-full px-3 py-2 text-sm border border-dark-400 rounded-md bg-dark-100 text-left focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100 disabled:text-dark-700 ${
           isOpen ? 'ring-2 ring-dark-7000 border-transparent' : ''
         }`}
       >
@@ -950,7 +950,7 @@ export function SearchableMultiSelect({
 
       {/* Dropdown with search + checkboxes */}
       {isOpen && !disabled && (
-        <div className="absolute z-50 w-full mt-1 bg-dark-100 border border-dark-400 rounded-lg shadow-lg flex flex-col max-h-96">
+        <div className="absolute z-50 w-full mt-1 bg-dark-100 border border-dark-400 rounded-md shadow-sm flex flex-col max-h-96">
           {/* Search box inside dropdown */}
           <div className="p-3 border-b border-dark-300">
             <div className="relative">
@@ -961,7 +961,7 @@ export function SearchableMultiSelect({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search options..."
-                className="w-full pl-9 pr-3 py-2 text-sm border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
@@ -1011,7 +1011,7 @@ export function SearchableMultiSelect({
             <button
               type="button"
               onClick={handleDone}
-              className="w-full px-3 py-2 text-sm font-medium text-white bg-dark-700 hover:bg-dark-800 rounded transition-colors"
+              className="w-full px-3 py-2 text-sm font-medium text-white bg-slate-600 hover:bg-slate-700 shadow-sm rounded-md transition-all"
             >
               Done {value.length > 0 && `(${value.length} selected)`}
             </button>
@@ -1199,7 +1199,7 @@ export function DataTableInput({
             type="button"
             onClick={addColumn}
             disabled={disabled}
-            className="px-2 py-1 text-xs font-normal bg-dark-1000 text-white rounded hover:bg-dark-700 disabled:opacity-50"
+            className="px-3 py-1.5 text-sm font-medium bg-slate-600 text-white rounded-md hover:bg-slate-700 shadow-sm disabled:opacity-50 transition-all"
           >
             + Column
           </button>
@@ -1207,14 +1207,14 @@ export function DataTableInput({
             type="button"
             onClick={addRow}
             disabled={disabled}
-            className="px-2 py-1 text-xs font-normal bg-dark-1000 text-white rounded hover:bg-dark-700 disabled:opacity-50"
+            className="px-3 py-1.5 text-sm font-medium bg-slate-600 text-white rounded-md hover:bg-slate-700 shadow-sm disabled:opacity-50 transition-all"
           >
             + Row
           </button>
         </div>
       </div>
 
-      <div className="overflow-x-auto border border-dark-400 rounded-lg">
+      <div className="overflow-x-auto border border-dark-400 rounded-md">
         <table className="min-w-full divide-y divide-dark-400">
           <thead className="bg-dark-100">
             <tr>
@@ -1354,7 +1354,7 @@ export function CurrencyInput({
         placeholder={placeholder}
         disabled={disabled}
         required={required}
-        className="w-full pl-8 pr-3 py-2 text-sm border border-dark-400 rounded-lg bg-dark-100 text-dark-600 focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100 disabled:text-dark-700"
+        className="w-full pl-8 pr-3 py-2 text-sm border border-dark-400 rounded-md bg-dark-100 text-dark-600 focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100 disabled:text-dark-700"
       />
     </div>
   );
@@ -1393,7 +1393,7 @@ export function DateOnlyInput({
         minDate={minDate}
         maxDate={maxDate}
         showPopperArrow={false}
-        className="w-full px-3 py-2 text-sm border border-dark-400 rounded-lg bg-dark-100 text-dark-600 focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100 disabled:text-dark-700"
+        className="w-full px-3 py-2 text-sm border border-dark-400 rounded-md bg-dark-100 text-dark-600 focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100 disabled:text-dark-700"
         required={required}
       />
       <CalendarDays className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-600 pointer-events-none" />
@@ -1426,7 +1426,7 @@ export function TimeOnlyInput({
         disabled={disabled}
         placeholder={placeholder}
         required={required}
-        className="w-full px-3 py-2 text-sm border border-dark-400 rounded-lg bg-dark-100 text-dark-600 focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100 disabled:text-dark-700"
+        className="w-full px-3 py-2 text-sm border border-dark-400 rounded-md bg-dark-100 text-dark-600 focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100 disabled:text-dark-700"
       />
       <Clock className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dark-600 pointer-events-none" />
     </div>
@@ -1455,8 +1455,8 @@ export function ToggleInput({
         type="button"
         onClick={() => !disabled && onChange?.(!value)}
         disabled={disabled}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-dark-7000 focus:ring-offset-2 ${
-          value ? 'bg-dark-700' : 'bg-dark-200'
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500/50 focus:ring-offset-2 ${
+          value ? 'bg-slate-600' : 'bg-dark-200'
         } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
         role="switch"
         aria-checked={value}
@@ -1562,7 +1562,7 @@ export function DurationInput({
           min="0"
           disabled={disabled}
           required={required}
-          className="w-16 px-2 py-2 text-sm border border-dark-400 rounded-lg bg-dark-100 text-dark-600 focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100"
+          className="w-16 px-2 py-2 text-sm border border-dark-400 rounded-md bg-dark-100 text-dark-600 focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100"
         />
         <span className="text-sm text-dark-700">hrs</span>
       </div>
@@ -1575,7 +1575,7 @@ export function DurationInput({
           min="0"
           max="59"
           disabled={disabled}
-          className="w-16 px-2 py-2 text-sm border border-dark-400 rounded-lg bg-dark-100 text-dark-600 focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100"
+          className="w-16 px-2 py-2 text-sm border border-dark-400 rounded-md bg-dark-100 text-dark-600 focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100"
         />
         <span className="text-sm text-dark-700">min</span>
       </div>
@@ -1623,7 +1623,7 @@ export function PercentageInput({
         disabled={disabled}
         placeholder={placeholder}
         required={required}
-        className="w-full pl-3 pr-8 py-2 text-sm border border-dark-400 rounded-lg bg-dark-100 text-dark-600 focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100 disabled:text-dark-700"
+        className="w-full pl-3 pr-8 py-2 text-sm border border-dark-400 rounded-md bg-dark-100 text-dark-600 focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100 disabled:text-dark-700"
       />
       <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-700 font-medium">
         %
@@ -1657,7 +1657,7 @@ export function CalculationField({
   console.log('💰 CalculationField render:', { value, numValue, formatted, expression, showExpression });
 
   return (
-    <div className="bg-dark-100 border border-dark-400 rounded-lg p-4">
+    <div className="bg-dark-100 border border-dark-400 rounded-md p-4">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center space-x-2">
           <Calculator className="h-5 w-5 text-dark-700" />
@@ -1717,8 +1717,8 @@ export function ModernDateTimePicker({
         minDate={minDate}
         maxDate={maxDate}
         showPopperArrow={false}
-        className="w-full px-3 py-2 text-sm border border-dark-400 rounded-lg bg-dark-100 text-dark-600 focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100 disabled:text-dark-700"
-        calendarClassName="shadow-lg border border-dark-300 rounded-lg"
+        className="w-full px-3 py-2 text-sm border border-dark-400 rounded-md bg-dark-100 text-dark-600 focus:ring-2 focus:ring-dark-7000 focus:border-transparent disabled:bg-dark-100 disabled:text-dark-700"
+        calendarClassName="shadow-sm border border-dark-300 rounded-md"
         dayClassName={(date) => 
           "hover:bg-dark-100 rounded-md transition-colors duration-150 cursor-pointer"
         }
@@ -1792,9 +1792,9 @@ export function StepProgressIndicator({
                 disabled={!isClickable}
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-normal transition-all duration-200 relative z-10 ${
                   isActive
-                    ? 'bg-dark-1000 text-white ring-4 ring-dark-700'
+                    ? 'bg-slate-600 text-white ring-4 ring-slate-500/30'
                     : isCompleted
-                      ? 'bg-green-500 text-white hover:bg-green-600'
+                      ? 'bg-slate-600 text-white hover:bg-slate-700'
                       : 'bg-dark-200 text-dark-700 hover:bg-dark-300'
                 } ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}
                 title={step.title}
@@ -1836,7 +1836,7 @@ export function DraggableFieldType({ fieldType, onAddField }: { fieldType: { typ
       style={style}
       {...listeners}
       {...attributes}
-      className="w-full text-left px-3 py-3 rounded-lg border border-dark-300 hover:bg-dark-100 hover:border-dark-500 transition-colors touch-none select-none"
+      className="w-full text-left px-3 py-3 rounded-md border border-dark-300 hover:bg-dark-100 hover:border-dark-500 transition-colors touch-none select-none"
     >
       <div className="flex items-center justify-between pointer-events-none">
         <div className="flex items-center space-x-3">
@@ -1868,7 +1868,7 @@ export function DroppableFormCanvas({ children }: { children: React.ReactNode })
   return (
     <div
       ref={setNodeRef}
-      className={`space-y-3 min-h-[500px] rounded-lg transition-all duration-200 ${
+      className={`space-y-3 min-h-[500px] rounded-md transition-all duration-200 ${
         isOver ? 'bg-dark-100 border-2 border-dashed border-dark-600 ring-2 ring-dark-700' : ''
       }`}
     >
@@ -1995,7 +1995,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
           <input
             value={field.label}
             onChange={(e) => onChange({ label: e.target.value })}
-            className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+            className="px-3 py-2 text-sm border border-dark-400 rounded-md"
           />
         </div>
         <div className="flex flex-col">
@@ -2003,7 +2003,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
           <input
             value={field.name}
             onChange={(e) => onChange({ name: e.target.value })}
-            className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+            className="px-3 py-2 text-sm border border-dark-400 rounded-md"
           />
         </div>
         <div className="flex items-center space-x-2 mt-5 md:mt-0">
@@ -2025,7 +2025,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               value={field.placeholder || ''}
               onChange={(e) => onChange({ placeholder: e.target.value })}
               placeholder="Enter placeholder text..."
-              className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+              className="px-3 py-2 text-sm border border-dark-400 rounded-md"
             />
           </div>
         )}
@@ -2056,7 +2056,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                     <select
                       value={field.datalabelTable || ''}
                       onChange={(e) => onChange({ datalabelTable: e.target.value })}
-                      className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                      className="px-3 py-2 text-sm border border-dark-400 rounded-md"
                       disabled={loadingDatalabels}
                     >
                       <option value="">{loadingDatalabels ? 'Loading...' : 'Choose table...'}</option>
@@ -2075,7 +2075,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                     <select
                       value={field.datalabelValueColumn || ''}
                       onChange={(e) => onChange({ datalabelValueColumn: e.target.value })}
-                      className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                      className="px-3 py-2 text-sm border border-dark-400 rounded-md"
                       disabled={!field.datalabelTable}
                     >
                       <option value="">
@@ -2091,7 +2091,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                     <select
                       value={field.datalabelDisplayColumn || ''}
                       onChange={(e) => onChange({ datalabelDisplayColumn: e.target.value })}
-                      className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                      className="px-3 py-2 text-sm border border-dark-400 rounded-md"
                       disabled={!field.datalabelTable}
                     >
                       <option value="">
@@ -2103,7 +2103,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                     </select>
                   </div>
                 </div>
-                <div className="md:col-span-3 bg-dark-100 border border-dark-400 rounded-lg p-3">
+                <div className="md:col-span-3 bg-dark-100 border border-dark-400 rounded-md p-3">
                   <div className="text-xs text-dark-600 space-y-1">
                     <p>
                       <strong>Dynamic Options:</strong> Options will be loaded from the{' '}
@@ -2137,7 +2137,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                     const cleanedOptions = e.target.value.split(',').map(opt => opt.trim()).filter(Boolean);
                     onChange({ options: cleanedOptions });
                   }}
-                  className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                  className="px-3 py-2 text-sm border border-dark-400 rounded-md"
                   placeholder="Option 1, Option 2, Option 3"
                 />
               </div>
@@ -2154,7 +2154,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 type="number"
                 value={field.min || 0}
                 onChange={(e) => onChange({ min: parseInt(e.target.value) || 0 })}
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               />
             </div>
             <div className="flex flex-col">
@@ -2163,7 +2163,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 type="number"
                 value={field.max || 100}
                 onChange={(e) => onChange({ max: parseInt(e.target.value) || 100 })}
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               />
             </div>
             <div className="flex flex-col">
@@ -2172,7 +2172,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 type="number"
                 value={field.step || 1}
                 onChange={(e) => onChange({ step: parseInt(e.target.value) || 1 })}
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               />
             </div>
           </>
@@ -2188,7 +2188,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 value={field.min || ''}
                 onChange={(e) => onChange({ min: e.target.value ? parseInt(e.target.value) : undefined })}
                 placeholder="No minimum"
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               />
             </div>
             <div className="flex flex-col">
@@ -2198,7 +2198,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 value={field.max || ''}
                 onChange={(e) => onChange({ max: e.target.value ? parseInt(e.target.value) : undefined })}
                 placeholder="No maximum"
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               />
             </div>
             <div className="flex flex-col">
@@ -2208,7 +2208,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 value={field.step || ''}
                 onChange={(e) => onChange({ step: e.target.value ? parseFloat(e.target.value) : undefined })}
                 placeholder="Any value"
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               />
             </div>
           </>
@@ -2223,7 +2223,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 value={field.accept || '*'}
                 onChange={(e) => onChange({ accept: e.target.value })}
                 placeholder="e.g., .pdf,.doc,.jpg or image/*"
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               />
             </div>
             <div className="flex items-center space-x-2 mt-5">
@@ -2257,7 +2257,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               <select
                 value={field.dateFormat || 'MMM d, yyyy h:mm aa'}
                 onChange={(e) => onChange({ dateFormat: e.target.value })}
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               >
                 <option value="MMM d, yyyy h:mm aa">Dec 25, 2024 2:30 PM</option>
                 <option value="yyyy-MM-dd HH:mm">2024-12-25 14:30</option>
@@ -2279,7 +2279,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 value={field.wikiTitle || 'Documentation'}
                 onChange={(e) => onChange({ wikiTitle: e.target.value })}
                 placeholder="Enter wiki title..."
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               />
             </div>
             <div className="flex flex-col">
@@ -2290,12 +2290,12 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 onChange={(e) => onChange({ wikiHeight: parseInt(e.target.value) || 400 })}
                 min="300"
                 max="800"
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               />
             </div>
             <div className="col-span-full flex flex-col">
               <label className="text-xs font-light text-dark-700 mb-2">Rich Text Content</label>
-              <div className="border border-dark-400 rounded-lg overflow-hidden">
+              <div className="border border-dark-400 rounded-md overflow-hidden">
                 <ModularEditor
                   value={field.wikiContent || ''}
                   onChange={(html) => onChange({ wikiContent: html })}
@@ -2319,7 +2319,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 value={field.dataTableName || ''}
                 onChange={(e) => onChange({ dataTableName: e.target.value })}
                 placeholder="e.g., inventory, employees, schedule"
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               />
               <div className="text-xs font-light text-dark-600 mt-1">
                 Data will be stored as: tablename__columnName_rowNumber
@@ -2361,7 +2361,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 value={field.currencySymbol || '$'}
                 onChange={(e) => onChange({ currencySymbol: e.target.value })}
                 placeholder="$"
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               />
             </div>
             <div className="flex flex-col">
@@ -2369,7 +2369,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               <select
                 value={field.currencyCode || 'USD'}
                 onChange={(e) => onChange({ currencyCode: e.target.value })}
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               >
                 <option value="USD">USD - US Dollar</option>
                 <option value="CAD">CAD - Canadian Dollar</option>
@@ -2392,7 +2392,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 onChange={(e) => onChange({ maxRating: parseInt(e.target.value) || 5 })}
                 min="1"
                 max="10"
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               />
             </div>
             <div className="flex flex-col">
@@ -2400,7 +2400,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               <select
                 value={field.ratingIcon || 'star'}
                 onChange={(e) => onChange({ ratingIcon: e.target.value as 'star' | 'heart' | 'thumb' })}
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               >
                 <option value="star">Star</option>
                 <option value="heart">Heart</option>
@@ -2417,7 +2417,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
             <select
               value={field.durationFormat || 'hours_minutes'}
               onChange={(e) => onChange({ durationFormat: e.target.value as 'hours_minutes' | 'minutes' | 'hours' })}
-              className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+              className="px-3 py-2 text-sm border border-dark-400 rounded-md"
             >
               <option value="hours_minutes">Hours & Minutes</option>
               <option value="hours">Hours Only</option>
@@ -2435,7 +2435,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 type="number"
                 value={field.percentageMin ?? 0}
                 onChange={(e) => onChange({ percentageMin: parseFloat(e.target.value) || 0 })}
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               />
             </div>
             <div className="flex flex-col">
@@ -2444,7 +2444,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                 type="number"
                 value={field.percentageMax ?? 100}
                 onChange={(e) => onChange({ percentageMax: parseFloat(e.target.value) || 100 })}
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               />
             </div>
           </>
@@ -2458,7 +2458,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               <select
                 value={field.calculationMode || 'simple'}
                 onChange={(e) => onChange({ calculationMode: e.target.value as 'simple' | 'expression' })}
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               >
                 <option value="simple">Simple Operation</option>
                 <option value="expression">Custom JavaScript Expression</option>
@@ -2468,7 +2468,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
             {field.calculationMode === 'expression' ? (
               <>
                 {numericFields.length > 0 && (
-                  <div className="md:col-span-3 bg-dark-100 border border-dark-300 rounded-lg p-3">
+                  <div className="md:col-span-3 bg-dark-100 border border-dark-300 rounded-md p-3">
                     <p className="text-xs font-medium text-dark-600 mb-2">📝 Available Numeric Fields:</p>
                     <div className="flex flex-wrap gap-2">
                       {numericFields.map((f, idx) => (
@@ -2498,13 +2498,13 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                     onChange={(e) => onChange({ calculationExpression: e.target.value })}
                     placeholder="e.g., field1 * field2 * 0.15"
                     rows={3}
-                    className="px-3 py-2 text-sm border border-dark-400 rounded-lg font-mono text-xs"
+                    className="px-3 py-2 text-sm border border-dark-400 rounded-md font-mono text-xs"
                   />
                   <div className="text-xs text-dark-700 mt-1">
                     Use exact field <strong>names</strong> as variables. Supports: +, -, *, /, Math functions, conditionals
                   </div>
                 </div>
-                <div className="md:col-span-3 bg-dark-100 border border-dark-400 rounded-lg p-3">
+                <div className="md:col-span-3 bg-dark-100 border border-dark-400 rounded-md p-3">
                   <p className="text-xs font-medium text-dark-600 mb-2">💡 Expression Examples:</p>
                   <ul className="text-xs text-dark-600 space-y-1 font-mono">
                     <li>• <code className="bg-dark-100 px-1 rounded">quantity * price</code> - Multiply two fields</li>
@@ -2514,7 +2514,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                     <li>• <code className="bg-dark-100 px-1 rounded">Math.round(hours * rate * 100) / 100</code> - Round to 2 decimals</li>
                   </ul>
                 </div>
-                <div className="md:col-span-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <div className="md:col-span-3 bg-yellow-50 border border-yellow-200 rounded-md p-3">
                   <p className="text-xs text-yellow-800">
                     <strong>⚠️ Security Note:</strong> Expressions are evaluated in a sandboxed context with only field values and Math functions available.
                     Use exact field <code className="bg-yellow-100 px-1 rounded">name</code> values (not labels).
@@ -2528,7 +2528,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                   <select
                     value={field.calculationOperation || 'sum'}
                     onChange={(e) => onChange({ calculationOperation: e.target.value as 'sum' | 'subtract' | 'multiply' | 'divide' | 'average' | 'min' | 'max' })}
-                    className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                    className="px-3 py-2 text-sm border border-dark-400 rounded-md"
                   >
                     <option value="sum">Sum (+)</option>
                     <option value="subtract">Subtract (-)</option>
@@ -2548,10 +2548,10 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                       onChange({ calculationFields: fields });
                     }}
                     placeholder="field1, field2, field3"
-                    className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                    className="px-3 py-2 text-sm border border-dark-400 rounded-md"
                   />
                 </div>
-                <div className="md:col-span-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <div className="md:col-span-3 bg-yellow-50 border border-yellow-200 rounded-md p-3">
                   <p className="text-xs text-yellow-800">
                     <strong>Note:</strong> Enter the exact field <code className="bg-yellow-100 px-1 rounded">name</code> values (not labels)
                     of numeric fields to include in this calculation. The result will update automatically.
@@ -2570,7 +2570,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               <select
                 value={field.menuButtonType || 'single'}
                 onChange={(e) => onChange({ menuButtonType: e.target.value as 'single' | 'dropdown' })}
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               >
                 <option value="single">Single Menu (One button)</option>
                 <option value="dropdown">Dropdown Menu (Multiple items)</option>
@@ -2582,7 +2582,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               <select
                 value={field.menuButtonStyle || 'primary'}
                 onChange={(e) => onChange({ menuButtonStyle: e.target.value as 'primary' | 'secondary' | 'outline' })}
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               >
                 <option value="primary">Primary (Blue)</option>
                 <option value="secondary">Secondary (Gray)</option>
@@ -2595,7 +2595,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
               <select
                 value={field.menuButtonSize || 'md'}
                 onChange={(e) => onChange({ menuButtonSize: e.target.value as 'sm' | 'md' | 'lg' })}
-                className="px-3 py-2 text-sm border border-dark-400 rounded-lg"
+                className="px-3 py-2 text-sm border border-dark-400 rounded-md"
               >
                 <option value="sm">Small</option>
                 <option value="md">Medium</option>
@@ -2607,7 +2607,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
             <div className="md:col-span-3 flex flex-col space-y-3">
               <label className="text-xs font-medium text-dark-600">Menu Items</label>
               {(field.menuButtonItems || []).map((item, index) => (
-                <div key={item.id} className="border border-dark-400 rounded-lg p-3 bg-dark-100 space-y-2">
+                <div key={item.id} className="border border-dark-400 rounded-md p-3 bg-dark-100 space-y-2">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-dark-700">Item {index + 1}</span>
                     {(field.menuButtonItems || []).length > 1 && (
@@ -2698,14 +2698,14 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
                   });
                   onChange({ menuButtonItems: items });
                 }}
-                className="flex items-center justify-center space-x-2 px-3 py-2 bg-dark-100 text-dark-700 rounded-lg hover:bg-dark-100 transition-colors text-sm"
+                className="flex items-center justify-center space-x-2 px-3 py-2 bg-dark-100 text-dark-700 rounded-md hover:bg-dark-100 transition-colors text-sm"
               >
                 <Plus className="h-4 w-4" />
                 <span>Add Menu Item</span>
               </button>
             </div>
 
-            <div className="md:col-span-3 bg-dark-100 border border-dark-400 rounded-lg p-3">
+            <div className="md:col-span-3 bg-dark-100 border border-dark-400 rounded-md p-3">
               <p className="text-xs font-medium text-dark-600 mb-2">💡 Usage Tips:</p>
               <ul className="text-xs text-dark-600 space-y-1">
                 <li>• <strong>Single Menu:</strong> Creates one button that links directly to the URL</li>

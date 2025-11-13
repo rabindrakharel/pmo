@@ -269,13 +269,13 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
     if (viewMode === 'code') {
       return (
         <div className="space-y-4">
-          <div className="bg-dark-900 text-gray-100 rounded-lg p-6 overflow-x-auto">
+          <div className="bg-dark-900 text-gray-100 rounded-md p-6 overflow-x-auto">
             <div className="mb-4 text-sm text-dark-600 font-mono">Content Schema:</div>
             <pre className="text-sm">
               <code>{JSON.stringify({ blocks }, null, 2)}</code>
             </pre>
           </div>
-          <div className="bg-dark-900 text-gray-100 rounded-lg p-6 overflow-x-auto">
+          <div className="bg-dark-900 text-gray-100 rounded-md p-6 overflow-x-auto">
             <div className="mb-4 text-sm text-dark-600 font-mono">Page Metadata:</div>
             <pre className="text-sm">
               <code>
@@ -300,7 +300,7 @@ export function WikiDesigner({ page, onSave, onExit, actions = [] }: WikiDesigne
 
     // Design mode
     return (
-      <div className="max-w-5xl mx-auto bg-dark-100 rounded-lg shadow-lg overflow-hidden">
+      <div className="max-w-5xl mx-auto bg-dark-100 rounded-md shadow-sm overflow-hidden">
         {/* Simple Title Section */}
         <div className="px-16 pt-12 pb-6 border-b border-dark-300">
           <input

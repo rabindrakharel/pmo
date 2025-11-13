@@ -268,19 +268,19 @@ export function OnboardingPage() {
         <div className="flex justify-center gap-4 mb-8">
           <button
             onClick={selectRecommended}
-            className="px-4 py-2 text-sm font-medium text-slate-700 bg-dark-100 border border-dark-400 rounded-lg hover:bg-dark-100 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-slate-700 bg-dark-100 border border-dark-400 rounded-md hover:bg-dark-100 transition-colors"
           >
             Select Recommended
           </button>
           <button
             onClick={selectAll}
-            className="px-4 py-2 text-sm font-medium text-dark-600 bg-dark-100 border border-dark-400 rounded-lg hover:bg-dark-100 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-dark-600 bg-dark-100 border border-dark-400 rounded-md hover:bg-dark-100 transition-colors"
           >
             Select All
           </button>
           <button
             onClick={clearAll}
-            className="px-4 py-2 text-sm font-medium text-dark-600 bg-dark-100 border border-dark-400 rounded-lg hover:bg-dark-100 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-dark-600 bg-dark-100 border border-dark-400 rounded-md hover:bg-dark-100 transition-colors"
           >
             Clear All
           </button>
@@ -309,7 +309,7 @@ export function OnboardingPage() {
                       <button
                         key={entity.id}
                         onClick={() => toggleEntity(entity.id)}
-                        className={`relative p-6 rounded-lg border-2 text-left transition-all ${
+                        className={`relative p-6 rounded-md border-2 text-left transition-all ${
                           isSelected
                             ? 'border-dark-400 bg-dark-100 ring-2 ring-slate-100'
                             : 'border-dark-300 hover:border-dark-400 bg-dark-100'
@@ -324,7 +324,7 @@ export function OnboardingPage() {
                         )}
 
                         <div className="flex items-start">
-                          <div className={`flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center ${
+                          <div className={`flex-shrink-0 h-10 w-10 rounded-md flex items-center justify-center ${
                             isSelected
                               ? 'bg-gradient-to-r from-slate-600 to-slate-700'
                               : 'bg-dark-100'
@@ -355,7 +355,7 @@ export function OnboardingPage() {
 
         {/* Error Message */}
         {error && (
-          <div className="mt-8 bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="mt-8 bg-red-50 border border-red-200 rounded-md p-4">
             <p className="text-sm text-red-800">{error}</p>
           </div>
         )}
@@ -365,7 +365,7 @@ export function OnboardingPage() {
           <button
             onClick={handleContinue}
             disabled={isLoading || selectedEntities.length === 0}
-            className="inline-flex items-center px-8 py-4 border border-transparent text-base font-medium rounded-lg text-white bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
+            className="inline-flex items-center px-8 py-4 border border-transparent text-base font-medium rounded-md text-white bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
           >
             {isLoading ? (
               <>
@@ -392,7 +392,7 @@ export function OnboardingPage() {
         </div>
 
         {/* Info Box */}
-        <div className="mt-12 bg-dark-100 border border-dark-400 rounded-lg p-6 max-w-2xl mx-auto">
+        <div className="mt-12 bg-dark-100 border border-dark-400 rounded-md p-6 max-w-2xl mx-auto">
           <div className="flex">
             <div className="flex-shrink-0">
               <CheckCircle className="h-6 w-6 text-dark-700" />

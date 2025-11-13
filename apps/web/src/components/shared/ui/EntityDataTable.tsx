@@ -997,7 +997,7 @@ export function EntityDataTable<T = any>({
                 e.preventDefault();
                 onChange?.(1, Number(e.target.value));
               }}
-              className="ml-6 px-3 py-1.5 border border-dark-300 rounded-lg text-sm bg-dark-100 focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 transition-all duration-200"
+              className="ml-6 px-3 py-1.5 border border-dark-300 rounded-md text-sm bg-dark-100 focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 transition-all duration-200"
             >
               {pageSizeOptions.map(size => (
                 <option key={size} value={size}>{size} per page</option>
@@ -1014,7 +1014,7 @@ export function EntityDataTable<T = any>({
               onChange?.(current - 1, pageSize);
             }}
             disabled={current <= 1 || actualTotal === 0}
-            className="p-2 border border-dark-300 rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-100 hover:border-dark-400 hover:shadow-sm transition-all duration-200 bg-dark-100/50"
+            className="p-2 border border-dark-300 rounded-md text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-100 hover:border-dark-400 hover:shadow-sm transition-all duration-200 bg-dark-100/50"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -1040,7 +1040,7 @@ export function EntityDataTable<T = any>({
                     e.preventDefault();
                     onChange?.(pageNum, pageSize);
                   }}
-                  className={`px-3 py-1.5 text-sm border rounded-lg font-normal transition-all duration-200 ${
+                  className={`px-3 py-1.5 text-sm border rounded-md font-normal transition-all duration-200 ${
                     current === pageNum
                       ? 'bg-dark-100 text-dark-600 border-dark-400 shadow-sm'
                       : 'border-dark-300 bg-dark-100/70 hover:bg-dark-100 hover:border-dark-400 hover:shadow-sm text-dark-600'
@@ -1059,7 +1059,7 @@ export function EntityDataTable<T = any>({
               onChange?.(current + 1, pageSize);
             }}
             disabled={current >= totalPages || actualTotal === 0}
-            className="p-2 border border-dark-300 rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-100 hover:border-dark-400 hover:shadow-sm transition-all duration-200 bg-dark-100/50"
+            className="p-2 border border-dark-300 rounded-md text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-dark-100 hover:border-dark-400 hover:shadow-sm transition-all duration-200 bg-dark-100/50"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -1070,7 +1070,7 @@ export function EntityDataTable<T = any>({
 
   if (loading) {
     return (
-      <div className="bg-dark-100 rounded-lg shadow-sm border border-dark-300">
+      <div className="bg-dark-100 rounded-md shadow-sm border border-dark-300">
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-400"></div>
           <span className="ml-3 text-dark-700">Loading...</span>
@@ -1120,12 +1120,12 @@ export function EntityDataTable<T = any>({
                           setShowFilterDropdown(true);
                         }}
                         onFocus={() => setShowFilterDropdown(true)}
-                        className="pl-10 pr-4 py-1.5 w-64 border border-dark-300 rounded-lg text-sm bg-dark-100 focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 transition-all duration-200"
+                        className="pl-10 pr-4 py-1.5 w-64 border border-dark-300 rounded-md text-sm bg-dark-100 focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 transition-all duration-200"
                       />
                     </div>
 
                     {showFilterDropdown && (
-                      <div className="absolute top-full left-0 mt-2 w-80 bg-dark-100 border border-dark-300 rounded-xl shadow-xl z-50 backdrop-blur-sm max-h-64 overflow-y-auto">
+                      <div className="absolute top-full left-0 mt-2 w-80 bg-dark-100 border border-dark-300 rounded-xl shadow-sm z-50 backdrop-blur-sm max-h-64 overflow-y-auto">
                         <div className="p-2">
                           {getColumnOptions(selectedFilterColumn)
                             .filter(option =>
@@ -1147,7 +1147,7 @@ export function EntityDataTable<T = any>({
                               return (
                                 <label
                                   key={option}
-                                  className="flex items-center px-3 py-2 hover:bg-dark-100 rounded-lg cursor-pointer transition-colors group"
+                                  className="flex items-center px-3 py-2 hover:bg-dark-100 rounded-md cursor-pointer transition-colors group"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     const isCurrentlyChecked = (dropdownFilters[selectedFilterColumn] || []).includes(option);
@@ -1159,7 +1159,7 @@ export function EntityDataTable<T = any>({
                                     checked={(dropdownFilters[selectedFilterColumn] || []).includes(option)}
                                     onChange={() => {}} // Controlled by label onClick
                                     onClick={(e) => e.stopPropagation()}
-                                    className="mr-3 text-dark-700 rounded focus:ring-gray-500 focus:ring-offset-0 flex-shrink-0"
+                                    className="mr-3 text-dark-700 rounded focus:ring-slate-500/30 focus:ring-offset-0 flex-shrink-0"
                                   />
                                   <div className="flex-1 min-w-0">
                                     {isSettingsField ? (
@@ -1196,7 +1196,7 @@ export function EntityDataTable<T = any>({
                       setFilterSearchTerm('');
                       setShowFilterDropdown(false);
                     }}
-                    className="px-3 py-1.5 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
+                    className="px-3 py-1.5 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
                   >
                     Clear All
                   </button>
@@ -1214,7 +1214,7 @@ export function EntityDataTable<T = any>({
                   </button>
 
                   {showColumnSelector && (
-                    <div className="absolute right-0 mt-2 w-56 bg-dark-100 border border-dark-300 rounded-lg shadow-lg z-50">
+                    <div className="absolute right-0 mt-2 w-56 bg-dark-100 border border-dark-300 rounded-md shadow-sm z-50">
                       <div className="p-2">
                         <div className="text-sm font-normal text-dark-700 mb-2 px-1">Show Columns</div>
                         {/* Only show columns that aren't system/hidden fields (id, *_id, *_metadata) */}
@@ -1255,7 +1255,7 @@ export function EntityDataTable<T = any>({
                 </button>
 
                 {showColumnSelector && (
-                  <div className="absolute right-0 mt-2 w-56 bg-dark-100 border border-dark-300 rounded-lg shadow-lg z-50">
+                  <div className="absolute right-0 mt-2 w-56 bg-dark-100 border border-dark-300 rounded-md shadow-sm z-50">
                     <div className="p-2">
                       <div className="text-sm font-normal text-dark-700 mb-2 px-1">Show Columns</div>
                       {/* Only show columns that aren't system/hidden fields (id, *_id, *_metadata) */}
@@ -1392,7 +1392,7 @@ export function EntityDataTable<T = any>({
                     {isDragOver && draggedIndex !== null && (
                       <tr className="relative pointer-events-none">
                         <td colSpan={columns.length} className="p-0 h-0">
-                          <div className="absolute left-0 right-0 h-1 bg-dark-1000 shadow-lg z-50 animate-pulse"
+                          <div className="absolute left-0 right-0 h-1 bg-dark-1000 shadow-sm z-50 animate-pulse"
                                style={{
                                  top: '-2px',
                                  boxShadow: '0 0 8px rgba(107, 114, 128, 0.5)'
@@ -1419,7 +1419,7 @@ export function EntityDataTable<T = any>({
                         isEditing
                           ? 'bg-dark-100/30'
                           : allowReordering && !isEditing
-                            ? 'cursor-move hover:bg-dark-100/40 hover:shadow-md'
+                            ? 'cursor-move hover:bg-dark-100/40 hover:shadow-sm'
                             : onRowClick
                               ? 'cursor-pointer hover:bg-gradient-to-r hover:from-dark-50/30 hover:to-transparent hover:shadow-sm'
                               : 'hover:bg-dark-100/30'
@@ -1597,7 +1597,7 @@ export function EntityDataTable<T = any>({
                                 onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
                                 placeholder="Enter tags (comma-separated)"
-                                className="w-full px-2 py-1.5 border border-dark-400 rounded focus:ring-2 focus:ring-gray-500 focus:border-dark-400"
+                                className="w-full px-2 py-1.5 border border-dark-400 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500"
                                 style={{
                                   fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
                                   fontSize: '14px',
@@ -1612,7 +1612,7 @@ export function EntityDataTable<T = any>({
                                 value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
                                 onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-full px-2 py-1.5 border border-dark-400 rounded focus:ring-2 focus:ring-gray-500 focus:border-dark-400"
+                                className="w-full px-2 py-1.5 border border-dark-400 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500"
                                 style={{
                                   fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
                                   fontSize: '14px',
@@ -1638,7 +1638,7 @@ export function EntityDataTable<T = any>({
                                 })()}
                                 onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-full px-2 py-1.5 border border-dark-400 rounded focus:ring-2 focus:ring-gray-500 focus:border-dark-400"
+                                className="w-full px-2 py-1.5 border border-dark-400 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500"
                                 style={{
                                   fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
                                   fontSize: '14px',
@@ -1652,7 +1652,7 @@ export function EntityDataTable<T = any>({
                                 value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
                                 onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-full px-2 py-1.5 border border-dark-400 rounded focus:ring-2 focus:ring-gray-500 focus:border-dark-400"
+                                className="w-full px-2 py-1.5 border border-dark-400 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500"
                                 style={{
                                   fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
                                   fontSize: '14px',

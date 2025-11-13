@@ -85,7 +85,7 @@ export function ColumnSelector({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-72 bg-white border border-dark-300 rounded-lg shadow-lg z-50">
+        <div className="absolute right-0 mt-2 w-72 bg-white border border-dark-300 rounded-md shadow-sm z-50">
           {/* Header */}
           <div className="px-4 py-3 border-b border-dark-300">
             <h3 className="text-sm font-medium text-dark-600">

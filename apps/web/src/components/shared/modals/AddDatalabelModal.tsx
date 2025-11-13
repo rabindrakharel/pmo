@@ -156,11 +156,11 @@ export function AddDatalabelModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-dark-100 rounded-xl shadow-2xl w-full max-w-md mx-4">
+      <div className="bg-white rounded-md shadow-sm w-full max-w-md mx-4">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-dark-300">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-dark-100 rounded-lg">
+            <div className="p-2 bg-dark-100 rounded-md">
               <Plus className="h-5 w-5 text-dark-700" />
             </div>
             <div>
@@ -175,7 +175,7 @@ export function AddDatalabelModal({
           <button
             onClick={handleClose}
             disabled={loading}
-            className="p-2 rounded-lg text-dark-600 hover:text-dark-700 hover:bg-dark-100 transition-colors disabled:opacity-50"
+            className="p-2 rounded-md text-dark-600 hover:text-dark-700 hover:bg-dark-100 transition-colors disabled:opacity-50"
           >
             <X className="h-5 w-5" />
           </button>
@@ -190,7 +190,7 @@ export function AddDatalabelModal({
             </label>
             {entityCode ? (
               // Read-only display when entity is pre-selected
-              <div className="w-full px-3 py-2 border border-dark-400 rounded-lg bg-dark-100 text-dark-700 text-sm flex items-center gap-2">
+              <div className="w-full px-3 py-2 border border-dark-400 rounded-md bg-white text-dark-700 text-sm flex items-center gap-2">
                 {selectedEntity && selectedEntity.ui_icon && (
                   React.createElement(getIconComponent(selectedEntity.ui_icon), {
                     className: "h-4 w-4"
@@ -206,7 +206,7 @@ export function AddDatalabelModal({
                   type="button"
                   onClick={() => setShowEntityDropdown(!showEntityDropdown)}
                   disabled={loading || entitiesLoading}
-                  className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000 disabled:bg-dark-100 disabled:text-dark-600 text-sm flex items-center justify-between hover:bg-dark-100 transition-colors"
+                  className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-slate-500/50 focus:border-dark-3000 disabled:bg-white disabled:text-dark-600 text-sm flex items-center justify-between hover:bg-white transition-colors"
                 >
                   <div className="flex items-center gap-2">
                     {selectedEntity ? (
@@ -226,13 +226,13 @@ export function AddDatalabelModal({
 
                 {/* Dropdown menu */}
                 {showEntityDropdown && (
-                  <div className="absolute z-50 w-full mt-1 bg-dark-100 border border-dark-400 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-dark-400 rounded-md shadow-sm max-h-60 overflow-y-auto">
                     {entitiesLoading ? (
-                      <div className="px-3 py-2 text-sm text-dark-700 text-center">
+                      <div className="px-3 py-2.5 text-sm text-dark-700 text-center">
                         Loading entities...
                       </div>
                     ) : entities.length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-dark-700 text-center">
+                      <div className="px-3 py-2.5 text-sm text-dark-700 text-center">
                         No entities found
                       </div>
                     ) : (
@@ -276,7 +276,7 @@ export function AddDatalabelModal({
               onChange={(e) => setFormData({ ...formData, label_name: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
               disabled={loading}
               placeholder="e.g., stage, priority, status"
-              className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000 text-sm"
+              className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-slate-500/50 focus:border-dark-3000 text-sm"
               required
             />
             <p className="text-xs text-dark-700 mt-1">
@@ -295,7 +295,7 @@ export function AddDatalabelModal({
               onChange={(e) => setFormData({ ...formData, ui_label: e.target.value })}
               disabled={loading}
               placeholder="e.g., Task Stages, Project Priority"
-              className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000 text-sm"
+              className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-slate-500/50 focus:border-dark-3000 text-sm"
               required
             />
             <p className="text-xs text-dark-700 mt-1">
@@ -313,7 +313,7 @@ export function AddDatalabelModal({
                 type="button"
                 onClick={() => setShowIconPicker(!showIconPicker)}
                 disabled={loading}
-                className="w-full px-3 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000 disabled:bg-dark-100 disabled:text-dark-600 text-sm flex items-center justify-between hover:bg-dark-100 transition-colors"
+                className="w-full px-3 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-slate-500/50 focus:border-dark-3000 disabled:bg-white disabled:text-dark-600 text-sm flex items-center justify-between hover:bg-white transition-colors"
               >
                 <div className="flex items-center gap-2">
                   {formData.ui_icon && React.createElement(getIconComponent(formData.ui_icon), {
@@ -326,7 +326,7 @@ export function AddDatalabelModal({
 
               {/* Icon Picker Dropdown */}
               {showIconPicker && (
-                <div className="absolute z-50 w-full mt-1 bg-dark-100 border border-dark-400 rounded-lg shadow-xl p-3">
+                <div className="absolute z-50 w-full mt-1 bg-white border border-dark-400 rounded-md shadow-sm p-3">
                   <div className="mb-2">
                     <div className="relative">
                       <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-dark-600" />
@@ -335,7 +335,7 @@ export function AddDatalabelModal({
                         value={iconSearchQuery}
                         onChange={(e) => setIconSearchQuery(e.target.value)}
                         placeholder="Search icons..."
-                        className="w-full pl-7 pr-3 py-1.5 text-xs border border-dark-400 rounded focus:ring-2 focus:ring-dark-700/30"
+                        className="w-full pl-7 pr-3 py-1.5 text-xs border border-dark-400 rounded focus:ring-2 focus:ring-slate-500/50"
                         autoFocus
                       />
                     </div>
@@ -378,7 +378,7 @@ export function AddDatalabelModal({
                         setShowIconPicker(false);
                         setIconSearchQuery('');
                       }}
-                      className="px-2 py-1 text-xs text-dark-700 hover:bg-dark-100 rounded"
+                      className="px-2 py-1.5 text-xs text-dark-700 hover:bg-dark-100 rounded"
                     >
                       Close
                     </button>
@@ -393,7 +393,7 @@ export function AddDatalabelModal({
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <div className="bg-red-50 border border-red-200 rounded-md p-3">
               <p className="text-sm text-red-700">{error}</p>
             </div>
           )}
@@ -403,7 +403,7 @@ export function AddDatalabelModal({
             <button
               type="submit"
               disabled={loading || !formData.entity_code || !formData.label_name || !formData.ui_label}
-              className="flex-1 px-4 py-2.5 bg-dark-700 text-white rounded-lg hover:bg-dark-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium text-sm"
+              className="flex-1 px-3 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium text-sm"
             >
               {loading ? (
                 <>
@@ -421,7 +421,7 @@ export function AddDatalabelModal({
               type="button"
               onClick={handleClose}
               disabled={loading}
-              className="px-4 py-2.5 border border-dark-400 text-dark-600 rounded-lg hover:bg-dark-100 transition-colors disabled:opacity-50 font-medium text-sm"
+              className="px-3 py-2 border border-dark-400 text-dark-600 rounded-md hover:bg-dark-100 transition-colors disabled:opacity-50 font-medium text-sm"
             >
               Cancel
             </button>

@@ -52,18 +52,18 @@ export function WikiViewPage() {
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 text-3xl flex items-center justify-center bg-dark-100 rounded-lg border">{page.attr?.icon || '📄'}</div>
+              <div className="w-12 h-12 text-3xl flex items-center justify-center bg-dark-100 rounded-md border">{page.attr?.icon || '📄'}</div>
               <h1 className="text-sm font-normal text-dark-600">{page.name}</h1>
             </div>
             <p className="text-dark-700 text-sm">Updated {new Date(page.updatedTs || page.updated_ts).toLocaleString()}</p>
           </div>
           <div className="space-x-2">
-            <button onClick={() => navigate(`/wiki/${id}/edit`)} className="inline-flex items-center px-4 py-2 border border-dark-400 text-sm font-normal rounded-lg text-dark-600 bg-dark-100 hover:bg-dark-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-7000">Edit</button>
-            <button onClick={() => navigate('/wiki')} className="inline-flex items-center px-4 py-2 border border-dark-400 text-sm font-normal rounded-lg text-dark-600 bg-dark-100 hover:bg-dark-100">Back</button>
+            <button onClick={() => navigate(`/wiki/${id}/edit`)} className="inline-flex items-center px-4 py-2 border border-dark-400 text-sm font-normal rounded-md text-dark-600 bg-dark-100 hover:bg-dark-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-7000">Edit</button>
+            <button onClick={() => navigate('/wiki')} className="inline-flex items-center px-4 py-2 border border-dark-400 text-sm font-normal rounded-md text-dark-600 bg-dark-100 hover:bg-dark-100">Back</button>
           </div>
         </div>
 
-        <article className="bg-dark-100 border rounded-lg p-6 prose max-w-none">
+        <article className="bg-dark-100 border rounded-md p-6 prose max-w-none">
           <div dangerouslySetInnerHTML={{ __html: page.content_html || page.contentHtml || '' }} />
         </article>
       </div>

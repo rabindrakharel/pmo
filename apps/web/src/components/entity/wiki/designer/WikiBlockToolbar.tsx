@@ -76,7 +76,7 @@ export function WikiBlockToolbar({ onAddBlock }: WikiBlockToolbarProps) {
                 <button
                   key={`${item.type}-${item.level || 0}`}
                   onClick={() => onAddBlock(item.type, item.level)}
-                  className="w-full flex items-start space-x-3 p-3 rounded-lg hover:bg-dark-100 transition-colors text-left group"
+                  className="w-full flex items-start space-x-3 p-3 rounded-md hover:bg-dark-100 transition-colors text-left group"
                 >
                   <div className="flex-shrink-0 p-2 bg-dark-100 border border-dark-300 rounded-md group-hover:border-dark-500 group-hover:bg-dark-100 transition-colors">
                     <Icon className="h-4 w-4 text-dark-700 group-hover:text-dark-700" />

@@ -240,7 +240,7 @@ export function EntityDesignerPage() {
         {/* Main Content */}
         <div className="space-y-6">
           {/* Section 1: Entity Type Selector */}
-          <div className="bg-white rounded-lg border border-dark-300 p-6">
+          <div className="bg-white rounded-md border border-dark-300 p-6">
             <h2 className="text-lg font-semibold text-dark-900 mb-4">1. Entity Type</h2>
             <p className="text-sm text-dark-600 mb-4">
               Choose what type of information this entity will store
@@ -252,7 +252,7 @@ export function EntityDesignerPage() {
           </div>
 
           {/* Section 2: Column Designer */}
-          <div className="bg-white rounded-lg border border-dark-300 p-6">
+          <div className="bg-white rounded-md border border-dark-300 p-6">
             <h2 className="text-lg font-semibold text-dark-900 mb-4">2. Define Columns</h2>
             <p className="text-sm text-dark-600 mb-4">
               Standard columns (id, code, name, created_ts, etc.) are included automatically.
@@ -266,7 +266,7 @@ export function EntityDesignerPage() {
           </div>
 
           {/* Section 3: Entity Linkage Editor */}
-          <div className="bg-white rounded-lg border border-dark-300 p-6">
+          <div className="bg-white rounded-md border border-dark-300 p-6">
             <h2 className="text-lg font-semibold text-dark-900 mb-4">3. Entity Relationships</h2>
             <p className="text-sm text-dark-600 mb-4">
               Define which entities this entity can be linked to
@@ -280,7 +280,7 @@ export function EntityDesignerPage() {
           </div>
 
           {/* Section 4: Icon & Display Settings */}
-          <div className="bg-white rounded-lg border border-dark-300 p-6">
+          <div className="bg-white rounded-md border border-dark-300 p-6">
             <h2 className="text-lg font-semibold text-dark-900 mb-4">4. Display Settings</h2>
             <p className="text-sm text-dark-600 mb-4">
               Choose how this entity appears in the UI

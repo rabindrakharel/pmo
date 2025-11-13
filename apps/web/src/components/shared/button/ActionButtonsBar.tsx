@@ -58,9 +58,9 @@ export function ActionButtonsBar({
             {onBulkShare && (
               <button
                 onClick={onBulkShare}
-                className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-sm font-normal rounded text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-2 border border-dark-300 text-sm font-medium rounded-md text-dark-700 bg-white hover:border-dark-400 focus:outline-none focus:ring-2 focus:ring-slate-500/30 transition-all"
               >
-                <Share className="h-4 w-4 mr-2 stroke-[1.5]" />
+                <Share className="h-3.5 w-3.5" />
                 Share Selected
               </button>
             )}
@@ -68,9 +68,9 @@ export function ActionButtonsBar({
             {onBulkDelete && (
               <button
                 onClick={onBulkDelete}
-                className="inline-flex items-center px-3 py-1.5 border border-red-600 text-sm font-normal rounded text-white bg-red-600 hover:bg-red-700 hover:border-red-700 transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-2 border border-red-600 text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 hover:border-red-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
               >
-                <Trash2 className="h-4 w-4 mr-2 stroke-[1.5]" />
+                <Trash2 className="h-3.5 w-3.5" />
                 Delete Selected
               </button>
             )}
@@ -86,9 +86,9 @@ export function ActionButtonsBar({
         {(createLabel || onCreateClick || createHref) && (
           <button
             onClick={handleCreateClick}
-            className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-sm font-normal rounded text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-2 border border-slate-600 text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 hover:border-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-500/50 transition-all"
           >
-            <Plus className="h-4 w-4 mr-2 stroke-[1.5]" />
+            <Plus className="h-3.5 w-3.5" />
             {createLabel || `Create ${entityType.charAt(0).toUpperCase() + entityType.slice(1)}`}
           </button>
         )}

@@ -256,7 +256,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       const employees = await db.execute(sql`
         SELECT
           e.id, e.code, e.name, e."descr",
-          COALESCE(e.metadata->'tags', '[]'::jsonb) as,
+          COALESCE(e.metadata->'tags', '[]'::jsonb) as tags,
           e.from_ts, e.to_ts, e.active_flag, e.created_ts, e.updated_ts, e.version,
           e.email, e.phone, e.mobile, e.first_name, e.last_name,
           e.address_line1, e.address_line2, e.city, e.province, e.postal_code, e.country,

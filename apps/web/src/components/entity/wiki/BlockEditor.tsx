@@ -113,7 +113,7 @@ function MetadataView(props: any) {
   return (
     <NodeViewWrapper>
       <div
-        className="metadata-block bg-dark-100 px-4 py-3 rounded-lg border border-dark-300 my-4"
+        className="metadata-block bg-dark-100 px-4 py-3 rounded-md border border-dark-300 my-4"
         style={{
           fontSize: '14px',
           color: '#6b7280'}}
@@ -1218,7 +1218,7 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
         {mediaOpen && createPortal(
           <div role="dialog" aria-modal="true" className="fixed inset-0 z-[10000] flex items-center justify-center">
             <div className="absolute inset-0 bg-black/40" onClick={() => setMediaOpen(false)} />
-            <div className="relative bg-dark-100 rounded-lg shadow-xl w-full max-w-md p-4 z-[10001]">
+            <div className="relative bg-dark-100 rounded-md shadow-sm w-full max-w-md p-4 z-[10001]">
               <div className="mb-3">
                 <h3 className="text-sm font-normal text-dark-600">Insert {mediaType === 'image' ? 'Image' : 'Video'}</h3>
                 <p className="text-xs text-dark-700">Choose a file or paste a URL</p>
@@ -1249,7 +1249,7 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
                       if (e.target.value) setMediaFile(null);
                       setMediaError('');
                     }}
-                    className="mt-1 w-full rounded-md border border-dark-400 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-dark-7000"
+                    className="mt-1 w-full rounded-md border border-dark-400 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500/50"
                   />
                 </div>
                 {mediaError && <div className="text-xs text-red-600">{mediaError}</div>}
@@ -1258,7 +1258,7 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
                     Cancel
                   </button>
                   <button
-                    className="px-3 py-1 text-xs rounded-md bg-dark-700 text-white hover:bg-dark-800"
+                    className="px-3 py-1.5 text-xs rounded-md bg-slate-600 text-white hover:bg-slate-700"
                     onClick={() => {
                       if (!editor) return;
                       const getChainAtInsertPos = () => {
@@ -1351,7 +1351,7 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
         {imageEditorOpen && createPortal(
           <div role="dialog" aria-modal="true" className="fixed inset-0 z-[10000] flex items-center justify-center">
             <div className="absolute inset-0 bg-black/40" onClick={() => setImageEditorOpen(false)} />
-            <div className="relative bg-dark-100 rounded-lg shadow-xl w-full max-w-3xl p-4 z-[10001]">
+            <div className="relative bg-dark-100 rounded-md shadow-sm w-full max-w-3xl p-4 z-[10001]">
               <div className="mb-3 flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-normal text-dark-600">Edit Image</h3>
@@ -1409,7 +1409,7 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
                   Cancel
                 </button>
                 <button
-                  className="px-3 py-1 text-xs rounded-md bg-green-600 text-white hover:bg-green-700"
+                  className="px-3 py-1.5 text-xs rounded-md bg-slate-600 text-white hover:bg-slate-700"
                   onClick={() => {
                     if (!editor || !imageEditorPos || !crop) return;
                     // Render cropped image onto canvas at natural resolution
@@ -1437,7 +1437,7 @@ export function BlockEditor({ value, onChange, author, createdDate, updatedDate,
                   Apply Crop
                 </button>
                 <button
-                  className="px-3 py-1 text-xs rounded-md bg-dark-700 text-white hover:bg-dark-800"
+                  className="px-3 py-1.5 text-xs rounded-md bg-slate-600 text-white hover:bg-slate-700"
                   onClick={() => {
                     if (!editor || !imageEditorPos) return;
                     // Simple resize to width via style (in px) based on preview width

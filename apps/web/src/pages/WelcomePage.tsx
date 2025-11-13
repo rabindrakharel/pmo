@@ -1,1024 +1,600 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 import {
-  Building2,
-  FolderKanban,
-  CheckSquare,
-  Users,
-  Briefcase,
-  MapPin,
-  UserCircle,
-  Shield,
-  FileText,
-  Database,
-  BarChart3,
-  Package,
-  DollarSign,
-  ShoppingCart,
-  FileCheck,
-  Truck,
-  TrendingUp,
-  TrendingDown,
-  Calendar,
-  BookOpen,
-  GitBranch,
+  Activity,
   ArrowRight,
-  Zap,
-  Target,
+  BarChart3,
+  Bot,
+  Building2,
+  Database,
+  DollarSign,
+  FileText,
+  FolderKanban,
   Globe,
-  Clock,
-  Settings,
-  Home,
-  ChevronRight,
-  Lightbulb,
+  Layers,
+  Link as LinkIcon,
+  MapPin,
+  MessageSquare,
   Network,
+  Package,
+  PlugZap,
+  ShieldCheck,
+  Sparkles,
+  Truck,
+  TrendingDown,
+  TrendingUp,
+  Users,
   Workflow,
-  FileBox,
-  Bot
+  Zap
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import { Layout } from '../components/shared/layout/Layout';
 
-interface EntityGuide {
+const industriesServed = [
+  'Manufacturing',
+  'Retail & eCommerce',
+  'Supply Chain & Logistics',
+  'Home & Field Services',
+  'Contracting & Trades',
+  'City & Civic Projects'
+];
+
+const heroHighlights = [
+  {
+    label: 'Operational friction removed',
+    value: '-38%',
+    description: 'Average cost reduction inside 90 days',
+    icon: TrendingDown
+  },
+  {
+    label: 'Systems unified',
+    value: '12 tools → 1 semantic graph',
+    description: 'CRM, ERP, POS, service, marketing',
+    icon: Network
+  },
+  {
+    label: 'AI automations live',
+    value: '64 agentic routines',
+    description: 'Cross-domain workflows running now',
+    icon: TrendingUp
+  }
+];
+
+const valueProps = [
+  {
+    title: 'Cut operational friction',
+    description: 'Eliminate the copy/paste between Salesforce, MailChimp, QuickBooks, POS, and field apps. Data lands once and the semantic core distributes it everywhere.',
+    icon: Zap
+  },
+  {
+    title: 'Semantic customer + ops graph',
+    description: 'Customers, worksites, orders, invoices, and assets live in a single ontology, so every team works from one contextual view.',
+    icon: Layers
+  },
+  {
+    title: 'AI-first workflow engine',
+    description: 'Describe outcomes and let AI orchestrate workflows, approvals, checklists, and automations that evolve with your business.',
+    icon: Workflow
+  },
+  {
+    title: 'Serve every industry with one model',
+    description: 'Manufacturers, retailers, contractors, and city projects all plug into the same modular entity system.',
+    icon: Globe
+  }
+];
+
+const semanticHighlights = [
+  {
+    title: 'Semantic, nature-inspired ontology',
+    description: 'Entities understand how they relate, and the graph refines itself every time new context arrives.',
+    detail: 'No structured vs unstructured debates — only meaning.',
+    icon: Database
+  },
+  {
+    title: 'Agentic, multimodal ingestion',
+    description: 'The central agent listens to chat, calls, meetings, docs, images, and telemetry to capture semantics in real time.',
+    detail: 'Humans talk. The platform learns.',
+    icon: Sparkles
+  },
+  {
+    title: 'AI-first operations engine',
+    description: 'Workflows are generated from semantics rather than hard-coded BPMN or brittle integrations.',
+    detail: 'Agents keep every process monitored, auditable, and adaptive.',
+    icon: ShieldCheck
+  }
+];
+
+const integrationPainPoints = [
+  {
+    title: 'Salesforce ↔ MailChimp ↔ Retail CRM',
+    pain: 'Marketing exports CSVs weekly, Ops re-imports, and nobody knows which customer state is real.',
+    solution: 'Semantic hubs publish customer intents as nodes, and connectors push updates downstream instantly.',
+    icon: LinkIcon
+  },
+  {
+    title: 'Field service ↔ ERP ↔ Inventory',
+    pain: 'Work orders live in one app, inventory levels in another, technicians improvise in group chats.',
+    solution: 'Work orders, parts, expenses, and customer notes link automatically so dispatch, warehouse, and finance see the same story.',
+    icon: Truck
+  },
+  {
+    title: 'Retail POS ↔ Analytics ↔ Finance',
+    pain: 'Stores reconcile nightly in spreadsheets, finance re-enters figures, analytics is always late.',
+    solution: 'POS events stream into the semantic model and feed reporting, revenue, and forecasting without extra labor.',
+    icon: PlugZap
+  }
+];
+
+type DomainModule = {
+  id: string;
+  title: string;
+  summary: string;
+  focus: string;
+  icon: React.ComponentType<{ className?: string }>;
+  entities: string[];
+};
+
+const domainModules: DomainModule[] = [
+  {
+    id: 'organization',
+    title: 'Organization & Administration',
+    summary: 'Structure offices, business units, roles, and calendars so AI understands accountability.',
+    focus: 'Structure',
+    icon: Building2,
+    entities: ['business', 'office', 'office_hierarchy', 'business_hierarchy', 'role', 'employee', 'calendar']
+  },
+  {
+    id: 'customer',
+    title: 'Customer & Relationship Intelligence',
+    summary: 'Unify customers, worksites, and every interaction for a living 360° view.',
+    focus: 'Customer',
+    icon: MapPin,
+    entities: ['cust', 'worksite', 'interaction']
+  },
+  {
+    id: 'operations',
+    title: 'Operations & Workflow',
+    summary: 'Projects, tasks, workflows, and automations share one semantic backbone.',
+    focus: 'Execution',
+    icon: FolderKanban,
+    entities: ['project', 'task', 'workflow', 'workflow_automation', 'work_order', 'event']
+  },
+  {
+    id: 'product',
+    title: 'Products, Services & Catalogs',
+    summary: 'Model SKUs, services, and hierarchies that manufacturing and retail ops rely on.',
+    focus: 'Offering',
+    icon: Package,
+    entities: ['product', 'service', 'product_hierarchy']
+  },
+  {
+    id: 'sales_finance',
+    title: 'Sales, Orders & Finance',
+    summary: 'Quotes, orders, invoices, revenue, and expenses flow through one ledger-aware model.',
+    focus: 'Cash',
+    icon: DollarSign,
+    entities: ['quote', 'order', 'invoice', 'expense', 'revenue']
+  },
+  {
+    id: 'supply',
+    title: 'Inventory & Supply Chain',
+    summary: 'Inventory, shipments, and fulfillment sync with operations to avoid shortages.',
+    focus: 'Supply',
+    icon: Truck,
+    entities: ['inventory', 'shipment', 'work_order']
+  },
+  {
+    id: 'knowledge',
+    title: 'Knowledge, Content & Messaging',
+    summary: 'Forms, wikis, artifacts, and outbound messages keep every team informed.',
+    focus: 'Knowledge',
+    icon: FileText,
+    entities: ['form', 'wiki', 'artifact', 'message']
+  },
+  {
+    id: 'intelligence',
+    title: 'Reporting & Semantic Insights',
+    summary: 'Semantic metrics that explain why work happened, not just what happened.',
+    focus: 'Insights',
+    icon: BarChart3,
+    entities: ['reports', 'message_schema']
+  }
+];
+
+const entityRouteMap: Record<string, string | null> = {
+  office: '/office',
+  business: '/business',
+  project: '/project',
+  task: '/task',
+  cust: '/cust',
+  role: '/role',
+  form: '/form',
+  employee: '/employee',
+  wiki: '/wiki',
+  artifact: '/artifact',
+  worksite: '/worksite',
+  reports: null,
+  calendar: '/calendar',
+  service: '/service',
+  product: '/product',
+  quote: '/quote',
+  inventory: '/inventory',
+  work_order: '/work_order',
+  order: '/order',
+  invoice: '/invoice',
+  shipment: '/shipment',
+  expense: '/expense',
+  revenue: '/revenue',
+  workflow: '/workflow',
+  event: '/event',
+  office_hierarchy: '/office_hierarchy',
+  business_hierarchy: '/business_hierarchy',
+  product_hierarchy: '/product_hierarchy',
+  message_schema: null,
+  message: '/message',
+  interaction: '/interaction',
+  workflow_automation: '/workflow_automation'
+};
+
+type EntityCatalogItem = {
+  code: string;
   name: string;
-  displayName: string;
-  icon: React.FC<any>;
-  path: string;
+  uiLabel: string;
+  domainId: string;
   description: string;
-  businessValue: string;
-  relationships: string[];
-  commonActions: { label: string; path: string }[];
-  colorClass: string;
-}
+  order: number;
+  path: string | null;
+};
+
+const baseEntityCatalog: Omit<EntityCatalogItem, 'path'>[] = [
+  { code: 'office', name: 'Office', uiLabel: 'Offices', domainId: 'organization', description: 'Physical or virtual hubs for operations, scheduling, and staffing.', order: 10 },
+  { code: 'business', name: 'Business Unit', uiLabel: 'Businesses', domainId: 'organization', description: 'Divisions and business units that own outcomes and metrics.', order: 20 },
+  { code: 'project', name: 'Project', uiLabel: 'Projects', domainId: 'operations', description: 'Strategic initiatives with budgets, timelines, and semantic deliverables.', order: 30 },
+  { code: 'task', name: 'Task', uiLabel: 'Tasks', domainId: 'operations', description: 'Atomic units of work that AI can create, tag, and route.', order: 40 },
+  { code: 'cust', name: 'Customer', uiLabel: 'Customers', domainId: 'customer', description: 'Accounts, households, or facilities you serve across industries.', order: 50 },
+  { code: 'role', name: 'Role', uiLabel: 'Roles', domainId: 'organization', description: 'Capabilities and permissions available to human or digital workers.', order: 60 },
+  { code: 'form', name: 'Form', uiLabel: 'Forms', domainId: 'knowledge', description: 'Structured intake that feeds the semantic graph and workflows.', order: 70 },
+  { code: 'employee', name: 'Employee', uiLabel: 'Employees', domainId: 'organization', description: 'Humans that collaborate with AI agents in the same workspace.', order: 80 },
+  { code: 'wiki', name: 'Wiki', uiLabel: 'Wiki Pages', domainId: 'knowledge', description: 'Playbooks, SOPs, and semantic knowledge that guide work.', order: 90 },
+  { code: 'artifact', name: 'Artifact', uiLabel: 'Artifacts', domainId: 'knowledge', description: 'Files, CAD drawings, photos, receipts, and project evidence.', order: 100 },
+  { code: 'worksite', name: 'Worksite', uiLabel: 'Worksites', domainId: 'customer', description: 'Customer or civic locations tied to projects and service teams.', order: 110 },
+  { code: 'reports', name: 'Report', uiLabel: 'Reports', domainId: 'intelligence', description: 'Narratives and dashboards built from semantic facts.', order: 130 },
+  { code: 'calendar', name: 'Calendar', uiLabel: 'Calendars', domainId: 'organization', description: 'Time-bound signals for projects, events, and dispatch windows.', order: 135 },
+  { code: 'service', name: 'Service', uiLabel: 'Services', domainId: 'product', description: 'Catalog of service offerings with rates, SLAs, and skills.', order: 135 },
+  { code: 'product', name: 'Product', uiLabel: 'Products', domainId: 'product', description: 'SKUs, kits, and manufactured goods with semantic attributes.', order: 140 },
+  { code: 'quote', name: 'Quote', uiLabel: 'Quotes', domainId: 'sales_finance', description: 'Commercial proposals linked directly to customers and projects.', order: 145 },
+  { code: 'inventory', name: 'Inventory', uiLabel: 'Inventory', domainId: 'supply', description: 'Stock levels and availability across warehouses and trucks.', order: 150 },
+  { code: 'work_order', name: 'Work Order', uiLabel: 'Work Orders', domainId: 'operations', description: 'Coordinated field execution with technicians, parts, and notes.', order: 155 },
+  { code: 'order', name: 'Order', uiLabel: 'Orders', domainId: 'sales_finance', description: 'Customer commitments ready for fulfillment and billing.', order: 160 },
+  { code: 'invoice', name: 'Invoice', uiLabel: 'Invoices', domainId: 'sales_finance', description: 'Billable events tied to quotes, orders, and revenue schedules.', order: 170 },
+  { code: 'shipment', name: 'Shipment', uiLabel: 'Shipments', domainId: 'supply', description: 'Logistics events with tracking, waypoints, and confirmations.', order: 180 },
+  { code: 'expense', name: 'Expense', uiLabel: 'Expenses', domainId: 'sales_finance', description: 'Operational spend captured at the moment of purchase.', order: 190 },
+  { code: 'revenue', name: 'Revenue', uiLabel: 'Revenue', domainId: 'sales_finance', description: 'Recognized income that ties directly back to semantic work.', order: 200 },
+  { code: 'workflow', name: 'Workflow Instance', uiLabel: 'Workflows', domainId: 'operations', description: 'Real-time orchestration records managed by AI supervisors.', order: 205 },
+  { code: 'event', name: 'Event', uiLabel: 'Events', domainId: 'operations', description: 'Milestones, inspections, and civic hearings tied to projects.', order: 215 },
+  { code: 'office_hierarchy', name: 'Office Hierarchy', uiLabel: 'Office Hierarchies', domainId: 'organization', description: 'Geographic and managerial lineage for locations.', order: 220 },
+  { code: 'business_hierarchy', name: 'Business Hierarchy', uiLabel: 'Business Hierarchies', domainId: 'organization', description: 'Corporate lineage that matches how decisions are made.', order: 225 },
+  { code: 'product_hierarchy', name: 'Product Hierarchy', uiLabel: 'Product Hierarchies', domainId: 'product', description: 'Families, lines, and bundles that define assortments.', order: 230 },
+  { code: 'message_schema', name: 'Message Schema', uiLabel: 'Message Schemas', domainId: 'knowledge', description: 'Templates for outbound communication, managed programmatically.', order: 240 },
+  { code: 'message', name: 'Message', uiLabel: 'Messages', domainId: 'knowledge', description: 'Sent, scheduled, or automated notifications with full context.', order: 250 },
+  { code: 'interaction', name: 'Interaction', uiLabel: 'Interactions', domainId: 'customer', description: 'Calls, visits, chats, and site walks captured semantically.', order: 270 },
+  { code: 'workflow_automation', name: 'Workflow Automation', uiLabel: 'Workflow Automations', domainId: 'operations', description: 'Reusable instructions the AI engine can trigger autonomously.', order: 280 }
+];
+
+const entityCatalog: EntityCatalogItem[] = baseEntityCatalog
+  .map(item => ({ ...item, path: entityRouteMap[item.code] ?? null }))
+  .sort((a, b) => a.order - b.order);
+
+const entityMap = entityCatalog.reduce<Record<string, EntityCatalogItem>>((acc, entity) => {
+  acc[entity.code] = entity;
+  return acc;
+}, {});
+
+const domainNameMap = domainModules.reduce<Record<string, string>>((acc, module) => {
+  acc[module.id] = module.title;
+  return acc;
+}, {});
+
+const quickActions = [
+  {
+    label: 'Plan a project',
+    description: 'Spin up a semantic workspace with budgets, tasks, and automations pre-linked.',
+    path: '/project/new',
+    icon: FolderKanban
+  },
+  {
+    label: 'Design your entity model',
+    description: 'Open the entity designer and tune semantics per industry or region.',
+    path: '/entity-designer',
+    icon: Layers
+  },
+  {
+    label: 'Automate a workflow',
+    description: 'Describe the desired outcome; AI builds the workflow and tests the path.',
+    path: '/workflow-automation',
+    icon: Workflow
+  },
+  {
+    label: 'Invite your team',
+    description: 'Add employees, assign roles, and let everyone co-pilot with AI.',
+    path: '/employee',
+    icon: Users
+  }
+];
 
 export function WelcomePage() {
   const { user } = useAuth();
-  const [selectedCategory, setSelectedCategory] = useState<string>('overview');
-  const [activeGuide, setActiveGuide] = useState<'user' | 'developer'>('user');
 
-  // Comprehensive entity documentation extracted from DDL semantics
-  const entityGuides: EntityGuide[] = [
-    // Core Management Entities
-    {
-      name: 'project',
-      displayName: 'Projects',
-      icon: FolderKanban,
-      path: '/project',
-      description: 'Work containers with budgets, timelines, and teams. Projects are the central organizing unit for all home services operations.',
-      businessValue: 'Track projects from initiation to closure. Manage budgets ($750K+), timelines, deliverables, and team assignments. Example: "DT-2024-001" - Digital Transformation project.',
-      relationships: ['tasks', 'wiki', 'artifact', 'form', 'employee', 'customer', 'worksite'],
-      commonActions: [
-        { label: 'Create Project', path: '/project/new' },
-        { label: 'View All Projects', path: '/project' }
-      ],
-      colorClass: 'from-blue-600 to-blue-700'
-    },
-    {
-      name: 'task',
-      displayName: 'Tasks',
-      icon: CheckSquare,
-      path: '/task',
-      description: 'Kanban work items with priorities, time tracking, and stage management. Tasks can be standalone or linked to projects.',
-      businessValue: 'Organize work with kanban boards, track estimated vs actual hours, manage priorities (low/medium/high/critical). Support both project-level and office-level task management.',
-      relationships: ['project', 'employee', 'artifact', 'form'],
-      commonActions: [
-        { label: 'Create Task', path: '/task/new' },
-        { label: 'Kanban Board', path: '/task' }
-      ],
-      colorClass: 'from-green-600 to-green-700'
-    },
+  const renderEntityChip = (code: string) => {
+    const entity = entityMap[code];
+    if (!entity) return null;
 
-    // Organization Entities
-    {
-      name: 'employee',
-      displayName: 'Employees',
-      icon: Users,
-      path: '/employee',
-      description: 'User accounts, authentication, and RBAC identity management. Central to all permission and assignment operations.',
-      businessValue: 'Manage team members, authentication (JWT-based), role-based access control (RBAC), and organizational hierarchy with manager relationships.',
-      relationships: ['role', 'position', 'office', 'business', 'task', 'project'],
-      commonActions: [
-        { label: 'View Team', path: '/employee' },
-        { label: 'Add Employee', path: '/employee/new' }
-      ],
-      colorClass: 'from-purple-600 to-purple-700'
-    },
-    {
-      name: 'office',
-      displayName: 'Offices',
-      icon: Building2,
-      path: '/office',
-      description: 'Physical locations where your organization operates. Foundation of geographic organization structure.',
-      businessValue: 'Manage office locations (London HQ, Toronto Branch, etc.), coordinate multi-location operations, and organize business units by geography.',
-      relationships: ['business', 'employee', 'project', 'task'],
-      commonActions: [
-        { label: 'View Offices', path: '/office' },
-        { label: 'Add Office', path: '/office/new' }
-      ],
-      colorClass: 'from-slate-600 to-slate-700'
-    },
-    {
-      name: 'biz',
-      displayName: 'Business Units',
-      icon: Briefcase,
-      path: '/biz',
-      description: 'Business units, divisions, and departments. Organizational hierarchy for corporate structure management.',
-      businessValue: 'Structure your organization into Corporate HQ, Regional Divisions, Departments. Support matrix org structures with flexible parent-child relationships.',
-      relationships: ['office', 'employee', 'project'],
-      commonActions: [
-        { label: 'View Business Units', path: '/biz' },
-        { label: 'Add Business Unit', path: '/biz/new' }
-      ],
-      colorClass: 'from-indigo-600 to-indigo-700'
-    },
-    {
-      name: 'role',
-      displayName: 'Roles',
-      icon: Shield,
-      path: '/role',
-      description: 'Job functions and responsibilities within the organization (CEO, Project Manager, Technician, etc.).',
-      businessValue: 'Define job functions, standardize responsibilities, and link to RBAC permissions. Examples: CEO, Project Manager, Senior Technician.',
-      relationships: ['employee', 'position'],
-      commonActions: [
-        { label: 'View Roles', path: '/role' },
-        { label: 'Define Role', path: '/role/new' }
-      ],
-      colorClass: 'from-amber-600 to-amber-700'
-    },
-    {
-      name: 'position',
-      displayName: 'Positions',
-      icon: UserCircle,
-      path: '/position',
-      description: 'Organizational hierarchy levels and seniority tiers (C-Level, VP, Director, Manager, etc.).',
-      businessValue: 'Structure org hierarchy, define reporting levels, and support career progression paths. Used in conjunction with roles for complete job definitions.',
-      relationships: ['employee', 'role'],
-      commonActions: [
-        { label: 'View Positions', path: '/position' },
-        { label: 'Add Position', path: '/position/new' }
-      ],
-      colorClass: 'from-rose-600 to-rose-700'
-    },
+    const baseClasses = 'inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border border-dark-300 text-dark-700 bg-dark-100 hover:border-slate-500 transition-all';
 
-    // Customer & Operations
-    {
-      name: 'cust',
-      displayName: 'Customers',
-      icon: Globe,
-      path: '/cust',
-      description: 'Clients, prospects, and customer organizations. Central to all customer-facing operations.',
-      businessValue: 'Manage customer database, track tiers (Bronze/Silver/Gold/Platinum), segment by residential vs commercial, and link to projects and worksites.',
-      relationships: ['project', 'worksite', 'artifact', 'form'],
-      commonActions: [
-        { label: 'View Customers', path: '/cust' },
-        { label: 'Add Customer', path: '/cust/new' }
-      ],
-      colorClass: 'from-teal-600 to-teal-700'
-    },
-    {
-      name: 'worksite',
-      displayName: 'Worksites',
-      icon: MapPin,
-      path: '/worksite',
-      description: 'Project locations and service delivery sites. Where actual home services work is performed.',
-      businessValue: 'Track customer sites, service locations, geographic coordinates for mobile teams. Link sites to projects and tasks for field service management.',
-      relationships: ['project', 'customer', 'task'],
-      commonActions: [
-        { label: 'View Worksites', path: '/worksite' },
-        { label: 'Add Worksite', path: '/worksite/new' }
-      ],
-      colorClass: 'from-emerald-600 to-emerald-700'
-    },
-
-    // Products & Services
-    {
-      name: 'service',
-      displayName: 'Services',
-      icon: Settings,
-      path: '/service',
-      description: 'Service catalog with rates, estimated hours, and pricing structure for home services.',
-      businessValue: 'Define service offerings, standard rates, estimated hours, minimum charges, and tax rules. Foundation for quotes and work orders.',
-      relationships: ['quote', 'work_order', 'revenue'],
-      commonActions: [
-        { label: 'Service Catalog', path: '/service' },
-        { label: 'Add Service', path: '/service/new' }
-      ],
-      colorClass: 'from-cyan-600 to-cyan-700'
-    },
-    {
-      name: 'product',
-      displayName: 'Products',
-      icon: Package,
-      path: '/product',
-      description: 'Product catalog including physical goods, materials, and supplies used in home services.',
-      businessValue: 'Manage product inventory, pricing, SKUs, and link to orders and inventory tracking. Support bundled products and kits.',
-      relationships: ['inventory', 'order', 'quote', 'revenue'],
-      commonActions: [
-        { label: 'Product Catalog', path: '/product' },
-        { label: 'Add Product', path: '/product/new' }
-      ],
-      colorClass: 'from-orange-600 to-orange-700'
-    },
-    {
-      name: 'inventory',
-      displayName: 'Inventory',
-      icon: Database,
-      path: '/inventory',
-      description: 'Inventory management with quantities, locations, and stock levels tracking.',
-      businessValue: 'Track stock levels, reorder points, warehouse locations, and inventory valuation. Prevent stockouts and overstocking.',
-      relationships: ['product', 'order', 'office'],
-      commonActions: [
-        { label: 'View Inventory', path: '/inventory' },
-        { label: 'Inventory Count', path: '/inventory/new' }
-      ],
-      colorClass: 'from-lime-600 to-lime-700'
-    },
-
-    // Sales & Operations Flow
-    {
-      name: 'quote',
-      displayName: 'Quotes',
-      icon: FileText,
-      path: '/quote',
-      description: 'Customer quotations and proposals with line items, pricing, and approval workflows.',
-      businessValue: 'Generate professional quotes, track quote stages (Draft → Sent → Accepted/Declined), convert to work orders, and manage sales funnel.',
-      relationships: ['customer', 'product', 'service', 'work_order'],
-      commonActions: [
-        { label: 'Create Quote', path: '/quote/new' },
-        { label: 'Active Quotes', path: '/quote' }
-      ],
-      colorClass: 'from-violet-600 to-violet-700'
-    },
-    {
-      name: 'work_order',
-      displayName: 'Work Orders',
-      icon: Workflow,
-      path: '/work_order',
-      description: 'Field service work orders linking quotes to actual service delivery and completion.',
-      businessValue: 'Schedule field work, assign technicians, track work completion, and bridge sales to operations. Convert from accepted quotes.',
-      relationships: ['quote', 'customer', 'employee', 'worksite'],
-      commonActions: [
-        { label: 'Create Work Order', path: '/work_order/new' },
-        { label: 'Active Work Orders', path: '/work_order' }
-      ],
-      colorClass: 'from-pink-600 to-pink-700'
-    },
-    {
-      name: 'order',
-      displayName: 'Orders',
-      icon: ShoppingCart,
-      path: '/order',
-      description: 'Purchase orders and customer orders for products and bundled services.',
-      businessValue: 'Process customer orders, track fulfillment, manage purchase orders to suppliers, and link to invoicing.',
-      relationships: ['product', 'customer', 'invoice', 'shipment'],
-      commonActions: [
-        { label: 'Create Order', path: '/order/new' },
-        { label: 'View Orders', path: '/order' }
-      ],
-      colorClass: 'from-fuchsia-600 to-fuchsia-700'
-    },
-    {
-      name: 'invoice',
-      displayName: 'Invoices',
-      icon: FileCheck,
-      path: '/invoice',
-      description: 'Customer invoices with payment tracking, due dates, and revenue recognition.',
-      businessValue: 'Bill customers, track payments, manage AR aging, and integrate with revenue recognition. Support partial payments and payment plans.',
-      relationships: ['customer', 'order', 'work_order', 'revenue'],
-      commonActions: [
-        { label: 'Create Invoice', path: '/invoice/new' },
-        { label: 'Outstanding Invoices', path: '/invoice' }
-      ],
-      colorClass: 'from-sky-600 to-sky-700'
-    },
-    {
-      name: 'shipment',
-      displayName: 'Shipments',
-      icon: Truck,
-      path: '/shipment',
-      description: 'Shipment tracking for product deliveries with carrier info and tracking numbers.',
-      businessValue: 'Track deliveries, manage logistics, coordinate with customers on delivery windows, and update order fulfillment status.',
-      relationships: ['order', 'customer', 'product'],
-      commonActions: [
-        { label: 'Create Shipment', path: '/shipment/new' },
-        { label: 'Track Shipments', path: '/shipment' }
-      ],
-      colorClass: 'from-blue-500 to-blue-600'
-    },
-
-    // Financial Management
-    {
-      name: 'cost',
-      displayName: 'Costs',
-      icon: TrendingDown,
-      path: '/cost',
-      description: 'Cost tracking with receipt attachments (S3), expense categories, and budget management.',
-      businessValue: 'Track all expenses, attach receipts (S3 presigned URLs), categorize costs, manage budgets, and analyze spending patterns for profitability.',
-      relationships: ['project', 'employee', 'artifact'],
-      commonActions: [
-        { label: 'Record Cost', path: '/cost/new' },
-        { label: 'View Costs', path: '/cost' }
-      ],
-      colorClass: 'from-red-600 to-red-700'
-    },
-    {
-      name: 'revenue',
-      displayName: 'Revenue',
-      icon: TrendingUp,
-      path: '/revenue',
-      description: 'Revenue recognition and tracking with forecast vs actual, currency exchange, and categorization.',
-      businessValue: 'Track revenue streams, forecast vs actuals, multi-currency support (CAD/USD/EUR/GBP), and link to invoices for complete financial picture.',
-      relationships: ['invoice', 'project', 'customer'],
-      commonActions: [
-        { label: 'Record Revenue', path: '/revenue/new' },
-        { label: 'Revenue Analysis', path: '/revenue' }
-      ],
-      colorClass: 'from-green-500 to-green-600'
-    },
-
-    // Content & Documentation
-    {
-      name: 'artifact',
-      displayName: 'Artifacts',
-      icon: FileBox,
-      path: '/artifact',
-      description: 'File attachments (S3/MinIO) with presigned URLs, versioning, and metadata.',
-      businessValue: 'Store documents, images, PDFs, receipts. Secure S3 storage with presigned URLs. Link to any entity (projects, tasks, customers, costs).',
-      relationships: ['project', 'task', 'customer', 'cost', 'revenue'],
-      commonActions: [
-        { label: 'Upload File', path: '/artifact/new' },
-        { label: 'View Artifacts', path: '/artifact' }
-      ],
-      colorClass: 'from-gray-600 to-gray-700'
-    },
-    {
-      name: 'form',
-      displayName: 'Forms',
-      icon: FileText,
-      path: '/form',
-      description: 'JSONB-based dynamic form builder with multi-step wizards, validation, and submission tracking.',
-      businessValue: 'Create custom forms for data collection, surveys, intake processes. Multi-step workflows, conditional logic, submission management, and analytics.',
-      relationships: ['project', 'task', 'customer'],
-      commonActions: [
-        { label: 'Create Form', path: '/form/new' },
-        { label: 'View Forms', path: '/form' }
-      ],
-      colorClass: 'from-indigo-500 to-indigo-600'
-    },
-    {
-      name: 'wiki',
-      displayName: 'Wiki',
-      icon: BookOpen,
-      path: '/wiki',
-      description: 'Knowledge base and documentation with rich text editing, versioning, and linking.',
-      businessValue: 'Build internal knowledge base, SOPs, best practices, training materials. Version control, search, and cross-linking for organizational knowledge management.',
-      relationships: ['project', 'employee'],
-      commonActions: [
-        { label: 'Create Article', path: '/wiki/new' },
-        { label: 'Browse Wiki', path: '/wiki' }
-      ],
-      colorClass: 'from-yellow-600 to-yellow-700'
-    },
-
-    // Advanced Features
-    {
-      name: 'booking',
-      displayName: 'Bookings',
-      icon: Calendar,
-      path: '/booking',
-      description: 'Calendar-based booking and scheduling system for appointments and resource allocation.',
-      businessValue: 'Schedule appointments, manage technician calendars, prevent double-booking, and coordinate customer service windows.',
-      relationships: ['customer', 'employee', 'worksite', 'work_order'],
-      commonActions: [
-        { label: 'Create Booking', path: '/booking/new' },
-        { label: 'View Calendar', path: '/booking' }
-      ],
-      colorClass: 'from-purple-500 to-purple-600'
-    },
-    {
-      name: 'calendar',
-      displayName: 'Calendar',
-      icon: Calendar,
-      path: '/calendar',
-      description: 'Unified calendar view aggregating bookings, tasks, and project milestones.',
-      businessValue: 'Centralized scheduling, timeline visualization, and coordination across teams and projects.',
-      relationships: ['booking', 'task', 'project'],
-      commonActions: [
-        { label: 'View Calendar', path: '/calendar' }
-      ],
-      colorClass: 'from-blue-400 to-blue-500'
+    if (entity.path) {
+      return (
+        <Link key={code} to={entity.path} className={`${baseClasses} hover:text-slate-700`}>
+          {entity.uiLabel}
+        </Link>
+      );
     }
-  ];
 
-  const categories = [
-    { id: 'overview', name: 'Overview', icon: Home },
-    { id: 'core', name: 'Core Management', icon: FolderKanban },
-    { id: 'org', name: 'Organization', icon: Users },
-    { id: 'biz', name: 'Business', icon: Building2 },
-    { id: 'ops', name: 'Operations', icon: CheckSquare },
-    { id: 'customer', name: 'Customers', icon: Globe },
-    { id: 'retail', name: 'Retail', icon: Package },
-    { id: 'sales', name: 'Sales & Finance', icon: ShoppingCart },
-    { id: 'content', name: 'Content & Docs', icon: FileText },
-    { id: 'advanced', name: 'Advanced', icon: Zap }
-  ];
-
-  const getFilteredEntities = () => {
-    const categoryMap: Record<string, string[]> = {
-      overview: [],
-      core: ['project', 'task'],
-      org: ['employee', 'office', 'role', 'position'],
-      biz: ['biz'],
-      ops: ['project', 'task', 'work_order', 'calendar', 'booking'],
-      customer: ['cust', 'worksite'],
-      retail: ['service', 'product', 'inventory', 'order', 'shipment'],
-      sales: ['quote', 'invoice', 'cost', 'revenue'],
-      content: ['artifact', 'form', 'wiki'],
-      advanced: ['booking', 'calendar']
-    };
-
-    return entityGuides.filter(e => categoryMap[selectedCategory]?.includes(e.name));
+    return (
+      <span key={code} className={`${baseClasses} cursor-default opacity-70`}>
+        {entity.uiLabel}
+      </span>
+    );
   };
-
-  const quickStartGuides = [
-    {
-      title: 'Create Your First Project',
-      description: 'Set up a project with budget, timeline, and team assignments',
-      steps: ['Go to Projects', 'Click "New Project"', 'Fill in details', 'Add team members', 'Link tasks and artifacts'],
-      icon: FolderKanban,
-      link: '/project/new'
-    },
-    {
-      title: 'Build a Task Board',
-      description: 'Organize work with kanban-style task management',
-      steps: ['Navigate to Tasks', 'Create tasks', 'Set stages and priorities', 'Assign team members', 'Track progress'],
-      icon: CheckSquare,
-      link: '/task'
-    },
-    {
-      title: 'Manage Your Team',
-      description: 'Add employees, assign roles, and configure permissions',
-      steps: ['Go to Employees', 'Add team members', 'Assign roles & positions', 'Configure RBAC permissions', 'Set up reporting structure'],
-      icon: Users,
-      link: '/employee'
-    },
-    {
-      title: 'Generate Customer Quotes',
-      description: 'Create professional quotes with products and services',
-      steps: ['Create or select customer', 'Go to Quotes', 'Add line items', 'Set pricing', 'Send to customer'],
-      icon: FileText,
-      link: '/quote/new'
-    }
-  ];
-
-  const systemArchitecture = [
-    {
-      title: 'NO FOREIGN KEY Architecture',
-      description: 'Flexible entity relationships via d_entity_id_map table. No database constraints, supporting soft deletes and temporal relationships.',
-      icon: GitBranch,
-      color: 'text-blue-600'
-    },
-    {
-      title: 'Convention-Based Rendering',
-      description: 'Zero-config UI generation. Column names dictate rendering (dl__* = badges, *_amt = currency, *_flag = boolean).',
-      icon: Lightbulb,
-      color: 'text-yellow-600'
-    },
-    {
-      title: 'Granular RBAC',
-      description: 'Permission arrays [View, Edit, Share, Delete, Create] per employee per entity. Type-level or instance-level control.',
-      icon: Shield,
-      color: 'text-purple-600'
-    },
-    {
-      title: 'Universal Settings System',
-      description: 'Single setting_datalabel table replacing 16+ settings tables. All dropdowns, stages, and workflows centrally configured.',
-      icon: Settings,
-      color: 'text-green-600'
-    },
-    {
-      title: 'DRY Entity System',
-      description: '3 universal pages (List, Detail, Create) handle all 21+ entities. Config-driven with inline editing and create-then-link patterns.',
-      icon: Network,
-      color: 'text-indigo-600'
-    },
-    {
-      title: 'S3 File Management',
-      description: 'Secure file storage with presigned URLs. Attach receipts, documents, images to any entity via artifact links.',
-      icon: FileBox,
-      color: 'text-orange-600'
-    }
-  ];
 
   return (
     <Layout>
-      <div className="p-6 space-y-6">
-        {/* Hero Welcome Section */}
-        <div className="bg-gradient-to-br from-slate-700 via-slate-800 to-dark-900 rounded-xl p-8 text-white shadow-xl border border-slate-600">
-          <div className="flex items-start justify-between">
+      <div className="w-[97%] max-w-[1536px] mx-auto px-4 py-6 space-y-6">
+        {/* Hero Section */}
+        <div className="bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 rounded-xl p-6 md:p-10 text-white shadow-xl border border-slate-600">
+          <div className="grid lg:grid-cols-2 gap-6">
             <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-12 w-12 bg-white/10 rounded-lg flex items-center justify-center backdrop-blur-sm">
-                  <Home className="h-7 w-7 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold">Welcome back, {user?.name || 'User'}! 👋</h1>
-                  <p className="text-slate-300 text-sm mt-1">{user?.email}</p>
-                </div>
+              <div className="flex items-center gap-2 text-sm uppercase tracking-widest text-white/70 mb-3">
+                <Sparkles className="h-4 w-4" />
+                AI-First Semantic Operations
               </div>
-              <p className="text-slate-200 text-lg max-w-3xl leading-relaxed">
-                Welcome to <strong>Huron PMO</strong> — your complete platform for managing projects,
-                teams, customers, and operations. Everything you need to run your home services business efficiently.
+              <h1 className="text-3xl md:text-4xl font-bold mb-4 leading-snug">
+                Welcome back{user?.name ? `, ${user.name}` : ''}. Your entire business runs on one semantic fabric.
+              </h1>
+              <p className="text-base text-white/80 mb-6 leading-relaxed">
+                Cut the friction of modern operations. Our agentic workflow engine listens to every conversation, models every entity, and keeps manufacturing, retail, supply chain, and service teams on the same page.
               </p>
-            </div>
-            <Link
-              to="/chat"
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all backdrop-blur-sm border border-white/20"
-            >
-              <Bot className="h-5 w-5" />
-              <span>AI Assistant</span>
-            </Link>
-          </div>
-        </div>
-
-        {/* Guide Selector */}
-        <div className="bg-dark-100 rounded-xl border border-dark-300 overflow-hidden">
-          <div className="flex border-b border-dark-300">
-            <button
-              onClick={() => setActiveGuide('user')}
-              className={`flex-1 px-6 py-4 font-semibold text-lg transition-all ${
-                activeGuide === 'user'
-                  ? 'bg-slate-600 text-white border-b-2 border-slate-400'
-                  : 'bg-dark-100 text-dark-700 hover:bg-dark-200'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <Users className="h-5 w-5" />
-                User Guide
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveGuide('developer')}
-              className={`flex-1 px-6 py-4 font-semibold text-lg transition-all ${
-                activeGuide === 'developer'
-                  ? 'bg-slate-600 text-white border-b-2 border-slate-400'
-                  : 'bg-dark-100 text-dark-700 hover:bg-dark-200'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <Settings className="h-5 w-5" />
-                Developer Guide
-              </div>
-            </button>
-          </div>
-        </div>
-
-        {/* Conditional Content Based on Active Guide */}
-        {activeGuide === 'user' && (
-          <>
-            {/* Category Filter - Moved to Top */}
-            <div className="bg-dark-100 rounded-xl p-4 border border-dark-300">
-              <div className="flex flex-wrap gap-2">
-                {categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
-                      selectedCategory === cat.id
-                        ? 'bg-slate-600 text-white shadow-md'
-                        : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
-                    }`}
-                  >
-                    <cat.icon className="h-4 w-4" />
-                    {cat.name}
-                  </button>
+              <div className="flex flex-wrap gap-3 mb-6">
+                {industriesServed.map(industry => (
+                  <span key={industry} className="px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 border border-white/20">
+                    {industry}
+                  </span>
                 ))}
               </div>
-            </div>
-
-            {/* Overview Tab Content */}
-            {selectedCategory === 'overview' && (
-              <>
-                {/* Getting Started Section */}
-                <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
-                  <h2 className="text-2xl font-bold text-dark-600 mb-4 flex items-center gap-2">
-                    <Lightbulb className="h-6 w-6 text-yellow-600" />
-                    Getting Started with Huron PMO
-                  </h2>
-                  <p className="text-dark-700 mb-6 leading-relaxed">
-                    Huron PMO helps you manage every aspect of your home services business. Whether you're tracking projects,
-                    managing teams, serving customers, or analyzing finances, this platform has everything you need in one place.
-                    Let's get you started!
-                  </p>
-
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <div className="bg-dark-100 rounded-lg p-4 border border-dark-300">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Clock className="h-5 w-5 text-blue-600" />
-                        <h3 className="font-semibold text-dark-600">5 Minutes</h3>
-                      </div>
-                      <p className="text-sm text-dark-700">
-                        Complete setup and create your first project in just 5 minutes
-                      </p>
-                    </div>
-                    <div className="bg-dark-100 rounded-lg p-4 border border-dark-300">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Users className="h-5 w-5 text-green-600" />
-                        <h3 className="font-semibold text-dark-600">Team Ready</h3>
-                      </div>
-                      <p className="text-sm text-dark-700">
-                        Invite your team members and assign roles immediately
-                      </p>
-                    </div>
-                    <div className="bg-dark-100 rounded-lg p-4 border border-dark-300">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Bot className="h-5 w-5 text-purple-600" />
-                        <h3 className="font-semibold text-dark-600">AI Powered</h3>
-                      </div>
-                      <p className="text-sm text-dark-700">
-                        Get instant help from our AI assistant anytime you need it
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Quick Start Actions */}
-                <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
-                  <h2 className="text-2xl font-bold text-dark-600 mb-4 flex items-center gap-2">
-                    <Target className="h-6 w-6 text-green-600" />
-                    What Would You Like to Do?
-                  </h2>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {quickStartGuides.map((guide, idx) => (
-                      <Link
-                        key={idx}
-                        to={guide.link}
-                        className="bg-dark-100 rounded-lg p-5 border border-dark-300 hover:border-slate-500 hover:shadow-md transition-all group"
-                      >
-                        <div className="flex items-start gap-4">
-                          <div className="h-12 w-12 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                            <guide.icon className="h-6 w-6 text-white" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-bold text-dark-600 mb-1 group-hover:text-slate-700">{guide.title}</h3>
-                            <p className="text-sm text-dark-700 mb-3">{guide.description}</p>
-                            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 group-hover:gap-3 transition-all">
-                              Get Started
-                              <ArrowRight className="h-4 w-4" />
-                            </div>
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Platform Highlights */}
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-6 text-white shadow-lg">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="h-12 w-12 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
-                        <FolderKanban className="h-6 w-6" />
-                      </div>
-                      <h3 className="text-xl font-bold">21+ Entities</h3>
-                    </div>
-                    <p className="text-blue-100">
-                      Comprehensive data model covering projects, tasks, customers, products, finances, and more
-                    </p>
-                  </div>
-
-                  <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl p-6 text-white shadow-lg">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="h-12 w-12 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
-                        <Shield className="h-6 w-6" />
-                      </div>
-                      <h3 className="text-xl font-bold">Secure RBAC</h3>
-                    </div>
-                    <p className="text-purple-100">
-                      Granular role-based access control with View, Edit, Share, Delete, and Create permissions
-                    </p>
-                  </div>
-
-                  <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-6 text-white shadow-lg">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="h-12 w-12 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
-                        <Zap className="h-6 w-6" />
-                      </div>
-                      <h3 className="text-xl font-bold">DRY Architecture</h3>
-                    </div>
-                    <p className="text-green-100">
-                      Config-driven universal pages handle all entities with zero code duplication
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Entity Cards for Other Categories */}
-            {selectedCategory !== 'overview' && (
-              <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-dark-600 mb-2 flex items-center gap-2">
-                    <BookOpen className="h-6 w-6 text-blue-600" />
-                    {categories.find(c => c.id === selectedCategory)?.name}
-                  </h2>
-                  <p className="text-dark-700">
-                    Discover all the features available to help you run your business more effectively.
-                  </p>
-                </div>
-
-                {/* Simplified Entity Cards */}
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {getFilteredEntities().map((entity) => (
-                    <Link
-                      key={entity.name}
-                      to={entity.path}
-                      className="bg-dark-100 rounded-lg border border-dark-300 hover:border-slate-500 hover:shadow-md transition-all overflow-hidden group"
-                    >
-                      <div className={`h-2 bg-gradient-to-r ${entity.colorClass}`} />
-                      <div className="p-4">
-                        <div className="flex items-start gap-3 mb-3">
-                          <div className={`h-10 w-10 bg-gradient-to-br ${entity.colorClass} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                            <entity.icon className="h-5 w-5 text-white" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-bold text-dark-600 mb-1 group-hover:text-slate-700">{entity.displayName}</h3>
-                            <p className="text-xs text-dark-700">{entity.description}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs font-medium text-slate-600 group-hover:gap-2 transition-all">
-                          <span>Explore</span>
-                          <ArrowRight className="h-3 w-3" />
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Help & Support */}
-            <div className="bg-gradient-to-r from-slate-700 to-dark-900 rounded-xl p-8 text-center text-white">
-              <h2 className="text-2xl font-bold mb-2">Need Help Getting Started?</h2>
-              <p className="text-slate-200 mb-6 max-w-2xl mx-auto">
-                Our AI assistant is here to help you navigate the platform and answer any questions you might have.
-              </p>
-              <div className="flex flex-wrap gap-4 justify-center">
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  to="/entity-designer"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md font-medium bg-slate-600 text-white shadow-sm hover:bg-slate-700 transition-all"
+                >
+                  <Layers className="h-3.5 w-3.5" />
+                  Deploy Semantic Model
+                </Link>
                 <Link
                   to="/chat"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-700 font-semibold rounded-lg hover:bg-slate-100 transition-all shadow-lg"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md font-medium bg-white/10 text-white border border-white/30 hover:bg-white/20 transition-all"
                 >
-                  <Bot className="h-5 w-5" />
-                  Ask AI Assistant
-                </Link>
-                <Link
-                  to="/project/new"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 text-white font-semibold rounded-lg hover:bg-white/20 transition-all border border-white/20"
-                >
-                  <FolderKanban className="h-5 w-5" />
-                  Create First Project
+                  <Bot className="h-3.5 w-3.5" />
+                  Ask the Agent
+                  <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
             </div>
-          </>
-        )}
-
-        {/* Developer Guide Content */}
-        {activeGuide === 'developer' && (
-          <>
-            {/* Category Filter - Moved to Top */}
-            <div className="bg-dark-100 rounded-xl p-4 border border-dark-300">
-              <div className="flex flex-wrap gap-2">
-                {categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
-                      selectedCategory === cat.id
-                        ? 'bg-slate-600 text-white shadow-md'
-                        : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
-                    }`}
-                  >
-                    <cat.icon className="h-4 w-4" />
-                    {cat.name}
-                  </button>
-                ))}
+            <div className="bg-white/10 rounded-xl p-5 border border-white/20 space-y-4">
+              {heroHighlights.map(highlight => (
+                <div key={highlight.label} className="bg-black/20 rounded-md p-4 flex items-start gap-4">
+                  <div className="h-10 w-10 rounded-md bg-white/10 flex items-center justify-center">
+                    <highlight.icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-white/70 uppercase tracking-wide">{highlight.label}</p>
+                    <p className="text-2xl font-semibold">{highlight.value}</p>
+                    <p className="text-sm text-white/80">{highlight.description}</p>
+                  </div>
+                </div>
+              ))}
+              <div className="text-sm text-white/80">
+                <p className="font-medium mb-1 flex items-center gap-2">
+                  <Network className="h-4 w-4" />
+                  Central semantic agent listening 24/7
+                </p>
+                <p>
+                  Conversations → semantics → workflows. No more brittle integrations.
+                </p>
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Technical Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-dark-100 rounded-lg p-6 border border-dark-300">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                    <Database className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-dark-600">21+</div>
-                    <div className="text-sm text-dark-700">Entity Types</div>
-                  </div>
+        {/* Value Proposition */}
+        <div className="grid gap-4 md:grid-cols-2">
+          {valueProps.map((prop) => (
+            <div key={prop.title} className="bg-dark-100 border border-dark-300 rounded-xl p-5 hover:border-slate-500 hover:shadow-sm transition-all">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-11 w-11 rounded-md bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
+                  <prop.icon className="h-5 w-5 text-white" />
                 </div>
+                <h3 className="text-lg font-semibold text-dark-700">{prop.title}</h3>
               </div>
-              <div className="bg-dark-100 rounded-lg p-6 border border-dark-300">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                    <Shield className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-dark-600">Granular</div>
-                    <div className="text-sm text-dark-700">RBAC Permissions</div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-dark-100 rounded-lg p-6 border border-dark-300">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 bg-green-500/10 rounded-lg flex items-center justify-center">
-                    <Zap className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-dark-600">DRY</div>
-                    <div className="text-sm text-dark-700">Config-Driven UI</div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-dark-100 rounded-lg p-6 border border-dark-300">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
-                    <Globe className="h-5 w-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-dark-600">Canadian</div>
-                    <div className="text-sm text-dark-700">Home Services</div>
-                  </div>
-                </div>
-              </div>
+              <p className="text-sm text-dark-700 leading-relaxed">{prop.description}</p>
             </div>
+          ))}
+        </div>
 
-            {/* System Architecture Highlights */}
-            <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
-              <h2 className="text-2xl font-bold text-dark-600 mb-4 flex items-center gap-2">
-                <Network className="h-6 w-6 text-slate-600" />
-                Platform Architecture & Design Principles
-              </h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {systemArchitecture.map((item, idx) => (
-                  <div key={idx} className="bg-dark-100 rounded-lg p-4 border border-dark-300 hover:border-dark-400 transition-all">
-                    <div className="flex items-start gap-3">
-                      <div className={`${item.color} mt-1`}>
-                        <item.icon className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-dark-600 mb-1">{item.title}</h3>
-                        <p className="text-sm text-dark-700 leading-relaxed">{item.description}</p>
-                      </div>
+        {/* Semantic Highlights */}
+        <div className="bg-dark-100 border border-dark-300 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <p className="text-sm font-medium text-slate-600 uppercase tracking-widest">Semantic Modularity</p>
+              <h2 className="text-2xl font-bold text-dark-700">Inspired by nature, powered by agents</h2>
+            </div>
+            <div className="hidden md:flex items-center gap-2 text-sm text-dark-600">
+              <Activity className="h-4 w-4" />
+              Always-on semantic capture
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {semanticHighlights.map(highlight => (
+              <div key={highlight.title} className="bg-dark-50 rounded-xl border border-dark-300 p-5">
+                <div className="h-10 w-10 rounded-md bg-slate-100 flex items-center justify-center mb-4">
+                  <highlight.icon className="h-5 w-5 text-slate-700" />
+                </div>
+                <h3 className="text-lg font-semibold text-dark-700 mb-2">{highlight.title}</h3>
+                <p className="text-sm text-dark-600 mb-3">{highlight.description}</p>
+                <p className="text-xs font-medium text-slate-600 uppercase tracking-wide">{highlight.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Integration Pain Section */}
+        <div className="bg-dark-100 border border-dark-300 rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <PlugZap className="h-5 w-5 text-slate-600" />
+            <h2 className="text-xl font-semibold text-dark-700">Goodbye brittle integrations</h2>
+          </div>
+          <div className="space-y-4">
+            {integrationPainPoints.map(point => (
+              <div key={point.title} className="bg-dark-50 border border-dark-300 rounded-md p-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="h-9 w-9 rounded-full bg-slate-600/10 flex items-center justify-center">
+                    <point.icon className="h-4 w-4 text-slate-700" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-dark-700">{point.title}</h3>
+                </div>
+                <p className="text-sm text-dark-600 mb-2"><span className="font-semibold text-dark-700">Pain:</span> {point.pain}</p>
+                <p className="text-sm text-dark-600"><span className="font-semibold text-dark-700">Solution:</span> {point.solution}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Domain Modules */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-600 uppercase tracking-widest">Semantic domains</p>
+              <h2 className="text-2xl font-bold text-dark-700">Modular ontology that adapts like nature</h2>
+            </div>
+            <Link
+              to="/entity-designer"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-md font-medium bg-white text-dark-700 border border-dark-300 hover:border-dark-400"
+            >
+              <Layers className="h-4 w-4" />
+              View Entity Designer
+            </Link>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {domainModules.map(module => (
+              <div key={module.id} className="bg-dark-100 border border-dark-300 rounded-xl p-5 hover:border-slate-500 hover:shadow-sm transition-all">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-md bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
+                      <module.icon className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-dark-700">{module.title}</h3>
+                      <p className="text-sm text-dark-600">{module.summary}</p>
                     </div>
                   </div>
+                  <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-dark-50 border border-dark-300 text-dark-600">
+                    {module.focus}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {module.entities.map(renderEntityChip)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-dark-100 border border-dark-300 rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <MessageSquare className="h-5 w-5 text-slate-600" />
+            <h2 className="text-xl font-semibold text-dark-700">Choose your next move</h2>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {quickActions.map(action => (
+              <Link
+                key={action.label}
+                to={action.path}
+                className="bg-dark-50 border border-dark-300 rounded-xl p-4 hover:border-slate-500 hover:shadow-sm transition-all flex flex-col gap-3"
+              >
+                <div className="h-10 w-10 rounded-md bg-slate-600/10 flex items-center justify-center">
+                  <action.icon className="h-5 w-5 text-slate-700" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-dark-700">{action.label}</h3>
+                  <p className="text-xs text-dark-600 leading-relaxed">{action.description}</p>
+                </div>
+                <div className="inline-flex items-center gap-2 text-xs font-medium text-slate-600">
+                  Go
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Entity Catalog */}
+        <div className="bg-dark-100 border border-dark-300 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-sm font-medium text-slate-600 uppercase tracking-widest">Entity catalog</p>
+              <h2 className="text-2xl font-bold text-dark-700">Every domain, every entity, one semantic table</h2>
+            </div>
+            <Link
+              to="/linkage"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-md font-medium bg-slate-600 text-white shadow-sm hover:bg-slate-700"
+            >
+              <Network className="h-4 w-4" />
+              View Linkage Graph
+            </Link>
+          </div>
+          <div className="overflow-x-auto bg-dark-100 rounded-md border border-dark-300">
+            <table className="min-w-full divide-y divide-dark-300">
+              <thead className="bg-dark-50">
+                <tr>
+                  <th className="px-3 py-2 text-left text-sm font-normal text-dark-600">Code</th>
+                  <th className="px-3 py-2 text-left text-sm font-normal text-dark-600">Entity</th>
+                  <th className="px-3 py-2 text-left text-sm font-normal text-dark-600">Domain</th>
+                  <th className="px-3 py-2 text-left text-sm font-normal text-dark-600">Description</th>
+                  <th className="px-3 py-2 text-left text-sm font-normal text-dark-600">Navigate</th>
+                </tr>
+              </thead>
+              <tbody className="bg-dark-100 divide-y divide-dark-300">
+                {entityCatalog.map(entity => (
+                  <tr key={entity.code} className="hover:bg-dark-50 transition-colors">
+                    <td className="px-3 py-2 text-sm text-dark-700 font-mono">{entity.code}</td>
+                    <td className="px-3 py-2 text-sm text-dark-700">{entity.uiLabel}</td>
+                    <td className="px-3 py-2 text-sm text-dark-700">{domainNameMap[entity.domainId]}</td>
+                    <td className="px-3 py-2 text-sm text-dark-700">{entity.description}</td>
+                    <td className="px-3 py-2 text-sm">
+                      {entity.path ? (
+                        <Link to={entity.path} className="inline-flex items-center gap-1 text-slate-600 font-medium hover:gap-2 transition-all">
+                          Open
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      ) : (
+                        <span className="text-dark-400">Managed by AI</span>
+                      )}
+                    </td>
+                  </tr>
                 ))}
-              </div>
-            </div>
-
-            {/* Entity Documentation */}
-            {selectedCategory !== 'overview' && (
-              <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-dark-600 mb-2 flex items-center gap-2">
-                    <BookOpen className="h-6 w-6 text-blue-600" />
-                    {categories.find(c => c.id === selectedCategory)?.name} - Technical Documentation
-                  </h2>
-                  <p className="text-dark-700">
-                    Comprehensive technical guide to entity types, their business value, relationships, and common workflows.
-                  </p>
-                </div>
-
-                {/* Entity Cards */}
-                <div className="grid md:grid-cols-2 gap-4">
-                  {getFilteredEntities().map((entity) => (
-                  <div
-                    key={entity.name}
-                    className="bg-dark-100 rounded-lg border border-dark-300 hover:border-dark-400 transition-all overflow-hidden"
-                  >
-                    <div className={`h-2 bg-gradient-to-r ${entity.colorClass}`} />
-                    <div className="p-5">
-                      <div className="flex items-start gap-4 mb-4">
-                        <div className={`h-12 w-12 bg-gradient-to-br ${entity.colorClass} rounded-lg flex items-center justify-center flex-shrink-0 shadow-md`}>
-                          <entity.icon className="h-6 w-6 text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="text-xl font-bold text-dark-600 mb-1">{entity.displayName}</h3>
-                          <p className="text-sm text-dark-700">{entity.description}</p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div>
-                          <div className="text-xs font-semibold text-dark-700 uppercase tracking-wide mb-1">Business Value</div>
-                          <p className="text-sm text-dark-700 leading-relaxed">{entity.businessValue}</p>
-                        </div>
-
-                        <div>
-                          <div className="text-xs font-semibold text-dark-700 uppercase tracking-wide mb-2">Relationships</div>
-                          <div className="flex flex-wrap gap-1">
-                            {entity.relationships.map((rel) => (
-                              <span
-                                key={rel}
-                                className="px-2 py-1 bg-dark-100 text-dark-600 text-xs rounded border border-dark-300"
-                              >
-                                {rel}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="pt-3 border-t border-dark-300 flex flex-wrap gap-2">
-                          {entity.commonActions.map((action, idx) => (
-                            <Link
-                              key={idx}
-                              to={action.path}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-dark-100 hover:bg-dark-200 text-dark-600 text-sm font-medium rounded border border-dark-300 hover:border-dark-400 transition-all"
-                            >
-                              {action.label}
-                              <ChevronRight className="h-3 w-3" />
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              </div>
-            )}
-
-            {/* Entity Relationship Flow */}
-            {selectedCategory === 'overview' && (
-            <div className="bg-dark-100 rounded-xl p-6 border border-dark-300">
-              <h2 className="text-2xl font-bold text-dark-600 mb-4 flex items-center gap-2">
-                <GitBranch className="h-6 w-6 text-indigo-600" />
-                Entity Relationship Hierarchy
-              </h2>
-              <div className="bg-dark-100 rounded-lg p-6 border border-dark-300 font-mono text-sm text-dark-600 space-y-1 overflow-x-auto">
-                <div><strong className="text-blue-600">office</strong></div>
-                <div className="ml-4">├─ <strong className="text-indigo-600">business</strong> (Business Units)</div>
-                <div className="ml-8">│  └─ <strong className="text-blue-600">project</strong> (Projects)</div>
-                <div className="ml-12">│      ├─ <strong className="text-green-600">task</strong> (Tasks)</div>
-                <div className="ml-16">│      │  ├─ <strong className="text-gray-600">artifact</strong> (Files)</div>
-                <div className="ml-16">│      │  ├─ <strong className="text-indigo-500">form</strong> (Forms)</div>
-                <div className="ml-16">│      │  └─ <strong className="text-purple-600">employee</strong> (Assignees)</div>
-                <div className="ml-12">│      ├─ <strong className="text-gray-600">artifact</strong></div>
-                <div className="ml-12">│      ├─ <strong className="text-yellow-600">wiki</strong> (Documentation)</div>
-                <div className="ml-12">│      └─ <strong className="text-indigo-500">form</strong></div>
-                <div className="ml-4">└─ <strong className="text-green-600">task</strong> (Office-level tasks)</div>
-                <div className="mt-2"><strong className="text-teal-600">customer</strong></div>
-                <div className="ml-4">├─ <strong className="text-blue-600">project</strong></div>
-                <div className="ml-4">├─ <strong className="text-emerald-600">worksite</strong> (Service Locations)</div>
-                <div className="ml-4">├─ <strong className="text-violet-600">quote</strong> → <strong className="text-pink-600">work_order</strong> → <strong className="text-sky-600">invoice</strong></div>
-                <div className="ml-4">├─ <strong className="text-fuchsia-600">order</strong> → <strong className="text-blue-500">shipment</strong></div>
-                <div className="ml-4">└─ <strong className="text-gray-600">artifact</strong></div>
-                <div className="mt-2"><strong className="text-orange-600">product</strong> / <strong className="text-cyan-600">service</strong></div>
-                <div className="ml-4">├─ <strong className="text-lime-600">inventory</strong> (Stock Levels)</div>
-                <div className="ml-4">├─ <strong className="text-violet-600">quote</strong> (Line Items)</div>
-                <div className="ml-4">└─ <strong className="text-green-500">revenue</strong> (Revenue Streams)</div>
-                <div className="mt-2"><strong className="text-purple-600">employee</strong></div>
-                <div className="ml-4">├─ <strong className="text-amber-600">role</strong> (Job Function)</div>
-                <div className="ml-4">├─ <strong className="text-rose-600">position</strong> (Hierarchy Level)</div>
-                <div className="ml-4">├─ <strong className="text-green-600">task</strong> (Assignments)</div>
-                <div className="ml-4">└─ <strong className="text-red-600">cost</strong> (Expenses)</div>
-              </div>
-              <p className="text-sm text-dark-700 mt-4">
-                <strong>Note:</strong> All relationships are managed via the <code className="px-2 py-1 bg-dark-100 rounded text-dark-600 border border-dark-300">d_entity_id_map</code> table
-                (NO FOREIGN KEYS). This enables flexible, temporal, and cross-schema relationships without database constraints.
-              </p>
-            </div>
-            )}
-
-            {/* Developer Resources */}
-            {selectedCategory === 'overview' && (
-            <div className="bg-gradient-to-r from-slate-700 to-dark-900 rounded-xl p-8 text-white">
-              <h2 className="text-2xl font-bold mb-2">Developer Resources</h2>
-              <p className="text-slate-200 mb-6 max-w-2xl mx-auto">
-                Explore the comprehensive documentation and technical guides for building on the Huron PMO platform.
-              </p>
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="bg-white/10 rounded-lg p-4 backdrop-blur-sm border border-white/20">
-                  <Database className="h-8 w-8 mb-2" />
-                  <h3 className="font-semibold mb-1">Database Schema</h3>
-                  <p className="text-sm text-slate-200">52 DDL files with complete entity definitions</p>
-                </div>
-                <div className="bg-white/10 rounded-lg p-4 backdrop-blur-sm border border-white/20">
-                  <Settings className="h-8 w-8 mb-2" />
-                  <h3 className="font-semibold mb-1">API Documentation</h3>
-                  <p className="text-sm text-slate-200">31+ modules with 125+ RESTful endpoints</p>
-                </div>
-                <div className="bg-white/10 rounded-lg p-4 backdrop-blur-sm border border-white/20">
-                  <Network className="h-8 w-8 mb-2" />
-                  <h3 className="font-semibold mb-1">Architecture Guide</h3>
-                  <p className="text-sm text-slate-200">DRY-first, config-driven design patterns</p>
-                </div>
-              </div>
-            </div>
-            )}
-          </>
-        )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </Layout>
   );

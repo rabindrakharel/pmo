@@ -49,45 +49,43 @@ export function DynamicChildEntityTabs({
   const activeTab = tabs.find(tab => currentPath === tab.path);
 
   return (
-    <div className={`bg-dark-100 ${className}`}>
-      {/* Tab Navigation */}
-      <div className="px-6 py-4">
-        <nav className="flex flex-wrap gap-2" aria-label="Tabs">
-          {tabs.map((tab) => {
-            const isActive = activeTab?.id === tab.id;
-            const IconComponent = tab.icon || getIconComponent(null);
+    <div className={`bg-dark-100 rounded-xl p-4 border border-dark-300 ${className}`}>
+      {/* Tab Navigation - Following design system v10.0 */}
+      <div className="flex flex-wrap gap-2">
+        {tabs.map((tab) => {
+          const isActive = activeTab?.id === tab.id;
+          const IconComponent = tab.icon || getIconComponent(null);
 
-            return (
-              <button
-                key={tab.id}
-                onClick={() => handleTabClick(tab)}
-                disabled={tab.disabled}
-                title={tab.tooltip}
-                className={[
-                  'flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all',
-                  isActive
-                    ? 'bg-slate-600 text-white shadow-md'
-                    : tab.disabled
-                    ? 'bg-dark-100 text-dark-500 border border-dark-300 cursor-not-allowed opacity-50'
-                    : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400 cursor-pointer'
-                ].join(' ')}
-              >
-                {/* Icon */}
-                <IconComponent className="h-4 w-4" aria-hidden="true" />
+          return (
+            <button
+              key={tab.id}
+              onClick={() => handleTabClick(tab)}
+              disabled={tab.disabled}
+              title={tab.tooltip}
+              className={[
+                'flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all',
+                isActive
+                  ? 'bg-slate-600 text-white shadow-sm'
+                  : tab.disabled
+                  ? 'bg-white text-dark-500 border border-dark-300 cursor-not-allowed opacity-50'
+                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400 cursor-pointer'
+              ].join(' ')}
+            >
+              {/* Icon */}
+              <IconComponent className="h-4 w-4" aria-hidden="true" />
 
-                {/* Label */}
-                <span>{tab.label}</span>
+              {/* Label */}
+              <span>{tab.label}</span>
 
-                {/* Count badge */}
-                {tab.count !== undefined && (
-                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-[10px] font-medium bg-white/20 text-current">
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+              {/* Count badge */}
+              {tab.count !== undefined && (
+                <span className="inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full text-xs font-medium bg-white/20 text-current">
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -132,9 +132,9 @@ export function FormDataTable({ formId, formSchema, refreshKey = 0 }: FormDataTa
         <p className="text-red-600">{error}</p>
         <button
           onClick={loadFormData}
-          className="mt-4 inline-flex items-center px-4 py-2 bg-dark-700 text-white rounded-lg hover:bg-dark-800"
+          className="mt-4 inline-flex items-center px-3 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 shadow-sm"
         >
-          <RefreshCw className="h-4 w-4 mr-2" />
+          <RefreshCw className="h-3.5 w-3.5 mr-2" />
           Retry
         </button>
       </div>
@@ -151,8 +151,8 @@ export function FormDataTable({ formId, formSchema, refreshKey = 0 }: FormDataTa
   }
 
   return (
-    <div className="bg-dark-100 rounded-lg border border-dark-300 overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-3 border-b border-dark-300 bg-dark-100">
+    <div className="bg-white rounded-md border border-dark-300 overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-dark-300 bg-white">
         <div className="flex items-center space-x-2">
           <Database className="h-5 w-5 text-dark-700" />
           <h3 className="text-sm font-normal text-dark-600">Form Submissions</h3>
@@ -160,7 +160,7 @@ export function FormDataTable({ formId, formSchema, refreshKey = 0 }: FormDataTa
         </div>
         <button
           onClick={loadFormData}
-          className="p-1.5 hover:bg-dark-200 rounded-lg transition-colors"
+          className="p-1.5 hover:bg-dark-100 rounded-md transition-colors"
           title="Refresh"
         >
           <RefreshCw className="h-4 w-4 text-dark-700" />
@@ -169,7 +169,7 @@ export function FormDataTable({ formId, formSchema, refreshKey = 0 }: FormDataTa
 
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-dark-400">
-          <thead className="bg-dark-100">
+          <thead className="bg-white">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-normal text-dark-700 uppercase tracking-wider">
                 Submission ID
@@ -191,7 +191,7 @@ export function FormDataTable({ formId, formSchema, refreshKey = 0 }: FormDataTa
               </th>
             </tr>
           </thead>
-          <tbody className="bg-dark-100 divide-y divide-dark-400">
+          <tbody className="bg-white divide-y divide-dark-400">
             {data.map((row) => (
               <tr
                 key={row.id}
@@ -244,7 +244,7 @@ export function FormDataTable({ formId, formSchema, refreshKey = 0 }: FormDataTa
                   ) : '-'}
                 </td>
                 <td className="px-6 py-4 text-sm text-dark-600">
-                  <pre className="font-mono text-xs bg-dark-100 p-2 rounded max-w-md overflow-x-auto whitespace-pre-wrap break-words">
+                  <pre className="font-mono text-xs bg-dark-100 p-2 rounded-md max-w-md overflow-x-auto whitespace-pre-wrap break-words">
                     {renderDataAsNDJSON(row.submission_data || row.submissionData)}
                   </pre>
                 </td>

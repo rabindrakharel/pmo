@@ -5,41 +5,88 @@
 --
 -- SEMANTICS:
 -- This table manages all events, meetings, and appointments in the system.
--- Event serves as a PARENT ENTITY that can be linked to ANY other entity type.
--- Events define WHAT is happening, WHEN it happens, and WHERE it happens.
--- Person-event relationships are tracked in d_entity_event_person_calendar.
--- Entity linkages (event → task, project, customer, etc.) are tracked in d_entity_id_map.
+-- Event serves as a central entity that tracks WHAT is happening (via event_action_entity),
+-- WHEN it happens (from_ts/to_ts), WHERE it happens (event_addr/venue_type),
+-- WHO organized it (organizer_id/organizer_type), and WHO is involved (via d_entity_event_person_calendar).
+--
+-- BUSINESS CASE MODELING:
+-- Events are modeled to capture three key relationships:
+-- 1. ACTION ENTITY: What the event is ABOUT (event_action_entity_type + event_action_entity_id)
+--    - Service appointment: event_action_entity_type='service', event_action_entity_id=service_id
+--    - Task discussion: event_action_entity_type='task', event_action_entity_id=task_id
+--    - Project meeting: event_action_entity_type='project', event_action_entity_id=project_id
+--    - Quote review: event_action_entity_type='quote', event_action_entity_id=quote_id
+--    - Product demo: event_action_entity_type='product', event_action_entity_id=product_id
+--
+-- 2. ORGANIZER: Who CREATED/ORGANIZED the event (organizer_employee_id)
+--    - Employee organizer: organizer_employee_id=employee_id
+--    - System-generated: organizer_employee_id can be NULL for automated events
+--
+-- 3. ATTENDEES: Who is INVOLVED in the event (via d_entity_event_person_calendar)
+--    - Employees, customers, and clients with RSVP status tracking
+--    - Attendees are linked separately from organizer
 --
 -- KEY CONCEPTS:
--- 1. PARENT ENTITY: Event can be parent to any entity (service, customer, task, project, business, meeting, employee, supplier, equipment, etc.)
+-- 1. ACTION-ORIENTED: event_action_entity captures the PRIMARY purpose/subject of the event
 -- 2. TIME-BOUND: Every event has from_ts/to_ts defining when it occurs
 -- 3. LOCATION-AWARE: event_addr stores physical address OR virtual meeting URL
--- 4. PLATFORM-SPECIFIC: event_platform_provider_name identifies the platform (Zoom, Teams, Google Meet, physical hall, etc.)
--- 5. POLYMORPHIC LINKAGE: d_entity_id_map tracks all parent-child relationships
--- 6. RBAC-BASED OWNERSHIP: Event ownership is tracked via entity_id_rbac_map with permission array position [5]
---    - Event creator automatically receives Owner permission: [0,1,2,3,4,5] (View, Edit, Share, Delete, Create, Owner)
---    - Owner permission [5] grants full control including permission management
---    - No owner column exists in d_event table - ownership is determined by querying entity_id_rbac_map
---    - To find event creator/owner: SELECT empid FROM entity_id_rbac_map WHERE entity='event' AND entity_id=:event_id AND permission @> ARRAY[5]
+-- 4. VENUE-CATEGORIZED: venue_type classifies the location (office, customer_site, warehouse, remote, etc.)
+-- 5. PLATFORM-SPECIFIC: event_platform_provider_name identifies the platform (Zoom, Teams, office, etc.)
+-- 6. ORGANIZER-TRACKED: organizer_employee_id captures which employee created/scheduled the event
 --
 -- USE CASES:
--- 1. SERVICE EVENT: Event → Service, Customer, Employee (e.g., HVAC repair for customer, assigned to employee)
--- 2. MANUFACTURING EVENT: Event → Meeting, Employee, Supplier, Equipment (e.g., manager meeting supplier about equipment purchase)
--- 3. PROJECT EVENT: Event → Project, Task, Employee (e.g., project kickoff meeting with team members)
--- 4. TRAINING EVENT: Event → Employee (e.g., safety training for field technicians)
--- 5. CUSTOMER EVENT: Event → Customer, Service (e.g., consultation appointment)
+-- 1. CUSTOMER SERVICE APPOINTMENT:
+--    - Customer self-schedules HVAC consultation
+--    - event_action_entity_type='service', event_action_entity_id=hvac_service_id
+--    - organizer_employee_id=assigned_technician_id
+--    - Attendees: assigned technician (via d_entity_event_person_calendar)
+--
+-- 2. PROJECT REVIEW MEETING:
+--    - Project manager schedules milestone review
+--    - event_action_entity_type='project', event_action_entity_id=project_id
+--    - organizer_employee_id=manager_id
+--    - Attendees: team members, stakeholders
+--
+-- 3. TASK DISCUSSION:
+--    - Team lead schedules task planning session
+--    - event_action_entity_type='task', event_action_entity_id=task_id
+--    - organizer_employee_id=team_lead_id
+--    - Attendees: assigned employees
+--
+-- 4. QUOTE REVIEW:
+--    - Sales rep schedules quote walkthrough with customer
+--    - event_action_entity_type='quote', event_action_entity_id=quote_id
+--    - organizer_employee_id=sales_rep_id
+--    - Attendees: customer, approvers
+--
+-- 5. PRODUCT DEMO:
+--    - Sales schedules product demonstration
+--    - event_action_entity_type='product', event_action_entity_id=product_id
+--    - organizer_employee_id=sales_rep_id
+--    - Attendees: potential customers
 --
 -- WORKFLOW:
--- 1. CREATE EVENT: Define event details (type, platform, address, time slot)
---    - API automatically grants Owner permission to creator via entity_id_rbac_map
---    - Creator receives full permissions: [0,1,2,3,4,5] (View, Edit, Share, Delete, Create, Owner)
--- 2. LINK TO ENTITIES: Add entries to d_entity_id_map (event as parent, other entities as children)
---    Example: INSERT INTO d_entity_id_map (parent_entity_type='event', parent_entity_id=event_id, child_entity_type='service', child_entity_id=service_id)
--- 3. LINK TO PEOPLE: Add entries to d_entity_event_person_calendar (who is involved, RSVP status)
---    Example: INSERT INTO d_entity_event_person_calendar (event_id, person_entity_type='employee', person_entity_id=emp_id, event_rsvp_status='accepted')
--- 4. QUERY: Find all entities linked to an event via d_entity_id_map
--- 5. UPDATE: Modify event details, which affects all linked entities
--- 6. CANCEL: Set active_flag=false to soft-delete the event
+-- 1. CREATE EVENT: Define event details
+--    - Set event_action_entity_type and event_action_entity_id (what the event is about)
+--    - Set organizer_employee_id (who created/scheduled it)
+--    - Set venue_type, event_addr, event_platform_provider_name (where/how)
+--    - Set from_ts, to_ts, timezone (when)
+--
+-- 2. LINK ATTENDEES: Add entries to d_entity_event_person_calendar
+--    - Track who is involved and their RSVP status
+--    - Example: INSERT INTO d_entity_event_person_calendar (event_id, person_entity_type='employee', person_entity_id=emp_id, event_rsvp_status='accepted')
+--
+-- 3. QUERY: Retrieve events by action entity, organizer, or attendees
+--    - Find all events about a service: WHERE event_action_entity_type='service' AND event_action_entity_id=service_id
+--    - Find all events organized by an employee: WHERE organizer_employee_id=emp_id
+--    - Find all events involving a person: JOIN d_entity_event_person_calendar
+--
+-- 4. UPDATE: Modify event details
+--    - Can change time, location, or action entity
+--    - version++ and updated_ts refresh automatically
+--
+-- 5. CANCEL: Set active_flag=false to soft-delete the event
+--    - RSVP records remain for historical tracking
 --
 -- OPERATIONS:
 -- • CREATE: POST /api/v1/event, auto-grant Owner permission [5] to creator
@@ -54,14 +101,18 @@
 -- • code: varchar(50) UNIQUE - business identifier (e.g., 'EVT-HVAC-001')
 -- • name: varchar(200) NOT NULL - event title/subject
 -- • descr: text - detailed event description
+-- • event_action_entity_type: varchar(100) NOT NULL - what the event is about: 'service', 'product', 'project', 'task', 'quote'
+-- • event_action_entity_id: uuid NOT NULL - ID of the entity this event is about (service ID, task ID, quote ID, etc.)
 -- • event_type: varchar(100) NOT NULL - 'onsite' or 'virtual'
 -- • event_platform_provider_name: varchar(50) NOT NULL - 'zoom', 'teams', 'google_meet', 'physical_hall', 'office', etc.
+-- • venue_type: varchar(100) - type of venue ('conference_room', 'office', 'warehouse', 'customer_site', 'remote', etc.)
 -- • event_addr: text - physical address for onsite OR meeting URL for virtual events
 -- • event_instructions: text - special instructions, access codes, preparation notes, parking info
+-- • organizer_employee_id: uuid - which employee organized/created the event
 -- • from_ts: timestamptz NOT NULL - event start time
 -- • to_ts: timestamptz NOT NULL - event end time
 -- • timezone: varchar(50) DEFAULT 'America/Toronto' - timezone for the event
--- • event_metadata: jsonb - flexible storage for additional context (organizer_id, meeting_password, equipment_ids, etc.)
+-- • event_metadata: jsonb - flexible storage for additional context (meeting_password, equipment_ids, etc.)
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • d_entity_id_map: event (parent) → service, customer, task, project, business, meeting, employee, supplier, equipment, etc. (children)
@@ -103,9 +154,17 @@ CREATE TABLE app.d_event (
   updated_ts timestamptz DEFAULT now(),
   version integer DEFAULT 1,
 
+  -- Event action entity (what this event is about)
+  event_action_entity_type varchar(100) NOT NULL, -- 'service', 'product', 'project', 'task', 'quote'
+  event_action_entity_id uuid NOT NULL, -- ID of the entity this event is about
+
+  -- Organizer (who created/scheduled the event)
+  organizer_employee_id uuid, -- Employee who organized the event
+
   -- Event specifics
   event_type varchar(100) NOT NULL, -- 'onsite', 'virtual'
   event_platform_provider_name varchar(50) NOT NULL, -- 'zoom', 'teams', 'google_meet', 'physical_hall', 'office', etc.
+  venue_type varchar(100), -- 'conference_room', 'office', 'warehouse', 'customer_site', 'remote', etc.
   event_addr text, -- Physical address for onsite OR meeting URL for virtual
   event_instructions text, -- Access codes, parking info, preparation notes, etc.
 
@@ -115,7 +174,10 @@ CREATE TABLE app.d_event (
   timezone varchar(50) DEFAULT 'America/Toronto',
 
   -- Event metadata (stores related entity IDs)
-  event_metadata jsonb DEFAULT '{}'::jsonb
+  event_metadata jsonb DEFAULT '{}'::jsonb,
+
+  -- Constraint for event_action_entity_type
+  CONSTRAINT chk_event_action_entity_type CHECK (event_action_entity_type IN ('service', 'product', 'project', 'task', 'quote'))
 );
 
 -- =====================================================
@@ -125,15 +187,19 @@ CREATE TABLE app.d_event (
 -- Event 1: HVAC Consultation (Onsite)
 INSERT INTO app.d_event (
   code, name, descr,
-  event_type, event_platform_provider_name, event_addr, event_instructions,
+  event_action_entity_type, event_action_entity_id,
+  event_type, event_platform_provider_name, venue_type, event_addr, event_instructions,
   from_ts, to_ts, timezone,
   event_metadata
 ) VALUES (
   'EVT-HVAC-001',
   'HVAC System Consultation - Thompson Residence',
   'Initial consultation for HVAC system replacement at residential property. Assess current system, discuss options, provide estimate.',
+  'service',
+  '93106ffb-402e-43a7-8b26-5287e37a1b0e'::uuid, -- Service ID for HVAC consultation
   'onsite',
   'office',
+  'customer_site',
   '123 Main Street, Toronto, ON M4W 1N4',
   'Ring doorbell at main entrance. Park in visitor lot on west side. Client has two dogs (friendly). Bring tablet for digital quote.',
   CURRENT_DATE + interval '1 day' + interval '14 hours',
@@ -150,15 +216,19 @@ INSERT INTO app.d_event (
 -- Event 2: Virtual Project Review Meeting
 INSERT INTO app.d_event (
   code, name, descr,
-  event_type, event_platform_provider_name, event_addr, event_instructions,
+  event_action_entity_type, event_action_entity_id,
+  event_type, event_platform_provider_name, venue_type, event_addr, event_instructions,
   from_ts, to_ts, timezone,
   event_metadata
 ) VALUES (
   'EVT-PROJ-002',
   'Solar Installation Phase 2 Review',
   'Quarterly progress review for commercial solar installation project. Review Phase 2 completion, discuss Phase 3 planning, address any concerns.',
+  'project',
+  '93106ffb-402e-43a7-8b26-5287e37a1b0e'::uuid, -- Project ID for Solar Installation
   'virtual',
   'zoom',
+  'remote',
   'https://zoom.us/j/meeting-solar-review-001',
   'Zoom link provided above. Meeting password: Solar2025! Please have Q3 progress report ready.',
   CURRENT_DATE + interval '2 days' + interval '10 hours',
@@ -175,15 +245,19 @@ INSERT INTO app.d_event (
 -- Event 3: Emergency Service Call (Onsite)
 INSERT INTO app.d_event (
   code, name, descr,
-  event_type, event_platform_provider_name, event_addr, event_instructions,
+  event_action_entity_type, event_action_entity_id,
+  event_type, event_platform_provider_name, venue_type, event_addr, event_instructions,
   from_ts, to_ts, timezone,
   event_metadata
 ) VALUES (
   'EVT-EMERG-003',
   'Emergency Plumbing Repair - Burst Pipe',
   'EMERGENCY: Burst water pipe in basement. Customer reports significant water damage. Immediate response required.',
+  'service',
+  'a1b2c3d4-e5f6-4a5b-8c7d-9e8f7a6b5c4d'::uuid, -- Emergency plumbing service ID
   'onsite',
   'office',
+  'customer_site',
   '456 Oak Avenue, Mississauga, ON L5B 2K3',
   'EMERGENCY CALL. Customer will be home. Access through side gate. Water main shutoff required. Bring pipe repair kit and wet vac. Customer phone: 416-555-9876',
   CURRENT_DATE + interval '4 hours',
@@ -201,15 +275,19 @@ INSERT INTO app.d_event (
 -- Event 4: Team Training Session (Virtual)
 INSERT INTO app.d_event (
   code, name, descr,
-  event_type, event_platform_provider_name, event_addr, event_instructions,
+  event_action_entity_type, event_action_entity_id,
+  event_type, event_platform_provider_name, venue_type, event_addr, event_instructions,
   from_ts, to_ts, timezone,
   event_metadata
 ) VALUES (
   'EVT-TRAIN-004',
   'Q1 Safety Training - Fall Protection',
   'Mandatory quarterly safety training for all field technicians. Topics: fall protection, ladder safety, PPE requirements, incident reporting.',
+  'task',
+  'b2c3d4e5-f6a7-4b5c-8d9e-0f1a2b3c4d5e'::uuid, -- Training task ID
   'virtual',
   'teams',
+  'remote',
   'https://teams.microsoft.com/l/meetup-join/safety-training-q1',
   'All field technicians must attend. Session will be recorded for those unable to attend live. Quiz will follow training. CPD credits available.',
   CURRENT_DATE + interval '3 days' + interval '13 hours',
@@ -228,15 +306,19 @@ INSERT INTO app.d_event (
 -- Event 5: Project Kickoff Meeting (Onsite)
 INSERT INTO app.d_event (
   code, name, descr,
-  event_type, event_platform_provider_name, event_addr, event_instructions,
+  event_action_entity_type, event_action_entity_id,
+  event_type, event_platform_provider_name, venue_type, event_addr, event_instructions,
   from_ts, to_ts, timezone,
   event_metadata
 ) VALUES (
   'EVT-KICK-005',
   'Commercial HVAC Installation - Project Kickoff',
   'Initial kickoff meeting for large commercial HVAC installation at office building. Meet with building manager, review site access, discuss timeline and coordination.',
+  'project',
+  'c3d4e5f6-a7b8-4c5d-9e0f-1a2b3c4d5e6f'::uuid, -- Commercial HVAC installation project ID
   'onsite',
   'physical_hall',
+  'customer_site',
   '789 Business Park Drive, Building 3, Suite 200, Toronto, ON M9W 5G8',
   'Meet at main lobby. Security check required (bring photo ID). Building manager contact: Jane Smith (416-555-1234). Parking validation available.',
   CURRENT_DATE + interval '5 days' + interval '9 hours',
@@ -253,15 +335,19 @@ INSERT INTO app.d_event (
 -- Event 6: Manager-Supplier Meeting for Equipment Purchase (Virtual)
 INSERT INTO app.d_event (
   code, name, descr,
-  event_type, event_platform_provider_name, event_addr, event_instructions,
+  event_action_entity_type, event_action_entity_id,
+  event_type, event_platform_provider_name, venue_type, event_addr, event_instructions,
   from_ts, to_ts, timezone,
   event_metadata
 ) VALUES (
   'EVT-SUPP-006',
   'Manufacturing Equipment Purchase Discussion',
   'Meeting between manufacturing manager and equipment supplier to discuss new CNC machine purchase. Review specs, pricing, delivery timeline, and training requirements.',
+  'product',
+  'd4e5f6a7-b8c9-4d5e-0f1a-2b3c4d5e6f7a'::uuid, -- CNC machine product ID
   'virtual',
   'google_meet',
+  'remote',
   'https://meet.google.com/abc-defg-hij',
   'Google Meet link provided above. Please review equipment spec sheet before meeting. Supplier will present 3 options.',
   CURRENT_DATE + interval '7 days' + interval '15 hours',

@@ -173,7 +173,7 @@ export function SettingsPage() {
     <Layout>
       <div className="max-w-7xl mx-auto p-6 space-y-6">
         {/* Header */}
-        <div className="bg-white border border-dark-300 rounded-lg p-6">
+        <div className="bg-white border border-dark-300 rounded-md p-6">
           <div className="flex items-center gap-3">
             <SettingsIcon className="h-6 w-6 text-dark-700" />
             <h1 className="text-2xl font-bold text-dark-900">Settings</h1>
@@ -185,58 +185,58 @@ export function SettingsPage() {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setActiveMainTab('entityMapping')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
                 activeMainTab === 'entityMapping'
-                  ? 'bg-slate-600 text-white shadow-md'
-                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                  ? 'bg-slate-600 text-white shadow-sm'
+                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
               }`}
             >
-              <LinkIcon className="h-4 w-4" />
+              <LinkIcon className="h-3.5 w-3.5" />
               Entity Mapping
             </button>
 
             <button
               onClick={() => setActiveMainTab('workflowAutomation')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
                 activeMainTab === 'workflowAutomation'
-                  ? 'bg-slate-600 text-white shadow-md'
-                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                  ? 'bg-slate-600 text-white shadow-sm'
+                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
               }`}
             >
-              <Zap className="h-4 w-4" />
+              <Zap className="h-3.5 w-3.5" />
               Workflow Automation
             </button>
 
             <button
               onClick={() => setActiveMainTab('integrations')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
                 activeMainTab === 'integrations'
-                  ? 'bg-slate-600 text-white shadow-md'
-                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                  ? 'bg-slate-600 text-white shadow-sm'
+                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
               }`}
             >
-              <Cable className="h-4 w-4" />
+              <Cable className="h-3.5 w-3.5" />
               Integrations
             </button>
 
             <button
               onClick={() => setActiveMainTab('entities')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
                 activeMainTab === 'entities'
-                  ? 'bg-slate-600 text-white shadow-md'
-                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                  ? 'bg-slate-600 text-white shadow-sm'
+                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
               }`}
             >
-              <Database className="h-4 w-4" />
+              <Database className="h-3.5 w-3.5" />
               Entities ({totalEntities})
             </button>
 
             <button
               onClick={() => setActiveMainTab('dataLabels')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
                 activeMainTab === 'dataLabels'
-                  ? 'bg-slate-600 text-white shadow-md'
-                  : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                  ? 'bg-slate-600 text-white shadow-sm'
+                  : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
               }`}
             >
               <Tag className="h-4 w-4" />
@@ -247,7 +247,7 @@ export function SettingsPage() {
 
         {/* Entity Mapping Tab */}
         {activeMainTab === 'entityMapping' && (
-          <div className="bg-white border border-dark-300 rounded-lg p-6">
+          <div className="bg-white border border-dark-300 rounded-md p-6">
             <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
               <LinkIcon className="h-5 w-5" />
               Entity Mapping
@@ -256,7 +256,7 @@ export function SettingsPage() {
               Configure parent-child relationships and entity linkages using the <strong>d_entity_id_map</strong> table.
               Define how entities connect and interact with each other across the system.
             </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 text-sm text-blue-900">
               <p className="font-medium mb-2">Entity Mapping Configuration</p>
               <ul className="list-disc list-inside space-y-1 text-blue-700">
                 <li>View and edit parent-child entity relationships</li>
@@ -266,7 +266,7 @@ export function SettingsPage() {
             </div>
             <button
               onClick={() => navigate('/test/linkage')}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
             >
               Test Linkage Modal
             </button>
@@ -275,7 +275,7 @@ export function SettingsPage() {
 
         {/* Workflow Automation Tab */}
         {activeMainTab === 'workflowAutomation' && (
-          <div className="bg-white border border-dark-300 rounded-lg p-6">
+          <div className="bg-white border border-dark-300 rounded-md p-6">
             <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
               <Zap className="h-5 w-5" />
               Workflow Automation
@@ -284,7 +284,7 @@ export function SettingsPage() {
               Configure automated workflows, business process rules, and event-driven actions.
               Set up triggers, conditions, and actions to automate routine tasks.
             </p>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-900">
+            <div className="bg-amber-50 border border-amber-200 rounded-md p-4 text-sm text-amber-900">
               <p className="font-medium mb-2">Workflow Automation Features</p>
               <ul className="list-disc list-inside space-y-1 text-amber-700">
                 <li>Create automated workflows for entity state transitions</li>
@@ -298,7 +298,7 @@ export function SettingsPage() {
 
         {/* Integrations Tab */}
         {activeMainTab === 'integrations' && (
-          <div className="bg-white border border-dark-300 rounded-lg p-6">
+          <div className="bg-white border border-dark-300 rounded-md p-6">
             <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
               <Cable className="h-5 w-5" />
               Integrations
@@ -307,7 +307,7 @@ export function SettingsPage() {
               Manage external service integrations, API connections, and third-party system configurations.
               Configure webhooks, OAuth providers, and external data sources.
             </p>
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-900">
+            <div className="bg-green-50 border border-green-200 rounded-md p-4 text-sm text-green-900">
               <p className="font-medium mb-2">Available Integrations</p>
               <ul className="list-disc list-inside space-y-1 text-green-700">
                 <li>AWS Services (S3, SES, SNS, Lambda)</li>
@@ -322,7 +322,7 @@ export function SettingsPage() {
 
         {/* Entities Tab */}
         {activeMainTab === 'entities' && (
-          <div className="bg-white border border-dark-300 rounded-lg p-6">
+          <div className="bg-white border border-dark-300 rounded-md p-6">
           <div className="flex items-center gap-3 mb-4">
             <Database className="h-5 w-5 text-dark-700" />
             <h2 className="text-lg font-semibold text-dark-900">Entity Configuration</h2>
@@ -337,10 +337,10 @@ export function SettingsPage() {
               {/* Overview Tab - Shows All */}
               <button
                 onClick={() => setSelectedDomain('Overview')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
                   selectedDomain === 'Overview'
-                    ? 'bg-slate-600 text-white shadow-md'
-                    : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                    ? 'bg-slate-600 text-white shadow-sm'
+                    : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
                 }`}
               >
                 {getDomainIcon('Overview')}
@@ -349,7 +349,7 @@ export function SettingsPage() {
 
               {/* Dynamic Domain Tabs */}
               {loading ? (
-                <div className="flex items-center gap-2 px-4 py-2.5 text-dark-500">
+                <div className="flex items-center gap-2 px-3 py-2 text-dark-500">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                   Loading domains...
                 </div>
@@ -358,10 +358,10 @@ export function SettingsPage() {
                   <button
                     key={domain.domain}
                     onClick={() => setSelectedDomain(domain.domain)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-all ${
                       selectedDomain === domain.domain
-                        ? 'bg-slate-600 text-white shadow-md'
-                        : 'bg-dark-100 text-dark-700 border border-dark-300 hover:border-dark-400'
+                        ? 'bg-slate-600 text-white shadow-sm'
+                        : 'bg-white text-dark-700 border border-dark-300 hover:border-dark-400'
                     }`}
                   >
                     {getDomainIcon(domain.domain)}
@@ -381,14 +381,14 @@ export function SettingsPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={`Search entities in ${selectedDomain}...`}
-                className="w-full pl-10 pr-4 py-2 border border-dark-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-dark-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
 
           {/* Help Text */}
           {!loading && filteredEntities.length > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2 mb-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3 flex items-start gap-2 mb-4">
               <Database className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
               <div className="text-xs text-blue-900">
                 <p className="font-medium">Entity Configuration</p>
@@ -406,7 +406,7 @@ export function SettingsPage() {
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             </div>
           ) : filteredEntities.length === 0 ? (
-            <div className="text-center py-12 bg-dark-50 rounded-lg border border-dark-300">
+            <div className="text-center py-12 bg-dark-50 rounded-md border border-dark-300">
               <p className="text-dark-600">
                 {searchQuery
                   ? `No entities found matching "${searchQuery}" in ${selectedDomain}.`
@@ -414,7 +414,7 @@ export function SettingsPage() {
               </p>
             </div>
           ) : (
-            <div className="bg-white rounded-lg border border-dark-300 overflow-hidden">
+            <div className="bg-white rounded-md border border-dark-300 overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-dark-50 border-b border-dark-300">
                   <tr>
@@ -490,7 +490,7 @@ export function SettingsPage() {
 
         {/* Data Labels Tab */}
         {activeMainTab === 'dataLabels' && (
-          <div className="bg-white border border-dark-300 rounded-lg p-6">
+          <div className="bg-white border border-dark-300 rounded-md p-6">
             <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
               <Tag className="h-5 w-5" />
               Data Labels
@@ -499,7 +499,7 @@ export function SettingsPage() {
               Manage dropdown options, status workflows, and sequential states for all entity types.
               Configure data labels stored in the <strong>setting_datalabel</strong> table.
             </p>
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-sm text-purple-900 mb-6">
+            <div className="bg-purple-50 border border-purple-200 rounded-md p-4 text-sm text-purple-900 mb-6">
               <p className="font-medium mb-2">Data Label Categories</p>
               <div className="grid grid-cols-2 gap-2 text-purple-700">
                 <ul className="list-disc list-inside space-y-1">
@@ -519,7 +519,7 @@ export function SettingsPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-dark-300 overflow-hidden">
+            <div className="bg-white rounded-md border border-dark-300 overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-dark-50 border-b border-dark-300">
                   <tr>

@@ -97,7 +97,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
 
       case 'code':
         return (
-          <pre className="bg-dark-900 text-gray-100 rounded-lg p-4 my-4 overflow-x-auto">
+          <pre className="bg-dark-900 text-gray-100 rounded-md p-4 my-4 overflow-x-auto">
             <code className="font-mono text-sm">{block.content}</code>
           </pre>
         );
@@ -117,7 +117,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
 
       case 'callout':
         return (
-          <div className="bg-dark-100 border-l-4 border-dark-3000 p-4 rounded-r my-4">
+          <div className="bg-dark-100 border-l-4 border-dark-3000 p-4 rounded-r-md my-4">
             <p className="text-dark-600 font-medium">{block.content}</p>
           </div>
         );
@@ -128,7 +128,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
             <img
               src={block.properties.src}
               alt={block.properties.alt || ''}
-              className="max-w-full h-auto rounded-lg shadow-md"
+              className="max-w-full h-auto rounded-md shadow-sm"
             />
             {block.properties.alt && (
               <p className="text-sm text-dark-700 text-center mt-2 italic">
@@ -143,7 +143,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
           <div className="my-6 aspect-video">
             <iframe
               src={block.properties.src}
-              className="w-full h-full rounded-lg shadow-md"
+              className="w-full h-full rounded-md shadow-sm"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
@@ -196,7 +196,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
               navigate(`/wiki/${data.id}/edit`);
             }
           }}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-dark-700 text-white rounded-lg hover:bg-dark-800 transition-colors shadow-sm"
+          className="inline-flex items-center gap-2 px-3 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors shadow-sm"
         >
           <Edit2 className="h-4 w-4" />
           Edit
@@ -204,7 +204,7 @@ export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) 
       </div>
 
       {/* Content Container - Matches WikiPreviewPanel exactly */}
-      <div className="bg-dark-100 rounded-xl shadow-lg">
+      <div className="bg-dark-100 rounded-xl shadow-sm">
         {/* Simple Header */}
         <div className="px-12 pt-12 pb-6 border-b border-dark-300">
           <h1 className="text-4xl font-bold text-dark-600 mb-4">{title}</h1>

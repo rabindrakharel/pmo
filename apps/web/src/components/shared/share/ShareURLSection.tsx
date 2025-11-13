@@ -107,7 +107,7 @@ export function ShareURLSection({
   const fullUrl = sharedUrl ? `${window.location.origin}${convertToPublicUrl(sharedUrl)}` : null;
 
   return (
-    <div className="bg-dark-100 border border-dark-400 rounded-lg p-4">
+    <div className="bg-dark-100 border border-dark-400 rounded-md p-4">
       <div className="flex items-start justify-between">
         <div className="flex items-center space-x-2 flex-1">
           <Share2 className="h-5 w-5 text-dark-700" />

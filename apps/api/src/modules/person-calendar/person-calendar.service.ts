@@ -37,11 +37,6 @@ export interface CreatePersonCalendarRequest {
   customerEmail?: string;
   customerPhone: string;
 
-  // Service details
-  serviceId: string; // d_service.id
-  serviceName: string;
-  serviceCategory?: string; // 'HVAC', 'Plumbing', 'Electrical', etc.
-
   // Event details
   eventTitle: string;
   eventDescription?: string;
@@ -115,9 +110,6 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
     customerName,
     customerEmail,
     customerPhone,
-    serviceId,
-    serviceName,
-    serviceCategory,
     eventTitle,
     eventDescription,
     eventType,
@@ -163,9 +155,6 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
         ${timezone},
         ${JSON.stringify({
           booking_number: bookingNumber,
-          service_id: serviceId,
-          service_name: serviceName,
-          service_category: serviceCategory,
           customer_id: customerId,
           customer_name: customerName,
           customer_email: customerEmail,
@@ -216,12 +205,17 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
     });
 
     // Insert attendees into d_entity_event_person_calendar
+    let attendeeIndex = 0;
     for (const attendee of attendees) {
+      attendeeIndex++;
+      const attendeeCode = `${eventCode}-ATT-${attendeeIndex.toString().padStart(2, '0')}`;
+
       await client`
         INSERT INTO app.d_entity_event_person_calendar (
-          person_entity_type, person_entity_id, event_id,
+          code, person_entity_type, person_entity_id, event_id,
           event_rsvp_status, from_ts, to_ts
         ) VALUES (
+          ${attendeeCode},
           ${attendee.person_entity_type},
           ${attendee.person_entity_id}::uuid,
           ${eventId}::uuid,
@@ -277,14 +271,6 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
     // ===============================================
 
     const entityLinks = [];
-
-    // Link event → service
-    entityLinks.push({
-      parent_entity_type: 'event',
-      parent_entity_id: eventId,
-      child_entity_type: 'service',
-      child_entity_id: serviceId
-    });
 
     // Link event → customer
     if (customerId) {

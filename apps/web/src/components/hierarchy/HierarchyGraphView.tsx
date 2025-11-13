@@ -46,7 +46,7 @@ export function HierarchyGraphView({
   // Early return if no data
   if (!data || data.length === 0) {
     return (
-      <div className="bg-dark-100 rounded-lg shadow p-6">
+      <div className="bg-dark-100 rounded-md shadow p-6">
         <div className="text-center py-12">
           <p className="text-dark-700">{emptyMessage}</p>
         </div>
@@ -98,7 +98,7 @@ export function HierarchyGraphView({
   };
 
   return (
-    <div className="bg-dark-100 rounded-lg shadow p-6">
+    <div className="bg-dark-100 rounded-md shadow p-6">
       <DAGVisualizer
         nodes={dagNodes}
         currentNodeId={currentNodeId}

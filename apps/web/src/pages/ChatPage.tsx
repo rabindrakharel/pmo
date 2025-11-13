@@ -25,9 +25,9 @@ export function ChatPage() {
         <div className="max-w-7xl mx-auto px-6 py-8">
           {/* Info Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+            <div className="bg-white rounded-md shadow border border-gray-200 p-6">
               <div className="flex items-center mb-3">
-                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center mr-3">
+                <div className="w-12 h-12 bg-blue-50 rounded-md flex items-center justify-center mr-3">
                   <MessageSquare className="w-6 h-6 text-blue-600" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900">Ask Questions</h3>
@@ -37,9 +37,9 @@ export function ChatPage() {
               </p>
             </div>
 
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+            <div className="bg-white rounded-md shadow border border-gray-200 p-6">
               <div className="flex items-center mb-3">
-                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center mr-3">
+                <div className="w-12 h-12 bg-blue-50 rounded-md flex items-center justify-center mr-3">
                   <Calendar className="w-6 h-6 text-blue-600" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900">Book Services</h3>
@@ -49,9 +49,9 @@ export function ChatPage() {
               </p>
             </div>
 
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+            <div className="bg-white rounded-md shadow border border-gray-200 p-6">
               <div className="flex items-center mb-3">
-                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center mr-3">
+                <div className="w-12 h-12 bg-blue-50 rounded-md flex items-center justify-center mr-3">
                   <Phone className="w-6 h-6 text-blue-600" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900">Voice Call</h3>
@@ -63,7 +63,7 @@ export function ChatPage() {
           </div>
 
           {/* Instructions */}
-          <div className="bg-white rounded-lg border border-gray-300 p-8 text-center">
+          <div className="bg-white rounded-md border border-gray-300 p-8 text-center">
             <div className="w-16 h-16 bg-slate-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <MessageSquare className="w-8 h-8 text-white" />
             </div>
@@ -90,16 +90,16 @@ export function ChatPage() {
           <div className="mt-8">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Try asking:</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-slate-400 transition-colors cursor-pointer">
+              <div className="bg-white rounded-md border border-gray-200 p-4 hover:border-slate-400 transition-colors cursor-pointer">
                 <p className="text-sm text-gray-700">"What services are available?"</p>
               </div>
-              <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-slate-400 transition-colors cursor-pointer">
+              <div className="bg-white rounded-md border border-gray-200 p-4 hover:border-slate-400 transition-colors cursor-pointer">
                 <p className="text-sm text-gray-700">"Which employees are available today?"</p>
               </div>
-              <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-slate-400 transition-colors cursor-pointer">
+              <div className="bg-white rounded-md border border-gray-200 p-4 hover:border-slate-400 transition-colors cursor-pointer">
                 <p className="text-sm text-gray-700">"I need to book a plumbing service"</p>
               </div>
-              <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-slate-400 transition-colors cursor-pointer">
+              <div className="bg-white rounded-md border border-gray-200 p-4 hover:border-slate-400 transition-colors cursor-pointer">
                 <p className="text-sm text-gray-700">"Show me available time slots for next week"</p>
               </div>
             </div>

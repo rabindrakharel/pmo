@@ -75,7 +75,7 @@ const ToolbarSelect: React.FC<ToolbarSelectProps> = ({
     value={value}
     onChange={(e) => onChange(e.target.value)}
     disabled={disabled}
-    className="px-3 py-2 border border-dark-400 rounded-md text-sm bg-dark-100 text-dark-600 hover:border-dark-400 focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
+    className="px-3 py-2.5 border border-dark-300 rounded-md text-sm bg-dark-100 text-dark-600 hover:border-dark-400 focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500"
   >
     {options.map((option) => (
       <option key={option.value} value={option.value}>
@@ -273,7 +273,7 @@ export const ModularEditor: React.FC<ModularEditorProps> = ({
   ];
 
   return (
-    <div className={`border border-dark-400 rounded-lg bg-dark-100 overflow-hidden ${className}`}>
+    <div className={`border border-dark-400 rounded-md bg-dark-100 overflow-hidden ${className}`}>
       {/* Header */}
       <div className="bg-dark-100 border-b border-dark-300 px-4 py-2 flex items-center justify-between">
         <div className="flex items-center space-x-2">

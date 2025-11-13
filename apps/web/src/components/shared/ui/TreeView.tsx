@@ -209,7 +209,7 @@ export function TreeView<T = any>({
 
   if (loading) {
     return (
-      <div className="bg-dark-100 rounded-lg shadow-sm border border-dark-300">
+      <div className="bg-dark-100 rounded-md shadow-sm border border-dark-300">
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700"></div>
           <span className="ml-3 text-dark-700">Loading...</span>
@@ -219,7 +219,7 @@ export function TreeView<T = any>({
   }
 
   return (
-    <div className={`bg-dark-100 rounded-lg shadow-sm border border-dark-300 ${className}`}>
+    <div className={`bg-dark-100 rounded-md shadow-sm border border-dark-300 ${className}`}>
       {searchable && (
         <div className="p-4 border-b border-dark-300 bg-dark-100">
           <div className="relative">
@@ -229,7 +229,7 @@ export function TreeView<T = any>({
               placeholder="Search tree..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-dark-400 rounded-md text-sm focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
             />
           </div>
         </div>

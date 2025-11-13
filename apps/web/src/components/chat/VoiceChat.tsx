@@ -225,7 +225,7 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
   return (
     <div className="flex flex-col h-full bg-slate-50">
       {/* Header */}
-      <div className="bg-slate-700 text-white px-6 py-4 flex items-center justify-between flex-shrink-0 shadow-lg">
+      <div className="bg-slate-700 text-white px-6 py-4 flex items-center justify-between flex-shrink-0 shadow-sm">
         <div>
           <h2 className="text-xl font-bold">Voice Assistant</h2>
           <p className="text-sm text-slate-200">Orchestrator-powered voice chat</p>
@@ -234,7 +234,7 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
           <select
             value={selectedVoice}
             onChange={(e) => setSelectedVoice(e.target.value)}
-            className="text-sm bg-white/20 text-white border border-white/30 rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-white/50"
+            className="text-sm bg-white/20 text-white border border-white/30 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-white/50"
             disabled={isRecording || isProcessing}
           >
             {voices.map(voice => (
@@ -259,7 +259,7 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.length === 0 ? (
           <div className="text-center py-12">
-            <div className="w-20 h-20 mx-auto mb-4 bg-white rounded-full flex items-center justify-center shadow-lg">
+            <div className="w-20 h-20 mx-auto mb-4 bg-white rounded-full flex items-center justify-center shadow-sm">
               <Mic className="w-10 h-10 text-purple-600" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -277,7 +277,7 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[75%] rounded-2xl px-4 py-3 shadow-md ${
+                className={`max-w-[75%] rounded-2xl px-4 py-3 shadow-sm ${
                   message.role === 'user'
                     ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
                     : 'bg-white text-gray-800 border border-gray-200'
@@ -295,7 +295,7 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
         {/* Processing indicator */}
         {isProcessing && (
           <div className="flex justify-center">
-            <div className="bg-white rounded-full px-6 py-3 shadow-lg flex items-center gap-3">
+            <div className="bg-white rounded-full px-6 py-3 shadow-sm flex items-center gap-3">
               <Loader2 className="w-5 h-5 text-purple-600 animate-spin" />
               <span className="text-sm text-gray-700">Processing your message...</span>
             </div>
@@ -305,7 +305,7 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
         {/* Playing response indicator */}
         {isPlayingResponse && (
           <div className="flex justify-center">
-            <div className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-full px-6 py-3 shadow-lg flex items-center gap-3">
+            <div className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-full px-6 py-3 shadow-sm flex items-center gap-3">
               <Volume2 className="w-5 h-5 animate-pulse" />
               <span className="text-sm font-medium">AI is speaking...</span>
             </div>
@@ -314,18 +314,18 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
 
         {/* Error message */}
         {error && (
-          <div className="bg-red-100 border-2 border-red-300 text-red-800 rounded-xl px-4 py-3 shadow-md">
+          <div className="bg-red-100 border-2 border-red-300 text-red-800 rounded-xl px-4 py-3 shadow-sm">
             <p className="text-sm font-medium">{error}</p>
           </div>
         )}
 
         {/* Conversation ended */}
         {conversationEnded && (
-          <div className="bg-yellow-100 border-2 border-yellow-300 text-yellow-800 rounded-xl px-4 py-3 shadow-md text-center">
+          <div className="bg-yellow-100 border-2 border-yellow-300 text-yellow-800 rounded-xl px-4 py-3 shadow-sm text-center">
             <p className="text-sm font-medium mb-2">Conversation ended</p>
             <button
               onClick={resetConversation}
-              className="bg-purple-600 hover:bg-purple-700 text-white text-sm px-4 py-2 rounded-lg transition-colors"
+              className="bg-slate-600 hover:bg-slate-700 text-white text-sm px-3 py-2 rounded-md transition-colors shadow-sm"
             >
               Start New Conversation
             </button>
@@ -336,7 +336,7 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
       </div>
 
       {/* Recording Controls */}
-      <div className="bg-white border-t border-gray-200 p-6 flex-shrink-0 shadow-lg">
+      <div className="bg-white border-t border-gray-200 p-6 flex-shrink-0 shadow-sm">
         <div className="flex items-center justify-center gap-4">
           <button
             onMouseDown={startRecording}
@@ -344,7 +344,7 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
             onTouchStart={startRecording}
             onTouchEnd={stopRecording}
             disabled={isProcessing || isPlayingResponse || conversationEnded}
-            className={`relative w-20 h-20 rounded-full flex items-center justify-center shadow-xl transition-all transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`relative w-20 h-20 rounded-full flex items-center justify-center shadow-sm transition-all transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
               isRecording
                 ? 'bg-gradient-to-r from-red-500 to-red-600 animate-pulse'
                 : 'bg-gradient-to-r from-purple-600 to-indigo-600'
@@ -366,7 +366,7 @@ export function VoiceChat({ onClose, authToken }: VoiceChatProps) {
           {conversationEnded && (
             <button
               onClick={resetConversation}
-              className="bg-gray-600 hover:bg-gray-700 text-white text-sm px-6 py-3 rounded-lg transition-colors shadow-lg"
+              className="bg-gray-600 hover:bg-gray-700 text-white text-sm px-6 py-3 rounded-md transition-colors shadow-sm"
             >
               New Conversation
             </button>

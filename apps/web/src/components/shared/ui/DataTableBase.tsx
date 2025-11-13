@@ -128,7 +128,7 @@ export function DataTableBase<T = any>({
 
   if (loading) {
     return (
-      <div className="bg-dark-100 rounded-lg shadow-sm border border-dark-300">
+      <div className="bg-dark-100 rounded-md shadow-sm border border-dark-300">
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-400"></div>
           <span className="ml-3 text-dark-700">Loading...</span>
@@ -138,7 +138,7 @@ export function DataTableBase<T = any>({
   }
 
   return (
-    <div className={`border border-dark-300 rounded-lg ${className}`}>
+    <div className={`border border-dark-300 rounded-md ${className}`}>
       {/* Scrollable table container */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-dark-400">
@@ -177,7 +177,7 @@ export function DataTableBase<T = any>({
                   {isDragOver && draggedIndex !== null && (
                     <tr className="relative pointer-events-none">
                       <td colSpan={columns.length} className="p-0 h-0">
-                        <div className="absolute left-0 right-0 h-1 bg-dark-1000 shadow-lg z-50"
+                        <div className="absolute left-0 right-0 h-1 bg-dark-1000 shadow-sm z-50"
                              style={{ top: '-2px' }}
                         />
                       </td>

@@ -242,7 +242,7 @@ export function ArtifactUploadPage() {
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate('/artifact')}
-              className="p-2 hover:bg-dark-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-dark-100 rounded-md transition-colors"
             >
               <ArrowLeft className="h-5 w-5 text-dark-700 stroke-[1.5]" />
             </button>
@@ -293,7 +293,7 @@ export function ArtifactUploadPage() {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+          className={`border-2 border-dashed rounded-md p-12 text-center transition-colors ${
             isDragging
               ? 'border-dark-3000 bg-dark-100'
               : 'border-dark-400 bg-dark-100 hover:border-dark-400'
@@ -327,7 +327,7 @@ export function ArtifactUploadPage() {
             {files.map((fileData) => (
               <div
                 key={fileData.id}
-                className="bg-dark-100 rounded-lg border border-dark-300 shadow-sm p-6"
+                className="bg-dark-100 rounded-md border border-dark-300 shadow-sm p-6"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center space-x-3">
@@ -390,7 +390,7 @@ export function ArtifactUploadPage() {
                       onChange={(e) =>
                         handleMetadataChange(fileData.id, 'name', e.target.value)
                       }
-                      className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-md text-sm focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
                       placeholder="Enter artifact name"
                       disabled={fileData.uploadStatus === 'uploaded'}
                     />
@@ -405,7 +405,7 @@ export function ArtifactUploadPage() {
                       onChange={(e) =>
                         handleMetadataChange(fileData.id, 'artifact_type', e.target.value)
                       }
-                      className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-md text-sm focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
                       disabled={fileData.uploadStatus === 'uploaded'}
                     >
                       {ARTIFACT_TYPES.map(type => (
@@ -426,7 +426,7 @@ export function ArtifactUploadPage() {
                         handleMetadataChange(fileData.id, 'descr', e.target.value)
                       }
                       rows={2}
-                      className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-md text-sm focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
                       placeholder="Enter description (optional)"
                       disabled={fileData.uploadStatus === 'uploaded'}
                     />
@@ -445,7 +445,7 @@ export function ArtifactUploadPage() {
                           e.target.value.split(',').map(t => t.trim()).filter(Boolean)
                         )
                       }
-                      className="w-full px-3 py-2 border border-dark-400 rounded-lg text-sm focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
+                      className="w-full px-3 py-2 border border-dark-400 rounded-md text-sm focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
                       placeholder="e.g., contract, legal, 2024"
                       disabled={fileData.uploadStatus === 'uploaded'}
                     />

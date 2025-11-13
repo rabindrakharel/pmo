@@ -170,7 +170,7 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
           <p className="text-red-600">{error}</p>
           <button
             onClick={loadData}
-            className="mt-4 px-4 py-2 bg-dark-700 text-white rounded-lg hover:bg-dark-800"
+            className="mt-4 px-4 py-2 bg-dark-700 text-white rounded-md hover:bg-dark-800"
           >
             Retry
           </button>
@@ -181,7 +181,7 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
     // KANBAN VIEW - Settings-driven, no fallbacks
     if (view === 'kanban' && config.kanban) {
       return (
-        <div className="bg-dark-100 rounded-lg shadow p-6 h-full overflow-x-auto">
+        <div className="bg-dark-100 rounded-md shadow p-6 h-full overflow-x-auto">
           <KanbanView
             config={config}
             data={data}
@@ -196,7 +196,7 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
     // GRID VIEW
     if (view === 'grid' && config.grid) {
       return (
-        <div className="bg-dark-100 rounded-lg shadow p-6">
+        <div className="bg-dark-100 rounded-md shadow p-6">
           <GridView
             items={data}
             onItemClick={handleRowClick}
@@ -214,7 +214,7 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
     // CALENDAR VIEW - Person-filterable calendar grid showing all slots (available + booked)
     if (view === 'calendar') {
       return (
-        <div className="bg-dark-100 rounded-lg shadow p-6">
+        <div className="bg-dark-100 rounded-md shadow p-6">
           <CalendarView
             config={config}
             data={data}
@@ -249,7 +249,7 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
         }));
 
         return (
-          <div className="bg-dark-100 rounded-lg shadow p-6">
+          <div className="bg-dark-100 rounded-md shadow p-6">
             <DAGVisualizer
               nodes={dagNodes}
             />
@@ -275,7 +275,7 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
               {isSettingsEntity && (
                 <button
                   onClick={() => navigate('/settings')}
-                  className="p-2 rounded-lg text-dark-600 hover:text-dark-600 hover:bg-dark-100 transition-all"
+                  className="p-2 rounded-md text-dark-600 hover:text-dark-600 hover:bg-dark-100 transition-all"
                   title="Back to Settings"
                 >
                   <ArrowLeft className="h-4 w-4 stroke-[1.5]" />

@@ -206,7 +206,7 @@ export function Layout({ children, createButton }: LayoutProps) {
                     e.stopPropagation();
                     setIsUserMenuOpen(!isUserMenuOpen);
                   }}
-                  className="w-full flex items-center space-x-3 p-2 hover:bg-dark-100 rounded-lg transition-colors duration-150"
+                  className="w-full flex items-center space-x-3 p-2 hover:bg-dark-100 rounded-md transition-colors duration-150"
                 >
                   <div className="h-10 w-10 border border-dark-400 rounded-full flex items-center justify-center">
                     <User className="h-5 w-5 text-dark-700 stroke-[1.5]" />
@@ -222,7 +222,7 @@ export function Layout({ children, createButton }: LayoutProps) {
 
                 {/* Dropdown Menu */}
                 {isUserMenuOpen && (
-                  <div className="absolute bottom-full left-3 right-3 mb-2 bg-dark-100 border border-dark-300 rounded-lg shadow-lg py-2 z-50">
+                  <div className="absolute bottom-full left-3 right-3 mb-2 bg-dark-100 border border-dark-300 rounded-md shadow-sm py-2 z-50">
                     {profileNavigationItems.map((item) => {
                       const IconComponent = item.icon;
                       const isActive = isCurrentPage(item.href);
@@ -272,7 +272,7 @@ export function Layout({ children, createButton }: LayoutProps) {
                 
                 {/* Collapsed Dropdown Menu */}
                 {isUserMenuOpen && (
-                  <div className="absolute bottom-full left-16 mb-2 bg-dark-100 border border-dark-300 rounded-lg shadow-lg py-2 z-50 min-w-48">
+                  <div className="absolute bottom-full left-16 mb-2 bg-dark-100 border border-dark-300 rounded-md shadow-sm py-2 z-50 min-w-48">
                     <div className="px-3 py-2 border-b border-dark-300">
                       <div className="text-sm font-normal text-dark-600 truncate">{user?.name}</div>
                       <div className="text-xs font-normal text-dark-700 truncate">{user?.email}</div>

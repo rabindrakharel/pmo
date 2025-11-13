@@ -147,7 +147,7 @@ export function EntityLinkageEditor({
                           type="checkbox"
                           checked={isParent}
                           onChange={() => handleParentToggle(entity.code)}
-                          className="w-4 h-4 text-blue-600 rounded"
+                          className="w-4 h-4 text-slate-600 rounded"
                         />
                         <ArrowUp className="h-3 w-3" />
                         <span>Can be parent</span>
@@ -176,17 +176,17 @@ export function EntityLinkageEditor({
   return (
     <div className="space-y-6">
       {/* Help Text */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-slate-50 border border-slate-200 rounded-md p-4">
         <div className="flex items-start gap-3">
-          <Link2 className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <Link2 className="h-5 w-5 text-slate-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <h4 className="text-sm font-medium text-blue-900 mb-1">
+            <h4 className="text-sm font-medium text-slate-900 mb-1">
               Entity Relationships
             </h4>
-            <p className="text-xs text-blue-700 mb-2">
+            <p className="text-xs text-slate-700 mb-2">
               Define how this entity relates to other entities in your system.
             </p>
-            <ul className="text-xs text-blue-700 space-y-1">
+            <ul className="text-xs text-slate-700 space-y-1">
               <li>
                 <strong>Parent entities:</strong> This entity can belong to these entities
                 (e.g., a Task can belong to a Project)
@@ -202,12 +202,12 @@ export function EntityLinkageEditor({
 
       {/* Summary */}
       {(parentEntities.length > 0 || childEntities.length > 0) && (
-        <div className="bg-dark-50 border border-dark-300 rounded-lg p-4">
+        <div className="bg-dark-50 border border-dark-300 rounded-md p-4">
           <h4 className="text-sm font-medium text-dark-700 mb-2">Selected Relationships</h4>
           <div className="flex flex-col gap-2 text-sm">
             {parentEntities.length > 0 && (
               <div className="flex items-center gap-2">
-                <ArrowUp className="h-4 w-4 text-blue-600" />
+                <ArrowUp className="h-4 w-4 text-slate-600" />
                 <span className="text-dark-600">
                   Parents: <strong>{parentEntities.join(', ')}</strong>
                 </span>

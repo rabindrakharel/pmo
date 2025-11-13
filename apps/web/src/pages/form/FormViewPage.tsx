@@ -114,7 +114,7 @@ export function FormViewPage() {
           <div className="flex items-center space-x-3">
             <button
               onClick={() => navigate('/form')}
-              className="h-10 w-10 bg-dark-100 border border-dark-300 rounded-lg flex items-center justify-center hover:bg-dark-100"
+              className="h-10 w-10 bg-dark-100 border border-dark-300 rounded-md flex items-center justify-center hover:bg-dark-100"
               title="Back"
             >
               <ArrowLeft className="h-5 w-5 text-dark-600 stroke-[1.5]" />
@@ -139,7 +139,7 @@ export function FormViewPage() {
           <div className="flex items-center space-x-3">
             <button
               onClick={() => navigate(`/form/${id}/edit`)}
-              className="inline-flex items-center px-4 py-2 border border-dark-400 text-sm font-normal rounded-lg text-dark-600 bg-dark-100 hover:bg-dark-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-7000"
+              className="inline-flex items-center px-4 py-2 border border-dark-400 text-sm font-normal rounded-md text-dark-600 bg-dark-100 hover:bg-dark-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-7000"
               title="Edit form"
             >
               <Edit3 className="h-4 w-4 mr-2 stroke-[1.5]" />
@@ -196,7 +196,7 @@ export function FormViewPage() {
                   <button
                     key={step.id}
                     onClick={() => navigateToStep(index)}
-                    className={`px-3 py-2 rounded-lg text-sm font-normal transition-colors min-w-0 flex items-center space-x-2 ${
+                    className={`px-3 py-2 rounded-md text-sm font-normal transition-colors min-w-0 flex items-center space-x-2 ${
                       index === currentStepIndex
                         ? 'bg-dark-100 text-dark-700 border border-dark-400'
                         : 'bg-dark-100 text-dark-700 hover:bg-dark-100 border border-dark-300'

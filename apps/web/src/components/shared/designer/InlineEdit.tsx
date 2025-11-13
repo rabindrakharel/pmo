@@ -81,21 +81,21 @@ export function InlineText({
           }}
           onBlur={handleSave}
           disabled={isSaving}
-          className="px-2 py-1 border border-dark-3000 rounded focus:outline-none focus:ring-2 focus:ring-dark-7000"
+          className="px-3 py-2 border border-dark-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500"
           placeholder={placeholder}
         />
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"
+          className="p-1.5 text-green-600 hover:bg-green-50 rounded-md transition-colors"
           title="Save"
         >
-          <Check className="h-4 w-4" />
+          <Check className="h-3.5 w-3.5" />
         </button>
         <button
           onClick={handleCancel}
           disabled={isSaving}
-          className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+          className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors"
           title="Cancel"
         >
           <X className="h-4 w-4" />
@@ -111,14 +111,14 @@ export function InlineText({
         onClick={() => !disabled && setIsEditing(true)}
         className={`${
           disabled ? 'cursor-default' : 'cursor-pointer'
-        } px-2 py-1 rounded hover:bg-dark-100 transition-colors ${
+        } px-3 py-2 rounded-md hover:bg-dark-100 transition-colors ${
           !value ? 'text-dark-600 italic' : ''
         }`}
       >
         {value || placeholder}
       </span>
       {!disabled && (
-        <Edit2 className="h-3 w-3 text-dark-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <Edit2 className="h-4 w-4 text-dark-600 opacity-0 group-hover:opacity-100 transition-opacity" />
       )}
     </div>
   );
@@ -177,21 +177,21 @@ export function InlineTextarea({
           }}
           disabled={isSaving}
           rows={4}
-          className="w-full px-3 py-2 border border-dark-3000 rounded focus:outline-none focus:ring-2 focus:ring-dark-7000"
+          className="w-full px-3 py-2 border border-dark-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500"
           placeholder={placeholder}
         />
         <div className="flex items-center gap-2 mt-2">
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm"
+            className="px-3 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 shadow-sm transition-colors text-sm font-medium"
           >
             Save
           </button>
           <button
             onClick={handleCancel}
             disabled={isSaving}
-            className="px-3 py-1 bg-dark-200 text-dark-600 rounded hover:bg-dark-300 transition-colors text-sm"
+            className="px-3 py-2 bg-white text-dark-600 border border-dark-300 rounded-md hover:bg-dark-100 transition-colors text-sm font-medium"
           >
             Cancel
           </button>
@@ -208,13 +208,13 @@ export function InlineTextarea({
         onClick={() => !disabled && setIsEditing(true)}
         className={`${
           disabled ? 'cursor-default' : 'cursor-pointer'
-        } px-3 py-2 rounded border border-transparent hover:border-dark-400 hover:bg-dark-100 transition-colors whitespace-pre-wrap ${
+        } px-3 py-2.5 rounded-md border border-transparent hover:border-dark-300 hover:bg-dark-100 transition-colors whitespace-pre-wrap ${
           !value ? 'text-dark-600 italic' : ''
         }`}
       >
         {value || placeholder}
         {!disabled && (
-          <Edit2 className="h-3 w-3 text-dark-600 inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <Edit2 className="h-4 w-4 text-dark-600 inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
         )}
       </div>
     </div>

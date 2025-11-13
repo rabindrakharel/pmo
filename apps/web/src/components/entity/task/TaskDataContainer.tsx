@@ -446,7 +446,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                       <img
                         src={att.dataUrl}
                         alt={displayName}
-                        className="max-w-[30vw] md:max-w-xs h-auto rounded-lg border border-dark-300 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                        className="max-w-[30vw] md:max-w-xs h-auto rounded-md border border-dark-300 shadow-sm cursor-pointer hover:shadow-sm transition-shadow"
                         onClick={() => setImagePreview({ url: att.dataUrl!, name: displayName })}
                       />
                       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -469,7 +469,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                     key={key}
                     href={att.dataUrl}
                     download={displayName}
-                    className="inline-flex items-center px-3 py-2 bg-dark-100 border border-dark-400 rounded-lg text-sm text-dark-700 hover:bg-dark-100 hover:border-dark-500 transition-colors"
+                    className="inline-flex items-center px-3 py-2 bg-dark-100 border border-dark-400 rounded-md text-sm text-dark-700 hover:bg-dark-100 hover:border-dark-500 transition-colors"
                   >
                     <Paperclip className="w-4 h-4 mr-2 stroke-[1.5]" />
                     <span className="font-normal truncate max-w-[12rem]">{displayName}</span>
@@ -481,7 +481,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
               return (
                 <div
                   key={key}
-                  className="inline-flex items-center px-3 py-2 bg-dark-100 border border-dark-300 rounded-lg text-sm text-dark-600"
+                  className="inline-flex items-center px-3 py-2 bg-dark-100 border border-dark-300 rounded-md text-sm text-dark-600"
                 >
                   <Paperclip className="w-4 h-4 mr-2 stroke-[1.5]" />
                   <span className="font-normal truncate max-w-[12rem]">{displayName}</span>
@@ -547,7 +547,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
             href={`/form/${metadata.form_id}/edit-submission?submissionId=${metadata.submission_id}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center px-3 py-2 bg-dark-100 border border-dark-400 rounded-lg text-sm text-dark-700 hover:bg-dark-100 hover:border-dark-500 transition-colors"
+            className="inline-flex items-center px-3 py-2 bg-dark-100 border border-dark-400 rounded-md text-sm text-dark-700 hover:bg-dark-100 hover:border-dark-500 transition-colors"
           >
             <ExternalLink className="h-4 w-4 mr-2 stroke-[1.5]" />
             View/Edit Form Submission
@@ -555,7 +555,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
         )}
 
         {/* Submitted Data Table */}
-        <div className="bg-dark-100 border border-dark-300 rounded-lg overflow-hidden">
+        <div className="bg-dark-100 border border-dark-300 rounded-md overflow-hidden">
           <div className="bg-dark-100 border-b border-dark-300 px-4 py-2 flex items-center space-x-2">
             <Table className="h-4 w-4 text-dark-700 stroke-[1.5]" />
             <span className="text-sm font-normal text-dark-600">Submitted Data</span>
@@ -615,14 +615,14 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
             <img
               src={imagePreview.url}
               alt={imagePreview.name}
-              className="max-w-full max-h-[85vh] object-contain rounded-lg"
+              className="max-w-full max-h-[85vh] object-contain rounded-md"
             />
             <div className="mt-4 text-center text-white text-sm">{imagePreview.name}</div>
           </div>
         </div>
       )}
 
-      <div className="bg-dark-100 rounded-lg border border-dark-300 shadow-sm">
+      <div className="bg-dark-100 rounded-md border border-dark-300 shadow-sm">
       {/* Header */}
       <div className="px-6 py-4 border-b border-dark-300">
         <div className="flex items-center space-x-2">
@@ -702,7 +702,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                 value={hoursLogged}
                 onChange={(e) => setHoursLogged(e.target.value)}
                 placeholder="0.0"
-                className="w-20 px-3 py-2 text-sm border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
+                className="w-20 px-3 py-2 text-sm border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
               />
             </div>
           </div>
@@ -712,7 +712,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
             // Form Selection and Interactive Form
             <div className="space-y-4">
               {/* Form Selector */}
-              <div className="bg-dark-100 rounded-lg border border-dark-500 p-4">
+              <div className="bg-dark-100 rounded-md border border-dark-500 p-4">
                 <div className="flex items-center space-x-2 mb-3">
                   <FileText className="h-5 w-5 text-dark-700 stroke-[1.5]" />
                   <label className="text-sm font-normal text-dark-600">Select Form:</label>
@@ -727,7 +727,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                   <select
                     value={selectedFormId}
                     onChange={(e) => handleFormSelect(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
+                    className="w-full px-3 py-2 text-sm border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-dark-3000"
                   >
                     <option value="">Choose a form...</option>
                     {forms.map((form) => (
@@ -768,7 +768,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
             </div>
           ) : (
             // Text Editor for other update types
-            <div className="bg-dark-100 rounded-lg border border-dark-400">
+            <div className="bg-dark-100 rounded-md border border-dark-400">
               <textarea
                 value={editorContent}
                 onChange={(e) => setEditorContent(e.target.value)}
@@ -787,7 +787,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                 {attachments.map((file, index) => (
                   <div
                     key={index}
-                    className="inline-flex items-center px-3 py-1.5 bg-dark-100 border border-dark-400 rounded-lg text-sm text-dark-700 group"
+                    className="inline-flex items-center px-3 py-1.5 bg-dark-100 border border-dark-400 rounded-md text-sm text-dark-700 group"
                   >
                     <Paperclip className="h-3.5 w-3.5 mr-1.5 stroke-[1.5]" />
                     <span className="max-w-[200px] truncate">{file.name}</span>
@@ -883,7 +883,7 @@ export function TaskDataContainer({ taskId, projectId, onUpdatePosted, isPublicV
                     </div>
 
                     {/* Comment Body - White background like JIRA */}
-                    <div className="bg-dark-100 border border-dark-300 rounded-lg p-4 group-hover:border-dark-400 transition-colors">
+                    <div className="bg-dark-100 border border-dark-300 rounded-md p-4 group-hover:border-dark-400 transition-colors">
                       <div className="text-sm text-dark-600 leading-relaxed">
                         {renderRichText(update.data_richtext)}
                       </div>

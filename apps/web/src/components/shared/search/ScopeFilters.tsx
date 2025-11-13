@@ -93,7 +93,7 @@ export function ScopeFilters({
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`
-          inline-flex items-center px-4 py-2 text-sm font-normal rounded-lg border transition-colors
+          inline-flex items-center px-4 py-2 text-sm font-normal rounded-md border transition-colors
           ${selectedScopes.length > 0
             ? 'bg-dark-100 text-dark-700 border-dark-400 hover:bg-dark-100'
             : 'bg-dark-100 text-dark-600 border-dark-400 hover:bg-dark-100'
@@ -133,7 +133,7 @@ export function ScopeFilters({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-10 mt-1 w-72 bg-dark-100 border border-dark-300 rounded-lg shadow-lg">
+        <div className="absolute z-10 mt-1 w-72 bg-dark-100 border border-dark-300 rounded-md shadow-sm">
           <div className="py-1 max-h-64 overflow-y-auto">
             {loading && (
               <div className="px-4 py-2 text-sm text-dark-700">

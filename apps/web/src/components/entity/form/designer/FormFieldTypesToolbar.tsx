@@ -62,7 +62,7 @@ function DraggableFieldTypeButton({ type, label, description, icon: Icon, onAddF
       {...listeners}
       {...attributes}
       onClick={() => onAddField(type)}
-      className={`w-full flex items-start space-x-3 p-3 rounded-lg hover:bg-dark-100 transition-colors text-left group ${
+      className={`w-full flex items-start space-x-3 p-3 rounded-md hover:bg-dark-100 transition-colors text-left group ${
         isDragging ? 'opacity-50' : ''
       }`}
     >
@@ -171,7 +171,7 @@ export function FormFieldTypesToolbar({ onAddField }: FormFieldTypesToolbarProps
           placeholder="Search field types..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-3 py-2 border border-dark-400 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+          className="w-full pl-10 pr-3 py-2 border border-dark-400 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
         />
       </div>
 

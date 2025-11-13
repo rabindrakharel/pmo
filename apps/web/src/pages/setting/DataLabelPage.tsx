@@ -136,7 +136,7 @@ export function DataLabelPage() {
   return (
     <Layout>
       <div className="max-w-7xl mx-auto">
-        <div className="bg-dark-100 shadow rounded-lg">
+        <div className="bg-dark-100 shadow rounded-md">
           <div className="px-4 py-5 sm:p-6">
             {/* Header */}
             <div className="flex items-center mb-6">
@@ -152,7 +152,7 @@ export function DataLabelPage() {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="w-full flex items-center justify-between px-4 py-3 border border-dark-400 rounded-lg bg-dark-100 hover:bg-dark-100 transition-colors"
+                  className="w-full flex items-center justify-between px-4 py-3 border border-dark-400 rounded-md bg-dark-100 hover:bg-dark-100 transition-colors"
                 >
                   <div className="flex items-center gap-2 flex-wrap">
                     <Wrench className="h-5 w-5 text-dark-600 stroke-[1.5]" />
@@ -193,7 +193,7 @@ export function DataLabelPage() {
 
                 {/* Dropdown Panel */}
                 {isDropdownOpen && (
-                  <div className="absolute z-50 w-full mt-2 bg-dark-100 border border-dark-300 rounded-lg shadow-lg max-h-96 overflow-hidden">
+                  <div className="absolute z-50 w-full mt-2 bg-dark-100 border border-dark-300 rounded-md shadow-lg max-h-96 overflow-hidden">
                     {/* Search Bar */}
                     <div className="p-3 border-b border-dark-300 sticky top-0 bg-dark-100">
                       <div className="relative">
@@ -203,7 +203,7 @@ export function DataLabelPage() {
                           placeholder="Search settings..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full pl-10 pr-4 py-2 border border-dark-400 rounded-lg focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
+                          className="w-full pl-10 pr-4 py-2 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
                         />
                       </div>
                     </div>
@@ -278,7 +278,7 @@ export function DataLabelPage() {
                   const SettingIcon = setting?.icon || Tag;
 
                   return (
-                    <div key={settingId} className="border border-dark-300 rounded-lg overflow-hidden">
+                    <div key={settingId} className="border border-dark-300 rounded-md overflow-hidden">
                       {/* Section Header */}
                       <div className="bg-dark-100 px-4 py-3 border-b border-dark-300">
                         <div className="flex items-center gap-2">

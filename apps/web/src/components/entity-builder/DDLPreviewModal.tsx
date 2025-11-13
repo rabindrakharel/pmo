@@ -28,7 +28,7 @@ export function DDLPreviewModal({ ddl, entityName, onClose }: DDLPreviewModalPro
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-md shadow-sm max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-dark-300">
           <div>
@@ -67,17 +67,17 @@ export function DDLPreviewModal({ ddl, entityName, onClose }: DDLPreviewModalPro
             </button>
 
             {/* DDL Code */}
-            <pre className="bg-dark-900 text-green-400 p-6 rounded-lg overflow-x-auto text-sm font-mono leading-relaxed">
+            <pre className="bg-dark-900 text-green-400 p-6 rounded-md overflow-x-auto text-sm font-mono leading-relaxed">
               {ddl}
             </pre>
           </div>
 
           {/* Info Box */}
-          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-900">
+          <div className="mt-4 bg-slate-50 border border-slate-200 rounded-md p-4">
+            <p className="text-sm text-slate-900">
               <strong>What happens when you create this entity?</strong>
             </p>
-            <ul className="mt-2 space-y-1 text-sm text-blue-800">
+            <ul className="mt-2 space-y-1 text-sm text-slate-800">
               <li>• Database table will be created with the above schema</li>
               <li>• API endpoints will be auto-generated (GET, POST, PUT, DELETE)</li>
               <li>• Entity will appear in the sidebar navigation</li>

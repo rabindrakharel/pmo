@@ -92,7 +92,7 @@ export function WikiHeaderEditor({
                 if (e.key === 'Enter') setIsEditingIcon(false);
               }}
               autoFocus
-              className="text-8xl text-center bg-transparent border-2 border-white rounded-lg w-32 h-32 outline-none"
+              className="text-8xl text-center bg-transparent border-2 border-white rounded-md w-32 h-32 outline-none"
               placeholder="📄"
             />
           ) : (
@@ -111,7 +111,7 @@ export function WikiHeaderEditor({
 
         {/* Cover picker hint */}
         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="bg-dark-100/90 backdrop-blur-sm px-3 py-1.5 rounded-lg shadow-lg flex items-center space-x-2 text-sm text-dark-600">
+          <div className="bg-dark-100/90 backdrop-blur-sm px-3 py-1.5 rounded-md shadow-sm flex items-center space-x-2 text-sm text-dark-600">
             <ImageIcon className="h-4 w-4" />
             <span>Click to change cover</span>
           </div>
@@ -120,7 +120,7 @@ export function WikiHeaderEditor({
         {/* Cover picker dropdown */}
         {showCoverPicker && (
           <div
-            className="absolute top-4 left-4 bg-dark-100 rounded-lg shadow-xl p-3 z-10"
+            className="absolute top-4 left-4 bg-dark-100 rounded-md shadow-sm p-3 z-10"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-xs font-semibold text-dark-700 mb-2">Choose Cover</div>
@@ -132,7 +132,7 @@ export function WikiHeaderEditor({
                     onUpdateCover(option.value);
                     setShowCoverPicker(false);
                   }}
-                  className={`w-full flex items-center space-x-2 p-2 rounded-lg border-2 transition-all ${
+                  className={`w-full flex items-center space-x-2 p-2 rounded-md border-2 transition-all ${
                     cover === option.value ? 'border-dark-3000 bg-dark-100' : 'border-transparent hover:border-dark-400'
                   }`}
                 >

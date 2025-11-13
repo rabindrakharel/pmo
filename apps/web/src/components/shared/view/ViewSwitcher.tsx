@@ -37,7 +37,7 @@ export function ViewSwitcher({
   }
 
   return (
-    <div className={`inline-flex bg-dark-100 border border-dark-400 rounded-lg ${className}`}>
+    <div className={`inline-flex bg-dark-100 border border-dark-400 rounded-md ${className}`}>
       {supportedViews.map((view) => {
         const Icon = viewIcons[view];
         const label = viewLabels[view];

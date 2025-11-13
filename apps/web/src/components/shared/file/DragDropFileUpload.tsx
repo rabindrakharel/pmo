@@ -97,7 +97,7 @@ export function DragDropFileUpload({
   };
 
   return (
-    <div className="bg-dark-100 rounded-lg shadow p-6 space-y-4">
+    <div className="bg-dark-100 rounded-md shadow p-6 space-y-4">
       <h2 className="text-sm font-medium text-dark-600">{getTitle()}</h2>
 
       {!selectedFile ? (
@@ -106,7 +106,7 @@ export function DragDropFileUpload({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={`
-            border-2 border-dashed rounded-lg p-8 text-center transition-all
+            border-2 border-dashed rounded-md p-8 text-center transition-all
             ${isDragging
               ? 'border-dark-3000 bg-dark-100 scale-[1.02]'
               : 'border-dark-400 bg-dark-100 hover:border-dark-400 hover:bg-dark-100'
@@ -136,7 +136,7 @@ export function DragDropFileUpload({
           </label>
         </div>
       ) : (
-        <div className="border border-dark-300 rounded-lg p-4">
+        <div className="border border-dark-300 rounded-md p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-3">
               {uploadedObjectKey ? (

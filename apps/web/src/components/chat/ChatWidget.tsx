@@ -578,12 +578,12 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
   return (
     <div className="fixed bottom-6 right-6 z-50">
       <div
-        className={`bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col overflow-hidden transition-all duration-300 ${
+        className={`bg-white rounded-md shadow-2xl border border-gray-200 flex flex-col overflow-hidden transition-all duration-300 ${
           isMinimized ? 'h-16 w-96' : 'h-[600px] w-96'
         }`}
       >
         {/* Header */}
-        <div className="bg-slate-700 text-white px-4 py-3 flex items-center justify-between flex-shrink-0 shadow-md">
+        <div className="bg-slate-700 text-white px-4 py-3 flex items-center justify-between flex-shrink-0 shadow-sm">
           <div className="flex items-center gap-3">
             <MessageSquare className="w-5 h-5" />
             <div>
@@ -665,7 +665,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
                     e.stopPropagation();
                     endVoiceCall();
                   }}
-                  className="bg-red-500 hover:bg-red-600 text-white rounded-full p-2 transition-all shadow-lg hover:shadow-xl"
+                  className="bg-red-500 hover:bg-red-600 text-white rounded-full p-2 transition-all shadow-sm hover:shadow-sm"
                   title="End Call"
                 >
                   <Phone className="w-4 h-4" />
@@ -694,7 +694,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
                         e.stopPropagation();
                         startVoiceCall();
                       }}
-                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-2 rounded-full text-sm font-medium shadow-lg transition-all flex items-center gap-2"
+                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-2 rounded-full text-sm font-medium shadow-sm transition-all flex items-center gap-2"
                     >
                       <Phone className="w-4 h-4" />
                       Start Call
@@ -713,7 +713,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
                   </div>
 
                   {error && (
-                    <div className="bg-red-100 border border-red-300 text-red-800 rounded-lg px-3 py-2 text-xs">
+                    <div className="bg-red-100 border border-red-300 text-red-800 rounded-md px-3 py-2 text-xs">
                       {error}
                     </div>
                   )}
@@ -730,7 +730,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
                   }`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                    className={`max-w-[80%] rounded-md px-4 py-2 ${
                       message.role === 'user'
                         ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
                         : message.role === 'system'
@@ -747,7 +747,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
               ))}
               {isLoading && (
                 <div className="flex items-start">
-                  <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
+                  <div className="bg-white border border-gray-200 rounded-md px-4 py-3">
                     <div className="flex gap-1">
                       <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                       <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
@@ -757,7 +757,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
                 </div>
               )}
               {error && (
-                <div className="bg-red-100 border border-red-300 text-red-800 rounded-lg px-4 py-2 text-sm">
+                <div className="bg-red-100 border border-red-300 text-red-800 rounded-md px-4 py-2 text-sm">
                   {error}
                 </div>
               )}
@@ -778,7 +778,7 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
                 <button
                   type="submit"
                   disabled={isLoading || !inputValue.trim()}
-                  className="bg-slate-600 hover:bg-slate-700 text-white rounded-full p-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                  className="bg-slate-600 hover:bg-slate-700 text-white rounded-full p-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-sm"
                 >
                   <Send className="w-5 h-5" />
                 </button>

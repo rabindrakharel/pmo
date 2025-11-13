@@ -109,7 +109,7 @@ export function ColumnEditor({ columns, onChange, entityType }: ColumnEditorProp
         <h3 className="text-sm font-medium text-dark-700 mb-3">
           Standard Columns (Auto-included)
         </h3>
-        <div className="bg-dark-50 rounded-lg border border-dark-300 overflow-hidden">
+        <div className="bg-dark-50 rounded-md border border-dark-300 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-dark-100 border-b border-dark-300">
               <tr>
@@ -139,7 +139,7 @@ export function ColumnEditor({ columns, onChange, entityType }: ColumnEditorProp
           </h3>
           <button
             onClick={handleAddColumn}
-            className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+            className="flex items-center gap-2 px-3 py-2 bg-slate-600 text-white text-sm rounded-md hover:bg-slate-700 shadow-sm"
           >
             <Plus className="h-4 w-4" />
             Add Column
@@ -147,12 +147,12 @@ export function ColumnEditor({ columns, onChange, entityType }: ColumnEditorProp
         </div>
 
         {columns.length === 0 ? (
-          <div className="bg-white rounded-lg border-2 border-dashed border-dark-300 p-8 text-center">
+          <div className="bg-white rounded-md border-2 border-dashed border-dark-300 p-8 text-center">
             <p className="text-dark-600 mb-2">No custom columns yet</p>
             <p className="text-sm text-dark-500">Click "Add Column" to define entity-specific fields</p>
           </div>
         ) : (
-          <div className="bg-white rounded-lg border border-dark-300 overflow-hidden">
+          <div className="bg-white rounded-md border border-dark-300 overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-dark-50 border-b border-dark-300">
                 <tr>
@@ -170,7 +170,7 @@ export function ColumnEditor({ columns, onChange, entityType }: ColumnEditorProp
 
                   if (isEditing) {
                     return (
-                      <tr key={column.id} className="bg-blue-50">
+                      <tr key={column.id} className="bg-slate-50">
                         <td className="px-2 py-2">
                           <GripVertical className="h-4 w-4 text-dark-400" />
                         </td>
@@ -257,7 +257,7 @@ export function ColumnEditor({ columns, onChange, entityType }: ColumnEditorProp
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => handleEditColumn(column)}
-                            className="text-blue-600 hover:text-blue-700 text-xs"
+                            className="text-slate-600 hover:text-slate-700 text-xs"
                           >
                             Edit
                           </button>

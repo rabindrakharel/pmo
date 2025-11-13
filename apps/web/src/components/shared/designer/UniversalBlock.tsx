@@ -152,7 +152,7 @@ export function UniversalBlock({
 
               {/* Context Menu */}
               {showContextMenu && (
-                <div className="absolute left-full ml-2 top-0 bg-dark-100 border border-dark-400 rounded-lg shadow-xl z-50 min-w-[180px] py-1">
+                <div className="absolute left-full ml-2 top-0 bg-dark-100 border border-dark-400 rounded-md shadow-sm z-50 min-w-[180px] py-1">
                   {onMoveUp && (
                     <button
                       onClick={(e) => {

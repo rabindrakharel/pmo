@@ -442,7 +442,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
     >
       <div className="space-y-4">
         {/* Entity Info */}
-        <div className="bg-dark-100 rounded-lg p-3 border border-dark-300">
+        <div className="bg-dark-100 rounded-md p-3 border border-dark-300">
           <p className="text-xs text-dark-700 mb-0.5">
             {getInfoText()}
           </p>
@@ -453,7 +453,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
 
         {/* Alerts */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+          <div className="bg-red-50 border border-red-200 rounded-md p-3 flex items-center gap-2">
             <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
             <p className="text-sm text-red-700 flex-1">{error}</p>
             <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800">
@@ -463,7 +463,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
         )}
 
         {success && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+          <div className="bg-green-50 border border-green-200 rounded-md p-3 flex items-center gap-2">
             <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
             <p className="text-sm text-green-700 flex-1">{success}</p>
             <button onClick={() => setSuccess(null)} className="text-green-600 hover:text-green-800">
@@ -474,7 +474,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
 
         {/* Entity Type Buttons - Match LinkagePage UI */}
         {validEntityTypes.length > 0 && (
-          <div className="bg-dark-100 border border-dark-300 rounded-lg p-3">
+          <div className="bg-dark-100 border border-dark-300 rounded-md p-3">
             <label className="text-xs font-medium text-dark-600 mb-2 block">
               {entityLabel}
             </label>
@@ -488,7 +488,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
                       setSelectedEntityType(type);
                       setSearchQuery('');
                     }}
-                    className={`flex items-center gap-1 px-2 py-1 rounded border text-xs font-normal transition-all ${
+                    className={`flex items-center gap-1 px-2 py-1.5 rounded border text-xs font-normal transition-all ${
                       selectedEntityType === type
                         ? 'bg-dark-100 border-dark-600 text-dark-700 shadow-sm'
                         : 'bg-dark-100 border-dark-400 text-dark-700 hover:border-dark-400 hover:bg-dark-100'
@@ -504,7 +504,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
         )}
 
         {validEntityTypes.length === 0 && (
-          <div className="text-center py-8 bg-orange-50 border border-orange-200 rounded-lg">
+          <div className="text-center py-8 bg-orange-50 border border-orange-200 rounded-md">
             <p className="text-sm text-orange-700">
               No valid {mode === 'assign-parent' ? 'parent' : 'child'} types available
             </p>
@@ -530,7 +530,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
 
         {/* Table of Available Entities */}
         {selectedEntityType && (
-          <div className="border border-dark-400 rounded-lg overflow-hidden">
+          <div className="border border-dark-400 rounded-md overflow-hidden">
             {loading ? (
               <div className="text-center py-12 text-dark-700">Loading...</div>
             ) : filteredEntities.length === 0 ? (
@@ -542,19 +542,19 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
                 <table className="min-w-full divide-y divide-dark-400">
                   <thead className="bg-dark-100 sticky top-0 z-10">
                     <tr>
-                      <th className="px-3 py-1.5 text-left text-[11px] font-normal text-dark-700 bg-dark-100">
+                      <th className="px-3 py-1.5 text-left text-sm font-normal text-dark-700 bg-dark-100">
                         Name
                       </th>
-                      <th className="px-3 py-1.5 text-left text-[11px] font-normal text-dark-700 bg-dark-100">
+                      <th className="px-3 py-1.5 text-left text-sm font-normal text-dark-700 bg-dark-100">
                         Code
                       </th>
-                      <th className="px-3 py-1.5 text-left text-[11px] font-normal text-dark-700 bg-dark-100">
+                      <th className="px-3 py-1.5 text-left text-sm font-normal text-dark-700 bg-dark-100">
                         Description
                       </th>
-                      <th className="px-3 py-1.5 text-center text-[11px] font-normal text-dark-700 bg-dark-100">
+                      <th className="px-3 py-1.5 text-center text-sm font-normal text-dark-700 bg-dark-100">
                         Status
                       </th>
-                      <th className="px-3 py-1.5 text-center text-[11px] font-normal text-dark-700 bg-dark-100">
+                      <th className="px-3 py-1.5 text-center text-sm font-normal text-dark-700 bg-dark-100">
                         Action
                       </th>
                     </tr>
@@ -569,23 +569,23 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
                             linked ? 'bg-dark-100' : 'hover:bg-dark-100'
                           }`}
                         >
-                          <td className="px-3 py-1.5 text-xs text-dark-600 font-normal">
+                          <td className="px-3 py-1.5 text-sm text-dark-600 font-normal">
                             {entity.name}
                           </td>
-                          <td className="px-3 py-1.5 text-xs text-dark-700">
+                          <td className="px-3 py-1.5 text-sm text-dark-700">
                             {entity.code || '-'}
                           </td>
-                          <td className="px-3 py-1.5 text-xs text-dark-700 truncate max-w-xs">
+                          <td className="px-3 py-1.5 text-sm text-dark-700 truncate max-w-xs">
                             {entity.descr || '-'}
                           </td>
                           <td className="px-3 py-1.5 text-center">
                             {linked ? (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-normal bg-dark-100 text-dark-700">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-sm font-normal bg-dark-100 text-dark-700">
                                 <Check className="h-2.5 w-2.5 mr-0.5" />
                                 Linked
                               </span>
                             ) : (
-                              <span className="text-[10px] text-dark-600">-</span>
+                              <span className="text-sm text-dark-600">-</span>
                             )}
                           </td>
                           <td className="px-3 py-1.5 text-center">

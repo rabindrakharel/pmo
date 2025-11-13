@@ -29,8 +29,8 @@ interface CancelButtonProps extends BaseButtonProps {}
 
 const getSizeClasses = (size: 'sm' | 'md' | 'lg' = 'md') => {
   const sizeMap = {
-    sm: 'px-3 py-1.5 text-xs',
-    md: 'px-4 py-2 text-sm',
+    sm: 'px-3 py-2 text-xs',
+    md: 'px-3 py-2 text-sm',
     lg: 'px-6 py-3 text-base',
   };
   return sizeMap[size];
@@ -38,8 +38,8 @@ const getSizeClasses = (size: 'sm' | 'md' | 'lg' = 'md') => {
 
 const getIconSize = (size: 'sm' | 'md' | 'lg' = 'md') => {
   const iconMap = {
-    sm: 'h-3 w-3',
-    md: 'h-4 w-4',
+    sm: 'h-3.5 w-3.5',
+    md: 'h-3.5 w-3.5',
     lg: 'h-5 w-5',
   };
   return iconMap[size];
@@ -52,11 +52,11 @@ export function EditButton({
   disabled = false,
   className = ''
 }: EditButtonProps) {
-  const baseClasses = 'inline-flex items-center font-normal rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const baseClasses = 'inline-flex items-center font-normal rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
 
   const variantClasses = variant === 'primary'
-    ? 'text-white bg-dark-700 border border-dark-700 hover:bg-dark-800 focus:ring-dark-7000'
-    : 'text-dark-700 bg-dark-100 border border-dark-700 hover:bg-dark-100 focus:ring-dark-7000';
+    ? 'text-white bg-slate-600 border border-slate-600 hover:bg-slate-700 shadow-sm focus:ring-slate-500/50'
+    : 'text-dark-700 bg-white border border-dark-300 hover:border-dark-400 focus:ring-slate-500/30';
 
   const disabledClasses = disabled ? 'opacity-50 cursor-not-allowed' : '';
 
@@ -79,11 +79,11 @@ export function ShareButton({
   disabled = false,
   className = ''
 }: ShareButtonProps) {
-  const baseClasses = 'inline-flex items-center font-normal rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const baseClasses = 'inline-flex items-center font-normal rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
 
   const variantClasses = variant === 'primary'
-    ? 'text-white bg-dark-600 border border-dark-400 hover:bg-dark-700 focus:ring-gray-500'
-    : 'text-dark-600 bg-dark-100 border border-dark-400 hover:bg-dark-100 focus:ring-dark-7000';
+    ? 'text-white bg-slate-600 border border-slate-600 hover:bg-slate-700 shadow-sm focus:ring-slate-500/50'
+    : 'text-dark-600 bg-white border border-dark-300 hover:border-dark-400 focus:ring-slate-500/30';
 
   const disabledClasses = disabled ? 'opacity-50 cursor-not-allowed' : '';
 
@@ -107,8 +107,8 @@ export function SaveButton({
   loadingText = 'Saving...',
   className = ''
 }: SaveButtonProps) {
-  const baseClasses = 'inline-flex items-center font-normal rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
-  const variantClasses = 'text-white bg-dark-700 border border-dark-700 hover:bg-dark-800 focus:ring-dark-7000';
+  const baseClasses = 'inline-flex items-center font-normal rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const variantClasses = 'text-white bg-slate-600 border border-slate-600 hover:bg-slate-700 shadow-sm focus:ring-slate-500/50';
   const disabledClasses = (disabled || loading) ? 'opacity-50 cursor-not-allowed' : '';
 
   return (
@@ -139,8 +139,8 @@ export function BackButton({
   title = 'Go back',
   className = ''
 }: BackButtonProps) {
-  const baseClasses = 'rounded-lg flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
-  const variantClasses = 'bg-dark-100 border border-dark-400 hover:bg-dark-100 focus:ring-dark-7000';
+  const baseClasses = 'rounded-md flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const variantClasses = 'bg-white border border-dark-400 hover:bg-white focus:ring-dark-7000';
   const disabledClasses = disabled ? 'opacity-50 cursor-not-allowed' : '';
 
   const sizeClasses = size === 'sm' ? 'h-8 w-8' : size === 'lg' ? 'h-12 w-12' : 'h-10 w-10';
@@ -163,8 +163,8 @@ export function CancelButton({
   disabled = false,
   className = ''
 }: CancelButtonProps) {
-  const baseClasses = 'inline-flex items-center font-normal rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
-  const variantClasses = 'text-dark-600 bg-dark-100 border border-dark-400 hover:bg-dark-100 focus:ring-dark-7000';
+  const baseClasses = 'inline-flex items-center font-normal rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const variantClasses = 'text-dark-600 bg-white border border-dark-400 hover:bg-white focus:ring-dark-7000';
   const disabledClasses = disabled ? 'opacity-50 cursor-not-allowed' : '';
 
   return (

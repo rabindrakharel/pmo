@@ -435,7 +435,7 @@ export function FormSubmissionEditor({
 
   if (!submissionId) {
     return (
-      <div className="bg-dark-100 border border-dark-300 rounded-lg p-8 text-center text-sm text-dark-700">
+      <div className="bg-dark-100 border border-dark-300 rounded-md p-8 text-center text-sm text-dark-700">
         Select a submission from the Form Data tab to start editing.
       </div>
     );
@@ -451,14 +451,14 @@ export function FormSubmissionEditor({
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6 space-y-4">
+      <div className="bg-red-50 border border-red-200 rounded-md p-6 space-y-4">
         <div className="flex items-center space-x-3">
           <AlertCircle className="h-5 w-5 text-red-600" />
           <p className="text-red-800 text-sm">{error}</p>
         </div>
         <button
           onClick={handleRetry}
-          className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-dark-700 rounded-lg hover:bg-dark-800 transition-colors"
+          className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-slate-600 rounded-md hover:bg-slate-700 transition-colors shadow-sm"
         >
           <RefreshCw className="h-4 w-4 mr-2" />
           Retry
@@ -469,7 +469,7 @@ export function FormSubmissionEditor({
 
   if (!internalSubmission) {
     return (
-      <div className="bg-dark-100 border border-dark-300 rounded-lg p-8 text-center text-sm text-dark-700">
+      <div className="bg-dark-100 border border-dark-300 rounded-md p-8 text-center text-sm text-dark-700">
         Submission not found or no data available.
       </div>
     );
@@ -478,7 +478,7 @@ export function FormSubmissionEditor({
   return (
     <div className="space-y-4">
       {showHeader && (
-        <div className="bg-dark-100 border border-dark-300 rounded-lg p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="bg-dark-100 border border-dark-300 rounded-md p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-sm font-normal text-dark-600">Edit Form Submission</h2>
             <p className="text-xs text-dark-700 mt-1">
@@ -495,7 +495,7 @@ export function FormSubmissionEditor({
             )}
             <button
               onClick={() => fetchSubmission({ forceFullLoading: true })}
-              className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-xs font-normal rounded-lg text-dark-600 bg-dark-100 hover:bg-dark-100"
+              className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-xs font-normal rounded-md text-dark-600 bg-dark-100 hover:bg-dark-100"
             >
               <RefreshCw className="h-4 w-4 mr-1.5" />
               Refresh
@@ -503,7 +503,7 @@ export function FormSubmissionEditor({
             {onBack && (
               <button
                 onClick={onBack}
-                className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-xs font-normal rounded-lg text-dark-600 bg-dark-100 hover:bg-dark-100"
+                className="inline-flex items-center px-3 py-1.5 border border-dark-400 text-xs font-normal rounded-md text-dark-600 bg-dark-100 hover:bg-dark-100"
               >
                 <ArrowLeft className="h-4 w-4 mr-1.5" />
                 Back
@@ -513,7 +513,7 @@ export function FormSubmissionEditor({
         </div>
       )}
 
-      <div className="bg-dark-100 border border-dark-300 rounded-lg p-4">
+      <div className="bg-dark-100 border border-dark-300 rounded-md p-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
           <div className="flex items-center space-x-2">
             <Hash className="h-4 w-4 text-dark-600" />

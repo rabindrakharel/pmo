@@ -308,7 +308,7 @@ export function DevelopersPage() {
               rel={link.external ? 'noopener noreferrer' : ''}
               className="flex items-start p-4 bg-white border border-gray-200 rounded-xl hover:border-slate-400 hover:shadow-sm transition-all group"
             >
-              <div className="h-10 w-10 bg-blue-50 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+              <div className="h-10 w-10 bg-blue-50 rounded-md flex items-center justify-center mr-3 flex-shrink-0">
                 <link.icon className="h-5 w-5 text-blue-600" />
               </div>
               <div className="flex-1">
@@ -331,22 +331,22 @@ export function DevelopersPage() {
             Technology Stack
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <div className="bg-gray-50 rounded-md p-4 border border-gray-200">
               <div className="text-xs text-gray-600 mb-1">Frontend</div>
               <div className="text-sm font-medium text-gray-900">React 19</div>
               <div className="text-xs text-gray-600 mt-1">TypeScript, Vite, Tailwind CSS v4</div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <div className="bg-gray-50 rounded-md p-4 border border-gray-200">
               <div className="text-xs text-gray-600 mb-1">Backend</div>
               <div className="text-sm font-medium text-gray-900">Fastify v5</div>
               <div className="text-xs text-gray-600 mt-1">TypeScript (ESM), JWT Auth</div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <div className="bg-gray-50 rounded-md p-4 border border-gray-200">
               <div className="text-xs text-gray-600 mb-1">Database</div>
               <div className="text-sm font-medium text-gray-900">PostgreSQL 14+</div>
               <div className="text-xs text-gray-600 mt-1">52 DDL files, RBAC model</div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <div className="bg-gray-50 rounded-md p-4 border border-gray-200">
               <div className="text-xs text-gray-600 mb-1">Infrastructure</div>
               <div className="text-sm font-medium text-gray-900">AWS</div>
               <div className="text-xs text-gray-600 mt-1">EC2, S3, Lambda, Terraform</div>
@@ -359,7 +359,7 @@ export function DevelopersPage() {
           {devSections.map((section) => (
             <div key={section.id} className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center mb-4">
-                <div className="h-10 w-10 bg-blue-50 rounded-lg flex items-center justify-center mr-3">
+                <div className="h-10 w-10 bg-blue-50 rounded-md flex items-center justify-center mr-3">
                   <section.icon className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
@@ -371,7 +371,7 @@ export function DevelopersPage() {
                 {section.items.map((item, idx) => (
                   <div
                     key={idx}
-                    className="p-4 bg-gray-50 border border-gray-200 rounded-lg hover:border-slate-400 hover:shadow-sm transition-all cursor-pointer group"
+                    className="p-4 bg-gray-50 border border-gray-200 rounded-md hover:border-slate-400 hover:shadow-sm transition-all cursor-pointer group"
                     onClick={() => {
                       if (item.link) window.location.href = item.link;
                     }}
@@ -406,19 +406,19 @@ export function DevelopersPage() {
             <h2 className="text-lg font-medium text-dark-700">Essential Commands</h2>
           </div>
           <div className="space-y-3">
-            <div className="bg-dark-900 rounded-lg p-4 font-mono text-sm">
+            <div className="bg-dark-900 rounded-md p-4 font-mono text-sm">
               <div className="text-green-400 mb-1"># Start all services (Docker + API + Web)</div>
               <div className="text-white">./tools/start-all.sh</div>
             </div>
-            <div className="bg-dark-900 rounded-lg p-4 font-mono text-sm">
+            <div className="bg-dark-900 rounded-md p-4 font-mono text-sm">
               <div className="text-green-400 mb-1"># Import/reset database (52 DDL files)</div>
               <div className="text-white">./tools/db-import.sh</div>
             </div>
-            <div className="bg-dark-900 rounded-lg p-4 font-mono text-sm">
+            <div className="bg-dark-900 rounded-md p-4 font-mono text-sm">
               <div className="text-green-400 mb-1"># Test API endpoints</div>
               <div className="text-white">./tools/test-api.sh GET /api/v1/project</div>
             </div>
-            <div className="bg-dark-900 rounded-lg p-4 font-mono text-sm">
+            <div className="bg-dark-900 rounded-md p-4 font-mono text-sm">
               <div className="text-green-400 mb-1"># View API logs</div>
               <div className="text-white">./tools/logs-api.sh 100</div>
             </div>
@@ -434,7 +434,7 @@ export function DevelopersPage() {
           <p className="text-sm text-dark-600 mb-4">
             All API requests require JWT authentication. Include the token in the Authorization header:
           </p>
-          <div className="bg-dark-900 rounded-lg p-4 font-mono text-sm">
+          <div className="bg-dark-900 rounded-md p-4 font-mono text-sm">
             <div className="text-white">Authorization: Bearer &lt;your_jwt_token&gt;</div>
           </div>
           <p className="text-sm text-dark-600 mt-4">
@@ -454,7 +454,7 @@ export function DevelopersPage() {
               href="http://localhost:4000/docs"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 font-semibold bg-slate-600 text-white rounded-lg hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-600 transition-all shadow-md hover:shadow-lg"
+              className="inline-flex items-center gap-2 px-6 py-3 font-semibold bg-slate-600 text-white rounded-md hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-600 transition-all shadow-sm hover:shadow-lg"
             >
               <Book className="h-4 w-4" />
               View API Docs

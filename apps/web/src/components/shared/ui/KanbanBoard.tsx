@@ -19,10 +19,15 @@ export interface KanbanBoardProps {
   // NEW ARCHITECTURE: Auto-Generation ONLY (Universal Field Detector)
   // ============================================================================
   /**
-   * Data array - REQUIRED
+   * Data array - REQUIRED when columns not provided
    * Board automatically detects grouping field and generates columns
    */
-  data: any[];
+  data?: any[];
+
+  /**
+   * Pre-built columns - when provided, skips auto-generation
+   */
+  columns?: KanbanColumn[];
 
   /**
    * Optional: Explicitly specify grouping field (overrides auto-detection)
@@ -148,7 +153,7 @@ function KanbanCard({
 
   return (
     <div
-      className="bg-dark-100 p-3 rounded-lg border border-dark-300 shadow-sm hover:shadow-md transition-shadow cursor-pointer relative group"
+      className="bg-dark-100 p-3 rounded-md border border-dark-300 shadow-sm hover:shadow-sm transition-shadow cursor-pointer relative group"
       onClick={onClick}
       draggable
       onDragStart={(e) => {
@@ -280,6 +285,7 @@ function KanbanColumnComponent({
 
 export function KanbanBoard({
   data,
+  columns: providedColumns,
   groupByField: explicitGroupByField,
   dataTypes,
   onCardClick,
@@ -287,21 +293,27 @@ export function KanbanBoard({
   renderCard,
   emptyMessage = 'No columns to display'}: KanbanBoardProps) {
   // ============================================================================
-  // NEW ARCHITECTURE: Auto-Generation ONLY
+  // NEW ARCHITECTURE: Auto-Generation ONLY (when columns not provided)
   // ============================================================================
-  const [columns, setColumns] = useState<KanbanColumn[]>([]);
+  const [columns, setColumns] = useState<KanbanColumn[]>(providedColumns || []);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Auto-detect grouping field using universal field detector
+  // Auto-detect grouping field using universal field detector (only when columns not provided)
   const detectedConfig = useMemo(() => {
-    if (!data || data.length === 0) return null;
+    if (providedColumns || !data || data.length === 0) return null;
 
     const fieldKeys = Object.keys(data[0]);
     return generateKanbanConfig(fieldKeys, dataTypes);
   }, [data, dataTypes]);
 
-  // Load settings options and generate columns
+  // Load settings options and generate columns (only when columns not provided)
   React.useEffect(() => {
+    // Skip auto-generation if columns are provided
+    if (providedColumns) {
+      setColumns(providedColumns);
+      return;
+    }
+
     const generateColumns = async () => {
       if (!data || data.length === 0) {
         setColumns([]);
@@ -358,8 +370,10 @@ export function KanbanBoard({
       }
     };
 
-    generateColumns();
-  }, [data, detectedConfig, explicitGroupByField]);
+    if (!providedColumns) {
+      generateColumns();
+    }
+  }, [data, detectedConfig, explicitGroupByField, providedColumns]);
 
   const handleCardMove = (itemId: string, toColumnId: string) => {
     if (!onCardMove) return;

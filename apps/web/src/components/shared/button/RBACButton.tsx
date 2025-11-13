@@ -306,27 +306,27 @@ export function RBACButton({
   const { hasPermission, loading: permissionLoading } = useRBACPermission(permission);
 
   // Standardized base classes matching the Button component
-  const baseClasses = 'inline-flex items-center border text-sm font-normal rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1';
+  const baseClasses = 'inline-flex items-center border text-sm font-normal rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1';
 
   const variantClasses = {
     primary: hasPermission
-      ? 'border-dark-700 text-white bg-dark-700 hover:bg-dark-800 hover:border-dark-800 focus:ring-dark-7000'
+      ? 'border-slate-600 text-white bg-slate-600 hover:bg-slate-700 hover:border-slate-700 shadow-sm focus:ring-slate-500/50'
       : 'border-dark-400 bg-dark-300 text-dark-700 cursor-not-allowed',
     secondary: hasPermission
-      ? 'border-dark-400 text-dark-600 bg-dark-100 hover:bg-dark-100 hover:border-dark-400 focus:ring-gray-500'
-      : 'border-dark-300 bg-dark-100 text-dark-600 cursor-not-allowed',
+      ? 'border-dark-300 text-dark-700 bg-white hover:border-dark-400 focus:ring-slate-500/30'
+      : 'border-dark-300 bg-white text-dark-600 cursor-not-allowed',
     danger: hasPermission
       ? 'border-red-600 text-white bg-red-600 hover:bg-red-700 hover:border-red-700 focus:ring-red-500'
       : 'border-dark-400 bg-dark-300 text-dark-700 cursor-not-allowed',
     ghost: hasPermission
-      ? 'border-transparent text-dark-600 hover:bg-dark-100 focus:ring-gray-500'
+      ? 'border-transparent text-dark-700 hover:bg-dark-200 focus:ring-slate-500/30'
       : 'border-transparent text-dark-600 cursor-not-allowed',
   };
 
   const sizeClasses = {
-    sm: 'px-2.5 py-1 text-xs',
-    md: 'px-3 py-1.5 text-sm',
-    lg: 'px-4 py-2 text-base',
+    sm: 'px-3 py-2 text-xs',
+    md: 'px-3 py-2 text-sm',
+    lg: 'px-5 py-3 text-base',
   };
 
   const finalClassName = `${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`;
@@ -352,12 +352,12 @@ export function RBACButton({
         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
       )}
       {Icon && !loading && !permissionLoading && (
-        <Icon className={`${size === 'sm' ? 'h-3 w-3' : size === 'lg' ? 'h-5 w-5' : 'h-4 w-4'} stroke-[1.5] ${
+        <Icon className={`${size === 'sm' ? 'h-3.5 w-3.5' : size === 'lg' ? 'h-5 w-5' : 'h-3.5 w-3.5'} stroke-[1.5] ${
           children ? 'mr-2' : ''
         }`} />
       )}
       {!hasPermission && !permissionLoading && !loading && !Icon && (
-        <Lock className={`${size === 'sm' ? 'h-3 w-3' : size === 'lg' ? 'h-5 w-5' : 'h-4 w-4'} stroke-[1.5] ${
+        <Lock className={`${size === 'sm' ? 'h-3.5 w-3.5' : size === 'lg' ? 'h-5 w-5' : 'h-3.5 w-3.5'} stroke-[1.5] ${
           children ? 'mr-2' : ''
         }`} />
       )}

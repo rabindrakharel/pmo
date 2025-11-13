@@ -86,7 +86,7 @@ export function BillingPage() {
   return (
     <Layout>
       <div className="max-w-4xl mx-auto space-y-8">
-        <div className="bg-dark-100 shadow rounded-lg">
+        <div className="bg-dark-100 shadow rounded-md">
           <div className="px-4 py-5 sm:p-6">
             <div className="flex items-center mb-6">
               <CreditCard className="h-5 w-5 text-dark-700 stroke-[1.5] mr-3" />
@@ -97,7 +97,7 @@ export function BillingPage() {
             </div>
 
             {/* Current Plan */}
-            <div className="bg-gradient-to-r from-dark-100 to-indigo-900 border border-dark-400 rounded-lg p-6 mb-8">
+            <div className="bg-gradient-to-r from-dark-100 to-indigo-900 border border-dark-400 rounded-md p-6 mb-8">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-normal text-dark-600">PMO Enterprise Plan</h3>
@@ -121,10 +121,10 @@ export function BillingPage() {
             {/* Payment Method */}
             <div className="mb-8">
               <h3 className="text-sm font-normal text-dark-600 mb-4">Payment Method</h3>
-              <div className="bg-dark-100 border border-dark-300 rounded-lg p-4">
+              <div className="bg-dark-100 border border-dark-300 rounded-md p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
-                    <div className="h-10 w-10 bg-dark-100 rounded-lg flex items-center justify-center">
+                    <div className="h-10 w-10 bg-dark-100 rounded-md flex items-center justify-center">
                       <CreditCard className="h-5 w-5 text-dark-700 stroke-[1.5]" />
                     </div>
                     <div className="ml-4">
@@ -153,7 +153,7 @@ export function BillingPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
                           <div className="flex-shrink-0">
-                            <div className="h-10 w-10 bg-dark-100 rounded-lg flex items-center justify-center">
+                            <div className="h-10 w-10 bg-dark-100 rounded-md flex items-center justify-center">
                               <DollarSign className="h-5 w-5 text-dark-700 stroke-[1.5]" />
                             </div>
                           </div>

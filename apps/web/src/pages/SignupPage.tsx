@@ -113,7 +113,7 @@ export function SignupPage() {
               Back to home
             </Link>
             <div className="flex items-center mb-6">
-              <div className="h-12 w-12 bg-slate-600 rounded-lg flex items-center justify-center shadow-md">
+              <div className="h-12 w-12 bg-slate-600 rounded-md flex items-center justify-center shadow-sm">
                 <Building2 className="h-6 w-6 text-white" />
               </div>
               <span className="ml-3 text-2xl font-bold text-gray-900">Huron PMO</span>
@@ -132,7 +132,7 @@ export function SignupPage() {
           {/* Form */}
           <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="bg-red-50 border border-red-200 rounded-md p-4">
                 <div className="text-sm text-red-800">{error}</div>
               </div>
             )}
@@ -147,7 +147,7 @@ export function SignupPage() {
                   {...register('name')}
                   type="text"
                   autoComplete="name"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-transparent"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-transparent"
                   placeholder="Enter your name"
                 />
                 {errors.name && (
@@ -164,7 +164,7 @@ export function SignupPage() {
                   {...register('email')}
                   type="email"
                   autoComplete="email"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-transparent"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-transparent"
                   placeholder="you@example.com"
                 />
                 {errors.email && (
@@ -181,7 +181,7 @@ export function SignupPage() {
                   {customerTypes.map((type) => (
                     <label
                       key={type.value}
-                      className="relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 hover:border-slate-400 focus:outline-none"
+                      className="relative flex cursor-pointer rounded-md border border-gray-300 bg-white p-4 hover:border-slate-400 focus:outline-none"
                     >
                       <input
                         {...register('custType')}
@@ -216,7 +216,7 @@ export function SignupPage() {
                     {...register('password')}
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
-                    className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-transparent"
+                    className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-transparent"
                     placeholder="At least 8 characters"
                   />
                   <button
@@ -246,7 +246,7 @@ export function SignupPage() {
                     {...register('confirmPassword')}
                     type={showConfirmPassword ? 'text' : 'password'}
                     autoComplete="new-password"
-                    className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-transparent"
+                    className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-transparent"
                     placeholder="Re-enter your password"
                   />
                   <button
@@ -298,7 +298,7 @@ export function SignupPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-lg"
               >
                 <span className="absolute left-0 inset-y-0 flex items-center pl-3">
                   <UserPlus className="h-5 w-5 text-white/90" />
@@ -335,7 +335,7 @@ export function SignupPage() {
                 </div>
               ))}
             </div>
-            <div className="mt-10 p-6 bg-slate-600 rounded-lg border border-slate-500 shadow-md">
+            <div className="mt-10 p-6 bg-slate-600 rounded-md border border-slate-500 shadow-sm">
               <p className="text-white italic">
                 "Huron PMO has transformed how we manage our operations. The setup was incredibly easy!"
               </p>

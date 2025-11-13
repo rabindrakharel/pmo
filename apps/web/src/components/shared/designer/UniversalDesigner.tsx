@@ -167,14 +167,14 @@ export function UniversalDesigner({
 
           {/* View Mode Switcher */}
           {viewModes.length > 1 && (
-            <div className="flex items-center space-x-1 bg-dark-100 rounded-lg p-1">
+            <div className="flex items-center space-x-1 bg-white rounded-md p-1">
               {viewModes.map((mode) => (
                 <button
                   key={mode.id}
                   onClick={() => onViewModeChange?.(mode.id)}
                   className={`px-3 py-1.5 rounded text-sm font-medium transition-colors flex items-center space-x-1 ${
                     currentViewMode === mode.id
-                      ? 'bg-dark-100 text-dark-600 shadow-sm'
+                      ? 'bg-slate-100 text-dark-600 shadow-sm'
                       : 'text-dark-700 hover:text-dark-600'
                   }`}
                 >
@@ -193,9 +193,9 @@ export function UniversalDesigner({
               key={action.id}
               onClick={action.onClick}
               disabled={action.disabled || action.loading}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 ${
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
                 action.variant === 'primary'
-                  ? 'bg-dark-700 text-white hover:bg-dark-800 disabled:opacity-50'
+                  ? 'bg-slate-600 text-white hover:bg-slate-700 disabled:opacity-50'
                   : action.variant === 'danger'
                   ? 'bg-red-600 text-white hover:bg-red-700 disabled:opacity-50'
                   : 'text-dark-600 hover:bg-dark-100 disabled:opacity-50'
@@ -214,7 +214,7 @@ export function UniversalDesigner({
             <button
               onClick={primaryAction.onClick}
               disabled={primaryAction.disabled || primaryAction.loading}
-              className="px-4 py-2 bg-dark-700 text-white rounded-lg text-sm font-medium hover:bg-dark-800 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-2 bg-slate-600 text-white rounded-md text-sm font-medium hover:bg-slate-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {primaryAction.loading ? (
                 <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -230,9 +230,9 @@ export function UniversalDesigner({
               key={action.id}
               onClick={action.onClick}
               disabled={action.disabled || action.loading}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 ${
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
                 action.variant === 'primary'
-                  ? 'bg-dark-700 text-white hover:bg-dark-800 disabled:opacity-50'
+                  ? 'bg-slate-600 text-white hover:bg-slate-700 disabled:opacity-50'
                   : action.variant === 'danger'
                   ? 'bg-red-600 text-white hover:bg-red-700 disabled:opacity-50'
                   : 'text-dark-600 hover:bg-dark-100 disabled:opacity-50'
@@ -250,7 +250,7 @@ export function UniversalDesigner({
           {onCancel && (
             <button
               onClick={onCancel}
-              className="p-2 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded-lg transition-colors"
+              className="p-2 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded-md transition-colors"
               title="Cancel"
             >
               <X className="h-5 w-5" />

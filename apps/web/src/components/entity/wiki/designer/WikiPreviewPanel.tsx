@@ -58,7 +58,7 @@ export function WikiPreviewPanel({ blocks, title, metadata }: WikiPreviewPanelPr
 
       case 'code':
         return (
-          <pre className="bg-dark-900 text-gray-100 rounded-lg p-4 my-4 overflow-x-auto">
+          <pre className="bg-dark-900 text-gray-100 rounded-md p-4 my-4 overflow-x-auto">
             <code className="font-mono text-sm">{block.content}</code>
           </pre>
         );
@@ -89,7 +89,7 @@ export function WikiPreviewPanel({ blocks, title, metadata }: WikiPreviewPanelPr
             <img
               src={block.properties.src}
               alt={block.properties.alt || ''}
-              className="max-w-full h-auto rounded-lg shadow-md"
+              className="max-w-full h-auto rounded-md shadow-sm"
             />
             {block.properties.alt && (
               <p className="text-sm text-dark-700 text-center mt-2 italic">
@@ -104,7 +104,7 @@ export function WikiPreviewPanel({ blocks, title, metadata }: WikiPreviewPanelPr
           <div className="my-6 aspect-video">
             <iframe
               src={block.properties.src}
-              className="w-full h-full rounded-lg shadow-md"
+              className="w-full h-full rounded-md shadow-sm"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
@@ -148,7 +148,7 @@ export function WikiPreviewPanel({ blocks, title, metadata }: WikiPreviewPanelPr
   return (
     <div className="max-w-4xl mx-auto">
       {/* Content Container */}
-      <div className="bg-dark-100 rounded-xl shadow-lg">
+      <div className="bg-dark-100 rounded-xl shadow-sm">
         {/* Simple Header */}
         <div className="px-12 pt-12 pb-6 border-b border-dark-300">
           <h1 className="text-4xl font-bold text-dark-600 mb-4">{title || 'Untitled Page'}</h1>

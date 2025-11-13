@@ -101,7 +101,7 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
   if (error || !entityData) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-dark-100">
-        <div className="bg-dark-100 rounded-lg shadow-lg p-8 max-w-md w-full">
+        <div className="bg-dark-100 rounded-md shadow-lg p-8 max-w-md w-full">
           <div className="flex items-center justify-center mb-4">
             <AlertCircle className="h-16 w-16 text-red-500" />
           </div>
@@ -114,7 +114,7 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
           <div className="text-center">
             <button
               onClick={() => navigate('/')}
-              className="px-6 py-2 bg-dark-700 text-white rounded-lg hover:bg-dark-800 transition"
+              className="px-6 py-2 bg-dark-700 text-white rounded-md hover:bg-dark-800 transition"
             >
               Go to Homepage
             </button>
@@ -161,7 +161,7 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
         return (
           <div className="max-w-5xl mx-auto space-y-6">
             {/* Task Details Card */}
-            <div className="bg-dark-100 rounded-lg shadow-lg p-8">
+            <div className="bg-dark-100 rounded-md shadow-lg p-8">
               <div className="mb-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
@@ -249,12 +249,12 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
       case 'artifact': {
         return (
           <div className="max-w-5xl mx-auto">
-            <div className="bg-dark-100 rounded-lg shadow-lg p-8">
+            <div className="bg-dark-100 rounded-md shadow-lg p-8">
               <h1 className="text-3xl font-bold text-dark-600 mb-4">{data.name}</h1>
               {data.descr && (
                 <p className="text-dark-600 mb-6">{data.descr}</p>
               )}
-              <div className="bg-dark-100 border border-dark-400 rounded-lg p-4 mb-6">
+              <div className="bg-dark-100 border border-dark-400 rounded-md p-4 mb-6">
                 <div className="flex items-center space-x-2">
                   <Share2 className="h-5 w-5 text-dark-700" />
                   <div>
@@ -281,12 +281,12 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
       default: {
         return (
           <div className="max-w-5xl mx-auto">
-            <div className="bg-dark-100 rounded-lg shadow-lg p-8">
+            <div className="bg-dark-100 rounded-md shadow-lg p-8">
               <h1 className="text-3xl font-bold text-dark-600 mb-4">{data.name || 'Shared Content'}</h1>
               {data.descr && (
                 <p className="text-dark-600 mb-6">{data.descr}</p>
               )}
-              <div className="bg-dark-100 rounded-lg p-4">
+              <div className="bg-dark-100 rounded-md p-4">
                 <pre className="text-sm text-dark-600 whitespace-pre-wrap">
                   {JSON.stringify(data, null, 2)}
                 </pre>
@@ -302,7 +302,7 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
     <div className="min-h-screen bg-dark-100 py-8 px-4">
       {/* Header */}
       <div className="max-w-5xl mx-auto mb-6">
-        <div className="bg-dark-100 border-l-4 border-dark-700 p-4 rounded-lg">
+        <div className="bg-dark-100 border-l-4 border-dark-700 p-4 rounded-md">
           <div className="flex items-center space-x-2">
             <Share2 className="h-5 w-5 text-dark-700" />
             <p className="text-sm text-dark-600">

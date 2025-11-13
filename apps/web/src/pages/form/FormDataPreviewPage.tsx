@@ -105,7 +105,7 @@ export function FormDataPreviewPage() {
     return (
       <Layout>
         <div className="max-w-4xl mx-auto mt-8">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
             <div className="flex items-center space-x-3">
               <AlertCircle className="h-5 w-5 text-red-600" />
               <p className="text-red-800">{error || 'Form or submission not found'}</p>
@@ -113,7 +113,7 @@ export function FormDataPreviewPage() {
           </div>
           <button
             onClick={handleBack}
-            className="mt-4 inline-flex items-center px-4 py-2 border border-dark-400 rounded-lg text-sm font-normal text-dark-600 bg-dark-100 hover:bg-dark-100"
+            className="mt-4 inline-flex items-center px-4 py-2 border border-dark-400 rounded-md text-sm font-normal text-dark-600 bg-dark-100 hover:bg-dark-100"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Form Data
@@ -131,7 +131,7 @@ export function FormDataPreviewPage() {
           <div className="flex items-center space-x-4">
             <button
               onClick={handleBack}
-              className="p-2 hover:bg-dark-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-dark-100 rounded-md transition-colors"
             >
               <ArrowLeft className="h-5 w-5 text-dark-700" />
             </button>

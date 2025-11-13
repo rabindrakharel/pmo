@@ -139,7 +139,7 @@ export function CalendarEventPopover({
       {/* Popover */}
       <div
         style={getPopoverStyle()}
-        className={`${colors.bg} ${colors.border} border-2 rounded-lg shadow-2xl w-[360px] overflow-hidden z-[1000]`}
+        className={`${colors.bg} ${colors.border} border-2 rounded-md shadow-sm w-[360px] overflow-hidden z-[1000]`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -249,16 +249,16 @@ export function CalendarEventPopover({
         <div className="flex gap-2 p-3 bg-dark-50 border-t border-dark-200">
           <button
             onClick={() => onEdit(event)}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors text-sm font-medium"
           >
-            <Edit2 className="h-4 w-4" />
+            <Edit2 className="h-3.5 w-3.5" />
             Edit
           </button>
           <button
             onClick={() => onDelete(event.id)}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5" />
             Delete
           </button>
         </div>
