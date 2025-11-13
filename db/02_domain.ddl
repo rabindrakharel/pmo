@@ -22,18 +22,17 @@
 -- • display_order: int4 (Sidebar/menu order)
 -- • ui_icon: varchar(50) (Lucide icon for domain)
 --
--- DOMAIN LIST (11 core domains):
+-- DOMAIN LIST (10 core domains):
 -- 1. customer_360 - Unified people, organizations, business structures
--- 2. operations - Internal operational execution structure (projects/tasks)
--- 3. service_delivery - Field services, installation, repair, on-site work
--- 4. product_inventory - Products, stock, consumables, materials
--- 5. order_fulfillment - Sales pipelines, purchasing, delivery logistics
--- 6. financial_management - Cost control, profitability, billing metrics
--- 7. communication_interaction - Messaging, engagement, interaction logs
--- 8. knowledge_documentation - Wikis, forms, artifacts, reports
--- 9. identity_access_control - RBAC, entity definitions, polymorphism
--- 10. automation_workflow - DAG workflows, industry packs, orchestration
--- 11. event_calendar - Appointments, scheduling, event organization
+-- 2. operations - Internal operational execution (projects/tasks/services/work orders)
+-- 3. product_inventory - Products, stock, consumables, materials
+-- 4. order_fulfillment - Sales pipelines, purchasing, delivery logistics
+-- 5. financial_management - Cost control, profitability, billing metrics
+-- 6. communication_interaction - Messaging, engagement, interaction logs
+-- 7. knowledge_documentation - Wikis, forms, artifacts, reports
+-- 8. identity_access_control - RBAC, entity definitions, polymorphism
+-- 9. automation_workflow - DAG workflows, industry packs, orchestration
+-- 10. event_calendar - Events, appointments, scheduling, person calendars
 --
 -- =====================================================
 
@@ -65,16 +64,15 @@ COMMENT ON COLUMN app.d_domain.ui_icon IS 'Lucide icon name for domain';
 
 INSERT INTO app.d_domain (code, name, description, subscription_flag, display_order, ui_icon) VALUES
 ('customer_360', 'Customer 360', 'Unified view of people, organizations, and business structures. Manages customers, employees, roles, offices, businesses, and worksites.', true, 10, 'Users'),
-('operations', 'Operations', 'Internal operational execution structure. Manages projects (operations), tasks, task data, and work orders for internal delivery.', true, 20, 'FolderOpen'),
-('service_delivery', 'Service Delivery', 'Field services, installation, repair, and on-site work. Handles service catalog, worksite scheduling, and person calendar management.', true, 30, 'Wrench'),
-('product_inventory', 'Product & Inventory', 'Product catalog, stock management, consumables, and materials. Tracks inventory levels and product hierarchies.', true, 40, 'Package'),
-('order_fulfillment', 'Order & Fulfillment', 'Sales pipelines, purchasing, and delivery logistics. Manages quotes, orders, shipments, and invoices.', true, 50, 'ShoppingCart'),
-('financial_management', 'Financial Management', 'Cost control, profitability tracking, and billing metrics. Handles costs, revenue, and expenses across all entities.', true, 60, 'DollarSign'),
-('communication_interaction', 'Communication & Interaction', 'Messaging, engagement, and interaction logging. Manages message schemas, message data, and customer interactions.', true, 70, 'MessageCircle'),
-('knowledge_documentation', 'Knowledge & Documentation', 'Wikis, forms, artifacts, and reports. Central repository for organizational knowledge and documentation.', true, 80, 'BookOpen'),
-('identity_access_control', 'Identity & Access Control', 'RBAC, entity definitions, polymorphic relationships, and instance tracking. Core platform infrastructure for permissions and entity management.', true, 90, 'Shield'),
-('automation_workflow', 'Automation & Workflow', 'DAG workflow graphs, industry workflow packs, automation engine, and orchestration runtime. Powers complex multi-step business processes.', true, 100, 'GitBranch'),
-('event_calendar', 'Event & Calendar', 'Event management, appointments, scheduling, and event organization. Handles event creation, organizer linking, and calendar views.', true, 110, 'Calendar')
+('operations', 'Operations', 'Internal operational execution structure. Manages projects, tasks, task data, work orders, and service catalog for field service delivery.', true, 20, 'FolderOpen'),
+('product_inventory', 'Product & Inventory', 'Product catalog, stock management, consumables, and materials. Tracks inventory levels and product hierarchies.', true, 30, 'Package'),
+('order_fulfillment', 'Order & Fulfillment', 'Sales pipelines, purchasing, and delivery logistics. Manages quotes, orders, shipments, and invoices.', true, 40, 'ShoppingCart'),
+('financial_management', 'Financial Management', 'Cost control, profitability tracking, and billing metrics. Handles costs, revenue, and expenses across all entities.', true, 50, 'DollarSign'),
+('communication_interaction', 'Communication & Interaction', 'Messaging, engagement, and interaction logging. Manages message schemas, message data, and customer interactions.', true, 60, 'MessageCircle'),
+('knowledge_documentation', 'Knowledge & Documentation', 'Wikis, forms, artifacts, and reports. Central repository for organizational knowledge and documentation.', true, 70, 'BookOpen'),
+('identity_access_control', 'Identity & Access Control', 'RBAC, entity definitions, polymorphic relationships, and instance tracking. Core platform infrastructure for permissions and entity management.', true, 80, 'Shield'),
+('automation_workflow', 'Automation & Workflow', 'DAG workflow graphs, industry workflow packs, automation engine, and orchestration runtime. Powers complex multi-step business processes.', true, 90, 'GitBranch'),
+('event_calendar', 'Event & Calendar', 'Event management, appointments, scheduling, person calendars, and event organization. Handles event creation, organizer linking, person availability tracking, and booking confirmations.', true, 100, 'Calendar')
 ON CONFLICT (code) DO UPDATE SET
     name = EXCLUDED.name,
     description = EXCLUDED.description,

@@ -577,7 +577,7 @@ WHERE d.code = 'customer_360'
   AND e.code IN ('cust', 'business', 'employee', 'role', 'office', 'worksite');
 
 -- DOMAIN 2: OPERATIONS
--- Purpose: Internal operational execution structure
+-- Purpose: Internal operational execution (projects, tasks, work orders, services)
 UPDATE app.d_entity e SET
     domain_id = d.domain_id,
     domain_code = d.code,
@@ -585,20 +585,9 @@ UPDATE app.d_entity e SET
     updated_ts = now()
 FROM app.d_domain d
 WHERE d.code = 'operations'
-  AND e.code IN ('project', 'task', 'work_order');
+  AND e.code IN ('project', 'task', 'work_order', 'service');
 
--- DOMAIN 3: SERVICE DELIVERY
--- Purpose: Field services, installation, repair, on-site work
-UPDATE app.d_entity e SET
-    domain_id = d.domain_id,
-    domain_code = d.code,
-    domain_name = d.name,
-    updated_ts = now()
-FROM app.d_domain d
-WHERE d.code = 'service_delivery'
-  AND e.code IN ('service', 'calendar');
-
--- DOMAIN 4: PRODUCT & INVENTORY
+-- DOMAIN 3: PRODUCT & INVENTORY
 -- Purpose: Products, stock, consumables, materials
 UPDATE app.d_entity e SET
     domain_id = d.domain_id,
@@ -609,7 +598,7 @@ FROM app.d_domain d
 WHERE d.code = 'product_inventory'
   AND e.code IN ('product', 'inventory', 'product_hierarchy');
 
--- DOMAIN 5: ORDER & FULFILLMENT
+-- DOMAIN 4: ORDER & FULFILLMENT
 -- Purpose: Sales pipelines, purchasing, delivery logistics
 UPDATE app.d_entity e SET
     domain_id = d.domain_id,
@@ -620,7 +609,7 @@ FROM app.d_domain d
 WHERE d.code = 'order_fulfillment'
   AND e.code IN ('quote', 'order', 'shipment', 'invoice');
 
--- DOMAIN 6: FINANCIAL MANAGEMENT
+-- DOMAIN 5: FINANCIAL MANAGEMENT
 -- Purpose: Cost control, profitability, billing metrics
 UPDATE app.d_entity e SET
     domain_id = d.domain_id,
@@ -631,7 +620,7 @@ FROM app.d_domain d
 WHERE d.code = 'financial_management'
   AND e.code IN ('expense', 'revenue');
 
--- DOMAIN 7: COMMUNICATION & INTERACTION
+-- DOMAIN 6: COMMUNICATION & INTERACTION
 -- Purpose: Messaging, engagement, interaction logs
 UPDATE app.d_entity e SET
     domain_id = d.domain_id,
@@ -642,7 +631,7 @@ FROM app.d_domain d
 WHERE d.code = 'communication_interaction'
   AND e.code IN ('message_schema', 'message', 'interaction');
 
--- DOMAIN 8: KNOWLEDGE & DOCUMENTATION
+-- DOMAIN 7: KNOWLEDGE & DOCUMENTATION
 -- Purpose: Wikis, forms, artifacts, reports
 UPDATE app.d_entity e SET
     domain_id = d.domain_id,
@@ -653,14 +642,14 @@ FROM app.d_domain d
 WHERE d.code = 'knowledge_documentation'
   AND e.code IN ('wiki', 'artifact', 'form', 'reports');
 
--- DOMAIN 9: IDENTITY & ACCESS CONTROL
+-- DOMAIN 8: IDENTITY & ACCESS CONTROL
 -- Purpose: RBAC, entity definitions, polymorphism, IDs
 -- Note: entity_map, entity_id_map, entity_instance_id, entity_instance_backfill, entity_id_rbac_map
 -- These are infrastructure tables, not exposed as navigable entities in the UI
 -- They don't have entries in d_entity, so no updates needed here
 -- (This domain is primarily for infrastructure tables)
 
--- DOMAIN 10: AUTOMATION & WORKFLOW
+-- DOMAIN 9: AUTOMATION & WORKFLOW
 -- Purpose: DAG workflows, industry workflow packs, automation engine
 UPDATE app.d_entity e SET
     domain_id = d.domain_id,
@@ -671,8 +660,8 @@ FROM app.d_domain d
 WHERE d.code = 'automation_workflow'
   AND e.code IN ('workflow', 'workflow_automation');
 
--- DOMAIN 11: EVENT & CALENDAR
--- Purpose: Appointments, scheduling, event organization
+-- DOMAIN 10: EVENT & CALENDAR
+-- Purpose: Events, appointments, scheduling, person calendars, RSVP tracking
 UPDATE app.d_entity e SET
     domain_id = d.domain_id,
     domain_code = d.code,
@@ -680,7 +669,7 @@ UPDATE app.d_entity e SET
     updated_ts = now()
 FROM app.d_domain d
 WHERE d.code = 'event_calendar'
-  AND e.code IN ('event');
+  AND e.code IN ('event', 'calendar');
 
 -- Handle hierarchies (assign to Customer 360 as organizational structures)
 UPDATE app.d_entity e SET
