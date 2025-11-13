@@ -40,7 +40,10 @@ CREATE TABLE app.d_entity (
     ui_icon varchar(50),
     child_entities jsonb DEFAULT '[]'::jsonb,
     display_order int4 NOT NULL DEFAULT 999,
-    dl_entity_domain varchar(100), -- Domain categorization: Core Management, Organization, Business, Operations, Customers, Retail, Sales & Finance, Content & Docs, Advanced
+    dl_entity_domain varchar(100), -- DEPRECATED: Legacy domain categorization (use domain_id/code/name instead)
+    domain_id int4, -- Foreign key to d_domain.domain_id (denormalized for performance)
+    domain_code varchar(50), -- Denormalized domain code (customer_360, operations, etc.)
+    domain_name varchar(100), -- Denormalized domain name (Customer 360, Operations, etc.)
     column_metadata jsonb DEFAULT '[]'::jsonb, -- Column definitions: [{orderid, name, descr, datatype, is_nullable, default_value}]
     active_flag boolean DEFAULT true,
     created_ts timestamptz DEFAULT now(),
@@ -53,6 +56,9 @@ COMMENT ON COLUMN app.d_entity.name IS 'Entity name (Office, Business, Project, 
 COMMENT ON COLUMN app.d_entity.ui_label IS 'UI display label for entity type plural (Offices, Businesses, Projects, Tasks, etc.)';
 COMMENT ON COLUMN app.d_entity.ui_icon IS 'Lucide icon name for UI display (FolderOpen, CheckSquare, Users, etc.)';
 COMMENT ON COLUMN app.d_entity.child_entities IS 'JSONB array of child entity metadata: [{"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1}]';
+COMMENT ON COLUMN app.d_entity.domain_id IS 'Domain ID (denormalized from d_domain for performance)';
+COMMENT ON COLUMN app.d_entity.domain_code IS 'Domain code (denormalized from d_domain for performance)';
+COMMENT ON COLUMN app.d_entity.domain_name IS 'Domain name (denormalized from d_domain for performance)';
 
 -- =====================================================
 -- DATA CURATION
@@ -512,45 +518,179 @@ VALUES (
   updated_ts = now();
 
 -- =====================================================
--- DATA CURATION: DOMAIN CATEGORIZATION
+-- DATA CURATION: DOMAIN CATEGORIZATION (LEGACY)
 -- =====================================================
--- Assign entities to business domains for Settings page tabs
+-- DEPRECATED: Use domain_id/domain_code/domain_name instead
+-- Assign entities to business domains for Settings page tabs (old system)
 
 -- Core Management domain
-UPDATE app.d_entity SET dl_entity_domain = 'Core Management' 
+UPDATE app.d_entity SET dl_entity_domain = 'Core Management'
 WHERE code IN ('project', 'task');
 
--- Organization domain  
-UPDATE app.d_entity SET dl_entity_domain = 'Organization' 
+-- Organization domain
+UPDATE app.d_entity SET dl_entity_domain = 'Organization'
 WHERE code IN ('office', 'employee', 'role', 'office_hierarchy');
 
 -- Business domain
-UPDATE app.d_entity SET dl_entity_domain = 'Business' 
+UPDATE app.d_entity SET dl_entity_domain = 'Business'
 WHERE code IN ('business', 'business_hierarchy', 'worksite');
 
 -- Operations domain
-UPDATE app.d_entity SET dl_entity_domain = 'Operations' 
+UPDATE app.d_entity SET dl_entity_domain = 'Operations'
 WHERE code IN ('quote', 'work_order', 'workflow', 'workflow_automation');
 
 -- Customers domain
-UPDATE app.d_entity SET dl_entity_domain = 'Customers' 
+UPDATE app.d_entity SET dl_entity_domain = 'Customers'
 WHERE code IN ('cust', 'interaction');
 
 -- Retail domain
-UPDATE app.d_entity SET dl_entity_domain = 'Retail' 
+UPDATE app.d_entity SET dl_entity_domain = 'Retail'
 WHERE code IN ('service', 'product', 'product_hierarchy', 'inventory', 'order', 'shipment');
 
 -- Sales & Finance domain
-UPDATE app.d_entity SET dl_entity_domain = 'Sales & Finance' 
+UPDATE app.d_entity SET dl_entity_domain = 'Sales & Finance'
 WHERE code IN ('invoice', 'expense', 'revenue');
 
 -- Content & Docs domain
-UPDATE app.d_entity SET dl_entity_domain = 'Content & Docs' 
+UPDATE app.d_entity SET dl_entity_domain = 'Content & Docs'
 WHERE code IN ('wiki', 'artifact', 'form', 'reports', 'message_schema', 'message');
 
 -- Advanced domain
-UPDATE app.d_entity SET dl_entity_domain = 'Advanced' 
+UPDATE app.d_entity SET dl_entity_domain = 'Advanced'
 WHERE code IN ('event', 'calendar');
+
+-- =====================================================
+-- DATA CURATION: NEW DOMAIN ARCHITECTURE MAPPING
+-- =====================================================
+-- Map entities to new domain structure with denormalized fields
+-- Based on the 11-domain architecture
+
+-- DOMAIN 1: CUSTOMER 360
+-- Purpose: Unified people, organizations, and business structures
+UPDATE app.d_entity e SET
+    domain_id = d.domain_id,
+    domain_code = d.code,
+    domain_name = d.name,
+    updated_ts = now()
+FROM app.d_domain d
+WHERE d.code = 'customer_360'
+  AND e.code IN ('cust', 'business', 'employee', 'role', 'office', 'worksite');
+
+-- DOMAIN 2: OPERATIONS
+-- Purpose: Internal operational execution structure
+UPDATE app.d_entity e SET
+    domain_id = d.domain_id,
+    domain_code = d.code,
+    domain_name = d.name,
+    updated_ts = now()
+FROM app.d_domain d
+WHERE d.code = 'operations'
+  AND e.code IN ('project', 'task', 'work_order');
+
+-- DOMAIN 3: SERVICE DELIVERY
+-- Purpose: Field services, installation, repair, on-site work
+UPDATE app.d_entity e SET
+    domain_id = d.domain_id,
+    domain_code = d.code,
+    domain_name = d.name,
+    updated_ts = now()
+FROM app.d_domain d
+WHERE d.code = 'service_delivery'
+  AND e.code IN ('service', 'calendar');
+
+-- DOMAIN 4: PRODUCT & INVENTORY
+-- Purpose: Products, stock, consumables, materials
+UPDATE app.d_entity e SET
+    domain_id = d.domain_id,
+    domain_code = d.code,
+    domain_name = d.name,
+    updated_ts = now()
+FROM app.d_domain d
+WHERE d.code = 'product_inventory'
+  AND e.code IN ('product', 'inventory', 'product_hierarchy');
+
+-- DOMAIN 5: ORDER & FULFILLMENT
+-- Purpose: Sales pipelines, purchasing, delivery logistics
+UPDATE app.d_entity e SET
+    domain_id = d.domain_id,
+    domain_code = d.code,
+    domain_name = d.name,
+    updated_ts = now()
+FROM app.d_domain d
+WHERE d.code = 'order_fulfillment'
+  AND e.code IN ('quote', 'order', 'shipment', 'invoice');
+
+-- DOMAIN 6: FINANCIAL MANAGEMENT
+-- Purpose: Cost control, profitability, billing metrics
+UPDATE app.d_entity e SET
+    domain_id = d.domain_id,
+    domain_code = d.code,
+    domain_name = d.name,
+    updated_ts = now()
+FROM app.d_domain d
+WHERE d.code = 'financial_management'
+  AND e.code IN ('expense', 'revenue');
+
+-- DOMAIN 7: COMMUNICATION & INTERACTION
+-- Purpose: Messaging, engagement, interaction logs
+UPDATE app.d_entity e SET
+    domain_id = d.domain_id,
+    domain_code = d.code,
+    domain_name = d.name,
+    updated_ts = now()
+FROM app.d_domain d
+WHERE d.code = 'communication_interaction'
+  AND e.code IN ('message_schema', 'message', 'interaction');
+
+-- DOMAIN 8: KNOWLEDGE & DOCUMENTATION
+-- Purpose: Wikis, forms, artifacts, reports
+UPDATE app.d_entity e SET
+    domain_id = d.domain_id,
+    domain_code = d.code,
+    domain_name = d.name,
+    updated_ts = now()
+FROM app.d_domain d
+WHERE d.code = 'knowledge_documentation'
+  AND e.code IN ('wiki', 'artifact', 'form', 'reports');
+
+-- DOMAIN 9: IDENTITY & ACCESS CONTROL
+-- Purpose: RBAC, entity definitions, polymorphism, IDs
+-- Note: entity_map, entity_id_map, entity_instance_id, entity_instance_backfill, entity_id_rbac_map
+-- These are infrastructure tables, not exposed as navigable entities in the UI
+-- They don't have entries in d_entity, so no updates needed here
+-- (This domain is primarily for infrastructure tables)
+
+-- DOMAIN 10: AUTOMATION & WORKFLOW
+-- Purpose: DAG workflows, industry workflow packs, automation engine
+UPDATE app.d_entity e SET
+    domain_id = d.domain_id,
+    domain_code = d.code,
+    domain_name = d.name,
+    updated_ts = now()
+FROM app.d_domain d
+WHERE d.code = 'automation_workflow'
+  AND e.code IN ('workflow', 'workflow_automation');
+
+-- DOMAIN 11: EVENT & CALENDAR
+-- Purpose: Appointments, scheduling, event organization
+UPDATE app.d_entity e SET
+    domain_id = d.domain_id,
+    domain_code = d.code,
+    domain_name = d.name,
+    updated_ts = now()
+FROM app.d_domain d
+WHERE d.code = 'event_calendar'
+  AND e.code IN ('event');
+
+-- Handle hierarchies (assign to Customer 360 as organizational structures)
+UPDATE app.d_entity e SET
+    domain_id = d.domain_id,
+    domain_code = d.code,
+    domain_name = d.name,
+    updated_ts = now()
+FROM app.d_domain d
+WHERE d.code = 'customer_360'
+  AND e.code IN ('office_hierarchy', 'business_hierarchy');
 
 -- =====================================================
 -- DATA CURATION: COLUMN METADATA FROM INFORMATION_SCHEMA

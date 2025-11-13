@@ -139,22 +139,63 @@ get_db_path() {
 
 # Function to validate all DDL files exist
 validate_all_ddls() {
-    print_status $BLUE "📋 Validating DDL files..."
+    print_status $BLUE "📋 Validating DDL files in domain-organized structure..."
 
-    local ddl_files=(
+    # Infrastructure files (remain in db/ root)
+    local root_files=(
         "I_schemaCreate.ddl"
+        "I_d_domain.ddl"
         "II_setting_datalabel.ddl"
+        "LI_f_logging.ddl"
+    )
+
+    # Domain-organized files
+    local customer_360_files=(
         "III_d_employee.ddl"
         "IV_d_office.ddl"
         "V_d_business.ddl"
         "VI_d_cust.ddl"
         "VII_d_role.ddl"
         "IX_d_worksite.ddl"
-        "X_d_service.ddl"
-        "XI_d_product.ddl"
+    )
+
+    local operations_files=(
         "XII_d_project.ddl"
         "XIII_d_task.ddl"
         "XIV_d_task_data.ddl"
+        "XXXI_fact_work_order.ddl"
+    )
+
+    local service_delivery_files=(
+        "X_d_service.ddl"
+        "XXXV_d_entity_person_calendar.ddl"
+        "XXXVI_d_entity_event_person_calendar.ddl"
+    )
+
+    local product_inventory_files=(
+        "XI_d_product.ddl"
+        "XXVI_f_inventory.ddl"
+    )
+
+    local order_fulfillment_files=(
+        "XXX_fact_quote.ddl"
+        "XXVII_f_order.ddl"
+        "XXVIII_f_shipment.ddl"
+        "XXIX_f_invoice.ddl"
+    )
+
+    local financial_management_files=(
+        "LII_f_revenue.ddl"
+        "LIII_f_expense.ddl"
+    )
+
+    local communication_interaction_files=(
+        "XLII_d_message_schema.ddl"
+        "XLIII_f_message_data.ddl"
+        "XXXIII_f_interaction.ddl"
+    )
+
+    local knowledge_documentation_files=(
         "XV_d_artifact.ddl"
         "XVI_d_artifact_data.ddl"
         "XVII_d_form_head.ddl"
@@ -163,44 +204,75 @@ validate_all_ddls() {
         "XX_d_wiki_data.ddl"
         "XXI_d_reports.ddl"
         "XXII_d_report_data.ddl"
-        "XXIII_d_workflow_automation.ddl"
-        "XXIV_d_industry_workflow_graph_head.ddl"
-        "XXV_d_industry_workflow_graph_data.ddl"
-        "XXVI_f_inventory.ddl"
-        "XXVII_f_order.ddl"
-        "XXVIII_f_shipment.ddl"
-        "XXIX_f_invoice.ddl"
-        "XXX_fact_quote.ddl"
-        "XXXI_fact_work_order.ddl"
-        "XXXII_f_industry_workflow_events.ddl"
-        "XXXIII_f_interaction.ddl"
-        "XXXIV_d_event.ddl"
-        "XXXIV_d_event_organizer_link.ddl"
-        "XXXV_d_entity_person_calendar.ddl"
-        "XXXVI_d_entity_event_person_calendar.ddl"
-        "XXXVII_orchestrator_session.ddl"
-        "XXXVIII_orchestrator_state.ddl"
-        "XXXIX_orchestrator_agent_log.ddl"
-        "XL_orchestrator_summary.ddl"
-        "XLI_orchestrator_agents.ddl"
-        "XLII_d_message_schema.ddl"
-        "XLIII_f_message_data.ddl"
+    )
+
+    local identity_access_control_files=(
         "XLIV_d_entity_map.ddl"
         "XLV_d_entity.ddl"
         "XLVI_d_entity_instance_id.ddl"
         "XLVII_d_entity_instance_backfill.ddl"
         "XLVIII_d_entity_id_map.ddl"
         "XLIX_d_entity_id_rbac_map.ddl"
-        "LI_f_logging.ddl"
-        "LII_f_revenue.ddl"
-        "LIII_f_expense.ddl"
     )
 
-    for file in "${ddl_files[@]}"; do
+    local automation_workflow_files=(
+        "XXIII_d_workflow_automation.ddl"
+        "XXIV_d_industry_workflow_graph_head.ddl"
+        "XXV_d_industry_workflow_graph_data.ddl"
+        "XXXII_f_industry_workflow_events.ddl"
+        "XXXVII_orchestrator_session.ddl"
+        "XXXVIII_orchestrator_state.ddl"
+        "XXXIX_orchestrator_agent_log.ddl"
+        "XL_orchestrator_summary.ddl"
+        "XLI_orchestrator_agents.ddl"
+    )
+
+    local event_calendar_files=(
+        "XXXIV_d_event.ddl"
+        "XXXIV_d_event_organizer_link.ddl"
+    )
+
+    # Validate root files
+    for file in "${root_files[@]}"; do
         validate_ddl "$DB_PATH/$file"
     done
 
-    print_status $GREEN "✅ All DDL files validated"
+    # Validate domain files
+    for file in "${customer_360_files[@]}"; do
+        validate_ddl "$DB_PATH/domains/customer_360/$file"
+    done
+    for file in "${operations_files[@]}"; do
+        validate_ddl "$DB_PATH/domains/operations/$file"
+    done
+    for file in "${service_delivery_files[@]}"; do
+        validate_ddl "$DB_PATH/domains/service_delivery/$file"
+    done
+    for file in "${product_inventory_files[@]}"; do
+        validate_ddl "$DB_PATH/domains/product_inventory/$file"
+    done
+    for file in "${order_fulfillment_files[@]}"; do
+        validate_ddl "$DB_PATH/domains/order_fulfillment/$file"
+    done
+    for file in "${financial_management_files[@]}"; do
+        validate_ddl "$DB_PATH/domains/financial_management/$file"
+    done
+    for file in "${communication_interaction_files[@]}"; do
+        validate_ddl "$DB_PATH/domains/communication_interaction/$file"
+    done
+    for file in "${knowledge_documentation_files[@]}"; do
+        validate_ddl "$DB_PATH/domains/knowledge_documentation/$file"
+    done
+    for file in "${identity_access_control_files[@]}"; do
+        validate_ddl "$DB_PATH/domains/identity_access_control/$file"
+    done
+    for file in "${automation_workflow_files[@]}"; do
+        validate_ddl "$DB_PATH/domains/automation_workflow/$file"
+    done
+    for file in "${event_calendar_files[@]}"; do
+        validate_ddl "$DB_PATH/domains/event_calendar/$file"
+    done
+
+    print_status $GREEN "✅ All DDL files validated in domain structure"
 }
 
 # Function to drop existing schema
@@ -223,95 +295,105 @@ drop_schema() {
 
 # Function to import all DDL files
 import_ddls() {
-    print_status $BLUE "📥 Importing 50 DDL files in dependency order (Roman numerals, VIII and L skipped)..."
+    print_status $BLUE "📥 Importing 51 DDL files in dependency order from domain-organized structure..."
 
+    # ===== INFRASTRUCTURE LAYER (db/ root) =====
     # I: Initial setup - Drop and recreate schema
     execute_sql "$DB_PATH/I_schemaCreate.ddl" "I: Schema setup (drop and recreate)"
+
+    # I-b: Domain table - Foundation for domain architecture
+    execute_sql "$DB_PATH/I_d_domain.ddl" "I-b: Domain master table (11 business domains)"
 
     # II: Unified setting configuration table - Foundation layer
     execute_sql "$DB_PATH/II_setting_datalabel.ddl" "II: Unified data label settings"
 
-    # III: Core personnel
-    execute_sql "$DB_PATH/III_d_employee.ddl" "III: Employee entities with authentication"
+    # ===== CUSTOMER 360 DOMAIN =====
+    print_status $CYAN "  🏢 Customer 360 Domain..."
+    execute_sql "$DB_PATH/domains/customer_360/III_d_employee.ddl" "III: Employee entities with authentication"
+    execute_sql "$DB_PATH/domains/customer_360/IV_d_office.ddl" "IV: Office entity (4-level hierarchy)"
+    execute_sql "$DB_PATH/domains/customer_360/V_d_business.ddl" "V: Business entity (3-level hierarchy)"
+    execute_sql "$DB_PATH/domains/customer_360/VI_d_cust.ddl" "VI: Customer entities"
+    execute_sql "$DB_PATH/domains/customer_360/VII_d_role.ddl" "VII: Role entities"
+    execute_sql "$DB_PATH/domains/customer_360/IX_d_worksite.ddl" "IX: Worksite entities"
 
-    # IV-V: Organizational hierarchy
-    execute_sql "$DB_PATH/IV_d_office.ddl" "IV: Office entity (4-level hierarchy)"
-    execute_sql "$DB_PATH/V_d_business.ddl" "V: Business entity (3-level hierarchy)"
+    # ===== SERVICE DELIVERY DOMAIN =====
+    print_status $CYAN "  🔧 Service Delivery Domain..."
+    execute_sql "$DB_PATH/domains/service_delivery/X_d_service.ddl" "X: Service dimension (catalog)"
+    execute_sql "$DB_PATH/domains/service_delivery/XXXV_d_entity_person_calendar.ddl" "XXXV: Person calendar (availability slots)"
+    execute_sql "$DB_PATH/domains/service_delivery/XXXVI_d_entity_event_person_calendar.ddl" "XXXVI: Event-person calendar (RSVP tracking)"
 
-    # VI-VII, IX: Supporting entities (VIII skipped - position removed)
-    execute_sql "$DB_PATH/VI_d_cust.ddl" "VI: Customer entities"
-    execute_sql "$DB_PATH/VII_d_role.ddl" "VII: Role entities"
-    execute_sql "$DB_PATH/IX_d_worksite.ddl" "IX: Worksite entities"
+    # ===== PRODUCT & INVENTORY DOMAIN =====
+    print_status $CYAN "  📦 Product & Inventory Domain..."
+    execute_sql "$DB_PATH/domains/product_inventory/XI_d_product.ddl" "XI: Product dimension (materials, equipment)"
+    execute_sql "$DB_PATH/domains/product_inventory/XXVI_f_inventory.ddl" "XXVI: Inventory fact table"
 
-    # X-XI: Product & Operations dimensions
-    execute_sql "$DB_PATH/X_d_service.ddl" "X: Service dimension (catalog)"
-    execute_sql "$DB_PATH/XI_d_product.ddl" "XI: Product dimension (materials, equipment)"
+    # ===== OPERATIONS DOMAIN =====
+    print_status $CYAN "  📋 Operations Domain..."
+    execute_sql "$DB_PATH/domains/operations/XII_d_project.ddl" "XII: Project entities"
+    execute_sql "$DB_PATH/domains/operations/XIII_d_task.ddl" "XIII: Task head entities"
+    execute_sql "$DB_PATH/domains/operations/XIV_d_task_data.ddl" "XIV: Task data entities"
+    execute_sql "$DB_PATH/domains/operations/XXXI_fact_work_order.ddl" "XXXI: Work order fact table"
 
-    # XII-XIV: Core project entities
-    execute_sql "$DB_PATH/XII_d_project.ddl" "XII: Project entities"
-    execute_sql "$DB_PATH/XIII_d_task.ddl" "XIII: Task head entities"
-    execute_sql "$DB_PATH/XIV_d_task_data.ddl" "XIV: Task data entities"
+    # ===== KNOWLEDGE & DOCUMENTATION DOMAIN =====
+    print_status $CYAN "  📚 Knowledge & Documentation Domain..."
+    execute_sql "$DB_PATH/domains/knowledge_documentation/XV_d_artifact.ddl" "XV: Artifact head entities"
+    execute_sql "$DB_PATH/domains/knowledge_documentation/XVI_d_artifact_data.ddl" "XVI: Artifact data entities"
+    execute_sql "$DB_PATH/domains/knowledge_documentation/XVII_d_form_head.ddl" "XVII: Form head entities"
+    execute_sql "$DB_PATH/domains/knowledge_documentation/XVIII_d_form_data.ddl" "XVIII: Form data entities"
+    execute_sql "$DB_PATH/domains/knowledge_documentation/XIX_d_wiki.ddl" "XIX: Wiki entities"
+    execute_sql "$DB_PATH/domains/knowledge_documentation/XX_d_wiki_data.ddl" "XX: Wiki data entities"
+    execute_sql "$DB_PATH/domains/knowledge_documentation/XXI_d_reports.ddl" "XXI: Report entities"
+    execute_sql "$DB_PATH/domains/knowledge_documentation/XXII_d_report_data.ddl" "XXII: Report data entities"
 
-    # XV-XXII: Content entities
-    execute_sql "$DB_PATH/XV_d_artifact.ddl" "XV: Artifact head entities"
-    execute_sql "$DB_PATH/XVI_d_artifact_data.ddl" "XVI: Artifact data entities"
-    execute_sql "$DB_PATH/XVII_d_form_head.ddl" "XVII: Form head entities"
-    execute_sql "$DB_PATH/XVIII_d_form_data.ddl" "XVIII: Form data entities"
-    execute_sql "$DB_PATH/XIX_d_wiki.ddl" "XIX: Wiki entities"
-    execute_sql "$DB_PATH/XX_d_wiki_data.ddl" "XX: Wiki data entities"
-    execute_sql "$DB_PATH/XXI_d_reports.ddl" "XXI: Report entities"
-    execute_sql "$DB_PATH/XXII_d_report_data.ddl" "XXII: Report data entities"
+    # ===== AUTOMATION & WORKFLOW DOMAIN =====
+    print_status $CYAN "  ⚙️  Automation & Workflow Domain..."
+    execute_sql "$DB_PATH/domains/automation_workflow/XXIII_d_workflow_automation.ddl" "XXIII: Workflow automation entities"
+    execute_sql "$DB_PATH/domains/automation_workflow/XXIV_d_industry_workflow_graph_head.ddl" "XXIV: Industry workflow template entities"
+    execute_sql "$DB_PATH/domains/automation_workflow/XXV_d_industry_workflow_graph_data.ddl" "XXV: Industry workflow instance data"
+    execute_sql "$DB_PATH/domains/automation_workflow/XXXII_f_industry_workflow_events.ddl" "XXXII: Workflow events fact table"
+    execute_sql "$DB_PATH/domains/automation_workflow/XXXVII_orchestrator_session.ddl" "XXXVII: AI orchestrator session state"
+    execute_sql "$DB_PATH/domains/automation_workflow/XXXVIII_orchestrator_state.ddl" "XXXVIII: AI orchestrator state key-value store"
+    execute_sql "$DB_PATH/domains/automation_workflow/XXXIX_orchestrator_agent_log.ddl" "XXXIX: AI orchestrator agent execution logs"
+    execute_sql "$DB_PATH/domains/automation_workflow/XL_orchestrator_summary.ddl" "XL: AI orchestrator conversation summaries"
+    execute_sql "$DB_PATH/domains/automation_workflow/XLI_orchestrator_agents.ddl" "XLI: Multi-agent orchestrator"
 
-    # XXIII: Workflow automation
-    execute_sql "$DB_PATH/XXIII_d_workflow_automation.ddl" "XXIII: Workflow automation entities"
+    # ===== ORDER & FULFILLMENT DOMAIN =====
+    print_status $CYAN "  🛒 Order & Fulfillment Domain..."
+    execute_sql "$DB_PATH/domains/order_fulfillment/XXVII_f_order.ddl" "XXVII: Order fact table"
+    execute_sql "$DB_PATH/domains/order_fulfillment/XXVIII_f_shipment.ddl" "XXVIII: Shipment fact table"
+    execute_sql "$DB_PATH/domains/order_fulfillment/XXIX_f_invoice.ddl" "XXIX: Invoice fact table"
+    execute_sql "$DB_PATH/domains/order_fulfillment/XXX_fact_quote.ddl" "XXX: Quote fact table"
 
-    # XXIV-XXV: Industry workflow system
-    execute_sql "$DB_PATH/XXIV_d_industry_workflow_graph_head.ddl" "XXIV: Industry workflow template entities"
-    execute_sql "$DB_PATH/XXV_d_industry_workflow_graph_data.ddl" "XXV: Industry workflow instance data"
+    # ===== COMMUNICATION & INTERACTION DOMAIN =====
+    print_status $CYAN "  💬 Communication & Interaction Domain..."
+    execute_sql "$DB_PATH/domains/communication_interaction/XXXIII_f_interaction.ddl" "XXXIII: Customer interaction fact table"
+    execute_sql "$DB_PATH/domains/communication_interaction/XLII_d_message_schema.ddl" "XLII: Message schema (EMAIL, SMS, PUSH)"
+    execute_sql "$DB_PATH/domains/communication_interaction/XLIII_f_message_data.ddl" "XLIII: Message data fact table"
 
-    # XXVI-XXXIII: Fact tables
-    execute_sql "$DB_PATH/XXVI_f_inventory.ddl" "XXVI: Inventory fact table"
-    execute_sql "$DB_PATH/XXVII_f_order.ddl" "XXVII: Order fact table"
-    execute_sql "$DB_PATH/XXVIII_f_shipment.ddl" "XXVIII: Shipment fact table"
-    execute_sql "$DB_PATH/XXIX_f_invoice.ddl" "XXIX: Invoice fact table"
-    execute_sql "$DB_PATH/XXX_fact_quote.ddl" "XXX: Quote fact table"
-    execute_sql "$DB_PATH/XXXI_fact_work_order.ddl" "XXXI: Work order fact table"
-    execute_sql "$DB_PATH/XXXII_f_industry_workflow_events.ddl" "XXXII: Workflow events fact table"
-    execute_sql "$DB_PATH/XXXIII_f_interaction.ddl" "XXXIII: Customer interaction fact table"
+    # ===== EVENT & CALENDAR DOMAIN =====
+    print_status $CYAN "  📅 Event & Calendar Domain..."
+    execute_sql "$DB_PATH/domains/event_calendar/XXXIV_d_event.ddl" "XXXIV: Event entities (meetings, appointments)"
+    execute_sql "$DB_PATH/domains/event_calendar/XXXIV_d_event_organizer_link.ddl" "XXXIV: Event organizer linkage"
 
-    # XXXIV-XXXVI: Event & calendar system
-    execute_sql "$DB_PATH/XXXIV_d_event.ddl" "XXXIV: Event entities (meetings, appointments)"
-    execute_sql "$DB_PATH/XXXIV_d_event_organizer_link.ddl" "XXXIV: Event organizer linkage"
-    execute_sql "$DB_PATH/XXXV_d_entity_person_calendar.ddl" "XXXV: Person calendar (availability slots)"
-    execute_sql "$DB_PATH/XXXVI_d_entity_event_person_calendar.ddl" "XXXVI: Event-person calendar (RSVP tracking)"
+    # ===== IDENTITY & ACCESS CONTROL DOMAIN =====
+    print_status $CYAN "  🛡️  Identity & Access Control Domain..."
+    execute_sql "$DB_PATH/domains/identity_access_control/XLIV_d_entity_map.ddl" "XLIV: Entity type linkage rules"
+    execute_sql "$DB_PATH/domains/identity_access_control/XLV_d_entity.ddl" "XLV: Entity TYPE metadata (parent-child, icons, DOMAIN MAPPING)"
+    execute_sql "$DB_PATH/domains/identity_access_control/XLVI_d_entity_instance_id.ddl" "XLVI: Entity INSTANCE registry"
+    execute_sql "$DB_PATH/domains/identity_access_control/XLVII_d_entity_instance_backfill.ddl" "XLVII: Entity instance backfill"
+    execute_sql "$DB_PATH/domains/identity_access_control/XLVIII_d_entity_id_map.ddl" "XLVIII: Entity instance relationships"
+    execute_sql "$DB_PATH/domains/identity_access_control/XLIX_d_entity_id_rbac_map.ddl" "XLIX: RBAC permission mapping"
 
-    # XXXVII-XLI: AI Orchestrator
-    execute_sql "$DB_PATH/XXXVII_orchestrator_session.ddl" "XXXVII: AI orchestrator session state"
-    execute_sql "$DB_PATH/XXXVIII_orchestrator_state.ddl" "XXXVIII: AI orchestrator state key-value store"
-    execute_sql "$DB_PATH/XXXIX_orchestrator_agent_log.ddl" "XXXIX: AI orchestrator agent execution logs"
-    execute_sql "$DB_PATH/XL_orchestrator_summary.ddl" "XL: AI orchestrator conversation summaries"
-    execute_sql "$DB_PATH/XLI_orchestrator_agents.ddl" "XLI: Multi-agent orchestrator"
-
-    # XLII-XLIII: Messaging entities
-    execute_sql "$DB_PATH/XLII_d_message_schema.ddl" "XLII: Message schema (EMAIL, SMS, PUSH)"
-    execute_sql "$DB_PATH/XLIII_f_message_data.ddl" "XLIII: Message data fact table"
-
-    # XLIV-XLIX: Entity metadata layer (MUST BE LAST in this order)
-    execute_sql "$DB_PATH/XLIV_d_entity_map.ddl" "XLIV: Entity type linkage rules"
-    execute_sql "$DB_PATH/XLV_d_entity.ddl" "XLV: Entity TYPE metadata (parent-child, icons)"
-    execute_sql "$DB_PATH/XLVI_d_entity_instance_id.ddl" "XLVI: Entity INSTANCE registry"
-    execute_sql "$DB_PATH/XLVII_d_entity_instance_backfill.ddl" "XLVII: Entity instance backfill"
-    execute_sql "$DB_PATH/XLVIII_d_entity_id_map.ddl" "XLVIII: Entity instance relationships"
-    execute_sql "$DB_PATH/XLIX_d_entity_id_rbac_map.ddl" "XLIX: RBAC permission mapping"
-
+    # ===== INFRASTRUCTURE LAYER (db/ root) - CONTINUED =====
     # LI: Central logging table
     execute_sql "$DB_PATH/LI_f_logging.ddl" "LI: Central audit logging for all entity operations"
 
-    # LII-LIII: Revenue and Expense tracking (CRA T2125) - replaces old d_cost table
-    execute_sql "$DB_PATH/LII_f_revenue.ddl" "LII: Revenue fact table with CRA T2125 categories"
-    execute_sql "$DB_PATH/LIII_f_expense.ddl" "LIII: Expense fact table with CRA T2125 categories"
+    # ===== FINANCIAL MANAGEMENT DOMAIN =====
+    print_status $CYAN "  💰 Financial Management Domain..."
+    execute_sql "$DB_PATH/domains/financial_management/LII_f_revenue.ddl" "LII: Revenue fact table with CRA T2125 categories"
+    execute_sql "$DB_PATH/domains/financial_management/LIII_f_expense.ddl" "LIII: Expense fact table with CRA T2125 categories"
 
-    print_status $GREEN "✅ All 50 DDL files imported successfully (Roman numerals I-LIII, VIII and L skipped)"
+    print_status $GREEN "✅ All 51 DDL files imported successfully with domain architecture!"
 }
 
 # Function to validate schema after import
@@ -422,41 +504,49 @@ validate_schema() {
 
 # Function to print summary
 print_summary() {
-    print_status $PURPLE "📋 IMPORT SUMMARY"
-    print_status $PURPLE "=================="
-    print_status $CYAN "• PMO Enterprise schema with 50 DDL files (Roman numerals I-LI, VIII skipped)"
-    print_status $CYAN "• Dependency-ordered import in 15 logical layers"
+    print_status $PURPLE "📋 IMPORT SUMMARY - DOMAIN ARCHITECTURE"
+    print_status $PURPLE "========================================="
+    print_status $CYAN "• PMO Enterprise schema with 51 DDL files organized by 11 business domains"
+    print_status $CYAN "• Domain-driven architecture with denormalized domain fields in d_entity"
+    print_status $CYAN ""
+    print_status $CYAN "  Domains:"
+    print_status $CYAN "    1. Customer 360 (6 entities) - People, organizations, business structures"
+    print_status $CYAN "    2. Operations (4 entities) - Projects, tasks, work orders"
+    print_status $CYAN "    3. Service Delivery (3 entities) - Services, calendars, scheduling"
+    print_status $CYAN "    4. Product & Inventory (2 entities) - Products, inventory management"
+    print_status $CYAN "    5. Order & Fulfillment (4 entities) - Quotes, orders, shipments, invoices"
+    print_status $CYAN "    6. Financial Management (2 entities) - Revenue, expenses (CRA T2125)"
+    print_status $CYAN "    7. Communication & Interaction (3 entities) - Messages, interactions"
+    print_status $CYAN "    8. Knowledge & Documentation (8 entities) - Wiki, artifacts, forms, reports"
+    print_status $CYAN "    9. Identity & Access Control (6 entities) - RBAC, entity metadata, permissions"
+    print_status $CYAN "   10. Automation & Workflow (9 entities) - DAG workflows, AI orchestration"
+    print_status $CYAN "   11. Event & Calendar (2 entities) - Events, appointments, RSVP tracking"
+    print_status $CYAN ""
+    print_status $CYAN "• Domain table (d_domain) with subscription control"
+    print_status $CYAN "• Entity metadata with domain_id, domain_code, domain_name (denormalized)"
+    print_status $CYAN "• DDL files organized in db/domains/<domain_name>/ structure"
     print_status $CYAN "• Head/data pattern for temporal entities"
-    print_status $CYAN "• 4-level office hierarchy (Office → District → Region → Corporate)"
-    print_status $CYAN "• 3-level business hierarchy"
-    print_status $CYAN "• Product & Service catalogs (dimensions)"
-    print_status $CYAN "• Fact tables: Inventory, Orders, Shipments, Invoices, Quotes, Work Orders, Interactions"
-    print_status $CYAN "• Central audit logging (f_logging) for all entity operations"
-    print_status $CYAN "• Event & Calendar system (meetings, appointments, RSVP tracking)"
-    print_status $CYAN "• Entity TYPE metadata (d_entity) with parent-child relationships and icons"
-    print_status $CYAN "• Entity INSTANCE registry (d_entity_instance_id) for all entity instances"
-    print_status $CYAN "• Entity mapping framework for parent-child relationships"
+    print_status $CYAN "• 4-level office hierarchy + 3-level business hierarchy"
     print_status $CYAN "• RBAC permission system with Owner [5] permission"
-    print_status $CYAN "• Full content management (Tasks, Artifacts, Forms, Wiki, Reports)"
-    print_status $CYAN "• AI Orchestrator (Multi-agent session management)"
-    print_status $CYAN "• Industry workflow graphs (state machines)"
-    print_status $CYAN "• Canadian business context data"
-    print_status $PURPLE "=================="
-    print_status $GREEN "🎉 Database import completed successfully!"
+    print_status $CYAN "• Central audit logging (f_logging) for all operations"
+    print_status $CYAN "• Canadian business context with CRA T2125 compliance"
+    print_status $PURPLE "========================================="
+    print_status $GREEN "🎉 Domain-organized database import completed successfully!"
 
     if [ "$DRY_RUN" = false ]; then
         print_status $YELLOW "💡 Next steps:"
-        print_status $YELLOW "   • Test database connectivity: psql -h localhost -p 5434 -U app -d app"
-        print_status $YELLOW "   • Verify schema: \\dt app."
-        print_status $YELLOW "   • Start API server: ./tools/start-api.sh"
-        print_status $YELLOW "   • Test authentication with james.miller@huronhome.ca"
+        print_status $YELLOW "   • Test database: psql -h localhost -p 5434 -U app -d app"
+        print_status $YELLOW "   • Query domains: SELECT * FROM app.d_domain ORDER BY display_order;"
+        print_status $YELLOW "   • View entity domains: SELECT code, name, domain_code, domain_name FROM app.d_entity ORDER BY domain_id, display_order;"
+        print_status $YELLOW "   • Start API: ./tools/start-api.sh"
+        print_status $YELLOW "   • Test auth: james.miller@huronhome.ca / password123"
     fi
 }
 
 # Main execution
 main() {
-    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - 50 DDL FILES (Roman Numerals I-LI, VIII Missing)"
-    print_status $PURPLE "=========================================================================="
+    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT - DOMAIN ARCHITECTURE (51 DDL FILES)"
+    print_status $PURPLE "========================================================================"
 
     if [ "$DRY_RUN" = true ]; then
         print_status $YELLOW "🔍 DRY RUN MODE - No changes will be made"
