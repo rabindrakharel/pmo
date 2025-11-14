@@ -1,6 +1,6 @@
 # Person-Based RBAC System - Complete Documentation
 
-> **Version**: 2.0 (Person-Based Permissions)
+> **Version**: 3.0 (Integer Permission Model)
 > **Last Updated**: 2025-11-13
 > **Status**: Production-Ready
 
@@ -20,12 +20,13 @@
 
 ## Overview
 
-The Person-Based RBAC system provides fine-grained access control supporting BOTH **role-based** and **employee-specific** permissions. Permissions resolve via UNION of two sources, allowing flexible authorization without compromising security.
+The Person-Based RBAC system provides fine-grained access control supporting BOTH **role-based** and **employee-specific** permissions. Permissions resolve via UNION of two sources, using a simple **integer permission level** (0-5) with hierarchical inheritance.
 
 ### Key Features
 
 - ✅ **Dual Permission Sources**: Role-based + Direct employee permissions
-- ✅ **Permission Hierarchy**: Owner → Delete → Share → Edit → View
+- ✅ **Integer Permission Model**: Single integer (0-5) instead of arrays
+- ✅ **Hierarchical Inheritance**: Higher permission levels inherit all lower permissions
 - ✅ **Type-Level & Instance-Level**: Grant access to all entities or specific instances
 - ✅ **Temporal Expiration**: Time-limited permissions for contractors/guests
 - ✅ **Delegation Tracking**: Audit trail of who granted permissions
@@ -36,35 +37,64 @@ The Person-Based RBAC system provides fine-grained access control supporting BOT
 
 ## Core Concepts
 
-### 1. Permission Array Model
+### 1. Integer Permission Model
 
-Permissions are stored as PostgreSQL integer arrays with hierarchical levels:
+Permissions are stored as a **single integer** (0-5) with hierarchical levels. **Higher levels automatically inherit all lower permissions**.
 
 ```sql
-permission = [0, 1, 2, 3, 4, 5]
+permission = 0 | 1 | 2 | 3 | 4 | 5  (single integer value)
 
-[0] = View    → Read access to entity data
-[1] = Edit    → Modify existing entity (inherits View)
-[2] = Share   → Share entity with others (inherits Edit + View)
-[3] = Delete  → Soft delete entity (inherits Share + Edit + View)
-[4] = Create  → Create new entities - requires entity_id='all' (inherits all lower)
-[5] = Owner   → Full control including permission management (inherits all)
+0 = View    → Read access to entity data
+1 = Edit    → Modify existing entity (INHERITS View)
+2 = Share   → Share entity with others (INHERITS Edit + View)
+3 = Delete  → Soft delete entity (INHERITS Share + Edit + View)
+4 = Create  → Create new entities - requires entity_id='all' (INHERITS Delete + Share + Edit + View)
+5 = Owner   → Full control including permission management (INHERITS ALL permissions)
 ```
 
-**Permission Hierarchy**:
+**Permission Hierarchy with Automatic Inheritance**:
 ```
 Owner [5]
-  ├─→ Delete [3]
-  ├─→ Create [4]
-  └─→ Share [2]
-       └─→ Edit [1]
-            └─→ View [0]
+  └─→ INHERITS ALL: Create [4], Delete [3], Share [2], Edit [1], View [0]
+       └─→ Create [4]
+            └─→ INHERITS: Delete [3], Share [2], Edit [1], View [0]
+                 └─→ Delete [3]
+                      └─→ INHERITS: Share [2], Edit [1], View [0]
+                           └─→ Share [2]
+                                └─→ INHERITS: Edit [1], View [0]
+                                     └─→ Edit [1]
+                                          └─→ INHERITS: View [0]
+                                               └─→ View [0]
 ```
 
-**Example**:
-- `ARRAY[0,1]` → Can View and Edit
-- `ARRAY[0,1,2,3,4]` → Can View, Edit, Share, Delete, Create (Manager permissions)
-- `ARRAY[0,1,2,3,4,5]` → Owner (Full control)
+**Permission Checks** (using >= comparison):
+```sql
+-- Check View permission
+WHERE permission >= 0  -- Everyone with any permission can view
+
+-- Check Edit permission
+WHERE permission >= 1  -- Edit, Share, Delete, Create, or Owner
+
+-- Check Share permission
+WHERE permission >= 2  -- Share, Delete, Create, or Owner
+
+-- Check Delete permission
+WHERE permission >= 3  -- Delete, Create, or Owner
+
+-- Check Create permission
+WHERE permission >= 4  -- Create or Owner
+
+-- Check Owner permission
+WHERE permission >= 5  -- Only Owner
+```
+
+**Example Permission Assignments**:
+- `permission = 0` → Can ONLY View
+- `permission = 1` → Can Edit + View
+- `permission = 2` → Can Share + Edit + View
+- `permission = 3` → Can Delete + Share + Edit + View
+- `permission = 4` → Can Create + Delete + Share + Edit + View (Manager)
+- `permission = 5` → Owner (Full control including permission management)
 
 ### 2. Person-Based Permissions
 
@@ -76,9 +106,9 @@ Permissions granted to a **role** are inherited by ALL employees assigned to tha
 
 **Example**:
 ```sql
--- Step 1: Grant permission to Manager role
+-- Step 1: Grant permission level 4 (Create) to Manager role
 INSERT INTO entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
-VALUES ('role', '{manager_role_uuid}', 'project', 'all', ARRAY[0,1,2,3,4]);
+VALUES ('role', '{manager_role_uuid}', 'project', 'all', 4);
 
 -- Step 2: Assign employees to Manager role
 INSERT INTO d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
@@ -86,7 +116,8 @@ VALUES
   ('role', '{manager_role_uuid}', 'employee', '{james_uuid}', 'assigned_to'),
   ('role', '{manager_role_uuid}', 'employee', '{sarah_uuid}', 'assigned_to');
 
--- Result: Both James and Sarah can create/edit/delete ALL projects
+-- Result: Both James and Sarah have permission level 4 on ALL projects
+-- They can: Create + Delete + Share + Edit + View (all permissions <=4)
 ```
 
 #### B. **Direct Employee Permissions** (person_entity_name = 'employee')
@@ -95,11 +126,12 @@ Permissions granted directly to a specific employee.
 
 **Example**:
 ```sql
--- Grant John edit access to ONLY project ABC
+-- Grant John permission level 1 (Edit) on ONLY project ABC
 INSERT INTO entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
-VALUES ('employee', '{john_uuid}', 'project', '{project_abc_uuid}', ARRAY[0,1]);
+VALUES ('employee', '{john_uuid}', 'project', '{project_abc_uuid}', 1);
 
--- Result: John can view/edit ONLY project ABC (not other projects)
+-- Result: John has permission level 1 on project ABC
+-- He can: Edit + View (permissions <=1)
 ```
 
 ### 3. Type-Level vs Instance-Level Permissions
@@ -109,9 +141,11 @@ VALUES ('employee', '{john_uuid}', 'project', '{project_abc_uuid}', ARRAY[0,1]);
 Grants access to **ALL instances** of an entity type.
 
 ```sql
--- CEO can view ALL projects
+-- CEO has Owner permission (level 5) on ALL projects
 INSERT INTO entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
-VALUES ('employee', '{ceo_uuid}', 'project', 'all', ARRAY[0,1,2,3,4,5]);
+VALUES ('employee', '{ceo_uuid}', 'project', 'all', 5);
+
+-- Result: CEO can do ANYTHING with ANY project (permission level 5 >= all checks)
 ```
 
 #### Instance-Level (entity_id = {specific_uuid})
@@ -119,19 +153,21 @@ VALUES ('employee', '{ceo_uuid}', 'project', 'all', ARRAY[0,1,2,3,4,5]);
 Grants access to **SPECIFIC entity instance** only.
 
 ```sql
--- Contractor can edit ONLY project XYZ
+-- Contractor has Edit permission (level 1) on ONLY project XYZ
 INSERT INTO entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
-VALUES ('employee', '{contractor_uuid}', 'project', '{project_xyz_uuid}', ARRAY[0,1]);
+VALUES ('employee', '{contractor_uuid}', 'project', '{project_xyz_uuid}', 1);
+
+-- Result: Contractor can Edit + View ONLY project XYZ (not other projects)
 ```
 
 ---
 
 ## Permission Resolution Model
 
-When checking if an employee has permission, the system resolves via **UNION** of two sources:
+When checking if an employee has permission, the system resolves via **UNION** of two sources and takes the **MAXIMUM** permission level:
 
 ```
-Permission Resolution = Role-Based Permissions ∪ Direct Employee Permissions
+Employee Permission = MAX(Role-Based Permission, Direct Employee Permission)
 ```
 
 ### Resolution Flow
@@ -139,67 +175,73 @@ Permission Resolution = Role-Based Permissions ∪ Direct Employee Permissions
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Check: Does Sarah have 'edit' permission on Project ABC?   │
+│ (edit requires permission >= 1)                            │
 └─────────────────────────────────────────────────────────────┘
                             │
                 ┌───────────┴────────────┐
                 │                        │
         Source 1: Role-Based      Source 2: Direct Employee
+        (Sarah → Roles)            (Sarah → Permissions)
                 │                        │
         ┌───────▼────────┐       ┌──────▼──────┐
-        │ Sarah → Roles  │       │ Sarah →     │
-        │ Roles → Perms  │       │ Permissions │
+        │ permission = 2 │       │ permission=1│
+        │  (from role)   │       │  (direct)   │
         └───────┬────────┘       └──────┬──────┘
                 │                        │
                 └────────┬───────────────┘
                          │
                     ┌────▼─────┐
-                    │  UNION   │
+                    │MAX(2, 1) │
+                    │    = 2   │
                     └────┬─────┘
                          │
                  ┌───────▼────────┐
-                 │ Has Permission?│
-                 │   YES / NO     │
+                 │ Check: 2 >= 1? │
+                 │   YES → ALLOW  │
                  └────────────────┘
 ```
+
+**Key Point**: If an employee has permission from MULTIPLE sources, the system uses the MAXIMUM (highest) permission level.
 
 ### SQL Implementation
 
 ```sql
-SELECT EXISTS (
-  SELECT 1 FROM (
-    -- Source 1: Direct employee permissions
-    SELECT person_entity_id
-    FROM entity_id_rbac_map
-    WHERE person_entity_name = 'employee'
-      AND person_entity_id = '{sarah_uuid}'
-      AND entity_name = 'project'
-      AND (entity_id = 'all' OR entity_id = '{project_abc_uuid}')
-      AND 1 = ANY(permission)  -- Edit permission
-      AND active_flag = true
-      AND (expires_ts IS NULL OR expires_ts > now())
+-- Get maximum permission level for employee on entity
+SELECT COALESCE(MAX(permission), -1) as max_permission
+FROM (
+  -- Source 1: Direct employee permissions
+  SELECT permission
+  FROM entity_id_rbac_map
+  WHERE person_entity_name = 'employee'
+    AND person_entity_id = '{sarah_uuid}'
+    AND entity_name = 'project'
+    AND (entity_id = 'all' OR entity_id = '{project_abc_uuid}')
+    AND active_flag = true
+    AND (expires_ts IS NULL OR expires_ts > now())
 
-    UNION
+  UNION ALL
 
-    -- Source 2: Role-based permissions
-    SELECT eim.child_entity_id
-    FROM entity_id_rbac_map rbac
-    INNER JOIN d_entity_id_map eim
-      ON eim.parent_entity_type = 'role'
-      AND eim.parent_entity_id = rbac.person_entity_id
-      AND eim.child_entity_type = 'employee'
-      AND eim.child_entity_id = '{sarah_uuid}'
-      AND eim.active_flag = true
-    WHERE rbac.person_entity_name = 'role'
-      AND rbac.entity_name = 'project'
-      AND (rbac.entity_id = 'all' OR rbac.entity_id = '{project_abc_uuid}')
-      AND 1 = ANY(rbac.permission)
-      AND rbac.active_flag = true
-      AND (rbac.expires_ts IS NULL OR rbac.expires_ts > now())
-  ) AS combined
-);
+  -- Source 2: Role-based permissions
+  SELECT rbac.permission
+  FROM entity_id_rbac_map rbac
+  INNER JOIN d_entity_id_map eim
+    ON eim.parent_entity_type = 'role'
+    AND eim.parent_entity_id::text = rbac.person_entity_id::text
+    AND eim.child_entity_type = 'employee'
+    AND eim.child_entity_id = '{sarah_uuid}'
+    AND eim.active_flag = true
+  WHERE rbac.person_entity_name = 'role'
+    AND rbac.entity_name = 'project'
+    AND (rbac.entity_id = 'all' OR rbac.entity_id = '{project_abc_uuid}')
+    AND rbac.active_flag = true
+    AND (rbac.expires_ts IS NULL OR rbac.expires_ts > now())
+) AS combined;
+
+-- Then check if max_permission >= required_level
+-- For edit: max_permission >= 1
 ```
 
-**Result**: Sarah has permission if **EITHER** source grants it.
+**Result**: Sarah has permission if MAX permission from either source meets the requirement.
 
 ---
 
@@ -219,8 +261,8 @@ CREATE TABLE app.entity_id_rbac_map (
   entity_name varchar(50) NOT NULL, -- project, task, employee, office, etc.
   entity_id text NOT NULL, -- Specific UUID or 'all'
 
-  -- Permission array
-  permission integer[] NOT NULL DEFAULT '{}',
+  -- Permission level (integer 0-5)
+  permission integer NOT NULL DEFAULT 0 CHECK (permission >= 0 AND permission <= 5),
 
   -- Permission lifecycle
   granted_by_empid uuid, -- Delegation tracking
@@ -237,6 +279,16 @@ CREATE TABLE app.entity_id_rbac_map (
 CREATE INDEX idx_rbac_person_entity ON entity_id_rbac_map(person_entity_name, person_entity_id, entity_name, entity_id) WHERE active_flag = true;
 CREATE INDEX idx_rbac_role_entity ON entity_id_rbac_map(person_entity_name, person_entity_id, entity_name) WHERE person_entity_name = 'role' AND active_flag = true;
 CREATE INDEX idx_rbac_expires ON entity_id_rbac_map(expires_ts) WHERE expires_ts IS NOT NULL AND active_flag = true;
+```
+
+**Permission Level Values**:
+```sql
+-- 0 = View only
+-- 1 = Edit (+ View)
+-- 2 = Share (+ Edit + View)
+-- 3 = Delete (+ Share + Edit + View)
+-- 4 = Create (+ Delete + Share + Edit + View)
+-- 5 = Owner (+ all permissions)
 ```
 
 ### Table: `d_entity_id_map` (Role → Employee Mapping)
@@ -274,6 +326,16 @@ app.has_permission_on_entity_id(
 ) RETURNS integer -- 1 = permitted, 0 = denied
 ```
 
+**Permission Type Mapping**:
+```sql
+'view'   → requires permission >= 0
+'edit'   → requires permission >= 1
+'share'  → requires permission >= 2
+'delete' → requires permission >= 3
+'create' → requires permission >= 4
+'owner'  → requires permission >= 5
+```
+
 **Usage**:
 ```sql
 -- Check if James can edit project ABC
@@ -281,7 +343,7 @@ SELECT has_permission_on_entity_id(
   '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',  -- James's employee_id
   'project',                                 -- entity type
   '93106ffb-402e-43a7-8b26-5287e37a1b0e',   -- project ABC UUID
-  'edit'                                     -- permission type
+  'edit'                                     -- permission type (requires level >= 1)
 );
 -- Returns: 1 (permitted) or 0 (denied)
 ```
@@ -319,7 +381,7 @@ app.get_all_scope_by_entity_employee(
 
 **Usage**:
 ```sql
--- Get all projects John can view
+-- Get all projects John can view (requires permission >= 0)
 SELECT get_all_scope_by_entity_employee(
   '{john_uuid}',
   'project',
@@ -343,7 +405,7 @@ app.get('/api/v1/project', async (request, reply) => {
 
   let query;
   if (scope.includes('all')) {
-    // Employee has access to ALL projects
+    // Employee has type-level access to ALL projects
     query = 'SELECT * FROM d_project WHERE active_flag = true';
   } else if (scope.length === 0) {
     // Employee has NO access
@@ -375,7 +437,7 @@ app.put('/api/v1/project/:id', async (request, reply) => {
   const employeeId = request.user.sub; // From JWT
   const projectId = request.params.id;
 
-  // STEP 1: Check permission
+  // STEP 1: Check permission (requires level >= 1 for edit)
   const hasPermission = await db.query(`
     SELECT has_permission_on_entity_id($1, 'project', $2, 'edit')
   `, [employeeId, projectId]);
@@ -409,7 +471,7 @@ app.put('/api/v1/project/:id', async (request, reply) => {
 app.get('/api/v1/project', async (request, reply) => {
   const employeeId = request.user.sub; // From JWT
 
-  // STEP 1: Get scope
+  // STEP 1: Get scope (requires level >= 0 for view)
   const scopeResult = await db.query(`
     SELECT get_all_scope_by_entity_employee($1, 'project', 'view') as scope
   `, [employeeId]);
@@ -439,7 +501,7 @@ app.get('/api/v1/project', async (request, reply) => {
 
 ### Pattern 3: Create Child Entity
 
-**Use Case**: Ensure parent edit permission + child create permission.
+**Use Case**: Ensure parent edit permission (level >=1) + child create permission (level >=4).
 
 ```typescript
 // POST /api/v1/project/:project_id/task
@@ -447,7 +509,7 @@ app.post('/api/v1/project/:project_id/task', async (request, reply) => {
   const employeeId = request.user.sub;
   const projectId = request.params.project_id;
 
-  // STEP 1: Check parent edit permission
+  // STEP 1: Check parent edit permission (requires level >= 1)
   const hasParentEdit = await db.query(`
     SELECT has_permission_on_entity_id($1, 'project', $2, 'edit')
   `, [employeeId, projectId]);
@@ -459,7 +521,7 @@ app.post('/api/v1/project/:project_id/task', async (request, reply) => {
     });
   }
 
-  // STEP 2: Check child create permission
+  // STEP 2: Check child create permission (requires level >= 4 on 'all')
   const hasTaskCreate = await db.query(`
     SELECT has_permission_on_entity_id($1, 'task', 'all', 'create')
   `, [employeeId]);
@@ -497,12 +559,12 @@ app.post('/api/v1/project/:project_id/task', async (request, reply) => {
 
 ### Use Case 1: Role-Based Department Management
 
-**Scenario**: All employees with "Manager" role can create/edit projects in their department.
+**Scenario**: All employees with "Manager" role have Create permission (level 4) on projects.
 
 ```sql
--- Step 1: Grant permission to Manager role
+-- Step 1: Grant permission level 4 (Create) to Manager role
 INSERT INTO entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
-SELECT 'role', id, 'project', 'all', ARRAY[0,1,2,3,4]
+SELECT 'role', id, 'project', 'all', 4
 FROM d_role
 WHERE role_code = 'DEPT-MGR';
 
@@ -515,52 +577,57 @@ CROSS JOIN d_employee e
 WHERE r.role_code = 'DEPT-MGR'
   AND e.department IN ('Landscaping', 'HVAC', 'Plumbing', 'Snow Removal');
 
--- Result: All department managers can create/edit/delete ANY project
+-- Result: All department managers have permission level 4 on projects
+-- They can: Create + Delete + Share + Edit + View (all permissions <= 4)
 ```
 
 ### Use Case 2: Project-Specific Team Access
 
-**Scenario**: Grant specific team members access to a single project.
+**Scenario**: Grant specific team members Edit permission (level 1) on a single project.
 
 ```sql
--- Grant Sarah and John edit access to Project Alpha
+-- Grant Sarah and John permission level 1 (Edit) on Project Alpha
 INSERT INTO entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission, granted_by_empid)
 SELECT
-  'employee', e.id, 'project', '{project_alpha_uuid}', ARRAY[0,1], '{team_lead_uuid}'
+  'employee', e.id, 'project', '{project_alpha_uuid}', 1, '{team_lead_uuid}'
 FROM d_employee e
 WHERE e.email IN ('sarah@huronhome.ca', 'john@huronhome.ca');
 
--- Result: Sarah and John can view/edit ONLY Project Alpha (not other projects)
+-- Result: Sarah and John have permission level 1 on Project Alpha
+-- They can: Edit + View (permissions <= 1)
+-- They CANNOT: Share, Delete, or Create
 ```
 
 ### Use Case 3: Temporary Contractor Access
 
-**Scenario**: Grant contractor access for 30 days.
+**Scenario**: Grant contractor Edit permission (level 1) for 30 days.
 
 ```sql
--- Grant contractor view/edit access to Project Beta for 30 days
+-- Grant contractor permission level 1 (Edit) on Project Beta for 30 days
 INSERT INTO entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission, expires_ts, granted_by_empid)
 VALUES (
   'employee',
   '{contractor_uuid}',
   'project',
   '{project_beta_uuid}',
-  ARRAY[0,1],
+  1,  -- Edit permission
   now() + interval '30 days',
   '{manager_uuid}'
 );
 
--- Result: Contractor can edit Project Beta for 30 days, then permission expires automatically
+-- Result: Contractor has permission level 1 on Project Beta for 30 days
+-- They can: Edit + View
+-- Permission expires automatically after 30 days
 ```
 
 ### Use Case 4: Hierarchical Permissions
 
-**Scenario**: CEO has owner permissions on everything.
+**Scenario**: CEO has Owner permission (level 5) on everything.
 
 ```sql
--- Grant CEO owner permission on all entity types
+-- Grant CEO permission level 5 (Owner) on all entity types
 INSERT INTO entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
-SELECT 'employee', e.id, entity_type, 'all', ARRAY[0,1,2,3,4,5]
+SELECT 'employee', e.id, entity_type, 'all', 5
 FROM d_employee e
 CROSS JOIN (VALUES
   ('project'), ('task'), ('employee'), ('office'), ('business'),
@@ -568,37 +635,59 @@ CROSS JOIN (VALUES
 ) AS entities(entity_type)
 WHERE e.email = 'james.miller@huronhome.ca';
 
--- Result: CEO can view/edit/delete/create/own ALL entities
+-- Result: CEO has permission level 5 on ALL entities
+-- CEO can do ANYTHING: Owner + Create + Delete + Share + Edit + View
 ```
 
 ### Use Case 5: Permission Delegation
 
-**Scenario**: Manager delegates project ownership to team lead.
+**Scenario**: Manager delegates Owner permission (level 5) to team lead on specific project.
 
 ```sql
--- Manager grants team lead owner permission on specific project
+-- Manager grants team lead permission level 5 (Owner) on specific project
 INSERT INTO entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission, granted_by_empid)
 VALUES (
   'employee',
   '{team_lead_uuid}',
   'project',
   '{project_gamma_uuid}',
-  ARRAY[0,1,2,3,4,5],
+  5,  -- Owner permission
   '{manager_uuid}'
 );
 
--- Team lead can now grant permissions to team members
+-- Team lead can now grant permissions to team members (has Owner permission)
 INSERT INTO entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission, granted_by_empid)
 VALUES (
   'employee',
   '{team_member_uuid}',
   'project',
   '{project_gamma_uuid}',
-  ARRAY[0,1],
+  1,  -- Edit permission
   '{team_lead_uuid}' -- Delegated by team lead
 );
 
 -- Result: Audit trail shows manager → team lead → team member delegation chain
+```
+
+### Use Case 6: Read-Only Access
+
+**Scenario**: Grant external auditor View-only permission (level 0).
+
+```sql
+-- Grant auditor permission level 0 (View only) on financial reports
+INSERT INTO entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission, expires_ts)
+VALUES (
+  'employee',
+  '{auditor_uuid}',
+  'reports',
+  'all',
+  0,  -- View only
+  now() + interval '90 days'
+);
+
+-- Result: Auditor has permission level 0 on all reports
+-- They can ONLY: View
+-- They CANNOT: Edit, Share, Delete, or Create
 ```
 
 ---
@@ -654,6 +743,13 @@ expires_ts = now() + interval '30 days'
 ```sql
 -- Always record who granted permission
 granted_by_empid = '{manager_uuid}'
+```
+
+### 6. Respect Permission Hierarchy
+
+```
+Only users with Owner permission (level 5) can grant permissions to others.
+DO NOT allow users to grant permissions higher than their own level.
 ```
 
 ---
@@ -729,51 +825,39 @@ const visibleProjects = scope.includes('all')
 
 ---
 
-## Migration Guide (v1.0 → v2.0)
+## Permission Level Reference
 
-### Breaking Changes
+### Quick Reference Table
 
-1. **Column renamed**: `empid` → `person_entity_id`
-2. **Column renamed**: `entity` → `entity_name`
-3. **New column**: `person_entity_name` (required)
+| Level | Name   | Can Do | SQL Check | Typical Role |
+|-------|--------|--------|-----------|--------------|
+| 0     | View   | Read data | `permission >= 0` | Guest, Viewer |
+| 1     | Edit   | Modify data + View | `permission >= 1` | Team Member |
+| 2     | Share  | Share with others + Edit + View | `permission >= 2` | Team Lead |
+| 3     | Delete | Remove data + Share + Edit + View | `permission >= 3` | Senior Lead |
+| 4     | Create | Create new entities + Delete + Share + Edit + View | `permission >= 4` | Manager |
+| 5     | Owner  | Manage permissions + ALL operations | `permission >= 5` | CEO, Project Owner |
 
-### Migration SQL
+### Permission Assignment Guidelines
 
 ```sql
--- Step 1: Add new columns
-ALTER TABLE entity_id_rbac_map
-  ADD COLUMN person_entity_name varchar(20) CHECK (person_entity_name IN ('employee', 'role')),
-  ADD COLUMN person_entity_id_new uuid,
-  ADD COLUMN entity_name_new varchar(50);
+-- View-only access (external auditors, contractors)
+permission = 0
 
--- Step 2: Migrate data (all existing rows are employee permissions)
-UPDATE entity_id_rbac_map
-SET
-  person_entity_name = 'employee',
-  person_entity_id_new = empid,
-  entity_name_new = entity;
+-- Team members who work on projects
+permission = 1
 
--- Step 3: Drop old columns
-ALTER TABLE entity_id_rbac_map
-  DROP COLUMN empid,
-  DROP COLUMN entity;
+-- Team leads who coordinate with others
+permission = 2
 
--- Step 4: Rename new columns
-ALTER TABLE entity_id_rbac_map
-  RENAME COLUMN person_entity_id_new TO person_entity_id;
-ALTER TABLE entity_id_rbac_map
-  RENAME COLUMN entity_name_new TO entity_name;
+-- Senior leads who manage project lifecycle
+permission = 3
 
--- Step 5: Set NOT NULL constraints
-ALTER TABLE entity_id_rbac_map
-  ALTER COLUMN person_entity_name SET NOT NULL,
-  ALTER COLUMN person_entity_id SET NOT NULL,
-  ALTER COLUMN entity_name SET NOT NULL;
+-- Department managers who create new projects
+permission = 4
 
--- Step 6: Recreate indexes
-DROP INDEX IF EXISTS idx_rbac_empid_entity;
-CREATE INDEX idx_rbac_person_entity ON entity_id_rbac_map(person_entity_name, person_entity_id, entity_name, entity_id) WHERE active_flag = true;
-CREATE INDEX idx_rbac_role_entity ON entity_id_rbac_map(person_entity_name, person_entity_id, entity_name) WHERE person_entity_name = 'role' AND active_flag = true;
+-- Executives and project owners
+permission = 5
 ```
 
 ---
@@ -884,7 +968,7 @@ export async function filterByScope(
 
 // Usage example
 app.put('/api/v1/project/:id',
-  requirePermission('project', 'edit'), // Middleware
+  requirePermission('project', 'edit'), // Middleware (requires level >= 1)
   async (request, reply) => {
     // Business logic here - permission already checked
     const { name, description } = request.body;
@@ -928,11 +1012,18 @@ app.get('/api/v1/project', async (request, reply) => {
 
 The Person-Based RBAC system provides enterprise-grade access control with:
 
-✅ **Flexible Permission Model**: Role-based + Direct employee permissions
+✅ **Simple Integer Permission Model**: 0-5 (instead of arrays)
+✅ **Hierarchical Inheritance**: Higher levels automatically include all lower permissions
+✅ **Flexible Permission Sources**: Role-based + Direct employee permissions
 ✅ **Performance Optimized**: Indexed queries, cacheable functions
 ✅ **Security First**: JWT validation, scope filtering, temporal expiration
 ✅ **Audit Trail**: Delegation tracking, timestamp logging
 ✅ **Zero Foreign Keys**: Independent permission storage
+
+**Permission Hierarchy**:
+```
+5 (Owner) >= 4 (Create) >= 3 (Delete) >= 2 (Share) >= 1 (Edit) >= 0 (View)
+```
 
 **Next Steps**:
 1. Integrate RBAC middleware in all API routes
@@ -943,6 +1034,6 @@ The Person-Based RBAC system provides enterprise-grade access control with:
 
 ---
 
-**Documentation Version**: 2.0
+**Documentation Version**: 3.0 (Integer Permission Model)
 **Last Updated**: 2025-11-13
 **Contact**: Platform Team
