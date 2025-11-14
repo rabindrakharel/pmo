@@ -83,181 +83,28 @@ COMMENT ON COLUMN app.entity_id_rbac_map.expires_ts IS 'Optional expiration time
 -- ============================================================================
 -- RBAC PERMISSION FUNCTIONS
 -- ============================================================================
-
--- Function to check if employee has specific permission on entity instance
--- Resolves via UNION of role-based and direct employee permissions, takes MAX level
-CREATE OR REPLACE FUNCTION app.has_permission_on_entity_id(
-  p_employee_id uuid,
-  p_entity_name varchar(50),
-  p_entity_id text,
-  p_permission_type varchar(10) -- 'view', 'edit', 'share', 'delete', 'create', 'owner'
-)
-RETURNS integer AS $$
-DECLARE
-  v_required_level integer;
-  v_max_permission integer;
-BEGIN
-  -- Map permission type to required level
-  v_required_level := CASE p_permission_type
-    WHEN 'view' THEN 0
-    WHEN 'edit' THEN 1
-    WHEN 'share' THEN 2
-    WHEN 'delete' THEN 3
-    WHEN 'create' THEN 4
-    WHEN 'owner' THEN 5
-    ELSE -1
-  END;
-
-  IF v_required_level < 0 THEN
-    RETURN 0; -- Invalid permission type
-  END IF;
-
-  -- Get maximum permission level from role-based and direct employee permissions
-  SELECT COALESCE(MAX(permission), -1)
-  INTO v_max_permission
-  FROM (
-    -- Source 1: Direct employee permissions
-    SELECT permission
-    FROM app.entity_id_rbac_map
-    WHERE person_entity_name = 'employee'
-      AND person_entity_id = p_employee_id
-      AND entity_name = p_entity_name
-      AND (entity_id = 'all' OR entity_id = p_entity_id)
-      AND active_flag = true
-      AND (expires_ts IS NULL OR expires_ts > now())
-
-    UNION ALL
-
-    -- Source 2: Role-based permissions (employee → roles → permissions)
-    SELECT rbac.permission
-    FROM app.entity_id_rbac_map rbac
-    INNER JOIN app.d_entity_id_map eim
-      ON eim.parent_entity_type = 'role'
-      AND eim.parent_entity_id::text = rbac.person_entity_id::text
-      AND eim.child_entity_type = 'employee'
-      AND eim.child_entity_id::text = p_employee_id::text
-      AND eim.active_flag = true
-    WHERE rbac.person_entity_name = 'role'
-      AND rbac.entity_name = p_entity_name
-      AND (rbac.entity_id = 'all' OR rbac.entity_id = p_entity_id)
-      AND rbac.active_flag = true
-      AND (rbac.expires_ts IS NULL OR rbac.expires_ts > now())
-  ) AS combined;
-
-  -- Check if max permission level meets requirement (hierarchical inheritance via >=)
-  RETURN CASE WHEN v_max_permission >= v_required_level THEN 1 ELSE 0 END;
-END;
-$$ LANGUAGE plpgsql STABLE;
-
-COMMENT ON FUNCTION app.has_permission_on_entity_id IS 'Check if employee has specific permission on entity instance. Returns 1 if permitted, 0 otherwise. Resolves via UNION of role-based (via d_entity_id_map) and direct employee permissions, taking MAX level. Uses hierarchical inheritance (permission >= required_level). Use for API gating before operations.';
-
--- Function to get all entity IDs that employee can access with specified permission
--- Returns array of entity_id UUIDs for filtering query results
-CREATE OR REPLACE FUNCTION app.get_all_scope_by_entity_employee(
-  p_employee_id uuid,
-  p_entity_name varchar(50),
-  p_permission_type varchar(10) -- 'view', 'edit', 'share', 'delete', 'create', 'owner'
-)
-RETURNS text[] AS $$
-DECLARE
-  v_required_level integer;
-  v_entity_ids text[];
-  v_has_all_access boolean;
-BEGIN
-  -- Map permission type to required level
-  v_required_level := CASE p_permission_type
-    WHEN 'view' THEN 0
-    WHEN 'edit' THEN 1
-    WHEN 'share' THEN 2
-    WHEN 'delete' THEN 3
-    WHEN 'create' THEN 4
-    WHEN 'owner' THEN 5
-    ELSE -1
-  END;
-
-  IF v_required_level < 0 THEN
-    RETURN ARRAY[]::text[]; -- Invalid permission type
-  END IF;
-
-  -- Check if employee has 'all' access (type-level permission with sufficient level)
-  SELECT EXISTS (
-    SELECT 1 FROM (
-      -- Direct employee 'all' permission
-      SELECT permission
-      FROM app.entity_id_rbac_map
-      WHERE person_entity_name = 'employee'
-        AND person_entity_id = p_employee_id
-        AND entity_name = p_entity_name
-        AND entity_id = 'all'
-        AND permission >= v_required_level  -- Hierarchical check
-        AND active_flag = true
-        AND (expires_ts IS NULL OR expires_ts > now())
-
-      UNION ALL
-
-      -- Role-based 'all' permission
-      SELECT rbac.permission
-      FROM app.entity_id_rbac_map rbac
-      INNER JOIN app.d_entity_id_map eim
-        ON eim.parent_entity_type = 'role'
-        AND eim.parent_entity_id::text = rbac.person_entity_id::text
-        AND eim.child_entity_type = 'employee'
-        AND eim.child_entity_id::text = p_employee_id::text
-        AND eim.active_flag = true
-      WHERE rbac.person_entity_name = 'role'
-        AND rbac.entity_name = p_entity_name
-        AND rbac.entity_id = 'all'
-        AND rbac.permission >= v_required_level  -- Hierarchical check
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > now())
-    ) AS combined
-  ) INTO v_has_all_access;
-
-  IF v_has_all_access THEN
-    -- Return special marker for 'all' access - caller should interpret this as no filtering needed
-    RETURN ARRAY['all']::text[];
-  END IF;
-
-  -- Otherwise, collect specific entity IDs where permission level is sufficient
-  SELECT array_agg(DISTINCT entity_id)
-  INTO v_entity_ids
-  FROM (
-    -- Direct employee permissions on specific entities
-    SELECT entity_id
-    FROM app.entity_id_rbac_map
-    WHERE person_entity_name = 'employee'
-      AND person_entity_id = p_employee_id
-      AND entity_name = p_entity_name
-      AND entity_id != 'all'
-      AND permission >= v_required_level  -- Hierarchical check
-      AND active_flag = true
-      AND (expires_ts IS NULL OR expires_ts > now())
-
-    UNION
-
-    -- Role-based permissions on specific entities
-    SELECT rbac.entity_id
-    FROM app.entity_id_rbac_map rbac
-    INNER JOIN app.d_entity_id_map eim
-      ON eim.parent_entity_type = 'role'
-      AND eim.parent_entity_id::text = rbac.person_entity_id::text
-      AND eim.child_entity_type = 'employee'
-      AND eim.child_entity_id::text = p_employee_id::text
-      AND eim.active_flag = true
-    WHERE rbac.person_entity_name = 'role'
-      AND rbac.entity_name = p_entity_name
-      AND rbac.entity_id != 'all'
-      AND rbac.permission >= v_required_level  -- Hierarchical check
-      AND rbac.active_flag = true
-      AND (rbac.expires_ts IS NULL OR rbac.expires_ts > now())
-  ) AS specific_permissions;
-
-  RETURN COALESCE(v_entity_ids, ARRAY[]::text[]);
-END;
-$$ LANGUAGE plpgsql STABLE;
-
-COMMENT ON FUNCTION app.get_all_scope_by_entity_employee IS 'Get all entity IDs that employee can access with specified permission. Returns array of entity_id UUIDs, or [''all''] if employee has type-level access. Uses hierarchical inheritance (permission >= required_level). Use for filtering query results: WHERE id = ANY(get_all_scope_by_entity_employee(...))';
-
+--
+-- ✅ DEPRECATED: SQL functions removed - replaced by API-based RBAC service
+-- ✅ Location: /apps/api/src/lib/rbac.service.ts
+--
+-- ✅ Migration: SQL functions → TypeScript API functions
+--   OLD: SELECT app.has_permission_on_entity_id(...)
+--   NEW: import { hasPermissionOnEntityId } from '@/lib/rbac.service.js'
+--
+--   OLD: SELECT app.get_all_scope_by_entity_employee(...)
+--   NEW: import { getAllScopeByEntityEmployee } from '@/lib/rbac.service.js'
+--
+-- ✅ Benefits:
+--   - Reusable across all API routes (no code duplication)
+--   - Type-safe TypeScript functions
+--   - Easy to unit test and mock
+--   - Consistent permission resolution logic
+--   - Middleware pattern for operation gating
+--
+-- ✅ See documentation:
+--   - /docs/entity_design_pattern/RBAC_API_MIGRATION_GUIDE.md
+--   - /docs/entity_design_pattern/rbac.md
+--
 -- ============================================================================
 -- DATA CURATION: ROLE-BASED PERMISSIONS
 -- ============================================================================

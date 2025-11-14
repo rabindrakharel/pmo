@@ -1,7 +1,7 @@
 # Person-Based RBAC System - Complete Documentation
 
-> **Version**: 3.0 (Integer Permission Model)
-> **Last Updated**: 2025-11-13
+> **Version**: 4.0 (API-Based RBAC Service)
+> **Last Updated**: 2025-11-14
 > **Status**: Production-Ready
 
 ## Table of Contents
@@ -10,7 +10,7 @@
 2. [Core Concepts](#core-concepts)
 3. [Permission Resolution Model](#permission-resolution-model)
 4. [Database Schema](#database-schema)
-5. [RBAC Functions](#rbac-functions)
+5. [API-Based RBAC Service](#api-based-rbac-service)
 6. [API Integration Patterns](#api-integration-patterns)
 7. [Use Cases & Examples](#use-cases--examples)
 8. [Security Best Practices](#security-best-practices)
@@ -31,7 +31,9 @@ The Person-Based RBAC system provides fine-grained access control supporting BOT
 - ✅ **Temporal Expiration**: Time-limited permissions for contractors/guests
 - ✅ **Delegation Tracking**: Audit trail of who granted permissions
 - ✅ **Zero Database Foreign Keys**: Permissions stored independently of entity tables
-- ✅ **SQL Functions**: `has_permission_on_entity_id()` and `get_all_scope_by_entity_employee()`
+- ✅ **API-Based Service**: TypeScript RBAC service with middleware pattern (replaces SQL functions)
+- ✅ **Fastify Middleware**: `requirePermission()` and `requireCreatePermission()` for automatic gating
+- ✅ **Type-Safe**: Full TypeScript type safety for permission checks
 
 ---
 
@@ -310,117 +312,200 @@ CREATE TABLE app.d_entity_id_map (
 
 ---
 
-## RBAC Functions
+## API-Based RBAC Service
 
-### 1. `has_permission_on_entity_id()`
+> **Location**: `/apps/api/src/lib/rbac.service.ts`
+> **Migration**: SQL functions → TypeScript API service (v4.0)
 
-**Purpose**: Check if employee has specific permission on entity instance (gate API operations).
+The RBAC system uses a **TypeScript API service** with reusable functions and Fastify middleware for permission gating and scope filtering.
+
+### Core Functions
+
+#### 1. `hasPermissionOnEntityId()` - Permission Check
+
+**Purpose**: Check if employee has specific permission on entity instance.
 
 **Signature**:
-```sql
-app.has_permission_on_entity_id(
-  p_employee_id uuid,
-  p_entity_name varchar(50),
-  p_entity_id text,
-  p_permission_type varchar(10) -- 'view', 'edit', 'share', 'delete', 'create', 'owner'
-) RETURNS integer -- 1 = permitted, 0 = denied
-```
-
-**Permission Type Mapping**:
-```sql
-'view'   → requires permission >= 0
-'edit'   → requires permission >= 1
-'share'  → requires permission >= 2
-'delete' → requires permission >= 3
-'create' → requires permission >= 4
-'owner'  → requires permission >= 5
-```
-
-**Usage**:
-```sql
--- Check if James can edit project ABC
-SELECT has_permission_on_entity_id(
-  '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',  -- James's employee_id
-  'project',                                 -- entity type
-  '93106ffb-402e-43a7-8b26-5287e37a1b0e',   -- project ABC UUID
-  'edit'                                     -- permission type (requires level >= 1)
-);
--- Returns: 1 (permitted) or 0 (denied)
-```
-
-**API Integration**:
 ```typescript
-// API middleware example (Fastify)
-async function checkPermission(request, reply) {
-  const employeeId = request.user.sub; // From JWT
-  const projectId = request.params.id;
+async function hasPermissionOnEntityId(
+  employeeId: string,        // Employee UUID (from JWT token)
+  entityName: string,         // Entity type: 'project', 'task', 'employee', etc.
+  entityId: string,           // Entity UUID or 'all' for type-level check
+  permissionType: PermissionType  // 'view' | 'edit' | 'share' | 'delete' | 'create' | 'owner'
+): Promise<PermissionCheckResult>
 
-  const hasPermission = await db.query(`
-    SELECT has_permission_on_entity_id($1, 'project', $2, 'edit')
-  `, [employeeId, projectId]);
-
-  if (hasPermission.rows[0].has_permission_on_entity_id === 0) {
-    return reply.code(403).send({ error: 'Permission denied' });
-  }
-  // Continue to business logic...
+// Returns:
+interface PermissionCheckResult {
+  hasPermission: boolean;         // true if permitted
+  maxPermissionLevel: number;     // 0-5 (highest level found)
+  source: 'role' | 'employee' | 'both' | 'none';  // Permission source
 }
 ```
 
-### 2. `get_all_scope_by_entity_employee()`
+**Usage**:
+```typescript
+import { hasPermissionOnEntityId } from '@/lib/rbac.service.js';
 
-**Purpose**: Get all entity IDs that employee can access (filter query results).
+const result = await hasPermissionOnEntityId(
+  employeeId,
+  'project',
+  projectId,
+  'edit'
+);
+
+if (!result.hasPermission) {
+  return reply.code(403).send({ error: 'Permission denied' });
+}
+```
+
+#### 2. `getAllScopeByEntityEmployee()` - Get Accessible Entity IDs
+
+**Purpose**: Get all entity IDs that employee can access with specified permission.
 
 **Signature**:
-```sql
-app.get_all_scope_by_entity_employee(
-  p_employee_id uuid,
-  p_entity_name varchar(50),
-  p_permission_type varchar(10) -- 'view', 'edit', 'share', 'delete', 'create', 'owner'
-) RETURNS text[] -- Array of entity_id UUIDs, or ['all'] for type-level access
+```typescript
+async function getAllScopeByEntityEmployee(
+  employeeId: string,
+  entityName: string,
+  permissionType: PermissionType
+): Promise<ScopeResult>
+
+// Returns:
+interface ScopeResult {
+  scope: string[];       // Array of entity_id UUIDs
+  hasAllAccess: boolean; // true if 'all' access (no filtering needed)
+}
 ```
 
 **Usage**:
-```sql
--- Get all projects John can view (requires permission >= 0)
-SELECT get_all_scope_by_entity_employee(
-  '{john_uuid}',
+```typescript
+import { getAllScopeByEntityEmployee } from '@/lib/rbac.service.js';
+
+const scope = await getAllScopeByEntityEmployee(
+  employeeId,
   'project',
   'view'
 );
--- Returns: ['{project_a_uuid}', '{project_b_uuid}', ...] or ['all']
+
+if (scope.hasAllAccess) {
+  // Employee can see all projects - no filtering
+} else if (scope.scope.length === 0) {
+  // Employee has no access
+  return { data: [], total: 0 };
+} else {
+  // Filter by specific IDs
+  conditions.push(sql`id = ANY(${scope.scope}::uuid[])`);
+}
 ```
 
-**API Integration**:
+#### 3. `requirePermission()` - Middleware for UPDATE/DELETE/GET
+
+**Purpose**: Fastify middleware to gate API operations based on permissions.
+
+**Signature**:
 ```typescript
-// API list endpoint example
-app.get('/api/v1/project', async (request, reply) => {
-  const employeeId = request.user.sub; // From JWT
+function requirePermission(
+  entityName: string,
+  permission: PermissionType,
+  entityIdParam: string = 'id'  // Optional: parameter name containing entity ID
+): FastifyMiddleware
+```
 
-  // Get scope
-  const scopeResult = await db.query(`
-    SELECT get_all_scope_by_entity_employee($1, 'project', 'view') as scope
-  `, [employeeId]);
+**Usage**:
+```typescript
+import { requirePermission } from '@/lib/rbac.service.js';
 
-  const scope = scopeResult.rows[0].scope;
-
-  let query;
-  if (scope.includes('all')) {
-    // Employee has type-level access to ALL projects
-    query = 'SELECT * FROM d_project WHERE active_flag = true';
-  } else if (scope.length === 0) {
-    // Employee has NO access
-    return reply.send({ data: [], total: 0 });
-  } else {
-    // Employee has access to specific projects
-    query = {
-      text: 'SELECT * FROM d_project WHERE id = ANY($1) AND active_flag = true',
-      values: [scope]
-    };
-  }
-
-  const result = await db.query(query);
-  return reply.send({ data: result.rows, total: result.rowCount });
+// GET single project (requires view permission)
+fastify.get('/api/v1/project/:id', {
+  preHandler: [
+    fastify.authenticate,
+    requirePermission('project', 'view')  // ✅ Single line replaces 20 lines of RBAC code
+  ],
+}, async (request, reply) => {
+  // Handler only executes if user has view permission
+  // No manual RBAC check needed!
+  const project = await db.query('SELECT * FROM d_project WHERE id = $1', [id]);
+  return project;
 });
+
+// UPDATE project (requires edit permission)
+fastify.put('/api/v1/project/:id', {
+  preHandler: [
+    fastify.authenticate,
+    requirePermission('project', 'edit')  // ✅ Automatic edit permission check
+  ],
+}, async (request, reply) => {
+  // Handler only executes if user has edit permission
+});
+
+// DELETE project (requires delete permission)
+fastify.delete('/api/v1/project/:id', {
+  preHandler: [
+    fastify.authenticate,
+    requirePermission('project', 'delete')  // ✅ Automatic delete permission check
+  ],
+}, async (request, reply) => {
+  // Handler only executes if user has delete permission
+});
+```
+
+#### 4. `requireCreatePermission()` - Middleware for CREATE
+
+**Purpose**: Fastify middleware to gate CREATE operations (requires type-level permission).
+
+**Signature**:
+```typescript
+function requireCreatePermission(
+  entityName: string
+): FastifyMiddleware
+```
+
+**Usage**:
+```typescript
+import { requireCreatePermission } from '@/lib/rbac.service.js';
+
+// CREATE project (requires create permission on 'all')
+fastify.post('/api/v1/project', {
+  preHandler: [
+    fastify.authenticate,
+    requireCreatePermission('project')  // ✅ Checks permission >= 4 on entity_id='all'
+  ],
+}, async (request, reply) => {
+  // Handler only executes if user can create projects
+  const newProject = await db.insert(...);
+  return newProject;
+});
+```
+
+#### 5. `getEntityScopeFilter()` - Helper for Query Filtering
+
+**Purpose**: Get scope filter for SELECT queries.
+
+**Signature**:
+```typescript
+async function getEntityScopeFilter(
+  employeeId: string,
+  entityName: string,
+  permission: PermissionType = 'view'
+): Promise<{ scopeIds: string[]; hasAllAccess: boolean }>
+```
+
+**Usage**:
+```typescript
+import { getEntityScopeFilter } from '@/lib/rbac.service.js';
+
+const filter = await getEntityScopeFilter(employeeId, 'project', 'view');
+
+if (filter.hasAllAccess) {
+  // No filtering - user can see all
+  query = sql`SELECT * FROM d_project WHERE active_flag = true`;
+} else if (filter.scopeIds.length === 0) {
+  // No access - return empty
+  return { data: [], total: 0 };
+} else {
+  // Filter by specific IDs
+  query = sql`SELECT * FROM d_project WHERE id = ANY(${filter.scopeIds}::uuid[])`;
+}
 ```
 
 ---
@@ -431,23 +516,21 @@ app.get('/api/v1/project', async (request, reply) => {
 
 **Use Case**: Prevent unauthorized writes (PUT, PATCH, DELETE).
 
+**✅ NEW APPROACH** (API-based with middleware):
+
 ```typescript
+import { requirePermission } from '@/lib/rbac.service.js';
+
 // PUT /api/v1/project/:id
-app.put('/api/v1/project/:id', async (request, reply) => {
-  const employeeId = request.user.sub; // From JWT
-  const projectId = request.params.id;
-
-  // STEP 1: Check permission (requires level >= 1 for edit)
-  const hasPermission = await db.query(`
-    SELECT has_permission_on_entity_id($1, 'project', $2, 'edit')
-  `, [employeeId, projectId]);
-
-  if (hasPermission.rows[0].has_permission_on_entity_id === 0) {
-    return reply.code(403).send({
-      error: 'Permission denied',
-      message: 'You do not have edit permission on this project'
-    });
-  }
+fastify.put('/api/v1/project/:id', {
+  preHandler: [
+    fastify.authenticate,
+    requirePermission('project', 'edit')  // ✅ Replaces manual permission checks
+  ],
+}, async (request, reply) => {
+  // No manual RBAC check needed - middleware handled it!
+  const { id } = request.params;
+  const data = request.body;
 
   // STEP 2: Execute business logic
   const { name, description, budget } = request.body;

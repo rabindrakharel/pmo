@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-// RBAC implemented directly via database joins - no separate permission gates
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import {
@@ -11,6 +10,12 @@ import {
 } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.js';
+// ✅ NEW: API-based RBAC service (replaces manual SQL checks)
+import {
+  requirePermission,
+  requireCreatePermission,
+  getEntityScopeFilter,
+} from '../../lib/rbac.service.js';
 
 // Schema based on actual d_project table structure from db/XV_d_project.ddl
 const ProjectSchema = Type.Object({
@@ -99,22 +104,20 @@ export async function projectRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Direct RBAC filtering - only show projects user has access to
-      const baseConditions = [
-        sql`(
-          EXISTS (
-            SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.empid = ${userId}
-              AND rbac.entity = 'project'
-              AND (rbac.entity_id = p.id::text OR rbac.entity_id = 'all')
-              AND rbac.active_flag = true
-              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND 0 = ANY(rbac.permission)
-          )
-        )`
-      ];
+      // ✅ NEW: Get employee's project scope using API-based RBAC service
+      const scopeFilter = await getEntityScopeFilter(userId, 'project', 'view');
 
-      const conditions = [...baseConditions];
+      // ✅ Handle no access case early
+      if (scopeFilter.scopeIds.length === 0 && !scopeFilter.hasAllAccess) {
+        return createPaginatedResponse([], 0, limit, offset);
+      }
+
+      const conditions = [];
+
+      // ✅ Add scope filter (only if not "all access")
+      if (!scopeFilter.hasAllAccess) {
+        conditions.push(sql`p.id = ANY(${scopeFilter.scopeIds}::uuid[])`);
+      }
 
       if (active !== undefined) {
         conditions.push(sql`p.active_flag = ${active}`);
@@ -259,8 +262,12 @@ export async function projectRoutes(fastify: FastifyInstance) {
   }); */
 
   // Get project dynamic child entity tabs - for tab navigation
+  // ✅ NEW: Uses requirePermission middleware
   fastify.get('/api/v1/project/:id/dynamic-child-entity-tabs', {
-    preHandler: [fastify.authenticate],
+    preHandler: [
+      fastify.authenticate,
+      requirePermission('project', 'view')  // ✅ Replaces manual RBAC check
+    ],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })
@@ -283,26 +290,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
   }, async function (request, reply) {
     try {
       const { id: projectId } = request.params as { id: string };
-      const userId = request.user?.sub;
 
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // Direct RBAC check for project access
-      const projectAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'project'
-          AND (rbac.entity_id = ${projectId}::text OR rbac.entity_id = 'all')
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
-      `);
-
-      if (projectAccess.length === 0) {
-        return reply.status(403).send({ error: 'Insufficient permissions to view this project' });
-      }
+      // ✅ No manual RBAC check needed - middleware already validated!
 
       // Check if project exists
       const project = await db.execute(sql`
@@ -624,8 +613,12 @@ export async function projectRoutes(fastify: FastifyInstance) {
   }); */
 
   // Get single project
+  // ✅ NEW: Uses requirePermission middleware for automatic RBAC gating
   fastify.get('/api/v1/project/:id', {
-    preHandler: [fastify.authenticate],
+    preHandler: [
+      fastify.authenticate,
+      requirePermission('project', 'view')  // ✅ Single line replaces 20 lines of manual RBAC
+    ],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -640,25 +633,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
 
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    // Direct RBAC check for project access
-    const projectAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'project'
-        AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 0 = ANY(rbac.permission)
-    `);
-
-    if (projectAccess.length === 0) {
-      return reply.status(403).send({ error: 'Insufficient permissions to view this project' });
-    }
+    // ✅ No manual RBAC check needed - middleware already validated permission!
 
     try {
       const project = await db.execute(sql`
@@ -685,8 +660,12 @@ export async function projectRoutes(fastify: FastifyInstance) {
   });
 
   // Create project
+  // ✅ NEW: Uses requireCreatePermission middleware for type-level create gating
   fastify.post('/api/v1/project', {
-    preHandler: [fastify.authenticate],
+    preHandler: [
+      fastify.authenticate,
+      requireCreatePermission('project')  // ✅ Single line replaces 15 lines of manual RBAC
+    ],
     schema: {
       body: CreateProjectSchema,
       response: {
@@ -711,25 +690,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       if (data.office_id) data.metadata.office_id = data.office_id;
     }
 
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    // Direct RBAC check for project create permission
-    const projectCreateAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'project'
-        AND rbac.entity_id = 'all'
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 4 = ANY(rbac.permission)
-    `);
-
-    if (projectCreateAccess.length === 0) {
-      return reply.status(403).send({ error: 'Insufficient permissions to create projects' });
-    }
+    // ✅ No manual RBAC check needed - middleware already validated create permission!
 
     try {
       // Check for unique project code if provided
@@ -741,18 +702,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
           return reply.status(400).send({ error: 'Project with this code already exists' });
         }
       }
-
-      // Get user's tenant_id (this should come from auth context in real implementation)
-      const userInfo = await db.execute(sql`
-        SELECT id FROM app.d_employee WHERE id = ${userId} LIMIT 1
-      `);
-      
-      if (userInfo.length === 0) {
-        return reply.status(400).send({ error: 'User not found' });
-      }
-
-      // For now, use a default tenant_id - in production this should come from user context
-      const tenantId = '00000000-0000-0000-0000-000000000000';
 
       const result = await db.execute(sql`
         INSERT INTO app.d_project (
@@ -814,8 +763,12 @@ export async function projectRoutes(fastify: FastifyInstance) {
   });
 
   // Update project
+  // ✅ NEW: Uses requirePermission middleware for edit gating
   fastify.put('/api/v1/project/:id', {
-    preHandler: [fastify.authenticate],
+    preHandler: [
+      fastify.authenticate,
+      requirePermission('project', 'edit')  // ✅ Single line replaces 20 lines of manual RBAC
+    ],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
@@ -844,25 +797,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       if (data.office_id) data.metadata.office_id = data.office_id;
     }
 
-    const userId = (request as any).user?.sub;
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    // Direct RBAC check for project edit access
-    const projectEditAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'project'
-        AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 1 = ANY(rbac.permission)
-    `);
-
-    if (projectEditAccess.length === 0) {
-      return reply.status(403).send({ error: 'Insufficient permissions to modify this project' });
-    }
+    // ✅ No manual RBAC check needed - middleware already validated edit permission!
 
     try {
       const existing = await db.execute(sql`
