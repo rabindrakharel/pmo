@@ -30,7 +30,6 @@
 -- - Presigned URLs for secure content access
 -- - Person entities stored as JSONB array for flexibility
 --
--- KEY FIELDS:
 -- - interaction_person_entities: JSONB array of {person_entity_type, person_entity_id}
 -- - interaction_intention_entity: varchar(50) indicating what to create next (task, quote, etc.)
 -- - interaction_ts: timestamptz for when interaction occurred
