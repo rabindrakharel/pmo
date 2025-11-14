@@ -355,13 +355,13 @@ export function WelcomePage() {
             <div>
               <div className="flex items-center gap-2 text-sm uppercase tracking-widest text-white/70 mb-3">
                 <Sparkles className="h-4 w-4" />
-                AI-First Semantic Operations
+                AI-First Enterprise Orchestrator
               </div>
               <h1 className="text-3xl md:text-4xl font-bold mb-4 leading-snug">
-                Welcome back{user?.name ? `, ${user.name}` : ''}. Your entire business runs on one semantic fabric.
+                Welcome back{user?.name ? `, ${user.name}` : ''}. Stop adapting to systems. Let AI adapt to you.
               </h1>
               <p className="text-base text-white/80 mb-6 leading-relaxed">
-                Cut the friction of modern operations. Our agentic workflow engine listens to every conversation, models every entity, and keeps manufacturing, retail, supply chain, and service teams on the same page.
+                Enable businesses to operate with <strong>dramatically reduced friction</strong> by replacing complex, manual digital processes with natural, AI-driven interactions. Simply talk or chat — the AI orchestrates workflows, coordinates tasks, and unifies your data. No forms. No dashboards. No learning curve.
               </p>
               <div className="flex flex-wrap gap-3 mb-6">
                 {industriesServed.map(industry => (
@@ -403,11 +403,11 @@ export function WelcomePage() {
               ))}
               <div className="text-sm text-white/80">
                 <p className="font-medium mb-1 flex items-center gap-2">
-                  <Network className="h-4 w-4" />
-                  Central semantic agent listening 24/7
+                  <Bot className="h-4 w-4" />
+                  AI handles execution. You focus on outcomes.
                 </p>
                 <p>
-                  Conversations → semantics → workflows. No more brittle integrations.
+                  Conversations → semantics → workflows. The future where people drive strategy and AI runs operations.
                 </p>
               </div>
             </div>
@@ -427,6 +427,99 @@ export function WelcomePage() {
               <p className="text-sm text-dark-700 leading-relaxed">{prop.description}</p>
             </div>
           ))}
+        </div>
+
+        {/* Core Problem & AI-First Solution */}
+        <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-6">
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingDown className="h-5 w-5 text-amber-700" />
+                <h2 className="text-xl font-bold text-dark-700">The Core Problem Today</h2>
+              </div>
+              <div className="space-y-2 text-sm text-dark-700">
+                <p className="flex items-start gap-2">
+                  <span className="text-amber-600 font-bold mt-0.5">•</span>
+                  <span>People still <strong>fill out forms</strong> and navigate complex interfaces</span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="text-amber-600 font-bold mt-0.5">•</span>
+                  <span>Teams <strong>learn systems</strong> instead of focusing on outcomes</span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="text-amber-600 font-bold mt-0.5">•</span>
+                  <span>Employees <strong>manually coordinate</strong> tasks across tools</span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="text-amber-600 font-bold mt-0.5">•</span>
+                  <span>Communication is <strong>fragmented</strong> across teams and processes</span>
+                </p>
+                <p className="mt-4 pl-4 border-l-2 border-amber-400 italic text-dark-600">
+                  All of this creates <strong>operational drag</strong>, high costs, and slow execution — even with "digital" tools.
+                </p>
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Bot className="h-5 w-5 text-emerald-700" />
+                <h2 className="text-xl font-bold text-dark-700">Our AI-First Approach</h2>
+              </div>
+              <div className="space-y-3">
+                <div className="bg-white/60 rounded-md p-4 border border-emerald-200">
+                  <p className="text-sm font-semibold text-emerald-800 mb-1">Instead of people adapting to the system...</p>
+                  <p className="text-sm text-dark-700">The system adapts to the people.</p>
+                </div>
+                <div className="space-y-2 text-sm text-dark-700">
+                  <p className="flex items-start gap-2">
+                    <MessageSquare className="h-4 w-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+                    <span>Users simply <strong>talk or chat</strong> with an AI agent</span>
+                  </p>
+                  <p className="flex items-start gap-2">
+                    <Network className="h-4 w-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+                    <span>AI becomes your <strong>central enterprise orchestrator</strong></span>
+                  </p>
+                  <p className="flex items-start gap-2">
+                    <Workflow className="h-4 w-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+                    <span>It coordinates workflows, processes, jobs, and data automatically</span>
+                  </p>
+                </div>
+                <div className="bg-emerald-100 rounded-md p-3 border border-emerald-300 mt-3">
+                  <p className="text-sm font-bold text-emerald-900">
+                    ✓ Smooth, frictionless operations<br/>
+                    ✓ Centralized, well-structured data<br/>
+                    ✓ Consistent communication across teams<br/>
+                    ✓ Better customer engagement
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-6 bg-white/60 rounded-md p-4 border border-slate-300">
+            <div className="flex items-start gap-3">
+              <Users className="h-5 w-5 text-slate-700 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="text-sm font-bold text-dark-700 mb-1">Why Start with Small & Medium Businesses</h3>
+                <div className="grid md:grid-cols-4 gap-3 text-xs text-dark-700">
+                  <div className="flex items-start gap-2">
+                    <Zap className="h-3 w-3 text-slate-600 mt-0.5 flex-shrink-0" />
+                    <span><strong>Easy to onboard</strong> with minimal friction</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Layers className="h-3 w-3 text-slate-600 mt-0.5 flex-shrink-0" />
+                    <span><strong>Lack rigid legacy</strong> systems to replace</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <TrendingUp className="h-3 w-3 text-slate-600 mt-0.5 flex-shrink-0" />
+                    <span><strong>Feel operational pain</strong> acutely and seek faster ROI</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Activity className="h-3 w-3 text-slate-600 mt-0.5 flex-shrink-0" />
+                    <span><strong>Quick adoption</strong> and expansion cycles</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Semantic Highlights */}
@@ -481,8 +574,9 @@ export function WelcomePage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600 uppercase tracking-widest">Semantic domains</p>
-              <h2 className="text-2xl font-bold text-dark-700">Modular ontology that adapts like nature</h2>
+              <p className="text-sm font-medium text-slate-600 uppercase tracking-widest">Domain-Entity Architecture</p>
+              <h2 className="text-2xl font-bold text-dark-700">8 semantic domains powering every industry</h2>
+              <p className="text-sm text-dark-600 mt-1">Modular ontology where entities self-organize and AI orchestrates workflows automatically</p>
             </div>
             <Link
               to="/entity-designer"
