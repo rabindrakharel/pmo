@@ -16,7 +16,7 @@
 -- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • Parent: role (via d_entity_id_map)
 -- • Self: manager_employee_id → d_employee.id
--- • RBAC: entity_id_rbac_map.empid
+-- • RBAC: entity_id_rbac_map.person_entity_id (where person_entity_name='employee')
 --
 -- SECURITY:
 -- • Account lockout: 5 failed attempts → 30 min lock

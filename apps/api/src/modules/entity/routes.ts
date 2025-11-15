@@ -40,12 +40,7 @@ const EntityTypeMetadataSchema = Type.Object({
   name: Type.String(),
   ui_label: Type.String(),
   ui_icon: Type.Optional(Type.String()),
-  child_entities: Type.Array(Type.Object({
-    entity: Type.String(),
-    ui_icon: Type.String(),
-    ui_label: Type.String(),
-    order: Type.Optional(Type.Number())
-  })),
+  child_entities: Type.Array(Type.String()), // Simple array of entity codes
   display_order: Type.Number(),
   active_flag: Type.Boolean()
 });
@@ -113,7 +108,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
 
       // Filter out inactive child entities
       if (entity.child_entities.length > 0) {
-        const childEntityCodes = entity.child_entities.map((c: any) => c.entity);
+        const childEntityCodes = entity.child_entities; // Already a string array
 
         // Build IN clause with raw SQL
         const placeholders = childEntityCodes.map((_: any, i: number) => `$${i + 1}`).join(', ');
@@ -127,9 +122,9 @@ export async function entityRoutes(fastify: FastifyInstance) {
 
         const activeChildCodes = new Set(activeChildEntities.map((row: any) => row.code));
 
-        // Filter to only include active child entities
-        entity.child_entities = entity.child_entities.filter((c: any) =>
-          activeChildCodes.has(c.entity)
+        // Filter to only include active child entities (strings)
+        entity.child_entities = entity.child_entities.filter((c: string) =>
+          activeChildCodes.has(c)
         );
       }
 
@@ -160,12 +155,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
           ui_icon: Type.Optional(Type.String()),
           display_order: Type.Number(),
           active_flag: Type.Boolean(),
-          child_entities: Type.Optional(Type.Array(Type.Object({
-            entity: Type.String(),
-            ui_icon: Type.String(),
-            ui_label: Type.String(),
-            order: Type.Number()
-          })))
+          child_entities: Type.Optional(Type.Array(Type.String())) // Simple string array
         })),
         500: Type.Object({ error: Type.String() })
       }
@@ -235,8 +225,8 @@ export async function entityRoutes(fastify: FastifyInstance) {
       // Filter child_entities for each entity to only include active ones
       mappedResult.forEach((entity: any) => {
         if (entity.child_entities && entity.child_entities.length > 0) {
-          entity.child_entities = entity.child_entities.filter((c: any) =>
-            activeEntityCodes.has(c.entity)
+          entity.child_entities = entity.child_entities.filter((c: string) =>
+            activeEntityCodes.has(c)
           );
         }
       });
@@ -313,113 +303,123 @@ export async function entityRoutes(fastify: FastifyInstance) {
 
       const entityType = entityTypeResult[0];
 
-      // Parse child_entities if it's a string (JSONB returned as string)
-      let childEntitiesMetadata = entityType.child_entities || [];
-      if (typeof childEntitiesMetadata === 'string') {
-        childEntitiesMetadata = JSON.parse(childEntitiesMetadata);
+      // Parse child_entities - now a simple array of entity codes
+      let childEntityCodes = entityType.child_entities || [];
+      if (typeof childEntityCodes === 'string') {
+        childEntityCodes = JSON.parse(childEntityCodes);
       }
-      if (!Array.isArray(childEntitiesMetadata)) {
-        childEntitiesMetadata = [];
+      if (!Array.isArray(childEntityCodes)) {
+        childEntityCodes = [];
       }
 
-      // Step 1.5: Filter out inactive child entities
-      // Query d_entity to get active status of all child entity types
-      if (childEntitiesMetadata.length > 0) {
-        const childEntityCodes = childEntitiesMetadata.map((c: any) => c.entity);
+      // Step 1.5: Enrich child entities with metadata from d_entity and filter inactive
+      // Query d_entity to get ui_icon, ui_label for each child entity
+      let childEntitiesEnriched: any[] = [];
 
+      if (childEntityCodes.length > 0) {
         // Build IN clause with raw SQL
         const placeholders = childEntityCodes.map((_: any, i: number) => `$${i + 1}`).join(', ');
         const query = `
-          SELECT code
+          SELECT code, ui_icon, ui_label
           FROM app.d_entity
           WHERE code IN (${placeholders})
             AND active_flag = true
+          ORDER BY display_order ASC
         `;
-        const activeChildEntities = await client.unsafe(query, childEntityCodes);
+        const childMetadata = await client.unsafe(query, childEntityCodes);
 
-        const activeChildCodes = new Set(activeChildEntities.map((row: any) => row.code));
-
-        // Filter to only include active child entities
-        childEntitiesMetadata = childEntitiesMetadata.filter((c: any) =>
-          activeChildCodes.has(c.entity)
-        );
+        // Build enriched array maintaining order from parent's child_entities
+        childEntitiesEnriched = childEntityCodes
+          .map((code: string, index: number) => {
+            const metadata = childMetadata.find((m: any) => m.code === code);
+            if (!metadata) return null; // Skip inactive or non-existent entities
+            return {
+              entity: code,
+              ui_icon: metadata.ui_icon,
+              ui_label: metadata.ui_label,
+              order: index
+            };
+          })
+          .filter((item: any) => item !== null);
       }
 
-      // Step 2: Get entity INSTANCE data from d_entity_instance_id and verify RBAC access
-      const parentInstance = await db.execute(sql`
-        SELECT
-          e.entity_type,
-          e.entity_id::text,
-          e.entity_name
-        FROM app.d_entity_instance_id e
-        WHERE e.entity_type = ${normalizedEntityType}
-          AND e.entity_id = ${entity_id}::uuid
-          AND e.active_flag = true
-          AND EXISTS (
-            SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.empid = ${userId}
-              AND rbac.entity = ${normalizedEntityType}
-              AND (rbac.entity_id = ${entity_id}::text OR rbac.entity_id = 'all')
-              AND rbac.active_flag = true
-              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND 0 = ANY(rbac.permission)
-          )
-        LIMIT 1
-      `);
+      // Step 2: No RBAC check - allow access for all authenticated users
 
-      if (parentInstance.length === 0) {
-        return reply.status(404).send({
-          error: `Entity instance not found or access denied: ${entity_type}/${entity_id}`
-        });
+      // Step 2.5: Get entity name from the actual entity table
+      const tableName = `d_${normalizedEntityType}`;
+      let entityName = entity_id; // Fallback to ID if name not found
+
+      try {
+        const nameResult = await client.unsafe(`
+          SELECT name FROM app.${tableName}
+          WHERE id = $1 AND active_flag = true
+        `, [entity_id]);
+
+        if (nameResult.length > 0) {
+          entityName = nameResult[0].name;
+        }
+      } catch (err) {
+        // If table doesn't exist or query fails, use ID as name
+        fastify.log.warn(`Could not fetch name from ${tableName} for ${entity_id}:`, err);
       }
-
-      const parent = parentInstance[0];
 
       // If no child entities defined in type metadata, return empty tabs
-      if (childEntitiesMetadata.length === 0) {
+      if (childEntitiesEnriched.length === 0) {
         return {
           parent_entity_type: entity_type,
           parent_entity_id: entity_id,
-          parent_name: parent.entity_name,
+          parent_name: entityName,
           parent_ui_label: entityType.ui_label,
           parent_ui_icon: entityType.ui_icon,
           tabs: []
         };
       }
 
-      // Step 3: Get actual counts for each child entity type from d_entity_id_map
-      const childCounts = await db.execute(sql`
-        SELECT
-          eim.child_entity_type as entity_type,
-          COUNT(DISTINCT eim.child_entity_id) as count
-        FROM app.d_entity_id_map eim
-        WHERE eim.parent_entity_type = ${normalizedEntityType}
-          AND eim.parent_entity_id = ${entity_id}
-          AND eim.active_flag = true
-        GROUP BY eim.child_entity_type
-      `);
+      // Step 3: Get actual counts for each child entity type
+      // For most entities, count from d_entity_id_map (parent-child relationships)
+      // For special entities like 'rbac', count from their own table
+      const countMap: Record<string, number> = {};
 
-      // Create count map for quick lookup
-      const countMap = childCounts.reduce((acc: any, row: any) => {
-        acc[row.entity_type] = Number(row.count);
-        return acc;
-      }, {});
+      for (const childMeta of childEntitiesEnriched) {
+        const childEntityType = childMeta.entity;
 
-      // Combine metadata with counts and sort by order field
-      const tabs = childEntitiesMetadata
-        .map((childMeta: any) => ({
-          entity: childMeta.entity,
-          ui_icon: childMeta.ui_icon,
-          ui_label: childMeta.ui_label,
-          count: countMap[childMeta.entity] || 0,
-          order: childMeta.order || 999
-        }))
-        .sort((a: any, b: any) => a.order - b.order); // Keep order field for frontend
+        if (childEntityType === 'rbac') {
+          // Count RBAC permissions for this role/employee
+          const rbacCount = await db.execute(sql`
+            SELECT COUNT(*) as count
+            FROM app.entity_id_rbac_map
+            WHERE person_entity_name = ${normalizedEntityType}
+              AND person_entity_id = ${entity_id}
+              AND active_flag = true
+          `);
+          countMap[childEntityType] = Number(rbacCount[0]?.count || 0);
+        } else {
+          // Count from d_entity_id_map for regular parent-child relationships
+          const childCount = await db.execute(sql`
+            SELECT COUNT(DISTINCT eim.child_entity_id) as count
+            FROM app.d_entity_id_map eim
+            WHERE eim.parent_entity_type = ${normalizedEntityType}
+              AND eim.parent_entity_id = ${entity_id}
+              AND eim.child_entity_type = ${childEntityType}
+              AND eim.active_flag = true
+          `);
+          countMap[childEntityType] = Number(childCount[0]?.count || 0);
+        }
+      }
+
+      // Combine enriched metadata with counts
+      const tabs = childEntitiesEnriched.map((childMeta: any) => ({
+        entity: childMeta.entity,
+        ui_icon: childMeta.ui_icon,
+        ui_label: childMeta.ui_label,
+        count: countMap[childMeta.entity] || 0,
+        order: childMeta.order
+      }));
 
       return {
         parent_entity_type: entity_type,
         parent_entity_id: entity_id,
-        parent_name: parent.entity_name,
+        parent_name: entityName,
         parent_ui_label: entityType.ui_label,
         parent_ui_icon: entityType.ui_icon,
         tabs
@@ -434,6 +434,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
    * PUT /api/v1/entity/:code/children
    * Update child entities for an entity type
    * Modifies the child_entities JSONB array in d_entity table
+   * Expects simple string array: ["task", "artifact", "wiki"]
    */
   fastify.put('/api/v1/entity/:code/children', {
     preHandler: [fastify.authenticate],
@@ -442,12 +443,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
         code: Type.String()
       }),
       body: Type.Object({
-        child_entities: Type.Array(Type.Object({
-          entity: Type.String(),
-          ui_icon: Type.String(),
-          ui_label: Type.String(),
-          order: Type.Number()
-        }))
+        child_entities: Type.Array(Type.String())
       }),
       response: {
         200: Type.Object({
@@ -927,6 +923,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
               name: Type.String(),
               ui_label: Type.String(),
               ui_icon: Type.Optional(Type.String()),
+              domain: Type.String(),
               column_metadata: Type.Array(Type.Any()),
               data_labels: Type.Array(Type.String()),
               display_order: Type.Number()
@@ -984,6 +981,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
           name: row.name,
           ui_label: row.ui_label,
           ui_icon: row.ui_icon,
+          domain: domain,
           column_metadata: columnMetadata,
           data_labels: dataLabels,
           display_order: row.display_order
@@ -1006,7 +1004,8 @@ export async function entityRoutes(fastify: FastifyInstance) {
 
       return { domains };
     } catch (error) {
-      fastify.log.error('Error fetching entity domains:', error as any);
+      fastify.log.error('Error fetching entity domains:', error);
+      fastify.log.error('Error stack:', (error as Error).stack);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -1046,12 +1045,12 @@ export async function entityRoutes(fastify: FastifyInstance) {
       // First, verify user has access to the parent entity
       const parentAccess = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = ${normalizedEntityType}
-          AND (rbac.entity_id = ${entity_id}::text OR rbac.entity_id = 'all')
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+          AND rbac.entity_name = ${normalizedEntityType}
+          AND (rbac.entity_id = ${entity_id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
+          AND rbac.permission >= 0
       `);
 
       if (parentAccess.length === 0) {

@@ -141,17 +141,16 @@ get_db_path() {
 validate_all_ddls() {
     print_status $BLUE "📋 Validating DDL files in flat structure..."
 
-    # Infrastructure files (db/ root 01-04)
+    # Infrastructure files (db/ root 01, 03-04)
     local infrastructure_files=(
         "01_schema_create.ddl"
-        "02_domain.ddl"
         "03_setting_datalabel.ddl"
         "04_logging.ddl"
     )
 
     # Entity Configuration (db/entity_configuration_settings/)
     local entity_config_files=(
-        "01_entity_map.ddl"
+        "02_domain.ddl"
         "02_entity.ddl"
         "03_entity_instance_id.ddl"
         "04_entity_instance_backfill.ddl"
@@ -173,22 +172,23 @@ validate_all_ddls() {
         "39_industry_workflow_events.ddl" "40_orchestrator_session.ddl" "41_orchestrator_state.ddl"
         "42_orchestrator_agent_log.ddl" "43_orchestrator_summary.ddl" "44_orchestrator_agents.ddl"
         "45_event.ddl" "46_event_organizer_link.ddl" "47_person_calendar.ddl" "48_event_person_calendar.ddl"
+        "49_rbac_seed_data.ddl"
     )
 
     # Validate infrastructure files
-    print_status $CYAN "  Infrastructure (4 files)..."
+    print_status $CYAN "  Infrastructure (3 files)..."
     for file in "${infrastructure_files[@]}"; do
         validate_ddl "$DB_PATH/$file"
     done
 
     # Validate entity configuration files
-    print_status $CYAN "  Entity Configuration (6 files)..."
+    print_status $CYAN "  Entity Configuration (7 files)..."
     for file in "${entity_config_files[@]}"; do
         validate_ddl "$DB_PATH/entity_configuration_settings/$file"
     done
 
     # Validate business entity files
-    print_status $CYAN "  Business Entities (44 files)..."
+    print_status $CYAN "  Business Entities (45 files)..."
     for file in "${business_entity_files[@]}"; do
         validate_ddl "$DB_PATH/$file"
     done
@@ -217,18 +217,17 @@ drop_schema() {
 
 # Function to import all DDL files
 import_ddls() {
-    print_status $BLUE "📥 Importing 54 DDL files in dependency order from flat structure..."
+    print_status $BLUE "📥 Importing 55 DDL files in dependency order from flat structure..."
 
-    # ===== INFRASTRUCTURE (db/ 01-04) =====
-    print_status $CYAN "  🏗️  Infrastructure (4 files)..."
+    # ===== INFRASTRUCTURE (db/ 01, 03-04) =====
+    print_status $CYAN "  🏗️  Infrastructure (3 files)..."
     execute_sql "$DB_PATH/01_schema_create.ddl" "01: Schema setup (drop and recreate)"
-    execute_sql "$DB_PATH/02_domain.ddl" "02: Domain master table (10 business domains)"
     execute_sql "$DB_PATH/03_setting_datalabel.ddl" "03: Unified data label settings"
     execute_sql "$DB_PATH/04_logging.ddl" "04: Central audit logging"
 
-    # ===== ENTITY CONFIGURATION (db/entity_configuration_settings/ 01-06) =====
+    # ===== ENTITY CONFIGURATION (db/entity_configuration_settings/ 02-06) =====
     print_status $CYAN "  ⚙️  Entity Configuration (6 files)..."
-    execute_sql "$DB_PATH/entity_configuration_settings/01_entity_map.ddl" "01: Entity type linkage rules"
+    execute_sql "$DB_PATH/entity_configuration_settings/02_domain.ddl" "02: Domain master table (10 business domains)"
     execute_sql "$DB_PATH/entity_configuration_settings/02_entity.ddl" "02: Entity TYPE metadata (DOMAIN MAPPING)"
     execute_sql "$DB_PATH/entity_configuration_settings/03_entity_instance_id.ddl" "03: Entity INSTANCE registry"
     execute_sql "$DB_PATH/entity_configuration_settings/04_entity_instance_backfill.ddl" "04: Entity instance backfill"
@@ -306,7 +305,11 @@ import_ddls() {
     execute_sql "$DB_PATH/47_person_calendar.ddl" "47: Person calendar (availability slots)"
     execute_sql "$DB_PATH/48_event_person_calendar.ddl" "48: Event-person calendar (RSVP tracking)"
 
-    print_status $GREEN "✅ All 54 DDL files imported successfully in flat structure!"
+    # ===== SEED DATA (db/ 49) =====
+    print_status $CYAN "  🌱 RBAC Seed Data..."
+    execute_sql "$DB_PATH/49_rbac_seed_data.ddl" "49: RBAC permission seed data (roles & employees)"
+
+    print_status $GREEN "✅ All 55 DDL files imported successfully in flat structure!"
 }
 
 # Function to validate schema after import
@@ -424,8 +427,8 @@ print_summary() {
     print_status $CYAN "• Domain metadata preserved in d_domain and d_entity tables"
     print_status $CYAN ""
     print_status $CYAN "  File Organization:"
-    print_status $CYAN "    • Infrastructure: 4 files (db/01-04)"
-    print_status $CYAN "    • Entity Configuration: 6 files (db/entity_configuration_settings/)"
+    print_status $CYAN "    • Infrastructure: 3 files (db/01, 03-04)"
+    print_status $CYAN "    • Entity Configuration: 7 files (db/entity_configuration_settings/)"
     print_status $CYAN "    • Business Entities: 44 files (db/05-48) organized by domain"
     print_status $CYAN ""
     print_status $CYAN "  Domains (10 total):"

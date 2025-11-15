@@ -1,7 +1,5 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-// RBAC imports temporarily disabled - will be updated to use unified scope system
-// import { getEmployeeScopeIds, hasPermissionOnScopeId, Permission } from '../rbac/entity-permission-rbac-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import {
@@ -10,6 +8,13 @@ import {
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
 import { universalEntityDelete, createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+// ✅ API-based RBAC service
+import {
+  data_gate_EntityIdsByEntityType,
+  api_gate_Create,
+  api_gate_Update,
+  PermissionLevel
+} from '../../lib/rbac.service.js';
 
 const TaskSchema = Type.Object({
   id: Type.String(),
@@ -98,21 +103,26 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Direct RBAC filtering - only show tasks user has access to
-      const baseConditions = [
-        sql`EXISTS (
-          SELECT 1 FROM app.entity_id_rbac_map rbac
-          WHERE rbac.empid = ${userId}
-            AND rbac.entity = 'task'
-            AND (rbac.entity_id = t.id::text OR rbac.entity_id = 'all')
-            AND rbac.active_flag = true
-            AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-            AND 0 = ANY(rbac.permission)
-        )`
-      ];
+      // DATA GATE: Get accessible entity IDs for SELECT
+      const accessibleEntityIds = await data_gate_EntityIdsByEntityType(userId, 'task', PermissionLevel.VIEW);
+
+      if (accessibleEntityIds.length === 0) {
+        return reply.send({
+          data: [],
+          total: 0,
+          limit,
+          offset
+        });
+      }
+
+      // Build ID filter - gate at SQL level
+      const hasTypeAccess = accessibleEntityIds.includes('11111111-1111-1111-1111-111111111111');
+      const idFilter = hasTypeAccess
+        ? sql`TRUE`  // Type-level access - no filtering
+        : sql`t.id::text = ANY(${accessibleEntityIds})`;  // Filter by accessible IDs
 
       // Build query conditions
-      const conditions = [...baseConditions];
+      const conditions = [idFilter];
 
       if (active !== undefined) {
         conditions.push(sql`t.active_flag = ${active}`);
@@ -266,22 +276,20 @@ export async function taskRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Direct RBAC check for task access
-    const taskAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'task'
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 0 = ANY(rbac.permission)
-    `);
-
-    if (taskAccess.length === 0) {
-      return reply.status(403).send({ error: 'Insufficient permissions to view this task' });
-    }
-
     try {
+      // DATA GATE: Get accessible entity IDs for SELECT
+      const accessibleEntityIds = await data_gate_EntityIdsByEntityType(userId, 'task', PermissionLevel.VIEW);
+
+      if (accessibleEntityIds.length === 0) {
+        return reply.status(403).send({ error: 'No access to task' });
+      }
+
+      // Build ID filter - gate at SQL level
+      const hasTypeAccess = accessibleEntityIds.includes('11111111-1111-1111-1111-111111111111');
+      const idFilter = hasTypeAccess
+        ? sql`TRUE`
+        : sql`t.id::text = ANY(${accessibleEntityIds})`;
+
       // Get single task with assignee names from entity_id_map
       const task = await db.execute(sql`
         SELECT
@@ -326,6 +334,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           t.created_ts, t.updated_ts, t.version
         FROM app.d_task t
         WHERE t.id = ${id}
+          AND ${idFilter}
       `);
 
       if (task.length === 0) {
@@ -362,24 +371,19 @@ export async function taskRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
+    // API GATE: Check CREATE permission
+    try {
+      await api_gate_Create(userId, 'task');
+    } catch (err: any) {
+      return reply.status(err.statusCode || 403).send({
+        error: err.error || 'Forbidden',
+        message: err.message
+      });
+    }
+
     // Auto-generate required fields if missing
     if (!data.name) data.name = 'Untitled';
     if (!data.code) data.code = `TASK-${Date.now()}`;
-
-    // Direct RBAC check for task create permission
-    const taskCreateAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'task'
-        AND rbac.entity_id = 'all'
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 4 = ANY(rbac.permission)
-    `);
-
-    if (taskCreateAccess.length === 0) {
-      return reply.status(403).send({ error: 'Insufficient permissions to create tasks' });
-    }
 
     try {
       // Create task using actual DDL structure (matches 19_d_task.ddl)
@@ -457,19 +461,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Direct RBAC check for task edit access
-    const taskEditAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'task'
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 1 = ANY(rbac.permission)
-    `);
-
-    if (taskEditAccess.length === 0) {
-      return reply.status(403).send({ error: 'Insufficient permissions to modify this task' });
+    // API GATE: Check UPDATE permission
+    try {
+      await api_gate_Update(userId, 'task', id);
+    } catch (err: any) {
+      return reply.status(err.statusCode || 403).send({
+        error: err.error || 'Forbidden',
+        message: err.message
+      });
     }
 
     try {
@@ -554,7 +553,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
   // Kanban status update endpoint (for drag-drop operations)
   fastify.patch('/api/v1/task/:id/status', {
-    
+    preHandler: [fastify.authenticate],
     schema: {
       tags: ['task', 'kanban'],
       summary: 'Update task status (Kanban)',
@@ -571,19 +570,34 @@ export async function taskRoutes(fastify: FastifyInstance) {
           task_status: Type.String(),
           updated: Type.String()}),
         400: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const { id } = request.params as { id: string };
       const { task_status, position, moved_by } = request.body as any;
-      const employeeId = (request as any).user?.sub;
+      const userId = (request as any).user?.sub;
 
-      // Validate task exists and user has permission
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // API GATE: Check UPDATE permission
+      try {
+        await api_gate_Update(userId, 'task', id);
+      } catch (err: any) {
+        return reply.status(err.statusCode || 403).send({
+          error: err.error || 'Forbidden',
+          message: err.message
+        });
+      }
+
+      // Validate task exists
       const existingTask = await db.execute(sql`
         SELECT id, name, dl__task_stage FROM app.d_task
         WHERE id = ${id} AND active_flag = true
       `);
-      
+
       if (existingTask.length === 0) {
         return reply.status(404).send({ error: 'Task not found' });
       }
@@ -596,7 +610,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           updated_ts = NOW(),
           metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
             'kanban_moved_at', NOW()::text,
-            'kanban_moved_by', ${moved_by || employeeId},
+            'kanban_moved_by', ${moved_by || userId},
             'kanban_position', ${position || 0}
           )
         WHERE id = ${id}
@@ -760,12 +774,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Direct RBAC check for task access
       const taskAccess = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${employeeId}
-          AND rbac.entity = 'task'
-          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = 'all')
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${employeeId}
+          AND rbac.entity_name = 'task'
+          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
+          AND rbac.permission >= 0
       `);
 
       if (taskAccess.length === 0) {
@@ -846,12 +860,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Direct RBAC check for task edit access
       const taskEditAccess = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${employeeId}
-          AND rbac.entity = 'task'
-          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = 'all')
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${employeeId}
+          AND rbac.entity_name = 'task'
+          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 1 = ANY(rbac.permission)
+          AND rbac.permission >= 1
       `);
 
       if (taskEditAccess.length === 0) {
@@ -871,7 +885,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           project_id,
           record_type,
           record_content,
-          updated_by_empid,
+          updated_by_employee_id,
           metadata,
           active_flag
         ) VALUES (
@@ -927,12 +941,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Direct RBAC check for task access
       const taskAccess = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${employeeId}
-          AND rbac.entity = 'task'
-          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = 'all')
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${employeeId}
+          AND rbac.entity_name = 'task'
+          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
+          AND rbac.permission >= 0
       `);
 
       if (taskAccess.length === 0) {
@@ -945,12 +959,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
           tr.id,
           tr.record_type as activity_type,
           tr.record_content as description,
-          tr.updated_by_empid as actor_id,
+          tr.updated_by_employee_id as actor_id,
           e.name as actor_name,
           tr.created_ts as timestamp,
           tr.metadata
         FROM app.d_task_data tr
-        LEFT JOIN app.d_employee e ON e.id = tr.updated_by_empid
+        LEFT JOIN app.d_employee e ON e.id = tr.updated_by_employee_id
         WHERE tr.task_id = ${taskId}
           AND tr.active_flag = true
 
@@ -1025,11 +1039,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
     // Check RBAC permission to view task
     const taskAccess = await db.execute(sql`
       SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'task'
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+      WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+        AND rbac.entity_name = 'task'
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
         AND rbac.active_flag = true
-        AND 0 = ANY(rbac.permission)
+        AND rbac.permission >= 0
     `);
 
     if (taskAccess.length === 0) {

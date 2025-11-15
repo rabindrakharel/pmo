@@ -52,12 +52,12 @@ export function createChildEntityEndpoint(
       // Universal RBAC check pattern
       const access = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = ${parentEntity}
-          AND (rbac.entity_id = ${parentId}::text OR rbac.entity_id = 'all')
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+          AND rbac.entity_name = ${parentEntity}
+          AND (rbac.entity_id = ${parentId}::uuid OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
+          AND rbac.permission >= 0
       `);
 
       if (access.length === 0) {
@@ -66,12 +66,11 @@ export function createChildEntityEndpoint(
 
       // Universal child entity query pattern
       const offset = (page - 1) * limit;
-      const childTableIdentifier = sql.identifier(childTable);
 
       const data = await db.execute(sql`
         SELECT c.*, COALESCE(c.name, 'Untitled') as name, c.descr
-        FROM app.${childTableIdentifier} c
-        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = c.id::text
+        FROM app.${sql.raw(childTable)} c
+        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = c.id
         WHERE eim.parent_entity_id = ${parentId}
           AND eim.parent_entity_type = ${parentEntity}
           AND eim.child_entity_type = ${childEntity}
@@ -84,8 +83,8 @@ export function createChildEntityEndpoint(
       // Universal count query pattern
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.${childTableIdentifier} c
-        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = c.id::text
+        FROM app.${sql.raw(childTable)} c
+        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = c.id
         WHERE eim.parent_entity_id = ${parentId}
           AND eim.parent_entity_type = ${parentEntity}
           AND eim.child_entity_type = ${childEntity}
@@ -99,8 +98,15 @@ export function createChildEntityEndpoint(
         page,
         limit
       };
-    } catch (error) {
-      fastify.log.error(`Error fetching ${parentEntity} ${childEntity}:`, error as any);
+    } catch (error: any) {
+      fastify.log.error({
+        msg: `Error fetching ${parentEntity} ${childEntity}`,
+        error: error.message,
+        stack: error.stack,
+        parentEntity,
+        childEntity,
+        childTable
+      });
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -111,21 +117,164 @@ export function createChildEntityEndpoint(
  *
  * Maps entity type names to their corresponding database table names.
  * Used by child entity route factories to automatically resolve table names.
+ *
+ * Convention: Most entities use 'd_{entity}' pattern, with these exceptions:
+ * - 'cust' → 'd_client'
+ * - 'form' → 'd_form_head'
+ * - 'biz' (legacy) → 'd_business'
+ * - Fact tables: 'order', 'invoice', 'shipment', etc. → 'f_{entity}'
  */
 export const ENTITY_TABLE_MAP: Record<string, string> = {
+  // Core entities (d_ prefix)
   task: 'd_task',
-  form: 'd_form_head',
-  artifact: 'd_artifact',
-  wiki: 'd_wiki',
   project: 'd_project',
-  biz: 'd_business',
-  office: 'd_office',
-  client: 'd_client',
   employee: 'd_employee',
   role: 'd_role',
   position: 'd_position',
-  worksite: 'd_worksite'
+  office: 'd_office',
+  worksite: 'd_worksite',
+  wiki: 'd_wiki',
+  artifact: 'd_artifact',
+  reports: 'd_reports',
+  calendar: 'd_entity_person_calendar',
+  service: 'd_service',
+  product: 'd_product',
+  workflow: 'd_workflow',
+  workflow_automation: 'd_workflow_automation',
+  event: 'd_event',
+
+  // Entities with different naming
+  cust: 'd_client',
+  business: 'd_business',
+  biz: 'd_business', // Legacy alias
+  form: 'd_form_head',
+  message_schema: 'd_message_schema',
+
+  // Hierarchy entities
+  office_hierarchy: 'd_office_hierarchy',
+  business_hierarchy: 'd_business_hierarchy',
+  product_hierarchy: 'd_product_hierarchy',
+
+  // Fact tables (f_ prefix)
+  order: 'f_order',
+  invoice: 'f_invoice',
+  shipment: 'f_shipment',
+  expense: 'f_expense',
+  revenue: 'f_revenue',
+  interaction: 'f_interaction',
+  message: 'f_message',
+  quote: 'fact_quote',
+  work_order: 'fact_work_order',
+
+  // Special entities
+  rbac: 'entity_id_rbac_map'
 };
+
+/**
+ * Resolve Database Table Name for Entity Type
+ *
+ * @param entityType - Entity type code (e.g., 'task', 'form', 'cust')
+ * @returns Database table name (e.g., 'd_task', 'd_form_head', 'd_client')
+ */
+export function getEntityTableName(entityType: string): string {
+  // Check map first
+  if (ENTITY_TABLE_MAP[entityType]) {
+    return ENTITY_TABLE_MAP[entityType];
+  }
+
+  // Default convention: d_{entity}
+  return `d_${entityType}`;
+}
+
+/**
+ * Auto-Create Child Entity Endpoints from d_entity Metadata
+ *
+ * Reads child entity relationships from d_entity table and automatically creates
+ * all child entity endpoints for a given parent. This eliminates the need to
+ * manually specify each child relationship in route files.
+ *
+ * Benefits:
+ * - Single source of truth: Child relationships defined only in d_entity DDL
+ * - Zero repetition: No need to manually list children in every route file
+ * - Self-documenting: Entity structure is database-driven
+ * - Maintainable: Add new child entity → update d_entity → endpoints auto-created
+ *
+ * @example
+ * // Before (manual repetition):
+ * createChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
+ * createChildEntityEndpoint(fastify, 'project', 'wiki', 'd_wiki');
+ * createChildEntityEndpoint(fastify, 'project', 'form', 'd_form_head');
+ * createChildEntityEndpoint(fastify, 'project', 'artifact', 'd_artifact');
+ *
+ * // After (database-driven):
+ * await createChildEntityEndpointsFromMetadata(fastify, 'project');
+ *
+ * @param fastify - Fastify instance
+ * @param parentEntity - Parent entity type (e.g., 'project', 'task', 'office')
+ */
+export async function createChildEntityEndpointsFromMetadata(
+  fastify: FastifyInstance,
+  parentEntity: string
+) {
+  try {
+    // Query d_entity for child_entities metadata
+    const result = await db.execute(sql`
+      SELECT child_entities
+      FROM app.d_entity
+      WHERE code = ${parentEntity}
+        AND active_flag = true
+    `);
+
+    if (result.length === 0) {
+      fastify.log.warn(`No entity metadata found for '${parentEntity}' in d_entity`);
+      return;
+    }
+
+    const metadata = result[0];
+    let childEntities = metadata.child_entities || [];
+
+    // Handle both string and array formats
+    if (typeof childEntities === 'string') {
+      childEntities = JSON.parse(childEntities);
+    }
+
+    if (!Array.isArray(childEntities)) {
+      fastify.log.warn(`Invalid child_entities format for '${parentEntity}': expected array`);
+      return;
+    }
+
+    // Handle both simple arrays ['task', 'wiki'] and complex objects [{ entity: 'task' }]
+    const childCodes = childEntities.map((child: any) =>
+      typeof child === 'string' ? child : child.entity
+    );
+
+    if (childCodes.length === 0) {
+      fastify.log.info(`No child entities defined for '${parentEntity}'`);
+      return;
+    }
+
+    // Create endpoints for each child entity
+    for (const childEntity of childCodes) {
+      const childTable = getEntityTableName(childEntity);
+
+      fastify.log.info(
+        `Creating child entity endpoint: /api/v1/${parentEntity}/:id/${childEntity} (table: ${childTable})`
+      );
+
+      createChildEntityEndpoint(fastify, parentEntity, childEntity, childTable);
+    }
+
+    fastify.log.info(
+      `✓ Auto-created ${childCodes.length} child entity endpoints for '${parentEntity}' from d_entity metadata`
+    );
+  } catch (error) {
+    fastify.log.error(
+      `Failed to create child entity endpoints for '${parentEntity}':`,
+      error
+    );
+    throw error;
+  }
+}
 
 /**
  * Create Minimal Child Entity Instance with Automatic Linkage
@@ -166,6 +315,7 @@ export function createMinimalChildEntityEndpoint(
           name: Type.String(),
           message: Type.String()
         }),
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })
       }
@@ -183,12 +333,12 @@ export function createMinimalChildEntityEndpoint(
       // Check parent access permission
       const parentAccess = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = ${parentEntity}
-          AND (rbac.entity_id = ${parentId}::text OR rbac.entity_id = 'all')
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+          AND rbac.entity_name = ${parentEntity}
+          AND (rbac.entity_id = ${parentId}::uuid OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
+          AND rbac.permission >= 0
       `);
 
       if (parentAccess.length === 0) {
@@ -198,12 +348,12 @@ export function createMinimalChildEntityEndpoint(
       // Check child entity create permission
       const createAccess = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = ${childEntity}
-          AND rbac.entity_id = 'all'
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+          AND rbac.entity_name = ${childEntity}
+          AND rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 4 = ANY(rbac.permission)
+          AND rbac.permission >= 4
       `);
 
       if (createAccess.length === 0) {
@@ -216,11 +366,9 @@ export function createMinimalChildEntityEndpoint(
       const autoCode = `${childEntity.toUpperCase()}-${Date.now()}`;
       const autoSlug = `${childEntity}-${Date.now()}`;
 
-      const childTableIdentifier = sql.identifier(childTable);
-
       // STEP 1: Create minimal child entity record
       const createResult = await db.execute(sql`
-        INSERT INTO app.${childTableIdentifier} (
+        INSERT INTO app.${sql.raw(childTable)} (
           name,
           code,
           descr,
@@ -262,7 +410,7 @@ export function createMinimalChildEntityEndpoint(
           ${parentEntity},
           ${parentId},
           ${childEntity},
-          ${newEntityId}::text,
+          ${newEntityId},
           'contains',
           true,
           ${timestamp},

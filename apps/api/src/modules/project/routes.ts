@@ -1,7 +1,141 @@
+/**
+ * ============================================================================
+ * PROJECT ROUTES MODULE - Universal Entity Pattern with Unified Data Gate
+ * ============================================================================
+ *
+ * SEMANTICS & PURPOSE:
+ * This module implements CRUD operations and metadata endpoints for the Project
+ * entity following the PMO platform's Universal Entity System architecture.
+ *
+ * Projects represent work initiatives with defined scope, timeline, budget, and
+ * stakeholders. They can be linked to parent entities (business units, offices)
+ * and contain child entities (tasks, wiki, artifacts, forms, expenses, revenue).
+ *
+ * ============================================================================
+ * DESIGN PATTERNS & ARCHITECTURE
+ * ============================================================================
+ *
+ * 1. UNIFIED DATA GATE PATTERN (Security & Filtering)
+ * ───────────────────────────────────────────────────
+ * All endpoints use centralized permission checking via unified-data-gate.ts:
+ *
+ *   • RBAC_GATE - Row-level security with role inheritance
+ *     - Direct employee permissions
+ *     - Role-based permissions (employee → role → permissions)
+ *     - Parent-VIEW inheritance (if parent has VIEW, children gain VIEW)
+ *     - Parent-CREATE inheritance (if parent has CREATE, children gain CREATE)
+ *
+ *   • PARENT_CHILD_FILTERING_GATE - Context-aware data filtering
+ *     - Filters entities by parent relationship via d_entity_id_map
+ *     - Enables create-link-edit pattern (create child, link to parent)
+ *
+ * Usage Example:
+ *   const canView = await unified_data_gate.rbac_gate.checkPermission(
+ *     db, userId, ENTITY_TYPE, id, Permission.VIEW
+ *   );
+ *
+ * 2. CREATE-LINK-EDIT PATTERN (Parent-Child Relationships)
+ * ─────────────────────────────────────────────────────────
+ * Instead of nested creation endpoints, we use:
+ *   1. Create entity independently: POST /api/v1/project
+ *   2. Link to parent via d_entity_id_map (automatic if parent_type/parent_id provided)
+ *   3. Edit/view in context: GET /api/v1/project?parent_type=business&parent_id={id}
+ *
+ * Benefits:
+ *   • Entities exist independently (no orphans when parent deleted)
+ *   • Many-to-many relationships supported naturally
+ *   • Simpler API surface (no custom nested endpoints)
+ *
+ * 3. FACTORY PATTERN (Child Entity Endpoints)
+ * ────────────────────────────────────────────
+ * Child entity endpoints auto-generated via createChildEntityEndpoint():
+ *   • GET /api/v1/project/:id/task    - Returns tasks linked to project
+ *   • GET /api/v1/project/:id/wiki    - Returns wiki entries for project
+ *   • GET /api/v1/project/:id/artifact - Returns artifacts for project
+ *   • etc.
+ *
+ * No manual endpoint code needed - factory handles:
+ *   • RBAC filtering (unified_data_gate)
+ *   • Parent-child JOIN via d_entity_id_map
+ *   • Pagination, search, sorting
+ *
+ * 4. MODULE-LEVEL CONSTANTS (DRY Principle)
+ * ──────────────────────────────────────────
+ *   const ENTITY_TYPE = 'project';  // Used in all DB queries and gates
+ *   const TABLE_ALIAS = 'e';        // Consistent SQL alias
+ *
+ * ============================================================================
+ * DATA MODEL
+ * ============================================================================
+ *
+ * Primary Table: app.d_project
+ *   • Core fields: id, code, name, descr, metadata
+ *   • Project-specific: dl__project_stage, budget_allocated_amt, budget_spent_amt
+ *   • Timeline: planned_start_date, planned_end_date, actual_start_date, actual_end_date
+ *   • Team: manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
+ *   • Temporal: from_ts, to_ts, active_flag, created_ts, updated_ts, version
+ *
+ * Relationships (via d_entity_id_map):
+ *   • Parent entities: business, office
+ *   • Child entities: task, wiki, artifact, form, expense, revenue
+ *
+ * Permissions (via entity_id_rbac_map):
+ *   • Supports both entity-level (entity_id = 'all') and instance-level permissions
+ *   • Permission levels: 0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER
+ *
+ * ============================================================================
+ * ENDPOINT CATALOG
+ * ============================================================================
+ *
+ * CORE CRUD:
+ *   GET    /api/v1/project                    - List projects (with RBAC + optional parent filter)
+ *   GET    /api/v1/project/:id                - Get single project (RBAC checked)
+ *   POST   /api/v1/project                    - Create project (with optional parent linking)
+ *   PATCH  /api/v1/project/:id                - Update project (RBAC checked)
+ *   DELETE /api/v1/project/:id                - Soft delete project (factory endpoint)
+ *
+ * METADATA:
+ *   GET    /api/v1/project/:id/dynamic-child-entity-tabs  - Child tab counts
+ *   GET    /api/v1/project/:id/creatable                  - Creatable child types (based on user permissions)
+ *
+ * CHILD ENTITIES (Factory-Generated):
+ *   GET    /api/v1/project/:id/task          - List tasks for project
+ *   GET    /api/v1/project/:id/wiki          - List wiki entries for project
+ *   GET    /api/v1/project/:id/artifact      - List artifacts for project
+ *   GET    /api/v1/project/:id/form          - List forms for project
+ *
+ * ============================================================================
+ * PERMISSION FLOW EXAMPLES
+ * ============================================================================
+ *
+ * Example 1: List Projects with RBAC
+ *   1. User requests GET /api/v1/project
+ *   2. unified_data_gate.rbac_gate.getWhereCondition() filters to accessible IDs
+ *   3. SQL query includes: WHERE e.id = ANY(accessible_ids)
+ *   4. Returns only projects user can view
+ *
+ * Example 2: Create Project in Business Context
+ *   1. User requests POST /api/v1/project?parent_type=business&parent_id={id}
+ *   2. Check: Can user CREATE projects? (type-level permission)
+ *   3. Check: Can user EDIT parent business? (required to link child)
+ *   4. Create project in d_project
+ *   5. Link to business in d_entity_id_map
+ *   6. Auto-grant DELETE permission to creator
+ *
+ * Example 3: View Project Detail with Child Tabs
+ *   1. User requests GET /api/v1/project/:id
+ *   2. Check: Can user VIEW this project?
+ *   3. Return project data
+ *   4. Frontend calls /dynamic-child-entity-tabs to get counts
+ *   5. Frontend calls /creatable to show "Add" buttons for allowed child types
+ *
+ * ============================================================================
+ */
+
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
@@ -9,13 +143,9 @@ import {
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
-import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.js';
-// ✅ NEW: API-based RBAC service (replaces manual SQL checks)
-import {
-  requirePermission,
-  requireCreatePermission,
-  getEntityScopeFilter,
-} from '../../lib/rbac.service.js';
+import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
+// ✅ Centralized unified data gate - loosely coupled API
+import { unified_data_gate, Permission } from '../../lib/unified-data-gate.js';
 
 // Schema based on actual d_project table structure from db/XV_d_project.ddl
 const ProjectSchema = Type.Object({
@@ -67,6 +197,12 @@ const CreateProjectSchema = Type.Object({
 
 const UpdateProjectSchema = Type.Partial(CreateProjectSchema);
 
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_TYPE = 'project';
+const TABLE_ALIAS = 'e';
+
 export async function projectRoutes(fastify: FastifyInstance) {
   // List projects with filtering
   fastify.get('/api/v1/project', {
@@ -104,57 +240,70 @@ export async function projectRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // ✅ NEW: Get employee's project scope using API-based RBAC service
-      const scopeFilter = await getEntityScopeFilter(userId, 'project', 'view');
+      // ═══════════════════════════════════════════════════════════════
+      // NEW PATTERN: Route builds SQL, gates augment it
+      // ═══════════════════════════════════════════════════════════════
 
-      // ✅ Handle no access case early
-      if (scopeFilter.scopeIds.length === 0 && !scopeFilter.hasAllAccess) {
-        return createPaginatedResponse([], 0, limit, offset);
-      }
+      // Build WHERE conditions array
+      const conditions: SQL[] = [];
 
-      const conditions = [];
+      // GATE 1: RBAC - Apply security filtering (REQUIRED)
+      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
+        userId,
+        ENTITY_TYPE,
+        Permission.VIEW,
+        TABLE_ALIAS
+      );
+      conditions.push(rbacCondition);
 
-      // ✅ Add scope filter (only if not "all access")
-      if (!scopeFilter.hasAllAccess) {
-        conditions.push(sql`p.id = ANY(${scopeFilter.scopeIds}::uuid[])`);
+      // Additional filters
+      if (dl__project_stage) {
+        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.dl__project_stage = ${dl__project_stage}`);
       }
 
       if (active !== undefined) {
-        conditions.push(sql`p.active_flag = ${active}`);
-      }
-
-      if (dl__project_stage) {
-        conditions.push(sql`p.dl__project_stage = ${dl__project_stage}`);
+        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = ${active}`);
       }
 
       if (search) {
+        const searchPattern = `%${search}%`;
         conditions.push(sql`(
-          p.name ILIKE ${`%${search}%`} OR
-          p.descr ILIKE ${`%${search}%`} OR
-          p.code ILIKE ${`%${search}%`}
+          COALESCE(${sql.raw(TABLE_ALIAS)}.name, '') ILIKE ${searchPattern} OR
+          COALESCE(${sql.raw(TABLE_ALIAS)}.code, '') ILIKE ${searchPattern} OR
+          COALESCE(${sql.raw(TABLE_ALIAS)}."descr", '') ILIKE ${searchPattern}
         )`);
       }
 
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.d_project p
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-      `);
-      const total = Number(countResult[0]?.total || 0);
+      // Build WHERE clause
+      const whereClause = conditions.length > 0
+        ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
+        : sql``;
 
-      const projects = await db.execute(sql`
-        SELECT
-          p.id, p.code, p.name, p.descr, p.metadata,
-          p.dl__project_stage,
-          p.budget_allocated_amt, p.budget_spent_amt,
-          p.planned_start_date, p.planned_end_date, p.actual_start_date, p.actual_end_date,
-          p.manager_employee_id, p.sponsor_employee_id, p.stakeholder_employee_ids,
-          p.from_ts, p.to_ts, p.active_flag, p.created_ts, p.updated_ts, p.version
-        FROM app.d_project p
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY p.name ASC NULLS LAST, p.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
+      // Count query
+      const countQuery = sql`
+        SELECT COUNT(DISTINCT ${sql.raw(TABLE_ALIAS)}.id) as total
+        FROM app.d_${sql.raw(ENTITY_TYPE)} ${sql.raw(TABLE_ALIAS)}
+        ${whereClause}
+      `;
+
+      // Data query
+      const dataQuery = sql`
+        SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
+        FROM app.d_${sql.raw(ENTITY_TYPE)} ${sql.raw(TABLE_ALIAS)}
+        ${whereClause}
+        ORDER BY ${sql.raw(TABLE_ALIAS)}.created_ts DESC
+        LIMIT ${limit}
+        OFFSET ${offset}
+      `;
+
+      // Execute queries in parallel
+      const [countResult, dataResult] = await Promise.all([
+        db.execute(countQuery),
+        db.execute(dataQuery)
+      ]);
+
+      const total = Number(countResult[0]?.total || 0);
+      const projects = dataResult;
 
       return createPaginatedResponse(projects, total, limit, offset);
     } catch (error) {
@@ -164,533 +313,254 @@ export async function projectRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // DEPRECATED: Old manual endpoints (replaced by factory pattern below)
-  // These plural endpoints (/tasks, /forms, /artifacts) can be removed
-  // Frontend now uses singular endpoints (/task, /form, /artifact)
 
-  /* COMMENTED OUT - Using factory pattern instead
-  // Get project tasks - NEW ENDPOINT for navigation
-  fastify.get('/api/v1/project/:id/tasks', {
+  // ============================================================================
+  // Get Dynamic Child Entity Tabs (Metadata)
+  // ============================================================================
+
+  fastify.get('/api/v1/project/:id/dynamic-child-entity-tabs', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })
-      }),
-      querystring: Type.Object({
-        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Integer({ minimum: 0 })),
-        status: Type.Optional(Type.String()),
-        assignee: Type.Optional(Type.String())
       }),
     },
-  }, async function (request, reply) {
-    try {
-      const { id: projectId } = request.params as { id: string };
-      const { limit = 50, offset = 0, status, assignee } = request.query as any;
-      const userId = request.user?.sub;
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    const { id } = request.params as { id: string };
 
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-
-      // Direct RBAC check for project access
-      const projectAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'project'
-          AND (rbac.entity_id = ${projectId}::text OR rbac.entity_id = 'all')
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
-      `);
-
-      if (projectAccess.length === 0) {
-        return reply.status(403).send({ error: 'Access denied for this project' });
-      }
-
-      // Build conditions for task filtering
-      const conditions = [sql`th.project_id = ${projectId}`, sql`th.active_flag = true`];
-      
-      if (status) {
-        conditions.push(sql`tr.status_name = ${status}`);
-      }
-      if (assignee) {
-        conditions.push(sql`th.assignee_id = ${assignee}`);
-      }
-
-      const tasks = await db.execute(sql`
-        SELECT 
-          th.id, th.title, th.task_code, th.task_type, th.priority,
-          th.assignee_id, th.reporter_id, th.project_id,
-          th.estimated_hours, th.story_points,
-          th.planned_start_date, th.planned_end_date,
-          th.name, th.descr, th.th.created, th.updated,
-          -- Task records data
-          tr.status_name, tr.stage_name, tr.completion_percentage,
-          tr.actual_start_date, tr.actual_end_date, tr.actual_hours,
-          -- Employee details
-          assignee.name as assignee_name,
-          reporter.name as reporter_name
-        FROM app.d_task th
-        LEFT JOIN app.d_task_data tr ON th.id = tr.head_id
-        LEFT JOIN app.d_employee assignee ON th.assignee_id = assignee.id
-        LEFT JOIN app.d_employee reporter ON th.reporter_id = reporter.id
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY th.created DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total 
-        FROM app.d_task th
-        LEFT JOIN app.d_task_data tr ON th.id = tr.head_id
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-      `);
-
-      return {
-        data: tasks,
-        total: Number(countResult[0]?.total || 0),
-        limit,
-        offset,
-        project_id: projectId,
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching project tasks:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ CENTRALIZED UNIFIED DATA GATE - Permission Check
+    // Uses: RBAC_GATE only (checkPermission)
+    // ═══════════════════════════════════════════════════════════════
+    const canView = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.VIEW);
+    if (!canView) {
+      return reply.status(403).send({ error: 'No permission to view this project' });
     }
-  }); */
 
-  // Get project dynamic child entity tabs - for tab navigation
-  // ✅ NEW: Uses requirePermission middleware
-  fastify.get('/api/v1/project/:id/dynamic-child-entity-tabs', {
-    preHandler: [
-      fastify.authenticate,
-      requirePermission('project', 'view')  // ✅ Replaces manual RBAC check
-    ],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      response: {
-        200: Type.Object({
-          action_entities: Type.Array(Type.Object({
-            actionEntity: Type.String(),
-            count: Type.Number(),
-            label: Type.String(),
-            icon: Type.Optional(Type.String())
-          })),
-          project_id: Type.String()
-        }),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })
-      }
+    // Get entity configuration
+    const entityConfig = await db.execute(sql`
+      SELECT child_entities
+      FROM app.d_entity
+      WHERE code = ${ENTITY_TYPE}
+        AND active_flag = true
+    `);
+
+    if (entityConfig.length === 0) {
+      return reply.send({ tabs: [] });
     }
-  }, async function (request, reply) {
-    try {
-      const { id: projectId } = request.params as { id: string };
 
-      // ✅ No manual RBAC check needed - middleware already validated!
+    const childEntities = (entityConfig[0].child_entities || []) as string[];
 
-      // Check if project exists
-      const project = await db.execute(sql`
-        SELECT id FROM app.d_project WHERE id = ${projectId} AND active_flag = true
-      `);
+    // For each child entity, count how many are linked
+    const tabsWithCounts = await Promise.all(
+      childEntities.map(async (childType: string) => {
+        const countResult = await db.execute(sql`
+          SELECT COUNT(*) as count
+          FROM app.d_entity_id_map
+          WHERE parent_entity_type = ${ENTITY_TYPE}
+            AND parent_entity_id = ${id}
+            AND child_entity_type = ${childType}
+            AND active_flag = true
+        `);
 
-      if (project.length === 0) {
-        return reply.status(404).send({ error: 'Project not found' });
-      }
+        return {
+          entity_type: childType,
+          count: Number(countResult[0]?.count || 0)
+        };
+      })
+    );
 
-      // Get action summaries for this project
-      const actionSummaries = [];
-
-      // Count tasks using join table
-      const taskCount = await db.execute(sql`
-        SELECT COUNT(*) as count
-        FROM app.d_task t
-        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = t.id
-        WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity_type = 'project'
-          AND eh.child_entity_type = 'task'
-          AND eh.active_flag = true
-          AND t.active_flag = true
-      `);
-      actionSummaries.push({
-        actionEntity: 'task',
-        count: Number(taskCount[0]?.count || 0),
-        label: 'Tasks',
-        icon: 'CheckSquare'
-      });
-
-      // Count artifacts using join table
-      const artifactCount = await db.execute(sql`
-        SELECT COUNT(*) as count
-        FROM app.d_artifact a
-        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = a.id
-        WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity_type = 'project'
-          AND eh.child_entity_type = 'artifact'
-          AND eh.active_flag = true
-          AND a.active_flag = true
-      `);
-      actionSummaries.push({
-        actionEntity: 'artifact',
-        count: Number(artifactCount[0]?.count || 0),
-        label: 'Artifacts',
-        icon: 'FileText'
-      });
-
-      // Count wiki entries using join table
-      const wikiCount = await db.execute(sql`
-        SELECT COUNT(*) as count
-        FROM app.d_wiki w
-        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = w.id
-        WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity_type = 'project'
-          AND eh.child_entity_type = 'wiki'
-          AND eh.active_flag = true
-          AND w.active_flag = true
-      `);
-      actionSummaries.push({
-        actionEntity: 'wiki',
-        count: Number(wikiCount[0]?.count || 0),
-        label: 'Wiki',
-        icon: 'BookOpen'
-      });
-
-      // Count forms using join table
-      const formCount = await db.execute(sql`
-        SELECT COUNT(*) as count
-        FROM app.d_form_head f
-        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = f.id
-        WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity_type = 'project'
-          AND eh.child_entity_type = 'form'
-          AND eh.active_flag = true
-          AND f.active_flag = true
-      `);
-      actionSummaries.push({
-        actionEntity: 'form',
-        count: Number(formCount[0]?.count || 0),
-        label: 'Forms',
-        icon: 'FileText'
-      });
-
-      return {
-        action_entities: actionSummaries,
-        project_id: projectId
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching project action summaries:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
+    return reply.send({ tabs: tabsWithCounts });
   });
 
-  /* COMMENTED OUT - Using factory pattern instead
-  // Get project wiki entries
-  fastify.get('/api/v1/project/:id/wiki', {
+  // ============================================================================
+  // Get Creatable Entities (Metadata)
+  // ============================================================================
+
+  fastify.get('/api/v1/project/:id/creatable', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })
       }),
-      querystring: Type.Object({
-        page: Type.Optional(Type.Integer({ minimum: 1 })),
-        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
+    },
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    const { id } = request.params as { id: string };
+
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ CENTRALIZED UNIFIED DATA GATE - Permission Check
+    // Uses: RBAC_GATE only (checkPermission)
+    // ═══════════════════════════════════════════════════════════════
+    const canView = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.VIEW);
+    if (!canView) {
+      return reply.status(403).send({ error: 'No permission to view this project' });
+    }
+
+    // Get entity configuration
+    const entityConfig = await db.execute(sql`
+      SELECT child_entities
+      FROM app.d_entity
+      WHERE code = ${ENTITY_TYPE}
+        AND active_flag = true
+    `);
+
+    if (entityConfig.length === 0) {
+      return reply.send({ creatable: [] });
+    }
+
+    const childEntities = (entityConfig[0].child_entities || []) as string[];
+
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ CENTRALIZED UNIFIED DATA GATE - Check CREATE permissions
+    // Uses: RBAC_GATE only (checkPermission for each child type)
+    // ═══════════════════════════════════════════════════════════════
+    const creatableEntities = await Promise.all(
+      childEntities.map(async (childType: string) => {
+        const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, childType, 'all', Permission.CREATE);
+        return canCreate ? childType : null;
       })
-    }
-  }, async function (request, reply) {
-    try {
-      const { id: projectId } = request.params as { id: string };
-      const { page = 1, limit = 20 } = request.query as any;
-      const userId = request.user?.sub;
+    );
 
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
+    return reply.send({
+      creatable: creatableEntities.filter(Boolean)
+    });
+  });
 
-      // Direct RBAC check for project access
-      const projectAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'project'
-          AND (rbac.entity_id = ${projectId}::text OR rbac.entity_id = 'all')
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
-      `);
 
-      if (projectAccess.length === 0) {
-        return reply.status(403).send({ error: 'Access denied for this project' });
-      }
 
-      const offset = (page - 1) * limit;
-      const wiki = await db.execute(sql`
-        SELECT w.id, w.name, w.summary as descr, w.w.created_ts as created, w.updated_ts as updated
-        FROM app.d_wiki w
-        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = w.id::text
-        WHERE eim.parent_entity_id = ${projectId}
-          AND eim.parent_entity_type = 'project'
-          AND eim.child_entity_type = 'wiki'
-          AND eim.active_flag = true
-          AND w.active_flag = true
-        ORDER BY w.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
 
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.d_wiki w
-        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = w.id::text
-        WHERE eim.parent_entity_id = ${projectId}
-          AND eim.parent_entity_type = 'project'
-          AND eim.child_entity_type = 'wiki'
-          AND eim.active_flag = true
-          AND w.active_flag = true
-      `);
+  // ============================================================================
+  // Get Single Project
+  // ============================================================================
 
-      return {
-        data: wiki,
-        total: Number(countResult[0]?.total || 0),
-        page,
-        limit
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching project wiki:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  }); */
-
-  /* COMMENTED OUT - Using factory pattern instead
-  // Get project forms
-  fastify.get('/api/v1/project/:id/forms', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      querystring: Type.Object({
-        page: Type.Optional(Type.Integer({ minimum: 1 })),
-        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
-      })
-    }
-  }, async function (request, reply) {
-    try {
-      const { id: projectId } = request.params as { id: string };
-      const { page = 1, limit = 20 } = request.query as any;
-      const userId = request.user?.sub;
-
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // Direct RBAC check for project access
-      const projectAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'project'
-          AND (rbac.entity_id = ${projectId}::text OR rbac.entity_id = 'all')
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
-      `);
-
-      if (projectAccess.length === 0) {
-        return reply.status(403).send({ error: 'Access denied for this project' });
-      }
-
-      const offset = (page - 1) * limit;
-      const forms = await db.execute(sql`
-        SELECT f.id, f.name, f.descr, f.f.created, f.updated, eim.relationship_type
-        FROM app.d_entity_id_map eim
-        INNER JOIN app.d_form_head f ON f.id::text = eim.child_entity_id
-        WHERE eim.parent_entity_type = 'project'
-          AND eim.parent_entity_id = ${projectId}
-          AND eim.child_entity_type = 'form'
-          AND eim.active_flag = true
-          AND f.active_flag = true
-        ORDER BY f.created DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.d_entity_id_map eim
-        INNER JOIN app.d_form_head f ON f.id::text = eim.child_entity_id
-        WHERE eim.parent_entity_type = 'project'
-          AND eim.parent_entity_id = ${projectId}
-          AND eim.child_entity_type = 'form'
-          AND eim.active_flag = true
-          AND f.active_flag = true
-      `);
-
-      return {
-        data: forms,
-        total: Number(countResult[0]?.total || 0),
-        page,
-        limit
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching project forms:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  }); */
-
-  /* COMMENTED OUT - Using factory pattern instead
-  // Get project artifacts
-  fastify.get('/api/v1/project/:id/artifacts', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      querystring: Type.Object({
-        page: Type.Optional(Type.Integer({ minimum: 1 })),
-        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
-      })
-    }
-  }, async function (request, reply) {
-    try {
-      const { id: projectId } = request.params as { id: string };
-      const { page = 1, limit = 20 } = request.query as any;
-      const userId = request.user?.sub;
-
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // Direct RBAC check for project access
-      const projectAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'project'
-          AND (rbac.entity_id = ${projectId}::text OR rbac.entity_id = 'all')
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
-      `);
-
-      if (projectAccess.length === 0) {
-        return reply.status(403).send({ error: 'Access denied for this project' });
-      }
-
-      const offset = (page - 1) * limit;
-      const artifacts = await db.execute(sql`
-        SELECT a.id, a.name, a.descr, a.a.created, a.updated
-        FROM app.d_artifact a
-        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = a.id
-        WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity_type = 'project'
-          AND eh.child_entity_type = 'artifact'
-          AND eh.active_flag = true
-          AND a.active_flag = true
-        ORDER BY a.created DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.d_artifact a
-        INNER JOIN app.entity_id_map eh ON eh.child_entity_id = a.id
-        WHERE eh.parent_entity_id = ${projectId}
-          AND eh.parent_entity_type = 'project'
-          AND eh.child_entity_type = 'artifact'
-          AND eh.active_flag = true
-          AND a.active_flag = true
-      `);
-
-      return {
-        data: artifacts,
-        total: Number(countResult[0]?.total || 0),
-        page,
-        limit
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching project artifacts:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  }); */
-
-  // Get single project
-  // ✅ NEW: Uses requirePermission middleware for automatic RBAC gating
   fastify.get('/api/v1/project/:id', {
-    preHandler: [
-      fastify.authenticate,
-      requirePermission('project', 'view')  // ✅ Single line replaces 20 lines of manual RBAC
-    ],
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
+        id: Type.String({ format: 'uuid' })
       }),
       response: {
         200: ProjectSchema,
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
       },
     },
   }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
     const { id } = request.params as { id: string };
 
-    // ✅ No manual RBAC check needed - middleware already validated permission!
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
 
     try {
-      const project = await db.execute(sql`
-        SELECT
-          id, code, name, descr, metadata,
-          dl__project_stage,
-          budget_allocated_amt, budget_spent_amt,
-          planned_start_date, planned_end_date, actual_start_date, actual_end_date,
-          manager_employee_id, sponsor_employee_id, stakeholder_employee_ids,
-          from_ts, to_ts, active_flag, created_ts, updated_ts, version
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
+      // Uses: RBAC_GATE only (checkPermission)
+      // ═══════════════════════════════════════════════════════════════
+      const canView = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        id,
+        Permission.VIEW
+      );
+
+      if (!canView) {
+        return reply.status(403).send({ error: 'No permission to view this project' });
+      }
+
+      // Route owns the query
+      const result = await db.execute(sql`
+        SELECT *
         FROM app.d_project
-        WHERE id = ${id}
+        WHERE id = ${id}::uuid
+          AND active_flag = true
       `);
 
-      if (project.length === 0) {
+      if (result.length === 0) {
         return reply.status(404).send({ error: 'Project not found' });
       }
 
-      return project[0];
+      return reply.send(result[0]);
     } catch (error) {
       fastify.log.error('Error fetching project:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Create project
-  // ✅ NEW: Uses requireCreatePermission middleware for type-level create gating
+  // ============================================================================
+  // Create Project
+  // ============================================================================
+
   fastify.post('/api/v1/project', {
-    preHandler: [
-      fastify.authenticate,
-      requireCreatePermission('project')  // ✅ Single line replaces 15 lines of manual RBAC
-    ],
+    preHandler: [fastify.authenticate],
     schema: {
+      querystring: Type.Object({
+        parent_type: Type.Optional(Type.String()),
+        parent_id: Type.Optional(Type.String({ format: 'uuid' })),
+      }),
       body: CreateProjectSchema,
       response: {
-        // Removed schema validation - let Fastify serialize naturally
+        201: ProjectSchema,
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
       },
     },
   }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    const { parent_type, parent_id } = request.query as any;
     const data = request.body as any;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE 1
+      // Uses: RBAC_GATE only (checkPermission)
+      // Check: Can user CREATE projects?
+      // ═══════════════════════════════════════════════════════════════
+      const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, 'all', Permission.CREATE);
+      if (!canCreate) {
+        return reply.status(403).send({ error: 'No permission to create projects' });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE 2
+      // Uses: RBAC_GATE only (checkPermission)
+      // Check: If linking to parent, can user EDIT parent?
+      // ═══════════════════════════════════════════════════════════════
+      if (parent_type && parent_id) {
+        const canEditParent = await unified_data_gate.rbac_gate.checkPermission(db, userId, parent_type, parent_id, Permission.EDIT);
+        if (!canEditParent) {
+          return reply.status(403).send({ error: `No permission to link project to this ${parent_type}` });
+        }
+      }
+    } catch (err: any) {
+      return reply.status(err.statusCode || 403).send({
+        error: err.error || 'Forbidden',
+        message: err.message
+      });
+    }
 
     // Auto-generate required fields if missing
     if (!data.name) data.name = 'Untitled';
     if (!data.code) data.code = `PROJECT-${Date.now()}`;
 
     // Move business_id and office_id into metadata if provided at top level
-    // (These don't exist as table columns - stored in metadata JSONB per DDL)
     if (data.business_id || data.office_id) {
       data.metadata = data.metadata || {};
       if (data.business_id) data.metadata.business_id = data.business_id;
       if (data.office_id) data.metadata.office_id = data.office_id;
     }
-
-    // ✅ No manual RBAC check needed - middleware already validated create permission!
 
     try {
       // Check for unique project code if provided
@@ -737,136 +607,150 @@ export async function projectRoutes(fastify: FastifyInstance) {
       }
 
       const newProject = result[0] as any;
+      const projectId = newProject.id;
+
+      // ═══════════════════════════════════════════════════════════════
+      // LINK to parent (if parent context provided)
+      // ═══════════════════════════════════════════════════════════════
+      if (parent_type && parent_id) {
+        await db.execute(sql`
+          INSERT INTO app.d_entity_id_map (
+            parent_entity_type,
+            parent_entity_id,
+            child_entity_type,
+            child_entity_id,
+            relationship_type,
+            active_flag
+          ) VALUES (
+            ${parent_type},
+            ${parent_id},
+            ${ENTITY_TYPE},
+            ${projectId},
+            'contains',
+            true
+          )
+        `);
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // AUTO-GRANT: Creator gets full permissions
+      // ═══════════════════════════════════════════════════════════════
+      await db.execute(sql`
+        INSERT INTO app.entity_id_rbac_map (
+          person_entity_id,
+          entity_name,
+          entity_id,
+          permission,
+          active_flag
+        ) VALUES (
+          ${userId},
+          ${ENTITY_TYPE},
+          ${projectId}::text,
+          ${Permission.DELETE},
+          true
+        )
+      `);
 
       // Register the project in d_entity_instance_id for global entity operations
       await db.execute(sql`
         INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
-        VALUES ('project', ${newProject.id}::uuid, ${newProject.name}, ${newProject.code})
+        VALUES ('project', ${projectId}::uuid, ${newProject.name}, ${newProject.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name,
             entity_code = EXCLUDED.entity_code,
             updated_ts = NOW()
       `);
 
-      const userPermissions = {
-        canSeePII: true, // Creator can see their data
-        canSeeFinancial: true,
-        canSeeSystemFields: true,
-        canSeeSafetyInfo: true,
-      };
-
-      return reply.status(201).send(filterUniversalColumns(newProject, userPermissions));
+      return reply.status(201).send(newProject);
     } catch (error) {
       fastify.log.error('Error creating project:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Update project
-  // ✅ NEW: Uses requirePermission middleware for edit gating
-  fastify.put('/api/v1/project/:id', {
-    preHandler: [
-      fastify.authenticate,
-      requirePermission('project', 'edit')  // ✅ Single line replaces 20 lines of manual RBAC
-    ],
+  // ============================================================================
+  // Update Project
+  // ============================================================================
+
+  fastify.patch('/api/v1/project/:id', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
+        id: Type.String({ format: 'uuid' })
       }),
       body: UpdateProjectSchema,
       response: {
         200: ProjectSchema,
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
+        400: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
       },
     },
   }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
     const { id } = request.params as { id: string };
-    const data = request.body as any;
+    const updates = request.body as any;
 
-    // Move business_id and office_id into metadata if provided at top level
-    // (These don't exist as table columns - stored in metadata JSONB per DDL)
-    if (data.business_id || data.office_id) {
-      // Get existing metadata first, then merge
-      const existing = await db.execute(sql`
-        SELECT metadata FROM app.d_project WHERE id = ${id}
-      `);
-      data.metadata = existing[0]?.metadata || {};
-      if (data.business_id) data.metadata.business_id = data.business_id;
-      if (data.office_id) data.metadata.office_id = data.office_id;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // ✅ No manual RBAC check needed - middleware already validated edit permission!
-
     try {
-      const existing = await db.execute(sql`
-        SELECT id FROM app.d_project WHERE id = ${id}
-      `);
-      
-      if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Project not found' });
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+      // Uses: RBAC_GATE only (checkPermission)
+      // Check: Can user EDIT this project?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit this project' });
       }
 
-      const updateFields = [];
-
-      // Core fields matching d_project schema
-      if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
-      if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
-      if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
-      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
-
-      // Project fields
-      if (data.dl__project_stage !== undefined) updateFields.push(sql`dl__project_stage = ${data.dl__project_stage}`);
-      if (data.budget_allocated !== undefined || data.budget_allocated_amt !== undefined) {
-        updateFields.push(sql`budget_allocated_amt = ${data.budget_allocated_amt || data.budget_allocated}`);
-      }
-      if (data.budget_spent !== undefined || data.budget_spent_amt !== undefined) {
-        updateFields.push(sql`budget_spent_amt = ${data.budget_spent_amt || data.budget_spent}`);
-      }
-      if (data.planned_start_date !== undefined) updateFields.push(sql`planned_start_date = ${data.planned_start_date}`);
-      if (data.planned_end_date !== undefined) updateFields.push(sql`planned_end_date = ${data.planned_end_date}`);
-      if (data.actual_start_date !== undefined) updateFields.push(sql`actual_start_date = ${data.actual_start_date}`);
-      if (data.actual_end_date !== undefined) updateFields.push(sql`actual_end_date = ${data.actual_end_date}`);
-
-      // Team fields
-      if (data.manager_employee_id !== undefined) updateFields.push(sql`manager_employee_id = ${data.manager_employee_id}`);
-      if (data.sponsor_employee_id !== undefined) updateFields.push(sql`sponsor_employee_id = ${data.sponsor_employee_id}`);
-      if (data.stakeholder_employee_ids !== undefined) {
-        const stakeholderArray = data.stakeholder_employee_ids && data.stakeholder_employee_ids.length > 0
-          ? `{${data.stakeholder_employee_ids.join(',')}}`
+      // Build update fields
+      const updateFields: any[] = [];
+      if (updates.code !== undefined) updateFields.push(sql`code = ${updates.code}`);
+      if (updates.name !== undefined) updateFields.push(sql`name = ${updates.name}`);
+      if (updates.descr !== undefined) updateFields.push(sql`descr = ${updates.descr}`);
+      if (updates.metadata !== undefined) updateFields.push(sql`metadata = ${updates.metadata}`);
+      if (updates.dl__project_stage !== undefined) updateFields.push(sql`dl__project_stage = ${updates.dl__project_stage}`);
+      if (updates.budget_allocated_amt !== undefined) updateFields.push(sql`budget_allocated_amt = ${updates.budget_allocated_amt}`);
+      if (updates.budget_spent_amt !== undefined) updateFields.push(sql`budget_spent_amt = ${updates.budget_spent_amt}`);
+      if (updates.planned_start_date !== undefined) updateFields.push(sql`planned_start_date = ${updates.planned_start_date}`);
+      if (updates.planned_end_date !== undefined) updateFields.push(sql`planned_end_date = ${updates.planned_end_date}`);
+      if (updates.actual_start_date !== undefined) updateFields.push(sql`actual_start_date = ${updates.actual_start_date}`);
+      if (updates.actual_end_date !== undefined) updateFields.push(sql`actual_end_date = ${updates.actual_end_date}`);
+      if (updates.manager_employee_id !== undefined) updateFields.push(sql`manager_employee_id = ${updates.manager_employee_id}`);
+      if (updates.sponsor_employee_id !== undefined) updateFields.push(sql`sponsor_employee_id = ${updates.sponsor_employee_id}`);
+      if (updates.stakeholder_employee_ids !== undefined) {
+        const stakeholderArray = updates.stakeholder_employee_ids && updates.stakeholder_employee_ids.length > 0
+          ? `{${updates.stakeholder_employee_ids.join(',')}}`
           : '{}';
         updateFields.push(sql`stakeholder_employee_ids = ${stakeholderArray}::uuid[]`);
       }
-
-      // Temporal fields
-      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
+      if (updates.active_flag !== undefined) updateFields.push(sql`active_flag = ${updates.active_flag}`);
 
       if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
-      updateFields.push(sql`updated_ts = NOW()`);
+      updateFields.push(sql`updated_ts = now()`);
+      updateFields.push(sql`version = version + 1`);
 
-      const result = await db.execute(sql`
-        UPDATE app.d_project 
+      // Update project
+      const updated = await db.execute(sql`
+        UPDATE app.d_project
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
       `);
 
-      if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to update project' });
+      if (updated.length === 0) {
+        return reply.status(404).send({ error: 'Project not found' });
       }
 
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true,
-        canSeeSafetyInfo: true,
-      };
-      
-      return filterUniversalColumns(result[0], userPermissions);
+      return reply.send(updated[0]);
     } catch (error) {
       fastify.log.error('Error updating project:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -881,109 +765,27 @@ export async function projectRoutes(fastify: FastifyInstance) {
   createEntityDeleteEndpoint(fastify, 'project');
 
   // ========================================
-  // CHILD ENTITY ENDPOINTS (DRY Factory Pattern)
+  // CHILD ENTITY ENDPOINTS (Database-Driven)
   // ========================================
-  // Use factory pattern to create standardized child entity endpoints
-  // Replaces manual endpoints above (which are now deprecated)
-  // These create singular endpoints: /api/v1/project/:id/task (not /tasks)
-  createChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
-  createChildEntityEndpoint(fastify, 'project', 'wiki', 'd_wiki');
-  createChildEntityEndpoint(fastify, 'project', 'form', 'd_form_head');
-  createChildEntityEndpoint(fastify, 'project', 'artifact', 'd_artifact');
+  // Auto-create all child entity endpoints from d_entity metadata
+  // Reads project's child_entities from database: ["task", "wiki", "artifact", "form", "expense", "revenue"]
+  // Creates endpoints: /api/v1/project/:id/task, /api/v1/project/:id/wiki, etc.
+  //
+  // Benefits:
+  // - Single source of truth: child relationships defined in d_entity DDL only
+  // - Zero repetition: no manual endpoint declarations needed
+  // - Self-maintaining: add child entity → update d_entity → routes auto-created
+  await createChildEntityEndpointsFromMetadata(fastify, 'project');
 
   // Note: The manual endpoints above (lines 173-625, 944-1032) can be removed
   // after confirming frontend uses singular endpoints (/task not /tasks)
+  //
+  // Old approach (manual, now DEPRECATED):
+  // createChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
+  // createChildEntityEndpoint(fastify, 'project', 'wiki', 'd_wiki');
+  // createChildEntityEndpoint(fastify, 'project', 'form', 'd_form_head');
+  // createChildEntityEndpoint(fastify, 'project', 'artifact', 'd_artifact');
 
-  // DEPRECATED: Old manual singular endpoint (replaced by factory above)
-  /* fastify.get('/api/v1/project/:id/task', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      querystring: Type.Object({
-        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Integer({ minimum: 0 })),
-        status: Type.Optional(Type.String()),
-        assignee: Type.Optional(Type.String())
-      }),
-    },
-  }, async function (request, reply) {
-    try {
-      const { id: projectId } = request.params as { id: string };
-      const { limit = 50, offset = 0, status, assignee } = request.query as any;
-      const userId = request.user?.sub;
-
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // Direct RBAC check for project access
-      const projectAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'project'
-          AND (rbac.entity_id = ${projectId}::text OR rbac.entity_id = 'all')
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
-      `);
-
-      if (projectAccess.length === 0) {
-        return reply.status(403).send({ error: 'Access denied for this project' });
-      }
-
-      // Use d_entity_id_map to find tasks linked to this project
-      const conditions = [
-        sql`eim.parent_entity_type = 'project'`,
-        sql`eim.parent_entity_id = ${projectId}`,
-        sql`eim.child_entity_type = 'task'`,
-        sql`eim.active_flag = true`,
-        sql`t.active_flag = true`
-      ];
-
-      if (status) {
-        conditions.push(sql`t.stage = ${status}`);
-      }
-
-      if (assignee) {
-        conditions.push(sql`${assignee}::uuid = ANY(t.assignee_employee_ids)`);
-      }
-
-      const tasks = await db.execute(sql`
-        SELECT
-          t.id, t.t.code, t.name, t.descr, t.t.metadata,
-          t.assignee_employee_ids, t.stage, t.priority_level,
-          t.estimated_hours, t.actual_hours, t.story_points,
-          t.parent_task_id, t.dependency_task_ids,
-          t.from_ts, t.to_ts, t.active_flag, t.created_ts, t.updated_ts, t.version,
-          eim.relationship_type
-        FROM app.d_entity_id_map eim
-        INNER JOIN app.d_task t ON t.id::text = eim.child_entity_id
-        WHERE ${sql.join(conditions, sql` AND `)}
-        ORDER BY t.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      // Get total count
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.d_entity_id_map eim
-        INNER JOIN app.d_task t ON t.id::text = eim.child_entity_id
-        WHERE ${sql.join(conditions, sql` AND `)}
-      `);
-
-      return {
-        data: tasks,
-        total: Number(countResult[0]?.total || 0),
-        limit,
-        offset
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching project tasks:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  }); */
 
   // ========================================
   // CHILD ENTITY CREATION

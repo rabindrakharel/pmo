@@ -1,8 +1,8 @@
 # Entity Linkage System - Complete Documentation
 
-**Version:** 3.0.0
-**Last Updated:** 2025-11-12
-**Status:** Production Ready
+**Version:** 3.1.0
+**Last Updated:** 2025-11-15
+**Status:** Production Ready (Refactored with Reusable Components)
 
 ## Overview
 
@@ -387,11 +387,98 @@ VALUES
 
 ## Frontend Integration (UI Components)
 
+### Architecture Overview
+
+The linkage system uses a **reusable component architecture** with shared hooks for entity instance loading:
+
+```
+┌─────────────────────────────────────────────────────┐
+│ useEntityInstancePicker (Shared Hook)              │
+│ • Entity loading logic                             │
+│ • Search/filter functionality                      │
+│ • Loading states                                   │
+└─────────────────────────────────────────────────────┘
+                      ↓ used by
+┌─────────────────────────────────────────────────────┐
+│ UnifiedLinkageModal                                 │
+│ • Link/unlink UI logic                             │
+│ • Uses hook for entity instances                   │
+│ • Manages linkage state                            │
+└─────────────────────────────────────────────────────┘
+```
+
+### Hook: useEntityInstancePicker
+
+**Location:** `/apps/web/src/hooks/useEntityInstancePicker.ts`
+
+**Purpose:** Reusable hook for loading and filtering entity instances
+
+**Features:**
+- Auto-fetches entity instances when entity type changes
+- Client-side search/filtering
+- Loading and error state management
+- Automatic endpoint mapping (`business` → `biz`, `client` → `cust`)
+
+**API:**
+```typescript
+const {
+  instances,           // All loaded instances
+  filteredInstances,   // Filtered by search query
+  loading,            // Loading state
+  error,              // Error message
+  searchQuery,        // Current search query
+  setSearchQuery,     // Update search
+  refresh             // Manual refresh
+} = useEntityInstancePicker({
+  entityType: 'project',  // Entity type to load
+  enabled: true,          // Enable/disable fetching
+  limit: 100              // Max instances to load
+});
+```
+
+**Usage Example:**
+```typescript
+import { useEntityInstancePicker } from '@/hooks/useEntityInstancePicker';
+
+function MyComponent({ entityType }) {
+  const {
+    filteredInstances,
+    loading,
+    searchQuery,
+    setSearchQuery
+  } = useEntityInstancePicker({
+    entityType: entityType || null,
+    enabled: !!entityType
+  });
+
+  return (
+    <div>
+      <input
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        placeholder="Search..."
+      />
+      {loading ? (
+        <div>Loading...</div>
+      ) : (
+        <ul>
+          {filteredInstances.map(entity => (
+            <li key={entity.id}>{entity.name}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+```
+
 ### Component: UnifiedLinkageModal
 
 **Location:** `/apps/web/src/components/shared/modal/UnifiedLinkageModal.tsx`
 
 **Purpose:** Reusable modal for creating/managing entity linkages
+
+**Architecture:** Uses `useEntityInstancePicker` hook for entity loading (no duplicate code)
 
 **Usage Pattern:**
 ```tsx
@@ -595,6 +682,156 @@ Each tab shows:
 - Filterable/sortable data table
 - "Add Row" button (opens UnifiedLinkageModal)
 - Inline editing capabilities
+
+---
+
+## Code Reusability & Architecture
+
+### Shared Component Pattern
+
+The linkage system follows a **DRY (Don't Repeat Yourself)** architecture with reusable hooks and components:
+
+**Before v3.1.0:**
+```typescript
+// ❌ DUPLICATE CODE: Each modal had its own entity loading logic
+const UnifiedLinkageModal = () => {
+  const [entities, setEntities] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const loadEntities = async () => {
+    setLoading(true);
+    const response = await fetch(`/api/v1/${entityType}`);
+    // ... 30+ lines of duplicate code
+  };
+
+  const filteredEntities = useMemo(() => {
+    // ... 8 lines of duplicate filtering logic
+  }, [entities, searchQuery]);
+
+  // Total: ~60 lines of duplicate code per modal
+};
+```
+
+**After v3.1.0:**
+```typescript
+// ✅ REUSABLE HOOK: Single source of truth
+const UnifiedLinkageModal = () => {
+  const {
+    filteredInstances: filteredEntities,
+    loading,
+    searchQuery,
+    setSearchQuery
+  } = useEntityInstancePicker({
+    entityType: selectedEntityType || null,
+    enabled: !!selectedEntityType
+  });
+
+  // Only 5 lines needed - hook handles the rest!
+};
+```
+
+### Benefits
+
+**Code Reduction:**
+- **Before:** ~136 lines of duplicate code across 2 modals
+- **After:** ~72 lines total (62 in hook, 10 in consumers)
+- **Savings:** 47% code reduction ✅
+
+**Maintainability:**
+- Bug fixes in hook automatically apply to all consumers
+- Consistent behavior across all entity pickers
+- Single place to add features (pagination, infinite scroll, etc.)
+
+**Reusability:**
+- `useEntityInstancePicker` can be used by ANY component needing entity instances
+- `EntityInstancePicker` UI component also available for quick integration
+- Both used by:
+  - UnifiedLinkageModal (parent-child linking)
+  - PermissionManagementModal (RBAC permission grants)
+  - Future components (entity transfer, bulk operations, etc.)
+
+### Using the Hook in Your Component
+
+```typescript
+import { useEntityInstancePicker } from '@/hooks/useEntityInstancePicker';
+
+function MyCustomComponent() {
+  const [selectedType, setSelectedType] = useState('project');
+
+  const {
+    filteredInstances,
+    loading,
+    error,
+    searchQuery,
+    setSearchQuery,
+    refresh
+  } = useEntityInstancePicker({
+    entityType: selectedType,
+    enabled: !!selectedType,
+    limit: 100
+  });
+
+  return (
+    <div>
+      <select value={selectedType} onChange={e => setSelectedType(e.target.value)}>
+        <option value="project">Projects</option>
+        <option value="task">Tasks</option>
+      </select>
+
+      <input
+        value={searchQuery}
+        onChange={e => setSearchQuery(e.target.value)}
+        placeholder="Search..."
+      />
+
+      {loading && <div>Loading...</div>}
+      {error && <div>Error: {error}</div>}
+
+      <ul>
+        {filteredInstances.map(entity => (
+          <li key={entity.id}>
+            {entity.name} ({entity.code})
+          </li>
+        ))}
+      </ul>
+
+      <button onClick={refresh}>Refresh</button>
+    </div>
+  );
+}
+```
+
+### Using the EntityInstancePicker Component
+
+For even faster integration, use the pre-built UI component:
+
+```typescript
+import { EntityInstancePicker } from '@/components/shared/EntityInstancePicker';
+
+function QuickIntegration() {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  return (
+    <EntityInstancePicker
+      entityType="project"
+      selectedInstanceId={selectedId}
+      onSelect={(id) => setSelectedId(id)}
+      showAllOption={true}
+      allOptionLabel="All Projects"
+      placeholder="Search projects..."
+      maxHeight="400px"
+    />
+  );
+}
+```
+
+**Features:**
+- ✅ Built-in search
+- ✅ Loading/error states
+- ✅ Click-to-select or button-to-select
+- ✅ Optional "All instances" row
+- ✅ Responsive design with scroll
 
 ---
 
@@ -1107,9 +1344,18 @@ GET /api/v1/linkage/parents/task      # Returns: ["project","worksite"]
 
 ---
 
-**Last Updated:** 2025-11-12
-**Version:** 3.0.0
-**Status:** ✅ Production Ready
+**Last Updated:** 2025-11-15
+**Version:** 3.1.0
+**Status:** ✅ Production Ready (Refactored)
+
+**Key Changes in v3.1.0:**
+- ✅ **Major Refactor:** Extracted `useEntityInstancePicker` reusable hook
+- ✅ **Code Reduction:** Removed ~60 lines of duplicate code from UnifiedLinkageModal
+- ✅ **Reusability:** Same hook used by PermissionManagementModal and UnifiedLinkageModal
+- ✅ **DRY Principle:** Single source of truth for entity instance loading
+- ✅ **Improved Maintainability:** Bug fixes in hook apply to all consumers
+- ✅ **Better Performance:** Optimized filtering and memoization in shared hook
+- ✅ **Documentation Update:** Reflects current refactored architecture
 
 **Key Changes in v3.0.0:**
 - Complete rewrite focusing on current production architecture

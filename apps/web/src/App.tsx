@@ -88,18 +88,24 @@ function AppRoutes() {
   // Entities that use custom routes (not auto-generated)
   const customRouteEntities = ['artifact', 'form', 'wiki', 'marketing', 'workflow'];
 
-  // Generate routes for all entities from d_entity table (except those with custom routes)
+  // Generate routes for all entities from d_entity table
+  // Only generates routes for entities that:
+  // 1. Are active
+  // 2. Not in customRouteEntities list
+  // 3. Have a config in entityConfigs (silently skips entities without configs)
   const generateEntityRoutes = () => {
     const entityCodes = Array.from(entities.values())
-      .filter(entity => entity.active_flag && !customRouteEntities.includes(entity.code))
+      .filter(entity => {
+        // Filter: active, not custom, and has config
+        return entity.active_flag
+          && !customRouteEntities.includes(entity.code)
+          && entityConfigs[entity.code];
+      })
       .map(entity => entity.code);
 
     return entityCodes.map(entityType => {
       const config = entityConfigs[entityType];
-      if (!config) {
-        console.warn(`[AppRoutes] No entityConfig found for entity type: ${entityType}`);
-        return null;
-      }
+      // Config is guaranteed to exist due to filter above
 
       return (
         <Fragment key={entityType}>

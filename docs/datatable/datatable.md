@@ -191,6 +191,304 @@ const columns: Column[] = useMemo(() => {
 
 **Key:** Column name determines EVERYTHING - width, alignment, rendering, features, scrollbar trigger
 
+### Create-Link-Edit Pattern (Parent-Child Relationships)
+
+**Core Principle:** Child entity data tables use the **main entity endpoint** with query parameter filtering instead of creating duplicate child-specific endpoints.
+
+#### Architecture Pattern
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│ ANTI-PATTERN (Old Factory-Based Approach)                     │
+├────────────────────────────────────────────────────────────────┤
+│ GET /api/v1/role/{id}/employee    ← Duplicate endpoint        │
+│ GET /api/v1/project/{id}/task     ← Duplicate endpoint        │
+│ GET /api/v1/business/{id}/project ← Duplicate endpoint        │
+│                                                                │
+│ ❌ Code duplication across endpoints                          │
+│ ❌ Column mismatches between main and child views             │
+│ ❌ Maintenance burden (fix in N places)                       │
+└────────────────────────────────────────────────────────────────┘
+                            ↓ REFACTOR TO ↓
+┌────────────────────────────────────────────────────────────────┐
+│ ✅ CREATE-LINK-EDIT PATTERN (Current Architecture)            │
+├────────────────────────────────────────────────────────────────┤
+│ Main Endpoint with Query Parameter Filtering:                 │
+│                                                                │
+│ GET /api/v1/employee?parent_type=role&parent_id={uuid}        │
+│ GET /api/v1/task?parent_type=project&parent_id={uuid}         │
+│ GET /api/v1/project?parent_type=business&parent_id={uuid}     │
+│                                                                │
+│ ✅ Single endpoint, single query, single source of truth      │
+│ ✅ Identical columns in all contexts (main + child views)     │
+│ ✅ DRY principle - fix once, works everywhere                 │
+└────────────────────────────────────────────────────────────────┘
+```
+
+#### Implementation Details
+
+**Backend: Entity Endpoint with Parent Filtering**
+
+```typescript
+// apps/api/src/modules/employee/routes.ts
+
+fastify.get('/api/v1/employee', {
+  schema: {
+    querystring: Type.Object({
+      // Standard filters
+      active_flag: Type.Optional(Type.Boolean()),
+      search: Type.Optional(Type.String()),
+
+      // 🆕 Parent filtering (create-link-edit pattern)
+      parent_type: Type.Optional(Type.String()),
+      parent_id: Type.Optional(Type.String({ format: 'uuid' })),
+
+      // Pagination
+      limit: Type.Optional(Type.Number({ minimum: 1, maximum: 10000 })),
+      offset: Type.Optional(Type.Number({ minimum: 0 })),
+      page: Type.Optional(Type.Number({ minimum: 1 }))
+    })
+  }
+}, async (request, reply) => {
+  const { parent_type, parent_id, active_flag, search, limit = 50, offset = 0 } = request.query;
+
+  const conditions = [];
+
+  // Parent filtering via d_entity_id_map JOIN
+  if (parent_type && parent_id) {
+    conditions.push(sql`eim.parent_entity_type = ${parent_type}`);
+    conditions.push(sql`eim.parent_entity_id = ${parent_id}`);
+    conditions.push(sql`eim.child_entity_type = 'employee'`);
+    conditions.push(sql`eim.active_flag = true`);
+  }
+
+  // Other filters
+  if (active_flag !== undefined) {
+    conditions.push(sql`e.active_flag = ${active_flag}`);
+  }
+  if (search) {
+    conditions.push(sql`COALESCE(e.name, '') ILIKE ${`%${search}%`}`);
+  }
+
+  // Build query with conditional JOIN
+  if (parent_type && parent_id) {
+    // Query WITH JOIN for parent filtering
+    employees = await db.execute(sql`
+      SELECT e.id, e.code, e.name, e.email, ... /* ALL 25+ columns */
+      FROM app.d_employee e
+      INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = e.id
+      ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+      ORDER BY e.name ASC
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+  } else {
+    // Query WITHOUT JOIN for normal listing
+    employees = await db.execute(sql`
+      SELECT e.id, e.code, e.name, e.email, ... /* SAME 25+ columns */
+      FROM app.d_employee e
+      ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+      ORDER BY e.name ASC
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+  }
+
+  return { data: employees, total, limit, offset };
+});
+```
+
+**Frontend: FilteredDataTable with Query Params**
+
+```typescript
+// apps/web/src/components/shared/dataTable/FilteredDataTable.tsx
+
+export function FilteredDataTable({
+  entityType,
+  parentType,
+  parentId
+}: FilteredDataTableProps) {
+
+  // Always use main entity endpoint (create-link-edit pattern)
+  const endpoint = config.apiEndpoint; // e.g., "/api/v1/employee"
+
+  // Build query params with parent filtering support
+  let queryParams = `page=${currentPage}&limit=${pageSize}`;
+
+  // Add parent filtering via query params (create-link-edit pattern)
+  if (parentType && parentId) {
+    queryParams += `&parent_type=${parentType}&parent_id=${parentId}`;
+  }
+
+  // Fetch data
+  const response = await fetch(`${endpoint}?${queryParams}`);
+
+  // Return same columns regardless of context
+  const columns: Column[] = useMemo(() => {
+    if (!config) return [];
+
+    // ✅ SAME columns for both contexts:
+    // - Main view: /employee
+    // - Child view: /role/{id}/employee
+    return config.columns as Column[];
+  }, [config]);
+
+  return <EntityDataTable columns={columns} data={data} />;
+}
+```
+
+#### Database Relationships (d_entity_id_map)
+
+The create-link-edit pattern relies on the `d_entity_id_map` table for parent-child relationships:
+
+```sql
+-- Parent-child relationship storage
+CREATE TABLE app.d_entity_id_map (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    parent_entity_type varchar(20) NOT NULL,  -- e.g., 'role'
+    parent_entity_id uuid NOT NULL,           -- Specific role UUID
+    child_entity_type varchar(20) NOT NULL,   -- e.g., 'employee'
+    child_entity_id uuid NOT NULL,            -- Specific employee UUID
+    relationship_type varchar(50) DEFAULT 'contains',
+    active_flag boolean NOT NULL DEFAULT true,
+    created_ts timestamptz NOT NULL DEFAULT now()
+);
+
+-- Example linkage: CTO role → James Miller
+INSERT INTO app.d_entity_id_map (
+    parent_entity_type, parent_entity_id,
+    child_entity_type, child_entity_id,
+    relationship_type
+) VALUES (
+    'role', 'd4e80c66-46a3-4422-81c4-91b5f9a0c9ea',
+    'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
+    'has_member'
+);
+```
+
+#### Complete Data Flow Example
+
+```
+User navigates to: http://localhost:5173/role/{id}/employee
+                                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. FRONTEND ROUTING                                             │
+│    EntityDetailPage → DynamicChildEntityTabs → "employee" tab   │
+│    Props: entityType="employee", parentType="role", parentId=id │
+└─────────────────────────────────────────────────────────────────┘
+                                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 2. FILTEREDATATABLE COMPONENT                                   │
+│    endpoint = "/api/v1/employee" (main endpoint)                │
+│    queryParams = "?parent_type=role&parent_id={id}&page=1"      │
+│    columns = config.columns (SAME as main employee view)        │
+└─────────────────────────────────────────────────────────────────┘
+                                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 3. API REQUEST                                                  │
+│    GET /api/v1/employee?parent_type=role&parent_id={id}&page=1  │
+└─────────────────────────────────────────────────────────────────┘
+                                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 4. BACKEND PROCESSING                                           │
+│    • Detect parent_type and parent_id params                    │
+│    • Add JOIN with d_entity_id_map                              │
+│    • Filter: WHERE eim.parent_entity_type = 'role'              │
+│    •         AND eim.parent_entity_id = '{id}'                  │
+│    •         AND eim.child_entity_type = 'employee'             │
+│    • Execute query with ALL employee columns                    │
+└─────────────────────────────────────────────────────────────────┘
+                                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 5. API RESPONSE                                                 │
+│    {                                                            │
+│      "data": [                                                  │
+│        {                                                        │
+│          "id": "8260b1b0-5efc-4611-ad33-ee76c0cf7f13",          │
+│          "code": "EMP-001",                                     │
+│          "name": "James Miller",                                │
+│          "email": "james.miller@huronhome.ca",                  │
+│          ... /* ALL 25+ employee columns */                     │
+│        }                                                        │
+│      ],                                                         │
+│      "total": 1,                                                │
+│      "limit": 50,                                               │
+│      "offset": 0                                                │
+│    }                                                            │
+└─────────────────────────────────────────────────────────────────┘
+                                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 6. DATATABLE RENDERING                                          │
+│    EntityDataTable renders with:                                │
+│    • SAME columns as /employee main view                        │
+│    • 1 row: James Miller                                        │
+│    • All fields editable (inline edit)                          │
+│    • "Add New Row" shows ALL employee fields                    │
+│    • Horizontal scrollbar if > 7 columns                        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Benefits of Create-Link-Edit Pattern
+
+| Aspect | Factory Pattern (Old) | Create-Link-Edit Pattern (✅ Current) |
+|--------|----------------------|--------------------------------------|
+| **Code Duplication** | ❌ Duplicate queries per parent-child pair | ✅ Single query, reused everywhere |
+| **Column Consistency** | ❌ Often mismatched columns | ✅ Guaranteed identical columns |
+| **Maintenance** | ❌ Fix in N places | ✅ Fix once, works everywhere |
+| **Type Safety** | ❌ Separate schemas can drift | ✅ Single schema, enforced |
+| **Testing** | ❌ Test each endpoint separately | ✅ Test once, applies to all contexts |
+| **API Surface** | ❌ N endpoints (N parent types) | ✅ 1 endpoint with params |
+| **New Relationships** | ❌ Create new endpoint | ✅ Just add linkage in d_entity_id_map |
+
+#### Common Parent-Child Relationships
+
+```typescript
+// All use the create-link-edit pattern:
+
+// Role → Employee
+GET /api/v1/employee?parent_type=role&parent_id={id}
+
+// Project → Task
+GET /api/v1/task?parent_type=project&parent_id={id}
+
+// Business → Project
+GET /api/v1/project?parent_type=business&parent_id={id}
+
+// Office → Business
+GET /api/v1/business?parent_type=office&parent_id={id}
+
+// Task → Form
+GET /api/v1/form?parent_type=task&parent_id={id}
+
+// Project → Wiki
+GET /api/v1/wiki?parent_type=project&parent_id={id}
+
+// Project → Artifact
+GET /api/v1/artifact?parent_type=project&parent_id={id}
+```
+
+#### Critical Implementation Notes
+
+1. **UUID Type Handling**: Both `d_entity_id_map` columns and entity ID columns are UUID type. Do NOT cast in JOIN:
+   ```typescript
+   // ✅ CORRECT
+   INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = e.id
+
+   // ❌ WRONG - causes "operator does not exist: uuid = text" error
+   INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = e.id::text
+   ```
+
+2. **Conditional Query Logic**: Use separate if/else blocks for WITH JOIN vs WITHOUT JOIN queries to maintain clean SQL:
+   ```typescript
+   if (parent_type && parent_id) {
+     // Full query WITH JOIN
+   } else {
+     // Full query WITHOUT JOIN (same SELECT columns)
+   }
+   ```
+
+3. **Column Consistency**: Both query branches MUST select identical columns in identical order.
+
+4. **Avoid Child Endpoints**: Do NOT create `/api/v1/{parent}/{id}/{child}` endpoints. They violate DRY and create maintenance burden.
+
 ---
 
 ## 3. Database, API & UI/UX Mapping

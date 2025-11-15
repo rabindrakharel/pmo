@@ -7,13 +7,6 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-import {
-  getEmployeeEntityIds,
-  hasPermissionOnEntityId,
-  hasCreatePermissionForEntityType,
-  type EntityAction
-} from '../rbac/entity-permission-rbac-gate.js';
-
 // Reuse schemas from universal entity routes
 const UniversalEntitySchema = Type.Object({
   id: Type.String(),
@@ -166,9 +159,12 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'Invalid entity types' });
       }
 
-      // Check user has access to parent entity
-      const hasParentAccess = await hasPermissionOnEntityId(employeeId, parentEntity, parentId, 'view');
-      if (!hasParentAccess) {
+      // DATA GATE: Check user has access to parent entity
+      const parentAccessibleIds = await data_gate_EntityIdsByEntityType(employeeId, parentEntity, PermissionLevel.VIEW);
+      const hasParentTypeAccess = parentAccessibleIds.includes('11111111-1111-1111-1111-111111111111');
+      const hasParentSpecificAccess = parentAccessibleIds.includes(parentId);
+
+      if (!hasParentTypeAccess && !hasParentSpecificAccess) {
         return reply.status(404).send({ error: 'Parent entity not found or access denied' });
       }
 
@@ -199,12 +195,12 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
       }
 
       // Get accessible action entity IDs for this user
-      const accessibleIds = await getEmployeeEntityIds(employeeId, actionEntity, 'view');
-      if (accessibleIds.length === 0) {
-        return { 
-          data: [], 
-          total: 0, 
-          limit, 
+      const accessibleEntityIds = await data_gate_EntityIdsByEntityType(employeeId, actionEntity, PermissionLevel.VIEW);
+      if (accessibleEntityIds.length === 0) {
+        return {
+          data: [],
+          total: 0,
+          limit,
           offset,
           parent_info: {
             entity_type: parentEntity,
@@ -230,7 +226,7 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
         const foreignKeyColumn = relationshipConfig.foreignKeyColumn!;
 
         const conditions = [
-          `e.id = ANY(ARRAY[${accessibleIds.map(id => `'${id}'`).join(',')}]::uuid[])`,
+          `e.id = ANY(ARRAY[${accessibleEntityIds.map(id => `'${id}'`).join(',')}]::uuid[])`,
           `e.${foreignKeyColumn} = '${parentId}'`
         ];
 
@@ -362,15 +358,21 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'Invalid entity types' });
       }
 
-      // Check user has access to parent entity
-      const hasParentAccess = await hasPermissionOnEntityId(employeeId, parentEntity, parentId, 'view');
-      if (!hasParentAccess) {
+      // DATA GATE: Check user has access to parent entity
+      const parentAccessibleIds = await data_gate_EntityIdsByEntityType(employeeId, parentEntity, PermissionLevel.VIEW);
+      const hasParentTypeAccess = parentAccessibleIds.includes('11111111-1111-1111-1111-111111111111');
+      const hasParentSpecificAccess = parentAccessibleIds.includes(parentId);
+
+      if (!hasParentTypeAccess && !hasParentSpecificAccess) {
         return reply.status(404).send({ error: 'Parent entity not found or access denied' });
       }
 
-      // Check user has access to action entity
-      const hasActionAccess = await hasPermissionOnEntityId(employeeId, actionEntity, actionId, 'view');
-      if (!hasActionAccess) {
+      // DATA GATE: Check user has access to action entity
+      const actionAccessibleIds = await data_gate_EntityIdsByEntityType(employeeId, actionEntity, PermissionLevel.VIEW);
+      const hasActionTypeAccess = actionAccessibleIds.includes('11111111-1111-1111-1111-111111111111');
+      const hasActionSpecificAccess = actionAccessibleIds.includes(actionId);
+
+      if (!hasActionTypeAccess && !hasActionSpecificAccess) {
         return reply.status(404).send({ error: 'Action entity not found or access denied' });
       }
 
@@ -452,12 +454,6 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
 
       if (!validateEntityType(parentEntity) || !validateEntityType(actionEntity)) {
         return reply.status(400).send({ error: 'Invalid entity types' });
-      }
-
-      // Check user has create permission within parent entity
-      const hasCreatePermission = await hasCreatePermissionForEntityType(employeeId, actionEntity);
-      if (!hasCreatePermission) {
-        return reply.status(403).send({ error: 'Insufficient permissions to create entity in this context' });
       }
 
       // Verify parent exists and user has access
@@ -583,12 +579,6 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'Invalid entity types' });
       }
 
-      // Check RBAC permission
-      const hasAccess = await hasPermissionOnEntityId(employeeId, actionEntity, actionId, 'edit');
-      if (!hasAccess) {
-        return reply.status(404).send({ error: 'Action entity not found or access denied' });
-      }
-
       const actionTable = getTableName(actionEntity);
       const parentIdColumn = getParentIdColumn(actionEntity, parentEntity);
 
@@ -698,12 +688,6 @@ export async function parentActionEntityRoutes(fastify: FastifyInstance) {
 
       if (!validateEntityType(parentEntity) || !validateEntityType(actionEntity)) {
         return reply.status(400).send({ error: 'Invalid entity types' });
-      }
-
-      // Check RBAC permission (using edit permission for delete)
-      const hasAccess = await hasPermissionOnEntityId(employeeId, actionEntity, actionId, 'edit');
-      if (!hasAccess) {
-        return reply.status(404).send({ error: 'Action entity not found or access denied' });
       }
 
       const actionTable = getTableName(actionEntity);

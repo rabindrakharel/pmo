@@ -15,7 +15,7 @@
 --    • Body: {name, code, wiki_type, category, page_path, parent_wiki_id, primary_entity_type, primary_entity_id}
 --    • Returns: {id: "new-uuid", version: 1, publication_status: "draft", ...}
 --    • Database: INSERT with version=1, active_flag=true, publication_status='draft', created_ts=now()
---    • RBAC: Requires permission 4 (create) on entity='wiki', entity_id='all'
+--    • RBAC: Requires permission 4 (create) on entity='wiki', entity_id='11111111-1111-1111-1111-111111111111'
 --    • Business Rule: New pages default to 'draft' status; must be published explicitly
 --
 -- 2. UPDATE WIKI PAGE (Content Editing, Draft Revisions)
@@ -28,14 +28,14 @@
 --      - version increments (audit trail of content changes)
 --      - updated_ts refreshed
 --      - NO archival (publication_status can change: draft → published → archived)
---    • RBAC: Requires permission 1 (edit) on entity='wiki', entity_id={id} OR 'all'
+--    • RBAC: Requires permission 1 (edit) on entity='wiki', entity_id={id} OR '11111111-1111-1111-1111-111111111111'
 --    • Business Rule: Content changes increment version; actual content stored in d_wiki_data
 --
 -- 3. PUBLISH WIKI PAGE
 --    • Frontend Action: User clicks "Publish" button on draft page
 --    • Endpoint: PUT /api/v1/wiki/{id}
 --    • Body: {publication_status: "published"}
---    • Database: UPDATE SET publication_status='published', published_ts=now(), published_by_empid=$user_id, version=version+1 WHERE id=$1
+--    • Database: UPDATE SET publication_status='published', published_ts=now(), published_by_employee_id=$user_id, version=version+1 WHERE id=$1
 --    • Business Rule: Publishes page to intended audience based on visibility setting
 --
 -- 4. ARCHIVE/DEPRECATE WIKI PAGE
@@ -57,9 +57,9 @@
 --      WHERE w.active_flag=true
 --        AND EXISTS (
 --          SELECT 1 FROM entity_id_rbac_map rbac
---          WHERE rbac.empid=$user_id
+--          WHERE rbac.person_entity_name='employee' AND rbac.person_entity_id=$user_id
 --            AND rbac.entity='wiki'
---            AND (rbac.entity_id=w.id::text OR rbac.entity_id='all')
+--            AND (rbac.entity_id=w.id::text OR rbac.entity_id='11111111-1111-1111-1111-111111111111')
 --            AND 0=ANY(rbac.permission)  -- View permission
 --        )
 --      ORDER BY w.published_ts DESC, w.name ASC
@@ -104,7 +104,7 @@
 --
 -- RELATIONSHIPS:
 -- • parent_wiki_id → d_wiki (self-reference for hierarchical structure)
--- • published_by_empid → d_employee (who published the page)
+-- • published_by_employee_id → d_employee (who published the page)
 -- • primary_entity_type, primary_entity_id: Links wiki to project/task/etc via entity_id_map
 -- • wiki_id ← d_wiki_data (content versions stored separately)
 --
@@ -131,7 +131,7 @@ CREATE TABLE app.d_wiki (
     -- Publication status
     publication_status varchar(50) DEFAULT 'draft', -- draft, published, archived, deprecated
     published_ts timestamptz,
-    published_by_empid uuid,
+    published_by_employee_id uuid,
 
     -- Access control
     visibility varchar(20) DEFAULT 'internal', -- public, internal, restricted, private

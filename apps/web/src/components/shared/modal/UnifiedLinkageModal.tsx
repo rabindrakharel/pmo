@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Link2,
   Plus,
   X,
   Check,
@@ -19,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Modal } from './Modal';
 import { Button } from '../button/Button';
+import { useEntityInstancePicker } from '../../../hooks/useEntityInstancePicker';
 
 // ============================================================================
 // TYPES & CONFIGURATION
@@ -53,12 +53,7 @@ const getEntityIconComponent = (type: string) => {
   return entity?.IconComponent || Database;
 };
 
-// Helper to map entity types to API endpoints
-const getApiEndpoint = (entityType: string): string => {
-  if (entityType === 'business') return 'biz';
-  if (entityType === 'client') return 'cust';
-  return entityType;
-};
+// Note: getApiEndpoint is now in useEntityInstancePicker hook
 
 interface UnifiedLinkageModalProps {
   isOpen: boolean;
@@ -82,12 +77,7 @@ interface UnifiedLinkageModalProps {
   onLinkageChange?: () => void;
 }
 
-interface EntityInstance {
-  id: string;
-  name: string;
-  code?: string;
-  descr?: string;
-}
+// EntityInstance now imported from useEntityInstancePicker hook
 
 interface Linkage {
   id: string;
@@ -117,17 +107,25 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
   onLinkageChange
 }) => {
   // State
-  const [availableEntities, setAvailableEntities] = useState<EntityInstance[]>([]);
   const [existingLinkages, setExistingLinkages] = useState<Linkage[]>([]);
   const [validEntityTypes, setValidEntityTypes] = useState<string[]>([]);
   const [selectedEntityType, setSelectedEntityType] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
   const token = localStorage.getItem('auth_token');
+
+  // Use reusable hook for entity instance loading and filtering
+  const {
+    filteredInstances: filteredEntities,
+    loading,
+    searchQuery,
+    setSearchQuery
+  } = useEntityInstancePicker({
+    entityType: selectedEntityType || null,
+    enabled: !!selectedEntityType
+  });
 
   // ============================================================================
   // INITIALIZATION
@@ -141,12 +139,6 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
     }
   }, [isOpen, mode, childEntityId, parentEntityId]);
 
-  useEffect(() => {
-    if (selectedEntityType) {
-      loadAvailableEntities();
-    }
-  }, [selectedEntityType]);
-
   const initializeModal = async () => {
     setError(null);
     setSuccess(null);
@@ -155,11 +147,9 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
   };
 
   const resetState = () => {
-    setAvailableEntities([]);
     setExistingLinkages([]);
     setValidEntityTypes([]);
     setSelectedEntityType('');
-    setSearchQuery('');
     setError(null);
     setSuccess(null);
   };
@@ -238,36 +228,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
     }
   };
 
-  // ============================================================================
-  // LOAD AVAILABLE ENTITIES
-  // ============================================================================
-
-  const loadAvailableEntities = async () => {
-    setLoading(true);
-    try {
-      const endpoint = getApiEndpoint(selectedEntityType);
-      const response = await fetch(
-        `${apiUrl}/api/v1/${endpoint}?limit=100`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        const entities = (data.data || data.results || []).map((e: any) => ({
-          id: e.id,
-          name: e.name || e.title || e.email || 'Unnamed',
-          code: e.code,
-          descr: e.descr || e.description
-        }));
-        setAvailableEntities(entities);
-      }
-    } catch (err) {
-      console.error('Failed to load entities:', err);
-      setError('Failed to load entities');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Entity loading now handled by useEntityInstancePicker hook
 
   // ============================================================================
   // LINK/UNLINK ACTIONS
@@ -375,15 +336,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
     }
   };
 
-  const filteredEntities = useMemo(() => {
-    if (!searchQuery.trim()) return availableEntities;
-    const query = searchQuery.toLowerCase();
-    return availableEntities.filter(entity =>
-      entity.name.toLowerCase().includes(query) ||
-      entity.code?.toLowerCase().includes(query) ||
-      entity.descr?.toLowerCase().includes(query)
-    );
-  }, [availableEntities, searchQuery]);
+  // Filtering now handled by useEntityInstancePicker hook
 
   const entityLabel = mode === 'assign-parent' ? 'Assign to' : 'Child Type';
 
@@ -509,7 +462,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
               No valid {mode === 'assign-parent' ? 'parent' : 'child'} types available
             </p>
             <p className="text-xs text-orange-600 mt-1">
-              Check the entity relationship configuration in d_entity_map
+              Check the entity relationship configuration in d_entity.child_entities
             </p>
           </div>
         )}

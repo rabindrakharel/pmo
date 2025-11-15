@@ -202,13 +202,23 @@ export function LinkagePage() {
 
       const data = await response.json();
 
-      // Sort child entities by order field
-      const sortedChildren = (data.child_entities || []).sort((a: any, b: any) =>
-        (a.order || 999) - (b.order || 999)
-      );
-      setCurrentEntityTypeChildren(sortedChildren);
+      // child_entities is now a simple array of strings: ["task", "wiki", "artifact"]
+      const childEntityCodes = data.child_entities || [];
 
-      const childEntityCodes = sortedChildren.map((child: any) => child.entity);
+      // Enrich with metadata from allEntityTypes for display
+      const enrichedChildren = childEntityCodes
+        .map((code: string, index: number) => {
+          const metadata = allEntityTypes.find(e => e.code === code);
+          return metadata ? {
+            entity: code,
+            ui_icon: metadata.ui_icon,
+            ui_label: metadata.ui_label,
+            order: index + 1
+          } : null;
+        })
+        .filter((child: any) => child !== null); // Remove any missing entities
+
+      setCurrentEntityTypeChildren(enrichedChildren);
 
       // Calculate available child types (all types except self and current children)
       const allTypes = entityTypes.map(t => t.value);
@@ -241,19 +251,9 @@ export function LinkagePage() {
       const currentData = await getResponse.json();
       const existingChildren = currentData.child_entities || [];
 
-      // Find the child entity metadata
-      const childEntityMeta = entityTypes.find(e => e.value === childType);
-      if (!childEntityMeta) throw new Error('Child entity type not found');
-
-      // Add new child with proper metadata
-      const newChild = {
-        entity: childType,
-        ui_icon: childEntityMeta.IconComponent.name || 'Circle',
-        ui_label: childEntityMeta.label + 's', // Pluralize
-        order: existingChildren.length + 1
-      };
-
-      const updatedChildren = [...existingChildren, newChild];
+      // child_entities should be a simple array of entity codes (strings)
+      // Metadata is fetched dynamically from d_entity when displaying tabs
+      const updatedChildren = [...existingChildren, childType];
 
       // Update the entity type
       const updateResponse = await fetch(`${API_BASE_URL}/api/v1/entity/${parentType}/children`, {
@@ -267,7 +267,7 @@ export function LinkagePage() {
 
       if (!updateResponse.ok) throw new Error('Failed to update entity children');
 
-      setSuccess(`Added ${childEntityMeta.label} as child tab to ${getEntityLabel(parentType)}`);
+      setSuccess(`Added ${getEntityLabel(childType)} as child tab to ${getEntityLabel(parentType)}`);
       setTimeout(() => setSuccess(null), 3000);
 
       // Reload metadata
@@ -301,10 +301,8 @@ export function LinkagePage() {
       const currentData = await getResponse.json();
       const existingChildren = currentData.child_entities || [];
 
-      // Remove the child and reorder
-      const updatedChildren = existingChildren
-        .filter((child: any) => child.entity !== childType)
-        .map((child: any, index: number) => ({ ...child, order: index + 1 }));
+      // Remove the child (existingChildren is array of strings)
+      const updatedChildren = existingChildren.filter((child: string) => child !== childType);
 
       // Update the entity type
       const updateResponse = await fetch(`${API_BASE_URL}/api/v1/entity/${parentType}/children`, {
@@ -351,18 +349,9 @@ export function LinkagePage() {
       const currentData = await getResponse.json();
       const existingChildren = currentData.child_entities || [];
 
-      // Add new children
-      const newChildren = selectedEntitiesToAdd.map((entityCode, idx) => {
-        const entityMeta = entityTypes.find(e => e.value === entityCode);
-        return {
-          entity: entityCode,
-          ui_icon: entityMeta?.IconComponent.name || 'Circle',
-          ui_label: entityMeta?.label ? entityMeta.label + 's' : entityCode,
-          order: existingChildren.length + idx + 1
-        };
-      });
-
-      const updatedChildren = [...existingChildren, ...newChildren];
+      // Add new children (child_entities is array of strings)
+      // Metadata is fetched dynamically from d_entity when displaying tabs
+      const updatedChildren = [...existingChildren, ...selectedEntitiesToAdd];
 
       // Update the entity type
       const updateResponse = await fetch(`${API_BASE_URL}/api/v1/entity/${parentType}/children`, {
@@ -407,11 +396,8 @@ export function LinkagePage() {
 
       const data = await response.json();
 
-      // Extract child entity codes from child_entities array and sort by order
-      const sortedChildren = (data.child_entities || []).sort((a: any, b: any) =>
-        (a.order || 999) - (b.order || 999)
-      );
-      const childTypes = sortedChildren.map((child: any) => child.entity);
+      // child_entities is now a simple array of strings: ["task", "wiki", "artifact"]
+      const childTypes = data.child_entities || [];
 
       setValidChildTypes(childTypes);
     } catch (err: any) {

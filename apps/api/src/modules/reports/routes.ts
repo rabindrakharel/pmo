@@ -81,7 +81,7 @@ const ReportDataSchema = Type.Object({
   report_data: Type.Object({}),
   data_snapshot_size: Type.Optional(Type.Number()),
   stage: Type.String(),
-  executed_by_empid: Type.Optional(Type.String()),
+  executed_by_employee_id: Type.Optional(Type.String()),
   execution_trigger: Type.String(),
   data_freshness_hours: Type.Optional(Type.Number()),
   data_completeness_percent: Type.Optional(Type.Number()),
@@ -464,7 +464,7 @@ export async function reportsRoutes(fastify: FastifyInstance) {
       const reportData = await db.execute(sql`
         SELECT
           id, report_id, execution_timestamp, report_data, data_snapshot_size,
-          stage, executed_by_empid, execution_trigger, data_freshness_hours,
+          stage, executed_by_employee_id, execution_trigger, data_freshness_hours,
           data_completeness_percent, data_accuracy_score, query_execution_time_ms,
           data_processing_time_ms, created_ts, updated_ts
         FROM app.d_report_data
@@ -518,7 +518,7 @@ export async function reportsRoutes(fastify: FastifyInstance) {
 
       const result = await db.execute(sql`
         INSERT INTO app.d_report_data (
-          report_id, report_data, data_snapshot_size, stage, executed_by_empid,
+          report_id, report_data, data_snapshot_size, stage, executed_by_employee_id,
           execution_trigger, data_freshness_hours, data_completeness_percent,
           data_accuracy_score, query_execution_time_ms, data_processing_time_ms
         )

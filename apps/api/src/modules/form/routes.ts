@@ -76,12 +76,12 @@ export async function formRoutes(fastify: FastifyInstance) {
         sql`(
           EXISTS (
             SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.empid = ${userId}
-              AND rbac.entity = 'form'
-              AND (rbac.entity_id = f.id::text OR rbac.entity_id = 'all')
+            WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+              AND rbac.entity_name = 'form'
+              AND (rbac.entity_id = f.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
               AND rbac.active_flag = true
               AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND 0 = ANY(rbac.permission)
+              AND rbac.permission >= 0
           )
         )`
       ];
@@ -218,12 +218,12 @@ export async function formRoutes(fastify: FastifyInstance) {
           AND (
             EXISTS (
               SELECT 1 FROM app.entity_id_rbac_map rbac
-              WHERE rbac.empid = ${userId}
-                AND rbac.entity = 'form'
-                AND (rbac.entity_id = f.id::text OR rbac.entity_id = 'all')
+              WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+                AND rbac.entity_name = 'form'
+                AND (rbac.entity_id = f.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
                 AND rbac.active_flag = true
                 AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-                AND 0 = ANY(rbac.permission)
+                AND rbac.permission >= 0
             )
           )
         ORDER BY f.version DESC
@@ -283,12 +283,12 @@ export async function formRoutes(fastify: FastifyInstance) {
           AND (
             EXISTS (
               SELECT 1 FROM app.entity_id_rbac_map rbac
-              WHERE rbac.empid = ${userId}
-                AND rbac.entity = 'form'
-                AND (rbac.entity_id = f.id::text OR rbac.entity_id = 'all')
+              WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+                AND rbac.entity_name = 'form'
+                AND (rbac.entity_id = f.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
                 AND rbac.active_flag = true
                 AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-                AND 0 = ANY(rbac.permission)
+                AND rbac.permission >= 0
             )
           )
       `);
@@ -328,12 +328,12 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Check create permission (permission 4 on 'all')
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'form'
-          AND rbac.entity_id = 'all'
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+          AND rbac.entity_name = 'form'
+          AND rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 4 = ANY(rbac.permission)
+          AND rbac.permission >= 4
         LIMIT 1
       `);
 
@@ -404,7 +404,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Auto-grant creator full permissions (0=view, 1=edit, 2=share, 3=delete, 4=create)
       await db.execute(sql`
         INSERT INTO app.entity_id_rbac_map (
-          empid,
+          employee_id,
           entity,
           entity_id,
           permission,
@@ -451,12 +451,12 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Check edit permission (permission 1)
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'form'
-          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+          AND rbac.entity_name = 'form'
+          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 1 = ANY(rbac.permission)
+          AND rbac.permission >= 1
         LIMIT 1
       `);
 
@@ -586,12 +586,12 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Check view permission on form
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}::uuid
-          AND rbac.entity = 'form'
-          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}::uuid
+          AND rbac.entity_name = 'form'
+          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
+          AND rbac.permission >= 0
         LIMIT 1
       `);
 
@@ -612,11 +612,11 @@ export async function formRoutes(fastify: FastifyInstance) {
           fd.submission_data,
           fd.submission_status,
           fd.stage,
-          fd.submitted_by_empid::text,
+          fd.submitted_by_employee_id::text,
           fd.submission_ip_address,
           fd.submission_user_agent,
           fd.approval_status,
-          fd.approved_by_empid::text,
+          fd.approved_by_employee_id::text,
           fd.approval_notes,
           fd.approved_ts,
           fd.created_ts,
@@ -691,12 +691,12 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Check view permission on form
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'form'
-          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+          AND rbac.entity_name = 'form'
+          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
+          AND rbac.permission >= 0
         LIMIT 1
       `);
 
@@ -727,11 +727,11 @@ export async function formRoutes(fastify: FastifyInstance) {
           fd.submission_data,
           fd.submission_status,
           fd.stage,
-          fd.submitted_by_empid,
+          fd.submitted_by_employee_id,
           fd.submission_ip_address,
           fd.submission_user_agent,
           fd.approval_status,
-          fd.approved_by_empid,
+          fd.approved_by_employee_id,
           fd.approval_notes,
           fd.approved_ts,
           fd.created_ts,
@@ -782,12 +782,12 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Check edit permission on form (permission 1)
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'form'
-          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+          AND rbac.entity_name = 'form'
+          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 1 = ANY(rbac.permission)
+          AND rbac.permission >= 1
         LIMIT 1
       `);
 
@@ -855,12 +855,12 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Check view permission on form
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'form'
-          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+          AND rbac.entity_name = 'form'
+          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
+          AND rbac.permission >= 0
         LIMIT 1
       `);
 
@@ -884,7 +884,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           form_id,
           submission_data,
           submission_status,
-          submitted_by_empid,
+          submitted_by_employee_id,
           submission_ip_address,
           submission_user_agent,
           stage
@@ -991,7 +991,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           form_id,
           submission_data,
           submission_status,
-          submitted_by_empid,
+          submitted_by_employee_id,
           submission_ip_address,
           submission_user_agent,
           stage

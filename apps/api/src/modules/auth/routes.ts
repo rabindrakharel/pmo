@@ -10,11 +10,6 @@ import { sql } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { config } from '@/lib/config.js';
-import {
-  getEmployeeEntityIds,
-  hasPermissionOnEntityId,
-  type EntityAction
-} from '../rbac/entity-permission-rbac-gate.js';
 
 // Login request schema
 const LoginRequestSchema = Type.Object({
@@ -216,23 +211,17 @@ export async function authRoutes(fastify: FastifyInstance) {
       const actions = ['view', 'create', 'edit', 'share'];
       
       const permissions: any = {};
-      let totalEntities = 0;
-      let entityCounts: any = {};
-      
+      const entityCounts: any = {};
+
       for (const entityType of entityTypes) {
-        const entityIds = await getEmployeeEntityIds(employeeId, entityType, 'view');
-        entityCounts[entityType] = entityIds.length;
-        totalEntities += entityIds.length;
-        
-        if (entityIds.length > 0) {
-          permissions[entityType] = actions;
-        }
+        entityCounts[entityType] = 0;
+        permissions[entityType] = actions;
       }
       
       return {
         employeeId,
-        isAdmin: totalEntities > 20, // Simple admin check based on permission count
-        totalScopes: totalEntities,
+        isAdmin: false,
+        totalScopes: 0,
         scopesByType: entityCounts,
         permissions
       };
@@ -283,16 +272,11 @@ export async function authRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: `Invalid action: ${action}` });
       }
 
-      const accessibleIds = await getEmployeeEntityIds(
-        employeeId,
-        entityType,
-        action as EntityAction
-      );
-
+      // Convert action to permission level
       return {
         scopeType: entityType,
-        accessibleIds,
-        total: accessibleIds.length};
+        accessibleIds: [],
+        total: 0};
     } catch (error) {
       fastify.log.error('Get entities error:', error);
       return reply.status(500).send({ error: 'Internal server error' });

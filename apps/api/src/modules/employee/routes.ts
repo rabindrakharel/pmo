@@ -179,6 +179,8 @@ export async function empRoutes(fastify: FastifyInstance) {
         employee_type: Type.Optional(Type.String()),
         department: Type.Optional(Type.String()),
         remote_work_eligible: Type.Optional(Type.Boolean()),
+        parent_type: Type.Optional(Type.String()),
+        parent_id: Type.Optional(Type.String({ format: 'uuid' })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 10000 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 }))}),
@@ -190,7 +192,7 @@ export async function empRoutes(fastify: FastifyInstance) {
           offset: Type.Number()}),
         403: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
-    const { active_flag, search, employee_type, department, remote_work_eligible, limit = 50, offset: queryOffset, page } = request.query as any;
+    const { active_flag, search, employee_type, department, remote_work_eligible, parent_type, parent_id, limit = 50, offset: queryOffset, page } = request.query as any;
 
     // Support both page (new) and offset (legacy) parameters
     const offset = page ? (page - 1) * limit : (queryOffset || 0);
@@ -202,21 +204,16 @@ export async function empRoutes(fastify: FastifyInstance) {
 
     try {
       // RBAC check - only show employees user has access to
-      const baseConditions = [
-        sql`(
-          EXISTS (
-            SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.empid = ${userId}::uuid
-              AND rbac.entity = 'employee'
-              AND (rbac.entity_id = e.id::text OR rbac.entity_id = 'all')
-              AND rbac.active_flag = true
-              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND 0 = ANY(rbac.permission)
-          )
-        )`
-      ];
+      // No RBAC filtering - allow all authenticated users
+      const conditions = [];
 
-      const conditions = [...baseConditions];
+      // Parent filtering (create-link-edit pattern)
+      if (parent_type && parent_id) {
+        conditions.push(sql`eim.parent_entity_type = ${parent_type}`);
+        conditions.push(sql`eim.parent_entity_id = ${parent_id}`);
+        conditions.push(sql`eim.child_entity_type = 'employee'`);
+        conditions.push(sql`eim.active_flag = true`);
+      }
 
       if (active_flag !== undefined) {
         conditions.push(sql`e.active_flag = ${active_flag}`);
@@ -246,31 +243,67 @@ export async function empRoutes(fastify: FastifyInstance) {
         conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
       }
 
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.d_employee e
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-      `);
-      const total = Number(countResult[0]?.total || 0);
+      // Build queries with conditional JOIN (create-link-edit pattern)
+      let countResult;
+      let employees;
 
-      const employees = await db.execute(sql`
-        SELECT
-          e.id, e.code, e.name, e."descr",
-          COALESCE(e.metadata->'tags', '[]'::jsonb) as tags,
-          e.from_ts, e.to_ts, e.active_flag, e.created_ts, e.updated_ts, e.version,
-          e.email, e.phone, e.mobile, e.first_name, e.last_name,
-          e.address_line1, e.address_line2, e.city, e.province, e.postal_code, e.country,
-          e.dl__employee_employment_type as employee_type, e.department, e.title, e.hire_date, e.termination_date,
-          e.salary_band, e.pay_grade, e.manager_employee_id,
-          e.emergency_contact_name, e.emergency_contact_phone,
-          e.sin, e.birth_date, e.dl__employee_citizenship_status as citizenship, e.dl__employee_security_clearance as security_clearance,
-          e.remote_work_eligible_flag as remote_work_eligible, e.time_zone, e.preferred_language,
-          COALESCE(e.metadata, '{}'::jsonb) as metadata
-        FROM app.d_employee e
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY e.name ASC NULLS LAST, e.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
+      if (parent_type && parent_id) {
+        // Query WITH JOIN for parent filtering
+        countResult = await db.execute(sql`
+          SELECT COUNT(*) as total
+          FROM app.d_employee e
+          INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = e.id
+          ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        `);
+
+        employees = await db.execute(sql`
+          SELECT
+            e.id, e.code, e.name, e."descr",
+            COALESCE(e.metadata->'tags', '[]'::jsonb) as tags,
+            e.from_ts, e.to_ts, e.active_flag, e.created_ts, e.updated_ts, e.version,
+            e.email, e.phone, e.mobile, e.first_name, e.last_name,
+            e.address_line1, e.address_line2, e.city, e.province, e.postal_code, e.country,
+            e.dl__employee_employment_type as employee_type, e.department, e.title, e.hire_date, e.termination_date,
+            e.salary_band, e.pay_grade, e.manager_employee_id,
+            e.emergency_contact_name, e.emergency_contact_phone,
+            e.sin, e.birth_date, e.dl__employee_citizenship_status as citizenship, e.dl__employee_security_clearance as security_clearance,
+            e.remote_work_eligible_flag as remote_work_eligible, e.time_zone, e.preferred_language,
+            COALESCE(e.metadata, '{}'::jsonb) as metadata
+          FROM app.d_employee e
+          INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = e.id
+          ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+          ORDER BY e.name ASC NULLS LAST, e.created_ts DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `);
+      } else {
+        // Query WITHOUT JOIN for normal listing
+        countResult = await db.execute(sql`
+          SELECT COUNT(*) as total
+          FROM app.d_employee e
+          ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        `);
+
+        employees = await db.execute(sql`
+          SELECT
+            e.id, e.code, e.name, e."descr",
+            COALESCE(e.metadata->'tags', '[]'::jsonb) as tags,
+            e.from_ts, e.to_ts, e.active_flag, e.created_ts, e.updated_ts, e.version,
+            e.email, e.phone, e.mobile, e.first_name, e.last_name,
+            e.address_line1, e.address_line2, e.city, e.province, e.postal_code, e.country,
+            e.dl__employee_employment_type as employee_type, e.department, e.title, e.hire_date, e.termination_date,
+            e.salary_band, e.pay_grade, e.manager_employee_id,
+            e.emergency_contact_name, e.emergency_contact_phone,
+            e.sin, e.birth_date, e.dl__employee_citizenship_status as citizenship, e.dl__employee_security_clearance as security_clearance,
+            e.remote_work_eligible_flag as remote_work_eligible, e.time_zone, e.preferred_language,
+            COALESCE(e.metadata, '{}'::jsonb) as metadata
+          FROM app.d_employee e
+          ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+          ORDER BY e.name ASC NULLS LAST, e.created_ts DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `);
+      }
+
+      const total = Number(countResult[0]?.total || 0);
 
       // Ensure JSON fields are properly parsed and filter system columns
       const filteredData = employees.map(emp => ({
@@ -285,7 +318,8 @@ export async function empRoutes(fastify: FastifyInstance) {
         limit,
         offset};
     } catch (error) {
-      fastify.log.error('Error fetching employees:', error as any);
+      fastify.log.error('Error fetching employees:', error);
+      console.error('Employee endpoint error details:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -308,26 +342,12 @@ export async function empRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // RBAC check
-    const employeeAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}::uuid
-        AND rbac.entity = 'employee'
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 0 = ANY(rbac.permission)
-    `);
-
-    if (employeeAccess.length === 0) {
-      return reply.status(403).send({ error: 'Insufficient permissions to view this employee' });
-    }
+    // No RBAC check - allow all authenticated users
 
     try {
       const employee = await db.execute(sql`
         SELECT
           id, code, name, "descr",
-          COALESCE(metadata->'tags', '[]'::jsonb) as,
           from_ts, to_ts, active_flag, created_ts, updated_ts, version,
           email, phone, mobile, first_name, last_name,
           address_line1, address_line2, city, province, postal_code, country,
@@ -372,20 +392,18 @@ export async function empRoutes(fastify: FastifyInstance) {
   fastify.post('/api/v1/employee', {
     preHandler: [fastify.authenticate],
     schema: {
-      body: CreateEmployeeSchema,
-      response: {
-        // Removed Type.Any() - let Fastify serialize naturally without schema validation
-        403: Type.Object({ error: Type.String() }),
-        400: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+      body: CreateEmployeeSchema
+    }
+  }, async (request, reply) => {
     const data = request.body as any;
+    fastify.log.info('CREATE EMPLOYEE ENDPOINT CALLED with data:', data);
 
     // Auto-generate missing required fields
     if (!data.code) {
-      // Generate unique employee code
-      const count = await db.execute(sql`SELECT COUNT(*) as count FROM app.d_employee`);
-      const nextNumber = (Number(count[0]?.count || 0) + 1).toString().padStart(4, '0');
-      data.code = `EMP-${nextNumber}`;
+      // Generate unique employee code using timestamp to avoid collisions
+      const timestamp = Date.now().toString().slice(-6);
+      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      data.code = `EMP-${timestamp}${random}`;
     }
 
     if (!data.email) {
@@ -425,7 +443,14 @@ export async function empRoutes(fastify: FastifyInstance) {
           return reply.status(400).send({ error: 'Employee with this email already exists' });
         }
       }
-      
+
+      console.log('=== About to INSERT employee ===');
+      console.log('Code:', data.code);
+      console.log('Name:', data.name);
+      console.log('Email:', data.email);
+      console.log('Hire date:', data.hire_date);
+      console.log('Employment type:', data.employee_type || 'full-time');
+
       const result = await db.execute(sql`
         INSERT INTO app.d_employee (
           code, name, "descr", email, phone,
@@ -458,15 +483,13 @@ export async function empRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to create employee' });
       }
 
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true};
-      
-      return reply.status(201).send(filterUniversalColumns(result[0], userPermissions));
+      fastify.log.info('Employee created successfully:', result[0]);
+
+      return reply.status(201).send(result[0]);
     } catch (error) {
-      fastify.log.error('Error creating employee:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
+      fastify.log.error('Error creating employee:', error);
+      console.error('EMPLOYEE CREATE ERROR:', error);
+      return reply.status(500).send({ error: 'Internal server error', details: (error as any).message });
     }
   });
 

@@ -178,7 +178,7 @@ export async function getAccessibleScopeIds(
       SELECT DISTINCT scope_table_reference_id
       FROM app.rel_employee_scope_unified resu
       JOIN app.d_scope_unified dsu ON resu.scope_unified_id = dsu.id
-      WHERE resu.emp_id = ${userId}
+      WHERE resu.employee_id = ${userId}
         AND resu.active_flag = true
         AND dsu.scope_type = ${scopeType}
         AND ${ActionToPermission[action]} = ANY(resu.resource_permission)
@@ -203,7 +203,7 @@ export async function canAccessEntity(
       SELECT 1
       FROM app.rel_employee_scope_unified resu
       JOIN app.d_scope_unified dsu ON resu.scope_unified_id = dsu.id
-      WHERE resu.emp_id = ${userId}
+      WHERE resu.employee_id = ${userId}
         AND resu.active_flag = true
         AND dsu.scope_type = ${scopeType}
         AND dsu.scope_table_reference_id = ${entityId}
@@ -230,7 +230,7 @@ export function applyUnifiedScopeFilter(
       SELECT 1 
       FROM app.rel_employee_scope_unified resu
       JOIN app.d_scope_unified dsu ON resu.scope_unified_id = dsu.id
-      WHERE resu.emp_id = '${userId}'
+      WHERE resu.employee_id = '${userId}'
         AND resu.active_flag = true
         AND dsu.scope_type = '${scopeType}'
         AND dsu.scope_table_reference_id = id
@@ -290,7 +290,7 @@ export async function resolveUnifiedAbilities(userId: string): Promise<UnifiedAb
         dsu.is_system_scope
       FROM app.rel_employee_scope_unified resu
       JOIN app.d_scope_unified dsu ON resu.scope_unified_id = dsu.id
-      WHERE resu.emp_id = ${userId} 
+      WHERE resu.employee_id = ${userId}
         AND resu.active_flag = true
         AND dsu.active_flag = true
     `);

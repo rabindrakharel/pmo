@@ -81,12 +81,12 @@ export async function emailTemplateRoutes(fastify: FastifyInstance) {
         sql`(
           EXISTS (
             SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.empid = ${userId}
-              AND rbac.entity = 'marketing'
-              AND (rbac.entity_id = et.id::text OR rbac.entity_id = 'all')
+            WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+              AND rbac.entity_name = 'marketing'
+              AND (rbac.entity_id = et.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
               AND rbac.active_flag = true
               AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND 0 = ANY(rbac.permission)
+              AND rbac.permission >= 0
           )
         )`
       ];
@@ -205,12 +205,12 @@ export async function emailTemplateRoutes(fastify: FastifyInstance) {
           AND et.active_flag = true
           AND EXISTS (
             SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.empid = ${userId}
-              AND rbac.entity = 'marketing'
-              AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+            WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+              AND rbac.entity_name = 'marketing'
+              AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
               AND rbac.active_flag = true
               AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND 0 = ANY(rbac.permission)
+              AND rbac.permission >= 0
           )
       `);
 
@@ -242,12 +242,12 @@ export async function emailTemplateRoutes(fastify: FastifyInstance) {
       // Check if user has create permission
       const rbacCheck = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map
-        WHERE empid = ${userId}
+        WHERE person_entity_name = 'employee' AND person_entity_id = ${userId}
           AND entity = 'marketing'
           AND entity_id = 'all'
           AND active_flag = true
           AND (expires_ts IS NULL OR expires_ts > NOW())
-          AND 4 = ANY(permission)
+          AND permission >= 4
       `);
 
       if (rbacCheck.length === 0) {
@@ -327,12 +327,12 @@ export async function emailTemplateRoutes(fastify: FastifyInstance) {
       // Check if user has edit permission
       const rbacCheck = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map
-        WHERE empid = ${userId}
+        WHERE person_entity_name = 'employee' AND person_entity_id = ${userId}
           AND entity = 'marketing'
           AND (entity_id = ${id} OR entity_id = 'all')
           AND active_flag = true
           AND (expires_ts IS NULL OR expires_ts > NOW())
-          AND 1 = ANY(permission)
+          AND permission >= 1
       `);
 
       if (rbacCheck.length === 0) {
@@ -429,12 +429,12 @@ export async function emailTemplateRoutes(fastify: FastifyInstance) {
       // Check if user has delete permission
       const rbacCheck = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map
-        WHERE empid = ${userId}
+        WHERE person_entity_name = 'employee' AND person_entity_id = ${userId}
           AND entity = 'marketing'
           AND (entity_id = ${id} OR entity_id = 'all')
           AND active_flag = true
           AND (expires_ts IS NULL OR expires_ts > NOW())
-          AND 3 = ANY(permission)
+          AND permission >= 3
       `);
 
       if (rbacCheck.length === 0) {

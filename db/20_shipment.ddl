@@ -175,7 +175,7 @@ CREATE TABLE app.f_shipment (
     last_modified_by UUID,
 
     -- Metadata
-    notes TEXT,                                         -- Internal shipment notes
+    notes TEXT                                          -- Internal shipment notes
 );
 
 

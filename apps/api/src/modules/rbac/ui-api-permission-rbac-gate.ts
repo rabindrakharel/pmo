@@ -49,6 +49,6 @@ export async function hasPermissionOnScopeId(
   action: string
 ): Promise<boolean> {
   // For now, allow all access
-  // TODO: Implement proper permission checking or migrate to entity-permission-rbac-gate
+  // TODO: Implement proper permission checking using rbac.service.ts
   return true;
 }

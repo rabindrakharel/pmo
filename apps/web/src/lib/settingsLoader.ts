@@ -69,13 +69,13 @@ export const FIELD_TO_SETTING_MAP: Record<string, string> = {
 
   // Client/Customer fields (dl__ prefix columns from database)
   'dl__customer_opportunity_funnel': 'dl__customer_opportunity_funnel',
-  'dl__industry_sector': 'dl__industry_sector',
-  'dl__acquisition_channel': 'dl__acquisition_channel',
+  'dl__customer_industry_sector': 'dl__customer_industry_sector',
+  'dl__customer_acquisition_channel': 'dl__customer_acquisition_channel',
   'dl__customer_tier': 'dl__customer_tier',
   'dl__client_status': 'dl__client_status',
   'opportunity_funnel_stage_name': 'dl__customer_opportunity_funnel',
-  'industry_sector_name': 'dl__industry_sector',
-  'acquisition_channel_name': 'dl__acquisition_channel',
+  'industry_sector_name': 'dl__customer_industry_sector',
+  'acquisition_channel_name': 'dl__customer_acquisition_channel',
   'customer_tier_name': 'dl__customer_tier',
   'client_status': 'dl__client_status',
 

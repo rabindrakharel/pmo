@@ -117,7 +117,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           -- Get organizer details
           (
             SELECT jsonb_build_object(
-              'empid', emp.id::text,
+              'employee_id', emp.id::text,
               'name', emp.name,
               'email', emp.email
             )
@@ -225,7 +225,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           -- Get organizer details
           (
             SELECT jsonb_build_object(
-              'empid', emp.id::text,
+              'employee_id', emp.id::text,
               'name', emp.name,
               'email', emp.email
             )
@@ -486,11 +486,11 @@ export async function eventRoutes(fastify: FastifyInstance) {
       if (creatorEmpId) {
         await client`
           INSERT INTO app.entity_id_rbac_map (
-            empid,
+            employee_id,
             entity,
             entity_id,
             permission,
-            granted_by_empid
+            granted_by_employee_id
           ) VALUES (
             ${creatorEmpId}::uuid,
             'event',
@@ -499,7 +499,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
             ${creatorEmpId}::uuid
           )
         `;
-        console.log(`✅ Granted Owner permissions to creator (empid: ${creatorEmpId})`);
+        console.log(`✅ Granted Owner permissions to creator (employee_id: ${creatorEmpId})`);
 
         // Also add organizer as an attendee with accepted status
         const organizerAttendeeCode = `EPC-${eventData.code}-ORGANIZER-${organizerEmpId.substring(0, 8)}`;

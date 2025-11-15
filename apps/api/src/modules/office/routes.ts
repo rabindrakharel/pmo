@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-// RBAC implemented directly via database joins - no separate permission gates
 import { db } from '../../db/index.js';
 import { sql } from 'drizzle-orm';
 import {
@@ -11,6 +10,13 @@ import {
 } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.js';
+// ✅ API-based RBAC service
+import {
+  data_gate_EntityIdsByEntityType,
+  api_gate_Create,
+  api_gate_Update,
+  PermissionLevel
+} from '../../lib/rbac.service.js';
 
 // Schema based on actual d_office table structure (physical locations only)
 // NOTE: Hierarchy fields (parent_id, dl__office_hierarchy_level) are in d_office_hierarchy
@@ -105,22 +111,20 @@ export async function officeRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Direct RBAC filtering - only show offices user has access to
-      const baseConditions = [
-        sql`(
-          EXISTS (
-            SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.empid = ${userId}::uuid
-              AND rbac.entity = 'office'
-              AND (rbac.entity_id = o.id::text OR rbac.entity_id = 'all')
-              AND rbac.active_flag = true
-              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND 0 = ANY(rbac.permission)
-          )
-        )`
-      ];
+      // DATA GATE: Get accessible entity IDs for SELECT
+      const accessibleEntityIds = await data_gate_EntityIdsByEntityType(userId, 'office', PermissionLevel.VIEW);
 
-      const conditions = [...baseConditions];
+      if (accessibleEntityIds.length === 0) {
+        return createPaginatedResponse([], 0, limit, offset);
+      }
+
+      // Build ID filter - gate at SQL level
+      const hasTypeAccess = accessibleEntityIds.includes('11111111-1111-1111-1111-111111111111');
+      const idFilter = hasTypeAccess
+        ? sql`TRUE`  // Type-level access - no filtering
+        : sql`o.id::text = ANY(${accessibleEntityIds})`;  // Filter by accessible IDs
+
+      const conditions = [idFilter];
 
       if (active_flag !== undefined) {
         conditions.push(sql`o.active_flag = ${active_flag}`);
@@ -199,20 +203,18 @@ export async function officeRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Direct RBAC check for org access
-    const orgAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}::uuid
-        AND rbac.entity = 'office'
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 0 = ANY(rbac.permission)
-    `);
+    // DATA GATE: Get accessible entity IDs for SELECT
+    const accessibleEntityIds = await data_gate_EntityIdsByEntityType(userId, 'office', PermissionLevel.VIEW);
 
-    if (orgAccess.length === 0) {
-      return reply.status(403).send({ error: 'Insufficient permissions to view this organization' });
+    if (accessibleEntityIds.length === 0) {
+      return reply.status(403).send({ error: 'No access to office' });
     }
+
+    // Build ID filter - gate at SQL level
+    const hasTypeAccess = accessibleEntityIds.includes('11111111-1111-1111-1111-111111111111');
+    const idFilter = hasTypeAccess
+      ? sql`TRUE`
+      : sql`id::text = ANY(${accessibleEntityIds})`;
 
     try {
       const office = await db.execute(sql`
@@ -223,6 +225,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
           from_ts, to_ts, active_flag, created_ts, updated_ts, version
         FROM app.d_office
         WHERE id = ${id}
+          AND ${idFilter}
       `);
 
       if (office.length === 0) {
@@ -277,12 +280,12 @@ export async function officeRoutes(fastify: FastifyInstance) {
       // Direct RBAC check for org access
       const orgAccess = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}::uuid
-          AND rbac.entity = 'office'
-          AND (rbac.entity_id = ${orgId} OR rbac.entity_id = 'all')
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}::uuid
+          AND rbac.entity_name = 'office'
+          AND (rbac.entity_id = ${orgId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
+          AND rbac.permission >= 0
       `);
 
       if (orgAccess.length === 0) {
@@ -370,6 +373,16 @@ export async function officeRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
+    // API GATE: Check CREATE permission
+    try {
+      await api_gate_Create(userId, 'office');
+    } catch (err: any) {
+      return reply.status(err.statusCode || 403).send({
+        error: err.error || 'Forbidden',
+        message: err.message
+      });
+    }
+
     try {
       // Check for unique office code if provided
       if (data.code) {
@@ -451,19 +464,14 @@ export async function officeRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Direct RBAC check for org edit access
-    const orgEditAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}::uuid
-        AND rbac.entity = 'office'
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 1 = ANY(rbac.permission)
-    `);
-
-    if (orgEditAccess.length === 0) {
-      return reply.status(403).send({ error: 'Insufficient permissions to modify this organization' });
+    // API GATE: Check UPDATE permission
+    try {
+      await api_gate_Update(userId, 'office', id);
+    } catch (err: any) {
+      return reply.status(err.statusCode || 403).send({
+        error: err.error || 'Forbidden',
+        message: err.message
+      });
     }
 
     try {

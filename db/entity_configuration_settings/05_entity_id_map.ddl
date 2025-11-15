@@ -41,9 +41,9 @@
 CREATE TABLE app.d_entity_id_map (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     parent_entity_type varchar(20) NOT NULL,
-    parent_entity_id text NOT NULL,
+    parent_entity_id uuid NOT NULL,
     child_entity_type varchar(20) NOT NULL,
-    child_entity_id text NOT NULL,
+    child_entity_id uuid NOT NULL,
     relationship_type varchar(50) DEFAULT 'contains',
     metadata jsonb DEFAULT '{}'::jsonb,
     from_ts timestamptz NOT NULL DEFAULT now(),
@@ -63,25 +63,25 @@ COMMENT ON TABLE app.d_entity_id_map IS 'Parent-child relationships between spec
 
 -- Business → Project relationships
 INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
-SELECT 'business', p.business_id::text, 'project', p.id::text, 'owns'
+SELECT 'business', p.business_id, 'project', p.id, 'owns'
 FROM app.d_project p
 WHERE p.business_id IS NOT NULL AND p.active_flag = true;
 
 -- Office → Business relationships
 INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
-SELECT 'office', b.office_id::text, 'business', b.id::text, 'hosts'
+SELECT 'office', b.office_id, 'business', b.id, 'hosts'
 FROM app.d_business b
 WHERE b.office_id IS NOT NULL AND b.active_flag = true;
 
 -- Project → Task relationships
 INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
-SELECT 'project', t.project_id::text, 'task', t.id::text, 'contains'
+SELECT 'project', t.project_id, 'task', t.id, 'contains'
 FROM app.d_task t
 WHERE t.project_id IS NOT NULL AND t.active_flag = true;
 
 -- Parent → Artifact relationships (using primary_entity_type and primary_entity_id)
 INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
-SELECT a.primary_entity_type, a.primary_entity_id::text, 'artifact', a.id::text, 'contains'
+SELECT a.primary_entity_type, a.primary_entity_id, 'artifact', a.id, 'contains'
 FROM app.d_artifact a
 WHERE a.primary_entity_id IS NOT NULL
   AND a.primary_entity_type IS NOT NULL
@@ -89,7 +89,7 @@ WHERE a.primary_entity_id IS NOT NULL
 
 -- Parent → Wiki relationships (using primary_entity_type and primary_entity_id)
 INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
-SELECT w.primary_entity_type, w.primary_entity_id::text, 'wiki', w.id::text, 'documents'
+SELECT w.primary_entity_type, w.primary_entity_id, 'wiki', w.id, 'documents'
 FROM app.d_wiki w
 WHERE w.primary_entity_id IS NOT NULL
   AND w.primary_entity_type IS NOT NULL
@@ -97,7 +97,7 @@ WHERE w.primary_entity_id IS NOT NULL
 
 -- Parent → Form relationships (using primary_entity_type and primary_entity_id)
 INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
-SELECT f.primary_entity_type, f.primary_entity_id::text, 'form', f.id::text, 'uses'
+SELECT f.primary_entity_type, f.primary_entity_id, 'form', f.id, 'uses'
 FROM app.d_form_head f
 WHERE f.primary_entity_id IS NOT NULL
   AND f.primary_entity_type IS NOT NULL
@@ -142,20 +142,20 @@ VALUES
 -- Events are universal parent entities that can be linked to multiple entity types
 -- Example: HVAC Consultation event linked to project, customer, employee
 INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
-SELECT 'event', e.id::text, 'project', '93106ffb-402e-43a7-8b26-5287e37a1b0e'::text, 'relates_to'
+SELECT 'event', e.id, 'project', '93106ffb-402e-43a7-8b26-5287e37a1b0e'::uuid, 'relates_to'
 FROM app.d_event e
 WHERE e.code = 'EVT-HVAC-001'
 ON CONFLICT (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id) DO NOTHING;
 
 INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
-SELECT 'event', e.id::text, 'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'::text, 'assigned_to'
+SELECT 'event', e.id, 'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'::uuid, 'assigned_to'
 FROM app.d_event e
 WHERE e.code = 'EVT-HVAC-001'
 ON CONFLICT (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id) DO NOTHING;
 
 -- Example: Virtual Project Review event linked to project, task
 INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
-SELECT 'event', e.id::text, 'project', p.id::text, 'relates_to'
+SELECT 'event', e.id, 'project', p.id, 'relates_to'
 FROM app.d_event e
 CROSS JOIN app.d_project p
 WHERE e.code = 'EVT-PROJ-002'
@@ -163,7 +163,7 @@ WHERE e.code = 'EVT-PROJ-002'
 ON CONFLICT (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id) DO NOTHING;
 
 INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
-SELECT 'event', e.id::text, 'task', t.id::text, 'relates_to'
+SELECT 'event', e.id, 'task', t.id, 'relates_to'
 FROM app.d_event e
 CROSS JOIN app.d_task t
 WHERE e.code = 'EVT-PROJ-002'

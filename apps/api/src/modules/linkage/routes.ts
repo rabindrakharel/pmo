@@ -41,22 +41,26 @@ export async function linkageRoutes(fastify: FastifyInstance) {
   // Helper function to check RBAC permissions
   // --------------------------------------------------------------------------
   async function checkEntityPermission(
-    empid: string,
+    employeeId: string,
     entity: string,
     entityId: string | null,
     requiredPermission: number
   ): Promise<boolean> {
+    // Use special UUID for "all" entities permission (universal RBAC pattern)
+    const ALL_ENTITIES_UUID = '11111111-1111-1111-1111-111111111111';
+    const targetEntityId = entityId || ALL_ENTITIES_UUID;
+
     const result = await db.execute(sql`
       SELECT EXISTS (
         SELECT 1 FROM app.entity_id_rbac_map
-        WHERE empid = ${empid}
-          AND entity = ${entity}
-          AND (entity_id = ${entityId || 'all'} OR entity_id = 'all')
-          AND ${requiredPermission} = ANY(permission)
+        WHERE person_entity_id = ${employeeId}::uuid
+          AND entity_name = ${entity}
+          AND (entity_id = ${targetEntityId}::uuid OR entity_id = ${ALL_ENTITIES_UUID}::uuid)
+          AND permission >= ${requiredPermission}
           AND active_flag = true
       ) AS has_permission
     `);
-    return result[0]?.has_permission || false;
+    return Boolean(result[0]?.has_permission) || false;
   }
 
   // --------------------------------------------------------------------------
@@ -82,34 +86,31 @@ export async function linkageRoutes(fastify: FastifyInstance) {
               updated_ts: Type.String()
             })),
             total: Type.Number()
-          })
+          }),
+          401: Type.Object({ success: Type.Boolean(), error: Type.String() })
         }
       },
       preHandler: fastify.authenticate
     },
     async (request, reply) => {
-      // Check if user has view permission for entity_id_map (treat as special entity)
+      // Linkage is infrastructure - allow all authenticated users to view
       const user = (request as any).user;
-      const empid = user?.sub;
+      const employee_id = user?.sub;
 
-      if (!empid) {
+      if (!employee_id) {
         return reply.status(401).send({
           success: false,
           error: 'User not authenticated'
         });
       }
 
-      // Check permission to view entity relationships
-      // Permission 0 (View) on entity='linkage' or entity='all'
-      const hasPermission = await checkEntityPermission(empid, 'linkage', 'all', 0);
-
-      if (!hasPermission) {
-        return reply.status(403).send({
-          success: false,
-          error: 'Insufficient permissions to view entity linkages'
-        });
-      }
-      const { parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, active_flag } = request.query;
+      const { parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, active_flag } = request.query as {
+        parent_entity_type?: string;
+        parent_entity_id?: string;
+        child_entity_type?: string;
+        child_entity_id?: string;
+        active_flag?: boolean;
+      };
 
       // Build dynamic query using sql template
       let conditions = sql`1=1`;
@@ -227,27 +228,7 @@ export async function linkageRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type } = request.body;
 
-      // Check RBAC permissions
-      const user = (request as any).user;
-      const empid = user?.sub;
-
-      if (!empid) {
-        return reply.status(401).send({
-          success: false,
-          error: 'User not authenticated'
-        });
-      }
-
-      // Must have edit permission on parent entity and edit permission on child entity
-      const hasParentPermission = await checkEntityPermission(empid, parent_entity_type, parent_entity_id, 1);
-      const hasChildPermission = await checkEntityPermission(empid, child_entity_type, child_entity_id, 1);
-
-      if (!hasParentPermission || !hasChildPermission) {
-        return reply.status(403).send({
-          success: false,
-          error: 'Insufficient permissions to create linkage between these entities'
-        });
-      }
+      // No RBAC check - allow all authenticated users to create linkages
 
       // Check if linkage already exists
       const existingCheck = await db.execute(sql`
@@ -385,9 +366,9 @@ export async function linkageRoutes(fastify: FastifyInstance) {
 
       // Check RBAC permissions - user must have delete permission on linkage entity
       const user = (request as any).user;
-      const empid = user?.sub;
+      const employee_id = user?.sub;
 
-      if (!empid) {
+      if (!employee_id) {
         return reply.status(401).send({
           success: false,
           error: 'User not authenticated'
@@ -409,8 +390,8 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       const linkage = linkageResult[0];
 
       // Must have delete permission on both parent and child entities
-      const hasParentPermission = await checkEntityPermission(empid, linkage.parent_entity_type as string, linkage.parent_entity_id as string, 3);
-      const hasChildPermission = await checkEntityPermission(empid, linkage.child_entity_type as string, linkage.child_entity_id as string, 3);
+      const hasParentPermission = await checkEntityPermission(employee_id, linkage.parent_entity_type as string, linkage.parent_entity_id as string, 3);
+      const hasChildPermission = await checkEntityPermission(employee_id, linkage.child_entity_type as string, linkage.child_entity_id as string, 3);
 
       if (!hasParentPermission || !hasChildPermission) {
         return reply.status(403).send({
@@ -482,16 +463,21 @@ export async function linkageRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { entity_type } = request.params;
 
-      // Query d_entity_map for valid child entity types
+      // Query d_entity for child_entities from parent entity
       const result = await db.execute(sql`
-        SELECT DISTINCT child_entity_type
-        FROM app.d_entity_map
-        WHERE parent_entity_type = ${entity_type}
+        SELECT child_entities
+        FROM app.d_entity
+        WHERE code = ${entity_type}
           AND active_flag = true
-        ORDER BY child_entity_type
       `);
 
-      const children = result.map((row: any) => row.child_entity_type);
+      // Extract child entity codes from JSONB array
+      // Handle both formats: ["task", "wiki"] and [{entity: "task"}, {entity: "wiki"}]
+      const children = result[0]?.child_entities
+        ? (result[0].child_entities as any[]).map((child: any) =>
+            typeof child === 'string' ? child : child.entity
+          ).sort()
+        : [];
 
       return reply.send({
         success: true,
@@ -509,32 +495,43 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       preHandler: fastify.authenticate
     },
     async (request, reply) => {
-      // Check if user has view permission for linkage
+      // Linkage is infrastructure - allow all authenticated users to view
       const user = (request as any).user;
-      const empid = user?.sub;
+      const employee_id = user?.sub;
 
-      if (!empid) {
+      if (!employee_id) {
         return reply.status(401).send({
           success: false,
           error: 'User not authenticated'
         });
       }
 
-      const hasPermission = await checkEntityPermission(empid, 'linkage', 'all', 0);
-
-      if (!hasPermission) {
-        return reply.status(403).send({
-          success: false,
-          error: 'Insufficient permissions to view entity linkages'
-        });
-      }
-
-      // Get all type linkages
-      const typeLinkages = await db.execute(sql`
-        SELECT * FROM app.d_entity_map
+      // Get all entities with their child_entities from d_entity
+      const entities = await db.execute(sql`
+        SELECT code, child_entities
+        FROM app.d_entity
         WHERE active_flag = true
-        ORDER BY parent_entity_type, child_entity_type
+        ORDER BY code
       `);
+
+      // Build type linkages from d_entity.child_entities
+      const typeLinkages: any[] = [];
+      entities.forEach((entity: any) => {
+        const parentType = entity.code;
+        const childEntities = entity.child_entities || [];
+
+        childEntities.forEach((child: any) => {
+          typeLinkages.push({
+            id: `${parentType}-${child.entity}`,
+            parent_entity_type: parentType,
+            child_entity_type: child.entity,
+            active_flag: true,
+            from_ts: new Date().toISOString(),
+            created_ts: new Date().toISOString(),
+            updated_ts: new Date().toISOString()
+          });
+        });
+      });
 
       // Get all instance linkages
       const instanceLinkages = await db.execute(sql`
@@ -546,9 +543,8 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       // Group by parent entity type
       const grouped: Record<string, any> = {};
 
-      // All possible entity types
-      const allEntityTypes = ['office', 'business', 'client', 'project', 'task', 'worksite',
-                              'employee', 'role', 'position', 'wiki', 'artifact', 'form'];
+      // Get all entity codes from d_entity
+      const allEntityTypes = entities.map((e: any) => e.code);
 
       // Initialize all entity types with empty arrays
       allEntityTypes.forEach(entityType => {

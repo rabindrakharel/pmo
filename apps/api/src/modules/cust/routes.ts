@@ -41,8 +41,8 @@ const CustSchema = Type.Object({
   business_number: Type.Optional(Type.String()),
   // Sales and marketing fields
   dl__customer_opportunity_funnel: Type.Optional(Type.String()),
-  dl__industry_sector: Type.Optional(Type.String()),
-  dl__acquisition_channel: Type.Optional(Type.String()),
+  dl__customer_industry_sector: Type.Optional(Type.String()),
+  dl__customer_acquisition_channel: Type.Optional(Type.String()),
   dl__customer_tier: Type.Optional(Type.String()),
   // Contact information
   primary_contact_name: Type.Optional(Type.String()),
@@ -75,8 +75,8 @@ const CreateCustSchema = Type.Object({
   business_number: Type.Optional(Type.String()),
   // Sales and marketing fields
   dl__customer_opportunity_funnel: Type.Optional(Type.String()),
-  dl__industry_sector: Type.Optional(Type.String()),
-  dl__acquisition_channel: Type.Optional(Type.String()),
+  dl__customer_industry_sector: Type.Optional(Type.String()),
+  dl__customer_acquisition_channel: Type.Optional(Type.String()),
   dl__customer_tier: Type.Optional(Type.String()),
   // Contact information
   primary_contact_name: Type.Optional(Type.String()),
@@ -150,7 +150,7 @@ export async function custRoutes(fastify: FastifyInstance) {
           c.cust_number, c.cust_type, c.cust_status,
           c.primary_address, c.city, c.province, c.postal_code, c.country, c.geo_coordinates,
           c.business_legal_name, c.business_type, c.gst_hst_number, c.business_number,
-          c.dl__customer_opportunity_funnel, c.dl__industry_sector, c.dl__acquisition_channel, c.dl__customer_tier,
+          c.dl__customer_opportunity_funnel, c.dl__customer_industry_sector, c.dl__customer_acquisition_channel, c.dl__customer_tier,
           c.primary_contact_name, c.primary_email, c.primary_phone,
           c.secondary_contact_name, c.secondary_email, c.secondary_phone,
           c.entities
@@ -189,7 +189,7 @@ export async function custRoutes(fastify: FastifyInstance) {
           c.cust_number, c.cust_type, c.cust_status,
           c.primary_address, c.city, c.province, c.postal_code, c.country, c.geo_coordinates,
           c.business_legal_name, c.business_type, c.gst_hst_number, c.business_number,
-          c.dl__customer_opportunity_funnel, c.dl__industry_sector, c.dl__acquisition_channel, c.dl__customer_tier,
+          c.dl__customer_opportunity_funnel, c.dl__customer_industry_sector, c.dl__customer_acquisition_channel, c.dl__customer_tier,
           c.primary_contact_name, c.primary_email, c.primary_phone,
           c.secondary_contact_name, c.secondary_email, c.secondary_phone,
           c.entities
@@ -238,7 +238,7 @@ export async function custRoutes(fastify: FastifyInstance) {
           c.cust_number, c.cust_type, c.cust_status,
           c.primary_address, c.city, c.province, c.postal_code, c.country, c.geo_coordinates,
           c.business_legal_name, c.business_type, c.gst_hst_number, c.business_number,
-          c.dl__customer_opportunity_funnel, c.dl__industry_sector, c.dl__acquisition_channel, c.dl__customer_tier,
+          c.dl__customer_opportunity_funnel, c.dl__customer_industry_sector, c.dl__customer_acquisition_channel, c.dl__customer_tier,
           c.primary_contact_name, c.primary_email, c.primary_phone,
           c.secondary_contact_name, c.secondary_email, c.secondary_phone,
           c.entities
@@ -547,12 +547,12 @@ export async function custRoutes(fastify: FastifyInstance) {
       // Check RBAC for customer access
       const custAccess = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'cust'
-          AND (rbac.entity_id = ${custId}::text OR rbac.entity_id = 'all')
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+          AND rbac.entity_name = 'cust'
+          AND (rbac.entity_id = ${custId}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
+          AND rbac.permission >= 0
       `);
 
       if (custAccess.length === 0) {

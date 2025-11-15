@@ -117,12 +117,12 @@ export async function sharedRoutes(fastify: FastifyInstance) {
 
     const hasPermission = await db.execute(sql`
       SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}
-        AND rbac.entity = ${entityType}
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
+      WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+        AND rbac.entity_name = ${entityType}
+        AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 1 = ANY(rbac.permission)  -- Edit permission
+        AND rbac.permission >= 1  -- Edit permission
     `);
 
     if (hasPermission.length === 0) {

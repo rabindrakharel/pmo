@@ -9,12 +9,6 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-import {
-  getEmployeeEntityIds,
-  hasPermissionOnEntityId,
-  hasCreatePermissionForEntityType,
-  type EntityAction
-} from '../rbac/entity-permission-rbac-gate.js';
 
 // Universal schemas
 const UniversalEntitySchema = Type.Object({
@@ -163,12 +157,6 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'Invalid entity types' });
       }
 
-      // Check user has access to parent entity
-      const hasParentAccess = await hasPermissionOnEntityId(employeeId, parentEntity, parentId, 'view');
-      if (!hasParentAccess) {
-        return reply.status(404).send({ error: 'Parent entity not found or access denied' });
-      }
-
       // Get relationship configuration
       const relationshipConfig = getRelationshipConfig(parentEntity, actionEntity);
       if (!relationshipConfig) {
@@ -188,21 +176,6 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Parent entity not found' });
       }
 
-      // Get accessible action entity IDs for this user
-      const accessibleIds = await getEmployeeEntityIds(employeeId, actionEntity, 'view');
-      if (accessibleIds.length === 0) {
-        return {
-          data: [],
-          total: 0,
-          page,
-          limit,
-          parent_info: {
-            entity_type: parentEntity,
-            entity_id: parentId,
-            entity_name: parentInfo[0].name}
-        };
-      }
-
       const actionTable = getTableName(actionEntity);
       const offset = (page - 1) * limit;
 
@@ -214,7 +187,6 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         const foreignKeyColumn = relationshipConfig.foreignKeyColumn!;
 
         const conditions = [
-          `e.id = ANY(ARRAY[${accessibleIds.map(id => `'${id}'`).join(',')}]::uuid[])`,
           `e.${foreignKeyColumn} = '${parentId}'`
         ];
 
@@ -246,7 +218,6 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
       } else {
         // Hierarchy mapping relationship
         const conditions = [
-          `e.id = ANY(ARRAY[${accessibleIds.map(id => `'${id}'`).join(',')}]::uuid[])`,
           `eh.parent_entity_type_id = '${parentId}'`,
           `eh.parent_entity_type = '${parentEntity}'`,
           `eh.child_entity_type = '${actionEntity}'`,
@@ -345,20 +316,6 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'Invalid entity types' });
       }
 
-      // Check permissions
-      const [hasParentAccess, hasActionAccess] = await Promise.all([
-        hasPermissionOnEntityId(employeeId, parentEntity, parentId, 'view'),
-        hasPermissionOnEntityId(employeeId, actionEntity, actionId, 'view')
-      ]);
-
-      if (!hasParentAccess) {
-        return reply.status(404).send({ error: 'Parent entity not found or access denied' });
-      }
-
-      if (!hasActionAccess) {
-        return reply.status(404).send({ error: 'Action entity not found or access denied' });
-      }
-
       // Get relationship configuration
       const relationshipConfig = getRelationshipConfig(parentEntity, actionEntity);
       if (!relationshipConfig) {
@@ -454,12 +411,6 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
 
       if (!validateEntityType(parentEntity) || !validateEntityType(actionEntity)) {
         return reply.status(400).send({ error: 'Invalid entity types' });
-      }
-
-      // Check create permission
-      const hasCreatePermission = await hasCreatePermissionForEntityType(employeeId, actionEntity);
-      if (!hasCreatePermission) {
-        return reply.status(403).send({ error: 'Insufficient permissions to create entity in this context' });
       }
 
       // Get relationship configuration
@@ -578,12 +529,6 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
 
       if (!validateEntityType(parentEntity) || !validateEntityType(actionEntity)) {
         return reply.status(400).send({ error: 'Invalid entity types' });
-      }
-
-      // Check edit permission
-      const hasAccess = await hasPermissionOnEntityId(employeeId, actionEntity, actionId, 'edit');
-      if (!hasAccess) {
-        return reply.status(404).send({ error: 'Action entity not found or access denied' });
       }
 
       // Get relationship configuration
@@ -712,12 +657,6 @@ export async function universalParentActionRoutes(fastify: FastifyInstance) {
 
       if (!validateEntityType(parentEntity) || !validateEntityType(actionEntity)) {
         return reply.status(400).send({ error: 'Invalid entity types' });
-      }
-
-      // Check edit permission (using edit for delete)
-      const hasAccess = await hasPermissionOnEntityId(employeeId, actionEntity, actionId, 'edit');
-      if (!hasAccess) {
-        return reply.status(404).send({ error: 'Action entity not found or access denied' });
       }
 
       // Get relationship configuration

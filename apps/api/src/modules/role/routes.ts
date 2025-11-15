@@ -3,6 +3,10 @@ import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm';
 import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
+import {
+  data_gate_EntityIdsByEntityType,
+  PermissionLevel
+} from '../../lib/rbac.service.js';
 
 const RoleSchema = Type.Object({
   id: Type.String(),
@@ -156,25 +160,8 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Role not found' });
       }
 
-      // Transform database result to match schema
-      const transformedRole = {
-        id: role[0].id,
-        name: role[0].name,
-        descr: role[0].descr,
-        roleType: role[0].role_code,
-        roleCategory: role[0].role_category,
-        authorityLevel: role[0].reporting_level,
-        approvalLimit: role[0].required_experience_years,
-        delegationAllowed: role[0].management_role_flag,
-        active: role[0].active_flag,
-        fromTs: role[0].from_ts,
-        toTs: role[0].to_ts,
-        created: role[0].created_ts,
-        updated: role[0].updated_ts,
-        attr: role[0].metadata
-      };
-
-      return transformedRole;
+      // Return data directly in snake_case format (no transformation needed)
+      return role[0];
     } catch (error) {
       fastify.log.error('Error fetching role:');
       return reply.status(500).send({ error: 'Internal server error' });
@@ -183,6 +170,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
   // Create role
   fastify.post('/api/v1/role', {
+    preHandler: [fastify.authenticate],
     schema: {
       body: CreateRoleSchema,
       response: {
@@ -228,25 +216,8 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to create role' });
       }
 
-      // Transform database result to match schema
-      const transformedRole = {
-        id: result[0].id,
-        name: result[0].name,
-        descr: result[0].descr,
-        roleType: result[0].role_code,
-        roleCategory: result[0].role_category,
-        authorityLevel: result[0].reporting_level,
-        approvalLimit: result[0].required_experience_years,
-        delegationAllowed: result[0].management_role_flag,
-        active: result[0].active_flag,
-        fromTs: result[0].from_ts,
-        toTs: result[0].to_ts,
-        created: result[0].created_ts,
-        updated: result[0].updated_ts,
-        attr: result[0].metadata
-      };
-
-      return reply.status(201).send(transformedRole);
+      // Return data directly in snake_case format (no transformation needed)
+      return reply.status(201).send(result[0]);
     } catch (error) {
       fastify.log.error('Error creating role:');
       return reply.status(500).send({ error: 'Internal server error' });
@@ -359,25 +330,8 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to update role' });
       }
 
-      // Transform database result to match schema
-      const transformedRole = {
-        id: result[0].id,
-        name: result[0].name,
-        descr: result[0].descr,
-        roleType: result[0].role_code,
-        roleCategory: result[0].role_category,
-        authorityLevel: result[0].reporting_level,
-        approvalLimit: result[0].required_experience_years,
-        delegationAllowed: result[0].management_role_flag,
-        active: result[0].active_flag,
-        fromTs: result[0].from_ts,
-        toTs: result[0].to_ts,
-        created: result[0].created_ts,
-        updated: result[0].updated_ts,
-        attr: result[0].metadata
-      };
-
-      return transformedRole;
+      // Return data directly in snake_case format (no transformation needed)
+      return result[0];
     } catch (error) {
       fastify.log.error('Error updating role:');
       return reply.status(500).send({ error: 'Internal server error' });
@@ -467,18 +421,16 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'User not authenticated' });
       }
 
-      // Direct RBAC check for role access
-      const roleAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'role'
-          AND (rbac.entity_id = ${roleId}::text OR rbac.entity_id = 'all')
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
-      `);
+      // DATA GATE: Check if user has access to this role
+      const accessibleEntityIds = await data_gate_EntityIdsByEntityType(userId, 'role', PermissionLevel.VIEW);
 
-      if (roleAccess.length === 0) {
+      if (accessibleEntityIds.length === 0) {
+        return reply.status(403).send({ error: 'No access to roles' });
+      }
+
+      // Build ID filter - gate at SQL level
+      const hasTypeAccess = accessibleEntityIds.includes('11111111-1111-1111-1111-111111111111');
+      if (!hasTypeAccess && !accessibleEntityIds.includes(roleId)) {
         return reply.status(403).send({ error: 'Insufficient permissions to view this role' });
       }
 
@@ -491,26 +443,51 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Role not found' });
       }
 
-      // Get action summaries for this role
+      // Get child entities from d_entity table
+      const entityMeta = await db.execute(sql`
+        SELECT child_entities FROM app.d_entity WHERE code = 'role'
+      `);
+
+      const childEntities = entityMeta[0]?.child_entities || [];
       const actionSummaries = [];
 
-      // Count employees assigned to this role
-      const employeeCount = await db.execute(sql`
-        SELECT COUNT(*) as count
-        FROM app.d_employee e
-        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = e.id::text
-        WHERE eim.parent_entity_id = ${roleId}
-          AND eim.parent_entity_type = 'role'
-          AND eim.child_entity_type = 'employee'
-          AND eim.active_flag = true
-          AND e.active_flag = true
-      `);
-      actionSummaries.push({
-        actionEntity: 'employee',
-        count: Number(employeeCount[0]?.count || 0),
-        label: 'Employees',
-        icon: 'Users'
-      });
+      // Count records for each child entity
+      for (const child of childEntities) {
+        const childEntityCode = child.entity;
+        let count = 0;
+
+        if (childEntityCode === 'employee') {
+          // Count employees assigned to this role
+          const result = await db.execute(sql`
+            SELECT COUNT(*) as count
+            FROM app.d_employee e
+            INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = e.id::text
+            WHERE eim.parent_entity_id = ${roleId}
+              AND eim.parent_entity_type = 'role'
+              AND eim.child_entity_type = 'employee'
+              AND eim.active_flag = true
+              AND e.active_flag = true
+          `);
+          count = Number(result[0]?.count || 0);
+        } else if (childEntityCode === 'rbac') {
+          // Count RBAC permissions for this role
+          const result = await db.execute(sql`
+            SELECT COUNT(*) as count
+            FROM app.entity_id_rbac_map
+            WHERE person_entity_name = 'role'
+              AND person_entity_id = ${roleId}
+              AND active_flag = true
+          `);
+          count = Number(result[0]?.count || 0);
+        }
+
+        actionSummaries.push({
+          actionEntity: childEntityCode,
+          count: count,
+          label: child.ui_label || childEntityCode,
+          icon: child.ui_icon || 'Tag'
+        });
+      }
 
       return {
         action_entities: actionSummaries,
@@ -522,127 +499,8 @@ export async function roleRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get employees assigned to a role
-  fastify.get('/api/v1/role/:id/employee', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      querystring: Type.Object({
-        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Integer({ minimum: 0 })),
-        active: Type.Optional(Type.Boolean())
-      }),
-      response: {
-        200: Type.Object({
-          data: Type.Array(Type.Any()),
-          total: Type.Number(),
-          limit: Type.Number(),
-          offset: Type.Number()
-        }),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })
-      }
-    }
-  }, async (request, reply) => {
-    try {
-      const { id: roleId } = request.params as { id: string };
-      const { limit = 50, offset = 0, active } = request.query as any;
-      const userId = (request as any).user?.sub;
-
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // Direct RBAC check for role access
-      const roleAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'role'
-          AND (rbac.entity_id = ${roleId}::text OR rbac.entity_id = 'all')
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
-      `);
-
-      if (roleAccess.length === 0) {
-        return reply.status(403).send({ error: 'Access denied for this role' });
-      }
-
-      // Check if role exists
-      const role = await db.execute(sql`
-        SELECT id FROM app.d_role WHERE id = ${roleId} AND active_flag = true
-      `);
-
-      if (role.length === 0) {
-        return reply.status(404).send({ error: 'Role not found' });
-      }
-
-      // Build conditions for employee filtering
-      const conditions = [
-        sql`eim.parent_entity_type = 'role'`,
-        sql`eim.parent_entity_id = ${roleId}`,
-        sql`eim.child_entity_type = 'employee'`,
-        sql`eim.active_flag = true`
-      ];
-
-      if (active !== undefined) {
-        conditions.push(sql`e.active_flag = ${active}`);
-      } else {
-        conditions.push(sql`e.active_flag = true`);
-      }
-
-      // Get employees linked to this role via d_entity_id_map
-      const employees = await db.execute(sql`
-        SELECT
-          e.id,
-          e.name,
-          e.email,
-          e.phone,
-          e.employee_number,
-          e.employee_type,
-          e.title,
-          e.department,
-          e.hire_date,
-          e.termination_date,
-          e.active_flag,
-          e.from_ts,
-          e.to_ts,
-          e.created_ts,
-          e.updated_ts,
-          e.tags,
-          e.metadata,
-          eim.relationship_type,
-          eim.from_ts as relationship_from_ts,
-          eim.to_ts as relationship_to_ts
-        FROM app.d_entity_id_map eim
-        INNER JOIN app.d_employee e ON e.id::text = eim.child_entity_id
-        WHERE ${sql.join(conditions, sql` AND `)}
-        ORDER BY e.name ASC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      // Get total count
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.d_entity_id_map eim
-        INNER JOIN app.d_employee e ON e.id::text = eim.child_entity_id
-        WHERE ${sql.join(conditions, sql` AND `)}
-      `);
-
-      return {
-        data: employees,
-        total: Number(countResult[0]?.total || 0),
-        limit,
-        offset
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching role employees:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
+  // Note: /api/v1/role/:id/employee endpoint removed
+  // Now using create-link-edit pattern: GET /api/v1/employee?parent_type=role&parent_id={id}
 
   // Get role permissions across scopes
   fastify.get('/api/v1/role/:id/permissions', {

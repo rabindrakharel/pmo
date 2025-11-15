@@ -21,7 +21,7 @@
 --    • Body: {name, code, cust_number, cust_type, cust_status, primary_contact_name, primary_email, primary_phone, primary_address, city, province}
 --    • Returns: {id: "new-uuid", version: 1, ...}
 --    • Database: INSERT with version=1, active_flag=true, created_ts=now()
---    • RBAC: Requires permission 4 (create) on entity='cust', entity_id='all'
+--    • RBAC: Requires permission 4 (create) on entity='cust', entity_id='11111111-1111-1111-1111-111111111111'
 --    • Business Rule: cust_number must be unique; cust_type validates against ('residential', 'commercial', 'municipal', 'industrial')
 --
 -- 2. UPDATE CUSTOMER (Contact Changes, Status Updates, Relationship Upgrades)
@@ -34,7 +34,7 @@
 --      - version increments (audit trail)
 --      - updated_ts refreshed
 --      - NO archival (customer tier can change: Lead → Prospect → Active Customer)
---    • RBAC: Requires permission 1 (edit) on entity='cust', entity_id={id} OR 'all'
+--    • RBAC: Requires permission 1 (edit) on entity='cust', entity_id={id} OR '11111111-1111-1111-1111-111111111111'
 --    • Business Rule: Changing dl__customer_opportunity_funnel reflects sales pipeline progress
 --
 -- 3. SOFT DELETE CUSTOMER (Account Closure)
@@ -50,9 +50,9 @@
 --      WHERE c.active_flag=true
 --        AND EXISTS (
 --          SELECT 1 FROM entity_id_rbac_map rbac
---          WHERE rbac.empid=$user_id
+--          WHERE rbac.person_entity_name='employee' AND rbac.person_entity_id=$user_id
 --            AND rbac.entity='cust'
---            AND (rbac.entity_id=c.id::text OR rbac.entity_id='all')
+--            AND (rbac.entity_id=c.id::text OR rbac.entity_id='11111111-1111-1111-1111-111111111111')
 --            AND 0=ANY(rbac.permission)  -- View permission
 --        )
 --      ORDER BY c.dl__customer_tier DESC, c.name ASC
@@ -198,10 +198,10 @@ CREATE TABLE app.d_cust (
   business_number text,
 
   -- Sales and Marketing
-  dl__customer_opportunity_funnel text,  -- References app.setting_datalabel (datalabel_name='customer_opportunity_funnel')
-  dl__industry_sector text,           -- References app.setting_datalabel (datalabel_name='industry__sector')
-  dl__acquisition_channel text,       -- References app.setting_datalabel (datalabel_name='acquisition__channel')
-  dl__customer_tier text,             -- References app.setting_datalabel (datalabel_name='customer__tier')
+  dl__customer_opportunity_funnel text,  -- References app.setting_datalabel (datalabel_name='dl__customer_opportunity_funnel')
+  dl__customer_industry_sector text,     -- References app.setting_datalabel (datalabel_name='dl__customer_industry_sector')
+  dl__customer_acquisition_channel text, -- References app.setting_datalabel (datalabel_name='dl__customer_acquisition_channel')
+  dl__customer_tier text,                -- References app.setting_datalabel (datalabel_name='dl__customer_tier')
 
 
   -- Contact information

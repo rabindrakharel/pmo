@@ -4,9 +4,6 @@
  * Comprehensive settings management pages for the application.
  */
 
-// Main Settings Page
-export { SettingsPage } from './SettingsPage';
-
 // Settings Overview & Detail Pages
 export { SettingsOverviewPage } from './SettingsOverviewPage';
 export { SettingDetailPage } from './SettingDetailPage';

@@ -267,7 +267,7 @@ export const relEmployeeScopeUnified = pgTable('rel_employee_scope_unified', {
   id: uuid('id').primaryKey().defaultRandom(),
   
   // Relationship fields
-  empId: uuid('emp_id').notNull().references(() => dEmployee.id, { onDelete: 'cascade' }),
+  employeeId: uuid('employee_id').notNull().references(() => dEmployee.id, { onDelete: 'cascade' }),
   scopeUnifiedId: uuid('scope_unified_id').notNull().references(() => dScopeUnified.id, { onDelete: 'cascade' }),
   
   // Temporal and audit fields
@@ -320,7 +320,7 @@ export const dScopeUnifiedRelations = relations(dScopeUnified, ({ one, many }) =
 
 export const relEmployeeScopeUnifiedRelations = relations(relEmployeeScopeUnified, ({ one }) => ({
   employee: one(dEmployee, {
-    fields: [relEmployeeScopeUnified.empId],
+    fields: [relEmployeeScopeUnified.employeeId],
     references: [dEmployee.id]}),
   scope: one(dScopeUnified, {
     fields: [relEmployeeScopeUnified.scopeUnifiedId],

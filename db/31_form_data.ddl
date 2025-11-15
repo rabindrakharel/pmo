@@ -49,13 +49,13 @@ CREATE TABLE app.d_form_data (
     stage varchar(20) NOT NULL DEFAULT 'draft', -- draft, saved
 
     -- Submission metadata
-    submitted_by_empid uuid NOT NULL,
+    submitted_by_employee_id uuid NOT NULL,
     submission_ip_address inet,
     submission_user_agent text,
 
     -- Workflow tracking
     approval_status varchar(50), -- pending, approved, rejected
-    approved_by_empid uuid,
+    approved_by_employee_id uuid,
     approval_notes text,
     approved_ts timestamptz,
 
@@ -77,7 +77,7 @@ INSERT INTO app.d_form_data (
     submission_data,
     submission_status,
     stage,
-    submitted_by_empid
+    submitted_by_employee_id
 ) VALUES
 -- Submission 1: Abinav's landscaping request
 (

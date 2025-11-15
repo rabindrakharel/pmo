@@ -148,10 +148,10 @@ export async function expenseRoutes(fastify: FastifyInstance) {
         sql`(
           EXISTS (
             SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.empid = ${userId}
-              AND rbac.entity = 'expense'
-              AND (rbac.entity_id = e.id::text OR rbac.entity_id = 'all')
-              AND 0 = ANY(rbac.permission)
+            WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+              AND rbac.entity_name = 'expense'
+              AND (rbac.entity_id = e.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
+              AND rbac.permission >= 0
           )
         )`
       ];
@@ -267,10 +267,10 @@ export async function expenseRoutes(fastify: FastifyInstance) {
         WHERE e.id = ${id}::uuid
           AND EXISTS (
             SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.empid = ${userId}
-              AND rbac.entity = 'expense'
-              AND (rbac.entity_id = e.id::text OR rbac.entity_id = 'all')
-              AND 0 = ANY(rbac.permission)
+            WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+              AND rbac.entity_name = 'expense'
+              AND (rbac.entity_id = e.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
+              AND rbac.permission >= 0
           )
       `;
 
@@ -310,10 +310,10 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       // Check if user has create permission
       const permCheckQuery = sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'expense'
-          AND rbac.entity_id = 'all'
-          AND 4 = ANY(rbac.permission)
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+          AND rbac.entity_name = 'expense'
+          AND rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid
+          AND rbac.permission >= 4
       `;
 
       const permResult = await db.execute(permCheckQuery);
@@ -393,10 +393,10 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       // Check edit permission
       const permCheckQuery = sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'expense'
-          AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
-          AND 1 = ANY(rbac.permission)
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+          AND rbac.entity_name = 'expense'
+          AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
+          AND rbac.permission >= 1
       `;
 
       const permResult = await db.execute(permCheckQuery);

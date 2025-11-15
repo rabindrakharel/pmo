@@ -757,6 +757,77 @@ export const entityConfigs: Record<string, EntityConfig> = {
   },
 
   // --------------------------------------------------------------------------
+  // RBAC (Permissions)
+  // --------------------------------------------------------------------------
+  rbac: {
+    name: 'rbac',
+    displayName: 'Permission',
+    pluralName: 'Permissions',
+    apiEndpoint: '/api/v1/rbac',
+
+    columns: [], // Auto-generated (v4.0)
+
+    fields: [
+      {
+        key: 'person_entity_name',
+        label: 'Person Type',
+        type: 'select',
+        required: true,
+        options: [
+          { value: 'role', label: 'Role' },
+          { value: 'employee', label: 'Employee' }
+        ]
+      },
+      {
+        key: 'person_entity_id',
+        label: 'Person',
+        type: 'text',
+        required: true
+      },
+      {
+        key: 'entity_name',
+        label: 'Entity Type',
+        type: 'text',
+        required: true
+      },
+      {
+        key: 'entity_id',
+        label: 'Entity ID',
+        type: 'text',
+        required: true,
+        helpText: 'Use "all" for type-level permissions or specific UUID for instance-level'
+      },
+      {
+        key: 'permission',
+        label: 'Permission Level',
+        type: 'select',
+        required: true,
+        options: [
+          { value: 0, label: 'View (0)' },
+          { value: 1, label: 'Edit (1)' },
+          { value: 2, label: 'Share (2)' },
+          { value: 3, label: 'Delete (3)' },
+          { value: 4, label: 'Create (4)' },
+          { value: 5, label: 'Owner (5)' }
+        ]
+      },
+      {
+        key: 'expires_ts',
+        label: 'Expiration Date',
+        type: 'datetime',
+        helpText: 'Optional: Set expiration for temporary permissions'
+      },
+      { key: 'granted_by_empid', label: 'Granted By', type: 'text', readonly: true },
+      { key: 'granted_ts', label: 'Granted Date', type: 'datetime', readonly: true },
+      { key: 'active_flag', label: 'Active', type: 'checkbox', readonly: true }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table',
+    inlineEdit: true
+  },
+
+  // --------------------------------------------------------------------------
   // WORKSITE
   // --------------------------------------------------------------------------
   worksite: {
@@ -812,8 +883,8 @@ export const entityConfigs: Record<string, EntityConfig> = {
       { key: 'province', label: 'Province', type: 'text' },
       { key: 'postal_code', label: 'Postal Code', type: 'text' },
       { key: 'dl__customer_opportunity_funnel', label: 'Opportunity Funnel', type: 'select', loadOptionsFromSettings: true },
-      { key: 'dl__industry_sector', label: 'Industry Sector', type: 'select', loadOptionsFromSettings: true },
-      { key: 'dl__acquisition_channel', label: 'Acquisition Channel', type: 'select', loadOptionsFromSettings: true },
+      { key: 'dl__customer_industry_sector', label: 'Industry Sector', type: 'select', loadOptionsFromSettings: true },
+      { key: 'dl__customer_acquisition_channel', label: 'Acquisition Channel', type: 'select', loadOptionsFromSettings: true },
       { key: 'dl__customer_tier', label: 'Customer Tier', type: 'select', loadOptionsFromSettings: true },
       { key: 'metadata', label: 'Metadata', type: 'jsonb' },
       { key: 'created_ts', label: 'Created', type: 'timestamp', readonly: true },

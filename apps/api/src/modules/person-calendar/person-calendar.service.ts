@@ -316,7 +316,7 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
     // Grant the assigned employee OWNER permission (permission[5]) for this event
     await client`
       INSERT INTO app.entity_id_rbac_map (
-        empid, entity, entity_id, permission, granted_by_empid
+        employee_id, entity, entity_id, permission, granted_by_employee_id
       ) VALUES (
         ${assignedEmployeeId}::uuid,
         'event',

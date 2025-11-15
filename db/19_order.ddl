@@ -146,7 +146,7 @@ CREATE TABLE app.f_order (
 
     -- Metadata
     notes TEXT,                                         -- Internal order notes
-    customer_notes TEXT,                                -- Notes from customer
+    customer_notes TEXT                                 -- Notes from customer
 );
 
 

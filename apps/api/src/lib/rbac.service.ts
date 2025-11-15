@@ -1,29 +1,25 @@
 /**
- * RBAC Service - Person-Based Permission Control (Integer Model 0-5)
+ * RBAC Service - Minimal 2-Gate Pattern
  *
- * Provides API-level RBAC functions for permission gating and scope filtering.
- * Implements person-based permissions (role + employee) with hierarchical inheritance.
+ * Provides only 2 essential gates for complete RBAC coverage:
+ * 1. data_gate_* - Get accessible entity IDs (for listing/filtering)
+ * 2. api_gate_*  - Gate API operations (throws 403 if denied)
  *
  * Permission Levels (Integer 0-5):
  *   0 = View   - Read access
- *   1 = Edit   - Modify existing entity (inherits View)
+ *   1 = Edit   - Modify existing (inherits View)
  *   2 = Share  - Share with others (inherits Edit + View)
  *   3 = Delete - Soft delete (inherits Share + Edit + View)
- *   4 = Create - Create new entities (inherits all lower)
- *   5 = Owner  - Full control (inherits all permissions)
- *
- * Permission checks use >= comparison for hierarchical inheritance.
+ *   4 = Create - Create new (inherits all lower)
+ *   5 = Owner  - Full control (inherits all)
  */
 
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-import type { FastifyRequest, FastifyReply } from 'fastify';
 
 // ============================================================================
-// TYPES & INTERFACES
+// TYPES
 // ============================================================================
-
-export type PermissionType = 'view' | 'edit' | 'share' | 'delete' | 'create' | 'owner';
 
 export enum PermissionLevel {
   VIEW = 0,
@@ -34,439 +30,448 @@ export enum PermissionLevel {
   OWNER = 5,
 }
 
-export const PermissionTypeToLevel: Record<PermissionType, PermissionLevel> = {
-  view: PermissionLevel.VIEW,
-  edit: PermissionLevel.EDIT,
-  share: PermissionLevel.SHARE,
-  delete: PermissionLevel.DELETE,
-  create: PermissionLevel.CREATE,
-  owner: PermissionLevel.OWNER,
-};
-
-export interface PermissionCheckResult {
-  hasPermission: boolean;
-  maxPermissionLevel: number;
-  source: 'role' | 'employee' | 'both' | 'none';
-}
-
-export interface ScopeResult {
-  scope: string[];  // Array of entity_id UUIDs
-  hasAllAccess: boolean;  // True if 'all' access
-}
-
 // ============================================================================
-// CORE RBAC FUNCTIONS
+// INTERNAL HELPER (not exported)
 // ============================================================================
 
 /**
- * Check if employee has specific permission on entity instance.
- * Resolves via UNION of role-based and direct employee permissions, takes MAX level.
+ * Internal: Get max permission level for user on entity
  *
- * @param employeeId - Employee UUID (from JWT token)
- * @param entityName - Entity type (project, task, employee, office, etc.)
- * @param entityId - Specific entity UUID or 'all' for type-level check
- * @param permissionType - Permission to check (view, edit, share, delete, create, owner)
- * @returns PermissionCheckResult with hasPermission, maxPermissionLevel, and source
+ * Includes parent entity inheritance:
+ * - If parent has VIEW (0+) → child gains VIEW
+ * - If parent has CREATE (4+) → child gains CREATE
  */
-export async function hasPermissionOnEntityId(
-  employeeId: string,
+async function getMaxPermissionLevelOfEntityID(
+  userId: string,
   entityName: string,
-  entityId: string,
-  permissionType: PermissionType
-): Promise<PermissionCheckResult> {
-  const requiredLevel = PermissionTypeToLevel[permissionType];
+  entityId: string
+): Promise<number> {
+  const result = await db.execute(sql`
+    WITH
 
-  try {
-    // Query to get MAX permission from role-based and direct employee permissions
-    const result = await db.execute(sql`
+    -- ---------------------------------------------------------------------------
+    -- 1. DIRECT EMPLOYEE PERMISSIONS
+    -- ---------------------------------------------------------------------------
+    direct_emp AS (
+      SELECT permission
+      FROM app.entity_id_rbac_map
+      WHERE person_entity_name = 'employee'
+        AND person_entity_id = ${userId}::uuid
+        AND entity_name = ${entityName}
+        AND (entity_id = '11111111-1111-1111-1111-111111111111'::uuid OR entity_id = ${entityId}::uuid)
+        AND active_flag = true
+        AND (expires_ts IS NULL OR expires_ts > NOW())
+    ),
+
+    -- ---------------------------------------------------------------------------
+    -- 2. ROLE-BASED PERMISSIONS
+    --    employee -> role (via d_entity_id_map) -> permissions
+    -- ---------------------------------------------------------------------------
+    role_based AS (
+      SELECT rbac.permission
+      FROM app.entity_id_rbac_map rbac
+      INNER JOIN app.d_entity_id_map eim
+        ON eim.parent_entity_type = 'role'
+        AND eim.parent_entity_id = rbac.person_entity_id
+        AND eim.child_entity_type = 'employee'
+        AND eim.child_entity_id = ${userId}::uuid
+        AND eim.active_flag = true
+      WHERE rbac.person_entity_name = 'role'
+        AND rbac.entity_name = ${entityName}
+        AND (rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid OR rbac.entity_id = ${entityId}::uuid)
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+    ),
+
+    -- ---------------------------------------------------------------------------
+    -- 3. FIND PARENT ENTITY TYPES OF CURRENT ENTITY
+    --    (using d_entity.child_entities)
+    -- ---------------------------------------------------------------------------
+    parent_entities AS (
       SELECT
-        COALESCE(MAX(permission), -1) as max_permission,
-        ARRAY_AGG(DISTINCT person_entity_name) FILTER (WHERE permission >= ${requiredLevel}) as sources
-      FROM (
-        -- Source 1: Direct employee permissions
-        SELECT permission, person_entity_name
+        d.code AS parent_entity_name
+      FROM app.d_entity d
+      WHERE ${entityName} = ANY(SELECT jsonb_array_elements_text(d.child_entities))
+    ),
+
+    -- ---------------------------------------------------------------------------
+    -- 4. PARENT-VIEW INHERITANCE (permission >= 0)
+    --    If parent has VIEW → child gains VIEW
+    -- ---------------------------------------------------------------------------
+    parent_view AS (
+      SELECT 0 AS permission
+      FROM parent_entities pe
+
+      -- direct employee permissions on parent
+      LEFT JOIN app.entity_id_rbac_map emp
+        ON emp.person_entity_name = 'employee'
+        AND emp.person_entity_id = ${userId}
+        AND emp.entity_name = pe.parent_entity_name
+        AND emp.active_flag = true
+        AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
+
+      -- role permissions on parent
+      LEFT JOIN app.entity_id_rbac_map rbac
+        ON rbac.person_entity_name = 'role'
+        AND rbac.entity_name = pe.parent_entity_name
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+
+      LEFT JOIN app.d_entity_id_map eim
+        ON eim.parent_entity_type = 'role'
+        AND eim.parent_entity_id = rbac.person_entity_id
+        AND eim.child_entity_type = 'employee'
+        AND eim.child_entity_id = ${userId}::uuid
+        AND eim.active_flag = true
+
+      WHERE
+          COALESCE(emp.permission, -1) >= 0
+       OR COALESCE(rbac.permission, -1) >= 0
+    ),
+
+    -- ---------------------------------------------------------------------------
+    -- 5. PARENT-CREATE INHERITANCE (permission >= 4)
+    --    If parent has CREATE → child gains CREATE (4)
+    -- ---------------------------------------------------------------------------
+    parent_create AS (
+      SELECT 4 AS permission
+      FROM parent_entities pe
+
+      LEFT JOIN app.entity_id_rbac_map emp
+        ON emp.person_entity_name = 'employee'
+        AND emp.person_entity_id = ${userId}
+        AND emp.entity_name = pe.parent_entity_name
+        AND emp.active_flag = true
+        AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
+
+      LEFT JOIN app.entity_id_rbac_map rbac
+        ON rbac.person_entity_name = 'role'
+        AND rbac.entity_name = pe.parent_entity_name
+        AND rbac.active_flag = true
+        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+
+      LEFT JOIN app.d_entity_id_map eim
+        ON eim.parent_entity_type = 'role'
+        AND eim.parent_entity_id = rbac.person_entity_id
+        AND eim.child_entity_type = 'employee'
+        AND eim.child_entity_id = ${userId}::uuid
+        AND eim.active_flag = true
+
+      WHERE
+          COALESCE(emp.permission, -1) >= 4
+       OR COALESCE(rbac.permission, -1) >= 4
+    )
+
+    -- ---------------------------------------------------------------------------
+    -- FINAL PERMISSION UNION + MAX()
+    -- ---------------------------------------------------------------------------
+    SELECT COALESCE(MAX(permission), -1) AS max_permission
+    FROM (
+      SELECT * FROM direct_emp
+      UNION ALL
+      SELECT * FROM role_based
+      UNION ALL
+      SELECT * FROM parent_view
+      UNION ALL
+      SELECT * FROM parent_create
+    ) AS all_perms
+  `);
+
+  return parseInt(String(result[0]?.max_permission || -1));
+}
+
+// ============================================================================
+// 1. DATA GATE - Get Accessible Entity IDs (for listing/filtering)
+// ============================================================================
+
+/**
+ * DATA GATE: Get all entity IDs user can access
+ *
+ * Returns array of entity IDs for filtering list queries.
+ * Checks view permission (0) by default.
+ *
+ * @param userId - Employee UUID
+ * @param entityName - Entity type (project, task, etc.)
+ * @param permission - Required permission level (default: 0 = view)
+ * @returns string[] - Array of entity IDs (empty if none)
+ *
+ * @example
+ * // Get all tasks user can view
+ * const taskIds = await data_gate_EntityIdsByEntityType(userId, 'task', 0);
+ * // Use in WHERE clause: WHERE task.id = ANY(${taskIds})
+ */
+export async function data_gate_EntityIdsByEntityType(
+  userId: string,
+  entityName: string,
+  permission: number = 0
+): Promise<string[]> {
+  try {
+    // Check if user has type-level permission (11111111-1111-1111-1111-111111111111)
+    const typeLevel = await getMaxPermissionLevelOfEntityID(userId, entityName, '11111111-1111-1111-1111-111111111111');
+
+    if (typeLevel >= permission) {
+      // User has type-level access - return special marker
+      return ['11111111-1111-1111-1111-111111111111'];
+    }
+
+    // Get specific entity IDs (with parent inheritance)
+    // Logic: Direct permissions + Role permissions + Parent-VIEW inheritance + Parent-CREATE inheritance
+    // Mirrors getMaxPermissionLevelOfEntityID but returns ALL accessible IDs instead of checking one
+    const result = await db.execute(sql`
+      WITH
+
+      -- ---------------------------------------------------------------------------
+      -- 1. PARENT ENTITY TYPES
+      -- ---------------------------------------------------------------------------
+      parent_entities AS (
+        SELECT d.code AS parent_entity_name
+        FROM app.d_entity d
+        WHERE ${entityName} = ANY(SELECT jsonb_array_elements_text(d.child_entities))
+      ),
+
+      -- ---------------------------------------------------------------------------
+      -- 2. DIRECT EMPLOYEE PERMISSIONS
+      -- ---------------------------------------------------------------------------
+      direct_emp AS (
+        SELECT entity_id, permission
         FROM app.entity_id_rbac_map
         WHERE person_entity_name = 'employee'
-          AND person_entity_id = ${employeeId}::uuid
+          AND person_entity_id = ${userId}::uuid
           AND entity_name = ${entityName}
-          AND (entity_id = 'all' OR entity_id = ${entityId})
+          AND entity_id != '11111111-1111-1111-1111-111111111111'::uuid
           AND active_flag = true
-          AND (expires_ts IS NULL OR expires_ts > now())
+          AND (expires_ts IS NULL OR expires_ts > NOW())
+      ),
 
-        UNION ALL
-
-        -- Source 2: Role-based permissions (employee → roles → permissions)
-        SELECT rbac.permission, rbac.person_entity_name
+      -- ---------------------------------------------------------------------------
+      -- 3. ROLE-BASED PERMISSIONS
+      -- ---------------------------------------------------------------------------
+      role_based AS (
+        SELECT rbac.entity_id, rbac.permission
         FROM app.entity_id_rbac_map rbac
         INNER JOIN app.d_entity_id_map eim
           ON eim.parent_entity_type = 'role'
-          AND eim.parent_entity_id::text = rbac.person_entity_id::text
+          AND eim.parent_entity_id = rbac.person_entity_id
           AND eim.child_entity_type = 'employee'
-          AND eim.child_entity_id = ${employeeId}::uuid
+          AND eim.child_entity_id = ${userId}::uuid
           AND eim.active_flag = true
         WHERE rbac.person_entity_name = 'role'
           AND rbac.entity_name = ${entityName}
-          AND (rbac.entity_id = 'all' OR rbac.entity_id = ${entityId})
+          AND rbac.entity_id != '11111111-1111-1111-1111-111111111111'::uuid
           AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > now())
-      ) AS combined
-    `);
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+      ),
 
-    const row = result.rows[0] as any;
-    const maxPermission = parseInt(row.max_permission);
-    const sources = row.sources as string[] | null;
-
-    // Check if max permission level meets requirement (hierarchical inheritance via >=)
-    const hasPermission = maxPermission >= requiredLevel;
-
-    // Determine source
-    let source: 'role' | 'employee' | 'both' | 'none' = 'none';
-    if (sources && sources.length > 0) {
-      if (sources.includes('role') && sources.includes('employee')) {
-        source = 'both';
-      } else if (sources.includes('role')) {
-        source = 'role';
-      } else if (sources.includes('employee')) {
-        source = 'employee';
-      }
-    }
-
-    return {
-      hasPermission,
-      maxPermissionLevel: maxPermission,
-      source,
-    };
-  } catch (error) {
-    console.error('Error checking permission:', error);
-    return {
-      hasPermission: false,
-      maxPermissionLevel: -1,
-      source: 'none',
-    };
-  }
-}
-
-/**
- * Get all entity IDs that employee can access with specified permission.
- * Returns array of entity_id UUIDs for filtering query results.
- *
- * @param employeeId - Employee UUID (from JWT token)
- * @param entityName - Entity type (project, task, employee, office, etc.)
- * @param permissionType - Permission to check (view, edit, share, delete, create, owner)
- * @returns ScopeResult with scope array and hasAllAccess flag
- */
-export async function getAllScopeByEntityEmployee(
-  employeeId: string,
-  entityName: string,
-  permissionType: PermissionType
-): Promise<ScopeResult> {
-  const requiredLevel = PermissionTypeToLevel[permissionType];
-
-  try {
-    // Check if employee has 'all' access (type-level permission with sufficient level)
-    const allAccessResult = await db.execute(sql`
-      SELECT EXISTS (
-        SELECT 1 FROM (
-          -- Direct employee 'all' permission
-          SELECT permission
-          FROM app.entity_id_rbac_map
-          WHERE person_entity_name = 'employee'
-            AND person_entity_id = ${employeeId}::uuid
-            AND entity_name = ${entityName}
-            AND entity_id = 'all'
-            AND permission >= ${requiredLevel}
-            AND active_flag = true
-            AND (expires_ts IS NULL OR expires_ts > now())
-
-          UNION ALL
-
-          -- Role-based 'all' permission
-          SELECT rbac.permission
-          FROM app.entity_id_rbac_map rbac
-          INNER JOIN app.d_entity_id_map eim
-            ON eim.parent_entity_type = 'role'
-            AND eim.parent_entity_id::text = rbac.person_entity_id::text
-            AND eim.child_entity_type = 'employee'
-            AND eim.child_entity_id = ${employeeId}::uuid
-            AND eim.active_flag = true
-          WHERE rbac.person_entity_name = 'role'
-            AND rbac.entity_name = ${entityName}
-            AND rbac.entity_id = 'all'
-            AND rbac.permission >= ${requiredLevel}
-            AND rbac.active_flag = true
-            AND (rbac.expires_ts IS NULL OR rbac.expires_ts > now())
-        ) AS combined
-      ) as has_all_access
-    `);
-
-    const hasAllAccess = (allAccessResult.rows[0] as any).has_all_access;
-
-    if (hasAllAccess) {
-      return {
-        scope: ['all'],
-        hasAllAccess: true,
-      };
-    }
-
-    // Otherwise, collect specific entity IDs where permission level is sufficient
-    const scopeResult = await db.execute(sql`
-      SELECT array_agg(DISTINCT entity_id) as scope
-      FROM (
-        -- Direct employee permissions on specific entities
-        SELECT entity_id
-        FROM app.entity_id_rbac_map
-        WHERE person_entity_name = 'employee'
-          AND person_entity_id = ${employeeId}::uuid
-          AND entity_name = ${entityName}
-          AND entity_id != 'all'
-          AND permission >= ${requiredLevel}
-          AND active_flag = true
-          AND (expires_ts IS NULL OR expires_ts > now())
+      -- ---------------------------------------------------------------------------
+      -- 4. PARENT ENTITIES WITH VIEW PERMISSION (permission >= 0)
+      -- ---------------------------------------------------------------------------
+      parents_with_view AS (
+        SELECT DISTINCT emp.entity_id AS parent_id, pe.parent_entity_name
+        FROM parent_entities pe
+        INNER JOIN app.entity_id_rbac_map emp
+          ON emp.person_entity_name = 'employee'
+          AND emp.person_entity_id = ${userId}::uuid
+          AND emp.entity_name = pe.parent_entity_name
+          AND emp.permission >= 0
+          AND emp.active_flag = true
+          AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
 
         UNION
 
-        -- Role-based permissions on specific entities
-        SELECT rbac.entity_id
-        FROM app.entity_id_rbac_map rbac
+        SELECT DISTINCT rbac.entity_id AS parent_id, pe.parent_entity_name
+        FROM parent_entities pe
+        INNER JOIN app.entity_id_rbac_map rbac
+          ON rbac.person_entity_name = 'role'
+          AND rbac.entity_name = pe.parent_entity_name
+          AND rbac.permission >= 0
+          AND rbac.active_flag = true
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
         INNER JOIN app.d_entity_id_map eim
           ON eim.parent_entity_type = 'role'
-          AND eim.parent_entity_id::text = rbac.person_entity_id::text
+          AND eim.parent_entity_id = rbac.person_entity_id
           AND eim.child_entity_type = 'employee'
-          AND eim.child_entity_id = ${employeeId}::uuid
+          AND eim.child_entity_id = ${userId}::uuid
           AND eim.active_flag = true
-        WHERE rbac.person_entity_name = 'role'
-          AND rbac.entity_name = ${entityName}
-          AND rbac.entity_id != 'all'
-          AND rbac.permission >= ${requiredLevel}
+      ),
+
+      -- ---------------------------------------------------------------------------
+      -- 5. CHILDREN FROM PARENT-VIEW INHERITANCE
+      --    If parent has VIEW → all children of that parent gain VIEW
+      -- ---------------------------------------------------------------------------
+      parent_view_children AS (
+        SELECT DISTINCT eim.child_entity_id AS entity_id, 0 AS permission
+        FROM parents_with_view pwv
+        INNER JOIN app.d_entity_id_map eim
+          ON eim.parent_entity_type = pwv.parent_entity_name
+          AND eim.parent_entity_id = pwv.parent_id
+          AND eim.child_entity_type = ${entityName}
+          AND eim.active_flag = true
+      ),
+
+      -- ---------------------------------------------------------------------------
+      -- 6. PARENT ENTITIES WITH CREATE PERMISSION (permission >= 4)
+      -- ---------------------------------------------------------------------------
+      parents_with_create AS (
+        SELECT DISTINCT emp.entity_id AS parent_id, pe.parent_entity_name
+        FROM parent_entities pe
+        INNER JOIN app.entity_id_rbac_map emp
+          ON emp.person_entity_name = 'employee'
+          AND emp.person_entity_id = ${userId}::uuid
+          AND emp.entity_name = pe.parent_entity_name
+          AND emp.permission >= 4
+          AND emp.active_flag = true
+          AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
+
+        UNION
+
+        SELECT DISTINCT rbac.entity_id AS parent_id, pe.parent_entity_name
+        FROM parent_entities pe
+        INNER JOIN app.entity_id_rbac_map rbac
+          ON rbac.person_entity_name = 'role'
+          AND rbac.entity_name = pe.parent_entity_name
+          AND rbac.permission >= 4
           AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > now())
-      ) AS specific_permissions
+          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
+        INNER JOIN app.d_entity_id_map eim
+          ON eim.parent_entity_type = 'role'
+          AND eim.parent_entity_id = rbac.person_entity_id
+          AND eim.child_entity_type = 'employee'
+          AND eim.child_entity_id = ${userId}::uuid
+          AND eim.active_flag = true
+      ),
+
+      -- ---------------------------------------------------------------------------
+      -- 7. CHILDREN FROM PARENT-CREATE INHERITANCE
+      --    If parent has CREATE → all children of that parent gain CREATE
+      -- ---------------------------------------------------------------------------
+      parent_create_children AS (
+        SELECT DISTINCT eim.child_entity_id AS entity_id, 4 AS permission
+        FROM parents_with_create pwc
+        INNER JOIN app.d_entity_id_map eim
+          ON eim.parent_entity_type = pwc.parent_entity_name
+          AND eim.parent_entity_id = pwc.parent_id
+          AND eim.child_entity_type = ${entityName}
+          AND eim.active_flag = true
+      )
+
+      -- ---------------------------------------------------------------------------
+      -- FINAL UNION - Combine all permission sources
+      -- ---------------------------------------------------------------------------
+      SELECT DISTINCT entity_id
+      FROM (
+        SELECT entity_id, permission FROM direct_emp
+        UNION ALL
+        SELECT entity_id, permission FROM role_based
+        UNION ALL
+        SELECT entity_id, permission FROM parent_view_children
+        UNION ALL
+        SELECT entity_id, permission FROM parent_create_children
+      ) AS all_permissions
+      WHERE permission >= ${permission}
     `);
 
-    const scope = (scopeResult.rows[0] as any).scope || [];
-
-    return {
-      scope,
-      hasAllAccess: false,
-    };
+    return result.map((row: any) => row.entity_id as string);
   } catch (error) {
-    console.error('Error getting scope:', error);
-    return {
-      scope: [],
-      hasAllAccess: false,
+    console.error('data_gate_EntityIdsByEntityType error:', error);
+    return [];
+  }
+}
+
+// ============================================================================
+// 2. API GATES - Gate API Operations (throws 403 if denied)
+// ============================================================================
+
+/**
+ * API GATE: Check CREATE permission (throws 403 if denied)
+ *
+ * Use as middleware for POST endpoints.
+ * Checks permission level 4 (create) on type-level.
+ *
+ * @param userId - Employee UUID
+ * @param entityName - Entity type
+ * @throws 403 Forbidden if user lacks create permission
+ *
+ * @example
+ * // In route handler:
+ * await api_gate_Create(userId, 'project');
+ * // If reaches here, user can create projects
+ */
+export async function api_gate_Create(
+  userId: string,
+  entityName: string
+): Promise<void> {
+  const maxLevel = await getMaxPermissionLevelOfEntityID(userId, entityName, '11111111-1111-1111-1111-111111111111');
+
+  if (maxLevel < PermissionLevel.CREATE) {
+    throw {
+      statusCode: 403,
+      error: 'Forbidden',
+      message: `Insufficient permissions to create ${entityName}`
     };
   }
 }
 
-// ============================================================================
-// FASTIFY MIDDLEWARE
-// ============================================================================
-
 /**
- * Middleware to gate API operations based on permissions.
- * Use for UPDATE, DELETE operations to ensure user has required permission.
+ * API GATE: Check UPDATE permission (throws 403 if denied)
  *
- * @param entityName - Entity type (project, task, etc.)
- * @param permission - Required permission (edit, delete, share, etc.)
- * @param entityIdParam - Request param name containing entity ID (defaults to 'id')
+ * Use as guard for PATCH/PUT endpoints.
+ * Checks permission level 1 (edit) on specific entity.
+ *
+ * @param userId - Employee UUID
+ * @param entityName - Entity type
+ * @param entityId - Specific entity UUID
+ * @throws 403 Forbidden if user lacks edit permission
  *
  * @example
- * app.put('/api/v1/project/:id', requirePermission('project', 'edit'), async (req, reply) => {
- *   // Handler executes only if user has edit permission
- * });
+ * // In PATCH /api/v1/project/:id handler:
+ * await api_gate_Update(userId, 'project', projectId);
+ * // If reaches here, user can update this project
  */
-export function requirePermission(
+export async function api_gate_Update(
+  userId: string,
   entityName: string,
-  permission: PermissionType,
-  entityIdParam: string = 'id'
-) {
-  return async (request: FastifyRequest, reply: FastifyReply) => {
-    // Extract employee ID from JWT token
-    const employeeId = (request as any).user?.sub;
-    if (!employeeId) {
-      return reply.code(401).send({
-        error: 'Unauthorized',
-        message: 'Missing authentication token',
-      });
-    }
+  entityId: string
+): Promise<void> {
+  const maxLevel = await getMaxPermissionLevelOfEntityID(userId, entityName, entityId);
 
-    // Get entity ID from request params
-    const entityId = (request.params as any)[entityIdParam];
-    if (!entityId) {
-      return reply.code(400).send({
-        error: 'Bad Request',
-        message: `Missing ${entityIdParam} parameter`,
-      });
-    }
-
-    // Check permission
-    const result = await hasPermissionOnEntityId(
-      employeeId,
-      entityName,
-      entityId,
-      permission
-    );
-
-    if (!result.hasPermission) {
-      return reply.code(403).send({
-        error: 'Permission denied',
-        message: `You do not have ${permission} permission on ${entityName}`,
-        entityId,
-        requiredPermission: permission,
-        yourMaxPermission: result.maxPermissionLevel,
-      });
-    }
-
-    // Permission granted - continue to handler
-  };
-}
-
-/**
- * Middleware to gate CREATE operations.
- * Checks for type-level create permission (entity_id='all', permission >= 4).
- *
- * @param entityName - Entity type (project, task, etc.)
- *
- * @example
- * app.post('/api/v1/project', requireCreatePermission('project'), async (req, reply) => {
- *   // Handler executes only if user can create projects
- * });
- */
-export function requireCreatePermission(entityName: string) {
-  return async (request: FastifyRequest, reply: FastifyReply) => {
-    const employeeId = (request as any).user?.sub;
-    if (!employeeId) {
-      return reply.code(401).send({
-        error: 'Unauthorized',
-        message: 'Missing authentication token',
-      });
-    }
-
-    // Check create permission on 'all' (type-level)
-    const result = await hasPermissionOnEntityId(
-      employeeId,
-      entityName,
-      'all',
-      'create'
-    );
-
-    if (!result.hasPermission) {
-      return reply.code(403).send({
-        error: 'Permission denied',
-        message: `You do not have create permission for ${entityName}`,
-        requiredPermission: 'create',
-        yourMaxPermission: result.maxPermissionLevel,
-      });
-    }
-
-    // Permission granted - continue to handler
-  };
-}
-
-/**
- * Helper function to filter query results by employee scope.
- * Returns SQL WHERE clause condition for filtering.
- *
- * @param employeeId - Employee UUID (from JWT token)
- * @param entityName - Entity type (project, task, etc.)
- * @param permission - Required permission (defaults to 'view')
- * @returns Object with scopeIds array and hasAllAccess flag
- *
- * @example
- * const filter = await getEntityScopeFilter(employeeId, 'project', 'view');
- * if (filter.hasAllAccess) {
- *   // No filtering needed - user can see all
- *   query = 'SELECT * FROM d_project WHERE active_flag = true';
- * } else if (filter.scopeIds.length === 0) {
- *   // No access - return empty result
- *   return [];
- * } else {
- *   // Filter by specific IDs
- *   query = 'SELECT * FROM d_project WHERE id = ANY($1) AND active_flag = true';
- *   params = [filter.scopeIds];
- * }
- */
-export async function getEntityScopeFilter(
-  employeeId: string,
-  entityName: string,
-  permission: PermissionType = 'view'
-): Promise<{ scopeIds: string[]; hasAllAccess: boolean }> {
-  const result = await getAllScopeByEntityEmployee(employeeId, entityName, permission);
-
-  return {
-    scopeIds: result.hasAllAccess ? [] : result.scope,
-    hasAllAccess: result.hasAllAccess,
-  };
-}
-
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
-/**
- * Check if employee can create child entity under parent.
- * Requires: parent edit permission (>=1) + child create permission (>=4 on 'all').
- *
- * @param employeeId - Employee UUID
- * @param parentEntityName - Parent entity type (project, etc.)
- * @param parentEntityId - Parent entity UUID
- * @param childEntityName - Child entity type (task, etc.)
- * @returns boolean
- */
-export async function canCreateChildEntity(
-  employeeId: string,
-  parentEntityName: string,
-  parentEntityId: string,
-  childEntityName: string
-): Promise<boolean> {
-  // Check parent edit permission
-  const parentResult = await hasPermissionOnEntityId(
-    employeeId,
-    parentEntityName,
-    parentEntityId,
-    'edit'
-  );
-
-  if (!parentResult.hasPermission) {
-    return false;
+  if (maxLevel < PermissionLevel.EDIT) {
+    throw {
+      statusCode: 403,
+      error: 'Forbidden',
+      message: `Insufficient permissions to update this ${entityName}`
+    };
   }
-
-  // Check child create permission (type-level)
-  const childResult = await hasPermissionOnEntityId(
-    employeeId,
-    childEntityName,
-    'all',
-    'create'
-  );
-
-  return childResult.hasPermission;
 }
 
 /**
- * Get permission level name from integer.
+ * API GATE: Check DELETE permission (throws 403 if denied)
  *
- * @param level - Permission level (0-5)
- * @returns Permission name
+ * Use as guard for DELETE endpoints.
+ * Checks permission level 3 (delete) on specific entity.
+ *
+ * @param userId - Employee UUID
+ * @param entityName - Entity type
+ * @param entityId - Specific entity UUID
+ * @throws 403 Forbidden if user lacks delete permission
+ *
+ * @example
+ * // In DELETE /api/v1/project/:id handler:
+ * await api_gate_Delete(userId, 'project', projectId);
+ * // If reaches here, user can delete this project
  */
-export function getPermissionName(level: number): string {
-  const names: Record<number, string> = {
-    0: 'View',
-    1: 'Edit',
-    2: 'Share',
-    3: 'Delete',
-    4: 'Create',
-    5: 'Owner',
-  };
-  return names[level] || 'Unknown';
+export async function api_gate_Delete(
+  userId: string,
+  entityName: string,
+  entityId: string
+): Promise<void> {
+  const maxLevel = await getMaxPermissionLevelOfEntityID(userId, entityName, entityId);
+
+  if (maxLevel < PermissionLevel.DELETE) {
+    throw {
+      statusCode: 403,
+      error: 'Forbidden',
+      message: `Insufficient permissions to delete this ${entityName}`
+    };
+  }
 }
 
-/**
- * Get all permissions implied by a permission level.
- *
- * @param level - Permission level (0-5)
- * @returns Array of implied permission names
- */
-export function getImpliedPermissions(level: number): string[] {
-  const all = ['View', 'Edit', 'Share', 'Delete', 'Create', 'Owner'];
-  return all.slice(0, level + 1);
-}

@@ -178,22 +178,21 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         headers.Authorization = `Bearer ${token}`;
       }
 
-      // Build the API endpoint based on filtering
-      let endpoint: string;
-
-      if (parentType && parentId) {
-        // Use filtered endpoint for parent-child relationships
-        endpoint = `/api/v1/${parentType}/${parentId}/${entityType}`;
-      } else {
-        // Use regular list endpoint
-        endpoint = config.apiEndpoint;
-      }
+      // Build the API endpoint - always use main entity endpoint (create-link-edit pattern)
+      const endpoint = config.apiEndpoint;
 
       // Properly handle query parameters
       const separator = endpoint.includes('?') ? '&' : '?';
 
-      // For person-calendar, only show booked events (availability_flag = false)
+      // Build query params with parent filtering support
       let queryParams = `page=${currentPage}&limit=${pageSize}`;
+
+      // Add parent filtering via query params (create-link-edit pattern)
+      if (parentType && parentId) {
+        queryParams += `&parent_type=${parentType}&parent_id=${parentId}`;
+      }
+
+      // For person-calendar, only show booked events (availability_flag = false)
       if (entityType === 'person-calendar') {
         queryParams += '&availability_flag=false';
       }

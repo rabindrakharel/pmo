@@ -7,11 +7,6 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-import { 
-  getEmployeeEntityIds,
-  hasPermissionOnEntityId,
-  type EntityAction
-} from '../rbac/entity-permission-rbac-gate.js';
 
 // Entity type schema
 const EntityTypeSchema = Type.Object({
@@ -121,12 +116,6 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      // Check user has access to parent entity
-      const hasParentAccess = await hasPermissionOnEntityId(employeeId, parentEntity, parentId, 'view');
-      if (!hasParentAccess) {
-        return reply.status(404).send({ error: 'Parent entity not found or access denied' });
-      }
-
       // Get parent entity info
       const parentTableMap: Record<string, string> = {
         'biz': 'app.d_business',
@@ -143,7 +132,9 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       }
 
       const parentInfo = await db.execute(sql`
-        SELECT name FROM ${sql.raw(parentTable)} WHERE id = ${parentId} AND active_flag = true
+        SELECT name FROM ${sql.raw(parentTable)}
+        WHERE id = ${parentId}
+          AND active_flag = true
       `);
 
       if (!parentInfo.length) {
@@ -174,12 +165,9 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           ? actionEntity.permission_actions.map(String) 
           : [];
         
-        // Get accessible entity IDs for this action entity type
-        const accessibleIds = await getEmployeeEntityIds(employeeId, entityTypeCode, 'view');
-        
         // Filter by parent context
         let contextFilteredCount = 0;
-        if (accessibleIds.length > 0) {
+        {
           const entityTableMap: Record<string, string> = {
             'project': 'app.d_project',
             'task': 'app.d_task',
@@ -206,16 +194,14 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
                 countResult = await db.execute(sql`
                   SELECT COUNT(*) as count
                   FROM ${sql.raw(actionTable)}
-                  WHERE id = ANY(${accessibleIds})
-                    AND (metadata->>${jsonbField})::uuid = ${parentId}::uuid
+                  WHERE (metadata->>${jsonbField})::uuid = ${parentId}::uuid
                     AND active_flag = true
                 `);
               } else {
                 countResult = await db.execute(sql`
                   SELECT COUNT(*) as count
                   FROM ${sql.raw(actionTable)}
-                  WHERE id = ANY(${accessibleIds})
-                    AND ${sql.raw(parentColumn)} = ${parentId}
+                  WHERE ${sql.raw(parentColumn)} = ${parentId}
                     AND active_flag = true
                 `);
               }
@@ -381,17 +367,10 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
       // Get user permissions for each entity type
       const entityTypes = ['biz', 'hr', 'org', 'client', 'project', 'task', 'worksite', 'employee', 'role', 'wiki', 'form', 'artifact'];
-      const userPermissions: Record<string, string[]> = {};
-      
-      for (const entityType of entityTypes) {
-        const accessibleIds = await getEmployeeEntityIds(employeeId, entityType, 'view');
-        userPermissions[entityType] = accessibleIds;
-      }
-
       return {
         sidebar_entities: sidebarEntities,
         entity_hierarchy: entityHierarchy,
-        user_permissions: userPermissions};
+        user_permissions: {}};
     } catch (error) {
       fastify.log.error('Error fetching navigation structure:', error);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -449,20 +428,14 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         ORDER BY et.sort_order, et.display_name
       `);
 
-      // For each action entity, get count of accessible entities for this user
+      // For each action entity, return metadata
       const result = [];
       for (const actionEntity of actionEntities) {
-        const accessibleIds = await getEmployeeEntityIds(
-          employeeId, 
-          actionEntity.action_entity, 
-          'view'
-        );
-
         result.push({
           entity_type_code: actionEntity.action_entity,
           display_name: actionEntity.display_name,
           permission_actions: actionEntity.permission_actions,
-          total_accessible: accessibleIds.length});
+          total_accessible: 0});
       }
 
       return result;
@@ -499,10 +472,27 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      // Check user has access to this entity
-      const hasAccess = await hasPermissionOnEntityId(employeeId, entityType, entityId, 'view');
-      if (!hasAccess) {
-        return reply.status(404).send({ error: 'Entity not found or access denied' });
+      // Verify entity exists
+      const entityTableMap: Record<string, string> = {
+        'business': 'd_business',
+        'project': 'd_project',
+        'task': 'd_task',
+        'office': 'd_office',
+        'client': 'd_client',
+        'worksite': 'd_worksite'
+      };
+
+      const entityTable = entityTableMap[entityType];
+      if (entityTable) {
+        const entityCheck = await db.execute(sql`
+          SELECT id FROM app.${sql.identifier(entityTable)}
+          WHERE id::text = ${entityId}
+            AND active_flag = true
+        `);
+
+        if (entityCheck.length === 0) {
+          return reply.status(404).send({ error: 'Entity not found' });
+        }
       }
 
       // Get hierarchy chain using recursive CTE
@@ -658,13 +648,6 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         const config = searchableEntities[entityType];
         if (!config) continue;
 
-        // Get accessible entity IDs for this type (RBAC filtering)
-        const accessibleIds = await getEmployeeEntityIds(employeeId, entityType, 'view');
-        if (accessibleIds.length === 0) {
-          entityCounts[entityType] = 0;
-          continue;
-        }
-
         // Build search query with full-text search and fuzzy matching
         const contextFields = config.context_fields || [];
         const searchFields = [config.name_field, config.desc_field, ...contextFields].filter(Boolean);
@@ -689,8 +672,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
             END as match_score,
             '${entityType}' as entity_type
           FROM ${sql.raw(config.table)}
-          WHERE id = ANY(${accessibleIds})
-            AND active_flag = true
+          WHERE active_flag = true
             AND (${sql.join(searchConditions, sql` OR `)})
           ORDER BY match_score DESC, ${sql.raw(config.name_field)}
           LIMIT ${Math.ceil(limit / targetEntityTypes.length) + 5}
@@ -771,8 +753,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       const scopes = [];
 
       // Get project scopes (parent entities for action entities like task, wiki, artifact, form)
-      const projectIds = await getEmployeeEntityIds(employeeId, 'project', 'view');
-      if (projectIds.length > 0) {
+      {
         // Map action entity types to their counting queries
         const getEntityCountQuery = (entityType: string) => {
           switch (entityType) {
@@ -802,11 +783,10 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           }
         };
 
-        const projectUuids = projectIds.map(id => sql`${id}::uuid`);
         const projectScopes = await db.execute(sql`
           SELECT id, name, ${getEntityCountQuery(entity_type)} as entity_count
           FROM app.d_project
-          WHERE id IN (${sql.join(projectUuids, sql`, `)}) AND active_flag = true
+          WHERE active_flag = true
           ORDER BY name
         `);
 
@@ -820,8 +800,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       }
 
       // Get business unit scopes (secondary filtering)
-      const bizIds = await getEmployeeEntityIds(employeeId, 'biz', 'view');
-      if (bizIds.length > 0) {
+      {
         const getBusinessEntityCountQuery = (entityType: string) => {
           switch (entityType) {
             case 'task':
@@ -859,11 +838,10 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           }
         };
 
-        const bizUuids = bizIds.map(id => sql`${id}::uuid`);
         const bizScopes = await db.execute(sql`
           SELECT id, name, ${getBusinessEntityCountQuery(entity_type)} as entity_count
           FROM app.d_business
-          WHERE id IN (${sql.join(bizUuids, sql`, `)}) AND active_flag = true
+          WHERE active_flag = true
           ORDER BY name
         `);
 

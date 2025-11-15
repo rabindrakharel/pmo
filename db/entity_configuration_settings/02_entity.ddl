@@ -64,14 +64,7 @@ VALUES (
   'Office',
   'Offices',
   'MapPin',
-  '[
-    {"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1},
-    {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 2},
-    {"entity": "wiki", "ui_icon": "BookOpen", "ui_label": "Wiki", "order": 3},
-    {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 4},
-    {"entity": "expense", "ui_icon": "Receipt", "ui_label": "Expenses", "order": 5},
-    {"entity": "revenue", "ui_icon": "TrendingUp", "ui_label": "Revenue", "order": 6}
-  ]'::jsonb,
+  '["task", "artifact", "wiki", "form", "expense", "revenue"]'::jsonb,
   10,
   'Organization'
 );
@@ -83,11 +76,7 @@ VALUES (
   'Business',
   'Businesses',
   'Building2',
-  '[
-    {"entity": "project", "ui_icon": "FolderOpen", "ui_label": "Projects", "order": 1},
-    {"entity": "expense", "ui_icon": "Receipt", "ui_label": "Expenses", "order": 2},
-    {"entity": "revenue", "ui_icon": "TrendingUp", "ui_label": "Revenue", "order": 3}
-  ]'::jsonb,
+  '["project", "expense", "revenue"]'::jsonb,
   20
 );
 
@@ -98,14 +87,7 @@ VALUES (
   'Project',
   'Projects',
   'FolderOpen',
-  '[
-    {"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1},
-    {"entity": "wiki", "ui_icon": "BookOpen", "ui_label": "Wiki", "order": 2},
-    {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 3},
-    {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 4},
-    {"entity": "expense", "ui_icon": "Receipt", "ui_label": "Expenses", "order": 5},
-    {"entity": "revenue", "ui_icon": "TrendingUp", "ui_label": "Revenue", "order": 6}
-  ]'::jsonb,
+  '["task", "wiki", "artifact", "form", "expense", "revenue"]'::jsonb,
   30
 );
 
@@ -116,12 +98,7 @@ VALUES (
   'Task',
   'Tasks',
   'CheckSquare',
-  '[
-    {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 1},
-    {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 2},
-    {"entity": "expense", "ui_icon": "Receipt", "ui_label": "Expenses", "order": 3},
-    {"entity": "revenue", "ui_icon": "TrendingUp", "ui_label": "Revenue", "order": 4}
-  ]'::jsonb,
+  '["form", "artifact", "expense", "revenue"]'::jsonb,
   40
 );
 
@@ -132,26 +109,18 @@ VALUES (
   'Customer',
   'Customers',
   'Users',
-  '[
-    {"entity": "project", "ui_icon": "FolderOpen", "ui_label": "Projects", "order": 1},
-    {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 2},
-    {"entity": "form", "ui_icon": "FileText", "ui_label": "Forms", "order": 3},
-    {"entity": "expense", "ui_icon": "Receipt", "ui_label": "Expenses", "order": 4},
-    {"entity": "revenue", "ui_icon": "TrendingUp", "ui_label": "Revenue", "order": 5}
-  ]'::jsonb,
+  '["project", "artifact", "form", "expense", "revenue"]'::jsonb,
   50
 );
 
--- Role entity type (has 1 child type)
+-- Role entity type (has 2 child types)
 INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'role',
   'Role',
   'Roles',
   'UserCheck',
-  '[
-    {"entity": "employee", "ui_icon": "Users", "ui_label": "Employees", "order": 1}
-  ]'::jsonb,
+  '["rbac", "employee"]'::jsonb,
   60
 );
 
@@ -162,22 +131,37 @@ VALUES (
   'Form',
   'Forms',
   'FileText',
-  '[
-    {"entity": "artifact", "ui_icon": "FileText", "ui_label": "Artifacts", "order": 1}
-  ]'::jsonb,
+  '["artifact"]'::jsonb,
   70
 );
 
--- Employee entity type (leaf node - no children)
+-- Employee entity type (has 1 child type)
 INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'employee',
   'Employee',
   'Employees',
   'Users',
-  '[]'::jsonb,
+  '["rbac"]'::jsonb,
   80
 );
+
+-- RBAC entity type (permissions - child of role and employee)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'rbac',
+  'Permission',
+  'Permissions',
+  'Shield',
+  '[]'::jsonb,
+  85
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  child_entities = EXCLUDED.child_entities,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
 
 -- Wiki entity type (leaf node - no children)
 INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
@@ -636,10 +620,14 @@ WHERE d.code = 'knowledge_documentation'
 
 -- DOMAIN 8: IDENTITY & ACCESS CONTROL
 -- Purpose: RBAC, entity definitions, polymorphism, IDs
--- Note: entity_map, entity_id_map, entity_instance_id, entity_instance_backfill, entity_id_rbac_map
--- These are infrastructure tables, not exposed as navigable entities in the UI
--- They don't have entries in d_entity, so no updates needed here
--- (This domain is primarily for infrastructure tables)
+UPDATE app.d_entity e SET
+    domain_id = d.domain_id,
+    domain_code = d.code,
+    domain_name = d.name,
+    updated_ts = now()
+FROM app.d_domain d
+WHERE d.code = 'identity_access_control'
+  AND e.code IN ('rbac');
 
 -- DOMAIN 9: AUTOMATION & WORKFLOW
 -- Purpose: DAG workflows, industry workflow packs, automation engine

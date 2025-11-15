@@ -87,12 +87,12 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
       const baseConditions = [
         sql`EXISTS (
           SELECT 1 FROM app.entity_id_rbac_map rbac
-          WHERE rbac.empid = ${userId}
-            AND rbac.entity = 'work_order'
-            AND (rbac.entity_id = w.id::text OR rbac.entity_id = 'all')
+          WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+            AND rbac.entity_name = 'work_order'
+            AND (rbac.entity_id = w.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
             AND rbac.active_flag = true
             AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-            AND 0 = ANY(rbac.permission)
+            AND rbac.permission >= 0
         )`
       ];
 
@@ -153,12 +153,12 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
 
     const access = await db.execute(sql`
       SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'work_order'
-        AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
+      WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+        AND rbac.entity_name = 'work_order'
+        AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 0 = ANY(rbac.permission)
+        AND rbac.permission >= 0
     `);
 
     if (access.length === 0) {
@@ -198,12 +198,12 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
 
     const access = await db.execute(sql`
       SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'work_order'
-        AND rbac.entity_id = 'all'
+      WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+        AND rbac.entity_name = 'work_order'
+        AND rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 4 = ANY(rbac.permission)
+        AND rbac.permission >= 4
     `);
 
     if (access.length === 0) {
@@ -273,12 +273,12 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
 
     const access = await db.execute(sql`
       SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}
-        AND rbac.entity = 'work_order'
-        AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
+      WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+        AND rbac.entity_name = 'work_order'
+        AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 1 = ANY(rbac.permission)
+        AND rbac.permission >= 1
     `);
 
     if (access.length === 0) {

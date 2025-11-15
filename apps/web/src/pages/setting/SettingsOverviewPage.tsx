@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '../../components/shared';
+import { Layout, FilteredDataTable } from '../../components/shared';
 import { useSettings } from '../../contexts/SettingsContext';
 import { AddDatalabelModal } from '../../components/shared/modals/AddDatalabelModal';
 import { EntityConfigurationModal } from '../../components/settings/EntityConfigurationModal';
+import { PermissionManagementModal } from '../../components/settings/PermissionManagementModal';
 import * as LucideIcons from 'lucide-react';
 import { getIconComponent } from '../../lib/iconMapping';
 
@@ -41,13 +42,6 @@ interface SettingCard {
   entityGroup?: string;
 }
 
-interface ChildEntity {
-  entity: string;
-  ui_icon: string;
-  ui_label: string;
-  order: number;
-}
-
 interface EntityRow {
   code: string;
   name: string;
@@ -56,7 +50,7 @@ interface EntityRow {
   display_order: number;
   active_flag: boolean;
   dl_entity_domain?: string;
-  child_entities?: ChildEntity[];
+  child_entities?: string[]; // Simple array of entity codes
 }
 
 type MainTab = 'entities' | 'entityMapping' | 'secretsVault' | 'integrations' | 'accessControl';
@@ -93,12 +87,16 @@ export function SettingsOverviewPage() {
   const [childEntitiesModalOpen, setChildEntitiesModalOpen] = useState(false);
   const [selectedEntityForChildren, setSelectedEntityForChildren] = useState<EntityRow | null>(null);
   const [childSearchQuery, setChildSearchQuery] = useState('');
-  const [showIconPicker, setShowIconPicker] = useState(false);
-  const [selectedChildForIconChange, setSelectedChildForIconChange] = useState<string | null>(null);
 
   // Icon picker for entity edit mode
   const [showEntityIconPicker, setShowEntityIconPicker] = useState(false);
   const [iconSearchQuery, setIconSearchQuery] = useState('');
+
+  // Permission management modal
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+
+  // Role statistics
+  const [roleStats, setRoleStats] = useState({ total: 0, active: 0, loading: true });
 
   // Icon picker for new entity row
   const [showNewEntityIconPicker, setShowNewEntityIconPicker] = useState(false);
@@ -166,9 +164,40 @@ export function SettingsOverviewPage() {
     }
   };
 
+  // Fetch role statistics
+  const fetchRoleStats = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+
+      const response = await fetch(`${apiBaseUrl}/api/v1/role?limit=1000`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const activeRoles = data.data?.filter((r: any) => r.active_flag === true) || [];
+        setRoleStats({
+          total: data.total || 0,
+          active: activeRoles.length,
+          loading: false
+        });
+      } else {
+        setRoleStats({ total: 0, active: 0, loading: false });
+      }
+    } catch (error) {
+      console.error('Error fetching role stats:', error);
+      setRoleStats({ total: 0, active: 0, loading: false });
+    }
+  };
+
   useEffect(() => {
     fetchDatalabels();
     fetchEntities();
+    fetchRoleStats();
   }, []);
 
   // Fetch entities from API
@@ -375,7 +404,7 @@ export function SettingsOverviewPage() {
   };
 
   // Handle updating child entities
-  const handleUpdateChildEntities = async (code: string, childEntities: ChildEntity[]) => {
+  const handleUpdateChildEntities = async (code: string, childEntities: string[]) => {
     try {
       const token = localStorage.getItem('auth_token');
       const response = await fetch(`http://localhost:4000/api/v1/entity/${code}/children`, {
@@ -404,7 +433,7 @@ export function SettingsOverviewPage() {
     const parent = entities.find(e => e.code === parentCode);
     if (!parent) return;
 
-    const updatedChildren = (parent.child_entities || []).filter(c => c.entity !== childEntity);
+    const updatedChildren = (parent.child_entities || []).filter(c => c !== childEntity);
     await handleUpdateChildEntities(parentCode, updatedChildren);
 
     // Update selected entity for modal
@@ -420,19 +449,12 @@ export function SettingsOverviewPage() {
     if (!parent || !child) return;
 
     // Check if already exists
-    if ((parent.child_entities || []).some(c => c.entity === childCode)) {
+    if ((parent.child_entities || []).includes(childCode)) {
       alert('This child entity is already added');
       return;
     }
 
-    const newChild: ChildEntity = {
-      entity: child.code,
-      ui_icon: child.ui_icon || 'Tag',
-      ui_label: child.ui_label,
-      order: (parent.child_entities || []).length + 1
-    };
-
-    const updatedChildren = [...(parent.child_entities || []), newChild];
+    const updatedChildren = [...(parent.child_entities || []), childCode];
     await handleUpdateChildEntities(parentCode, updatedChildren);
 
     // Update selected entity for modal
@@ -443,24 +465,9 @@ export function SettingsOverviewPage() {
     setChildSearchQuery('');
   };
 
-  // Handle changing child entity icon
-  const handleChangeChildIcon = async (parentCode: string, childEntity: string, newIcon: string) => {
-    const parent = entities.find(e => e.code === parentCode);
-    if (!parent) return;
-
-    const updatedChildren = (parent.child_entities || []).map(c =>
-      c.entity === childEntity ? { ...c, ui_icon: newIcon } : c
-    );
-
-    await handleUpdateChildEntities(parentCode, updatedChildren);
-
-    // Update selected entity for modal
-    if (selectedEntityForChildren && selectedEntityForChildren.code === parentCode) {
-      setSelectedEntityForChildren({ ...parent, child_entities: updatedChildren });
-    }
-
-    setShowIconPicker(false);
-    setSelectedChildForIconChange(null);
+  // Get entity metadata by code
+  const getEntityMetadata = (code: string) => {
+    return entities.find(e => e.code === code);
   };
 
   // Filter main settings by search query
@@ -702,25 +709,173 @@ export function SettingsOverviewPage() {
 
         {/* Access Control Tab */}
         {activeMainTab === 'accessControl' && (
-          <div className="bg-white border border-dark-300 rounded-md p-6">
-            <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
-              <LucideIcons.Shield className="h-5 w-5" />
-              Access Control
-            </h2>
-            <p className="text-sm text-dark-600 mb-4">
-              Manage role-based access control (RBAC), permissions, and security policies.
-              Configure user roles, entity permissions, and access restrictions across the platform.
-            </p>
-            <div className="bg-purple-50 border border-purple-200 rounded-md p-4 text-sm text-purple-900">
-              <p className="font-medium mb-2">Access Control Features</p>
-              <ul className="list-disc list-inside space-y-1 text-purple-700">
-                <li>Define custom roles with granular permissions</li>
-                <li>Configure entity-level access controls (view, edit, delete, create)</li>
-                <li>Set up approval workflows and hierarchies</li>
-                <li>Manage user groups and team permissions</li>
-                <li>Configure IP restrictions and access policies</li>
-                <li>Audit logs for all permission changes</li>
-              </ul>
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="bg-white border border-dark-300 rounded-md p-6">
+              <h2 className="text-lg font-semibold text-dark-900 mb-3 flex items-center gap-2">
+                <LucideIcons.Shield className="h-5 w-5" />
+                Access Control - RBAC Management
+              </h2>
+              <p className="text-sm text-dark-600">
+                Manage roles, assign employees to roles, and grant entity-level permissions using the Person-Based RBAC system.
+                All changes affect the <strong>d_role</strong>, <strong>d_entity_id_map</strong>, and <strong>entity_id_rbac_map</strong> tables.
+              </p>
+            </div>
+
+            {/* Three Sub-Sections */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* 1. Roles Management */}
+              <div className="bg-white border border-dark-300 rounded-md p-6">
+                <h3 className="text-base font-semibold text-dark-900 mb-3 flex items-center gap-2">
+                  <LucideIcons.Users className="h-4 w-4" />
+                  Roles Management
+                </h3>
+                <p className="text-sm text-dark-600 mb-4">
+                  Create, edit, and delete roles. Click on a role to view employees assigned to it.
+                </p>
+                <button
+                  onClick={() => navigate('/role')}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                >
+                  Manage Roles →
+                </button>
+                <div className="mt-4 text-xs text-dark-500">
+                  <p className="font-medium mb-1">Quick Stats:</p>
+                  <ul className="list-disc list-inside space-y-1 text-dark-600">
+                    <li>Total Roles: {roleStats.loading ? 'Loading...' : roleStats.total}</li>
+                    <li>Active Roles: {roleStats.loading ? 'Loading...' : roleStats.active}</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* 2. Employee Role Assignment */}
+              <div className="bg-white border border-dark-300 rounded-md p-6">
+                <h3 className="text-base font-semibold text-dark-900 mb-3 flex items-center gap-2">
+                  <LucideIcons.Users className="h-4 w-4" />
+                  Employee ↔ Role Assignment
+                </h3>
+                <p className="text-sm text-dark-600 mb-4">
+                  Assign employees to roles. Uses <strong>d_entity_id_map</strong> with parent_entity_type='role' and child_entity_type='employee'.
+                </p>
+                <button
+                  onClick={() => navigate('/role')}
+                  className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
+                >
+                  Assign Employees →
+                </button>
+                <div className="mt-4 text-xs text-dark-500">
+                  <p className="font-medium mb-1">How it works:</p>
+                  <ul className="list-disc list-inside space-y-1 text-dark-600">
+                    <li>Navigate to a role</li>
+                    <li>View "Employees" tab</li>
+                    <li>Click "Assign Employee"</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* 3. Permission Management */}
+              <div className="bg-white border border-dark-300 rounded-md p-6">
+                <h3 className="text-base font-semibold text-dark-900 mb-3 flex items-center gap-2">
+                  <LucideIcons.Shield className="h-4 w-4" />
+                  Permission Management
+                </h3>
+                <p className="text-sm text-dark-600 mb-4">
+                  Grant entity permissions to roles and employees. Uses <strong>entity_id_rbac_map</strong> with permission levels 0-5.
+                </p>
+                <button
+                  onClick={() => setShowPermissionModal(true)}
+                  className="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm font-medium"
+                >
+                  Grant Permissions →
+                </button>
+                <div className="mt-4 text-xs text-dark-500">
+                  <p className="font-medium mb-1">Permission Levels:</p>
+                  <ul className="list-disc list-inside space-y-1 text-dark-600">
+                    <li>0: View | 1: Edit | 2: Share</li>
+                    <li>3: Delete | 4: Create | 5: Owner</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* RBAC Records Data Table */}
+            <div className="bg-white border border-dark-300 rounded-md p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-semibold text-dark-900 flex items-center gap-2">
+                  <LucideIcons.Shield className="h-4 w-4" />
+                  All RBAC Permissions
+                </h3>
+                <button
+                  onClick={() => setShowPermissionModal(true)}
+                  className="px-3 py-1.5 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700 transition-colors font-medium flex items-center gap-2"
+                >
+                  <LucideIcons.Plus className="h-3.5 w-3.5" />
+                  Grant Permission
+                </button>
+              </div>
+              <p className="text-sm text-dark-600 mb-4">
+                View and manage all permissions across roles and employees. Click any row to edit or delete permissions.
+              </p>
+              <FilteredDataTable
+                entityType="rbac"
+                showActionButtons={false}
+                showActionIcons={true}
+                showEditIcon={true}
+                inlineEditable={true}
+                onRowClick={() => {
+                  // Navigate to detail page if needed
+                  // navigate(`/rbac/${item.id}`);
+                }}
+              />
+            </div>
+
+            {/* RBAC Architecture Overview */}
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-md p-6">
+              <h3 className="text-base font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                <LucideIcons.Database className="h-4 w-4" />
+                RBAC Architecture Overview
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
+                <div>
+                  <p className="font-medium mb-2">Permission Resolution:</p>
+                  <ul className="list-disc list-inside space-y-1 text-blue-700">
+                    <li>Employees inherit permissions from assigned roles</li>
+                    <li>Direct employee permissions override role permissions</li>
+                    <li>System takes MAX(role_permission, employee_permission)</li>
+                    <li>Higher permission levels inherit all lower permissions</li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="font-medium mb-2">Database Tables:</p>
+                  <ul className="list-disc list-inside space-y-1 text-blue-700">
+                    <li><code>d_role</code> - Role definitions</li>
+                    <li><code>d_employee</code> - Employee records</li>
+                    <li><code>d_entity_id_map</code> - Role ↔ Employee links</li>
+                    <li><code>entity_id_rbac_map</code> - Permissions (0-5)</li>
+                  </ul>
+                </div>
+              </div>
+              <div className="mt-4 p-3 bg-white/50 rounded border border-blue-200">
+                <p className="text-xs text-blue-900 font-medium mb-2">Example Permission Grant (SQL):</p>
+                <pre className="text-xs text-blue-800 font-mono whitespace-pre-wrap">
+{`INSERT INTO entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
+VALUES ('role', '{role_uuid}', 'project', 'all', 4);  -- Grant Create permission to all projects
+
+INSERT INTO d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
+VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employee to role`}
+                </pre>
+              </div>
+            </div>
+
+            {/* Documentation Reference */}
+            <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
+              <p className="text-sm text-amber-900 font-medium mb-2">
+                📖 Documentation Reference
+              </p>
+              <p className="text-xs text-amber-700">
+                For complete RBAC documentation, see{' '}
+                <code className="bg-amber-100 px-1 py-0.5 rounded">/docs/entity_design_pattern/rbac.md</code>
+              </p>
             </div>
           </div>
         )}
@@ -968,14 +1123,16 @@ export function SettingsOverviewPage() {
                             {(entity.child_entities || []).length > 0 && (
                               <div className="invisible group-hover:visible absolute left-0 top-8 z-10 bg-dark-900 text-white text-xs rounded-md py-2 px-3 shadow-lg whitespace-nowrap">
                                 <div className="space-y-1">
-                                  {(entity.child_entities || []).slice(0, 5).map((child) => {
+                                  {(entity.child_entities || []).slice(0, 5).map((childCode) => {
+                                    const childMetadata = getEntityMetadata(childCode);
+                                    if (!childMetadata) return null;
                                     return (
-                                      <div key={child.entity} className="flex items-center gap-2">
+                                      <div key={childCode} className="flex items-center gap-2">
                                         {(() => {
-                                          const ChildIcon = getIconComponent(child.ui_icon);
+                                          const ChildIcon = getIconComponent(childMetadata.ui_icon || 'Tag');
                                           return <ChildIcon className="h-3 w-3" />;
                                         })()}
-                                        <span>{child.ui_label}</span>
+                                        <span>{childMetadata.ui_label}</span>
                                       </div>
                                     );
                                   })}
@@ -1285,66 +1442,25 @@ export function SettingsOverviewPage() {
                   <p className="text-xs text-dark-700 italic">No child entities configured</p>
                 ) : (
                   <div className="space-y-1">
-                    {(selectedEntityForChildren.child_entities || []).map((child) => {
+                    {(selectedEntityForChildren.child_entities || []).map((childCode) => {
+                      const childMetadata = getEntityMetadata(childCode);
+                      if (!childMetadata) return null; // Skip if entity not found
+
                       return (
                         <div
-                          key={child.entity}
+                          key={childCode}
                           className="flex items-center justify-between px-3 py-2 bg-dark-100 rounded-md border border-dark-300"
                         >
                           <div className="flex items-center gap-2">
-                            <div className="relative">
-                              <button
-                                onClick={() => {
-                                  setSelectedChildForIconChange(child.entity);
-                                  setShowIconPicker(true);
-                                }}
-                                className="p-1 hover:bg-dark-200 rounded transition-colors"
-                                title="Change icon"
-                              >
-                                {(() => {
-                                  const ChildIconBtn = getIconComponent(child.ui_icon);
-                                  return <ChildIconBtn className="h-4 w-4 text-dark-700" />;
-                                })()}
-                              </button>
-
-                              {/* Icon Picker Dropdown */}
-                              {showIconPicker && selectedChildForIconChange === child.entity && (
-                                <div className="absolute left-0 top-8 z-50 bg-dark-100 rounded-md shadow-xl border border-dark-300 p-2 w-64">
-                                  <div className="mb-2">
-                                    <p className="text-xs font-medium text-dark-600 mb-1">Select Icon</p>
-                                  </div>
-                                  <div className="grid grid-cols-6 gap-1 max-h-48 overflow-y-auto">
-                                    {AVAILABLE_ICON_NAMES.map((iconName) => {
-                                      const IconComponent = getIconComponent(iconName);
-                                      return (
-                                        <button
-                                          key={iconName}
-                                          onClick={() => handleChangeChildIcon(selectedEntityForChildren.code, child.entity, iconName)}
-                                          className={`p-2 rounded hover:bg-dark-100 transition-colors ${child.ui_icon === iconName ? 'bg-dark-100 ring-2 ring-dark-700' : ''}`}
-                                          title={iconName}
-                                        >
-                                          <IconComponent className="h-4 w-4 text-dark-600" />
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                  <button
-                                    onClick={() => {
-                                      setShowIconPicker(false);
-                                      setSelectedChildForIconChange(null);
-                                    }}
-                                    className="mt-2 w-full px-2 py-1 text-xs text-dark-700 hover:bg-dark-100 rounded"
-                                  >
-                                    Close
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                            <span className="text-xs font-medium text-dark-600">{child.ui_label}</span>
-                            <span className="text-xs text-dark-600">({child.entity})</span>
+                            {(() => {
+                              const ChildIcon = getIconComponent(childMetadata.ui_icon || 'Tag');
+                              return <ChildIcon className="h-4 w-4 text-dark-700" />;
+                            })()}
+                            <span className="text-xs font-medium text-dark-600">{childMetadata.ui_label}</span>
+                            <span className="text-xs text-dark-600">({childCode})</span>
                           </div>
                           <button
-                            onClick={() => handleRemoveChild(selectedEntityForChildren.code, child.entity)}
+                            onClick={() => handleRemoveChild(selectedEntityForChildren.code, childCode)}
                             className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
                             title="Remove"
                           >
@@ -1376,7 +1492,7 @@ export function SettingsOverviewPage() {
                   {entities
                     .filter(e =>
                       e.code !== selectedEntityForChildren.code && // Not self
-                      !(selectedEntityForChildren.child_entities || []).some(c => c.entity === e.code) && // Not already added
+                      !(selectedEntityForChildren.child_entities || []).includes(e.code) && // Not already added
                       (childSearchQuery === '' ||
                         e.code.toLowerCase().includes(childSearchQuery.toLowerCase()) ||
                         e.ui_label.toLowerCase().includes(childSearchQuery.toLowerCase()))
@@ -1431,6 +1547,16 @@ export function SettingsOverviewPage() {
           onSave={handleSaveEntityConfig}
         />
       )}
+
+      {/* Permission Management Modal */}
+      <PermissionManagementModal
+        isOpen={showPermissionModal}
+        onClose={() => setShowPermissionModal(false)}
+        onSave={() => {
+          setShowPermissionModal(false);
+          // Optionally refresh data
+        }}
+      />
     </Layout>
   );
 }

@@ -86,12 +86,12 @@ export async function businessHierarchyRoutes(fastify: FastifyInstance) {
         sql`(
           EXISTS (
             SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.empid = ${userId}::uuid
-              AND rbac.entity = 'business_hierarchy'
-              AND (rbac.entity_id = bh.id::text OR rbac.entity_id = 'all')
+            WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}::uuid
+              AND rbac.entity_name = 'business_hierarchy'
+              AND (rbac.entity_id = bh.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
               AND rbac.active_flag = true
               AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND 0 = ANY(rbac.permission)
+              AND rbac.permission >= 0
           )
         )`
       ];
@@ -190,12 +190,12 @@ export async function businessHierarchyRoutes(fastify: FastifyInstance) {
         WHERE bh.id = ${id}::uuid
           AND EXISTS (
             SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.empid = ${userId}::uuid
-              AND rbac.entity = 'business_hierarchy'
-              AND (rbac.entity_id = bh.id::text OR rbac.entity_id = 'all')
+            WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}::uuid
+              AND rbac.entity_name = 'business_hierarchy'
+              AND (rbac.entity_id = bh.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
               AND rbac.active_flag = true
               AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND 0 = ANY(rbac.permission)
+              AND rbac.permission >= 0
           )
       `);
 

@@ -145,7 +145,7 @@ export const opsTaskRecords = pgTable('ops_task_records', {
 export const relTaskEmployee = pgTable('rel_task_employee', {
   id: uuid('id').primaryKey().defaultRandom(),
   taskHeadId: uuid('task_head_id').notNull().references(() => opsTaskHead.id, { onDelete: 'cascade' }),
-  empId: uuid('emp_id').notNull().references(() => dEmployee.id, { onDelete: 'cascade' }),
+  employeeId: uuid('employee_id').notNull().references(() => dEmployee.id, { onDelete: 'cascade' }),
   fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
   toTs: timestamp('to_ts', { withTimezone: true }),
   active: boolean('active').notNull().default(true),

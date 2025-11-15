@@ -1,33 +1,21 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql } from 'drizzle-orm';
-import {
-  getUniversalColumnMetadata,
-  filterUniversalColumns,
-  getColumnsByMetadata,
-  createPaginatedResponse
-} from '../../lib/universal-schema-metadata.js';
-import {
-  hasPermissionOnEntityId,
-  hasCreatePermissionForEntityType
-} from '../rbac/entity-permission-rbac-gate.js';
+import { sql, SQL } from 'drizzle-orm';
+// ✅ Centralized unified data gate - loosely coupled API
+import { unified_data_gate, Permission } from '../../lib/unified-data-gate.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 
-// Schema based on actual d_business table structure (operational teams only)
-// NOTE: Hierarchy fields (parent_id, dl__business_hierarchy_level, budget, manager) are in d_business_hierarchy
-// Use /api/v1/business-hierarchy for organizational hierarchy management
+// Schema based on actual d_business table structure
 const BizSchema = Type.Object({
   id: Type.String(),
   code: Type.String(),
   name: Type.String(),
   descr: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Any()),
-  // Operational fields
   office_id: Type.Optional(Type.String()),
   current_headcount: Type.Optional(Type.Number()),
   operational_status: Type.Optional(Type.String()),
-  // Temporal audit fields
   from_ts: Type.String(),
   to_ts: Type.Optional(Type.String()),
   active_flag: Type.Boolean(),
@@ -37,11 +25,10 @@ const BizSchema = Type.Object({
 });
 
 const CreateBizSchema = Type.Object({
-  code: Type.Optional(Type.String({ minLength: 1 })),
-  name: Type.Optional(Type.String({ minLength: 1 })),
+  code: Type.String({ minLength: 1 }),
+  name: Type.String({ minLength: 1 }),
   descr: Type.Optional(Type.String()),
   metadata: Type.Optional(Type.Any()),
-  // Operational fields
   office_id: Type.Optional(Type.String({ format: 'uuid' })),
   current_headcount: Type.Optional(Type.Number()),
   operational_status: Type.Optional(Type.String()),
@@ -50,16 +37,35 @@ const CreateBizSchema = Type.Object({
 
 const UpdateBizSchema = Type.Partial(CreateBizSchema);
 
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_TYPE = 'business';
+const TABLE_ALIAS = 'e';
+
 export async function businessRoutes(fastify: FastifyInstance) {
-  // List operational business units with filtering
+
+  // ============================================================================
+  // List Business Units (Main Page or Child Tab)
+  // ============================================================================
+  // URL: GET /api/v1/business
+  // URL: GET /api/v1/business?parent_type=office&parent_id={id}
+  // ============================================================================
+
   fastify.get('/api/v1/business', {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
+        // Parent filtering (create-link-edit pattern)
+        parent_type: Type.Optional(Type.String()),
+        parent_id: Type.Optional(Type.String({ format: 'uuid' })),
+
+        // Standard filters
         active_flag: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
         operational_status: Type.Optional(Type.String()),
-        office_id: Type.Optional(Type.String()),
+
+        // Pagination
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
@@ -70,78 +76,127 @@ export async function businessRoutes(fastify: FastifyInstance) {
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number(),
+          appliedFilters: Type.Object({
+            rbac: Type.Boolean(),
+            parent: Type.Boolean(),
+            search: Type.Boolean(),
+            active: Type.Boolean()
+          })
         }),
         403: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
       },
     },
   }, async (request, reply) => {
-    const {
-      active_flag, search, operational_status, office_id,
-      limit = 20, offset: queryOffset, page
-    } = request.query as any;
-    const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
     const userId = (request as any).user?.sub;
-
     if (!userId) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
+    const {
+      parent_type,
+      parent_id,
+      active_flag,
+      search,
+      operational_status,
+      limit: queryLimit,
+      offset: queryOffset,
+      page
+    } = request.query as any;
+
+    // Calculate pagination with defaults
+    const limit = queryLimit || 50;
+    const offset = page ? (page - 1) * limit : (queryOffset || 0);
+
     try {
-      // Direct RBAC filtering - only show business units user has access to
-      const baseConditions = [
-        sql`(
-          EXISTS (
-            SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.empid = ${userId}::uuid
-              AND rbac.entity = 'business'
-              AND (rbac.entity_id = b.id::text OR rbac.entity_id = 'all')
-              AND rbac.active_flag = true
-              AND 0 = ANY(rbac.permission)
-          )
-        )`
-      ];
+      // ═══════════════════════════════════════════════════════════════
+      // NEW PATTERN: Route builds SQL, gates augment it
+      // ═══════════════════════════════════════════════════════════════
+
+      // Build WHERE conditions array
+      const conditions: SQL[] = [];
+
+      // GATE 1: RBAC - Apply security filtering (REQUIRED)
+      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
+        userId,
+        ENTITY_TYPE,
+        Permission.VIEW,
+        TABLE_ALIAS
+      );
+      conditions.push(rbacCondition);
+
+      // Additional filters
+      if (operational_status) {
+        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.operational_status = ${operational_status}`);
+      }
 
       if (active_flag !== undefined) {
-        baseConditions.push(sql`b.active_flag = ${active_flag}`);
-      }
-
-      if (operational_status) {
-        baseConditions.push(sql`b.operational_status = ${operational_status}`);
-      }
-
-      if (office_id) {
-        baseConditions.push(sql`b.office_id = ${office_id}::uuid`);
+        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = ${active_flag}`);
       }
 
       if (search) {
-        const searchTerms = [
-          sql`b.name ILIKE ${`%${search}%`}`,
-          sql`COALESCE(b."descr", '') ILIKE ${`%${search}%`}`,
-          sql`b.code ILIKE ${`%${search}%`}`
-        ];
-        baseConditions.push(sql`(${sql.join(searchTerms, sql` OR `)})`);
+        const searchPattern = `%${search}%`;
+        conditions.push(sql`(
+          COALESCE(${sql.raw(TABLE_ALIAS)}.name, '') ILIKE ${searchPattern} OR
+          COALESCE(${sql.raw(TABLE_ALIAS)}.code, '') ILIKE ${searchPattern} OR
+          COALESCE(${sql.raw(TABLE_ALIAS)}."descr", '') ILIKE ${searchPattern}
+        )`);
       }
 
-      const countResult = await db.execute(sql`
-        SELECT COUNT(DISTINCT b.id) as total
-        FROM app.d_business b
-        WHERE ${sql.join(baseConditions, sql` AND `)}
-      `);
+      // GATE 2: PARENT_CHILD_FILTERING - Apply parent context (OPTIONAL)
+      const parentJoin = parent_type && parent_id
+        ? unified_data_gate.parent_child_filtering_gate.getJoinClause(
+            ENTITY_TYPE,
+            parent_type,
+            parent_id,
+            TABLE_ALIAS
+          )
+        : sql``;
+
+      // Build WHERE clause
+      const whereClause = conditions.length > 0
+        ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
+        : sql``;
+
+      // Count query
+      const countQuery = sql`
+        SELECT COUNT(DISTINCT ${sql.raw(TABLE_ALIAS)}.id) as total
+        FROM app.d_${sql.raw(ENTITY_TYPE)} ${sql.raw(TABLE_ALIAS)}
+        ${parentJoin}
+        ${whereClause}
+      `;
+
+      // Data query (route owns this!)
+      const dataQuery = sql`
+        SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
+        FROM app.d_${sql.raw(ENTITY_TYPE)} ${sql.raw(TABLE_ALIAS)}
+        ${parentJoin}
+        ${whereClause}
+        ORDER BY ${sql.raw(TABLE_ALIAS)}.created_ts DESC
+        LIMIT ${limit}
+        OFFSET ${offset}
+      `;
+
+      // Execute queries in parallel
+      const [countResult, dataResult] = await Promise.all([
+        db.execute(countQuery),
+        db.execute(dataQuery)
+      ]);
+
       const total = Number(countResult[0]?.total || 0);
 
-      const bizUnits = await db.execute(sql`
-        SELECT
-          b.id, b.code, b.name, b.descr, b.metadata,
-          b.office_id, b.current_headcount, b.operational_status,
-          b.from_ts, b.to_ts, b.active_flag, b.created_ts, b.updated_ts, b.version
-        FROM app.d_business b
-        WHERE ${sql.join(baseConditions, sql` AND `)}
-        ORDER BY b.name ASC, b.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      return createPaginatedResponse(bizUnits, total, limit, offset);
+      return reply.send({
+        data: dataResult,
+        total,
+        limit,
+        offset,
+        appliedFilters: {
+          rbac: true,
+          parent: Boolean(parent_type && parent_id),
+          search: Boolean(search),
+          active: Boolean(active_flag)
+        }
+      });
     } catch (error) {
       fastify.log.error('Error fetching business units:', error as any);
       console.error('Full error details:', error);
@@ -149,294 +204,136 @@ export async function businessRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // NOTE: Business hierarchy children endpoint removed
-  // Hierarchy relationships are managed through d_business_hierarchy table
-  // Use /api/v1/business-hierarchy/:id/children for hierarchy navigation
-  // d_business table only contains operational teams without parent-child relationships
+  // ============================================================================
+  // NOTE: /api/v1/business/:id/project endpoint REMOVED
+  // ============================================================================
+  // Use create-link-edit pattern instead:
+  // GET /api/v1/project?parent_type=business&parent_id={id}
+  // ============================================================================
 
-  // Get projects within a business unit
-  fastify.get('/api/v1/business/:id/project', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      querystring: Type.Object({
-        active_flag: Type.Optional(Type.Boolean()),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 })),
-      }),
-    },
-  }, async function (request, reply) {
-    try {
-      const { id: bizId } = request.params as { id: string };
-      const { active_flag = true, limit = 50, offset = 0 } = request.query as any;
-      const userId = request.user?.sub;
+  // ============================================================================
+  // Get Dynamic Child Entity Tabs (Metadata)
+  // ============================================================================
 
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // Check if user has access to this business unit
-      const hasAccess = await hasPermissionOnEntityId(userId, 'business', bizId, 'view');
-      if (!hasAccess) {
-        return reply.status(403).send({ error: 'Access denied for this business unit' });
-      }
-
-      // Use d_entity_id_map to find projects linked to this business
-      const conditions = [
-        sql`eim.parent_entity_type = 'business'`,
-        sql`eim.parent_entity_id = ${bizId}`,
-        sql`eim.child_entity_type = 'project'`,
-        sql`eim.active_flag = true`
-      ];
-
-      if (active_flag !== undefined) {
-        conditions.push(sql`p.active_flag = ${active_flag}`);
-      }
-
-      const projects = await db.execute(sql`
-        SELECT
-          p.id, p.code, p.name, p.descr, p.metadata,
-          p.dl__project_stage,
-          p.budget_allocated_amt, p.budget_spent_amt,
-          p.planned_start_date, p.planned_end_date,
-          p.actual_start_date, p.actual_end_date,
-          p.manager_employee_id, p.sponsor_employee_id, p.stakeholder_employee_ids,
-          p.from_ts, p.to_ts, p.active_flag, p.created_ts, p.updated_ts, p.version,
-          eim.relationship_type
-        FROM app.d_entity_id_map eim
-        INNER JOIN app.d_project p ON p.id::text = eim.child_entity_id
-        WHERE ${sql.join(conditions, sql` AND `)}
-        ORDER BY p.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.d_entity_id_map eim
-        INNER JOIN app.d_project p ON p.id::text = eim.child_entity_id
-        WHERE ${sql.join(conditions, sql` AND `)}
-      `);
-
-      return {
-        data: projects,
-        total: Number(countResult[0]?.total || 0),
-        limit,
-        offset,
-        business_id: bizId,
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching business unit projects:', error as any);
-      console.error('Full error details:', error);
-      return reply.status(500).send({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) });
-    }
-  });
-
-  // Get business dynamic child entity tabs - for tab navigation
   fastify.get('/api/v1/business/:id/dynamic-child-entity-tabs', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })
       }),
-      response: {
-        200: Type.Object({
-          action_entities: Type.Array(Type.Object({
-            actionEntity: Type.String(),
-            count: Type.Number(),
-            label: Type.String(),
-            icon: Type.Optional(Type.String())
-          })),
-          business_id: Type.String()
-        }),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })
-      }
+    },
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    const { id } = request.params as { id: string };
+
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ CENTRALIZED UNIFIED DATA GATE - Permission Check
+    // Uses: RBAC_GATE only (checkPermission)
+    // ═══════════════════════════════════════════════════════════════
+    const canView = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.VIEW);
+    if (!canView) {
+      return reply.status(403).send({ error: 'No permission to view this business' });
     }
-  }, async function (request, reply) {
-    try {
-      const { id: bizId } = request.params as { id: string };
-      const userId = request.user?.sub;
 
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
+    // Get entity configuration
+    const entityConfig = await db.execute(sql`
+      SELECT child_entities
+      FROM app.d_entity
+      WHERE code = ${ENTITY_TYPE}
+        AND active_flag = true
+    `);
 
-      // Check if user has access to this business unit
-      const hasAccess = await hasPermissionOnEntityId(userId, 'business', bizId, 'view');
-      if (!hasAccess) {
-        return reply.status(403).send({ error: 'Access denied for this business unit' });
-      }
-
-      // Check if business unit exists
-      const biz = await db.execute(sql`
-        SELECT id FROM app.d_business WHERE id = ${bizId} AND active_flag = true
-      `);
-
-      if (biz.length === 0) {
-        return reply.status(404).send({ error: 'Business unit not found' });
-      }
-
-      // Get action summaries for this business unit
-      const actionSummaries = [];
-
-      // Count projects (via entity_id_map as projects don't have direct business_id FK)
-      const projectCount = await db.execute(sql`
-        SELECT COUNT(*) as count
-        FROM app.d_project p
-        INNER JOIN app.entity_id_map eim ON eim.child_entity_id = p.id::text
-        WHERE eim.parent_entity_id = ${bizId}
-          AND eim.parent_entity_type = 'business'
-          AND eim.child_entity_type = 'project'
-          AND eim.active_flag = true
-          AND p.active_flag = true
-      `);
-      actionSummaries.push({
-        actionEntity: 'project',
-        count: Number(projectCount[0]?.count || 0),
-        label: 'Projects',
-        icon: 'FolderOpen'
-      });
-
-      // Count tasks (via entity_id_map linkage to projects, then to business)
-      const taskCount = await db.execute(sql`
-        SELECT COUNT(DISTINCT t.id) as count
-        FROM app.d_task t
-        INNER JOIN app.entity_id_map eim_task ON eim_task.child_entity_id = t.id::text
-        INNER JOIN app.d_project p ON p.id::text = eim_task.parent_entity_id
-        INNER JOIN app.entity_id_map eim_proj ON eim_proj.child_entity_id = p.id::text
-        WHERE eim_proj.parent_entity_id = ${bizId}
-          AND eim_proj.parent_entity_type = 'business'
-          AND eim_proj.child_entity_type = 'project'
-          AND eim_task.parent_entity_type = 'project'
-          AND eim_task.child_entity_type = 'task'
-          AND eim_task.active_flag = true
-          AND eim_proj.active_flag = true
-          AND t.active_flag = true
-      `);
-      actionSummaries.push({
-        actionEntity: 'task',
-        count: Number(taskCount[0]?.count || 0),
-        label: 'Tasks',
-        icon: 'CheckSquare'
-      });
-
-      // Count artifacts (via entity_id_map linkage to business)
-      const artifactCount = await db.execute(sql`
-        SELECT COUNT(*) as count
-        FROM app.d_artifact a
-        INNER JOIN app.entity_id_map eim ON eim.child_entity_id = a.id::text
-        WHERE eim.parent_entity_id = ${bizId}
-          AND eim.parent_entity_type = 'business'
-          AND eim.child_entity_type = 'artifact'
-          AND eim.active_flag = true
-          AND a.active_flag = true
-      `);
-      actionSummaries.push({
-        actionEntity: 'artifact',
-        count: Number(artifactCount[0]?.count || 0),
-        label: 'Artifacts',
-        icon: 'FileText'
-      });
-
-      // Count wiki entries (via entity_id_map linkage to business)
-      const wikiCount = await db.execute(sql`
-        SELECT COUNT(*) as count
-        FROM app.d_wiki w
-        INNER JOIN app.entity_id_map eim ON eim.child_entity_id = w.id::text
-        WHERE eim.parent_entity_id = ${bizId}
-          AND eim.parent_entity_type = 'business'
-          AND eim.child_entity_type = 'wiki'
-          AND eim.active_flag = true
-          AND w.active_flag = true
-      `);
-      actionSummaries.push({
-        actionEntity: 'wiki',
-        count: Number(wikiCount[0]?.count || 0),
-        label: 'Wiki',
-        icon: 'BookOpen'
-      });
-
-      // Count forms (forms are standalone, use entity_id_map table to link)
-      // For now, we'll count forms as 0 until proper entity mapping is added
-      actionSummaries.push({
-        actionEntity: 'form',
-        count: 0,
-        label: 'Forms',
-        icon: 'FileText'
-      });
-
-      return {
-        action_entities: actionSummaries,
-        business_id: bizId
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching business action summaries:', error);
-      console.error('Full error details:', error);
-      return reply.status(500).send({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) });
+    if (entityConfig.length === 0) {
+      return reply.send({ tabs: [] });
     }
+
+    const childEntities = entityConfig[0].child_entities || [];
+
+    // For each child entity, count how many are linked
+    const tabsWithCounts = await Promise.all(
+      childEntities.map(async (childType: string) => {
+        const countResult = await db.execute(sql`
+          SELECT COUNT(*) as count
+          FROM app.d_entity_id_map
+          WHERE parent_entity_type = ${ENTITY_TYPE}
+            AND parent_entity_id = ${id}
+            AND child_entity_type = ${childType}
+            AND active_flag = true
+        `);
+
+        return {
+          entity_type: childType,
+          count: Number(countResult[0]?.count || 0)
+        };
+      })
+    );
+
+    return reply.send({ tabs: tabsWithCounts });
   });
 
-  // Get creatable entity types within a business unit
-  fastify.get('/api/v1/business/:id/creatable', {
+  // ============================================================================
+  // Get Creatable Entities (Metadata)
+  // ============================================================================
 
+  fastify.get('/api/v1/business/:id/creatable', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })
       }),
     },
-  }, async function (request, reply) {
-    try {
-      const { id: bizId } = request.params as { id: string };
-      const userId = request.user?.sub;
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    const { id } = request.params as { id: string };
 
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // Check if user has access to this business unit
-      const hasAccess = await hasPermissionOnEntityId(userId, 'business', bizId, 'view');
-      if (!hasAccess) {
-        return reply.status(403).send({ error: 'Access denied for this business unit' });
-      }
-
-      // Get entity types that can be created under a business unit
-      const creatableTypes = [];
-
-      // Check permissions for each entity type
-      const entityTypes = ['project', 'task', 'artifact', 'wiki', 'form'];
-      for (const entityType of entityTypes) {
-        const canCreate = await hasCreatePermissionForEntityType(userId, entityType);
-        if (canCreate) {
-          creatableTypes.push({
-            entity_type: entityType,
-            label: entityType.charAt(0).toUpperCase() + entityType.slice(1),
-            icon: entityType === 'project' ? 'FolderOpen' :
-                  entityType === 'task' ? 'CheckSquare' :
-                  entityType === 'artifact' ? 'FileText' :
-                  entityType === 'wiki' ? 'BookOpen' : 'FileText'
-          });
-        }
-      }
-
-      return {
-        business_id: bizId,
-        creatable_entity_types: creatableTypes,
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching creatable entity types:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ CENTRALIZED UNIFIED DATA GATE - Permission Check
+    // Uses: RBAC_GATE only (checkPermission)
+    // ═══════════════════════════════════════════════════════════════
+    const canView = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.VIEW);
+    if (!canView) {
+      return reply.status(403).send({ error: 'No permission to view this business' });
     }
+
+    // Get entity configuration
+    const entityConfig = await db.execute(sql`
+      SELECT child_entities
+      FROM app.d_entity
+      WHERE code = ${ENTITY_TYPE}
+        AND active_flag = true
+    `);
+
+    if (entityConfig.length === 0) {
+      return reply.send({ creatable: [] });
+    }
+
+    const childEntities = entityConfig[0].child_entities || [];
+
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ CENTRALIZED UNIFIED DATA GATE - Check CREATE permissions
+    // Uses: RBAC_GATE only (checkPermission for each child type)
+    // ═══════════════════════════════════════════════════════════════
+    const creatableEntities = await Promise.all(
+      childEntities.map(async (childType: string) => {
+        const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, childType, 'all', Permission.CREATE);
+        return canCreate ? childType : null;
+      })
+    );
+
+    return reply.send({
+      creatable: creatableEntities.filter(Boolean)
+    });
   });
 
-  // Get single business unit
+  // ============================================================================
+  // Get Single Business Unit
+  // ============================================================================
+
   fastify.get('/api/v1/business/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
+        id: Type.String({ format: 'uuid' })
       }),
       response: {
         200: BizSchema,
@@ -446,135 +343,186 @@ export async function businessRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
     const { id } = request.params as { id: string };
-    const userId = request.user?.sub;
 
     if (!userId) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Check if employee has permission to view this specific business unit
-    const hasViewAccess = await hasPermissionOnEntityId(userId, 'business', id, 'view');
-    if (!hasViewAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to view this business unit' });
-    }
-
     try {
-      const bizUnit = await db.execute(sql`
-        SELECT
-          id, code, name, descr, metadata,
-          office_id, current_headcount, operational_status,
-          from_ts, to_ts, active_flag, created_ts, updated_ts, version
-        FROM app.d_business
-        WHERE id = ${id}
-      `);
+      // ═══════════════════════════════════════════════════════════════
+      // NEW PATTERN: RBAC gate check, then simple SELECT
+      // ═══════════════════════════════════════════════════════════════
 
-      if (bizUnit.length === 0) {
-        return reply.status(404).send({ error: 'Business unit not found' });
+      // GATE: RBAC - Check permission
+      const canView = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        id,
+        Permission.VIEW
+      );
+
+      if (!canView) {
+        return reply.status(403).send({ error: 'No permission to view this business' });
       }
 
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true,
-        canSeeSafetyInfo: true,
-      };
-      
-      return filterUniversalColumns(bizUnit[0], userPermissions);
+      // Route owns the query
+      const result = await db.execute(sql`
+        SELECT *
+        FROM app.d_business
+        WHERE id = ${id}::uuid
+          AND active_flag = true
+      `);
+
+      if (result.length === 0) {
+        return reply.status(404).send({ error: 'Business not found' });
+      }
+
+      return reply.send(result[0]);
     } catch (error) {
-      fastify.log.error('Error fetching business unit:', error as any);
+      fastify.log.error('Error fetching business:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Create business unit
+  // ============================================================================
+  // Create Business Unit
+  // ============================================================================
+  // URL: POST /api/v1/business
+  // URL: POST /api/v1/business?parent_type=office&parent_id={id}
+  // ============================================================================
+
   fastify.post('/api/v1/business', {
     preHandler: [fastify.authenticate],
     schema: {
+      querystring: Type.Object({
+        parent_type: Type.Optional(Type.String()),
+        parent_id: Type.Optional(Type.String({ format: 'uuid' }))
+      }),
       body: CreateBizSchema,
       response: {
-        // Removed schema validation - let Fastify serialize naturally
+        201: BizSchema,
         403: Type.Object({ error: Type.String() }),
-        400: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
       },
     },
   }, async (request, reply) => {
-    const data = request.body as any;
-    const userId = request.user?.sub;
+    const userId = (request as any).user?.sub;
+    const { parent_type, parent_id } = request.query as any;
+    const bizData = request.body as any;
 
     if (!userId) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Auto-generate required fields if missing
-    if (!data.name) data.name = 'Untitled Business Unit';
-    if (!data.code) data.code = `BIZ-${Date.now()}`;
-    if (!data.operational_status) data.operational_status = 'Active'; // Default status
-
     try {
-      // Check for unique code if provided
-      if (data.code) {
-        const existingCode = await db.execute(sql`
-          SELECT id FROM app.d_business WHERE code = ${data.code} AND active_flag = true
-        `);
-        if (existingCode.length > 0) {
-          return reply.status(400).send({ error: 'Business unit with this code already exists' });
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE 1
+      // Uses: RBAC_GATE only (checkPermission)
+      // Check: Can user CREATE business units?
+      // ═══════════════════════════════════════════════════════════════
+      const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, 'all', Permission.CREATE);
+      if (!canCreate) {
+        return reply.status(403).send({ error: 'No permission to create business units' });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE 2
+      // Uses: RBAC_GATE only (checkPermission)
+      // Check: If linking to parent, can user EDIT parent?
+      // ═══════════════════════════════════════════════════════════════
+      if (parent_type && parent_id) {
+        const canEditParent = await unified_data_gate.rbac_gate.checkPermission(db, userId, parent_type, parent_id, Permission.EDIT);
+        if (!canEditParent) {
+          return reply.status(403).send({ error: `No permission to link business to this ${parent_type}` });
         }
       }
 
-      // Validate office exists if office_id is provided
-      if (data.office_id) {
-        const officeExists = await db.execute(sql`
-          SELECT id FROM app.d_office WHERE id = ${data.office_id} AND active_flag = true
-        `);
-        if (officeExists.length === 0) {
-          return reply.status(400).send({ error: 'Office not found' });
-        }
-      }
-
-      const result = await db.execute(sql`
+      // ═══════════════════════════════════════════════════════════════
+      // CREATE business unit
+      // ═══════════════════════════════════════════════════════════════
+      const newBiz = await db.execute(sql`
         INSERT INTO app.d_business (
-          name, descr, code, office_id, current_headcount, operational_status,
-          metadata, active_flag
-        )
-        VALUES (
-          ${data.name},
-          ${data.descr || null},
-          ${data.code || null},
-          ${data.office_id || null},
-          ${data.current_headcount || 0},
-          ${data.operational_status || 'Active'},
-          ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
-          ${data.active_flag !== false}
+          code, name, "descr", metadata,
+          office_id, current_headcount, operational_status,
+          active_flag, created_ts, updated_ts
+        ) VALUES (
+          ${bizData.code},
+          ${bizData.name},
+          ${bizData.descr || null},
+          ${bizData.metadata || null},
+          ${bizData.office_id || null},
+          ${bizData.current_headcount || null},
+          ${bizData.operational_status || null},
+          ${bizData.active_flag !== undefined ? bizData.active_flag : true},
+          now(),
+          now()
         )
         RETURNING *
       `);
 
-      if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to create business unit' });
+      const bizId = newBiz[0].id;
+
+      // ═══════════════════════════════════════════════════════════════
+      // LINK to parent (if parent context provided)
+      // ═══════════════════════════════════════════════════════════════
+      if (parent_type && parent_id) {
+        await db.execute(sql`
+          INSERT INTO app.d_entity_id_map (
+            parent_entity_type,
+            parent_entity_id,
+            child_entity_type,
+            child_entity_id,
+            relationship_type,
+            active_flag
+          ) VALUES (
+            ${parent_type},
+            ${parent_id},
+            ENTITY_TYPE,
+            ${bizId},
+            'contains',
+            true
+          )
+        `);
       }
 
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true,
-        canSeeSafetyInfo: true,
-      };
-      
-      return reply.status(201).send(filterUniversalColumns(result[0], userPermissions));
+      // ═══════════════════════════════════════════════════════════════
+      // AUTO-GRANT: Creator gets full permissions
+      // ═══════════════════════════════════════════════════════════════
+      await db.execute(sql`
+        INSERT INTO app.entity_id_rbac_map (
+          person_entity_id,
+          entity_name,
+          entity_id,
+          permission,
+          active_flag
+        ) VALUES (
+          ${userId},
+          ENTITY_TYPE,
+          ${bizId}::text,
+          ${Permission.DELETE},
+          true
+        )
+      `);
+
+      return reply.status(201).send(newBiz[0]);
     } catch (error) {
-      fastify.log.error('Error creating business unit:', error as any);
+      fastify.log.error('Error creating business:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Update business unit
-  fastify.put('/api/v1/business/:id', {
+  // ============================================================================
+  // Update Business Unit
+  // ============================================================================
+
+  fastify.patch('/api/v1/business/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' }),
+        id: Type.String({ format: 'uuid' })
       }),
       body: UpdateBizSchema,
       response: {
@@ -585,75 +533,64 @@ export async function businessRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
     const { id } = request.params as { id: string };
-    const data = request.body as any;
-    const userId = request.user?.sub;
+    const updates = request.body as any;
 
     if (!userId) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Check if employee has permission to modify this specific business unit
-    const hasModifyAccess = await hasPermissionOnEntityId(userId, 'business', id, 'edit');
-    if (!hasModifyAccess) {
-      return reply.status(403).send({ error: 'Insufficient permissions to modify this business unit' });
-    }
-
     try {
-      const existing = await db.execute(sql`
-        SELECT id FROM app.d_business WHERE id = ${id}
-      `);
-      
-      if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Business unit not found' });
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+      // Uses: RBAC_GATE only (checkPermission)
+      // Check: Can user EDIT this business?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit this business' });
       }
 
-      const updateFields = [];
-
-      if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
-      if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
-      if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
-      if (data.office_id !== undefined) updateFields.push(sql`office_id = ${data.office_id}`);
-      if (data.current_headcount !== undefined) updateFields.push(sql`current_headcount = ${data.current_headcount}`);
-      if (data.operational_status !== undefined) updateFields.push(sql`operational_status = ${data.operational_status}`);
-      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
-      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
+      // Build update fields
+      const updateFields: any[] = [];
+      if (updates.code !== undefined) updateFields.push(sql`code = ${updates.code}`);
+      if (updates.name !== undefined) updateFields.push(sql`name = ${updates.name}`);
+      if (updates.descr !== undefined) updateFields.push(sql`"descr" = ${updates.descr}`);
+      if (updates.metadata !== undefined) updateFields.push(sql`metadata = ${updates.metadata}`);
+      if (updates.office_id !== undefined) updateFields.push(sql`office_id = ${updates.office_id}`);
+      if (updates.current_headcount !== undefined) updateFields.push(sql`current_headcount = ${updates.current_headcount}`);
+      if (updates.operational_status !== undefined) updateFields.push(sql`operational_status = ${updates.operational_status}`);
+      if (updates.active_flag !== undefined) updateFields.push(sql`active_flag = ${updates.active_flag}`);
 
       if (updateFields.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
-      updateFields.push(sql`updated_ts = NOW()`);
+      updateFields.push(sql`updated_ts = now()`);
+      updateFields.push(sql`version = version + 1`);
 
-      const result = await db.execute(sql`
+      // Update business
+      const updated = await db.execute(sql`
         UPDATE app.d_business
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
       `);
 
-      if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to update business unit' });
+      if (updated.length === 0) {
+        return reply.status(404).send({ error: 'Business not found' });
       }
 
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true,
-        canSeeSafetyInfo: true,
-      };
-      
-      return filterUniversalColumns(result[0], userPermissions);
+      return reply.send(updated[0]);
     } catch (error) {
-      fastify.log.error('Error updating business unit:', error as any);
+      fastify.log.error('Error updating business:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Delete business unit with cascading cleanup (soft delete)
-  // Uses universal delete factory pattern - deletes from:
-  // 1. app.d_business (base entity table)
-  // 2. app.d_entity_instance_id (entity registry)
-  // 3. app.d_entity_id_map (linkages in both directions)
-  createEntityDeleteEndpoint(fastify, 'business');
+  // ============================================================================
+  // Delete Business Unit (Soft Delete via Factory)
+  // ============================================================================
+  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 }

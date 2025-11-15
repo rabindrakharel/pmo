@@ -208,21 +208,6 @@ export function createEntityDeleteEndpoint(
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // RBAC check: Does user have delete permission?
-    const deleteAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.empid = ${userId}
-        AND rbac.entity = ${entityType}
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND 3 = ANY(rbac.permission)
-    `);
-
-    if (deleteAccess.length === 0) {
-      return reply.status(403).send({ error: `Insufficient permissions to delete this ${entityType}` });
-    }
-
     try {
       // Check if entity exists
       const exists = await entityExists(entityType, id);

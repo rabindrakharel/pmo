@@ -9,7 +9,7 @@ const TaskDataSchema = Type.Object({
   task_id: Type.String(),
   project_id: Type.String(),
   stage: Type.String(),
-  updated_by_empid: Type.String(),
+  updated_by_employee_id: Type.String(),
   data_richtext: Type.Any(),
   update_type: Type.String(),
   hours_logged: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
@@ -61,12 +61,12 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
       // Check if user has view permission on the task
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'task'
-          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = 'all')
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+          AND rbac.entity_name = 'task'
+          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
+          AND rbac.permission >= 0
         LIMIT 1
       `);
 
@@ -81,7 +81,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           td.task_id,
           td.project_id,
           td.stage,
-          td.updated_by_empid,
+          td.updated_by_employee_id,
           td.data_richtext,
           td.update_type,
           td.hours_logged,
@@ -92,7 +92,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           td.updated_ts,
           e.name as updated_by_name
         FROM app.d_task_data td
-        LEFT JOIN app.d_employee e ON td.updated_by_empid = e.id
+        LEFT JOIN app.d_employee e ON td.updated_by_employee_id = e.id
         WHERE td.task_id = ${taskId}
           AND td.stage = 'saved'
         ORDER BY td.created_ts DESC
@@ -140,12 +140,12 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
       // Check if user has edit permission on the task
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'task'
-          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = 'all')
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+          AND rbac.entity_name = 'task'
+          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 1 = ANY(rbac.permission)
+          AND rbac.permission >= 1
         LIMIT 1
       `);
 
@@ -159,7 +159,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           task_id,
           project_id,
           stage,
-          updated_by_empid,
+          updated_by_employee_id,
           data_richtext,
           update_type,
           hours_logged,
@@ -184,7 +184,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           task_id,
           project_id,
           stage,
-          updated_by_empid,
+          updated_by_employee_id,
           data_richtext,
           update_type,
           hours_logged,
@@ -238,12 +238,12 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
       // Check permission
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.empid = ${userId}
-          AND rbac.entity = 'task'
-          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = 'all')
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+          AND rbac.entity_name = 'task'
+          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND 0 = ANY(rbac.permission)
+          AND rbac.permission >= 0
         LIMIT 1
       `);
 
@@ -257,7 +257,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           td.task_id,
           td.project_id,
           td.stage,
-          td.updated_by_empid,
+          td.updated_by_employee_id,
           td.data_richtext,
           td.update_type,
           td.hours_logged,
@@ -268,7 +268,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           td.updated_ts,
           e.name as updated_by_name
         FROM app.d_task_data td
-        LEFT JOIN app.d_employee e ON td.updated_by_empid = e.id
+        LEFT JOIN app.d_employee e ON td.updated_by_employee_id = e.id
         WHERE td.id = ${dataId} AND td.task_id = ${taskId}
       `);
 

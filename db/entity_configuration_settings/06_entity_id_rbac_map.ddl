@@ -19,7 +19,7 @@
 --   permission = 1  → Edit:   Modify existing entity (INHERITS View)
 --   permission = 2  → Share:  Share entity with others (INHERITS Edit + View)
 --   permission = 3  → Delete: Soft delete entity (INHERITS Share + Edit + View)
---   permission = 4  → Create: Create new entities - requires entity_id='all' (INHERITS all lower permissions)
+--   permission = 4  → Create: Create new entities - requires entity_id='11111111-1111-1111-1111-111111111111' (INHERITS all lower permissions)
 --   permission = 5  → Owner:  Full control including permission management (INHERITS ALL permissions)
 --
 -- PERMISSION HIERARCHY (Automatic Inheritance):
@@ -45,14 +45,14 @@ CREATE TABLE app.entity_id_rbac_map (
 
   -- Entity target
   entity_name varchar(50) NOT NULL, -- Entity type: project, task, employee, office, business, worksite, customer, etc.
-  entity_id text NOT NULL, -- Specific entity UUID or 'all' for type-level permissions
+  entity_id uuid NOT NULL, -- Specific entity UUID or '11111111-1111-1111-1111-111111111111' for type-level permissions
 
   -- Permission level (single integer 0-5 with hierarchical inheritance)
   permission integer NOT NULL DEFAULT 0 CHECK (permission >= 0 AND permission <= 5),
   -- 0=View, 1=Edit, 2=Share, 3=Delete, 4=Create, 5=Owner (higher levels inherit all lower permissions)
 
   -- Permission lifecycle management
-  granted_by_empid uuid, -- References d_employee.id (who granted this permission - delegation tracking)
+  granted_by_employee_id uuid, -- References d_employee.id (who granted this permission - delegation tracking)
   granted_ts timestamptz NOT NULL DEFAULT now(),
   expires_ts timestamptz, -- Optional expiration for temporary permissions
   active_flag boolean NOT NULL DEFAULT true,
@@ -75,9 +75,9 @@ COMMENT ON TABLE app.entity_id_rbac_map IS 'Person-based RBAC system with intege
 COMMENT ON COLUMN app.entity_id_rbac_map.person_entity_name IS 'Type of person: employee (direct permission) or role (inherited by all employees assigned to that role via d_entity_id_map)';
 COMMENT ON COLUMN app.entity_id_rbac_map.person_entity_id IS 'UUID of employee (if person_entity_name=employee) or role (if person_entity_name=role)';
 COMMENT ON COLUMN app.entity_id_rbac_map.entity_name IS 'Target entity type: project, task, employee, office, business, worksite, customer, service, product, order, invoice, etc.';
-COMMENT ON COLUMN app.entity_id_rbac_map.entity_id IS 'Target entity UUID for instance-level permissions, or "all" for type-level permissions granting access to ALL instances';
+COMMENT ON COLUMN app.entity_id_rbac_map.entity_id IS 'Target entity UUID for instance-level permissions, or "11111111-1111-1111-1111-111111111111" for type-level permissions granting access to ALL instances';
 COMMENT ON COLUMN app.entity_id_rbac_map.permission IS 'Permission level with automatic inheritance: 0=View, 1=Edit (implies View), 2=Share (implies Edit+View), 3=Delete (implies Share+Edit+View), 4=Create (implies all lower), 5=Owner (implies all permissions). Check using: permission >= required_level';
-COMMENT ON COLUMN app.entity_id_rbac_map.granted_by_empid IS 'Employee who granted this permission - enables delegation tracking and audit trail';
+COMMENT ON COLUMN app.entity_id_rbac_map.granted_by_employee_id IS 'Employee who granted this permission - enables delegation tracking and audit trail';
 COMMENT ON COLUMN app.entity_id_rbac_map.expires_ts IS 'Optional expiration timestamp for temporary permissions (contractor access, time-limited delegation)';
 
 -- ============================================================================
@@ -106,114 +106,14 @@ COMMENT ON COLUMN app.entity_id_rbac_map.expires_ts IS 'Optional expiration time
 --   - /docs/entity_design_pattern/rbac.md
 --
 -- ============================================================================
--- DATA CURATION: ROLE-BASED PERMISSIONS
+-- DATA CURATION
 -- ============================================================================
-
--- CEO Role - Full permissions (level 5 = Owner) on all entities
-INSERT INTO app.entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission, granted_ts)
-SELECT
-  'role', r.id, entity_type, 'all', 5, now()  -- Level 5 = Owner
-FROM app.d_role r
-CROSS JOIN (VALUES
-  ('office'), ('business'), ('project'), ('task'), ('worksite'), ('cust'),
-  ('role'), ('artifact'), ('wiki'), ('form'), ('reports'), ('employee'),
-  ('expense'), ('revenue'), ('service'), ('product'), ('quote'), ('work_order'),
-  ('order'), ('invoice'), ('shipment'), ('inventory'), ('interaction'), ('message_schema')
-) AS entities(entity_type)
-WHERE r.role_code = 'CEO';
-
--- Manager Roles - Department management permissions (level 4 = Create)
-INSERT INTO app.entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
-SELECT
-  'role', r.id, 'project', 'all', 4  -- Level 4 = Create (+ Delete + Share + Edit + View)
-FROM app.d_role r
-WHERE r.role_code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
-
-INSERT INTO app.entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
-SELECT
-  'role', r.id, 'task', 'all', 4  -- Level 4 = Create
-FROM app.d_role r
-WHERE r.role_code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
-
-INSERT INTO app.entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
-SELECT
-  'role', r.id, entity_type, 'all', 2  -- Level 2 = Share (+ Edit + View)
-FROM app.d_role r
-CROSS JOIN (VALUES
-  ('worksite'), ('cust'), ('artifact'), ('wiki'), ('form'), ('reports')
-) AS entities(entity_type)
-WHERE r.role_code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
-
-INSERT INTO app.entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
-SELECT
-  'role', r.id, 'employee', 'all', 1  -- Level 1 = Edit (+ View)
-FROM app.d_role r
-WHERE r.role_code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
-
--- Supervisor Roles - Field operation permissions (level 2-4)
-INSERT INTO app.entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
-SELECT
-  'role', r.id, 'task', 'all', 4  -- Level 4 = Create
-FROM app.d_role r
-WHERE r.role_code IN ('SUP-FIELD', 'TECH-SR');
-
-INSERT INTO app.entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
-SELECT
-  'role', r.id, entity_type, 'all', 2  -- Level 2 = Share (+ Edit + View)
-FROM app.d_role r
-CROSS JOIN (VALUES
-  ('worksite'), ('cust'), ('artifact'), ('form')
-) AS entities(entity_type)
-WHERE r.role_code IN ('SUP-FIELD', 'TECH-SR');
-
-INSERT INTO app.entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
-SELECT
-  'role', r.id, 'reports', 'all', 1  -- Level 1 = Edit (+ View)
-FROM app.d_role r
-WHERE r.role_code IN ('SUP-FIELD', 'TECH-SR');
-
--- Technician Roles - Operational permissions (level 0-1)
-INSERT INTO app.entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
-SELECT
-  'role', r.id, entity_type, 'all', 1  -- Level 1 = Edit (+ View)
-FROM app.d_role r
-CROSS JOIN (VALUES
-  ('task'), ('worksite'), ('form'), ('reports')
-) AS entities(entity_type)
-WHERE r.role_code IN ('TECH-FIELD');
-
-INSERT INTO app.entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
-SELECT
-  'role', r.id, 'cust', 'all', 0  -- Level 0 = View only
-FROM app.d_role r
-WHERE r.role_code IN ('TECH-FIELD');
-
--- Admin Roles - Administrative permissions (level 1-4)
-INSERT INTO app.entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
-SELECT
-  'role', r.id, 'task', 'all', 4  -- Level 4 = Create
-FROM app.d_role r
-WHERE r.role_code IN ('COORD-PROJ', 'COORD-HR');
-
-INSERT INTO app.entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission)
-SELECT
-  'role', r.id, entity_type, 'all', 2  -- Level 2 = Share (+ Edit + View)
-FROM app.d_role r
-CROSS JOIN (VALUES
-  ('project'), ('cust'), ('artifact'), ('form'), ('reports')
-) AS entities(entity_type)
-WHERE r.role_code IN ('COORD-PROJ', 'COORD-HR');
-
+--
+-- ⚠️  SEED DATA MOVED: RBAC permission seed data now located in:
+--     db/48_rbac_seed_data.ddl
+--
+-- Reason: This file runs BEFORE d_role and d_employee tables are created,
+--         so INSERT statements referencing those tables would fail.
+--         Seed data file runs at the END of the import sequence.
+--
 -- ============================================================================
--- DATA CURATION: EMPLOYEE-SPECIFIC PERMISSIONS (EXAMPLES)
--- ============================================================================
-
--- CEO (James Miller) - Direct owner permissions (level 5) for critical entities
-INSERT INTO app.entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission, granted_ts)
-SELECT
-  'employee', e.id, entity_type, 'all', 5, now()  -- Level 5 = Owner
-FROM app.d_employee e
-CROSS JOIN (VALUES
-  ('office'), ('business'), ('employee'), ('role')
-) AS entities(entity_type)
-WHERE e.email = 'james.miller@huronhome.ca';

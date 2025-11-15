@@ -16,7 +16,7 @@ CREATE TABLE app.d_report_data (
     stage varchar(20) NOT NULL DEFAULT 'saved', -- draft, saved
 
     -- Execution metadata
-    executed_by_empid uuid,
+    executed_by_employee_id uuid,
     execution_trigger varchar(50) DEFAULT 'manual', -- manual, scheduled, api, event
 
     -- Data quality metrics

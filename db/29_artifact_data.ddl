@@ -17,7 +17,7 @@ CREATE TABLE app.d_artifact_data (
     stage varchar(20) NOT NULL DEFAULT 'draft', -- draft, saved
 
     -- Update information
-    updated_by_empid uuid NOT NULL,
+    updated_by_employee_id uuid NOT NULL,
     update_type varchar(50) DEFAULT 'content_update', -- content_update, metadata_update, version_update
     update_notes text,
 

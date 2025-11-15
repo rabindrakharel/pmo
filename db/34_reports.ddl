@@ -15,7 +15,7 @@
 --    • Body: {name, code, report_type, report_category, data_source_config, query_definition, chart_type, refresh_frequency}
 --    • Returns: {id: "new-uuid", version: 1, auto_refresh_enabled: true, ...}
 --    • Database: INSERT with version=1, active_flag=true, auto_refresh_enabled=true, created_ts=now()
---    • RBAC: Requires permission 4 (create) on entity='reports', entity_id='all'
+--    • RBAC: Requires permission 4 (create) on entity='reports', entity_id='11111111-1111-1111-1111-111111111111'
 --    • Business Rule: Report scheduled for execution based on refresh_frequency
 --
 -- 2. UPDATE REPORT CONFIGURATION (Query Changes, Visualization Updates)
@@ -28,7 +28,7 @@
 --      - version increments (audit trail of configuration changes)
 --      - updated_ts refreshed
 --      - Query changes trigger re-execution on next refresh cycle
---    • RBAC: Requires permission 1 (edit) on entity='reports', entity_id={id} OR 'all'
+--    • RBAC: Requires permission 1 (edit) on entity='reports', entity_id={id} OR '11111111-1111-1111-1111-111111111111'
 --    • Business Rule: Configuration updates invalidate cached results; next execution uses new config
 --
 -- 3. EXECUTE REPORT (Manual Refresh)
@@ -59,9 +59,9 @@
 --      WHERE r.active_flag=true
 --        AND EXISTS (
 --          SELECT 1 FROM entity_id_rbac_map rbac
---          WHERE rbac.empid=$user_id
+--          WHERE rbac.person_entity_name='employee' AND rbac.person_entity_id=$user_id
 --            AND rbac.entity='reports'
---            AND (rbac.entity_id=r.id::text OR rbac.entity_id='all')
+--            AND (rbac.entity_id=r.id::text OR rbac.entity_id='11111111-1111-1111-1111-111111111111')
 --            AND 0=ANY(rbac.permission)  -- View permission
 --        )
 --      ORDER BY r.report_category, r.name ASC
