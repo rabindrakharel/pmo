@@ -1644,6 +1644,31 @@ export function EntityDataTable<T = any>({
                                   color: '#37352F'
                                 }}
                               />
+                            ) :
+                            // BOOLEAN FIELD (checkbox)
+                            editType === 'boolean' ? (
+                              <input
+                                type="checkbox"
+                                checked={editedData[column.key] ?? (record as any)[column.key] ?? false}
+                                onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.checked)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-4 w-4 rounded border-dark-400 text-slate-600 focus:ring-2 focus:ring-slate-500/30"
+                              />
+                            ) :
+                            // READONLY FIELD (display only)
+                            editType === 'readonly' ? (
+                              <div
+                                className="px-2 py-1.5 text-dark-600 italic"
+                                style={{
+                                  fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+                                  fontSize: '14px'
+                                }}
+                              >
+                                {column.render
+                                  ? column.render((record as any)[column.key], record, data)
+                                  : renderCellValue(column, (record as any)[column.key])
+                                }
+                              </div>
                             ) : (
                               // TEXT FIELD (default)
                               <input
