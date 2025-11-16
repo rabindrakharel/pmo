@@ -149,8 +149,8 @@ import { universalEntityDelete, createEntityDeleteEndpoint } from '../../lib/ent
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 // ✅ Centralized unified data gate - loosely coupled API
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
-// ✅ Centralized linkage service - DRY entity relationship management
-import { createLinkage } from '../../services/linkage.service.js';
+// ✨ Entity Infrastructure Service - centralized infrastructure operations
+import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 
@@ -208,6 +208,9 @@ const ENTITY_TYPE = 'task';
 const TABLE_ALIAS = 't';
 
 export async function taskRoutes(fastify: FastifyInstance) {
+  // ✨ Initialize Entity Infrastructure Service
+  const entityInfra = getEntityInfrastructure(db);
+
   // List tasks with filtering
   fastify.get('/api/v1/task', {
     preHandler: [fastify.authenticate],
@@ -505,11 +508,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
-    // Uses: RBAC_GATE only (checkPermission)
+    // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
     // Check: Can user CREATE tasks?
     // ═══════════════════════════════════════════════════════════════
-    const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
+    const canCreate = await entityInfra.checkPermission(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
     if (!canCreate) {
       return reply.status(403).send({ error: 'No permission to create tasks' });
     }
@@ -548,15 +550,15 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       const newTask = result[0] as any;
 
-      // Register the task in d_entity_instance_id for global entity operations
-      await db.execute(sql`
-        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
-        VALUES ('task', ${newTask.id}::uuid, ${newTask.name}, ${newTask.code})
-        ON CONFLICT (entity_type, entity_id) DO UPDATE
-        SET entity_name = EXCLUDED.entity_name,
-            entity_code = EXCLUDED.entity_code,
-            updated_ts = NOW()
-      `);
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance in registry
+      // ═══════════════════════════════════════════════════════════════
+      await entityInfra.registerInstance({
+        entity_type: ENTITY_TYPE,
+        entity_id: newTask.id,
+        entity_name: newTask.name,
+        entity_code: newTask.code
+      });
 
       // NOTE: Assignees should be managed separately via the Linkage API
       // POST /api/v1/linkage with parent_entity_type='task', child_entity_type='employee'
@@ -600,11 +602,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
-    // Uses: RBAC_GATE only (checkPermission)
+    // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
     // Check: Can user EDIT this task?
     // ═══════════════════════════════════════════════════════════════
-    const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+    const canEdit = await entityInfra.checkPermission(userId, ENTITY_TYPE, id, Permission.EDIT);
     if (!canEdit) {
       return reply.status(403).send({ error: 'No permission to edit this task' });
     }
@@ -641,6 +642,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       updateFields.push(sql`updated_ts = NOW()`);
 
+      // ✅ Route owns UPDATE query
       const result = await db.execute(sql`
         UPDATE app.d_task
         SET ${sql.join(updateFields, sql`, `)}
@@ -654,15 +656,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       const updatedTask = result[0] as any;
 
-      // Sync with d_entity_instance_id registry when name/code changes
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
+      // ═══════════════════════════════════════════════════════════════
       if (data.name !== undefined || data.code !== undefined) {
-        await db.execute(sql`
-          UPDATE app.d_entity_instance_id
-          SET entity_name = ${updatedTask.name},
-              entity_code = ${updatedTask.code},
-              updated_ts = NOW()
-          WHERE entity_type = 'task' AND entity_id = ${id}::uuid
-        `);
+        await entityInfra.updateInstanceMetadata(ENTITY_TYPE, id, {
+          entity_name: data.name,
+          entity_code: data.code
+        });
       }
 
       // NOTE: Assignees should be managed separately via the Linkage API
@@ -708,11 +709,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
-    // Uses: RBAC_GATE only (checkPermission)
+    // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
     // Check: Can user EDIT this task?
     // ═══════════════════════════════════════════════════════════════
-    const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+    const canEdit = await entityInfra.checkPermission(userId, ENTITY_TYPE, id, Permission.EDIT);
     if (!canEdit) {
       return reply.status(403).send({ error: 'No permission to edit this task' });
     }
@@ -749,6 +749,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       updateFields.push(sql`updated_ts = NOW()`);
 
+      // ✅ Route owns UPDATE query
       const result = await db.execute(sql`
         UPDATE app.d_task
         SET ${sql.join(updateFields, sql`, `)}
@@ -762,15 +763,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       const updatedTask = result[0] as any;
 
-      // Sync with d_entity_instance_id registry when name/code changes
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
+      // ═══════════════════════════════════════════════════════════════
       if (data.name !== undefined || data.code !== undefined) {
-        await db.execute(sql`
-          UPDATE app.d_entity_instance_id
-          SET entity_name = ${updatedTask.name},
-              entity_code = ${updatedTask.code},
-              updated_ts = NOW()
-          WHERE entity_type = 'task' AND entity_id = ${id}::uuid
-        `);
+        await entityInfra.updateInstanceMetadata(ENTITY_TYPE, id, {
+          entity_name: data.name,
+          entity_code: data.code
+        });
       }
 
       // NOTE: Assignees should be managed separately via the Linkage API
