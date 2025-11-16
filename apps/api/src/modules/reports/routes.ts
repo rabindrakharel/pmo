@@ -511,6 +511,102 @@ export async function reportsRoutes(fastify: FastifyInstance) {
   });
 
   // ============================================================================
+  // UPDATE REPORT (PUT - alias to PATCH for frontend compatibility)
+  // ============================================================================
+  fastify.put('/api/v1/reports/:id', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String(),
+      }),
+      body: UpdateReportSchema,
+      response: {
+        200: ReportSchema,
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const data = request.body as any;
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      // RBAC check: Can user edit this report?
+      const hasPermission = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        id,
+        Permission.EDIT
+      );
+
+      if (!hasPermission) {
+        return reply.status(403).send({ error: 'Forbidden: Insufficient permissions to edit report' });
+      }
+
+      // Check if report exists
+      const existing = await db.execute(sql`
+        SELECT id FROM app.d_reports WHERE id = ${id} AND active_flag = true
+      `);
+
+      if (existing.length === 0) {
+        return reply.status(404).send({ error: 'Report not found' });
+      }
+
+      // Build update fields
+      const updateFields: SQL[] = [];
+
+      if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
+      if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
+      if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
+      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
+      if (data.report_type !== undefined) updateFields.push(sql`report_type = ${data.report_type}`);
+      if (data.report_category !== undefined) updateFields.push(sql`report_category = ${data.report_category}`);
+      if (data.data_source_config !== undefined) updateFields.push(sql`data_source_config = ${JSON.stringify(data.data_source_config)}::jsonb`);
+      if (data.query_definition !== undefined) updateFields.push(sql`query_definition = ${JSON.stringify(data.query_definition)}::jsonb`);
+      if (data.refresh_frequency !== undefined) updateFields.push(sql`refresh_frequency = ${data.refresh_frequency}`);
+      if (data.chart_type !== undefined) updateFields.push(sql`chart_type = ${data.chart_type}`);
+      if (data.visualization_config !== undefined) updateFields.push(sql`visualization_config = ${JSON.stringify(data.visualization_config)}::jsonb`);
+      if (data.public_flag !== undefined) updateFields.push(sql`public_flag = ${data.public_flag}`);
+      if (data.auto_refresh_enabled_flag !== undefined) updateFields.push(sql`auto_refresh_enabled_flag = ${data.auto_refresh_enabled_flag}`);
+      if (data.email_subscribers !== undefined) {
+        updateFields.push(sql`email_subscribers = ${data.email_subscribers.length > 0 ? sql`ARRAY[${sql.join(data.email_subscribers.map((id: string) => sql`${id}::uuid`), sql`, `)}]` : sql`'{}'::uuid[]`}`);
+      }
+      if (data.primary_entity_type !== undefined) updateFields.push(sql`primary_entity_type = ${data.primary_entity_type}`);
+      if (data.primary_entity_id !== undefined) updateFields.push(sql`primary_entity_id = ${data.primary_entity_id}`);
+      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
+
+      if (updateFields.length === 0) {
+        return reply.status(400).send({ error: 'No fields to update' });
+      }
+
+      // Add version increment and updated_ts
+      updateFields.push(sql`version = version + 1`);
+      updateFields.push(sql`updated_ts = NOW()`);
+
+      const result = await db.execute(sql`
+        UPDATE app.d_reports
+        SET ${sql.join(updateFields, sql`, `)}
+        WHERE id = ${id}
+        RETURNING *
+      `);
+
+      return result[0];
+    } catch (error) {
+      fastify.log.error('Error updating report:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ============================================================================
   // DELETE ENDPOINT (Factory-Generated)
   // ============================================================================
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);

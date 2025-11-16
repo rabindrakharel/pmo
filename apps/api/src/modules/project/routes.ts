@@ -778,6 +778,95 @@ export async function projectRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // ============================================================================
+  // Update Project (PUT - alias to PATCH for frontend compatibility)
+  // ============================================================================
+
+  fastify.put('/api/v1/project/:id', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      body: UpdateProjectSchema,
+      response: {
+        200: ProjectSchema,
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    const { id } = request.params as { id: string };
+    const updates = request.body as any;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+      // Uses: RBAC_GATE only (checkPermission)
+      // Check: Can user EDIT this project?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit this project' });
+      }
+
+      // Build update fields
+      const updateFields: any[] = [];
+      if (updates.code !== undefined) updateFields.push(sql`code = ${updates.code}`);
+      if (updates.name !== undefined) updateFields.push(sql`name = ${updates.name}`);
+      if (updates.descr !== undefined) updateFields.push(sql`descr = ${updates.descr}`);
+      if (updates.metadata !== undefined) updateFields.push(sql`metadata = ${updates.metadata}`);
+      if (updates.dl__project_stage !== undefined) updateFields.push(sql`dl__project_stage = ${updates.dl__project_stage}`);
+      if (updates.budget_allocated_amt !== undefined) updateFields.push(sql`budget_allocated_amt = ${updates.budget_allocated_amt}`);
+      if (updates.budget_spent_amt !== undefined) updateFields.push(sql`budget_spent_amt = ${updates.budget_spent_amt}`);
+      if (updates.planned_start_date !== undefined) updateFields.push(sql`planned_start_date = ${updates.planned_start_date}`);
+      if (updates.planned_end_date !== undefined) updateFields.push(sql`planned_end_date = ${updates.planned_end_date}`);
+      if (updates.actual_start_date !== undefined) updateFields.push(sql`actual_start_date = ${updates.actual_start_date}`);
+      if (updates.actual_end_date !== undefined) updateFields.push(sql`actual_end_date = ${updates.actual_end_date}`);
+      if (updates.manager_employee_id !== undefined) updateFields.push(sql`manager_employee_id = ${updates.manager_employee_id}`);
+      if (updates.sponsor_employee_id !== undefined) updateFields.push(sql`sponsor_employee_id = ${updates.sponsor_employee_id}`);
+      if (updates.stakeholder_employee_ids !== undefined) {
+        const stakeholderArray = updates.stakeholder_employee_ids && updates.stakeholder_employee_ids.length > 0
+          ? `{${updates.stakeholder_employee_ids.join(',')}}`
+          : '{}';
+        updateFields.push(sql`stakeholder_employee_ids = ${stakeholderArray}::uuid[]`);
+      }
+      if (updates.active_flag !== undefined) updateFields.push(sql`active_flag = ${updates.active_flag}`);
+
+      if (updateFields.length === 0) {
+        return reply.status(400).send({ error: 'No fields to update' });
+      }
+
+      updateFields.push(sql`updated_ts = now()`);
+      updateFields.push(sql`version = version + 1`);
+
+      // Update project
+      const updated = await db.execute(sql`
+        UPDATE app.d_project
+        SET ${sql.join(updateFields, sql`, `)}
+        WHERE id = ${id}
+        RETURNING *
+      `);
+
+      if (updated.length === 0) {
+        return reply.status(404).send({ error: 'Project not found' });
+      }
+
+      return reply.send(updated[0]);
+    } catch (error) {
+      fastify.log.error('Error updating project:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
   // Delete project with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
   // 1. app.d_project (base entity table)

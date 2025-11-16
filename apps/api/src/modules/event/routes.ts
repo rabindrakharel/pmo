@@ -642,6 +642,59 @@ export async function eventRoutes(fastify: FastifyInstance) {
   });
 
   /**
+   * PUT /api/v1/event/:id
+   * Update event details (alias to PATCH for frontend compatibility)
+   */
+  fastify.put<{
+    Params: { id: string };
+    Body: UpdateEventRequest;
+  }>('/api/v1/event/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const updates = request.body;
+
+      const updateQuery = client`
+        UPDATE app.d_event
+        SET
+          name = COALESCE(${updates.name || null}, name),
+          descr = COALESCE(${updates.descr || null}, descr),
+          event_type = COALESCE(${updates.event_type || null}, event_type),
+          event_platform_provider_name = COALESCE(${updates.event_platform_provider_name || null}, event_platform_provider_name),
+          event_addr = COALESCE(${updates.event_addr || null}, event_addr),
+          event_instructions = COALESCE(${updates.event_instructions || null}, event_instructions),
+          from_ts = COALESCE(${updates.from_ts ? `${updates.from_ts}::timestamptz` : null}, from_ts),
+          to_ts = COALESCE(${updates.to_ts ? `${updates.to_ts}::timestamptz` : null}, to_ts),
+          timezone = COALESCE(${updates.timezone || null}, timezone),
+          event_metadata = COALESCE(${updates.event_metadata ? JSON.stringify(updates.event_metadata) : null}::jsonb, event_metadata),
+          updated_ts = now(),
+          version = version + 1
+        WHERE id = ${id}::uuid AND active_flag = true
+        RETURNING
+          id::text,
+          code,
+          name,
+          event_type,
+          from_ts::text,
+          to_ts::text,
+          updated_ts::text
+      `;
+
+      const result = await updateQuery;
+
+      if (result.length === 0) {
+        return reply.code(404).send({ error: 'Event not found' });
+      }
+
+      console.log(`✅ Updated event: ${result[0].code}`);
+
+      reply.code(200).send(result[0]);
+    } catch (error) {
+      console.error('Error updating event:', error);
+      reply.code(500).send({ error: 'Failed to update event' });
+    }
+  });
+
+  /**
    * DELETE /api/v1/event/:id
    * Soft delete event and linked event-person mappings
    */

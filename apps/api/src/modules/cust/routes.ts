@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
@@ -9,6 +9,16 @@ import {
   createPaginatedResponse
 } from '../../lib/universal-schema-metadata.js';
 import { transformRequestBody } from '../../lib/data-transformers.js';
+// ✅ Centralized unified data gate - loosely coupled API
+import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+// ✅ Centralized linkage service - DRY entity relationship management
+import { createLinkage } from '../../services/linkage.service.js';
+// ✨ Universal auto-filter builder - zero-config query filtering
+import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✅ Delete factory for cascading soft deletes
+import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+// ✅ Child entity factory for parent-child relationships
+import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 
 // Schema based on actual d_cust table structure from db/14_d_cust.ddl
 const CustSchema = Type.Object({
@@ -91,6 +101,12 @@ const CreateCustSchema = Type.Object({
   active_flag: Type.Optional(Type.Boolean())});
 
 const UpdateCustSchema = Type.Partial(CreateCustSchema);
+
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_TYPE = 'cust';
+const TABLE_ALIAS = 'c';
 
 export async function custRoutes(fastify: FastifyInstance) {
   // Test endpoint
@@ -379,8 +395,8 @@ export async function custRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Update customer
-  fastify.put('/api/v1/cust/:id', {
+  // Update customer (PATCH)
+  fastify.patch('/api/v1/cust/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -388,9 +404,10 @@ export async function custRoutes(fastify: FastifyInstance) {
       body: UpdateCustSchema,
       response: {
         200: CustSchema,
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        400: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
     // Transform request data (tags string → array, etc.)
@@ -484,20 +501,23 @@ export async function custRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Delete customer (soft delete)
-  fastify.delete('/api/v1/cust/:id', {
+  // Update customer (PUT - alias for frontend compatibility)
+  fastify.put('/api/v1/cust/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })}),
+      body: UpdateCustSchema,
       response: {
-        204: Type.Null(),
+        200: CustSchema,
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        400: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
-
+    // Transform request data (tags string → array, etc.)
+    const data = transformRequestBody(request.body as any);
 
     try {
       const existing = await db.execute(sql`
@@ -508,93 +528,93 @@ export async function custRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Customer not found' });
       }
 
-      // Soft delete (using SCD Type 2 pattern)
-      await db.execute(sql`
+      // Check for unique customer number on update
+      if (data.cust_number !== undefined) {
+        const existingNumber = await db.execute(sql`
+          SELECT id FROM app.d_cust
+          WHERE cust_number = ${data.cust_number}
+          AND id != ${id}
+          AND active_flag = true
+        `);
+        if (existingNumber.length > 0) {
+          return reply.status(400).send({ error: 'Customer with this customer number already exists' });
+        }
+      }
+
+      const updateFields = [];
+
+      if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
+      if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
+      if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
+      if (data.cust_number !== undefined) updateFields.push(sql`cust_number = ${data.cust_number}`);
+      if (data.cust_type !== undefined) updateFields.push(sql`cust_type = ${data.cust_type}`);
+      if (data.cust_status !== undefined) updateFields.push(sql`cust_status = ${data.cust_status}`);
+      // Address and location
+      if (data.primary_address !== undefined) updateFields.push(sql`primary_address = ${data.primary_address}`);
+      if (data.city !== undefined) updateFields.push(sql`city = ${data.city}`);
+      if (data.province !== undefined) updateFields.push(sql`province = ${data.province}`);
+      if (data.postal_code !== undefined) updateFields.push(sql`postal_code = ${data.postal_code}`);
+      if (data.country !== undefined) updateFields.push(sql`country = ${data.country}`);
+      if (data.geo_coordinates !== undefined) updateFields.push(sql`geo_coordinates = ${JSON.stringify(data.geo_coordinates)}::jsonb`);
+      // Business information
+      if (data.business_legal_name !== undefined) updateFields.push(sql`business_legal_name = ${data.business_legal_name}`);
+      if (data.business_type !== undefined) updateFields.push(sql`business_type = ${data.business_type}`);
+      if (data.gst_hst_number !== undefined) updateFields.push(sql`gst_hst_number = ${data.gst_hst_number}`);
+      if (data.business_number !== undefined) updateFields.push(sql`business_number = ${data.business_number}`);
+      // Sales and marketing
+      if (data.dl__customer_opportunity_funnel !== undefined) updateFields.push(sql`dl__customer_opportunity_funnel = ${data.dl__customer_opportunity_funnel}`);
+      if (data.dl__industry_sector !== undefined) updateFields.push(sql`dl__industry_sector = ${data.dl__industry_sector}`);
+      if (data.dl__acquisition_channel !== undefined) updateFields.push(sql`dl__acquisition_channel = ${data.dl__acquisition_channel}`);
+      if (data.dl__customer_tier !== undefined) updateFields.push(sql`dl__customer_tier = ${data.dl__customer_tier}`);
+      // Contact information
+      if (data.primary_contact_name !== undefined) updateFields.push(sql`primary_contact_name = ${data.primary_contact_name}`);
+      if (data.primary_email !== undefined) updateFields.push(sql`primary_email = ${data.primary_email}`);
+      if (data.primary_phone !== undefined) updateFields.push(sql`primary_phone = ${data.primary_phone}`);
+      if (data.secondary_contact_name !== undefined) updateFields.push(sql`secondary_contact_name = ${data.secondary_contact_name}`);
+      if (data.secondary_email !== undefined) updateFields.push(sql`secondary_email = ${data.secondary_email}`);
+      if (data.secondary_phone !== undefined) updateFields.push(sql`secondary_phone = ${data.secondary_phone}`);
+      // Entity configuration
+      if (data.entities !== undefined) updateFields.push(sql`entities = ${data.entities}::text[]`);
+      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
+      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
+
+      if (updateFields.length === 0) {
+        return reply.status(400).send({ error: 'No fields to update' });
+      }
+
+      updateFields.push(sql`updated_ts = NOW()`);
+
+      const result = await db.execute(sql`
         UPDATE app.d_cust
-        SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
+        SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
+        RETURNING *
       `);
 
-      return reply.status(204).send();
+      if (result.length === 0) {
+        return reply.status(500).send({ error: 'Failed to update customer' });
+      }
+
+      const userPermissions = {
+        canSeePII: true,
+        canSeeFinancial: true,
+        canSeeSystemFields: true};
+
+      return filterUniversalColumns(result[0], userPermissions);
     } catch (error) {
-      fastify.log.error('Error deleting customer:', error as any);
+      fastify.log.error('Error updating customer:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Get customer projects (child entity route)
-  fastify.get('/api/v1/cust/:id/project', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      querystring: Type.Object({
-        page: Type.Optional(Type.Integer({ minimum: 1 })),
-        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
-      })
-    }
-  }, async (request, reply) => {
-    try {
-      const { id: custId } = request.params as { id: string };
-      const { page = 1, limit = 20 } = request.query as any;
-      const userId = (request as any).user?.sub;
+  // ============================================================================
+  // Delete Customer (Soft Delete via Factory)
+  // ============================================================================
+  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // Check RBAC for customer access
-      const custAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-          AND rbac.entity_name = 'cust'
-          AND (rbac.entity_id = ${custId}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 0
-      `);
-
-      if (custAccess.length === 0) {
-        return reply.status(403).send({ error: 'Access denied for this customer' });
-      }
-
-      // Query child projects linked to this customer
-      const offset = (page - 1) * limit;
-      const projects = await db.execute(sql`
-        SELECT p.*
-        FROM app.d_project p
-        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = p.id::text
-        WHERE eim.parent_entity_id = ${custId}
-          AND eim.parent_entity_type = 'cust'
-          AND eim.child_entity_type = 'project'
-          AND eim.active_flag = true
-          AND p.active_flag = true
-        ORDER BY p.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      // Count total projects for pagination
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.d_project p
-        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = p.id::text
-        WHERE eim.parent_entity_id = ${custId}
-          AND eim.parent_entity_type = 'cust'
-          AND eim.child_entity_type = 'project'
-          AND eim.active_flag = true
-          AND p.active_flag = true
-      `);
-
-      return {
-        data: projects,
-        total: Number(countResult[0]?.total || 0),
-        page,
-        limit
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching customer projects:', error);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
+  // ============================================================================
+  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // ============================================================================
+  // Child entity routes auto-generated from d_entity metadata via factory
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

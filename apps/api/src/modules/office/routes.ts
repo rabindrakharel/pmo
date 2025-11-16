@@ -53,13 +53,8 @@ import {
 } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
-// ✅ API-based RBAC service
-import {
-  data_gate_EntityIdsByEntityType,
-  api_gate_Create,
-  api_gate_Update,
-  PermissionLevel
-} from '../../lib/rbac.service.js';
+// ✅ Centralized unified data gate - loosely coupled API
+import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 
@@ -162,26 +157,27 @@ export async function officeRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // DATA GATE: Get accessible entity IDs for SELECT
-      const accessibleEntityIds = await data_gate_EntityIdsByEntityType(userId, 'office', PermissionLevel.VIEW);
+      // ═══════════════════════════════════════════════════════════════
+      // NEW PATTERN: Route builds SQL, gates augment it
+      // ═══════════════════════════════════════════════════════════════
 
-      if (accessibleEntityIds.length === 0) {
-        return createPaginatedResponse([], 0, limit, offset);
-      }
+      // Build WHERE conditions array
+      const conditions: any[] = [];
 
-      // Build ID filter - gate at SQL level
-      const hasTypeAccess = accessibleEntityIds.includes('11111111-1111-1111-1111-111111111111');
-      const idFilter = hasTypeAccess
-        ? sql`TRUE`  // Type-level access - no filtering
-        : sql`o.id = ANY(${accessibleEntityIds}::uuid[])`;  // Filter by accessible IDs
-
-      const conditions = [idFilter];
+      // GATE 1: RBAC - Apply security filtering (REQUIRED)
+      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
+        userId,
+        ENTITY_TYPE,
+        Permission.VIEW,
+        TABLE_ALIAS
+      );
+      conditions.push(rbacCondition);
 
       // ✨ UNIVERSAL AUTO-FILTER SYSTEM
       // Automatically builds filters from ANY query parameter based on field naming conventions
       // Supports: ?office_type=X, ?city=Y, ?province=Z, ?active_flag=true, ?search=keyword, etc.
       // See: apps/api/src/lib/universal-filter-builder.ts
-      const autoFilters = buildAutoFilters('o', request.query as any, {
+      const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query as any, {
         searchFields: ['name', 'descr', 'code', 'city', 'province', 'address_line1']
       });
       conditions.push(...autoFilters);
@@ -207,7 +203,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
 
       return createPaginatedResponse(offices, total, limit, offset);
     } catch (error) {
-      fastify.log.error({ error, stack: (error as Error).stack }, 'Error fetching organizations');
+      fastify.log.error({ error, stack: (error as Error).stack }, 'Error fetching offices');
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -234,20 +230,23 @@ export async function officeRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // DATA GATE: Get accessible entity IDs for SELECT
-    const accessibleEntityIds = await data_gate_EntityIdsByEntityType(userId, 'office', PermissionLevel.VIEW);
-
-    if (accessibleEntityIds.length === 0) {
-      return reply.status(403).send({ error: 'No access to office' });
-    }
-
-    // Build ID filter - gate at SQL level
-    const hasTypeAccess = accessibleEntityIds.includes('11111111-1111-1111-1111-111111111111');
-    const idFilter = hasTypeAccess
-      ? sql`TRUE`
-      : sql`id = ANY(${accessibleEntityIds}::uuid[])`;
-
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
+      // Uses: RBAC_GATE only (checkPermission)
+      // ═══════════════════════════════════════════════════════════════
+      const canView = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        id,
+        Permission.VIEW
+      );
+
+      if (!canView) {
+        return reply.status(403).send({ error: 'No permission to view this office' });
+      }
+
       const office = await db.execute(sql`
         SELECT
           id, code, name, "descr", metadata,
@@ -256,7 +255,6 @@ export async function officeRoutes(fastify: FastifyInstance) {
           from_ts, to_ts, active_flag, created_ts, updated_ts, version
         FROM app.d_office
         WHERE id = ${id}
-          AND ${idFilter}
       `);
 
       if (office.length === 0) {
@@ -272,7 +270,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
 
       return filterUniversalColumns(office[0], userPermissions);
     } catch (error) {
-      (fastify.log as any).error('Error fetching organization:', error as any);
+      fastify.log.error('Error fetching office:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -404,14 +402,20 @@ export async function officeRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // API GATE: Check CREATE permission
-    try {
-      await api_gate_Create(userId, 'office');
-    } catch (err: any) {
-      return reply.status(err.statusCode || 403).send({
-        error: err.error || 'Forbidden',
-        message: err.message
-      });
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+    // Uses: RBAC_GATE only (checkPermission)
+    // Check: Can user CREATE offices?
+    // ═══════════════════════════════════════════════════════════════
+    const canCreate = await unified_data_gate.rbac_gate.checkPermission(
+      db,
+      userId,
+      ENTITY_TYPE,
+      ALL_ENTITIES_ID,
+      Permission.CREATE
+    );
+    if (!canCreate) {
+      return reply.status(403).send({ error: 'No permission to create offices' });
     }
 
     try {
@@ -471,8 +475,8 @@ export async function officeRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Update office location
-  fastify.put('/api/v1/office/:id', {
+  // Update office location (PATCH)
+  fastify.patch('/api/v1/office/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -481,6 +485,8 @@ export async function officeRoutes(fastify: FastifyInstance) {
       body: UpdateOfficeSchema,
       response: {
         200: OfficeSchema,
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -495,14 +501,20 @@ export async function officeRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // API GATE: Check UPDATE permission
-    try {
-      await api_gate_Update(userId, 'office', id);
-    } catch (err: any) {
-      return reply.status(err.statusCode || 403).send({
-        error: err.error || 'Forbidden',
-        message: err.message
-      });
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+    // Uses: RBAC_GATE only (checkPermission)
+    // Check: Can user EDIT this office?
+    // ═══════════════════════════════════════════════════════════════
+    const canEdit = await unified_data_gate.rbac_gate.checkPermission(
+      db,
+      userId,
+      ENTITY_TYPE,
+      id,
+      Permission.EDIT
+    );
+    if (!canEdit) {
+      return reply.status(403).send({ error: 'No permission to edit this office' });
     }
 
     try {
@@ -564,19 +576,126 @@ export async function officeRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // ============================================================================
+  // Update Office Location (PUT - alias to PATCH for frontend compatibility)
+  // ============================================================================
+
+  fastify.put('/api/v1/office/:id', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' }),
+      }),
+      body: UpdateOfficeSchema,
+      response: {
+        200: OfficeSchema,
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const data = request.body as any;
+
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+    // Uses: RBAC_GATE only (checkPermission)
+    // Check: Can user EDIT this office?
+    // ═══════════════════════════════════════════════════════════════
+    const canEdit = await unified_data_gate.rbac_gate.checkPermission(
+      db,
+      userId,
+      ENTITY_TYPE,
+      id,
+      Permission.EDIT
+    );
+    if (!canEdit) {
+      return reply.status(403).send({ error: 'No permission to edit this office' });
+    }
+
+    try {
+      const existing = await db.execute(sql`
+        SELECT id FROM app.d_office WHERE id = ${id}
+      `);
+
+      if (existing.length === 0) {
+        return reply.status(404).send({ error: 'Organization not found' });
+      }
+
+      const updateFields = [];
+
+      if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
+      if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
+      if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
+      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
+      if (data.address_line1 !== undefined) updateFields.push(sql`address_line1 = ${data.address_line1}`);
+      if (data.address_line2 !== undefined) updateFields.push(sql`address_line2 = ${data.address_line2}`);
+      if (data.city !== undefined) updateFields.push(sql`city = ${data.city}`);
+      if (data.province !== undefined) updateFields.push(sql`province = ${data.province}`);
+      if (data.postal_code !== undefined) updateFields.push(sql`postal_code = ${data.postal_code}`);
+      if (data.country !== undefined) updateFields.push(sql`country = ${data.country}`);
+      if (data.phone !== undefined) updateFields.push(sql`phone = ${data.phone}`);
+      if (data.email !== undefined) updateFields.push(sql`email = ${data.email}`);
+      if (data.office_type !== undefined) updateFields.push(sql`office_type = ${data.office_type}`);
+      if (data.capacity_employees !== undefined) updateFields.push(sql`capacity_employees = ${data.capacity_employees}`);
+      if (data.square_footage !== undefined) updateFields.push(sql`square_footage = ${data.square_footage}`);
+      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
+
+      if (updateFields.length === 0) {
+        return reply.status(400).send({ error: 'No fields to update' });
+      }
+
+      updateFields.push(sql`updated_ts = NOW()`);
+
+      const result = await db.execute(sql`
+        UPDATE app.d_office
+        SET ${sql.join(updateFields, sql`, `)}
+        WHERE id = ${id}
+        RETURNING *
+      `);
+
+      if (result.length === 0) {
+        return reply.status(500).send({ error: 'Failed to update office' });
+      }
+
+      const userPermissions = {
+        canSeePII: true,
+        canSeeFinancial: true,
+        canSeeSystemFields: true,
+        canSeeSafetyInfo: true,
+      };
+
+      return filterUniversalColumns(result[0], userPermissions);
+    } catch (error) {
+      (fastify.log as any).error('Error updating organization:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ============================================================================
+  // Delete Office (Soft Delete via Factory)
+  // ============================================================================
   // Delete office with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
   // 1. app.d_office (base entity table)
   // 2. app.d_entity_instance_id (entity registry)
   // 3. app.d_entity_id_map (linkages in both directions)
-  createEntityDeleteEndpoint(fastify, 'office');
+  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
   // ============================================================================
   // Child Entity Endpoints (Auto-Generated from d_entity metadata)
   // ============================================================================
   // Creates: GET /api/v1/office/:id/{child} for each child in d_entity.child_entities
   // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
-  await createChildEntityEndpointsFromMetadata(fastify, 'office');
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 
   // ========================================
   // CHILD ENTITY CREATION

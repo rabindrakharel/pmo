@@ -1,12 +1,18 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, isNull, desc, asc, sql, SQL } from 'drizzle-orm';
 import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
-import {
-  data_gate_EntityIdsByEntityType,
-  PermissionLevel
-} from '../../lib/rbac.service.js';
+// ✅ Centralized unified data gate - loosely coupled API
+import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+// ✅ Centralized linkage service - DRY entity relationship management
+import { createLinkage } from '../../services/linkage.service.js';
+// ✨ Universal auto-filter builder - zero-config query filtering
+import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✅ Delete factory for cascading soft deletes
+import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+// ✅ Child entity factory for parent-child relationships
+import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 
 const RoleSchema = Type.Object({
   id: Type.String(),
@@ -47,6 +53,12 @@ const CreateRoleSchema = Type.Object({
   metadata: Type.Optional(Type.Any())});
 
 const UpdateRoleSchema = Type.Partial(CreateRoleSchema);
+
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_TYPE = 'role';
+const TABLE_ALIAS = 'r';
 
 export async function roleRoutes(fastify: FastifyInstance) {
   // List roles
@@ -224,7 +236,123 @@ export async function roleRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Update role
+  // Update role (PATCH)
+  fastify.patch('/api/v1/role/:id', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })}),
+      body: UpdateRoleSchema,
+      response: {
+        200: RoleSchema,
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const data = request.body as any;
+
+
+    try {
+      // Check if role exists
+      const existing = await db.execute(sql`
+        SELECT id FROM app.d_role WHERE id = ${id} AND active_flag = true
+      `);
+
+      if (existing.length === 0) {
+        return reply.status(404).send({ error: 'Role not found' });
+      }
+
+      // Check for unique name on update
+      if (data.name) {
+        const existingName = await db.execute(sql`
+          SELECT id FROM app.d_role WHERE name = ${data.name} AND active_flag = true AND id != ${id}
+        `);
+        if (existingName.length > 0) {
+          return reply.status(400).send({ error: 'Role with this name already exists' });
+        }
+      }
+
+      // Build update fields
+      const updateFields = [];
+
+      if (data.name !== undefined) {
+        updateFields.push(sql`name = ${data.name}`);
+      }
+
+      if (data.descr !== undefined) {
+        updateFields.push(sql`"descr" = ${data.descr}`);
+      }
+
+      if (data.roleType !== undefined) {
+        updateFields.push(sql`role_code = ${data.roleType}`);
+      }
+
+      if (data.roleCategory !== undefined) {
+        updateFields.push(sql`role_category = ${data.roleCategory}`);
+      }
+
+      if (data.authorityLevel !== undefined) {
+        updateFields.push(sql`reporting_level = ${data.authorityLevel}`);
+      }
+
+      if (data.approvalLimit !== undefined) {
+        updateFields.push(sql`required_experience_years = ${data.approvalLimit}`);
+      }
+
+      if (data.delegationAllowed !== undefined) {
+        updateFields.push(sql`management_role_flag = ${data.delegationAllowed}`);
+      }
+
+      if (data.attr !== undefined) {
+        updateFields.push(sql`metadata = ${JSON.stringify(data.attr)}::jsonb`);
+      }
+
+      if (data.active !== undefined) {
+        updateFields.push(sql`active_flag = ${data.active}`);
+      }
+
+      if (updateFields.length === 0) {
+        return reply.status(400).send({ error: 'No fields to update' });
+      }
+
+      updateFields.push(sql`updated_ts = NOW()`);
+
+      const result = await db.execute(sql`
+        UPDATE app.d_role
+        SET ${sql.join(updateFields, sql`, `)}
+        WHERE id = ${id}
+        RETURNING
+          id,
+          name,
+          "descr",
+          role_code,
+          role_category,
+          reporting_level,
+          required_experience_years,
+          management_role_flag,
+          active_flag,
+          from_ts,
+          to_ts,
+          created_ts,
+          updated_ts,
+          metadata
+      `);
+
+      if (result.length === 0) {
+        return reply.status(500).send({ error: 'Failed to update role' });
+      }
+
+      // Return data directly in snake_case format (no transformation needed)
+      return result[0];
+    } catch (error) {
+      fastify.log.error('Error updating role:');
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Update role (PUT - alias for frontend compatibility)
   fastify.put('/api/v1/role/:id', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -233,6 +361,8 @@ export async function roleRoutes(fastify: FastifyInstance) {
       body: UpdateRoleSchema,
       response: {
         200: RoleSchema,
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
@@ -338,252 +468,14 @@ export async function roleRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Delete role (soft delete)
-  fastify.delete('/api/v1/role/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })}),
-      response: {
-        204: Type.Null(),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
-    const { id } = request.params as { id: string };
+  // ============================================================================
+  // Delete Role (Soft Delete via Factory)
+  // ============================================================================
+  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
-
-    try {
-      // Check if role exists
-      const existing = await db.execute(sql`
-        SELECT id FROM app.d_role WHERE id = ${id} AND active_flag = true
-      `);
-      
-      if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Role not found' });
-      }
-
-      // Check if role is assigned to any employees using d_entity_id_map
-      const assignedEmployees = await db.execute(sql`
-        SELECT COUNT(*) as count
-        FROM app.d_entity_id_map
-        WHERE parent_entity_type = 'role'
-          AND parent_entity_id = ${id}
-          AND child_entity_type = 'employee'
-          AND active_flag = true
-      `);
-
-      if (Number(assignedEmployees[0]?.count || 0) > 0) {
-        return reply.status(400).send({ error: 'Cannot delete role that is assigned to employees' });
-      }
-
-      // Soft delete
-      await db.execute(sql`
-        UPDATE app.d_role
-        SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
-        WHERE id = ${id}
-      `);
-
-      return reply.status(204).send();
-    } catch (error) {
-      fastify.log.error('Error deleting role:');
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // Get role dynamic child entity tabs - for tab navigation
-  fastify.get('/api/v1/role/:id/dynamic-child-entity-tabs', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      response: {
-        200: Type.Object({
-          action_entities: Type.Array(Type.Object({
-            actionEntity: Type.String(),
-            count: Type.Number(),
-            label: Type.String(),
-            icon: Type.Optional(Type.String())
-          })),
-          role_id: Type.String()
-        }),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })
-      }
-    }
-  }, async (request, reply) => {
-    try {
-      const { id: roleId } = request.params as { id: string };
-      const userId = (request as any).user?.sub;
-
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // DATA GATE: Check if user has access to this role
-      const accessibleEntityIds = await data_gate_EntityIdsByEntityType(userId, 'role', PermissionLevel.VIEW);
-
-      if (accessibleEntityIds.length === 0) {
-        return reply.status(403).send({ error: 'No access to roles' });
-      }
-
-      // Build ID filter - gate at SQL level
-      const hasTypeAccess = accessibleEntityIds.includes('11111111-1111-1111-1111-111111111111');
-      if (!hasTypeAccess && !accessibleEntityIds.includes(roleId)) {
-        return reply.status(403).send({ error: 'Insufficient permissions to view this role' });
-      }
-
-      // Check if role exists
-      const role = await db.execute(sql`
-        SELECT id FROM app.d_role WHERE id = ${roleId} AND active_flag = true
-      `);
-
-      if (role.length === 0) {
-        return reply.status(404).send({ error: 'Role not found' });
-      }
-
-      // Get child entities from d_entity table
-      const entityMeta = await db.execute(sql`
-        SELECT child_entities FROM app.d_entity WHERE code = 'role'
-      `);
-
-      const childEntities = entityMeta[0]?.child_entities || [];
-      const actionSummaries = [];
-
-      // Count records for each child entity
-      for (const child of childEntities) {
-        const childEntityCode = child.entity;
-        let count = 0;
-
-        if (childEntityCode === 'employee') {
-          // Count employees assigned to this role
-          const result = await db.execute(sql`
-            SELECT COUNT(*) as count
-            FROM app.d_employee e
-            INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = e.id::text
-            WHERE eim.parent_entity_id = ${roleId}
-              AND eim.parent_entity_type = 'role'
-              AND eim.child_entity_type = 'employee'
-              AND eim.active_flag = true
-              AND e.active_flag = true
-          `);
-          count = Number(result[0]?.count || 0);
-        } else if (childEntityCode === 'rbac') {
-          // Count RBAC permissions for this role
-          const result = await db.execute(sql`
-            SELECT COUNT(*) as count
-            FROM app.entity_id_rbac_map
-            WHERE person_entity_name = 'role'
-              AND person_entity_id = ${roleId}
-              AND active_flag = true
-          `);
-          count = Number(result[0]?.count || 0);
-        }
-
-        actionSummaries.push({
-          actionEntity: childEntityCode,
-          count: count,
-          label: child.ui_label || childEntityCode,
-          icon: child.ui_icon || 'Tag'
-        });
-      }
-
-      return {
-        action_entities: actionSummaries,
-        role_id: roleId
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching role action summaries:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  // Note: /api/v1/role/:id/employee endpoint removed
-  // Now using create-link-edit pattern: GET /api/v1/employee?parent_type=role&parent_id={id}
-
-  // Get role permissions across scopes
-  fastify.get('/api/v1/role/:id/permissions', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })}),
-      response: {
-        200: Type.Object({
-          role: RoleSchema,
-          permissions: Type.Array(Type.Object({
-            scopeType: Type.String(),
-            scopeId: Type.String(),
-            scopeName: Type.String(),
-            permissions: Type.Array(Type.Number())}))}),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
-    const { id } = request.params as { id: string };
-
-
-    try {
-      // Get role
-      const role = await db.execute(sql`
-        SELECT
-          id,
-          name,
-          "descr",
-          role_code,
-          role_category,
-          reporting_level,
-          required_experience_years,
-          management_role_flag,
-          active_flag,
-          from_ts,
-          to_ts,
-          created_ts,
-          updated_ts,
-          metadata
-        FROM app.d_role
-        WHERE id = ${id} AND active_flag = true
-      `);
-
-      if (role.length === 0) {
-        return reply.status(404).send({ error: 'Role not found' });
-      }
-
-      // Transform database result to match schema
-      const transformedRole = {
-        id: role[0].id,
-        name: role[0].name,
-        descr: role[0].descr,
-        roleType: role[0].role_code,
-        roleCategory: role[0].role_category,
-        authorityLevel: role[0].reporting_level,
-        approvalLimit: role[0].required_experience_years,
-        delegationAllowed: role[0].management_role_flag,
-        active: role[0].active_flag,
-        fromTs: role[0].from_ts,
-        toTs: role[0].to_ts,
-        created: role[0].created_ts,
-        updated: role[0].updated_ts,
-        attr: role[0].metadata
-      };
-
-      // Get role permissions from entity-based RBAC
-      const permissions = await db.execute(sql`
-        SELECT
-          'role' as "scopeType",
-          r.id as "scopeId",
-          r.name as "scopeName",
-          ARRAY['view'] as "permissions"
-        FROM app.d_role r
-        WHERE r.id = ${id} AND r.active_flag = true
-        ORDER BY r.name
-      `);
-
-      return {
-        role: transformedRole,
-        permissions};
-    } catch (error) {
-      fastify.log.error('Error fetching role permissions:');
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
+  // ============================================================================
+  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // ============================================================================
+  // Child entity routes auto-generated from d_entity metadata via factory
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

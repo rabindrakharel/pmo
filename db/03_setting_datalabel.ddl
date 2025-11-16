@@ -584,6 +584,31 @@ INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata) 
   {"id": 7, "name": "Business Meals", "descr": "Business meals with clients/prospects (50% deductible)", "parent_ids": [], "color_code": "orange"},
   {"id": 8, "name": "Client Entertainment", "descr": "Client entertainment events (50% deductible)", "parent_ids": [], "color_code": "orange"},
   {"id": 9, "name": "Staff Functions (50%)", "descr": "Staff functions and team meals (50% deductible)", "parent_ids": [], "color_code": "orange"}
+]'::jsonb),
+
+-- Expense Code Labels (CRA T2125 Line Items)
+('dl__expense_code', 'Expense Codes (CRA T2125)', 'Hash', '[
+  {"id": 8521, "name": "8521 - Advertising", "descr": "Advertising and promotion expenses", "parent_ids": [], "color_code": "blue"},
+  {"id": 8523, "name": "8523 - Meals and Entertainment (50%)", "descr": "Business meals and entertainment (50% deductible)", "parent_ids": [], "color_code": "orange"},
+  {"id": 8590, "name": "8590 - Bad Debts", "descr": "Bad debts written off", "parent_ids": [], "color_code": "red"},
+  {"id": 8690, "name": "8690 - Insurance", "descr": "Business insurance premiums", "parent_ids": [], "color_code": "purple"},
+  {"id": 8710, "name": "8710 - Interest and Bank Charges", "descr": "Interest on business loans and bank fees", "parent_ids": [], "color_code": "cyan"},
+  {"id": 8750, "name": "8750 - Business Tax, Fees, Licenses", "descr": "Business taxes and licenses", "parent_ids": [], "color_code": "gray"},
+  {"id": 8760, "name": "8760 - Office Expenses", "descr": "Office supplies and expenses", "parent_ids": [], "color_code": "blue"},
+  {"id": 8810, "name": "8810 - Professional Fees", "descr": "Legal, accounting, consulting fees", "parent_ids": [], "color_code": "purple"},
+  {"id": 8871, "name": "8871 - Rent", "descr": "Rent for business premises", "parent_ids": [], "color_code": "green"},
+  {"id": 9270, "name": "9270 - Salaries and Wages", "descr": "Employee salaries and wages", "parent_ids": [], "color_code": "yellow"},
+  {"id": 9281, "name": "9281 - Subcontractors", "descr": "Payments to subcontractors", "parent_ids": [], "color_code": "orange"},
+  {"id": 9945, "name": "9945 - Telephone and Utilities", "descr": "Phone, internet, utilities", "parent_ids": [], "color_code": "cyan"},
+  {"id": 9936, "name": "9936 - Travel", "descr": "Business travel expenses", "parent_ids": [], "color_code": "blue"},
+  {"id": 8860, "name": "8860 - Property Taxes", "descr": "Property taxes for business property", "parent_ids": [], "color_code": "gray"},
+  {"id": 8960, "name": "8960 - Management and Administration", "descr": "Management and administrative fees", "parent_ids": [], "color_code": "purple"},
+  {"id": 9200, "name": "9200 - Repairs and Maintenance", "descr": "Repairs and maintenance", "parent_ids": [], "color_code": "orange"},
+  {"id": 9220, "name": "9220 - Motor Vehicle Expenses", "descr": "Vehicle fuel, insurance, repairs", "parent_ids": [], "color_code": "red"},
+  {"id": 9224, "name": "9224 - Fuel Costs", "descr": "Fuel costs for business vehicles", "parent_ids": [], "color_code": "orange"},
+  {"id": 9275, "name": "9275 - Employee Benefits", "descr": "Employee benefits and perks", "parent_ids": [], "color_code": "green"},
+  {"id": 9350, "name": "9350 - Delivery, Freight, and Express", "descr": "Shipping and delivery costs", "parent_ids": [], "color_code": "blue"},
+  {"id": 9819, "name": "9819 - Other Expenses", "descr": "Miscellaneous business expenses", "parent_ids": [], "color_code": "gray"}
 ]'::jsonb);
 
 COMMENT ON TABLE app.setting_datalabel IS 'Unified data label table for all entity labels (stages, statuses, priorities, etc.)';

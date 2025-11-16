@@ -1,13 +1,23 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
   getColumnsByMetadata,
   createPaginatedResponse
 } from '../../lib/universal-schema-metadata.js';
+// ✅ Centralized unified data gate - loosely coupled API
+import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+// ✅ Centralized linkage service - DRY entity relationship management
+import { createLinkage } from '../../services/linkage.service.js';
+// ✨ Universal auto-filter builder - zero-config query filtering
+import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✅ Delete factory for cascading soft deletes
+import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+// ✅ Child entity factory for parent-child relationships
+import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 
 // Schema based on d_worksite table structure
 const WorksiteSchema = Type.Object({
@@ -93,6 +103,12 @@ const CreateWorksiteSchema = Type.Object({
 });
 
 const UpdateWorksiteSchema = Type.Partial(CreateWorksiteSchema);
+
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_TYPE = 'worksite';
+const TABLE_ALIAS = 'w';
 
 export async function worksiteRoutes(fastify: FastifyInstance) {
   // List worksites
@@ -295,7 +311,90 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Update worksite
+  // Update worksite (PATCH)
+  fastify.patch('/api/v1/worksite/:id', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String(),
+      }),
+      body: UpdateWorksiteSchema,
+      response: {
+        200: WorksiteSchema,
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const data = request.body as any;
+
+    try {
+      // Check if worksite exists
+      const existing = await db.execute(sql`
+        SELECT id FROM app.d_worksite WHERE id = ${id}
+      `);
+
+      if (existing.length === 0) {
+        return reply.status(404).send({ error: 'Worksite not found' });
+      }
+
+      // Build update fields
+      const updateFields = [];
+      if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
+      if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
+      if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
+      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
+      if (data.worksite_type !== undefined) updateFields.push(sql`worksite_type = ${data.worksite_type}`);
+      if (data.addr !== undefined) updateFields.push(sql`addr = ${data.addr}`);
+      if (data.postal_code !== undefined) updateFields.push(sql`postal_code = ${data.postal_code}`);
+      if (data.latitude !== undefined) updateFields.push(sql`latitude = ${data.latitude}`);
+      if (data.longitude !== undefined) updateFields.push(sql`longitude = ${data.longitude}`);
+      if (data.time_zone !== undefined) updateFields.push(sql`time_zone = ${data.time_zone}`);
+      if (data.capacity_workers !== undefined) updateFields.push(sql`capacity_workers = ${data.capacity_workers}`);
+      if (data.equipment_storage !== undefined) updateFields.push(sql`equipment_storage = ${data.equipment_storage}`);
+      if (data.vehicle_parking !== undefined) updateFields.push(sql`vehicle_parking = ${data.vehicle_parking}`);
+      if (data.security_required !== undefined) updateFields.push(sql`security_required = ${data.security_required}`);
+      if (data.indoor_space_sqft !== undefined) updateFields.push(sql`indoor_space_sqft = ${data.indoor_space_sqft}`);
+      if (data.outdoor_space_sqft !== undefined) updateFields.push(sql`outdoor_space_sqft = ${data.outdoor_space_sqft}`);
+      if (data.office_space !== undefined) updateFields.push(sql`office_space = ${data.office_space}`);
+      if (data.washroom_facilities !== undefined) updateFields.push(sql`washroom_facilities = ${data.washroom_facilities}`);
+      if (data.power_available !== undefined) updateFields.push(sql`power_available = ${data.power_available}`);
+      if (data.water_available !== undefined) updateFields.push(sql`water_available = ${data.water_available}`);
+      if (data.safety_rating !== undefined) updateFields.push(sql`safety_rating = ${data.safety_rating}`);
+      if (data.safety_last_inspection !== undefined) updateFields.push(sql`safety_last_inspection = ${data.safety_last_inspection}`);
+      if (data.environmental_permits !== undefined) updateFields.push(sql`environmental_permits = ${JSON.stringify(data.environmental_permits)}`);
+      if (data.seasonal_use !== undefined) updateFields.push(sql`seasonal_use = ${data.seasonal_use}`);
+      if (data.seasonal_period !== undefined) updateFields.push(sql`seasonal_period = ${data.seasonal_period}`);
+      if (data.emergency_contact !== undefined) updateFields.push(sql`emergency_contact = ${JSON.stringify(data.emergency_contact)}`);
+
+      if (updateFields.length === 0) {
+        return reply.status(400).send({ error: 'No fields to update' });
+      }
+
+      updateFields.push(sql`updated_ts = NOW()`);
+
+      const result = await db.execute(sql`
+        UPDATE app.d_worksite
+        SET ${sql.join(updateFields, sql`, `)}
+        WHERE id = ${id}
+        RETURNING *
+      `);
+
+      if (result.length === 0) {
+        return reply.status(500).send({ error: 'Failed to update worksite' });
+      }
+
+      return result[0];
+    } catch (error) {
+      fastify.log.error('Error updating worksite:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Update worksite (PUT - alias for frontend compatibility)
   fastify.put('/api/v1/worksite/:id', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -378,44 +477,13 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Delete (soft delete) worksite
-  fastify.delete('/api/v1/worksite/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String(),
-      }),
-      response: {
-        204: Type.Object({}),
-        401: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() }),
-      },
-    },
-  }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+  // ============================================================================
+  // DELETE Worksite (Soft Delete via Factory)
+  // ============================================================================
+  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
-    try {
-      // Check if worksite exists
-      const existing = await db.execute(sql`
-        SELECT id FROM app.d_worksite WHERE id = ${id}
-      `);
-
-      if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Worksite not found' });
-      }
-
-      // Soft delete (using SCD Type 2 pattern)
-      await db.execute(sql`
-        UPDATE app.d_worksite
-        SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
-        WHERE id = ${id}
-      `);
-
-      return reply.status(204).send();
-    } catch (error) {
-      fastify.log.error('Error deleting worksite:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
+  // ============================================================================
+  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // ============================================================================
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

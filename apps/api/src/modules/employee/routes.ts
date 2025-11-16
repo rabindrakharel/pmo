@@ -1,13 +1,23 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
+// ✅ Centralized unified data gate - loosely coupled API
+import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+// ✅ Centralized linkage service - DRY entity relationship management
+import { createLinkage } from '../../services/linkage.service.js';
+// ✨ Universal auto-filter builder - zero-config query filtering
+import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✅ Delete factory for cascading soft deletes
+import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+// ✅ Child entity factory for parent-child relationships
+import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 
 // Schema aligned with DDL: db/11_d_employee.ddl
 // ONLY includes fields that exist as table columns
@@ -167,6 +177,12 @@ const UpdateEmployeeSchema = Type.Object({
   remote_work_eligible: Type.Optional(Type.Boolean()),  // DDL name
   time_zone: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   preferred_language: Type.Optional(Type.Union([Type.String(), Type.Null()]))});
+
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_TYPE = 'employee';
+const TABLE_ALIAS = 'e';
 
 export async function empRoutes(fastify: FastifyInstance) {
   // List employees
@@ -493,7 +509,118 @@ export async function empRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Update employee
+  // Update employee (PATCH)
+  fastify.patch('/api/v1/employee/:id', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })}),
+      body: UpdateEmployeeSchema,
+      response: {
+        200: Type.Any(),
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const data = request.body as any;
+
+
+    try {
+      const existing = await db.execute(sql`
+        SELECT id FROM app.d_employee WHERE id = ${id}
+      `);
+
+      if (existing.length === 0) {
+        return reply.status(404).send({ error: 'Employee not found' });
+      }
+
+      const updateFields = [];
+
+      // Standard fields
+      if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
+      if (data.descr !== undefined) updateFields.push(sql`"descr" = ${data.descr}`);
+      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
+
+      // Employee identification
+      if (data.email !== undefined) updateFields.push(sql`email = ${data.email}`);
+      if (data.first_name !== undefined) updateFields.push(sql`first_name = ${data.first_name}`);
+      if (data.last_name !== undefined) updateFields.push(sql`last_name = ${data.last_name}`);
+
+      // Contact information
+      if (data.phone !== undefined) updateFields.push(sql`phone = ${data.phone}`);
+      if (data.mobile !== undefined) updateFields.push(sql`mobile = ${data.mobile}`);
+      if (data.emergency_contact_name !== undefined) updateFields.push(sql`emergency_contact_name = ${data.emergency_contact_name}`);
+      if (data.emergency_contact_phone !== undefined) updateFields.push(sql`emergency_contact_phone = ${data.emergency_contact_phone}`);
+
+      // Address information
+      if (data.address_line1 !== undefined) updateFields.push(sql`address_line1 = ${data.address_line1}`);
+      if (data.address_line2 !== undefined) updateFields.push(sql`address_line2 = ${data.address_line2}`);
+      if (data.city !== undefined) updateFields.push(sql`city = ${data.city}`);
+      if (data.province !== undefined) updateFields.push(sql`province = ${data.province}`);
+      if (data.postal_code !== undefined) updateFields.push(sql`postal_code = ${data.postal_code}`);
+      if (data.country !== undefined) updateFields.push(sql`country = ${data.country}`);
+
+      // Employment details
+      if (data.employee_type !== undefined) updateFields.push(sql`dl__employee_employment_type = ${data.employee_type}`);
+      if (data.department !== undefined) updateFields.push(sql`department = ${data.department}`);
+      if (data.title !== undefined) updateFields.push(sql`title = ${data.title}`);
+      if (data.hire_date !== undefined) updateFields.push(sql`hire_date = ${data.hire_date}`);
+      if (data.termination_date !== undefined) updateFields.push(sql`termination_date = ${data.termination_date}`);
+
+      // Compensation and HR
+      if (data.salary_band !== undefined) updateFields.push(sql`salary_band = ${data.salary_band}`);
+      if (data.pay_grade !== undefined) updateFields.push(sql`pay_grade = ${data.pay_grade}`);
+      if (data.manager_employee_id !== undefined) updateFields.push(sql`manager_employee_id = ${data.manager_employee_id}`);
+
+      // Compliance and tracking
+      if (data.sin !== undefined) updateFields.push(sql`sin = ${data.sin}`);
+      if (data.birth_date !== undefined) updateFields.push(sql`birth_date = ${data.birth_date}`);
+      if (data.citizenship !== undefined) updateFields.push(sql`dl__employee_citizenship_status = ${data.citizenship}`);
+      if (data.security_clearance !== undefined) updateFields.push(sql`dl__employee_security_clearance = ${data.security_clearance}`);
+
+      // Work preferences
+      if (data.remote_work_eligible !== undefined) updateFields.push(sql`remote_work_eligible_flag = ${data.remote_work_eligible}`);
+      if (data.time_zone !== undefined) updateFields.push(sql`time_zone = ${data.time_zone}`);
+      if (data.preferred_language !== undefined) updateFields.push(sql`preferred_language = ${data.preferred_language}`);
+
+      // Handle metadata - can be object or JSON string
+      if (data.metadata !== undefined) {
+        const metadataValue = typeof data.metadata === 'string' ? data.metadata : JSON.stringify(data.metadata);
+        updateFields.push(sql`metadata = ${metadataValue}::jsonb`);
+      }
+
+      if (updateFields.length === 0) {
+        return reply.status(400).send({ error: 'No fields to update' });
+      }
+
+      updateFields.push(sql`updated_ts = NOW()`);
+
+      const result = await db.execute(sql`
+        UPDATE app.d_employee
+        SET ${sql.join(updateFields, sql`, `)}
+        WHERE id = ${id}
+        RETURNING *
+      `);
+
+      if (result.length === 0) {
+        return reply.status(500).send({ error: 'Failed to update employee' });
+      }
+
+      const userPermissions = {
+        canSeePII: true,
+        canSeeFinancial: true,
+        canSeeSystemFields: true};
+
+      return filterUniversalColumns(result[0], userPermissions);
+    } catch (error) {
+      fastify.log.error('Error updating employee:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // Update employee (PUT - alias for frontend compatibility)
   fastify.put('/api/v1/employee/:id', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -501,7 +628,9 @@ export async function empRoutes(fastify: FastifyInstance) {
         id: Type.String({ format: 'uuid' })}),
       body: UpdateEmployeeSchema,
       response: {
-        // Removed Type.Any() - let Fastify serialize naturally without schema validation
+        200: Type.Any(),
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
@@ -602,39 +731,13 @@ export async function empRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Delete employee (soft delete)
-  fastify.delete('/api/v1/employee/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })}),
-      response: {
-        204: Type.Null(),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
-    const { id } = request.params as { id: string };
+  // ============================================================================
+  // DELETE Employee (Soft Delete via Factory)
+  // ============================================================================
+  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
-
-    try {
-      const existing = await db.execute(sql`
-        SELECT id FROM app.d_employee WHERE id = ${id}
-      `);
-      
-      if (existing.length === 0) {
-        return reply.status(404).send({ error: 'Employee not found' });
-      }
-
-      await db.execute(sql`
-        UPDATE app.d_employee
-        SET active_flag = false, to_ts = NOW(), updated_ts = NOW()
-        WHERE id = ${id}
-      `);
-
-      return reply.status(204).send();
-    } catch (error) {
-      fastify.log.error('Error deleting employee:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
+  // ============================================================================
+  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // ============================================================================
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

@@ -31,11 +31,6 @@
  *     db, userId, ENTITY_TYPE, id, Permission.VIEW
  *   );
  *
- * Current Usage:
- *   const accessibleIds = await data_gate_EntityIdsByEntityType(
- *     userId, 'task', PermissionLevel.VIEW
- *   );
- *
  * 2. CREATE-LINK-EDIT PATTERN (Parent-Child Relationships)
  * ─────────────────────────────────────────────────────────
  * Instead of nested creation endpoints, we use:
@@ -112,13 +107,13 @@
  *
  * Example 1: List Tasks with RBAC
  *   1. User requests GET /api/v1/task
- *   2. data_gate_EntityIdsByEntityType('task', VIEW) returns accessible IDs
- *   3. SQL query includes: WHERE t.id = ANY(accessible_ids)
+ *   2. unified_data_gate.rbac_gate.getWhereCondition() builds RBAC filter
+ *   3. SQL query includes RBAC WHERE condition automatically
  *   4. Returns only tasks user can view
  *
  * Example 2: Create Task and Link to Project
  *   1. User requests POST /api/v1/task (with project_id in metadata)
- *   2. api_gate_Create('task') validates CREATE permission
+ *   2. unified_data_gate.rbac_gate.checkPermission(Permission.CREATE) validates
  *   3. Create task in d_task
  *   4. Frontend calls POST /api/v1/linkage to link task → project
  *   5. Frontend calls POST /api/v1/linkage to assign employee
@@ -126,7 +121,7 @@
  * Example 3: Update Task Stage (Kanban)
  *   1. User drags task card to new column
  *   2. Frontend calls PATCH /api/v1/task/:id/status
- *   3. api_gate_Update('task', id) validates EDIT permission
+ *   3. unified_data_gate.rbac_gate.checkPermission(Permission.EDIT) validates
  *   4. Update dl__task_stage with audit metadata
  *   5. Return updated task for optimistic UI
  *
@@ -467,7 +462,6 @@ export async function taskRoutes(fastify: FastifyInstance) {
           t.created_ts, t.updated_ts, t.version
         FROM app.d_task t
         WHERE t.id = ${id}
-          AND ${idFilter}
       `);
 
       if (task.length === 0) {
@@ -574,8 +568,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Update task (direct update to task table)
-  fastify.put('/api/v1/task/:id', {
+  // ============================================================================
+  // Update Task (PATCH)
+  // ============================================================================
+
+  fastify.patch('/api/v1/task/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -583,6 +580,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
       body: UpdateTaskSchema,
       response: {
         200: TaskSchema,
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
@@ -677,12 +676,123 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // ============================================================================
+  // Update Task (PUT - alias to PATCH for frontend compatibility)
+  // ============================================================================
+
+  fastify.put('/api/v1/task/:id', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })}),
+      body: UpdateTaskSchema,
+      response: {
+        200: TaskSchema,
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const data = request.body as any;
+
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+    // Uses: RBAC_GATE only (checkPermission)
+    // Check: Can user EDIT this task?
+    // ═══════════════════════════════════════════════════════════════
+    const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+    if (!canEdit) {
+      return reply.status(403).send({ error: 'No permission to edit this task' });
+    }
+
+    try {
+      // Check if task exists
+      const existing = await db.execute(sql`
+        SELECT id FROM app.d_task WHERE id = ${id}
+      `);
+
+      if (existing.length === 0) {
+        return reply.status(404).send({ error: 'Task not found' });
+      }
+
+      const updateFields = [];
+
+      // Update only fields that exist in d_task DDL (19_d_task.ddl)
+      if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
+      if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
+      if (data.code !== undefined) updateFields.push(sql`code = ${data.code}`);
+      if (data.internal_url !== undefined) updateFields.push(sql`internal_url = ${data.internal_url}`);
+      if (data.shared_url !== undefined) updateFields.push(sql`shared_url = ${data.shared_url}`);
+      if (data.metadata !== undefined) updateFields.push(sql`metadata = ${JSON.stringify(data.metadata)}::jsonb`);
+      if (data.dl__task_stage !== undefined) updateFields.push(sql`dl__task_stage = ${data.dl__task_stage}`);
+      if (data.dl__task_priority !== undefined) updateFields.push(sql`dl__task_priority = ${data.dl__task_priority}`);
+      if (data.estimated_hours !== undefined) updateFields.push(sql`estimated_hours = ${data.estimated_hours}`);
+      if (data.actual_hours !== undefined) updateFields.push(sql`actual_hours = ${data.actual_hours}`);
+      if (data.story_points !== undefined) updateFields.push(sql`story_points = ${data.story_points}`);
+      if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
+
+      if (updateFields.length === 0) {
+        return reply.status(400).send({ error: 'No fields to update' });
+      }
+
+      updateFields.push(sql`updated_ts = NOW()`);
+
+      const result = await db.execute(sql`
+        UPDATE app.d_task
+        SET ${sql.join(updateFields, sql`, `)}
+        WHERE id = ${id}
+        RETURNING *
+      `);
+
+      if (result.length === 0) {
+        return reply.status(500).send({ error: 'Failed to update task' });
+      }
+
+      const updatedTask = result[0] as any;
+
+      // Sync with d_entity_instance_id registry when name/code changes
+      if (data.name !== undefined || data.code !== undefined) {
+        await db.execute(sql`
+          UPDATE app.d_entity_instance_id
+          SET entity_name = ${updatedTask.name},
+              entity_code = ${updatedTask.code},
+              updated_ts = NOW()
+          WHERE entity_type = 'task' AND entity_id = ${id}::uuid
+        `);
+      }
+
+      // NOTE: Assignees should be managed separately via the Linkage API
+      // POST /api/v1/linkage to add assignees
+      // DELETE /api/v1/linkage/:id to remove assignees
+
+      const userPermissions = {
+        canSeePII: true,
+        canSeeFinancial: true,
+        canSeeSystemFields: true,
+        canSeeSafetyInfo: true};
+
+      return filterUniversalColumns(updatedTask, userPermissions);
+    } catch (error) {
+      fastify.log.error('Error updating task:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ============================================================================
+  // Delete Task (Soft Delete via Factory)
+  // ============================================================================
   // Delete task with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
   // 1. app.d_task (base entity table)
   // 2. app.d_entity_instance_id (entity registry)
   // 3. app.d_entity_id_map (linkages in both directions)
-  createEntityDeleteEndpoint(fastify, 'task');
+  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
   // Kanban status update endpoint (for drag-drop operations)
   fastify.patch('/api/v1/task/:id/status', {
@@ -703,6 +813,91 @@ export async function taskRoutes(fastify: FastifyInstance) {
           task_status: Type.String(),
           updated: Type.String()}),
         400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const { task_status, position, moved_by } = request.body as any;
+      const userId = (request as any).user?.sub;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+      // Uses: RBAC_GATE only (checkPermission)
+      // Check: Can user EDIT this task?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit this task' });
+      }
+
+      // Validate task exists
+      const existingTask = await db.execute(sql`
+        SELECT id, name, dl__task_stage FROM app.d_task
+        WHERE id = ${id} AND active_flag = true
+      `);
+
+      if (existingTask.length === 0) {
+        return reply.status(404).send({ error: 'Task not found' });
+      }
+
+      // Update task status with audit info
+      const updateResult = await db.execute(sql`
+        UPDATE app.d_task
+        SET
+          dl__task_stage = ${task_status},
+          updated_ts = NOW(),
+          metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            'kanban_moved_at', NOW()::text,
+            'kanban_moved_by', ${moved_by || userId},
+            'kanban_position', ${position || 0}
+          )
+        WHERE id = ${id}
+        RETURNING id, dl__task_stage as task_status, updated_ts as updated
+      `);
+
+      if (updateResult.length === 0) {
+        return reply.status(404).send({ error: 'Failed to update task' });
+      }
+
+      return {
+        id: String(updateResult[0].id),
+        task_status: String(updateResult[0].task_status),
+        updated: String(updateResult[0].updated)};
+    } catch (error) {
+      fastify.log.error('Error updating task status:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ============================================================================
+  // Update Task Status (PUT - alias to PATCH for frontend compatibility)
+  // ============================================================================
+
+  fastify.put('/api/v1/task/:id/status', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['task', 'kanban'],
+      summary: 'Update task status (Kanban)',
+      description: 'Updates task status for Kanban drag-drop operations with optimistic UI support',
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })}),
+      body: Type.Object({
+        task_status: Type.String({ enum: ['backlog', 'in_progress', 'blocked', 'done', 'completed'] }),
+        position: Type.Optional(Type.Number()),
+        moved_by: Type.Optional(Type.String())}),
+      response: {
+        200: Type.Object({
+          id: Type.String(),
+          task_status: Type.String(),
+          updated: Type.String()}),
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
@@ -1228,5 +1423,5 @@ export async function taskRoutes(fastify: FastifyInstance) {
   // ============================================================================
   // Creates: GET /api/v1/task/:id/{child} for each child in d_entity.child_entities
   // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
-  await createChildEntityEndpointsFromMetadata(fastify, 'task');
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

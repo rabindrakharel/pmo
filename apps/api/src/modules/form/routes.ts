@@ -319,6 +319,22 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       const { id } = request.params as { id: string };
 
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
+      // Uses: RBAC_GATE only (checkPermission)
+      // ═══════════════════════════════════════════════════════════════
+      const canView = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        id,
+        Permission.VIEW
+      );
+
+      if (!canView) {
+        return reply.status(403).send({ error: 'No permission to view this form' });
+      }
+
       const forms = await db.execute(sql`
         SELECT
           f.id,
@@ -337,21 +353,10 @@ export async function formRoutes(fastify: FastifyInstance) {
           f.version
         FROM app.d_form_head f
         WHERE f.id = ${id}
-          AND (
-            EXISTS (
-              SELECT 1 FROM app.entity_id_rbac_map rbac
-              WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-                AND rbac.entity_name = 'form'
-                AND (rbac.entity_id = f.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-                AND rbac.active_flag = true
-                AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-                AND rbac.permission >= 0
-            )
-          )
       `);
 
       if (forms.length === 0) {
-        return reply.status(404).send({ error: 'Form not found or access denied' });
+        return reply.status(404).send({ error: 'Form not found' });
       }
 
       return forms[0];
@@ -382,19 +387,19 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Auto-generate required fields if missing
       if (!data.name) data.name = 'Untitled';
 
-      // Check create permission (permission 4 on 'all')
-      const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-          AND rbac.entity_name = 'form'
-          AND rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 4
-        LIMIT 1
-      `);
-
-      if (hasPermission.length === 0) {
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+      // Uses: RBAC_GATE only (checkPermission)
+      // Check: Can user CREATE forms?
+      // ═══════════════════════════════════════════════════════════════
+      const canCreate = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        ALL_ENTITIES_ID,
+        Permission.CREATE
+      );
+      if (!canCreate) {
         return reply.status(403).send({ error: 'No permission to create forms' });
       }
 
@@ -485,8 +490,11 @@ export async function formRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Update form - Creates new version if schema changes
-  fastify.put('/api/v1/form/:id', {
+  // ============================================================================
+  // Update Form (PATCH) - Creates new version if schema changes
+  // ============================================================================
+
+  fastify.patch('/api/v1/form/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -494,8 +502,12 @@ export async function formRoutes(fastify: FastifyInstance) {
       body: UpdateFormSchema,
       response: {
         200: FormSchema,
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      }}}, async (request, reply) => {
     try {
       const userId = request.user?.sub;
       if (!userId) {
@@ -505,19 +517,164 @@ export async function formRoutes(fastify: FastifyInstance) {
       const { id } = request.params as { id: string };
       const data = request.body as any;
 
-      // Check edit permission (permission 1)
-      const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-          AND rbac.entity_name = 'form'
-          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 1
-        LIMIT 1
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+      // Uses: RBAC_GATE only (checkPermission)
+      // Check: Can user EDIT this form?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        id,
+        Permission.EDIT
+      );
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit this form' });
+      }
+
+      // Get current form data
+      const currentForm = await db.execute(sql`
+        SELECT id, code, name, descr, form_type, form_schema, internal_url, shared_url, active_flag, version
+        FROM app.d_form_head
+        WHERE id = ${id}
       `);
 
-      if (hasPermission.length === 0) {
+      if (currentForm.length === 0) {
+        return reply.status(404).send({ error: 'Form not found' });
+      }
+
+      const current = currentForm[0] as any;
+
+      // Detect if meaningful changes occurred (schema changes trigger versioning)
+      const schemaChanged = data.form_schema !== undefined &&
+        JSON.stringify(data.form_schema) !== JSON.stringify(current.form_schema);
+
+      const hasSubstantiveChanges = schemaChanged;
+
+      if (hasSubstantiveChanges) {
+        // IN-PLACE VERSION UPDATE: Keep same ID, increment version
+        const newVersion = (current.version || 1) + 1;
+
+        const result = await db.execute(sql`
+          UPDATE app.d_form_head
+          SET
+            name = ${data.name !== undefined ? data.name : current.name},
+            descr = ${data.descr !== undefined ? data.descr : current.descr},
+            form_type = ${data.form_type !== undefined ? data.form_type : current.form_type},
+            form_schema = ${JSON.stringify(data.form_schema)},
+            version = ${newVersion},
+            updated_ts = NOW()
+          WHERE id = ${id}
+          RETURNING
+            id,
+            code,
+            name,
+            descr,
+            internal_url,
+            shared_url,
+            form_type,
+            form_schema,
+            from_ts,
+            to_ts,
+            active_flag,
+            created_ts,
+            updated_ts,
+            version
+        `);
+
+        fastify.log.info(`Updated form to version ${newVersion}: ${id}`);
+
+        return result[0];
+      } else {
+        // IN-PLACE UPDATE: No schema changes, just update metadata
+        const updateFields: any[] = [];
+
+        if (data.name !== undefined) updateFields.push(sql`name = ${data.name}`);
+        if (data.descr !== undefined) updateFields.push(sql`descr = ${data.descr}`);
+        if (data.form_type !== undefined) updateFields.push(sql`form_type = ${data.form_type}`);
+        if (data.active_flag !== undefined) updateFields.push(sql`active_flag = ${data.active_flag}`);
+
+        // Always update timestamp
+        updateFields.push(sql`updated_ts = NOW()`);
+
+        if (updateFields.length === 1) {
+          return reply.status(400).send({ error: 'No fields to update' });
+        }
+
+        const result = await db.execute(sql`
+          UPDATE app.d_form_head
+          SET ${sql.join(updateFields, sql`, `)}
+          WHERE id = ${id}
+          RETURNING
+            id,
+            code,
+            name,
+            descr,
+            internal_url,
+            shared_url,
+            form_type,
+            form_schema,
+            from_ts,
+            to_ts,
+            active_flag,
+            created_ts,
+            updated_ts,
+            version
+        `);
+
+        if (result.length === 0) {
+          return reply.status(404).send({ error: 'Form not found' });
+        }
+
+        return result[0];
+      }
+    } catch (error) {
+      fastify.log.error('Error updating form: ' + String(error));
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ============================================================================
+  // Update Form (PUT - alias to PATCH for frontend compatibility)
+  // ============================================================================
+
+  fastify.put('/api/v1/form/:id', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String()}),
+      body: UpdateFormSchema,
+      response: {
+        200: FormSchema,
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      }}}, async (request, reply) => {
+    try {
+      const userId = request.user?.sub;
+      if (!userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const { id } = request.params as { id: string };
+      const data = request.body as any;
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+      // Uses: RBAC_GATE only (checkPermission)
+      // Check: Can user EDIT this form?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        id,
+        Permission.EDIT
+      );
+      if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this form' });
       }
 
@@ -1075,17 +1232,20 @@ export async function formRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // ============================================================================
+  // Delete Form (Soft Delete via Factory)
+  // ============================================================================
   // Delete form with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
   // 1. app.d_form_head (base entity table)
   // 2. app.d_entity_instance_id (entity registry)
   // 3. app.d_entity_id_map (linkages in both directions)
-  createEntityDeleteEndpoint(fastify, 'form');
+  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
   // ============================================================================
   // Child Entity Endpoints (Auto-Generated from d_entity metadata)
   // ============================================================================
   // Creates: GET /api/v1/form/:id/{child} for each child in d_entity.child_entities
   // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
-  await createChildEntityEndpointsFromMetadata(fastify, 'form');
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

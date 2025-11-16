@@ -225,10 +225,36 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       tags: ['artifact'],
       summary: 'Get artifact by ID',
       params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
-      response: { 200: ArtifactSchema }}}, async (request, reply) => {
+      response: {
+        200: ArtifactSchema,
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }}}, async (request, reply) => {
     const { id } = request.params as any;
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
+      // Uses: RBAC_GATE only (checkPermission)
+      // ═══════════════════════════════════════════════════════════════
+      const canView = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        id,
+        Permission.VIEW
+      );
+
+      if (!canView) {
+        return reply.status(403).send({ error: 'No permission to view this artifact' });
+      }
+
       const result = await db.execute(sql`
         SELECT
           id, code, name, descr, metadata,
@@ -242,7 +268,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         WHERE id = ${id} AND active_flag = true
       `);
 
-      if (!result.length) return reply.status(404).send({ error: 'Not found' });
+      if (!result.length) return reply.status(404).send({ error: 'Artifact not found' });
       return result[0];
     } catch (error) {
       fastify.log.error('Error getting artifact:', error as any);
@@ -306,15 +332,22 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Update artifact
-  fastify.put('/api/v1/artifact/:id', {
+  // Update artifact (PATCH)
+  fastify.patch('/api/v1/artifact/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       tags: ['artifact'],
       summary: 'Update artifact',
       params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
       body: UpdateArtifactSchema,
-      response: { 200: ArtifactSchema }}}, async (request, reply) => {
+      response: {
+        200: ArtifactSchema,
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      }}}, async (request, reply) => {
     const { id } = request.params as any;
     const data = request.body as any;
 
@@ -383,13 +416,103 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // ============================================================================
+  // Update Artifact (PUT - alias to PATCH for frontend compatibility)
+  // ============================================================================
+
+  fastify.put('/api/v1/artifact/:id', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['artifact'],
+      summary: 'Update artifact',
+      params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
+      body: UpdateArtifactSchema,
+      response: {
+        200: ArtifactSchema,
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      }}}, async (request, reply) => {
+    const { id } = request.params as any;
+    const data = request.body as any;
+
+    try {
+      // Build update object with only provided fields
+      const updates: any = {};
+
+      // Basic fields
+      if (data.name !== undefined) updates.name = data.name;
+      if (data.code !== undefined) updates.code = data.code;
+      if (data.descr !== undefined) updates.descr = data.descr;
+
+      // JSONB fields
+      if (data.metadata !== undefined) updates.metadata = data.metadata;
+      if (data.attr !== undefined) updates.metadata = data.attr;
+
+      // Classification
+      if (data.artifact_type !== undefined) updates.dl__artifact_type = data.artifact_type;
+      if (data.attachment_format !== undefined) updates.attachment_format = data.attachment_format;
+      if (data.attachment_size_bytes !== undefined) updates.attachment_size_bytes = data.attachment_size_bytes;
+
+      // Access control
+      if (data.visibility !== undefined) updates.visibility = data.visibility;
+      if (data.security_classification !== undefined) updates.dl__artifact_security_classification = data.security_classification;
+
+      // S3/Storage
+      if (data.attachment_object_bucket !== undefined) updates.attachment_object_bucket = data.attachment_object_bucket;
+      if (data.attachment_object_key !== undefined) updates.attachment_object_key = data.attachment_object_key;
+
+      // Entity relationship
+      if (data.entity_type !== undefined) updates.entity_type = data.entity_type;
+      if (data.entity_id !== undefined) updates.entity_id = data.entity_id;
+
+      if (Object.keys(updates).length === 0) {
+        return reply.status(400).send({ error: 'No fields to update' });
+      }
+
+      // Always update timestamp
+      updates.updated_ts = sql`NOW()`;
+
+      // Build parameterized query
+      const setClauses = Object.keys(updates).map((key) => {
+        const value = updates[key];
+        if (key === 'updated_ts') {
+          return sql`updated_ts = NOW()`;
+        } else if (typeof value === 'object' && value !== null) {
+          // Handle JSONB fields
+          return sql`${sql.identifier([key])} = ${JSON.stringify(value)}::jsonb`;
+        } else {
+          return sql`${sql.identifier([key])} = ${value}`;
+        }
+      });
+
+      const result = await db.execute(sql`
+        UPDATE app.d_artifact
+        SET ${sql.join(setClauses, sql`, `)}
+        WHERE id = ${id} AND active_flag = true
+        RETURNING *
+      `);
+
+      if (!result.length) return reply.status(404).send({ error: 'Not found' });
+      return result[0];
+    } catch (error) {
+      fastify.log.error('Error updating artifact:', error);
+      return reply.status(500).send({ error: 'Internal server error', details: (error as Error).message });
+    }
+  });
+
+  // ============================================================================
+  // Delete Artifact (Soft Delete via Factory)
+  // ============================================================================
   // Delete artifact with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
   // 1. app.d_artifact (base entity table)
   // 2. app.d_entity_instance_id (entity registry)
   // 3. app.d_entity_id_map (linkages in both directions)
   // Adds proper RBAC checks and entity existence validation
-  createEntityDeleteEndpoint(fastify, 'artifact');
+  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
   // Upload artifact file (generates presigned URL and saves metadata)
   fastify.post('/api/v1/artifact/upload', {
@@ -786,5 +909,5 @@ export async function artifactRoutes(fastify: FastifyInstance) {
   // ============================================================================
   // Creates: GET /api/v1/artifact/:id/{child} for each child in d_entity.child_entities
   // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
-  await createChildEntityEndpointsFromMetadata(fastify, 'artifact');
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

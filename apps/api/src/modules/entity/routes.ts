@@ -346,21 +346,32 @@ export async function entityRoutes(fastify: FastifyInstance) {
       // Step 2: No RBAC check - allow access for all authenticated users
 
       // Step 2.5: Get entity name from the actual entity table
-      const tableName = `d_${normalizedEntityType}`;
+      // Different entities use different fields for display names
+      const nameFieldMap: Record<string, string> = {
+        'expense': 'expense_number',
+        'invoice': 'invoice_number',
+        'quote': 'quote_number',
+        'work_order': 'work_order_number',
+        // Default: most entities use 'name'
+      };
+
+      const tablePrefix = normalizedEntityType === 'expense' ? 'f_' : 'd_';
+      const tableName = `${tablePrefix}${normalizedEntityType}`;
+      const nameField = nameFieldMap[normalizedEntityType] || 'name';
       let entityName = entity_id; // Fallback to ID if name not found
 
       try {
         const nameResult = await client.unsafe(`
-          SELECT name FROM app.${tableName}
-          WHERE id = $1 AND active_flag = true
+          SELECT ${nameField} as display_name FROM app.${tableName}
+          WHERE id = $1
         `, [entity_id]);
 
-        if (nameResult.length > 0) {
-          entityName = nameResult[0].name;
+        if (nameResult.length > 0 && nameResult[0].display_name) {
+          entityName = nameResult[0].display_name;
         }
       } catch (err) {
         // If table doesn't exist or query fails, use ID as name
-        fastify.log.warn(`Could not fetch name from ${tableName} for ${entity_id}:`, err);
+        fastify.log.warn(`Could not fetch ${nameField} from ${tableName} for ${entity_id}:`, err);
       }
 
       // If no child entities defined in type metadata, return empty tabs

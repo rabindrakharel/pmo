@@ -445,6 +445,88 @@ export async function expenseRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Update expense (PUT - alias to PATCH for frontend compatibility)
+  fastify.put('/api/v1/expense/:id', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String()
+      }),
+      body: UpdateExpenseSchema,
+      response: {
+        200: ExpenseSchema,
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async (request, reply) => {
+    const { id } = request.params as any;
+    const body = request.body as any;
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.code(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      // Check edit permission
+      const permCheckQuery = sql`
+        SELECT 1 FROM app.entity_id_rbac_map rbac
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+          AND rbac.entity_name = 'expense'
+          AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
+          AND rbac.permission >= 1
+      `;
+
+      const permResult = await db.execute(permCheckQuery);
+      if (permResult.length === 0) {
+        return reply.code(403).send({ error: 'No permission to edit expense' });
+      }
+
+      const updateFields: any[] = [];
+
+      Object.keys(body).forEach((key) => {
+        if (body[key] !== undefined) {
+          if (key.endsWith('_id') && body[key]) {
+            updateFields.push(sql`${sql.identifier([key])} = ${body[key]}::uuid`);
+          } else if (key === 'tags' && Array.isArray(body[key])) {
+            updateFields.push(sql`tags = ARRAY[${sql.join(body[key].map((t: string) => sql`${t}`), sql`, `)}]::text[]`);
+          } else {
+            updateFields.push(sql`${sql.identifier([key])} = ${body[key]}`);
+          }
+        }
+      });
+
+      if (updateFields.length === 0) {
+        return reply.code(400).send({ error: 'No fields to update' });
+      }
+
+      updateFields.push(sql`last_modified_by = ${userId}::uuid`);
+      updateFields.push(sql`updated_ts = NOW()`);
+
+      const updateQuery = sql`
+        UPDATE app.f_expense
+        SET ${sql.join(updateFields, sql`, `)}
+        WHERE id = ${id}::uuid
+        RETURNING *
+      `;
+
+      const updateResult = await db.execute(updateQuery);
+
+      if (updateResult.length === 0) {
+        return reply.code(404).send({ error: 'Expense not found' });
+      }
+
+      return reply.code(200).send(updateResult[0]);
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.code(500).send({ error: error.message });
+    }
+  });
+
   // Delete expense
   createEntityDeleteEndpoint(fastify, 'expense');
 }

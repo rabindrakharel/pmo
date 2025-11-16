@@ -147,7 +147,12 @@
       "Bash(git -C /home/rabin/projects/pmo diff apps/api/src/modules/linkage/routes.ts)",
       "Bash(git -C /home/rabin/projects/pmo diff apps/api/src/modules/task/routes.ts)",
       "Bash(git -C /home/rabin/projects/pmo diff apps/api/src/modules/business/routes.ts)",
-      "Bash(/tmp/test-linkage-idempotency.sh:*)"
+      "Bash(/tmp/test-linkage-idempotency.sh:*)",
+      "Bash(do echo '=== $file ===' grep -n \"unified_data_gate.rbac_gate.checkPermission\\|data_gate_EntityIdsByEntityType\\|EXISTS.*entity_id_rbac_map\" /home/rabin/projects/pmo/apps/api/src/modules/$file/routes.ts)",
+      "Bash(do echo \"=== Checking $file ===\")",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(do wc -l \"$file\")",
+      "Bash(git -C /home/rabin/projects/pmo diff --stat apps/api/src/modules/employee/routes.ts apps/api/src/modules/cust/routes.ts apps/api/src/modules/worksite/routes.ts apps/api/src/modules/role/routes.ts)"
     ],
     "deny": [],
     "ask": [],

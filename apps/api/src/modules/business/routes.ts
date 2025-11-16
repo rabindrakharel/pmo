@@ -698,6 +698,83 @@ export async function businessRoutes(fastify: FastifyInstance) {
   });
 
   // ============================================================================
+  // Update Business Unit (PUT - alias to PATCH for frontend compatibility)
+  // ============================================================================
+
+  fastify.put('/api/v1/business/:id', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        id: Type.String({ format: 'uuid' })
+      }),
+      body: UpdateBizSchema,
+      response: {
+        200: BizSchema,
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    const { id } = request.params as { id: string };
+    const updates = request.body as any;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+      // Uses: RBAC_GATE only (checkPermission)
+      // Check: Can user EDIT this business?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit this business' });
+      }
+
+      // Build update fields
+      const updateFields: any[] = [];
+      if (updates.code !== undefined) updateFields.push(sql`code = ${updates.code}`);
+      if (updates.name !== undefined) updateFields.push(sql`name = ${updates.name}`);
+      if (updates.descr !== undefined) updateFields.push(sql`"descr" = ${updates.descr}`);
+      if (updates.metadata !== undefined) updateFields.push(sql`metadata = ${updates.metadata}`);
+      if (updates.office_id !== undefined) updateFields.push(sql`office_id = ${updates.office_id}`);
+      if (updates.current_headcount !== undefined) updateFields.push(sql`current_headcount = ${updates.current_headcount}`);
+      if (updates.operational_status !== undefined) updateFields.push(sql`operational_status = ${updates.operational_status}`);
+      if (updates.active_flag !== undefined) updateFields.push(sql`active_flag = ${updates.active_flag}`);
+
+      if (updateFields.length === 0) {
+        return reply.status(400).send({ error: 'No fields to update' });
+      }
+
+      updateFields.push(sql`updated_ts = now()`);
+      updateFields.push(sql`version = version + 1`);
+
+      // Update business
+      const updated = await db.execute(sql`
+        UPDATE app.d_business
+        SET ${sql.join(updateFields, sql`, `)}
+        WHERE id = ${id}
+        RETURNING *
+      `);
+
+      if (updated.length === 0) {
+        return reply.status(404).send({ error: 'Business not found' });
+      }
+
+      return reply.send(updated[0]);
+    } catch (error) {
+      fastify.log.error('Error updating business:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ============================================================================
   // Delete Business Unit (Soft Delete via Factory)
   // ============================================================================
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
