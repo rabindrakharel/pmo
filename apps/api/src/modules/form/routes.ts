@@ -281,7 +281,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         WHERE f.id = ${id}
           AND (
             EXISTS (
-              SELECT 1 FROM app.entity_id_rbac_map rbac
+              SELECT 1 FROM app.d_entity_rbac rbac
               WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
                 AND rbac.entity_name = 'form'
                 AND (rbac.entity_id = f.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -460,9 +460,9 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       const created = result[0];
 
-      // Register in d_entity_instance_id for global entity operations
+      // Register in d_entity_instance_registry for global entity operations
       await db.execute(sql`
-        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+        INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
         VALUES ('form', ${created.id}::uuid, ${created.name}, ${created.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name,
@@ -795,7 +795,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Check view permission on form
       const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}::uuid
           AND rbac.entity_name = 'form'
           AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -900,7 +900,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Check view permission on form
       const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
           AND rbac.entity_name = 'form'
           AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -991,7 +991,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Check edit permission on form (permission 1)
       const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
           AND rbac.entity_name = 'form'
           AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -1064,7 +1064,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Check view permission on form
       const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
           AND rbac.entity_name = 'form'
           AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -1234,8 +1234,8 @@ export async function formRoutes(fastify: FastifyInstance) {
   // Delete form with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
   // 1. app.d_form_head (base entity table)
-  // 2. app.d_entity_instance_id (entity registry)
-  // 3. app.d_entity_id_map (linkages in both directions)
+  // 2. app.d_entity_instance_registry (entity registry)
+  // 3. app.d_entity_instance_link (linkages in both directions)
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
   // ============================================================================

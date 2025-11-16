@@ -96,7 +96,7 @@ export async function messageSchemaRoutes(fastify: FastifyInstance) {
         // RBAC check - user must have view permission (0) on marketing entity
         sql`(
           EXISTS (
-            SELECT 1 FROM app.entity_id_rbac_map rbac
+            SELECT 1 FROM app.d_entity_rbac rbac
             WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
               AND rbac.entity_name = 'marketing'
               AND (rbac.entity_id = ms.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -233,7 +233,7 @@ export async function messageSchemaRoutes(fastify: FastifyInstance) {
         WHERE ms.id = ${id}
           AND ms.active_flag = true
           AND EXISTS (
-            SELECT 1 FROM app.entity_id_rbac_map rbac
+            SELECT 1 FROM app.d_entity_rbac rbac
             WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
               AND rbac.entity_name = 'marketing'
               AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -273,7 +273,7 @@ export async function messageSchemaRoutes(fastify: FastifyInstance) {
 
       // Check if user has create permission
       const rbacCheck = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map
+        SELECT 1 FROM app.d_entity_rbac
         WHERE person_entity_name = 'employee' AND person_entity_id = ${userId}
           AND entity = 'marketing'
           AND entity_id = 'all'
@@ -389,7 +389,7 @@ export async function messageSchemaRoutes(fastify: FastifyInstance) {
 
       // Check if user has edit permission
       const rbacCheck = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map
+        SELECT 1 FROM app.d_entity_rbac
         WHERE person_entity_name = 'employee' AND person_entity_id = ${userId}
           AND entity = 'marketing'
           AND (entity_id = ${id} OR entity_id = 'all')
@@ -500,7 +500,7 @@ export async function messageSchemaRoutes(fastify: FastifyInstance) {
 
       // Check if user has delete permission
       const rbacCheck = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map
+        SELECT 1 FROM app.d_entity_rbac
         WHERE person_entity_name = 'employee' AND person_entity_id = ${userId}
           AND entity = 'marketing'
           AND (entity_id = ${id} OR entity_id = 'all')

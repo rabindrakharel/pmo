@@ -59,7 +59,7 @@ export const ENTITY_TABLE_MAP: Record<string, string> = {
   work_order: 'fact_work_order',
 
   // Special entities
-  rbac: 'entity_id_rbac_map'
+  rbac: 'd_entity_rbac'
 };
 
 /**
@@ -253,7 +253,7 @@ export async function createChildEntityEndpointsFromMetadata(
  *
  * Creates a POST endpoint that:
  * 1. Creates a new child entity instance with minimal data (ID + name + defaults)
- * 2. Automatically creates the parent-child linkage in d_entity_id_map
+ * 2. Automatically creates the parent-child linkage in d_entity_instance_link
  * 3. Returns the new entity ID for immediate navigation to detail page
  *
  * This implements the create-then-link-then-edit workflow:
@@ -304,7 +304,7 @@ export function createMinimalChildEntityEndpoint(
 
       // Check parent access permission
       const parentAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
           AND rbac.entity_name = ${parentEntity}
           AND (rbac.entity_id = ${parentId}::uuid OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -319,7 +319,7 @@ export function createMinimalChildEntityEndpoint(
 
       // Check child entity create permission
       const createAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
           AND rbac.entity_name = ${childEntity}
           AND rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid
@@ -367,9 +367,9 @@ export function createMinimalChildEntityEndpoint(
       const newEntity = createResult[0];
       const newEntityId = newEntity.id;
 
-      // STEP 2: Create parent-child linkage in d_entity_id_map
+      // STEP 2: Create parent-child linkage in d_entity_instance_link
       await db.execute(sql`
-        INSERT INTO app.d_entity_id_map (
+        INSERT INTO app.d_entity_instance_link (
           parent_entity_type,
           parent_entity_id,
           child_entity_type,

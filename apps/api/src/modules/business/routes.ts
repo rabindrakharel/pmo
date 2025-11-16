@@ -27,7 +27,7 @@
  *     - Parent-CREATE inheritance (if parent has CREATE, children gain CREATE)
  *
  *   • PARENT_CHILD_FILTERING_GATE - Context-aware data filtering
- *     - Filters entities by parent relationship via d_entity_id_map
+ *     - Filters entities by parent relationship via d_entity_instance_link
  *     - Enables create-link-edit pattern (create child, link to parent)
  *
  * Usage Example:
@@ -39,7 +39,7 @@
  * ─────────────────────────────────────────────────────────
  * Instead of nested creation endpoints, we use:
  *   1. Create entity independently: POST /api/v1/business
- *   2. Link to parent via d_entity_id_map (automatic if parent_type/parent_id provided)
+ *   2. Link to parent via d_entity_instance_link (automatic if parent_type/parent_id provided)
  *   3. Edit/view in context: GET /api/v1/business?parent_type=office&parent_id={id}
  *
  * Benefits:
@@ -61,7 +61,7 @@
  *   • Business-specific: office_id, current_headcount, operational_status
  *   • Temporal: from_ts, to_ts, active_flag, created_ts, updated_ts, version
  *
- * Relationships (via d_entity_id_map):
+ * Relationships (via d_entity_instance_link):
  *   • Parent entities: office
  *   • Child entities: project, employee, client
  *
@@ -69,7 +69,7 @@
  *   • Organizational structure separate from physical office locations
  *   • See /api/v1/business-hierarchy for hierarchy management
  *
- * Permissions (via entity_id_rbac_map):
+ * Permissions (via d_entity_rbac):
  *   • Supports both entity-level (entity_id = 'all') and instance-level permissions
  *   • Permission levels: 0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER
  *
@@ -102,7 +102,7 @@
  *   2. Check: Can user CREATE businesses? (type-level permission)
  *   3. Check: Can user EDIT parent office? (required to link child)
  *   4. Create business in d_business
- *   5. Link to office in d_entity_id_map
+ *   5. Link to office in d_entity_instance_link
  *   6. Auto-grant DELETE permission to creator
  *
  * Example 3: Filter Businesses by Parent Office
@@ -378,7 +378,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       childEntities.map(async (childType: string) => {
         const countResult = await db.execute(sql`
           SELECT COUNT(*) as count
-          FROM app.d_entity_id_map
+          FROM app.d_entity_instance_link
           WHERE parent_entity_type = ${ENTITY_TYPE}
             AND parent_entity_id = ${id}
             AND child_entity_type = ${childType}

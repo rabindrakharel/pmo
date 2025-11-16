@@ -26,7 +26,7 @@
  *     - Parent-CREATE inheritance (if parent has CREATE, children gain CREATE)
  *
  *   • PARENT_CHILD_FILTERING_GATE - Context-aware data filtering
- *     - Filters entities by parent relationship via d_entity_id_map
+ *     - Filters entities by parent relationship via d_entity_instance_link
  *     - Enables create-link-edit pattern (create child, link to parent)
  *
  * Usage Example:
@@ -38,7 +38,7 @@
  * ─────────────────────────────────────────────────────────
  * Instead of nested creation endpoints, we use:
  *   1. Create entity independently: POST /api/v1/project
- *   2. Link to parent via d_entity_id_map (automatic if parent_type/parent_id provided)
+ *   2. Link to parent via d_entity_instance_link (automatic if parent_type/parent_id provided)
  *   3. Edit/view in context: GET /api/v1/project?parent_type=business&parent_id={id}
  *
  * Benefits:
@@ -55,7 +55,7 @@
  *
  * No manual endpoint code needed - factory handles:
  *   • RBAC filtering (unified_data_gate)
- *   • Parent-child JOIN via d_entity_id_map
+ *   • Parent-child JOIN via d_entity_instance_link
  *   • Pagination, search, sorting
  *
  * 4. UNIVERSAL AUTO-FILTER PATTERN (Zero-Config Filtering)
@@ -85,11 +85,11 @@
  *   • Team: manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
  *   • Temporal: from_ts, to_ts, active_flag, created_ts, updated_ts, version
  *
- * Relationships (via d_entity_id_map):
+ * Relationships (via d_entity_instance_link):
  *   • Parent entities: business, office
  *   • Child entities: task, wiki, artifact, form, expense, revenue
  *
- * Permissions (via entity_id_rbac_map):
+ * Permissions (via d_entity_rbac):
  *   • Supports both entity-level (entity_id = 'all') and instance-level permissions
  *   • Permission levels: 0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER
  *
@@ -129,7 +129,7 @@
  *   2. Check: Can user CREATE projects? (type-level permission)
  *   3. Check: Can user EDIT parent business? (required to link child)
  *   4. Create project in d_project
- *   5. Link to business in d_entity_id_map
+ *   5. Link to business in d_entity_instance_link
  *   6. Auto-grant DELETE permission to creator
  *
  * Example 3: View Project Detail with Child Tabs
@@ -395,7 +395,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       childEntities.map(async (childType: string) => {
         const countResult = await db.execute(sql`
           SELECT COUNT(*) as count
-          FROM app.d_entity_id_map
+          FROM app.d_entity_instance_link
           WHERE parent_entity_type = ${ENTITY_TYPE}
             AND parent_entity_id = ${id}
             AND child_entity_type = ${childType}
@@ -879,8 +879,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
   // Delete project with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
   // 1. app.d_project (base entity table)
-  // 2. app.d_entity_instance_id (entity registry)
-  // 3. app.d_entity_id_map (linkages in both directions)
+  // 2. app.d_entity_instance_registry (entity registry)
+  // 3. app.d_entity_instance_link (linkages in both directions)
   createEntityDeleteEndpoint(fastify, 'project');
 
   // ========================================

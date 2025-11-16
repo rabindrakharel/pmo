@@ -274,7 +274,7 @@ export async function empRoutes(fastify: FastifyInstance) {
         countResult = await db.execute(sql`
           SELECT COUNT(*) as total
           FROM app.d_employee e
-          INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = e.id
+          INNER JOIN app.d_entity_instance_link eim ON eim.child_entity_id = e.id
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         `);
 
@@ -292,7 +292,7 @@ export async function empRoutes(fastify: FastifyInstance) {
             e.remote_work_eligible_flag as remote_work_eligible, e.time_zone, e.preferred_language,
             COALESCE(e.metadata, '{}'::jsonb) as metadata
           FROM app.d_employee e
-          INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = e.id
+          INNER JOIN app.d_entity_instance_link eim ON eim.child_entity_id = e.id
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
           ORDER BY e.name ASC NULLS LAST, e.created_ts DESC
           LIMIT ${limit} OFFSET ${offset}

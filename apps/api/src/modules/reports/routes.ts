@@ -39,7 +39,7 @@
  *   • Stores report execution results
  *   • Links to parent via report_id
  *
- * Relationships (via d_entity_id_map):
+ * Relationships (via d_entity_instance_link):
  *   • Parent entities: Can be linked to project, task, business, office
  *   • Child entities: report_data (1:many relationship)
  *

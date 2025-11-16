@@ -241,7 +241,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/v1/entity/child-tabs/:entity_type/:entity_id
    * Get complete tab configuration for an entity including metadata + counts
-   * Combines child_entities metadata from d_entity with actual counts from d_entity_id_map
+   * Combines child_entities metadata from d_entity with actual counts from d_entity_instance_link
    * This is the PRIMARY endpoint for DynamicChildEntityTabs
    */
   fastify.get('/api/v1/entity/child-tabs/:entity_type/:entity_id', {
@@ -387,7 +387,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
       }
 
       // Step 3: Get actual counts for each child entity type
-      // For most entities, count from d_entity_id_map (parent-child relationships)
+      // For most entities, count from d_entity_instance_link (parent-child relationships)
       // For special entities like 'rbac', count from their own table
       const countMap: Record<string, number> = {};
 
@@ -398,17 +398,17 @@ export async function entityRoutes(fastify: FastifyInstance) {
           // Count RBAC permissions for this role/employee
           const rbacCount = await db.execute(sql`
             SELECT COUNT(*) as count
-            FROM app.entity_id_rbac_map
+            FROM app.d_entity_rbac
             WHERE person_entity_name = ${normalizedEntityType}
               AND person_entity_id = ${entity_id}
               AND active_flag = true
           `);
           countMap[childEntityType] = Number(rbacCount[0]?.count || 0);
         } else {
-          // Count from d_entity_id_map for regular parent-child relationships
+          // Count from d_entity_instance_link for regular parent-child relationships
           const childCount = await db.execute(sql`
             SELECT COUNT(DISTINCT eim.child_entity_id) as count
-            FROM app.d_entity_id_map eim
+            FROM app.d_entity_instance_link eim
             WHERE eim.parent_entity_type = ${normalizedEntityType}
               AND eim.parent_entity_id = ${entity_id}
               AND eim.child_entity_type = ${childEntityType}
@@ -1055,7 +1055,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
     try {
       // First, verify user has access to the parent entity
       const parentAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
           AND rbac.entity_name = ${normalizedEntityType}
           AND (rbac.entity_id = ${entity_id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -1068,12 +1068,12 @@ export async function entityRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: 'Access denied' });
       }
 
-      // Get child entity counts using d_entity_id_map
+      // Get child entity counts using d_entity_instance_link
       const childCounts = await db.execute(sql`
         SELECT
           eim.child_entity_type as entity_type,
           COUNT(DISTINCT eim.child_entity_id) as count
-        FROM app.d_entity_id_map eim
+        FROM app.d_entity_instance_link eim
         WHERE eim.parent_entity_type = ${normalizedEntityType}
           AND eim.parent_entity_id = ${entity_id}
           AND eim.active_flag = true

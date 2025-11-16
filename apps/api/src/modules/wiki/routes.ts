@@ -398,9 +398,9 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
       const wiki = wikiResult[0] as any;
 
-      // Register the wiki in d_entity_instance_id for global entity operations
+      // Register the wiki in d_entity_instance_registry for global entity operations
       await db.execute(sql`
-        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+        INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
         VALUES ('wiki', ${wiki.id}::uuid, ${wiki.name}, ${wiki.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name,
@@ -565,10 +565,10 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
       const updatedWiki = updated[0] as any;
 
-      // Sync with d_entity_instance_id registry when name/code changes
+      // Sync with d_entity_instance_registry registry when name/code changes
       if (data.name !== undefined || data.code !== undefined) {
         await db.execute(sql`
-          UPDATE app.d_entity_instance_id
+          UPDATE app.d_entity_instance_registry
           SET entity_name = ${updatedWiki.name},
               entity_code = ${updatedWiki.code},
               updated_ts = NOW()
@@ -602,8 +602,8 @@ export async function wikiRoutes(fastify: FastifyInstance) {
   // Delete wiki with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
   // 1. app.d_wiki (base entity table)
-  // 2. app.d_entity_instance_id (entity registry)
-  // 3. app.d_entity_id_map (linkages in both directions)
+  // 2. app.d_entity_instance_registry (entity registry)
+  // 3. app.d_entity_instance_link (linkages in both directions)
   createEntityDeleteEndpoint(fastify, 'wiki');
 }
 

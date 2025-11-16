@@ -314,7 +314,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
 
       // Direct RBAC check for org access
       const orgAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}::uuid
           AND rbac.entity_name = 'office'
           AND (rbac.entity_id = ${orgId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -692,8 +692,8 @@ export async function officeRoutes(fastify: FastifyInstance) {
   // Delete office with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
   // 1. app.d_office (base entity table)
-  // 2. app.d_entity_instance_id (entity registry)
-  // 3. app.d_entity_id_map (linkages in both directions)
+  // 2. app.d_entity_instance_registry (entity registry)
+  // 3. app.d_entity_instance_link (linkages in both directions)
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
   // ============================================================================

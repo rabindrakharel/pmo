@@ -35,8 +35,8 @@
  * ─────────────────────────────────────────────────────────
  * Instead of nested creation endpoints, we use:
  *   1. Create entity independently: POST /api/v1/task
- *   2. Link to parent via d_entity_id_map (automatic if parent context)
- *   3. Link assignees via d_entity_id_map (relationship_type='assigned_to')
+ *   2. Link to parent via d_entity_instance_link (automatic if parent context)
+ *   3. Link assignees via d_entity_instance_link (relationship_type='assigned_to')
  *   4. Edit/view in context: GET /api/v1/project/:id/task
  *
  * Benefits:
@@ -59,7 +59,7 @@
  *   • Effort tracking: estimated_hours, actual_hours, story_points
  *   • Temporal: from_ts, to_ts, active_flag, created_ts, updated_ts, version
  *
- * Relationships (via d_entity_id_map):
+ * Relationships (via d_entity_instance_link):
  *   • Parent entities: project, business, office, worksite, client
  *   • Child entities: artifact, form
  *   • Assignees: employee (relationship_type='assigned_to')
@@ -67,7 +67,7 @@
  * Related Tables:
  *   • d_task_data - Case notes, rich editor content, activity logs
  *
- * Permissions (via entity_id_rbac_map):
+ * Permissions (via d_entity_rbac):
  *   • Supports both entity-level (entity_id = 'all') and instance-level permissions
  *   • Permission levels: 0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER
  *
@@ -301,10 +301,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
       });
       conditions.push(...autoFilters);
 
-      // Custom filter: assignee via d_entity_id_map (requires complex EXISTS clause)
+      // Custom filter: assignee via d_entity_instance_link (requires complex EXISTS clause)
       if (assigned_to_employee_id !== undefined) {
         conditions.push(sql`EXISTS (
-          SELECT 1 FROM app.d_entity_id_map map
+          SELECT 1 FROM app.d_entity_instance_link map
           WHERE map.parent_entity_type = 'task'
             AND map.parent_entity_id = ${sql.raw(TABLE_ALIAS)}.id
             AND map.child_entity_type = 'employee'
@@ -332,11 +332,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
           t.id, t.code, t.name, t.descr,
           t.internal_url, t.shared_url,
           COALESCE(t.metadata, '{}'::jsonb) as metadata,
-          -- Get assignee IDs from d_entity_id_map
+          -- Get assignee IDs from d_entity_instance_link
           COALESCE(
             (
               SELECT json_agg(map.child_entity_id ORDER BY e.name)
-              FROM app.d_entity_id_map map
+              FROM app.d_entity_instance_link map
               JOIN app.d_employee e ON e.id = map.child_entity_id
               WHERE map.parent_entity_type = 'task'
                 AND map.parent_entity_id = t.id
@@ -346,11 +346,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
             ),
             '[]'::json
           ) as assignee_employee_ids,
-          -- Get assignee names from d_entity_id_map
+          -- Get assignee names from d_entity_instance_link
           COALESCE(
             (
               SELECT json_agg(e.name ORDER BY e.name)
-              FROM app.d_entity_id_map map
+              FROM app.d_entity_instance_link map
               JOIN app.d_employee e ON e.id = map.child_entity_id
               WHERE map.parent_entity_type = 'task'
                 AND map.parent_entity_id = t.id
@@ -433,11 +433,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
           t.id, t.code, t.name, t.descr,
           t.internal_url, t.shared_url,
           COALESCE(t.metadata, '{}'::jsonb) as metadata,
-          -- Get assignee IDs from d_entity_id_map
+          -- Get assignee IDs from d_entity_instance_link
           COALESCE(
             (
               SELECT json_agg(map.child_entity_id ORDER BY e.name)
-              FROM app.d_entity_id_map map
+              FROM app.d_entity_instance_link map
               JOIN app.d_employee e ON e.id = map.child_entity_id
               WHERE map.parent_entity_type = 'task'
                 AND map.parent_entity_id = t.id
@@ -447,11 +447,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
             ),
             '[]'::json
           ) as assignee_employee_ids,
-          -- Get assignee names from d_entity_id_map
+          -- Get assignee names from d_entity_instance_link
           COALESCE(
             (
               SELECT json_agg(e.name ORDER BY e.name)
-              FROM app.d_entity_id_map map
+              FROM app.d_entity_instance_link map
               JOIN app.d_employee e ON e.id = map.child_entity_id
               WHERE map.parent_entity_type = 'task'
                 AND map.parent_entity_id = t.id
@@ -796,8 +796,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
   // Delete task with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
   // 1. app.d_task (base entity table)
-  // 2. app.d_entity_instance_id (entity registry)
-  // 3. app.d_entity_id_map (linkages in both directions)
+  // 2. app.d_entity_instance_registry (entity registry)
+  // 3. app.d_entity_instance_link (linkages in both directions)
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
   // Kanban status update endpoint (for drag-drop operations)
@@ -1014,10 +1014,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
         sql`t.active_flag = true`
       ];
 
-      // Assignee relationship managed via d_entity_id_map
+      // Assignee relationship managed via d_entity_instance_link
       if (assignee) {
         filters.push(sql`EXISTS (
-          SELECT 1 FROM app.d_entity_id_map map
+          SELECT 1 FROM app.d_entity_instance_link map
           WHERE map.parent_entity_type = 'task'
             AND map.parent_entity_id = t.id
             AND map.child_entity_type = 'employee'
@@ -1107,7 +1107,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Direct RBAC check for task access
       const taskAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${employeeId}
           AND rbac.entity_name = 'task'
           AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -1193,7 +1193,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Direct RBAC check for task edit access
       const taskEditAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${employeeId}
           AND rbac.entity_name = 'task'
           AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -1274,7 +1274,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Direct RBAC check for task access
       const taskAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${employeeId}
           AND rbac.entity_name = 'task'
           AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -1372,7 +1372,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
     // Check RBAC permission to view task
     const taskAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
+      SELECT 1 FROM app.d_entity_rbac rbac
       WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
         AND rbac.entity_name = 'task'
         AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -1385,14 +1385,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Get assignees from d_entity_id_map
+      // Get assignees from d_entity_instance_link
       const assignees = await db.execute(sql`
         SELECT
           e.id,
           e.name,
           e.email,
           map.id as linkage_id
-        FROM app.d_entity_id_map map
+        FROM app.d_entity_instance_link map
         INNER JOIN app.d_employee e ON e.id = map.child_entity_id
         WHERE map.parent_entity_type = 'task'
           AND map.parent_entity_id = ${id}::uuid
