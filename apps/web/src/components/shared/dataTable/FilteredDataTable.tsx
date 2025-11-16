@@ -9,6 +9,9 @@ import { transformForApi, transformFromApi } from '../../../lib/data_transform_r
 import { COLOR_OPTIONS } from '../../../lib/settingsConfig';
 import { useColumnVisibility } from '../../../lib/hooks/useColumnVisibility';
 import { detectField } from '../../../lib/universalFieldDetector';
+import { useEntitySchema } from '../../../lib/hooks/useEntitySchema';
+import { formatFieldValue } from '../../../lib/schemaFormatters';
+import type { SchemaColumn } from '../../../lib/types/schema';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -65,6 +68,9 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   const [editedData, setEditedData] = useState<any>({});
   const [isAddingRow, setIsAddingRow] = useState(false);
 
+  // Fetch schema from API (independent of data)
+  const { schema, loading: schemaLoading, error: schemaError } = useEntitySchema(entityType);
+
   // Check if this is a settings entity
   const isSettingsEntity = useMemo(() => {
     return config?.apiEndpoint?.includes('/api/v1/setting?datalabel=') || false;
@@ -74,12 +80,31 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   const configuredColumns: Column[] = useMemo(() => {
     if (!config) return [];
 
-    // If config has columns defined, use them
+    // Priority 1: Explicit config columns
     if (config.columns && config.columns.length > 0) {
       return config.columns as Column[];
     }
 
-    // v4.0: Auto-generate columns from data if config.columns is empty
+    // Priority 2: API schema (NEW - independent of data!)
+    if (schema && schema.columns) {
+      return schema.columns.map((col: SchemaColumn) => ({
+        key: col.key,
+        title: col.title,
+        visible: col.visible,
+        sortable: col.sortable,
+        filterable: col.filterable,
+        width: col.width,
+        align: col.align,
+        editable: col.editable,
+        editType: col.editType as any,
+        loadOptionsFromSettings: col.dataSource?.type === 'settings',
+
+        // ✅ SIMPLIFIED: Pass whole column to formatter
+        render: (value: any) => formatFieldValue(value, col)
+      })) as Column[];
+    }
+
+    // Priority 3: Auto-generate columns from data (v4.0 fallback)
     if (data && data.length > 0) {
       const firstRow = data[0];
       const keys = Object.keys(firstRow);
@@ -112,7 +137,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     }
 
     return [];
-  }, [config, data]);
+  }, [config, schema, data]);
 
   // Use column visibility hook for dynamic column management
   const {
