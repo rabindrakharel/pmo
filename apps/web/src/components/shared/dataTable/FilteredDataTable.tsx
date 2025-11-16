@@ -5,7 +5,7 @@ import type { Column, RowAction } from '../ui/EntityDataTable';
 import { useNavigate } from 'react-router-dom';
 import { ActionButtonsBar } from '../button/ActionButtonsBar';
 import { getEntityConfig, type EntityConfig } from '../../../lib/entityConfig';
-import { transformForApi, transformFromApi, formatFieldValue, renderFieldDisplay } from '../../../lib/universalFormatterService';
+import { transformForApi, transformFromApi, formatFieldValue, renderFieldDisplay, preloadSettingsColors } from '../../../lib/universalFormatterService';
 import { useColumnVisibility } from '../../../lib/hooks/useColumnVisibility';
 import { useEntitySchema } from '../../../lib/hooks/useEntitySchema';
 import type { SchemaColumn } from '../../../lib/types/table';
@@ -115,6 +115,35 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     isColumnVisible,
     resetToDefault
   } = useColumnVisibility(entityType, configuredColumns, data);
+
+  // Preload badge colors from settings tables
+  useEffect(() => {
+    const preloadColors = async () => {
+      if (!schema?.columns) return;
+
+      // Find all badge-type columns with settingsDatalabel
+      const badgeColumns = schema.columns.filter(
+        col => col.format.type === 'badge' && col.format.settingsDatalabel
+      );
+
+      if (badgeColumns.length === 0) return;
+
+      // Extract unique datalabels
+      const datalabels = badgeColumns
+        .map(col => col.format.settingsDatalabel!)
+        .filter((dl): dl is string => !!dl);
+      const uniqueDatalabels = Array.from(new Set(datalabels));
+
+      // Preload all colors in parallel
+      try {
+        await preloadSettingsColors(uniqueDatalabels);
+      } catch (err) {
+        console.error('Failed to preload badge colors:', err);
+      }
+    };
+
+    preloadColors();
+  }, [schema]);
 
   // Use visible columns for rendering
   const columns: Column[] = visibleColumns;
