@@ -5,111 +5,6 @@ import { sql } from 'drizzle-orm';
 import { unified_data_gate, Permission } from './unified-data-gate.js';
 
 /**
- * Higher-Order Route Factory for Child Entity Endpoints
- *
- * Eliminates 300+ lines of duplicate code across entity modules by creating
- * standardized child entity endpoints following the universal pattern:
- * GET /api/v1/{parentEntity}/:id/{childEntity}
- *
- * @example
- * // Usage in project/routes.ts
- * createChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
- * createChildEntityEndpoint(fastify, 'project', 'form', 'd_form_head');
- * createChildEntityEndpoint(fastify, 'project', 'artifact', 'd_artifact');
- * createChildEntityEndpoint(fastify, 'project', 'wiki', 'd_wiki');
- *
- * @param fastify - Fastify instance
- * @param parentEntity - Parent entity type (e.g., 'project', 'task', 'biz')
- * @param childEntity - Child entity type (e.g., 'task', 'form', 'artifact')
- * @param childTable - Database table name (e.g., 'd_task', 'd_form_head')
- */
-export function createChildEntityEndpoint(
-  fastify: FastifyInstance,
-  parentEntity: string,
-  childEntity: string,
-  childTable: string
-) {
-  fastify.get(`/api/v1/${parentEntity}/:id/${childEntity}`, {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        id: Type.String({ format: 'uuid' })
-      }),
-      querystring: Type.Object({
-        page: Type.Optional(Type.Integer({ minimum: 1 })),
-        limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
-      })
-    }
-  }, async (request, reply) => {
-    try {
-      const { id: parentId } = request.params as { id: string };
-      const { page = 1, limit = 20 } = request.query as any;
-      const userId = request.user?.sub;
-
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // ✅ UNIFIED DATA GATE: RBAC check for child entity access
-      // Note: We check child entity permission, NOT parent (child can be visible without parent access)
-      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
-        userId,
-        childEntity,
-        Permission.VIEW,
-        'c'
-      );
-
-      // ✅ UNIFIED DATA GATE: Parent-child filtering (mandatory for child entity listing)
-      const parentJoin = unified_data_gate.parent_child_filtering_gate.getJoinClause(
-        childEntity,
-        parentEntity,
-        parentId,
-        'c'
-      );
-
-      // Universal child entity query pattern
-      const offset = (page - 1) * limit;
-
-      const data = await db.execute(sql`
-        SELECT c.*, COALESCE(c.name, 'Untitled') as name, c.descr
-        FROM app.${sql.raw(childTable)} c
-        ${parentJoin}
-        WHERE ${rbacCondition}
-          AND c.active_flag = true
-        ORDER BY c.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `);
-
-      // Universal count query pattern with unified data gate
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.${sql.raw(childTable)} c
-        ${parentJoin}
-        WHERE ${rbacCondition}
-          AND c.active_flag = true
-      `);
-
-      return {
-        data,
-        total: Number(countResult[0]?.total || 0),
-        page,
-        limit
-      };
-    } catch (error: any) {
-      fastify.log.error({
-        msg: `Error fetching ${parentEntity} ${childEntity}`,
-        error: error.message,
-        stack: error.stack,
-        parentEntity,
-        childEntity,
-        childTable
-      });
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-}
-
-/**
  * Entity-to-Table Mapping
  *
  * Maps entity type names to their corresponding database table names.
@@ -258,7 +153,87 @@ export async function createChildEntityEndpointsFromMetadata(
         `Creating child entity endpoint: /api/v1/${parentEntity}/:id/${childEntity} (table: ${childTable})`
       );
 
-      createChildEntityEndpoint(fastify, parentEntity, childEntity, childTable);
+      // ═══════════════════════════════════════════════════════════════
+      // Inline endpoint creation - Single source of truth pattern
+      // ═══════════════════════════════════════════════════════════════
+      fastify.get(`/api/v1/${parentEntity}/:id/${childEntity}`, {
+        preHandler: [fastify.authenticate],
+        schema: {
+          params: Type.Object({
+            id: Type.String({ format: 'uuid' })
+          }),
+          querystring: Type.Object({
+            page: Type.Optional(Type.Integer({ minimum: 1 })),
+            limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
+          })
+        }
+      }, async (request, reply) => {
+        try {
+          const { id: parentId } = request.params as { id: string };
+          const { page = 1, limit = 20 } = request.query as any;
+          const userId = request.user?.sub;
+
+          if (!userId) {
+            return reply.status(401).send({ error: 'User not authenticated' });
+          }
+
+          // ✅ UNIFIED DATA GATE: RBAC check for child entity access
+          // Note: We check child entity permission, NOT parent (child can be visible without parent access)
+          const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
+            userId,
+            childEntity,
+            Permission.VIEW,
+            'c'
+          );
+
+          // ✅ UNIFIED DATA GATE: Parent-child filtering (mandatory for child entity listing)
+          const parentJoin = unified_data_gate.parent_child_filtering_gate.getJoinClause(
+            childEntity,
+            parentEntity,
+            parentId,
+            'c'
+          );
+
+          // Universal child entity query pattern
+          const offset = (page - 1) * limit;
+
+          const data = await db.execute(sql`
+            SELECT c.*, COALESCE(c.name, 'Untitled') as name, c.descr
+            FROM app.${sql.raw(childTable)} c
+            ${parentJoin}
+            WHERE ${rbacCondition}
+              AND c.active_flag = true
+            ORDER BY c.created_ts DESC
+            LIMIT ${limit} OFFSET ${offset}
+          `);
+
+          // Universal count query pattern with unified data gate
+          const countResult = await db.execute(sql`
+            SELECT COUNT(*) as total
+            FROM app.${sql.raw(childTable)} c
+            ${parentJoin}
+            WHERE ${rbacCondition}
+              AND c.active_flag = true
+          `);
+
+          return {
+            data,
+            total: Number(countResult[0]?.total || 0),
+            page,
+            limit
+          };
+        } catch (error: any) {
+          fastify.log.error({
+            msg: `Error fetching ${parentEntity} ${childEntity}`,
+            error: error.message,
+            stack: error.stack,
+            parentEntity,
+            childEntity,
+            childTable
+          });
+          return reply.status(500).send({ error: 'Internal server error' });
+        }
+      });
     }
 
     fastify.log.info(

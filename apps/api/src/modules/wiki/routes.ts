@@ -1,8 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+// ✅ Centralized unified data gate - loosely coupled API
+import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+// ✨ Universal auto-filter builder - zero-config query filtering
+import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 
 const WikiSchema = Type.Object({
   id: Type.String(),
@@ -65,6 +69,12 @@ const CreateWikiSchema = Type.Object({
 
 const UpdateWikiSchema = Type.Partial(CreateWikiSchema);
 
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_TYPE = 'wiki';
+const TABLE_ALIAS = 'w';
+
 export async function wikiRoutes(fastify: FastifyInstance) {
   // List
   fastify.get('/api/v1/wiki', {
@@ -99,29 +109,34 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // RBAC filtering - only show wiki entries user has access to
-      const baseConditions = [
-        sql`w.active_flag = true`,
-        sql`(
-          EXISTS (
-            SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-              AND rbac.entity_name = 'wiki'
-              AND (rbac.entity_id = w.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-              AND rbac.active_flag = true
-              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND rbac.permission >= 0
-          )
-        )`
-      ];
+      // ═══════════════════════════════════════════════════════════════
+      // NEW PATTERN: Route builds SQL, gates augment it
+      // ═══════════════════════════════════════════════════════════════
 
-      const conditions = [...baseConditions];
+      // Build WHERE conditions array
+      const conditions: SQL[] = [];
 
-      if (search) {
-        conditions.push(sql`(w.name ILIKE ${`%${search}%`} OR w.code ILIKE ${`%${search}%`})`);
-      }
+      // GATE 1: RBAC - Apply security filtering (REQUIRED)
+      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
+        userId,
+        ENTITY_TYPE,
+        Permission.VIEW,
+        TABLE_ALIAS
+      );
+      conditions.push(rbacCondition);
+
+      // ✨ UNIVERSAL AUTO-FILTER SYSTEM
+      // Automatically builds filters from ANY query parameter based on field naming conventions
+      // Supports: ?search=keyword, ?active_flag=true, ?wiki_type=X, etc.
+      // See: apps/api/src/lib/universal-filter-builder.ts
+      const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query as any, {
+        searchFields: ['name', 'code', 'descr', 'summary']
+      });
+      conditions.push(...autoFilters);
+
+      // Custom filter: tag search (requires array operator)
       if (tag) {
-        conditions.push(sql`${tag} = ANY(w.keywords)`);
+        conditions.push(sql`${tag} = ANY(${sql.raw(TABLE_ALIAS)}.keywords)`);
       }
 
       const countResult = await db.execute(sql`
@@ -206,18 +221,19 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // RBAC check for wiki view access
-    const wikiAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-        AND rbac.entity_name = 'wiki'
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND rbac.permission >= 0
-    `);
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
+    // Uses: RBAC_GATE only (checkPermission)
+    // ═══════════════════════════════════════════════════════════════
+    const canView = await unified_data_gate.rbac_gate.checkPermission(
+      db,
+      userId,
+      ENTITY_TYPE,
+      id,
+      Permission.VIEW
+    );
 
-    if (wikiAccess.length === 0) {
+    if (!canView) {
       return reply.status(403).send({ error: 'Insufficient permissions to view this wiki' });
     }
 
@@ -310,18 +326,16 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // RBAC check for wiki create permission
-    const wikiCreateAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-        AND rbac.entity_name = 'wiki'
-        AND rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND rbac.permission >= 4
-    `);
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+    // Uses: RBAC_GATE only (checkPermission)
+    // Check: Can user CREATE wikis?
+    // ═══════════════════════════════════════════════════════════════
+    const canCreate = await unified_data_gate.rbac_gate.checkPermission(
+      db, userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE
+    );
 
-    if (wikiCreateAccess.length === 0) {
+    if (!canCreate) {
       return reply.status(403).send({ error: 'Insufficient permissions to create wikis' });
     }
 
@@ -433,18 +447,16 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // RBAC check for wiki edit access
-    const wikiEditAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
-      WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-        AND rbac.entity_name = 'wiki'
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND rbac.permission >= 1
-    `);
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+    // Uses: RBAC_GATE only (checkPermission)
+    // Check: Can user EDIT this wiki?
+    // ═══════════════════════════════════════════════════════════════
+    const canEdit = await unified_data_gate.rbac_gate.checkPermission(
+      db, userId, ENTITY_TYPE, id, Permission.EDIT
+    );
 
-    if (wikiEditAccess.length === 0) {
+    if (!canEdit) {
       return reply.status(403).send({ error: 'Insufficient permissions to modify this wiki' });
     }
 

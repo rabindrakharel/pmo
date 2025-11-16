@@ -168,7 +168,7 @@ export async function getEntityCount(
 /**
  * Create DELETE endpoint for an entity type
  *
- * Follows the same pattern as createChildEntityEndpoint() and createMinimalChildEntityEndpoint()
+ * Follows the universal factory pattern for standardized entity operations.
  * Creates standardized delete endpoint: DELETE /api/v1/{entityType}/:id
  *
  * @example

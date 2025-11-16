@@ -1,7 +1,40 @@
+/**
+ * ============================================================================
+ * EXPENSE ROUTES MODULE - Universal Entity Pattern with Unified Data Gate
+ * ============================================================================
+ *
+ * SEMANTICS & PURPOSE:
+ * Expense tracking and financial management following the PMO platform's
+ * Universal Entity System architecture.
+ *
+ * ============================================================================
+ * DESIGN PATTERNS & ARCHITECTURE
+ * ============================================================================
+ *
+ * 1. UNIFIED DATA GATE PATTERN (Security & Filtering) ✅
+ * ───────────────────────────────────────────────────────
+ * All endpoints use centralized permission checking via unified-data-gate.ts
+ *
+ * 2. AUTO-FILTER SYSTEM (Zero-Config Query Filtering) ✅
+ * ─────────────────────────────────────────────────────────
+ * Uses buildAutoFilters() for automatic query parameter detection and filtering
+ *
+ * 3. MODULE-LEVEL CONSTANTS (DRY Principle) ✅
+ * ──────────────────────────────────────────
+ * Single source of truth for entity type and table alias
+ *
+ * ============================================================================
+ */
+
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
+// ✅ Centralized unified data gate - loosely coupled API
+import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+// ✨ Universal auto-filter builder - zero-config query filtering
+import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 
 // Schema based on f_expense table structure from db/LIII_f_expense.ddl
@@ -100,12 +133,24 @@ const CreateExpenseSchema = Type.Object({
 
 const UpdateExpenseSchema = Type.Partial(CreateExpenseSchema);
 
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_TYPE = 'expense';
+const TABLE_ALIAS = 'e';
+
 export async function expenseRoutes(fastify: FastifyInstance) {
-  // List expenses with filtering
+  // ============================================================================
+  // List Expenses (Main Page)
+  // ============================================================================
+  // URL: GET /api/v1/expense
+  // ============================================================================
+
   fastify.get('/api/v1/expense', {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
+        // Standard filters (auto-detected by buildAutoFilters)
         search: Type.Optional(Type.String()),
         category: Type.Optional(Type.String()),
         subcategory: Type.Optional(Type.String()),
@@ -116,8 +161,11 @@ export async function expenseRoutes(fastify: FastifyInstance) {
         accounting_period: Type.Optional(Type.String()),
         expense_status: Type.Optional(Type.String()),
         payment_status: Type.Optional(Type.String()),
+
+        // Pagination
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 }))
+        offset: Type.Optional(Type.Number({ minimum: 0 })),
+        page: Type.Optional(Type.Number({ minimum: 1 })),
       }),
       response: {
         200: Type.Object({
@@ -131,114 +179,93 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       }
     }
   }, async (request, reply) => {
-    const {
-      search, category, subcategory, project_id, employee_id, client_id,
-      fiscal_year, accounting_period, expense_status, payment_status,
-      limit = 50, offset = 0
-    } = request.query as any;
-
     const userId = (request as any).user?.sub;
     if (!userId) {
-      return reply.code(403).send({ error: 'User not authenticated' });
+      return reply.status(401).send({ error: 'User not authenticated' });
     }
 
+    const {
+      limit: queryLimit,
+      offset: queryOffset,
+      page
+    } = request.query as any;
+
+    // Calculate pagination with defaults
+    const limit = queryLimit || 50;
+    const offset = page ? (page - 1) * limit : (queryOffset || 0);
+
     try {
-      // Base RBAC filtering
-      const baseConditions = [
-        sql`(
-          EXISTS (
-            SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-              AND rbac.entity_name = 'expense'
-              AND (rbac.entity_id = e.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-              AND rbac.permission >= 0
-          )
-        )`
-      ];
+      // ═══════════════════════════════════════════════════════════════
+      // NEW PATTERN: Route builds SQL, gates augment it
+      // ═══════════════════════════════════════════════════════════════
 
-      const conditions = [...baseConditions];
+      // Build WHERE conditions array
+      const conditions: SQL[] = [];
 
-      if (search) {
-        conditions.push(sql`(
-          e.expense_number ILIKE ${`%${search}%`} OR
-          e.description ILIKE ${`%${search}%`} OR
-          e.vendor_name ILIKE ${`%${search}%`} OR
-          e.employee_name ILIKE ${`%${search}%`}
-        )`);
-      }
+      // GATE 1: RBAC - Apply security filtering (REQUIRED)
+      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
+        userId,
+        ENTITY_TYPE,
+        Permission.VIEW,
+        TABLE_ALIAS
+      );
+      conditions.push(rbacCondition);
 
-      if (category) {
-        conditions.push(sql`e.dl__expense_category = ${category}`);
-      }
+      // ✨ UNIVERSAL AUTO-FILTER SYSTEM
+      // Automatically builds filters from ANY query parameter based on field naming conventions
+      // Supports: ?search=X, ?category=Y, ?project_id=Z, ?fiscal_year=N, etc.
+      const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query as any, {
+        searchFields: ['expense_number', 'description', 'vendor_name', 'employee_name']
+      });
+      conditions.push(...autoFilters);
 
-      if (subcategory) {
-        conditions.push(sql`e.dl__expense_subcategory = ${subcategory}`);
-      }
+      // Build WHERE clause
+      const whereClause = conditions.length > 0
+        ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
+        : sql``;
 
-      if (project_id) {
-        conditions.push(sql`e.project_id = ${project_id}::uuid`);
-      }
-
-      if (employee_id) {
-        conditions.push(sql`e.employee_id = ${employee_id}::uuid`);
-      }
-
-      if (client_id) {
-        conditions.push(sql`e.client_id = ${client_id}::uuid`);
-      }
-
-      if (fiscal_year) {
-        conditions.push(sql`e.fiscal_year = ${fiscal_year}`);
-      }
-
-      if (accounting_period) {
-        conditions.push(sql`e.accounting_period = ${accounting_period}`);
-      }
-
-      if (expense_status) {
-        conditions.push(sql`e.expense_status = ${expense_status}`);
-      }
-
-      if (payment_status) {
-        conditions.push(sql`e.payment_status = ${payment_status}`);
-      }
-
-      const whereClause = sql.join(conditions, sql` AND `);
-
-      // Get total count
+      // Count query
       const countQuery = sql`
         SELECT COUNT(*) as total
-        FROM app.f_expense e
-        WHERE ${whereClause}
+        FROM app.f_expense ${sql.raw(TABLE_ALIAS)}
+        ${whereClause}
       `;
 
-      const countResult = await db.execute(countQuery);
+      // Data query
+      const dataQuery = sql`
+        SELECT ${sql.raw(TABLE_ALIAS)}.*
+        FROM app.f_expense ${sql.raw(TABLE_ALIAS)}
+        ${whereClause}
+        ORDER BY ${sql.raw(TABLE_ALIAS)}.expense_date DESC, ${sql.raw(TABLE_ALIAS)}.created_ts DESC
+        LIMIT ${limit}
+        OFFSET ${offset}
+      `;
+
+      // Execute queries in parallel
+      const [countResult, dataResult] = await Promise.all([
+        db.execute(countQuery),
+        db.execute(dataQuery)
+      ]);
+
       const total = Number(countResult[0]?.total || 0);
 
-      // Get data
-      const dataQuery = sql`
-        SELECT *
-        FROM app.f_expense e
-        WHERE ${whereClause}
-        ORDER BY e.expense_date DESC, e.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `;
-
-      const dataResult = await db.execute(dataQuery);
-
-      return reply.code(200).send({
+      return reply.send({
         data: dataResult,
         total,
         limit,
         offset
       });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: error.message });
+    } catch (error) {
+      fastify.log.error('Error fetching expenses:', error as any);
+      console.error('Full error details:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Get single expense by ID
+  // ============================================================================
+  // Get Single Expense
+  // ============================================================================
+
   fastify.get('/api/v1/expense/:id', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -257,37 +284,49 @@ export async function expenseRoutes(fastify: FastifyInstance) {
     const userId = (request as any).user?.sub;
 
     if (!userId) {
-      return reply.code(403).send({ error: 'User not authenticated' });
+      return reply.status(401).send({ error: 'User not authenticated' });
     }
 
     try {
-      const query = sql`
-        SELECT e.*
-        FROM app.f_expense e
-        WHERE e.id = ${id}::uuid
-          AND EXISTS (
-            SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-              AND rbac.entity_name = 'expense'
-              AND (rbac.entity_id = e.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-              AND rbac.permission >= 0
-          )
-      `;
+      // ═══════════════════════════════════════════════════════════════
+      // NEW PATTERN: RBAC gate check, then simple SELECT
+      // ═══════════════════════════════════════════════════════════════
 
-      const result = await db.execute(query);
+      // GATE: RBAC - Check permission
+      const canView = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        id,
+        Permission.VIEW
+      );
 
-      if (result.length === 0) {
-        return reply.code(404).send({ error: 'Expense not found' });
+      if (!canView) {
+        return reply.status(403).send({ error: 'No permission to view this expense' });
       }
 
-      return reply.code(200).send(result[0]);
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: error.message });
+      // Route owns the query
+      const result = await db.execute(sql`
+        SELECT *
+        FROM app.f_expense
+        WHERE id = ${id}::uuid
+      `);
+
+      if (result.length === 0) {
+        return reply.status(404).send({ error: 'Expense not found' });
+      }
+
+      return reply.send(result[0]);
+    } catch (error) {
+      fastify.log.error('Error fetching expense:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Create new expense
+  // ============================================================================
+  // Create Expense
+  // ============================================================================
+
   fastify.post('/api/v1/expense', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -303,22 +342,24 @@ export async function expenseRoutes(fastify: FastifyInstance) {
     const userId = (request as any).user?.sub;
 
     if (!userId) {
-      return reply.code(403).send({ error: 'User not authenticated' });
+      return reply.status(401).send({ error: 'User not authenticated' });
     }
 
     try {
-      // Check if user has create permission
-      const permCheckQuery = sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-          AND rbac.entity_name = 'expense'
-          AND rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid
-          AND rbac.permission >= 4
-      `;
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC CHECK
+      // Check: Can user CREATE expenses?
+      // ═══════════════════════════════════════════════════════════════
+      const canCreate = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        ALL_ENTITIES_ID,
+        Permission.CREATE
+      );
 
-      const permResult = await db.execute(permCheckQuery);
-      if (permResult.length === 0) {
-        return reply.code(403).send({ error: 'No permission to create expense' });
+      if (!canCreate) {
+        return reply.status(403).send({ error: 'No permission to create expense' });
       }
 
       // Insert expense
@@ -358,14 +399,36 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       const insertResult = await db.execute(insertQuery);
       const newExpense = insertResult[0];
 
-      return reply.code(201).send(newExpense);
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: error.message });
+      // ═══════════════════════════════════════════════════════════════
+      // AUTO-GRANT: Creator gets DELETE permission (implies all lower)
+      // ═══════════════════════════════════════════════════════════════
+      await db.execute(sql`
+        INSERT INTO app.entity_id_rbac_map (
+          person_entity_id,
+          entity_name,
+          entity_id,
+          permission,
+          active_flag
+        ) VALUES (
+          ${userId},
+          ${ENTITY_TYPE},
+          ${newExpense.id}::text,
+          ${Permission.DELETE},
+          true
+        )
+      `);
+
+      return reply.status(201).send(newExpense);
+    } catch (error) {
+      fastify.log.error('Error creating expense:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Update expense
+  // ============================================================================
+  // Update Expense (PATCH)
+  // ============================================================================
+
   fastify.patch('/api/v1/expense/:id', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -386,22 +449,24 @@ export async function expenseRoutes(fastify: FastifyInstance) {
     const userId = (request as any).user?.sub;
 
     if (!userId) {
-      return reply.code(403).send({ error: 'User not authenticated' });
+      return reply.status(401).send({ error: 'User not authenticated' });
     }
 
     try {
-      // Check edit permission
-      const permCheckQuery = sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-          AND rbac.entity_name = 'expense'
-          AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.permission >= 1
-      `;
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC CHECK
+      // Check: Can user EDIT this expense?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        id,
+        Permission.EDIT
+      );
 
-      const permResult = await db.execute(permCheckQuery);
-      if (permResult.length === 0) {
-        return reply.code(403).send({ error: 'No permission to edit expense' });
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit expense' });
       }
 
       const updateFields: any[] = [];
@@ -419,7 +484,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       });
 
       if (updateFields.length === 0) {
-        return reply.code(400).send({ error: 'No fields to update' });
+        return reply.status(400).send({ error: 'No fields to update' });
       }
 
       updateFields.push(sql`last_modified_by = ${userId}::uuid`);
@@ -435,17 +500,20 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       const updateResult = await db.execute(updateQuery);
 
       if (updateResult.length === 0) {
-        return reply.code(404).send({ error: 'Expense not found' });
+        return reply.status(404).send({ error: 'Expense not found' });
       }
 
-      return reply.code(200).send(updateResult[0]);
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: error.message });
+      return reply.send(updateResult[0]);
+    } catch (error) {
+      fastify.log.error('Error updating expense:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Update expense (PUT - alias to PATCH for frontend compatibility)
+  // ============================================================================
+  // Update Expense (PUT - alias to PATCH for frontend compatibility)
+  // ============================================================================
+
   fastify.put('/api/v1/expense/:id', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -468,22 +536,24 @@ export async function expenseRoutes(fastify: FastifyInstance) {
     const userId = (request as any).user?.sub;
 
     if (!userId) {
-      return reply.code(401).send({ error: 'User not authenticated' });
+      return reply.status(401).send({ error: 'User not authenticated' });
     }
 
     try {
-      // Check edit permission
-      const permCheckQuery = sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-          AND rbac.entity_name = 'expense'
-          AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.permission >= 1
-      `;
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC CHECK
+      // Check: Can user EDIT this expense?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        id,
+        Permission.EDIT
+      );
 
-      const permResult = await db.execute(permCheckQuery);
-      if (permResult.length === 0) {
-        return reply.code(403).send({ error: 'No permission to edit expense' });
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit expense' });
       }
 
       const updateFields: any[] = [];
@@ -501,7 +571,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       });
 
       if (updateFields.length === 0) {
-        return reply.code(400).send({ error: 'No fields to update' });
+        return reply.status(400).send({ error: 'No fields to update' });
       }
 
       updateFields.push(sql`last_modified_by = ${userId}::uuid`);
@@ -517,16 +587,18 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       const updateResult = await db.execute(updateQuery);
 
       if (updateResult.length === 0) {
-        return reply.code(404).send({ error: 'Expense not found' });
+        return reply.status(404).send({ error: 'Expense not found' });
       }
 
-      return reply.code(200).send(updateResult[0]);
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: error.message });
+      return reply.send(updateResult[0]);
+    } catch (error) {
+      fastify.log.error('Error updating expense:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Delete expense
-  createEntityDeleteEndpoint(fastify, 'expense');
+  // ============================================================================
+  // Delete Expense (Soft Delete via Factory)
+  // ============================================================================
+  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 }

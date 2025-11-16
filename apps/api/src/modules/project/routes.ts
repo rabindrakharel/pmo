@@ -46,13 +46,12 @@
  *   • Many-to-many relationships supported naturally
  *   • Simpler API surface (no custom nested endpoints)
  *
- * 3. FACTORY PATTERN (Child Entity Endpoints)
- * ────────────────────────────────────────────
- * Child entity endpoints auto-generated via createChildEntityEndpoint():
- *   • GET /api/v1/project/:id/task    - Returns tasks linked to project
- *   • GET /api/v1/project/:id/wiki    - Returns wiki entries for project
- *   • GET /api/v1/project/:id/artifact - Returns artifacts for project
- *   • etc.
+ * 3. FACTORY PATTERN (Child Entity Endpoints - Database-Driven)
+ * ────────────────────────────────────────────────────────────
+ * Child entity endpoints auto-generated via createChildEntityEndpointsFromMetadata():
+ *   • Reads child_entities from d_entity table (single source of truth)
+ *   • Auto-creates: GET /api/v1/project/:id/task, /api/v1/project/:id/wiki, etc.
+ *   • Zero maintenance - add child to d_entity DDL, routes auto-generated
  *
  * No manual endpoint code needed - factory handles:
  *   • RBAC filtering (unified_data_gate)
@@ -886,16 +885,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
   // - Zero repetition: no manual endpoint declarations needed
   // - Self-maintaining: add child entity → update d_entity → routes auto-created
   await createChildEntityEndpointsFromMetadata(fastify, 'project');
-
-  // Note: The manual endpoints above (lines 173-625, 944-1032) can be removed
-  // after confirming frontend uses singular endpoints (/task not /tasks)
-  //
-  // Old approach (manual, now DEPRECATED):
-  // createChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
-  // createChildEntityEndpoint(fastify, 'project', 'wiki', 'd_wiki');
-  // createChildEntityEndpoint(fastify, 'project', 'form', 'd_form_head');
-  // createChildEntityEndpoint(fastify, 'project', 'artifact', 'd_artifact');
-
 
   // ========================================
   // CHILD ENTITY CREATION

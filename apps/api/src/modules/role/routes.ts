@@ -253,8 +253,22 @@ export async function roleRoutes(fastify: FastifyInstance) {
     const { id } = request.params as { id: string };
     const data = request.body as any;
 
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+      // Uses: RBAC_GATE only (checkPermission)
+      // Check: Can user EDIT this role?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit this role' });
+      }
+
       // Check if role exists
       const existing = await db.execute(sql`
         SELECT id FROM app.d_role WHERE id = ${id} AND active_flag = true
@@ -317,7 +331,9 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
+      // Always update timestamp and increment version
       updateFields.push(sql`updated_ts = NOW()`);
+      updateFields.push(sql`version = version + 1`);
 
       const result = await db.execute(sql`
         UPDATE app.d_role
@@ -369,13 +385,27 @@ export async function roleRoutes(fastify: FastifyInstance) {
     const { id } = request.params as { id: string };
     const data = request.body as any;
 
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+      // Uses: RBAC_GATE only (checkPermission)
+      // Check: Can user EDIT this role?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit this role' });
+      }
+
       // Check if role exists
       const existing = await db.execute(sql`
         SELECT id FROM app.d_role WHERE id = ${id} AND active_flag = true
       `);
-      
+
       if (existing.length === 0) {
         return reply.status(404).send({ error: 'Role not found' });
       }
@@ -433,7 +463,9 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
 
+      // Always update timestamp and increment version
       updateFields.push(sql`updated_ts = NOW()`);
+      updateFields.push(sql`version = version + 1`);
 
       const result = await db.execute(sql`
         UPDATE app.d_role

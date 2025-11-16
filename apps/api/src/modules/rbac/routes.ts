@@ -1,12 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import {
-  api_gate_Update,
-  api_gate_Delete,
-  api_gate_Create,
-  data_gate_EntityIdsByEntityType,
-  PermissionLevel
-} from '../../lib/rbac.service.js';
+import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 
@@ -17,41 +11,37 @@ interface PermissionResult {
 }
 
 // Helper functions for RBAC API endpoints (frontend UI needs)
-// Uses API gates to determine permissions by trying each operation
+// Uses unified_data_gate to determine permissions
 async function getEmployeeEntityPermissions(employeeId: string, entityType: string, entityId?: string): Promise<PermissionResult[]> {
-  const targetEntityId = entityId || '11111111-1111-1111-1111-111111111111';
+  const targetEntityId = entityId || ALL_ENTITIES_ID;
 
-  // Test each permission level using API gates
+  // Test each permission level using unified_data_gate
   const permissions: string[] = [];
 
   // Test view
-  try {
-    const accessibleEntityIds = await data_gate_EntityIdsByEntityType(employeeId, entityType, PermissionLevel.VIEW);
-    const hasTypeAccess = accessibleEntityIds.includes('11111111-1111-1111-1111-111111111111');
-    const hasSpecificAccess = accessibleEntityIds.includes(targetEntityId);
-    if (hasTypeAccess || hasSpecificAccess) {
-      permissions.push('view');
-    }
-  } catch {}
+  const canView = await unified_data_gate.rbac_gate.checkPermission(
+    db, employeeId, entityType, targetEntityId, Permission.VIEW
+  );
+  if (canView) permissions.push('view');
 
   // Test edit
-  try {
-    await api_gate_Update(employeeId, entityType, targetEntityId);
-    permissions.push('edit');
-  } catch {}
+  const canEdit = await unified_data_gate.rbac_gate.checkPermission(
+    db, employeeId, entityType, targetEntityId, Permission.EDIT
+  );
+  if (canEdit) permissions.push('edit');
 
   // Test delete
-  try {
-    await api_gate_Delete(employeeId, entityType, targetEntityId);
-    permissions.push('delete');
-  } catch {}
+  const canDelete = await unified_data_gate.rbac_gate.checkPermission(
+    db, employeeId, entityType, targetEntityId, Permission.DELETE
+  );
+  if (canDelete) permissions.push('delete');
 
   // Test create (only for type-level)
-  if (targetEntityId === '11111111-1111-1111-1111-111111111111') {
-    try {
-      await api_gate_Create(employeeId, entityType);
-      permissions.push('create');
-    } catch {}
+  if (targetEntityId === ALL_ENTITIES_ID) {
+    const canCreate = await unified_data_gate.rbac_gate.checkPermission(
+      db, employeeId, entityType, ALL_ENTITIES_ID, Permission.CREATE
+    );
+    if (canCreate) permissions.push('create');
   }
 
   return [{
@@ -61,19 +51,14 @@ async function getEmployeeEntityPermissions(employeeId: string, entityType: stri
 }
 
 async function getMainPageActionPermissions(employeeId: string, entityType: string) {
-  // Test type-level permissions using API gates
-  let canCreate = false;
-  let canDelete = false;
+  // Test type-level permissions using unified_data_gate
+  const canCreate = await unified_data_gate.rbac_gate.checkPermission(
+    db, employeeId, entityType, ALL_ENTITIES_ID, Permission.CREATE
+  );
 
-  try {
-    await api_gate_Create(employeeId, entityType);
-    canCreate = true;
-  } catch {}
-
-  try {
-    await api_gate_Delete(employeeId, entityType, '11111111-1111-1111-1111-111111111111');
-    canDelete = true;
-  } catch {}
+  const canDelete = await unified_data_gate.rbac_gate.checkPermission(
+    db, employeeId, entityType, ALL_ENTITIES_ID, Permission.DELETE
+  );
 
   return {
     canCreate,
@@ -84,25 +69,17 @@ async function getMainPageActionPermissions(employeeId: string, entityType: stri
   };
 }
 
-// Backward-compatible wrappers using API gates
+// Backward-compatible wrappers using unified_data_gate
 async function canAssignProjectToBusiness(userId: string, businessId: string): Promise<boolean> {
-  try {
-    await api_gate_Update(userId, 'business', businessId);
-    return true;
-  } catch {
-    return false;
-  }
+  return await unified_data_gate.rbac_gate.checkPermission(
+    db, userId, 'business', businessId, Permission.EDIT
+  );
 }
 
 async function canNavigateToChildEntity(userId: string, childType: string, childId: string): Promise<boolean> {
-  try {
-    const accessibleEntityIds = await data_gate_EntityIdsByEntityType(userId, childType, PermissionLevel.VIEW);
-    const hasTypeAccess = accessibleEntityIds.includes('11111111-1111-1111-1111-111111111111');
-    const hasSpecificAccess = accessibleEntityIds.includes(childId);
-    return hasTypeAccess || hasSpecificAccess;
-  } catch {
-    return false;
-  }
+  return await unified_data_gate.rbac_gate.checkPermission(
+    db, userId, childType, childId, Permission.VIEW
+  );
 }
 
 export async function rbacRoutes(fastify: FastifyInstance) {
@@ -233,11 +210,11 @@ export async function rbacRoutes(fastify: FastifyInstance) {
 
     try {
       // Check if user has access to the parent entity first
-      const parentAccessibleIds = await data_gate_EntityIdsByEntityType(userId, parentEntity, PermissionLevel.VIEW);
-      const hasParentTypeAccess = parentAccessibleIds.includes('11111111-1111-1111-1111-111111111111');
-      const hasParentSpecificAccess = parentAccessibleIds.includes(parentEntityId);
+      const hasParentAccess = await unified_data_gate.rbac_gate.checkPermission(
+        db, userId, parentEntity, parentEntityId, Permission.VIEW
+      );
 
-      if (!hasParentTypeAccess && !hasParentSpecificAccess) {
+      if (!hasParentAccess) {
         // If no access to parent, return empty permissions
         return {
           parentEntity,
@@ -293,7 +270,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       const permissions = [];
 
       // Check type-level permission for this action entity type
-      const typePermissionResults = await getEmployeeEntityPermissions(userId, actionEntity, '11111111-1111-1111-1111-111111111111');
+      const typePermissionResults = await getEmployeeEntityPermissions(userId, actionEntity, ALL_ENTITIES_ID);
       if (typePermissionResults.length > 0 && typePermissionResults[0].permissions.length > 0) {
         permissions.push({
           actionEntityId: '', // Empty string represents global permissions

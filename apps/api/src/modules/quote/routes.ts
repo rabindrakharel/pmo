@@ -4,7 +4,7 @@ import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import { filterUniversalColumns, createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
-import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.js';
+import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 
 const QuoteSchema = Type.Object({
   id: Type.String(),
@@ -333,6 +333,16 @@ export async function quoteRoutes(fastify: FastifyInstance) {
   // Delete quote
   createEntityDeleteEndpoint(fastify, 'quote');
 
-  // Child entities - quotes can have associated work orders
-  createChildEntityEndpoint(fastify, 'quote', 'work_order', 'fact_work_order');
+  // ========================================
+  // CHILD ENTITY ENDPOINTS (Database-Driven)
+  // ========================================
+  // Auto-create all child entity endpoints from d_entity metadata
+  // Reads quote's child_entities from database: [{"entity": "work_order", ...}]
+  // Creates endpoints: /api/v1/quote/:id/work_order
+  //
+  // Benefits:
+  // - Single source of truth: child relationships defined in d_entity DDL only
+  // - Zero repetition: no manual endpoint declarations needed
+  // - Self-maintaining: add child entity → update d_entity → routes auto-created
+  await createChildEntityEndpointsFromMetadata(fastify, 'quote');
 }

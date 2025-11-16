@@ -1,9 +1,41 @@
+/**
+ * ============================================================================
+ * REVENUE ROUTES MODULE - Universal Entity Pattern with Unified Data Gate
+ * ============================================================================
+ *
+ * SEMANTICS & PURPOSE:
+ * Revenue tracking and financial management following the PMO platform's
+ * Universal Entity System architecture.
+ *
+ * ============================================================================
+ * DESIGN PATTERNS & ARCHITECTURE
+ * ============================================================================
+ *
+ * 1. UNIFIED DATA GATE PATTERN (Security & Filtering) ✅
+ * ───────────────────────────────────────────────────────
+ * All endpoints use centralized permission checking via unified-data-gate.ts
+ *
+ * 2. AUTO-FILTER SYSTEM (Zero-Config Query Filtering) ✅
+ * ─────────────────────────────────────────────────────────
+ * Uses buildAutoFilters() for automatic query parameter detection and filtering
+ *
+ * 3. MODULE-LEVEL CONSTANTS (DRY Principle) ✅
+ * ──────────────────────────────────────────
+ * Single source of truth for entity type and table alias
+ *
+ * ============================================================================
+ */
+
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
+// ✅ Centralized unified data gate - loosely coupled API
+import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+// ✨ Universal auto-filter builder - zero-config query filtering
+import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
-import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.js';
 
 // Schema based on f_revenue table structure from db/LII_f_revenue.ddl
 const RevenueSchema = Type.Object({
@@ -87,12 +119,24 @@ const CreateRevenueSchema = Type.Object({
 
 const UpdateRevenueSchema = Type.Partial(CreateRevenueSchema);
 
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_TYPE = 'revenue';
+const TABLE_ALIAS = 'r';
+
 export async function revenueRoutes(fastify: FastifyInstance) {
-  // List revenue with filtering
+  // ============================================================================
+  // List Revenue (Main Page)
+  // ============================================================================
+  // URL: GET /api/v1/revenue
+  // ============================================================================
+
   fastify.get('/api/v1/revenue', {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
+        // Standard filters (auto-detected by buildAutoFilters)
         search: Type.Optional(Type.String()),
         category: Type.Optional(Type.String()),
         subcategory: Type.Optional(Type.String()),
@@ -103,8 +147,11 @@ export async function revenueRoutes(fastify: FastifyInstance) {
         accounting_period: Type.Optional(Type.String()),
         revenue_status: Type.Optional(Type.String()),
         payment_status: Type.Optional(Type.String()),
+
+        // Pagination
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 }))
+        offset: Type.Optional(Type.Number({ minimum: 0 })),
+        page: Type.Optional(Type.Number({ minimum: 1 })),
       }),
       response: {
         200: Type.Object({
@@ -118,113 +165,93 @@ export async function revenueRoutes(fastify: FastifyInstance) {
       }
     }
   }, async (request, reply) => {
-    const {
-      search, category, subcategory, client_id, project_id, employee_id,
-      fiscal_year, accounting_period, revenue_status, payment_status,
-      limit = 50, offset = 0
-    } = request.query as any;
-
     const userId = (request as any).user?.sub;
     if (!userId) {
-      return reply.code(403).send({ error: 'User not authenticated' });
+      return reply.status(401).send({ error: 'User not authenticated' });
     }
 
+    const {
+      limit: queryLimit,
+      offset: queryOffset,
+      page
+    } = request.query as any;
+
+    // Calculate pagination with defaults
+    const limit = queryLimit || 50;
+    const offset = page ? (page - 1) * limit : (queryOffset || 0);
+
     try {
-      // Base RBAC filtering
-      const baseConditions = [
-        sql`(
-          EXISTS (
-            SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-              AND rbac.entity_name = 'revenue'
-              AND (rbac.entity_id = r.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-              AND rbac.permission >= 0
-          )
-        )`
-      ];
+      // ═══════════════════════════════════════════════════════════════
+      // NEW PATTERN: Route builds SQL, gates augment it
+      // ═══════════════════════════════════════════════════════════════
 
-      const conditions = [...baseConditions];
+      // Build WHERE conditions array
+      const conditions: SQL[] = [];
 
-      if (search) {
-        conditions.push(sql`(
-          r.revenue_number ILIKE ${`%${search}%`} OR
-          r.description ILIKE ${`%${search}%`} OR
-          r.client_name ILIKE ${`%${search}%`}
-        )`);
-      }
+      // GATE 1: RBAC - Apply security filtering (REQUIRED)
+      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
+        userId,
+        ENTITY_TYPE,
+        Permission.VIEW,
+        TABLE_ALIAS
+      );
+      conditions.push(rbacCondition);
 
-      if (category) {
-        conditions.push(sql`r.dl__revenue_category = ${category}`);
-      }
+      // ✨ UNIVERSAL AUTO-FILTER SYSTEM
+      // Automatically builds filters from ANY query parameter based on field naming conventions
+      // Supports: ?search=X, ?category=Y, ?client_id=Z, ?fiscal_year=N, etc.
+      const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query as any, {
+        searchFields: ['revenue_number', 'description', 'client_name']
+      });
+      conditions.push(...autoFilters);
 
-      if (subcategory) {
-        conditions.push(sql`r.dl__revenue_subcategory = ${subcategory}`);
-      }
+      // Build WHERE clause
+      const whereClause = conditions.length > 0
+        ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
+        : sql``;
 
-      if (client_id) {
-        conditions.push(sql`r.client_id = ${client_id}::uuid`);
-      }
-
-      if (project_id) {
-        conditions.push(sql`r.project_id = ${project_id}::uuid`);
-      }
-
-      if (employee_id) {
-        conditions.push(sql`r.employee_id = ${employee_id}::uuid`);
-      }
-
-      if (fiscal_year) {
-        conditions.push(sql`r.fiscal_year = ${fiscal_year}`);
-      }
-
-      if (accounting_period) {
-        conditions.push(sql`r.accounting_period = ${accounting_period}`);
-      }
-
-      if (revenue_status) {
-        conditions.push(sql`r.revenue_status = ${revenue_status}`);
-      }
-
-      if (payment_status) {
-        conditions.push(sql`r.payment_status = ${payment_status}`);
-      }
-
-      const whereClause = sql.join(conditions, sql` AND `);
-
-      // Get total count
+      // Count query
       const countQuery = sql`
         SELECT COUNT(*) as total
-        FROM app.f_revenue r
-        WHERE ${whereClause}
+        FROM app.f_revenue ${sql.raw(TABLE_ALIAS)}
+        ${whereClause}
       `;
 
-      const countResult = await db.execute(countQuery);
+      // Data query
+      const dataQuery = sql`
+        SELECT ${sql.raw(TABLE_ALIAS)}.*
+        FROM app.f_revenue ${sql.raw(TABLE_ALIAS)}
+        ${whereClause}
+        ORDER BY ${sql.raw(TABLE_ALIAS)}.revenue_date DESC, ${sql.raw(TABLE_ALIAS)}.created_ts DESC
+        LIMIT ${limit}
+        OFFSET ${offset}
+      `;
+
+      // Execute queries in parallel
+      const [countResult, dataResult] = await Promise.all([
+        db.execute(countQuery),
+        db.execute(dataQuery)
+      ]);
+
       const total = Number(countResult[0]?.total || 0);
 
-      // Get data
-      const dataQuery = sql`
-        SELECT *
-        FROM app.f_revenue r
-        WHERE ${whereClause}
-        ORDER BY r.revenue_date DESC, r.created_ts DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `;
-
-      const dataResult = await db.execute(dataQuery);
-
-      return reply.code(200).send({
+      return reply.send({
         data: dataResult,
         total,
         limit,
         offset
       });
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: error.message });
+    } catch (error) {
+      fastify.log.error('Error fetching revenue:', error as any);
+      console.error('Full error details:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Get single revenue by ID
+  // ============================================================================
+  // Get Single Revenue
+  // ============================================================================
+
   fastify.get('/api/v1/revenue/:id', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -243,37 +270,49 @@ export async function revenueRoutes(fastify: FastifyInstance) {
     const userId = (request as any).user?.sub;
 
     if (!userId) {
-      return reply.code(403).send({ error: 'User not authenticated' });
+      return reply.status(401).send({ error: 'User not authenticated' });
     }
 
     try {
-      const query = sql`
-        SELECT r.*
-        FROM app.f_revenue r
-        WHERE r.id = ${id}::uuid
-          AND EXISTS (
-            SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-              AND rbac.entity_name = 'revenue'
-              AND (rbac.entity_id = r.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-              AND rbac.permission >= 0
-          )
-      `;
+      // ═══════════════════════════════════════════════════════════════
+      // NEW PATTERN: RBAC gate check, then simple SELECT
+      // ═══════════════════════════════════════════════════════════════
 
-      const result = await db.execute(query);
+      // GATE: RBAC - Check permission
+      const canView = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        id,
+        Permission.VIEW
+      );
 
-      if (result.length === 0) {
-        return reply.code(404).send({ error: 'Revenue not found' });
+      if (!canView) {
+        return reply.status(403).send({ error: 'No permission to view this revenue' });
       }
 
-      return reply.code(200).send(result[0]);
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: error.message });
+      // Route owns the query
+      const result = await db.execute(sql`
+        SELECT *
+        FROM app.f_revenue
+        WHERE id = ${id}::uuid
+      `);
+
+      if (result.length === 0) {
+        return reply.status(404).send({ error: 'Revenue not found' });
+      }
+
+      return reply.send(result[0]);
+    } catch (error) {
+      fastify.log.error('Error fetching revenue:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Create new revenue
+  // ============================================================================
+  // Create Revenue
+  // ============================================================================
+
   fastify.post('/api/v1/revenue', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -289,22 +328,24 @@ export async function revenueRoutes(fastify: FastifyInstance) {
     const userId = (request as any).user?.sub;
 
     if (!userId) {
-      return reply.code(403).send({ error: 'User not authenticated' });
+      return reply.status(401).send({ error: 'User not authenticated' });
     }
 
     try {
-      // Check if user has create permission
-      const permCheckQuery = sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-          AND rbac.entity_name = 'revenue'
-          AND rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid
-          AND rbac.permission >= 4
-      `;
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC CHECK
+      // Check: Can user CREATE revenue?
+      // ═══════════════════════════════════════════════════════════════
+      const canCreate = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        ALL_ENTITIES_ID,
+        Permission.CREATE
+      );
 
-      const permResult = await db.execute(permCheckQuery);
-      if (permResult.length === 0) {
-        return reply.code(403).send({ error: 'No permission to create revenue' });
+      if (!canCreate) {
+        return reply.status(403).send({ error: 'No permission to create revenue' });
       }
 
       // Insert revenue
@@ -344,14 +385,36 @@ export async function revenueRoutes(fastify: FastifyInstance) {
       const insertResult = await db.execute(insertQuery);
       const newRevenue = insertResult[0];
 
-      return reply.code(201).send(newRevenue);
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: error.message });
+      // ═══════════════════════════════════════════════════════════════
+      // AUTO-GRANT: Creator gets DELETE permission (implies all lower)
+      // ═══════════════════════════════════════════════════════════════
+      await db.execute(sql`
+        INSERT INTO app.entity_id_rbac_map (
+          person_entity_id,
+          entity_name,
+          entity_id,
+          permission,
+          active_flag
+        ) VALUES (
+          ${userId},
+          ${ENTITY_TYPE},
+          ${newRevenue.id}::text,
+          ${Permission.DELETE},
+          true
+        )
+      `);
+
+      return reply.status(201).send(newRevenue);
+    } catch (error) {
+      fastify.log.error('Error creating revenue:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Update revenue
+  // ============================================================================
+  // Update Revenue (PATCH)
+  // ============================================================================
+
   fastify.patch('/api/v1/revenue/:id', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -372,26 +435,27 @@ export async function revenueRoutes(fastify: FastifyInstance) {
     const userId = (request as any).user?.sub;
 
     if (!userId) {
-      return reply.code(403).send({ error: 'User not authenticated' });
+      return reply.status(401).send({ error: 'User not authenticated' });
     }
 
     try {
-      // Check edit permission
-      const permCheckQuery = sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-          AND rbac.entity_name = 'revenue'
-          AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.permission >= 1
-      `;
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC CHECK
+      // Check: Can user EDIT this revenue?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        id,
+        Permission.EDIT
+      );
 
-      const permResult = await db.execute(permCheckQuery);
-      if (permResult.length === 0) {
-        return reply.code(403).send({ error: 'No permission to edit revenue' });
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit revenue' });
       }
 
       const updateFields: any[] = [];
-      const updateValues: any[] = [];
 
       Object.keys(body).forEach((key) => {
         if (body[key] !== undefined) {
@@ -406,7 +470,7 @@ export async function revenueRoutes(fastify: FastifyInstance) {
       });
 
       if (updateFields.length === 0) {
-        return reply.code(400).send({ error: 'No fields to update' });
+        return reply.status(400).send({ error: 'No fields to update' });
       }
 
       updateFields.push(sql`last_modified_by = ${userId}::uuid`);
@@ -422,17 +486,20 @@ export async function revenueRoutes(fastify: FastifyInstance) {
       const updateResult = await db.execute(updateQuery);
 
       if (updateResult.length === 0) {
-        return reply.code(404).send({ error: 'Revenue not found' });
+        return reply.status(404).send({ error: 'Revenue not found' });
       }
 
-      return reply.code(200).send(updateResult[0]);
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: error.message });
+      return reply.send(updateResult[0]);
+    } catch (error) {
+      fastify.log.error('Error updating revenue:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Update revenue (PUT - alias to PATCH for frontend compatibility)
+  // ============================================================================
+  // Update Revenue (PUT - alias to PATCH for frontend compatibility)
+  // ============================================================================
+
   fastify.put('/api/v1/revenue/:id', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -455,26 +522,27 @@ export async function revenueRoutes(fastify: FastifyInstance) {
     const userId = (request as any).user?.sub;
 
     if (!userId) {
-      return reply.code(403).send({ error: 'User not authenticated' });
+      return reply.status(401).send({ error: 'User not authenticated' });
     }
 
     try {
-      // Check edit permission
-      const permCheckQuery = sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-          AND rbac.entity_name = 'revenue'
-          AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.permission >= 1
-      `;
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC CHECK
+      // Check: Can user EDIT this revenue?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        id,
+        Permission.EDIT
+      );
 
-      const permResult = await db.execute(permCheckQuery);
-      if (permResult.length === 0) {
-        return reply.code(403).send({ error: 'No permission to edit revenue' });
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit revenue' });
       }
 
       const updateFields: any[] = [];
-      const updateValues: any[] = [];
 
       Object.keys(body).forEach((key) => {
         if (body[key] !== undefined) {
@@ -489,7 +557,7 @@ export async function revenueRoutes(fastify: FastifyInstance) {
       });
 
       if (updateFields.length === 0) {
-        return reply.code(400).send({ error: 'No fields to update' });
+        return reply.status(400).send({ error: 'No fields to update' });
       }
 
       updateFields.push(sql`last_modified_by = ${userId}::uuid`);
@@ -505,16 +573,18 @@ export async function revenueRoutes(fastify: FastifyInstance) {
       const updateResult = await db.execute(updateQuery);
 
       if (updateResult.length === 0) {
-        return reply.code(404).send({ error: 'Revenue not found' });
+        return reply.status(404).send({ error: 'Revenue not found' });
       }
 
-      return reply.code(200).send(updateResult[0]);
-    } catch (error: any) {
-      fastify.log.error(error);
-      return reply.code(500).send({ error: error.message });
+      return reply.send(updateResult[0]);
+    } catch (error) {
+      fastify.log.error('Error updating revenue:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
-  // Delete revenue
-  createEntityDeleteEndpoint(fastify, 'revenue');
+  // ============================================================================
+  // Delete Revenue (Soft Delete via Factory)
+  // ============================================================================
+  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 }
