@@ -167,7 +167,8 @@
       "Bash(do echo \"Testing $entity...\" ./tools/test-api.sh GET \"/api/v1/$entity?limit=1\")",
       "Bash(do echo \"=== Testing $entity ===\" ./tools/test-api.sh GET \"/api/v1/$entity?limit=1\")",
       "Bash(do echo -n \"$file: \" grep \"^const TABLE_ALIAS\" apps/api/src/modules/$file/routes.ts)",
-      "Bash(do echo -n \"$entity: \")"
+      "Bash(do echo -n \"$entity: \")",
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": [],
