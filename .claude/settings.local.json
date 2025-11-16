@@ -162,7 +162,12 @@
       "Bash(do echo \"=== $file ===\" grep \"unified_data_gate\\|buildAutoFilters\" /home/rabin/projects/pmo/apps/api/src/modules/$file/routes.ts)",
       "Bash(git -C /home/rabin/projects/pmo log --oneline -10)",
       "Bash(git -C /home/rabin/projects/pmo show HEAD~5:apps/api/src/modules/project/routes.ts)",
-      "Bash(pnpm run build:web:*)"
+      "Bash(pnpm run build:web:*)",
+      "Bash(do echo \"=== $file ===\" grep -A2 \"SELECT COUNT.*as total\" apps/api/src/modules/$file/routes.ts)",
+      "Bash(do echo \"Testing $entity...\" ./tools/test-api.sh GET \"/api/v1/$entity?limit=1\")",
+      "Bash(do echo \"=== Testing $entity ===\" ./tools/test-api.sh GET \"/api/v1/$entity?limit=1\")",
+      "Bash(do echo -n \"$file: \" grep \"^const TABLE_ALIAS\" apps/api/src/modules/$file/routes.ts)",
+      "Bash(do echo -n \"$entity: \")"
     ],
     "deny": [],
     "ask": [],

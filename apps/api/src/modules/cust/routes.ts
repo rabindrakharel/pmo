@@ -153,9 +153,15 @@ export async function custRoutes(fastify: FastifyInstance) {
         )`);
       }
 
+      // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
+      // Can be overridden with ?active=false to show inactive records
+      if (!('active' in (request.query as any))) {
+        conditions.push(sql`c.active_flag = true`);
+      }
+
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.d_cust
+        FROM app.d_cust c
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);

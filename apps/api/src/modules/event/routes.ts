@@ -8,6 +8,8 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { client, db } from '../../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import { paginateQuery, getPaginationParams } from '../../lib/pagination.js';
+import { grantPermission } from '../../services/rbac-grant.service.js';
+import { Permission } from '../../lib/unified-data-gate.js';
 
 /**
  * Event creation request
@@ -482,23 +484,15 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
       console.log(`✅ Created event: ${newEvent.code}`);
 
-      // Grant Owner permissions (permission[5]) to event creator
+      // Grant Owner permissions to event creator
       if (creatorEmpId) {
-        await client`
-          INSERT INTO app.entity_id_rbac_map (
-            employee_id,
-            entity,
-            entity_id,
-            permission,
-            granted_by_employee_id
-          ) VALUES (
-            ${creatorEmpId}::uuid,
-            'event',
-            ${newEvent.id},
-            ARRAY[0,1,2,3,4,5],
-            ${creatorEmpId}::uuid
-          )
-        `;
+        await grantPermission(db, {
+          personEntityName: 'employee',
+          personEntityId: creatorEmpId,
+          entityName: 'event',
+          entityId: newEvent.id,
+          permission: Permission.OWNER
+        });
         console.log(`✅ Granted Owner permissions to creator (employee_id: ${creatorEmpId})`);
 
         // Also add organizer as an attendee with accepted status

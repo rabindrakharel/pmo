@@ -169,6 +169,12 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       );
       conditions.push(rbacCondition);
 
+      // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
+      // Can be overridden with ?active=false to show inactive records
+      if (!('active' in (request.query as any))) {
+        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = true`);
+      }
+
       // ✨ UNIVERSAL AUTO-FILTER SYSTEM
       // Automatically builds filters from ANY query parameter based on field naming conventions
       // Supports: ?artifact_type=X, ?active=true, ?search=keyword, etc.

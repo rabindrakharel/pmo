@@ -32,6 +32,7 @@ import { db } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
 // ✅ Centralized unified data gate - loosely coupled API
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+import { grantPermission } from '../../services/rbac-grant.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Delete factory for cascading soft deletes
@@ -210,6 +211,12 @@ export async function expenseRoutes(fastify: FastifyInstance) {
         TABLE_ALIAS
       );
       conditions.push(rbacCondition);
+
+      // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
+      // Can be overridden with ?active=false to show inactive records
+      if (!('active' in (request.query as any))) {
+        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = true`);
+      }
 
       // ✨ UNIVERSAL AUTO-FILTER SYSTEM
       // Automatically builds filters from ANY query parameter based on field naming conventions
@@ -400,23 +407,15 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       const newExpense = insertResult[0];
 
       // ═══════════════════════════════════════════════════════════════
-      // AUTO-GRANT: Creator gets DELETE permission (implies all lower)
+      // AUTO-GRANT: Creator gets full permissions (OWNER)
       // ═══════════════════════════════════════════════════════════════
-      await db.execute(sql`
-        INSERT INTO app.entity_id_rbac_map (
-          person_entity_id,
-          entity_name,
-          entity_id,
-          permission,
-          active_flag
-        ) VALUES (
-          ${userId},
-          ${ENTITY_TYPE},
-          ${newExpense.id}::text,
-          ${Permission.DELETE},
-          true
-        )
-      `);
+      await grantPermission(db, {
+        personEntityName: 'employee',
+        personEntityId: userId,
+        entityName: ENTITY_TYPE,
+        entityId: newExpense.id,
+        permission: Permission.OWNER
+      });
 
       return reply.status(201).send(newExpense);
     } catch (error) {

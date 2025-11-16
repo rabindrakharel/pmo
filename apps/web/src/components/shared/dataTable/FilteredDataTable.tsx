@@ -411,12 +411,13 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
     try {
       const token = localStorage.getItem('auth_token');
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json'};
+      const headers: HeadersInit = {};
 
       if (token) {
         headers.Authorization = `Bearer ${token}`;
       }
+
+      // Note: DELETE requests don't have a body, so no Content-Type header needed
 
       // Build the correct API endpoint
       let deleteEndpoint = '';
@@ -443,10 +444,13 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       );
 
       if (response.ok) {
+        // Force reload data after successful delete
         await fetchData();
+        console.log('✅ Record deleted successfully');
       } else {
-        console.error('Failed to delete record:', response.statusText);
-        alert('Failed to delete record. Please try again.');
+        const errorText = await response.text();
+        console.error('Failed to delete record:', response.statusText, errorText);
+        alert(`Failed to delete record: ${response.statusText}`);
       }
     } catch (error) {
       console.error('Error deleting record:', error);

@@ -360,8 +360,8 @@ export function SettingsOverviewPage() {
       const response = await fetch(`http://localhost:4000/api/v1/entity/${code}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`
+          // No Content-Type needed for DELETE requests
         }
       });
 

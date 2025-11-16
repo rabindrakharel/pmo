@@ -168,6 +168,12 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
         conditions.push(sql`(name ILIKE ${'%' + search + '%'} OR descr ILIKE ${'%' + search + '%'} OR addr ILIKE ${'%' + search + '%'})`);
       }
 
+      // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
+      // Can be overridden with ?active=false to show inactive records
+      if (!('active' in (request.query as any))) {
+        conditions.push(sql`active_flag = true`);
+      }
+
       // Get total count
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total

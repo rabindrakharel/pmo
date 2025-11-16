@@ -259,6 +259,12 @@ export async function empRoutes(fastify: FastifyInstance) {
         conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
       }
 
+      // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
+      // Can be overridden with ?active_flag=false to show inactive records
+      if (!('active_flag' in (request.query as any))) {
+        conditions.push(sql`e.active_flag = true`);
+      }
+
       // Build queries with conditional JOIN (create-link-edit pattern)
       let countResult;
       let employees;

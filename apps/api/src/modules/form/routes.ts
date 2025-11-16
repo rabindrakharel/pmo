@@ -46,6 +46,7 @@ import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js'
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 // ✅ Centralized linkage service - DRY entity relationship management
 import { createLinkage } from '../../services/linkage.service.js';
+import { grantPermission } from '../../services/rbac-grant.service.js';
 
 // Response schema matching minimalistic database structure
 const FormSchema = Type.Object({
@@ -133,6 +134,12 @@ export async function formRoutes(fastify: FastifyInstance) {
         TABLE_ALIAS
       );
       conditions.push(rbacCondition);
+
+      // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
+      // Can be overridden with ?active_flag=false to show inactive records
+      if (!('active_flag' in (request.query as any))) {
+        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = true`);
+      }
 
       // Auto-build filters from query params
       const filterableFields = {
@@ -463,25 +470,14 @@ export async function formRoutes(fastify: FastifyInstance) {
             updated_ts = NOW()
       `);
 
-      // Auto-grant creator full permissions (0=view, 1=edit, 2=share, 3=delete, 4=create)
-      await db.execute(sql`
-        INSERT INTO app.entity_id_rbac_map (
-          employee_id,
-          entity,
-          entity_id,
-          permission,
-          active_flag,
-          granted_ts
-        )
-        VALUES (
-          ${userId},
-          'form',
-          ${created.id}::text,
-          ARRAY[0, 1, 2, 3],
-          true,
-          NOW()
-        )
-      `);
+      // Auto-grant creator full permissions (OWNER = 5)
+      await grantPermission(db, {
+        personEntityName: 'employee',
+        personEntityId: userId,
+        entityName: ENTITY_TYPE,
+        entityId: created.id,
+        permission: Permission.OWNER
+      });
 
       return reply.status(201).send(created);
     } catch (error) {

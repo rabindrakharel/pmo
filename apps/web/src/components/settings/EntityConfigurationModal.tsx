@@ -530,7 +530,7 @@ export function EntityConfigurationModal({
                                 method: 'DELETE',
                                 headers: {
                                   'Authorization': `Bearer ${token}`,
-                                  'Content-Type': 'application/json',
+                                  // No Content-Type needed for DELETE requests
                                 },
                               });
 

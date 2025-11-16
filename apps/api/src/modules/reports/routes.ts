@@ -68,6 +68,7 @@ import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factor
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 import { createLinkage } from '../../services/linkage.service.js';
+import { grantPermission } from '../../services/rbac-grant.service.js';
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 
 // Schema based on d_reports table structure
@@ -185,6 +186,12 @@ export async function reportsRoutes(fastify: FastifyInstance) {
         TABLE_ALIAS
       );
       conditions.push(rbacCondition);
+
+      // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
+      // Can be overridden with ?active=false to show inactive records
+      if (!('active' in (request.query as any))) {
+        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = true`);
+      }
 
       // ✨ UNIVERSAL AUTO-FILTER SYSTEM
       const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query as any, {
@@ -390,21 +397,14 @@ export async function reportsRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Grant DELETE permission to creator
-      await db.execute(sql`
-        INSERT INTO app.entity_id_rbac_map (
-          person_entity_name, person_entity_id, entity, entity_id, permission
-        )
-        VALUES (
-          'employee',
-          ${userId}::uuid,
-          ${ENTITY_TYPE},
-          ${newReport.id}::text,
-          ARRAY[${Permission.DELETE}]::integer[]
-        )
-        ON CONFLICT (person_entity_name, person_entity_id, entity, entity_id)
-        DO UPDATE SET permission = EXCLUDED.permission
-      `);
+      // Grant OWNER permission to creator
+      await grantPermission(db, {
+        personEntityName: 'employee',
+        personEntityId: userId,
+        entityName: ENTITY_TYPE,
+        entityId: newReport.id,
+        permission: Permission.OWNER
+      });
 
       reply.status(201);
       return newReport;

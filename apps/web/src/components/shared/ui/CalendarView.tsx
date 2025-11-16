@@ -491,8 +491,8 @@ export function CalendarView({
       const response = await fetch(`${apiBaseUrl}/api/v1/person-calendar/${slotId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`
+          // No Content-Type needed for DELETE requests
         }
       });
 

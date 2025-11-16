@@ -63,9 +63,10 @@ import type { ColumnDef, FieldDef } from './entityConfig';
  * Transforms edited data before sending to API
  *
  * This is the CENTRALIZED transformation function used by:
- * - EntityDetailPage (form edits)
- * - EntityCreatePage (entity creation)
- * - FilteredDataTable (inline table edits)
+ * - EntityDetailPage (form edits) - Required: cleans DB-sourced empty strings
+ * - FilteredDataTable (inline table edits) - Required: cleans DB-sourced empty strings
+ *
+ * NOT used by EntityCreatePage - input handlers already clean user input.
  *
  * Handles:
  * - Empty strings → null (API validation requires null, not "")
@@ -74,9 +75,11 @@ import type { ColumnDef, FieldDef } from './entityConfig';
  * - Arrays: comma-separated strings → array
  * - File uploads: File objects → URLs/metadata
  *
- * NOTE: This works in conjunction with date input handlers that also convert "" → null.
- * This creates a two-layer defense: inputs clean data on change, this function cleans
- * any remaining issues before API submission (e.g., from database, untouched fields).
+ * NOTE: Two-layer defense for EDIT operations:
+ * - Layer 1: Date input handlers convert "" → null on user input
+ * - Layer 2: This function cleans DB-sourced data with empty strings (e.g., untouched fields)
+ *
+ * For CREATE operations: Only Layer 1 needed (no DB data to clean).
  */
 export function transformForApi(data: Record<string, any>, originalRecord?: Record<string, any>): Record<string, any> {
   const transformed: Record<string, any> = { ...data };

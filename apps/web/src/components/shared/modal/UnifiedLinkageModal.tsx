@@ -297,8 +297,8 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
       const response = await fetch(`${apiUrl}/api/v1/linkage/${linkage.id}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
+          // No Content-Type needed for DELETE requests
         }
       });
 

@@ -84,9 +84,15 @@ export async function roleRoutes(fastify: FastifyInstance) {
     try {
       // Build query conditions
       const conditions = [];
-      
+
       if (active !== undefined) {
         conditions.push(sql`active_flag = ${active}`);
+      }
+
+      // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
+      // Can be overridden with ?active=false to show inactive records
+      if (!('active' in (request.query as any))) {
+        conditions.push(sql`active_flag = true`);
       }
 
       // Get total count

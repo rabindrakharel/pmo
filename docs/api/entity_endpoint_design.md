@@ -421,6 +421,7 @@ Database-Driven → Zero-Config → Factory-Generated → Single Source of Truth
 | Service | File | Purpose | When to Use |
 |---------|------|---------|-------------|
 | **Linkage Service** | `linkage.service.ts` | Idempotent parent-child linking | Creating entities with parent context |
+| **RBAC Grant Service** | `rbac-grant.service.ts` | Centralized permission grant with proper UUID handling | All entity CREATE endpoints |
 
 ---
 
@@ -470,6 +471,7 @@ import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-r
 
 // Services
 import { createLinkage } from '../../services/linkage.service.js';
+import { grantPermission } from '../../services/rbac-grant.service.js';
 
 // ========================================
 // MODULE CONSTANTS (DRY Principle)
@@ -489,7 +491,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
   // GET /api/v1/project/:id (DETAIL with RBAC check)
   fastify.get('/api/v1/project/:id', { ... });
 
-  // POST /api/v1/project (CREATE with linkage + auto-grant)
+  // POST /api/v1/project (CREATE with linkage + RBAC grant service)
   fastify.post('/api/v1/project', { ... });
 
   // PATCH /api/v1/project/:id (UPDATE with RBAC check)
@@ -535,6 +537,7 @@ import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-r
 
 // Services
 import { createLinkage } from '../../services/linkage.service.js';
+import { grantPermission } from '../../services/rbac-grant.service.js';
 ```
 
 ### 🎯 **What Each Import Does**
@@ -550,6 +553,7 @@ import { createLinkage } from '../../services/linkage.service.js';
 
 **Services:**
 - `createLinkage` - Idempotent parent-child relationship creation
+- `grantPermission` - Centralized RBAC permission grant with proper UUID handling
 
 **Constants:**
 - `Permission` - Permission level enum (VIEW=0 to OWNER=5)
@@ -609,17 +613,46 @@ const query = sql`
 
 ---
 
-### Pattern 2: 🔗 **CREATE-LINK-EDIT** - Simplified Relationships
+### Pattern 2: 🔗 **CREATE-LINK-GRANT** - Simplified Relationships
 
 **Flow:**
 1. Create entity independently
 2. Link to parent via `d_entity_id_map` (if parent context provided)
-3. Auto-grant OWNER permission to creator
+3. Auto-grant OWNER permission to creator via centralized service
+
+**Implementation:**
+```typescript
+// Step 1: Create entity
+const [newEntity] = await db.execute(sql`
+  INSERT INTO app.d_${sql.raw(ENTITY_TYPE)} (...)
+  VALUES (...) RETURNING *
+`);
+
+// Step 2: Link to parent (if context provided)
+if (parent_type && parent_id) {
+  await createLinkage(db, {
+    parentEntityType: parent_type,
+    parentEntityId: parent_id,
+    childEntityType: ENTITY_TYPE,
+    childEntityId: newEntity.id
+  });
+}
+
+// Step 3: Grant OWNER permission to creator
+await grantPermission(db, {
+  personEntityName: 'employee',
+  personEntityId: userId,
+  entityName: ENTITY_TYPE,
+  entityId: newEntity.id,
+  permission: Permission.OWNER
+});
+```
 
 **Benefits:**
 - No orphans when parent deleted (soft deletes)
 - Many-to-many relationships supported
 - Simpler API (no nested creation endpoints)
+- Centralized RBAC grant with proper UUID handling
 
 ---
 
@@ -678,6 +711,98 @@ conditions.push(...autoFilters);
 
 ---
 
+### Pattern 6: 🔐 **RBAC GRANT SERVICE** - Centralized Permission Management
+
+**Problem**: Each CREATE endpoint was manually inserting RBAC permissions with:
+- ❌ Incorrect UUID casting (`::text` instead of `::uuid`)
+- ❌ Missing required columns (`person_entity_name`)
+- ❌ Wrong column names (`entity` vs `entity_name`)
+- ❌ Duplicate boilerplate code (~18 lines per entity)
+
+**Solution**: Centralized service with proper schema validation
+
+```typescript
+// ✅ Single service call (7 lines) instead of manual insert (18 lines)
+await grantPermission(db, {
+  personEntityName: 'employee',
+  personEntityId: userId,
+  entityName: ENTITY_TYPE,
+  entityId: newEntity.id,
+  permission: Permission.OWNER
+});
+```
+
+**Service Features:**
+- ✅ Proper UUID handling with `::uuid` casting
+- ✅ All 7 required columns included
+- ✅ Idempotent (updates if permission exists)
+- ✅ TypeScript interface for type safety
+- ✅ Consistent schema across all entities
+- ✅ Optional expiration timestamp support
+
+**Full Schema:**
+```sql
+INSERT INTO app.entity_id_rbac_map (
+  person_entity_name,  -- 'employee' or 'role'
+  person_entity_id,    -- UUID with proper ::uuid cast
+  entity_name,         -- Entity type (e.g., 'project')
+  entity_id,           -- Instance UUID with proper ::uuid cast
+  permission,          -- Integer 0-5
+  active_flag,         -- Boolean
+  expires_ts           -- Optional TIMESTAMPTZ
+) VALUES (...);
+```
+
+---
+
+### Pattern 7: 📋 **TABLE_ALIAS CONSTANT** - Maintainable SQL
+
+**Problem**: Hardcoded table aliases in SQL queries make refactoring difficult
+
+**Solution**: Module-level constant used throughout all queries
+
+```typescript
+// ========================================
+// MODULE CONSTANTS (DRY Principle)
+// ========================================
+const ENTITY_TYPE = 'project';
+const TABLE_ALIAS = 'e';        // ← Used everywhere
+
+// Example: Soft delete filter (standard pattern)
+fastify.get('/api/v1/project', async (request, reply) => {
+  const conditions: SQL[] = [];
+
+  // RBAC filter
+  const rbacCondition = await unified_data_gate.rbac_gate
+    .getWhereCondition(userId, ENTITY_TYPE, Permission.VIEW, TABLE_ALIAS);
+  conditions.push(rbacCondition);
+
+  // Soft delete filter (default: hide deleted records)
+  if (!('active' in (request.query as any))) {
+    conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = true`);
+  }
+
+  // Auto-filters
+  const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query);
+  conditions.push(...autoFilters);
+
+  // Final query
+  const query = sql`
+    SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
+    FROM app.d_${sql.raw(ENTITY_TYPE)} ${sql.raw(TABLE_ALIAS)}
+    WHERE ${sql.join(conditions, sql` AND `)}
+  `;
+});
+```
+
+**Benefits:**
+- ✅ Change alias once, updates everywhere
+- ✅ Consistent across RBAC, filters, and queries
+- ✅ Easy to refactor
+- ✅ No hardcoded `e.`, `t.`, `f.` scattered throughout code
+
+---
+
 ## Permission Model
 
 ### 🔐 **RBAC Architecture**
@@ -727,9 +852,9 @@ CREATE TABLE app.entity_id_rbac_map (
 **2. API Module**
 - [ ] Create `apps/api/src/modules/{entity}/routes.ts`
 - [ ] Define `ENTITY_TYPE` and `TABLE_ALIAS` constants
-- [ ] Implement LIST endpoint with RBAC + auto-filters
+- [ ] Implement LIST endpoint with RBAC + auto-filters + soft delete filter
 - [ ] Implement GET endpoint with instance RBAC check
-- [ ] Implement POST endpoint with CREATE check + linkage + auto-grant
+- [ ] Implement POST endpoint with CREATE check + linkage + `grantPermission()` service
 - [ ] Implement PATCH endpoint with EDIT check
 - [ ] Add `createEntityDeleteEndpoint(fastify, ENTITY_TYPE)`
 - [ ] Add `await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE)`
@@ -791,9 +916,16 @@ CREATE TABLE app.entity_id_rbac_map (
 
 ---
 
-**Version**: 3.0.0 | **Last Updated**: 2025-11-16 | **Maintained By**: PMO Platform Team
+**Version**: 3.1.0 | **Last Updated**: 2025-11-16 | **Maintained By**: PMO Platform Team
 
 **Changelog**:
+- v3.1.0 (2025-11-16): ✨ **NEW** - Centralized RBAC grant service + TABLE_ALIAS pattern
+  - Added `rbac-grant.service.ts` - centralized permission grants with proper UUID handling
+  - Added Pattern 6: RBAC Grant Service documentation
+  - Added Pattern 7: TABLE_ALIAS constant pattern
+  - Updated CREATE-LINK-EDIT pattern to CREATE-LINK-GRANT
+  - Updated all implementation examples with soft delete filter pattern
+  - Updated checklist to include `grantPermission()` service
 - v3.0.0 (2025-11-16): 🔥 **BREAKING** - Complete architecture refactor
   - Removed `rbac.service.ts` - replaced with `unified-data-gate.ts`
   - Removed `createChildEntityEndpoint()` - inlined into `createChildEntityEndpointsFromMetadata()`
@@ -820,6 +952,7 @@ This documentation reflects those DDL definitions. When in doubt, consult the DD
 - `apps/api/src/lib/child-entity-route-factory.ts` - Database-driven endpoints
 - `apps/api/src/lib/entity-delete-route-factory.ts` - Delete factory
 - `apps/api/src/services/linkage.service.ts` - Parent-child linking
+- `apps/api/src/services/rbac-grant.service.ts` - Centralized permission grants
 - `apps/api/src/modules/project/routes.ts` - Reference implementation
 
 **One-Liners**:
@@ -829,6 +962,9 @@ const filters = buildAutoFilters(TABLE_ALIAS, request.query);
 
 // RBAC SQL WHERE clause
 const rbac = await unified_data_gate.rbac_gate.getWhereCondition(userId, type, perm, alias);
+
+// Grant OWNER permission to creator
+await grantPermission(db, { personEntityName: 'employee', personEntityId: userId, entityName: type, entityId: id, permission: Permission.OWNER });
 
 // All child endpoints from database
 await createChildEntityEndpointsFromMetadata(fastify, 'project');
