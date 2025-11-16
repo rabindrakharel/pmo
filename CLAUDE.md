@@ -170,7 +170,7 @@ Permission.VIEW   = 0  // Read-only access
 ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111'
 
 // Permission checks
-unified_data_gate.rbac_gate.checkPermission(db, userId, entityType, entityId, Permission.EDIT)
+unified_data_gate.rbac_gate.check_entity_rbac(db, userId, entityType, entityId, Permission.EDIT)
 unified_data_gate.rbac_gate.getWhereCondition(userId, entityType, Permission.VIEW, tableAlias)
 ```
 

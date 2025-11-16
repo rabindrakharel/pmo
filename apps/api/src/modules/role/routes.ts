@@ -270,7 +270,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       // Uses: RBAC_GATE only (checkPermission)
       // Check: Can user EDIT this role?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, ENTITY_TYPE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this role' });
       }
@@ -402,7 +402,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       // Uses: RBAC_GATE only (checkPermission)
       // Check: Can user EDIT this role?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, ENTITY_TYPE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this role' });
       }

@@ -27,7 +27,7 @@ apps/api/src/modules/rbac/entity-permission-rbac-gate.ts (then deleted)
 **Key Functions:**
 ```typescript
 // DRY pattern - use this everywhere:
-await checkPermission(userId, entityType, entityId, action)
+await check_entity_rbac(userId, entityType, entityId, action)
 // Returns: Promise<boolean>
 
 // Other helpers:
@@ -87,7 +87,7 @@ const deleteAccess = await db.execute(sql`
 `);
 
 // NEW (uses DRY pattern):
-const hasDeleteAccess = await checkPermission(userId, entityType, id, 'delete');
+const hasDeleteAccess = await check_entity_rbac(userId, entityType, id, 'delete');
 ```
 
 ### 6. Testing Results ✅
@@ -119,7 +119,7 @@ WHERE rbac.empid = ${userId}  -- ❌ Wrong field (should be person_entity_id)
   AND (rbac.entity_id = t.id::text OR rbac.entity_id = 'all')  -- ❌ Should use UUID
 ```
 
-**Solution:** Replace with factory or use `checkPermission()`:
+**Solution:** Replace with factory or use `check_entity_rbac()`:
 ```typescript
 // Option 1: Use factory (recommended)
 createUniversalCRUDRoutes(fastify, {
@@ -128,7 +128,7 @@ createUniversalCRUDRoutes(fastify, {
 });
 
 // Option 2: Use checkPermission in existing routes
-const hasAccess = await checkPermission(userId, 'task', taskId, 'view');
+const hasAccess = await check_entity_rbac(userId, 'task', taskId, 'view');
 ```
 
 **Occurrences in task/routes.ts:**
@@ -275,7 +275,7 @@ createUniversalCRUDRoutes(fastify, {
 ## 💡 Best Practices Going Forward
 
 1. **Always use the factory** for new entities
-2. **Never write raw RBAC SQL** - use `checkPermission()`
+2. **Never write raw RBAC SQL** - use `check_entity_rbac()`
 3. **Follow DRY principles** - don't duplicate permission checks
 4. **Test with different users** - not just CEO role
 5. **Document custom routes** - if you can't use factory, explain why

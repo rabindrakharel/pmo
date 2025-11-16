@@ -28,7 +28,7 @@ Successfully implemented a **DRY Universal CRUD Factory** with built-in RBAC gat
 **New Functions Added:**
 ```typescript
 // Backward-compatible boolean wrapper (DRY pattern)
-checkPermission(userId, entityType, entityId, action): Promise<boolean>
+check_entity_rbac(userId, entityType, entityId, action): Promise<boolean>
 
 // Type-level create check
 hasCreatePermissionForEntityType(userId, entityType): Promise<boolean>
@@ -73,7 +73,7 @@ createUniversalCRUDRoutes(fastify, {
 **RBAC Pattern (DRY):**
 ```typescript
 // All routes use this pattern internally:
-const hasAccess = await checkPermission(userId, entityType, entityId, action);
+const hasAccess = await check_entity_rbac(userId, entityType, entityId, action);
 if (!hasAccess) {
   return reply.status(403).send({ error: 'Permission denied' });
 }
@@ -105,17 +105,17 @@ if (!hasAccess) {
 ## Files Updated
 
 1. **`apps/api/src/lib/rbac.service.ts`**
-   - Added `checkPermission()` function (backward-compatible wrapper)
+   - Added `check_entity_rbac()` function (backward-compatible wrapper)
    - Added 3 helper functions for common checks
    - All use new UUID `'11111111-1111-1111-1111-111111111111'`
 
 2. **`apps/api/src/lib/entity-delete-route-factory.ts`**
-   - Updated to use `checkPermission()` instead of raw SQL
+   - Updated to use `check_entity_rbac()` instead of raw SQL
    - Uses new RBAC schema
 
 3. **`apps/api/src/modules/business/routes.ts`**
    - Updated imports to use `rbac.service.ts`
-   - Replaced all `hasPermissionOnEntityId()` → `checkPermission()`
+   - Replaced all `hasPermissionOnEntityId()` → `check_entity_rbac()`
 
 ## How to Use
 
@@ -169,7 +169,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
 ## Permission Model (Automatic)
 
-All factory routes automatically use `checkPermission(userId, entityType, entityId, action)`:
+All factory routes automatically use `check_entity_rbac(userId, entityType, entityId, action)`:
 
 | Route | Permission | Level | Scope |
 |-------|-----------|-------|-------|
@@ -186,7 +186,7 @@ User Request
     ↓
 Factory Route (universal-crud-factory.ts)
     ↓
-checkPermission(userId, entityType, entityId, action)  ← DRY Pattern
+check_entity_rbac(userId, entityType, entityId, action)  ← DRY Pattern
     ↓
 hasPermissionOnEntityId() (rbac.service.ts)
     ↓
@@ -268,7 +268,7 @@ hooks: {
 
 ```typescript
 // Boolean wrapper (use this in most cases)
-await checkPermission(userId, entityType, entityId, action)
+await check_entity_rbac(userId, entityType, entityId, action)
 
 // Full result (when you need details)
 const result = await hasPermissionOnEntityId(userId, entityType, entityId, permissionType)

@@ -179,7 +179,7 @@ conditions.push(...autoFilters);
 ```typescript
 export const unified_data_gate = {
   rbac_gate: {
-    checkPermission(db, userId, entityType, entityId, permission)
+    check_entity_rbac(db, userId, entityType, entityId, permission)
     getWhereCondition(userId, entityType, permission, tableAlias)
   },
   parent_child_filtering_gate: {
@@ -210,7 +210,7 @@ export const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111'
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 
 // Check type-level CREATE permission
-const canCreate = await unified_data_gate.rbac_gate.checkPermission(
+const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(
   db, userId, 'project', ALL_ENTITIES_ID, Permission.CREATE
 );
 
@@ -444,7 +444,7 @@ Business logic services for specific domains.
 
 **Key Functions**:
 ```typescript
-createLinkage(db, {
+set_entity_instance_link(db, {
   parent_entity_type,
   parent_entity_id,
   child_entity_type,
@@ -471,7 +471,7 @@ createLinkage(db, {
 ```typescript
 import { createLinkage } from '../../services/linkage.service.js';
 
-await createLinkage(db, {
+await set_entity_instance_link(db, {
   parent_entity_type: 'project',
   parent_entity_id: projectId,
   child_entity_type: 'task',
@@ -501,7 +501,7 @@ await createLinkage(db, {
 | Library | Purpose | Key Function | Pattern |
 |---------|---------|--------------|---------|
 | Universal Filter Builder | Zero-config filtering | `buildAutoFilters()` | Convention-based auto-detection |
-| Unified Data Gate | RBAC & filtering | `checkPermission()` | Person-based, hierarchical |
+| Unified Data Gate | RBAC & filtering | `check_entity_rbac()` | Person-based, hierarchical |
 | Universal Schema Metadata | Database schema introspection | `getUniversalColumnMetadata()` | Cached metadata |
 | RBAC Service | Permission business logic | `hasPermissionOnEntityId()` | TypeScript RBAC |
 | S3 Attachments | File upload/download | `generatePresignedUploadUrl()` | Presigned URLs |
@@ -514,7 +514,7 @@ await createLinkage(db, {
 
 | Service | Purpose | Key Function | Database Table |
 |---------|---------|--------------|----------------|
-| Linkage Service | Parent-child relationships | `createLinkage()` | `d_entity_instance_link` |
+| Linkage Service | Parent-child relationships | `set_entity_instance_link()` | `d_entity_instance_link` |
 
 ---
 

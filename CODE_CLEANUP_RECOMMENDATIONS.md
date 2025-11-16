@@ -148,7 +148,7 @@ fastify.get('/api/v1/project/:id', { ... }, async (request, reply) => {
   const userId = request.user?.sub;
 
   // ✅ GOOD: Gate checks permission
-  const canView = await unified_data_gate.rbac_gate.checkPermission(
+  const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
     db, userId, ENTITY_TYPE, id, Permission.VIEW
   );
 
@@ -228,7 +228,7 @@ fastify.post('/api/v1/project', { ... }, async (request, reply) => {
   const { business_id, office_id, ...projectData } = request.body;
 
   // Check CREATE permission
-  const canCreate = await checkPermission(...);
+  const canCreate = await check_entity_rbac(...);
 
   // Insert into d_project
   const result = await db.execute(sql`INSERT INTO app.d_project (...)`);
@@ -284,7 +284,7 @@ fastify.patch('/api/v1/project/:id', { ... }, async (request, reply) => {
   // ❌ OLD: Manual UPDATE query
   // ❌ OLD: Manual timestamp update
 
-  const canEdit = await checkPermission(...);
+  const canEdit = await check_entity_rbac(...);
 
   await db.execute(sql`
     UPDATE app.d_project

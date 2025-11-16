@@ -32,9 +32,9 @@
  *
  * USAGE:
  *   const entityInfra = getEntityInfrastructure(db);
- *   await entityInfra.registerInstance({...});
- *   await entityInfra.grantOwnership(userId, entityType, entityId);
- *   const canEdit = await entityInfra.checkPermission(userId, entityType, id, Permission.EDIT);
+ *   await entityInfra.set_entity_instance_registry({...});
+ *   await entityInfra.set_entity_rbac_owner(userId, entityType, entityId);
+ *   const canEdit = await entityInfra.check_entity_rbac(userId, entityType, id, Permission.EDIT);
  *
  * ============================================================================
  */
@@ -127,7 +127,7 @@ export class EntityInfrastructureService {
    * @param include_inactive Include inactive entity types
    * @returns Entity metadata or null if not found
    */
-  async getEntityTypeMetadata(
+  async get_entity(
     entity_type: string,
     include_inactive = false
   ): Promise<EntityTypeMetadata | null> {
@@ -177,7 +177,7 @@ export class EntityInfrastructureService {
    * Get all entity types
    * @param include_inactive Include inactive entity types
    */
-  async getAllEntityTypes(include_inactive = false): Promise<EntityTypeMetadata[]> {
+  async get_all_entity(include_inactive = false): Promise<EntityTypeMetadata[]> {
     const result = await this.db.execute(sql`
       SELECT code, name, ui_label, ui_icon, child_entities, display_order, active_flag, created_ts, updated_ts
       FROM app.d_entity
@@ -216,7 +216,7 @@ export class EntityInfrastructureService {
    *   entity_code: 'PROJ-001'
    * });
    */
-  async registerInstance(params: {
+  async set_entity_instance_registry(params: {
     entity_type: string;
     entity_id: string;
     entity_name: string;
@@ -243,7 +243,7 @@ export class EntityInfrastructureService {
    * Update instance metadata (name/code)
    * Called when entity name or code changes
    */
-  async updateInstanceMetadata(
+  async update_entity_instance_registry(
     entity_type: string,
     entity_id: string,
     updates: { entity_name?: string; entity_code?: string | null }
@@ -277,7 +277,7 @@ export class EntityInfrastructureService {
   /**
    * Deactivate instance (soft delete from registry)
    */
-  async deactivateInstance(entity_type: string, entity_id: string): Promise<EntityInstance | null> {
+  async deactivate_entity_instance_registry(entity_type: string, entity_id: string): Promise<EntityInstance | null> {
     const result = await this.db.execute(sql`
       UPDATE app.d_entity_instance_registry
       SET active_flag = false, updated_ts = now()
@@ -291,7 +291,7 @@ export class EntityInfrastructureService {
   /**
    * Validate instance exists in registry
    */
-  async validateInstanceExists(
+  async validate_entity_instance_registry(
     entity_type: string,
     entity_id: string,
     require_active = true
@@ -324,7 +324,7 @@ export class EntityInfrastructureService {
    *   child_entity_id: projectId
    * });
    */
-  async createLinkage(params: {
+  async set_entity_instance_link(params: {
     parent_entity_type: string;
     parent_entity_id: string;
     child_entity_type: string;
@@ -361,7 +361,7 @@ export class EntityInfrastructureService {
   /**
    * Delete linkage (soft delete)
    */
-  async deleteLinkage(linkage_id: string): Promise<EntityRelationship | null> {
+  async delete_entity_instance_link(linkage_id: string): Promise<EntityRelationship | null> {
     const result = await this.db.execute(sql`
       UPDATE app.d_entity_instance_link
       SET active_flag = false, updated_ts = now()
@@ -376,7 +376,7 @@ export class EntityInfrastructureService {
    * Get child entity IDs of specific type
    * Used for parent-child filtering in routes
    */
-  async getChildEntityIds(
+  async get_entity_instance_link_children(
     parent_entity_type: string,
     parent_entity_id: string,
     child_entity_type: string
@@ -411,7 +411,7 @@ export class EntityInfrastructureService {
    *   userId, 'project', projectId, Permission.EDIT
    * );
    */
-  async checkPermission(
+  async check_entity_rbac(
     user_id: string,
     entity_type: string,
     entity_id: string,
@@ -581,7 +581,7 @@ export class EntityInfrastructureService {
    * @example
    * await entityInfra.grantPermission(userId, 'project', projectId, Permission.EDIT);
    */
-  async grantPermission(
+  async set_entity_rbac(
     user_id: string,
     entity_type: string,
     entity_id: string,
@@ -606,18 +606,18 @@ export class EntityInfrastructureService {
    * Grant OWNER permission (highest level)
    * Called automatically when creating entity
    */
-  async grantOwnership(
+  async set_entity_rbac_owner(
     user_id: string,
     entity_type: string,
     entity_id: string
   ): Promise<any> {
-    return this.grantPermission(user_id, entity_type, entity_id, Permission.OWNER);
+    return this.set_entity_rbac(user_id, entity_type, entity_id, Permission.OWNER);
   }
 
   /**
    * Revoke all permissions for user on entity
    */
-  async revokePermission(
+  async delete_entity_rbac(
     user_id: string,
     entity_type: string,
     entity_id: string
@@ -644,7 +644,7 @@ export class EntityInfrastructureService {
    * );
    * const query = sql`SELECT e.* FROM d_project e WHERE ${rbacCondition}`;
    */
-  async getRbacWhereCondition(
+  async get_entity_rbac_where_condition(
     user_id: string,
     entity_type: string,
     required_permission: Permission,
@@ -877,7 +877,7 @@ export class EntityInfrastructureService {
    *   }
    * });
    */
-  async deleteEntity(
+  async delete_all_entity_infrastructure(
     entity_type: string,
     entity_id: string,
     options: DeleteEntityOptions
@@ -899,7 +899,7 @@ export class EntityInfrastructureService {
 
     // Step 1: RBAC check
     if (!skip_rbac_check) {
-      const canDelete = await this.checkPermission(
+      const canDelete = await this.check_entity_rbac(
         user_id,
         entity_type,
         entity_id,
@@ -924,7 +924,7 @@ export class EntityInfrastructureService {
 
       for (const linkage of childLinkages) {
         try {
-          await this.deleteEntity(linkage.child_entity_type, linkage.child_entity_id, {
+          await this.delete_all_entity_infrastructure(linkage.child_entity_type, linkage.child_entity_id, {
             user_id,
             hard_delete,
             cascade_delete_children: true,
@@ -945,7 +945,7 @@ export class EntityInfrastructureService {
         WHERE entity_type = ${entity_type} AND entity_id = ${entity_id}
       `);
     } else {
-      await this.deactivateInstance(entity_type, entity_id);
+      await this.deactivate_entity_instance_registry(entity_type, entity_id);
     }
     registry_deactivated = true;
 

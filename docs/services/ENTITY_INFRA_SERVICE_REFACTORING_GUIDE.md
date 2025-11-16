@@ -75,7 +75,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
 **BEFORE** (60+ lines of infrastructure code):
 ```typescript
 // RBAC check
-const canCreate = await unified_data_gate.rbac_gate.checkPermission(
+const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(
   db, userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE
 );
 
@@ -84,32 +84,32 @@ const newBiz = await db.execute(sql`INSERT INTO app.d_business ...`);
 const bizId = newBiz[0].id;
 
 // Manual infrastructure operations (15 lines each)
-await createLinkage(db, {...});
-await grantPermission(db, {...});
+await set_entity_instance_link(db, {...});
+await set_entity_rbac(db, {...});
 // No instance registry registration!
 ```
 
 **AFTER** (15 lines with service):
 ```typescript
 // ✨ RBAC check via service
-const canCreate = await entityInfra.checkPermission(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
+const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
 
 // ✅ Route owns primary table INSERT
 const newBiz = await db.execute(sql`INSERT INTO app.d_business ...`);
 const bizId = newBiz[0].id;
 
 // ✨ Infrastructure operations via service (3 calls)
-await entityInfra.registerInstance({
+await entityInfra.set_entity_instance_registry({
   entity_type: ENTITY_TYPE,
   entity_id: bizId,
   entity_name: bizData.name,
   entity_code: bizData.code
 });
 
-await entityInfra.grantOwnership(userId, ENTITY_TYPE, bizId);
+await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, bizId);
 
 if (parent_type && parent_id) {
-  await entityInfra.createLinkage({
+  await entityInfra.set_entity_instance_link({
     parent_entity_type: parent_type,
     parent_entity_id: parent_id,
     child_entity_type: ENTITY_TYPE,
@@ -123,7 +123,7 @@ if (parent_type && parent_id) {
 **BEFORE** (40 lines):
 ```typescript
 // RBAC check
-const canEdit = await unified_data_gate.rbac_gate.checkPermission(
+const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(
   db, userId, ENTITY_TYPE, id, Permission.EDIT
 );
 
@@ -136,14 +136,14 @@ const updated = await db.execute(sql`UPDATE app.d_business SET ... WHERE id = ${
 **AFTER** (45 lines with registry sync):
 ```typescript
 // ✨ RBAC check via service
-const canEdit = await entityInfra.checkPermission(userId, ENTITY_TYPE, id, Permission.EDIT);
+const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
 
 // ✅ Route owns UPDATE query
 const updated = await db.execute(sql`UPDATE app.d_business SET ... WHERE id = ${id}`);
 
 // ✨ Sync registry if name/code changed
 if (updates.name !== undefined || updates.code !== undefined) {
-  await entityInfra.updateInstanceMetadata(ENTITY_TYPE, id, {
+  await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
     entity_name: updates.name,
     entity_code: updates.code
   });
@@ -171,12 +171,12 @@ All three primary entity routes (business, project, task) have been successfully
 - Query structure
 
 ### ✨ Service PROVIDES (Infrastructure Add-On)
-- `registerInstance()` - Add to registry
-- `updateInstanceMetadata()` - Sync registry
-- `checkPermission()` - RBAC check
-- `grantOwnership()` - Grant OWNER permission
-- `createLinkage()` - Create parent-child link
-- `getRbacWhereCondition()` - Generate WHERE fragment
+- `set_entity_instance_registry()` - Add to registry
+- `update_entity_instance_registry()` - Sync registry
+- `check_entity_rbac()` - RBAC check
+- `set_entity_rbac_owner()` - Grant OWNER permission
+- `set_entity_instance_link()` - Create parent-child link
+- `get_entity_rbac_where_condition()` - Generate WHERE fragment
 
 ### ❌ Service DOES NOT
 - Build SELECT queries
@@ -257,17 +257,17 @@ All three primary entity routes (business, project, task) have been successfully
 ### Before (Manual Infrastructure)
 ```typescript
 // 60+ lines of manual infrastructure code per CREATE endpoint
-await createLinkage(db, {...});
-await grantPermission(db, {...});
+await set_entity_instance_link(db, {...});
+await set_entity_rbac(db, {...});
 // No registry management
 ```
 
 ### After (Service-Based)
 ```typescript
 // 3 service calls, registry included
-await entityInfra.registerInstance({...});
-await entityInfra.grantOwnership(userId, entityType, entityId);
-await entityInfra.createLinkage({...});
+await entityInfra.set_entity_instance_registry({...});
+await entityInfra.set_entity_rbac_owner(userId, entityType, entityId);
+await entityInfra.set_entity_instance_link({...});
 ```
 
 ---

@@ -231,7 +231,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
     // Uses: RBAC_GATE only (checkPermission)
     // ═══════════════════════════════════════════════════════════════
-    const canView = await unified_data_gate.rbac_gate.checkPermission(
+    const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
       db,
       userId,
       ENTITY_TYPE,
@@ -337,7 +337,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     // Uses: RBAC_GATE only (checkPermission)
     // Check: Can user CREATE wikis?
     // ═══════════════════════════════════════════════════════════════
-    const canCreate = await unified_data_gate.rbac_gate.checkPermission(
+    const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(
       db, userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE
     );
 
@@ -458,7 +458,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     // Uses: RBAC_GATE only (checkPermission)
     // Check: Can user EDIT this wiki?
     // ═══════════════════════════════════════════════════════════════
-    const canEdit = await unified_data_gate.rbac_gate.checkPermission(
+    const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(
       db, userId, ENTITY_TYPE, id, Permission.EDIT
     );
 

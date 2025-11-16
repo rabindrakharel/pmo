@@ -27,7 +27,7 @@
  *     - Parent-CREATE inheritance (if parent has CREATE, children gain CREATE)
  *
  * Usage Example:
- *   const canView = await unified_data_gate.rbac_gate.checkPermission(
+ *   const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
  *     db, userId, ENTITY_TYPE, id, Permission.VIEW
  *   );
  *
@@ -113,7 +113,7 @@
  *
  * Example 2: Create Task and Link to Project
  *   1. User requests POST /api/v1/task (with project_id in metadata)
- *   2. unified_data_gate.rbac_gate.checkPermission(Permission.CREATE) validates
+ *   2. unified_data_gate.rbac_gate.check_entity_rbac(Permission.CREATE) validates
  *   3. Create task in d_task
  *   4. Frontend calls POST /api/v1/linkage to link task → project
  *   5. Frontend calls POST /api/v1/linkage to assign employee
@@ -121,7 +121,7 @@
  * Example 3: Update Task Stage (Kanban)
  *   1. User drags task card to new column
  *   2. Frontend calls PATCH /api/v1/task/:id/status
- *   3. unified_data_gate.rbac_gate.checkPermission(Permission.EDIT) validates
+ *   3. unified_data_gate.rbac_gate.check_entity_rbac(Permission.EDIT) validates
  *   4. Update dl__task_stage with audit metadata
  *   5. Return updated task for optimistic UI
  *
@@ -415,7 +415,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
       // Uses: RBAC_GATE only (checkPermission)
       // ═══════════════════════════════════════════════════════════════
-      const canView = await unified_data_gate.rbac_gate.checkPermission(
+      const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
         db,
         userId,
         ENTITY_TYPE,
@@ -511,7 +511,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
     // Check: Can user CREATE tasks?
     // ═══════════════════════════════════════════════════════════════
-    const canCreate = await entityInfra.checkPermission(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
+    const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
     if (!canCreate) {
       return reply.status(403).send({ error: 'No permission to create tasks' });
     }
@@ -553,7 +553,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance in registry
       // ═══════════════════════════════════════════════════════════════
-      await entityInfra.registerInstance({
+      await entityInfra.set_entity_instance_registry({
         entity_type: ENTITY_TYPE,
         entity_id: newTask.id,
         entity_name: newTask.name,
@@ -605,7 +605,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
     // Check: Can user EDIT this task?
     // ═══════════════════════════════════════════════════════════════
-    const canEdit = await entityInfra.checkPermission(userId, ENTITY_TYPE, id, Permission.EDIT);
+    const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
     if (!canEdit) {
       return reply.status(403).send({ error: 'No permission to edit this task' });
     }
@@ -660,7 +660,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
       // ═══════════════════════════════════════════════════════════════
       if (data.name !== undefined || data.code !== undefined) {
-        await entityInfra.updateInstanceMetadata(ENTITY_TYPE, id, {
+        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
           entity_name: data.name,
           entity_code: data.code
         });
@@ -712,7 +712,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
     // Check: Can user EDIT this task?
     // ═══════════════════════════════════════════════════════════════
-    const canEdit = await entityInfra.checkPermission(userId, ENTITY_TYPE, id, Permission.EDIT);
+    const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
     if (!canEdit) {
       return reply.status(403).send({ error: 'No permission to edit this task' });
     }
@@ -767,7 +767,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
       // ═══════════════════════════════════════════════════════════════
       if (data.name !== undefined || data.code !== undefined) {
-        await entityInfra.updateInstanceMetadata(ENTITY_TYPE, id, {
+        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
           entity_name: data.name,
           entity_code: data.code
         });
@@ -837,7 +837,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Uses: RBAC_GATE only (checkPermission)
       // Check: Can user EDIT this task?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, ENTITY_TYPE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this task' });
       }
@@ -921,7 +921,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Uses: RBAC_GATE only (checkPermission)
       // Check: Can user EDIT this task?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, ENTITY_TYPE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this task' });
       }

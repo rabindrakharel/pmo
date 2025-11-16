@@ -816,7 +816,7 @@ Result: [project-uuid-a, project-uuid-b, project-uuid-c]
 unified_data_gate.rbac_gate = {
   getFilteredIds(),     // Returns string[]
   getWhereCondition(),  // Returns SQL fragment
-  checkPermission(),    // Returns boolean
+  check_entity_rbac(),    // Returns boolean
   gate: {
     create(),           // Throws 403 if denied
     update(),           // Throws 403 if denied
@@ -896,7 +896,7 @@ const query = sql`
 
 ---
 
-### Method 2: `checkPermission()`
+### Method 2: `check_entity_rbac()`
 
 **Purpose**: Boolean check for single entity (no SQL generation)
 
@@ -930,7 +930,7 @@ return accessibleIds.includes('11111111-1111-...') || accessibleIds.includes(che
 
 ```typescript
 // Check if user can edit specific project
-const canEdit = await unified_data_gate.rbac_gate.checkPermission(
+const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(
   db, userId, 'project', projectId, Permission.EDIT
 );
 
@@ -1367,7 +1367,7 @@ fastify.post('/api/v1/project', {
 
   // STEP 3: Create linkage (if parent provided)
   if (parent_type && parent_id) {
-    await createLinkage(db, {
+    await set_entity_instance_link(db, {
       parent_entity_type: parent_type,
       parent_entity_id: parent_id,
       child_entity_type: ENTITY_TYPE,

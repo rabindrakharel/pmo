@@ -31,7 +31,7 @@
  *     - Enables create-link-edit pattern (create child, link to parent)
  *
  * Usage Example:
- *   const canView = await unified_data_gate.rbac_gate.checkPermission(
+ *   const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
  *     db, userId, ENTITY_TYPE, id, Permission.VIEW
  *   );
  *
@@ -354,7 +354,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
     // ✅ CENTRALIZED UNIFIED DATA GATE - Permission Check
     // Uses: RBAC_GATE only (checkPermission)
     // ═══════════════════════════════════════════════════════════════
-    const canView = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.VIEW);
+    const canView = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, ENTITY_TYPE, id, Permission.VIEW);
     if (!canView) {
       return reply.status(403).send({ error: 'No permission to view this business' });
     }
@@ -414,7 +414,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
     // ✅ CENTRALIZED UNIFIED DATA GATE - Permission Check
     // Uses: RBAC_GATE only (checkPermission)
     // ═══════════════════════════════════════════════════════════════
-    const canView = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.VIEW);
+    const canView = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, ENTITY_TYPE, id, Permission.VIEW);
     if (!canView) {
       return reply.status(403).send({ error: 'No permission to view this business' });
     }
@@ -439,7 +439,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
     // ═══════════════════════════════════════════════════════════════
     const creatableEntities = await Promise.all(
       childEntities.map(async (childType: string) => {
-        const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, childType, ALL_ENTITIES_ID, Permission.CREATE);
+        const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, childType, ALL_ENTITIES_ID, Permission.CREATE);
         return canCreate ? childType : null;
       })
     );
@@ -480,7 +480,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
 
       // GATE: RBAC - Check permission
-      const canView = await unified_data_gate.rbac_gate.checkPermission(
+      const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
         db,
         userId,
         ENTITY_TYPE,
@@ -546,7 +546,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 1
       // Check: Can user CREATE business units?
       // ═══════════════════════════════════════════════════════════════
-      const canCreate = await entityInfra.checkPermission(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
+      const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
       if (!canCreate) {
         return reply.status(403).send({ error: 'No permission to create business units' });
       }
@@ -556,7 +556,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       // Check: If linking to parent, can user EDIT parent?
       // ═══════════════════════════════════════════════════════════════
       if (parent_type && parent_id) {
-        const canEditParent = await entityInfra.checkPermission(userId, parent_type, parent_id, Permission.EDIT);
+        const canEditParent = await entityInfra.check_entity_rbac(userId, parent_type, parent_id, Permission.EDIT);
         if (!canEditParent) {
           return reply.status(403).send({ error: `No permission to link business to this ${parent_type}` });
         }
@@ -591,7 +591,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance
       // ═══════════════════════════════════════════════════════════════
-      await entityInfra.registerInstance({
+      await entityInfra.set_entity_instance_registry({
         entity_type: ENTITY_TYPE,
         entity_id: bizId,
         entity_name: bizData.name,
@@ -601,13 +601,13 @@ export async function businessRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Grant ownership to creator
       // ═══════════════════════════════════════════════════════════════
-      await entityInfra.grantOwnership(userId, ENTITY_TYPE, bizId);
+      await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, bizId);
 
       // ═══════════════════════════════════════════════════════════════
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Link to parent (if provided)
       // ═══════════════════════════════════════════════════════════════
       if (parent_type && parent_id) {
-        await entityInfra.createLinkage({
+        await entityInfra.set_entity_instance_link({
           parent_entity_type: parent_type,
           parent_entity_id: parent_id,
           child_entity_type: ENTITY_TYPE,
@@ -655,7 +655,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
       // Check: Can user EDIT this business?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await entityInfra.checkPermission(userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this business' });
       }
@@ -697,7 +697,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
       // ═══════════════════════════════════════════════════════════════
       if (updates.name !== undefined || updates.code !== undefined) {
-        await entityInfra.updateInstanceMetadata(ENTITY_TYPE, id, {
+        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
           entity_name: updates.name,
           entity_code: updates.code
         });
@@ -744,7 +744,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
       // Check: Can user EDIT this business?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await entityInfra.checkPermission(userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this business' });
       }
@@ -786,7 +786,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
       // ═══════════════════════════════════════════════════════════════
       if (updates.name !== undefined || updates.code !== undefined) {
-        await entityInfra.updateInstanceMetadata(ENTITY_TYPE, id, {
+        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
           entity_name: updates.name,
           entity_code: updates.code
         });

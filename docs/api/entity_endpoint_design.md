@@ -388,7 +388,7 @@ Database-Driven → Zero-Config → Factory-Generated → Single Source of Truth
 │  OUTPUT: Boolean (access granted/denied) OR SQL WHERE clause                │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  checkPermission() → boolean                                                │
+│  check_entity_rbac() → boolean                                                │
 │  ├─ Used for: Single instance checks (GET, PATCH, DELETE)                  │
 │  └─ Returns: true/false                                                     │
 │                                                                              │
@@ -430,7 +430,7 @@ Database-Driven → Zero-Config → Factory-Generated → Single Source of Truth
 ```
 unified_data_gate (Namespace)
 ├─ rbac_gate (RBAC Security)
-│  ├─ checkPermission(db, userId, entityType, entityId, permission)
+│  ├─ check_entity_rbac(db, userId, entityType, entityId, permission)
 │  │  └─ Returns: boolean (access granted/denied)
 │  │
 │  └─ getWhereCondition(userId, entityType, permission, tableAlias)
@@ -630,7 +630,7 @@ const [newEntity] = await db.execute(sql`
 
 // Step 2: Link to parent (if context provided)
 if (parent_type && parent_id) {
-  await createLinkage(db, {
+  await set_entity_instance_link(db, {
     parentEntityType: parent_type,
     parentEntityId: parent_id,
     childEntityType: ENTITY_TYPE,
@@ -639,7 +639,7 @@ if (parent_type && parent_id) {
 }
 
 // Step 3: Grant OWNER permission to creator
-await grantPermission(db, {
+await set_entity_rbac(db, {
   personEntityName: 'employee',
   personEntityId: userId,
   entityName: ENTITY_TYPE,
@@ -723,7 +723,7 @@ conditions.push(...autoFilters);
 
 ```typescript
 // ✅ Single service call (7 lines) instead of manual insert (18 lines)
-await grantPermission(db, {
+await set_entity_rbac(db, {
   personEntityName: 'employee',
   personEntityId: userId,
   entityName: ENTITY_TYPE,
@@ -854,7 +854,7 @@ CREATE TABLE app.d_entity_rbac (
 - [ ] Define `ENTITY_TYPE` and `TABLE_ALIAS` constants
 - [ ] Implement LIST endpoint with RBAC + auto-filters + soft delete filter
 - [ ] Implement GET endpoint with instance RBAC check
-- [ ] Implement POST endpoint with CREATE check + linkage + `grantPermission()` service
+- [ ] Implement POST endpoint with CREATE check + linkage + `set_entity_rbac()` service
 - [ ] Implement PATCH endpoint with EDIT check
 - [ ] Add `createEntityDeleteEndpoint(fastify, ENTITY_TYPE)`
 - [ ] Add `await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE)`
@@ -903,7 +903,7 @@ CREATE TABLE app.d_entity_rbac (
 | **RBAC** | `unified_data_gate.rbac_gate` | 80% fewer lines |
 | **Filtering** | `buildAutoFilters()` | 90% fewer lines |
 | **Child Endpoints** | `createChildEntityEndpointsFromMetadata()` | 75% fewer lines |
-| **Relationships** | `createLinkage()` | 60% fewer lines |
+| **Relationships** | `set_entity_instance_link()` | 60% fewer lines |
 
 ### **Key Improvements**
 
@@ -925,7 +925,7 @@ CREATE TABLE app.d_entity_rbac (
   - Added Pattern 7: TABLE_ALIAS constant pattern
   - Updated CREATE-LINK-EDIT pattern to CREATE-LINK-GRANT
   - Updated all implementation examples with soft delete filter pattern
-  - Updated checklist to include `grantPermission()` service
+  - Updated checklist to include `set_entity_rbac()` service
 - v3.0.0 (2025-11-16): 🔥 **BREAKING** - Complete architecture refactor
   - Removed `rbac.service.ts` - replaced with `unified-data-gate.ts`
   - Removed `createChildEntityEndpoint()` - inlined into `createChildEntityEndpointsFromMetadata()`
@@ -964,7 +964,7 @@ const filters = buildAutoFilters(TABLE_ALIAS, request.query);
 const rbac = await unified_data_gate.rbac_gate.getWhereCondition(userId, type, perm, alias);
 
 // Grant OWNER permission to creator
-await grantPermission(db, { personEntityName: 'employee', personEntityId: userId, entityName: type, entityId: id, permission: Permission.OWNER });
+await set_entity_rbac(db, { personEntityName: 'employee', personEntityId: userId, entityName: type, entityId: id, permission: Permission.OWNER });
 
 // All child endpoints from database
 await createChildEntityEndpointsFromMetadata(fastify, 'project');

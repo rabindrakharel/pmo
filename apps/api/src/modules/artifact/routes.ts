@@ -249,7 +249,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
       // Uses: RBAC_GATE only (checkPermission)
       // ═══════════════════════════════════════════════════════════════
-      const canView = await unified_data_gate.rbac_gate.checkPermission(
+      const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
         db,
         userId,
         ENTITY_TYPE,

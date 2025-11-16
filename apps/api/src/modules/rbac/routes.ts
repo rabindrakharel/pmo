@@ -19,26 +19,26 @@ async function getEmployeeEntityPermissions(employeeId: string, entityType: stri
   const permissions: string[] = [];
 
   // Test view
-  const canView = await unified_data_gate.rbac_gate.checkPermission(
+  const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
     db, employeeId, entityType, targetEntityId, Permission.VIEW
   );
   if (canView) permissions.push('view');
 
   // Test edit
-  const canEdit = await unified_data_gate.rbac_gate.checkPermission(
+  const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(
     db, employeeId, entityType, targetEntityId, Permission.EDIT
   );
   if (canEdit) permissions.push('edit');
 
   // Test delete
-  const canDelete = await unified_data_gate.rbac_gate.checkPermission(
+  const canDelete = await unified_data_gate.rbac_gate.check_entity_rbac(
     db, employeeId, entityType, targetEntityId, Permission.DELETE
   );
   if (canDelete) permissions.push('delete');
 
   // Test create (only for type-level)
   if (targetEntityId === ALL_ENTITIES_ID) {
-    const canCreate = await unified_data_gate.rbac_gate.checkPermission(
+    const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(
       db, employeeId, entityType, ALL_ENTITIES_ID, Permission.CREATE
     );
     if (canCreate) permissions.push('create');
@@ -52,11 +52,11 @@ async function getEmployeeEntityPermissions(employeeId: string, entityType: stri
 
 async function getMainPageActionPermissions(employeeId: string, entityType: string) {
   // Test type-level permissions using unified_data_gate
-  const canCreate = await unified_data_gate.rbac_gate.checkPermission(
+  const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(
     db, employeeId, entityType, ALL_ENTITIES_ID, Permission.CREATE
   );
 
-  const canDelete = await unified_data_gate.rbac_gate.checkPermission(
+  const canDelete = await unified_data_gate.rbac_gate.check_entity_rbac(
     db, employeeId, entityType, ALL_ENTITIES_ID, Permission.DELETE
   );
 
@@ -71,13 +71,13 @@ async function getMainPageActionPermissions(employeeId: string, entityType: stri
 
 // Backward-compatible wrappers using unified_data_gate
 async function canAssignProjectToBusiness(userId: string, businessId: string): Promise<boolean> {
-  return await unified_data_gate.rbac_gate.checkPermission(
+  return await unified_data_gate.rbac_gate.check_entity_rbac(
     db, userId, 'business', businessId, Permission.EDIT
   );
 }
 
 async function canNavigateToChildEntity(userId: string, childType: string, childId: string): Promise<boolean> {
-  return await unified_data_gate.rbac_gate.checkPermission(
+  return await unified_data_gate.rbac_gate.check_entity_rbac(
     db, userId, childType, childId, Permission.VIEW
   );
 }
@@ -210,7 +210,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
 
     try {
       // Check if user has access to the parent entity first
-      const hasParentAccess = await unified_data_gate.rbac_gate.checkPermission(
+      const hasParentAccess = await unified_data_gate.rbac_gate.check_entity_rbac(
         db, userId, parentEntity, parentEntityId, Permission.VIEW
       );
 

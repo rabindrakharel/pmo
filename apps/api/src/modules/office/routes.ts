@@ -241,7 +241,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
       // Uses: RBAC_GATE only (checkPermission)
       // ═══════════════════════════════════════════════════════════════
-      const canView = await unified_data_gate.rbac_gate.checkPermission(
+      const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
         db,
         userId,
         ENTITY_TYPE,
@@ -413,7 +413,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
     // Uses: RBAC_GATE only (checkPermission)
     // Check: Can user CREATE offices?
     // ═══════════════════════════════════════════════════════════════
-    const canCreate = await unified_data_gate.rbac_gate.checkPermission(
+    const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(
       db,
       userId,
       ENTITY_TYPE,
@@ -512,7 +512,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
     // Uses: RBAC_GATE only (checkPermission)
     // Check: Can user EDIT this office?
     // ═══════════════════════════════════════════════════════════════
-    const canEdit = await unified_data_gate.rbac_gate.checkPermission(
+    const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(
       db,
       userId,
       ENTITY_TYPE,
@@ -616,7 +616,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
     // Uses: RBAC_GATE only (checkPermission)
     // Check: Can user EDIT this office?
     // ═══════════════════════════════════════════════════════════════
-    const canEdit = await unified_data_gate.rbac_gate.checkPermission(
+    const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(
       db,
       userId,
       ENTITY_TYPE,

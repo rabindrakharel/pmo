@@ -996,7 +996,7 @@ if (!validRelationship) {
 **❌ Incorrect:**
 ```typescript
 // Directly create linkage without validation
-await createLinkage('project', projId, 'artifact', artId);  // May fail
+await set_entity_instance_link('project', projId, 'artifact', artId);  // May fail
 ```
 
 ### 3. Use Soft Deletes
