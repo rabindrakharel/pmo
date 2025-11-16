@@ -98,7 +98,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         loadOptionsFromSettings: col.dataSource?.type === 'settings',
 
         // Schema-driven formatting
-        render: (value: any) => formatFieldValue(value, col)
+        render: (value: any) => formatFieldValue(value, col.format.type)
       })) as Column[];
     }
 

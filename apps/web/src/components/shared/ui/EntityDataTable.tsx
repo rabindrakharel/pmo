@@ -496,7 +496,13 @@ export function EntityDataTable<T = any>({
   // ============================================================================
 
   // Auto-detect field capabilities based on naming conventions (Convention over Configuration)
-  const columnCapabilities = useMemo(() => detectColumnCapabilities(columns), [columns]);
+  const columnCapabilities = useMemo(() => {
+    const capabilities = new Map<string, FieldCapability>();
+    columns.forEach(col => {
+      capabilities.set(col.key, getFieldCapability(col.key, col.editType));
+    });
+    return capabilities;
+  }, [columns]);
 
   // State for dynamically loaded setting options
   const [settingOptions, setSettingOptions] = useState<Map<string, SettingOption[]>>(new Map());
