@@ -497,6 +497,80 @@ VALUES (
   updated_ts = now();
 
 -- =====================================================
+-- META-ENTITIES: Self-Describing Infrastructure
+-- =====================================================
+-- Infrastructure tables registered as entities themselves
+-- Creates self-describing entity system where d_entity describes itself
+
+-- Entity meta-entity (represents the concept of 'entity' itself)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'entity',
+  'Entity',
+  'Entities',
+  'Database',
+  '[]'::jsonb,
+  900
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  child_entities = EXCLUDED.child_entities,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- Entity Instance Registry meta-entity
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'entity_instance_registry',
+  'Entity Instance Registry',
+  'Entity Instance Registry',
+  'List',
+  '[]'::jsonb,
+  910
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  child_entities = EXCLUDED.child_entities,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- Entity Instance Link meta-entity
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'entity_instance_link',
+  'Entity Instance Link',
+  'Entity Instance Links',
+  'Link',
+  '[]'::jsonb,
+  920
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  child_entities = EXCLUDED.child_entities,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- Entity RBAC meta-entity
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+VALUES (
+  'entity_rbac',
+  'Entity RBAC',
+  'Entity RBAC',
+  'ShieldCheck',
+  '[]'::jsonb,
+  930
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  child_entities = EXCLUDED.child_entities,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- =====================================================
 -- DATA CURATION: DOMAIN CATEGORIZATION (LEGACY)
 -- =====================================================
 -- DEPRECATED: Use domain_id/domain_code/domain_name instead
@@ -945,6 +1019,9 @@ UPDATE app.d_entity SET db_table = 'f_message_data' WHERE code = 'message';
 UPDATE app.d_entity SET db_table = 'fact_quote' WHERE code = 'quote';
 UPDATE app.d_entity SET db_table = 'fact_work_order' WHERE code = 'work_order';
 
--- RBAC/Permission mapping
-UPDATE app.d_entity SET db_table = 'entity_id_rbac_map' WHERE code = 'rbac';
+-- Meta-entities (infrastructure tables as entities)
+UPDATE app.d_entity SET db_table = 'd_entity' WHERE code = 'entity';
+UPDATE app.d_entity SET db_table = 'd_entity_instance_registry' WHERE code = 'entity_instance_registry';
+UPDATE app.d_entity SET db_table = 'd_entity_instance_link' WHERE code = 'entity_instance_link';
+UPDATE app.d_entity SET db_table = 'd_entity_rbac' WHERE code = 'entity_rbac';
 

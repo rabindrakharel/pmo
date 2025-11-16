@@ -56,14 +56,14 @@ setting_datalabel_project_stage, setting_datalabel_task_priority
 
 -- Infrastructure tables
 d_entity                      -- Entity metadata (icons, labels, child entities)
-d_entity_id_map              -- Parent-child relationships (NO foreign keys)
-entity_id_rbac_map           -- Person-based permissions (single integer 0-5)
-d_entity_instance_id         -- Entity registry
+d_entity_instance_link              -- Parent-child relationships (NO foreign keys)
+d_entity_rbac           -- Person-based permissions (single integer 0-5)
+d_entity_instance_registry         -- Entity registry
 ```
 
 ### 3. Key Design Patterns
 
-**Inline Create-Then-Link**: Child entities auto-link to parent via `d_entity_id_map`
+**Inline Create-Then-Link**: Child entities auto-link to parent via `d_entity_instance_link`
 **Default-Editable**: All fields editable unless explicitly readonly
 **Column Consistency**: Same columns regardless of navigation context
 **Settings-Driven**: All dropdowns from `/api/v1/entity/:type/options`
@@ -78,7 +78,7 @@ d_entity_instance_id         -- Entity registry
 |---------|------|---------|
 | **Universal Filter Builder** | `lib/universal-filter-builder.ts` | Zero-config query filtering with auto-type detection |
 | **Unified Data Gate** | `lib/unified-data-gate.ts` | Centralized RBAC + parent-child filtering |
-| **Linkage Service** | `services/linkage.service.js` | Idempotent parent-child relationships via `d_entity_id_map` |
+| **Linkage Service** | `services/linkage.service.js` | Idempotent parent-child relationships via `d_entity_instance_link` |
 | **Delete Factory** | `lib/entity-delete-route-factory.ts` | Auto-generate DELETE endpoints with cascading cleanup |
 | **Child Entity Factory** | `lib/child-entity-route-factory.ts` | Auto-generate `GET /{parent}/:id/{child}` endpoints |
 | **Schema Metadata** | `lib/universal-schema-metadata.ts` | Database schema introspection and column detection |
@@ -170,7 +170,7 @@ Permission.VIEW   = 0  // Read-only access
 ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111'
 
 // Permission checks
-unified_data_gate.rbac_gate.checkPermission(db, userId, entityType, entityId, Permission.EDIT)
+unified_data_gate.rbac_gate.check_entity_rbac(db, userId, entityType, entityId, Permission.EDIT)
 unified_data_gate.rbac_gate.getWhereCondition(userId, entityType, Permission.VIEW, tableAlias)
 ```
 
@@ -250,7 +250,7 @@ tags          → Array field
 
 ❌ Creating entity-specific pages/components
 ❌ Hardcoding dropdown options or entity metadata
-❌ Adding foreign keys (use d_entity_id_map)
+❌ Adding foreign keys (use d_entity_instance_link)
 ❌ Manual field formatting (use centralized transforms)
 ❌ Direct S3 uploads (use presigned URLs)
 ❌ Skipping db-import.sh after DDL changes
@@ -262,7 +262,7 @@ tags          → Array field
 User Action → Universal Page → EntityConfig → API Call → Service Layer → Database
                      ↓                            ↓
               Field Detection              RBAC Check
-              (12 patterns)               (entity_id_rbac_map)
+              (12 patterns)               (d_entity_rbac)
 ```
 
 ### Data Relationships
@@ -271,9 +271,9 @@ d_entity (metadata) → defines → Entity Types
                                       ↓
                               d_{entity} tables
                                       ↓
-                              d_entity_id_map (linkages)
+                              d_entity_instance_link (linkages)
                                       ↓
-                              entity_id_rbac_map (permissions)
+                              d_entity_rbac (permissions)
 ```
 
 ### Settings Integration

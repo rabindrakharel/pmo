@@ -314,8 +314,8 @@ person_entity_type + person_entity_id → POLYMORPHIC FK
 
 NO FOREIGN KEYS (PMO pattern)
 Relationships tracked via:
-  ├─▶ d_entity_instance_id (entity instance registry)
-  └─▶ d_entity_id_map (parent-child relationships)
+  ├─▶ d_entity_instance_registry (entity instance registry)
+  └─▶ d_entity_instance_link (parent-child relationships)
 ```
 
 ### Event Linkage

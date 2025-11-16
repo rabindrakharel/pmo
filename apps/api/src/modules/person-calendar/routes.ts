@@ -359,7 +359,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
 
       // Register in entity_instance_id
       await client`
-        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+        INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
         VALUES ('person_calendar', ${newSlot.id}::uuid, ${newSlot.name}, ${newSlot.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name,

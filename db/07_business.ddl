@@ -9,7 +9,7 @@
 -- **HIERARCHY CONCEPT**:
 -- • d_business: Operational units (team-level entities doing actual work)
 -- • d_business_hierarchy: Organizational hierarchy (Corporate → Division → Department)
--- • Relationship: d_business links to d_business_hierarchy via d_entity_id_map
+-- • Relationship: d_business links to d_business_hierarchy via d_entity_instance_link
 -- • Example: "Landscaping Team Alpha" (d_business) links to "Landscaping Department" (d_business_hierarchy)
 --
 -- OPERATIONS:
@@ -19,10 +19,10 @@
 -- • LIST: GET /api/v1/business, filters by office/status, RBAC enforced
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: d_business_hierarchy (via d_entity_id_map)
+-- • Parent: d_business_hierarchy (via d_entity_instance_link)
 -- • Parent: d_office (office assignment)
 -- • Children: project, task, employee assignments
--- • RBAC: entity_id_rbac_map
+-- • RBAC: d_entity_rbac
 --
 -- =====================================================
 
@@ -55,7 +55,7 @@ COMMENT ON TABLE app.d_business IS 'Operational business units (team-level) exec
 --
 -- SEMANTICS:
 -- Business hierarchy provides a 3-level organizational structure for business management.
--- This hierarchy is separate from operational units (d_business) and linked via d_entity_id_map.
+-- This hierarchy is separate from operational units (d_business) and linked via d_entity_instance_link.
 --
 -- HIERARCHY LEVELS:
 -- • Corporate: Top-level corporate entity (e.g., "Huron Home Services Corporation")
@@ -69,7 +69,7 @@ COMMENT ON TABLE app.d_business IS 'Operational business units (team-level) exec
 --
 -- RELATIONSHIPS:
 -- • Self: parent_id → d_business_hierarchy.id
--- • Children: d_business (via d_entity_id_map)
+-- • Children: d_business (via d_entity_instance_link)
 --
 -- =====================================================
 
@@ -142,7 +142,7 @@ FROM app.d_business_hierarchy WHERE code = 'BIZ-HIE-CSD';
 -- =====================================================
 
 -- Example operational units (teams doing actual work)
--- These would link to hierarchy nodes via d_entity_id_map
+-- These would link to hierarchy nodes via d_entity_instance_link
 
 -- Landscaping operational teams
 INSERT INTO app.d_business (

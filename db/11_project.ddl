@@ -14,9 +14,9 @@
 -- • QUERY: Filter by dl__project_stage, business, RBAC enforced
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: business (via d_entity_id_map)
+-- • Parent: business (via d_entity_instance_link)
 -- • Children: task, artifact, wiki, form, cost, revenue
--- • RBAC: entity_id_rbac_map
+-- • RBAC: d_entity_rbac
 --
 -- =====================================================
 

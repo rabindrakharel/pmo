@@ -27,11 +27,11 @@
  *     - Parent-CREATE inheritance (if parent has CREATE, children gain CREATE)
  *
  *   • PARENT_CHILD_FILTERING_GATE - Context-aware data filtering
- *     - Filters entities by parent relationship via d_entity_id_map
+ *     - Filters entities by parent relationship via d_entity_instance_link
  *     - Enables create-link-edit pattern (create child, link to parent)
  *
  * Usage Example:
- *   const canView = await unified_data_gate.rbac_gate.checkPermission(
+ *   const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
  *     db, userId, ENTITY_TYPE, id, Permission.VIEW
  *   );
  *
@@ -39,7 +39,7 @@
  * ─────────────────────────────────────────────────────────
  * Instead of nested creation endpoints, we use:
  *   1. Create entity independently: POST /api/v1/business
- *   2. Link to parent via d_entity_id_map (automatic if parent_type/parent_id provided)
+ *   2. Link to parent via d_entity_instance_link (automatic if parent_type/parent_id provided)
  *   3. Edit/view in context: GET /api/v1/business?parent_type=office&parent_id={id}
  *
  * Benefits:
@@ -61,7 +61,7 @@
  *   • Business-specific: office_id, current_headcount, operational_status
  *   • Temporal: from_ts, to_ts, active_flag, created_ts, updated_ts, version
  *
- * Relationships (via d_entity_id_map):
+ * Relationships (via d_entity_instance_link):
  *   • Parent entities: office
  *   • Child entities: project, employee, client
  *
@@ -69,7 +69,7 @@
  *   • Organizational structure separate from physical office locations
  *   • See /api/v1/business-hierarchy for hierarchy management
  *
- * Permissions (via entity_id_rbac_map):
+ * Permissions (via d_entity_rbac):
  *   • Supports both entity-level (entity_id = 'all') and instance-level permissions
  *   • Permission levels: 0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER
  *
@@ -102,7 +102,7 @@
  *   2. Check: Can user CREATE businesses? (type-level permission)
  *   3. Check: Can user EDIT parent office? (required to link child)
  *   4. Create business in d_business
- *   5. Link to office in d_entity_id_map
+ *   5. Link to office in d_entity_instance_link
  *   6. Auto-grant DELETE permission to creator
  *
  * Example 3: Filter Businesses by Parent Office
@@ -120,9 +120,8 @@ import { db } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
 // ✅ Centralized unified data gate - loosely coupled API
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
-// ✅ Centralized linkage service - DRY entity relationship management
-import { createLinkage } from '../../services/linkage.service.js';
-import { grantPermission } from '../../services/rbac-grant.service.js';
+// ✨ NEW: Entity Infrastructure Service - centralized infrastructure operations
+import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Delete factory for cascading soft deletes
@@ -168,6 +167,8 @@ const ENTITY_TYPE = 'business';
 const TABLE_ALIAS = 'e';
 
 export async function businessRoutes(fastify: FastifyInstance) {
+  // ✨ Initialize Entity Infrastructure Service
+  const entityInfra = getEntityInfrastructure(db);
 
   // ============================================================================
   // List Business Units (Main Page or Child Tab)
@@ -353,7 +354,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
     // ✅ CENTRALIZED UNIFIED DATA GATE - Permission Check
     // Uses: RBAC_GATE only (checkPermission)
     // ═══════════════════════════════════════════════════════════════
-    const canView = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.VIEW);
+    const canView = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, ENTITY_TYPE, id, Permission.VIEW);
     if (!canView) {
       return reply.status(403).send({ error: 'No permission to view this business' });
     }
@@ -377,7 +378,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       childEntities.map(async (childType: string) => {
         const countResult = await db.execute(sql`
           SELECT COUNT(*) as count
-          FROM app.d_entity_id_map
+          FROM app.d_entity_instance_link
           WHERE parent_entity_type = ${ENTITY_TYPE}
             AND parent_entity_id = ${id}
             AND child_entity_type = ${childType}
@@ -413,7 +414,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
     // ✅ CENTRALIZED UNIFIED DATA GATE - Permission Check
     // Uses: RBAC_GATE only (checkPermission)
     // ═══════════════════════════════════════════════════════════════
-    const canView = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.VIEW);
+    const canView = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, ENTITY_TYPE, id, Permission.VIEW);
     if (!canView) {
       return reply.status(403).send({ error: 'No permission to view this business' });
     }
@@ -438,7 +439,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
     // ═══════════════════════════════════════════════════════════════
     const creatableEntities = await Promise.all(
       childEntities.map(async (childType: string) => {
-        const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, childType, ALL_ENTITIES_ID, Permission.CREATE);
+        const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, childType, ALL_ENTITIES_ID, Permission.CREATE);
         return canCreate ? childType : null;
       })
     );
@@ -479,7 +480,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
 
       // GATE: RBAC - Check permission
-      const canView = await unified_data_gate.rbac_gate.checkPermission(
+      const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
         db,
         userId,
         ENTITY_TYPE,
@@ -542,29 +543,27 @@ export async function businessRoutes(fastify: FastifyInstance) {
 
     try {
       // ═══════════════════════════════════════════════════════════════
-      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE 1
-      // Uses: RBAC_GATE only (checkPermission)
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 1
       // Check: Can user CREATE business units?
       // ═══════════════════════════════════════════════════════════════
-      const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
+      const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
       if (!canCreate) {
         return reply.status(403).send({ error: 'No permission to create business units' });
       }
 
       // ═══════════════════════════════════════════════════════════════
-      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE 2
-      // Uses: RBAC_GATE only (checkPermission)
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 2
       // Check: If linking to parent, can user EDIT parent?
       // ═══════════════════════════════════════════════════════════════
       if (parent_type && parent_id) {
-        const canEditParent = await unified_data_gate.rbac_gate.checkPermission(db, userId, parent_type, parent_id, Permission.EDIT);
+        const canEditParent = await entityInfra.check_entity_rbac(userId, parent_type, parent_id, Permission.EDIT);
         if (!canEditParent) {
           return reply.status(403).send({ error: `No permission to link business to this ${parent_type}` });
         }
       }
 
       // ═══════════════════════════════════════════════════════════════
-      // CREATE business unit
+      // ✅ ROUTE OWNS: CREATE business unit in primary table
       // ═══════════════════════════════════════════════════════════════
       const newBiz = await db.execute(sql`
         INSERT INTO app.d_business (
@@ -590,11 +589,25 @@ export async function businessRoutes(fastify: FastifyInstance) {
       const bizId = newBizData.id as string;
 
       // ═══════════════════════════════════════════════════════════════
-      // LINK to parent (if parent context provided)
-      // Uses centralized linkage service - idempotent, handles reactivation
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance
+      // ═══════════════════════════════════════════════════════════════
+      await entityInfra.set_entity_instance_registry({
+        entity_type: ENTITY_TYPE,
+        entity_id: bizId,
+        entity_name: bizData.name,
+        entity_code: bizData.code
+      });
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Grant ownership to creator
+      // ═══════════════════════════════════════════════════════════════
+      await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, bizId);
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Link to parent (if provided)
       // ═══════════════════════════════════════════════════════════════
       if (parent_type && parent_id) {
-        await createLinkage(db, {
+        await entityInfra.set_entity_instance_link({
           parent_entity_type: parent_type,
           parent_entity_id: parent_id,
           child_entity_type: ENTITY_TYPE,
@@ -602,17 +615,6 @@ export async function businessRoutes(fastify: FastifyInstance) {
           relationship_type: 'contains'
         });
       }
-
-      // ═══════════════════════════════════════════════════════════════
-      // AUTO-GRANT: Creator gets full permissions (OWNER)
-      // ═══════════════════════════════════════════════════════════════
-      await grantPermission(db, {
-        personEntityName: 'employee',
-        personEntityId: userId,
-        entityName: ENTITY_TYPE,
-        entityId: bizId,
-        permission: Permission.OWNER
-      });
 
       return reply.status(201).send(newBizData);
     } catch (error) {
@@ -650,15 +652,17 @@ export async function businessRoutes(fastify: FastifyInstance) {
 
     try {
       // ═══════════════════════════════════════════════════════════════
-      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
-      // Uses: RBAC_GATE only (checkPermission)
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
       // Check: Can user EDIT this business?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this business' });
       }
 
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ROUTE OWNS: Update business in primary table
+      // ═══════════════════════════════════════════════════════════════
       // Build update fields
       const updateFields: any[] = [];
       if (updates.code !== undefined) updateFields.push(sql`code = ${updates.code}`);
@@ -687,6 +691,16 @@ export async function businessRoutes(fastify: FastifyInstance) {
 
       if (updated.length === 0) {
         return reply.status(404).send({ error: 'Business not found' });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
+      // ═══════════════════════════════════════════════════════════════
+      if (updates.name !== undefined || updates.code !== undefined) {
+        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+          entity_name: updates.name,
+          entity_code: updates.code
+        });
       }
 
       return reply.send(updated[0]);
@@ -727,15 +741,17 @@ export async function businessRoutes(fastify: FastifyInstance) {
 
     try {
       // ═══════════════════════════════════════════════════════════════
-      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
-      // Uses: RBAC_GATE only (checkPermission)
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
       // Check: Can user EDIT this business?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this business' });
       }
 
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ROUTE OWNS: Update business in primary table
+      // ═══════════════════════════════════════════════════════════════
       // Build update fields
       const updateFields: any[] = [];
       if (updates.code !== undefined) updateFields.push(sql`code = ${updates.code}`);
@@ -764,6 +780,16 @@ export async function businessRoutes(fastify: FastifyInstance) {
 
       if (updated.length === 0) {
         return reply.status(404).send({ error: 'Business not found' });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
+      // ═══════════════════════════════════════════════════════════════
+      if (updates.name !== undefined || updates.code !== undefined) {
+        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+          entity_name: updates.name,
+          entity_code: updates.code
+        });
       }
 
       return reply.send(updated[0]);

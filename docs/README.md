@@ -37,10 +37,10 @@
 
 | Problem Area | Where to Look | Key File |
 |--------------|---------------|----------|
-| **RBAC permissions** | `datamodel/` | `datamodel.md` (entity_id_rbac_map) |
+| **RBAC permissions** | `datamodel/` | `datamodel.md` (d_entity_rbac) |
 | **Column consistency issues** | `entity_design_pattern/` | `COLUMN_CONSISTENCY_UPDATE.md` |
 | **API not working** | `docs/` | `tools.md` (test scripts & troubleshooting) |
-| **Entity linkage broken** | `entity_design_pattern/` | `UnifiedLinkageSystem.md` (d_entity_id_map patterns) |
+| **Entity linkage broken** | `entity_design_pattern/` | `UnifiedLinkageSystem.md` (d_entity_instance_link patterns) |
 | **Settings/dropdowns** | `settings/` | `settings.md` (16 settings tables) |
 | **File uploads** | `s3_service/` | `S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md` |
 | **Styling issues** | `styling/` | `styling_patterns.md` |
@@ -70,7 +70,7 @@
 - `COLUMN_VISIBILITY_SYSTEM.md` - Column selector and visibility management
 - `ENTITY_METADATA_COHERENCE.md` - Entity metadata from d_entity table
 - `ENTITY_COHERENCE_ANALYSIS.md` - Entity system coherence analysis
-- `UnifiedLinkageSystem.md` - Entity linkage patterns (d_entity_id_map)
+- `UnifiedLinkageSystem.md` - Entity linkage patterns (d_entity_instance_link)
 - `navigation_context.md` - Navigation & breadcrumb system
 - `core_algorithm_design_pattern.md` - Core algorithms & patterns
 - `DYNAMIC_ENTITY_BUILDER.md` - Dynamic entity builder system
@@ -84,12 +84,12 @@
 **When to use:** Understanding database schema, entity relationships, RBAC, table structure
 
 **Files:**
-- `datamodel.md` - Complete data model (52 tables, 13 core entities, NO foreign keys, d_entity_id_map linkage)
+- `datamodel.md` - Complete data model (52 tables, 13 core entities, NO foreign keys, d_entity_instance_link linkage)
 - `DDL_STANDARDIZATION_GUIDE.md` - DDL naming conventions and standards
 - `DDL_ROMAN_NUMERAL_MAPPING.md` - Roman numeral prefix mapping for DDL files
 - `NAMING_CONVENTION_MIGRATION_PLAN.md` - Database naming convention migration plan
 
-**Keywords:** database, schema, DDL, tables, relationships, RBAC, entity_id_rbac_map, d_entity_id_map, NO foreign keys, naming conventions
+**Keywords:** database, schema, DDL, tables, relationships, RBAC, d_entity_rbac, d_entity_instance_link, NO foreign keys, naming conventions
 
 ---
 
@@ -356,8 +356,8 @@
 | **inline editing, add row, create-link-edit** | `entity_design_pattern/` | `universal_entity_system.md` |
 | **column consistency, context-independent** | `entity_design_pattern/` | `COLUMN_CONSISTENCY_UPDATE.md` ⭐ |
 | **database, schema, DDL, NO foreign keys** | `datamodel/` | `datamodel.md` |
-| **RBAC, permissions, entity_id_rbac_map** | `datamodel/` | `datamodel.md` |
-| **linkage, parent-child, d_entity_id_map** | `entity_design_pattern/` | `UnifiedLinkageSystem.md` |
+| **RBAC, permissions, d_entity_rbac** | `datamodel/` | `datamodel.md` |
+| **linkage, parent-child, d_entity_instance_link** | `entity_design_pattern/` | `UnifiedLinkageSystem.md` |
 | **API, endpoints, routes, modules** | `api/` | `API_DEVELOPER_GUIDE.md`, `openapi.yaml` |
 | **AI chat, voice calling, MCP, GPT-4** | `ai_chat/` | `AI_CHAT_SYSTEM.md` ⭐ |
 | **MCP, Model Context Protocol, tools** | `mcp/` | `MCP_ARCHITECTURE.md` |
@@ -455,7 +455,7 @@
 
 ✅ **Add AI features** → `ai_chat/AI_CHAT_SYSTEM.md` + `ai_mcp/MCP_SERVER_OVERVIEW.md`
 
-✅ **Debug RBAC** → `datamodel/datamodel.md` (entity_id_rbac_map section)
+✅ **Debug RBAC** → `datamodel/datamodel.md` (d_entity_rbac section)
 
 ✅ **Deploy to AWS** → `infra_docs/INFRASTRUCTURE_DESIGN.md`
 

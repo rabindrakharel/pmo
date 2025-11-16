@@ -182,7 +182,7 @@ The following routes need to be updated (46 total route files):
 ```typescript
 const baseConditions = [
   sql`EXISTS (
-    SELECT 1 FROM app.entity_id_rbac_map rbac
+    SELECT 1 FROM app.d_entity_rbac rbac
     WHERE rbac.empid = ${userId}
       AND rbac.entity = 'task'
       AND (rbac.entity_id = t.id::text OR rbac.entity_id = 'all')
@@ -213,7 +213,7 @@ const conditions = [idFilter];
 **Before**:
 ```typescript
 const taskAccess = await db.execute(sql`
-  SELECT 1 FROM app.entity_id_rbac_map rbac
+  SELECT 1 FROM app.d_entity_rbac rbac
   WHERE rbac.empid = ${userId}
     AND rbac.entity = 'task'
     AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')
@@ -245,7 +245,7 @@ const idFilter = hasTypeAccess
 **Before**:
 ```typescript
 const taskCreateAccess = await db.execute(sql`
-  SELECT 1 FROM app.entity_id_rbac_map rbac
+  SELECT 1 FROM app.d_entity_rbac rbac
   WHERE rbac.empid = ${userId}
     AND rbac.entity = 'task'
     AND rbac.entity_id = 'all'
@@ -275,7 +275,7 @@ try {
 **Before**:
 ```typescript
 const taskEditAccess = await db.execute(sql`
-  SELECT 1 FROM app.entity_id_rbac_map rbac
+  SELECT 1 FROM app.d_entity_rbac rbac
   WHERE rbac.empid = ${userId}
     AND rbac.entity = 'task'
     AND (rbac.entity_id = ${id} OR rbac.entity_id = 'all')

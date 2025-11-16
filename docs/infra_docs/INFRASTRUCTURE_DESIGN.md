@@ -468,9 +468,9 @@ app (schema)
 │   └── setting_datalabel_form_submission_status
 │
 ├── Relationships (3 tables)
-│   ├── d_entity_id_map           # Parent-child entity relationships
-│   ├── d_entity_instance_id      # Entity instance registry
-│   └── d_entity_id_rbac_map      # RBAC permissions
+│   ├── d_entity_instance_link           # Parent-child entity relationships
+│   ├── d_entity_instance_registry      # Entity instance registry
+│   └── d_d_entity_rbac      # RBAC permissions
 │
 └── Operations (5 tables)
     ├── d_product

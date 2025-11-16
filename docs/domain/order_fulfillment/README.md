@@ -97,7 +97,7 @@ The Order & Fulfillment Domain manages the complete sales lifecycle from initial
    - Single order can have multiple partial shipments
    - Order line items allocated to shipments
    - Shipment tracks fulfillment status per line
-   - Links via `d_entity_id_map` or order_id reference
+   - Links via `d_entity_instance_link` or order_id reference
 
 3. **Order → Invoice**: One-to-one or many-to-one
    - Each order generates one invoice (standard)

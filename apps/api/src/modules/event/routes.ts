@@ -378,13 +378,13 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
       const attendeesResult = await attendeesQuery;
 
-      // Get linked entities from d_entity_id_map
+      // Get linked entities from d_entity_instance_link
       const linkedEntitiesQuery = client`
         SELECT
           child_entity_type,
           child_entity_id,
           relationship_type
-        FROM app.d_entity_id_map
+        FROM app.d_entity_instance_link
         WHERE parent_entity_type = 'event'
           AND parent_entity_id = ${id}
           AND active_flag = true
@@ -474,7 +474,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
       // Register in entity_instance_id
       await client`
-        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+        INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
         VALUES ('event', ${newEvent.id}::uuid, ${newEvent.name}, ${newEvent.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name,
@@ -560,7 +560,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
           // Register in entity_instance_id
           await client`
-            INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+            INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
             VALUES ('event_person_calendar', ${attendeeResult[0].id}::uuid, ${attendeeCode}, ${attendeeCode})
             ON CONFLICT (entity_type, entity_id) DO UPDATE
             SET entity_name = EXCLUDED.entity_name,
@@ -723,9 +723,9 @@ export async function eventRoutes(fastify: FastifyInstance) {
         WHERE event_id = ${id}::uuid AND active_flag = true
       `;
 
-      // Soft delete entity linkages in d_entity_id_map
+      // Soft delete entity linkages in d_entity_instance_link
       await client`
-        UPDATE app.d_entity_id_map
+        UPDATE app.d_entity_instance_link
         SET
           active_flag = false,
           to_ts = now(),
@@ -816,7 +816,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
   /**
    * GET /api/v1/event/:id/entities
-   * Get all linked entities for a specific event (from d_entity_id_map)
+   * Get all linked entities for a specific event (from d_entity_instance_link)
    */
   fastify.get<{
     Params: { id: string };
@@ -842,7 +842,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           relationship_type,
           from_ts::text,
           to_ts::text
-        FROM app.d_entity_id_map
+        FROM app.d_entity_instance_link
         WHERE parent_entity_type = 'event'
           AND parent_entity_id = ${id}
           AND active_flag = true

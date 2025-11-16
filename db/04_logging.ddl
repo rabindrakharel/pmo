@@ -3,7 +3,7 @@
 -- ============================================================================
 -- FILE: LI_f_logging.ddl
 -- PURPOSE: Comprehensive audit trail for all entity operations
--- DEPENDENCIES: III_d_employee.ddl, VI_d_cust.ddl, XLV_d_entity.ddl, XLIX_d_entity_id_rbac_map.ddl
+-- DEPENDENCIES: III_d_employee.ddl, VI_d_cust.ddl, XLV_d_entity.ddl, XLIX_d_d_entity_rbac.ddl
 -- SCHEMA: app
 -- TABLE: f_logging
 -- ============================================================================
@@ -27,7 +27,7 @@
 --   6. **Denormalized Person Data**: Stores fname, lname, username directly (not person_id)
 --      to preserve actor identity even if person record is deleted or modified
 --
--- ACTION CODE MAPPING (aligned with entity_id_rbac_map):
+-- ACTION CODE MAPPING (aligned with d_entity_rbac):
 --   [0] = View:   Read access - user viewed entity details
 --   [1] = Edit:   Modify existing entity - user changed field values
 --   [2] = Share:  Share entity with others - user granted access to another user

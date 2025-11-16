@@ -34,12 +34,12 @@ The PMO platform implements a comprehensive person-calendar system that orchestr
    - Sent by messaging service
 
 5. **Ownership** - Via RBAC system
-   - Stored in `entity_id_rbac_map`
+   - Stored in `d_entity_rbac`
    - `permission[5] = Owner` (full control)
    - Assigned employee owns the event
 
 6. **Relationships** - Via linkage system
-   - Stored in `d_entity_id_map`
+   - Stored in `d_entity_instance_link`
    - Links: event → service, customer, project
 
 ### Key Principle: Event + Person = Calendar
@@ -77,7 +77,7 @@ The PMO platform implements a comprehensive person-calendar system that orchestr
             │
             ▼
 ┌──────────────────────────────────┐      ┌─────────────────────┐
-│ d_entity_event_person_calendar   │      │  d_entity_id_map    │
+│ d_entity_event_person_calendar   │      │  d_entity_instance_link    │
 │ (RSVP Tracking)                  │      │  (Entity Links)     │
 ├──────────────────────────────────┤      ├─────────────────────┤
 │ event_id (→ d_event.id)          │      │ parent_entity_type  │
@@ -93,7 +93,7 @@ The PMO platform implements a comprehensive person-calendar system that orchestr
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  entity_id_rbac_map (OWNERSHIP)                                  │
+│  d_entity_rbac (OWNERSHIP)                                  │
 ├──────────────────────────────────────────────────────────────────┤
 │  empid = 'employee-uuid'                                         │
 │  entity = 'event'                                                │
@@ -112,12 +112,12 @@ The PMO platform implements a comprehensive person-calendar system that orchestr
    - Tracks who is attending and their RSVP status
    - Purpose: Attendance confirmation separate from availability
 
-3. **Event ← Entity Linkages** (`d_entity_id_map`)
+3. **Event ← Entity Linkages** (`d_entity_instance_link`)
    - Links event → service, customer, project
    - Event acts as parent entity
    - Purpose: Relationship tracking (not permissions)
 
-4. **Event ← Ownership** (`entity_id_rbac_map`)
+4. **Event ← Ownership** (`d_entity_rbac`)
    - Assigned employee gets Owner permission (permission[5])
    - Full control: view, edit, share, delete, create, manage permissions
    - Purpose: Access control and ownership tracking
@@ -191,7 +191,7 @@ Request Body:
 4.1 Create Event in d_event:
     ✅ Generated booking number: BK-2025-001234
     ✅ Created event: EVT-BK-2025-001234
-    ✅ Registered in d_entity_instance_id
+    ✅ Registered in d_entity_instance_registry
 
 4.2 Link Attendees (d_entity_event_person_calendar):
     ✅ Customer: pending RSVP
@@ -202,7 +202,7 @@ Request Body:
     ✅ Marked all as unavailable (availability_flag = false)
     ✅ Linked to event (event_id = event-uuid)
 
-4.4 Link Entities (d_entity_id_map):
+4.4 Link Entities (d_entity_instance_link):
     ✅ event → service
     ✅ event → customer
 
@@ -241,7 +241,7 @@ Creates complete person-calendar booking with:
 - Event in d_event
 - Attendees in d_entity_event_person_calendar
 - Calendar slots booked in d_entity_person_calendar
-- Entity linkages in d_entity_id_map
+- Entity linkages in d_entity_instance_link
 - Email calendar invites (.ics) via AWS SES
 - SMS notifications via AWS SNS
 
@@ -521,7 +521,7 @@ SELECT * FROM app.d_entity_event_person_calendar
 WHERE event_id = 'your-event-uuid';
 
 -- Check entity linkages
-SELECT * FROM app.d_entity_id_map
+SELECT * FROM app.d_entity_instance_link
 WHERE parent_entity_type = 'event'
 AND parent_entity_id = 'your-event-uuid';
 ```
@@ -609,7 +609,7 @@ AWS_SES_CONFIGURATION_SET=cohuron-email-tracking
    - Employee: accepted RSVP
    - Tracks attendance per person
 
-4. **Entity Links (`d_entity_id_map`)** - Related entities
+4. **Entity Links (`d_entity_instance_link`)** - Related entities
    - event → service
    - event → customer
    - event → project (if applicable)
@@ -626,7 +626,7 @@ AWS_SES_CONFIGURATION_SET=cohuron-email-tracking
 ✅ **Pre-seed calendar slots** for employees (9am-8pm, 15-min increments)
 ✅ **Send notifications via messaging service** (email + SMS) after booking confirmation
 ✅ **Track RSVP status** for attendance management
-✅ **Link related entities** via `d_entity_id_map` (event → service, customer, project)
+✅ **Link related entities** via `d_entity_instance_link` (event → service, customer, project)
 ✅ **Use AWS SES for email** and **AWS SNS for SMS** (not SMTP)
 
 ---
@@ -637,7 +637,7 @@ AWS_SES_CONFIGURATION_SET=cohuron-email-tracking
 - [Event Design](../db/XXXIV_d_event.ddl) - Event table DDL
 - [Person Calendar](../db/XXXV_d_entity_person_calendar.ddl) - Calendar table DDL
 - [Event RSVP](../db/XXXVI_d_entity_event_person_calendar.ddl) - RSVP table DDL
-- [Entity Linkages](../db/IX_d_entity_id_map.ddl) - Parent-child relationships
+- [Entity Linkages](../db/IX_d_entity_instance_link.ddl) - Parent-child relationships
 
 ### API Implementation
 - **Person-Calendar Service** (../apps/api/src/modules/person-calendar/person-calendar.service.ts) - Orchestration service

@@ -69,8 +69,8 @@
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ LAYER 1: DATABASE TABLES                                        │
-│ • entity_id_rbac_map - Permission storage                       │
-│ • d_entity_id_map - Parent-child relationships                  │
+│ • d_entity_rbac - Permission storage                       │
+│ • d_entity_instance_link - Parent-child relationships                  │
 │ • d_entity - Entity metadata                                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -79,12 +79,12 @@
 
 ## Data Model Foundation
 
-### Table 1: `entity_id_rbac_map` - Permission Storage
+### Table 1: `d_entity_rbac` - Permission Storage
 
 **Purpose**: Store person-based permissions with hierarchical levels
 
 ```sql
-CREATE TABLE app.entity_id_rbac_map (
+CREATE TABLE app.d_entity_rbac (
   person_entity_name VARCHAR(50),  -- 'employee' or 'role'
   person_entity_id UUID,            -- Employee ID or Role ID
   entity_name VARCHAR(50),          -- 'project', 'task', etc.
@@ -129,12 +129,12 @@ CREATE TABLE app.entity_id_rbac_map (
 
 ---
 
-### Table 2: `d_entity_id_map` - Parent-Child Relationships
+### Table 2: `d_entity_instance_link` - Parent-Child Relationships
 
 **Purpose**: Flexible many-to-many entity relationships (replaces foreign keys)
 
 ```sql
-CREATE TABLE app.d_entity_id_map (
+CREATE TABLE app.d_entity_instance_link (
   id UUID PRIMARY KEY,
   parent_entity_type VARCHAR(50),   -- 'business', 'project', etc.
   parent_entity_id UUID,             -- Parent instance UUID
@@ -169,7 +169,7 @@ CREATE TABLE app.d_entity_id_map (
 
 **Benefits Over Foreign Keys**:
 
-| Foreign Key | d_entity_id_map |
+| Foreign Key | d_entity_instance_link |
 |-------------|-----------------|
 | Hard delete cascades | Soft delete preserves history |
 | One parent only | Multiple parents supported |
@@ -245,7 +245,7 @@ WITH
 -- CTE 1: DIRECT EMPLOYEE PERMISSIONS
 direct_emp AS (
   SELECT permission
-  FROM app.entity_id_rbac_map
+  FROM app.d_entity_rbac
   WHERE person_entity_name = 'employee'
     AND person_entity_id = ${userId}::uuid
     AND entity_name = ${entityName}
@@ -255,11 +255,11 @@ direct_emp AS (
 ),
 
 -- CTE 2: ROLE-BASED PERMISSIONS
--- employee → role (via d_entity_id_map) → permissions
+-- employee → role (via d_entity_instance_link) → permissions
 role_based AS (
   SELECT rbac.permission
-  FROM app.entity_id_rbac_map rbac
-  INNER JOIN app.d_entity_id_map eim
+  FROM app.d_entity_rbac rbac
+  INNER JOIN app.d_entity_instance_link eim
     ON eim.parent_entity_type = 'role'
     AND eim.parent_entity_id = rbac.person_entity_id
     AND eim.child_entity_type = 'employee'
@@ -285,16 +285,16 @@ parent_entities AS (
 parent_view AS (
   SELECT 0 AS permission
   FROM parent_entities pe
-  LEFT JOIN app.entity_id_rbac_map emp
+  LEFT JOIN app.d_entity_rbac emp
     ON emp.person_entity_name = 'employee'
     AND emp.person_entity_id = ${userId}
     AND emp.entity_name = pe.parent_entity_name
     AND emp.active_flag = true
-  LEFT JOIN app.entity_id_rbac_map rbac
+  LEFT JOIN app.d_entity_rbac rbac
     ON rbac.person_entity_name = 'role'
     AND rbac.entity_name = pe.parent_entity_name
     AND rbac.active_flag = true
-  LEFT JOIN app.d_entity_id_map eim
+  LEFT JOIN app.d_entity_instance_link eim
     ON eim.parent_entity_type = 'role'
     AND eim.parent_entity_id = rbac.person_entity_id
     AND eim.child_entity_type = 'employee'
@@ -309,16 +309,16 @@ parent_view AS (
 parent_create AS (
   SELECT 4 AS permission
   FROM parent_entities pe
-  LEFT JOIN app.entity_id_rbac_map emp
+  LEFT JOIN app.d_entity_rbac emp
     ON emp.person_entity_name = 'employee'
     AND emp.person_entity_id = ${userId}
     AND emp.entity_name = pe.parent_entity_name
     AND emp.active_flag = true
-  LEFT JOIN app.entity_id_rbac_map rbac
+  LEFT JOIN app.d_entity_rbac rbac
     ON rbac.person_entity_name = 'role'
     AND rbac.entity_name = pe.parent_entity_name
     AND rbac.active_flag = true
-  LEFT JOIN app.d_entity_id_map eim
+  LEFT JOIN app.d_entity_instance_link eim
     ON eim.parent_entity_type = 'role'
     AND eim.parent_entity_id = rbac.person_entity_id
     AND eim.child_entity_type = 'employee'
@@ -345,7 +345,7 @@ FROM (
 ```sql
 direct_emp AS (
   SELECT permission
-  FROM app.entity_id_rbac_map
+  FROM app.d_entity_rbac
   WHERE person_entity_name = 'employee'
     AND person_entity_id = ${userId}
     AND entity_name = ${entityName}
@@ -376,8 +376,8 @@ direct_emp AS (
 ```sql
 role_based AS (
   SELECT rbac.permission
-  FROM app.entity_id_rbac_map rbac
-  INNER JOIN app.d_entity_id_map eim
+  FROM app.d_entity_rbac rbac
+  INNER JOIN app.d_entity_instance_link eim
     ON eim.parent_entity_type = 'role'
     AND eim.parent_entity_id = rbac.person_entity_id
     AND eim.child_entity_type = 'employee'
@@ -391,7 +391,7 @@ role_based AS (
 ```
 
 **What it does**:
-1. Find all roles the employee belongs to (via `d_entity_id_map`)
+1. Find all roles the employee belongs to (via `d_entity_instance_link`)
 2. Get permissions assigned to those roles
 3. Filter by entity type and ID
 
@@ -399,9 +399,9 @@ role_based AS (
 
 ```
 employee (userId)
-    ↓ (via d_entity_id_map)
+    ↓ (via d_entity_instance_link)
 role (role IDs)
-    ↓ (via entity_id_rbac_map)
+    ↓ (via d_entity_rbac)
 permissions
 ```
 
@@ -409,10 +409,10 @@ permissions
 
 ```
 1. Employee '8260b1b0-...' belongs to role 'manager-123'
-   (d_entity_id_map: parent='role/manager-123', child='employee/8260b1b0-...')
+   (d_entity_instance_link: parent='role/manager-123', child='employee/8260b1b0-...')
 
 2. Role 'manager-123' has OWNER on all projects
-   (entity_id_rbac_map: person='role/manager-123', entity='project/ALL', permission=5)
+   (d_entity_rbac: person='role/manager-123', entity='project/ALL', permission=5)
 
 3. Result: Employee gains permission 5 (OWNER)
 ```
@@ -455,16 +455,16 @@ If checking permissions for `task` entity:
 parent_view AS (
   SELECT 0 AS permission  -- VIEW level
   FROM parent_entities pe
-  LEFT JOIN app.entity_id_rbac_map emp
+  LEFT JOIN app.d_entity_rbac emp
     ON emp.person_entity_name = 'employee'
     AND emp.person_entity_id = ${userId}
     AND emp.entity_name = pe.parent_entity_name  -- Check parent type
     AND emp.active_flag = true
-  LEFT JOIN app.entity_id_rbac_map rbac
+  LEFT JOIN app.d_entity_rbac rbac
     ON rbac.person_entity_name = 'role'
     AND rbac.entity_name = pe.parent_entity_name  -- Check parent type
     AND rbac.active_flag = true
-  LEFT JOIN app.d_entity_id_map eim
+  LEFT JOIN app.d_entity_instance_link eim
     ON eim.parent_entity_type = 'role'
     AND eim.parent_entity_id = rbac.person_entity_id
     AND eim.child_entity_type = 'employee'
@@ -499,16 +499,16 @@ parent_view AS (
 parent_create AS (
   SELECT 4 AS permission  -- CREATE level
   FROM parent_entities pe
-  LEFT JOIN app.entity_id_rbac_map emp
+  LEFT JOIN app.d_entity_rbac emp
     ON emp.person_entity_name = 'employee'
     AND emp.person_entity_id = ${userId}
     AND emp.entity_name = pe.parent_entity_name
     AND emp.active_flag = true
-  LEFT JOIN app.entity_id_rbac_map rbac
+  LEFT JOIN app.d_entity_rbac rbac
     ON rbac.person_entity_name = 'role'
     AND rbac.entity_name = pe.parent_entity_name
     AND rbac.active_flag = true
-  LEFT JOIN app.d_entity_id_map eim
+  LEFT JOIN app.d_entity_instance_link eim
     ON eim.parent_entity_type = 'role'
     AND eim.parent_entity_id = rbac.person_entity_id
     AND eim.child_entity_type = 'employee'
@@ -620,7 +620,7 @@ parent_entities AS (
 -- CTE 2: DIRECT EMPLOYEE PERMISSIONS (instance-level only)
 direct_emp AS (
   SELECT entity_id, permission
-  FROM app.entity_id_rbac_map
+  FROM app.d_entity_rbac
   WHERE person_entity_name = 'employee'
     AND person_entity_id = ${userId}
     AND entity_name = ${entityName}
@@ -631,8 +631,8 @@ direct_emp AS (
 -- CTE 3: ROLE-BASED PERMISSIONS (instance-level only)
 role_based AS (
   SELECT rbac.entity_id, rbac.permission
-  FROM app.entity_id_rbac_map rbac
-  INNER JOIN app.d_entity_id_map eim
+  FROM app.d_entity_rbac rbac
+  INNER JOIN app.d_entity_instance_link eim
     ON eim.parent_entity_type = 'role'
     AND eim.parent_entity_id = rbac.person_entity_id
     AND eim.child_entity_type = 'employee'
@@ -648,7 +648,7 @@ role_based AS (
 parents_with_view AS (
   SELECT DISTINCT emp.entity_id AS parent_id, pe.parent_entity_name
   FROM parent_entities pe
-  INNER JOIN app.entity_id_rbac_map emp
+  INNER JOIN app.d_entity_rbac emp
     ON emp.entity_name = pe.parent_entity_name
     AND emp.permission >= 0
     AND emp.active_flag = true
@@ -659,11 +659,11 @@ parents_with_view AS (
 
   SELECT DISTINCT rbac.entity_id AS parent_id, pe.parent_entity_name
   FROM parent_entities pe
-  INNER JOIN app.entity_id_rbac_map rbac
+  INNER JOIN app.d_entity_rbac rbac
     ON rbac.entity_name = pe.parent_entity_name
     AND rbac.permission >= 0
     AND rbac.active_flag = true
-  INNER JOIN app.d_entity_id_map eim
+  INNER JOIN app.d_entity_instance_link eim
     ON eim.parent_entity_type = 'role'
     AND eim.parent_entity_id = rbac.person_entity_id
     AND eim.child_entity_type = 'employee'
@@ -676,7 +676,7 @@ parents_with_view AS (
 parent_view_children AS (
   SELECT DISTINCT eim.child_entity_id AS entity_id, 0 AS permission
   FROM parents_with_view pwv
-  INNER JOIN app.d_entity_id_map eim
+  INNER JOIN app.d_entity_instance_link eim
     ON eim.parent_entity_type = pwv.parent_entity_name
     AND eim.parent_entity_id = pwv.parent_id
     AND eim.child_entity_type = ${entityName}
@@ -713,7 +713,7 @@ parents_with_view AS (
   -- Check direct employee permissions on parent types
   SELECT DISTINCT emp.entity_id AS parent_id, pe.parent_entity_name
   FROM parent_entities pe
-  INNER JOIN app.entity_id_rbac_map emp
+  INNER JOIN app.d_entity_rbac emp
     ON emp.entity_name = pe.parent_entity_name
     AND emp.permission >= 0  -- VIEW or higher
     AND emp.active_flag = true
@@ -725,11 +725,11 @@ parents_with_view AS (
   -- Check role permissions on parent types
   SELECT DISTINCT rbac.entity_id AS parent_id, pe.parent_entity_name
   FROM parent_entities pe
-  INNER JOIN app.entity_id_rbac_map rbac
+  INNER JOIN app.d_entity_rbac rbac
     ON rbac.entity_name = pe.parent_entity_name
     AND rbac.permission >= 0
     AND rbac.active_flag = true
-  INNER JOIN app.d_entity_id_map eim
+  INNER JOIN app.d_entity_instance_link eim
     ON eim.parent_entity_type = 'role'
     AND eim.parent_entity_id = rbac.person_entity_id
     AND eim.child_entity_type = 'employee'
@@ -762,7 +762,7 @@ parents_with_view AS (
 parent_view_children AS (
   SELECT DISTINCT eim.child_entity_id AS entity_id, 0 AS permission
   FROM parents_with_view pwv
-  INNER JOIN app.d_entity_id_map eim
+  INNER JOIN app.d_entity_instance_link eim
     ON eim.parent_entity_type = pwv.parent_entity_name
     AND eim.parent_entity_id = pwv.parent_id
     AND eim.child_entity_type = ${entityName}
@@ -772,7 +772,7 @@ parent_view_children AS (
 
 **What it does**:
 1. Takes parent IDs from CTE 4
-2. Looks up children in `d_entity_id_map`
+2. Looks up children in `d_entity_instance_link`
 3. Filters to only children of type `${entityName}`
 
 **Example Flow**:
@@ -816,7 +816,7 @@ Result: [project-uuid-a, project-uuid-b, project-uuid-c]
 unified_data_gate.rbac_gate = {
   getFilteredIds(),     // Returns string[]
   getWhereCondition(),  // Returns SQL fragment
-  checkPermission(),    // Returns boolean
+  check_entity_rbac(),    // Returns boolean
   gate: {
     create(),           // Throws 403 if denied
     update(),           // Throws 403 if denied
@@ -896,7 +896,7 @@ const query = sql`
 
 ---
 
-### Method 2: `checkPermission()`
+### Method 2: `check_entity_rbac()`
 
 **Purpose**: Boolean check for single entity (no SQL generation)
 
@@ -930,7 +930,7 @@ return accessibleIds.includes('11111111-1111-...') || accessibleIds.includes(che
 
 ```typescript
 // Check if user can edit specific project
-const canEdit = await unified_data_gate.rbac_gate.checkPermission(
+const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(
   db, userId, 'project', projectId, Permission.EDIT
 );
 
@@ -1024,7 +1024,7 @@ getJoinClause: (
 **Generated SQL**:
 
 ```sql
-INNER JOIN app.d_entity_id_map eim ON (
+INNER JOIN app.d_entity_instance_link eim ON (
   eim.child_entity_id = ${tableAlias}.id
   AND eim.parent_entity_type = ${parentEntityType}
   AND eim.parent_entity_id = ${parentEntityId}::uuid
@@ -1034,7 +1034,7 @@ INNER JOIN app.d_entity_id_map eim ON (
 ```
 
 **What it does**:
-1. Joins entity table with `d_entity_id_map`
+1. Joins entity table with `d_entity_instance_link`
 2. Filters to children of specific parent
 3. Ensures relationship is active
 
@@ -1059,7 +1059,7 @@ const query = sql`
 ```sql
 SELECT DISTINCT e.*
 FROM app.d_project e
-INNER JOIN app.d_entity_id_map eim ON (
+INNER JOIN app.d_entity_instance_link eim ON (
   eim.child_entity_id = e.id
   AND eim.parent_entity_type = 'business'
   AND eim.parent_entity_id = 'abc-123-business-uuid'::uuid
@@ -1132,8 +1132,8 @@ const query = sql`
 -- Without DISTINCT
 SELECT e.*
 FROM app.d_project e
-INNER JOIN app.d_entity_id_map eim1 ON (...)  -- Parent filter
-INNER JOIN app.d_entity_id_map eim2 ON (...)  -- RBAC inheritance
+INNER JOIN app.d_entity_instance_link eim1 ON (...)  -- Parent filter
+INNER JOIN app.d_entity_instance_link eim2 ON (...)  -- RBAC inheritance
 
 -- Result: Duplicate rows if project has multiple parent relationships
 ```
@@ -1143,7 +1143,7 @@ INNER JOIN app.d_entity_id_map eim2 ON (...)  -- RBAC inheritance
 ```sql
 SELECT DISTINCT e.*
 FROM app.d_project e
-INNER JOIN app.d_entity_id_map eim ON (...)
+INNER JOIN app.d_entity_instance_link eim ON (...)
 WHERE ${conditions}
 ```
 
@@ -1367,7 +1367,7 @@ fastify.post('/api/v1/project', {
 
   // STEP 3: Create linkage (if parent provided)
   if (parent_type && parent_id) {
-    await createLinkage(db, {
+    await set_entity_instance_link(db, {
       parent_entity_type: parent_type,
       parent_entity_id: parent_id,
       child_entity_type: ENTITY_TYPE,
@@ -1377,7 +1377,7 @@ fastify.post('/api/v1/project', {
 
   // STEP 4: Auto-grant OWNER permission to creator
   await db.execute(sql`
-    INSERT INTO app.entity_id_rbac_map
+    INSERT INTO app.d_entity_rbac
     (person_entity_name, person_entity_id, entity_name, entity_id, permission, active_flag)
     VALUES ('employee', ${userId}, ${ENTITY_TYPE}, ${newEntity.id}, 5, true)
   `);
@@ -1489,13 +1489,13 @@ export async function createChildEntityEndpointsFromMetadata(
 **Critical Indexes**:
 
 ```sql
--- entity_id_rbac_map
-CREATE INDEX idx_rbac_person ON app.entity_id_rbac_map(person_entity_id, entity_name, active_flag);
-CREATE INDEX idx_rbac_entity ON app.entity_id_rbac_map(entity_name, entity_id, active_flag);
+-- d_entity_rbac
+CREATE INDEX idx_rbac_person ON app.d_entity_rbac(person_entity_id, entity_name, active_flag);
+CREATE INDEX idx_rbac_entity ON app.d_entity_rbac(entity_name, entity_id, active_flag);
 
--- d_entity_id_map
-CREATE INDEX idx_eim_parent ON app.d_entity_id_map(parent_entity_type, parent_entity_id, active_flag);
-CREATE INDEX idx_eim_child ON app.d_entity_id_map(child_entity_type, child_entity_id, active_flag);
+-- d_entity_instance_link
+CREATE INDEX idx_eim_parent ON app.d_entity_instance_link(parent_entity_type, parent_entity_id, active_flag);
+CREATE INDEX idx_eim_child ON app.d_entity_instance_link(child_entity_type, child_entity_id, active_flag);
 
 -- Entity tables
 CREATE INDEX idx_project_active ON app.d_project(active_flag) WHERE active_flag = true;
@@ -1623,13 +1623,13 @@ WHERE active_flag = true
 -- Check for circular references
 WITH RECURSIVE hierarchy AS (
   SELECT parent_entity_id, child_entity_id, 1 as depth
-  FROM app.d_entity_id_map
+  FROM app.d_entity_instance_link
   WHERE child_entity_id = ${startId}
 
   UNION ALL
 
   SELECT m.parent_entity_id, m.child_entity_id, h.depth + 1
-  FROM app.d_entity_id_map m
+  FROM app.d_entity_instance_link m
   INNER JOIN hierarchy h ON m.child_entity_id = h.parent_entity_id
   WHERE h.depth < 10  -- Prevent infinite loops
 )
@@ -1670,11 +1670,11 @@ schema: {
 
 **Immediate Effect**: Permission changes apply instantly
 
-**Why**: Queries always check current `d_entity_id_map` state
+**Why**: Queries always check current `d_entity_instance_link` state
 
 ```sql
 -- Always fetches CURRENT role memberships
-INNER JOIN app.d_entity_id_map eim
+INNER JOIN app.d_entity_instance_link eim
   ON eim.parent_entity_type = 'role'
   AND eim.child_entity_type = 'employee'
   AND eim.child_entity_id = ${userId}
@@ -1729,7 +1729,7 @@ SELECT MAX(permission) FROM (
 
 ### 5. **Flexible Relationships**
 - No foreign keys
-- Many-to-many via d_entity_id_map
+- Many-to-many via d_entity_instance_link
 - Soft deletable
 - Polymorphic
 

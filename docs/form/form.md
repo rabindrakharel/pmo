@@ -15,7 +15,7 @@ The **Form System** provides a schema-driven, multi-step form builder with JSONB
 ✅ **Public Anonymous Submissions** - Unauthenticated form fills via `shared_url`
 ✅ **S3 File Storage** - Files/signatures stored as S3 keys (~100 bytes vs MB+ base64)
 ✅ **In-Place Versioning** - `version++` on schema changes, stable public URLs
-✅ **Entity Integration** - Forms linked via `d_entity_id_map` table
+✅ **Entity Integration** - Forms linked via `d_entity_instance_link` table
 ✅ **RBAC Enforcement** - Standard permission system `[0,1,2,3,4,5]`
 
 ### Form Lifecycle
@@ -171,7 +171,7 @@ CREATE INDEX idx_form_data_status ON app.d_form_data(submission_status, approval
 
 ### Authenticated Endpoints (Require JWT)
 
-**All authenticated endpoints use RBAC filtering via `entity_id_rbac_map`**
+**All authenticated endpoints use RBAC filtering via `d_entity_rbac`**
 
 ```http
 # List forms
@@ -294,7 +294,7 @@ submitted_by_empid = '00000000-0000-0000-0000-000000000000'
 
 ### Permission Model
 
-Forms use the standard entity RBAC pattern via `entity_id_rbac_map`:
+Forms use the standard entity RBAC pattern via `d_entity_rbac`:
 
 ```sql
 -- Permission array
@@ -326,7 +326,7 @@ When a user creates a form, they automatically receive permissions:
 
 ```sql
 -- Creator receives [0,1,2,3,5] on their form
-INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission)
+INSERT INTO app.d_entity_rbac (empid, entity, entity_id, permission)
 VALUES (
   'creator-uuid',
   'form',
@@ -347,7 +347,7 @@ SELECT f.*
 FROM app.d_form_head f
 WHERE f.active_flag = true
   AND EXISTS (
-    SELECT 1 FROM app.entity_id_rbac_map rbac
+    SELECT 1 FROM app.d_entity_rbac rbac
     WHERE rbac.empid = $userId
       AND rbac.entity = 'form'
       AND (rbac.entity_id = f.id::text OR rbac.entity_id = 'all')
@@ -363,19 +363,19 @@ ORDER BY f.created_ts DESC;
 
 ### Linkage System
 
-Forms can be linked to other entities via `d_entity_id_map`:
+Forms can be linked to other entities via `d_entity_instance_link`:
 
 ```
 ┌──────────┐         ┌────────────────┐         ┌──────────┐
-│ Project  │────────>│ d_entity_id_map │<────────│   Form   │
+│ Project  │────────>│ d_entity_instance_link │<────────│   Form   │
 └──────────┘         └────────────────┘         └──────────┘
 
 ┌──────────┐         ┌────────────────┐         ┌──────────┐
-│   Task   │────────>│ d_entity_id_map │<────────│   Form   │
+│   Task   │────────>│ d_entity_instance_link │<────────│   Form   │
 └──────────┘         └────────────────┘         └──────────┘
 
 ┌──────────┐         ┌────────────────┐         ┌──────────┐
-│  Client  │────────>│ d_entity_id_map │<────────│   Form   │
+│  Client  │────────>│ d_entity_instance_link │<────────│   Form   │
 └──────────┘         └────────────────┘         └──────────┘
 ```
 
@@ -387,7 +387,7 @@ Forms can be linked to other entities via `d_entity_id_map`:
 
 **Create Linkage:**
 ```sql
-INSERT INTO app.d_entity_id_map
+INSERT INTO app.d_entity_instance_link
 (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
 VALUES ('project', 'project-uuid', 'form', 'form-uuid');
 ```
@@ -396,7 +396,7 @@ VALUES ('project', 'project-uuid', 'form', 'form-uuid');
 ```sql
 SELECT f.*
 FROM app.d_form_head f
-INNER JOIN app.d_entity_id_map link
+INNER JOIN app.d_entity_instance_link link
   ON link.child_entity_type = 'form'
   AND link.child_entity_id = f.id::text
 WHERE link.parent_entity_type = 'project'
@@ -891,12 +891,12 @@ submissionData.attachment = objectKey;
 **Solution:**
 ```sql
 -- Check permissions
-SELECT * FROM app.entity_id_rbac_map
+SELECT * FROM app.d_entity_rbac
 WHERE empid = 'user-uuid'
   AND entity = 'form';
 
 -- Grant view permission
-INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission)
+INSERT INTO app.d_entity_rbac (empid, entity, entity_id, permission)
 VALUES ('user-uuid', 'form', 'all', ARRAY[0]);  -- View all forms
 ```
 
@@ -998,7 +998,7 @@ FROM app.d_form_data
 WHERE form_id = 'form-uuid';
 
 -- Check RBAC permissions
-SELECT * FROM app.entity_id_rbac_map
+SELECT * FROM app.d_entity_rbac
 WHERE entity = 'form' AND entity_id = 'form-uuid';
 ```
 
@@ -1073,7 +1073,7 @@ POST /api/v1/linkage
 **Key Tables:**
 - `app.d_form_head` - Form definitions (DDL: `db/XVII_d_form_head.ddl`)
 - `app.d_form_data` - Form submissions (DDL: `db/XVIII_d_form_data.ddl`)
-- `app.entity_id_rbac_map` - RBAC permissions (DDL: `db/32_entity_id_rbac_map.ddl`)
+- `app.d_entity_rbac` - RBAC permissions (DDL: `db/32_d_entity_rbac.ddl`)
 
 ---
 

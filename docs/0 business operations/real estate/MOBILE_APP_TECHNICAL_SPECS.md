@@ -1278,7 +1278,7 @@ class SyncService {
         break;
 
       case 'DELETE':
-        await this.deleteEntity(item.entity_type, item.entity_id);
+        await this.delete_all_entity_infrastructure(item.entity_type, item.entity_id);
         break;
     }
   }
@@ -1309,7 +1309,7 @@ class SyncService {
     return response.json();
   }
 
-  private async deleteEntity(entityType: string, id: string) {
+  private async delete_all_entity_infrastructure(entityType: string, id: string) {
     const endpoint = `https://api.realestate.ca/api/v1/${entityType}/${id}`;
     const response = await fetch(endpoint, { method: 'DELETE' });
 

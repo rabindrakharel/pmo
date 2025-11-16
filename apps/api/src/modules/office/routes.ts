@@ -55,6 +55,8 @@ import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factor
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 // ✅ Centralized unified data gate - loosely coupled API
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+// ✨ Entity Infrastructure Service - centralized infrastructure operations
+import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 
@@ -119,6 +121,9 @@ const ENTITY_TYPE = 'office';
 const TABLE_ALIAS = 'o';
 
 export async function officeRoutes(fastify: FastifyInstance) {
+  // ✨ Initialize Entity Infrastructure Service
+  const entityInfra = getEntityInfrastructure(db);
+
   // List physical office locations with filtering
   fastify.get('/api/v1/office', {
     preHandler: [fastify.authenticate],
@@ -238,11 +243,10 @@ export async function officeRoutes(fastify: FastifyInstance) {
 
     try {
       // ═══════════════════════════════════════════════════════════════
-      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
-      // Uses: RBAC_GATE only (checkPermission)
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user VIEW this office?
       // ═══════════════════════════════════════════════════════════════
-      const canView = await unified_data_gate.rbac_gate.checkPermission(
-        db,
+      const canView = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         id,
@@ -314,7 +318,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
 
       // Direct RBAC check for org access
       const orgAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}::uuid
           AND rbac.entity_name = 'office'
           AND (rbac.entity_id = ${orgId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -393,6 +397,10 @@ export async function officeRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       body: CreateOfficeSchema,
+      querystring: Type.Object({
+        parent_type: Type.Optional(Type.String()),
+        parent_id: Type.Optional(Type.String({ format: 'uuid' }))
+      }),
       response: {
         201: OfficeSchema,
         403: Type.Object({ error: Type.String() }),
@@ -401,30 +409,47 @@ export async function officeRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const data = request.body as any;
-
     const userId = (request as any).user?.sub;
     if (!userId) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
-    // Uses: RBAC_GATE only (checkPermission)
-    // Check: Can user CREATE offices?
-    // ═══════════════════════════════════════════════════════════════
-    const canCreate = await unified_data_gate.rbac_gate.checkPermission(
-      db,
-      userId,
-      ENTITY_TYPE,
-      ALL_ENTITIES_ID,
-      Permission.CREATE
-    );
-    if (!canCreate) {
-      return reply.status(403).send({ error: 'No permission to create offices' });
-    }
+    const { parent_type, parent_id } = request.query as any;
+    const data = request.body as any;
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 1
+      // Check: Can user CREATE offices?
+      // ═══════════════════════════════════════════════════════════════
+      const canCreate = await entityInfra.check_entity_rbac(
+        userId,
+        ENTITY_TYPE,
+        ALL_ENTITIES_ID,
+        Permission.CREATE
+      );
+      if (!canCreate) {
+        return reply.status(403).send({ error: 'No permission to create offices' });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 2
+      // Check: If linking to parent, can user EDIT parent?
+      // ═══════════════════════════════════════════════════════════════
+      if (parent_type && parent_id) {
+        const canEditParent = await entityInfra.check_entity_rbac(
+          userId,
+          parent_type,
+          parent_id,
+          Permission.EDIT
+        );
+        if (!canEditParent) {
+          return reply.status(403).send({
+            error: `No permission to link office to this ${parent_type}`
+          });
+        }
+      }
+
       // Check for unique office code if provided
       if (data.code) {
         const existingOffice = await db.execute(sql`
@@ -435,6 +460,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
         }
       }
 
+      // ✅ ROUTE OWNS - INSERT into primary table
       const result = await db.execute(sql`
         INSERT INTO app.d_office (
           code, name, "descr", metadata,
@@ -467,6 +493,37 @@ export async function officeRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to create office' });
       }
 
+      const newOffice = result[0] as any;
+      const officeId = newOffice.id;
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance in registry
+      // ═══════════════════════════════════════════════════════════════
+      await entityInfra.set_entity_instance_registry({
+        entity_type: ENTITY_TYPE,
+        entity_id: officeId,
+        entity_name: newOffice.name,
+        entity_code: newOffice.code
+      });
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Grant ownership to creator
+      // ═══════════════════════════════════════════════════════════════
+      await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, officeId);
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Link to parent (if provided)
+      // ═══════════════════════════════════════════════════════════════
+      if (parent_type && parent_id) {
+        await entityInfra.set_entity_instance_link({
+          parent_entity_type: parent_type,
+          parent_entity_id: parent_id,
+          child_entity_type: ENTITY_TYPE,
+          child_entity_id: officeId,
+          relationship_type: 'contains'
+        });
+      }
+
       const userPermissions = {
         canSeePII: true,
         canSeeFinancial: true,
@@ -474,7 +531,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
         canSeeSafetyInfo: true,
       };
 
-      return reply.status(201).send(filterUniversalColumns(result[0], userPermissions));
+      return reply.status(201).send(filterUniversalColumns(newOffice, userPermissions));
     } catch (error) {
       (fastify.log as any).error('Error creating organization:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -508,12 +565,10 @@ export async function officeRoutes(fastify: FastifyInstance) {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
-    // Uses: RBAC_GATE only (checkPermission)
+    // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
     // Check: Can user EDIT this office?
     // ═══════════════════════════════════════════════════════════════
-    const canEdit = await unified_data_gate.rbac_gate.checkPermission(
-      db,
+    const canEdit = await entityInfra.check_entity_rbac(
       userId,
       ENTITY_TYPE,
       id,
@@ -566,6 +621,16 @@ export async function officeRoutes(fastify: FastifyInstance) {
 
       if (result.length === 0) {
         return reply.status(500).send({ error: 'Failed to update office' });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
+      // ═══════════════════════════════════════════════════════════════
+      if (data.name !== undefined || data.code !== undefined) {
+        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+          entity_name: data.name,
+          entity_code: data.code
+        });
       }
 
       const userPermissions = {
@@ -612,12 +677,10 @@ export async function officeRoutes(fastify: FastifyInstance) {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
-    // Uses: RBAC_GATE only (checkPermission)
+    // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
     // Check: Can user EDIT this office?
     // ═══════════════════════════════════════════════════════════════
-    const canEdit = await unified_data_gate.rbac_gate.checkPermission(
-      db,
+    const canEdit = await entityInfra.check_entity_rbac(
       userId,
       ENTITY_TYPE,
       id,
@@ -672,6 +735,16 @@ export async function officeRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to update office' });
       }
 
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
+      // ═══════════════════════════════════════════════════════════════
+      if (data.name !== undefined || data.code !== undefined) {
+        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+          entity_name: data.name,
+          entity_code: data.code
+        });
+      }
+
       const userPermissions = {
         canSeePII: true,
         canSeeFinancial: true,
@@ -692,8 +765,8 @@ export async function officeRoutes(fastify: FastifyInstance) {
   // Delete office with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
   // 1. app.d_office (base entity table)
-  // 2. app.d_entity_instance_id (entity registry)
-  // 3. app.d_entity_id_map (linkages in both directions)
+  // 2. app.d_entity_instance_registry (entity registry)
+  // 3. app.d_entity_instance_link (linkages in both directions)
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
   // ============================================================================

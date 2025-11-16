@@ -10,7 +10,7 @@
 
 ## Purpose
 
-Manages parent-child entity relationships through the `d_entity_id_map` table with idempotent create/delete operations. Enables flexible many-to-many relationships without foreign keys.
+Manages parent-child entity relationships through the `d_entity_instance_link` table with idempotent create/delete operations. Enables flexible many-to-many relationships without foreign keys.
 
 ---
 
@@ -61,7 +61,7 @@ The linkage service is called during entity creation when a parent context is pr
 
 ### Block 2: Relationship Structure
 
-**Table**: `app.d_entity_id_map`
+**Table**: `app.d_entity_instance_link`
 
 **Fields Managed**:
 - `parent_entity_type` - Parent entity type (business, project, etc.)
@@ -101,14 +101,14 @@ The linkage service is called during entity creation when a parent context is pr
 **Example**:
 ```
 1. Employee has VIEW on Business 'ABC Corp'
-2. Projects linked to Business 'ABC Corp' via d_entity_id_map
+2. Projects linked to Business 'ABC Corp' via d_entity_instance_link
 3. Employee automatically gains VIEW on all those projects
 ```
 
 ### Block 5: Integration with Entity Queries
 
 **Parent-Child Filtering**:
-- `unified_data_gate.parent_child_filtering_gate` queries `d_entity_id_map`
+- `unified_data_gate.parent_child_filtering_gate` queries `d_entity_instance_link`
 - INNER JOIN filters children by parent relationship
 - Active flag ensures only active relationships returned
 
@@ -116,7 +116,7 @@ The linkage service is called during entity creation when a parent context is pr
 ```
 SELECT child.*
 FROM d_project child
-INNER JOIN d_entity_id_map eim ON (
+INNER JOIN d_entity_instance_link eim ON (
   eim.child_entity_id = child.id
   AND eim.parent_entity_type = 'business'
   AND eim.parent_entity_id = 'business-uuid'
@@ -215,8 +215,8 @@ INNER JOIN d_entity_id_map eim ON (
 
 ### Database Tables
 
-- **d_entity_id_map** - Relationship storage (primary table)
-- **entity_id_rbac_map** - Permission inheritance checks
+- **d_entity_instance_link** - Relationship storage (primary table)
+- **d_entity_rbac** - Permission inheritance checks
 - **d_entity** - Entity metadata (validates entity types)
 
 ### Services
@@ -260,15 +260,15 @@ INNER JOIN d_entity_id_map eim ON (
 ```sql
 -- Parent lookups (find all children)
 CREATE INDEX idx_eim_parent
-ON app.d_entity_id_map(parent_entity_type, parent_entity_id, active_flag);
+ON app.d_entity_instance_link(parent_entity_type, parent_entity_id, active_flag);
 
 -- Child lookups (find all parents)
 CREATE INDEX idx_eim_child
-ON app.d_entity_id_map(child_entity_type, child_entity_id, active_flag);
+ON app.d_entity_instance_link(child_entity_type, child_entity_id, active_flag);
 
 -- Relationship lookups
 CREATE INDEX idx_eim_relationship
-ON app.d_entity_id_map(parent_entity_id, child_entity_id, active_flag);
+ON app.d_entity_instance_link(parent_entity_id, child_entity_id, active_flag);
 ```
 
 ### Query Optimization

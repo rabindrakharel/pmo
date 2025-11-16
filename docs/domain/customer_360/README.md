@@ -69,7 +69,7 @@ Customer 360 is the core identity domain that maintains a complete, unified view
 
 1. **Customer → Worksite**: One-to-many
    - Each customer can have multiple service worksites
-   - Worksites linked via `d_entity_id_map` (no foreign keys)
+   - Worksites linked via `d_entity_instance_link` (no foreign keys)
 
 2. **Employee → Role**: Many-to-one
    - Each employee has exactly one primary role
@@ -133,7 +133,7 @@ The **3-level business hierarchy** supports:
 2. System queries: SELECT * FROM d_employee WHERE email = ?
 3. Password verified via bcrypt hash
 4. JWT token issued with employee_id + role_id
-5. RBAC checked via entity_id_rbac_map for all operations
+5. RBAC checked via d_entity_rbac for all operations
 ```
 
 ## Data Patterns
@@ -149,9 +149,9 @@ All Customer 360 entities can be **parents** to entities in other domains:
 - Business → Project (operations)
 - Employee → Event (event_calendar)
 
-Linkage via `d_entity_id_map` table:
+Linkage via `d_entity_instance_link` table:
 ```sql
-SELECT * FROM d_entity_id_map
+SELECT * FROM d_entity_instance_link
 WHERE parent_entity_type = 'cust'
   AND parent_entity_instance_id = 12345
   AND child_entity_type = 'project';
@@ -208,7 +208,7 @@ All settings managed in `setting_datalabel` table with entity prefix (e.g., `cus
 **Flow**:
 1. Create Customer master record (HQ address)
 2. Create Worksite for each service location (5 retail stores)
-3. Each Worksite linked to Customer via `d_entity_id_map`
+3. Each Worksite linked to Customer via `d_entity_instance_link`
 4. Assign different Employees to each Worksite (territory routing)
 5. Create Projects per Worksite for installations
 6. Revenue rolls up to Customer level

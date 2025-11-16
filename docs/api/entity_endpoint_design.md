@@ -88,8 +88,8 @@ Database-Driven → Zero-Config → Factory-Generated → Single Source of Truth
 │  Step 2: GATE 1 - RBAC Security Filtering                                   │
 │  ┌───────────────────────────────────────────────────────────────┐         │
 │  │  unified_data_gate.rbac_gate.getWhereCondition()              │         │
-│  │  ├─ Query: entity_id_rbac_map (direct permissions)            │         │
-│  │  ├─ Query: d_entity_id_map (role assignments)                 │         │
+│  │  ├─ Query: d_entity_rbac (direct permissions)            │         │
+│  │  ├─ Query: d_entity_instance_link (role assignments)                 │         │
 │  │  ├─ Resolve: parent-VIEW inheritance                           │         │
 │  │  ├─ Resolve: parent-CREATE inheritance                         │         │
 │  │  └─ Returns: SQL WHERE fragment with accessible IDs            │         │
@@ -100,7 +100,7 @@ Database-Driven → Zero-Config → Factory-Generated → Single Source of Truth
 │  ┌───────────────────────────────────────────────────────────────┐         │
 │  │  if (parent_type && parent_id):                                │         │
 │  │    unified_data_gate.parent_child_filtering_gate.getJoinClause()│        │
-│  │    └─ Returns: SQL JOIN with d_entity_id_map                   │         │
+│  │    └─ Returns: SQL JOIN with d_entity_instance_link                   │         │
 │  └───────────────────────────────────────────────────────────────┘         │
 │                               │                                              │
 │                               ▼                                              │
@@ -290,7 +290,7 @@ Database-Driven → Zero-Config → Factory-Generated → Single Source of Truth
 │  STEP 1: Direct Employee Permissions                                        │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  SELECT permission FROM app.entity_id_rbac_map                              │
+│  SELECT permission FROM app.d_entity_rbac                              │
 │  WHERE person_entity_name = 'employee'                                      │
 │    AND person_entity_id = ${userId}                                         │
 │    AND entity_name = ${entityType}                                          │
@@ -309,15 +309,15 @@ Database-Driven → Zero-Config → Factory-Generated → Single Source of Truth
 │  STEP 2: Role-Based Permissions                                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  -- Find employee's roles via d_entity_id_map                               │
-│  SELECT role_id FROM app.d_entity_id_map                                    │
+│  -- Find employee's roles via d_entity_instance_link                               │
+│  SELECT role_id FROM app.d_entity_instance_link                                    │
 │  WHERE parent_entity_type = 'role'                                          │
 │    AND child_entity_type = 'employee'                                       │
 │    AND child_entity_id = ${userId}                                          │
 │    AND active_flag = true                                                   │
 │                                                                              │
 │  -- Get permissions for those roles                                         │
-│  SELECT permission FROM app.entity_id_rbac_map                              │
+│  SELECT permission FROM app.d_entity_rbac                              │
 │  WHERE person_entity_name = 'role'                                          │
 │    AND person_entity_id IN (${roleIds})                                     │
 │    AND entity_name = ${entityType}                                          │
@@ -344,13 +344,13 @@ Database-Driven → Zero-Config → Factory-Generated → Single Source of Truth
 │  └─ Auto-grant CREATE on all child types (project, task, etc.)             │
 │                                                                              │
 │  Implementation:                                                             │
-│  -- Find parents via d_entity_id_map                                        │
-│  SELECT parent_entity_id FROM app.d_entity_id_map                           │
+│  -- Find parents via d_entity_instance_link                                        │
+│  SELECT parent_entity_id FROM app.d_entity_instance_link                           │
 │  WHERE child_entity_type = ${entityType}                                    │
 │    AND child_entity_id = ${entityId}                                        │
 │                                                                              │
 │  -- Check permissions on parents                                            │
-│  SELECT permission FROM app.entity_id_rbac_map                              │
+│  SELECT permission FROM app.d_entity_rbac                              │
 │  WHERE entity_id IN (${parentIds})                                          │
 │    AND permission >= ${Permission.VIEW}  -- or CREATE                       │
 │                                                                              │
@@ -388,7 +388,7 @@ Database-Driven → Zero-Config → Factory-Generated → Single Source of Truth
 │  OUTPUT: Boolean (access granted/denied) OR SQL WHERE clause                │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  checkPermission() → boolean                                                │
+│  check_entity_rbac() → boolean                                                │
 │  ├─ Used for: Single instance checks (GET, PATCH, DELETE)                  │
 │  └─ Returns: true/false                                                     │
 │                                                                              │
@@ -430,7 +430,7 @@ Database-Driven → Zero-Config → Factory-Generated → Single Source of Truth
 ```
 unified_data_gate (Namespace)
 ├─ rbac_gate (RBAC Security)
-│  ├─ checkPermission(db, userId, entityType, entityId, permission)
+│  ├─ check_entity_rbac(db, userId, entityType, entityId, permission)
 │  │  └─ Returns: boolean (access granted/denied)
 │  │
 │  └─ getWhereCondition(userId, entityType, permission, tableAlias)
@@ -438,7 +438,7 @@ unified_data_gate (Namespace)
 │
 └─ parent_child_filtering_gate (Context Filtering)
    └─ getJoinClause(childType, parentType, parentId, tableAlias)
-      └─ Returns: SQL JOIN with d_entity_id_map
+      └─ Returns: SQL JOIN with d_entity_instance_link
 ```
 
 **Key Exports:**
@@ -617,7 +617,7 @@ const query = sql`
 
 **Flow:**
 1. Create entity independently
-2. Link to parent via `d_entity_id_map` (if parent context provided)
+2. Link to parent via `d_entity_instance_link` (if parent context provided)
 3. Auto-grant OWNER permission to creator via centralized service
 
 **Implementation:**
@@ -630,7 +630,7 @@ const [newEntity] = await db.execute(sql`
 
 // Step 2: Link to parent (if context provided)
 if (parent_type && parent_id) {
-  await createLinkage(db, {
+  await set_entity_instance_link(db, {
     parentEntityType: parent_type,
     parentEntityId: parent_id,
     childEntityType: ENTITY_TYPE,
@@ -639,7 +639,7 @@ if (parent_type && parent_id) {
 }
 
 // Step 3: Grant OWNER permission to creator
-await grantPermission(db, {
+await set_entity_rbac(db, {
   personEntityName: 'employee',
   personEntityId: userId,
   entityName: ENTITY_TYPE,
@@ -723,7 +723,7 @@ conditions.push(...autoFilters);
 
 ```typescript
 // ✅ Single service call (7 lines) instead of manual insert (18 lines)
-await grantPermission(db, {
+await set_entity_rbac(db, {
   personEntityName: 'employee',
   personEntityId: userId,
   entityName: ENTITY_TYPE,
@@ -742,7 +742,7 @@ await grantPermission(db, {
 
 **Full Schema:**
 ```sql
-INSERT INTO app.entity_id_rbac_map (
+INSERT INTO app.d_entity_rbac (
   person_entity_name,  -- 'employee' or 'role'
   person_entity_id,    -- UUID with proper ::uuid cast
   entity_name,         -- Entity type (e.g., 'project')
@@ -807,10 +807,10 @@ fastify.get('/api/v1/project', async (request, reply) => {
 
 ### 🔐 **RBAC Architecture**
 
-**Table**: `entity_id_rbac_map`
+**Table**: `d_entity_rbac`
 
 ```sql
-CREATE TABLE app.entity_id_rbac_map (
+CREATE TABLE app.d_entity_rbac (
   person_entity_name VARCHAR(50),  -- 'employee' or 'role'
   person_entity_id UUID,            -- Employee ID or Role ID
   entity_name VARCHAR(50),          -- 'project', 'task', etc.
@@ -833,7 +833,7 @@ CREATE TABLE app.entity_id_rbac_map (
 
 **Resolution**:
 - Direct employee permissions
-- + Role-based permissions (via `d_entity_id_map`)
+- + Role-based permissions (via `d_entity_instance_link`)
 - + Parent-VIEW inheritance
 - + Parent-CREATE inheritance
 - = MAX(all sources) wins
@@ -854,7 +854,7 @@ CREATE TABLE app.entity_id_rbac_map (
 - [ ] Define `ENTITY_TYPE` and `TABLE_ALIAS` constants
 - [ ] Implement LIST endpoint with RBAC + auto-filters + soft delete filter
 - [ ] Implement GET endpoint with instance RBAC check
-- [ ] Implement POST endpoint with CREATE check + linkage + `grantPermission()` service
+- [ ] Implement POST endpoint with CREATE check + linkage + `set_entity_rbac()` service
 - [ ] Implement PATCH endpoint with EDIT check
 - [ ] Add `createEntityDeleteEndpoint(fastify, ENTITY_TYPE)`
 - [ ] Add `await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE)`
@@ -881,7 +881,7 @@ CREATE TABLE app.entity_id_rbac_map (
 | **Project** | `d_project` | task, wiki, artifact, form, expense, revenue |
 | **Task** | `d_task` | artifact, wiki, form |
 | **Employee** | `d_employee` | task (assigned) |
-| **Role** | `d_role` | employee (via d_entity_id_map) |
+| **Role** | `d_role` | employee (via d_entity_instance_link) |
 
 ---
 
@@ -903,7 +903,7 @@ CREATE TABLE app.entity_id_rbac_map (
 | **RBAC** | `unified_data_gate.rbac_gate` | 80% fewer lines |
 | **Filtering** | `buildAutoFilters()` | 90% fewer lines |
 | **Child Endpoints** | `createChildEntityEndpointsFromMetadata()` | 75% fewer lines |
-| **Relationships** | `createLinkage()` | 60% fewer lines |
+| **Relationships** | `set_entity_instance_link()` | 60% fewer lines |
 
 ### **Key Improvements**
 
@@ -925,7 +925,7 @@ CREATE TABLE app.entity_id_rbac_map (
   - Added Pattern 7: TABLE_ALIAS constant pattern
   - Updated CREATE-LINK-EDIT pattern to CREATE-LINK-GRANT
   - Updated all implementation examples with soft delete filter pattern
-  - Updated checklist to include `grantPermission()` service
+  - Updated checklist to include `set_entity_rbac()` service
 - v3.0.0 (2025-11-16): 🔥 **BREAKING** - Complete architecture refactor
   - Removed `rbac.service.ts` - replaced with `unified-data-gate.ts`
   - Removed `createChildEntityEndpoint()` - inlined into `createChildEntityEndpointsFromMetadata()`
@@ -964,7 +964,7 @@ const filters = buildAutoFilters(TABLE_ALIAS, request.query);
 const rbac = await unified_data_gate.rbac_gate.getWhereCondition(userId, type, perm, alias);
 
 // Grant OWNER permission to creator
-await grantPermission(db, { personEntityName: 'employee', personEntityId: userId, entityName: type, entityId: id, permission: Permission.OWNER });
+await set_entity_rbac(db, { personEntityName: 'employee', personEntityId: userId, entityName: type, entityId: id, permission: Permission.OWNER });
 
 // All child endpoints from database
 await createChildEntityEndpointsFromMetadata(fastify, 'project');

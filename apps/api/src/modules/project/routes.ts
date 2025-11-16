@@ -26,11 +26,11 @@
  *     - Parent-CREATE inheritance (if parent has CREATE, children gain CREATE)
  *
  *   • PARENT_CHILD_FILTERING_GATE - Context-aware data filtering
- *     - Filters entities by parent relationship via d_entity_id_map
+ *     - Filters entities by parent relationship via d_entity_instance_link
  *     - Enables create-link-edit pattern (create child, link to parent)
  *
  * Usage Example:
- *   const canView = await unified_data_gate.rbac_gate.checkPermission(
+ *   const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
  *     db, userId, ENTITY_TYPE, id, Permission.VIEW
  *   );
  *
@@ -38,7 +38,7 @@
  * ─────────────────────────────────────────────────────────
  * Instead of nested creation endpoints, we use:
  *   1. Create entity independently: POST /api/v1/project
- *   2. Link to parent via d_entity_id_map (automatic if parent_type/parent_id provided)
+ *   2. Link to parent via d_entity_instance_link (automatic if parent_type/parent_id provided)
  *   3. Edit/view in context: GET /api/v1/project?parent_type=business&parent_id={id}
  *
  * Benefits:
@@ -55,7 +55,7 @@
  *
  * No manual endpoint code needed - factory handles:
  *   • RBAC filtering (unified_data_gate)
- *   • Parent-child JOIN via d_entity_id_map
+ *   • Parent-child JOIN via d_entity_instance_link
  *   • Pagination, search, sorting
  *
  * 4. UNIVERSAL AUTO-FILTER PATTERN (Zero-Config Filtering)
@@ -85,11 +85,11 @@
  *   • Team: manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
  *   • Temporal: from_ts, to_ts, active_flag, created_ts, updated_ts, version
  *
- * Relationships (via d_entity_id_map):
+ * Relationships (via d_entity_instance_link):
  *   • Parent entities: business, office
  *   • Child entities: task, wiki, artifact, form, expense, revenue
  *
- * Permissions (via entity_id_rbac_map):
+ * Permissions (via d_entity_rbac):
  *   • Supports both entity-level (entity_id = 'all') and instance-level permissions
  *   • Permission levels: 0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER
  *
@@ -129,7 +129,7 @@
  *   2. Check: Can user CREATE projects? (type-level permission)
  *   3. Check: Can user EDIT parent business? (required to link child)
  *   4. Create project in d_project
- *   5. Link to business in d_entity_id_map
+ *   5. Link to business in d_entity_instance_link
  *   6. Auto-grant DELETE permission to creator
  *
  * Example 3: View Project Detail with Child Tabs
@@ -156,9 +156,8 @@ import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factor
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 // ✅ Centralized unified data gate - loosely coupled API
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
-// ✅ Centralized linkage service - DRY entity relationship management
-import { createLinkage } from '../../services/linkage.service.js';
-import { grantPermission } from '../../services/rbac-grant.service.js';
+// ✨ Entity Infrastructure Service - centralized infrastructure operations
+import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 
@@ -219,6 +218,9 @@ const ENTITY_TYPE = 'project';
 const TABLE_ALIAS = 'e';
 
 export async function projectRoutes(fastify: FastifyInstance) {
+  // ✨ Initialize Entity Infrastructure Service
+  const entityInfra = getEntityInfrastructure(db);
+
   // List projects with filtering
   fastify.get('/api/v1/project', {
     preHandler: [fastify.authenticate],
@@ -369,7 +371,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     // ✅ CENTRALIZED UNIFIED DATA GATE - Permission Check
     // Uses: RBAC_GATE only (checkPermission)
     // ═══════════════════════════════════════════════════════════════
-    const canView = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.VIEW);
+    const canView = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, ENTITY_TYPE, id, Permission.VIEW);
     if (!canView) {
       return reply.status(403).send({ error: 'No permission to view this project' });
     }
@@ -393,7 +395,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       childEntities.map(async (childType: string) => {
         const countResult = await db.execute(sql`
           SELECT COUNT(*) as count
-          FROM app.d_entity_id_map
+          FROM app.d_entity_instance_link
           WHERE parent_entity_type = ${ENTITY_TYPE}
             AND parent_entity_id = ${id}
             AND child_entity_type = ${childType}
@@ -429,7 +431,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     // ✅ CENTRALIZED UNIFIED DATA GATE - Permission Check
     // Uses: RBAC_GATE only (checkPermission)
     // ═══════════════════════════════════════════════════════════════
-    const canView = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.VIEW);
+    const canView = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, ENTITY_TYPE, id, Permission.VIEW);
     if (!canView) {
       return reply.status(403).send({ error: 'No permission to view this project' });
     }
@@ -454,7 +456,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     // ═══════════════════════════════════════════════════════════════
     const creatableEntities = await Promise.all(
       childEntities.map(async (childType: string) => {
-        const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, childType, ALL_ENTITIES_ID, Permission.CREATE);
+        const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, childType, ALL_ENTITIES_ID, Permission.CREATE);
         return canCreate ? childType : null;
       })
     );
@@ -498,7 +500,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
       // Uses: RBAC_GATE only (checkPermission)
       // ═══════════════════════════════════════════════════════════════
-      const canView = await unified_data_gate.rbac_gate.checkPermission(
+      const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
         db,
         userId,
         ENTITY_TYPE,
@@ -560,22 +562,20 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
     try {
       // ═══════════════════════════════════════════════════════════════
-      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE 1
-      // Uses: RBAC_GATE only (checkPermission)
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 1
       // Check: Can user CREATE projects?
       // ═══════════════════════════════════════════════════════════════
-      const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
+      const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
       if (!canCreate) {
         return reply.status(403).send({ error: 'No permission to create projects' });
       }
 
       // ═══════════════════════════════════════════════════════════════
-      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE 2
-      // Uses: RBAC_GATE only (checkPermission)
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 2
       // Check: If linking to parent, can user EDIT parent?
       // ═══════════════════════════════════════════════════════════════
       if (parent_type && parent_id) {
-        const canEditParent = await unified_data_gate.rbac_gate.checkPermission(db, userId, parent_type, parent_id, Permission.EDIT);
+        const canEditParent = await entityInfra.check_entity_rbac(userId, parent_type, parent_id, Permission.EDIT);
         if (!canEditParent) {
           return reply.status(403).send({ error: `No permission to link project to this ${parent_type}` });
         }
@@ -646,11 +646,25 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const projectId = newProject.id;
 
       // ═══════════════════════════════════════════════════════════════
-      // LINK to parent (if parent context provided)
-      // Uses centralized linkage service - idempotent, handles reactivation
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance in registry
+      // ═══════════════════════════════════════════════════════════════
+      await entityInfra.set_entity_instance_registry({
+        entity_type: ENTITY_TYPE,
+        entity_id: projectId,
+        entity_name: newProject.name,
+        entity_code: newProject.code
+      });
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Grant ownership to creator
+      // ═══════════════════════════════════════════════════════════════
+      await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, projectId);
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Link to parent (if provided)
       // ═══════════════════════════════════════════════════════════════
       if (parent_type && parent_id) {
-        await createLinkage(db, {
+        await entityInfra.set_entity_instance_link({
           parent_entity_type: parent_type,
           parent_entity_id: parent_id,
           child_entity_type: ENTITY_TYPE,
@@ -658,27 +672,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
           relationship_type: 'contains'
         });
       }
-
-      // ═══════════════════════════════════════════════════════════════
-      // AUTO-GRANT: Creator gets full permissions (OWNER)
-      // ═══════════════════════════════════════════════════════════════
-      await grantPermission(db, {
-        personEntityName: 'employee',
-        personEntityId: userId,
-        entityName: ENTITY_TYPE,
-        entityId: projectId,
-        permission: Permission.OWNER
-      });
-
-      // Register the project in d_entity_instance_id for global entity operations
-      await db.execute(sql`
-        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
-        VALUES ('project', ${projectId}::uuid, ${newProject.name}, ${newProject.code})
-        ON CONFLICT (entity_type, entity_id) DO UPDATE
-        SET entity_name = EXCLUDED.entity_name,
-            entity_code = EXCLUDED.entity_code,
-            updated_ts = NOW()
-      `);
 
       return reply.status(201).send(newProject);
     } catch (error) {
@@ -718,11 +711,10 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
     try {
       // ═══════════════════════════════════════════════════════════════
-      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
-      // Uses: RBAC_GATE only (checkPermission)
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
       // Check: Can user EDIT this project?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this project' });
       }
@@ -757,7 +749,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated_ts = now()`);
       updateFields.push(sql`version = version + 1`);
 
-      // Update project
+      // ✅ Route owns UPDATE query
       const updated = await db.execute(sql`
         UPDATE app.d_project
         SET ${sql.join(updateFields, sql`, `)}
@@ -767,6 +759,16 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       if (updated.length === 0) {
         return reply.status(404).send({ error: 'Project not found' });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
+      // ═══════════════════════════════════════════════════════════════
+      if (updates.name !== undefined || updates.code !== undefined) {
+        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+          entity_name: updates.name,
+          entity_code: updates.code
+        });
       }
 
       return reply.send(updated[0]);
@@ -807,11 +809,10 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
     try {
       // ═══════════════════════════════════════════════════════════════
-      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
-      // Uses: RBAC_GATE only (checkPermission)
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
       // Check: Can user EDIT this project?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this project' });
       }
@@ -846,7 +847,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated_ts = now()`);
       updateFields.push(sql`version = version + 1`);
 
-      // Update project
+      // ✅ Route owns UPDATE query
       const updated = await db.execute(sql`
         UPDATE app.d_project
         SET ${sql.join(updateFields, sql`, `)}
@@ -856,6 +857,16 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       if (updated.length === 0) {
         return reply.status(404).send({ error: 'Project not found' });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
+      // ═══════════════════════════════════════════════════════════════
+      if (updates.name !== undefined || updates.code !== undefined) {
+        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+          entity_name: updates.name,
+          entity_code: updates.code
+        });
       }
 
       return reply.send(updated[0]);
@@ -868,8 +879,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
   // Delete project with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
   // 1. app.d_project (base entity table)
-  // 2. app.d_entity_instance_id (entity registry)
-  // 3. app.d_entity_id_map (linkages in both directions)
+  // 2. app.d_entity_instance_registry (entity registry)
+  // 3. app.d_entity_instance_link (linkages in both directions)
   createEntityDeleteEndpoint(fastify, 'project');
 
   // ========================================

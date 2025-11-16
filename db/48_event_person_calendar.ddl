@@ -264,10 +264,10 @@ INSERT INTO app.d_entity_event_person_calendar (
 );
 
 -- =====================================================
--- REGISTER IN d_entity_instance_id
+-- REGISTER IN d_entity_instance_registry
 -- =====================================================
 
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
 SELECT 'event_person_calendar', id, name, code
 FROM app.d_entity_event_person_calendar
 WHERE active_flag = true

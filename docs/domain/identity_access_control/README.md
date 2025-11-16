@@ -22,10 +22,10 @@ The Identity & Access Control Domain is the platform's foundational infrastructu
 |--------|----------|-------|---------|
 | **Entity** | XLV_d_entity.ddl | `d_entity` | Entity TYPE definitions with UI metadata (icons, labels, child entities, domain mapping) |
 | **Entity Map** | XLIV_d_entity_map.ddl | `d_entity_map` | DEPRECATED: Legacy entity mapping (superseded by d_entity) |
-| **Entity ID Map** | XLVIII_d_entity_id_map.ddl | `d_entity_id_map` | Polymorphic parent-child INSTANCE relationships (no foreign keys) |
-| **Entity Instance ID** | XLVI_d_entity_instance_id.ddl | `d_entity_instance_id` | Central registry of all entity instances for search, validation, and stats |
+| **Entity ID Map** | XLVIII_d_entity_instance_link.ddl | `d_entity_instance_link` | Polymorphic parent-child INSTANCE relationships (no foreign keys) |
+| **Entity Instance ID** | XLVI_d_entity_instance_registry.ddl | `d_entity_instance_registry` | Central registry of all entity instances for search, validation, and stats |
 | **Entity Instance Backfill** | XLVII_d_entity_instance_backfill.ddl | `d_entity_instance_backfill` | Historical data migration and backfill tracking |
-| **Entity ID RBAC Map** | XLIX_d_entity_id_rbac_map.ddl | `entity_id_rbac_map` | Row-level permissions mapping employees to entity instances |
+| **Entity ID RBAC Map** | XLIX_d_d_entity_rbac.ddl | `d_entity_rbac` | Row-level permissions mapping employees to entity instances |
 
 ## Entity Relationships
 
@@ -55,7 +55,7 @@ The Identity & Access Control Domain is the platform's foundational infrastructu
 │           │ defines types for                                          │
 │           ▼                                                            │
 │  ┌───────────────────────┐                                            │
-│  │ d_entity_instance_id  │ (Entity INSTANCE Registry)                 │
+│  │ d_entity_instance_registry  │ (Entity INSTANCE Registry)                 │
 │  │                       │                                             │
 │  │ • entity_type: 'project'                                           │
 │  │ • entity_id: uuid                                                  │
@@ -73,7 +73,7 @@ The Identity & Access Control Domain is the platform's foundational infrastructu
 │           │ instances linked by                                        │
 │           ▼                                                            │
 │  ┌───────────────────────┐                                            │
-│  │  d_entity_id_map      │ (Parent-Child INSTANCE Relationships)      │
+│  │  d_entity_instance_link      │ (Parent-Child INSTANCE Relationships)      │
 │  │                       │                                             │
 │  │ • parent_entity_type: 'project'                                    │
 │  │ • parent_entity_id: uuid                                           │
@@ -92,7 +92,7 @@ The Identity & Access Control Domain is the platform's foundational infrastructu
 │           │ secured by                                                 │
 │           ▼                                                            │
 │  ┌───────────────────────┐                                            │
-│  │ entity_id_rbac_map    │ (Row-Level Permissions)                    │
+│  │ d_entity_rbac    │ (Row-Level Permissions)                    │
 │  │                       │                                             │
 │  │ • empid: uuid         │                                             │
 │  │ • entity: 'project'   │                                             │
@@ -138,7 +138,7 @@ The Identity & Access Control Domain is the platform's foundational infrastructu
 │  │                                                                 │   │
 │  │  1. User requests: PUT /api/v1/project/123                     │   │
 │  │  2. Middleware extracts empid from JWT                         │   │
-│  │  3. Query entity_id_rbac_map:                                  │   │
+│  │  3. Query d_entity_rbac:                                  │   │
 │  │     WHERE empid = {JWT.sub}                                    │   │
 │  │       AND entity = 'project'                                   │   │
 │  │       AND (entity_id = 'all' OR entity_id = '123')             │   │
@@ -151,22 +151,22 @@ The Identity & Access Control Domain is the platform's foundational infrastructu
 
 ### Relationship Rules
 
-1. **d_entity → d_entity_instance_id**: One-to-many
+1. **d_entity → d_entity_instance_registry**: One-to-many
    - Entity TYPE defines metadata (once per type: 'project', 'task')
    - Entity instances registered for each created entity
    - Type code matches instance entity_type field
 
-2. **d_entity_instance_id → d_entity_id_map**: One-to-many (both as parent and child)
+2. **d_entity_instance_registry → d_entity_instance_link**: One-to-many (both as parent and child)
    - Each instance can be parent to many children
    - Each instance can be child to many parents
    - Enables flexible many-to-many hierarchies
 
-3. **Employee → entity_id_rbac_map**: One-to-many
+3. **Employee → d_entity_rbac**: One-to-many
    - Each employee has multiple permission grants
    - Permissions can be type-level ('all') or instance-level (UUID)
    - Temporal expiration supported (expires_ts)
 
-4. **entity_id_rbac_map → Entity Instances**: Many-to-one
+4. **d_entity_rbac → Entity Instances**: Many-to-one
    - Permissions grant access to entity instances
    - 'all' grants access to all instances of that type
    - Specific UUID grants access to single instance
@@ -206,15 +206,15 @@ permission: [0, 1, 2, 3, 4, 5]
 
 ```sql
 -- Grant James Miller full access to ALL projects
-INSERT INTO entity_id_rbac_map (empid, entity, entity_id, permission)
+INSERT INTO d_entity_rbac (empid, entity, entity_id, permission)
 VALUES ('james-uuid', 'project', 'all', ARRAY[0,1,2,3,4,5]);
 
 -- Grant John Doe view/edit access to SPECIFIC project
-INSERT INTO entity_id_rbac_map (empid, entity, entity_id, permission)
+INSERT INTO d_entity_rbac (empid, entity, entity_id, permission)
 VALUES ('john-uuid', 'project', 'proj-123-uuid', ARRAY[0,1]);
 
 -- Grant Sarah Admin view-only access to ALL customers
-INSERT INTO entity_id_rbac_map (empid, entity, entity_id, permission)
+INSERT INTO d_entity_rbac (empid, entity, entity_id, permission)
 VALUES ('sarah-uuid', 'cust', 'all', ARRAY[0]);
 ```
 
@@ -227,7 +227,7 @@ VALUES ('sarah-uuid', 'cust', 'all', ARRAY[0]);
 - Example: "Can create and view all tasks"
 
 ```sql
-INSERT INTO entity_id_rbac_map (empid, entity, entity_id, permission)
+INSERT INTO d_entity_rbac (empid, entity, entity_id, permission)
 VALUES ('manager-uuid', 'task', 'all', ARRAY[0,1,4]);
 -- Manager can view [0], edit [1], and create [4] ALL tasks
 ```
@@ -239,7 +239,7 @@ VALUES ('manager-uuid', 'task', 'all', ARRAY[0,1,4]);
 - Example: "Can edit this specific task"
 
 ```sql
-INSERT INTO entity_id_rbac_map (empid, entity, entity_id, permission)
+INSERT INTO d_entity_rbac (empid, entity, entity_id, permission)
 VALUES ('employee-uuid', 'task', 'task-uuid-123', ARRAY[0,1]);
 -- Employee can view [0] and edit [1] ONLY this task
 ```
@@ -264,7 +264,7 @@ VALUES ('employee-uuid', 'task', 'task-uuid-123', ARRAY[0,1]);
 **Example**:
 ```sql
 -- Grant contractor temporary access for 30 days
-INSERT INTO entity_id_rbac_map (
+INSERT INTO d_entity_rbac (
     empid, entity, entity_id, permission,
     granted_by_empid, expires_ts
 )
@@ -309,7 +309,7 @@ Each entity type has rich metadata in `d_entity`:
 
 ### Polymorphic Parent-Child Relationships
 
-`d_entity_id_map` enables flexible parent-child relationships WITHOUT foreign keys:
+`d_entity_instance_link` enables flexible parent-child relationships WITHOUT foreign keys:
 
 **Relationship Types** (`relationship_type`):
 - **contains**: Parent contains child (Project → Task)
@@ -344,7 +344,7 @@ Every API call performs RBAC check:
 ```sql
 -- Check if employee can VIEW project
 SELECT EXISTS (
-    SELECT 1 FROM entity_id_rbac_map
+    SELECT 1 FROM d_entity_rbac
     WHERE empid = $jwt_employee_id
       AND entity = 'project'
       AND (entity_id = 'all' OR entity_id = $project_id)
@@ -355,7 +355,7 @@ SELECT EXISTS (
 
 -- Check if employee can EDIT task
 SELECT EXISTS (
-    SELECT 1 FROM entity_id_rbac_map
+    SELECT 1 FROM d_entity_rbac
     WHERE empid = $jwt_employee_id
       AND entity = 'task'
       AND (entity_id = 'all' OR entity_id = $task_id)
@@ -366,7 +366,7 @@ SELECT EXISTS (
 
 -- Check if employee can CREATE project
 SELECT EXISTS (
-    SELECT 1 FROM entity_id_rbac_map
+    SELECT 1 FROM d_entity_rbac
     WHERE empid = $jwt_employee_id
       AND entity = 'project'
       AND entity_id = 'all'  -- Create requires type-level
@@ -382,7 +382,7 @@ When entity created, instance auto-registered:
 
 ```sql
 -- Trigger on d_project INSERT
-INSERT INTO d_entity_instance_id (
+INSERT INTO d_entity_instance_registry (
     entity_type,
     entity_id,
     entity_name,
@@ -397,7 +397,7 @@ INSERT INTO d_entity_instance_id (
 );
 
 -- Auto-grant creator OWNER permissions
-INSERT INTO entity_id_rbac_map (
+INSERT INTO d_entity_rbac (
     empid,
     entity,
     entity_id,
@@ -420,7 +420,7 @@ Filter child entities by parent:
 -- Get all tasks for project
 SELECT t.*
 FROM d_task t
-JOIN d_entity_id_map m
+JOIN d_entity_instance_link m
   ON m.child_entity_type = 'task'
   AND m.child_entity_id = t.id::text
 WHERE m.parent_entity_type = 'project'
@@ -432,7 +432,7 @@ WHERE m.parent_entity_type = 'project'
 SELECT
     child_entity_type,
     COUNT(*) as count
-FROM d_entity_id_map
+FROM d_entity_instance_link
 WHERE parent_entity_type = 'project'
   AND parent_entity_id = $project_id
   AND active_flag = true
@@ -454,7 +454,7 @@ SELECT
         to_tsvector('english', entity_name),
         plainto_tsquery('english', $search_query)
     ) as rank
-FROM d_entity_instance_id
+FROM d_entity_instance_registry
 WHERE active_flag = true
   AND to_tsvector('english', entity_name) @@ plainto_tsquery('english', $search_query)
   AND entity_type = ANY($entity_types)  -- Filter by type if specified
@@ -462,7 +462,7 @@ ORDER BY rank DESC
 LIMIT 50;
 
 -- Post-filter by RBAC permissions
--- (Application layer checks entity_id_rbac_map for each result)
+-- (Application layer checks d_entity_rbac for each result)
 ```
 
 ## Use Cases
@@ -480,7 +480,7 @@ LIMIT 50;
 6. PM clicks "Grant Access"
 7. System creates RBAC entry:
    ```sql
-   INSERT INTO entity_id_rbac_map (empid, entity, entity_id, permission, granted_by_empid)
+   INSERT INTO d_entity_rbac (empid, entity, entity_id, permission, granted_by_empid)
    VALUES ('john-uuid', 'project', 'proj-450-uuid', ARRAY[0,1,4], 'pm-uuid');
    ```
 8. John receives notification: "You have been granted access to Project #450"
@@ -488,7 +488,7 @@ LIMIT 50;
 10. John can view, edit, and create tasks under Project #450
 11. John CANNOT delete project (missing permission [3])
 
-**Entities Touched**: entity_id_rbac_map, Employee, Project
+**Entities Touched**: d_entity_rbac, Employee, Project
 
 ### UC-2: Create Task Under Project (Parent-Child Linking)
 
@@ -512,23 +512,23 @@ LIMIT 50;
 7. System creates Task #789
 8. System registers task instance:
    ```sql
-   INSERT INTO d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+   INSERT INTO d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
    VALUES ('task', 'task-789-uuid', 'Install AC Unit', 'TASK-2025-00789');
    ```
 9. System creates parent-child link:
    ```sql
-   INSERT INTO d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+   INSERT INTO d_entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
    VALUES ('project', 'proj-450-uuid', 'task', 'task-789-uuid', 'contains');
    ```
 10. System grants creator OWNER permissions on task:
     ```sql
-    INSERT INTO entity_id_rbac_map (empid, entity, entity_id, permission)
+    INSERT INTO d_entity_rbac (empid, entity, entity_id, permission)
     VALUES ('employee-uuid', 'task', 'task-789-uuid', ARRAY[0,1,2,3,4,5]);
     ```
 11. Task appears in Project #450 Tasks tab
 12. Task count badge increments: "Tasks (5)" → "Tasks (6)"
 
-**Entities Touched**: entity_id_rbac_map, d_entity_id_map, d_entity_instance_id, Task, Project
+**Entities Touched**: d_entity_rbac, d_entity_instance_link, d_entity_instance_registry, Task, Project
 
 ### UC-3: Global Search Across Entities
 
@@ -536,9 +536,9 @@ LIMIT 50;
 
 **Flow**:
 1. User types "HVAC" in global search bar
-2. System queries `d_entity_instance_id`:
+2. System queries `d_entity_instance_registry`:
    ```sql
-   SELECT * FROM d_entity_instance_id
+   SELECT * FROM d_entity_instance_registry
    WHERE to_tsvector('english', entity_name) @@ plainto_tsquery('english', 'HVAC')
      AND active_flag = true
    ORDER BY ts_rank(...) DESC
@@ -566,7 +566,7 @@ LIMIT 50;
 8. User clicks "Project: HVAC Installation - Store #12"
 9. Navigates to Project detail page
 
-**Entities Touched**: d_entity_instance_id, entity_id_rbac_map, d_entity (for icons/labels)
+**Entities Touched**: d_entity_instance_registry, d_entity_rbac, d_entity (for icons/labels)
 
 ## Technical Architecture
 
@@ -589,7 +589,7 @@ CREATE TABLE app.d_entity (
 );
 
 -- Entity INSTANCE registry
-CREATE TABLE app.d_entity_instance_id (
+CREATE TABLE app.d_entity_instance_registry (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     entity_type varchar(50) NOT NULL,               -- 'project', 'task'
     entity_id uuid NOT NULL,                        -- UUID from source table
@@ -602,7 +602,7 @@ CREATE TABLE app.d_entity_instance_id (
 );
 
 -- Parent-child INSTANCE relationships
-CREATE TABLE app.d_entity_id_map (
+CREATE TABLE app.d_entity_instance_link (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     parent_entity_type varchar(20) NOT NULL,
     parent_entity_id text NOT NULL,
@@ -615,7 +615,7 @@ CREATE TABLE app.d_entity_id_map (
 );
 
 -- Row-level RBAC permissions
-CREATE TABLE app.entity_id_rbac_map (
+CREATE TABLE app.d_entity_rbac (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     empid uuid NOT NULL,                            -- Employee UUID
     entity varchar(50) NOT NULL,                    -- Entity type
@@ -670,26 +670,26 @@ GET    /api/v1/search                   # Search across entities
 ### Expected Data Volumes
 
 - Entity Types (d_entity): 30 - 50 types
-- Entity Instances (d_entity_instance_id): 100,000 - 1,000,000 instances
-- Entity Relationships (d_entity_id_map): 500,000 - 5,000,000 links
-- RBAC Permissions (entity_id_rbac_map): 50,000 - 500,000 grants
+- Entity Instances (d_entity_instance_registry): 100,000 - 1,000,000 instances
+- Entity Relationships (d_entity_instance_link): 500,000 - 5,000,000 links
+- RBAC Permissions (d_entity_rbac): 50,000 - 500,000 grants
 
 ### Indexing Strategy
 
 ```sql
 -- Entity instance indexes
-CREATE INDEX idx_entity_instance_type ON app.d_entity_instance_id(entity_type);
-CREATE INDEX idx_entity_instance_name ON app.d_entity_instance_id USING GIN(to_tsvector('english', entity_name));
-CREATE UNIQUE INDEX idx_entity_instance_unique ON app.d_entity_instance_id(entity_type, entity_id);
+CREATE INDEX idx_entity_instance_type ON app.d_entity_instance_registry(entity_type);
+CREATE INDEX idx_entity_instance_name ON app.d_entity_instance_registry USING GIN(to_tsvector('english', entity_name));
+CREATE UNIQUE INDEX idx_entity_instance_unique ON app.d_entity_instance_registry(entity_type, entity_id);
 
 -- Entity map indexes
-CREATE INDEX idx_entity_map_parent ON app.d_entity_id_map(parent_entity_type, parent_entity_id);
-CREATE INDEX idx_entity_map_child ON app.d_entity_id_map(child_entity_type, child_entity_id);
+CREATE INDEX idx_entity_map_parent ON app.d_entity_instance_link(parent_entity_type, parent_entity_id);
+CREATE INDEX idx_entity_map_child ON app.d_entity_instance_link(child_entity_type, child_entity_id);
 
 -- RBAC indexes
-CREATE INDEX idx_rbac_empid ON app.entity_id_rbac_map(empid);
-CREATE INDEX idx_rbac_entity ON app.entity_id_rbac_map(entity, entity_id);
-CREATE INDEX idx_rbac_permission ON app.entity_id_rbac_map USING GIN(permission);
+CREATE INDEX idx_rbac_empid ON app.d_entity_rbac(empid);
+CREATE INDEX idx_rbac_entity ON app.d_entity_rbac(entity, entity_id);
+CREATE INDEX idx_rbac_permission ON app.d_entity_rbac USING GIN(permission);
 ```
 
 ## Future Enhancements

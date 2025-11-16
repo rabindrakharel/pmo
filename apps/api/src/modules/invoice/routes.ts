@@ -170,7 +170,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
 
       // Check RBAC permission for creating invoices
       const rbacCheck = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map
+        SELECT 1 FROM app.d_entity_rbac
         WHERE person_entity_name = 'employee' AND person_entity_id = ${userId}
           AND entity = 'invoice'
           AND entity_id = 'all'

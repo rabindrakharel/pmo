@@ -50,7 +50,7 @@ curl -s "http://localhost:4000/api/v1/project" -H "Authorization: Bearer $TOKEN"
 **Example workflow:**
 ```bash
 # 1. Modify DDL file
-nano db/33_d_entity_id_map.ddl
+nano db/33_d_entity_instance_link.ddl
 
 # 2. IMMEDIATELY import the changes
 ./tools/db-import.sh
@@ -197,8 +197,8 @@ All database tables and business logic are defined in:
 ├── 25_d_wiki.ddl
 ├── 21_d_artifact.ddl
 ├── 32_d_entity.ddl
-├── 33_d_entity_id_map.ddl      ← Parent-child relationships
-├── 34_d_entity_id_rbac_map.ddl ← Permissions
+├── 33_d_entity_instance_link.ddl      ← Parent-child relationships
+├── 34_d_d_entity_rbac.ddl ← Permissions
 └── ... (39 total files)
 ```
 
@@ -238,7 +238,7 @@ DDL Schema → API Module → Entity Config → UI Component → Layout
 ```
 
 **1. Database → API Connection:**
-- DDL defines table in `/db/33_d_entity_id_map.ddl`
+- DDL defines table in `/db/33_d_entity_instance_link.ddl`
 - API creates route in `/apps/api/src/modules/linkage/routes.ts`
 - API returns JSON matching DDL column names (snake_case)
 

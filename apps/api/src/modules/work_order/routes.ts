@@ -86,7 +86,7 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
     try {
       const baseConditions = [
         sql`EXISTS (
-          SELECT 1 FROM app.entity_id_rbac_map rbac
+          SELECT 1 FROM app.d_entity_rbac rbac
           WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
             AND rbac.entity_name = 'work_order'
             AND (rbac.entity_id = w.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -152,7 +152,7 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
     }
 
     const access = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
+      SELECT 1 FROM app.d_entity_rbac rbac
       WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
         AND rbac.entity_name = 'work_order'
         AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -197,7 +197,7 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
     if (!data.code) data.code = `WO-${Date.now()}`;
 
     const access = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
+      SELECT 1 FROM app.d_entity_rbac rbac
       WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
         AND rbac.entity_name = 'work_order'
         AND rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid
@@ -240,7 +240,7 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
       const newWorkOrder = result[0] as any;
 
       await db.execute(sql`
-        INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+        INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
         VALUES ('work_order', ${newWorkOrder.id}::uuid, ${newWorkOrder.name}, ${newWorkOrder.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name, entity_code = EXCLUDED.entity_code, updated_ts = NOW()
@@ -272,7 +272,7 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
     }
 
     const access = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
+      SELECT 1 FROM app.d_entity_rbac rbac
       WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
         AND rbac.entity_name = 'work_order'
         AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)

@@ -63,8 +63,8 @@ http://localhost:5173/calendar
 - `d_event` - Event details (what/when/where)
 - `d_entity_person_calendar` - Availability slots + event link
 - `d_entity_event_person_calendar` - RSVP tracking (attendance)
-- `d_entity_id_map` - Entity relationships (event → service, customer)
-- `entity_id_rbac_map` - Event ownership (permission[5])
+- `d_entity_instance_link` - Entity relationships (event → service, customer)
+- `d_entity_rbac` - Event ownership (permission[5])
 
 ---
 
@@ -95,8 +95,8 @@ http://localhost:5173/calendar
   1. Event in `d_event` (what/when/where)
   2. Attendees with RSVP in `d_entity_event_person_calendar`
   3. Calendar slots booked in `d_entity_person_calendar` (availability → booked)
-  4. Entity relationships in `d_entity_id_map` (event → service, customer)
-  5. Event ownership in `entity_id_rbac_map` (assigned employee gets permission[5])
+  4. Entity relationships in `d_entity_instance_link` (event → service, customer)
+  5. Event ownership in `d_entity_rbac` (assigned employee gets permission[5])
   6. Email/SMS notifications via messaging service (AWS SES/SNS)
 
 #### 2. Attach Existing Event
@@ -156,8 +156,8 @@ Calendar = {
   d_entity_event_person_calendar:    RSVP tracking
 }
 
-Ownership → entity_id_rbac_map (permission[5])
-Relationships → d_entity_id_map
+Ownership → d_entity_rbac (permission[5])
+Relationships → d_entity_instance_link
 Messages → Messaging service (AWS SES/SNS)
 ```
 
@@ -282,7 +282,7 @@ const { data } = await response.json();
             │
             ▼
 ┌──────────────────────────────────┐      ┌─────────────────────┐
-│ d_entity_event_person_calendar   │      │  d_entity_id_map    │
+│ d_entity_event_person_calendar   │      │  d_entity_instance_link    │
 │ (RSVP Tracking)                  │      │  (Entity Links)     │
 ├──────────────────────────────────┤      ├─────────────────────┤
 │ event_id (→ d_event.id)          │      │ parent_entity_type  │
@@ -295,7 +295,7 @@ const { data } = await response.json();
             │
             ▼
 ┌──────────────────────────────────┐
-│  entity_id_rbac_map              │
+│  d_entity_rbac              │
 │  (Ownership & Permissions)       │
 ├──────────────────────────────────┤
 │ empid                            │

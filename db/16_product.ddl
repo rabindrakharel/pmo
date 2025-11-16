@@ -11,7 +11,7 @@
 -- **HIERARCHY CONCEPT**:
 -- • d_product: Actual product entity (SKU-level items)
 -- • d_product_hierarchy: Product categorization hierarchy (Division → Department → Class → Sub-Class)
--- • Relationship: d_product links to d_product_hierarchy via d_entity_id_map
+-- • Relationship: d_product links to d_product_hierarchy via d_entity_instance_link
 -- • Example: Product "Carrier 3-Ton AC" links to hierarchy "HVAC Equipment > Residential HVAC > Central AC > 3-Ton Units"
 --
 -- OPERATIONS:
@@ -21,7 +21,7 @@
 -- • LIST: GET /api/v1/product, filters by category/brand, RBAC enforced
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: d_product_hierarchy (via d_entity_id_map)
+-- • Parent: d_product_hierarchy (via d_entity_instance_link)
 -- • Children: fact_quote (via rel_quote_product), fact_work_order (via work order details)
 --
 -- USAGE:
@@ -69,7 +69,7 @@ COMMENT ON TABLE app.d_product IS 'Product catalog (SKU-level) with pricing, inv
 --
 -- SEMANTICS:
 -- Product hierarchy provides a 4-level categorization structure for organizing products.
--- This hierarchy is separate from actual products (d_product) and linked via d_entity_id_map.
+-- This hierarchy is separate from actual products (d_product) and linked via d_entity_instance_link.
 --
 -- HIERARCHY LEVELS:
 -- • Division: Top-level product grouping (e.g., "HVAC Products", "Plumbing Products")
@@ -84,7 +84,7 @@ COMMENT ON TABLE app.d_product IS 'Product catalog (SKU-level) with pricing, inv
 --
 -- RELATIONSHIPS:
 -- • Self: parent_id → d_product_hierarchy.id
--- • Children: d_product (via d_entity_id_map)
+-- • Children: d_product (via d_entity_instance_link)
 --
 -- =====================================================
 

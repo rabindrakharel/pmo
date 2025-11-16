@@ -9,7 +9,7 @@
 -- **HIERARCHY CONCEPT**:
 -- • d_office: Physical office locations (address-level entities)
 -- • d_office_hierarchy: Organizational hierarchy (Corporate → Region → District → Office)
--- • Relationship: d_office links to d_office_hierarchy via d_entity_id_map
+-- • Relationship: d_office links to d_office_hierarchy via d_entity_instance_link
 -- • Example: "London Service Office" (d_office) links to "Southwestern Ontario District" (d_office_hierarchy)
 --
 -- OPERATIONS:
@@ -19,9 +19,9 @@
 -- • LIST: GET /api/v1/office, filters by province/city, RBAC enforced
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: d_office_hierarchy (via d_entity_id_map)
+-- • Parent: d_office_hierarchy (via d_entity_instance_link)
 -- • Children: employee, business, equipment
--- • RBAC: entity_id_rbac_map
+-- • RBAC: d_entity_rbac
 --
 -- =====================================================
 
@@ -66,7 +66,7 @@ COMMENT ON TABLE app.d_office IS 'Physical office locations (address-level) with
 --
 -- SEMANTICS:
 -- Office hierarchy provides a 4-level organizational structure for office management.
--- This hierarchy is separate from physical offices (d_office) and linked via d_entity_id_map.
+-- This hierarchy is separate from physical offices (d_office) and linked via d_entity_instance_link.
 --
 -- HIERARCHY LEVELS:
 -- • Corporate: Top-level corporate entity (e.g., "Corporate Headquarters")
@@ -81,7 +81,7 @@ COMMENT ON TABLE app.d_office IS 'Physical office locations (address-level) with
 --
 -- RELATIONSHIPS:
 -- • Self: parent_id → d_office_hierarchy.id
--- • Children: d_office (via d_entity_id_map)
+-- • Children: d_office (via d_entity_instance_link)
 --
 -- =====================================================
 

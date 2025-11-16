@@ -65,7 +65,7 @@ The PMO Platform API follows a **DRY-first, factory-driven architecture** that s
    Extracts user ID from token.sub
 
 4. RBAC Check
-   Query app.entity_id_rbac_map
+   Query app.d_entity_rbac
    Check permissions for resource
 
 5. Execute Request
@@ -90,7 +90,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       // Check RBAC permissions
       const access = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.empid = ${userId}
           AND rbac.entity = 'project'
           AND (rbac.entity_id = 'all' OR rbac.entity_id = ${id}::text)
@@ -121,7 +121,7 @@ fastify.get('/api/v1/project', async (request, reply) => {
 
 ### RBAC Permission System
 
-**Standard:** Use unified scope-based permissions from `app.entity_id_rbac_map`
+**Standard:** Use unified scope-based permissions from `app.d_entity_rbac`
 
 ```typescript
 // Permission levels (array indices in rbac.permission)
@@ -136,7 +136,7 @@ export enum Permission {
 
 // Universal RBAC check pattern
 const access = await db.execute(sql`
-  SELECT 1 FROM app.entity_id_rbac_map rbac
+  SELECT 1 FROM app.d_entity_rbac rbac
   WHERE rbac.empid = ${userId}
     AND rbac.entity = ${entityType}
     AND (rbac.entity_id = 'all' OR rbac.entity_id = ${entityId}::text)
@@ -181,7 +181,7 @@ createChildEntityEndpoint(fastify, 'project', 'wiki', 'd_wiki');
 // - Authentication (JWT validation)
 // - RBAC checks (permission array check)
 // - Pagination (page/limit query params)
-// - Parent-child relationship query via d_entity_id_map
+// - Parent-child relationship query via d_entity_instance_link
 // - Error handling (401, 403, 500)
 // - Type validation (TypeBox schemas)
 ```
@@ -206,7 +206,7 @@ fastify.get(`/api/v1/${parentEntity}/:id/${childEntity}`, {
 
     // RBAC check
     const access = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
+      SELECT 1 FROM app.d_entity_rbac rbac
       WHERE rbac.empid = ${userId}
         AND rbac.entity = ${parentEntity}
         AND (rbac.entity_id = ${parentId}::text OR rbac.entity_id = 'all')
@@ -218,12 +218,12 @@ fastify.get(`/api/v1/${parentEntity}/:id/${childEntity}`, {
       return reply.status(403).send({ error: 'Forbidden' });
     }
 
-    // Query child entities via d_entity_id_map
+    // Query child entities via d_entity_instance_link
     const offset = (page - 1) * limit;
     const data = await db.execute(sql`
       SELECT c.*
       FROM app.${sql.identifier(childTable)} c
-      INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = c.id::text
+      INNER JOIN app.d_entity_instance_link eim ON eim.child_entity_id = c.id::text
       WHERE eim.parent_entity_id = ${parentId}
         AND eim.parent_entity_type = ${parentEntity}
         AND eim.child_entity_type = ${childEntity}
@@ -236,7 +236,7 @@ fastify.get(`/api/v1/${parentEntity}/:id/${childEntity}`, {
     const countResult = await db.execute(sql`
       SELECT COUNT(*) as total
       FROM app.${sql.identifier(childTable)} c
-      INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = c.id::text
+      INNER JOIN app.d_entity_instance_link eim ON eim.child_entity_id = c.id::text
       WHERE eim.parent_entity_id = ${parentId}
         AND eim.parent_entity_type = ${parentEntity}
         AND eim.child_entity_type = ${childEntity}
@@ -298,9 +298,9 @@ createEntityDeleteEndpoint(fastify, 'artifact', {
 
 // Factory automatically handles:
 // 1. Soft-delete from main entity table (active_flag = false)
-// 2. Soft-delete from entity instance registry (d_entity_instance_id)
-// 3. Soft-delete parent linkages (d_entity_id_map where child)
-// 4. Soft-delete child linkages (d_entity_id_map where parent)
+// 2. Soft-delete from entity instance registry (d_entity_instance_registry)
+// 3. Soft-delete parent linkages (d_entity_instance_link where child)
+// 4. Soft-delete child linkages (d_entity_instance_link where parent)
 ```
 
 **Cascading Delete Logic:**
@@ -330,7 +330,7 @@ export async function universalEntityDelete(
   // STEP 2: Soft-delete from entity instance registry
   if (!options?.skipRegistry) {
     await db.execute(sql`
-      UPDATE app.d_entity_instance_id
+      UPDATE app.d_entity_instance_registry
       SET active_flag = false, updated_ts = NOW()
       WHERE entity_type = ${entityType}
         AND entity_id::text = ${entityId}
@@ -340,7 +340,7 @@ export async function universalEntityDelete(
   // STEP 3 & 4: Soft-delete linkages (both as parent and child)
   if (!options?.skipLinkages) {
     await db.execute(sql`
-      UPDATE app.d_entity_id_map
+      UPDATE app.d_entity_instance_link
       SET active_flag = false, updated_ts = NOW()
       WHERE (child_entity_type = ${entityType} AND child_entity_id::text = ${entityId})
          OR (parent_entity_type = ${entityType} AND parent_entity_id::text = ${entityId})
@@ -492,7 +492,7 @@ export class ProjectService {
     let conditions = [
       sql`p.active_flag = true`,
       sql`EXISTS (
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.empid = ${params.userId}
           AND rbac.entity = 'project'
           AND (rbac.entity_id = 'all' OR rbac.entity_id = p.id::text)
@@ -548,7 +548,7 @@ export class ProjectService {
       WHERE p.id::text = ${id}
         AND p.active_flag = true
         AND EXISTS (
-          SELECT 1 FROM app.entity_id_rbac_map rbac
+          SELECT 1 FROM app.d_entity_rbac rbac
           WHERE rbac.empid = ${userId}
             AND rbac.entity = 'project'
             AND (rbac.entity_id = 'all' OR rbac.entity_id = ${id})
@@ -863,7 +863,7 @@ const result = await db.execute(sql`
     COUNT(t.id) as task_count
   FROM app.d_project p
   LEFT JOIN app.d_employee e ON p.manager_employee_id = e.id
-  LEFT JOIN app.d_entity_id_map eim ON eim.parent_entity_id = p.id::text
+  LEFT JOIN app.d_entity_instance_link eim ON eim.parent_entity_id = p.id::text
     AND eim.parent_entity_type = 'project'
     AND eim.child_entity_type = 'task'
     AND eim.active_flag = true
@@ -903,7 +903,7 @@ await db.transaction(async (tx) => {
 
   // Step 2: Create linkage to business
   await tx.execute(sql`
-    INSERT INTO app.d_entity_id_map (
+    INSERT INTO app.d_entity_instance_link (
       parent_entity_type, parent_entity_id,
       child_entity_type, child_entity_id
     ) VALUES (
@@ -914,13 +914,13 @@ await db.transaction(async (tx) => {
 
   // Step 3: Create registry entry
   await tx.execute(sql`
-    INSERT INTO app.d_entity_instance_id (entity_type, entity_id)
+    INSERT INTO app.d_entity_instance_registry (entity_type, entity_id)
     VALUES ('project', ${projectId}::text)
   `);
 
   // Step 4: Grant owner permission to creator
   await tx.execute(sql`
-    INSERT INTO app.entity_id_rbac_map (
+    INSERT INTO app.d_entity_rbac (
       empid, entity, entity_id, permission, active_flag
     ) VALUES (
       ${userId}, 'project', ${projectId}::text, ARRAY[0,1,2,3,4,5], true
@@ -970,7 +970,7 @@ await db.transaction(async (tx) => {
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ 4. RBAC AUTHORIZATION (SQL-embedded)                        │
-│    EXISTS check in app.entity_id_rbac_map                   │
+│    EXISTS check in app.d_entity_rbac                   │
 │    Check: 0 = ANY(rbac.permission)                          │
 │    If false → 403 Forbidden                                 │
 └────────────────────┬────────────────────────────────────────┘
@@ -1031,7 +1031,7 @@ await db.transaction(async (tx) => {
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ STEP 2: Create Parent-Child Linkage                        │
-│ INSERT INTO app.d_entity_id_map (                           │
+│ INSERT INTO app.d_entity_instance_link (                           │
 │   parent_entity_type = 'project',                           │
 │   parent_entity_id = 'abc-123',                             │
 │   child_entity_type = 'task',                               │
@@ -1042,7 +1042,7 @@ await db.transaction(async (tx) => {
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ STEP 3: Create Entity Registry Entry                       │
-│ INSERT INTO app.d_entity_instance_id (                      │
+│ INSERT INTO app.d_entity_instance_registry (                      │
 │   entity_type = 'task',                                     │
 │   entity_id = 'def-456'                                     │
 │ )                                                           │
@@ -1051,7 +1051,7 @@ await db.transaction(async (tx) => {
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ STEP 4: Grant RBAC Permissions                             │
-│ INSERT INTO app.entity_id_rbac_map (                        │
+│ INSERT INTO app.d_entity_rbac (                        │
 │   empid = userId,                                           │
 │   entity = 'task',                                          │
 │   entity_id = 'def-456',                                    │
@@ -1243,7 +1243,7 @@ PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app
 ```typescript
 // Check RBAC permissions
 const access = await db.execute(sql`
-  SELECT * FROM app.entity_id_rbac_map
+  SELECT * FROM app.d_entity_rbac
   WHERE empid = ${userId}
     AND entity = 'project'
     AND (entity_id = 'all' OR entity_id = ${projectId})
@@ -1270,9 +1270,9 @@ console.log('To timestamp:', result.rows[0]?.to_ts);
 #### Empty Child Entity List
 
 ```typescript
-// Check linkage exists in d_entity_id_map
+// Check linkage exists in d_entity_instance_link
 const linkages = await db.execute(sql`
-  SELECT * FROM app.d_entity_id_map
+  SELECT * FROM app.d_entity_instance_link
   WHERE parent_entity_id = ${parentId}
     AND parent_entity_type = 'project'
     AND child_entity_type = 'task'
@@ -1301,7 +1301,7 @@ async list(params: { page: number; limit: number; userId: string }) {
       (
         SELECT COUNT(*)
         FROM app.d_task t
-        INNER JOIN app.d_entity_id_map eim ON t.id::text = eim.child_entity_id
+        INNER JOIN app.d_entity_instance_link eim ON t.id::text = eim.child_entity_id
         WHERE eim.parent_entity_id = p.id::text
           AND eim.parent_entity_type = 'project'
           AND eim.child_entity_type = 'task'
@@ -1313,7 +1313,7 @@ async list(params: { page: number; limit: number; userId: string }) {
     LEFT JOIN app.d_business b ON p.business_id = b.id
     WHERE p.active_flag = true
       AND EXISTS (
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.empid = ${params.userId}
           AND rbac.entity = 'project'
           AND (rbac.entity_id = 'all' OR rbac.entity_id = p.id::text)
@@ -1330,7 +1330,7 @@ async list(params: { page: number; limit: number; userId: string }) {
     FROM app.d_project p
     WHERE p.active_flag = true
       AND EXISTS (
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.empid = ${params.userId}
           AND rbac.entity = 'project'
           AND (rbac.entity_id = 'all' OR rbac.entity_id = p.id::text)
@@ -1364,7 +1364,7 @@ async createTask(data: { name: string; project_id: string }, userId: string) {
 
     // Step 2: Create linkage
     await tx.execute(sql`
-      INSERT INTO app.d_entity_id_map (
+      INSERT INTO app.d_entity_instance_link (
         parent_entity_type, parent_entity_id,
         child_entity_type, child_entity_id
       ) VALUES (
@@ -1375,13 +1375,13 @@ async createTask(data: { name: string; project_id: string }, userId: string) {
 
     // Step 3: Create registry entry
     await tx.execute(sql`
-      INSERT INTO app.d_entity_instance_id (entity_type, entity_id)
+      INSERT INTO app.d_entity_instance_registry (entity_type, entity_id)
       VALUES ('task', ${task.id}::text)
     `);
 
     // Step 4: Grant creator full permissions
     await tx.execute(sql`
-      INSERT INTO app.entity_id_rbac_map (
+      INSERT INTO app.d_entity_rbac (
         empid, entity, entity_id, permission, active_flag
       ) VALUES (
         ${userId}, 'task', ${task.id}::text, ARRAY[0,1,2,3,4,5], true
@@ -1403,7 +1403,7 @@ async delete(id: string): Promise<void> {
 
   // universalEntityDelete() automatically handles:
   // 1. Soft-delete project (active_flag=false, to_ts=NOW())
-  // 2. Soft-delete registry entry (d_entity_instance_id)
+  // 2. Soft-delete registry entry (d_entity_instance_registry)
   // 3. Soft-delete as parent (project → tasks, wiki, etc. linkages)
   // 4. Soft-delete as child (business → project linkages)
 }
@@ -1424,7 +1424,7 @@ async list(filters: {
   let conditions = [
     sql`t.active_flag = true`,
     sql`EXISTS (
-      SELECT 1 FROM app.entity_id_rbac_map rbac
+      SELECT 1 FROM app.d_entity_rbac rbac
       WHERE rbac.empid = ${filters.userId}
         AND rbac.entity = 'task'
         AND (rbac.entity_id = 'all' OR rbac.entity_id = t.id::text)

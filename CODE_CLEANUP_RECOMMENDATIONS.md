@@ -148,7 +148,7 @@ fastify.get('/api/v1/project/:id', { ... }, async (request, reply) => {
   const userId = request.user?.sub;
 
   // ✅ GOOD: Gate checks permission
-  const canView = await unified_data_gate.rbac_gate.checkPermission(
+  const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
     db, userId, ENTITY_TYPE, id, Permission.VIEW
   );
 
@@ -228,18 +228,18 @@ fastify.post('/api/v1/project', { ... }, async (request, reply) => {
   const { business_id, office_id, ...projectData } = request.body;
 
   // Check CREATE permission
-  const canCreate = await checkPermission(...);
+  const canCreate = await check_entity_rbac(...);
 
   // Insert into d_project
   const result = await db.execute(sql`INSERT INTO app.d_project (...)`);
 
   // Create linkage if parent_id provided
   if (parent_id) {
-    await db.execute(sql`INSERT INTO app.d_entity_id_map (...)`);
+    await db.execute(sql`INSERT INTO app.d_entity_instance_link (...)`);
   }
 
-  // Register in d_entity_instance_id
-  await db.execute(sql`INSERT INTO app.d_entity_instance_id (...)`);
+  // Register in d_entity_instance_registry
+  await db.execute(sql`INSERT INTO app.d_entity_instance_registry (...)`);
 
   return reply.status(201).send(result[0]);
 });
@@ -284,7 +284,7 @@ fastify.patch('/api/v1/project/:id', { ... }, async (request, reply) => {
   // ❌ OLD: Manual UPDATE query
   // ❌ OLD: Manual timestamp update
 
-  const canEdit = await checkPermission(...);
+  const canEdit = await check_entity_rbac(...);
 
   await db.execute(sql`
     UPDATE app.d_project
@@ -539,7 +539,7 @@ Before removing old code, ensure:
 - [ ] Error messages match (403, 404, 500)
 - [ ] Response schemas unchanged (frontend compatibility)
 - [ ] Parent-child linkage auto-creation works
-- [ ] Entity registration in d_entity_instance_id works
+- [ ] Entity registration in d_entity_instance_registry works
 - [ ] Tests pass (if any)
 - [ ] Frontend still works after changes
 
@@ -595,7 +595,7 @@ export const parent_child_gate = {
     childTableAlias: string
   ): { join: SQL; where: SQL } {
     const join = sql`
-      INNER JOIN app.d_entity_id_map eim
+      INNER JOIN app.d_entity_instance_link eim
         ON eim.child_entity_id = ${sql.raw(childTableAlias)}.id
     `;
 

@@ -249,7 +249,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
       // Uses: RBAC_GATE only (checkPermission)
       // ═══════════════════════════════════════════════════════════════
-      const canView = await unified_data_gate.rbac_gate.checkPermission(
+      const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
         db,
         userId,
         ENTITY_TYPE,
@@ -515,8 +515,8 @@ export async function artifactRoutes(fastify: FastifyInstance) {
   // Delete artifact with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
   // 1. app.d_artifact (base entity table)
-  // 2. app.d_entity_instance_id (entity registry)
-  // 3. app.d_entity_id_map (linkages in both directions)
+  // 2. app.d_entity_instance_registry (entity registry)
+  // 3. app.d_entity_instance_link (linkages in both directions)
   // Adds proper RBAC checks and entity existence validation
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 

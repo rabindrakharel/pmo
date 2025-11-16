@@ -54,7 +54,7 @@ export async function linkageRoutes(fastify: FastifyInstance) {
 
     const result = await db.execute(sql`
       SELECT EXISTS (
-        SELECT 1 FROM app.entity_id_rbac_map
+        SELECT 1 FROM app.d_entity_rbac
         WHERE person_entity_id = ${employeeId}::uuid
           AND entity_name = ${entity}
           AND (entity_id = ${targetEntityId}::uuid OR entity_id = ${ALL_ENTITIES_UUID}::uuid)
@@ -138,7 +138,7 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       }
 
       const result = await db.execute(sql`
-        SELECT * FROM app.d_entity_id_map
+        SELECT * FROM app.d_entity_instance_link
         WHERE ${conditions}
         ORDER BY created_ts DESC
       `);
@@ -182,7 +182,7 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       const { id } = request.params;
 
       const result = await db.execute(sql`
-        SELECT * FROM app.d_entity_id_map WHERE id = ${id}
+        SELECT * FROM app.d_entity_instance_link WHERE id = ${id}
       `);
 
       if (result.length === 0) {
@@ -294,7 +294,7 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       }
 
       const result = await db.execute(sql`
-        UPDATE app.d_entity_id_map
+        UPDATE app.d_entity_instance_link
         SET ${sql.join(updates, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -348,7 +348,7 @@ export async function linkageRoutes(fastify: FastifyInstance) {
 
       // Get the linkage to check permissions on parent and child entities
       const linkageResult = await db.execute(sql`
-        SELECT * FROM app.d_entity_id_map WHERE id = ${id}
+        SELECT * FROM app.d_entity_instance_link WHERE id = ${id}
       `);
 
       if (linkageResult.length === 0) {
@@ -372,7 +372,7 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       }
 
       const result = await db.execute(sql`
-        UPDATE app.d_entity_id_map
+        UPDATE app.d_entity_instance_link
         SET active_flag = false, updated_ts = now()
         WHERE id = ${id}
         RETURNING id
@@ -506,7 +506,7 @@ export async function linkageRoutes(fastify: FastifyInstance) {
 
       // Get all instance linkages
       const instanceLinkages = await db.execute(sql`
-        SELECT * FROM app.d_entity_id_map
+        SELECT * FROM app.d_entity_instance_link
         WHERE active_flag = true
         ORDER BY parent_entity_type, child_entity_type
       `);

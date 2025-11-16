@@ -49,7 +49,7 @@
 --      SELECT c.* FROM d_cust c
 --      WHERE c.active_flag=true
 --        AND EXISTS (
---          SELECT 1 FROM entity_id_rbac_map rbac
+--          SELECT 1 FROM d_entity_rbac rbac
 --          WHERE rbac.person_entity_name='employee' AND rbac.person_entity_id=$user_id
 --            AND rbac.entity='cust'
 --            AND (rbac.entity_id=c.id::text OR rbac.entity_id='11111111-1111-1111-1111-111111111111')
@@ -63,7 +63,7 @@
 -- 5. GET SINGLE CUSTOMER
 --    • Endpoint: GET /api/v1/cust/{id}
 --    • Database: SELECT * FROM d_cust WHERE id=$1 AND active_flag=true
---    • RBAC: Checks entity_id_rbac_map for view permission
+--    • RBAC: Checks d_entity_rbac for view permission
 --    • Frontend: EntityDetailPage renders fields + tabs for projects/tasks/forms
 --
 -- 6. GET CUSTOMER PROJECTS

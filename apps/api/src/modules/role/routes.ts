@@ -5,8 +5,8 @@ import { eq, and, isNull, desc, asc, sql, SQL } from 'drizzle-orm';
 import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 // ✅ Centralized unified data gate - loosely coupled API
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
-// ✅ Centralized linkage service - DRY entity relationship management
-import { createLinkage } from '../../services/linkage.service.js';
+// ✨ Entity Infrastructure Service - centralized infrastructure operations
+import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Delete factory for cascading soft deletes
@@ -61,6 +61,9 @@ const ENTITY_TYPE = 'role';
 const TABLE_ALIAS = 'r';
 
 export async function roleRoutes(fastify: FastifyInstance) {
+  // ✨ Initialize Entity Infrastructure Service
+  const entityInfra = getEntityInfrastructure(db);
+
   // List roles
   fastify.get('/api/v1/role', {
     schema: {
@@ -191,15 +194,43 @@ export async function roleRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       body: CreateRoleSchema,
+      querystring: Type.Object({
+        parent_type: Type.Optional(Type.String()),
+        parent_id: Type.Optional(Type.String({ format: 'uuid' }))}),
       response: {
         201: RoleSchema,
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    const { parent_type, parent_id } = request.query as any;
     const data = request.body as any;
 
-
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 1
+      // Check: Can user CREATE roles?
+      // ═══════════════════════════════════════════════════════════════
+      const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
+      if (!canCreate) {
+        return reply.status(403).send({ error: 'No permission to create roles' });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 2
+      // Check: If linking to parent, can user EDIT parent?
+      // ═══════════════════════════════════════════════════════════════
+      if (parent_type && parent_id) {
+        const canEditParent = await entityInfra.check_entity_rbac(userId, parent_type, parent_id, Permission.EDIT);
+        if (!canEditParent) {
+          return reply.status(403).send({ error: `No permission to link role to this ${parent_type}` });
+        }
+      }
+
       // Check for unique name
       const existingRole = await db.execute(sql`
         SELECT id FROM app.d_role WHERE name = ${data.name} AND active_flag = true
@@ -209,7 +240,8 @@ export async function roleRoutes(fastify: FastifyInstance) {
       }
 
       const fromTs = data.fromTs || new Date().toISOString();
-      
+
+      // ✅ Route owns INSERT query
       const result = await db.execute(sql`
         INSERT INTO app.d_role (name, "descr", role_code, role_category, reporting_level, required_experience_years, management_role_flag, active_flag, from_ts, metadata)
         VALUES (${data.name}, ${data.descr || null}, ${data.roleType || 'functional'}, ${data.roleCategory || 'operational'}, ${data.authorityLevel || 0}, ${data.approvalLimit || 0}, ${data.delegationAllowed !== undefined ? data.delegationAllowed : false}, ${data.active !== false}, ${fromTs}, ${JSON.stringify(data.attr || {})})
@@ -234,8 +266,39 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to create role' });
       }
 
+      const newRole = result[0] as any;
+      const roleId = newRole.id;
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance in registry
+      // ═══════════════════════════════════════════════════════════════
+      await entityInfra.set_entity_instance_registry({
+        entity_type: ENTITY_TYPE,
+        entity_id: roleId,
+        entity_name: newRole.name,
+        entity_code: newRole.role_code || null
+      });
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Grant ownership to creator
+      // ═══════════════════════════════════════════════════════════════
+      await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, roleId);
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Link to parent (if provided)
+      // ═══════════════════════════════════════════════════════════════
+      if (parent_type && parent_id) {
+        await entityInfra.set_entity_instance_link({
+          parent_entity_type: parent_type,
+          parent_entity_id: parent_id,
+          child_entity_type: ENTITY_TYPE,
+          child_entity_id: roleId,
+          relationship_type: 'contains'
+        });
+      }
+
       // Return data directly in snake_case format (no transformation needed)
-      return reply.status(201).send(result[0]);
+      return reply.status(201).send(newRole);
     } catch (error) {
       fastify.log.error('Error creating role:');
       return reply.status(500).send({ error: 'Internal server error' });
@@ -266,11 +329,10 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
     try {
       // ═══════════════════════════════════════════════════════════════
-      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
-      // Uses: RBAC_GATE only (checkPermission)
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
       // Check: Can user EDIT this role?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this role' });
       }
@@ -364,6 +426,16 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
       if (result.length === 0) {
         return reply.status(500).send({ error: 'Failed to update role' });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
+      // ═══════════════════════════════════════════════════════════════
+      if (data.name !== undefined || data.roleType !== undefined) {
+        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+          entity_name: data.name,
+          entity_code: data.roleType
+        });
       }
 
       // Return data directly in snake_case format (no transformation needed)
@@ -398,11 +470,10 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
     try {
       // ═══════════════════════════════════════════════════════════════
-      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
-      // Uses: RBAC_GATE only (checkPermission)
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
       // Check: Can user EDIT this role?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this role' });
       }
@@ -496,6 +567,16 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
       if (result.length === 0) {
         return reply.status(500).send({ error: 'Failed to update role' });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
+      // ═══════════════════════════════════════════════════════════════
+      if (data.name !== undefined || data.roleType !== undefined) {
+        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+          entity_name: data.name,
+          entity_code: data.roleType
+        });
       }
 
       // Return data directly in snake_case format (no transformation needed)

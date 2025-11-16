@@ -308,13 +308,13 @@ GET /api/v1/{parent}/:id/{child}
 createChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
 
 // Creates: GET /api/v1/project/:id/task
-// With: RBAC checks, pagination, d_entity_id_map joins, error handling
+// With: RBAC checks, pagination, d_entity_instance_link joins, error handling
 ```
 
 **Generated Features:**
 - ✅ RBAC permission checks (hasPermissionOnEntityId)
 - ✅ Pagination support (limit, offset, page)
-- ✅ Joins via d_entity_id_map
+- ✅ Joins via d_entity_instance_link
 - ✅ Active flag filtering
 - ✅ Error handling
 - ✅ Count queries
@@ -370,9 +370,9 @@ createEntityDeleteEndpoint(fastify, 'task');
 
 **Cascading Cleanup:**
 1. Soft-deletes main entity (active_flag=false, to_ts=now())
-2. Removes from d_entity_instance_id registry
-3. Removes parent linkages in d_entity_id_map (where child_entity_id)
-4. Removes child linkages in d_entity_id_map (where parent_entity_id)
+2. Removes from d_entity_instance_registry registry
+3. Removes parent linkages in d_entity_instance_link (where child_entity_id)
+4. Removes child linkages in d_entity_instance_link (where parent_entity_id)
 
 **Before (Manual - 60+ lines):**
 ```typescript

@@ -338,7 +338,7 @@ export async function createBooking(
 
     // Step 5: Register in entity_instance_id
     await client`
-      INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+      INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
       VALUES ('booking', ${bookingId}::uuid, ${booking.service_name}, ${bookingNumber})
       ON CONFLICT (entity_type, entity_id) DO UPDATE
       SET entity_name = EXCLUDED.entity_name,
@@ -574,7 +574,7 @@ export async function createCustomer(args: {
 
     // Register in entity_instance_id
     await client`
-      INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+      INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
       VALUES ('cust', ${customerId}::uuid, ${args.name}, ${customerCode})
     `;
 
@@ -695,13 +695,13 @@ export async function createTask(args: {
 
     // Register in entity_instance_id
     await client`
-      INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+      INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
       VALUES ('task', ${taskId}::uuid, ${args.title}, ${taskCode})
     `;
 
     // Link task to customer
     await client`
-      INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
+      INSERT INTO app.d_entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
       VALUES ('cust', ${args.customer_id}::uuid, 'task', ${taskId}::uuid)
     `;
 

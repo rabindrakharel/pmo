@@ -39,7 +39,7 @@
  *   • Stores report execution results
  *   • Links to parent via report_id
  *
- * Relationships (via d_entity_id_map):
+ * Relationships (via d_entity_instance_link):
  *   • Parent entities: Can be linked to project, task, business, office
  *   • Child entities: report_data (1:many relationship)
  *
@@ -268,7 +268,7 @@ export async function reportsRoutes(fastify: FastifyInstance) {
 
     try {
       // RBAC check: Can user view this report?
-      const hasPermission = await unified_data_gate.rbac_gate.checkPermission(
+      const hasPermission = await unified_data_gate.rbac_gate.check_entity_rbac(
         db,
         userId,
         ENTITY_TYPE,
@@ -327,7 +327,7 @@ export async function reportsRoutes(fastify: FastifyInstance) {
 
     try {
       // RBAC check: Can user create reports?
-      const canCreate = await unified_data_gate.rbac_gate.checkPermission(
+      const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(
         db,
         userId,
         ENTITY_TYPE,
@@ -341,7 +341,7 @@ export async function reportsRoutes(fastify: FastifyInstance) {
 
       // If linking to parent, check parent edit permission
       if (parent_type && parent_id) {
-        const canEditParent = await unified_data_gate.rbac_gate.checkPermission(
+        const canEditParent = await unified_data_gate.rbac_gate.check_entity_rbac(
           db,
           userId,
           parent_type,
@@ -444,7 +444,7 @@ export async function reportsRoutes(fastify: FastifyInstance) {
 
     try {
       // RBAC check: Can user edit this report?
-      const hasPermission = await unified_data_gate.rbac_gate.checkPermission(
+      const hasPermission = await unified_data_gate.rbac_gate.check_entity_rbac(
         db,
         userId,
         ENTITY_TYPE,
@@ -540,7 +540,7 @@ export async function reportsRoutes(fastify: FastifyInstance) {
 
     try {
       // RBAC check: Can user edit this report?
-      const hasPermission = await unified_data_gate.rbac_gate.checkPermission(
+      const hasPermission = await unified_data_gate.rbac_gate.check_entity_rbac(
         db,
         userId,
         ENTITY_TYPE,

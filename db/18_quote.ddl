@@ -38,7 +38,7 @@
 -- ]
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: task (via d_entity_id_map)
+-- • Parent: task (via d_entity_instance_link)
 -- • References: d_service, d_product (via quote_items JSONB, no FK)
 --
 -- DATALABEL INTEGRATION:

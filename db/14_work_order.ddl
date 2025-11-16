@@ -17,7 +17,7 @@
 -- • STATUS TRANSITIONS: Scheduled → In Progress → Completed
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: task (via d_entity_id_map)
+-- • Parent: task (via d_entity_instance_link)
 -- • Related: quote (via metadata or separate linker if needed)
 -- • Uses: service, product (tracked in metadata or via line items)
 --

@@ -48,7 +48,7 @@ pnpm test
 
 1. **Entity-Driven Architecture** - All 21 entity types follow identical CRUD patterns
 2. **RBAC in SQL** - Permission checks embedded directly in database queries
-3. **No Foreign Keys** - Relationships managed through `entity_id_map` table
+3. **No Foreign Keys** - Relationships managed through `d_entity_instance_link` table
 4. **Type-Safe API** - TypeBox schemas provide runtime validation
 5. **Universal Patterns** - One pattern works for all entities
 
@@ -162,7 +162,7 @@ DELETE /api/v1/{entity}/:id       # Soft delete (requires permission 3)
 
 ### Permission Array Structure
 
-Permissions are stored as integer arrays in `entity_id_rbac_map.permission`:
+Permissions are stored as integer arrays in `d_entity_rbac.permission`:
 
 | Code | Permission | Description | Example API Call |
 |------|------------|-------------|------------------|
@@ -201,7 +201,7 @@ fastify.get('/api/v1/project/:id', {
     FROM app.d_project p
     WHERE p.id = ${projectId}
       AND EXISTS (
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.empid = ${userId}
           AND rbac.entity = 'project'
           AND (rbac.entity_id = p.id::text OR rbac.entity_id = 'all')
@@ -256,13 +256,13 @@ fastify.get('/api/v1/project/:id/artifacts', { ... });
 
 ### Child Entity Query Pattern
 
-All child entities are queried via `entity_id_map`:
+All child entities are queried via `d_entity_instance_link`:
 
 ```sql
 -- Get tasks for project
 SELECT t.*
 FROM app.d_task t
-INNER JOIN app.entity_id_map eim
+INNER JOIN app.d_entity_instance_link eim
   ON eim.child_entity_id = t.id::text
 WHERE eim.parent_entity_id = :projectId
   AND eim.parent_entity_type = 'project'
@@ -303,7 +303,7 @@ export const db = drizzle(pool);
 **Total:** 39 DDL files
 - **16 Setting Tables** (`setting_datalabel_*`)
 - **13 Core Entity Tables** (`d_*`)
-- **3 Relationship Tables** (`entity_id_map`, `entity_id_rbac_map`, `rel_emp_role`)
+- **3 Relationship Tables** (`d_entity_instance_link`, `d_entity_rbac`, `rel_emp_role`)
 - **7 Additional Tables** (`d_entity`, `d_form_data`, etc.)
 
 See `/home/rabin/projects/pmo/db/README.md` for complete schema documentation.
@@ -361,7 +361,7 @@ DELETE /api/v1/{entity}/:id       # Soft delete (sets active_flag=false)
 4. **Authenticated Requests:** Include header `Authorization: Bearer <token>`
 5. **JWT Validation:** Fastify middleware validates token on every request
 6. **User ID Extraction:** `request.user.sub` contains employee ID
-7. **RBAC Check:** Every query checks `entity_id_rbac_map` for permissions
+7. **RBAC Check:** Every query checks `d_entity_rbac` for permissions
 
 ## Configuration
 
@@ -490,8 +490,8 @@ GET /api/v1/rbac/check?entity=project&entity_id=all&permission=4
 ### Query Optimization
 
 - All RBAC checks use indexed columns
-- `entity_id_rbac_map` has composite index on `(empid, entity, entity_id)`
-- `entity_id_map` has composite index on `(parent_entity_id, child_entity_type)`
+- `d_entity_rbac` has composite index on `(empid, entity, entity_id)`
+- `d_entity_instance_link` has composite index on `(parent_entity_id, child_entity_type)`
 
 ### Rate Limiting
 
@@ -585,7 +585,7 @@ docker ps | grep postgres
 
 ```sql
 -- Check user permissions
-SELECT * FROM app.entity_id_rbac_map
+SELECT * FROM app.d_entity_rbac
 WHERE empid = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
 ORDER BY entity;
 ```

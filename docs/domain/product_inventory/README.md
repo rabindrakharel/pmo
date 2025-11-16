@@ -73,7 +73,7 @@ The Product & Inventory Domain manages the complete product catalog with SKU-lev
 
 1. **Product Hierarchy → Product**: One-to-many
    - Each product links to one Sub-Class (or Class) via `product_category` field
-   - Products can also link via `d_entity_id_map` for polymorphic relationships
+   - Products can also link via `d_entity_instance_link` for polymorphic relationships
    - Hierarchy is self-referential with `parent_id` for tree structure
 
 2. **Product ↔ Inventory**: One-to-many
@@ -84,7 +84,7 @@ The Product & Inventory Domain manages the complete product catalog with SKU-lev
 3. **Product → Quote/Order**: Many-to-many
    - Products referenced in `quote_items` JSONB array in `fact_quote`
    - Products referenced in order line items and work order details
-   - No hard foreign keys - linkage via JSONB and `d_entity_id_map`
+   - No hard foreign keys - linkage via JSONB and `d_entity_instance_link`
 
 4. **Inventory → Office**: Many-to-one
    - Each inventory record tied to one warehouse/office location
@@ -469,7 +469,7 @@ The Universal Field Detector automatically handles Product & Inventory fields:
 **Project Costing**:
 1. Project Manager creates Project (Operations)
 2. Assigns products/materials needed
-3. Products link to Project via `d_entity_id_map`
+3. Products link to Project via `d_entity_instance_link`
 4. Product costs flow to Project cost tracking
 5. Inventory issued from warehouse to project
 6. Actual product costs recorded in Financial Management
