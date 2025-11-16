@@ -10,8 +10,8 @@ import {
 } from '../../lib/universal-schema-metadata.js';
 // ✅ Centralized unified data gate - loosely coupled API
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
-// ✅ Centralized linkage service - DRY entity relationship management
-import { createLinkage } from '../../services/linkage.service.js';
+// ✨ Entity Infrastructure Service - centralized infrastructure operations
+import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Delete factory for cascading soft deletes
@@ -185,6 +185,9 @@ const ENTITY_TYPE = 'employee';
 const TABLE_ALIAS = 'e';
 
 export async function empRoutes(fastify: FastifyInstance) {
+  // ✨ Initialize Entity Infrastructure Service
+  const entityInfra = getEntityInfrastructure(db);
+
   // List employees
   fastify.get('/api/v1/employee', {
     preHandler: [fastify.authenticate],
@@ -414,48 +417,97 @@ export async function empRoutes(fastify: FastifyInstance) {
   fastify.post('/api/v1/employee', {
     preHandler: [fastify.authenticate],
     schema: {
-      body: CreateEmployeeSchema
+      body: CreateEmployeeSchema,
+      querystring: Type.Object({
+        parent_type: Type.Optional(Type.String()),
+        parent_id: Type.Optional(Type.String({ format: 'uuid' }))
+      }),
+      response: {
+        201: Type.Any(),
+        400: Type.Object({ error: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String(), details: Type.Optional(Type.String()) })
+      }
     }
   }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    const { parent_type, parent_id } = request.query as any;
     const data = request.body as any;
     fastify.log.info('CREATE EMPLOYEE ENDPOINT CALLED with data:', data);
 
-    // Auto-generate missing required fields
-    if (!data.code) {
-      // Generate unique employee code using timestamp to avoid collisions
-      const timestamp = Date.now().toString().slice(-6);
-      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-      data.code = `EMP-${timestamp}${random}`;
-    }
-
-    if (!data.email) {
-      // Generate temporary email using code
-      data.email = `employee-${data.code}@temp.huronhome.ca`;
-    }
-
-    if (!data.hire_date) {
-      // Default to today
-      data.hire_date = new Date().toISOString().split('T')[0];
-    }
-
-    if (!data.first_name || !data.last_name) {
-      // Try to split name if provided
-      if (data.name) {
-        const nameParts = data.name.trim().split(' ');
-        data.first_name = data.first_name || nameParts[0] || 'New';
-        data.last_name = data.last_name || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Employee');
-      } else {
-        data.first_name = data.first_name || 'New';
-        data.last_name = data.last_name || 'Employee';
-      }
-    }
-
-    if (!data.name) {
-      // Generate name from first_name and last_name
-      data.name = `${data.first_name} ${data.last_name}`;
-    }
-
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 1
+      // Check: Can user CREATE employees?
+      // ═══════════════════════════════════════════════════════════════
+      const canCreate = await entityInfra.check_entity_rbac(
+        userId,
+        ENTITY_TYPE,
+        ALL_ENTITIES_ID,
+        Permission.CREATE
+      );
+      if (!canCreate) {
+        return reply.status(403).send({ error: 'No permission to create employees' });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 2
+      // Check: If linking to parent, can user EDIT parent?
+      // ═══════════════════════════════════════════════════════════════
+      if (parent_type && parent_id) {
+        const canEditParent = await entityInfra.check_entity_rbac(
+          userId,
+          parent_type,
+          parent_id,
+          Permission.EDIT
+        );
+        if (!canEditParent) {
+          return reply.status(403).send({
+            error: `No permission to link employee to this ${parent_type}`
+          });
+        }
+      }
+
+      // Auto-generate missing required fields
+      if (!data.code) {
+        // Generate unique employee code using timestamp to avoid collisions
+        const timestamp = Date.now().toString().slice(-6);
+        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        data.code = `EMP-${timestamp}${random}`;
+      }
+
+      if (!data.email) {
+        // Generate temporary email using code
+        data.email = `employee-${data.code}@temp.huronhome.ca`;
+      }
+
+      if (!data.hire_date) {
+        // Default to today
+        data.hire_date = new Date().toISOString().split('T')[0];
+      }
+
+      if (!data.first_name || !data.last_name) {
+        // Try to split name if provided
+        if (data.name) {
+          const nameParts = data.name.trim().split(' ');
+          data.first_name = data.first_name || nameParts[0] || 'New';
+          data.last_name = data.last_name || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Employee');
+        } else {
+          data.first_name = data.first_name || 'New';
+          data.last_name = data.last_name || 'Employee';
+        }
+      }
+
+      if (!data.name) {
+        // Generate name from first_name and last_name
+        data.name = `${data.first_name} ${data.last_name}`;
+      }
+
       // Check for unique email if provided
       if (data.email) {
         const existingEmail = await db.execute(sql`
@@ -473,6 +525,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       console.log('Hire date:', data.hire_date);
       console.log('Employment type:', data.employee_type || 'full-time');
 
+      // ✅ ROUTE OWNS - INSERT into primary table
       const result = await db.execute(sql`
         INSERT INTO app.d_employee (
           code, name, "descr", email, phone,
@@ -505,9 +558,40 @@ export async function empRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to create employee' });
       }
 
-      fastify.log.info('Employee created successfully:', result[0]);
+      const newEmployee = result[0] as any;
+      const employeeId = newEmployee.id;
 
-      return reply.status(201).send(result[0]);
+      fastify.log.info('Employee created successfully:', newEmployee);
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance in registry
+      // ═══════════════════════════════════════════════════════════════
+      await entityInfra.set_entity_instance_registry({
+        entity_type: ENTITY_TYPE,
+        entity_id: employeeId,
+        entity_name: newEmployee.name,
+        entity_code: newEmployee.code
+      });
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Grant ownership to creator
+      // ═══════════════════════════════════════════════════════════════
+      await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, employeeId);
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Link to parent (if provided)
+      // ═══════════════════════════════════════════════════════════════
+      if (parent_type && parent_id) {
+        await entityInfra.set_entity_instance_link({
+          parent_entity_type: parent_type,
+          parent_entity_id: parent_id,
+          child_entity_type: ENTITY_TYPE,
+          child_entity_id: employeeId,
+          relationship_type: 'contains'
+        });
+      }
+
+      return reply.status(201).send(newEmployee);
     } catch (error) {
       fastify.log.error('Error creating employee:', error);
       console.error('EMPLOYEE CREATE ERROR:', error);
@@ -529,11 +613,29 @@ export async function empRoutes(fastify: FastifyInstance) {
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
     const { id } = request.params as { id: string };
     const data = request.body as any;
 
-
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user EDIT this employee?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await entityInfra.check_entity_rbac(
+        userId,
+        ENTITY_TYPE,
+        id,
+        Permission.EDIT
+      );
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit this employee' });
+      }
+
       const existing = await db.execute(sql`
         SELECT id FROM app.d_employee WHERE id = ${id}
       `);
@@ -614,6 +716,16 @@ export async function empRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to update employee' });
       }
 
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
+      // ═══════════════════════════════════════════════════════════════
+      if (data.name !== undefined || data.code !== undefined) {
+        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+          entity_name: data.name,
+          entity_code: data.code
+        });
+      }
+
       const userPermissions = {
         canSeePII: true,
         canSeeFinancial: true,
@@ -640,15 +752,33 @@ export async function empRoutes(fastify: FastifyInstance) {
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
     const { id } = request.params as { id: string };
     const data = request.body as any;
 
-
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user EDIT this employee?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await entityInfra.check_entity_rbac(
+        userId,
+        ENTITY_TYPE,
+        id,
+        Permission.EDIT
+      );
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit this employee' });
+      }
+
       const existing = await db.execute(sql`
         SELECT id FROM app.d_employee WHERE id = ${id}
       `);
-      
+
       if (existing.length === 0) {
         return reply.status(404).send({ error: 'Employee not found' });
       }
@@ -725,11 +855,21 @@ export async function empRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to update employee' });
       }
 
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
+      // ═══════════════════════════════════════════════════════════════
+      if (data.name !== undefined || data.code !== undefined) {
+        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+          entity_name: data.name,
+          entity_code: data.code
+        });
+      }
+
       const userPermissions = {
         canSeePII: true,
         canSeeFinancial: true,
         canSeeSystemFields: true};
-      
+
       return filterUniversalColumns(result[0], userPermissions);
     } catch (error) {
       fastify.log.error('Error updating employee:', error as any);
