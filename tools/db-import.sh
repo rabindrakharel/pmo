@@ -152,10 +152,10 @@ validate_all_ddls() {
     local entity_config_files=(
         "02_domain.ddl"
         "02_entity.ddl"
-        "03_entity_instance_id.ddl"
+        "03_d_entity_instance_registry.ddl"
         "04_entity_instance_backfill.ddl"
-        "05_entity_id_map.ddl"
-        "06_entity_id_rbac_map.ddl"
+        "05_d_entity_instance_link.ddl"
+        "06_d_entity_rbac.ddl"
     )
 
     # Business Entity files (db/ root 05-48)
@@ -229,10 +229,10 @@ import_ddls() {
     print_status $CYAN "  ⚙️  Entity Configuration (6 files)..."
     execute_sql "$DB_PATH/entity_configuration_settings/02_domain.ddl" "02: Domain master table (10 business domains)"
     execute_sql "$DB_PATH/entity_configuration_settings/02_entity.ddl" "02: Entity TYPE metadata (DOMAIN MAPPING)"
-    execute_sql "$DB_PATH/entity_configuration_settings/03_entity_instance_id.ddl" "03: Entity INSTANCE registry"
+    execute_sql "$DB_PATH/entity_configuration_settings/03_d_entity_instance_registry.ddl" "03: d_entity_instance_registry (entity registry)"
     execute_sql "$DB_PATH/entity_configuration_settings/04_entity_instance_backfill.ddl" "04: Entity instance backfill"
-    execute_sql "$DB_PATH/entity_configuration_settings/05_entity_id_map.ddl" "05: Entity instance relationships"
-    execute_sql "$DB_PATH/entity_configuration_settings/06_entity_id_rbac_map.ddl" "06: RBAC permission mapping"
+    execute_sql "$DB_PATH/entity_configuration_settings/05_d_entity_instance_link.ddl" "05: d_entity_instance_link (entity relationships)"
+    execute_sql "$DB_PATH/entity_configuration_settings/06_d_entity_rbac.ddl" "06: d_entity_rbac (RBAC permission mapping)"
 
     # ===== CUSTOMER 360 DOMAIN (db/ 05-10) =====
     print_status $CYAN "  🏢 Customer 360 (6 entities)..."
@@ -356,9 +356,10 @@ validate_schema() {
     local inventory_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.f_inventory;" 2>/dev/null | xargs || echo "0")
     local shipment_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.f_shipment;" 2>/dev/null | xargs || echo "0")
 
-    # Relationship and mapping tables
-    local entity_map_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_entity_id_map;" 2>/dev/null | xargs || echo "0")
-    local rbac_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.entity_id_rbac_map;" 2>/dev/null | xargs || echo "0")
+    # Relationship and mapping tables (infrastructure)
+    local entity_registry_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_entity_instance_registry;" 2>/dev/null | xargs || echo "0")
+    local entity_link_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_entity_instance_link;" 2>/dev/null | xargs || echo "0")
+    local rbac_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_entity_rbac;" 2>/dev/null | xargs || echo "0")
 
     # Unified data labels table
     local datalabel_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_datalabel;" 2>/dev/null | xargs || echo "0")
@@ -390,8 +391,9 @@ validate_schema() {
     print_status $CYAN "     Inventory transactions: $inventory_count"
     print_status $CYAN "     Shipments: $shipment_count"
 
-    print_status $CYAN "   Relationships & RBAC:"
-    print_status $CYAN "     Entity mappings: $entity_map_count"
+    print_status $CYAN "   Infrastructure (Entity System):"
+    print_status $CYAN "     Entity registry: $entity_registry_count"
+    print_status $CYAN "     Entity links: $entity_link_count"
     print_status $CYAN "     RBAC permissions: $rbac_count"
 
     print_status $CYAN "   Unified Data Labels:"
