@@ -47,10 +47,9 @@ import {
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 
 // ============================================================================
-// NEW: Universal Field Detector Integration
+// View Config Generator Integration
 // ============================================================================
 import { generateDataTableConfig, type DataTableColumn } from '../../../lib/viewConfigGenerator';
-import { detectField } from '../../../lib/universalFieldDetector';
 
 /**
  * Helper function to render cell value with automatic formatting

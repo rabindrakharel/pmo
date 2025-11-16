@@ -8,7 +8,6 @@ import { getEntityConfig, type EntityConfig } from '../../../lib/entityConfig';
 import { transformForApi, transformFromApi } from '../../../lib/data_transform_render';
 import { COLOR_OPTIONS } from '../../../lib/settingsConfig';
 import { useColumnVisibility } from '../../../lib/hooks/useColumnVisibility';
-import { detectField } from '../../../lib/universalFieldDetector';
 import { useEntitySchema } from '../../../lib/hooks/useEntitySchema';
 import { formatFieldValue } from '../../../lib/schemaFormatters';
 import type { SchemaColumn } from '../../../lib/types/schema';
@@ -76,16 +75,16 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     return config?.apiEndpoint?.includes('/api/v1/setting?datalabel=') || false;
   }, [config]);
 
-  // Get columns from config - auto-generate if empty (v4.0)
+  // Get columns from schema or config
   const configuredColumns: Column[] = useMemo(() => {
     if (!config) return [];
 
-    // Priority 1: Explicit config columns
+    // Priority 1: Explicit config columns (for custom overrides)
     if (config.columns && config.columns.length > 0) {
       return config.columns as Column[];
     }
 
-    // Priority 2: API schema (NEW - independent of data!)
+    // Priority 2: API schema (default - database-driven, works with empty tables)
     if (schema && schema.columns) {
       return schema.columns.map((col: SchemaColumn) => ({
         key: col.key,
@@ -99,45 +98,13 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         editType: col.editType as any,
         loadOptionsFromSettings: col.dataSource?.type === 'settings',
 
-        // ✅ SIMPLIFIED: Pass whole column to formatter
+        // Schema-driven formatting
         render: (value: any) => formatFieldValue(value, col)
       })) as Column[];
     }
 
-    // Priority 3: Auto-generate columns from data (v4.0 fallback)
-    if (data && data.length > 0) {
-      const firstRow = data[0];
-      const keys = Object.keys(firstRow);
-
-      // Generate columns using universal field detector
-      const allGeneratedColumns = keys
-        .map(key => {
-          const metadata = detectField(key);
-          const column = {
-            key,
-            title: metadata.fieldName, // This uses the formatted title from detectField
-            sortable: metadata.sortable,
-            filterable: metadata.filterable,
-            searchable: metadata.searchable,
-            width: metadata.width,
-            visible: metadata.visible, // This properly respects the visibility from detectField
-            // Don't set render for fields with loadFromSettings - let renderCellValue handle badge rendering
-            render: metadata.loadFromSettings ? undefined : metadata.format,
-            // Add missing properties for proper datalabel rendering
-            loadOptionsFromSettings: metadata.loadFromSettings,
-            editable: metadata.editable,
-            editType: metadata.editType,
-            align: metadata.align
-          };
-
-          return column;
-        });
-
-      return allGeneratedColumns.filter(col => col.visible !== false); // Only include visible columns
-    }
-
     return [];
-  }, [config, schema, data]);
+  }, [config, schema]);
 
   // Use column visibility hook for dynamic column management
   const {
