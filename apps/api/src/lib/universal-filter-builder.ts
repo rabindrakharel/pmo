@@ -188,6 +188,7 @@ export function buildAutoFilters(
   const excludeParams = options?.excludeParams || [
     'limit',
     'offset',
+    'page',        // Page number for pagination (converted to offset)
     'search',
     'order_by',
     'order_dir',

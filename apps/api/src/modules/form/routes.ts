@@ -39,6 +39,8 @@ import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+// ✅ Child entity factory for parent-child relationships
+import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 // ✅ Centralized unified data gate - loosely coupled API
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
@@ -1079,4 +1081,11 @@ export async function formRoutes(fastify: FastifyInstance) {
   // 2. app.d_entity_instance_id (entity registry)
   // 3. app.d_entity_id_map (linkages in both directions)
   createEntityDeleteEndpoint(fastify, 'form');
+
+  // ============================================================================
+  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // ============================================================================
+  // Creates: GET /api/v1/form/:id/{child} for each child in d_entity.child_entities
+  // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
+  await createChildEntityEndpointsFromMetadata(fastify, 'form');
 }

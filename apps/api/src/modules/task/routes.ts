@@ -150,6 +150,8 @@ import {
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
 import { universalEntityDelete, createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+// ✅ Child entity factory for parent-child relationships
+import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 // ✅ Centralized unified data gate - loosely coupled API
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 // ✅ Centralized linkage service - DRY entity relationship management
@@ -227,7 +229,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
         search: Type.Optional(Type.String()),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
-        page: Type.Optional(Type.Number({ minimum: 1 }))}),
+        page: Type.Optional(Type.Number({ minimum: 1 })),
+        parent_type: Type.Optional(Type.String()),
+        parent_id: Type.Optional(Type.String({ format: 'uuid' }))}),
       response: {
         200: Type.Object({
           data: Type.Array(TaskSchema),
@@ -238,7 +242,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const {
       project_id, assigned_to_employee_id, dl__task_stage, task_type, task_category,
-      worksite_id, client_id, active, search, limit = 20, offset: queryOffset, page
+      worksite_id, client_id, active, search, limit = 20, offset: queryOffset, page,
+      parent_type, parent_id
     } = request.query as any;
 
     // Support both page (new standard) and offset (legacy) - NO fallback to unlimited
@@ -253,6 +258,20 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       // NEW PATTERN: Route builds SQL, gates augment it
       // ═══════════════════════════════════════════════════════════════
+
+      // Build JOINs array
+      const joins: SQL[] = [];
+
+      // GATE 2: PARENT-CHILD FILTERING (MANDATORY when parent context provided)
+      if (parent_type && parent_id) {
+        const parentJoin = unified_data_gate.parent_child_filtering_gate.getJoinClause(
+          ENTITY_TYPE,
+          parent_type,
+          parent_id,
+          TABLE_ALIAS
+        );
+        joins.push(parentJoin);
+      }
 
       // Build WHERE conditions array
       const conditions: SQL[] = [];
@@ -291,10 +310,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
         )`);
       }
 
+      // Compose JOIN clause
+      const joinClause = joins.length > 0 ? sql.join(joins, sql` `) : sql``;
+
       // Get total count
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
         FROM app.d_task t
+        ${joinClause}
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
@@ -346,6 +369,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           t.created_ts, t.updated_ts,
           t.version
         FROM app.d_task t
+        ${joinClause}
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY t.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -1198,4 +1222,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
   // 2. Linkage API: POST /api/v1/linkage to link child to parent
   // 3. Navigate to child detail page for editing
   // No special endpoints needed - reuses existing universal APIs
+
+  // ============================================================================
+  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // ============================================================================
+  // Creates: GET /api/v1/task/:id/{child} for each child in d_entity.child_entities
+  // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
+  await createChildEntityEndpointsFromMetadata(fastify, 'task');
 }

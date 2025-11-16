@@ -231,6 +231,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
+        parent_type: Type.Optional(Type.String()),
+        parent_id: Type.Optional(Type.String({ format: 'uuid' })),
       }),
       response: {
         200: Type.Object({
@@ -245,7 +247,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      search, limit = 20, offset: queryOffset, page
+      search, limit = 20, offset: queryOffset, page, parent_type, parent_id
     } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
@@ -258,6 +260,20 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       // NEW PATTERN: Route builds SQL, gates augment it
       // ═══════════════════════════════════════════════════════════════
+
+      // Build JOINs array
+      const joins: SQL[] = [];
+
+      // GATE 2: PARENT-CHILD FILTERING (MANDATORY when parent context provided)
+      if (parent_type && parent_id) {
+        const parentJoin = unified_data_gate.parent_child_filtering_gate.getJoinClause(
+          ENTITY_TYPE,
+          parent_type,
+          parent_id,
+          TABLE_ALIAS
+        );
+        joins.push(parentJoin);
+      }
 
       // Build WHERE conditions array
       const conditions: SQL[] = [];
@@ -283,6 +299,9 @@ export async function projectRoutes(fastify: FastifyInstance) {
       });
       conditions.push(...autoFilters);
 
+      // Compose JOIN clause
+      const joinClause = joins.length > 0 ? sql.join(joins, sql` `) : sql``;
+
       // Build WHERE clause
       const whereClause = conditions.length > 0
         ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
@@ -292,6 +311,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const countQuery = sql`
         SELECT COUNT(DISTINCT ${sql.raw(TABLE_ALIAS)}.id) as total
         FROM app.d_${sql.raw(ENTITY_TYPE)} ${sql.raw(TABLE_ALIAS)}
+        ${joinClause}
         ${whereClause}
       `;
 
@@ -299,6 +319,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const dataQuery = sql`
         SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
         FROM app.d_${sql.raw(ENTITY_TYPE)} ${sql.raw(TABLE_ALIAS)}
+        ${joinClause}
         ${whereClause}
         ORDER BY ${sql.raw(TABLE_ALIAS)}.created_ts DESC
         LIMIT ${limit}

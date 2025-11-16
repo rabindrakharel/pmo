@@ -59,7 +59,6 @@ import { collabRoutes } from './collab/routes.js';
 // New hierarchical API modules
 import { hierarchyRoutes } from './meta/hierarchy-routes.js';
 import { singleEntityRoutes } from './entity/single-entity-routes.js';
-import { parentActionEntityRoutes } from './entity/parent-action-entity-routes.js';
 import { entityRoutes } from './entity/routes.js';
 import { rbacRoutes } from './rbac/routes.js';
 import { linkageModule } from './linkage/index.js';
@@ -103,9 +102,6 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   
   // Single entity routes
   await singleEntityRoutes(fastify);
-
-  // Parent/action entity routes
-  await parentActionEntityRoutes(fastify);
 
   // Entity type metadata routes (d_entity - parent-child relationships, icons)
   await entityRoutes(fastify);

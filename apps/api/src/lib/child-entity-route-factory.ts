@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import { unified_data_gate, Permission } from './unified-data-gate.js';
 
 /**
  * Higher-Order Route Factory for Child Entity Endpoints
@@ -49,20 +50,22 @@ export function createChildEntityEndpoint(
         return reply.status(401).send({ error: 'User not authenticated' });
       }
 
-      // Universal RBAC check pattern
-      const access = await db.execute(sql`
-        SELECT 1 FROM app.entity_id_rbac_map rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-          AND rbac.entity_name = ${parentEntity}
-          AND (rbac.entity_id = ${parentId}::uuid OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 0
-      `);
+      // ✅ UNIFIED DATA GATE: RBAC check for child entity access
+      // Note: We check child entity permission, NOT parent (child can be visible without parent access)
+      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
+        userId,
+        childEntity,
+        Permission.VIEW,
+        'c'
+      );
 
-      if (access.length === 0) {
-        return reply.status(403).send({ error: `Access denied for this ${parentEntity}` });
-      }
+      // ✅ UNIFIED DATA GATE: Parent-child filtering (mandatory for child entity listing)
+      const parentJoin = unified_data_gate.parent_child_filtering_gate.getJoinClause(
+        childEntity,
+        parentEntity,
+        parentId,
+        'c'
+      );
 
       // Universal child entity query pattern
       const offset = (page - 1) * limit;
@@ -70,25 +73,19 @@ export function createChildEntityEndpoint(
       const data = await db.execute(sql`
         SELECT c.*, COALESCE(c.name, 'Untitled') as name, c.descr
         FROM app.${sql.raw(childTable)} c
-        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = c.id
-        WHERE eim.parent_entity_id = ${parentId}
-          AND eim.parent_entity_type = ${parentEntity}
-          AND eim.child_entity_type = ${childEntity}
-          AND eim.active_flag = true
+        ${parentJoin}
+        WHERE ${rbacCondition}
           AND c.active_flag = true
         ORDER BY c.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      // Universal count query pattern
+      // Universal count query pattern with unified data gate
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
         FROM app.${sql.raw(childTable)} c
-        INNER JOIN app.d_entity_id_map eim ON eim.child_entity_id = c.id
-        WHERE eim.parent_entity_id = ${parentId}
-          AND eim.parent_entity_type = ${parentEntity}
-          AND eim.child_entity_type = ${childEntity}
-          AND eim.active_flag = true
+        ${parentJoin}
+        WHERE ${rbacCondition}
           AND c.active_flag = true
       `);
 

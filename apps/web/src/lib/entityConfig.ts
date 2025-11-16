@@ -2288,6 +2288,63 @@ export const entityConfigs: Record<string, EntityConfig> = {
 
     supportedViews: ['table', 'graph'],
     defaultView: 'table'
+  },
+
+  // --------------------------------------------------------------------------
+  // REPORTS (Analytics & Dashboards)
+  // --------------------------------------------------------------------------
+  reports: {
+    name: 'reports',
+    displayName: 'Report',
+    pluralName: 'Reports',
+    apiEndpoint: '/api/v1/reports',
+    shareable: true,
+
+    columns: [], // Auto-generated (v4.0)
+
+    fields: [
+      { key: 'name', label: 'Report Name', type: 'text', required: true },
+      { key: 'code', label: 'Report Code', type: 'text', required: true },
+      { key: 'descr', label: 'Description', type: 'textarea' },
+      { key: 'report_type', label: 'Report Type', type: 'select', options: [
+        { value: 'dashboard', label: 'Dashboard' },
+        { value: 'chart', label: 'Chart' },
+        { value: 'table', label: 'Table' },
+        { value: 'summary', label: 'Summary' },
+        { value: 'kpi', label: 'KPI' }
+      ]},
+      { key: 'report_category', label: 'Category', type: 'select', options: [
+        { value: 'operational', label: 'Operational' },
+        { value: 'financial', label: 'Financial' },
+        { value: 'performance', label: 'Performance' },
+        { value: 'compliance', label: 'Compliance' }
+      ]},
+      { key: 'chart_type', label: 'Chart Type', type: 'select', options: [
+        { value: 'bar', label: 'Bar Chart' },
+        { value: 'line', label: 'Line Chart' },
+        { value: 'pie', label: 'Pie Chart' },
+        { value: 'scatter', label: 'Scatter Plot' },
+        { value: 'table', label: 'Data Table' },
+        { value: 'gauge', label: 'Gauge' }
+      ]},
+      { key: 'refresh_frequency', label: 'Refresh Frequency', type: 'select', options: [
+        { value: 'real-time', label: 'Real-time' },
+        { value: 'hourly', label: 'Hourly' },
+        { value: 'daily', label: 'Daily' },
+        { value: 'weekly', label: 'Weekly' },
+        { value: 'monthly', label: 'Monthly' }
+      ]},
+      { key: 'data_source_config', label: 'Data Source Config', type: 'jsonb' },
+      { key: 'query_definition', label: 'Query Definition', type: 'jsonb' },
+      { key: 'visualization_config', label: 'Visualization Config', type: 'jsonb' },
+      { key: 'public_flag', label: 'Public', type: 'checkbox' },
+      { key: 'auto_refresh_enabled_flag', label: 'Auto Refresh', type: 'checkbox' },
+      { key: 'email_subscribers', label: 'Email Subscribers', type: 'multiselect', loadOptionsFromEntity: 'employee' },
+      { key: 'metadata', label: 'Metadata', type: 'jsonb' }
+    ],
+
+    supportedViews: ['table'],
+    defaultView: 'table'
   }
 };
 

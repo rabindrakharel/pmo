@@ -42,6 +42,8 @@ import { sql, SQL } from 'drizzle-orm';
 import { s3AttachmentService } from '@/lib/s3-attachments.js';
 import { config } from '@/lib/config.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+// ✅ Child entity factory for parent-child relationships
+import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 // ✅ Centralized unified data gate - loosely coupled API
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
@@ -778,4 +780,11 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
+
+  // ============================================================================
+  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // ============================================================================
+  // Creates: GET /api/v1/artifact/:id/{child} for each child in d_entity.child_entities
+  // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
+  await createChildEntityEndpointsFromMetadata(fastify, 'artifact');
 }

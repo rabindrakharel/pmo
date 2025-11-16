@@ -52,7 +52,7 @@ import {
   createPaginatedResponse
 } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
-import { createChildEntityEndpoint } from '../../lib/child-entity-route-factory.js';
+import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 // ✅ API-based RBAC service
 import {
   data_gate_EntityIdsByEntityType,
@@ -571,14 +571,12 @@ export async function officeRoutes(fastify: FastifyInstance) {
   // 3. app.d_entity_id_map (linkages in both directions)
   createEntityDeleteEndpoint(fastify, 'office');
 
-  // ========================================
-  // CHILD ENTITY ENDPOINTS (DRY Factory Pattern)
-  // ========================================
-  // Use factory pattern to create standardized child entity endpoints
-  // Replaces 100+ lines of duplicate code with single function calls
-  createChildEntityEndpoint(fastify, 'office', 'task', 'd_task');
-  createChildEntityEndpoint(fastify, 'office', 'project', 'd_project');
-  createChildEntityEndpoint(fastify, 'office', 'employee', 'd_employee');
+  // ============================================================================
+  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // ============================================================================
+  // Creates: GET /api/v1/office/:id/{child} for each child in d_entity.child_entities
+  // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
+  await createChildEntityEndpointsFromMetadata(fastify, 'office');
 
   // ========================================
   // CHILD ENTITY CREATION

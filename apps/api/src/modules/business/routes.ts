@@ -126,6 +126,8 @@ import { createLinkage } from '../../services/linkage.service.js';
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+// ✅ Child entity factory for parent-child relationships
+import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 
 // Schema based on actual d_business table structure
 const BizSchema = Type.Object({
@@ -699,4 +701,11 @@ export async function businessRoutes(fastify: FastifyInstance) {
   // Delete Business Unit (Soft Delete via Factory)
   // ============================================================================
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
+
+  // ============================================================================
+  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // ============================================================================
+  // Creates: GET /api/v1/business/:id/{child} for each child in d_entity.child_entities
+  // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }
