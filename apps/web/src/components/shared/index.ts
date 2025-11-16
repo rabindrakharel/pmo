@@ -26,7 +26,7 @@ export { FilteredDataTable } from './dataTable/FilteredDataTable';
 // ============================================================================
 export { DynamicChildEntityTabs, useDynamicChildEntityTabs } from './entity/DynamicChildEntityTabs';
 export { EntityFormContainer } from './entity/EntityFormContainer';
-export { MetadataField, MetadataRow, MetadataSeparator } from '../../lib/data_transform_render';
+export { MetadataField, MetadataRow, MetadataSeparator } from './ui/MetadataComponents';
 
 // ============================================================================
 // FILE COMPONENTS

@@ -34,7 +34,7 @@ import {
   type SettingOption
 } from '../../../lib/settingsLoader';
 import {
-  detectColumnCapabilities,
+  getFieldCapability,
   type FieldCapability,
   formatCurrency,
   isCurrencyField,
@@ -43,7 +43,7 @@ import {
   getSettingColor,
   loadSettingsColors,
   formatRelativeTime
-} from '../../../lib/data_transform_render';
+} from '../../../lib/universalFormatterService';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 
 // ============================================================================

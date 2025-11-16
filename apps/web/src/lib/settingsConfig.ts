@@ -15,7 +15,7 @@ import {
   renderSettingBadge,
   loadSettingsColors,
   COLOR_MAP
-} from './data_transform_render';
+} from './universalFormatterService';
 
 // ============================================================================
 // COLOR SYSTEM - Re-exports from centralized source
