@@ -68,7 +68,7 @@ d_entity_instance_id         -- Entity registry
 **Column Consistency**: Same columns regardless of navigation context
 **Settings-Driven**: All dropdowns from `/api/v1/entity/:type/options`
 **Factory Routes**: Use `createChildEntityEndpoint()` for parent-child APIs
-**Centralized Formatting**: `data_transform_render.tsx` handles all field transforms
+**Centralized Formatting**: `universalFormatterService.ts` handles all field transforms
 
 ### 4. Centralized Services & Libraries
 
