@@ -168,7 +168,10 @@
       "Bash(do echo \"=== Testing $entity ===\" ./tools/test-api.sh GET \"/api/v1/$entity?limit=1\")",
       "Bash(do echo -n \"$file: \" grep \"^const TABLE_ALIAS\" apps/api/src/modules/$file/routes.ts)",
       "Bash(do echo -n \"$entity: \")",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(do echo \"=== Testing $entity ===\")",
+      "Bash(git -C /home/rabin/projects/pmo diff apps/api/src/lib/schema-builder.service.ts)",
+      "Bash(/tmp/test-rbac-coherence.sh)"
     ],
     "deny": [],
     "ask": [],

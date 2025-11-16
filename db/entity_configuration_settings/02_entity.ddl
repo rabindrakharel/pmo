@@ -30,6 +30,7 @@ CREATE TABLE app.d_entity (
     name varchar(100) NOT NULL,
     ui_label varchar(100) NOT NULL,
     ui_icon varchar(50),
+    db_table varchar(100), -- ✨ NEW: Database table name (d_project, f_message_data, etc.) - Fully dynamic entity-to-table mapping!
     child_entities jsonb DEFAULT '[]'::jsonb,
     display_order int4 NOT NULL DEFAULT 999,
     dl_entity_domain varchar(100), -- DEPRECATED: Legacy domain categorization (use domain_id/code/name instead)
@@ -47,6 +48,7 @@ COMMENT ON COLUMN app.d_entity.code IS 'Entity type identifier (office, business
 COMMENT ON COLUMN app.d_entity.name IS 'Entity name (Office, Business, Project, Task, etc.)';
 COMMENT ON COLUMN app.d_entity.ui_label IS 'UI display label for entity type plural (Offices, Businesses, Projects, Tasks, etc.)';
 COMMENT ON COLUMN app.d_entity.ui_icon IS 'Lucide icon name for UI display (FolderOpen, CheckSquare, Users, etc.)';
+COMMENT ON COLUMN app.d_entity.db_table IS '✨ Database table name for entity (d_project, f_message_data, etc.) - Single source of truth for entity-to-table mapping';
 COMMENT ON COLUMN app.d_entity.child_entities IS 'JSONB array of child entity metadata: [{"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1}]';
 COMMENT ON COLUMN app.d_entity.domain_id IS 'Domain ID (denormalized from d_domain for performance)';
 COMMENT ON COLUMN app.d_entity.domain_code IS 'Domain code (denormalized from d_domain for performance)';
@@ -58,12 +60,13 @@ COMMENT ON COLUMN app.d_entity.domain_name IS 'Domain name (denormalized from d_
 -- =====================================================
 
 -- Office entity type (has 6 child types)
-INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order, dl_entity_domain)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, db_table, child_entities, display_order, dl_entity_domain)
 VALUES (
   'office',
   'Office',
   'Offices',
   'MapPin',
+  'd_office',
   '["task", "artifact", "wiki", "form", "expense", "revenue"]'::jsonb,
   10,
   'Organization'
@@ -889,4 +892,59 @@ SET column_metadata = (
   WHERE c.table_schema = 'app' AND c.table_name = 'd_entity_person_calendar'
 )
 WHERE e.code = 'calendar';
+
+-- =====================================================
+-- DATA CURATION: ENTITY-TO-TABLE MAPPING (db_table column)
+-- =====================================================
+-- Populate db_table column for all entities - SINGLE SOURCE OF TRUTH!
+-- No more hardcoded mappings in backend code!
+
+-- Core entities (d_ prefix - standard pattern)
+UPDATE app.d_entity SET db_table = 'd_business' WHERE code = 'business';
+UPDATE app.d_entity SET db_table = 'd_office' WHERE code = 'office';
+UPDATE app.d_entity SET db_table = 'd_cust' WHERE code = 'cust';
+UPDATE app.d_entity SET db_table = 'd_project' WHERE code = 'project';
+UPDATE app.d_entity SET db_table = 'd_task' WHERE code = 'task';
+UPDATE app.d_entity SET db_table = 'd_employee' WHERE code = 'employee';
+UPDATE app.d_entity SET db_table = 'd_role' WHERE code = 'role';
+UPDATE app.d_entity SET db_table = 'd_position' WHERE code = 'position';
+UPDATE app.d_entity SET db_table = 'd_worksite' WHERE code = 'worksite';
+UPDATE app.d_entity SET db_table = 'd_wiki' WHERE code = 'wiki';
+UPDATE app.d_entity SET db_table = 'd_artifact' WHERE code = 'artifact';
+UPDATE app.d_entity SET db_table = 'd_reports' WHERE code = 'reports';
+UPDATE app.d_entity SET db_table = 'd_event' WHERE code = 'event';
+UPDATE app.d_entity SET db_table = 'd_product' WHERE code = 'product';
+UPDATE app.d_entity SET db_table = 'd_service' WHERE code = 'service';
+UPDATE app.d_entity SET db_table = 'd_workflow_automation' WHERE code IN ('workflow', 'workflow_automation');
+
+-- Special naming: form (table: d_form_head)
+UPDATE app.d_entity SET db_table = 'd_form_head' WHERE code = 'form';
+
+-- Special naming: calendar (table: d_entity_person_calendar)
+UPDATE app.d_entity SET db_table = 'd_entity_person_calendar' WHERE code = 'calendar';
+
+-- Special naming: message_schema (table: d_message_schema)
+UPDATE app.d_entity SET db_table = 'd_message_schema' WHERE code = 'message_schema';
+
+-- Hierarchies (d_ prefix)
+UPDATE app.d_entity SET db_table = 'd_business_hierarchy' WHERE code = 'business_hierarchy';
+UPDATE app.d_entity SET db_table = 'd_office_hierarchy' WHERE code = 'office_hierarchy';
+UPDATE app.d_entity SET db_table = 'd_product_hierarchy' WHERE code = 'product_hierarchy';
+
+-- Fact tables (f_ prefix)
+UPDATE app.d_entity SET db_table = 'f_expense' WHERE code = 'expense';
+UPDATE app.d_entity SET db_table = 'f_revenue' WHERE code = 'revenue';
+UPDATE app.d_entity SET db_table = 'f_invoice' WHERE code = 'invoice';
+UPDATE app.d_entity SET db_table = 'f_order' WHERE code = 'order';
+UPDATE app.d_entity SET db_table = 'f_inventory' WHERE code = 'inventory';
+UPDATE app.d_entity SET db_table = 'f_shipment' WHERE code = 'shipment';
+UPDATE app.d_entity SET db_table = 'f_customer_interaction' WHERE code = 'interaction';
+UPDATE app.d_entity SET db_table = 'f_message_data' WHERE code = 'message';
+
+-- Fact tables (fact_ prefix)
+UPDATE app.d_entity SET db_table = 'fact_quote' WHERE code = 'quote';
+UPDATE app.d_entity SET db_table = 'fact_work_order' WHERE code = 'work_order';
+
+-- RBAC/Permission mapping
+UPDATE app.d_entity SET db_table = 'entity_id_rbac_map' WHERE code = 'rbac';
 

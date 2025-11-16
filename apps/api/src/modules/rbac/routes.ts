@@ -688,10 +688,14 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             id: Type.String(),
             person_entity_name: Type.String(),
             person_entity_id: Type.String(),
-            entity_name: Type.String(),
+            person_name: Type.String(),
+            entity_type: Type.String(),
             entity_id: Type.String(),
+            entity_name: Type.String(),
             permission: Type.Number(),
+            permission_label: Type.String(),
             granted_by_employee_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+            granted_by_name: Type.String(),
             granted_ts: Type.String(),
             expires_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
             active_flag: Type.Boolean(),
@@ -713,24 +717,50 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Get all RBAC records
+      // Get all RBAC records with joined person names and entity names (using centralized entity_instance_id table)
       const records = await db.execute(sql`
         SELECT
-          id,
-          person_entity_name,
-          person_entity_id,
-          entity_name,
-          entity_id,
-          permission,
-          granted_by_employee_id,
-          granted_ts,
-          expires_ts,
-          active_flag,
-          created_ts,
-          updated_ts
-        FROM app.entity_id_rbac_map
-        WHERE active_flag = true
-        ORDER BY created_ts DESC
+          rbac.id,
+          rbac.person_entity_name,
+          rbac.person_entity_id,
+          CASE
+            WHEN rbac.person_entity_name = 'employee' THEN COALESCE(emp.name, emp.email, 'Unknown Employee')
+            WHEN rbac.person_entity_name = 'role' THEN COALESCE(role.name, 'Unknown Role')
+            ELSE 'Unknown'
+          END AS person_name,
+          rbac.entity_name AS entity_type,
+          rbac.entity_id,
+          CASE
+            WHEN rbac.entity_id = '11111111-1111-1111-1111-111111111111' THEN 'ALL (Type-level)'
+            ELSE COALESCE(entity_inst.entity_name, entity_inst.entity_code, rbac.entity_id::text)
+          END AS entity_name,
+          rbac.permission,
+          CASE rbac.permission
+            WHEN 0 THEN 'View'
+            WHEN 1 THEN 'Edit'
+            WHEN 2 THEN 'Share'
+            WHEN 3 THEN 'Delete'
+            WHEN 4 THEN 'Create'
+            WHEN 5 THEN 'Owner'
+            ELSE 'Unknown'
+          END AS permission_label,
+          rbac.granted_by_employee_id,
+          COALESCE(granter.name, granter.email, 'System') AS granted_by_name,
+          rbac.granted_ts,
+          rbac.expires_ts,
+          rbac.active_flag,
+          rbac.created_ts,
+          rbac.updated_ts
+        FROM app.entity_id_rbac_map rbac
+        LEFT JOIN app.d_employee emp ON rbac.person_entity_name = 'employee' AND rbac.person_entity_id = emp.id
+        LEFT JOIN app.d_role role ON rbac.person_entity_name = 'role' AND rbac.person_entity_id = role.id
+        LEFT JOIN app.d_employee granter ON rbac.granted_by_employee_id = granter.id
+        -- Centralized entity name resolution using entity_instance_id registry
+        LEFT JOIN app.d_entity_instance_id entity_inst
+          ON rbac.entity_name = entity_inst.entity_type
+          AND rbac.entity_id = entity_inst.entity_id
+        WHERE rbac.active_flag = true
+        ORDER BY rbac.created_ts DESC
         LIMIT ${limit}
         OFFSET ${offset}
       `);
@@ -746,9 +776,12 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         data: records,
         total: Number(countResult[0].count),
       };
-    } catch (error) {
+    } catch (error: any) {
       fastify.log.error('Error fetching RBAC records:', error);
-      return reply.status(500).send({ error: 'Internal server error' });
+      console.error('[RBAC GET] Full error:', error);
+      console.error('[RBAC GET] Error message:', error.message);
+      console.error('[RBAC GET] Error stack:', error.stack);
+      return reply.status(500).send({ error: `Internal server error: ${error.message}` });
     }
   });
 
@@ -1106,6 +1139,443 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       return { message: 'RBAC record deleted successfully' };
     } catch (error) {
       fastify.log.error('Error deleting RBAC record:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // GET /api/v1/rbac/overview - Comprehensive RBAC overview with person names and entity permissions
+  fastify.get('/api/v1/rbac/overview', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      response: {
+        200: Type.Object({
+          summary: Type.Object({
+            total_permissions: Type.Number(),
+            role_based_permissions: Type.Number(),
+            employee_permissions: Type.Number(),
+            unique_persons: Type.Number(),
+            unique_entities: Type.Number(),
+          }),
+          permissions_by_person: Type.Array(Type.Object({
+            person_type: Type.String(),
+            person_id: Type.String(),
+            person_name: Type.String(),
+            person_code: Type.Optional(Type.String()),
+            permissions: Type.Array(Type.Object({
+              entity_name: Type.String(),
+              entity_id: Type.String(),
+              entity_display: Type.String(),
+              permission_level: Type.Number(),
+              permission_label: Type.String(),
+              granted_ts: Type.String(),
+              expires_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+            })),
+          })),
+          permissions_by_entity: Type.Array(Type.Object({
+            entity_name: Type.String(),
+            permissions: Type.Array(Type.Object({
+              person_type: Type.String(),
+              person_id: Type.String(),
+              person_name: Type.String(),
+              entity_id: Type.String(),
+              permission_level: Type.Number(),
+              permission_label: Type.String(),
+            })),
+          })),
+        }),
+        401: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      // Get all RBAC records with person and entity names
+      const rbacRecords = await db.execute(sql`
+        SELECT
+          rbac.id,
+          rbac.person_entity_name,
+          rbac.person_entity_id,
+          rbac.entity_name,
+          rbac.entity_id,
+          rbac.permission,
+          rbac.granted_ts,
+          rbac.expires_ts,
+          CASE
+            WHEN rbac.person_entity_name = 'employee' THEN COALESCE(emp.name, emp.first_name || ' ' || emp.last_name, emp.email)
+            WHEN rbac.person_entity_name = 'role' THEN role.name
+            ELSE NULL
+          END AS person_name,
+          CASE
+            WHEN rbac.person_entity_name = 'employee' THEN emp.code
+            WHEN rbac.person_entity_name = 'role' THEN role.code
+            ELSE NULL
+          END AS person_code
+        FROM app.entity_id_rbac_map rbac
+        LEFT JOIN app.d_employee emp ON rbac.person_entity_name = 'employee' AND rbac.person_entity_id = emp.id
+        LEFT JOIN app.d_role role ON rbac.person_entity_name = 'role' AND rbac.person_entity_id = role.id
+        WHERE rbac.active_flag = true
+        ORDER BY
+          rbac.person_entity_name,
+          CASE
+            WHEN rbac.person_entity_name = 'employee' THEN COALESCE(emp.name, emp.first_name || ' ' || emp.last_name, emp.email)
+            WHEN rbac.person_entity_name = 'role' THEN role.name
+            ELSE NULL
+          END,
+          rbac.entity_name,
+          rbac.permission DESC
+      `);
+
+      // Helper function to get permission label
+      const getPermissionLabel = (level: number): string => {
+        switch (level) {
+          case 0: return 'View';
+          case 1: return 'Edit';
+          case 2: return 'Share';
+          case 3: return 'Delete';
+          case 4: return 'Create';
+          case 5: return 'Owner';
+          default: return 'Unknown';
+        }
+      };
+
+      // Group by person
+      const personMap = new Map<string, any>();
+      const entityMap = new Map<string, any>();
+      const uniquePersons = new Set<string>();
+      const uniqueEntities = new Set<string>();
+      let roleBasedCount = 0;
+      let employeeCount = 0;
+
+      for (const record of rbacRecords) {
+        const personKey = `${record.person_entity_name}:${record.person_entity_id}`;
+        uniquePersons.add(personKey);
+        uniqueEntities.add(record.entity_name);
+
+        if (record.person_entity_name === 'role') {
+          roleBasedCount++;
+        } else {
+          employeeCount++;
+        }
+
+        // Group by person
+        if (!personMap.has(personKey)) {
+          personMap.set(personKey, {
+            person_type: record.person_entity_name,
+            person_id: record.person_entity_id,
+            person_name: record.person_name || 'Unknown',
+            person_code: record.person_code,
+            permissions: [],
+          });
+        }
+
+        const entity_display = record.entity_id === '11111111-1111-1111-1111-111111111111'
+          ? 'ALL (Type-level)'
+          : record.entity_id;
+
+        personMap.get(personKey).permissions.push({
+          entity_name: record.entity_name,
+          entity_id: record.entity_id,
+          entity_display: entity_display,
+          permission_level: record.permission,
+          permission_label: getPermissionLabel(record.permission),
+          granted_ts: record.granted_ts,
+          expires_ts: record.expires_ts,
+        });
+
+        // Group by entity
+        if (!entityMap.has(record.entity_name)) {
+          entityMap.set(record.entity_name, {
+            entity_name: record.entity_name,
+            permissions: [],
+          });
+        }
+
+        entityMap.get(record.entity_name).permissions.push({
+          person_type: record.person_entity_name,
+          person_id: record.person_entity_id,
+          person_name: record.person_name || 'Unknown',
+          entity_id: record.entity_id,
+          permission_level: record.permission,
+          permission_label: getPermissionLabel(record.permission),
+        });
+      }
+
+      return {
+        summary: {
+          total_permissions: rbacRecords.length,
+          role_based_permissions: roleBasedCount,
+          employee_permissions: employeeCount,
+          unique_persons: uniquePersons.size,
+          unique_entities: uniqueEntities.size,
+        },
+        permissions_by_person: Array.from(personMap.values()),
+        permissions_by_entity: Array.from(entityMap.values()),
+      };
+    } catch (error: any) {
+      fastify.log.error(`Error fetching RBAC overview: ${error.message}`, error);
+      console.error('[RBAC Overview] Full error:', error);
+      return reply.status(500).send({ error: `Internal server error: ${error.message}` });
+    }
+  });
+
+  // Custom schema endpoint for RBAC with computed columns
+  fastify.get('/api/v1/entity/rbac/schema', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      response: {
+        200: Type.Object({
+          entityType: Type.String(),
+          tableName: Type.String(),
+          columns: Type.Array(Type.Object({
+            key: Type.String(),
+            title: Type.String(),
+            dataType: Type.String(),
+            visible: Type.Boolean(),
+            width: Type.Optional(Type.String()),
+            align: Type.Optional(Type.Union([
+              Type.Literal('left'),
+              Type.Literal('center'),
+              Type.Literal('right')
+            ])),
+            format: Type.Object({
+              type: Type.String(),
+              settingsDatalabel: Type.Optional(Type.String()),
+              entityType: Type.Optional(Type.String()),
+              dateFormat: Type.Optional(Type.String())
+            }),
+            editable: Type.Boolean(),
+            editType: Type.String(),
+            sortable: Type.Boolean(),
+            filterable: Type.Boolean(),
+            dataSource: Type.Optional(Type.Object({
+              type: Type.Literal('settings'),
+              datalabel: Type.String()
+            }))
+          }))
+        }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      // Import schema builder service
+      const { buildEntitySchema } = await import('../../lib/schema-builder.service.js');
+
+      // Get base schema from database introspection
+      const baseSchema = await buildEntitySchema(db, 'rbac');
+
+      // Rename entity_name column to entity_type and ensure all base columns are present
+      const enhancedColumns = baseSchema.columns.map(col => {
+        if (col.key === 'entity_name') {
+          return {
+            ...col,
+            key: 'entity_type',
+            title: 'Entity Type'
+          };
+        }
+        // Ensure system columns are visible in schema but can be hidden via visible flag
+        if (col.key === 'id') {
+          return { ...col, visible: true, width: '100px', editable: false };
+        }
+        if (col.key === 'active_flag') {
+          return { ...col, visible: true, width: '100px', align: 'center' as const };
+        }
+        if (col.key === 'created_ts' || col.key === 'updated_ts') {
+          return { ...col, visible: true, format: { type: 'relative-time' as const } };
+        }
+        return col;
+      });
+
+      // Add computed columns that come from JOINs and ensure system columns exist
+      const computedColumns = [
+        {
+          key: 'person_name',
+          title: 'Person Name',
+          dataType: 'character varying',
+          visible: true,
+          format: { type: 'text' },
+          editable: false,
+          editType: 'readonly' as const,
+          sortable: true,
+          filterable: true,
+          width: '200px',
+          align: 'left' as const
+        },
+        {
+          key: 'entity_name',
+          title: 'Entity Name',
+          dataType: 'character varying',
+          visible: true,
+          format: { type: 'text' },
+          editable: false,
+          editType: 'readonly' as const,
+          sortable: true,
+          filterable: true,
+          width: '200px',
+          align: 'left' as const
+        },
+        {
+          key: 'permission_label',
+          title: 'Permission',
+          dataType: 'character varying',
+          visible: true,
+          format: {
+            type: 'badge',
+            valueMap: {
+              'View': { label: 'View', color: 'blue' },
+              'Edit': { label: 'Edit', color: 'green' },
+              'Share': { label: 'Share', color: 'yellow' },
+              'Delete': { label: 'Delete', color: 'red' },
+              'Create': { label: 'Create', color: 'purple' },
+              'Owner': { label: 'Owner', color: 'pink' }
+            }
+          },
+          editable: false,
+          editType: 'readonly' as const,
+          sortable: true,
+          filterable: true,
+          width: '120px',
+          align: 'center' as const
+        },
+        {
+          key: 'granted_by_name',
+          title: 'Granted By',
+          dataType: 'character varying',
+          visible: true,
+          format: { type: 'text' },
+          editable: false,
+          editType: 'readonly' as const,
+          sortable: true,
+          filterable: true,
+          width: '150px',
+          align: 'left' as const
+        }
+      ];
+
+      // Create a map of existing columns FIRST
+      const columnMap = new Map(enhancedColumns.map(col => [col.key, col]));
+
+      // Ensure system columns exist (they may be filtered by schema builder)
+      if (!columnMap.has('id')) {
+        columnMap.set('id', {
+          key: 'id',
+          title: 'ID',
+          dataType: 'uuid',
+          visible: true,
+          format: { type: 'text' },
+          editable: false,
+          editType: 'readonly' as const,
+          sortable: true,
+          filterable: true,
+          width: '100px',
+          align: 'left' as const
+        });
+      }
+      if (!columnMap.has('active_flag')) {
+        columnMap.set('active_flag', {
+          key: 'active_flag',
+          title: 'Active',
+          dataType: 'boolean',
+          visible: true,
+          format: { type: 'boolean' },
+          editable: true,
+          editType: 'boolean' as const,
+          sortable: true,
+          filterable: true,
+          width: '100px',
+          align: 'center' as const
+        });
+      }
+      if (!columnMap.has('created_ts')) {
+        columnMap.set('created_ts', {
+          key: 'created_ts',
+          title: 'Created',
+          dataType: 'timestamp with time zone',
+          visible: true,
+          format: { type: 'relative-time' },
+          editable: false,
+          editType: 'readonly' as const,
+          sortable: true,
+          filterable: true,
+          width: '150px',
+          align: 'left' as const
+        });
+      }
+      if (!columnMap.has('updated_ts')) {
+        columnMap.set('updated_ts', {
+          key: 'updated_ts',
+          title: 'Updated',
+          dataType: 'timestamp with time zone',
+          visible: true,
+          format: { type: 'relative-time' },
+          editable: false,
+          editType: 'readonly' as const,
+          sortable: true,
+          filterable: true,
+          width: '150px',
+          align: 'left' as const
+        });
+      }
+
+      // Reorder columns to match data endpoint order and insert computed columns
+      const columnOrder = [
+        'id',
+        'person_entity_name',
+        'person_name', // computed
+        'person_entity_id',
+        'entity_type',
+        'entity_name', // computed
+        'entity_id',
+        'permission',
+        'permission_label', // computed
+        'granted_by_employee_id',
+        'granted_by_name', // computed
+        'granted_ts',
+        'expires_ts',
+        'active_flag',
+        'created_ts',
+        'updated_ts'
+      ];
+
+      // Add computed columns to the map
+      const computedColumnMap = new Map([
+        ['person_name', computedColumns[0]],
+        ['entity_name', computedColumns[1]],
+        ['permission_label', computedColumns[2]],
+        ['granted_by_name', computedColumns[3]]
+      ]);
+
+      // Build final column array in correct order
+      const orderedColumns = columnOrder
+        .map(key => {
+          // Check if it's a computed column
+          if (computedColumnMap.has(key)) {
+            return computedColumnMap.get(key);
+          }
+          // Otherwise get from base columns
+          return columnMap.get(key);
+        })
+        .filter(col => col !== undefined); // Remove any undefined columns
+
+      // Hide numeric permission column
+      const permissionCol = orderedColumns.find(col => col.key === 'permission');
+      if (permissionCol) {
+        permissionCol.visible = false;
+      }
+
+      return {
+        entityType: 'rbac',
+        tableName: baseSchema.tableName,
+        columns: orderedColumns
+      };
+    } catch (error) {
+      fastify.log.error('Error building RBAC schema:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

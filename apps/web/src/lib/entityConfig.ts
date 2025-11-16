@@ -2,8 +2,6 @@ import React from 'react';
 import {
   SETTINGS_REGISTRY,
   createSettingsEntityConfig,
-  renderColorBadge,
-  renderSettingBadge,
   applySettingsBadgeRenderers
 } from './settingsConfig';
 import type { SettingOption } from './settingsLoader';
@@ -765,8 +763,10 @@ export const entityConfigs: Record<string, EntityConfig> = {
     pluralName: 'Permissions',
     apiEndpoint: '/api/v1/rbac',
 
-    columns: [], // Auto-generated (v4.0)
+    columns: [], // Auto-generated from API schema (v4.0)
 
+    // NOTE: RBAC fields use basic types for now. Future enhancement: add autocomplete support
+    // See /api/v1/entity/types for entity types, /api/v1/entity/{type}/options for instances
     fields: [
       {
         key: 'person_entity_name',
@@ -776,26 +776,37 @@ export const entityConfigs: Record<string, EntityConfig> = {
         options: [
           { value: 'role', label: 'Role' },
           { value: 'employee', label: 'Employee' }
-        ]
+        ],
+        placeholder: 'Select person type'
       },
       {
         key: 'person_entity_id',
-        label: 'Person',
+        label: 'Person ID',
         type: 'text',
-        required: true
+        required: true,
+        placeholder: 'Enter person UUID or use lookup',
+        // TODO: Convert to autocomplete with /api/v1/entity/{person_entity_name}/options
+        loadOptionsFromEntity: 'person_entity_name', // Dynamic: role or employee
+        description: 'Tip: Use /api/v1/entity/employee/options or /api/v1/entity/role/options to find IDs'
       },
       {
         key: 'entity_name',
         label: 'Entity Type',
         type: 'text',
-        required: true
+        required: true,
+        placeholder: 'e.g., project, task, employee, office',
+        // TODO: Convert to searchable dropdown with /api/v1/entity/types
+        description: 'Entity type code (project, task, employee, role, office, business, etc.)'
       },
       {
         key: 'entity_id',
         label: 'Entity ID',
         type: 'text',
         required: true,
-        helpText: 'Use "all" for type-level permissions or specific UUID for instance-level'
+        placeholder: 'Enter UUID or "11111111-1111-1111-1111-111111111111" for type-level',
+        // TODO: Convert to autocomplete with /api/v1/entity/{entity_name}/options
+        // Should allow "all" → converts to ALL_ENTITIES_ID
+        description: 'Entity UUID or "11111111-1111-1111-1111-111111111111" for all entities of this type'
       },
       {
         key: 'permission',
@@ -803,28 +814,26 @@ export const entityConfigs: Record<string, EntityConfig> = {
         type: 'select',
         required: true,
         options: [
-          { value: 0, label: 'View (0)' },
-          { value: 1, label: 'Edit (1)' },
-          { value: 2, label: 'Share (2)' },
-          { value: 3, label: 'Delete (3)' },
-          { value: 4, label: 'Create (4)' },
-          { value: 5, label: 'Owner (5)' }
-        ]
+          { value: '0', label: 'View (0)' },
+          { value: '1', label: 'Edit (1)' },
+          { value: '2', label: 'Share (2)' },
+          { value: '3', label: 'Delete (3)' },
+          { value: '4', label: 'Create (4)' },
+          { value: '5', label: 'Owner (5)' }
+        ],
+        placeholder: 'Select permission level'
       },
       {
         key: 'expires_ts',
         label: 'Expiration Date',
-        type: 'datetime',
-        helpText: 'Optional: Set expiration for temporary permissions'
-      },
-      { key: 'granted_by_empid', label: 'Granted By', type: 'text', readonly: true },
-      { key: 'granted_ts', label: 'Granted Date', type: 'datetime', readonly: true },
-      { key: 'active_flag', label: 'Active', type: 'checkbox', readonly: true }
+        type: 'date',
+        required: false,
+        placeholder: 'Optional expiration date'
+      }
     ],
 
     supportedViews: ['table'],
-    defaultView: 'table',
-    inlineEdit: true
+    defaultView: 'table'
   },
 
   // --------------------------------------------------------------------------

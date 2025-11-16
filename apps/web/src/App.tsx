@@ -48,6 +48,7 @@ import { SecurityPage } from './pages/security';
 import { BillingPage } from './pages/billing';
 import { LinkagePage } from './pages/LinkagePage';
 import { WorkflowAutomationPage } from './pages/WorkflowAutomationPage';
+import { RBACOverviewPage } from './pages/RBACOverviewPage';
 
 // Shared/Universal Components
 import { EntityMainPage, EntityDetailPage, EntityChildListPage, EntityCreatePage, SharedURLEntityPage } from './pages/shared';
@@ -283,6 +284,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <IntegrationsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rbac"
+        element={
+          <ProtectedRoute>
+            <RBACOverviewPage />
           </ProtectedRoute>
         }
       />

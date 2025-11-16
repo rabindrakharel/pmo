@@ -1153,12 +1153,9 @@ export async function entityRoutes(fastify: FastifyInstance) {
       // Import schema builder service
       const { buildEntitySchema } = await import('../../lib/schema-builder.service.js');
 
-      // Determine table name (most entities use d_ prefix, some use f_ prefix)
-      const tablePrefix = ['expense', 'invoice', 'quote', 'work_order'].includes(normalizedEntityType) ? 'f_' : 'd_';
-      const tableName = `app.${tablePrefix}${normalizedEntityType}`;
-
-      // Build schema from database introspection
-      const schema = await buildEntitySchema(db, normalizedEntityType, tableName);
+      // ✨ FULLY DYNAMIC: Table name auto-fetched from d_entity.db_table!
+      // No more hardcoded table mappings!
+      const schema = await buildEntitySchema(db, normalizedEntityType);
 
       return schema;
     } catch (error) {
