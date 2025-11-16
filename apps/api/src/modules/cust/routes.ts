@@ -11,8 +11,8 @@ import {
 import { transformRequestBody } from '../../lib/data-transformers.js';
 // ✅ Centralized unified data gate - loosely coupled API
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
-// ✅ Centralized linkage service - DRY entity relationship management
-import { createLinkage } from '../../services/linkage.service.js';
+// ✨ Entity Infrastructure Service - centralized infrastructure operations
+import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Delete factory for cascading soft deletes
@@ -109,6 +109,9 @@ const ENTITY_TYPE = 'cust';
 const TABLE_ALIAS = 'c';
 
 export async function custRoutes(fastify: FastifyInstance) {
+  // ✨ Initialize Entity Infrastructure Service
+  const entityInfra = getEntityInfrastructure(db);
+
   // Test endpoint
   fastify.get('/api/v1/cust/test', async (request, reply) => {
     try {
@@ -299,13 +302,24 @@ export async function custRoutes(fastify: FastifyInstance) {
 
   // Create customer
   fastify.post('/api/v1/cust', {
+    preHandler: [fastify.authenticate],
     schema: {
       body: CreateCustSchema,
+      querystring: Type.Object({
+        parent_type: Type.Optional(Type.String()),
+        parent_id: Type.Optional(Type.String({ format: 'uuid' }))}),
       response: {
         201: CustSchema,
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    const { parent_type, parent_id } = request.query as any;
+
     // Transform request data (tags string → array, etc.)
     const data = transformRequestBody(request.body as any);
 
@@ -331,6 +345,26 @@ export async function custRoutes(fastify: FastifyInstance) {
     }
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 1
+      // Check: Can user CREATE customers?
+      // ═══════════════════════════════════════════════════════════════
+      const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
+      if (!canCreate) {
+        return reply.status(403).send({ error: 'No permission to create customers' });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 2
+      // Check: If linking to parent, can user EDIT parent?
+      // ═══════════════════════════════════════════════════════════════
+      if (parent_type && parent_id) {
+        const canEditParent = await entityInfra.check_entity_rbac(userId, parent_type, parent_id, Permission.EDIT);
+        if (!canEditParent) {
+          return reply.status(403).send({ error: `No permission to link customer to this ${parent_type}` });
+        }
+      }
+
       // Check for unique customer number
       const existingCust = await db.execute(sql`
         SELECT id FROM app.d_cust
@@ -341,6 +375,7 @@ export async function custRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'Customer with this customer number already exists' });
       }
 
+      // ✅ Route owns INSERT query
       const result = await db.execute(sql`
         INSERT INTO app.d_cust (
           code, name, "descr", cust_number, cust_type, cust_status,
@@ -389,12 +424,43 @@ export async function custRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({ error: 'Failed to create customer' });
       }
 
+      const newCustomer = result[0] as any;
+      const custId = newCustomer.id;
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance in registry
+      // ═══════════════════════════════════════════════════════════════
+      await entityInfra.set_entity_instance_registry({
+        entity_type: ENTITY_TYPE,
+        entity_id: custId,
+        entity_name: newCustomer.name,
+        entity_code: newCustomer.code
+      });
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Grant ownership to creator
+      // ═══════════════════════════════════════════════════════════════
+      await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, custId);
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Link to parent (if provided)
+      // ═══════════════════════════════════════════════════════════════
+      if (parent_type && parent_id) {
+        await entityInfra.set_entity_instance_link({
+          parent_entity_type: parent_type,
+          parent_entity_id: parent_id,
+          child_entity_type: ENTITY_TYPE,
+          child_entity_id: custId,
+          relationship_type: 'contains'
+        });
+      }
+
       const userPermissions = {
         canSeePII: true,
         canSeeFinancial: true,
         canSeeSystemFields: true};
-      
-      return reply.status(201).send(filterUniversalColumns(result[0], userPermissions));
+
+      return reply.status(201).send(filterUniversalColumns(newCustomer, userPermissions));
     } catch (error) {
       fastify.log.error('Error creating customer:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -415,11 +481,25 @@ export async function custRoutes(fastify: FastifyInstance) {
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
     const { id } = request.params as { id: string };
     // Transform request data (tags string → array, etc.)
     const data = transformRequestBody(request.body as any);
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user EDIT this customer?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit this customer' });
+      }
+
       const existing = await db.execute(sql`
         SELECT id FROM app.d_cust WHERE id = ${id}
       `);
@@ -484,6 +564,7 @@ export async function custRoutes(fastify: FastifyInstance) {
 
       updateFields.push(sql`updated_ts = NOW()`);
 
+      // ✅ Route owns UPDATE query
       const result = await db.execute(sql`
         UPDATE app.d_cust
         SET ${sql.join(updateFields, sql`, `)}
@@ -493,6 +574,16 @@ export async function custRoutes(fastify: FastifyInstance) {
 
       if (result.length === 0) {
         return reply.status(500).send({ error: 'Failed to update customer' });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
+      // ═══════════════════════════════════════════════════════════════
+      if (data.name !== undefined || data.code !== undefined) {
+        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+          entity_name: data.name,
+          entity_code: data.code
+        });
       }
 
       const userPermissions = {
@@ -521,11 +612,25 @@ export async function custRoutes(fastify: FastifyInstance) {
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
     const { id } = request.params as { id: string };
     // Transform request data (tags string → array, etc.)
     const data = transformRequestBody(request.body as any);
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user EDIT this customer?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit this customer' });
+      }
+
       const existing = await db.execute(sql`
         SELECT id FROM app.d_cust WHERE id = ${id}
       `);
@@ -599,6 +704,16 @@ export async function custRoutes(fastify: FastifyInstance) {
 
       if (result.length === 0) {
         return reply.status(500).send({ error: 'Failed to update customer' });
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
+      // ═══════════════════════════════════════════════════════════════
+      if (data.name !== undefined || data.code !== undefined) {
+        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+          entity_name: data.name,
+          entity_code: data.code
+        });
       }
 
       const userPermissions = {
