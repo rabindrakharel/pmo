@@ -5,7 +5,7 @@ import type { Column, RowAction } from '../ui/EntityDataTable';
 import { useNavigate } from 'react-router-dom';
 import { ActionButtonsBar } from '../button/ActionButtonsBar';
 import { getEntityConfig, type EntityConfig } from '../../../lib/entityConfig';
-import { transformForApi, transformFromApi, formatFieldValue } from '../../../lib/universalFormatterService';
+import { transformForApi, transformFromApi, formatFieldValue, renderFieldDisplay } from '../../../lib/universalFormatterService';
 import { useColumnVisibility } from '../../../lib/hooks/useColumnVisibility';
 import { useEntitySchema } from '../../../lib/hooks/useEntitySchema';
 import type { SchemaColumn } from '../../../lib/types/table';
@@ -97,8 +97,8 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         editType: col.editType as any,
         loadOptionsFromSettings: col.dataSource?.type === 'settings',
 
-        // Schema-driven formatting
-        render: (value: any) => formatFieldValue(value, col.format.type)
+        // Schema-driven formatting - use renderFieldDisplay for React elements (badges, etc.)
+        render: (value: any) => renderFieldDisplay(value, col.format)
       })) as Column[];
     }
 

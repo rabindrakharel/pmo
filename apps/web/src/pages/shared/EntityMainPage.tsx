@@ -38,6 +38,9 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const { collapseSidebar } = useSidebar();
 
   // Check if this is a settings entity
@@ -57,7 +60,7 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
     }
   }, [view, entityType]);
 
-  const loadData = async () => {
+  const loadData = async (page: number = 1, append: boolean = false) => {
     try {
       setLoading(true);
       setError(null);
@@ -65,15 +68,23 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
       // Type-safe API call using APIFactory
       const api = APIFactory.getAPI(entityType);
 
-      // Load all calendar slots (both available and booked) - filtering by person happens client-side
-      const params: any = { page: 1, pageSize: 1000 };
+      // Use pageSize of 100 to align with API maximum limit
+      const params: any = { page, pageSize: 100 };
 
       const response = await api.list(params);
-      setData(response.data || []);
+      const newData = response.data || [];
+
+      // Append to existing data for pagination, or replace for initial load
+      setData(append ? [...data, ...newData] : newData);
+      setTotalRecords(response.total || 0);
+      setCurrentPage(page);
+      setHasMore(newData.length === 100); // If we got 100 records, there might be more
     } catch (err) {
       console.error(`Failed to load ${entityType}:`, err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
-      setData([]);
+      if (!append) {
+        setData([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -88,6 +99,10 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
 
   const handleCreateClick = () => {
     navigate(`/${entityType}/new`);
+  };
+
+  const handleLoadMore = () => {
+    loadData(currentPage + 1, true);
   };
 
   const handleBulkShare = (selectedItems: any[]) => {
@@ -181,14 +196,26 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
     // KANBAN VIEW - Settings-driven, no fallbacks
     if (view === 'kanban' && config.kanban) {
       return (
-        <div className="bg-dark-100 rounded-md shadow p-6 h-full overflow-x-auto">
-          <KanbanView
-            config={config}
-            data={data}
-            onCardClick={handleRowClick}
-            onCardMove={handleCardMove}
-            emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
-          />
+        <div className="space-y-4">
+          <div className="bg-dark-100 rounded-md shadow p-6 h-full overflow-x-auto">
+            <KanbanView
+              config={config}
+              data={data}
+              onCardClick={handleRowClick}
+              onCardMove={handleCardMove}
+              emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
+            />
+          </div>
+          {hasMore && !loading && (
+            <div className="flex justify-center">
+              <button
+                onClick={handleLoadMore}
+                className="px-4 py-2 bg-dark-700 text-white rounded-md hover:bg-dark-800 transition-colors"
+              >
+                Load More ({data.length} of {totalRecords})
+              </button>
+            </div>
+          )}
         </div>
       );
     }
@@ -196,17 +223,29 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
     // GRID VIEW
     if (view === 'grid' && config.grid) {
       return (
-        <div className="bg-dark-100 rounded-md shadow p-6">
-          <GridView
-            items={data}
-            onItemClick={handleRowClick}
-            columns={3}
-            emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
-            titleField={config.grid.cardFields[0] || 'name'}
-            descriptionField={config.grid.cardFields[1] || 'descr'}
-            badgeFields={config.grid.cardFields.slice(2) || []}
-            imageField={config.grid.imageField}
-          />
+        <div className="space-y-4">
+          <div className="bg-dark-100 rounded-md shadow p-6">
+            <GridView
+              items={data}
+              onItemClick={handleRowClick}
+              columns={3}
+              emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
+              titleField={config.grid.cardFields[0] || 'name'}
+              descriptionField={config.grid.cardFields[1] || 'descr'}
+              badgeFields={config.grid.cardFields.slice(2) || []}
+              imageField={config.grid.imageField}
+            />
+          </div>
+          {hasMore && !loading && (
+            <div className="flex justify-center">
+              <button
+                onClick={handleLoadMore}
+                className="px-4 py-2 bg-dark-700 text-white rounded-md hover:bg-dark-800 transition-colors"
+              >
+                Load More ({data.length} of {totalRecords})
+              </button>
+            </div>
+          )}
         </div>
       );
     }
@@ -214,13 +253,25 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
     // CALENDAR VIEW - Person-filterable calendar grid showing all slots (available + booked)
     if (view === 'calendar') {
       return (
-        <div className="bg-dark-100 rounded-md shadow p-6">
-          <CalendarView
-            config={config}
-            data={data}
-            onSlotClick={handleRowClick}
-            emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
-          />
+        <div className="space-y-4">
+          <div className="bg-dark-100 rounded-md shadow p-6">
+            <CalendarView
+              config={config}
+              data={data}
+              onSlotClick={handleRowClick}
+              emptyMessage={`No ${config.pluralName.toLowerCase()} found`}
+            />
+          </div>
+          {hasMore && !loading && (
+            <div className="flex justify-center">
+              <button
+                onClick={handleLoadMore}
+                className="px-4 py-2 bg-dark-700 text-white rounded-md hover:bg-dark-800 transition-colors"
+              >
+                Load More ({data.length} of {totalRecords})
+              </button>
+            </div>
+          )}
         </div>
       );
     }

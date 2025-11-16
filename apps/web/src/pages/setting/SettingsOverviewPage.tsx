@@ -170,7 +170,7 @@ export function SettingsOverviewPage() {
       const token = localStorage.getItem('auth_token');
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
-      const response = await fetch(`${apiBaseUrl}/api/v1/role?limit=1000`, {
+      const response = await fetch(`${apiBaseUrl}/api/v1/role?limit=100`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
