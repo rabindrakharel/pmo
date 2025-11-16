@@ -6,9 +6,9 @@
  * PURPOSE:
  * Centralized, self-contained service for managing entity infrastructure:
  *   • d_entity (entity type metadata)
- *   • d_entity_instance_id (instance registry)
- *   • d_entity_id_map (relationships/linkages)
- *   • entity_id_rbac_map (permissions + RBAC logic)
+ *   • d_entity_instance_registry (instance registry)
+ *   • d_entity_instance_link (relationships/linkages)
+ *   • d_entity_rbac (permissions + RBAC logic)
  *
  * DESIGN PATTERN: Add-On Helper
  *   ✅ Service ONLY manages infrastructure tables
@@ -201,7 +201,7 @@ export class EntityInfrastructureService {
   }
 
   // ==========================================================================
-  // SECTION 2: Instance Registry (d_entity_instance_id)
+  // SECTION 2: Instance Registry (d_entity_instance_registry)
   // ==========================================================================
 
   /**
@@ -225,7 +225,7 @@ export class EntityInfrastructureService {
     const { entity_type, entity_id, entity_name, entity_code } = params;
 
     const result = await this.db.execute(sql`
-      INSERT INTO app.d_entity_instance_id
+      INSERT INTO app.d_entity_instance_registry
       (entity_type, entity_id, entity_name, entity_code, active_flag)
       VALUES (${entity_type}, ${entity_id}, ${entity_name}, ${entity_code || null}, true)
       ON CONFLICT (entity_type, entity_id) DO UPDATE
@@ -264,7 +264,7 @@ export class EntityInfrastructureService {
 
     values.push(entity_type, entity_id);
     const query = `
-      UPDATE app.d_entity_instance_id
+      UPDATE app.d_entity_instance_registry
       SET ${setClauses.join(', ')}
       WHERE entity_type = $${values.length - 1} AND entity_id = $${values.length}
       RETURNING *
@@ -279,7 +279,7 @@ export class EntityInfrastructureService {
    */
   async deactivateInstance(entity_type: string, entity_id: string): Promise<EntityInstance | null> {
     const result = await this.db.execute(sql`
-      UPDATE app.d_entity_instance_id
+      UPDATE app.d_entity_instance_registry
       SET active_flag = false, updated_ts = now()
       WHERE entity_type = ${entity_type} AND entity_id = ${entity_id}
       RETURNING *
@@ -298,7 +298,7 @@ export class EntityInfrastructureService {
   ): Promise<boolean> {
     const result = await this.db.execute(sql`
       SELECT EXISTS(
-        SELECT 1 FROM app.d_entity_instance_id
+        SELECT 1 FROM app.d_entity_instance_registry
         WHERE entity_type = ${entity_type} AND entity_id = ${entity_id}
           ${require_active ? sql`AND active_flag = true` : sql``}
       ) AS exists
@@ -308,7 +308,7 @@ export class EntityInfrastructureService {
   }
 
   // ==========================================================================
-  // SECTION 3: Relationship Management (d_entity_id_map)
+  // SECTION 3: Relationship Management (d_entity_instance_link)
   // ==========================================================================
 
   /**
@@ -347,7 +347,7 @@ export class EntityInfrastructureService {
     // }
 
     const result = await this.db.execute(sql`
-      INSERT INTO app.d_entity_id_map
+      INSERT INTO app.d_entity_instance_link
       (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type, active_flag)
       VALUES (${parent_entity_type}, ${parent_entity_id}, ${child_entity_type}, ${child_entity_id}, ${relationship_type}, true)
       ON CONFLICT (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
@@ -363,7 +363,7 @@ export class EntityInfrastructureService {
    */
   async deleteLinkage(linkage_id: string): Promise<EntityRelationship | null> {
     const result = await this.db.execute(sql`
-      UPDATE app.d_entity_id_map
+      UPDATE app.d_entity_instance_link
       SET active_flag = false, updated_ts = now()
       WHERE id = ${linkage_id}
       RETURNING *
@@ -383,7 +383,7 @@ export class EntityInfrastructureService {
   ): Promise<string[]> {
     const result = await this.db.execute(sql`
       SELECT child_entity_id
-      FROM app.d_entity_id_map
+      FROM app.d_entity_instance_link
       WHERE parent_entity_type = ${parent_entity_type}
         AND parent_entity_id = ${parent_entity_id}
         AND child_entity_type = ${child_entity_type}
@@ -394,14 +394,14 @@ export class EntityInfrastructureService {
   }
 
   // ==========================================================================
-  // SECTION 4: Permission Management (entity_id_rbac_map)
+  // SECTION 4: Permission Management (d_entity_rbac)
   // ==========================================================================
 
   /**
    * Check if user has specific permission on entity
    *
    * Permission resolution (automatic inheritance):
-   * 1. Direct employee permissions (entity_id_rbac_map)
+   * 1. Direct employee permissions (d_entity_rbac)
    * 2. Role-based permissions (employee → role → permissions)
    * 3. Parent-VIEW inheritance (if parent has VIEW, child gains VIEW)
    * 4. Parent-CREATE inheritance (if parent has CREATE, child gains CREATE)
@@ -444,11 +444,11 @@ export class EntityInfrastructureService {
       WITH
       -- ---------------------------------------------------------------------------
       -- 1. DIRECT EMPLOYEE PERMISSIONS
-      --    Check entity_id_rbac_map for direct employee permissions
+      --    Check d_entity_rbac for direct employee permissions
       -- ---------------------------------------------------------------------------
       direct_emp AS (
         SELECT permission
-        FROM app.entity_id_rbac_map
+        FROM app.d_entity_rbac
         WHERE person_entity_name = 'employee'
           AND person_entity_id = ${user_id}::uuid
           AND entity_name = ${entity_type}
@@ -463,8 +463,8 @@ export class EntityInfrastructureService {
       -- ---------------------------------------------------------------------------
       role_based AS (
         SELECT rbac.permission
-        FROM app.entity_id_rbac_map rbac
-        INNER JOIN app.d_entity_id_map eim
+        FROM app.d_entity_rbac rbac
+        INNER JOIN app.d_entity_instance_link eim
           ON eim.parent_entity_type = 'role'
           AND eim.parent_entity_id = rbac.person_entity_id
           AND eim.child_entity_type = 'employee'
@@ -496,7 +496,7 @@ export class EntityInfrastructureService {
         FROM parent_entities pe
 
         -- direct employee permissions on parent
-        LEFT JOIN app.entity_id_rbac_map emp
+        LEFT JOIN app.d_entity_rbac emp
           ON emp.person_entity_name = 'employee'
           AND emp.person_entity_id = ${user_id}
           AND emp.entity_name = pe.parent_entity_name
@@ -504,13 +504,13 @@ export class EntityInfrastructureService {
           AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
 
         -- role permissions on parent
-        LEFT JOIN app.entity_id_rbac_map rbac
+        LEFT JOIN app.d_entity_rbac rbac
           ON rbac.person_entity_name = 'role'
           AND rbac.entity_name = pe.parent_entity_name
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
 
-        LEFT JOIN app.d_entity_id_map eim
+        LEFT JOIN app.d_entity_instance_link eim
           ON eim.parent_entity_type = 'role'
           AND eim.parent_entity_id = rbac.person_entity_id
           AND eim.child_entity_type = 'employee'
@@ -530,20 +530,20 @@ export class EntityInfrastructureService {
         SELECT 4 AS permission
         FROM parent_entities pe
 
-        LEFT JOIN app.entity_id_rbac_map emp
+        LEFT JOIN app.d_entity_rbac emp
           ON emp.person_entity_name = 'employee'
           AND emp.person_entity_id = ${user_id}
           AND emp.entity_name = pe.parent_entity_name
           AND emp.active_flag = true
           AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
 
-        LEFT JOIN app.entity_id_rbac_map rbac
+        LEFT JOIN app.d_entity_rbac rbac
           ON rbac.person_entity_name = 'role'
           AND rbac.entity_name = pe.parent_entity_name
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
 
-        LEFT JOIN app.d_entity_id_map eim
+        LEFT JOIN app.d_entity_instance_link eim
           ON eim.parent_entity_type = 'role'
           AND eim.parent_entity_id = rbac.person_entity_id
           AND eim.child_entity_type = 'employee'
@@ -588,12 +588,12 @@ export class EntityInfrastructureService {
     permission_level: Permission
   ): Promise<any> {
     const result = await this.db.execute(sql`
-      INSERT INTO app.entity_id_rbac_map
+      INSERT INTO app.d_entity_rbac
       (person_entity_name, person_entity_id, entity_name, entity_id, permission, active_flag)
       VALUES ('employee', ${user_id}, ${entity_type}, ${entity_id}, ${permission_level}, true)
       ON CONFLICT (person_entity_name, person_entity_id, entity_name, entity_id)
       DO UPDATE SET
-        permission = GREATEST(entity_id_rbac_map.permission, EXCLUDED.permission),
+        permission = GREATEST(d_entity_rbac.permission, EXCLUDED.permission),
         active_flag = true,
         updated_ts = now()
       RETURNING *
@@ -623,7 +623,7 @@ export class EntityInfrastructureService {
     entity_id: string
   ): Promise<void> {
     await this.db.execute(sql`
-      DELETE FROM app.entity_id_rbac_map
+      DELETE FROM app.d_entity_rbac
       WHERE person_entity_id = ${user_id}
         AND entity_name = ${entity_type}
         AND entity_id = ${entity_id}
@@ -707,7 +707,7 @@ export class EntityInfrastructureService {
       -- ---------------------------------------------------------------------------
       direct_emp AS (
         SELECT entity_id, permission
-        FROM app.entity_id_rbac_map
+        FROM app.d_entity_rbac
         WHERE person_entity_name = 'employee'
           AND person_entity_id = ${user_id}::uuid
           AND entity_name = ${entity_type}
@@ -721,8 +721,8 @@ export class EntityInfrastructureService {
       -- ---------------------------------------------------------------------------
       role_based AS (
         SELECT rbac.entity_id, rbac.permission
-        FROM app.entity_id_rbac_map rbac
-        INNER JOIN app.d_entity_id_map eim
+        FROM app.d_entity_rbac rbac
+        INNER JOIN app.d_entity_instance_link eim
           ON eim.parent_entity_type = 'role'
           AND eim.parent_entity_id = rbac.person_entity_id
           AND eim.child_entity_type = 'employee'
@@ -741,7 +741,7 @@ export class EntityInfrastructureService {
       parents_with_view AS (
         SELECT DISTINCT emp.entity_id AS parent_id, pe.parent_entity_name
         FROM parent_entities pe
-        INNER JOIN app.entity_id_rbac_map emp
+        INNER JOIN app.d_entity_rbac emp
           ON emp.person_entity_name = 'employee'
           AND emp.person_entity_id = ${user_id}::uuid
           AND emp.entity_name = pe.parent_entity_name
@@ -751,13 +751,13 @@ export class EntityInfrastructureService {
         UNION
         SELECT DISTINCT rbac.entity_id AS parent_id, pe.parent_entity_name
         FROM parent_entities pe
-        INNER JOIN app.entity_id_rbac_map rbac
+        INNER JOIN app.d_entity_rbac rbac
           ON rbac.person_entity_name = 'role'
           AND rbac.entity_name = pe.parent_entity_name
           AND rbac.permission >= 0
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        INNER JOIN app.d_entity_id_map eim
+        INNER JOIN app.d_entity_instance_link eim
           ON eim.parent_entity_type = 'role'
           AND eim.parent_entity_id = rbac.person_entity_id
           AND eim.child_entity_type = 'employee'
@@ -771,7 +771,7 @@ export class EntityInfrastructureService {
       children_from_view AS (
         SELECT DISTINCT eim.child_entity_id AS entity_id, 0 AS permission
         FROM parents_with_view pw
-        INNER JOIN app.d_entity_id_map eim
+        INNER JOIN app.d_entity_instance_link eim
           ON eim.parent_entity_type = pw.parent_entity_name
           AND eim.parent_entity_id = pw.parent_id
           AND eim.child_entity_type = ${entity_type}
@@ -784,7 +784,7 @@ export class EntityInfrastructureService {
       parents_with_create AS (
         SELECT DISTINCT emp.entity_id AS parent_id, pe.parent_entity_name
         FROM parent_entities pe
-        INNER JOIN app.entity_id_rbac_map emp
+        INNER JOIN app.d_entity_rbac emp
           ON emp.person_entity_name = 'employee'
           AND emp.person_entity_id = ${user_id}::uuid
           AND emp.entity_name = pe.parent_entity_name
@@ -794,13 +794,13 @@ export class EntityInfrastructureService {
         UNION
         SELECT DISTINCT rbac.entity_id AS parent_id, pe.parent_entity_name
         FROM parent_entities pe
-        INNER JOIN app.entity_id_rbac_map rbac
+        INNER JOIN app.d_entity_rbac rbac
           ON rbac.person_entity_name = 'role'
           AND rbac.entity_name = pe.parent_entity_name
           AND rbac.permission >= 4
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        INNER JOIN app.d_entity_id_map eim
+        INNER JOIN app.d_entity_instance_link eim
           ON eim.parent_entity_type = 'role'
           AND eim.parent_entity_id = rbac.person_entity_id
           AND eim.child_entity_type = 'employee'
@@ -814,7 +814,7 @@ export class EntityInfrastructureService {
       children_from_create AS (
         SELECT DISTINCT eim.child_entity_id AS entity_id, 4 AS permission
         FROM parents_with_create pc
-        INNER JOIN app.d_entity_id_map eim
+        INNER JOIN app.d_entity_instance_link eim
           ON eim.parent_entity_type = pc.parent_entity_name
           AND eim.parent_entity_id = pc.parent_id
           AND eim.child_entity_type = ${entity_type}
@@ -856,8 +856,8 @@ export class EntityInfrastructureService {
    * Orchestrates deletion across all infrastructure tables:
    * 1. Check DELETE permission
    * 2. Optionally cascade delete children
-   * 3. Deactivate in d_entity_instance_id
-   * 4. Deactivate linkages in d_entity_id_map
+   * 3. Deactivate in d_entity_instance_registry
+   * 4. Deactivate linkages in d_entity_instance_link
    * 5. Optionally remove RBAC entries
    * 6. Optionally delete from primary table via callback
    *
@@ -916,7 +916,7 @@ export class EntityInfrastructureService {
     // Step 2: Handle cascading child deletes (if requested)
     if (cascade_delete_children) {
       const childLinkages = await this.db.execute(sql`
-        SELECT * FROM app.d_entity_id_map
+        SELECT * FROM app.d_entity_instance_link
         WHERE parent_entity_type = ${entity_type}
           AND parent_entity_id = ${entity_id}
           AND active_flag = true
@@ -938,10 +938,10 @@ export class EntityInfrastructureService {
       }
     }
 
-    // Step 3: Deactivate in d_entity_instance_id
+    // Step 3: Deactivate in d_entity_instance_registry
     if (hard_delete) {
       await this.db.execute(sql`
-        DELETE FROM app.d_entity_instance_id
+        DELETE FROM app.d_entity_instance_registry
         WHERE entity_type = ${entity_type} AND entity_id = ${entity_id}
       `);
     } else {
@@ -949,9 +949,9 @@ export class EntityInfrastructureService {
     }
     registry_deactivated = true;
 
-    // Step 4: Deactivate linkages in d_entity_id_map
+    // Step 4: Deactivate linkages in d_entity_instance_link
     const linkageResult = await this.db.execute(sql`
-      UPDATE app.d_entity_id_map
+      UPDATE app.d_entity_instance_link
       SET active_flag = false, updated_ts = now()
       WHERE (
         (parent_entity_type = ${entity_type} AND parent_entity_id = ${entity_id})
@@ -965,7 +965,7 @@ export class EntityInfrastructureService {
     // Step 5: Remove RBAC entries (optional)
     if (remove_rbac_entries) {
       const rbacResult = await this.db.execute(sql`
-        DELETE FROM app.entity_id_rbac_map
+        DELETE FROM app.d_entity_rbac
         WHERE entity_name = ${entity_type} AND entity_id = ${entity_id}
       `);
       rbac_entries_removed = rbacResult.rowCount || 0;
