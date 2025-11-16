@@ -1,9 +1,130 @@
+/**
+ * ============================================================================
+ * BUSINESS ROUTES MODULE - Universal Entity Pattern with Unified Data Gate
+ * ============================================================================
+ *
+ * SEMANTICS & PURPOSE:
+ * This module implements CRUD operations and metadata endpoints for the Business
+ * entity following the PMO platform's Universal Entity System architecture.
+ *
+ * Business units represent organizational divisions, departments, or teams with
+ * operational autonomy. They track headcount, operational status, and can be
+ * linked to office locations. Business units serve as parent containers for
+ * projects, employees, and other operational entities.
+ *
+ * ============================================================================
+ * DESIGN PATTERNS & ARCHITECTURE
+ * ============================================================================
+ *
+ * 1. UNIFIED DATA GATE PATTERN (Security & Filtering) ✅
+ * ───────────────────────────────────────────────────────
+ * All endpoints use centralized permission checking via unified-data-gate.ts:
+ *
+ *   • RBAC_GATE - Row-level security with role inheritance
+ *     - Direct employee permissions
+ *     - Role-based permissions (employee → role → permissions)
+ *     - Parent-VIEW inheritance (if parent has VIEW, children gain VIEW)
+ *     - Parent-CREATE inheritance (if parent has CREATE, children gain CREATE)
+ *
+ *   • PARENT_CHILD_FILTERING_GATE - Context-aware data filtering
+ *     - Filters entities by parent relationship via d_entity_id_map
+ *     - Enables create-link-edit pattern (create child, link to parent)
+ *
+ * Usage Example:
+ *   const canView = await unified_data_gate.rbac_gate.checkPermission(
+ *     db, userId, ENTITY_TYPE, id, Permission.VIEW
+ *   );
+ *
+ * 2. CREATE-LINK-EDIT PATTERN (Parent-Child Relationships)
+ * ─────────────────────────────────────────────────────────
+ * Instead of nested creation endpoints, we use:
+ *   1. Create entity independently: POST /api/v1/business
+ *   2. Link to parent via d_entity_id_map (automatic if parent_type/parent_id provided)
+ *   3. Edit/view in context: GET /api/v1/business?parent_type=office&parent_id={id}
+ *
+ * Benefits:
+ *   • Entities exist independently (no orphans when parent deleted)
+ *   • Many-to-many relationships supported naturally
+ *   • Simpler API surface (no custom nested endpoints)
+ *
+ * 3. MODULE-LEVEL CONSTANTS (DRY Principle)
+ * ──────────────────────────────────────────
+ *   const ENTITY_TYPE = 'business';  // Used in all DB queries and gates
+ *   const TABLE_ALIAS = 'e';         // Consistent SQL alias
+ *
+ * ============================================================================
+ * DATA MODEL
+ * ============================================================================
+ *
+ * Primary Table: app.d_business
+ *   • Core fields: id, code, name, descr, metadata
+ *   • Business-specific: office_id, current_headcount, operational_status
+ *   • Temporal: from_ts, to_ts, active_flag, created_ts, updated_ts, version
+ *
+ * Relationships (via d_entity_id_map):
+ *   • Parent entities: office
+ *   • Child entities: project, employee, client
+ *
+ * Hierarchy (via d_business_hierarchy):
+ *   • Organizational structure separate from physical office locations
+ *   • See /api/v1/business-hierarchy for hierarchy management
+ *
+ * Permissions (via entity_id_rbac_map):
+ *   • Supports both entity-level (entity_id = 'all') and instance-level permissions
+ *   • Permission levels: 0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER
+ *
+ * ============================================================================
+ * ENDPOINT CATALOG
+ * ============================================================================
+ *
+ * CORE CRUD:
+ *   GET    /api/v1/business                    - List businesses (with RBAC + optional parent filter)
+ *   GET    /api/v1/business/:id                - Get single business (RBAC checked)
+ *   POST   /api/v1/business                    - Create business (with optional parent linking)
+ *   PATCH  /api/v1/business/:id                - Update business (RBAC checked)
+ *   DELETE /api/v1/business/:id                - Soft delete business (factory endpoint)
+ *
+ * PARENT-FILTERED QUERIES:
+ *   GET    /api/v1/business?parent_type=office&parent_id={id}  - Businesses in specific office
+ *
+ * ============================================================================
+ * PERMISSION FLOW EXAMPLES
+ * ============================================================================
+ *
+ * Example 1: List Businesses with RBAC
+ *   1. User requests GET /api/v1/business
+ *   2. unified_data_gate.rbac_gate.getWhereCondition() filters to accessible IDs
+ *   3. SQL query includes: WHERE e.id = ANY(accessible_ids)
+ *   4. Returns only businesses user can view
+ *
+ * Example 2: Create Business in Office Context
+ *   1. User requests POST /api/v1/business?parent_type=office&parent_id={id}
+ *   2. Check: Can user CREATE businesses? (type-level permission)
+ *   3. Check: Can user EDIT parent office? (required to link child)
+ *   4. Create business in d_business
+ *   5. Link to office in d_entity_id_map
+ *   6. Auto-grant DELETE permission to creator
+ *
+ * Example 3: Filter Businesses by Parent Office
+ *   1. User requests GET /api/v1/business?parent_type=office&parent_id={id}
+ *   2. RBAC gate filters to accessible business IDs
+ *   3. Parent-child gate filters to businesses linked to specific office
+ *   4. Returns intersection: businesses user can see AND linked to office
+ *
+ * ============================================================================
+ */
+
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
 // ✅ Centralized unified data gate - loosely coupled API
-import { unified_data_gate, Permission } from '../../lib/unified-data-gate.js';
+import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+// ✅ Centralized linkage service - DRY entity relationship management
+import { createLinkage } from '../../services/linkage.service.js';
+// ✨ Universal auto-filter builder - zero-config query filtering
+import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 
 // Schema based on actual d_business table structure
@@ -125,23 +246,16 @@ export async function businessRoutes(fastify: FastifyInstance) {
       );
       conditions.push(rbacCondition);
 
-      // Additional filters
-      if (operational_status) {
-        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.operational_status = ${operational_status}`);
-      }
-
-      if (active_flag !== undefined) {
-        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = ${active_flag}`);
-      }
-
-      if (search) {
-        const searchPattern = `%${search}%`;
-        conditions.push(sql`(
-          COALESCE(${sql.raw(TABLE_ALIAS)}.name, '') ILIKE ${searchPattern} OR
-          COALESCE(${sql.raw(TABLE_ALIAS)}.code, '') ILIKE ${searchPattern} OR
-          COALESCE(${sql.raw(TABLE_ALIAS)}."descr", '') ILIKE ${searchPattern}
-        )`);
-      }
+      // ✨ UNIVERSAL AUTO-FILTER SYSTEM
+      // Automatically builds filters from ANY query parameter based on field naming conventions
+      // Supports: ?name=X, ?operational_status=Y, ?active_flag=true, ?search=Z, etc.
+      // See: apps/api/src/lib/universal-filter-builder.ts
+      const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query as any, {
+        overrides: {
+          active: { column: 'active_flag', type: 'boolean' }
+        }
+      });
+      conditions.push(...autoFilters);
 
       // GATE 2: PARENT_CHILD_FILTERING - Apply parent context (OPTIONAL)
       const parentJoin = parent_type && parent_id
@@ -315,7 +429,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
     // ═══════════════════════════════════════════════════════════════
     const creatableEntities = await Promise.all(
       childEntities.map(async (childType: string) => {
-        const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, childType, 'all', Permission.CREATE);
+        const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, childType, ALL_ENTITIES_ID, Permission.CREATE);
         return canCreate ? childType : null;
       })
     );
@@ -423,7 +537,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       // Uses: RBAC_GATE only (checkPermission)
       // Check: Can user CREATE business units?
       // ═══════════════════════════════════════════════════════════════
-      const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, 'all', Permission.CREATE);
+      const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
       if (!canCreate) {
         return reply.status(403).send({ error: 'No permission to create business units' });
       }
@@ -463,29 +577,21 @@ export async function businessRoutes(fastify: FastifyInstance) {
         RETURNING *
       `);
 
-      const bizId = newBiz[0].id;
+      const newBizData = newBiz[0] as any;
+      const bizId = newBizData.id as string;
 
       // ═══════════════════════════════════════════════════════════════
       // LINK to parent (if parent context provided)
+      // Uses centralized linkage service - idempotent, handles reactivation
       // ═══════════════════════════════════════════════════════════════
       if (parent_type && parent_id) {
-        await db.execute(sql`
-          INSERT INTO app.d_entity_id_map (
-            parent_entity_type,
-            parent_entity_id,
-            child_entity_type,
-            child_entity_id,
-            relationship_type,
-            active_flag
-          ) VALUES (
-            ${parent_type},
-            ${parent_id},
-            ENTITY_TYPE,
-            ${bizId},
-            'contains',
-            true
-          )
-        `);
+        await createLinkage(db, {
+          parent_entity_type: parent_type,
+          parent_entity_id: parent_id,
+          child_entity_type: ENTITY_TYPE,
+          child_entity_id: bizId,
+          relationship_type: 'contains'
+        });
       }
 
       // ═══════════════════════════════════════════════════════════════
@@ -507,7 +613,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
         )
       `);
 
-      return reply.status(201).send(newBiz[0]);
+      return reply.status(201).send(newBizData);
     } catch (error) {
       fastify.log.error('Error creating business:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

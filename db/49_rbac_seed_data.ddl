@@ -140,4 +140,28 @@ CROSS JOIN (VALUES
 ) AS entities(entity_type)
 WHERE e.email = 'james.miller@huronhome.ca';
 
+-- ============================================================================
+-- TASK-SPECIFIC PERMISSIONS: James Miller Full Ownership
+-- ============================================================================
+-- Grant all 5 permissions (0=View, 1=Edit, 2=Share, 3=Delete, 4=Create) on each task
+-- This ensures James Miller has explicit task-level permissions beyond entity-type permissions
+
+INSERT INTO app.entity_id_rbac_map (person_entity_name, person_entity_id, entity_name, entity_id, permission, granted_by_employee_id, active_flag)
+SELECT
+  'employee',
+  '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', -- James Miller
+  'task',
+  t.id,
+  perm.permission,
+  '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', -- Self-granted
+  true
+FROM app.d_task t
+CROSS JOIN (
+  SELECT 0 AS permission UNION ALL  -- View
+  SELECT 1 UNION ALL                -- Edit
+  SELECT 2 UNION ALL                -- Share
+  SELECT 3 UNION ALL                -- Delete
+  SELECT 4                          -- Create
+) perm;
+
 COMMENT ON TABLE app.entity_id_rbac_map IS 'Person-based RBAC system with integer permission levels: 0=View, 1=Edit, 2=Share, 3=Delete, 4=Create, 5=Owner. Higher levels automatically inherit all lower permissions via >= comparison. Supports both role-based (via d_entity_id_map) and direct employee permissions. Permissions resolve via UNION, taking MAX level. SEED DATA LOADED from 48_rbac_seed_data.ddl';

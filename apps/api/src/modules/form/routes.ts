@@ -1,9 +1,49 @@
+/**
+ * ============================================================================
+ * FORM ROUTES MODULE - Universal Entity Pattern with Unified Data Gate
+ * ============================================================================
+ *
+ * SEMANTICS & PURPOSE:
+ * This module implements CRUD operations for the Form entity following the
+ * PMO platform's Universal Entity System architecture.
+ *
+ * Forms represent multi-step data collection instruments with versioning,
+ * approval workflows, and submission tracking. Forms support both authenticated
+ * and public submissions with RBAC-controlled access to form templates and data.
+ *
+ * ============================================================================
+ * DESIGN PATTERNS & ARCHITECTURE
+ * ============================================================================
+ *
+ * 1. UNIFIED DATA GATE PATTERN (Security & Filtering)
+ * ───────────────────────────────────────────────────
+ * All authenticated endpoints use centralized permission checking via
+ * unified-data-gate.ts for RBAC enforcement.
+ *
+ * 2. VERSIONING PATTERN (In-Place Updates)
+ * ─────────────────────────────────────────
+ * Form schema changes increment version in-place (same ID, version++)
+ * following the same pattern as artifact versioning.
+ *
+ * 3. PUBLIC/PRIVATE DUAL ACCESS
+ * ──────────────────────────────
+ * Forms support both authenticated and public submission endpoints:
+ *   • /api/v1/form/:id/submit - Authenticated submissions
+ *   • /api/v1/public/form/:id/submit - Public anonymous submissions
+ *
+ * ============================================================================
+ */
+
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
+// ✅ Centralized unified data gate - loosely coupled API
+import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+// ✅ Centralized linkage service - DRY entity relationship management
+import { createLinkage } from '../../services/linkage.service.js';
 
 // Response schema matching minimalistic database structure
 const FormSchema = Type.Object({
@@ -34,6 +74,12 @@ const CreateFormSchema = Type.Object({
   active_flag: Type.Optional(Type.Boolean())});
 
 const UpdateFormSchema = Type.Partial(CreateFormSchema);
+
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_TYPE = 'form';
+const TABLE_ALIAS = 'f';
 
 export async function formRoutes(fastify: FastifyInstance) {
   // List forms with RBAC filtering - Shows only latest version by default
@@ -70,35 +116,44 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       const offset = (page - 1) * limit;
 
-      // Build WHERE conditions
-      const conditions: any[] = [
-        // RBAC check - user must have view permission (0) on form entity
-        sql`(
-          EXISTS (
-            SELECT 1 FROM app.entity_id_rbac_map rbac
-            WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-              AND rbac.entity_name = 'form'
-              AND (rbac.entity_id = f.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-              AND rbac.active_flag = true
-              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND rbac.permission >= 0
-          )
-        )`
-      ];
+      // ═══════════════════════════════════════════════════════════════
+      // NEW PATTERN: Route builds SQL, gates augment it
+      // ═══════════════════════════════════════════════════════════════
 
-      if (active_flag !== undefined) {
-        conditions.push(sql`f.active_flag = ${active_flag}`);
+      // Build WHERE conditions array
+      const conditions: SQL[] = [];
+
+      // GATE 1: RBAC - Apply security filtering (REQUIRED)
+      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
+        userId,
+        ENTITY_TYPE,
+        Permission.VIEW,
+        TABLE_ALIAS
+      );
+      conditions.push(rbacCondition);
+
+      // Auto-build filters from query params
+      const filterableFields = {
+        active_flag: 'active_flag',
+        form_type: 'form_type'
+      };
+
+      // Auto-apply filters based on query params
+      for (const [paramKey, columnName] of Object.entries(filterableFields)) {
+        const paramValue = (request.query as any)[paramKey];
+        if (paramValue !== undefined) {
+          conditions.push(sql`${sql.raw(TABLE_ALIAS)}.${sql.identifier(columnName)} = ${paramValue}`);
+        }
       }
 
-      if (form_type) {
-        conditions.push(sql`f.form_type = ${form_type}`);
-      }
-
+      // Search across multiple fields
       if (search) {
-        conditions.push(sql`(
-          f.name ILIKE ${`%${search}%`} OR
-          f.descr ILIKE ${`%${search}%`}
-        )`);
+        const searchPattern = `%${search}%`;
+        const searchFields = ['name', 'descr'];
+        const searchConditions = searchFields.map(field =>
+          sql`COALESCE(${sql.raw(TABLE_ALIAS)}.${sql.identifier(field)}, '') ILIKE ${searchPattern}`
+        );
+        conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
       }
 
       if (show_all_versions) {

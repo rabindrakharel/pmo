@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+// ✅ Centralized linkage service
+import { createLinkage as createLinkageService, deleteLinkage as deleteLinkageService } from '../../services/linkage.service.js';
 
 // ============================================================================
 // SCHEMAS
@@ -230,49 +232,18 @@ export async function linkageRoutes(fastify: FastifyInstance) {
 
       // No RBAC check - allow all authenticated users to create linkages
 
-      // Check if linkage already exists
-      const existingCheck = await db.execute(sql`
-        SELECT * FROM app.d_entity_id_map
-        WHERE parent_entity_type = ${parent_entity_type}
-          AND parent_entity_id = ${parent_entity_id}
-          AND child_entity_type = ${child_entity_type}
-          AND child_entity_id = ${child_entity_id}
-      `);
-
-      if (existingCheck.length > 0) {
-        // If linkage exists but is inactive, reactivate it
-        if (!existingCheck[0].active_flag) {
-          const reactivated = await db.execute(sql`
-            UPDATE app.d_entity_id_map
-            SET active_flag = true, updated_ts = now()
-            WHERE id = ${existingCheck[0].id}
-            RETURNING *
-          `);
-          return reply.status(200).send({
-            success: true,
-            data: reactivated[0],
-            message: 'Linkage reactivated successfully'
-          });
-        }
-        // If already active, return the existing linkage
-        return reply.status(200).send({
-          success: true,
-          data: existingCheck[0],
-          message: 'Linkage already exists'
-        });
-      }
-
-      // Create new linkage
-      const result = await db.execute(sql`
-        INSERT INTO app.d_entity_id_map
-        (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type, active_flag)
-        VALUES (${parent_entity_type}, ${parent_entity_id}, ${child_entity_type}, ${child_entity_id}, ${relationship_type || 'contains'}, true)
-        RETURNING *
-      `);
+      // Use centralized linkage service (idempotent - handles duplicates & reactivation)
+      const linkage = await createLinkageService(db, {
+        parent_entity_type,
+        parent_entity_id,
+        child_entity_id,
+        child_entity_type,
+        relationship_type
+      });
 
       return reply.status(201).send({
         success: true,
-        data: result[0],
+        data: linkage,
         message: 'Linkage created successfully'
       });
     }

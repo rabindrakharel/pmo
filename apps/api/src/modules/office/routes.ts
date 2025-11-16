@@ -1,3 +1,46 @@
+/**
+ * ============================================================================
+ * OFFICE ROUTES - Physical Location Management
+ * ============================================================================
+ *
+ * DESIGN PATTERNS: See /docs/api/entity_endpoint_design.md for reusable patterns
+ *
+ * ENTITY-SPECIFIC DETAILS:
+ *
+ * Purpose:
+ *   Offices represent physical locations (headquarters, branches, facilities) with
+ *   address, capacity, and operational details. Offices serve as geographic containers
+ *   for business units and employees.
+ *
+ *   IMPORTANT: This module handles PHYSICAL LOCATIONS only. For organizational
+ *   hierarchy (reporting structure), see /api/v1/office-hierarchy routes.
+ *
+ * Data Model (app.d_office):
+ *   • Core: id, code, name, descr, metadata
+ *   • Address: address_line1, address_line2, city, province, postal_code, country
+ *   • Contact: phone, email
+ *   • Operational: office_type, capacity_employees, square_footage
+ *   • Temporal: from_ts, to_ts, active_flag, created_ts, updated_ts, version
+ *
+ * Relationships:
+ *   • Parent entities: None (top-level geographic entity)
+ *   • Child entities: business, employee, worksite
+ *
+ * Endpoints:
+ *   GET    /api/v1/office                    - List offices (RBAC filtered)
+ *   GET    /api/v1/office/:id                - Get single office
+ *   POST   /api/v1/office                    - Create office
+ *   PUT    /api/v1/office/:id                - Update office
+ *   DELETE /api/v1/office/:id                - Soft delete
+ *   GET    /api/v1/office/:id/business       - Child entities (factory)
+ *   GET    /api/v1/office/:id/employee       - Child entities (factory)
+ *
+ * Filterable Fields:
+ *   • office_type, city, province, active_flag
+ *
+ * ============================================================================
+ */
+
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '../../db/index.js';
@@ -17,6 +60,8 @@ import {
   api_gate_Update,
   PermissionLevel
 } from '../../lib/rbac.service.js';
+// ✨ Universal auto-filter builder - zero-config query filtering
+import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 
 // Schema based on actual d_office table structure (physical locations only)
 // NOTE: Hierarchy fields (parent_id, dl__office_hierarchy_level) are in d_office_hierarchy
@@ -72,6 +117,12 @@ const CreateOfficeSchema = Type.Object({
 
 const UpdateOfficeSchema = Type.Partial(CreateOfficeSchema);
 
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_TYPE = 'office';
+const TABLE_ALIAS = 'o';
+
 export async function officeRoutes(fastify: FastifyInstance) {
   // List physical office locations with filtering
   fastify.get('/api/v1/office', {
@@ -122,38 +173,18 @@ export async function officeRoutes(fastify: FastifyInstance) {
       const hasTypeAccess = accessibleEntityIds.includes('11111111-1111-1111-1111-111111111111');
       const idFilter = hasTypeAccess
         ? sql`TRUE`  // Type-level access - no filtering
-        : sql`o.id::text = ANY(${accessibleEntityIds})`;  // Filter by accessible IDs
+        : sql`o.id = ANY(${accessibleEntityIds}::uuid[])`;  // Filter by accessible IDs
 
       const conditions = [idFilter];
 
-      if (active_flag !== undefined) {
-        conditions.push(sql`o.active_flag = ${active_flag}`);
-      }
-
-      if (office_type) {
-        conditions.push(sql`o.office_type = ${office_type}`);
-      }
-
-      if (city) {
-        conditions.push(sql`o.city ILIKE ${`%${city}%`}`);
-      }
-
-      if (province) {
-        conditions.push(sql`o.province ILIKE ${`%${province}%`}`);
-      }
-
-      if (search) {
-        const searchConditions = [
-          sql`COALESCE(o.name, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(o."descr", '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(o.code, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(o.city, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(o.province, '') ILIKE ${`%${search}%`}`,
-          sql`COALESCE(o.address_line1, '') ILIKE ${`%${search}%`}`
-        ];
-
-        conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
-      }
+      // ✨ UNIVERSAL AUTO-FILTER SYSTEM
+      // Automatically builds filters from ANY query parameter based on field naming conventions
+      // Supports: ?office_type=X, ?city=Y, ?province=Z, ?active_flag=true, ?search=keyword, etc.
+      // See: apps/api/src/lib/universal-filter-builder.ts
+      const autoFilters = buildAutoFilters('o', request.query as any, {
+        searchFields: ['name', 'descr', 'code', 'city', 'province', 'address_line1']
+      });
+      conditions.push(...autoFilters);
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
@@ -214,7 +245,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
     const hasTypeAccess = accessibleEntityIds.includes('11111111-1111-1111-1111-111111111111');
     const idFilter = hasTypeAccess
       ? sql`TRUE`
-      : sql`id::text = ANY(${accessibleEntityIds})`;
+      : sql`id = ANY(${accessibleEntityIds}::uuid[])`;
 
     try {
       const office = await db.execute(sql`

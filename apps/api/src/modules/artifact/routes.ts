@@ -1,11 +1,54 @@
+/**
+ * ============================================================================
+ * ARTIFACT ROUTES MODULE - Universal Entity Pattern with Unified Data Gate
+ * ============================================================================
+ *
+ * SEMANTICS & PURPOSE:
+ * This module implements CRUD operations for the Artifact entity following the
+ * PMO platform's Universal Entity System architecture.
+ *
+ * Artifacts represent file attachments (documents, images, videos) with version
+ * control, S3 storage, access control, and entity linkage. Artifacts support
+ * presigned URL generation for secure upload/download without direct S3 access.
+ *
+ * ============================================================================
+ * DESIGN PATTERNS & ARCHITECTURE
+ * ============================================================================
+ *
+ * 1. UNIFIED DATA GATE PATTERN (Security & Filtering)
+ * ───────────────────────────────────────────────────
+ * All endpoints use centralized permission checking via unified-data-gate.ts
+ * for RBAC enforcement on artifact access.
+ *
+ * 2. S3 PRESIGNED URL PATTERN (Secure File Upload/Download)
+ * ───────────────────────────────────────────────────────────
+ * Instead of direct S3 access, use presigned URLs:
+ *   • POST /api/v1/artifact/upload - Generate upload URL + create metadata
+ *   • GET /api/v1/artifact/:id/download - Generate download URL
+ *   • Client uploads/downloads directly to/from S3 using presigned URLs
+ *
+ * 3. VERSIONING PATTERN (In-Place Updates)
+ * ─────────────────────────────────────────
+ * New artifact versions update in-place (same ID, version++)
+ * with version history stored in metadata.versionHistory array.
+ *
+ * ============================================================================
+ */
+
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import { s3AttachmentService } from '@/lib/s3-attachments.js';
 import { config } from '@/lib/config.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
+// ✅ Centralized unified data gate - loosely coupled API
+import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+// ✅ Centralized linkage service - DRY entity relationship management
+import { createLinkage } from '../../services/linkage.service.js';
+// ✨ Universal auto-filter builder - zero-config query filtering
+import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 
 // Artifact schemas aligned with actual app.d_artifact columns
 const ArtifactSchema = Type.Object({
@@ -73,6 +116,12 @@ const CreateArtifactSchema = Type.Object({
 
 const UpdateArtifactSchema = Type.Partial(CreateArtifactSchema);
 
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_TYPE = 'artifact';
+const TABLE_ALIAS = 'a';
+
 export async function artifactRoutes(fastify: FastifyInstance) {
   // List artifacts
   fastify.get('/api/v1/artifact', {
@@ -97,33 +146,66 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
     try {
-      // Build WHERE conditions using proper SQL template literals
-      const conditions = [];
-      conditions.push(sql`active_flag = true`);
-
-      if (artifact_type) {
-        conditions.push(sql`dl__artifact_type = ${artifact_type}`);
+      const userId = (request as any).user?.sub;
+      if (!userId) {
+        return reply.status(401).send({ error: 'User not authenticated' });
       }
+
+      // ═══════════════════════════════════════════════════════════════
+      // NEW PATTERN: Route builds SQL, gates augment it
+      // ═══════════════════════════════════════════════════════════════
+
+      // Build WHERE conditions array
+      const conditions: SQL[] = [];
+
+      // GATE 1: RBAC - Apply security filtering (REQUIRED)
+      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
+        userId,
+        ENTITY_TYPE,
+        Permission.VIEW,
+        TABLE_ALIAS
+      );
+      conditions.push(rbacCondition);
+
+      // ✨ UNIVERSAL AUTO-FILTER SYSTEM
+      // Automatically builds filters from ANY query parameter based on field naming conventions
+      // Supports: ?artifact_type=X, ?active=true, ?search=keyword, etc.
+      // See: apps/api/src/lib/universal-filter-builder.ts
+      const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query as any, {
+        overrides: {
+          active: { column: 'active_flag', type: 'boolean' },
+          active_flag: { column: 'active_flag', type: 'boolean' },
+          artifact_type: { column: 'dl__artifact_type', type: 'text' }
+        }
+      });
+      conditions.push(...autoFilters);
+
+      // Build WHERE clause
+      const whereClause = conditions.length > 0
+        ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
+        : sql``;
 
       // Get total count
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as count
-        FROM app.d_artifact
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        FROM app.d_artifact ${sql.raw(TABLE_ALIAS)}
+        ${whereClause}
       `);
       const total = Number(countResult[0]?.count || 0);
 
       // Get paginated results
       const rows = await db.execute(sql`
         SELECT
-          id, code, name, descr, metadata,
-          dl__artifact_type as artifact_type, attachment_format, attachment_size_bytes, attachment, entity_type, entity_id,
-          attachment_object_bucket, attachment_object_key, visibility, dl__artifact_security_classification as security_classification,
-          latest_version_flag, version, active_flag,
-          from_ts, to_ts, created_ts, updated_ts
-        FROM app.d_artifact
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY created_ts DESC
+          ${sql.raw(TABLE_ALIAS)}.id, ${sql.raw(TABLE_ALIAS)}.code, ${sql.raw(TABLE_ALIAS)}.name, ${sql.raw(TABLE_ALIAS)}.descr, ${sql.raw(TABLE_ALIAS)}.metadata,
+          ${sql.raw(TABLE_ALIAS)}.dl__artifact_type as artifact_type, ${sql.raw(TABLE_ALIAS)}.attachment_format, ${sql.raw(TABLE_ALIAS)}.attachment_size_bytes,
+          ${sql.raw(TABLE_ALIAS)}.attachment, ${sql.raw(TABLE_ALIAS)}.entity_type, ${sql.raw(TABLE_ALIAS)}.entity_id,
+          ${sql.raw(TABLE_ALIAS)}.attachment_object_bucket, ${sql.raw(TABLE_ALIAS)}.attachment_object_key, ${sql.raw(TABLE_ALIAS)}.visibility,
+          ${sql.raw(TABLE_ALIAS)}.dl__artifact_security_classification as security_classification,
+          ${sql.raw(TABLE_ALIAS)}.latest_version_flag, ${sql.raw(TABLE_ALIAS)}.version, ${sql.raw(TABLE_ALIAS)}.active_flag,
+          ${sql.raw(TABLE_ALIAS)}.from_ts, ${sql.raw(TABLE_ALIAS)}.to_ts, ${sql.raw(TABLE_ALIAS)}.created_ts, ${sql.raw(TABLE_ALIAS)}.updated_ts
+        FROM app.d_artifact ${sql.raw(TABLE_ALIAS)}
+        ${whereClause}
+        ORDER BY ${sql.raw(TABLE_ALIAS)}.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
 

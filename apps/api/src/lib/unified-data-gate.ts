@@ -46,6 +46,16 @@ export enum PermissionLevel {
   OWNER = 5,
 }
 
+/**
+ * Special UUID marker for TYPE-LEVEL permissions (all entities)
+ * When this UUID is used as entity_id in entity_id_rbac_map, it means the permission
+ * applies to ALL instances of that entity type, not just one specific instance.
+ *
+ * Example: permission on (entity_name='project', entity_id=ALL_ENTITIES_ID)
+ *          → User can perform action on ANY/ALL projects
+ */
+export const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111';
+
 // ============================================================================
 // ============================================================================
 // RBAC_GATE - Permission Checking with Role Inheritance

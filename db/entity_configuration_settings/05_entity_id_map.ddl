@@ -73,11 +73,24 @@ SELECT 'office', b.office_id, 'business', b.id, 'hosts'
 FROM app.d_business b
 WHERE b.office_id IS NOT NULL AND b.active_flag = true;
 
--- Project → Task relationships
+-- Project → Task relationships (Curated mappings based on task codes and project context)
+-- Note: Not using d_task.project_id - tasks are explicitly mapped to relevant projects
 INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
-SELECT 'project', t.project_id, 'task', t.id, 'contains'
-FROM app.d_task t
-WHERE t.project_id IS NOT NULL AND t.active_flag = true;
+VALUES
+  -- Corporate Office Expansion Project
+  ('project', '61203bac-101b-28d6-7a15-2176c15a0b1c', 'task', 'd1111111-1111-1111-1111-111111111111', NULL), -- Corporate Office Space Planning (COE-TASK-001)
+
+  -- Digital Transformation Initiative 2024
+  ('project', '93106ffb-402e-43a7-8b26-5287e37a1b0e', 'task', 'a2222222-2222-2222-2222-222222222222', NULL), -- PMO Software Vendor Evaluation (DT-TASK-002)
+  ('project', '93106ffb-402e-43a7-8b26-5287e37a1b0e', 'task', 'e1111111-1111-1111-1111-111111111111', NULL), -- Customer Service Process Optimization (CSE-TASK-001)
+  ('project', '93106ffb-402e-43a7-8b26-5287e37a1b0e', 'task', 'f1111111-1111-1111-1111-111111111111', NULL), -- Quarterly Business Performance Review (CEO-TASK-001)
+
+  -- Fall 2024 Landscaping Campaign
+  ('project', '84215ccb-313d-48f8-9c37-4398f28c0b1f', 'task', 'b1111111-1111-1111-1111-111111111111', NULL), -- Fall Campaign Marketing Strategy (FLC-TASK-001)
+  ('project', '84215ccb-313d-48f8-9c37-4398f28c0b1f', 'task', 'b2222222-2222-2222-2222-222222222222', NULL), -- Fall Campaign Resource Planning (FLC-TASK-002)
+
+  -- HVAC Equipment and Service Modernization
+  ('project', '72304dab-202c-39e7-8a26-3287d26a0c2d', 'task', 'c1111111-1111-1111-1111-111111111111', NULL); -- Smart HVAC Market Research (HVAC-TASK-001)
 
 -- Parent → Artifact relationships (using primary_entity_type and primary_entity_id)
 INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)

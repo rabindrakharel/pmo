@@ -59,7 +59,18 @@
  *   • Parent-child JOIN via d_entity_id_map
  *   • Pagination, search, sorting
  *
- * 4. MODULE-LEVEL CONSTANTS (DRY Principle)
+ * 4. UNIVERSAL AUTO-FILTER PATTERN (Zero-Config Filtering)
+ * ──────────────────────────────────────────────────────────
+ * Query parameters automatically converted to SQL filters based on naming conventions:
+ *   • ?name=Kitchen → WHERE name = 'Kitchen'
+ *   • ?dl__project_stage=planning → WHERE dl__project_stage = 'planning'
+ *   • ?active=true → WHERE active_flag = true
+ *   • ?manager_employee_id=uuid → WHERE manager_employee_id::uuid = 'uuid'::uuid
+ *   • ?search=kitchen → WHERE (name ILIKE '%kitchen%' OR code ILIKE '%kitchen%' OR ...)
+ *
+ * See: apps/api/src/lib/universal-filter-builder.ts
+ *
+ * 5. MODULE-LEVEL CONSTANTS (DRY Principle)
  * ──────────────────────────────────────────
  *   const ENTITY_TYPE = 'project';  // Used in all DB queries and gates
  *   const TABLE_ALIAS = 'e';        // Consistent SQL alias
@@ -145,7 +156,11 @@ import {
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 // ✅ Centralized unified data gate - loosely coupled API
-import { unified_data_gate, Permission } from '../../lib/unified-data-gate.js';
+import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+// ✅ Centralized linkage service - DRY entity relationship management
+import { createLinkage } from '../../services/linkage.service.js';
+// ✨ Universal auto-filter builder - zero-config query filtering
+import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 
 // Schema based on actual d_project table structure from db/XV_d_project.ddl
 const ProjectSchema = Type.Object({
@@ -230,7 +245,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      active, search, dl__project_stage, business_id, limit = 20, offset: queryOffset, page
+      search, limit = 20, offset: queryOffset, page
     } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
@@ -256,23 +271,17 @@ export async function projectRoutes(fastify: FastifyInstance) {
       );
       conditions.push(rbacCondition);
 
-      // Additional filters
-      if (dl__project_stage) {
-        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.dl__project_stage = ${dl__project_stage}`);
-      }
-
-      if (active !== undefined) {
-        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = ${active}`);
-      }
-
-      if (search) {
-        const searchPattern = `%${search}%`;
-        conditions.push(sql`(
-          COALESCE(${sql.raw(TABLE_ALIAS)}.name, '') ILIKE ${searchPattern} OR
-          COALESCE(${sql.raw(TABLE_ALIAS)}.code, '') ILIKE ${searchPattern} OR
-          COALESCE(${sql.raw(TABLE_ALIAS)}."descr", '') ILIKE ${searchPattern}
-        )`);
-      }
+      // ✨ UNIVERSAL AUTO-FILTER SYSTEM
+      // Automatically builds filters from ANY query parameter based on field naming conventions
+      // Supports: ?name=X, ?dl__project_stage=planning, ?active=true, ?manager_employee_id=uuid, etc.
+      // See: apps/api/src/lib/universal-filter-builder.ts
+      const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query as any, {
+        // Optional: Override specific fields if needed (not required for standard conventions)
+        overrides: {
+          active: { column: 'active_flag', type: 'boolean' }  // Map 'active' param → 'active_flag' column
+        }
+      });
+      conditions.push(...autoFilters);
 
       // Build WHERE clause
       const whereClause = conditions.length > 0
@@ -418,7 +427,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     // ═══════════════════════════════════════════════════════════════
     const creatableEntities = await Promise.all(
       childEntities.map(async (childType: string) => {
-        const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, childType, 'all', Permission.CREATE);
+        const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, childType, ALL_ENTITIES_ID, Permission.CREATE);
         return canCreate ? childType : null;
       })
     );
@@ -528,7 +537,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // Uses: RBAC_GATE only (checkPermission)
       // Check: Can user CREATE projects?
       // ═══════════════════════════════════════════════════════════════
-      const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, 'all', Permission.CREATE);
+      const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
       if (!canCreate) {
         return reply.status(403).send({ error: 'No permission to create projects' });
       }
@@ -611,25 +620,16 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       // ═══════════════════════════════════════════════════════════════
       // LINK to parent (if parent context provided)
+      // Uses centralized linkage service - idempotent, handles reactivation
       // ═══════════════════════════════════════════════════════════════
       if (parent_type && parent_id) {
-        await db.execute(sql`
-          INSERT INTO app.d_entity_id_map (
-            parent_entity_type,
-            parent_entity_id,
-            child_entity_type,
-            child_entity_id,
-            relationship_type,
-            active_flag
-          ) VALUES (
-            ${parent_type},
-            ${parent_id},
-            ${ENTITY_TYPE},
-            ${projectId},
-            'contains',
-            true
-          )
-        `);
+        await createLinkage(db, {
+          parent_entity_type: parent_type,
+          parent_entity_id: parent_id,
+          child_entity_type: ENTITY_TYPE,
+          child_entity_id: projectId,
+          relationship_type: 'contains'
+        });
       }
 
       // ═══════════════════════════════════════════════════════════════

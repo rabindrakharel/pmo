@@ -143,7 +143,11 @@
       "Bash(else)",
       "Bash(fi)",
       "Bash(if grep -q \"createUniversalCRUDRoutes\\|universal-crud-factory\" \"$dir/routes.ts\")",
-      "Bash(pgrep:*)"
+      "Bash(pgrep:*)",
+      "Bash(git -C /home/rabin/projects/pmo diff apps/api/src/modules/linkage/routes.ts)",
+      "Bash(git -C /home/rabin/projects/pmo diff apps/api/src/modules/task/routes.ts)",
+      "Bash(git -C /home/rabin/projects/pmo diff apps/api/src/modules/business/routes.ts)",
+      "Bash(/tmp/test-linkage-idempotency.sh:*)"
     ],
     "deny": [],
     "ask": [],

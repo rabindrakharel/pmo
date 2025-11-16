@@ -1,3 +1,145 @@
+/**
+ * ============================================================================
+ * TASK ROUTES MODULE - Universal Entity Pattern with Unified Data Gate
+ * ============================================================================
+ *
+ * SEMANTICS & PURPOSE:
+ * This module implements CRUD operations and metadata endpoints for the Task
+ * entity following the PMO platform's Universal Entity System architecture.
+ *
+ * Tasks represent discrete work units with effort tracking (hours, story points),
+ * priority levels, workflow stages, and assignee management. Tasks can be linked
+ * to projects, business units, and worksites. They support kanban workflows,
+ * case notes, activity timelines, and rich metadata.
+ *
+ * ============================================================================
+ * DESIGN PATTERNS & ARCHITECTURE
+ * ============================================================================
+ *
+ * 1. UNIFIED DATA GATE PATTERN (Security & Filtering)
+ * ───────────────────────────────────────────────────
+ * All endpoints use centralized permission checking via unified-data-gate.ts:
+ *
+ *   • RBAC_GATE - Row-level security with role inheritance
+ *     - Direct employee permissions
+ *     - Role-based permissions (employee → role → permissions)
+ *     - Parent-VIEW inheritance (if parent has VIEW, children gain VIEW)
+ *     - Parent-CREATE inheritance (if parent has CREATE, children gain CREATE)
+ *
+ * Usage Example:
+ *   const canView = await unified_data_gate.rbac_gate.checkPermission(
+ *     db, userId, ENTITY_TYPE, id, Permission.VIEW
+ *   );
+ *
+ * Current Usage:
+ *   const accessibleIds = await data_gate_EntityIdsByEntityType(
+ *     userId, 'task', PermissionLevel.VIEW
+ *   );
+ *
+ * 2. CREATE-LINK-EDIT PATTERN (Parent-Child Relationships)
+ * ─────────────────────────────────────────────────────────
+ * Instead of nested creation endpoints, we use:
+ *   1. Create entity independently: POST /api/v1/task
+ *   2. Link to parent via d_entity_id_map (automatic if parent context)
+ *   3. Link assignees via d_entity_id_map (relationship_type='assigned_to')
+ *   4. Edit/view in context: GET /api/v1/project/:id/task
+ *
+ * Benefits:
+ *   • Tasks exist independently (no orphans when parent deleted)
+ *   • Many-to-many relationships supported naturally (task → multiple projects)
+ *   • Assignee management via universal linkage API
+ *
+ * 3. MODULE-LEVEL CONSTANTS (DRY Principle)
+ * ──────────────────────────────────────────
+ *   const ENTITY_TYPE = 'task';  // Used in all DB queries and gates
+ *   const TABLE_ALIAS = 't';     // Consistent SQL alias
+ *
+ * ============================================================================
+ * DATA MODEL
+ * ============================================================================
+ *
+ * Primary Table: app.d_task
+ *   • Core fields: id, code, name, descr, metadata, internal_url, shared_url
+ *   • Workflow fields: dl__task_stage, dl__task_priority
+ *   • Effort tracking: estimated_hours, actual_hours, story_points
+ *   • Temporal: from_ts, to_ts, active_flag, created_ts, updated_ts, version
+ *
+ * Relationships (via d_entity_id_map):
+ *   • Parent entities: project, business, office, worksite, client
+ *   • Child entities: artifact, form
+ *   • Assignees: employee (relationship_type='assigned_to')
+ *
+ * Related Tables:
+ *   • d_task_data - Case notes, rich editor content, activity logs
+ *
+ * Permissions (via entity_id_rbac_map):
+ *   • Supports both entity-level (entity_id = 'all') and instance-level permissions
+ *   • Permission levels: 0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER
+ *
+ * ============================================================================
+ * ENDPOINT CATALOG
+ * ============================================================================
+ *
+ * CORE CRUD:
+ *   GET    /api/v1/task                          - List tasks (with RBAC filtering)
+ *   GET    /api/v1/task/:id                      - Get single task (RBAC checked)
+ *   POST   /api/v1/task                          - Create task
+ *   PUT    /api/v1/task/:id                      - Update task (RBAC checked)
+ *   DELETE /api/v1/task/:id                      - Soft delete task (factory endpoint)
+ *
+ * KANBAN WORKFLOW:
+ *   PATCH  /api/v1/task/:id/status               - Update task stage (Kanban drag-drop)
+ *   GET    /api/v1/project/:projectId/tasks/kanban  - Get tasks for Kanban view
+ *
+ * CASE NOTES & ACTIVITY:
+ *   GET    /api/v1/task/:taskId/case-notes       - Get case notes timeline
+ *   POST   /api/v1/task/:taskId/case-notes       - Add case note with mentions
+ *   GET    /api/v1/task/:taskId/activity         - Get activity timeline
+ *
+ * ASSIGNEE MANAGEMENT:
+ *   GET    /api/v1/task/:id/assignees            - Get task assignees
+ *   POST   /api/v1/linkage                       - Link employee to task (universal API)
+ *   DELETE /api/v1/linkage/:id                   - Unlink assignee (universal API)
+ *
+ * FILTERING:
+ *   GET    /api/v1/task?project_id={id}          - Filter by project
+ *   GET    /api/v1/task?assigned_to_employee_id={id}  - Filter by assignee
+ *   GET    /api/v1/task?dl__task_stage={stage}   - Filter by workflow stage
+ *
+ * ============================================================================
+ * PERMISSION FLOW EXAMPLES
+ * ============================================================================
+ *
+ * Example 1: List Tasks with RBAC
+ *   1. User requests GET /api/v1/task
+ *   2. data_gate_EntityIdsByEntityType('task', VIEW) returns accessible IDs
+ *   3. SQL query includes: WHERE t.id = ANY(accessible_ids)
+ *   4. Returns only tasks user can view
+ *
+ * Example 2: Create Task and Link to Project
+ *   1. User requests POST /api/v1/task (with project_id in metadata)
+ *   2. api_gate_Create('task') validates CREATE permission
+ *   3. Create task in d_task
+ *   4. Frontend calls POST /api/v1/linkage to link task → project
+ *   5. Frontend calls POST /api/v1/linkage to assign employee
+ *
+ * Example 3: Update Task Stage (Kanban)
+ *   1. User drags task card to new column
+ *   2. Frontend calls PATCH /api/v1/task/:id/status
+ *   3. api_gate_Update('task', id) validates EDIT permission
+ *   4. Update dl__task_stage with audit metadata
+ *   5. Return updated task for optimistic UI
+ *
+ * Example 4: View Task Case Notes
+ *   1. User opens task detail page
+ *   2. Frontend calls GET /api/v1/task/:id/case-notes
+ *   3. RBAC check: Can user VIEW this task?
+ *   4. Query d_task_data for case_note and rich_note records
+ *   5. Return chronological timeline with author info
+ *
+ * ============================================================================
+ */
+
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
@@ -8,13 +150,12 @@ import {
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
 import { universalEntityDelete, createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
-// ✅ API-based RBAC service
-import {
-  data_gate_EntityIdsByEntityType,
-  api_gate_Create,
-  api_gate_Update,
-  PermissionLevel
-} from '../../lib/rbac.service.js';
+// ✅ Centralized unified data gate - loosely coupled API
+import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+// ✅ Centralized linkage service - DRY entity relationship management
+import { createLinkage } from '../../services/linkage.service.js';
+// ✨ Universal auto-filter builder - zero-config query filtering
+import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 
 const TaskSchema = Type.Object({
   id: Type.String(),
@@ -63,6 +204,12 @@ const CreateTaskSchema = Type.Object({
 
 const UpdateTaskSchema = Type.Partial(CreateTaskSchema);
 
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_TYPE = 'task';
+const TABLE_ALIAS = 't';
+
 export async function taskRoutes(fastify: FastifyInstance) {
   // List tasks with filtering
   fastify.get('/api/v1/task', {
@@ -103,86 +250,45 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // DATA GATE: Get accessible entity IDs for SELECT
-      const accessibleEntityIds = await data_gate_EntityIdsByEntityType(userId, 'task', PermissionLevel.VIEW);
+      // ═══════════════════════════════════════════════════════════════
+      // NEW PATTERN: Route builds SQL, gates augment it
+      // ═══════════════════════════════════════════════════════════════
 
-      if (accessibleEntityIds.length === 0) {
-        return reply.send({
-          data: [],
-          total: 0,
-          limit,
-          offset
-        });
-      }
+      // Build WHERE conditions array
+      const conditions: SQL[] = [];
 
-      // Build ID filter - gate at SQL level
-      const hasTypeAccess = accessibleEntityIds.includes('11111111-1111-1111-1111-111111111111');
-      const idFilter = hasTypeAccess
-        ? sql`TRUE`  // Type-level access - no filtering
-        : sql`t.id::text = ANY(${accessibleEntityIds})`;  // Filter by accessible IDs
+      // GATE 1: RBAC - Apply security filtering (REQUIRED)
+      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
+        userId,
+        ENTITY_TYPE,
+        Permission.VIEW,
+        TABLE_ALIAS
+      );
+      conditions.push(rbacCondition);
 
-      // Build query conditions
-      const conditions = [idFilter];
+      // ✨ UNIVERSAL AUTO-FILTER SYSTEM
+      // Automatically builds filters from ANY query parameter based on field naming conventions
+      // Supports: ?dl__task_stage=X, ?project_id=Y, ?active=true, ?search=keyword, etc.
+      // See: apps/api/src/lib/universal-filter-builder.ts
+      const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query as any, {
+        overrides: {
+          active: { column: 'active_flag', type: 'boolean' }
+        },
+        searchFields: ['name', 'descr', 'code']
+      });
+      conditions.push(...autoFilters);
 
-      if (active !== undefined) {
-        conditions.push(sql`t.active_flag = ${active}`);
-      }
-
-      // Project relationship stored in metadata JSONB
-      if (project_id !== undefined) {
-        conditions.push(sql`(t.metadata->>'project_id')::uuid = ${project_id}::uuid`);
-      }
-
-      // Assignee relationship managed via entity_id_map
+      // Custom filter: assignee via d_entity_id_map (requires complex EXISTS clause)
       if (assigned_to_employee_id !== undefined) {
         conditions.push(sql`EXISTS (
-          SELECT 1 FROM app.entity_id_map map
+          SELECT 1 FROM app.d_entity_id_map map
           WHERE map.parent_entity_type = 'task'
-            AND map.parent_entity_id = t.id::text
+            AND map.parent_entity_id = ${sql.raw(TABLE_ALIAS)}.id
             AND map.child_entity_type = 'employee'
-            AND map.child_entity_id = ${assigned_to_employee_id}
+            AND map.child_entity_id = ${assigned_to_employee_id}::uuid
             AND map.relationship_type = 'assigned_to'
             AND map.active_flag = true
         )`);
-      }
-
-      // Task status is stored as 'dl__task_stage' column (DDL name)
-      if (dl__task_stage !== undefined) {
-        conditions.push(sql`t.dl__task_stage = ${dl__task_stage}`);
-      }
-
-      // Task type stored in metadata JSONB
-      if (task_type !== undefined) {
-        conditions.push(sql`t.metadata->>'task_type' = ${task_type}`);
-      }
-
-      // Task category stored in metadata JSONB
-      if (task_category !== undefined) {
-        conditions.push(sql`t.metadata->>'task_category' = ${task_category}`);
-      }
-
-      // Worksite relationship stored in metadata JSONB
-      if (worksite_id !== undefined) {
-        conditions.push(sql`(t.metadata->>'worksite_id')::uuid = ${worksite_id}::uuid`);
-      }
-
-      // Client relationship stored in metadata JSONB
-      if (client_id !== undefined) {
-        conditions.push(sql`(t.metadata->>'client_id')::uuid = ${client_id}::uuid`);
-      }
-      
-      if (search) {
-        const searchableColumns = getColumnsByMetadata([
-          'name', 'descr', 'task_number', 'work_scope', 'service_address'
-        ], 'ui:search');
-        
-        const searchConditions = searchableColumns.map(col => 
-          sql`COALESCE(${sql.identifier(col)}, '') ILIKE ${`%${search}%`}`
-        );
-        
-        if (searchConditions.length > 0) {
-          conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
-        }
       }
 
       // Get total count
@@ -199,28 +305,28 @@ export async function taskRoutes(fastify: FastifyInstance) {
           t.id, t.code, t.name, t.descr,
           t.internal_url, t.shared_url,
           COALESCE(t.metadata, '{}'::jsonb) as metadata,
-          -- Get assignee IDs from entity_id_map
+          -- Get assignee IDs from d_entity_id_map
           COALESCE(
             (
-              SELECT json_agg(map.child_entity_id::uuid ORDER BY e.name)
+              SELECT json_agg(map.child_entity_id ORDER BY e.name)
               FROM app.d_entity_id_map map
-              JOIN app.d_employee e ON e.id::text = map.child_entity_id
+              JOIN app.d_employee e ON e.id = map.child_entity_id
               WHERE map.parent_entity_type = 'task'
-                AND map.parent_entity_id = t.id::text
+                AND map.parent_entity_id = t.id
                 AND map.child_entity_type = 'employee'
                 AND map.relationship_type = 'assigned_to'
                 AND map.active_flag = true
             ),
             '[]'::json
           ) as assignee_employee_ids,
-          -- Get assignee names from entity_id_map
+          -- Get assignee names from d_entity_id_map
           COALESCE(
             (
               SELECT json_agg(e.name ORDER BY e.name)
               FROM app.d_entity_id_map map
-              JOIN app.d_employee e ON e.id::text = map.child_entity_id
+              JOIN app.d_employee e ON e.id = map.child_entity_id
               WHERE map.parent_entity_type = 'task'
-                AND map.parent_entity_id = t.id::text
+                AND map.parent_entity_id = t.id
                 AND map.child_entity_type = 'employee'
                 AND map.relationship_type = 'assigned_to'
                 AND map.active_flag = true
@@ -277,18 +383,21 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // DATA GATE: Get accessible entity IDs for SELECT
-      const accessibleEntityIds = await data_gate_EntityIdsByEntityType(userId, 'task', PermissionLevel.VIEW);
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
+      // Uses: RBAC_GATE only (checkPermission)
+      // ═══════════════════════════════════════════════════════════════
+      const canView = await unified_data_gate.rbac_gate.checkPermission(
+        db,
+        userId,
+        ENTITY_TYPE,
+        id,
+        Permission.VIEW
+      );
 
-      if (accessibleEntityIds.length === 0) {
-        return reply.status(403).send({ error: 'No access to task' });
+      if (!canView) {
+        return reply.status(403).send({ error: 'No permission to view this task' });
       }
-
-      // Build ID filter - gate at SQL level
-      const hasTypeAccess = accessibleEntityIds.includes('11111111-1111-1111-1111-111111111111');
-      const idFilter = hasTypeAccess
-        ? sql`TRUE`
-        : sql`t.id::text = ANY(${accessibleEntityIds})`;
 
       // Get single task with assignee names from entity_id_map
       const task = await db.execute(sql`
@@ -296,28 +405,28 @@ export async function taskRoutes(fastify: FastifyInstance) {
           t.id, t.code, t.name, t.descr,
           t.internal_url, t.shared_url,
           COALESCE(t.metadata, '{}'::jsonb) as metadata,
-          -- Get assignee IDs from entity_id_map
+          -- Get assignee IDs from d_entity_id_map
           COALESCE(
             (
-              SELECT json_agg(map.child_entity_id::uuid ORDER BY e.name)
+              SELECT json_agg(map.child_entity_id ORDER BY e.name)
               FROM app.d_entity_id_map map
-              JOIN app.d_employee e ON e.id::text = map.child_entity_id
+              JOIN app.d_employee e ON e.id = map.child_entity_id
               WHERE map.parent_entity_type = 'task'
-                AND map.parent_entity_id = t.id::text
+                AND map.parent_entity_id = t.id
                 AND map.child_entity_type = 'employee'
                 AND map.relationship_type = 'assigned_to'
                 AND map.active_flag = true
             ),
             '[]'::json
           ) as assignee_employee_ids,
-          -- Get assignee names from entity_id_map
+          -- Get assignee names from d_entity_id_map
           COALESCE(
             (
               SELECT json_agg(e.name ORDER BY e.name)
               FROM app.d_entity_id_map map
-              JOIN app.d_employee e ON e.id::text = map.child_entity_id
+              JOIN app.d_employee e ON e.id = map.child_entity_id
               WHERE map.parent_entity_type = 'task'
-                AND map.parent_entity_id = t.id::text
+                AND map.parent_entity_id = t.id
                 AND map.child_entity_type = 'employee'
                 AND map.relationship_type = 'assigned_to'
                 AND map.active_flag = true
@@ -371,14 +480,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // API GATE: Check CREATE permission
-    try {
-      await api_gate_Create(userId, 'task');
-    } catch (err: any) {
-      return reply.status(err.statusCode || 403).send({
-        error: err.error || 'Forbidden',
-        message: err.message
-      });
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+    // Uses: RBAC_GATE only (checkPermission)
+    // Check: Can user CREATE tasks?
+    // ═══════════════════════════════════════════════════════════════
+    const canCreate = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
+    if (!canCreate) {
+      return reply.status(403).send({ error: 'No permission to create tasks' });
     }
 
     // Auto-generate required fields if missing
@@ -461,14 +570,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // API GATE: Check UPDATE permission
-    try {
-      await api_gate_Update(userId, 'task', id);
-    } catch (err: any) {
-      return reply.status(err.statusCode || 403).send({
-        error: err.error || 'Forbidden',
-        message: err.message
-      });
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+    // Uses: RBAC_GATE only (checkPermission)
+    // Check: Can user EDIT this task?
+    // ═══════════════════════════════════════════════════════════════
+    const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+    if (!canEdit) {
+      return reply.status(403).send({ error: 'No permission to edit this task' });
     }
 
     try {
@@ -582,14 +691,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'User not authenticated' });
       }
 
-      // API GATE: Check UPDATE permission
-      try {
-        await api_gate_Update(userId, 'task', id);
-      } catch (err: any) {
-        return reply.status(err.statusCode || 403).send({
-          error: err.error || 'Forbidden',
-          message: err.message
-        });
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC GATE
+      // Uses: RBAC_GATE only (checkPermission)
+      // Check: Can user EDIT this task?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await unified_data_gate.rbac_gate.checkPermission(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit this task' });
       }
 
       // Validate task exists
@@ -680,14 +789,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
         sql`t.active_flag = true`
       ];
 
-      // Assignee relationship managed via entity_id_map
+      // Assignee relationship managed via d_entity_id_map
       if (assignee) {
         filters.push(sql`EXISTS (
-          SELECT 1 FROM app.entity_id_map map
+          SELECT 1 FROM app.d_entity_id_map map
           WHERE map.parent_entity_type = 'task'
-            AND map.parent_entity_id = t.id::text
+            AND map.parent_entity_id = t.id
             AND map.child_entity_type = 'employee'
-            AND map.child_entity_id = ${assignee}
+            AND map.child_entity_id = ${assignee}::uuid
             AND map.relationship_type = 'assigned_to'
             AND map.active_flag = true
         )`);
@@ -1051,7 +1160,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Get assignees from entity_id_map
+      // Get assignees from d_entity_id_map
       const assignees = await db.execute(sql`
         SELECT
           e.id,
@@ -1059,9 +1168,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
           e.email,
           map.id as linkage_id
         FROM app.d_entity_id_map map
-        INNER JOIN app.d_employee e ON e.id::text = map.child_entity_id
+        INNER JOIN app.d_employee e ON e.id = map.child_entity_id
         WHERE map.parent_entity_type = 'task'
-          AND map.parent_entity_id = ${id}
+          AND map.parent_entity_id = ${id}::uuid
           AND map.child_entity_type = 'employee'
           AND map.relationship_type = 'assigned_to'
           AND map.active_flag = true
