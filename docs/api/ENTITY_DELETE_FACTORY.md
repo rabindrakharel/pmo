@@ -61,7 +61,7 @@ await db.execute(sql`
 ```typescript
 // STEP 2: Soft-delete from entity instance registry
 await db.execute(sql`
-  UPDATE app.d_entity_instance_id
+  UPDATE app.d_entity_instance_registry
   SET active_flag = false,
       updated_ts = NOW()
   WHERE entity_type = ${entityType}
@@ -70,7 +70,7 @@ await db.execute(sql`
 ```
 
 **Table affected:**
-- `app.d_entity_instance_id` (central entity registry)
+- `app.d_entity_instance_registry` (central entity registry)
 
 **Purpose:** Removes entity from global search, child-tabs API, and dashboard statistics.
 
@@ -81,7 +81,7 @@ await db.execute(sql`
 ```typescript
 // STEP 3: Soft-delete linkages where this entity appears (as parent OR child)
 await db.execute(sql`
-  UPDATE app.d_entity_id_map
+  UPDATE app.d_entity_instance_link
   SET active_flag = false,
       updated_ts = NOW()
   WHERE (child_entity_type = ${entityType} AND child_entity_id::text = ${entityId})
@@ -90,7 +90,7 @@ await db.execute(sql`
 ```
 
 **Table affected:**
-- `app.d_entity_id_map` (parent-child relationships)
+- `app.d_entity_instance_link` (parent-child relationships)
 
 **Examples:**
 - **Task as child:** Deletes `project → task` linkage
@@ -300,12 +300,12 @@ PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app -c \
 
 # 2. Check registry
 PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app -c \
-  "SELECT * FROM app.d_entity_instance_id WHERE entity_type = 'task' AND entity_id = '{task-id}'"
+  "SELECT * FROM app.d_entity_instance_registry WHERE entity_type = 'task' AND entity_id = '{task-id}'"
 # Expected: active_flag = false
 
 # 3. Check linkages
 PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app -c \
-  "SELECT * FROM app.d_entity_id_map WHERE child_entity_type = 'task' AND child_entity_id = '{task-id}'"
+  "SELECT * FROM app.d_entity_instance_link WHERE child_entity_type = 'task' AND child_entity_id = '{task-id}'"
 # Expected: active_flag = false
 ```
 
@@ -324,9 +324,9 @@ fastify.delete('/api/v1/task/:id', async (request, reply) => {
 
   // Manual 4-step delete (70+ lines)
   await db.execute(sql`UPDATE app.d_task SET active_flag = false, to_ts = NOW() WHERE id::text = ${id}`);
-  await db.execute(sql`UPDATE app.d_entity_instance_id SET active_flag = false WHERE entity_type = 'task' AND entity_id::text = ${id}`);
-  await db.execute(sql`UPDATE app.d_entity_id_map SET active_flag = false WHERE child_entity_type = 'task' AND child_entity_id::text = ${id}`);
-  await db.execute(sql`UPDATE app.d_entity_id_map SET active_flag = false WHERE parent_entity_type = 'task' AND parent_entity_id::text = ${id}`);
+  await db.execute(sql`UPDATE app.d_entity_instance_registry SET active_flag = false WHERE entity_type = 'task' AND entity_id::text = ${id}`);
+  await db.execute(sql`UPDATE app.d_entity_instance_link SET active_flag = false WHERE child_entity_type = 'task' AND child_entity_id::text = ${id}`);
+  await db.execute(sql`UPDATE app.d_entity_instance_link SET active_flag = false WHERE parent_entity_type = 'task' AND parent_entity_id::text = ${id}`);
 
   return reply.status(204).send();
 });

@@ -964,7 +964,7 @@ export const entityOptionsApi = {
    * Get all child entities for a given parent entity
    *
    * This is a universal API factory that returns all child entities grouped by type.
-   * Uses d_entity_id_map table to find relationships.
+   * Uses d_entity_instance_link table to find relationships.
    *
    * @param parentType - Parent entity type (e.g., 'task', 'project')
    * @param parentId - Parent entity UUID

@@ -32,10 +32,10 @@ This module implements a complete **Quote-to-Cash workflow** for the Canadian ho
 
 ### Business Rules
 
-1. **No Foreign Keys**: All relationships managed through `d_entity_id_map` (following platform convention)
+1. **No Foreign Keys**: All relationships managed through `d_entity_instance_link` (following platform convention)
 2. **JSONB Line Items**: Quote items stored as JSONB array, not linker tables
 3. **Task-Centric**: Quotes and Work Orders are children of Tasks (via entity_id_map)
-4. **RBAC-Enforced**: All operations require entity-level permissions via `entity_id_rbac_map`
+4. **RBAC-Enforced**: All operations require entity-level permissions via `d_entity_rbac`
 5. **Temporal Tracking**: All entities include `created_ts`, `updated_ts`, `active_flag`
 
 ### Entity Semantics
@@ -91,7 +91,7 @@ Scheduled (0) → Dispatched (1) → In Progress (2) → On Hold (3) → Complet
 │                                                                  │
 │  Middleware Chain:                                               │
 │    1. fastify.authenticate (JWT verification)                   │
-│    2. RBAC check (inline via entity_id_rbac_map query)          │
+│    2. RBAC check (inline via d_entity_rbac query)          │
 │    3. Route handler                                              │
 │    4. filterUniversalColumns (response filtering)                │
 └─────────────────────────────────────────────────────────────────┘
@@ -110,9 +110,9 @@ Scheduled (0) → Dispatched (1) → In Progress (2) → On Hold (3) → Complet
 │    • fact_work_order (labor tracking)                           │
 │                                                                  │
 │  Relationship Management:                                        │
-│    • d_entity_id_map (Task → Quote, Task → Work Order)         │
-│    • entity_id_rbac_map (Permission control)                    │
-│    • d_entity_instance_id (Global entity registry)             │
+│    • d_entity_instance_link (Task → Quote, Task → Work Order)         │
+│    • d_entity_rbac (Permission control)                    │
+│    • d_entity_instance_registry (Global entity registry)             │
 │                                                                  │
 │  Settings:                                                       │
 │    • setting_datalabel (dl__quote_stage, dl__work_order_status)│
@@ -464,7 +464,7 @@ export async function serviceRoutes(fastify: FastifyInstance) {
     // RBAC check (inline via EXISTS subquery)
     const baseConditions = [
       sql`EXISTS (
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.empid = ${userId}
           AND rbac.entity = 'service'
           AND (rbac.entity_id = s.id::text OR rbac.entity_id = 'all')
@@ -492,7 +492,7 @@ export async function serviceRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     // RBAC check (permission=4, entity_id='all')
     const access = await db.execute(sql`
-      SELECT 1 FROM app.entity_id_rbac_map rbac
+      SELECT 1 FROM app.d_entity_rbac rbac
       WHERE rbac.empid = ${userId}
         AND rbac.entity = 'service'
         AND rbac.entity_id = 'all'
@@ -513,7 +513,7 @@ export async function serviceRoutes(fastify: FastifyInstance) {
 
     // Register in global entity registry
     await db.execute(sql`
-      INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+      INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
       VALUES ('service', ${newService.id}::uuid, ${newService.name}, ${newService.code})
       ON CONFLICT (entity_type, entity_id) DO UPDATE
       SET entity_name = EXCLUDED.entity_name, entity_code = EXCLUDED.entity_code
@@ -529,7 +529,7 @@ export async function serviceRoutes(fastify: FastifyInstance) {
 
 **Key Patterns:**
 1. **Inline RBAC**: No middleware, checks embedded in SQL via `EXISTS` subquery
-2. **Entity Registration**: All creates/updates sync to `d_entity_instance_id`
+2. **Entity Registration**: All creates/updates sync to `d_entity_instance_registry`
 3. **TypeBox Validation**: Schema validation via `@sinclair/typebox`
 4. **Factory Functions**: `createEntityDeleteEndpoint`, `createChildEntityEndpoint`
 
@@ -545,7 +545,7 @@ export async function serviceRoutes(fastify: FastifyInstance) {
 │ (d_task)    │
 └──────┬──────┘
        │
-       │ (via d_entity_id_map)
+       │ (via d_entity_instance_link)
        │ parent_entity_type='task'
        │ child_entity_type='quote'
        ├─────────────────┐
@@ -572,8 +572,8 @@ export async function serviceRoutes(fastify: FastifyInstance) {
 
 **1. Task → Quote (Parent-Child)**
 ```sql
--- Stored in: app.d_entity_id_map
-INSERT INTO app.d_entity_id_map (
+-- Stored in: app.d_entity_instance_link
+INSERT INTO app.d_entity_instance_link (
   parent_entity_type, parent_entity_id,
   child_entity_type, child_entity_id,
   relationship_type
@@ -586,7 +586,7 @@ INSERT INTO app.d_entity_id_map (
 
 **2. Task → Work Order (Parent-Child)**
 ```sql
-INSERT INTO app.d_entity_id_map (
+INSERT INTO app.d_entity_instance_link (
   parent_entity_type, parent_entity_id,
   child_entity_type, child_entity_id,
   relationship_type
@@ -899,7 +899,7 @@ execute_sql "$DB_PATH/fact_work_order.ddl" "Work order fact table (service deliv
 
    → API validates RBAC (permission=4)
    → Inserts into fact_quote
-   → Registers in d_entity_instance_id
+   → Registers in d_entity_instance_registry
    → Returns 201 Created with quote data
    ```
 
@@ -947,7 +947,7 @@ execute_sql "$DB_PATH/fact_work_order.ddl" "Work order fact table (service deliv
    }
 
    → Creates work order
-   → Links to task via d_entity_id_map:
+   → Links to task via d_entity_instance_link:
      parent_entity_type='task'
      child_entity_type='work_order'
    ```
@@ -1034,7 +1034,7 @@ permission: [0, 1, 2, 3, 4]
 ```sql
 -- For LIST/VIEW (permission=0)
 WHERE EXISTS (
-  SELECT 1 FROM app.entity_id_rbac_map rbac
+  SELECT 1 FROM app.d_entity_rbac rbac
   WHERE rbac.empid = $userId
     AND rbac.entity = 'service'
     AND (rbac.entity_id = s.id::text OR rbac.entity_id = 'all')
@@ -1043,7 +1043,7 @@ WHERE EXISTS (
 
 -- For CREATE (permission=4)
 WHERE EXISTS (
-  SELECT 1 FROM app.entity_id_rbac_map rbac
+  SELECT 1 FROM app.d_entity_rbac rbac
   WHERE rbac.empid = $userId
     AND rbac.entity = 'service'
     AND rbac.entity_id = 'all'  -- MUST be 'all'
@@ -1056,7 +1056,7 @@ WHERE EXISTS (
 **MANDATORY** after every CREATE or UPDATE:
 
 ```sql
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
 VALUES ('service', $newService.id::uuid, $newService.name, $newService.code)
 ON CONFLICT (entity_type, entity_id) DO UPDATE
 SET entity_name = EXCLUDED.entity_name,
@@ -1154,8 +1154,8 @@ createChildEntityEndpoint(fastify, 'quote', 'work_order', 'fact_work_order');
 3. d_product (dimension)
 4. fact_quote (references services/products via JSONB)
 5. fact_work_order (fact table)
-6. d_entity_id_map (relationships)
-7. entity_id_rbac_map (permissions)
+6. d_entity_instance_link (relationships)
+7. d_entity_rbac (permissions)
 ```
 
 **Run after schema changes:**

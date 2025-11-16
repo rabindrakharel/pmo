@@ -38,7 +38,7 @@ The PMO Platform uses a **DRY-first, config-driven architecture** where:
 - **Convention over configuration** - smart defaults with entity-specific overrides
 - **Default editable** - all fields editable unless explicitly readonly (v3.1)
 - **Context-independent columns** - same columns regardless of navigation path (v3.1)
-- **Automatic linkage** - inline row creation establishes parent-child relationships in `d_entity_id_map` (v3.1)
+- **Automatic linkage** - inline row creation establishes parent-child relationships in `d_entity_instance_link` (v3.1)
 
 ### Architecture Diagram
 
@@ -351,7 +351,7 @@ const handleCreateClick = async () => {
              child_entity_id: "new-task-uuid",
              relationship_type: "contains"
            }
-           → Creates entry in d_entity_id_map table
+           → Creates entry in d_entity_instance_link table
    ↓
 7. System reloads table data
    New task appears in filtered view with linkage established
@@ -417,7 +417,7 @@ const handleSaveInlineEdit = async (record: any) => {
 
           if (linkageResponse.ok) {
             const linkageResult = await linkageResponse.json();
-            console.log(`✅ Created linkage in d_entity_id_map:`, linkageResult.data);
+            console.log(`✅ Created linkage in d_entity_instance_link:`, linkageResult.data);
 
             // Verify linkage was created
             if (!linkageResult.data || !linkageResult.data.id) {
@@ -461,7 +461,7 @@ const handleSaveInlineEdit = async (record: any) => {
    - New row inserted with entity data
    - Receives auto-generated UUID from backend
 
-2. **Linkage Table** (`app.d_entity_id_map`)
+2. **Linkage Table** (`app.d_entity_instance_link`)
    - New linkage entry created
    - Fields populated:
      - `parent_entity_type`: e.g., "project"
@@ -488,7 +488,7 @@ const handleSaveInlineEdit = async (record: any) => {
 
 **Scenario 3: Both Succeed**
 - ✅ Entity created
-- ✅ Linkage created in `d_entity_id_map`
+- ✅ Linkage created in `d_entity_instance_link`
 - ✅ Entity appears in both main and child views
 - ✅ Silent success (no unnecessary alerts)
 
@@ -498,13 +498,13 @@ const handleSaveInlineEdit = async (record: any) => {
 ```
 ✅ Created task: { id: "abc-123", name: "New Task", ... }
 🔗 Creating linkage: project/def-456 → task/abc-123
-✅ Created linkage in d_entity_id_map: { id: "xyz-789", ... }
+✅ Created linkage in d_entity_instance_link: { id: "xyz-789", ... }
 ```
 
 **Database Query:**
 ```sql
 -- Verify linkage exists
-SELECT * FROM app.d_entity_id_map
+SELECT * FROM app.d_entity_instance_link
 WHERE parent_entity_type = 'project'
   AND parent_entity_id = '{project-id}'
   AND child_entity_type = 'task'
@@ -520,15 +520,15 @@ This pattern works for **all** parent-child entity combinations:
 
 | Parent Context | Child Entity | URL | Add Row Works | Linkage Created |
 |----------------|--------------|-----|---------------|-----------------|
-| Project | Task | `/project/{id}/task` | ✅ | ✅ d_entity_id_map |
-| Project | Wiki | `/project/{id}/wiki` | ✅ | ✅ d_entity_id_map |
-| Project | Artifact | `/project/{id}/artifact` | ✅ | ✅ d_entity_id_map |
-| Project | Form | `/project/{id}/form` | ✅ | ✅ d_entity_id_map |
-| Business | Project | `/biz/{id}/project` | ✅ | ✅ d_entity_id_map |
-| Business | Task | `/biz/{id}/task` | ✅ | ✅ d_entity_id_map |
-| Task | Form | `/task/{id}/form` | ✅ | ✅ d_entity_id_map |
-| Task | Artifact | `/task/{id}/artifact` | ✅ | ✅ d_entity_id_map |
-| Worksite | Task | `/worksite/{id}/task` | ✅ | ✅ d_entity_id_map |
+| Project | Task | `/project/{id}/task` | ✅ | ✅ d_entity_instance_link |
+| Project | Wiki | `/project/{id}/wiki` | ✅ | ✅ d_entity_instance_link |
+| Project | Artifact | `/project/{id}/artifact` | ✅ | ✅ d_entity_instance_link |
+| Project | Form | `/project/{id}/form` | ✅ | ✅ d_entity_instance_link |
+| Business | Project | `/biz/{id}/project` | ✅ | ✅ d_entity_instance_link |
+| Business | Task | `/biz/{id}/task` | ✅ | ✅ d_entity_instance_link |
+| Task | Form | `/task/{id}/form` | ✅ | ✅ d_entity_instance_link |
+| Task | Artifact | `/task/{id}/artifact` | ✅ | ✅ d_entity_instance_link |
+| Worksite | Task | `/worksite/{id}/task` | ✅ | ✅ d_entity_instance_link |
 
 #### Key Architectural Decisions
 
@@ -540,7 +540,7 @@ This pattern works for **all** parent-child entity combinations:
 2. **No Parent Fields in Entity Payload**
    - `parent_type` and `parent_id` NOT sent to entity creation endpoint
    - Entity tables remain clean (no parent reference columns)
-   - Relationships stored in separate linkage table (`d_entity_id_map`)
+   - Relationships stored in separate linkage table (`d_entity_instance_link`)
 
 3. **Graceful Degradation**
    - Entity creation succeeds even if linkage fails
@@ -556,7 +556,7 @@ This pattern works for **all** parent-child entity combinations:
 
 ✅ **Seamless UX** - Create entities without leaving table view
 ✅ **Automatic Linking** - Parent-child relationships established automatically
-✅ **Data Integrity** - Linkages stored in `d_entity_id_map` table
+✅ **Data Integrity** - Linkages stored in `d_entity_instance_link` table
 ✅ **Error Transparency** - Clear feedback when linkage fails
 ✅ **Universal** - Works for all entity types and parent-child combinations
 ✅ **Verifiable** - Console logs and database queries confirm linkage creation
@@ -2192,7 +2192,7 @@ const debouncedSearch = useMemo(
 
 1. **Universal Architecture** - 3 pages handle 18+ entity types
 2. **Create-Link-Edit Pattern** - Automatic parent-child linking with smart navigation
-3. **Inline Create-Then-Link** - "Add Row" creates entities and linkages in `d_entity_id_map` (v3.1)
+3. **Inline Create-Then-Link** - "Add Row" creates entities and linkages in `d_entity_instance_link` (v3.1)
 4. **Zero Configuration** - Convention-based inline editing with default-editable pattern
 5. **Column Consistency** - Context-independent column sets across all views (v3.1)
 6. **DRY Principles** - 95%+ code reuse across entities
@@ -2216,7 +2216,7 @@ const debouncedSearch = useMemo(
 
 **Inline Create-Then-Link Pattern (v3.1):**
 - "Add Row" creates entities and linkages automatically
-- Linkages stored in `d_entity_id_map` table
+- Linkages stored in `d_entity_instance_link` table
 - Comprehensive error handling and user feedback
 - Verification logging and database validation
 - Graceful degradation if linkage fails

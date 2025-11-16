@@ -74,8 +74,8 @@ This application is built **entirely** using the PMO platform's existing infrast
 | **Person-Calendar System** | Event booking + RSVP management | `apps/api/src/modules/calendar/` |
 | **Notification Service** | SMS/Push notifications | `apps/api/src/modules/notification/` |
 | **Voice Infrastructure** | Twilio integration, WebSocket audio | `apps/api/src/modules/ai-chat/routes-voice.ts` |
-| **Entity Linkage System** | Customer ↔ Task ↔ Calendar relationships | `d_entity_id_map` table |
-| **RBAC System** | Agent-owned customers/tasks | `entity_id_rbac_map` table |
+| **Entity Linkage System** | Customer ↔ Task ↔ Calendar relationships | `d_entity_instance_link` table |
+| **RBAC System** | Agent-owned customers/tasks | `d_entity_rbac` table |
 
 ### 2.2 Data Model Entities Used
 
@@ -218,18 +218,18 @@ Call Transcript Entity (d_artifact)
 │  │                                                             │    │
 │  │  POST /api/v1/customer                                     │    │
 │  │  → Creates d_customer record                               │    │
-│  │  → Adds entity_instance_id in d_entity_instance_id         │    │
-│  │  → Sets RBAC (agent ownership in entity_id_rbac_map)       │    │
+│  │  → Adds entity_instance_id in d_entity_instance_registry         │    │
+│  │  → Sets RBAC (agent ownership in d_entity_rbac)       │    │
 │  │                                                             │    │
 │  │  POST /api/v1/task                                         │    │
 │  │  → Creates d_task record                                   │    │
 │  │  → Assigns to agent (assignee_id)                          │    │
-│  │  → Links to customer via d_entity_id_map                   │    │
+│  │  → Links to customer via d_entity_instance_link                   │    │
 │  │                                                             │    │
 │  │  POST /api/v1/calendar                                     │    │
 │  │  → Creates d_entity_person_calendar (event)                │    │
 │  │  → Creates d_entity_event_person_calendar (RSVP/attendees) │    │
-│  │  → Links to task via d_entity_id_map                       │    │
+│  │  → Links to task via d_entity_instance_link                       │    │
 │  └────────────────────────┬────────────────────────────────────┘    │
 │                           │                                         │
 │  ┌────────────────────────▼───────────────────────────────────┐    │
@@ -257,8 +257,8 @@ Call Transcript Entity (d_artifact)
                         │  - d_task             │
                         │  - d_entity_person_   │
                         │    calendar           │
-                        │  - d_entity_id_map    │
-                        │  - entity_id_rbac_map │
+                        │  - d_entity_instance_link    │
+                        │  - d_entity_rbac │
                         └───────────────────────┘
 ```
 
@@ -296,12 +296,12 @@ Customer → Twilio → Agent Mobile App → WebSocket → Deepgram STT
                                 │                      │                      │
                                 └──────────────────────┼──────────────────────┘
                                                        ▼
-                                            d_entity_id_map (LINKAGES)
+                                            d_entity_instance_link (LINKAGES)
                                             1. CUSTOMER uuid-A ↔ TASK uuid-B
                                             2. TASK uuid-B ↔ CALENDAR uuid-C
                                                        │
                                                        ▼
-                                            entity_id_rbac_map (PERMISSIONS)
+                                            d_entity_rbac (PERMISSIONS)
                                             1. agent-1 → CUSTOMER uuid-A [view, edit]
                                             2. agent-1 → TASK uuid-B [view, edit, complete]
                                             3. agent-1 → CALENDAR uuid-C [ownership]
@@ -337,7 +337,7 @@ Customer (existing) → Call → Transcription → LLM
                                 │                               │
                                 └───────────────┬───────────────┘
                                                 ▼
-                                        d_entity_id_map
+                                        d_entity_instance_link
                                         CUSTOMER uuid-A ↔ TASK (new)
                                         TASK (new) ↔ CALENDAR (new)
                                                 │
@@ -399,8 +399,8 @@ CREATE TABLE app.d_entity_event_person_calendar (
     created_ts TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Entity Linkages (d_entity_id_map)
-CREATE TABLE app.d_entity_id_map (
+-- Entity Linkages (d_entity_instance_link)
+CREATE TABLE app.d_entity_instance_link (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     parent_entity_type VARCHAR(50),  -- 'CUSTOMER'
     parent_entity_id UUID,            -- uuid-A
@@ -409,8 +409,8 @@ CREATE TABLE app.d_entity_id_map (
     created_ts TIMESTAMPTZ DEFAULT NOW()
 );
 
--- RBAC Permissions (entity_id_rbac_map)
-CREATE TABLE app.entity_id_rbac_map (
+-- RBAC Permissions (d_entity_rbac)
+CREATE TABLE app.d_entity_rbac (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     entity_type VARCHAR(50),
     entity_id UUID,
@@ -639,7 +639,7 @@ Platform Processing (Automatic):
      ✓ Customer record created (or updated)
      ✓ Task created and assigned to agent
      ✓ Calendar event created with both attendees
-     ✓ Linkages established in d_entity_id_map
+     ✓ Linkages established in d_entity_instance_link
      ✓ RBAC permissions set
 
   4. Notification dispatch:
@@ -1758,7 +1758,7 @@ This section provides complete API endpoint examples for testing and integrating
 #### Link Task to Customer (Parent-Child Relationship)
 
 ```bash
-# Create linkage in d_entity_id_map
+# Create linkage in d_entity_instance_link
 ./tools/test-api.sh POST /api/v1/entity-linkage '{
   "parent_entity_type": "CUSTOMER",
   "parent_entity_id": "8260b1b0-5efc-4611-ad33-ee76c0cf7f13",
@@ -2379,7 +2379,7 @@ VALUES
 );
 
 -- Grant full platform permissions
-INSERT INTO app.entity_id_rbac_map (entity_type, entity_id, permission_user_id, permission)
+INSERT INTO app.d_entity_rbac (entity_type, entity_id, permission_user_id, permission)
 VALUES
 ('ALL', 'all', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
  '{"0": true, "1": true, "2": true, "3": true, "4": true, "5": true}'::jsonb);

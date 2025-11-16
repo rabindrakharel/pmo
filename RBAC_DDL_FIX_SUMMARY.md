@@ -2,14 +2,14 @@
 
 ## Problem
 
-The Access Control modal in Settings was showing **0 RBAC permissions** despite the DDL file (`06_entity_id_rbac_map.ddl`) containing comprehensive INSERT statements for seed data.
+The Access Control modal in Settings was showing **0 RBAC permissions** despite the DDL file (`06_d_entity_rbac.ddl`) containing comprehensive INSERT statements for seed data.
 
 ### Root Cause
 
 **Dependency Order Issue**: The RBAC DDL file was being executed **before** the tables it referenced:
 
 ```
-Line 234: ✅ 06_entity_id_rbac_map.ddl executes
+Line 234: ✅ 06_d_entity_rbac.ddl executes
           ↓ (INSERT statements reference d_role and d_employee)
           ↓ (but these tables don't exist yet!)
           ❌ INSERT returns 0 rows
@@ -18,7 +18,7 @@ Line 238: ✅ 05_employee.ddl executes (creates d_employee table)
 Line 242: ✅ 09_role.ddl executes (creates d_role table)
 ```
 
-The INSERT statements in `06_entity_id_rbac_map.ddl` used:
+The INSERT statements in `06_d_entity_rbac.ddl` used:
 ```sql
 SELECT ... FROM app.d_role r WHERE r.role_code = 'CEO'
 SELECT ... FROM app.d_employee e WHERE e.email = 'james.miller@huronhome.ca'
@@ -43,7 +43,7 @@ Since these tables didn't exist yet, the SELECT returned 0 rows → INSERT 0 row
   - 98 role-based permissions
   - 6 employee-specific permissions
 
-#### 2. Updated Original DDL: `db/entity_configuration_settings/06_entity_id_rbac_map.ddl`
+#### 2. Updated Original DDL: `db/entity_configuration_settings/06_d_entity_rbac.ddl`
 - **Removed**: All INSERT statements (lines 112-220)
 - **Kept**: Table creation, indexes, comments
 - **Added**: Documentation noting seed data moved to `49_rbac_seed_data.ddl`
@@ -79,7 +79,7 @@ Response (HTTP 200):
 
 ### Database Summary
 ```sql
-SELECT person_entity_name, COUNT(*) FROM entity_id_rbac_map GROUP BY person_entity_name;
+SELECT person_entity_name, COUNT(*) FROM d_entity_rbac GROUP BY person_entity_name;
 
  person_entity_name | count
 --------------------+-------
@@ -151,7 +151,7 @@ API Response: {"data": [...], "total": 104}
 - ✅ `/home/rabin/projects/pmo/db/49_rbac_seed_data.ddl` (166 lines)
 
 ### Modified
-- ✅ `/home/rabin/projects/pmo/db/entity_configuration_settings/06_entity_id_rbac_map.ddl`
+- ✅ `/home/rabin/projects/pmo/db/entity_configuration_settings/06_d_entity_rbac.ddl`
   - Removed: INSERT statements (108 lines removed)
   - Added: Documentation comment (8 lines)
   - Net: -100 lines

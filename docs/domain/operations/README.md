@@ -90,7 +90,7 @@ The Operations domain is the **execution engine** of the PMO platform. It manage
 
 ### Relationship Rules
 
-1. **Customer → Project**: One-to-many (via `d_entity_id_map`)
+1. **Customer → Project**: One-to-many (via `d_entity_instance_link`)
 2. **Project → Task**: One-to-many
 3. **Task → Task Data**: One-to-many (temporal versioning)
 4. **Task → Work Order**: One-to-many
@@ -179,7 +179,7 @@ Tasks can be children of:
 - Offices (internal office tasks)
 - Events (event prep tasks)
 
-All via `d_entity_id_map` with `parent_entity_type` polymorphism.
+All via `d_entity_instance_link` with `parent_entity_type` polymorphism.
 
 ## Use Cases
 
@@ -253,7 +253,7 @@ CREATE TABLE app.d_project (
     budget_amt NUMERIC(15,2),
     start_date DATE,
     end_date DATE,
-    customer_id INT4, -- soft link via d_entity_id_map
+    customer_id INT4, -- soft link via d_entity_instance_link
     owner_employee_id INT4,
     created_ts TIMESTAMPTZ DEFAULT now()
 );

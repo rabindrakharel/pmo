@@ -130,16 +130,16 @@ The Artifact System serves multiple business needs:
 
 **Entity Linkage:**
 ```
-Project → Artifacts (via d_entity_id_map)
-Task → Artifacts (via d_entity_id_map)
-Form → Artifacts (via d_entity_id_map)
-Wiki → Artifacts (via d_entity_id_map)
-Office → Artifacts (via d_entity_id_map)
+Project → Artifacts (via d_entity_instance_link)
+Task → Artifacts (via d_entity_instance_link)
+Form → Artifacts (via d_entity_instance_link)
+Wiki → Artifacts (via d_entity_instance_link)
+Office → Artifacts (via d_entity_instance_link)
 ```
 
 **Permission Model:**
 ```
-Artifact → RBAC (via entity_id_rbac_map)
+Artifact → RBAC (via d_entity_rbac)
   - View permission (0)
   - Edit permission (1)
   - Share permission (2)
@@ -195,9 +195,9 @@ Artifact → RBAC (via entity_id_rbac_map)
 │  │ Tables:                                              │   │
 │  │ - app.d_artifact (metadata)                         │   │
 │  │ - app.d_artifact_data (content)                     │   │
-│  │ - app.d_entity_id_map (linkage)                     │   │
-│  │ - app.entity_id_rbac_map (permissions)              │   │
-│  │ - app.d_entity_instance_id (registry)               │   │
+│  │ - app.d_entity_instance_link (linkage)                     │   │
+│  │ - app.d_entity_rbac (permissions)              │   │
+│  │ - app.d_entity_instance_registry (registry)               │   │
 │  │                                                       │   │
 │  │ Indexes:                                             │   │
 │  │ - Primary key (id)                                   │   │
@@ -271,9 +271,9 @@ Database (PostgreSQL)
     │
     ├─ d_artifact (metadata table)
     ├─ d_artifact_data (content table)
-    ├─ d_entity_id_map (parent-child linkage)
-    ├─ entity_id_rbac_map (permissions)
-    └─ d_entity_instance_id (entity registry)
+    ├─ d_entity_instance_link (parent-child linkage)
+    ├─ d_entity_rbac (permissions)
+    └─ d_entity_instance_registry (entity registry)
 
 Storage (MinIO/S3)
     │
@@ -416,13 +416,13 @@ VALUES ('artifact-uuid', 'https://example.com/file.pdf', 'employee-uuid');
 
 ### 4.3 Entity Relationships
 
-**Linkage Table:** `d_entity_id_map`
+**Linkage Table:** `d_entity_instance_link`
 
 Artifacts are linked to parent entities using the universal linkage pattern:
 
 ```sql
 -- Example: Link artifact to project
-INSERT INTO app.d_entity_id_map (
+INSERT INTO app.d_entity_instance_link (
     parent_entity_type,
     parent_entity_id,
     child_entity_type,
@@ -439,7 +439,7 @@ INSERT INTO app.d_entity_id_map (
 -- Query artifacts for a project
 SELECT a.*
 FROM app.d_artifact a
-JOIN app.d_entity_id_map m
+JOIN app.d_entity_instance_link m
     ON m.child_entity_type = 'artifact'
     AND m.child_entity_id::text = a.id::text
 WHERE m.parent_entity_type = 'project'
@@ -447,11 +447,11 @@ WHERE m.parent_entity_type = 'project'
   AND a.active_flag = true;
 ```
 
-**Permission Table:** `entity_id_rbac_map`
+**Permission Table:** `d_entity_rbac`
 
 ```sql
 -- Example: Grant view permission to artifact
-INSERT INTO app.entity_id_rbac_map (
+INSERT INTO app.d_entity_rbac (
     entity_type,
     entity_id,
     emp_id,
@@ -464,11 +464,11 @@ INSERT INTO app.entity_id_rbac_map (
 );
 ```
 
-**Registry Table:** `d_entity_instance_id`
+**Registry Table:** `d_entity_instance_registry`
 
 ```sql
 -- Automatically registered on artifact creation
-INSERT INTO app.d_entity_instance_id (
+INSERT INTO app.d_entity_instance_registry (
     entity_type,
     entity_id,
     entity_name,
@@ -1060,7 +1060,7 @@ async function checkArtifactPermission(
   artifactId: string,
   requiredPermission: number
 ): Promise<boolean> {
-  // 1. Check entity_id_rbac_map for specific artifact permission
+  // 1. Check d_entity_rbac for specific artifact permission
   const artifactPermissions = await getEntityPermissions('artifact', artifactId, userId);
 
   // 2. Check for 'all' artifact permissions
@@ -1570,7 +1570,7 @@ GROUP BY dl__artifact_security_classification, visibility;
 -- List artifacts for a project
 SELECT a.*
 FROM app.d_artifact a
-JOIN app.d_entity_id_map m
+JOIN app.d_entity_instance_link m
     ON m.child_entity_type = 'artifact'
     AND m.child_entity_id = a.id::text
 WHERE m.parent_entity_type = 'project'

@@ -12,7 +12,7 @@
 
 **Files Updated:**
 ```
-db/entity_configuration_settings/06_entity_id_rbac_map.ddl
+db/entity_configuration_settings/06_d_entity_rbac.ddl
 db/08_customer.ddl
 db/32_wiki.ddl
 db/34_reports.ddl
@@ -80,7 +80,7 @@ All now use: `apps/api/src/lib/rbac.service.ts`
 ```typescript
 // OLD (raw SQL with wrong schema):
 const deleteAccess = await db.execute(sql`
-  SELECT 1 FROM app.entity_id_rbac_map rbac
+  SELECT 1 FROM app.d_entity_rbac rbac
   WHERE rbac.empid = ${userId}  // ❌ Wrong field
     AND rbac.entity = ${entityType}
     AND 3 = ANY(rbac.permission)  // ❌ Wrong check
@@ -113,7 +113,7 @@ const hasDeleteAccess = await checkPermission(userId, entityType, id, 'delete');
 
 **Current Code (Line 104-107):**
 ```sql
-SELECT 1 FROM app.entity_id_rbac_map rbac
+SELECT 1 FROM app.d_entity_rbac rbac
 WHERE rbac.empid = ${userId}  -- ❌ Wrong field (should be person_entity_id)
   AND rbac.entity = 'task'    -- ❌ Wrong field (should be entity_name)
   AND (rbac.entity_id = t.id::text OR rbac.entity_id = 'all')  -- ❌ Should use UUID
@@ -226,7 +226,7 @@ createUniversalCRUDRoutes(fastify, {
     afterCreate: async (task, userId) => {
       // Register in entity instance registry
       await db.execute(sql`
-        INSERT INTO app.d_entity_instance_id (entity_type, entity_id)
+        INSERT INTO app.d_entity_instance_registry (entity_type, entity_id)
         VALUES ('task', ${task.id})
       `);
     }

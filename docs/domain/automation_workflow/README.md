@@ -474,7 +474,7 @@ When workflow instance progresses:
 3. Validate transition: current_state → next_state in DAG
 4. Create entities defined for next state:
    - If state.entity_name = 'order', create order
-   - Link order to parent customer via d_entity_id_map
+   - Link order to parent customer via d_entity_instance_link
 5. Update workflow_graph_data:
    - current_state_id = next_state.id
    - Append to state_history: {from: 2, to: 4, ts: now()}

@@ -17,14 +17,14 @@ The **Entity Linkage System** manages parent-child relationships between entity 
    - Stored in: `app.d_entity_map` table
    - Purpose: Schema validation - prevents invalid linkages
 
-2. **Instance-Level Linkages** (`d_entity_id_map`)
+2. **Instance-Level Linkages** (`d_entity_instance_link`)
    - Links specific entity **INSTANCES** (e.g., "Website Redesign Project" contains "Homepage Task")
-   - Stored in: `app.d_entity_id_map` table
+   - Stored in: `app.d_entity_instance_link` table
    - Purpose: Actual data relationships
 
 **Storage Pattern:**
 - **NO foreign keys** in entity tables (e.g., `d_task.project_id` does NOT exist)
-- **ALL relationships** stored in `d_entity_id_map` table
+- **ALL relationships** stored in `d_entity_instance_link` table
 - **Many-to-many** support (one task can belong to multiple projects)
 - **Soft deletes** via `active_flag` (relationships can be reactivated)
 
@@ -71,12 +71,12 @@ task      → artifact, form
 worksite  → employee, task
 ```
 
-### Table: d_entity_id_map (Instance-Level Linkages)
+### Table: d_entity_instance_link (Instance-Level Linkages)
 
 **Purpose:** Store actual parent-child links between specific entity instances
 
 ```sql
-CREATE TABLE app.d_entity_id_map (
+CREATE TABLE app.d_entity_instance_link (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     parent_entity_type varchar(20) NOT NULL,
     parent_entity_id text NOT NULL,
@@ -95,7 +95,7 @@ CREATE TABLE app.d_entity_id_map (
 
 **Example Data:**
 ```sql
-INSERT INTO app.d_entity_id_map
+INSERT INTO app.d_entity_instance_link
 (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
 VALUES
 ('project', 'p1111111-1111-1111-1111-111111111111', 'task', 'a1111111-1111-1111-1111-111111111111', 'contains'),
@@ -309,11 +309,11 @@ GET /api/v1/client/uuid/form?page=1&limit=20
 ```
 
 **Query Strategy:**
-All child entity queries use **linkage-based filtering** via `d_entity_id_map`:
+All child entity queries use **linkage-based filtering** via `d_entity_instance_link`:
 ```sql
 SELECT child.*
 FROM app.d_task child
-INNER JOIN app.d_entity_id_map link
+INNER JOIN app.d_entity_instance_link link
   ON link.child_entity_type = 'task'
   AND link.child_entity_id = child.id
 WHERE link.parent_entity_type = 'project'
@@ -325,7 +325,7 @@ WHERE link.parent_entity_type = 'project'
 **RBAC Enforcement:**
 - Requires view permission `[0]` on both parent and child entities
 - Only returns child entities user has permission to view
-- Filters results based on `entity_id_rbac_map`
+- Filters results based on `d_entity_rbac`
 
 ---
 
@@ -333,7 +333,7 @@ WHERE link.parent_entity_type = 'project'
 
 ### Permission Model
 
-All linkage operations respect the standard entity RBAC pattern via `entity_id_rbac_map`:
+All linkage operations respect the standard entity RBAC pattern via `d_entity_rbac`:
 
 ```sql
 -- Permission array structure
@@ -360,7 +360,7 @@ ARRAY[0,1,2,3,4,5]
 **Grant full linkage permissions:**
 ```sql
 -- Allow user to link/unlink tasks to/from projects
-INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission)
+INSERT INTO app.d_entity_rbac (empid, entity, entity_id, permission)
 VALUES
   ('user-uuid', 'project', 'all', ARRAY[0,1,2,3,4,5]),  -- Full project access
   ('user-uuid', 'task', 'all', ARRAY[0,1,2,3,4,5]);     -- Full task access
@@ -369,7 +369,7 @@ VALUES
 **Grant view-only access:**
 ```sql
 -- Allow user to view project-task linkages but not modify
-INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission)
+INSERT INTO app.d_entity_rbac (empid, entity, entity_id, permission)
 VALUES
   ('user-uuid', 'project', 'all', ARRAY[0]),  -- View projects
   ('user-uuid', 'task', 'all', ARRAY[0]);     -- View tasks
@@ -378,7 +378,7 @@ VALUES
 **Grant ownership of specific linkage:**
 ```sql
 -- User owns a specific project and all its linkages
-INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission)
+INSERT INTO app.d_entity_rbac (empid, entity, entity_id, permission)
 VALUES
   ('user-uuid', 'project', 'project-uuid-123', ARRAY[0,1,2,3,4,5]);
 ```
@@ -857,7 +857,7 @@ curl -X POST http://localhost:4000/api/v1/linkage \
 
 **Database Result:**
 ```sql
-SELECT * FROM app.d_entity_id_map
+SELECT * FROM app.d_entity_instance_link
 WHERE parent_entity_id = 'p1111111-1111-1111-1111-111111111111'
   AND child_entity_id = 'a1111111-1111-1111-1111-111111111111';
 
@@ -884,7 +884,7 @@ curl -X GET "http://localhost:4000/api/v1/project/p1111111-1111-1111-1111-111111
 ```sql
 SELECT task.*
 FROM app.d_task task
-INNER JOIN app.d_entity_id_map link
+INNER JOIN app.d_entity_instance_link link
   ON link.child_entity_type = 'task'
   AND link.child_entity_id = task.id
 WHERE link.parent_entity_type = 'project'
@@ -911,7 +911,7 @@ curl -X DELETE "http://localhost:4000/api/v1/linkage/linkage-uuid" \
 
 **Database Result:**
 ```sql
-UPDATE app.d_entity_id_map
+UPDATE app.d_entity_instance_link
 SET active_flag = false,
     to_ts = now(),
     updated_ts = now()
@@ -950,7 +950,7 @@ curl -X POST http://localhost:4000/api/v1/linkage \
 
 **Database Result:**
 ```sql
-SELECT * FROM app.d_entity_id_map
+SELECT * FROM app.d_entity_instance_link
 WHERE child_entity_type = 'task'
   AND child_entity_id = 'task-uuid'
   AND active_flag = true;
@@ -968,8 +968,8 @@ WHERE child_entity_type = 'task'
 
 **✅ Correct:**
 ```sql
--- Store relationship in d_entity_id_map
-INSERT INTO app.d_entity_id_map
+-- Store relationship in d_entity_instance_link
+INSERT INTO app.d_entity_instance_link
 (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
 VALUES ('project', 'proj-uuid', 'task', 'task-uuid');
 ```
@@ -1004,7 +1004,7 @@ await createLinkage('project', projId, 'artifact', artId);  // May fail
 **✅ Correct:**
 ```sql
 -- Soft delete by setting active_flag = false
-UPDATE app.d_entity_id_map
+UPDATE app.d_entity_instance_link
 SET active_flag = false, to_ts = now()
 WHERE id = 'linkage-uuid';
 ```
@@ -1012,7 +1012,7 @@ WHERE id = 'linkage-uuid';
 **❌ Incorrect:**
 ```sql
 -- Hard delete removes audit trail
-DELETE FROM app.d_entity_id_map WHERE id = 'linkage-uuid';
+DELETE FROM app.d_entity_instance_link WHERE id = 'linkage-uuid';
 ```
 
 ### 4. Query with RBAC Filtering
@@ -1022,8 +1022,8 @@ DELETE FROM app.d_entity_id_map WHERE id = 'linkage-uuid';
 -- Filter by both linkage and RBAC permissions
 SELECT child.*
 FROM app.d_task child
-INNER JOIN app.d_entity_id_map link ON link.child_entity_id = child.id
-INNER JOIN app.entity_id_rbac_map rbac ON rbac.entity = 'task'
+INNER JOIN app.d_entity_instance_link link ON link.child_entity_id = child.id
+INNER JOIN app.d_entity_rbac rbac ON rbac.entity = 'task'
 WHERE link.parent_entity_id = $1
   AND link.active_flag = true
   AND rbac.empid = $2
@@ -1035,7 +1035,7 @@ WHERE link.parent_entity_id = $1
 -- No RBAC check - exposes unauthorized data
 SELECT child.*
 FROM app.d_task child
-INNER JOIN app.d_entity_id_map link ON link.child_entity_id = child.id
+INNER JOIN app.d_entity_instance_link link ON link.child_entity_id = child.id
 WHERE link.parent_entity_id = $1;
 ```
 
@@ -1084,12 +1084,12 @@ WHERE parent_entity_type = 'your_parent_type'
 **Solution:**
 ```sql
 -- Check current permissions
-SELECT * FROM app.entity_id_rbac_map
+SELECT * FROM app.d_entity_rbac
 WHERE empid = 'user-uuid'
   AND entity IN ('parent_type', 'child_type');
 
 -- Grant edit permission [1] on both entities
-INSERT INTO app.entity_id_rbac_map (empid, entity, entity_id, permission)
+INSERT INTO app.d_entity_rbac (empid, entity, entity_id, permission)
 VALUES
   ('user-uuid', 'project', 'all', ARRAY[0,1,2,3,4,5]),
   ('user-uuid', 'task', 'all', ARRAY[0,1,2,3,4,5]);
@@ -1120,14 +1120,14 @@ WHERE code = 'project';
 **Solution:**
 ```sql
 -- Check existing linkage
-SELECT * FROM app.d_entity_id_map
+SELECT * FROM app.d_entity_instance_link
 WHERE parent_entity_type = 'project'
   AND parent_entity_id = 'proj-uuid'
   AND child_entity_type = 'task'
   AND child_entity_id = 'task-uuid';
 
 -- If active_flag = false, reactivate it
-UPDATE app.d_entity_id_map
+UPDATE app.d_entity_instance_link
 SET active_flag = true, from_ts = now(), updated_ts = now()
 WHERE id = 'existing-linkage-uuid';
 ```
@@ -1139,18 +1139,18 @@ WHERE id = 'existing-linkage-uuid';
 **Solution:**
 ```sql
 -- Check linkage status
-SELECT * FROM app.d_entity_id_map
+SELECT * FROM app.d_entity_instance_link
 WHERE parent_entity_id = 'parent-uuid'
   AND child_entity_type = 'child-type';
 
 -- Verify RBAC permissions
-SELECT * FROM app.entity_id_rbac_map
+SELECT * FROM app.d_entity_rbac
 WHERE empid = 'user-uuid'
   AND entity = 'child-type';
 
 -- Check if entities are active
 SELECT id, name, active_flag FROM app.d_child_type
-WHERE id IN (SELECT child_entity_id FROM app.d_entity_id_map WHERE parent_entity_id = 'parent-uuid');
+WHERE id IN (SELECT child_entity_id FROM app.d_entity_instance_link WHERE parent_entity_id = 'parent-uuid');
 ```
 
 ---
@@ -1250,7 +1250,7 @@ CREATE TABLE app.d_task (
 -- Query tasks in project (via linkage)
 SELECT task.*
 FROM app.d_task task
-INNER JOIN app.d_entity_id_map link
+INNER JOIN app.d_entity_instance_link link
   ON link.child_entity_type = 'task'
   AND link.child_entity_id = task.id
 WHERE link.parent_entity_type = 'project'
@@ -1262,7 +1262,7 @@ WHERE link.parent_entity_type = 'project'
 
 1. **Add linkage table entries:**
 ```sql
-INSERT INTO app.d_entity_id_map
+INSERT INTO app.d_entity_instance_link
 (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
 SELECT 'project', project_id, 'task', id
 FROM app.d_task
@@ -1278,7 +1278,7 @@ const tasks = await db.query('SELECT * FROM app.d_task WHERE project_id = $1', [
 const tasks = await db.query(`
   SELECT task.*
   FROM app.d_task task
-  INNER JOIN app.d_entity_id_map link
+  INNER JOIN app.d_entity_instance_link link
     ON link.child_entity_id = task.id
   WHERE link.parent_entity_type = 'project'
     AND link.parent_entity_id = $1
@@ -1339,8 +1339,8 @@ GET /api/v1/linkage/parents/task      # Returns: ["project","worksite"]
 
 **Key Tables:**
 - `app.d_entity_map` - Type-level relationships (DDL: `db/29_d_entity_map.ddl`)
-- `app.d_entity_id_map` - Instance-level linkages (DDL: `db/33_d_entity_id_map.ddl`)
-- `app.entity_id_rbac_map` - RBAC permissions (DDL: `db/32_entity_id_rbac_map.ddl`)
+- `app.d_entity_instance_link` - Instance-level linkages (DDL: `db/33_d_entity_instance_link.ddl`)
+- `app.d_entity_rbac` - RBAC permissions (DDL: `db/32_d_entity_rbac.ddl`)
 
 ---
 
@@ -1360,7 +1360,7 @@ GET /api/v1/linkage/parents/task      # Returns: ["project","worksite"]
 **Key Changes in v3.0.0:**
 - Complete rewrite focusing on current production architecture
 - Removed outdated modal UI sections (no longer accurate)
-- Emphasized NO foreign keys pattern (all relationships via d_entity_id_map)
+- Emphasized NO foreign keys pattern (all relationships via d_entity_instance_link)
 - Simplified to focus on API usage and database patterns
 - Removed deprecated v2.x features and components
 - Added comprehensive RBAC integration section

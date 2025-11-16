@@ -39,7 +39,7 @@ createChildEntityEndpointsFromMetadata(fastify, entityType)
 
 **Auto-Handles**:
 - ✅ RBAC filtering via unified_data_gate
-- ✅ Parent-child JOIN via d_entity_id_map
+- ✅ Parent-child JOIN via d_entity_instance_link
 - ✅ Pagination (limit, offset)
 - ✅ Search across name/code/descr
 - ✅ Sorting (order_by, order_dir)
@@ -75,9 +75,9 @@ getEntityCount(entityType, activeOnly?)
 
 **Cascading Cleanup** (automatic):
 1. Soft-delete from main entity table (`active_flag=false`, `to_ts=NOW()`)
-2. Soft-delete from `d_entity_instance_id` (entity registry)
-3. Soft-delete from `d_entity_id_map` (parent linkages)
-4. Soft-delete from `d_entity_id_map` (child linkages)
+2. Soft-delete from `d_entity_instance_registry` (entity registry)
+3. Soft-delete from `d_entity_instance_link` (parent linkages)
+4. Soft-delete from `d_entity_instance_link` (child linkages)
 5. Optional custom cleanup hook
 
 **Usage**:
@@ -199,7 +199,7 @@ export enum Permission {
 export const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111'
 ```
 
-**RBAC Model** (`entity_id_rbac_map`):
+**RBAC Model** (`d_entity_rbac`):
 - Person-based: `person_entity_name` ('employee' | 'role') + `person_entity_id`
 - Single hierarchical permission: INTEGER (0-5)
 - Resolution: UNION + MAX of role-based and direct permissions
@@ -463,7 +463,7 @@ createLinkage(db, {
 **Features**:
 - ✅ Idempotent (safe to call multiple times)
 - ✅ Validates parent and child exist
-- ✅ Creates record in `d_entity_id_map`
+- ✅ Creates record in `d_entity_instance_link`
 - ✅ Supports many-to-many relationships
 - ✅ Temporal tracking (from_ts, to_ts, active_flag)
 
@@ -480,7 +480,7 @@ await createLinkage(db, {
 });
 ```
 
-**Database Table**: `d_entity_id_map`
+**Database Table**: `d_entity_instance_link`
 
 ---
 
@@ -514,7 +514,7 @@ await createLinkage(db, {
 
 | Service | Purpose | Key Function | Database Table |
 |---------|---------|--------------|----------------|
-| Linkage Service | Parent-child relationships | `createLinkage()` | `d_entity_id_map` |
+| Linkage Service | Parent-child relationships | `createLinkage()` | `d_entity_instance_link` |
 
 ---
 

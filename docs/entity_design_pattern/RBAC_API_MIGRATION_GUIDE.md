@@ -126,7 +126,7 @@ fastify.get('/api/v1/project', {
   const baseConditions = [
     sql`(
       EXISTS (
-        SELECT 1 FROM app.entity_id_rbac_map rbac
+        SELECT 1 FROM app.d_entity_rbac rbac
         WHERE rbac.empid = ${userId}
           AND rbac.entity = 'project'
           AND (rbac.entity_id = p.id::text OR rbac.entity_id = 'all')
@@ -154,7 +154,7 @@ fastify.put('/api/v1/project/:id', {
 
   // PROBLEM: Manual RBAC check duplicated in every endpoint
   const projectEditAccess = await db.execute(sql`
-    SELECT 1 FROM app.entity_id_rbac_map rbac
+    SELECT 1 FROM app.d_entity_rbac rbac
     WHERE rbac.empid = ${userId}
       AND rbac.entity = 'project'
       AND (rbac.entity_id = ${id}::text OR rbac.entity_id = 'all')
@@ -178,7 +178,7 @@ fastify.post('/api/v1/project', {
 
   // PROBLEM: Manual RBAC check for create permission
   const projectCreateAccess = await db.execute(sql`
-    SELECT 1 FROM app.entity_id_rbac_map rbac
+    SELECT 1 FROM app.d_entity_rbac rbac
     WHERE rbac.empid = ${userId}
       AND rbac.entity = 'project'
       AND rbac.entity_id = 'all'
@@ -366,7 +366,7 @@ fastify.post('/api/v1/project', {
 
     // Register in entity instance registry
     await db.execute(sql`
-      INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+      INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
       VALUES ('project', ${newProject.id}::uuid, ${newProject.name}, ${newProject.code})
       ON CONFLICT (entity_type, entity_id) DO UPDATE
       SET entity_name = EXCLUDED.entity_name,

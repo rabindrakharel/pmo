@@ -273,10 +273,10 @@ WHERE person_entity_type = 'employee'
   AND availability_flag = true;
 
 -- =====================================================
--- REGISTER IN d_entity_instance_id
+-- REGISTER IN d_entity_instance_registry
 -- =====================================================
 
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
 SELECT 'person_calendar', id, name, code
 FROM app.d_entity_person_calendar
 WHERE active_flag = true

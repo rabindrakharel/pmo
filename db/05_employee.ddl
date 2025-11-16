@@ -14,9 +14,9 @@
 -- • DELETE: active_flag=false, termination_date=now(), to_ts=now()
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: role (via d_entity_id_map)
+-- • Parent: role (via d_entity_instance_link)
 -- • Self: manager_employee_id → d_employee.id
--- • RBAC: entity_id_rbac_map.person_entity_id (where person_entity_name='employee')
+-- • RBAC: d_entity_rbac.person_entity_id (where person_entity_name='employee')
 --
 -- SECURITY:
 -- • Account lockout: 5 failed attempts → 30 min lock
@@ -436,10 +436,10 @@ BEGIN
 END $$;
 
 -- =====================================================
--- REGISTER ALL EMPLOYEES IN d_entity_instance_id
+-- REGISTER ALL EMPLOYEES IN d_entity_instance_registry
 -- =====================================================
 
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
 SELECT 'employee', id, name, code
 FROM app.d_employee
 WHERE active_flag = true
@@ -449,14 +449,14 @@ SET entity_name = EXCLUDED.entity_name,
     updated_ts = now();
 
 -- =====================================================
--- ASSIGN ROLES TO EMPLOYEES VIA d_entity_id_map
+-- ASSIGN ROLES TO EMPLOYEES VIA d_entity_instance_link
 -- =====================================================
 
 -- Clear existing employee-role mappings
-DELETE FROM app.d_entity_id_map WHERE child_entity_type = 'employee';
+DELETE FROM app.d_entity_instance_link WHERE child_entity_type = 'employee';
 
 -- Assign roles to all employees based on their titles
-INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+INSERT INTO app.d_entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
 SELECT
     'role',
     r.id::text,
@@ -492,7 +492,7 @@ INNER JOIN app.d_role r ON (
 WHERE e.active_flag = true;
 
 -- Assign generic field technician role to any employee without a role match
-INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+INSERT INTO app.d_entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
 SELECT
     'role',
     (SELECT id FROM app.d_role WHERE role_code = 'TECH-FIELD')::text,
@@ -502,7 +502,7 @@ SELECT
 FROM app.d_employee e
 WHERE e.active_flag = true
   AND NOT EXISTS (
-    SELECT 1 FROM app.d_entity_id_map eim
+    SELECT 1 FROM app.d_entity_instance_link eim
     WHERE eim.child_entity_id = e.id::text
       AND eim.child_entity_type = 'employee'
       AND eim.parent_entity_type = 'role'
@@ -512,7 +512,7 @@ WHERE e.active_flag = true
 SELECT
     r.name as role_name,
     COUNT(*) as employee_count
-FROM app.d_entity_id_map eim
+FROM app.d_entity_instance_link eim
 INNER JOIN app.d_role r ON r.id::text = eim.parent_entity_id
 WHERE eim.parent_entity_type = 'role'
   AND eim.child_entity_type = 'employee'

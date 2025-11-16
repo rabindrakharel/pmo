@@ -146,8 +146,8 @@ The Wiki system is PMO platform's **knowledge management solution** providing:
 ┃                                                                 ┃
 ┃  TABLES                                                         ┃
 ┃  ├─ d_wiki                  → Page metadata + content (JSONB)  ┃
-┃  ├─ d_entity_id_map         → Entity relationships             ┃
-┃  ├─ entity_id_rbac_map      → Access permissions               ┃
+┃  ├─ d_entity_instance_link         → Entity relationships             ┃
+┃  ├─ d_entity_rbac      → Access permissions               ┃
 ┃  └─ setting_datalabel       → Publication status values        ┃
 ┃                                                                 ┃
 ┃  INDEXES                                                        ┃
@@ -291,7 +291,7 @@ published_by_empid: {user-id}
 │                                                                   │
 │  → Backend verifies JWT token                                    │
 │  → Backend checks RBAC permissions:                              │
-│     SELECT 1 FROM entity_id_rbac_map                             │
+│     SELECT 1 FROM d_entity_rbac                             │
 │     WHERE empid=$userId                                          │
 │       AND entity='wiki'                                          │
 │       AND (entity_id='abc-123' OR entity_id='all')              │
@@ -1127,7 +1127,7 @@ if (totalSize > 500000) {  // 500KB limit
 // Always check RBAC before displaying wiki
 async function checkWikiAccess(userId: string, wikiId: string, permission: number) {
   const hasAccess = await db.execute(sql`
-    SELECT 1 FROM app.entity_id_rbac_map
+    SELECT 1 FROM app.d_entity_rbac
     WHERE empid = ${userId}
       AND entity = 'wiki'
       AND (entity_id = ${wikiId} OR entity_id = 'all')

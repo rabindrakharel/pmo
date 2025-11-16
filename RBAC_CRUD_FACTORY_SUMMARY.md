@@ -9,7 +9,7 @@ Successfully implemented a **DRY Universal CRUD Factory** with built-in RBAC gat
 ### 1. UUID Migration (`'all'` → `'11111111-1111-1111-1111-111111111111'`)
 
 **Changed Files:**
-- ✅ `db/entity_configuration_settings/06_entity_id_rbac_map.ddl` - All INSERT statements
+- ✅ `db/entity_configuration_settings/06_d_entity_rbac.ddl` - All INSERT statements
 - ✅ `db/08_customer.ddl` - RBAC documentation comments
 - ✅ `db/32_wiki.ddl` - RBAC documentation comments
 - ✅ `db/34_reports.ddl` - RBAC documentation comments
@@ -192,7 +192,7 @@ hasPermissionOnEntityId() (rbac.service.ts)
     ↓
 SQL Query (UNION of role + employee permissions)
     ↓
-entity_id_rbac_map table
+d_entity_rbac table
     ↓
 Returns: boolean (hasPermission)
 ```
@@ -200,8 +200,8 @@ Returns: boolean (hasPermission)
 ## Database Schema (Current)
 
 ```sql
--- entity_id_rbac_map structure
-CREATE TABLE app.entity_id_rbac_map (
+-- d_entity_rbac structure
+CREATE TABLE app.d_entity_rbac (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   person_entity_name varchar(20) NOT NULL,  -- 'employee' or 'role'
   person_entity_id uuid NOT NULL,           -- UUID of employee or role

@@ -27,7 +27,7 @@ The Calendar-Event Integration provides a **unified calendar interface** where t
 
 - **Centralized Event Management**: All event operations accessible from familiar calendar interface
 - **Context-Aware Editing**: Edit event details without navigating away from calendar view
-- **RBAC-Based Ownership**: Event creators automatically receive full Owner permissions via entity_id_rbac_map
+- **RBAC-Based Ownership**: Event creators automatically receive full Owner permissions via d_entity_rbac
 - **Universal Parent Entity**: Events can link to any entity (service, customer, task, project, etc.)
 
 ---
@@ -80,7 +80,7 @@ The Calendar-Event Integration provides a **unified calendar interface** where t
 │  │    ✓ Sarah Thompson (customer) - Pending                  │  │
 │  │    + Add Attendee                                          │  │
 │  │                                                             │  │
-│  │  Linked Entities: (from d_entity_id_map)                  │  │
+│  │  Linked Entities: (from d_entity_instance_link)                  │  │
 │  │    🔧 Service: HVAC System Replacement                     │  │
 │  │    📁 Project: Thompson Residence - HVAC                   │  │
 │  │    👤 Customer: Sarah Thompson                             │  │
@@ -155,7 +155,7 @@ metadata
 
 #### 2. **Event Details** (`d_event`)
 - **Purpose:** Define WHAT is happening, WHEN it happens, and WHERE it happens
-- **Universal Parent:** Can link to ANY entity via d_entity_id_map
+- **Universal Parent:** Can link to ANY entity via d_entity_instance_link
 - **Time-Bound:** Every event has from_ts/to_ts
 - **RBAC-Based Ownership:** Creator automatically receives Owner permission [5]
 - **API Endpoint:** `/api/v1/event`
@@ -179,7 +179,7 @@ event_metadata                    -- Additional context (JSONB)
   - `[3]` = Delete
   - `[4]` = Create
   - `[5]` = Owner (full control including permission management)
-- Ownership tracked in `entity_id_rbac_map` table
+- Ownership tracked in `d_entity_rbac` table
 - No owner column in `d_event` table - ownership determined by RBAC query
 
 #### 3. **Event RSVP Tracking** (`d_entity_event_person_calendar`)
@@ -243,12 +243,12 @@ metadata
    ↓
 7. BACKEND PROCESSING (apps/api/src/modules/event/routes.ts)
    ├─▶ Step 1: Create event in d_event table
-   ├─▶ Step 2: Register in d_entity_instance_id
+   ├─▶ Step 2: Register in d_entity_instance_registry
    ├─▶ Step 3: Grant Owner permissions to creator (empid from JWT)
-   │   └─▶ INSERT INTO entity_id_rbac_map (empid, entity, entity_id, permission)
+   │   └─▶ INSERT INTO d_entity_rbac (empid, entity, entity_id, permission)
    │       VALUES (creatorEmpId, 'event', newEventId, ARRAY[0,1,2,3,4,5])
    ├─▶ Step 4: Create event-person RSVP entries in d_entity_event_person_calendar
-   └─▶ Step 5: (Optional) Create entity linkages in d_entity_id_map
+   └─▶ Step 5: (Optional) Create entity linkages in d_entity_instance_link
    ↓
 8. BACKEND RETURNS: 201 Created
    {
@@ -330,7 +330,7 @@ const creatorEmpId = request.user?.sub;
 if (creatorEmpId) {
   // Grant full Owner permissions to event creator
   await client`
-    INSERT INTO app.entity_id_rbac_map (
+    INSERT INTO app.d_entity_rbac (
       empid,
       entity,
       entity_id,
@@ -365,7 +365,7 @@ To find who created/owns an event:
 ```sql
 -- Query to find event owner
 SELECT empid
-FROM app.entity_id_rbac_map
+FROM app.d_entity_rbac
 WHERE entity = 'event'
   AND entity_id = :event_id
   AND permission @> ARRAY[5]  -- Check for Owner permission
@@ -374,7 +374,7 @@ WHERE entity = 'event'
 
 **Important Notes:**
 - **No owner column** in `d_event` table
-- Ownership is **RBAC-based** via `entity_id_rbac_map`
+- Ownership is **RBAC-based** via `d_entity_rbac`
 - Same pattern applies to all entities (task, project, calendar, etc.)
 - Creator automatically becomes Owner on creation
 
@@ -417,7 +417,7 @@ WHERE entity = 'event'
 3. **Location**: Address/URL, instructions
 4. **Time Slot**: from_ts, to_ts, timezone
 5. **Attendees**: List from `d_entity_event_person_calendar` with RSVP status
-6. **Linked Entities**: List from `d_entity_id_map` (services, tasks, projects, etc.)
+6. **Linked Entities**: List from `d_entity_instance_link` (services, tasks, projects, etc.)
 7. **Actions**: Save, Cancel, Delete
 
 ---
@@ -491,7 +491,7 @@ WHERE entity = 'event'
 
 - [x] **RBAC Integration**
   - [x] Auto-grant Owner permission [5] to event creator
-  - [x] Permission array [0,1,2,3,4,5] in entity_id_rbac_map
+  - [x] Permission array [0,1,2,3,4,5] in d_entity_rbac
 
 ### Database Tasks (Completed ✓)
 
@@ -504,7 +504,7 @@ WHERE entity = 'event'
   - [x] event_id, person_entity_type, person_entity_id
   - [x] event_rsvp_status (pending/accepted/declined)
 
-- [x] **RBAC Table** (`entity_id_rbac_map.ddl`)
+- [x] **RBAC Table** (`d_entity_rbac.ddl`)
   - [x] Permission [5] = Owner documented
 
 ---
@@ -563,15 +563,15 @@ WHERE entity = 'event'
 ### Critical Architecture Principles
 
 1. **Calendar wraps event entity** - Calendar is UI container, event is data entity
-2. **No owner column in d_event** - Ownership is RBAC-based via entity_id_rbac_map
+2. **No owner column in d_event** - Ownership is RBAC-based via d_entity_rbac
 3. **Separation of concerns:**
    - `d_entity_person_calendar` = General availability tracking
    - `d_event` = Event details (WHAT, WHEN, WHERE)
    - `d_entity_event_person_calendar` = Event RSVP tracking (WHO)
-   - `d_entity_id_map` = Entity linkages (event → service, task, project, etc.)
+   - `d_entity_instance_link` = Entity linkages (event → service, task, project, etc.)
 4. **In-place editing** - Edit events without leaving calendar view
 5. **Auto-grant Owner permission** - Creator gets [0,1,2,3,4,5] on event creation
-6. **Event as universal parent** - Can link to ANY entity via d_entity_id_map
+6. **Event as universal parent** - Can link to ANY entity via d_entity_instance_link
 
 ### Best Practices
 
@@ -589,5 +589,5 @@ WHERE entity = 'event'
 - `/docs/calendar/CALENDAR_SYSTEM.md` - Availability tracking system
 - `/db/45_d_event.ddl` - Event entity DDL
 - `/db/44_d_entity_event_person_calendar.ddl` - Event RSVP DDL
-- `/db/34_d_entity_id_rbac_map.ddl` - RBAC permission system
+- `/db/34_d_d_entity_rbac.ddl` - RBAC permission system
 - `/apps/api/src/modules/event/routes.ts` - Event API implementation

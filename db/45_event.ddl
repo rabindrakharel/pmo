@@ -93,16 +93,16 @@
 -- • UPDATE: PUT /api/v1/event/{id}, same ID, version++, updated_ts refreshes
 -- • DELETE: active_flag=false, to_ts=now() (soft delete)
 -- • LIST: GET /api/v1/event, filters by event_type/platform, RBAC enforced
--- • LINK ENTITIES: Use d_entity_id_map to establish event → entity relationships
+-- • LINK ENTITIES: Use d_entity_instance_link to establish event → entity relationships
 -- • LINK PEOPLE: Use d_entity_event_person_calendar to track who is involved and their RSVP status
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • d_entity_id_map: event (parent) → service, customer, task, project, business, meeting, employee, supplier, equipment, etc. (children)
+-- • d_entity_instance_link: event (parent) → service, customer, task, project, business, meeting, employee, supplier, equipment, etc. (children)
 -- • d_entity_event_person_calendar.event_id → d_event.id (tracks who is involved and RSVP status)
 -- • event_metadata stores additional entity references as needed
 --
 -- INTEGRATION WITH OTHER TABLES:
--- • d_entity_id_map: Tracks event as parent of other entities
+-- • d_entity_instance_link: Tracks event as parent of other entities
 --   Example: event → service, event → customer, event → task, event → project
 -- • d_entity_event_person_calendar: Tracks which people are involved in the event
 --   Example: event_id + employee_id + RSVP status
@@ -111,17 +111,17 @@
 -- EXAMPLES:
 -- 1. HVAC Repair Event:
 --    - d_event: event_id = 'evt-001', type='onsite', platform='office', from_ts='2025-11-10 14:00', to_ts='2025-11-10 16:00'
---    - d_entity_id_map: (event='evt-001', child_type='service', child_id='hvac-repair-123')
---    - d_entity_id_map: (event='evt-001', child_type='customer', child_id='cust-456')
+--    - d_entity_instance_link: (event='evt-001', child_type='service', child_id='hvac-repair-123')
+--    - d_entity_instance_link: (event='evt-001', child_type='customer', child_id='cust-456')
 --    - d_entity_event_person_calendar: (event_id='evt-001', person_type='employee', person_id='emp-789', rsvp='accepted')
 --
 -- 2. Manager-Supplier Meeting:
 --    - d_event: event_id = 'evt-002', type='virtual', platform='zoom', from_ts='2025-11-12 10:00', to_ts='2025-11-12 11:30'
---    - d_entity_id_map: (event='evt-002', child_type='meeting', child_id='mtg-001')
---    - d_entity_id_map: (event='evt-002', child_type='employee', child_id='mgr-123')
---    - d_entity_id_map: (event='evt-002', child_type='supplier', child_id='sup-456')
---    - d_entity_id_map: (event='evt-002', child_type='equipment', child_id='eqp-789')
---    - d_entity_id_map: (event='evt-002', child_type='business', child_id='biz-001')
+--    - d_entity_instance_link: (event='evt-002', child_type='meeting', child_id='mtg-001')
+--    - d_entity_instance_link: (event='evt-002', child_type='employee', child_id='mgr-123')
+--    - d_entity_instance_link: (event='evt-002', child_type='supplier', child_id='sup-456')
+--    - d_entity_instance_link: (event='evt-002', child_type='equipment', child_id='eqp-789')
+--    - d_entity_instance_link: (event='evt-002', child_type='business', child_id='biz-001')
 --    - d_entity_event_person_calendar: (event_id='evt-002', person_type='employee', person_id='mgr-123', rsvp='accepted')
 --
 -- =====================================================
@@ -345,10 +345,10 @@ INSERT INTO app.d_event (
 );
 
 -- =====================================================
--- REGISTER IN d_entity_instance_id
+-- REGISTER IN d_entity_instance_registry
 -- =====================================================
 
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
 SELECT 'event', id, name, code
 FROM app.d_event
 WHERE active_flag = true
@@ -371,7 +371,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   AND from_ts >= now()
 -- ORDER BY from_ts;
 
--- Query 2: Find all entities linked to a specific event (via d_entity_id_map)
+-- Query 2: Find all entities linked to a specific event (via d_entity_instance_link)
 -- SELECT
 --   e.code as event_code,
 --   e.name as event_name,
@@ -379,7 +379,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   eim.child_entity_id,
 --   eim.relationship_type
 -- FROM app.d_event e
--- JOIN app.d_entity_id_map eim ON eim.parent_entity_type = 'event' AND eim.parent_entity_id = e.id::text
+-- JOIN app.d_entity_instance_link eim ON eim.parent_entity_type = 'event' AND eim.parent_entity_id = e.id::text
 -- WHERE e.code = 'EVT-HVAC-001'
 --   AND e.active_flag = true
 --   AND eim.active_flag = true;
@@ -422,7 +422,7 @@ SET entity_name = EXCLUDED.entity_name,
 -- COMMENTS
 -- =====================================================
 
-COMMENT ON TABLE app.d_event IS 'Universal parent entity for events/meetings/appointments. Can be linked to ANY entity type via d_entity_id_map. Defines WHAT, WHEN, and WHERE.';
+COMMENT ON TABLE app.d_event IS 'Universal parent entity for events/meetings/appointments. Can be linked to ANY entity type via d_entity_instance_link. Defines WHAT, WHEN, and WHERE.';
 COMMENT ON COLUMN app.d_event.event_type IS 'Event location type: onsite (physical location) or virtual (online meeting)';
 COMMENT ON COLUMN app.d_event.event_platform_provider_name IS 'Platform/provider: zoom, teams, google_meet, physical_hall, office, etc.';
 COMMENT ON COLUMN app.d_event.event_addr IS 'Physical address for onsite events OR meeting URL for virtual events';

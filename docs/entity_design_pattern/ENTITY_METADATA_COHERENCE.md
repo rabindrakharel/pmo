@@ -350,7 +350,7 @@ User navigates to /project/abc-123 (Project detail page)
 
 **Features:**
 - ✅ Filters inactive child entities automatically
-- ✅ Includes actual counts from `d_entity_id_map`
+- ✅ Includes actual counts from `d_entity_instance_link`
 - ✅ Respects RBAC (only shows if user has access)
 - ✅ Sorted by `order` field
 
@@ -632,7 +632,7 @@ const activeChildEntities = await db.execute(sql`
 ```typescript
 // ✅ CORRECT: Verify user has access to parent entity
 const parentAccess = await db.execute(sql`
-  SELECT 1 FROM app.entity_id_rbac_map rbac
+  SELECT 1 FROM app.d_entity_rbac rbac
   WHERE rbac.empid = ${userId}
     AND rbac.entity = ${entityType}
     AND rbac.entity_id = ${entityId}

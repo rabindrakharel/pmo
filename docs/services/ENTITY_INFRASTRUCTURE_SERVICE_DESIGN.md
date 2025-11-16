@@ -45,7 +45,7 @@ Currently, entity infrastructure operations are scattered across:
 ### The Solution
 
 A **single, comprehensive service class** that provides **infrastructure-only operations as an add-on**:
-- ✅ Infrastructure table management (d_entity, d_entity_instance_id, d_entity_id_map, entity_id_rbac_map)
+- ✅ Infrastructure table management (d_entity, d_entity_instance_registry, d_entity_instance_link, d_entity_rbac)
 - ✅ RBAC helper methods (checkPermission, grantPermission, getRbacWhereCondition)
 - ✅ Relationship helpers (createLinkage, getChildEntityIds)
 - ✅ Metadata helpers (getEntityTypeMetadata, validateInstanceExists)
@@ -92,9 +92,9 @@ A **single, comprehensive service class** that provides **infrastructure-only op
 │                                                                 │
 │  ✅ Service ONLY manages infrastructure tables:                │
 │     • d_entity (entity type metadata)                          │
-│     • d_entity_instance_id (instance registry)                 │
-│     • d_entity_id_map (relationships/linkages)                 │
-│     • entity_id_rbac_map (permissions)                         │
+│     • d_entity_instance_registry (instance registry)                 │
+│     • d_entity_instance_link (relationships/linkages)                 │
+│     • d_entity_rbac (permissions)                         │
 │                                                                 │
 │  ✅ Service provides helper methods:                           │
 │     • registerInstance() - Add to registry                     │
@@ -247,7 +247,7 @@ fastify.post('/', async (request, reply) => {
 
   // 3. Register instance (10 lines)
   await db.execute(sql`
-    INSERT INTO app.d_entity_instance_id
+    INSERT INTO app.d_entity_instance_registry
     (entity_type, entity_id, entity_name, entity_code, active_flag)
     VALUES ('project', ${project.id}, ${project.name}, ${project.code}, true)
   `);
@@ -255,7 +255,7 @@ fastify.post('/', async (request, reply) => {
   // 4. Create linkage (15 lines)
   if (parent_type && parent_id) {
     await db.execute(sql`
-      INSERT INTO app.d_entity_id_map
+      INSERT INTO app.d_entity_instance_link
       (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, active_flag)
       VALUES (${parent_type}, ${parent_id}, 'project', ${project.id}, true)
       ON CONFLICT DO UPDATE SET active_flag = true
@@ -264,7 +264,7 @@ fastify.post('/', async (request, reply) => {
 
   // 5. Grant OWNER permission (10 lines)
   await db.execute(sql`
-    INSERT INTO app.entity_id_rbac_map
+    INSERT INTO app.d_entity_rbac
     (person_entity_name, person_entity_id, entity_name, entity_id, permission, active_flag)
     VALUES ('employee', ${userId}, 'project', ${project.id}, 5, true)
   `);
@@ -389,7 +389,7 @@ const query = sql`SELECT * FROM d_task e WHERE ${rbacCondition}`;
 const result = await db.execute(sql`
   SELECT e.* FROM d_business e
   WHERE e.id IN (
-    SELECT entity_id FROM entity_id_rbac_map
+    SELECT entity_id FROM d_entity_rbac
     WHERE person_entity_id = ${userId} AND entity_name = 'business'
   )
 `);
@@ -427,7 +427,7 @@ await createLinkage(db, {
 // ⚠️ If step 3 fails, we have entity with linkage but no permissions
 // Step 3: Grant permission
 await db.execute(sql`
-  INSERT INTO entity_id_rbac_map ...
+  INSERT INTO d_entity_rbac ...
 `);
 
 // ❌ No rollback on failure
@@ -460,8 +460,8 @@ CREATE TABLE app.d_entity (
   updated_ts TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Entity Instance Registry (d_entity_instance_id)
-CREATE TABLE app.d_entity_instance_id (
+-- 2. Entity Instance Registry (d_entity_instance_registry)
+CREATE TABLE app.d_entity_instance_registry (
   entity_type VARCHAR(50) NOT NULL,          -- FK to d_entity.code
   entity_id UUID NOT NULL,                   -- Instance UUID
   order_id INTEGER DEFAULT 0,                -- Display ordering
@@ -474,8 +474,8 @@ CREATE TABLE app.d_entity_instance_id (
   UNIQUE (entity_type, entity_id)
 );
 
--- 3. Entity Relationships (d_entity_id_map)
-CREATE TABLE app.d_entity_id_map (
+-- 3. Entity Relationships (d_entity_instance_link)
+CREATE TABLE app.d_entity_instance_link (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   parent_entity_type VARCHAR(50) NOT NULL,   -- Parent entity type
   parent_entity_id UUID NOT NULL,            -- Parent instance UUID
@@ -491,8 +491,8 @@ CREATE TABLE app.d_entity_id_map (
   UNIQUE (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
 );
 
--- 4. Entity Permissions (entity_id_rbac_map)
-CREATE TABLE app.entity_id_rbac_map (
+-- 4. Entity Permissions (d_entity_rbac)
+CREATE TABLE app.d_entity_rbac (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   person_entity_name VARCHAR(50),            -- 'employee' or 'role'
   person_entity_id UUID NOT NULL,            -- Employee/Role UUID
@@ -597,7 +597,7 @@ export function createEntityDeleteEndpoint(
 │  └──────────────────────────────────────────────────────────┘ │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐ │
-│  │ 2. Instance Registry (d_entity_instance_id)              │ │
+│  │ 2. Instance Registry (d_entity_instance_registry)              │ │
 │  │    • registerInstance()                                  │ │
 │  │    • updateInstanceMetadata()                            │ │
 │  │    • deactivateInstance()                                │ │
@@ -606,7 +606,7 @@ export function createEntityDeleteEndpoint(
 │  └──────────────────────────────────────────────────────────┘ │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐ │
-│  │ 3. Relationship Management (d_entity_id_map)             │ │
+│  │ 3. Relationship Management (d_entity_instance_link)             │ │
 │  │    • createLinkage()                                     │ │
 │  │    • deleteLinkage()                                     │ │
 │  │    • getEntityLinkages()                                 │ │
@@ -614,7 +614,7 @@ export function createEntityDeleteEndpoint(
 │  └──────────────────────────────────────────────────────────┘ │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐ │
-│  │ 4. Permission Management (entity_id_rbac_map)            │ │
+│  │ 4. Permission Management (d_entity_rbac)            │ │
 │  │    • checkPermission()                                   │ │
 │  │    • grantPermission()                                   │ │
 │  │    • grantOwnership()                                    │ │
@@ -649,9 +649,9 @@ export function createEntityDeleteEndpoint(
 │                    DATABASE LAYER                               │
 │                                                                 │
 │  • app.d_entity (metadata)                                     │
-│  • app.d_entity_instance_id (registry)                         │
-│  • app.d_entity_id_map (relationships)                         │
-│  • app.entity_id_rbac_map (permissions)                        │
+│  • app.d_entity_instance_registry (registry)                         │
+│  • app.d_entity_instance_link (relationships)                         │
+│  • app.d_entity_rbac (permissions)                        │
 │  • app.d_project, d_task, etc. (primary tables)               │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -734,7 +734,7 @@ export class EntityInfrastructureService {
   ): Promise<Array<{ entity: string; label: string; icon?: string }>>
 
   // ========================================================================
-  // SECTION 2: Instance Registry (d_entity_instance_id)
+  // SECTION 2: Instance Registry (d_entity_instance_registry)
   // ========================================================================
 
   /**
@@ -792,7 +792,7 @@ export class EntityInfrastructureService {
   ): Promise<EntityInstance[]>
 
   // ========================================================================
-  // SECTION 3: Relationship Management (d_entity_id_map)
+  // SECTION 3: Relationship Management (d_entity_instance_link)
   // ========================================================================
 
   /**
@@ -841,7 +841,7 @@ export class EntityInfrastructureService {
   ): Promise<string[]>
 
   // ========================================================================
-  // SECTION 4: Permission Management (entity_id_rbac_map)
+  // SECTION 4: Permission Management (d_entity_rbac)
   // ========================================================================
 
   /**
@@ -924,8 +924,8 @@ export class EntityInfrastructureService {
    * Orchestrates deletion across all infrastructure tables:
    * 1. Check DELETE permission
    * 2. Optionally cascade delete children
-   * 3. Deactivate in d_entity_instance_id
-   * 4. Deactivate linkages in d_entity_id_map
+   * 3. Deactivate in d_entity_instance_registry
+   * 4. Deactivate linkages in d_entity_instance_link
    * 5. Optionally remove RBAC entries
    * 6. Optionally delete from primary table
    *
@@ -1054,7 +1054,7 @@ export const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111';
                  │ Referenced by
                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                  d_entity_instance_id                            │
+│                  d_entity_instance_registry                            │
 │                   (Instance Registry)                            │
 │  • entity_type (FK to d_entity.code)                            │
 │  • entity_id - Instance UUID                                    │
@@ -1068,7 +1068,7 @@ export const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111';
                  │                                  │
                  ▼                                  ▼
 ┌──────────────────────────────────┐  ┌──────────────────────────┐
-│      d_entity_id_map              │  │   entity_id_rbac_map     │
+│      d_entity_instance_link              │  │   d_entity_rbac     │
 │     (Relationships)               │  │     (Permissions)        │
 │  • parent_entity_type             │  │  • entity_name           │
 │  • parent_entity_id               │  │  • entity_id             │
@@ -1091,19 +1091,19 @@ CREATE Operation:
        ▼
 ┌────────────────────────────────────────────────────────┐
 │  EntityInfrastructureService.registerInstance()        │
-│  1. Insert into d_entity_instance_id                   │
+│  1. Insert into d_entity_instance_registry                   │
 └──────┬─────────────────────────────────────────────────┘
        │
        ▼
 ┌────────────────────────────────────────────────────────┐
 │  EntityInfrastructureService.createLinkage()           │
-│  2. Insert into d_entity_id_map                        │
+│  2. Insert into d_entity_instance_link                        │
 └──────┬─────────────────────────────────────────────────┘
        │
        ▼
 ┌────────────────────────────────────────────────────────┐
 │  EntityInfrastructureService.grantOwnership()          │
-│  3. Insert into entity_id_rbac_map                     │
+│  3. Insert into d_entity_rbac                     │
 └────────────────────────────────────────────────────────┘
 
 DELETE Operation:
@@ -1118,9 +1118,9 @@ DELETE Operation:
 │  Orchestrates:                                         │
 │  1. checkPermission() - RBAC check                     │
 │  2. CASCADE: Recursive deleteEntity() for children     │
-│  3. UPDATE d_entity_instance_id (soft delete)          │
-│  4. UPDATE d_entity_id_map (deactivate linkages)       │
-│  5. DELETE FROM entity_id_rbac_map (optional)          │
+│  3. UPDATE d_entity_instance_registry (soft delete)          │
+│  4. UPDATE d_entity_instance_link (deactivate linkages)       │
+│  5. DELETE FROM d_entity_rbac (optional)          │
 │  6. primary_table_callback() (optional)                │
 └────────────────────────────────────────────────────────┘
 ```
@@ -1175,7 +1175,7 @@ fastify.post('/api/v1/project', async (request, reply) => {
 
   // 3. Register instance (15 lines)
   await db.execute(sql`
-    INSERT INTO app.d_entity_instance_id
+    INSERT INTO app.d_entity_instance_registry
     (entity_type, entity_id, entity_name, entity_code, active_flag)
     VALUES ('project', ${project.id}, ${project.name}, ${project.code}, true)
     ON CONFLICT (entity_type, entity_id)
@@ -1198,11 +1198,11 @@ fastify.post('/api/v1/project', async (request, reply) => {
 
   // 5. Grant OWNER permission (15 lines)
   await db.execute(sql`
-    INSERT INTO app.entity_id_rbac_map
+    INSERT INTO app.d_entity_rbac
     (person_entity_name, person_entity_id, entity_name, entity_id, permission, active_flag)
     VALUES ('employee', ${userId}, 'project', ${project.id}, 5, true)
     ON CONFLICT (person_entity_name, person_entity_id, entity_name, entity_id)
-    DO UPDATE SET permission = GREATEST(entity_id_rbac_map.permission, 5)
+    DO UPDATE SET permission = GREATEST(d_entity_rbac.permission, 5)
   `);
 
   return reply.code(201).send({ data: project });
@@ -1347,7 +1347,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
     // ✅ ROUTE decides how to handle parent filtering
     if (parent_type && parent_id) {
       joins.push(`
-        INNER JOIN app.d_entity_id_map eim
+        INNER JOIN app.d_entity_instance_link eim
           ON eim.child_entity_id = ${TABLE_ALIAS}.id
           AND eim.parent_entity_type = '${parent_type}'
           AND eim.parent_entity_id = '${parent_id}'
@@ -1650,19 +1650,19 @@ export class EntityInfrastructureService {
 -- d_entity
 CREATE INDEX idx_d_entity_active ON app.d_entity(active_flag) WHERE active_flag = true;
 
--- d_entity_instance_id
-CREATE INDEX idx_entity_instance_type ON app.d_entity_instance_id(entity_type, active_flag);
-CREATE INDEX idx_entity_instance_search ON app.d_entity_instance_id
+-- d_entity_instance_registry
+CREATE INDEX idx_entity_instance_type ON app.d_entity_instance_registry(entity_type, active_flag);
+CREATE INDEX idx_entity_instance_search ON app.d_entity_instance_registry
   USING gin(to_tsvector('english', entity_name || ' ' || COALESCE(entity_code, '')));
 
--- d_entity_id_map
-CREATE INDEX idx_eim_parent ON app.d_entity_id_map(parent_entity_type, parent_entity_id, active_flag);
-CREATE INDEX idx_eim_child ON app.d_entity_id_map(child_entity_type, child_entity_id, active_flag);
-CREATE INDEX idx_eim_relationship ON app.d_entity_id_map(parent_entity_id, child_entity_id, active_flag);
+-- d_entity_instance_link
+CREATE INDEX idx_eim_parent ON app.d_entity_instance_link(parent_entity_type, parent_entity_id, active_flag);
+CREATE INDEX idx_eim_child ON app.d_entity_instance_link(child_entity_type, child_entity_id, active_flag);
+CREATE INDEX idx_eim_relationship ON app.d_entity_instance_link(parent_entity_id, child_entity_id, active_flag);
 
--- entity_id_rbac_map
-CREATE INDEX idx_rbac_person ON app.entity_id_rbac_map(person_entity_id, entity_name, active_flag);
-CREATE INDEX idx_rbac_entity ON app.entity_id_rbac_map(entity_name, entity_id, active_flag);
+-- d_entity_rbac
+CREATE INDEX idx_rbac_person ON app.d_entity_rbac(person_entity_id, entity_name, active_flag);
+CREATE INDEX idx_rbac_entity ON app.d_entity_rbac(entity_name, entity_id, active_flag);
 ```
 
 ### Query Optimization
@@ -1847,14 +1847,14 @@ describe('Entity Routes with Infrastructure Service', () => {
 
     // Verify registry
     const registry = await db.execute(`
-      SELECT * FROM d_entity_instance_id
+      SELECT * FROM d_entity_instance_registry
       WHERE entity_type = 'project' AND entity_id = '${response.body.data.id}'
     `);
     expect(registry.length).toBe(1);
 
     // Verify RBAC
     const rbac = await db.execute(`
-      SELECT * FROM entity_id_rbac_map
+      SELECT * FROM d_entity_rbac
       WHERE entity_name = 'project' AND entity_id = '${response.body.data.id}'
     `);
     expect(rbac.length).toBe(1);

@@ -16,11 +16,11 @@ d_product (15 records) ──┼──> fact_quote.quote_items[] (6 quotes) ─�
 ```
 
 **Key Design Decisions:**
-- **No foreign keys** - Intentional for flexibility; relationships tracked via JSONB and `d_entity_id_map`
+- **No foreign keys** - Intentional for flexibility; relationships tracked via JSONB and `d_entity_instance_link`
 - **JSONB for line items** - Per-line discounts/taxes stored in `quote_items[]` array
 - **DRY field generation** - Convention-based type detection (suffixes: `_amt`, `_pct`, `_date`, `dl__*`)
 - **Universal components** - 3 pages handle all entities: `EntityMainPage`, `EntityDetailPage`, `EntityCreatePage`
-- **Entity instance registry** - All instances registered in `d_entity_instance_id` for child-tabs and navigation
+- **Entity instance registry** - All instances registered in `d_entity_instance_registry` for child-tabs and navigation
 
 ---
 
@@ -356,7 +356,7 @@ interface EntityAttributeInlineDataTableProps {
 
 ### Entity Instance Registry
 
-**Table:** `d_entity_instance_id`
+**Table:** `d_entity_instance_registry`
 
 **Purpose:** Universal registry for all entity instances (enables child-tabs, global search, cross-entity references)
 
@@ -382,10 +382,10 @@ work_order:   6
 
 **Backfill Script:** `/db/32_d_entity_instance_backfill.ddl`
 ```sql
--- This file runs AFTER d_entity_instance_id table is created
+-- This file runs AFTER d_entity_instance_registry table is created
 -- It backfills all existing records from the 4 entity tables
 
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
 SELECT 'quote', id, name, code FROM app.fact_quote
 ON CONFLICT (entity_type, entity_id) DO UPDATE
 SET entity_name = EXCLUDED.entity_name, entity_code = EXCLUDED.entity_code, updated_ts = NOW();
@@ -401,7 +401,7 @@ execute_sql "d_product.ddl"           # Line 228
 execute_sql "fact_quote.ddl"          # Line 254
 execute_sql "fact_work_order.ddl"     # Line 255
 # ...
-execute_sql "31_d_entity_instance_id.ddl"      # Line 264 - Creates table
+execute_sql "31_d_entity_instance_registry.ddl"      # Line 264 - Creates table
 execute_sql "32_d_entity_instance_backfill.ddl" # Line 265 - Backfills data!
 ```
 
@@ -442,7 +442,7 @@ export const quoteApi = {
   async list(params) { /* ... */ },
   async get(id) { /* ... */ },
   async create(data) {
-    // Automatically registers in d_entity_instance_id on backend
+    // Automatically registers in d_entity_instance_registry on backend
   },
   async update(id, data) { /* ... */ },
   async delete(id) { /* ... */ },
@@ -469,7 +469,7 @@ APIFactory.register('product', productApi);
 **Standard CRUD:**
 ```typescript
 GET    /api/v1/quote              // List with RBAC filtering
-POST   /api/v1/quote              // Create + auto-register in d_entity_instance_id
+POST   /api/v1/quote              // Create + auto-register in d_entity_instance_registry
 GET    /api/v1/quote/:id          // Get single with RBAC
 PUT    /api/v1/quote/:id          // Update
 DELETE /api/v1/quote/:id          // Soft delete
@@ -489,7 +489,7 @@ GET    /api/v1/quote/:id/work_order  // Get work orders for this quote
 ```typescript
 // After creating quote in fact_quote table:
 await db.execute(sql`
-  INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+  INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
   VALUES ('quote', ${newQuote.id}::uuid, ${newQuote.name}, ${newQuote.code})
   ON CONFLICT (entity_type, entity_id) DO UPDATE
   SET entity_name = EXCLUDED.entity_name, entity_code = EXCLUDED.entity_code, updated_ts = NOW()
@@ -529,9 +529,9 @@ await db.execute(sql`
 ```
 
 **How It Works:**
-1. Checks `d_entity_instance_id` for parent entity existence
+1. Checks `d_entity_instance_registry` for parent entity existence
 2. Loads `child_entities` JSONB from `d_entity` table
-3. Counts child records from `d_entity_id_map` table
+3. Counts child records from `d_entity_instance_link` table
 4. Returns formatted tab metadata
 
 ---
@@ -544,7 +544,7 @@ await db.execute(sql`
 ./tools/db-import.sh
 
 # Verify entity instance registry
-psql -c "SELECT entity_type, COUNT(*) FROM app.d_entity_instance_id GROUP BY entity_type;"
+psql -c "SELECT entity_type, COUNT(*) FROM app.d_entity_instance_registry GROUP BY entity_type;"
 # Expected: service (15), product (15), quote (6), work_order (6)
 
 # Verify quote structure
@@ -647,7 +647,7 @@ SELECT * FROM fact_quote WHERE quote_items @> '[{"item_code":"SVC-HVAC-001"}]';
 
 **Symptom:** 404 error on `/api/v1/entity/child-tabs/quote/:id`
 
-**Cause:** Quote not registered in `d_entity_instance_id`
+**Cause:** Quote not registered in `d_entity_instance_registry`
 
 **Solution:** Run backfill or create via API (auto-registers)
 ```bash
@@ -747,10 +747,10 @@ Database:
   /db/fact_quote.ddl                 ← Quotes with JSONB line items (6 records)
   /db/fact_work_order.ddl            ← Work order execution (6 records)
   /db/30_d_entity.ddl                ← Entity type metadata (parent-child relationships)
-  /db/31_d_entity_instance_id.ddl    ← Entity instance registry (table creation)
+  /db/31_d_entity_instance_registry.ddl    ← Entity instance registry (table creation)
   /db/32_d_entity_instance_backfill.ddl ← Backfill existing records ⚠️ NEW!
-  /db/33_d_entity_id_map.ddl         ← Instance relationships
-  /db/34_d_entity_id_rbac_map.ddl    ← RBAC permissions
+  /db/33_d_entity_instance_link.ddl         ← Instance relationships
+  /db/34_d_d_entity_rbac.ddl    ← RBAC permissions
 
 Frontend Config:
   /apps/web/src/lib/entityConfig.ts  ← Entity definitions (service, product, quote, work_order)

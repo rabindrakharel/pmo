@@ -95,7 +95,7 @@ The Knowledge & Documentation Domain provides comprehensive knowledge management
 │  │  Linkage via:                                                  │  │
 │  │  • entity_type (e.g., 'project')                               │  │
 │  │  • entity_id (UUID of parent entity)                           │  │
-│  │  • d_entity_id_map (polymorphic parent-child)                  │  │
+│  │  • d_entity_instance_link (polymorphic parent-child)                  │  │
 │  └────────────────────────────────────────────────────────────────┘  │
 │                                                                       │
 │  ┌────────────────────────────────────────────────────────────────┐  │

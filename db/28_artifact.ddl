@@ -16,7 +16,7 @@
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • Parent: project, task, form, etc. (via entity_type/entity_id)
--- • RBAC: entity_id_rbac_map
+-- • RBAC: d_entity_rbac
 --
 -- =====================================================
 
@@ -259,11 +259,11 @@ FROM (VALUES
 ) AS t(name, descr, duration, category);
 
 -- =====================================================
--- REGISTER ARTIFACTS IN d_entity_id_map
+-- REGISTER ARTIFACTS IN d_entity_instance_link
 -- =====================================================
 
 -- Link all artifacts to their parent entities
-INSERT INTO app.d_entity_id_map (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+INSERT INTO app.d_entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
 SELECT
     a.entity_type,
     a.entity_id::text,
@@ -277,10 +277,10 @@ WHERE a.entity_id IS NOT NULL
 ON CONFLICT DO NOTHING;
 
 -- =====================================================
--- REGISTER ARTIFACTS IN d_entity_instance_id
+-- REGISTER ARTIFACTS IN d_entity_instance_registry
 -- =====================================================
 
-INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code entity_code)
+INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code entity_code)
 SELECT 'artifact', id, name, code
 FROM app.d_artifact
 WHERE active_flag = true

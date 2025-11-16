@@ -14,8 +14,8 @@
 -- • LIST: GET /api/v1/role, filters by role_category, RBAC enforced
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Children: employee (via d_entity_id_map)
--- • RBAC: entity_id_rbac_map
+-- • Children: employee (via d_entity_instance_link)
+-- • RBAC: d_entity_rbac
 --
 -- ============================================================================
 

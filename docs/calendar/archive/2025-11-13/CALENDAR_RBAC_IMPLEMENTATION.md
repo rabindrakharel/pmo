@@ -8,7 +8,7 @@ The PMO Calendar System has been enhanced to properly handle event organizers an
 
 ### 1. Organizers via RBAC Permission[5]
 - **No organizer_id field**: Events don't have a dedicated organizer field in the database
-- **RBAC Permission[5]**: Organizers are tracked via `entity_id_rbac_map` where permission array contains position [5]
+- **RBAC Permission[5]**: Organizers are tracked via `d_entity_rbac` where permission array contains position [5]
 - **Multiple Organizers**: Multiple employees can have organizer status for the same event
 - **Full Control**: Organizers have complete control including permission management
 
@@ -24,7 +24,7 @@ The PMO Calendar System has been enhanced to properly handle event organizers an
 - Tracks both organizers and regular attendees
 - RSVP statuses: pending, accepted, declined
 
-#### RBAC Mapping (entity_id_rbac_map)
+#### RBAC Mapping (d_entity_rbac)
 - Permission[5] = Organizer status
 - Full permissions array: [0,1,2,3,4,5] = [View, Edit, Share, Delete, Create, Owner/Organizer]
 
@@ -76,7 +76,7 @@ GET /api/v1/event/enriched
 5. Add regular attendees with specified RSVP status
 
 ### Organizer Identification
-- Query `entity_id_rbac_map` where:
+- Query `d_entity_rbac` where:
   - entity = 'event'
   - entity_id = event.id
   - permission contains [5]
@@ -131,7 +131,7 @@ SELECT
   r.empid,
   e.name,
   e.email
-FROM entity_id_rbac_map r
+FROM d_entity_rbac r
 JOIN d_employee e ON r.empid = e.id
 WHERE r.entity = 'event'
   AND r.entity_id = :event_id
@@ -150,7 +150,7 @@ SELECT
         'email', emp.email
       )
     )
-    FROM entity_id_rbac_map r
+    FROM d_entity_rbac r
     LEFT JOIN d_employee emp ON r.empid = emp.id
     WHERE r.entity = 'event'
       AND r.entity_id = e.id::text

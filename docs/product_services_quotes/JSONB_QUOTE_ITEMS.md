@@ -314,7 +314,7 @@ fastify.post('/api/v1/quote', {
 
   // RBAC check
   const access = await db.execute(sql`
-    SELECT 1 FROM app.entity_id_rbac_map rbac
+    SELECT 1 FROM app.d_entity_rbac rbac
     WHERE rbac.empid = ${userId}
       AND rbac.entity = 'quote'
       AND rbac.entity_id = 'all'
@@ -361,7 +361,7 @@ fastify.post('/api/v1/quote', {
 
   // Register in entity instance registry
   await db.execute(sql`
-    INSERT INTO app.d_entity_instance_id (entity_type, entity_id, entity_name, entity_code)
+    INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
     VALUES ('quote', ${newQuote.id}::uuid, ${newQuote.name}, ${newQuote.code})
     ON CONFLICT (entity_type, entity_id) DO UPDATE
     SET entity_name = EXCLUDED.entity_name, entity_code = EXCLUDED.entity_code
