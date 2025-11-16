@@ -6,13 +6,13 @@ import { useNavigate } from 'react-router-dom';
 import { ActionButtonsBar } from '../button/ActionButtonsBar';
 import { getEntityConfig, type EntityConfig } from '../../../lib/entityConfig';
 import { transformForApi, transformFromApi } from '../../../lib/data_transform_render';
-import { COLOR_OPTIONS } from '../../../lib/settingsConfig';
 import { useColumnVisibility } from '../../../lib/hooks/useColumnVisibility';
 import { useEntitySchema } from '../../../lib/hooks/useEntitySchema';
 import { formatFieldValue } from '../../../lib/schemaFormatters';
-import type { SchemaColumn } from '../../../lib/types/schema';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+import type { SchemaColumn } from '../../../lib/types/table';
+import { SchemaErrorFallback } from '../error/SchemaErrorBoundary';
+import { TableSkeleton } from '../ui/TableSkeleton';
+import { API_CONFIG, API_ENDPOINTS } from '../../../lib/config/api';
 
 export interface FilteredDataTableProps {
   entityType: string;
@@ -190,7 +190,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       }
 
       const response = await fetch(
-        `${API_BASE_URL}${endpoint}${separator}${queryParams}`,
+        `${API_CONFIG.BASE_URL}${endpoint}${separator}${queryParams}`,
         { headers }
       );
 
@@ -288,7 +288,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           createEndpoint = config.apiEndpoint;
         }
 
-        response = await fetch(`${API_BASE_URL}${createEndpoint}`, {
+        response = await fetch(`${API_CONFIG.BASE_URL}${createEndpoint}`, {
           method: 'POST',
           headers,
           body: JSON.stringify(transformedData)
@@ -358,7 +358,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           updateEndpoint = `${config.apiEndpoint}/${record.id}`;
         }
 
-        response = await fetch(`${API_BASE_URL}${updateEndpoint}`, {
+        response = await fetch(`${API_CONFIG.BASE_URL}${updateEndpoint}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(transformedData)
@@ -428,7 +428,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       }
 
       const response = await fetch(
-        `${API_BASE_URL}${deleteEndpoint}`,
+        `${API_CONFIG.BASE_URL}${deleteEndpoint}`,
         {
           method: 'DELETE',
           headers
@@ -543,7 +543,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
       const updateEndpoint = `/api/v1/setting/${datalabel}/${id}`;
 
-      const response = await fetch(`${API_BASE_URL}${updateEndpoint}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${updateEndpoint}`, {
         method: 'PUT',
         headers,
         body: JSON.stringify(updates)
@@ -588,7 +588,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
       const deleteEndpoint = `/api/v1/setting/${datalabel}/${id}`;
 
-      const response = await fetch(`${API_BASE_URL}${deleteEndpoint}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${deleteEndpoint}`, {
         method: 'DELETE',
         headers
       });
@@ -639,7 +639,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         const item = reorderedData[newIndex];
         const updateEndpoint = `/api/v1/setting/${datalabel}/${newIndex}`;
 
-        const response = await fetch(`${API_BASE_URL}${updateEndpoint}`, {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${updateEndpoint}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(item)  // item already has the correct new id from the map above
@@ -681,7 +681,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
       const createEndpoint = `/api/v1/setting/${datalabel}`;
 
-      const response = await fetch(`${API_BASE_URL}${createEndpoint}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${createEndpoint}`, {
         method: 'POST',
         headers,
         body: JSON.stringify(editedData)
@@ -747,6 +747,21 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     );
   }
 
+  // Show error state
+  if (schemaError) {
+    return (
+      <SchemaErrorFallback
+        error={schemaError}
+        entityType={entityType}
+        onRetry={() => window.location.reload()}
+      />
+    );
+  }
+
+  // Show loading skeleton while schema is loading
+  if (schemaLoading && !schema) {
+    return <TableSkeleton rows={5} columns={6} />;
+  }
 
   return (
     <div className="flex flex-col h-full">

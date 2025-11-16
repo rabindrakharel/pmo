@@ -21,13 +21,15 @@
  */
 
 import React from 'react';
-import type { SchemaColumn } from './types/schema';
+import type { SchemaColumn } from './types/table';
 import {
   formatCurrency,
   formatRelativeTime,
   renderSettingBadge,
   getSettingColor
 } from './data_transform_render';
+import { formatters } from './config/locale';
+import { DISPLAY_CONFIG } from './config/display';
 
 /**
  * Format field value based on schema format specification
@@ -62,19 +64,19 @@ export function formatFieldValue(
 
     // ✅ NUMBER: Format with thousand separators
     case 'number':
-      return formatNumber(value);
+      return formatters.number(value);
 
     // ✅ PERCENTAGE: Simple formatting
     case 'percentage':
-      return formatPercentage(value);
+      return formatters.percentage(value);
 
     // ✅ DATE: Use Intl.DateTimeFormat
     case 'date':
-      return formatDate(value);
+      return formatters.date(value);
 
     // ✅ DATETIME: Use Intl.DateTimeFormat
     case 'datetime':
-      return formatDateTime(value);
+      return formatters.datetime(value);
 
     // ✅ BOOLEAN: Render as badge
     case 'boolean':
@@ -96,47 +98,11 @@ export function formatFieldValue(
 }
 
 // ============================================================================
-// SIMPLE FORMATTERS (No equivalent in data_transform_render.tsx)
+// SIMPLE FORMATTERS (Delegated to centralized locale formatters)
 // ============================================================================
 
-function formatNumber(value: number): string {
-  if (typeof value !== 'number') return String(value);
-
-  return new Intl.NumberFormat('en-CA', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2
-  }).format(value);
-}
-
-function formatPercentage(value: number): string {
-  if (typeof value !== 'number') return String(value);
-  return `${value.toFixed(1)}%`;
-}
-
-function formatDate(value: string | Date): string {
-  const date = new Date(value);
-  if (isNaN(date.getTime())) return String(value);
-
-  return new Intl.DateTimeFormat('en-CA', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  }).format(date);
-}
-
-function formatDateTime(value: string | Date): string {
-  const date = new Date(value);
-  if (isNaN(date.getTime())) return String(value);
-
-  return new Intl.DateTimeFormat('en-CA', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-    hour12: true
-  }).format(date);
-}
+// Note: Number, percentage, date, datetime now use centralized formatters
+// from lib/config/locale.ts for consistency
 
 function formatBoolean(value: boolean, isActiveFlag: boolean = false): React.ReactNode {
   if (isActiveFlag) {
@@ -170,7 +136,7 @@ function formatTags(value: string[] | string): React.ReactNode {
     return <span className="text-dark-600 italic">—</span>;
   }
 
-  const maxDisplay = 3;
+  const maxDisplay = DISPLAY_CONFIG.MAX_TAGS_DISPLAY;
   const displayTags = tags.slice(0, maxDisplay);
   const remaining = tags.length - maxDisplay;
 
