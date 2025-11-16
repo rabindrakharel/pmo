@@ -5,12 +5,13 @@ import type { Column, RowAction } from '../ui/EntityDataTable';
 import { useNavigate } from 'react-router-dom';
 import { ActionButtonsBar } from '../button/ActionButtonsBar';
 import { getEntityConfig, type EntityConfig } from '../../../lib/entityConfig';
-import { transformForApi, transformFromApi } from '../../../lib/data_transform_render';
-import { COLOR_OPTIONS } from '../../../lib/settingsConfig';
+import { transformForApi, transformFromApi, formatFieldValue } from '../../../lib/universalFormatterService';
 import { useColumnVisibility } from '../../../lib/hooks/useColumnVisibility';
-import { detectField } from '../../../lib/universalFieldDetector';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+import { useEntitySchema } from '../../../lib/hooks/useEntitySchema';
+import type { SchemaColumn } from '../../../lib/types/table';
+import { SchemaErrorFallback } from '../error/SchemaErrorBoundary';
+import { TableSkeleton } from '../ui/TableSkeleton';
+import { API_CONFIG, API_ENDPOINTS } from '../../../lib/config/api';
 
 export interface FilteredDataTableProps {
   entityType: string;
@@ -65,54 +66,44 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   const [editedData, setEditedData] = useState<any>({});
   const [isAddingRow, setIsAddingRow] = useState(false);
 
+  // Fetch schema from API (independent of data)
+  const { schema, loading: schemaLoading, error: schemaError } = useEntitySchema(entityType);
+
   // Check if this is a settings entity
   const isSettingsEntity = useMemo(() => {
     return config?.apiEndpoint?.includes('/api/v1/setting?datalabel=') || false;
   }, [config]);
 
-  // Get columns from config - auto-generate if empty (v4.0)
+  // Get columns from schema or config
   const configuredColumns: Column[] = useMemo(() => {
     if (!config) return [];
 
-    // If config has columns defined, use them
+    // Priority 1: Explicit config columns (for custom overrides)
     if (config.columns && config.columns.length > 0) {
       return config.columns as Column[];
     }
 
-    // v4.0: Auto-generate columns from data if config.columns is empty
-    if (data && data.length > 0) {
-      const firstRow = data[0];
-      const keys = Object.keys(firstRow);
+    // Priority 2: API schema (default - database-driven, works with empty tables)
+    if (schema && schema.columns) {
+      return schema.columns.map((col: SchemaColumn) => ({
+        key: col.key,
+        title: col.title,
+        visible: col.visible,
+        sortable: col.sortable,
+        filterable: col.filterable,
+        width: col.width,
+        align: col.align,
+        editable: col.editable,
+        editType: col.editType as any,
+        loadOptionsFromSettings: col.dataSource?.type === 'settings',
 
-      // Generate columns using universal field detector
-      const allGeneratedColumns = keys
-        .map(key => {
-          const metadata = detectField(key);
-          const column = {
-            key,
-            title: metadata.fieldName, // This uses the formatted title from detectField
-            sortable: metadata.sortable,
-            filterable: metadata.filterable,
-            searchable: metadata.searchable,
-            width: metadata.width,
-            visible: metadata.visible, // This properly respects the visibility from detectField
-            // Don't set render for fields with loadFromSettings - let renderCellValue handle badge rendering
-            render: metadata.loadFromSettings ? undefined : metadata.format,
-            // Add missing properties for proper datalabel rendering
-            loadOptionsFromSettings: metadata.loadFromSettings,
-            editable: metadata.editable,
-            editType: metadata.editType,
-            align: metadata.align
-          };
-
-          return column;
-        });
-
-      return allGeneratedColumns.filter(col => col.visible !== false); // Only include visible columns
+        // Schema-driven formatting
+        render: (value: any) => formatFieldValue(value, col.format.type)
+      })) as Column[];
     }
 
     return [];
-  }, [config, data]);
+  }, [config, schema]);
 
   // Use column visibility hook for dynamic column management
   const {
@@ -198,7 +189,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       }
 
       const response = await fetch(
-        `${API_BASE_URL}${endpoint}${separator}${queryParams}`,
+        `${API_CONFIG.BASE_URL}${endpoint}${separator}${queryParams}`,
         { headers }
       );
 
@@ -296,7 +287,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           createEndpoint = config.apiEndpoint;
         }
 
-        response = await fetch(`${API_BASE_URL}${createEndpoint}`, {
+        response = await fetch(`${API_CONFIG.BASE_URL}${createEndpoint}`, {
           method: 'POST',
           headers,
           body: JSON.stringify(transformedData)
@@ -366,7 +357,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           updateEndpoint = `${config.apiEndpoint}/${record.id}`;
         }
 
-        response = await fetch(`${API_BASE_URL}${updateEndpoint}`, {
+        response = await fetch(`${API_CONFIG.BASE_URL}${updateEndpoint}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(transformedData)
@@ -436,7 +427,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       }
 
       const response = await fetch(
-        `${API_BASE_URL}${deleteEndpoint}`,
+        `${API_CONFIG.BASE_URL}${deleteEndpoint}`,
         {
           method: 'DELETE',
           headers
@@ -551,7 +542,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
       const updateEndpoint = `/api/v1/setting/${datalabel}/${id}`;
 
-      const response = await fetch(`${API_BASE_URL}${updateEndpoint}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${updateEndpoint}`, {
         method: 'PUT',
         headers,
         body: JSON.stringify(updates)
@@ -596,7 +587,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
       const deleteEndpoint = `/api/v1/setting/${datalabel}/${id}`;
 
-      const response = await fetch(`${API_BASE_URL}${deleteEndpoint}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${deleteEndpoint}`, {
         method: 'DELETE',
         headers
       });
@@ -647,7 +638,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         const item = reorderedData[newIndex];
         const updateEndpoint = `/api/v1/setting/${datalabel}/${newIndex}`;
 
-        const response = await fetch(`${API_BASE_URL}${updateEndpoint}`, {
+        const response = await fetch(`${API_CONFIG.BASE_URL}${updateEndpoint}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(item)  // item already has the correct new id from the map above
@@ -689,7 +680,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
       const createEndpoint = `/api/v1/setting/${datalabel}`;
 
-      const response = await fetch(`${API_BASE_URL}${createEndpoint}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${createEndpoint}`, {
         method: 'POST',
         headers,
         body: JSON.stringify(editedData)
@@ -755,6 +746,21 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     );
   }
 
+  // Show error state
+  if (schemaError) {
+    return (
+      <SchemaErrorFallback
+        error={schemaError}
+        entityType={entityType}
+        onRetry={() => window.location.reload()}
+      />
+    );
+  }
+
+  // Show loading skeleton while schema is loading
+  if (schemaLoading && !schema) {
+    return <TableSkeleton rows={5} columns={6} />;
+  }
 
   return (
     <div className="flex flex-col h-full">

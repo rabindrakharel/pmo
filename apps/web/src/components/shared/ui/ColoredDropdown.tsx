@@ -20,7 +20,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
-import { renderSettingBadge } from '../../../lib/data_transform_render';
+import { renderSettingBadge } from '../../../lib/universalFormatterService';
 
 export interface ColoredDropdownOption {
   value: string | number;

@@ -9,7 +9,7 @@ import { renderEmployeeNames } from '../../../lib/entityConfig';
 import { entityOptionsApi } from '../../../lib/api';
 import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
 import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
-import { formatRelativeTime, formatFriendlyDate, formatCurrency, isCurrencyField } from '../../../lib/data_transform_render';
+import { formatRelativeTime, formatFriendlyDate, formatCurrency, isCurrencyField } from '../../../lib/universalFormatterService';
 import { MetadataTable } from './MetadataTable';
 import { QuoteItemsRenderer } from './QuoteItemsRenderer';
 import { getBadgeClass, textStyles } from '../../../lib/designSystem';

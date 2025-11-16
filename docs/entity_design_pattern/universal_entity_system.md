@@ -896,7 +896,7 @@ const linkageModal = useLinkageModal({
 
 ### Field Detection Patterns
 
-**File:** `apps/web/src/lib/data_transform_render.tsx`
+**File:** `apps/web/src/lib/universalFormatterService.ts`
 
 ```typescript
 const FIELD_PATTERNS = {

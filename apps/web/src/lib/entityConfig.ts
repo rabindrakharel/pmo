@@ -34,25 +34,25 @@ import type { SettingOption } from './settingsLoader';
  * ✅ Configures view modes and capabilities
  *
  * WHAT THIS FILE DOES NOT DO:
- * ❌ Does NOT transform data (see data_transform_render.ts)
- * ❌ Does NOT detect field capabilities (see data_transform_render.ts)
- * ❌ Does NOT render UI components (see data_transform_render.ts)
- * ❌ Does NOT process or validate data (see data_transform_render.ts)
+ * ❌ Does NOT transform data (see universalFormatterService.ts)
+ * ❌ Does NOT detect field capabilities (see universalFormatterService.ts)
+ * ❌ Does NOT render UI components (see universalFormatterService.ts)
+ * ❌ Does NOT process or validate data (see universalFormatterService.ts)
  *
  * SEPARATION OF CONCERNS:
- * - entityConfig.ts        = WHAT (this file) - Schema definition (declarative)
- * - data_transform_render.ts = HOW             - Data behavior (imperative)
+ * - entityConfig.ts           = WHAT (this file) - Schema definition (declarative)
+ * - universalFormatterService.ts = HOW             - Data behavior (imperative)
  *
  * Think of it as:
- * - entityConfig.ts        = Database schema / Type definitions
- * - data_transform_render.ts = Business logic / Data processing
+ * - entityConfig.ts           = Database schema / Type definitions
+ * - universalFormatterService.ts = Business logic / Data processing
  *
  * USAGE:
  * ```typescript
  * import { entityConfigs } from './entityConfig';
  * const projectConfig = entityConfigs.project;
  * // projectConfig.fields tells you WHAT fields exist
- * // data_transform_render.ts tells you HOW to process them
+ * // universalFormatterService.ts tells you HOW to process them
  * ```
  *
  * ============================================================================
@@ -304,7 +304,7 @@ export interface EntityConfig {
 // Helper Functions for Column Renderers
 // ============================================================================
 
-import { formatRelativeTime, formatFriendlyDate } from './data_transform_render';
+import { formatRelativeTime, formatFriendlyDate } from './universalFormatterService';
 
 export const formatDate = (dateString?: string) => {
   if (!dateString) return '-';

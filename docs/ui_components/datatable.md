@@ -1077,7 +1077,7 @@ When implementing or debugging scrollbar:
 | **Frontend - Support Libraries** | |
 | `/apps/web/src/lib/settingsLoader.ts` | Settings loader & caching |
 | `/apps/web/src/lib/fieldCategoryRegistry.ts` | Field category auto-detection |
-| `/apps/web/src/lib/data_transform_render.tsx` | Color cache & rendering |
+| `/apps/web/src/lib/universalFormatterService.ts` | Universal formatting & rendering |
 | `/apps/web/src/lib/settingsConfig.ts` | Settings configuration & COLOR_OPTIONS |
 
 ---

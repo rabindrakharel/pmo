@@ -1096,6 +1096,86 @@ export async function entityRoutes(fastify: FastifyInstance) {
   });
 
   /**
+   * GET /api/v1/entity/:entityType/schema
+   * Get database-driven schema for an entity type
+   *
+   * Returns column metadata by introspecting the database table structure.
+   * Schemas are independent of data existence, solving the empty-table rendering issue.
+   *
+   * Used by FilteredDataTable to render columns even when no data exists.
+   */
+  fastify.get('/api/v1/entity/:entityType/schema', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        entityType: Type.String()
+      }),
+      response: {
+        200: Type.Object({
+          entityType: Type.String(),
+          tableName: Type.String(),
+          columns: Type.Array(Type.Object({
+            key: Type.String(),
+            title: Type.String(),
+            dataType: Type.String(),
+            visible: Type.Boolean(),
+            width: Type.Optional(Type.String()),
+            align: Type.Optional(Type.Union([
+              Type.Literal('left'),
+              Type.Literal('center'),
+              Type.Literal('right')
+            ])),
+            format: Type.Object({
+              type: Type.String(),
+              settingsDatalabel: Type.Optional(Type.String()),
+              entityType: Type.Optional(Type.String()),
+              dateFormat: Type.Optional(Type.String())
+            }),
+            editable: Type.Boolean(),
+            editType: Type.String(),
+            sortable: Type.Boolean(),
+            filterable: Type.Boolean(),
+            dataSource: Type.Optional(Type.Object({
+              type: Type.Literal('settings'),
+              datalabel: Type.String()
+            }))
+          }))
+        }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async (request, reply) => {
+    const { entityType } = request.params as { entityType: string };
+    const normalizedEntityType = normalizeEntityType(entityType);
+
+    try {
+      // Import schema builder service
+      const { buildEntitySchema } = await import('../../lib/schema-builder.service.js');
+
+      // Determine table name (most entities use d_ prefix, some use f_ prefix)
+      const tablePrefix = ['expense', 'invoice', 'quote', 'work_order'].includes(normalizedEntityType) ? 'f_' : 'd_';
+      const tableName = `app.${tablePrefix}${normalizedEntityType}`;
+
+      // Build schema from database introspection
+      const schema = await buildEntitySchema(db, normalizedEntityType, tableName);
+
+      return schema;
+    } catch (error) {
+      fastify.log.error(`Error building schema for ${entityType}:`, error as any);
+
+      // Check if error is due to table not existing
+      if (error instanceof Error && error.message.includes('relation') && error.message.includes('does not exist')) {
+        return reply.status(404).send({
+          error: `Entity type "${entityType}" not found or table does not exist`
+        });
+      }
+
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
    * PUT /api/v1/entity/:code/configure
    * Update entity configuration (column_metadata, display settings)
    * Allows users to configure entity schema and metadata

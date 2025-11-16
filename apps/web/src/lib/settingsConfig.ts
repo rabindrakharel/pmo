@@ -6,7 +6,7 @@
  * DRY approach: All settings entities share the same structure.
  * Instead of repeating 12 times, we define once and generate.
  *
- * V3.0 UPDATE: Now uses centralized badge rendering from data_transform_render.tsx
+ * V3.0 UPDATE: Now uses centralized badge rendering from universalFormatterService.ts
  * All badge rendering logic moved to single source of truth.
  */
 
@@ -15,7 +15,7 @@ import {
   renderSettingBadge,
   loadSettingsColors,
   COLOR_MAP
-} from './data_transform_render';
+} from './universalFormatterService';
 
 // ============================================================================
 // COLOR SYSTEM - Re-exports from centralized source
@@ -53,7 +53,7 @@ export { COLOR_MAP };
  * - Pass color_code directly from record
  * - Example: renderColorBadge(record.color_code, value)
  *
- * @deprecated Use renderSettingBadge from data_transform_render.tsx directly
+ * @deprecated Use renderSettingBadge from universalFormatterService.ts directly
  */
 export function renderColorBadge(colorCode: string, label?: string): React.ReactElement {
   return renderSettingBadge(colorCode, label);

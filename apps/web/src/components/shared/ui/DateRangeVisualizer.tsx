@@ -1,6 +1,45 @@
 import React from 'react';
 import { Calendar } from 'lucide-react';
-import { calculateDateRangeProgress, formatFriendlyDate } from '../../../lib/data_transform_render';
+import { formatFriendlyDate } from '../../../lib/universalFormatterService';
+
+// Inline calculateDateRangeProgress (UI-specific utility)
+function calculateDateRangeProgress(
+  startDateString: string | Date | null | undefined,
+  endDateString: string | Date | null | undefined
+) {
+  if (!startDateString || !endDateString) return null;
+
+  const startDate = typeof startDateString === 'string' ? new Date(startDateString) : startDateString;
+  const endDate = typeof endDateString === 'string' ? new Date(endDateString) : endDateString;
+  const today = new Date();
+
+  startDate.setHours(0, 0, 0, 0);
+  endDate.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+
+  const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  const daysPassed = Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  const daysRemaining = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  const progressPercent = totalDays > 0 ? Math.max(0, Math.min(100, (daysPassed / totalDays) * 100)) : 0;
+
+  const isBeforeStart = today < startDate;
+  const isAfterEnd = today > endDate;
+  const isActive = !isBeforeStart && !isAfterEnd;
+
+  return {
+    startDate,
+    endDate,
+    today,
+    totalDays,
+    daysPassed: Math.max(0, daysPassed),
+    daysRemaining: Math.max(0, daysRemaining),
+    progressPercent,
+    isBeforeStart,
+    isAfterEnd,
+    isActive
+  };
+}
 
 interface DateRangeVisualizerProps {
   startDate: string | Date | null | undefined;
