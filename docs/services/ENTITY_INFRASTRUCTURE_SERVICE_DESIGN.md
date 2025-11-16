@@ -28,7 +28,7 @@
 
 ### The Vision
 
-Create a **unified, centralized Entity Infrastructure Service** that manages the complete lifecycle of entities in the PMO platform, from creation to deletion, including metadata, relationships, permissions, and access control.
+Create a **unified, centralized Entity Infrastructure Service** that acts as an **add-on helper** for entity routes, managing infrastructure tables (metadata, registry, relationships, permissions) while **routes retain full ownership** of their primary table queries (SELECT, UPDATE, INSERT, DELETE from d_project, d_task, etc.).
 
 ### The Problem
 
@@ -44,15 +44,182 @@ Currently, entity infrastructure operations are scattered across:
 
 ### The Solution
 
-A **single, comprehensive service class** that provides:
-- ✅ Unified entity lifecycle management
-- ✅ Automatic relationship tracking
-- ✅ Centralized RBAC enforcement
-- ✅ Built-in parent-child filtering
-- ✅ Transactional delete operations
-- ✅ Zero-configuration integration
+A **single, comprehensive service class** that provides **infrastructure-only operations as an add-on**:
+- ✅ Infrastructure table management (d_entity, d_entity_instance_id, d_entity_id_map, entity_id_rbac_map)
+- ✅ RBAC helper methods (checkPermission, grantPermission, getRbacWhereCondition)
+- ✅ Relationship helpers (createLinkage, getChildEntityIds)
+- ✅ Metadata helpers (getEntityTypeMetadata, validateInstanceExists)
+- ❌ **DOES NOT** control route queries (SELECT/UPDATE remain in routes)
+- ❌ **DOES NOT** dictate query structure (routes build their own SQL)
 
-**Result**: 80% code reduction, 100% consistency, 10x easier maintenance.
+**Result**: 80% code reduction in infrastructure operations, 100% consistency, routes keep full control.
+
+---
+
+## Separation of Concerns
+
+### 🎯 Crystal Clear Ownership
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                    ENTITY ROUTES (FULL OWNERSHIP)              │
+│                                                                 │
+│  ✅ Routes OWN and CONTROL:                                    │
+│     • Primary table queries (SELECT, UPDATE, INSERT, DELETE)   │
+│     • d_project, d_task, d_business, etc.                      │
+│     • Query structure and optimization                         │
+│     • Column selection and JOINs                               │
+│     • WHERE conditions and filters                             │
+│     • Business logic and validation                            │
+│     • Response formatting                                      │
+│                                                                 │
+│  Example - Route builds its own queries:                       │
+│     const projects = await db.execute(sql`                     │
+│       SELECT e.*, b.name as business_name                      │
+│       FROM app.d_project e                                     │
+│       LEFT JOIN app.d_business b ON e.business_id = b.id       │
+│       WHERE e.active_flag = true                               │
+│       AND e.budget_allocated_amt > 10000                       │
+│       ORDER BY e.created_ts DESC                               │
+│     `);                                                         │
+│                                                                 │
+└────────────────┬───────────────────────────────────────────────┘
+                 │
+                 │ Calls (as helper/add-on)
+                 ▼
+┌────────────────────────────────────────────────────────────────┐
+│         ENTITY INFRASTRUCTURE SERVICE (ADD-ON HELPER)          │
+│                                                                 │
+│  ✅ Service ONLY manages infrastructure tables:                │
+│     • d_entity (entity type metadata)                          │
+│     • d_entity_instance_id (instance registry)                 │
+│     • d_entity_id_map (relationships/linkages)                 │
+│     • entity_id_rbac_map (permissions)                         │
+│                                                                 │
+│  ✅ Service provides helper methods:                           │
+│     • registerInstance() - Add to registry                     │
+│     • createLinkage() - Create parent-child link               │
+│     • checkPermission() - RBAC check                           │
+│     • grantOwnership() - Grant OWNER permission                │
+│     • getRbacWhereCondition() - Generate WHERE fragment        │
+│     • deleteEntity() - Cleanup infrastructure on delete        │
+│                                                                 │
+│  ❌ Service DOES NOT:                                          │
+│     • Build SELECT queries for primary tables                  │
+│     • Control UPDATE queries for primary tables                │
+│     • Dictate query structure or JOINs                         │
+│     • Manage primary table schemas                             │
+│     • Replace route business logic                             │
+│                                                                 │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### 📝 Example: Routes Own Their Queries
+
+```typescript
+// ✅ CORRECT: Route owns SELECT query, service provides RBAC helper
+
+fastify.get('/', async (request, reply) => {
+  const userId = request.user.sub;
+  const { limit = 20, offset = 0 } = request.query;
+
+  // ROUTE builds its own SELECT query
+  // Service just provides RBAC WHERE condition as a helper
+  const rbacCondition = await entityInfra.getRbacWhereCondition(
+    userId, 'project', Permission.VIEW, 'e'
+  );
+
+  // ROUTE has FULL CONTROL over query structure
+  const query = sql`
+    SELECT
+      e.*,
+      b.name as business_name,
+      COUNT(t.id) as task_count,
+      SUM(t.budget_allocated_amt) as total_budget
+    FROM app.d_project e
+    LEFT JOIN app.d_business b ON e.business_id = b.id
+    LEFT JOIN app.d_task t ON t.project_id = e.id
+    WHERE ${rbacCondition}                    -- Helper from service
+      AND e.active_flag = true                -- Route's condition
+      AND e.budget_allocated_amt > 10000      -- Route's condition
+    GROUP BY e.id, b.name
+    ORDER BY e.created_ts DESC
+    LIMIT ${limit} OFFSET ${offset}
+  `;
+
+  const projects = await db.execute(query);
+  return reply.send({ data: projects });
+});
+
+// ❌ WRONG: Service does NOT build queries for you
+// Service is just an add-on helper, not a query builder
+```
+
+### 🔄 Service as Add-On Pattern
+
+```typescript
+// Routes use service as helper for infrastructure operations only
+
+// CREATE endpoint
+fastify.post('/', async (request, reply) => {
+  // 1. Route owns INSERT into primary table
+  const project = await db.insert(d_project)
+    .values(request.body)
+    .returning();
+
+  // 2. Service adds infrastructure operations (add-on)
+  await entityInfra.registerInstance({...});      // Infrastructure helper
+  await entityInfra.grantOwnership(userId, ...);  // Infrastructure helper
+  await entityInfra.createLinkage({...});         // Infrastructure helper
+
+  return reply.send(project);
+});
+
+// UPDATE endpoint
+fastify.patch('/:id', async (request, reply) => {
+  // 1. Service helps with RBAC check (add-on)
+  const canEdit = await entityInfra.checkPermission(userId, 'project', id, Permission.EDIT);
+  if (!canEdit) return reply.code(403).send({ error: 'Forbidden' });
+
+  // 2. Route owns UPDATE query
+  const updated = await db.update(d_project)
+    .set({ ...request.body, updated_ts: new Date() })
+    .where(eq(d_project.id, id))
+    .returning();
+
+  // 3. Service syncs infrastructure if name/code changed (add-on)
+  if (request.body.name || request.body.code) {
+    await entityInfra.updateInstanceMetadata(ENTITY_TYPE, id, {
+      entity_name: request.body.name,
+      entity_code: request.body.code
+    });
+  }
+
+  return reply.send(updated);
+});
+
+// DELETE endpoint
+fastify.delete('/:id', async (request, reply) => {
+  // Service orchestrates infrastructure cleanup (add-on)
+  // But route provides callback for primary table delete
+  const result = await entityInfra.deleteEntity(ENTITY_TYPE, id, {
+    user_id: userId,
+    primary_table_callback: async (db, entity_id) => {
+      // ROUTE owns the actual DELETE query
+      await db.delete(d_project).where(eq(d_project.id, entity_id));
+    }
+  });
+
+  return reply.send(result);
+});
+```
+
+### Key Takeaway
+
+> **The Entity Infrastructure Service is a HELPER, not a controller.**
+>
+> Routes maintain **100% ownership** of their SELECT/UPDATE/INSERT/DELETE queries.
+> Service provides **infrastructure add-on operations** for metadata, registry, linkages, and permissions.
 
 ---
 
@@ -406,15 +573,21 @@ export function createEntityDeleteEndpoint(
 │                     ENTITY ROUTES LAYER                         │
 │   (45+ entity modules - project, task, business, etc.)         │
 │                                                                 │
-│   • Own primary table CRUD (d_project, d_task, etc.)          │
-│   • Delegate infrastructure to service                         │
-│   • Handle entity-specific business logic                      │
+│   ✅ ROUTES OWN (100% Control):                                │
+│      • SELECT queries (custom JOINs, filters, aggregations)    │
+│      • UPDATE queries (custom logic, validations)              │
+│      • INSERT queries (custom defaults, transformations)       │
+│      • DELETE queries (soft/hard delete logic)                 │
+│      • Primary tables (d_project, d_task, d_business, etc.)    │
+│      • Business logic and validation                           │
+│      • Response formatting                                     │
+│                                                                 │
 └────────────────┬───────────────────────────────────────────────┘
                  │
-                 │ Calls
+                 │ Calls (as helper/add-on only)
                  ▼
 ┌────────────────────────────────────────────────────────────────┐
-│          ENTITY INFRASTRUCTURE SERVICE (NEW)                    │
+│    ENTITY INFRASTRUCTURE SERVICE (ADD-ON HELPER - NEW)         │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐ │
 │  │ 1. Metadata Management (d_entity)                        │ │
@@ -485,12 +658,14 @@ export function createEntityDeleteEndpoint(
 
 ### Key Design Principles
 
-1. **Single Responsibility**: Service owns infrastructure tables, routes own primary tables
-2. **Centralized Logic**: All infrastructure operations in one place
-3. **Backward Compatible**: Delegates to existing unified-data-gate
-4. **Transaction Safe**: All multi-step operations wrapped in transactions
-5. **DRY Architecture**: Zero duplication, single source of truth
-6. **Composable**: Routes can use individual methods or combined operations
+1. **Add-On Pattern**: Service is a HELPER, routes maintain 100% ownership of their queries
+2. **Infrastructure Only**: Service manages 4 infrastructure tables, routes own primary tables
+3. **No Query Building**: Service does NOT build SELECT/UPDATE queries for routes
+4. **RBAC Helpers**: Service provides permission checks and WHERE conditions as helpers
+5. **Backward Compatible**: Delegates to existing unified-data-gate for RBAC resolution
+6. **Transaction Safe**: All multi-step operations wrapped in transactions
+7. **DRY Architecture**: Zero duplication in infrastructure operations
+8. **Composable**: Routes choose which helpers to use (optional, à la carte)
 
 ---
 
@@ -1152,22 +1327,24 @@ export default async function projectRoutes(fastify: FastifyInstance) {
   });
 
   // ==========================================================================
-  // LIST
+  // LIST - ✅ ROUTE OWNS THE ENTIRE SELECT QUERY
   // ==========================================================================
   fastify.get('/', async (request, reply) => {
     const { limit = 20, offset = 0, parent_type, parent_id, ...filters } = request.query;
     const userId = request.user.sub;
 
+    // ✅ ROUTE builds its own query structure
     const joins = [];
     const conditions = [];
 
-    // Service provides RBAC WHERE condition
+    // Service just provides RBAC WHERE condition as helper
+    // Route is FREE to use it or build custom RBAC logic
     const rbacCondition = await entityInfra.getRbacWhereCondition(
       userId, ENTITY_TYPE, Permission.VIEW, TABLE_ALIAS
     );
     conditions.push(rbacCondition);
 
-    // Parent filtering (if provided)
+    // ✅ ROUTE decides how to handle parent filtering
     if (parent_type && parent_id) {
       joins.push(`
         INNER JOIN app.d_entity_id_map eim
@@ -1179,24 +1356,27 @@ export default async function projectRoutes(fastify: FastifyInstance) {
       `);
     }
 
-    // Auto-filters
+    // ✅ ROUTE decides which filters to apply
     const autoFilters = buildAutoFilters(TABLE_ALIAS, filters);
     conditions.push(...autoFilters);
 
-    // Active flag
+    // ✅ ROUTE decides which WHERE conditions to add
     conditions.push(`${TABLE_ALIAS}.active_flag = true`);
 
-    // Build query
+    // ✅ ROUTE builds the final query (full control)
     const joinClause = joins.length > 0 ? joins.join(' ') : '';
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
+    // ✅ ROUTE decides to run queries in parallel
     const [countResult, dataResult] = await Promise.all([
+      // ✅ ROUTE owns COUNT query
       db.execute(`
         SELECT COUNT(DISTINCT ${TABLE_ALIAS}.id) as total
         FROM app.d_${ENTITY_TYPE} ${TABLE_ALIAS}
         ${joinClause}
         ${whereClause}
       `),
+      // ✅ ROUTE owns SELECT query (could add JOINs, aggregations, etc.)
       db.execute(`
         SELECT DISTINCT ${TABLE_ALIAS}.*
         FROM app.d_${ENTITY_TYPE} ${TABLE_ALIAS}
@@ -1207,6 +1387,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
       `)
     ]);
 
+    // ✅ ROUTE decides response format
     return reply.send({
       data: dataResult,
       pagination: {
