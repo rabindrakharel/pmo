@@ -1019,9 +1019,6 @@ UPDATE app.d_entity SET db_table = 'f_message_data' WHERE code = 'message';
 UPDATE app.d_entity SET db_table = 'fact_quote' WHERE code = 'quote';
 UPDATE app.d_entity SET db_table = 'fact_work_order' WHERE code = 'work_order';
 
--- RBAC/Permission mapping (updated table name)
-UPDATE app.d_entity SET db_table = 'd_entity_rbac' WHERE code = 'rbac';
-
 -- Meta-entities (infrastructure tables as entities)
 UPDATE app.d_entity SET db_table = 'd_entity' WHERE code = 'entity';
 UPDATE app.d_entity SET db_table = 'd_entity_instance_registry' WHERE code = 'entity_instance_registry';
