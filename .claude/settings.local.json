@@ -152,7 +152,14 @@
       "Bash(do echo \"=== Checking $file ===\")",
       "Bash(do echo \"=== $file ===\")",
       "Bash(do wc -l \"$file\")",
-      "Bash(git -C /home/rabin/projects/pmo diff --stat apps/api/src/modules/employee/routes.ts apps/api/src/modules/cust/routes.ts apps/api/src/modules/worksite/routes.ts apps/api/src/modules/role/routes.ts)"
+      "Bash(git -C /home/rabin/projects/pmo diff --stat apps/api/src/modules/employee/routes.ts apps/api/src/modules/cust/routes.ts apps/api/src/modules/worksite/routes.ts apps/api/src/modules/role/routes.ts)",
+      "Bash(do echo \"=== $entity ===\")",
+      "Bash(if [ -f \"apps/api/src/modules/$entity/routes.ts\" ])",
+      "Bash(then grep -E \"(fastify\\.(patch|put|delete)|createEntityDeleteEndpoint)\" \"apps/api/src/modules/$entity/routes.ts\")",
+      "Bash(else echo \"File not found\")",
+      "Bash(if [ -f \"/home/rabin/projects/pmo/apps/api/src/modules/$entity/routes.ts\" ])",
+      "Bash(then grep -E \"(fastify\\.(patch|put|delete)|createEntityDeleteEndpoint)\" \"/home/rabin/projects/pmo/apps/api/src/modules/$entity/routes.ts\")",
+      "Bash(do echo \"=== $file ===\" grep \"unified_data_gate\\|buildAutoFilters\" /home/rabin/projects/pmo/apps/api/src/modules/$file/routes.ts)"
     ],
     "deny": [],
     "ask": [],
