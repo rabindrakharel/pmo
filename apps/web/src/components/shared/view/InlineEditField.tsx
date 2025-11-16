@@ -133,7 +133,7 @@ export function InlineEditField({
                     return editValue;
                   }
                 })()}
-                onChange={(e) => onValueChange(e.target.value)}
+                onChange={(e) => onValueChange(e.target.value || null)}
                 className="flex-1 px-2 py-1 border border-dark-500 rounded focus:outline-none focus:ring-2 focus:ring-dark-7000"
                 onKeyDown={handleKeyDown}
                 autoFocus

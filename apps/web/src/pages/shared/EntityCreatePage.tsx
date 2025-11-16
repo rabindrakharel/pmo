@@ -5,6 +5,7 @@ import { Layout, EntityFormContainer, DragDropFileUpload } from '../../component
 import { getEntityConfig } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
 import { APIFactory } from '../../lib/api';
+import { transformForApi } from '../../lib/data_transform_render';
 import { Button } from '../../components/shared/button/Button';
 import { useS3Upload } from '../../lib/hooks/useS3Upload';
 import { useSidebar } from '../../contexts/SidebarContext';
@@ -191,7 +192,7 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
 
       // Extract assignee_employee_ids if present (for task entity)
       const assigneeIds = formData.assignee_employee_ids;
-      const dataToCreate = { ...formData };
+      let dataToCreate = { ...formData };
       delete dataToCreate.assignee_employee_ids;
 
       // Add attachment fields based on entity type
@@ -208,6 +209,9 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
           dataToCreate.sales_receipt_attachment = `s3://cohuron-attachments-prod-957207443425/${uploadedObjectKey}`;
         }
       }
+
+      // Transform data for API (convert empty strings to null, normalize dates, etc.)
+      dataToCreate = transformForApi(dataToCreate);
 
       // Type-safe API call using APIFactory
       const api = APIFactory.getAPI(entityType);

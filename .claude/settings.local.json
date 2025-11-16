@@ -161,7 +161,8 @@
       "Bash(then grep -E \"(fastify\\.(patch|put|delete)|createEntityDeleteEndpoint)\" \"/home/rabin/projects/pmo/apps/api/src/modules/$entity/routes.ts\")",
       "Bash(do echo \"=== $file ===\" grep \"unified_data_gate\\|buildAutoFilters\" /home/rabin/projects/pmo/apps/api/src/modules/$file/routes.ts)",
       "Bash(git -C /home/rabin/projects/pmo log --oneline -10)",
-      "Bash(git -C /home/rabin/projects/pmo show HEAD~5:apps/api/src/modules/project/routes.ts)"
+      "Bash(git -C /home/rabin/projects/pmo show HEAD~5:apps/api/src/modules/project/routes.ts)",
+      "Bash(pnpm run build:web:*)"
     ],
     "deny": [],
     "ask": [],

@@ -626,7 +626,7 @@ export function EntityFormContainer({
           <input
             type="date"
             value={value ? new Date(value).toISOString().split('T')[0] : ''}
-            onChange={(e) => onChange(field.key, e.target.value)}
+            onChange={(e) => onChange(field.key, e.target.value || null)}
             className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-dark-600 cursor-pointer hover:text-dark-700 text-base tracking-tight"
             disabled={field.disabled || field.readonly}
             required={field.required && mode === 'create'}

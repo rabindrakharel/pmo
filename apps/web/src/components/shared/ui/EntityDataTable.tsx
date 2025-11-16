@@ -1636,7 +1636,7 @@ export function EntityDataTable<T = any>({
                                     return '';
                                   }
                                 })()}
-                                onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
+                                onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value || null)}
                                 onClick={(e) => e.stopPropagation()}
                                 className="w-full px-2 py-1.5 border border-dark-400 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500"
                                 style={{

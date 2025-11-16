@@ -12,7 +12,7 @@ import { FormDataTable, InteractiveForm, FormSubmissionEditor } from '../../comp
 import { EmailTemplateRenderer } from '../../components/entity/marketing';
 import { getEntityConfig } from '../../lib/entityConfig';
 import { APIFactory } from '../../lib/api';
-import { formatRelativeTime, formatFriendlyDate } from '../../lib/data_transform_render';
+import { formatRelativeTime, formatFriendlyDate, transformForApi } from '../../lib/data_transform_render';
 import { Button } from '../../components/shared/button/Button';
 import { useS3Upload } from '../../lib/hooks/useS3Upload';
 import { useSidebar } from '../../contexts/SidebarContext';
@@ -278,22 +278,9 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
       }
 
       // Normal update flow for all other entities (and artifacts without file upload)
-      // Normalize date fields to YYYY-MM-DD format for API validation
-      const normalizedData = { ...editedData };
-
-      // Find all date fields from config and normalize them
-      config.fields.forEach(field => {
-        if (field.type === 'date' && normalizedData[field.key]) {
-          const value = normalizedData[field.key];
-          // If value is a string with timestamp, extract just the date part
-          if (typeof value === 'string' && value.includes('T')) {
-            normalizedData[field.key] = value.split('T')[0];
-          } else if (value instanceof Date) {
-            // If it's a Date object, convert to YYYY-MM-DD
-            normalizedData[field.key] = value.toISOString().split('T')[0];
-          }
-        }
-      });
+      // Use centralized transformForApi function (same as inline table edit)
+      // This handles: date normalization, empty strings → null, arrays, etc.
+      const normalizedData = transformForApi(editedData, data);
 
       // Extract assignee_employee_ids if present (for task entity)
       const assigneeIds = normalizedData.assignee_employee_ids;

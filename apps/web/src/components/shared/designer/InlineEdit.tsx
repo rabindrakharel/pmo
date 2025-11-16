@@ -522,7 +522,7 @@ export function InlineDate({
           ref={inputRef}
           type="date"
           value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
+          onChange={(e) => setEditValue(e.target.value || null)}
           onBlur={handleSave}
           disabled={isSaving}
           className="px-2 py-1 border border-dark-3000 rounded focus:outline-none focus:ring-2 focus:ring-dark-7000"
