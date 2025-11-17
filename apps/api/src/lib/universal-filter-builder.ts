@@ -189,6 +189,7 @@ export function buildAutoFilters(
     'limit',
     'offset',
     'page',        // Page number for pagination (converted to offset)
+    'pageSize',    // Alternative pagination parameter (frontend compatibility)
     'search',
     'order_by',
     'order_dir',

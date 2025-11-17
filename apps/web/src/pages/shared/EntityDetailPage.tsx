@@ -884,6 +884,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 isEditing={isEditing}
                 onChange={handleFieldChange}
                 mode="edit"
+                autoGenerateFields={true}
               />
 
               {/* Task Data Container - Only show for task entity */}

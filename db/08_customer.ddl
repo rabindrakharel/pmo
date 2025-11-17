@@ -140,9 +140,9 @@
 --   - Loaded from app.setting_datalabel table (datalabel_name='opportunity__funnel_stage') via GET /api/v1/setting?category=opportunity__funnel_stage
 -- • dl__customer_tier: Service tier ('Bronze', 'Silver', 'Gold', 'Platinum')
 --   - Loaded from app.setting_datalabel table (datalabel_name='customer__tier') via GET /api/v1/setting?category=customer__tier
--- • dl__industry_sector: Industry classification (Residential, Commercial, Industrial, Government)
+-- • dl__customer_industry_sector: Industry classification (Residential, Commercial, Industrial, Government)
 --   - Loaded from app.setting_datalabel table (datalabel_name='industry__sector') via GET /api/v1/setting?category=industry__sector
--- • dl__acquisition_channel: How client was acquired (Referral, Organic Search, Direct, Partnership)
+-- • dl__customer_acquisition_channel: How client was acquired (Referral, Organic Search, Direct, Partnership)
 --   - Loaded from app.setting_datalabel table (datalabel_name='acquisition__channel') via GET /api/v1/setting?category=acquisition__channel
 -- • primary_contact_name, primary_email, primary_phone: Main contact details
 -- • metadata: JSONB field storing lifetime_value, annual_contract_value, service_categories, payment_terms
@@ -237,7 +237,7 @@ INSERT INTO app.d_cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  dl__customer_opportunity_funnel, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
+  dl__customer_opportunity_funnel, dl__customer_industry_sector, dl__customer_acquisition_channel, dl__customer_tier,
   metadata
 ) VALUES
 ('CL-RES-001', 'Thompson Family Residence', 'CL-RES-001', 'residential', 'active',
@@ -257,7 +257,7 @@ INSERT INTO app.d_cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  dl__customer_opportunity_funnel, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
+  dl__customer_opportunity_funnel, dl__customer_industry_sector, dl__customer_acquisition_channel, dl__customer_tier,
   metadata
 ) VALUES
 ('CL-RES-002', 'Martinez Family Home', 'CL-RES-002', 'residential', 'active',
@@ -277,7 +277,7 @@ INSERT INTO app.d_cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  dl__customer_opportunity_funnel, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
+  dl__customer_opportunity_funnel, dl__customer_industry_sector, dl__customer_acquisition_channel, dl__customer_tier,
   metadata
 ) VALUES
 ('CL-COM-001', 'Square One Shopping Centre', 'CL-COM-001', 'commercial', 'active',
@@ -303,7 +303,7 @@ INSERT INTO app.d_cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  dl__customer_opportunity_funnel, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
+  dl__customer_opportunity_funnel, dl__customer_industry_sector, dl__customer_acquisition_channel, dl__customer_tier,
   metadata
 ) VALUES
 ('CL-MUN-001', 'City of Mississauga', 'CL-MUN-001', 'municipal', 'active',
@@ -317,7 +317,7 @@ INSERT INTO app.d_cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  dl__customer_opportunity_funnel, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
+  dl__customer_opportunity_funnel, dl__customer_industry_sector, dl__customer_acquisition_channel, dl__customer_tier,
   metadata
 ) VALUES
 ('CL-COM-006', 'Trillium Health Partners', 'CL-COM-006', 'commercial', 'active',
@@ -337,7 +337,7 @@ INSERT INTO app.d_cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
-  dl__customer_opportunity_funnel, dl__industry_sector, dl__acquisition_channel, dl__customer_tier,
+  dl__customer_opportunity_funnel, dl__customer_industry_sector, dl__customer_acquisition_channel, dl__customer_tier,
   metadata
 ) VALUES
 ('CL-COM-008', 'Magna International', 'CL-COM-008', 'commercial', 'active',
