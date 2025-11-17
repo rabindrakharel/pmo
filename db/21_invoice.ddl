@@ -145,6 +145,9 @@ CREATE TABLE app.f_invoice (
     gl_account VARCHAR(50),                             -- General ledger account code
     cost_center VARCHAR(50),                            -- Cost center/department
 
+    -- Attachment Reference
+    attachment_id UUID,                                  -- Link to d_attachment (no FK for loose coupling)
+
     -- Standardized S3 Attachment Fields
     attachment TEXT,                                     -- Full S3 URI: s3://bucket/key (invoice PDF)
     attachment_format VARCHAR(20),                       -- File extension: pdf, png, jpg, svg, etc.

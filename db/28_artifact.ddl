@@ -34,6 +34,7 @@ CREATE TABLE app.d_artifact (
     version integer DEFAULT 1,
 
     -- Artifact-specific fields
+    attachment_id uuid, -- Link to d_attachment (no FK for loose coupling)
     dl__artifact_type text, -- References app.setting_datalabel (datalabel_name='dl__artifact_type')
     attachment_format text,
     attachment_size_bytes bigint,

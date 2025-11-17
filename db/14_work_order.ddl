@@ -1,5 +1,5 @@
 -- =====================================================
--- WORK ORDER FACT TABLE (fact_work_order)
+-- WORK ORDER FACT TABLE (f_work_order)
 -- Actual work performed for customers
 -- =====================================================
 --
@@ -27,7 +27,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.fact_work_order (
+CREATE TABLE app.f_work_order (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50) UNIQUE NOT NULL,
     name text NOT NULL,

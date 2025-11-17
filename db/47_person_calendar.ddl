@@ -1,5 +1,5 @@
 -- =====================================================
--- ENTITY PERSON CALENDAR (d_entity_person_calendar)
+-- PERSON CALENDAR (d_person_calendar)
 -- Universal calendar/booking system for employees and customers
 -- =====================================================
 --
@@ -49,7 +49,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_entity_person_calendar (
+CREATE TABLE app.d_person_calendar (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   code varchar(50) UNIQUE NOT NULL,
   name varchar(200),
@@ -153,7 +153,7 @@ BEGIN
       v_slot_end := v_slot_start + interval '15 minutes';
 
       -- Insert slot
-      INSERT INTO app.d_entity_person_calendar (
+      INSERT INTO app.d_person_calendar (
         code,
         name,
         person_entity_type,
@@ -229,7 +229,7 @@ $$;
 -- They must be run AFTER d_event is populated
 
 -- Booking 1: James Miller - HVAC Consultation (Event EVT-HVAC-001)
-UPDATE app.d_entity_person_calendar
+UPDATE app.d_person_calendar
 SET
   availability_flag = false,
   event_id = (SELECT id FROM app.d_event WHERE code = 'EVT-HVAC-001'),
@@ -242,7 +242,7 @@ WHERE person_entity_id = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
   AND availability_flag = true;
 
 -- Booking 2: James Miller - Virtual Project Review (Event EVT-PROJ-002)
-UPDATE app.d_entity_person_calendar
+UPDATE app.d_person_calendar
 SET
   availability_flag = false,
   event_id = (SELECT id FROM app.d_event WHERE code = 'EVT-PROJ-002'),
@@ -255,7 +255,7 @@ WHERE person_entity_id = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
   AND availability_flag = true;
 
 -- Booking 3: Field technician - Emergency Plumbing (Event EVT-EMERG-003)
-UPDATE app.d_entity_person_calendar
+UPDATE app.d_person_calendar
 SET
   availability_flag = false,
   event_id = (SELECT id FROM app.d_event WHERE code = 'EVT-EMERG-003'),
@@ -278,7 +278,7 @@ WHERE person_entity_type = 'employee'
 
 INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
 SELECT 'person_calendar', id, name, code
-FROM app.d_entity_person_calendar
+FROM app.d_person_calendar
 WHERE active_flag = true
 ON CONFLICT (entity_type, entity_id) DO UPDATE
 SET entity_name = EXCLUDED.entity_name,
@@ -290,7 +290,7 @@ SET entity_name = EXCLUDED.entity_name,
 -- =====================================================
 
 -- Query 1: Find available employee slots for a specific date/time range
--- SELECT * FROM app.d_entity_person_calendar
+-- SELECT * FROM app.d_person_calendar
 -- WHERE person_entity_type = 'employee'
 --   AND availability_flag = true
 --   AND from_ts >= '2025-11-06 14:00:00-05'::timestamptz
@@ -308,7 +308,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   ev.event_type,
 --   ev.event_addr,
 --   ev.event_instructions
--- FROM app.d_entity_person_calendar c
+-- FROM app.d_person_calendar c
 -- JOIN app.d_employee e ON c.person_entity_id = e.id
 -- LEFT JOIN app.d_event ev ON c.event_id = ev.id
 -- WHERE c.person_entity_type = 'employee'
@@ -324,7 +324,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   COUNT(*) FILTER (WHERE c.availability_flag = false) as booked_slots,
 --   ROUND(100.0 * COUNT(*) FILTER (WHERE c.availability_flag = false) / COUNT(*), 2) as utilization_pct
 -- FROM app.d_employee e
--- LEFT JOIN app.d_entity_person_calendar c ON e.id = c.person_entity_id
+-- LEFT JOIN app.d_person_calendar c ON e.id = c.person_entity_id
 --   AND c.person_entity_type = 'employee'
 --   AND c.active_flag = true
 --   AND c.from_ts >= CURRENT_DATE
@@ -339,7 +339,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   c.from_ts,
 --   c.to_ts,
 --   c.timezone
--- FROM app.d_entity_person_calendar c
+-- FROM app.d_person_calendar c
 -- JOIN app.d_employee e ON c.person_entity_id = e.id
 -- WHERE c.event_id = '<event-uuid>'
 --   AND c.active_flag = true
@@ -349,11 +349,11 @@ SET entity_name = EXCLUDED.entity_name,
 -- COMMENTS
 -- =====================================================
 
-COMMENT ON TABLE app.d_entity_person_calendar IS 'Universal calendar/booking system with 15-minute slot granularity (9am-8pm). Pre-seeded availability slots that link to d_event when booked. Defines WHEN and WHO for events.';
-COMMENT ON COLUMN app.d_entity_person_calendar.person_entity_type IS 'Type of person: employee, client, or customer';
-COMMENT ON COLUMN app.d_entity_person_calendar.person_entity_id IS 'Polymorphic reference to d_employee, d_client, or d_cust';
-COMMENT ON COLUMN app.d_entity_person_calendar.availability_flag IS 'true=available/open slot, false=booked/busy';
-COMMENT ON COLUMN app.d_entity_person_calendar.event_id IS 'Link to d_event.id for full event details (null when slot is available, populated when booked)';
-COMMENT ON COLUMN app.d_entity_person_calendar.from_ts IS 'Slot start time (timestamptz)';
-COMMENT ON COLUMN app.d_entity_person_calendar.to_ts IS 'Slot end time (timestamptz)';
-COMMENT ON COLUMN app.d_entity_person_calendar.timezone IS 'Timezone for the slot (default: America/Toronto)';
+COMMENT ON TABLE app.d_person_calendar IS 'Universal calendar/booking system with 15-minute slot granularity (9am-8pm). Pre-seeded availability slots that link to d_event when booked. Defines WHEN and WHO for events.';
+COMMENT ON COLUMN app.d_person_calendar.person_entity_type IS 'Type of person: employee, client, or customer';
+COMMENT ON COLUMN app.d_person_calendar.person_entity_id IS 'Polymorphic reference to d_employee, d_client, or d_cust';
+COMMENT ON COLUMN app.d_person_calendar.availability_flag IS 'true=available/open slot, false=booked/busy';
+COMMENT ON COLUMN app.d_person_calendar.event_id IS 'Link to d_event.id for full event details (null when slot is available, populated when booked)';
+COMMENT ON COLUMN app.d_person_calendar.from_ts IS 'Slot start time (timestamptz)';
+COMMENT ON COLUMN app.d_person_calendar.to_ts IS 'Slot end time (timestamptz)';
+COMMENT ON COLUMN app.d_person_calendar.timezone IS 'Timezone for the slot (default: America/Toronto)';

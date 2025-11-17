@@ -1,5 +1,5 @@
 -- =====================================================
--- QUOTE FACT TABLE (fact_quote)
+-- QUOTE FACT TABLE (f_quote)
 -- Customer quotes for services and products
 -- =====================================================
 --
@@ -47,7 +47,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.fact_quote (
+CREATE TABLE app.f_quote (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50) UNIQUE NOT NULL,
     name text NOT NULL,
