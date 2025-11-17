@@ -177,6 +177,25 @@ VALUES (
   90
 );
 
+-- Person entity type (base entity for all people)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, db_table, child_entities, display_order)
+VALUES (
+  'person',
+  'Person',
+  'People',
+  'User',
+  'd_person',
+  '[]'::jsonb,
+  95
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  db_table = EXCLUDED.db_table,
+  child_entities = EXCLUDED.child_entities,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
 -- Artifact entity type (leaf node - no children)
 INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
@@ -187,6 +206,25 @@ VALUES (
   '[]'::jsonb,
   100
 );
+
+-- Attachment entity type (file attachments - referenced by artifact, invoice)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, db_table, child_entities, display_order)
+VALUES (
+  'attachment',
+  'Attachment',
+  'Attachments',
+  'Paperclip',
+  'd_attachment',
+  '[]'::jsonb,
+  101
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  db_table = EXCLUDED.db_table,
+  child_entities = EXCLUDED.child_entities,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
 
 -- Worksite entity type (leaf node - no children)
 INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
@@ -248,6 +286,25 @@ VALUES (
   '[]'::jsonb,
   140
 );
+
+-- Supplier entity type (vendors/suppliers for procurement)
+INSERT INTO app.d_entity (code, name, ui_label, ui_icon, db_table, child_entities, display_order)
+VALUES (
+  'supplier',
+  'Supplier',
+  'Suppliers',
+  'Building',
+  'd_supplier',
+  '[]'::jsonb,
+  141
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  db_table = EXCLUDED.db_table,
+  child_entities = EXCLUDED.child_entities,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
 
 -- Quote entity type (has 1 child type: work_order)
 INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
@@ -519,12 +576,12 @@ VALUES (
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
--- Entity Instance Registry meta-entity
+-- Entity Instance meta-entity (renamed from entity_instance_registry)
 INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
-  'entity_instance_registry',
-  'Entity Instance Registry',
-  'Entity Instance Registry',
+  'entity_instance',
+  'Entity Instance',
+  'Entity Instances',
   'List',
   '[]'::jsonb,
   910
@@ -871,7 +928,7 @@ SET column_metadata = (
 )
 WHERE e.code = 'message_schema';
 
--- Update for quotes (table: fact_quote)
+-- Update for quotes (table: f_quote)
 UPDATE app.d_entity e
 SET column_metadata = (
   SELECT COALESCE(jsonb_agg(
@@ -879,8 +936,8 @@ SET column_metadata = (
       'orderid', c.ordinal_position,
       'name', c.column_name,
       'descr', col_description((table_schema || '.' || table_name)::regclass::oid, c.ordinal_position),
-      'datatype', 
-        CASE 
+      'datatype',
+        CASE
           WHEN c.data_type = 'ARRAY' THEN c.udt_name || '[]'
           WHEN c.character_maximum_length IS NOT NULL THEN c.data_type || '(' || c.character_maximum_length || ')'
           WHEN c.numeric_precision IS NOT NULL AND c.numeric_scale IS NOT NULL THEN c.data_type || '(' || c.numeric_precision || ',' || c.numeric_scale || ')'
@@ -891,11 +948,11 @@ SET column_metadata = (
     ) ORDER BY c.ordinal_position
   ), '[]'::jsonb)
   FROM information_schema.columns c
-  WHERE c.table_schema = 'app' AND c.table_name = 'fact_quote'
+  WHERE c.table_schema = 'app' AND c.table_name = 'f_quote'
 )
 WHERE e.code = 'quote';
 
--- Update for work_order (table: fact_work_order)
+-- Update for work_order (table: f_work_order)
 UPDATE app.d_entity e
 SET column_metadata = (
   SELECT COALESCE(jsonb_agg(
@@ -903,8 +960,8 @@ SET column_metadata = (
       'orderid', c.ordinal_position,
       'name', c.column_name,
       'descr', col_description((table_schema || '.' || table_name)::regclass::oid, c.ordinal_position),
-      'datatype', 
-        CASE 
+      'datatype',
+        CASE
           WHEN c.data_type = 'ARRAY' THEN c.udt_name || '[]'
           WHEN c.character_maximum_length IS NOT NULL THEN c.data_type || '(' || c.character_maximum_length || ')'
           WHEN c.numeric_precision IS NOT NULL AND c.numeric_scale IS NOT NULL THEN c.data_type || '(' || c.numeric_precision || ',' || c.numeric_scale || ')'
@@ -915,7 +972,7 @@ SET column_metadata = (
     ) ORDER BY c.ordinal_position
   ), '[]'::jsonb)
   FROM information_schema.columns c
-  WHERE c.table_schema = 'app' AND c.table_name = 'fact_work_order'
+  WHERE c.table_schema = 'app' AND c.table_name = 'f_work_order'
 )
 WHERE e.code = 'work_order';
 
@@ -943,7 +1000,7 @@ SET column_metadata = (
 )
 WHERE e.code = 'workflow_automation';
 
--- Update for person calendar (table: d_entity_person_calendar)
+-- Update for person calendar (table: d_person_calendar)
 UPDATE app.d_entity e
 SET column_metadata = (
   SELECT COALESCE(jsonb_agg(
@@ -951,8 +1008,8 @@ SET column_metadata = (
       'orderid', c.ordinal_position,
       'name', c.column_name,
       'descr', col_description((table_schema || '.' || table_name)::regclass::oid, c.ordinal_position),
-      'datatype', 
-        CASE 
+      'datatype',
+        CASE
           WHEN c.data_type = 'ARRAY' THEN c.udt_name || '[]'
           WHEN c.character_maximum_length IS NOT NULL THEN c.data_type || '(' || c.character_maximum_length || ')'
           WHEN c.numeric_precision IS NOT NULL AND c.numeric_scale IS NOT NULL THEN c.data_type || '(' || c.numeric_precision || ',' || c.numeric_scale || ')'
@@ -963,7 +1020,7 @@ SET column_metadata = (
     ) ORDER BY c.ordinal_position
   ), '[]'::jsonb)
   FROM information_schema.columns c
-  WHERE c.table_schema = 'app' AND c.table_name = 'd_entity_person_calendar'
+  WHERE c.table_schema = 'app' AND c.table_name = 'd_person_calendar'
 )
 WHERE e.code = 'calendar';
 
@@ -994,8 +1051,8 @@ UPDATE app.d_entity SET db_table = 'd_workflow_automation' WHERE code IN ('workf
 -- Special naming: form (table: d_form_head)
 UPDATE app.d_entity SET db_table = 'd_form_head' WHERE code = 'form';
 
--- Special naming: calendar (table: d_entity_person_calendar)
-UPDATE app.d_entity SET db_table = 'd_entity_person_calendar' WHERE code = 'calendar';
+-- Special naming: calendar (table: d_person_calendar)
+UPDATE app.d_entity SET db_table = 'd_person_calendar' WHERE code = 'calendar';
 
 -- Special naming: message_schema (table: d_message_schema)
 UPDATE app.d_entity SET db_table = 'd_message_schema' WHERE code = 'message_schema';
@@ -1015,13 +1072,18 @@ UPDATE app.d_entity SET db_table = 'f_shipment' WHERE code = 'shipment';
 UPDATE app.d_entity SET db_table = 'f_customer_interaction' WHERE code = 'interaction';
 UPDATE app.d_entity SET db_table = 'f_message_data' WHERE code = 'message';
 
--- Fact tables (fact_ prefix)
-UPDATE app.d_entity SET db_table = 'fact_quote' WHERE code = 'quote';
-UPDATE app.d_entity SET db_table = 'fact_work_order' WHERE code = 'work_order';
+-- Fact tables (f_ prefix - standardized)
+UPDATE app.d_entity SET db_table = 'f_quote' WHERE code = 'quote';
+UPDATE app.d_entity SET db_table = 'f_work_order' WHERE code = 'work_order';
 
 -- Meta-entities (infrastructure tables as entities)
 UPDATE app.d_entity SET db_table = 'd_entity' WHERE code = 'entity';
-UPDATE app.d_entity SET db_table = 'd_entity_instance_registry' WHERE code = 'entity_instance_registry';
+UPDATE app.d_entity SET db_table = 'd_entity_instance' WHERE code = 'entity_instance';
 UPDATE app.d_entity SET db_table = 'd_entity_instance_link' WHERE code = 'entity_instance_link';
 UPDATE app.d_entity SET db_table = 'd_entity_rbac' WHERE code = 'entity_rbac';
+
+-- New entities
+UPDATE app.d_entity SET db_table = 'd_person' WHERE code = 'person';
+UPDATE app.d_entity SET db_table = 'd_attachment' WHERE code = 'attachment';
+UPDATE app.d_entity SET db_table = 'd_supplier' WHERE code = 'supplier';
 

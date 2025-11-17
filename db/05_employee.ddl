@@ -37,6 +37,9 @@ CREATE TABLE app.d_employee (
   updated_ts timestamptz DEFAULT now(),
   version integer DEFAULT 1,
 
+  -- Person reference (for common contact/address fields)
+  person_id uuid REFERENCES app.d_person(id),
+
   -- Employee-specific fields
   email varchar(255) UNIQUE NOT NULL,
   password_hash varchar(255),
