@@ -55,7 +55,7 @@ CREATE TABLE app.f_shipment (
     delivery_datetime TIMESTAMP,                        -- Precise delivery timestamp
 
     -- Customer Dimension
-    client_id UUID NOT NULL,                            -- Link to d_client (REQUIRED)
+    cust_id UUID NOT NULL,                              -- Link to d_cust (REQUIRED)
     client_name VARCHAR(255),                           -- Denormalized for query performance
     client_type VARCHAR(50),                            -- 'residential', 'commercial', 'government'
 
@@ -76,7 +76,7 @@ CREATE TABLE app.f_shipment (
     worksite_id UUID,                                   -- Link to d_worksite (delivery location)
 
     -- Shipping Warehouse
-    warehouse_id UUID,                                  -- Link to d_office (shipping warehouse)
+    warehouse_office_id UUID,                           -- Link to d_office (shipping warehouse)
     warehouse_name VARCHAR(255),                        -- Denormalized warehouse name
     warehouse_location VARCHAR(50),                     -- Bin location where picked from
 

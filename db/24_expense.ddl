@@ -61,7 +61,7 @@ CREATE TABLE app.f_expense (
     project_name VARCHAR(255),                          -- Denormalized project name
     employee_id UUID,                                   -- Employee who incurred expense
     employee_name VARCHAR(255),                         -- Denormalized employee name
-    client_id UUID,                                     -- Link to d_client (if client-related)
+    cust_id UUID,                                       -- Link to d_cust (if client-related)
     client_name VARCHAR(255),                           -- Denormalized client name
     business_id UUID,                                   -- Link to d_business
     business_name VARCHAR(255),                         -- Denormalized business name

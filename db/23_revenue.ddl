@@ -56,7 +56,7 @@ CREATE TABLE app.f_revenue (
     -- Entity Linkages
     invoice_id UUID,                                    -- Link to f_invoice (source invoice)
     invoice_number VARCHAR(50),                         -- Denormalized invoice number
-    client_id UUID,                                     -- Link to d_client
+    cust_id UUID,                                       -- Link to d_cust
     client_name VARCHAR(255),                           -- Denormalized client name
     client_type VARCHAR(50),                            -- 'residential', 'commercial', 'government'
     project_id UUID,                                    -- Link to d_project

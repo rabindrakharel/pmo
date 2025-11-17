@@ -27,7 +27,7 @@ CREATE TABLE app.f_inventory (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     -- Location
-    store_id UUID,                                      -- Link to d_office (warehouse/store location)
+    office_id UUID,                                     -- Link to d_office (warehouse/store location)
 
     -- Product
     product_id UUID,                                    -- Link to d_product
@@ -65,45 +65,45 @@ CREATE TRIGGER f_inventory_update_timestamp BEFORE UPDATE ON app.f_inventory
 -- Get first office/warehouse ID as default location
 DO $$
 DECLARE
-    default_store_id UUID;
+    default_office_id UUID;
 BEGIN
-    SELECT id INTO default_store_id FROM app.d_office LIMIT 1;
+    SELECT id INTO default_office_id FROM app.d_office LIMIT 1;
 
     -- Insert current stock levels for products
-    INSERT INTO app.f_inventory (store_id, product_id, qty, notes) VALUES
+    INSERT INTO app.f_inventory (office_id, product_id, qty, notes) VALUES
     -- Lumber products
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'LBR-001'), 545, 'Main warehouse stock - 2x4 studs'),
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'LBR-002'), 320, 'Main warehouse stock - 2x6 studs'),
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'LBR-003'), 250, 'Main warehouse stock - plywood sheets'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'LBR-001'), 545, 'Main warehouse stock - 2x4 studs'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'LBR-002'), 320, 'Main warehouse stock - 2x6 studs'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'LBR-003'), 250, 'Main warehouse stock - plywood sheets'),
 
     -- Electrical products
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'ELC-001'), 90, 'Main warehouse stock - 14/2 wire'),
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'ELC-002'), 65, 'Main warehouse stock - 12/2 wire'),
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'ELC-003'), 600, 'Main warehouse stock - 15A outlets'),
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'ELC-004'), 85, 'Main warehouse stock - GFCI outlets'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'ELC-001'), 90, 'Main warehouse stock - 14/2 wire'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'ELC-002'), 65, 'Main warehouse stock - 12/2 wire'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'ELC-003'), 600, 'Main warehouse stock - 15A outlets'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'ELC-004'), 85, 'Main warehouse stock - GFCI outlets'),
 
     -- Plumbing products
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'PLM-001'), 195, 'Main warehouse stock - copper pipe'),
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'PLM-002'), 120, 'Main warehouse stock - PEX pipe'),
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'PLM-003'), 28, 'Main warehouse stock - toilets'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'PLM-001'), 195, 'Main warehouse stock - copper pipe'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'PLM-002'), 120, 'Main warehouse stock - PEX pipe'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'PLM-003'), 28, 'Main warehouse stock - toilets'),
 
     -- HVAC products
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'HVAC-001'), 4, 'Main warehouse stock - gas furnaces'),
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'HVAC-002'), 3, 'Main warehouse stock - AC units'),
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'HVAC-003'), 450, 'Main warehouse stock - air filters'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'HVAC-001'), 4, 'Main warehouse stock - gas furnaces'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'HVAC-002'), 3, 'Main warehouse stock - AC units'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'HVAC-003'), 450, 'Main warehouse stock - air filters'),
 
     -- Paint products
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'PNT-001'), 140, 'Main warehouse stock - interior white'),
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'PNT-002'), 95, 'Main warehouse stock - exterior gray'),
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'PNT-003'), 110, 'Main warehouse stock - primer'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'PNT-001'), 140, 'Main warehouse stock - interior white'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'PNT-002'), 95, 'Main warehouse stock - exterior gray'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'PNT-003'), 110, 'Main warehouse stock - primer'),
 
     -- Flooring products
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'FLR-001'), 2500, 'Main warehouse stock - oak hardwood (sqft)'),
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'FLR-002'), 1800, 'Main warehouse stock - laminate (sqft)'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'FLR-001'), 2500, 'Main warehouse stock - oak hardwood (sqft)'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'FLR-002'), 1800, 'Main warehouse stock - laminate (sqft)'),
 
     -- Hardware products
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'HRD-001'), 75, 'Main warehouse stock - wood screws (lb)'),
-    (default_store_id, (SELECT id FROM app.d_product WHERE code = 'HRD-002'), 45, 'Main warehouse stock - framing nails (5lb boxes)');
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'HRD-001'), 75, 'Main warehouse stock - wood screws (lb)'),
+    (default_office_id, (SELECT id FROM app.d_product WHERE code = 'HRD-002'), 45, 'Main warehouse stock - framing nails (5lb boxes)');
 
 END $$;
 
@@ -127,38 +127,38 @@ COMMENT ON TABLE app.f_inventory IS 'Simplified inventory stock levels by produc
 
 DO $$
 DECLARE
-    v_store_ids uuid[];
+    v_office_ids uuid[];
     v_product_ids uuid[];
-    v_store_id uuid;
+    v_office_id uuid;
     v_product_id uuid;
     v_qty decimal;
     v_product_code text;
-    v_store_name text;
+    v_office_name text;
     i int;
     j int;
 BEGIN
-    -- Get all store/office IDs
-    SELECT array_agg(id) INTO v_store_ids FROM app.d_office WHERE active_flag = true;
+    -- Get all office IDs
+    SELECT array_agg(id) INTO v_office_ids FROM app.d_office WHERE active_flag = true;
 
     -- Get all product IDs with codes
-    IF array_length(v_store_ids, 1) IS NULL OR array_length(v_store_ids, 1) = 0 THEN
-        RAISE NOTICE 'No stores found! Creating default store...';
+    IF array_length(v_office_ids, 1) IS NULL OR array_length(v_office_ids, 1) = 0 THEN
+        RAISE NOTICE 'No offices found! Creating default warehouse...';
         -- Create a default warehouse if none exists
         INSERT INTO app.d_office (code, name, descr, office_type, city, province, country)
         VALUES ('WH-001', 'Main Warehouse', 'Central distribution warehouse', 'warehouse', 'London', 'Ontario', 'Canada')
-        RETURNING id INTO v_store_id;
-        v_store_ids := ARRAY[v_store_id];
+        RETURNING id INTO v_office_id;
+        v_office_ids := ARRAY[v_office_id];
     END IF;
 
     SELECT array_agg(id) INTO v_product_ids FROM app.d_product WHERE active_flag = true;
 
-    RAISE NOTICE 'Found % stores and % products', array_length(v_store_ids, 1), array_length(v_product_ids, 1);
+    RAISE NOTICE 'Found % offices and % products', array_length(v_office_ids, 1), array_length(v_product_ids, 1);
 
-    -- Generate inventory for each store-product combination
-    FOR i IN 1..array_length(v_store_ids, 1) LOOP
-        v_store_id := v_store_ids[i];
+    -- Generate inventory for each office-product combination
+    FOR i IN 1..array_length(v_office_ids, 1) LOOP
+        v_office_id := v_office_ids[i];
 
-        SELECT name INTO v_store_name FROM app.d_office WHERE id = v_store_id;
+        SELECT name INTO v_office_name FROM app.d_office WHERE id = v_office_id;
 
         FOR j IN 1..array_length(v_product_ids, 1) LOOP
             v_product_id := v_product_ids[j];
@@ -201,12 +201,12 @@ BEGIN
             END;
 
             -- Insert or update inventory record
-            INSERT INTO app.f_inventory (store_id, product_id, qty, notes, created_by, last_modified_by)
+            INSERT INTO app.f_inventory (office_id, product_id, qty, notes, created_by, last_modified_by)
             VALUES (
-                v_store_id,
+                v_office_id,
                 v_product_id,
                 v_qty,
-                'Stock level for ' || v_product_code || ' at ' || v_store_name,
+                'Stock level for ' || v_product_code || ' at ' || v_office_name,
                 (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca'),
                 (SELECT id FROM app.d_employee WHERE email = 'james.miller@huronhome.ca')
             )
@@ -226,45 +226,45 @@ END $$;
 -- Low stock items (reorder alerts)
 DO $$
 DECLARE
-    v_store_id uuid;
+    v_office_id uuid;
 BEGIN
-    SELECT id INTO v_store_id FROM app.d_office WHERE active_flag = true LIMIT 1;
+    SELECT id INTO v_office_id FROM app.d_office WHERE active_flag = true LIMIT 1;
 
-    INSERT INTO app.f_inventory (store_id, product_id, qty, notes)
+    INSERT INTO app.f_inventory (office_id, product_id, qty, notes)
     VALUES
-    (v_store_id, (SELECT id FROM app.d_product WHERE code = 'HVAC-001'), 2, 'Low stock - reorder pending'),
-    (v_store_id, (SELECT id FROM app.d_product WHERE code = 'HVAC-002'), 1, 'Low stock - reorder pending'),
-    (v_store_id, (SELECT id FROM app.d_product WHERE code = 'PLM-003'), 8, 'Low stock - seasonal demand'),
-    (v_store_id, (SELECT id FROM app.d_product WHERE code = 'ELC-004'), 15, 'Low stock - high demand item')
+    (v_office_id, (SELECT id FROM app.d_product WHERE code = 'HVAC-001'), 2, 'Low stock - reorder pending'),
+    (v_office_id, (SELECT id FROM app.d_product WHERE code = 'HVAC-002'), 1, 'Low stock - reorder pending'),
+    (v_office_id, (SELECT id FROM app.d_product WHERE code = 'PLM-003'), 8, 'Low stock - seasonal demand'),
+    (v_office_id, (SELECT id FROM app.d_product WHERE code = 'ELC-004'), 15, 'Low stock - high demand item')
     ON CONFLICT DO NOTHING;
 END $$;
 
 -- High stock items (overstocked)
 DO $$
 DECLARE
-    v_store_id uuid;
+    v_office_id uuid;
 BEGIN
-    SELECT id INTO v_store_id FROM app.d_office WHERE active_flag = true LIMIT 1;
+    SELECT id INTO v_office_id FROM app.d_office WHERE active_flag = true LIMIT 1;
 
-    INSERT INTO app.f_inventory (store_id, product_id, qty, notes)
+    INSERT INTO app.f_inventory (office_id, product_id, qty, notes)
     VALUES
-    (v_store_id, (SELECT id FROM app.d_product WHERE code = 'LBR-001'), 1200, 'Bulk purchase - promotional pricing'),
-    (v_store_id, (SELECT id FROM app.d_product WHERE code = 'HVAC-003'), 850, 'Seasonal stock - filter promotion'),
-    (v_store_id, (SELECT id FROM app.d_product WHERE code = 'FLR-002'), 4500, 'Special order overstock')
+    (v_office_id, (SELECT id FROM app.d_product WHERE code = 'LBR-001'), 1200, 'Bulk purchase - promotional pricing'),
+    (v_office_id, (SELECT id FROM app.d_product WHERE code = 'HVAC-003'), 850, 'Seasonal stock - filter promotion'),
+    (v_office_id, (SELECT id FROM app.d_product WHERE code = 'FLR-002'), 4500, 'Special order overstock')
     ON CONFLICT DO NOTHING;
 END $$;
 
 -- Zero stock items (out of stock)
 DO $$
 DECLARE
-    v_store_id uuid;
+    v_office_id uuid;
 BEGIN
-    SELECT id INTO v_store_id FROM app.d_office WHERE active_flag = true LIMIT 1;
+    SELECT id INTO v_office_id FROM app.d_office WHERE active_flag = true LIMIT 1;
 
-    INSERT INTO app.f_inventory (store_id, product_id, qty, notes)
+    INSERT INTO app.f_inventory (office_id, product_id, qty, notes)
     VALUES
-    (v_store_id, (SELECT id FROM app.d_product WHERE code = 'PNT-002'), 0, 'Out of stock - backorder expected next week'),
-    (v_store_id, (SELECT id FROM app.d_product WHERE code = 'FLR-001'), 0, 'Out of stock - discontinued style')
+    (v_office_id, (SELECT id FROM app.d_product WHERE code = 'PNT-002'), 0, 'Out of stock - backorder expected next week'),
+    (v_office_id, (SELECT id FROM app.d_product WHERE code = 'FLR-001'), 0, 'Out of stock - discontinued style')
     ON CONFLICT DO NOTHING;
 END $$;
 

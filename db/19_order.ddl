@@ -51,7 +51,7 @@ CREATE TABLE app.f_order (
     cancelled_date DATE,                                -- If cancelled, when
 
     -- Customer Dimension
-    client_id UUID,                                     -- Link to d_client
+    cust_id UUID,                                       -- Link to d_cust
     client_name VARCHAR(255),                           -- Denormalized for query performance
     client_type VARCHAR(50),                            -- 'residential', 'commercial', 'government'
     client_tier VARCHAR(50),                            -- Customer tier for analytics

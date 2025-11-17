@@ -75,12 +75,12 @@ COMMENT ON TABLE app.d_office IS 'Physical office locations (address-level) with
 -- • Office: Office level node (e.g., "London Service Offices Group")
 --
 -- DATABASE BEHAVIOR:
--- • CREATE: INSERT with parent_id pointing to parent hierarchy node
--- • HIERARCHY: Self-referential parent_id for tree structure
--- • TRAVERSE: Recursive CTE on parent_id for full hierarchy path
+-- • CREATE: INSERT with parent_office_hierarchy_id pointing to parent hierarchy node
+-- • HIERARCHY: Self-referential parent_office_hierarchy_id for tree structure
+-- • TRAVERSE: Recursive CTE on parent_office_hierarchy_id for full hierarchy path
 --
 -- RELATIONSHIPS:
--- • Self: parent_id → d_office_hierarchy.id
+-- • Self: parent_office_hierarchy_id → d_office_hierarchy.id
 -- • Children: d_office (via d_entity_instance_link)
 --
 -- =====================================================
@@ -94,7 +94,7 @@ CREATE TABLE app.d_office_hierarchy (
     active_flag boolean DEFAULT true,
 
     -- Hierarchy fields
-    parent_id uuid, -- Self-referential for hierarchy (NULL for Corporate level)
+    parent_office_hierarchy_id uuid, -- Self-referential for hierarchy (NULL for Corporate level)
     dl__office_hierarchy_level text NOT NULL, -- References app.setting_datalabel (datalabel_name='dl__office_hierarchy_level')
 
     -- Organizational fields
@@ -115,33 +115,33 @@ COMMENT ON TABLE app.d_office_hierarchy IS 'Office organizational hierarchy: Cor
 -- =====================================================
 
 -- LEVEL 1: CORPORATE (Top-level)
-INSERT INTO app.d_office_hierarchy (code, name, descr, parent_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt) VALUES
+INSERT INTO app.d_office_hierarchy (code, name, descr, parent_office_hierarchy_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt) VALUES
 ('OFF-HIE-CORP-HQ', 'Corporate Headquarters', 'Top-level corporate entity for Huron Home Services, housing executive leadership and corporate functions', NULL, 'Corporate', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 10000000.00);
 
 -- LEVEL 2: REGION
-INSERT INTO app.d_office_hierarchy (code, name, descr, parent_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.d_office_hierarchy (code, name, descr, parent_office_hierarchy_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
 SELECT 'OFF-HIE-ON-REG', 'Ontario Region', 'Regional coordination center for all Ontario operations, overseeing multiple districts across the province', id, 'Region', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 7000000.00
 FROM app.d_office_hierarchy WHERE code = 'OFF-HIE-CORP-HQ';
 
-INSERT INTO app.d_office_hierarchy (code, name, descr, parent_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.d_office_hierarchy (code, name, descr, parent_office_hierarchy_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
 SELECT 'OFF-HIE-QC-REG', 'Quebec Region', 'Regional coordination center for all Quebec operations', id, 'Region', NULL, 3000000.00
 FROM app.d_office_hierarchy WHERE code = 'OFF-HIE-CORP-HQ';
 
 -- LEVEL 3: DISTRICT
-INSERT INTO app.d_office_hierarchy (code, name, descr, parent_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.d_office_hierarchy (code, name, descr, parent_office_hierarchy_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
 SELECT 'OFF-HIE-SWO-DIST', 'Southwestern Ontario District', 'District managing operations across London, Windsor, Kitchener-Waterloo, and surrounding communities', id, 'District', NULL, 3000000.00
 FROM app.d_office_hierarchy WHERE code = 'OFF-HIE-ON-REG';
 
-INSERT INTO app.d_office_hierarchy (code, name, descr, parent_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.d_office_hierarchy (code, name, descr, parent_office_hierarchy_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
 SELECT 'OFF-HIE-GTA-DIST', 'Greater Toronto Area District', 'District managing operations across Toronto, Mississauga, Brampton, and GTA municipalities', id, 'District', NULL, 4000000.00
 FROM app.d_office_hierarchy WHERE code = 'OFF-HIE-ON-REG';
 
 -- LEVEL 4: OFFICE (Hierarchy nodes for grouping physical offices)
-INSERT INTO app.d_office_hierarchy (code, name, descr, parent_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.d_office_hierarchy (code, name, descr, parent_office_hierarchy_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
 SELECT 'OFF-HIE-LONDON-GRP', 'London Service Offices Group', 'Group node for all London-area service offices', id, 'Office', NULL, 1500000.00
 FROM app.d_office_hierarchy WHERE code = 'OFF-HIE-SWO-DIST';
 
-INSERT INTO app.d_office_hierarchy (code, name, descr, parent_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.d_office_hierarchy (code, name, descr, parent_office_hierarchy_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
 SELECT 'OFF-HIE-KW-GRP', 'Kitchener-Waterloo Offices Group', 'Group node for Kitchener-Waterloo area offices', id, 'Office', NULL, 1000000.00
 FROM app.d_office_hierarchy WHERE code = 'OFF-HIE-SWO-DIST';
 

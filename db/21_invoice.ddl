@@ -51,7 +51,7 @@ CREATE TABLE app.f_invoice (
     service_period_end_date DATE,                       -- Period covered by invoice (end)
 
     -- Customer Dimension
-    client_id UUID NOT NULL,                            -- Link to d_client (REQUIRED)
+    cust_id UUID NOT NULL,                              -- Link to d_cust (REQUIRED)
     client_name VARCHAR(255),                           -- Denormalized for query performance
     client_type VARCHAR(50),                            -- 'residential', 'commercial', 'government'
     client_tier VARCHAR(50),                            -- Customer tier for analytics
