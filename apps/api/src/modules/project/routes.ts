@@ -368,48 +368,19 @@ export async function projectRoutes(fastify: FastifyInstance) {
     const { id } = request.params as { id: string };
 
     // ═══════════════════════════════════════════════════════════════
-    // ✅ CENTRALIZED UNIFIED DATA GATE - Permission Check
-    // Uses: RBAC_GATE only (checkPermission)
+    // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC check
     // ═══════════════════════════════════════════════════════════════
     const canView = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.VIEW);
     if (!canView) {
       return reply.status(403).send({ error: 'No permission to view this project' });
     }
 
-    // Get entity configuration
-    const entityConfig = await db.execute(sql`
-      SELECT child_entities
-      FROM app.d_entity
-      WHERE code = ${ENTITY_TYPE}
-        AND active_flag = true
-    `);
-
-    if (entityConfig.length === 0) {
-      return reply.send({ tabs: [] });
-    }
-
-    const childEntities = (entityConfig[0].child_entities || []) as string[];
-
-    // For each child entity, count how many are linked
-    const tabsWithCounts = await Promise.all(
-      childEntities.map(async (childType: string) => {
-        const countResult = await db.execute(sql`
-          SELECT COUNT(*) as count
-          FROM app.d_entity_instance_link
-          WHERE parent_entity_type = ${ENTITY_TYPE}
-            AND parent_entity_id = ${id}
-            AND child_entity_type = ${childType}
-            AND active_flag = true
-        `);
-
-        return {
-          entity_type: childType,
-          count: Number(countResult[0]?.count || 0)
-        };
-      })
-    );
-
-    return reply.send({ tabs: tabsWithCounts });
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ ENTITY INFRASTRUCTURE SERVICE - Get child entity metadata
+    // Returns child entity types with labels/icons from d_entity
+    // ═══════════════════════════════════════════════════════════════
+    const tabs = await entityInfra.get_dynamic_child_entity_tabs(ENTITY_TYPE);
+    return reply.send({ tabs });
   });
 
   // ============================================================================
