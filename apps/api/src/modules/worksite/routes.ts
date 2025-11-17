@@ -368,7 +368,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
       if (data.power_available !== undefined) updateFields.push(sql`power_available = ${data.power_available}`);
       if (data.water_available !== undefined) updateFields.push(sql`water_available = ${data.water_available}`);
       if (data.safety_rating !== undefined) updateFields.push(sql`safety_rating = ${data.safety_rating}`);
-      if (data.safety_last_inspection !== undefined) updateFields.push(sql`safety_last_inspection = ${data.safety_last_inspection}`);
+      if (data.safety_last_inspection_date !== undefined) updateFields.push(sql`safety_last_inspection_date = ${data.safety_last_inspection_date}`);
       if (data.environmental_permits !== undefined) updateFields.push(sql`environmental_permits = ${JSON.stringify(data.environmental_permits)}`);
       if (data.seasonal_use !== undefined) updateFields.push(sql`seasonal_use = ${data.seasonal_use}`);
       if (data.seasonal_period !== undefined) updateFields.push(sql`seasonal_period = ${data.seasonal_period}`);
@@ -451,7 +451,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
       if (data.power_available !== undefined) updateFields.push(sql`power_available = ${data.power_available}`);
       if (data.water_available !== undefined) updateFields.push(sql`water_available = ${data.water_available}`);
       if (data.safety_rating !== undefined) updateFields.push(sql`safety_rating = ${data.safety_rating}`);
-      if (data.safety_last_inspection !== undefined) updateFields.push(sql`safety_last_inspection = ${data.safety_last_inspection}`);
+      if (data.safety_last_inspection_date !== undefined) updateFields.push(sql`safety_last_inspection_date = ${data.safety_last_inspection_date}`);
       if (data.environmental_permits !== undefined) updateFields.push(sql`environmental_permits = ${JSON.stringify(data.environmental_permits)}`);
       if (data.seasonal_use !== undefined) updateFields.push(sql`seasonal_use = ${data.seasonal_use}`);
       if (data.seasonal_period !== undefined) updateFields.push(sql`seasonal_period = ${data.seasonal_period}`);

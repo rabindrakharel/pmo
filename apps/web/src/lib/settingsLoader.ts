@@ -49,6 +49,9 @@ function colorCodeToTailwindClass(colorCode: string | null | undefined): string 
 const settingsCache: Map<string, { data: SettingOption[]; timestamp: number }> = new Map();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+// Track in-flight requests to prevent duplicate fetches (fixes React StrictMode double-mounting)
+const inFlightRequests: Map<string, Promise<SettingOption[]>> = new Map();
+
 /**
  * Mapping of field names to their corresponding setting datalabels
  * This defines which fields should load from which settings tables
@@ -140,7 +143,11 @@ export function getSettingEndpoint(datalabel: string): string {
 }
 
 /**
- * Load settings options from the API with caching
+ * Load settings options from the API with caching and in-flight request deduplication
+ *
+ * Handles React StrictMode double-mounting by tracking in-flight requests.
+ * If the same datalabel is requested multiple times before the first request completes,
+ * all callers will share the same promise and avoid duplicate API calls.
  */
 export async function loadSettingOptions(
   datalabel: string,
@@ -154,71 +161,89 @@ export async function loadSettingOptions(
     }
   }
 
-  // Generate API endpoint
-  const endpoint = getSettingEndpoint(datalabel);
+  // Check if there's already an in-flight request for this datalabel
+  // This prevents duplicate API calls during React StrictMode double-mounting
+  const existingRequest = inFlightRequests.get(datalabel);
+  if (existingRequest) {
+    return existingRequest;
+  }
 
-  try {
-    const token = localStorage.getItem('auth_token');
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
+  // Create new request promise
+  const requestPromise = (async () => {
+    // Generate API endpoint
+    const endpoint = getSettingEndpoint(datalabel);
 
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, { headers });
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch settings: ${response.statusText}`);
-    }
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, { headers });
 
-    const result = await response.json();
-    const data = result.data || result || [];
+      if (!response.ok) {
+        throw new Error(`Failed to fetch settings: ${response.statusText}`);
+      }
 
-    // Transform to SettingOption format
-    const options: SettingOption[] = data
-      .filter((item: any) => item.active_flag !== false) // Only active items
-      .map((item: any) => {
-        // Support both stage_* and level_* field naming patterns
-        const name = item.stage_name || item.level_name || item.name || item.title;
-        const id = item.stage_id ?? item.level_id ?? item.id;
-        const descr = item.stage_descr || item.level_descr || item.descr;
-        const colorCode = item.color_code;
+      const result = await response.json();
+      const data = result.data || result || [];
 
-        return {
-          // Use name as value for text-based fields, otherwise use id
-          value: name || (id !== undefined ? id : item.id),
-          label: name || String(item.id),
-          colorClass: colorCodeToTailwindClass(colorCode),
-          metadata: {
-            level_id: id,
-            descr: descr,
-            sort_order: item.sort_order ?? item.position,
-            active_flag: item.active_flag,
-            color_code: colorCode,
-          }
-        };
-      })
-      .sort((a, b) => {
-        // Sort by sort_order if available, otherwise by label
-        const orderA = a.metadata?.sort_order ?? 999;
-        const orderB = b.metadata?.sort_order ?? 999;
-        if (orderA !== orderB) return orderA - orderB;
-        return String(a.label).localeCompare(String(b.label));
+      // Transform to SettingOption format
+      const options: SettingOption[] = data
+        .filter((item: any) => item.active_flag !== false) // Only active items
+        .map((item: any) => {
+          // Support both stage_* and level_* field naming patterns
+          const name = item.stage_name || item.level_name || item.name || item.title;
+          const id = item.stage_id ?? item.level_id ?? item.id;
+          const descr = item.stage_descr || item.level_descr || item.descr;
+          const colorCode = item.color_code;
+
+          return {
+            // Use name as value for text-based fields, otherwise use id
+            value: name || (id !== undefined ? id : item.id),
+            label: name || String(item.id),
+            colorClass: colorCodeToTailwindClass(colorCode),
+            metadata: {
+              level_id: id,
+              descr: descr,
+              sort_order: item.sort_order ?? item.position,
+              active_flag: item.active_flag,
+              color_code: colorCode,
+            }
+          };
+        })
+        .sort((a, b) => {
+          // Sort by sort_order if available, otherwise by label
+          const orderA = a.metadata?.sort_order ?? 999;
+          const orderB = b.metadata?.sort_order ?? 999;
+          if (orderA !== orderB) return orderA - orderB;
+          return String(a.label).localeCompare(String(b.label));
+        });
+
+      // Cache the results
+      settingsCache.set(datalabel, {
+        data: options,
+        timestamp: Date.now()
       });
 
-    // Cache the results
-    settingsCache.set(datalabel, {
-      data: options,
-      timestamp: Date.now()
-    });
+      return options;
+    } catch (error) {
+      console.error(`Error loading setting options for ${datalabel}:`, error);
+      return [];
+    } finally {
+      // Clean up in-flight request tracking
+      inFlightRequests.delete(datalabel);
+    }
+  })();
 
-    return options;
-  } catch (error) {
-    console.error(`Error loading setting options for ${datalabel}:`, error);
-    return [];
-  }
+  // Track this request
+  inFlightRequests.set(datalabel, requestPromise);
+
+  return requestPromise;
 }
 
 /**
