@@ -351,10 +351,10 @@ export async function businessRoutes(fastify: FastifyInstance) {
     const { id } = request.params as { id: string };
 
     // ═══════════════════════════════════════════════════════════════
-    // ✅ CENTRALIZED UNIFIED DATA GATE - Permission Check
-    // Uses: RBAC_GATE only (checkPermission)
+    // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+    // Uses: entityInfra.check_entity_rbac() (4 params, db is pre-bound)
     // ═══════════════════════════════════════════════════════════════
-    const canView = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, ENTITY_TYPE, id, Permission.VIEW);
+    const canView = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.VIEW);
     if (!canView) {
       return reply.status(403).send({ error: 'No permission to view this business' });
     }
@@ -411,10 +411,10 @@ export async function businessRoutes(fastify: FastifyInstance) {
     const { id } = request.params as { id: string };
 
     // ═══════════════════════════════════════════════════════════════
-    // ✅ CENTRALIZED UNIFIED DATA GATE - Permission Check
-    // Uses: RBAC_GATE only (checkPermission)
+    // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+    // Uses: entityInfra.check_entity_rbac() (4 params, db is pre-bound)
     // ═══════════════════════════════════════════════════════════════
-    const canView = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, ENTITY_TYPE, id, Permission.VIEW);
+    const canView = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.VIEW);
     if (!canView) {
       return reply.status(403).send({ error: 'No permission to view this business' });
     }
@@ -434,12 +434,12 @@ export async function businessRoutes(fastify: FastifyInstance) {
     const childEntities = entityConfig[0].child_entities || [];
 
     // ═══════════════════════════════════════════════════════════════
-    // ✅ CENTRALIZED UNIFIED DATA GATE - Check CREATE permissions
-    // Uses: RBAC_GATE only (checkPermission for each child type)
+    // ✅ ENTITY INFRASTRUCTURE SERVICE - Check CREATE permissions
+    // Uses: entityInfra.check_entity_rbac() (4 params, db is pre-bound)
     // ═══════════════════════════════════════════════════════════════
     const creatableEntities = await Promise.all(
       childEntities.map(async (childType: string) => {
-        const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, childType, ALL_ENTITIES_ID, Permission.CREATE);
+        const canCreate = await entityInfra.check_entity_rbac(userId, childType, ALL_ENTITIES_ID, Permission.CREATE);
         return canCreate ? childType : null;
       })
     );
@@ -480,8 +480,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
 
       // GATE: RBAC - Check permission
-      const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const canView = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         id,

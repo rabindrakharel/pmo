@@ -46,7 +46,7 @@ import type { DB } from '@/db/index.js';
 // TYPE DEFINITIONS
 // ============================================================================
 
-export interface EntityTypeMetadata {
+export interface Entity {
   code: string;
   name: string;
   ui_label: string;
@@ -69,7 +69,7 @@ export interface EntityInstance {
   updated_ts: string;
 }
 
-export interface EntityRelationship {
+export interface EntityLink {
   id: string;
   parent_entity_type: string;
   parent_entity_id: string;
@@ -110,7 +110,7 @@ export { Permission, ALL_ENTITIES_ID };
 
 export class EntityInfrastructureService {
   private db: DB;
-  private metadataCache: Map<string, { data: EntityTypeMetadata; expiry: number }> = new Map();
+  private metadataCache: Map<string, { data: Entity; expiry: number }> = new Map();
   private CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   constructor(db: DB) {
@@ -130,7 +130,7 @@ export class EntityInfrastructureService {
   async get_entity(
     entity_type: string,
     include_inactive = false
-  ): Promise<EntityTypeMetadata | null> {
+  ): Promise<Entity | null> {
     // Check cache
     if (!include_inactive) {
       const cached = this.metadataCache.get(entity_type);
@@ -148,7 +148,7 @@ export class EntityInfrastructureService {
 
     if (result.length === 0) return null;
 
-    const metadata: EntityTypeMetadata = {
+    const metadata: Entity = {
       code: result[0].code,
       name: result[0].name,
       ui_label: result[0].ui_label,
@@ -177,7 +177,7 @@ export class EntityInfrastructureService {
    * Get all entity types
    * @param include_inactive Include inactive entity types
    */
-  async get_all_entity(include_inactive = false): Promise<EntityTypeMetadata[]> {
+  async get_all_entity(include_inactive = false): Promise<Entity[]> {
     const result = await this.db.execute(sql`
       SELECT code, name, ui_label, ui_icon, child_entities, display_order, active_flag, created_ts, updated_ts
       FROM app.d_entity
@@ -330,7 +330,7 @@ export class EntityInfrastructureService {
     child_entity_type: string;
     child_entity_id: string;
     relationship_type?: string;
-  }): Promise<EntityRelationship> {
+  }): Promise<EntityLink> {
     const {
       parent_entity_type,
       parent_entity_id,
@@ -355,13 +355,13 @@ export class EntityInfrastructureService {
       RETURNING *
     `);
 
-    return result[0] as EntityRelationship;
+    return result[0] as EntityLink;
   }
 
   /**
    * Delete linkage (soft delete)
    */
-  async delete_entity_instance_link(linkage_id: string): Promise<EntityRelationship | null> {
+  async delete_entity_instance_link(linkage_id: string): Promise<EntityLink | null> {
     const result = await this.db.execute(sql`
       UPDATE app.d_entity_instance_link
       SET active_flag = false, updated_ts = now()
@@ -369,7 +369,7 @@ export class EntityInfrastructureService {
       RETURNING *
     `);
 
-    return result.length > 0 ? (result[0] as EntityRelationship) : null;
+    return result.length > 0 ? (result[0] as EntityLink) : null;
   }
 
   /**

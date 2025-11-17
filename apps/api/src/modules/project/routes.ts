@@ -371,7 +371,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     // ✅ CENTRALIZED UNIFIED DATA GATE - Permission Check
     // Uses: RBAC_GATE only (checkPermission)
     // ═══════════════════════════════════════════════════════════════
-    const canView = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, ENTITY_TYPE, id, Permission.VIEW);
+    const canView = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.VIEW);
     if (!canView) {
       return reply.status(403).send({ error: 'No permission to view this project' });
     }
@@ -431,7 +431,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     // ✅ CENTRALIZED UNIFIED DATA GATE - Permission Check
     // Uses: RBAC_GATE only (checkPermission)
     // ═══════════════════════════════════════════════════════════════
-    const canView = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, ENTITY_TYPE, id, Permission.VIEW);
+    const canView = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.VIEW);
     if (!canView) {
       return reply.status(403).send({ error: 'No permission to view this project' });
     }
@@ -456,7 +456,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     // ═══════════════════════════════════════════════════════════════
     const creatableEntities = await Promise.all(
       childEntities.map(async (childType: string) => {
-        const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, childType, ALL_ENTITIES_ID, Permission.CREATE);
+        const canCreate = await entityInfra.check_entity_rbac(userId, childType, ALL_ENTITIES_ID, Permission.CREATE);
         return canCreate ? childType : null;
       })
     );
@@ -500,8 +500,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
       // Uses: RBAC_GATE only (checkPermission)
       // ═══════════════════════════════════════════════════════════════
-      const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const canView = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         id,

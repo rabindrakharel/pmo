@@ -37,6 +37,8 @@ import { grantPermission } from '../../services/rbac-grant.service.js';
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+// ✅ Entity Infrastructure Service - Centralized infrastructure management
+import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 
 // Schema based on f_revenue table structure from db/LII_f_revenue.ddl
 const RevenueSchema = Type.Object({
@@ -127,6 +129,11 @@ const ENTITY_TYPE = 'revenue';
 const TABLE_ALIAS = 'r';
 
 export async function revenueRoutes(fastify: FastifyInstance) {
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ ENTITY INFRASTRUCTURE SERVICE - Initialize service instance
+  // ═══════════════════════════════════════════════════════════════
+  const entityInfra = getEntityInfrastructure(db);
+
   // ============================================================================
   // List Revenue (Main Page)
   // ============================================================================
@@ -286,8 +293,7 @@ export async function revenueRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
 
       // GATE: RBAC - Check permission
-      const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const canView = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         id,
@@ -343,8 +349,7 @@ export async function revenueRoutes(fastify: FastifyInstance) {
       // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC CHECK
       // Check: Can user CREATE revenue?
       // ═══════════════════════════════════════════════════════════════
-      const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const canCreate = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         ALL_ENTITIES_ID,
@@ -442,8 +447,7 @@ export async function revenueRoutes(fastify: FastifyInstance) {
       // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC CHECK
       // Check: Can user EDIT this revenue?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const canEdit = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         id,
@@ -529,8 +533,7 @@ export async function revenueRoutes(fastify: FastifyInstance) {
       // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC CHECK
       // Check: Can user EDIT this revenue?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const canEdit = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         id,

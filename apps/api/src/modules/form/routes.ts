@@ -47,6 +47,8 @@ import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unifie
 // ✅ Centralized linkage service - DRY entity relationship management
 import { createLinkage } from '../../services/linkage.service.js';
 import { grantPermission } from '../../services/rbac-grant.service.js';
+// ✅ Entity Infrastructure Service - Centralized infrastructure management
+import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 
 // Response schema matching minimalistic database structure
 const FormSchema = Type.Object({
@@ -85,6 +87,11 @@ const ENTITY_TYPE = 'form';
 const TABLE_ALIAS = 'f';
 
 export async function formRoutes(fastify: FastifyInstance) {
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ ENTITY INFRASTRUCTURE SERVICE - Initialize service instance
+  // ═══════════════════════════════════════════════════════════════
+  const entityInfra = getEntityInfrastructure(db);
+
   // List forms with RBAC filtering - Shows only latest version by default
   fastify.get('/api/v1/form', {
     preHandler: [fastify.authenticate],
@@ -330,8 +337,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
       // Uses: RBAC_GATE only (checkPermission)
       // ═══════════════════════════════════════════════════════════════
-      const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const canView = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         id,
@@ -399,8 +405,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Uses: RBAC_GATE only (checkPermission)
       // Check: Can user CREATE forms?
       // ═══════════════════════════════════════════════════════════════
-      const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const canCreate = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         ALL_ENTITIES_ID,
@@ -518,8 +523,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Uses: RBAC_GATE only (checkPermission)
       // Check: Can user EDIT this form?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const canEdit = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         id,
@@ -663,8 +667,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Uses: RBAC_GATE only (checkPermission)
       // Check: Can user EDIT this form?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const canEdit = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         id,
