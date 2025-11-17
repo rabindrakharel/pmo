@@ -43,8 +43,16 @@ The **PMO Platform** is an enterprise-grade project management and operations sy
 
 | Document | Purpose | When to Use | Key Topics |
 |----------|---------|-------------|------------|
-| **[Data Model](./docs/datamodel.md)** | Complete database schema and relationships | Understanding entities, tables, relationships | 52 DDL files, Entity relationships, RBAC model, Settings tables |
-| **[Settings System](./docs/settings.md)** | Settings/datalabel architecture | Managing dropdowns, workflows, hierarchies | 16 settings tables, Sequential states, Dropdown integration |
+| **[Data Model](./docs/datamodel/README.md)** | Complete database schema and relationships | Understanding entities, tables, relationships | 50+ DDL files, Entity relationships, RBAC model, Settings tables |
+| **[Settings System](./docs/settings/settings.md)** | Settings/datalabel architecture | Managing dropdowns, workflows, hierarchies | 16 settings tables, Sequential states, Dropdown integration |
+
+### ⚙️ Core Services & Libraries
+
+| Document | Purpose | When to Use | Key Topics |
+|----------|---------|-------------|------------|
+| **[Entity Infrastructure Service](./docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md)** | Centralized RBAC and entity lifecycle management | Implementing entity CRUD, RBAC checks, registry operations | RBAC permissions, Entity registry, Parent-child linking, Infrastructure operations |
+| **[Universal Formatter Service](./docs/services/UNIVERSAL_FORMATTER_SERVICE.md)** | Single source of truth for all formatting | Formatting display values, field rendering, API transforms | Currency/date formatting, Badge rendering, Field detection, Type conversion |
+| **[Services Catalog](./docs/services/README.md)** | Index of all backend services | Finding service documentation | 10+ services (linkage, email, calendar, S3, etc.) |
 
 ### 🔌 API & Services
 
@@ -57,8 +65,10 @@ The **PMO Platform** is an enterprise-grade project management and operations sy
 
 | Document | Purpose | When to Use | Key Topics |
 |----------|---------|-------------|------------|
-| **[Kanban System](./docs/component_Kanban_System.md)** | Task board implementation | Building kanban views, task management | Drag-drop, Column configuration, State transitions |
-| **[Dynamic Forms](./docs/form.md)** | JSONB-based form builder | Creating custom forms, form workflows | Form schema, Multi-step wizards, Validation, Submissions |
+| **[Entity Data Table](./docs/ui_components/datatable.md)** | Universal CRUD table component | Building entity lists, inline editing, bulk operations | Column configuration, Pagination, Sorting, Filtering |
+| **[DAG Visualizer](./docs/ui_components/dag_vizualizer.md)** | Directed Acyclic Graph visualization | Workflow stages, project pipelines, sequential states | DAG rendering, Stage progression, Workflow visualization |
+| **[Kanban Board](./docs/ui_components/kanban.md)** | Task board implementation | Building kanban views, task management | Drag-drop, Column configuration, State transitions |
+| **[Dynamic Forms](./docs/form/form.md)** | JSONB-based form builder | Creating custom forms, form workflows | Form schema, Multi-step wizards, Validation, Submissions |
 | **[Project & Task System](./docs/Project_Task.md)** | Project/task entity implementation | Managing projects, tasks, assignments | Entity structure, Parent-child relationships, Workflows |
 
 ### 🛠️ Tools & Operations

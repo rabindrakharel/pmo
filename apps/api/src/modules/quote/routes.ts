@@ -1,10 +1,16 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import { filterUniversalColumns, createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
+// ✅ Centralized unified data gate - loosely coupled API
+import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+// ✨ Entity Infrastructure Service - centralized infrastructure operations
+import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
+// ✨ Universal auto-filter builder - zero-config query filtering
+import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 
 const QuoteSchema = Type.Object({
   id: Type.String(),
@@ -52,7 +58,16 @@ const CreateQuoteSchema = Type.Partial(Type.Object({
 
 const UpdateQuoteSchema = Type.Partial(CreateQuoteSchema);
 
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_TYPE = 'quote';
+const TABLE_ALIAS = 'q';
+
 export async function quoteRoutes(fastify: FastifyInstance) {
+  // ✨ Initialize Entity Infrastructure Service
+  const entityInfra = getEntityInfrastructure(db);
+
   // List quotes
   fastify.get('/api/v1/quote', {
     preHandler: [fastify.authenticate],
@@ -84,36 +99,22 @@ export async function quoteRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const baseConditions = [
-        sql`EXISTS (
-          SELECT 1 FROM app.d_entity_rbac rbac
-          WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-            AND rbac.entity_name = 'quote'
-            AND (rbac.entity_id = q.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-            AND rbac.active_flag = true
-            AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-            AND rbac.permission >= 0
-        )`
-      ];
+      // Build WHERE conditions array
+      const conditions: SQL[] = [];
 
-      const conditions = [...baseConditions];
+      // ✨ UNIFIED RBAC - Replace ~9 lines of manual SQL with single service call
+      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
+        userId, ENTITY_TYPE, Permission.VIEW, TABLE_ALIAS
+      );
+      conditions.push(rbacCondition);
 
-      if (active !== undefined) {
-        conditions.push(sql`q.active_flag = ${active}`);
-      }
-
-      if (dl__quote_stage) {
-        conditions.push(sql`q.dl__quote_stage = ${dl__quote_stage}`);
-      }
-
-      if (search) {
-        conditions.push(sql`(
-          q.name ILIKE ${`%${search}%`} OR
-          q.descr ILIKE ${`%${search}%`} OR
-          q.code ILIKE ${`%${search}%`} OR
-          q.customer_name ILIKE ${`%${search}%`}
-        )`);
-      }
+      // ✨ UNIVERSAL AUTO-FILTER SYSTEM
+      // Automatically builds filters from ANY query parameter based on field naming conventions
+      // Supports: ?active=true, ?dl__quote_stage=X, ?search=keyword, etc.
+      const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query as any, {
+        searchFields: ['name', 'descr', 'code', 'customer_name']
+      });
+      conditions.push(...autoFilters);
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
@@ -151,17 +152,9 @@ export async function quoteRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    const access = await db.execute(sql`
-      SELECT 1 FROM app.d_entity_rbac rbac
-      WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-        AND rbac.entity_name = 'quote'
-        AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND rbac.permission >= 0
-    `);
-
-    if (access.length === 0) {
+    // ✨ UNIFIED RBAC - Replace ~9 lines of manual SQL with single service call
+    const canView = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.VIEW);
+    if (!canView) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
 
@@ -196,17 +189,9 @@ export async function quoteRoutes(fastify: FastifyInstance) {
     if (!data.name) data.name = 'Untitled';
     if (!data.code) data.code = `QT-${Date.now()}`;
 
-    const access = await db.execute(sql`
-      SELECT 1 FROM app.d_entity_rbac rbac
-      WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-        AND rbac.entity_name = 'quote'
-        AND rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND rbac.permission >= 4
-    `);
-
-    if (access.length === 0) {
+    // ✨ UNIFIED RBAC - Replace ~9 lines of manual SQL with single service call
+    const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
+    if (!canCreate) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
 
@@ -268,17 +253,9 @@ export async function quoteRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    const access = await db.execute(sql`
-      SELECT 1 FROM app.d_entity_rbac rbac
-      WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-        AND rbac.entity_name = 'quote'
-        AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND rbac.permission >= 1
-    `);
-
-    if (access.length === 0) {
+    // ✨ UNIFIED RBAC - Replace ~9 lines of manual SQL with single service call
+    const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
+    if (!canEdit) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
 
@@ -330,19 +307,9 @@ export async function quoteRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Delete quote
-  createEntityDeleteEndpoint(fastify, 'quote');
+  // ✨ Factory-generated DELETE endpoint
+  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
-  // ========================================
-  // CHILD ENTITY ENDPOINTS (Database-Driven)
-  // ========================================
-  // Auto-create all child entity endpoints from d_entity metadata
-  // Reads quote's child_entities from database: [{"entity": "work_order", ...}]
-  // Creates endpoints: /api/v1/quote/:id/work_order
-  //
-  // Benefits:
-  // - Single source of truth: child relationships defined in d_entity DDL only
-  // - Zero repetition: no manual endpoint declarations needed
-  // - Self-maintaining: add child entity → update d_entity → routes auto-created
-  await createChildEntityEndpointsFromMetadata(fastify, 'quote');
+  // ✨ Factory-generated child entity endpoints
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

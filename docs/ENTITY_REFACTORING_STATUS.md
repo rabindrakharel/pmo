@@ -1,6 +1,6 @@
 # Entity Routes Refactoring Status
 
-**Last Updated:** 2025-01-17 (Phase 3: Booking Purge)
+**Last Updated:** 2025-01-17 (Phase 6: Documentation Cleanup Complete)
 **Purpose:** Track implementation of standard architecture patterns across all entity routes
 
 ## Standard Pattern Requirements
@@ -14,12 +14,14 @@ All entity routes should follow these 4 architectural patterns:
 
 ## Refactoring Status
 
-### ✅ FULLY COMPLIANT (2 entities)
+### ✅ FULLY COMPLIANT (4 entities)
 
 | Entity | Infra | Filter | Delete | Child | Notes |
 |--------|-------|--------|--------|-------|-------|
 | **form** | ✓ | ✓ | ✓ | ✓ | Complete |
 | **worksite** | ✓ | ✓ | ✓ | ✓ | Complete |
+| **work_order** | ✓ | ✓ | ✓ | ✓ | Complete (Phase 4) |
+| **quote** | ✓ | ✓ | ✓ | ✓ | Complete (Phase 5) |
 
 ### ✅ FACT TABLES - COMPLIANT (3 entities)
 
@@ -39,14 +41,12 @@ All entity routes should follow these 4 architectural patterns:
 | **revenue** | ✓ | ✓ | ✓ | ✗ | Child factory | Low |
 | **wiki** | ✓ | ✓ | ✓ | ✗ | Child factory | Low |
 
-### ⚠️ MISSING 2 PATTERNS (4 entities)
+### ⚠️ MISSING 2 PATTERNS (2 entities)
 
 | Entity | Infra | Filter | Delete | Child | Missing | Priority |
 |--------|-------|--------|--------|-------|---------|----------|
 | **product** | ✗ | ✗ | ✓ | ✗ | Infra + Filter | Medium |
 | **service** | ✗ | ✗ | ✓ | ✗ | Infra + Filter | Medium |
-| **work_order** | ✗ | ✗ | ✓ | ✗ | Infra + Filter | Medium |
-| **quote** | ✗ | ✗ | ✓ | ✓ | Infra + Filter | Medium |
 
 ### ⚠️ MISSING 3 PATTERNS (1 entity)
 
@@ -125,6 +125,85 @@ All entity routes should follow these 4 architectural patterns:
 - ℹ️ **Rationale:** booking entity was disconnected from person-calendar system (separate systems)
 
 **Total removed:** ~963 lines of code (12 files modified, 2 files deleted)
+
+### Phase 4: work_order Routes Refactoring (Completed)
+
+#### work_order/routes.ts - Added infra + filter patterns
+- ✅ Added imports: `unified_data_gate`, `getEntityInfrastructure`, `buildAutoFilters`, `SQL` type, `createChildEntityEndpointsFromMetadata`
+- ✅ Added module constants: `ENTITY_TYPE = 'work_order'`, `TABLE_ALIAS = 'w'`
+- ✅ Initialized Entity Infrastructure Service
+- ✅ **Refactored LIST endpoint:**
+  - Replaced manual RBAC SQL (~9 lines) with `unified_data_gate.rbac_gate.getWhereCondition()`
+  - Replaced manual filters (~16 lines) with `buildAutoFilters()` with search fields: name, descr, code, customer_name
+  - Code reduction: ~25 lines → 5 lines
+- ✅ **Refactored GET single endpoint:**
+  - Replaced manual RBAC SQL (~9 lines) with `entityInfra.check_entity_rbac()`
+  - Code reduction: ~9 lines → 2 lines
+- ✅ **Refactored CREATE endpoint:**
+  - Replaced manual RBAC check (~9 lines) with `entityInfra.check_entity_rbac()`
+  - Kept existing entity_instance_registry logic
+  - Code reduction: ~9 lines → 2 lines
+- ✅ **Refactored UPDATE endpoint:**
+  - Replaced manual RBAC SQL (~9 lines) with `entityInfra.check_entity_rbac()`
+  - Code reduction: ~9 lines → 2 lines
+- ✅ Updated delete factory call to use `ENTITY_TYPE` constant
+- ✅ Added child entity factory: `createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE)`
+
+**Total code reduction:** ~52 lines of manual RBAC/filter logic → 11 service calls
+
+### Phase 5: quote Routes Refactoring (Completed)
+
+#### quote/routes.ts - Added infra + filter patterns
+- ✅ Added imports: `unified_data_gate`, `getEntityInfrastructure`, `buildAutoFilters`, `SQL` type
+- ✅ Added module constants: `ENTITY_TYPE = 'quote'`, `TABLE_ALIAS = 'q'`
+- ✅ Initialized Entity Infrastructure Service
+- ✅ **Refactored LIST endpoint:**
+  - Replaced manual RBAC SQL (~9 lines) with `unified_data_gate.rbac_gate.getWhereCondition()`
+  - Replaced manual filters (~16 lines) with `buildAutoFilters()` with search fields: name, descr, code, customer_name
+  - Code reduction: ~25 lines → 5 lines
+- ✅ **Refactored GET single endpoint:**
+  - Replaced manual RBAC SQL (~9 lines) with `entityInfra.check_entity_rbac()`
+  - Code reduction: ~9 lines → 2 lines
+- ✅ **Refactored CREATE endpoint:**
+  - Replaced manual RBAC check (~9 lines) with `entityInfra.check_entity_rbac()`
+  - Kept existing entity_instance_registry logic
+  - Code reduction: ~9 lines → 2 lines
+- ✅ **Refactored UPDATE endpoint:**
+  - Replaced manual RBAC SQL (~9 lines) with `entityInfra.check_entity_rbac()`
+  - Code reduction: ~9 lines → 2 lines
+- ✅ Updated delete factory call to use `ENTITY_TYPE` constant
+- ✅ Child entity factory already present - updated to use `ENTITY_TYPE` constant
+
+**Total code reduction:** ~52 lines of manual RBAC/filter logic → 11 service calls
+
+### Phase 6: Documentation Cleanup (Completed)
+
+#### Purged Obsolete Files (9 files removed from project root)
+- ❌ Deleted `CODE_CLEANUP_RECOMMENDATIONS.md`
+- ❌ Deleted `CODE_CLEANUP_SUMMARY.md`
+- ❌ Deleted `DOCUMENTATION_UPDATE_SUMMARY.md`
+- ❌ Deleted `MIGRATION_COMPLETE_SUMMARY.md`
+- ❌ Deleted `RBAC_2GATE_IMPLEMENTATION_GUIDE.md`
+- ❌ Deleted `RBAC_CRUD_FACTORY_SUMMARY.md`
+- ❌ Deleted `RBAC_DDL_FIX_SUMMARY.md`
+- ❌ Deleted `RBAC_ENTITY_PICKER_IMPLEMENTATION.md`
+- ❌ Deleted `RBAC_IMPLEMENTATION_COMPLETE.md`
+
+**Rationale:** These were temporary implementation guides/summaries that are now superseded by permanent service documentation.
+
+#### Updated README.md Documentation Index
+- ✅ **Updated Data Model section:** Fixed path to `./docs/datamodel/README.md`
+- ✅ **Added Core Services & Libraries section:**
+  - Entity Infrastructure Service (`./docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md`)
+  - Universal Formatter Service (`./docs/services/UNIVERSAL_FORMATTER_SERVICE.md`)
+  - Services Catalog (`./docs/services/README.md`)
+- ✅ **Enhanced Frontend Components section:**
+  - Entity Data Table (`./docs/ui_components/datatable.md`)
+  - DAG Visualizer (`./docs/ui_components/dag_vizualizer.md`)
+  - Kanban Board (`./docs/ui_components/kanban.md`)
+  - Dynamic Forms (`./docs/form/form.md`)
+
+**Result:** README now serves as comprehensive documentation index pointing to all core services, components, and data model documentation.
 
 ## Next Steps (Future PRs)
 
@@ -207,11 +286,16 @@ await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 ## Summary Statistics
 
 - **Total Entities**: 12 (1 purged: booking)
-- **Fully Compliant**: 5 (42%)
+- **Fully Compliant**: 7 (58%) ⬆️ +2 from Phase 4-5
 - **Missing 1 Pattern**: 3 (25%)
-- **Missing 2 Patterns**: 4 (33%)
+- **Missing 2 Patterns**: 2 (17%) ⬇️ -2 from Phase 4-5
 - **Missing 3 Patterns**: 1 (8%)
 - **Purged**: 1 (booking - disconnected entity)
 
-**Phase 1-3 Completion**: 5/12 entities (42%) now follow standard patterns
-**Code Cleanup**: 963 lines removed (booking purge)
+**Phase 1-6 Completion**: 7/12 entities (58%) now follow standard patterns ⬆️ +16% from Phase 3
+**Code Reduction:**
+- Phase 1-3: ~963 lines removed (booking purge)
+- Phase 4: ~52 lines of manual RBAC/filter logic → 11 service calls (work_order)
+- Phase 5: ~52 lines of manual RBAC/filter logic → 11 service calls (quote)
+- Phase 6: 9 obsolete documentation files purged
+- **Total:** ~1,067 lines removed + improved documentation structure
