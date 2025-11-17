@@ -9,13 +9,14 @@
 -- DESIGN:
 -- • File Storage: S3 bucket/key for actual file storage
 -- • Metadata: file_name, file_size, mime_type, file_hash for integrity
--- • Universal Linking: Can be attached to any entity via attachment_id FK
+-- • Universal Linking: Via d_entity_instance_link (NO foreign keys for loose coupling)
 -- • Versioning: Supports version tracking via metadata
 --
--- RELATIONSHIPS:
+-- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • Parent: None (independent entity)
--- • Referenced By: d_artifact.attachment_id, f_invoice.attachment_id, f_customer_interaction.attachment_ids[]
--- • Linkage: Can use d_entity_instance_link for complex attachments
+-- • Linkage: ALL attachment relationships managed via d_entity_instance_link
+-- • Optional tracking: attached_to_entity_code/attached_to_entity_id (no FK, just metadata)
+-- • Uploaded by: uploaded_by_employee_id (no FK, just reference)
 --
 -- USAGE PATTERNS:
 -- • UPLOAD: Create attachment record with S3 presigned URL
