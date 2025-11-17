@@ -34,11 +34,6 @@ CREATE TABLE IF NOT EXISTS app.d_supplier (
     descr text,
 
     -- ─────────────────────────────────────────────────────────────────────────
-    -- Person Link (for contact/address information)
-    -- ─────────────────────────────────────────────────────────────────────────
-    person_id uuid REFERENCES app.d_person(id),
-
-    -- ─────────────────────────────────────────────────────────────────────────
     -- Supplier Identification
     -- ─────────────────────────────────────────────────────────────────────────
     supplier_number varchar(50), -- Vendor number / supplier code

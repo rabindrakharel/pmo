@@ -82,7 +82,7 @@
 -- =====================================================
 
 CREATE TABLE app.d_entity_instance (
-    entity_code varchar(50) NOT NULL REFERENCES app.d_entity(code),
+    entity_code varchar(50) NOT NULL, -- References d_entity.code (no FK for loose coupling)
     entity_id uuid NOT NULL,
     order_id int4 GENERATED ALWAYS AS IDENTITY, --ordering need only, sidebar ordering
     entity_name varchar(255) NOT NULL,

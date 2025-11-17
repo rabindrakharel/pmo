@@ -71,6 +71,13 @@ CREATE TABLE IF NOT EXISTS app.d_person (
     person_types varchar[] DEFAULT '{}', -- ['employee', 'customer', 'vendor', 'supplier']
 
     -- ─────────────────────────────────────────────────────────────────────────
+    -- Role References (person references specialized role entities - NO FKs for loose coupling)
+    -- ─────────────────────────────────────────────────────────────────────────
+    employee_id uuid, -- If this person is an employee (references d_employee.id)
+    cust_id uuid,     -- If this person is a customer (references d_cust.id)
+    supplier_id uuid, -- If this person is a supplier (references d_supplier.id)
+
+    -- ─────────────────────────────────────────────────────────────────────────
     -- Standard Metadata & Temporal Fields
     -- ─────────────────────────────────────────────────────────────────────────
     metadata jsonb DEFAULT '{}',

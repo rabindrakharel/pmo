@@ -40,9 +40,9 @@
 
 CREATE TABLE app.d_entity_instance_link (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    parent_entity_code varchar(50) NOT NULL REFERENCES app.d_entity(code),
+    parent_entity_code varchar(50) NOT NULL, -- References d_entity.code (no FK for loose coupling)
     parent_entity_id uuid NOT NULL,
-    child_entity_code varchar(50) NOT NULL REFERENCES app.d_entity(code),
+    child_entity_code varchar(50) NOT NULL,  -- References d_entity.code (no FK for loose coupling)
     child_entity_id uuid NOT NULL,
     relationship_type varchar(50) DEFAULT 'contains',
     metadata jsonb DEFAULT '{}'::jsonb,

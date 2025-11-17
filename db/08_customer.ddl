@@ -177,9 +177,6 @@ CREATE TABLE app.d_cust (
   updated_ts timestamptz DEFAULT now(),
   version integer DEFAULT 1,
 
-  -- Person reference (for common contact/address fields)
-  person_id uuid REFERENCES app.d_person(id),
-
   -- Customer identification
   cust_number text NOT NULL,
   cust_type text NOT NULL DEFAULT 'residential',
