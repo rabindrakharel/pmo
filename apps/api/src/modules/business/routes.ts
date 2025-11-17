@@ -350,19 +350,20 @@ export async function businessRoutes(fastify: FastifyInstance) {
     const userId = (request as any).user?.sub;
     const { id } = request.params as { id: string };
 
-    try {
-      // ═══════════════════════════════════════════════════════════════
-      // ✅ ENTITY INFRASTRUCTURE SERVICE - Universal tabs endpoint
-      // Single method handles: RBAC check, metadata fetch, linkage counts
-      // ═══════════════════════════════════════════════════════════════
-      const tabs = await entityInfra.get_dynamic_child_entity_tabs(userId, ENTITY_TYPE, id);
-      return reply.send({ tabs });
-    } catch (error) {
-      if ((error as Error).message.includes('lacks VIEW permission')) {
-        return reply.status(403).send({ error: 'No permission to view this business' });
-      }
-      throw error;
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+    // ═══════════════════════════════════════════════════════════════
+    const canView = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.VIEW);
+    if (!canView) {
+      return reply.status(403).send({ error: 'No permission to view this business' });
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ ENTITY INFRASTRUCTURE SERVICE - Get child entity metadata
+    // Returns child entity types with labels/icons from d_entity
+    // ═══════════════════════════════════════════════════════════════
+    const tabs = await entityInfra.get_dynamic_child_entity_tabs(ENTITY_TYPE);
+    return reply.send({ tabs });
   });
 
   // ============================================================================
