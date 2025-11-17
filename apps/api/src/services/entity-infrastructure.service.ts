@@ -101,8 +101,27 @@ export interface DeleteEntityResult {
   children_deleted?: number;
 }
 
-// Re-export Permission enum for convenience
-export { Permission, ALL_ENTITIES_ID };
+// ============================================================================
+// PERMISSION CONSTANTS (Self-Contained - No External Dependencies)
+// ============================================================================
+
+/**
+ * Permission levels enum (0-5 numeric hierarchy)
+ */
+export enum Permission {
+  VIEW = 0,
+  EDIT = 1,
+  SHARE = 2,
+  DELETE = 3,
+  CREATE = 4,
+  OWNER = 5
+}
+
+/**
+ * Special entity ID for type-level permissions
+ * Grants permission to all entities of a type
+ */
+export const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111';
 
 // ============================================================================
 // SERVICE CLASS
@@ -272,29 +291,30 @@ export class EntityInfrastructureService {
     entity_id: string,
     updates: { entity_name?: string; entity_code?: string | null }
   ): Promise<EntityInstance | null> {
-    const setClauses: string[] = ['updated_ts = now()'];
-    const values: any[] = [];
+    const setClauses: string[] = [];
+    const params: any[] = [];
 
     if (updates.entity_name !== undefined) {
-      values.push(updates.entity_name);
-      setClauses.push(`entity_name = $${values.length}`);
+      setClauses.push('entity_name');
+      params.push(updates.entity_name);
     }
     if (updates.entity_code !== undefined) {
-      values.push(updates.entity_code);
-      setClauses.push(`entity_code = $${values.length}`);
+      setClauses.push('entity_code');
+      params.push(updates.entity_code);
     }
 
-    if (values.length === 0) return null;
+    if (setClauses.length === 0) return null;
 
-    values.push(entity_type, entity_id);
-    const query = `
+    // Build dynamic UPDATE query
+    const setExpressions = setClauses.map((col, i) => `${col} = '${String(params[i]).replace(/'/g, "''")}'`).join(', ');
+
+    const result = await this.db.execute(sql.raw(`
       UPDATE app.d_entity_instance_registry
-      SET ${setClauses.join(', ')}
-      WHERE entity_type = $${values.length - 1} AND entity_id = $${values.length}
+      SET ${setExpressions}, updated_ts = now()
+      WHERE entity_type = '${entity_type}' AND entity_id = '${entity_id}'
       RETURNING *
-    `;
+    `));
 
-    const result = await this.db.execute(sql.raw(query, values));
     return result.length > 0 ? (result[0] as EntityInstance) : null;
   }
 
