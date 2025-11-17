@@ -438,6 +438,84 @@ export class EntityInfrastructureService {
   }
 
   /**
+   * Get single linkage by ID
+   */
+  async get_entity_instance_link_by_id(linkage_id: string): Promise<EntityLink | null> {
+    const result = await this.db.execute(sql`
+      SELECT * FROM app.d_entity_instance_link
+      WHERE id = ${linkage_id}
+    `);
+
+    return result.length > 0 ? (result[0] as EntityLink) : null;
+  }
+
+  /**
+   * Get all linkages with optional filters
+   */
+  async get_all_entity_instance_links(filters?: {
+    parent_entity_type?: string;
+    parent_entity_id?: string;
+    child_entity_type?: string;
+    child_entity_id?: string;
+    active_flag?: boolean;
+  }): Promise<EntityLink[]> {
+    let conditions = sql`1=1`;
+
+    if (filters?.parent_entity_type) {
+      conditions = sql`${conditions} AND parent_entity_type = ${filters.parent_entity_type}`;
+    }
+    if (filters?.parent_entity_id) {
+      conditions = sql`${conditions} AND parent_entity_id = ${filters.parent_entity_id}`;
+    }
+    if (filters?.child_entity_type) {
+      conditions = sql`${conditions} AND child_entity_type = ${filters.child_entity_type}`;
+    }
+    if (filters?.child_entity_id) {
+      conditions = sql`${conditions} AND child_entity_id = ${filters.child_entity_id}`;
+    }
+    if (filters?.active_flag !== undefined) {
+      conditions = sql`${conditions} AND active_flag = ${filters.active_flag}`;
+    }
+
+    const result = await this.db.execute(sql`
+      SELECT * FROM app.d_entity_instance_link
+      WHERE ${conditions}
+      ORDER BY created_ts DESC
+    `);
+
+    return result as EntityLink[];
+  }
+
+  /**
+   * Update linkage (relationship_type, active_flag)
+   */
+  async update_entity_instance_link(
+    linkage_id: string,
+    updates: {
+      relationship_type?: string;
+      active_flag?: boolean;
+    }
+  ): Promise<EntityLink | null> {
+    const updateClauses: any[] = [sql`updated_ts = now()`];
+
+    if (updates.relationship_type !== undefined) {
+      updateClauses.push(sql`relationship_type = ${updates.relationship_type}`);
+    }
+    if (updates.active_flag !== undefined) {
+      updateClauses.push(sql`active_flag = ${updates.active_flag}`);
+    }
+
+    const result = await this.db.execute(sql`
+      UPDATE app.d_entity_instance_link
+      SET ${sql.join(updateClauses, sql`, `)}
+      WHERE id = ${linkage_id}
+      RETURNING *
+    `);
+
+    return result.length > 0 ? (result[0] as EntityLink) : null;
+  }
+
+  /**
    * Get dynamic child entity tabs for detail page
    * Universal endpoint handler for GET /:id/dynamic-child-entity-tabs
    *

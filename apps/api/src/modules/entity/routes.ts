@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db, client } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import { getEntityInfrastructure } from '@/services/entity-infrastructure.service.js';
 
 /**
  * Entity Metadata Routes
@@ -10,6 +11,8 @@ import { sql } from 'drizzle-orm';
  * - Parent-child relationships (child_entities JSONB)
  * - Entity icons
  * - Entity display names
+ *
+ * Uses Entity Infrastructure Service for all d_entity operations
  *
  * Used by:
  * - DynamicChildEntityTabs component for tab generation
@@ -51,6 +54,8 @@ const ChildEntityCountSchema = Type.Object({
 });
 
 export async function entityRoutes(fastify: FastifyInstance) {
+  // Initialize Entity Infrastructure Service
+  const entityInfra = getEntityInfrastructure(db);
 
   /**
    * GET /api/v1/entity/type/:entity_type
@@ -73,62 +78,33 @@ export async function entityRoutes(fastify: FastifyInstance) {
     const normalizedEntityType = normalizeEntityType(entity_type);
 
     try {
-      const result = await db.execute(sql`
-        SELECT
-          code,
-          name,
-          ui_label,
-          ui_icon,
-          child_entities,
-          display_order,
-          active_flag
-        FROM app.d_entity
-        WHERE code = ${normalizedEntityType}
-          AND active_flag = true
-        LIMIT 1
-      `);
+      // Use Entity Infrastructure Service to get entity metadata
+      const entity = await entityInfra.get_entity(normalizedEntityType);
 
-      if (result.length === 0) {
+      if (!entity) {
         return reply.status(404).send({
           error: `Entity type not found: ${entity_type}`
         });
       }
 
-      const entity = result[0];
+      // Get all active entities to filter child_entities
+      const allActiveEntities = await entityInfra.get_all_entity(false);
+      const activeEntityCodes = new Set(allActiveEntities.map(e => e.code));
 
-      // Parse child_entities if it's a string (JSONB returned as string)
-      if (typeof entity.child_entities === 'string') {
-        entity.child_entities = JSON.parse(entity.child_entities);
-      }
+      // Filter child_entities to only include active ones
+      const filteredChildEntities = (entity.child_entities || []).filter(c =>
+        activeEntityCodes.has(c)
+      );
 
-      // Ensure child_entities is always an array
-      if (!Array.isArray(entity.child_entities)) {
-        entity.child_entities = [];
-      }
-
-      // Filter out inactive child entities
-      if (entity.child_entities.length > 0) {
-        const childEntityCodes = entity.child_entities; // Already a string array
-
-        // Build IN clause with raw SQL
-        const placeholders = childEntityCodes.map((_: any, i: number) => `$${i + 1}`).join(', ');
-        const query = `
-          SELECT code
-          FROM app.d_entity
-          WHERE code IN (${placeholders})
-            AND active_flag = true
-        `;
-        const activeChildEntities = await client.unsafe(query, childEntityCodes);
-
-        const activeChildCodes = new Set(activeChildEntities.map((row: any) => row.code));
-
-        // Filter to only include active child entities (strings)
-        entity.child_entities = entity.child_entities.filter((c: string) =>
-          activeChildCodes.has(c)
-        );
-      }
-
-      return entity;
+      return {
+        code: entity.code,
+        name: entity.name,
+        ui_label: entity.ui_label,
+        ui_icon: entity.ui_icon,
+        child_entities: filteredChildEntities,
+        display_order: entity.display_order,
+        active_flag: entity.active_flag
+      };
     } catch (error) {
       fastify.log.error('Error fetching entity type metadata:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -164,74 +140,27 @@ export async function entityRoutes(fastify: FastifyInstance) {
     const { include_inactive } = request.query as { include_inactive?: boolean };
 
     try {
-      // Build query conditionally based on include_inactive parameter
-      const result = include_inactive
-        ? await db.execute(sql`
-            SELECT
-              code,
-              name,
-              ui_label,
-              ui_icon,
-              display_order,
-              active_flag,
-              child_entities
-            FROM app.d_entity
-            ORDER BY display_order ASC
-          `)
-        : await db.execute(sql`
-            SELECT
-              code,
-              name,
-              ui_label,
-              ui_icon,
-              display_order,
-              active_flag,
-              child_entities
-            FROM app.d_entity
-            WHERE active_flag = true
-            ORDER BY display_order ASC
-          `);
+      // Use Entity Infrastructure Service to get all entity types
+      const entities = await entityInfra.get_all_entity(include_inactive);
 
-      // Parse child_entities JSONB and map results
-      const mappedResult = result.map((row: any) => {
-        let childEntities = row.child_entities || [];
-        if (typeof childEntities === 'string') {
-          childEntities = JSON.parse(childEntities);
-        }
-        if (!Array.isArray(childEntities)) {
-          childEntities = [];
-        }
+      // Get all active entity codes for filtering child_entities
+      const allActiveEntities = await entityInfra.get_all_entity(false);
+      const activeEntityCodes = new Set(allActiveEntities.map(e => e.code));
 
-        return {
-          code: row.code,
-          name: row.name,
-          ui_label: row.ui_label,
-          ui_icon: row.ui_icon,
-          display_order: row.display_order,
-          active_flag: row.active_flag,
-          child_entities: childEntities
-        };
-      });
+      // Map and filter child_entities to only include active ones
+      const result = entities.map(entity => ({
+        code: entity.code,
+        name: entity.name,
+        ui_label: entity.ui_label,
+        ui_icon: entity.ui_icon,
+        display_order: entity.display_order,
+        active_flag: entity.active_flag,
+        child_entities: (entity.child_entities || []).filter(c =>
+          activeEntityCodes.has(c)
+        )
+      }));
 
-      // Filter out inactive child entities for all entity types
-      // Get all active entity codes once for efficiency
-      const allActiveEntities = await db.execute(sql`
-        SELECT code
-        FROM app.d_entity
-        WHERE active_flag = true
-      `);
-      const activeEntityCodes = new Set(allActiveEntities.map((row: any) => row.code));
-
-      // Filter child_entities for each entity to only include active ones
-      mappedResult.forEach((entity: any) => {
-        if (entity.child_entities && entity.child_entities.length > 0) {
-          entity.child_entities = entity.child_entities.filter((c: string) =>
-            activeEntityCodes.has(c)
-          );
-        }
-      });
-
-      return mappedResult;
+      return result;
     } catch (error) {
       fastify.log.error('Error fetching all entity types:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

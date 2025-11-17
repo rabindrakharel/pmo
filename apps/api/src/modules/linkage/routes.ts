@@ -93,39 +93,21 @@ export async function linkageRoutes(fastify: FastifyInstance) {
         active_flag?: boolean;
       };
 
-      // Build dynamic query using sql template
-      let conditions = sql`1=1`;
-
-      if (parent_entity_type) {
-        conditions = sql`${conditions} AND parent_entity_type = ${parent_entity_type}`;
-      }
-
-      if (parent_entity_id) {
-        conditions = sql`${conditions} AND parent_entity_id = ${parent_entity_id}`;
-      }
-
-      if (child_entity_type) {
-        conditions = sql`${conditions} AND child_entity_type = ${child_entity_type}`;
-      }
-
-      if (child_entity_id) {
-        conditions = sql`${conditions} AND child_entity_id = ${child_entity_id}`;
-      }
-
-      if (active_flag !== undefined) {
-        conditions = sql`${conditions} AND active_flag = ${active_flag}`;
-      }
-
-      const result = await db.execute(sql`
-        SELECT * FROM app.d_entity_instance_link
-        WHERE ${conditions}
-        ORDER BY created_ts DESC
-      `);
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - Get all linkages with filters
+      // ═══════════════════════════════════════════════════════════════
+      const linkages = await entityInfra.get_all_entity_instance_links({
+        parent_entity_type,
+        parent_entity_id,
+        child_entity_type,
+        child_entity_id,
+        active_flag
+      });
 
       return reply.send({
         success: true,
-        data: result,
-        total: result.length
+        data: linkages,
+        total: linkages.length
       });
     }
   );
@@ -160,11 +142,12 @@ export async function linkageRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { id } = request.params;
 
-      const result = await db.execute(sql`
-        SELECT * FROM app.d_entity_instance_link WHERE id = ${id}
-      `);
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - Get single linkage by ID
+      // ═══════════════════════════════════════════════════════════════
+      const linkage = await entityInfra.get_entity_instance_link_by_id(id);
 
-      if (result.length === 0) {
+      if (!linkage) {
         return reply.status(404).send({
           success: false,
           error: 'Linkage not found'
@@ -173,7 +156,7 @@ export async function linkageRoutes(fastify: FastifyInstance) {
 
       return reply.send({
         success: true,
-        data: result[0]
+        data: linkage
       });
     }
   );
@@ -262,25 +245,15 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       const { id } = request.params;
       const { relationship_type, active_flag } = request.body;
 
-      // Build dynamic update using sql template
-      const updates: any[] = [sql`updated_ts = now()`];
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - Update linkage
+      // ═══════════════════════════════════════════════════════════════
+      const updatedLinkage = await entityInfra.update_entity_instance_link(id, {
+        relationship_type,
+        active_flag
+      });
 
-      if (relationship_type !== undefined) {
-        updates.push(sql`relationship_type = ${relationship_type}`);
-      }
-
-      if (active_flag !== undefined) {
-        updates.push(sql`active_flag = ${active_flag}`);
-      }
-
-      const result = await db.execute(sql`
-        UPDATE app.d_entity_instance_link
-        SET ${sql.join(updates, sql`, `)}
-        WHERE id = ${id}
-        RETURNING *
-      `);
-
-      if (result.length === 0) {
+      if (!updatedLinkage) {
         return reply.status(404).send({
           success: false,
           error: 'Linkage not found'
@@ -289,7 +262,7 @@ export async function linkageRoutes(fastify: FastifyInstance) {
 
       return reply.send({
         success: true,
-        data: result[0],
+        data: updatedLinkage,
         message: 'Linkage updated successfully'
       });
     }
@@ -325,19 +298,17 @@ export async function linkageRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Get the linkage to check permissions on parent and child entities
-      const linkageResult = await db.execute(sql`
-        SELECT * FROM app.d_entity_instance_link WHERE id = ${id}
-      `);
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - Get linkage for permission check
+      // ═══════════════════════════════════════════════════════════════
+      const linkage = await entityInfra.get_entity_instance_link_by_id(id);
 
-      if (linkageResult.length === 0) {
+      if (!linkage) {
         return reply.status(404).send({
           success: false,
           error: 'Linkage not found'
         });
       }
-
-      const linkage = linkageResult[0];
 
       // ═══════════════════════════════════════════════════════════════
       // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC check
@@ -417,21 +388,20 @@ export async function linkageRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { entity_type } = request.params;
 
-      // Query d_entity for child_entities from parent entity
-      const result = await db.execute(sql`
-        SELECT child_entities
-        FROM app.d_entity
-        WHERE code = ${entity_type}
-          AND active_flag = true
-      `);
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - Get entity metadata
+      // ═══════════════════════════════════════════════════════════════
+      const entity = await entityInfra.get_entity(entity_type);
 
-      // Extract child entity codes from JSONB array
-      // Handle both formats: ["task", "wiki"] and [{entity: "task"}, {entity: "wiki"}]
-      const children = result[0]?.child_entities
-        ? (result[0].child_entities as any[]).map((child: any) =>
-            typeof child === 'string' ? child : child.entity
-          ).sort()
-        : [];
+      if (!entity) {
+        return reply.send({
+          success: true,
+          data: []
+        });
+      }
+
+      // Extract child entity codes from child_entities array
+      const children = (entity.child_entities || []).sort();
 
       return reply.send({
         success: true,
@@ -460,25 +430,22 @@ export async function linkageRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Get all entities with their child_entities from d_entity
-      const entities = await db.execute(sql`
-        SELECT code, child_entities
-        FROM app.d_entity
-        WHERE active_flag = true
-        ORDER BY code
-      `);
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - Get all entities
+      // ═══════════════════════════════════════════════════════════════
+      const entities = await entityInfra.get_all_entity(false);
 
       // Build type linkages from d_entity.child_entities
       const typeLinkages: any[] = [];
-      entities.forEach((entity: any) => {
+      entities.forEach((entity) => {
         const parentType = entity.code;
         const childEntities = entity.child_entities || [];
 
-        childEntities.forEach((child: any) => {
+        childEntities.forEach((childCode) => {
           typeLinkages.push({
-            id: `${parentType}-${child.entity}`,
+            id: `${parentType}-${childCode}`,
             parent_entity_type: parentType,
-            child_entity_type: child.entity,
+            child_entity_type: childCode,
             active_flag: true,
             from_ts: new Date().toISOString(),
             created_ts: new Date().toISOString(),
@@ -487,18 +454,18 @@ export async function linkageRoutes(fastify: FastifyInstance) {
         });
       });
 
-      // Get all instance linkages
-      const instanceLinkages = await db.execute(sql`
-        SELECT * FROM app.d_entity_instance_link
-        WHERE active_flag = true
-        ORDER BY parent_entity_type, child_entity_type
-      `);
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - Get all instance linkages
+      // ═══════════════════════════════════════════════════════════════
+      const instanceLinkages = await entityInfra.get_all_entity_instance_links({
+        active_flag: true
+      });
 
       // Group by parent entity type
       const grouped: Record<string, any> = {};
 
-      // Get all entity codes from d_entity
-      const allEntityTypes = entities.map((e: any) => e.code);
+      // Get all entity codes
+      const allEntityTypes = entities.map((e) => e.code);
 
       // Initialize all entity types with empty arrays
       allEntityTypes.forEach(entityType => {
