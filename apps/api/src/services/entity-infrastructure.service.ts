@@ -393,6 +393,68 @@ export class EntityInfrastructureService {
     return result.map(row => row.child_entity_id);
   }
 
+  /**
+   * Get dynamic child entity tabs for detail page
+   * Universal endpoint handler for GET /:id/dynamic-child-entity-tabs
+   *
+   * Returns child entity types with counts and metadata (label, icon)
+   * Performs RBAC check automatically
+   *
+   * @example
+   * // In route handler:
+   * const tabs = await entityInfra.get_dynamic_child_entity_tabs(
+   *   userId, 'business', businessId
+   * );
+   * return reply.send({ tabs });
+   */
+  async get_dynamic_child_entity_tabs(
+    user_id: string,
+    entity_type: string,
+    entity_id: string
+  ): Promise<Array<{ entity: string; label: string; icon?: string; count: number }>> {
+    // Step 1: RBAC check - Can user VIEW this entity?
+    const canView = await this.check_entity_rbac(
+      user_id,
+      entity_type,
+      entity_id,
+      Permission.VIEW
+    );
+
+    if (!canView) {
+      throw new Error(`User ${user_id} lacks VIEW permission on ${entity_type}/${entity_id}`);
+    }
+
+    // Step 2: Get entity metadata (includes child_entities with labels/icons)
+    const entityMetadata = await this.get_entity(entity_type);
+
+    if (!entityMetadata || !entityMetadata.child_entities) {
+      return [];
+    }
+
+    // Step 3: For each child entity, count active linkages
+    const tabsWithCounts = await Promise.all(
+      entityMetadata.child_entities.map(async (child) => {
+        const countResult = await this.db.execute(sql`
+          SELECT COUNT(*) as count
+          FROM app.d_entity_instance_link
+          WHERE parent_entity_type = ${entity_type}
+            AND parent_entity_id = ${entity_id}
+            AND child_entity_type = ${child.entity}
+            AND active_flag = true
+        `);
+
+        return {
+          entity: child.entity,
+          label: child.label,
+          icon: child.icon,
+          count: Number(countResult[0]?.count || 0)
+        };
+      })
+    );
+
+    return tabsWithCounts;
+  }
+
   // ==========================================================================
   // SECTION 4: Permission Management (d_entity_rbac)
   // ==========================================================================

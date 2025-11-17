@@ -350,49 +350,19 @@ export async function businessRoutes(fastify: FastifyInstance) {
     const userId = (request as any).user?.sub;
     const { id } = request.params as { id: string };
 
-    // ═══════════════════════════════════════════════════════════════
-    // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC check
-    // Uses: entityInfra.check_entity_rbac() (4 params, db is pre-bound)
-    // ═══════════════════════════════════════════════════════════════
-    const canView = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.VIEW);
-    if (!canView) {
-      return reply.status(403).send({ error: 'No permission to view this business' });
+    try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - Universal tabs endpoint
+      // Single method handles: RBAC check, metadata fetch, linkage counts
+      // ═══════════════════════════════════════════════════════════════
+      const tabs = await entityInfra.get_dynamic_child_entity_tabs(userId, ENTITY_TYPE, id);
+      return reply.send({ tabs });
+    } catch (error) {
+      if ((error as Error).message.includes('lacks VIEW permission')) {
+        return reply.status(403).send({ error: 'No permission to view this business' });
+      }
+      throw error;
     }
-
-    // Get entity configuration
-    const entityConfig = await db.execute(sql`
-      SELECT child_entities
-      FROM app.d_entity
-      WHERE code = ${ENTITY_TYPE}
-        AND active_flag = true
-    `);
-
-    if (entityConfig.length === 0) {
-      return reply.send({ tabs: [] });
-    }
-
-    const childEntities = entityConfig[0].child_entities || [];
-
-    // For each child entity, count how many are linked
-    const tabsWithCounts = await Promise.all(
-      childEntities.map(async (childType: string) => {
-        const countResult = await db.execute(sql`
-          SELECT COUNT(*) as count
-          FROM app.d_entity_instance_link
-          WHERE parent_entity_type = ${ENTITY_TYPE}
-            AND parent_entity_id = ${id}
-            AND child_entity_type = ${childType}
-            AND active_flag = true
-        `);
-
-        return {
-          entity_type: childType,
-          count: Number(countResult[0]?.count || 0)
-        };
-      })
-    );
-
-    return reply.send({ tabs: tabsWithCounts });
   });
 
   // ============================================================================
