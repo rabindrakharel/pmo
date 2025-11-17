@@ -299,12 +299,19 @@ export function KanbanBoard({
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Auto-detect grouping field using universal field detector (only when columns not provided)
-  const detectedConfig = useMemo(() => {
-    if (providedColumns || !data || data.length === 0) return null;
+  // ✅ FIX: Extract field keys separately to prevent infinite loop
+  // Create stable string representation directly
+  const fieldKeysString = useMemo(() => {
+    if (providedColumns || !data || data.length === 0) return '';
+    return Object.keys(data[0]).sort().join(',');
+  }, [providedColumns, data.length, data.length > 0 ? Object.keys(data[0]).length : 0, ...(data.length > 0 ? Object.keys(data[0]).sort() : [])]);
 
-    const fieldKeys = Object.keys(data[0]);
+  const detectedConfig = useMemo(() => {
+    if (!fieldKeysString) return null;
+
+    const fieldKeys = fieldKeysString.split(',');
     return generateKanbanConfig(fieldKeys, dataTypes);
-  }, [data, dataTypes]);
+  }, [fieldKeysString, dataTypes]);
 
   // Load settings options and generate columns (only when columns not provided)
   React.useEffect(() => {

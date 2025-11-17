@@ -161,7 +161,13 @@ export function UniversalDesigner({
                   {title}
                 </h1>
               )}
-              {subtitle && <p className="text-sm text-dark-700">{subtitle}</p>}
+              {subtitle && (
+                typeof subtitle === 'string' ? (
+                  <p className="text-sm text-dark-700">{subtitle}</p>
+                ) : (
+                  <div className="text-sm text-dark-700">{subtitle}</div>
+                )
+              )}
             </div>
           </div>
 

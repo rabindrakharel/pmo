@@ -8,9 +8,13 @@ interface WikiPropertiesPanelProps {
   author: string;
   createdDate: string;
   updatedDate: string;
+  icon?: string;
+  cover?: string;
   selectedBlock?: WikiBlock;
   onUpdateTitle: (title: string) => void;
   onUpdatePath: (path: string) => void;
+  onUpdateIcon?: (icon: string) => void;
+  onUpdateCover?: (cover: string) => void;
   onUpdateBlock?: (updates: Partial<WikiBlock>) => void;
 }
 
@@ -20,9 +24,13 @@ export function WikiPropertiesPanel({
   author,
   createdDate,
   updatedDate,
+  icon = '📄',
+  cover = 'solid-gray',
   selectedBlock,
   onUpdateTitle,
   onUpdatePath,
+  onUpdateIcon,
+  onUpdateCover,
   onUpdateBlock}: WikiPropertiesPanelProps) {
 
   const coverOptions = [
@@ -183,7 +191,7 @@ export function WikiPropertiesPanel({
         <input
           type="text"
           value={icon}
-          onChange={(e) => onUpdateIcon(e.target.value)}
+          onChange={(e) => onUpdateIcon?.(e.target.value)}
           className="w-full px-3 py-2 border border-dark-400 rounded-md text-2xl text-center focus:ring-2 focus:ring-dark-7000 focus:border-transparent"
           placeholder="📄"
         />
@@ -199,7 +207,7 @@ export function WikiPropertiesPanel({
           {coverOptions.map((option) => (
             <button
               key={option.value}
-              onClick={() => onUpdateCover(option.value)}
+              onClick={() => onUpdateCover?.(option.value)}
               className={`w-full flex items-center space-x-3 p-2 rounded-md border-2 transition-all ${
                 cover === option.value ? 'border-dark-3000' : 'border-transparent hover:border-dark-400'
               }`}

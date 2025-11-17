@@ -76,12 +76,19 @@ export function DAGVisualizer({
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Auto-detect stage field using universal field detector
-  const detectedConfig = useMemo(() => {
-    if (!data) return null;
+  // ✅ FIX: Extract field keys separately to prevent infinite loop
+  // Create stable string representation directly
+  const fieldKeysString = useMemo(() => {
+    if (!data) return '';
+    return Object.keys(data).sort().join(',');
+  }, [data ? Object.keys(data).length : 0, ...(data ? Object.keys(data).sort() : [])]);
 
-    const fieldKeys = Object.keys(data);
+  const detectedConfig = useMemo(() => {
+    if (!fieldKeysString) return null;
+
+    const fieldKeys = fieldKeysString.split(',');
     return generateDAGConfig(fieldKeys, dataTypes);
-  }, [data, dataTypes]);
+  }, [fieldKeysString, dataTypes]);
 
   // Load DAG structure from settings
   useEffect(() => {

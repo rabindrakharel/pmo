@@ -401,6 +401,15 @@ export function EntityDataTable<T = any>({
   // AUTO-GENERATION: Universal Field Detector Integration
   // ============================================================================
   // Auto-generate columns if not provided and autoGenerateColumns is true
+
+  // ✅ FIX: Extract field keys separately to prevent infinite loop
+  // Only recompute when actual field names change, not when data values/rows change
+  // Create stable string representation directly
+  const fieldKeysString = useMemo(() => {
+    if (!autoGenerateColumns || data.length === 0) return '';
+    return Object.keys(data[0]).sort().join(',');
+  }, [autoGenerateColumns, data.length, data.length > 0 ? Object.keys(data[0]).length : 0, ...(data.length > 0 ? Object.keys(data[0]).sort() : [])]);
+
   const columns = useMemo(() => {
     // If columns explicitly provided, use them (backward compatibility)
     if (initialColumns && initialColumns.length > 0) {
@@ -408,8 +417,8 @@ export function EntityDataTable<T = any>({
     }
 
     // Auto-generate if enabled and data exists
-    if (autoGenerateColumns && data.length > 0) {
-      const fieldKeys = Object.keys(data[0]);
+    if (autoGenerateColumns && fieldKeysString.length > 0) {
+      const fieldKeys = fieldKeysString.split(',');
       const generatedConfig = generateDataTableConfig(fieldKeys, dataTypes);
 
       // Convert DataTableColumn to Column<T> format
@@ -432,7 +441,7 @@ export function EntityDataTable<T = any>({
 
     // Fallback: empty columns
     return [];
-  }, [initialColumns, autoGenerateColumns, data, dataTypes]);
+  }, [initialColumns, autoGenerateColumns, fieldKeysString, dataTypes]);
 
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');

@@ -92,6 +92,14 @@ export function EntityFormContainer({
   // AUTO-GENERATION: Universal Field Detector Integration
   // ============================================================================
   // Convert FormField to FieldDef format for backward compatibility
+
+  // ✅ FIX: Extract field keys separately to prevent infinite loop
+  // Only recompute when actual field names change, not when data values change
+  // Create stable string representation directly
+  const fieldKeysString = useMemo(() => {
+    return Object.keys(data).sort().join(',');
+  }, [Object.keys(data).length, ...Object.keys(data).sort()]);
+
   const fields = useMemo(() => {
     // If config provided with fields, use them (backward compatibility)
     if (config?.fields && config.fields.length > 0) {
@@ -99,8 +107,8 @@ export function EntityFormContainer({
     }
 
     // Auto-generate if enabled and data exists
-    if (autoGenerateFields && Object.keys(data).length > 0) {
-      const fieldKeys = Object.keys(data);
+    if (autoGenerateFields && fieldKeysString.length > 0) {
+      const fieldKeys = fieldKeysString.split(',');
       const generatedConfig = generateFormConfig(fieldKeys, {
         dataTypes,
         requiredFields
@@ -119,7 +127,7 @@ export function EntityFormContainer({
 
     // Fallback: empty fields
     return [];
-  }, [config, autoGenerateFields, data, dataTypes, requiredFields]);
+  }, [config, autoGenerateFields, fieldKeysString, dataTypes, requiredFields]);
   const [settingOptions, setSettingOptions] = useState<Map<string, SettingOption[]>>(new Map());
   const [entityOptions, setEntityOptions] = useState<Map<string, SettingOption[]>>(new Map());
   const [dagNodes, setDagNodes] = useState<Map<string, DAGNode[]>>(new Map());

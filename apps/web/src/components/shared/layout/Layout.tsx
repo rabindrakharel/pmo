@@ -21,6 +21,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useSidebar } from '../../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../../contexts/NavigationHistoryContext';
 import { useSettings } from '../../../contexts/SettingsContext';
+import { useEntityMetadata } from '../../../contexts/EntityMetadataContext';
 import { CreateButton } from '../button/CreateButton';
 import { NavigationBreadcrumb } from '../navigation/NavigationBreadcrumb';
 import { getIconComponent } from '../../../lib/iconMapping';
@@ -48,43 +49,19 @@ export function Layout({ children, createButton }: LayoutProps) {
   const { user, logout } = useAuth();
   const { isVisible, isCollapsed, collapseSidebar, uncollapseSidebar } = useSidebar();
   const { isSettingsMode, enterSettingsMode, exitSettingsMode } = useSettings();
+  const { entities, loading: isLoadingEntities } = useEntityMetadata();
   const location = useLocation();
   const navigate = useNavigate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [entityTypes, setEntityTypes] = useState<EntityType[]>([]);
-  const [isLoadingEntities, setIsLoadingEntities] = useState(true);
 
   const handleLogout = async () => {
     await logout();
   };
 
-  // Fetch entity types from the database
-  useEffect(() => {
-    const fetchEntityTypes = async () => {
-      try {
-        const token = localStorage.getItem('auth_token');
-        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
-
-        const response = await fetch(`${apiBaseUrl}/api/v1/entity/types`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setEntityTypes(data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch entity types:', error);
-      } finally {
-        setIsLoadingEntities(false);
-      }
-    };
-
-    fetchEntityTypes();
-  }, []);
+  // Convert entity metadata to array for navigation
+  const entityTypes = Array.from(entities.values())
+    .filter(entity => entity.active_flag)
+    .sort((a, b) => a.display_order - b.display_order);
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -104,9 +81,9 @@ export function Layout({ children, createButton }: LayoutProps) {
 
   // Convert fetched entity types to navigation items
   const mainNavigationItems = entityTypes.map((entity) => ({
-    name: entity.name,
+    name: entity.ui_label || entity.name,
     href: `/${entity.code}`,
-    icon: getIconComponent(entity.ui_icon),
+    icon: entity.icon,
     code: entity.code
   }));
 
