@@ -32,7 +32,6 @@ import { db } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
 // ✅ Centralized unified data gate - loosely coupled API
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
-import { grantPermission } from '../../services/rbac-grant.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Delete factory for cascading soft deletes
@@ -398,15 +397,9 @@ export async function revenueRoutes(fastify: FastifyInstance) {
       const newRevenue = insertResult[0];
 
       // ═══════════════════════════════════════════════════════════════
-      // AUTO-GRANT: Creator gets full permissions (OWNER)
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - Grant OWNER permission to creator
       // ═══════════════════════════════════════════════════════════════
-      await grantPermission(db, {
-        personEntityName: 'employee',
-        personEntityId: userId,
-        entityName: ENTITY_TYPE,
-        entityId: newRevenue.id,
-        permission: Permission.OWNER
-      });
+      await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, newRevenue.id);
 
       return reply.status(201).send(newRevenue);
     } catch (error) {
