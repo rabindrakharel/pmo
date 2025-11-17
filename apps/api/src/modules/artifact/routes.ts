@@ -47,10 +47,10 @@ import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-r
 import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 // ✅ Centralized unified data gate - loosely coupled API
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
-// ✅ Centralized linkage service - DRY entity relationship management
-import { createLinkage } from '../../services/linkage.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✅ Entity Infrastructure Service - Centralized infrastructure management
+import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 
 // Artifact schemas aligned with actual app.d_artifact columns
 const ArtifactSchema = Type.Object({
@@ -125,6 +125,11 @@ const ENTITY_TYPE = 'artifact';
 const TABLE_ALIAS = 'a';
 
 export async function artifactRoutes(fastify: FastifyInstance) {
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ ENTITY INFRASTRUCTURE SERVICE - Initialize service instance
+  // ═══════════════════════════════════════════════════════════════
+  const entityInfra = getEntityInfrastructure(db);
+
   // List artifacts
   fastify.get('/api/v1/artifact', {
     preHandler: [fastify.authenticate],
@@ -246,11 +251,10 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
     try {
       // ═══════════════════════════════════════════════════════════════
-      // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
-      // Uses: RBAC_GATE only (checkPermission)
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+      // Uses: entityInfra.check_entity_rbac() (4 params, db is pre-bound)
       // ═══════════════════════════════════════════════════════════════
-      const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const canView = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         id,

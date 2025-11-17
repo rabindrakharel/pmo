@@ -415,8 +415,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
       // Uses: RBAC_GATE only (checkPermission)
       // ═══════════════════════════════════════════════════════════════
-      const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const canView = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         id,
@@ -837,7 +836,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Uses: RBAC_GATE only (checkPermission)
       // Check: Can user EDIT this task?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this task' });
       }
@@ -921,7 +920,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Uses: RBAC_GATE only (checkPermission)
       // Check: Can user EDIT this task?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(db, userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this task' });
       }

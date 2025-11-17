@@ -292,104 +292,25 @@ export async function officeRoutes(fastify: FastifyInstance) {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })
       }),
-      response: {
-        200: Type.Object({
-          action_entities: Type.Array(Type.Object({
-            actionEntity: Type.String(),
-            count: Type.Number(),
-            label: Type.String(),
-            icon: Type.Optional(Type.String())
-          })),
-          organization_id: Type.String()
-        }),
-        403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })
-      }
+    },
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    const { id } = request.params as { id: string };
+
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+    // ═══════════════════════════════════════════════════════════════
+    const canView = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.VIEW);
+    if (!canView) {
+      return reply.status(403).send({ error: 'No permission to view this office' });
     }
-  }, async function (request, reply) {
-    try {
-      const { id: orgId } = request.params as { id: string };
-      const userId = request.user?.sub;
 
-      if (!userId) {
-        return reply.status(401).send({ error: 'User not authenticated' });
-      }
-
-      // Direct RBAC check for org access
-      const orgAccess = await db.execute(sql`
-        SELECT 1 FROM app.d_entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}::uuid
-          AND rbac.entity_name = 'office'
-          AND (rbac.entity_id = ${orgId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 0
-      `);
-
-      if (orgAccess.length === 0) {
-        return reply.status(403).send({ error: 'Access denied for this organization' });
-      }
-
-      // Check if organization exists
-      const org = await db.execute(sql`
-        SELECT id FROM app.d_office WHERE id = ${orgId} AND active_flag = true
-      `);
-
-      if (org.length === 0) {
-        return reply.status(404).send({ error: 'Organization not found' });
-      }
-
-      // Get action summaries for this organization
-      const actionSummaries = [];
-
-      // Count businesses in this office
-      const businessCount = await db.execute(sql`
-        SELECT COUNT(*) as count
-        FROM app.d_business b
-        WHERE b.office_id = ${orgId} AND b.active_flag = true
-      `);
-      actionSummaries.push({
-        actionEntity: 'biz',
-        count: Number(businessCount[0]?.count || 0),
-        label: 'Businesses',
-        icon: 'Building'
-      });
-
-      // Count projects in this office
-      const projectCount = await db.execute(sql`
-        SELECT COUNT(*) as count
-        FROM app.d_project p
-        WHERE (p.metadata->>'office_id')::uuid = ${orgId}::uuid AND p.active_flag = true
-      `);
-      actionSummaries.push({
-        actionEntity: 'project',
-        count: Number(projectCount[0]?.count || 0),
-        label: 'Projects',
-        icon: 'Briefcase'
-      });
-
-      // Count tasks assigned to this office
-      const taskCount = await db.execute(sql`
-        SELECT COUNT(*) as count
-        FROM app.d_task t
-        WHERE (t.metadata->>'office_id')::uuid = ${orgId}::uuid AND t.active_flag = true
-      `);
-      actionSummaries.push({
-        actionEntity: 'task',
-        count: Number(taskCount[0]?.count || 0),
-        label: 'Tasks',
-        icon: 'CheckSquare'
-      });
-
-      return {
-        action_entities: actionSummaries,
-        organization_id: orgId
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching organization action summaries:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ ENTITY INFRASTRUCTURE SERVICE - Get child entity metadata
+    // Returns child entity types with labels/icons from d_entity
+    // ═══════════════════════════════════════════════════════════════
+    const tabs = await entityInfra.get_dynamic_child_entity_tabs(ENTITY_TYPE);
+    return reply.send({ tabs });
   });
 
   // Create office location

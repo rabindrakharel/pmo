@@ -46,7 +46,7 @@ import type { DB } from '@/db/index.js';
 // TYPE DEFINITIONS
 // ============================================================================
 
-export interface EntityTypeMetadata {
+export interface Entity {
   code: string;
   name: string;
   ui_label: string;
@@ -69,7 +69,7 @@ export interface EntityInstance {
   updated_ts: string;
 }
 
-export interface EntityRelationship {
+export interface EntityLink {
   id: string;
   parent_entity_type: string;
   parent_entity_id: string;
@@ -110,7 +110,7 @@ export { Permission, ALL_ENTITIES_ID };
 
 export class EntityInfrastructureService {
   private db: DB;
-  private metadataCache: Map<string, { data: EntityTypeMetadata; expiry: number }> = new Map();
+  private metadataCache: Map<string, { data: Entity; expiry: number }> = new Map();
   private CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   constructor(db: DB) {
@@ -130,7 +130,7 @@ export class EntityInfrastructureService {
   async get_entity(
     entity_type: string,
     include_inactive = false
-  ): Promise<EntityTypeMetadata | null> {
+  ): Promise<Entity | null> {
     // Check cache
     if (!include_inactive) {
       const cached = this.metadataCache.get(entity_type);
@@ -148,7 +148,7 @@ export class EntityInfrastructureService {
 
     if (result.length === 0) return null;
 
-    const metadata: EntityTypeMetadata = {
+    const metadata: Entity = {
       code: result[0].code,
       name: result[0].name,
       ui_label: result[0].ui_label,
@@ -177,7 +177,7 @@ export class EntityInfrastructureService {
    * Get all entity types
    * @param include_inactive Include inactive entity types
    */
-  async get_all_entity(include_inactive = false): Promise<EntityTypeMetadata[]> {
+  async get_all_entity(include_inactive = false): Promise<Entity[]> {
     const result = await this.db.execute(sql`
       SELECT code, name, ui_label, ui_icon, child_entities, display_order, active_flag, created_ts, updated_ts
       FROM app.d_entity
@@ -198,6 +198,30 @@ export class EntityInfrastructureService {
       created_ts: row.created_ts,
       updated_ts: row.updated_ts,
     }));
+  }
+
+  /**
+   * Get parent entity types for a given child entity type
+   * Finds all entities that have the specified entity type in their child_entities array
+   *
+   * @param child_entity_type The child entity type to find parents for
+   * @returns Array of parent entity type codes (sorted alphabetically)
+   *
+   * @example
+   * // Find all entities that can have 'task' as a child
+   * const parents = await entityInfra.get_parent_entity_types('task');
+   * // Returns: ['project', 'worksite']
+   */
+  async get_parent_entity_types(child_entity_type: string): Promise<string[]> {
+    const result = await this.db.execute(sql`
+      SELECT code
+      FROM app.d_entity
+      WHERE active_flag = true
+        AND child_entities @> ${JSON.stringify([{ entity: child_entity_type }])}::jsonb
+      ORDER BY code ASC
+    `);
+
+    return result.map(row => row.code);
   }
 
   // ==========================================================================
@@ -330,7 +354,7 @@ export class EntityInfrastructureService {
     child_entity_type: string;
     child_entity_id: string;
     relationship_type?: string;
-  }): Promise<EntityRelationship> {
+  }): Promise<EntityLink> {
     const {
       parent_entity_type,
       parent_entity_id,
@@ -355,13 +379,13 @@ export class EntityInfrastructureService {
       RETURNING *
     `);
 
-    return result[0] as EntityRelationship;
+    return result[0] as EntityLink;
   }
 
   /**
    * Delete linkage (soft delete)
    */
-  async delete_entity_instance_link(linkage_id: string): Promise<EntityRelationship | null> {
+  async delete_entity_instance_link(linkage_id: string): Promise<EntityLink | null> {
     const result = await this.db.execute(sql`
       UPDATE app.d_entity_instance_link
       SET active_flag = false, updated_ts = now()
@@ -369,7 +393,7 @@ export class EntityInfrastructureService {
       RETURNING *
     `);
 
-    return result.length > 0 ? (result[0] as EntityRelationship) : null;
+    return result.length > 0 ? (result[0] as EntityLink) : null;
   }
 
   /**
@@ -391,6 +415,32 @@ export class EntityInfrastructureService {
     `);
 
     return result.map(row => row.child_entity_id);
+  }
+
+  /**
+   * Get dynamic child entity tabs for detail page
+   * Universal endpoint handler for GET /:id/dynamic-child-entity-tabs
+   *
+   * Returns child entity types with metadata (label, icon) from d_entity.child_entities
+   * Routes should handle RBAC checks and counting separately if needed
+   *
+   * @example
+   * // In route handler:
+   * const tabs = await entityInfra.get_dynamic_child_entity_tabs('business');
+   * return reply.send({ tabs });
+   */
+  async get_dynamic_child_entity_tabs(
+    entity_type: string
+  ): Promise<Array<{ entity: string; label: string; icon?: string }>> {
+    // Get entity metadata (includes child_entities with labels/icons)
+    const entityMetadata = await this.get_entity(entity_type);
+
+    if (!entityMetadata || !entityMetadata.child_entities) {
+      return [];
+    }
+
+    // Return child entity metadata directly
+    return entityMetadata.child_entities;
   }
 
   // ==========================================================================

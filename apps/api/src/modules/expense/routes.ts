@@ -32,11 +32,12 @@ import { db } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
 // ✅ Centralized unified data gate - loosely coupled API
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
-import { grantPermission } from '../../services/rbac-grant.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+// ✅ Entity Infrastructure Service - Centralized infrastructure management
+import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 
 // Schema based on f_expense table structure from db/LIII_f_expense.ddl
 const ExpenseSchema = Type.Object({
@@ -141,6 +142,11 @@ const ENTITY_TYPE = 'expense';
 const TABLE_ALIAS = 'e';
 
 export async function expenseRoutes(fastify: FastifyInstance) {
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ ENTITY INFRASTRUCTURE SERVICE - Initialize service instance
+  // ═══════════════════════════════════════════════════════════════
+  const entityInfra = getEntityInfrastructure(db);
+
   // ============================================================================
   // List Expenses (Main Page)
   // ============================================================================
@@ -300,8 +306,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
 
       // GATE: RBAC - Check permission
-      const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const canView = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         id,
@@ -357,8 +362,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC CHECK
       // Check: Can user CREATE expenses?
       // ═══════════════════════════════════════════════════════════════
-      const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const canCreate = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         ALL_ENTITIES_ID,
@@ -407,15 +411,9 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       const newExpense = insertResult[0];
 
       // ═══════════════════════════════════════════════════════════════
-      // AUTO-GRANT: Creator gets full permissions (OWNER)
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - Grant OWNER permission to creator
       // ═══════════════════════════════════════════════════════════════
-      await grantPermission(db, {
-        personEntityName: 'employee',
-        personEntityId: userId,
-        entityName: ENTITY_TYPE,
-        entityId: newExpense.id,
-        permission: Permission.OWNER
-      });
+      await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, newExpense.id);
 
       return reply.status(201).send(newExpense);
     } catch (error) {
@@ -456,8 +454,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC CHECK
       // Check: Can user EDIT this expense?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const canEdit = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         id,
@@ -543,8 +540,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC CHECK
       // Check: Can user EDIT this expense?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const canEdit = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         id,

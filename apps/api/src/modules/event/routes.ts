@@ -8,8 +8,9 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { client, db } from '../../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import { paginateQuery, getPaginationParams } from '../../lib/pagination.js';
-import { grantPermission } from '../../services/rbac-grant.service.js';
 import { Permission } from '../../lib/unified-data-gate.js';
+// ✅ Entity Infrastructure Service - Centralized infrastructure management
+import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 
 /**
  * Event creation request
@@ -58,6 +59,11 @@ interface UpdateEventRequest {
  * Register event routes
  */
 export async function eventRoutes(fastify: FastifyInstance) {
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ ENTITY INFRASTRUCTURE SERVICE - Initialize service instance
+  // ═══════════════════════════════════════════════════════════════
+  const entityInfra = getEntityInfrastructure(db);
+
   /**
    * GET /api/v1/event
    * Get all active events with optional filters
@@ -484,15 +490,11 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
       console.log(`✅ Created event: ${newEvent.code}`);
 
-      // Grant Owner permissions to event creator
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - Grant OWNER permission to creator
+      // ═══════════════════════════════════════════════════════════════
       if (creatorEmpId) {
-        await grantPermission(db, {
-          personEntityName: 'employee',
-          personEntityId: creatorEmpId,
-          entityName: 'event',
-          entityId: newEvent.id,
-          permission: Permission.OWNER
-        });
+        await entityInfra.set_entity_rbac_owner(creatorEmpId, 'event', newEvent.id);
         console.log(`✅ Granted Owner permissions to creator (employee_id: ${creatorEmpId})`);
 
         // Also add organizer as an attendee with accepted status

@@ -67,9 +67,9 @@ import { sql, SQL } from 'drizzle-orm';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
-import { createLinkage } from '../../services/linkage.service.js';
-import { grantPermission } from '../../services/rbac-grant.service.js';
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✅ Entity Infrastructure Service - Centralized infrastructure management
+import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 
 // Schema based on d_reports table structure
 const ReportSchema = Type.Object({
@@ -137,6 +137,11 @@ const ENTITY_TYPE = 'reports';
 const TABLE_ALIAS = 'e';
 
 export async function reportsRoutes(fastify: FastifyInstance) {
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ ENTITY INFRASTRUCTURE SERVICE - Initialize service instance
+  // ═══════════════════════════════════════════════════════════════
+  const entityInfra = getEntityInfrastructure(db);
+
   // ============================================================================
   // LIST REPORTS
   // ============================================================================
@@ -268,8 +273,7 @@ export async function reportsRoutes(fastify: FastifyInstance) {
 
     try {
       // RBAC check: Can user view this report?
-      const hasPermission = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const hasPermission = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         id,
@@ -327,8 +331,7 @@ export async function reportsRoutes(fastify: FastifyInstance) {
 
     try {
       // RBAC check: Can user create reports?
-      const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const canCreate = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         ALL_ENTITIES_ID,
@@ -341,8 +344,7 @@ export async function reportsRoutes(fastify: FastifyInstance) {
 
       // If linking to parent, check parent edit permission
       if (parent_type && parent_id) {
-        const canEditParent = await unified_data_gate.rbac_gate.check_entity_rbac(
-          db,
+        const canEditParent = await entityInfra.check_entity_rbac(
           userId,
           parent_type,
           parent_id,
@@ -387,24 +389,23 @@ export async function reportsRoutes(fastify: FastifyInstance) {
 
       const newReport = result[0];
 
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - Link to parent and grant ownership
+      // ═══════════════════════════════════════════════════════════════
+
       // Link to parent if provided
       if (parent_type && parent_id && newReport?.id) {
-        await createLinkage(db, {
+        await entityInfra.set_entity_instance_link({
           parent_entity_type: parent_type,
           parent_entity_id: parent_id,
           child_entity_type: ENTITY_TYPE,
           child_entity_id: newReport.id,
+          relationship_type: 'contains'
         });
       }
 
       // Grant OWNER permission to creator
-      await grantPermission(db, {
-        personEntityName: 'employee',
-        personEntityId: userId,
-        entityName: ENTITY_TYPE,
-        entityId: newReport.id,
-        permission: Permission.OWNER
-      });
+      await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, newReport.id);
 
       reply.status(201);
       return newReport;
@@ -444,8 +445,7 @@ export async function reportsRoutes(fastify: FastifyInstance) {
 
     try {
       // RBAC check: Can user edit this report?
-      const hasPermission = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const hasPermission = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         id,
@@ -540,8 +540,7 @@ export async function reportsRoutes(fastify: FastifyInstance) {
 
     try {
       // RBAC check: Can user edit this report?
-      const hasPermission = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db,
+      const hasPermission = await entityInfra.check_entity_rbac(
         userId,
         ENTITY_TYPE,
         id,

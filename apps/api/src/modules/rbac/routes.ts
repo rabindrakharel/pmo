@@ -3,6 +3,8 @@ import { Type } from '@sinclair/typebox';
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+// ✅ Entity Infrastructure Service - Centralized infrastructure management
+import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 
 // Helper type for permission results
 interface PermissionResult {
@@ -19,27 +21,27 @@ async function getEmployeeEntityPermissions(employeeId: string, entityType: stri
   const permissions: string[] = [];
 
   // Test view
-  const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
-    db, employeeId, entityType, targetEntityId, Permission.VIEW
+  const canView = await entityInfra.check_entity_rbac(
+    employeeId, entityType, targetEntityId, Permission.VIEW
   );
   if (canView) permissions.push('view');
 
   // Test edit
-  const canEdit = await unified_data_gate.rbac_gate.check_entity_rbac(
-    db, employeeId, entityType, targetEntityId, Permission.EDIT
+  const canEdit = await entityInfra.check_entity_rbac(
+    employeeId, entityType, targetEntityId, Permission.EDIT
   );
   if (canEdit) permissions.push('edit');
 
   // Test delete
-  const canDelete = await unified_data_gate.rbac_gate.check_entity_rbac(
-    db, employeeId, entityType, targetEntityId, Permission.DELETE
+  const canDelete = await entityInfra.check_entity_rbac(
+    employeeId, entityType, targetEntityId, Permission.DELETE
   );
   if (canDelete) permissions.push('delete');
 
   // Test create (only for type-level)
   if (targetEntityId === ALL_ENTITIES_ID) {
-    const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(
-      db, employeeId, entityType, ALL_ENTITIES_ID, Permission.CREATE
+    const canCreate = await entityInfra.check_entity_rbac(
+      employeeId, entityType, ALL_ENTITIES_ID, Permission.CREATE
     );
     if (canCreate) permissions.push('create');
   }
@@ -52,12 +54,12 @@ async function getEmployeeEntityPermissions(employeeId: string, entityType: stri
 
 async function getMainPageActionPermissions(employeeId: string, entityType: string) {
   // Test type-level permissions using unified_data_gate
-  const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(
-    db, employeeId, entityType, ALL_ENTITIES_ID, Permission.CREATE
+  const canCreate = await entityInfra.check_entity_rbac(
+    employeeId, entityType, ALL_ENTITIES_ID, Permission.CREATE
   );
 
-  const canDelete = await unified_data_gate.rbac_gate.check_entity_rbac(
-    db, employeeId, entityType, ALL_ENTITIES_ID, Permission.DELETE
+  const canDelete = await entityInfra.check_entity_rbac(
+    employeeId, entityType, ALL_ENTITIES_ID, Permission.DELETE
   );
 
   return {
@@ -71,18 +73,23 @@ async function getMainPageActionPermissions(employeeId: string, entityType: stri
 
 // Backward-compatible wrappers using unified_data_gate
 async function canAssignProjectToBusiness(userId: string, businessId: string): Promise<boolean> {
-  return await unified_data_gate.rbac_gate.check_entity_rbac(
-    db, userId, 'business', businessId, Permission.EDIT
+  return await entityInfra.check_entity_rbac(
+    userId, 'business', businessId, Permission.EDIT
   );
 }
 
 async function canNavigateToChildEntity(userId: string, childType: string, childId: string): Promise<boolean> {
-  return await unified_data_gate.rbac_gate.check_entity_rbac(
-    db, userId, childType, childId, Permission.VIEW
+  return await entityInfra.check_entity_rbac(
+    userId, childType, childId, Permission.VIEW
   );
 }
 
 export async function rbacRoutes(fastify: FastifyInstance) {
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ ENTITY INFRASTRUCTURE SERVICE - Initialize service instance
+  // ═══════════════════════════════════════════════════════════════
+  const entityInfra = getEntityInfrastructure(db);
+
   // ===============================
   // 3-TIERED RBAC API SOLUTION
   // ===============================
@@ -210,8 +217,8 @@ export async function rbacRoutes(fastify: FastifyInstance) {
 
     try {
       // Check if user has access to the parent entity first
-      const hasParentAccess = await unified_data_gate.rbac_gate.check_entity_rbac(
-        db, userId, parentEntity, parentEntityId, Permission.VIEW
+      const hasParentAccess = await entityInfra.check_entity_rbac(
+        userId, parentEntity, parentEntityId, Permission.VIEW
       );
 
       if (!hasParentAccess) {

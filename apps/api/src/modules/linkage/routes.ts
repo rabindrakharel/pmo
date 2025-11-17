@@ -2,8 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-// ✅ Centralized linkage service
-import { createLinkage as createLinkageService, deleteLinkage as deleteLinkageService } from '../../services/linkage.service.js';
+// ✅ Entity Infrastructure Service - Centralized infrastructure management
+import { getEntityInfrastructure, Permission } from '../../services/entity-infrastructure.service.js';
 
 // ============================================================================
 // SCHEMAS
@@ -39,31 +39,10 @@ const LinkageQuerySchema = Type.Object({
 // ============================================================================
 
 export async function linkageRoutes(fastify: FastifyInstance) {
-  // --------------------------------------------------------------------------
-  // Helper function to check RBAC permissions
-  // --------------------------------------------------------------------------
-  async function checkEntityPermission(
-    employeeId: string,
-    entity: string,
-    entityId: string | null,
-    requiredPermission: number
-  ): Promise<boolean> {
-    // Use special UUID for "all" entities permission (universal RBAC pattern)
-    const ALL_ENTITIES_UUID = '11111111-1111-1111-1111-111111111111';
-    const targetEntityId = entityId || ALL_ENTITIES_UUID;
-
-    const result = await db.execute(sql`
-      SELECT EXISTS (
-        SELECT 1 FROM app.d_entity_rbac
-        WHERE person_entity_id = ${employeeId}::uuid
-          AND entity_name = ${entity}
-          AND (entity_id = ${targetEntityId}::uuid OR entity_id = ${ALL_ENTITIES_UUID}::uuid)
-          AND permission >= ${requiredPermission}
-          AND active_flag = true
-      ) AS has_permission
-    `);
-    return Boolean(result[0]?.has_permission) || false;
-  }
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ ENTITY INFRASTRUCTURE SERVICE - Initialize service instance
+  // ═══════════════════════════════════════════════════════════════
+  const entityInfra = getEntityInfrastructure(db);
 
   // --------------------------------------------------------------------------
   // GET /api/v1/linkage - List all linkages (with optional filters)
@@ -230,14 +209,15 @@ export async function linkageRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type } = request.body;
 
-      // No RBAC check - allow all authenticated users to create linkages
-
-      // Use centralized linkage service (idempotent - handles duplicates & reactivation)
-      const linkage = await createLinkageService(db, {
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - Create linkage
+      // Idempotent - handles duplicates & reactivation automatically
+      // ═══════════════════════════════════════════════════════════════
+      const linkage = await entityInfra.set_entity_instance_link({
         parent_entity_type,
         parent_entity_id,
-        child_entity_id,
         child_entity_type,
+        child_entity_id,
         relationship_type
       });
 
@@ -335,7 +315,6 @@ export async function linkageRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { id } = request.params;
 
-      // Check RBAC permissions - user must have delete permission on linkage entity
       const user = (request as any).user;
       const employee_id = user?.sub;
 
@@ -360,9 +339,22 @@ export async function linkageRoutes(fastify: FastifyInstance) {
 
       const linkage = linkageResult[0];
 
-      // Must have delete permission on both parent and child entities
-      const hasParentPermission = await checkEntityPermission(employee_id, linkage.parent_entity_type as string, linkage.parent_entity_id as string, 3);
-      const hasChildPermission = await checkEntityPermission(employee_id, linkage.child_entity_type as string, linkage.child_entity_id as string, 3);
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+      // Must have DELETE permission on both parent and child entities
+      // ═══════════════════════════════════════════════════════════════
+      const hasParentPermission = await entityInfra.check_entity_rbac(
+        employee_id,
+        linkage.parent_entity_type as string,
+        linkage.parent_entity_id as string,
+        Permission.DELETE
+      );
+      const hasChildPermission = await entityInfra.check_entity_rbac(
+        employee_id,
+        linkage.child_entity_type as string,
+        linkage.child_entity_id as string,
+        Permission.DELETE
+      );
 
       if (!hasParentPermission || !hasChildPermission) {
         return reply.status(403).send({
@@ -371,14 +363,12 @@ export async function linkageRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const result = await db.execute(sql`
-        UPDATE app.d_entity_instance_link
-        SET active_flag = false, updated_ts = now()
-        WHERE id = ${id}
-        RETURNING id
-      `);
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - Delete linkage (soft delete)
+      // ═══════════════════════════════════════════════════════════════
+      const result = await entityInfra.delete_entity_instance_link(id);
 
-      if (result.length === 0) {
+      if (!result) {
         return reply.status(404).send({
           success: false,
           error: 'Linkage not found'
@@ -403,18 +393,11 @@ export async function linkageRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { entity_type } = request.params;
 
-      // Define valid parent-child relationships
-      const validParents: Record<string, string[]> = {
-        business: ['office'],
-        project: ['business', 'client'],
-        task: ['project', 'worksite'],
-        wiki: ['project', 'task', 'office', 'business'],
-        artifact: ['project', 'task', 'office', 'business'],
-        form: ['project', 'task', 'worksite'],
-        worksite: ['office', 'client']
-      };
-
-      const parents = validParents[entity_type] || [];
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - Get parent entity types
+      // Finds all entities that have this entity_type in their child_entities
+      // ═══════════════════════════════════════════════════════════════
+      const parents = await entityInfra.get_parent_entity_types(entity_type);
 
       return reply.send({
         success: true,
