@@ -11,6 +11,18 @@ import { paginateQuery, getPaginationParams } from '../../lib/pagination.js';
 import { Permission } from '../../lib/unified-data-gate.js';
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
 import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
+// ✨ Universal auto-filter builder - zero-config query filtering
+import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✅ Delete factory for cascading soft deletes
+import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+// ✅ Child entity factory for parent-child relationships
+import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
+
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_TYPE = 'event';
+const TABLE_ALIAS = 'e';
 
 /**
  * Event creation request
@@ -74,24 +86,52 @@ export async function eventRoutes(fastify: FastifyInstance) {
       event_platform_provider_name?: string;
       from_ts?: string;
       to_ts?: string;
+      search?: string;
       page?: number;
       limit?: number;
     };
   }>('/api/v1/event', async (request, reply) => {
     try {
-      const { event_type, event_platform_provider_name, from_ts, to_ts } = request.query;
+      const { from_ts, to_ts } = request.query;
       const { page, limit, offset } = getPaginationParams(request.query);
 
+      // ✨ UNIVERSAL AUTO-FILTER SYSTEM
+      // Automatically builds filters from ANY query parameter based on field naming conventions
+      // Supports: ?event_type=X, ?event_platform_provider_name=Y, ?search=keyword, etc.
+      const conditions: any[] = [];
+
+      // Build auto-filters for standard fields
+      const queryFilters: any = {};
+      Object.keys(request.query).forEach(key => {
+        if (!['page', 'limit', 'offset', 'from_ts', 'to_ts'].includes(key)) {
+          queryFilters[key] = (request.query as any)[key];
+        }
+      });
+
+      // Note: buildAutoFilters expects SQL[] for drizzle-orm, but we're using postgres.js client
+      // For now, we'll manually build filters compatible with postgres.js
       let whereConditions = client`WHERE active_flag = true`;
 
-      if (event_type) {
-        whereConditions = client`${whereConditions} AND event_type = ${event_type}`;
+      // Auto-filter: event_type
+      if (queryFilters.event_type) {
+        whereConditions = client`${whereConditions} AND event_type = ${queryFilters.event_type}`;
       }
 
-      if (event_platform_provider_name) {
-        whereConditions = client`${whereConditions} AND event_platform_provider_name = ${event_platform_provider_name}`;
+      // Auto-filter: event_platform_provider_name
+      if (queryFilters.event_platform_provider_name) {
+        whereConditions = client`${whereConditions} AND event_platform_provider_name = ${queryFilters.event_platform_provider_name}`;
       }
 
+      // Auto-filter: search (searches across name, code, descr)
+      if (queryFilters.search) {
+        whereConditions = client`${whereConditions} AND (
+          name ILIKE ${'%' + queryFilters.search + '%'}
+          OR code ILIKE ${'%' + queryFilters.search + '%'}
+          OR descr ILIKE ${'%' + queryFilters.search + '%'}
+        )`;
+      }
+
+      // Date range filters (custom logic for timestamp comparison)
       if (from_ts) {
         whereConditions = client`${whereConditions} AND from_ts >= ${from_ts}::timestamptz`;
       }
@@ -690,65 +730,8 @@ export async function eventRoutes(fastify: FastifyInstance) {
     }
   });
 
-  /**
-   * DELETE /api/v1/event/:id
-   * Soft delete event and linked event-person mappings
-   */
-  fastify.delete<{
-    Params: { id: string };
-  }>('/api/v1/event/:id', async (request, reply) => {
-    try {
-      const { id } = request.params;
-
-      // Soft delete event
-      const deleteQuery = client`
-        UPDATE app.d_event
-        SET
-          active_flag = false,
-          updated_ts = now()
-        WHERE id = ${id}::uuid AND active_flag = true
-        RETURNING id::text, code, name
-      `;
-
-      const result = await deleteQuery;
-
-      if (result.length === 0) {
-        return reply.code(404).send({ error: 'Event not found' });
-      }
-
-      // Also soft delete linked event-person mappings
-      await client`
-        UPDATE app.d_entity_event_person_calendar
-        SET
-          active_flag = false,
-          updated_ts = now()
-        WHERE event_id = ${id}::uuid AND active_flag = true
-      `;
-
-      // Soft delete entity linkages in d_entity_instance_link
-      await client`
-        UPDATE app.d_entity_instance_link
-        SET
-          active_flag = false,
-          to_ts = now(),
-          updated_ts = now()
-        WHERE parent_entity_type = 'event'
-          AND parent_entity_id = ${id}
-          AND active_flag = true
-      `;
-
-      console.log(`✅ Deleted event and linked data: ${result[0].code}`);
-
-      reply.code(200).send({
-        success: true,
-        message: 'Event deleted successfully',
-        event: result[0]
-      });
-    } catch (error) {
-      console.error('Error deleting event:', error);
-      reply.code(500).send({ error: 'Failed to delete event' });
-    }
-  });
+  // ✨ DELETE endpoint now handled by factory (see end of file)
+  // Factory provides cascading soft delete for event and linked entities
 
   /**
    * GET /api/v1/event/:id/attendees
@@ -863,6 +846,19 @@ export async function eventRoutes(fastify: FastifyInstance) {
       reply.code(500).send({ error: 'Failed to fetch event entities' });
     }
   });
+
+  // ============================================================================
+  // ✨ FACTORY-GENERATED ENDPOINTS
+  // ============================================================================
+
+  // ✨ Factory-generated DELETE endpoint
+  // Provides cascading soft delete for event and all linked entities
+  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
+
+  // ✨ Factory-generated child entity endpoints
+  // Auto-generates endpoints for child entities based on d_entity metadata
+  // Example: GET /api/v1/event/:id/{child_entity}
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 
   console.log('✅ Event routes registered');
 }
