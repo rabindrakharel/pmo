@@ -47,8 +47,6 @@ import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-r
 import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 // ✅ Centralized unified data gate - loosely coupled API
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
-// ✅ Centralized linkage service - DRY entity relationship management
-import { createLinkage } from '../../services/linkage.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
