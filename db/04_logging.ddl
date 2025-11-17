@@ -46,7 +46,7 @@
 -- RETENTION & COMPLIANCE:
 --   - Logs retained for minimum 7 years for regulatory compliance
 --   - Partition by month for efficient querying and archival
---   - Indexes on username, entity_name, entity_id, updated for fast lookups
+--   - Indexes on username, entity_code, entity_id, updated for fast lookups
 --   - Denormalized design ensures audit integrity if source person records change
 --
 -- USAGE PATTERNS:
@@ -87,7 +87,7 @@ CREATE TABLE app.f_logging (
     person_type varchar(50) NOT NULL CHECK (person_type IN ('employee', 'customer', 'system', 'guest')),
 
     -- Target Entity (WHAT was acted upon)
-    entity_name varchar(100) NOT NULL,  -- 'project', 'task', 'employee', etc.
+    entity_code varchar(100) NOT NULL,  -- Entity code (references d_entity.code): 'project', 'task', 'employee', etc.
     entity_id uuid NOT NULL,            -- Specific entity instance UUID
 
     -- Action Type (HOW the entity was accessed/modified)
@@ -127,7 +127,7 @@ CREATE INDEX idx_f_logging_person_name ON app.f_logging(lname, fname, updated DE
 CREATE INDEX idx_f_logging_person_type ON app.f_logging(person_type, updated DESC);
 
 -- Index for entity-specific queries: "Show audit trail for project abc-123"
-CREATE INDEX idx_f_logging_entity ON app.f_logging(entity_name, entity_id, updated DESC);
+CREATE INDEX idx_f_logging_entity ON app.f_logging(entity_code, entity_id, updated DESC);
 
 -- Index for time-based queries: "Show all actions in last 30 days"
 CREATE INDEX idx_f_logging_updated ON app.f_logging(updated DESC);
@@ -139,7 +139,7 @@ CREATE INDEX idx_f_logging_action ON app.f_logging(action, updated DESC);
 CREATE INDEX idx_f_logging_ip ON app.f_logging(ip, updated DESC);
 
 -- Composite index for common filtered queries
-CREATE INDEX idx_f_logging_composite ON app.f_logging(username, person_type, entity_name, action, updated DESC);
+CREATE INDEX idx_f_logging_composite ON app.f_logging(username, person_type, entity_code, action, updated DESC);
 
 -- ============================================================================
 -- COMMENTS FOR SCHEMA DOCUMENTATION
@@ -152,7 +152,7 @@ COMMENT ON COLUMN app.f_logging.fname IS 'First name of person performing action
 COMMENT ON COLUMN app.f_logging.lname IS 'Last name of person performing action (denormalized for immutability)';
 COMMENT ON COLUMN app.f_logging.username IS 'Username/email of person performing action (denormalized for immutability)';
 COMMENT ON COLUMN app.f_logging.person_type IS 'Type of person performing action (employee, customer, system, guest)';
-COMMENT ON COLUMN app.f_logging.entity_name IS 'Type of entity acted upon (e.g., project, task, client)';
+COMMENT ON COLUMN app.f_logging.entity_code IS 'Type of entity acted upon (e.g., project, task, client)';
 COMMENT ON COLUMN app.f_logging.entity_id IS 'Specific entity instance UUID';
 COMMENT ON COLUMN app.f_logging.action IS 'Action type code (0=View, 1=Edit, 2=Share, 3=Delete, 4=Create, 5=Owner)';
 COMMENT ON COLUMN app.f_logging.updated IS 'Timestamp when action occurred';
@@ -177,7 +177,7 @@ INSERT INTO app.f_logging (
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -218,7 +218,7 @@ INSERT INTO app.f_logging (
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -260,7 +260,7 @@ INSERT INTO app.f_logging (
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -293,7 +293,7 @@ INSERT INTO app.f_logging (
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -335,7 +335,7 @@ INSERT INTO app.f_logging (
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -378,7 +378,7 @@ INSERT INTO app.f_logging (
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -420,7 +420,7 @@ INSERT INTO app.f_logging (
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -461,7 +461,7 @@ INSERT INTO app.f_logging (
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -500,7 +500,7 @@ INSERT INTO app.f_logging (
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -533,7 +533,7 @@ INSERT INTO app.f_logging (
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -570,29 +570,29 @@ INSERT INTO app.f_logging (
 
 -- Query 1: Audit trail for a specific entity
 -- SELECT * FROM app.f_logging
--- WHERE entity_name = 'project' AND entity_id = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+-- WHERE entity_code = 'project' AND entity_id = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 -- ORDER BY updated DESC;
 
 -- Query 2: All actions by a specific person (by username)
--- SELECT fname, lname, person_type, entity_name, entity_id, action, updated
+-- SELECT fname, lname, person_type, entity_code, entity_id, action, updated
 -- FROM app.f_logging
 -- WHERE username = 'james.miller@huronhome.ca'
 -- ORDER BY updated DESC;
 
 -- Query 2b: All actions by a specific person (by name)
--- SELECT fname, lname, username, person_type, entity_name, action, updated
+-- SELECT fname, lname, username, person_type, entity_code, action, updated
 -- FROM app.f_logging
 -- WHERE lname = 'Miller' AND fname = 'James'
 -- ORDER BY updated DESC;
 
 -- Query 2c: All actions by customers
--- SELECT fname, lname, username, entity_name, entity_id, action, updated
+-- SELECT fname, lname, username, entity_code, entity_id, action, updated
 -- FROM app.f_logging
 -- WHERE person_type = 'customer'
 -- ORDER BY updated DESC;
 
 -- Query 3: All delete operations in last 30 days
--- SELECT fname, lname, username, person_type, entity_name, entity_id, updated, entity_from_version
+-- SELECT fname, lname, username, person_type, entity_code, entity_id, updated, entity_from_version
 -- FROM app.f_logging
 -- WHERE action = 3 AND updated >= now() - interval '30 days'
 -- ORDER BY updated DESC;
