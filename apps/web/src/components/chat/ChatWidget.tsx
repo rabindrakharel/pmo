@@ -189,16 +189,6 @@ export function ChatWidget({ onClose, autoOpen = false }: ChatWidgetProps) {
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-
-      // Show booking confirmation if created
-      if (data.booking_created && data.booking_number) {
-        const confirmationMessage: Message = {
-          role: 'system',
-          content: `✅ Booking confirmed! Your booking number is: ${data.booking_number}`,
-          timestamp: data.timestamp
-        };
-        setMessages(prev => [...prev, confirmationMessage]);
-      }
     } catch (err) {
       console.error('Failed to send message:', err);
       setError('Failed to send message. Please try again.');

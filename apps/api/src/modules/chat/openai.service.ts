@@ -32,7 +32,7 @@ COMPANY INFORMATION:
 
 STRICT BOUNDARIES - NEVER DEVIATE:
 1. Start with "Hi! I'm the assistant for Huron Home Services. How can I help you today?"
-2. If asked about ANYTHING outside Huron services (weather, news, general questions, other companies), respond ONLY: "I'm specifically here for Huron Home Services bookings and support. Can I help you with one of our services?"
+2. If asked about ANYTHING outside Huron services (weather, news, general questions, other companies), respond ONLY: "I'm specifically here for Huron Home Services support. Can I help you with one of our services?"
 3. ALWAYS use API tools for real data - never guess
 4. Keep responses brief (2-3 sentences max)
 5. Ask ONE question at a time
@@ -55,7 +55,7 @@ INCREMENTAL CUSTOMER DATA COLLECTION (CRITICAL WORKFLOW):
    - The saved customer_id
    - ONLY the new field(s) just provided (e.g., {customer_id: "...", address: "123 Main St"})
    - You can update ONE field at a time or multiple fields together
-5. USE SAVED ID: When creating bookings/tasks, always link to the customer using the saved customer_id
+5. USE SAVED ID: When creating tasks, always link to the customer using the saved customer_id
 6. NO RE-ASKING: After updating a field, that field is STORED - never ask for it again
 
 EXAMPLE FLOW:
@@ -72,7 +72,7 @@ EMPATHY & REASSURANCE:
 
 ABSOLUTE RULE - REFUSE OFF-TOPIC REQUESTS:
 If customer asks ANYTHING not related to Huron Home Services (weather, jokes, general questions, other companies, trivia, advice), you MUST respond:
-"I'm specifically here for Huron Home Services bookings and support. Can I help you with HVAC, plumbing, electrical, landscaping, or contracting?"
+"I'm specifically here for Huron Home Services support. Can I help you with HVAC, plumbing, electrical, landscaping, or contracting?"
 
 DO NOT engage with off-topic conversations. DO NOT answer general questions. You are ONLY a Huron Home Services chat assistant.
 
@@ -304,101 +304,6 @@ const FUNCTION_DEFINITIONS: OpenAIFunction[] = [
       },
       required: ['employee_id', 'date']
     }
-  },
-  {
-    name: 'create_booking',
-    description: 'Create a service booking/appointment for a customer',
-    parameters: {
-      type: 'object',
-      properties: {
-        service_id: {
-          type: 'string',
-          description: 'UUID of the service to book'
-        },
-        customer_name: {
-          type: 'string',
-          description: "Customer's full name"
-        },
-        customer_phone: {
-          type: 'string',
-          description: "Customer's phone number (Canadian format)"
-        },
-        customer_email: {
-          type: 'string',
-          description: "Customer's email address (optional)"
-        },
-        customer_address: {
-          type: 'string',
-          description: 'Full service location address including street, city, province'
-        },
-        customer_city: {
-          type: 'string',
-          description: 'City name'
-        },
-        customer_province: {
-          type: 'string',
-          description: 'Province code (e.g., ON, BC)'
-        },
-        customer_postal_code: {
-          type: 'string',
-          description: 'Postal code (Canadian format)'
-        },
-        requested_date: {
-          type: 'string',
-          description: 'Requested service date (YYYY-MM-DD)'
-        },
-        requested_time_start: {
-          type: 'string',
-          description: 'Preferred start time (HH:MM, 24-hour format)'
-        },
-        assigned_employee_id: {
-          type: 'string',
-          description: 'UUID of the assigned employee (optional)'
-        },
-        special_instructions: {
-          type: 'string',
-          description: 'Any special requirements or instructions from customer'
-        },
-        urgency_level: {
-          type: 'string',
-          enum: ['low', 'normal', 'high', 'emergency'],
-          description: 'Urgency level of the service request'
-        }
-      },
-      required: ['service_id', 'customer_name', 'customer_phone', 'customer_address', 'requested_date', 'requested_time_start']
-    }
-  },
-  {
-    name: 'get_booking_info',
-    description: 'Get details of an existing booking by booking number',
-    parameters: {
-      type: 'object',
-      properties: {
-        booking_number: {
-          type: 'string',
-          description: 'Booking number (e.g., "BK-2025-000001")'
-        }
-      },
-      required: ['booking_number']
-    }
-  },
-  {
-    name: 'cancel_booking',
-    description: 'Cancel an existing booking',
-    parameters: {
-      type: 'object',
-      properties: {
-        booking_number: {
-          type: 'string',
-          description: 'Booking number to cancel'
-        },
-        cancellation_reason: {
-          type: 'string',
-          description: 'Reason for cancellation'
-        }
-      },
-      required: ['booking_number', 'cancellation_reason']
-    }
   }
 ];
 
@@ -586,12 +491,7 @@ async function executeFunctionCall(
   // Fall back to legacy function tools
   console.warn(`⚠️ Falling back to legacy tools (no auth token): ${functionName}`);
 
-  // Special handling for create_booking to pass session ID
-  if (functionName === 'create_booking') {
-    return functionTools.create_booking(args, interactionSessionId);
-  }
-
-  // Execute other functions
+  // Execute functions
   const tool = functionTools[functionName as keyof typeof functionTools];
   if (!tool) {
     throw new Error(`Function not found: ${functionName}`);

@@ -240,7 +240,6 @@ export async function chatRoutes(fastify: FastifyInstance) {
       reply.code(200).send({
         session_id: session.session_id,
         messages: session.conversation_history,
-        booking_created: session.booking_created_flag,
         total_messages: session.conversation_history.length,
         created_ts: session.created_ts,
         updated_ts: session.updated_ts

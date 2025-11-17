@@ -312,7 +312,7 @@ function buildFormatSpecification(dbCol: DbColumn): FormatSpecification {
 
   // ⭐ REFERENCE FIELDS (*_id) → renderReference()
   if (columnName.endsWith('_id') && dataType === 'uuid') {
-    const match = columnName.match(/^(.+?)_?(employee|project|task|business|office|customer|role|cust|event|calendar|booking)_id$/);
+    const match = columnName.match(/^(.+?)_?(employee|project|task|business|office|customer|role|cust|event|calendar)_id$/);
     if (match) {
       return {
         type: 'reference',
