@@ -2,8 +2,8 @@
 
 > **Navigation guide for AI/LLM agents to quickly locate relevant documentation**
 
-**Last Updated:** 2025-11-11
-**Platform Version:** 3.1.1 (Production)
+**Last Updated:** 2025-11-17
+**Platform Version:** 3.3.0 (Production)
 
 ---
 
@@ -14,9 +14,9 @@
 | What You Need | Where to Look | Key File |
 |---------------|---------------|----------|
 | **Complete platform overview** | Root: `/CLAUDE.md` | Main index with all features |
-| **Database schema & entities** | `datamodel/` | `datamodel.md` (52 tables, NO foreign keys) |
-| **Universal entity system (DRY)** | `entity_design_pattern/` | `universal_entity_system.md` ⭐ |
-| **All API endpoints** | `api/` | `API_DEVELOPER_GUIDE.md`, `openapi.yaml` |
+| **Database schema & entities** | `datamodel/` | `README.md` (50+ tables, NO foreign keys) |
+| **Entity infrastructure & services** | `services/` | `ENTITY_INFRASTRUCTURE_SERVICE.md`, `UNIVERSAL_FORMATTER_SERVICE.md` ⭐ |
+| **All API endpoints** | `api/` | `entity_endpoint_design.md`, `API_DEVELOPER_GUIDE.md` |
 | **How AI chat works** | `ai_chat/` | `AI_CHAT_SYSTEM.md` (text + voice) |
 | **How MCP server works** | `mcp/` | `MCP_ARCHITECTURE.md` |
 
@@ -24,25 +24,25 @@
 
 | What You're Building | Where to Look | Key File |
 |---------------------|---------------|----------|
-| **New entity type** | `entity_design_pattern/` | `universal_entity_system.md` (sections 5-6) |
-| **New data table** | `datatable/` | `datatable.md` (OOP composition) |
+| **New entity type** | `services/`, `api/` | `ENTITY_INFRASTRUCTURE_SERVICE.md`, `entity_endpoint_design.md` ⭐ |
+| **New data table** | `ui_components/` | `datatable.md` (OOP composition) |
 | **New form** | `form/` | `form.md` (JSONB-based forms) |
 | **Calendar/scheduling feature** | `calendar/` | `CALENDAR_SYSTEM.md` (15-min slots) |
 | **Service workflow** | `service_appointment_task_work_orders/` | `SERVICE_WORKFLOW_ARCHITECTURE.md` ⭐ |
 | **Quote system** | `product_services_quotes/` | `TECHNICAL_REFERENCE.md` ⭐ |
-| **DAG/workflow visualization** | `dag_graph_vizualization/` | `dag_visualizer_two_use_cases.md` |
+| **DAG/workflow visualization** | `ui_components/` | `dag_vizualizer.md` |
 | **AI-powered feature** | `ai_chat/`, `mcp/` | AI chat and MCP folders |
 
 ### 🐛 "I need to debug..."
 
 | Problem Area | Where to Look | Key File |
 |--------------|---------------|----------|
-| **RBAC permissions** | `datamodel/` | `datamodel.md` (d_entity_rbac) |
-| **Column consistency issues** | `entity_design_pattern/` | `COLUMN_CONSISTENCY_UPDATE.md` |
+| **RBAC permissions** | `services/`, `datamodel/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` (d_entity_rbac) |
+| **Column consistency issues** | `services/` | `UNIVERSAL_FORMATTER_SERVICE.md` (field detection) |
 | **API not working** | `docs/` | `tools.md` (test scripts & troubleshooting) |
-| **Entity linkage broken** | `entity_design_pattern/` | `UnifiedLinkageSystem.md` (d_entity_instance_link patterns) |
-| **Settings/dropdowns** | `settings/` | `settings.md` (16 settings tables) |
-| **File uploads** | `s3_service/` | `S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md` |
+| **Entity linkage broken** | `services/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` (d_entity_instance_link patterns) |
+| **Settings/dropdowns** | `settings/` | `settings.md` (20+ settings tables) |
+| **File uploads** | `services/` | `s3-attachment-service.md` |
 | **Styling issues** | `styling/` | `styling_patterns.md` |
 
 ### 📋 "I need to deploy..."
@@ -56,11 +56,52 @@
 
 ---
 
-## Documentation Folders Reference
+## 📚 Documentation Index
+
+### 🏗️ Architecture & System Design
+
+| Document | Purpose | When to Use | Key Topics |
+|----------|---------|-------------|------------|
+| [Infrastructure Design](infra_docs/INFRASTRUCTURE_DESIGN.md) | AWS cloud infrastructure and deployment | Setting up AWS resources, deployment pipeline | Terraform, EC2, S3, Lambda, EventBridge, Deployment automation |
+| [Deployment Design](infra_docs/DEPLOYMENT_DESIGN.md) | Deployment strategies and procedures | Deploying to production, CI/CD setup | Deployment flow, Environment configuration, Release management |
+
+### 💾 Data Model & Database
+
+| Document | Purpose | When to Use | Key Topics |
+|----------|---------|-------------|------------|
+| [Data Model](datamodel/README.md) | Complete database schema and relationships | Understanding entities, tables, relationships | 50+ tables (46 DDL files), Entity relationships, RBAC model, Settings tables |
+| [Settings System](settings/settings.md) | Settings/datalabel architecture | Managing dropdowns, workflows, hierarchies | 20+ settings tables, Sequential states, Dropdown integration |
+
+### ⚙️ Core Services & Libraries
+
+| Document | Purpose | When to Use | Key Topics |
+|----------|---------|-------------|------------|
+| [Entity Infrastructure Service](services/ENTITY_INFRASTRUCTURE_SERVICE.md) | Centralized RBAC and entity lifecycle management | Implementing entity CRUD, RBAC checks, registry operations | RBAC permissions, Entity registry, Parent-child linking, Infrastructure operations |
+| [Universal Formatter Service](services/UNIVERSAL_FORMATTER_SERVICE.md) | Single source of truth for all formatting | Formatting display values, field rendering, API transforms | Currency/date formatting, Badge rendering, Field detection, Type conversion |
+| [Services Catalog](services/README.md) | Index of all backend services | Finding service documentation | 28+ services (linkage, email, calendar, S3, AI chat, etc.) |
+
+### 🔌 API Architecture
+
+| Document | Purpose | When to Use | Key Topics |
+|----------|---------|-------------|------------|
+| [Entity Endpoint Design](api/entity_endpoint_design.md) | Universal API patterns for all entity routes | Building/understanding entity endpoints, CRUD operations | Route patterns, RBAC implementation, Factory endpoints, Data flow |
+
+### 🎨 Frontend Components & Features
+
+| Document | Purpose | When to Use | Key Topics |
+|----------|---------|-------------|------------|
+| [Entity Data Table](ui_components/datatable.md) | Universal CRUD table component | Building entity lists, inline editing, bulk operations | Column configuration, Pagination, Sorting, Filtering |
+| [DAG Visualizer](ui_components/dag_vizualizer.md) | Directed Acyclic Graph visualization | Workflow stages, project pipelines, sequential states | DAG rendering, Stage progression, Workflow visualization |
+| [Kanban Board](ui_components/kanban.md) | Task board implementation | Building kanban views, task management | Drag-drop, Column configuration, State transitions |
+| [Dynamic Forms](form/form.md) | JSONB-based form builder | Creating custom forms, form workflows | Form schema, Multi-step wizards, Validation, Submissions |
+
+---
+
+## Documentation Folders Reference (Legacy)
 
 ### 📁 Core Architecture & Patterns
 
-#### `entity_design_pattern/` ⭐ **START HERE FOR ENTITY SYSTEM**
+#### `entity_design_pattern/` ⭐ **LEGACY - See Core Services section above**
 **When to use:** Understanding universal pages, inline editing, create-link-edit patterns, column consistency
 
 **Files:**
@@ -84,7 +125,7 @@
 **When to use:** Understanding database schema, entity relationships, RBAC, table structure
 
 **Files:**
-- `datamodel.md` - Complete data model (52 tables, 13 core entities, NO foreign keys, d_entity_instance_link linkage)
+- `README.md` - Complete data model (50+ tables, NO foreign keys, d_entity_instance_link linkage)
 - `DDL_STANDARDIZATION_GUIDE.md` - DDL naming conventions and standards
 - `DDL_ROMAN_NUMERAL_MAPPING.md` - Roman numeral prefix mapping for DDL files
 - `NAMING_CONVENTION_MIGRATION_PLAN.md` - Database naming convention migration plan
@@ -94,11 +135,10 @@
 ---
 
 #### `datatable/`
-**When to use:** Building or modifying data tables, OOP composition patterns
+**When to use:** Building or modifying data tables, OOP composition patterns (LEGACY - Moved to ui_components/)
 
 **Files:**
-- `datatable.md` - OOP-based table system (EntityDataTable, SettingsDataTable, horizontal scrollbar with progress)
-- `PAGINATION_STATUS.md` - Pagination implementation status
+- Moved to `ui_components/datatable.md`
 
 **Keywords:** datatable, OOP, composition, field-category, settings, auto-configuration, horizontal-scroll, scrollbar, pagination
 
@@ -108,6 +148,7 @@
 **When to use:** Understanding API endpoints, routes, modules, OpenAPI spec
 
 **Files:**
+- `entity_endpoint_design.md` - **Primary reference** for entity API patterns
 - `API_DEVELOPER_GUIDE.md` - Complete API developer guide with all endpoints
 - `openapi.yaml` - OpenAPI 3.0 specification for all API endpoints
 - `ENTITY_OPTIONS_API.md` - Universal dropdown/select options service
@@ -352,26 +393,25 @@
 
 | Keywords | Location | Primary File |
 |----------|----------|--------------|
-| **universal pages, entity system, DRY** | `entity_design_pattern/` | `universal_entity_system.md` ⭐ |
-| **inline editing, add row, create-link-edit** | `entity_design_pattern/` | `universal_entity_system.md` |
-| **column consistency, context-independent** | `entity_design_pattern/` | `COLUMN_CONSISTENCY_UPDATE.md` ⭐ |
-| **database, schema, DDL, NO foreign keys** | `datamodel/` | `datamodel.md` |
-| **RBAC, permissions, d_entity_rbac** | `datamodel/` | `datamodel.md` |
-| **linkage, parent-child, d_entity_instance_link** | `entity_design_pattern/` | `UnifiedLinkageSystem.md` |
-| **API, endpoints, routes, modules** | `api/` | `API_DEVELOPER_GUIDE.md`, `openapi.yaml` |
+| **entity infrastructure, RBAC, registry** | `services/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` ⭐ |
+| **formatting, field detection, currency, dates** | `services/` | `UNIVERSAL_FORMATTER_SERVICE.md` ⭐ |
+| **linkage, parent-child, d_entity_instance_link** | `services/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` |
+| **database, schema, DDL, NO foreign keys** | `datamodel/` | `README.md` |
+| **RBAC, permissions, d_entity_rbac** | `services/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` |
+| **API, endpoints, routes, entity patterns** | `api/` | `entity_endpoint_design.md` ⭐ |
 | **AI chat, voice calling, MCP, GPT-4** | `ai_chat/` | `AI_CHAT_SYSTEM.md` ⭐ |
 | **MCP, Model Context Protocol, tools** | `mcp/` | `MCP_ARCHITECTURE.md` |
 | **quote, product, service, work order** | `product_services_quotes/` | `TECHNICAL_REFERENCE.md` ⭐ |
 | **service workflow, appointments, skills** | `service_appointment_task_work_orders/` | `SERVICE_WORKFLOW_ARCHITECTURE.md` ⭐ |
 | **calendar, scheduling, availability** | `calendar/` | `CALENDAR_SYSTEM.md` |
 | **forms, JSONB, schema, validation** | `form/` | `form.md` |
-| **file upload, S3, attachments** | `s3_service/` | `S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md` |
+| **file upload, S3, attachments** | `services/` | `s3-attachment-service.md` |
 | **settings, dropdowns, workflows** | `settings/` | `settings.md` |
-| **datatable, OOP, composition** | `datatable/` | `datatable.md` |
-| **DAG, graph, visualization, workflow** | `dag_graph_vizualization/` | `dag_visualizer_two_use_cases.md` |
+| **datatable, OOP, composition** | `ui_components/` | `datatable.md` |
+| **DAG, graph, visualization, workflow** | `ui_components/` | `dag_vizualizer.md` |
 | **deployment, AWS, infrastructure** | `infra_docs/` | `INFRASTRUCTURE_DESIGN.md` |
 | **versioning, history, audit trail** | `versioning/` | `versioning_design.md` |
-| **kanban, task board, drag-drop** | `ui_components/` | `component_Kanban_System.md` |
+| **kanban, task board, drag-drop** | `ui_components/` | `kanban.md` |
 | **wiki, collaborative editing** | `wiki/` | `wiki.md`, `COLLABORATIVE_WIKI_EDITING.md` |
 | **tools, scripts, db-import, test-api** | `docs/` | `tools.md` |
 | **mobile, React Native, mobile app** | `mobile/` | `MOBILE_APP_DESIGN.md` |
@@ -386,22 +426,23 @@
 **Complete Platform Understanding (3-4 hours):**
 ```
 1. /CLAUDE.md                                    (15 min) - Platform overview
-2. entity_design_pattern/universal_entity_system.md (45 min) - Core architecture ⭐
-3. datamodel/datamodel.md                        (30 min) - Database schema
-4. entity_ui_ux_route_api.md                     (60 min) - API reference
-5. datatable/datatable.md                        (30 min) - Table system
-6. settings/settings.md                          (20 min) - Settings system
-7. ai_chat/AI_CHAT_SYSTEM.md                     (30 min) - AI features
+2. services/ENTITY_INFRASTRUCTURE_SERVICE.md     (45 min) - Core infrastructure ⭐
+3. services/UNIVERSAL_FORMATTER_SERVICE.md       (30 min) - Formatting & field detection ⭐
+4. datamodel/README.md                           (30 min) - Database schema
+5. api/entity_endpoint_design.md                 (60 min) - API patterns
+6. ui_components/datatable.md                    (30 min) - Table system
+7. settings/settings.md                          (20 min) - Settings system
+8. ai_chat/AI_CHAT_SYSTEM.md                     (30 min) - AI features
 ```
 
 ### For Feature Development
 
 **Building New Entity (2 hours):**
 ```
-1. entity_design_pattern/universal_entity_system.md - Sections 5-6
-2. datamodel/datamodel.md - DDL patterns
-3. entity_ui_ux_route_api.md - API patterns
-4. datatable/datatable.md - Table rendering
+1. services/ENTITY_INFRASTRUCTURE_SERVICE.md - Infrastructure operations
+2. datamodel/README.md - DDL patterns
+3. api/entity_endpoint_design.md - API route patterns
+4. ui_components/datatable.md - Table rendering
 ```
 
 **Building Service Workflow (2 hours):**
@@ -409,7 +450,7 @@
 1. service_appointment_task_work_orders/SERVICE_WORKFLOW_ARCHITECTURE.md ⭐
 2. calendar/CALENDAR_SYSTEM.md
 3. ai_chat/AI_CHAT_SYSTEM.md
-4. ai_mcp/MCP_SERVER_OVERVIEW.md
+4. mcp/MCP_ARCHITECTURE.md
 ```
 
 **Building Quote System (2 hours):**
@@ -443,19 +484,21 @@
 
 **I need to...**
 
-✅ **Understand the platform** → `/CLAUDE.md` + `entity_design_pattern/universal_entity_system.md`
+✅ **Understand the platform** → `/CLAUDE.md` + `services/ENTITY_INFRASTRUCTURE_SERVICE.md`
 
-✅ **Add a new entity** → `entity_design_pattern/universal_entity_system.md` (Best Practices)
+✅ **Add a new entity** → `services/ENTITY_INFRASTRUCTURE_SERVICE.md` + `api/entity_endpoint_design.md`
 
-✅ **Work with database** → `datamodel/datamodel.md`
+✅ **Work with database** → `datamodel/README.md`
+
+✅ **Format fields/values** → `services/UNIVERSAL_FORMATTER_SERVICE.md`
 
 ✅ **Build a service workflow** → `service_appointment_task_work_orders/SERVICE_WORKFLOW_ARCHITECTURE.md`
 
 ✅ **Implement quotes** → `product_services_quotes/TECHNICAL_REFERENCE.md`
 
-✅ **Add AI features** → `ai_chat/AI_CHAT_SYSTEM.md` + `ai_mcp/MCP_SERVER_OVERVIEW.md`
+✅ **Add AI features** → `ai_chat/AI_CHAT_SYSTEM.md` + `mcp/MCP_ARCHITECTURE.md`
 
-✅ **Debug RBAC** → `datamodel/datamodel.md` (d_entity_rbac section)
+✅ **Debug RBAC** → `services/ENTITY_INFRASTRUCTURE_SERVICE.md` (RBAC section)
 
 ✅ **Deploy to AWS** → `infra_docs/INFRASTRUCTURE_DESIGN.md`
 
@@ -463,4 +506,4 @@
 
 ---
 
-**Last Updated:** 2025-11-05 | **Platform Version:** 3.1.1 | **Total Docs:** 40+ files
+**Last Updated:** 2025-11-17 | **Platform Version:** 3.3.0 | **Total Docs:** 50+ files
