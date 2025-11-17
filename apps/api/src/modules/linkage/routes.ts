@@ -394,17 +394,10 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       const { entity_type } = request.params;
 
       // ═══════════════════════════════════════════════════════════════
-      // ✅ METADATA-DRIVEN - Query d_entity to find parent entities
-      // Find all entities that have this entity_type in their child_entities
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - Get parent entity types
+      // Finds all entities that have this entity_type in their child_entities
       // ═══════════════════════════════════════════════════════════════
-      const result = await db.execute(sql`
-        SELECT code
-        FROM app.d_entity
-        WHERE active_flag = true
-          AND child_entities @> ${JSON.stringify([{ entity: entity_type }])}::jsonb
-      `);
-
-      const parents = result.map(row => row.code).sort();
+      const parents = await entityInfra.get_parent_entity_types(entity_type);
 
       return reply.send({
         success: true,

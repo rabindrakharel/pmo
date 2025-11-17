@@ -200,6 +200,30 @@ export class EntityInfrastructureService {
     }));
   }
 
+  /**
+   * Get parent entity types for a given child entity type
+   * Finds all entities that have the specified entity type in their child_entities array
+   *
+   * @param child_entity_type The child entity type to find parents for
+   * @returns Array of parent entity type codes (sorted alphabetically)
+   *
+   * @example
+   * // Find all entities that can have 'task' as a child
+   * const parents = await entityInfra.get_parent_entity_types('task');
+   * // Returns: ['project', 'worksite']
+   */
+  async get_parent_entity_types(child_entity_type: string): Promise<string[]> {
+    const result = await this.db.execute(sql`
+      SELECT code
+      FROM app.d_entity
+      WHERE active_flag = true
+        AND child_entities @> ${JSON.stringify([{ entity: child_entity_type }])}::jsonb
+      ORDER BY code ASC
+    `);
+
+    return result.map(row => row.code);
+  }
+
   // ==========================================================================
   // SECTION 2: Instance Registry (d_entity_instance_registry)
   // ==========================================================================
