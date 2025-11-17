@@ -1,6 +1,6 @@
 # Entity Routes Refactoring Status
 
-**Last Updated:** 2025-01-17
+**Last Updated:** 2025-01-17 (Phase 3: Booking Purge)
 **Purpose:** Track implementation of standard architecture patterns across all entity routes
 
 ## Standard Pattern Requirements
@@ -54,6 +54,14 @@ All entity routes should follow these 4 architectural patterns:
 |--------|-------|--------|--------|-------|---------|----------|
 | **event** | ✓ | ✗ | ✗ | ✗ | Filter + Delete + Child | High |
 
+### ❌ PURGED ENTITIES
+
+| Entity | Reason | Date |
+|--------|--------|------|
+| **booking** | Disconnected from person-calendar system; incomplete implementation; no DDL files | 2025-01-17 |
+
+**Note:** The booking entity (d_booking) was removed from the codebase as it was NOT serving the person event calendar system. The person calendar system has its own unified service at `/api/v1/person-calendar` with complete orchestration.
+
 ## Refactoring Changes Made
 
 ### Phase 1: Fact Tables (Completed)
@@ -95,6 +103,28 @@ All entity routes should follow these 4 architectural patterns:
 #### 5. form/routes.ts
 - ✅ Added `buildAutoFilters` import
 - ✅ Already had infrastructure service, delete factory, and child factory
+
+### Phase 3: Booking Entity Purge (Completed)
+
+#### booking entity - COMPLETE REMOVAL
+- ❌ **Deleted entire module:** `apps/api/src/modules/booking/`
+  - Removed `routes.ts` (all CRUD endpoints)
+  - Removed `types.ts` (BookingRequest, BookingResponse interfaces)
+- ✅ **Backend cleanup:**
+  - Updated `schema-builder.service.ts` - removed 'booking' from entity reference regex
+  - Updated `chat/types.ts` - removed booking fields from ChatSession and ChatMessageResponse
+  - Updated `chat/openai.service.ts` - removed 3 booking functions and system prompt references
+  - Updated `chat/functions.service.ts` - removed createBooking, getBookingInfo, cancelBooking (213 lines)
+  - Updated `chat/conversation.service.ts` - removed booking metadata tracking
+  - Updated `chat/routes.ts` - removed booking_created from responses
+  - Updated `message-data/types.ts` - removed booking_id from MessageMetadata
+  - Updated `chat/orchestrator/agent_config.json` - removed booking entity expansion rule
+- ✅ **Frontend cleanup:**
+  - Updated `web/src/lib/api.ts` - removed booking API registration
+  - Updated `web/src/components/chat/ChatWidget.tsx` - removed booking confirmation handling
+- ℹ️ **Rationale:** booking entity was disconnected from person-calendar system (separate systems)
+
+**Total removed:** ~963 lines of code (12 files modified, 2 files deleted)
 
 ## Next Steps (Future PRs)
 
@@ -176,10 +206,12 @@ await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 
 ## Summary Statistics
 
-- **Total Entities**: 13
-- **Fully Compliant**: 5 (38%)
-- **Missing 1 Pattern**: 3 (23%)
-- **Missing 2 Patterns**: 4 (31%)
+- **Total Entities**: 12 (1 purged: booking)
+- **Fully Compliant**: 5 (42%)
+- **Missing 1 Pattern**: 3 (25%)
+- **Missing 2 Patterns**: 4 (33%)
 - **Missing 3 Patterns**: 1 (8%)
+- **Purged**: 1 (booking - disconnected entity)
 
-**Phase 1 Completion**: 5/13 entities (38%) now follow standard patterns
+**Phase 1-3 Completion**: 5/12 entities (42%) now follow standard patterns
+**Code Cleanup**: 963 lines removed (booking purge)
