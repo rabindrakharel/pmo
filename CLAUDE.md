@@ -228,7 +228,7 @@ fastify.get('/api/v1/project', async (request, reply) => {
 - `get_entity_rbac_where_condition()` - Get SQL WHERE fragment for RBAC filtering
 - `delete_all_entity_infrastructure()` - Orchestrate complete entity deletion
 
-**Reference**: See `docs/services/ENTITY_INFRASTRUCTURE_SERVICE_DESIGN.md` for complete architecture
+**Reference**: See `docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md` for complete architecture
 
 ### 5a. Universal Formatter Service (Convention Over Configuration)
 
@@ -285,7 +285,7 @@ const element = renderFieldDisplay(50000, { type: 'currency' });
 - ✅ **No API calls** for formatting (local service, except badge colors which are cached)
 - ✅ **Type-safe** with TypeScript
 
-**Reference**: See `docs/services/formatter/README.md` for complete documentation
+**Reference**: See `docs/services/UNIVERSAL_FORMATTER_SERVICE.md` for complete documentation
 
 ### 6. Component Matrix
 
@@ -421,21 +421,19 @@ tags          → Array field
 
 ## Documentation Map
 
-### Architecture
-- `docs/entity_design_pattern/ENTITY_SYSTEM_V4.md` - Zero-config v4.0 system
-- `docs/entity_design_pattern/UNIVERSAL_FIELD_DETECTOR_V2.md` - Pattern detection
-- `docs/entity_ui_ux_route_api.md` - Complete architecture overview
-- `docs/UI_UX_PAGE_Components_Modal.md` - Component selection guide
+### Core Services
+- `docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md` - **Complete entity infrastructure service architecture**
+- `docs/services/UNIVERSAL_FORMATTER_SERVICE.md` - **Complete formatter service documentation**
 
 ### Data Model
-- `docs/datamodel/datamodel.md` - Database schema (50 tables)
+- `docs/datamodel/README.md` - **Database schema (50+ tables, all DDL files)**
 - `docs/settings/settings.md` - Settings architecture
 
-### Implementation
-- `docs/api/entity_endpoint_design.md` - **API patterns & route implementation guide**
-- `docs/entity_design_pattern/INTEGRATION_GUIDE.md` - 3-line integration
+### API Implementation
+- `docs/api/entity_endpoint_design.md` - **API patterns, route implementation guide, data flow**
+
+### Operational
 - `docs/tools.md` - Operation scripts
-- `docs/ENTITY_OPTIONS_API.md` - Dropdown APIs
 - `docs/S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md` - File uploads
 
 ### Features
@@ -496,8 +494,14 @@ setting_datalabel_* tables → /api/v1/entity/:type/options → EntityFormContai
 
 ---
 
-**Version**: 3.2.0 | **Updated**: 2025-11-15 | **Entity System**: v4.0 ready
+**Version**: 3.3.0 | **Updated**: 2025-01-17 | **Entity System**: v4.0 active
 
 **Recent Updates**:
-- v3.2.0 (2025-11-15): Added comprehensive API patterns, universal filter system, RBAC model details, centralized services
+- v3.3.0 (2025-01-17): Complete documentation revamp based on actual implementation
+  - Added `docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md` - Complete service documentation
+  - Added `docs/services/UNIVERSAL_FORMATTER_SERVICE.md` - Complete formatter documentation
+  - Revamped `docs/datamodel/README.md` - Database schema based on DDL files
+  - Revamped `docs/api/entity_endpoint_design.md` - Actual patterns with architecture diagrams
+  - Removed obsolete documentation (entity_design_pattern, linkage, universal_rbac folders)
+- v3.2.0 (2025-11-15): Added comprehensive API patterns, universal filter system, RBAC model details
 - v3.1.0 (2025-11-12): Entity System v4.0 preparation
