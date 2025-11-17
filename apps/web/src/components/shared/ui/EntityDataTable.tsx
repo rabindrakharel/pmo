@@ -438,7 +438,7 @@ export function EntityDataTable<T = any>({
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
     // Only include columns that are explicitly marked as visible
-    // This respects the visible property from universalFieldDetector
+    // This respects the visible property from universalFormatterService
     new Set(columns.filter(col => col.visible !== false).map(col => col.key))
   );
   const [showColumnSelector, setShowColumnSelector] = useState(false);

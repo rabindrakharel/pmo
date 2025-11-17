@@ -3,7 +3,7 @@
  * VIEW CONFIG GENERATOR - Central Config for All Views
  * ============================================================================
  *
- * ONE source of truth (universalFieldDetector) → ALL views
+ * ONE source of truth (universalFormatterService) → ALL views
  *
  * Generates configs for:
  * 1. DataTable (EntityDataTable, SettingsDataTable)
@@ -14,7 +14,7 @@
  * ALL views share SAME detection logic, guaranteed consistency
  */
 
-import { detectField, UniversalFieldMetadata } from './universalFieldDetector';
+import { detectField, UniversalFieldMetadata } from './universalFormatterService';
 import type { ColumnDef as TanStackColumn } from '@tanstack/react-table';
 import React from 'react';
 

@@ -18,7 +18,7 @@ import { getBadgeClass, textStyles } from '../../../lib/designSystem';
 // NEW: Universal Field Detector Integration
 // ============================================================================
 import { generateFormConfig, type FormField } from '../../../lib/viewConfigGenerator';
-import { detectField } from '../../../lib/universalFieldDetector';
+import { detectField } from '../../../lib/universalFormatterService';
 
 /**
  * Helper function to render badge with color based on field type and value

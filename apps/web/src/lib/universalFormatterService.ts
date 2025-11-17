@@ -1,50 +1,54 @@
 /**
  * ============================================================================
- * UNIVERSAL FORMATTER SERVICE - Complete Formatting System
+ * UNIVERSAL FORMATTER SERVICE - CONSOLIDATED FIELD DETECTION & FORMATTING
  * ============================================================================
  *
- * SINGLE SOURCE OF TRUTH for all formatting concerns across the application.
- * Behaves like a service - everything is LOCAL, no API calls needed for formatting.
+ * SINGLE SOURCE OF TRUTH for ALL field detection and formatting concerns.
+ * Consolidates universalFieldDetector.ts + universalFormatterService.ts logic.
  *
- * This service consolidates:
- * 1. Naming convention detection (column name → format type)
- * 2. All formatters (formatCurrency, formatDate, formatRelativeTime, etc.)
- * 3. Badge rendering (renderSettingBadge, renderBadge)
+ * This service provides:
+ * 1. Field metadata detection (detectField - column name → complete metadata)
+ * 2. Value formatting (formatCurrency, formatDate, formatRelativeTime, etc.)
+ * 3. Badge rendering (renderSettingBadge with database-driven colors)
  * 4. Field capability detection (editable vs readonly)
  * 5. Data transformation (API ↔ Frontend)
  *
+ * PERFORMANCE OPTIMIZATIONS:
+ * ✅ LRU cache for field titles (500 entries)
+ * ✅ Cached Intl formatters (currency, date)
+ * ✅ Set-based lookups for O(1) performance
+ * ✅ Reusable formatter functions (no inline lambdas)
+ * ✅ Early exits in pattern matching
+ *
  * ARCHITECTURAL BENEFITS:
- * ✅ Single import for all formatting needs
- * ✅ No API calls - everything is local logic
- * ✅ Convention over configuration (column name determines behavior)
- * ✅ DRY principle - zero duplication
+ * ✅ Single import for all field detection needs
+ * ✅ Zero duplication - ONE pattern system
+ * ✅ Convention over configuration (column name determines everything)
  * ✅ Type-safe with TypeScript
  * ✅ 100% reusable across all components
  *
  * USAGE:
  * ```typescript
- * import {
- *   detectFieldFormat,
- *   formatFieldValue,
- *   renderFieldDisplay,
- *   getEditType
- * } from './universalFormatterService';
+ * import { detectField, formatFieldValue, renderFieldDisplay } from './universalFormatterService';
  *
- * // 1. Detect format from column name + data type
- * const format = detectFieldFormat('budget_allocated_amt', 'numeric');
- * // Returns: { type: 'currency', label: 'Budget Allocated', width: '120px', align: 'right' }
+ * // 1. Detect complete field metadata from column name
+ * const metadata = detectField('budget_allocated_amt', 'numeric');
+ * // Returns: {
+ * //   fieldName: 'Budget Allocated',
+ * //   renderType: 'currency',
+ * //   format: formatCurrency,
+ * //   editable: true,
+ * //   width: '120px',
+ * //   ...
+ * // }
  *
  * // 2. Format value for display
  * const formatted = formatFieldValue(50000, 'currency');
  * // Returns: "$50,000.00"
  *
- * // 3. Render field for display (React element)
+ * // 3. Render field as React element
  * const element = renderFieldDisplay(50000, { type: 'currency' });
  * // Returns: <span>$50,000.00</span>
- *
- * // 4. Get edit type
- * const editType = getEditType('budget_allocated_amt', 'numeric');
- * // Returns: 'number'
  * ```
  */
 
@@ -54,36 +58,74 @@ import { formatters } from './config/locale';
 import { DISPLAY_CONFIG } from './config/display';
 
 // ============================================================================
-// TYPES & INTERFACES
+// TYPES & INTERFACES (Consolidated from both files)
 // ============================================================================
 
+/**
+ * Complete field metadata for tables, forms, and detail views
+ * This is the primary type returned by detectField()
+ */
+export interface UniversalFieldMetadata {
+  fieldName: string;                  // Human-readable label
+  visible: boolean;                   // Show in table columns
+  sortable: boolean;                  // Can be sorted
+  filterable: boolean;                // Can be filtered
+  searchable: boolean;                // Included in text search
+  width: string;                      // Column width (e.g., '120px')
+  align: 'left' | 'center' | 'right'; // Text alignment
+  format: (value: any, record?: any) => string | React.ReactNode; // Display formatter
+  renderType: RenderType;             // Render type category
+  inputType: InputType;               // Input type for forms
+  component?: ComponentType;          // Special component (DAG, MetadataTable, etc.)
+  editable: boolean;                  // Can be edited
+  editType?: EditType;                // Edit input type
+  toApi: (value: any) => any;         // Transform for API submission
+  toDisplay: (value: any) => any;     // Transform for display
+  loadFromSettings?: boolean;         // Load options from settings table
+  loadFromEntity?: string;            // Load options from entity (for FK)
+  pattern: PatternType;               // Detection pattern matched
+  category: CategoryType;             // Field category
+  settingsDatalabel?: string;         // For dl__* fields
+}
+
+export type RenderType =
+  | 'text' | 'badge' | 'currency' | 'percentage' | 'date' | 'timestamp'
+  | 'boolean' | 'json' | 'array' | 'dag' | 'link' | 'truncated';
+
+export type InputType =
+  | 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time'
+  | 'select' | 'multiselect' | 'checkbox' | 'textarea' | 'richtext'
+  | 'tags' | 'jsonb' | 'file' | 'dag-select' | 'readonly';
+
+export type EditType =
+  | 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time'
+  | 'select' | 'multiselect' | 'checkbox' | 'textarea'
+  | 'tags' | 'jsonb' | 'datatable' | 'file' | 'dag-select';
+
+export type ComponentType =
+  | 'DAGVisualizer' | 'MetadataTable' | 'TagsInput'
+  | 'DateRangeVisualizer' | 'FileUpload' | 'RichTextEditor' | 'SearchableMultiSelect';
+
+export type PatternType =
+  | 'CURRENCY' | 'PERCENTAGE' | 'TIMESTAMP' | 'DATE' | 'BOOLEAN' | 'FOREIGN_KEY'
+  | 'COUNT' | 'DATALABEL' | 'STANDARD' | 'JSONB' | 'ARRAY' | 'SYSTEM' | 'UNKNOWN';
+
+export type CategoryType =
+  | 'identity' | 'financial' | 'temporal' | 'reference' | 'boolean'
+  | 'quantitative' | 'standard' | 'structured' | 'system' | 'content';
+
+/**
+ * Legacy type for backwards compatibility
+ * @deprecated Use UniversalFieldMetadata instead
+ */
 export type FormatType =
   | 'text' | 'currency' | 'number' | 'percentage'
   | 'date' | 'datetime' | 'relative-time'
   | 'badge' | 'tags' | 'reference' | 'boolean';
 
-export type EditType =
-  | 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time'
-  | 'select' | 'multiselect' | 'checkbox' | 'boolean'
-  | 'textarea' | 'tags' | 'jsonb' | 'datatable' | 'file'
-  | 'dag-select' | 'readonly';
-
-export interface FieldFormat {
-  type: FormatType;
-  label: string;                      // Human-readable label
-  width: string;                      // Column width (e.g., '120px')
-  align: 'left' | 'center' | 'right'; // Text alignment
-  sortable: boolean;                  // Can be sorted
-  filterable: boolean;                // Can be filtered
-  editable: boolean;                  // Can be edited
-  editType: EditType;                 // Input type for editing
-
-  // Optional properties
-  settingsDatalabel?: string;         // For badge type
-  entityType?: string;                // For reference type
-  dateFormat?: string;                // For date type
-}
-
+/**
+ * Field capability for edit mode detection
+ */
 export interface FieldCapability {
   inlineEditable: boolean;
   editType: EditType;
@@ -94,8 +136,162 @@ export interface FieldCapability {
 }
 
 // ============================================================================
-// PART 1: NAMING CONVENTION DETECTION
+// PERFORMANCE OPTIMIZATIONS - CACHED FORMATTERS
 // ============================================================================
+
+const CURRENCY_FORMATTER = new Intl.NumberFormat('en-CA', {
+  style: 'currency',
+  currency: 'CAD'
+});
+
+const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric'
+});
+
+// ============================================================================
+// PERFORMANCE OPTIMIZATIONS - LRU CACHE FOR FIELD TITLES
+// ============================================================================
+
+// LRU cache for field titles (500 max entries)
+const FIELD_TITLE_CACHE = new Map<string, string>();
+const MAX_CACHE_SIZE = 500;
+
+/**
+ * Export cache clearing function for hot reload / testing
+ */
+export function clearFieldTitleCache(): void {
+  FIELD_TITLE_CACHE.clear();
+}
+
+/**
+ * Memoized field title generator with LRU eviction
+ */
+function memoizedFieldTitle(fieldKey: string): string {
+  if (FIELD_TITLE_CACHE.has(fieldKey)) {
+    return FIELD_TITLE_CACHE.get(fieldKey)!;
+  }
+
+  const title = generateFieldTitleInternal(fieldKey);
+
+  // LRU eviction
+  if (FIELD_TITLE_CACHE.size >= MAX_CACHE_SIZE) {
+    const firstKey = FIELD_TITLE_CACHE.keys().next().value;
+    FIELD_TITLE_CACHE.delete(firstKey);
+  }
+
+  FIELD_TITLE_CACHE.set(fieldKey, title);
+  return title;
+}
+
+/**
+ * Internal field title generator
+ */
+function generateFieldTitleInternal(fieldKey: string): string {
+  // Handle datalabel fields: dl__project_stage → Project Stage (remove 'Dl' prefix)
+  let processedKey = fieldKey;
+
+  if (fieldKey.startsWith('dl__')) {
+    processedKey = fieldKey.substring(4); // Remove 'dl__' prefix
+  }
+
+  // Map specific field names
+  if (processedKey === 'descr') {
+    return 'Description';
+  }
+
+  // Replace '_ts' with '_time' before processing
+  processedKey = processedKey.replace(/_ts$/g, '_time');
+
+  // Replace 'cust_' prefix with 'customer_' for proper formatting
+  processedKey = processedKey.replace(/^cust_/, 'customer_');
+
+  // Standard snake_case conversion
+  return processedKey
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+// Clear cache on module hot reload (Vite HMR)
+if (import.meta.hot) {
+  import.meta.hot.accept(() => {
+    clearFieldTitleCache();
+  });
+}
+
+// ============================================================================
+// KNOWN ENTITIES SET (O(1) lookups)
+// ============================================================================
+
+const KNOWN_ENTITIES = new Set([
+  'employee', 'project', 'task', 'client', 'customer', 'cust',
+  'office', 'business', 'biz', 'supplier', 'product', 'service',
+  'artifact', 'wiki', 'form', 'event', 'calendar', 'person'
+]);
+
+// ============================================================================
+// UNIFIED PATTERN DEFINITIONS (Merged from both files)
+// ============================================================================
+
+/**
+ * Consolidated pattern definitions with priority ordering
+ * Patterns are checked in priority order (1 = highest)
+ */
+const PATTERNS = {
+  system: {
+    regex: /^(id|version|from_ts|to_ts|active_flag|created_ts|updated_ts|created_at|updated_at)$/i,
+    priority: 1
+  },
+  currency: {
+    regex: /_(amt|amount|price|cost)$/i,
+    priority: 2
+  },
+  percentage: {
+    regex: /_(pct|percent|percentage)$/i,
+    priority: 3
+  },
+  timestamp: {
+    regex: /_(ts|at|timestamp)$/i,
+    priority: 4
+  },
+  date: {
+    regex: /_date$/i,
+    priority: 5
+  },
+  datalabel: {
+    regex: /^dl__/i,
+    priority: 6
+  },
+  boolean: {
+    regex: /^(is_|has_|can_|allow_|enable_).*|.*_flag$/i,
+    priority: 7
+  },
+  foreignKey: {
+    regex: /_id$/i,
+    exclude: /^id$/i,
+    priority: 8
+  },
+  count: {
+    regex: /_(count|qty|quantity|hours|minutes|seconds|number)$/i,
+    priority: 9
+  },
+  standard: {
+    exact: new Set(['name', 'code', 'descr', 'description', 'title']), // Set instead of array
+    priority: 10
+  },
+  jsonb: {
+    names: new Set(['metadata', 'attr', 'attributes', 'config', 'settings', 'form_schema', 'workflow_graph']),
+    dataType: 'jsonb',
+    priority: 11
+  },
+  array: {
+    names: new Set([]),  // Empty - no specific array field names
+    dataType: '[]',
+    priority: 12
+  }
+};
 
 /**
  * System fields that should be hidden from UI
@@ -131,7 +327,8 @@ const READONLY_FIELDS = new Set([
 ]);
 
 /**
- * Field naming patterns for detection
+ * Legacy field patterns for getFieldCapability() compatibility
+ * @deprecated Use PATTERNS instead
  */
 const FIELD_PATTERNS = {
   // Currency fields
@@ -168,203 +365,476 @@ const FIELD_PATTERNS = {
   file: /^attachment$|attachment_object_key$|_file$|_document$/i
 };
 
+// ============================================================================
+// OPTIMIZED FORMATTERS (Reuse cached instances)
+// ============================================================================
+
+function formatCurrencyOptimized(value: any): string {
+  if (!value && value !== 0) return '-';
+  return CURRENCY_FORMATTER.format(value);
+}
+
+function formatPercentageOptimized(value: any): string {
+  if (!value && value !== 0) return '-';
+  return `${value}%`;
+}
+
+// Cache for relative time calculations (reduce Date object allocations)
+let lastNowTimestamp = 0;
+let cachedNow = 0;
+const NOW_CACHE_MS = 1000; // Cache for 1 second
+
+function formatRelativeTimeOptimized(value: string): string {
+  if (!value) return '-';
+
+  try {
+    const timestamp = new Date(value).getTime();
+
+    // Use cached 'now' if less than 1 second old
+    const currentTime = Date.now();
+    if (currentTime - lastNowTimestamp > NOW_CACHE_MS) {
+      cachedNow = currentTime;
+      lastNowTimestamp = currentTime;
+    }
+
+    const diffMs = cachedNow - timestamp;
+    const diffMins = Math.floor(diffMs / 60000);
+
+    // Early exits for common cases
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+
+    const diffHours = Math.floor(diffMs / 3600000);
+    if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffDays < 30) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+
+    return formatFriendlyDateOptimized(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function formatFriendlyDateOptimized(value: string): string {
+  if (!value) return '-';
+  try {
+    return DATE_FORMATTER.format(new Date(value));
+  } catch {
+    return String(value);
+  }
+}
+
+function formatBooleanOptimized(value: any): string {
+  return (value === null || value === undefined) ? '-' : (value ? '✓' : '✗');
+}
+
+function formatTruncatedOptimized(value: any, maxLength: number = 100): string {
+  if (!value) return '-';
+  const str = String(value);
+  return str.length > maxLength ? `${str.substring(0, maxLength)}...` : str;
+}
+
+function formatArrayOptimized(value: any[]): string {
+  return (Array.isArray(value) && value.length > 0) ? value.join(', ') : '-';
+}
+
+// ============================================================================
+// OPTIMIZED TRANSFORMERS (Reduce allocations)
+// ============================================================================
+
+function transformArrayToApi(value: any): string[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    return value.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function transformArrayToDisplay(value: any): string {
+  return Array.isArray(value) ? value.join(', ') : String(value || '');
+}
+
+function transformDateToApi(value: any): string {
+  if (!value) return '';
+  if (value instanceof Date) return value.toISOString().split('T')[0];
+  if (typeof value === 'string') return value.split('T')[0];
+  return String(value);
+}
+
+// Reusable transformer functions (avoid inline lambda allocations)
+const identityTransform = (value: any) => value;
+const parseFloatTransform = (v: any) => parseFloat(v) || 0;
+const booleanTransform = (v: any) => Boolean(v);
+const stringTransform = (v: any) => v;
+
+// ============================================================================
+// ENTITY NAME EXTRACTION (Optimized with Set)
+// ============================================================================
+
+function getEntityNameFromFK(fieldKey: string): string | null {
+  if (!fieldKey.endsWith('_id')) return null;
+
+  const withoutId = fieldKey.slice(0, -3); // Faster than replace()
+  const parts = withoutId.split('_');
+  const lastPart = parts[parts.length - 1];
+
+  // O(1) lookup instead of O(n)
+  return KNOWN_ENTITIES.has(lastPart) ? lastPart : withoutId;
+}
+
+// ============================================================================
+// MAIN DETECTOR FUNCTION - SINGLE SOURCE OF TRUTH
+// ============================================================================
+
 /**
- * CORE FUNCTION: Detect field format from column name and data type
+ * CORE FUNCTION: Detect complete field metadata from column name and data type
  *
- * This is the SINGLE SOURCE OF TRUTH for format detection.
+ * This is the SINGLE SOURCE OF TRUTH for field detection.
  * Convention over configuration - column name + data type determine everything.
  *
- * @param columnName - Database column name (e.g., 'budget_allocated_amt')
+ * @param fieldKey - Database column name (e.g., 'budget_allocated_amt')
  * @param dataType - PostgreSQL data type (e.g., 'numeric', 'varchar', 'boolean')
- * @returns Complete field format specification
+ * @returns Complete field metadata including formatters, transforms, UI config
  *
  * @example
- * detectFieldFormat('budget_allocated_amt', 'numeric')
+ * detectField('budget_allocated_amt', 'numeric')
  * // Returns: {
- * //   type: 'currency',
- * //   label: 'Budget Allocated',
+ * //   fieldName: 'Budget Allocated',
+ * //   renderType: 'currency',
+ * //   format: formatCurrencyOptimized,
+ * //   editable: true,
  * //   width: '120px',
  * //   align: 'right',
- * //   editType: 'number',
+ * //   toApi: parseFloatTransform,
  * //   ...
  * // }
  */
-export function detectFieldFormat(columnName: string, dataType: string): FieldFormat {
-  const label = generateFieldLabel(columnName);
-  const isReadonly = READONLY_FIELDS.has(columnName);
-  const isVisible = !isInvisibleField(columnName);
+export function detectField(
+  fieldKey: string,
+  dataType?: string
+): UniversalFieldMetadata {
+  const key = fieldKey.toLowerCase();
 
-  // ⭐ CURRENCY FIELDS → formatCurrency()
-  if (FIELD_PATTERNS.currency.test(columnName)) {
+  // Early pattern checks for common fields (optimize hot path)
+
+  // PATTERN 1: SYSTEM FIELDS
+  if (PATTERNS.system.regex.test(key)) {
+    const isId = key === 'id';
+    const isTimestamp = key.includes('_ts') || key.includes('_at');
+
     return {
-      type: 'currency',
-      label,
+      fieldName: memoizedFieldTitle(fieldKey),
+      visible: !isId,
+      sortable: true,
+      filterable: false,
+      searchable: false,
+      width: isId ? '300px' : '150px',
+      align: 'left',
+      format: isTimestamp ? formatRelativeTimeOptimized : stringTransform,
+      renderType: isTimestamp ? 'timestamp' : 'text',
+      inputType: 'readonly',
+      editable: false,
+      toApi: identityTransform,
+      toDisplay: identityTransform,
+      pattern: 'SYSTEM',
+      category: 'system'
+    };
+  }
+
+  // PATTERN 2: CURRENCY (hot path optimization)
+  if (PATTERNS.currency.regex.test(key)) {
+    return {
+      fieldName: memoizedFieldTitle(fieldKey),
+      visible: true,
+      sortable: true,
+      filterable: true,
+      searchable: false,
       width: '120px',
       align: 'right',
-      sortable: true,
-      filterable: true,
-      editable: !isReadonly,
-      editType: isReadonly ? 'readonly' : 'number'
+      format: formatCurrencyOptimized,
+      renderType: 'currency',
+      inputType: 'currency',
+      editable: true,
+      editType: 'currency',
+      toApi: parseFloatTransform,
+      toDisplay: identityTransform,
+      pattern: 'CURRENCY',
+      category: 'financial'
     };
   }
 
-  // ⭐ PERCENTAGE FIELDS → formatPercentage()
-  if (FIELD_PATTERNS.percentage.test(columnName)) {
+  // PATTERN 3: PERCENTAGE
+  if (PATTERNS.percentage.regex.test(key)) {
     return {
-      type: 'percentage',
-      label,
+      fieldName: memoizedFieldTitle(fieldKey),
+      visible: true,
+      sortable: true,
+      filterable: true,
+      searchable: false,
       width: '100px',
       align: 'right',
-      sortable: true,
-      filterable: true,
-      editable: !isReadonly,
-      editType: isReadonly ? 'readonly' : 'number'
+      format: formatPercentageOptimized,
+      renderType: 'percentage',
+      inputType: 'number',
+      editable: true,
+      editType: 'text',
+      toApi: parseFloatTransform,
+      toDisplay: identityTransform,
+      pattern: 'PERCENTAGE',
+      category: 'financial'
     };
   }
 
-  // ⭐ SETTINGS FIELDS (dl__*) → renderSettingBadge()
-  if (FIELD_PATTERNS.settings.test(columnName)) {
+  // PATTERN 4: TIMESTAMP
+  if (PATTERNS.timestamp.regex.test(key)) {
+    const isEditable = !key.includes('created') && !key.includes('updated');
+
     return {
-      type: 'badge',
-      label,
+      fieldName: memoizedFieldTitle(fieldKey),
+      visible: true,
+      sortable: true,
+      filterable: false,
+      searchable: false,
       width: '150px',
-      align: 'center',
-      sortable: true,
-      filterable: true,
-      editable: !isReadonly,
-      editType: isReadonly ? 'readonly' : 'select',
-      settingsDatalabel: columnName.replace('dl__', '')
+      align: 'left',
+      format: formatRelativeTimeOptimized,
+      renderType: 'timestamp',
+      inputType: 'datetime',
+      editable: isEditable,
+      editType: 'text',
+      toApi: identityTransform,
+      toDisplay: identityTransform,
+      pattern: 'TIMESTAMP',
+      category: 'temporal'
     };
   }
 
-  // ⭐ BOOLEAN FIELDS → checkbox + badge
-  if (dataType === 'boolean' || FIELD_PATTERNS.boolean.test(columnName)) {
+  // PATTERN 5: DATE
+  if (PATTERNS.date.regex.test(key)) {
     return {
-      type: 'boolean',
-      label,
-      width: '100px',
-      align: 'center',
+      fieldName: memoizedFieldTitle(fieldKey),
+      visible: true,
       sortable: true,
       filterable: true,
-      editable: !isReadonly,
-      editType: isReadonly ? 'readonly' : 'boolean'
-    };
-  }
-
-  // ⭐ DATE FIELDS → formatDate()
-  if (dataType === 'date' || FIELD_PATTERNS.date.test(columnName)) {
-    return {
-      type: 'date',
-      label,
+      searchable: false,
       width: '120px',
       align: 'left',
-      sortable: true,
-      filterable: true,
-      editable: !isReadonly,
-      editType: isReadonly ? 'readonly' : 'date',
-      dateFormat: 'MMM DD, YYYY'
+      format: formatFriendlyDateOptimized,
+      renderType: 'date',
+      inputType: 'date',
+      editable: true,
+      editType: 'text',
+      toApi: transformDateToApi,
+      toDisplay: identityTransform,
+      pattern: 'DATE',
+      category: 'temporal'
     };
   }
 
-  // ⭐ TIMESTAMP FIELDS → formatRelativeTime() or formatDateTime()
-  if ((dataType === 'timestamp with time zone' || dataType === 'timestamp without time zone') ||
-      FIELD_PATTERNS.timestamp.test(columnName)) {
-    // System timestamps (created_ts, updated_ts) use relative time
-    if (columnName.match(/^(created|updated)_ts$/)) {
-      return {
-        type: 'relative-time',
-        label,
-        width: '150px',
-        align: 'left',
-        sortable: true,
-        filterable: true,
-        editable: false,
-        editType: 'readonly'
-      };
-    }
+  // PATTERN 6: DATALABEL
+  if (PATTERNS.datalabel.regex.test(key)) {
+    const isStageOrFunnel = key.includes('stage') || key.includes('funnel');
 
-    // Other timestamps use datetime format
     return {
-      type: 'datetime',
-      label,
-      width: '150px',
-      align: 'left',
+      fieldName: memoizedFieldTitle(fieldKey),
+      visible: true,
       sortable: true,
       filterable: true,
-      editable: !isReadonly,
-      editType: isReadonly ? 'readonly' : 'date'
+      searchable: false,
+      width: '130px',
+      align: 'left',
+      format: stringTransform,
+      renderType: 'badge',
+      inputType: isStageOrFunnel ? 'dag-select' : 'select',
+      component: isStageOrFunnel ? 'DAGVisualizer' : undefined,
+      editable: true,
+      editType: 'select',
+      loadFromSettings: true,
+      settingsDatalabel: fieldKey.replace(/^dl__/, ''),
+      toApi: identityTransform,
+      toDisplay: identityTransform,
+      pattern: 'DATALABEL',
+      category: 'reference'
     };
   }
 
-  // ⭐ TAG/ARRAY FIELDS → renderTags()
-  if (dataType === 'ARRAY' || dataType.startsWith('_') || FIELD_PATTERNS.tags.test(columnName)) {
+  // PATTERN 7: BOOLEAN
+  if (PATTERNS.boolean.regex.test(key)) {
     return {
-      type: 'tags',
-      label,
+      fieldName: memoizedFieldTitle(fieldKey),
+      visible: true,
+      sortable: true,
+      filterable: true,
+      searchable: false,
+      width: '80px',
+      align: 'center',
+      format: formatBooleanOptimized,
+      renderType: 'boolean',
+      inputType: 'checkbox',
+      editable: true,
+      editType: 'checkbox',
+      toApi: booleanTransform,
+      toDisplay: identityTransform,
+      pattern: 'BOOLEAN',
+      category: 'boolean'
+    };
+  }
+
+  // PATTERN 8: FOREIGN KEY
+  if (PATTERNS.foreignKey.regex.test(key) && !PATTERNS.foreignKey.exclude.test(key)) {
+    const entityName = getEntityNameFromFK(fieldKey);
+
+    return {
+      fieldName: memoizedFieldTitle(fieldKey),
+      visible: false,
+      sortable: true,
+      filterable: true,
+      searchable: false,
       width: '150px',
       align: 'left',
+      format: stringTransform,
+      renderType: 'text',
+      inputType: 'select',
+      editable: true,
+      editType: 'select',
+      loadFromEntity: entityName || undefined,
+      toApi: identityTransform,
+      toDisplay: identityTransform,
+      pattern: 'FOREIGN_KEY',
+      category: 'reference'
+    };
+  }
+
+  // PATTERN 9: COUNT
+  if (PATTERNS.count.regex.test(key)) {
+    return {
+      fieldName: memoizedFieldTitle(fieldKey),
+      visible: true,
+      sortable: true,
+      filterable: true,
+      searchable: false,
+      width: '100px',
+      align: 'right',
+      format: stringTransform,
+      renderType: 'text',
+      inputType: 'number',
+      editable: true,
+      editType: 'number',
+      toApi: parseFloatTransform,
+      toDisplay: identityTransform,
+      pattern: 'COUNT',
+      category: 'quantitative'
+    };
+  }
+
+  // PATTERN 10: STANDARD (using Set for O(1) lookup)
+  if (PATTERNS.standard.exact.has(key)) {
+    const isName = key === 'name';
+
+    return {
+      fieldName: memoizedFieldTitle(fieldKey),
+      visible: true,
+      sortable: true,
+      filterable: true,
+      searchable: isName,
+      width: isName ? '200px' : '150px',
+      align: 'left',
+      format: stringTransform,
+      renderType: 'text',
+      inputType: isName ? 'text' : 'textarea',
+      editable: true,
+      editType: isName ? 'text' : 'textarea',
+      toApi: identityTransform,
+      toDisplay: identityTransform,
+      pattern: 'STANDARD',
+      category: 'standard'
+    };
+  }
+
+  // PATTERN 11: JSONB (using Set for O(1) lookup)
+  if (PATTERNS.jsonb.names.has(key) || dataType?.includes('jsonb')) {
+    // Hide metadata fields from table view (but keep in data for detail views)
+    const isMetadata = key.includes('metadata');
+
+    return {
+      fieldName: memoizedFieldTitle(fieldKey),
+      visible: !isMetadata,  // Hide metadata from tables, but keep in forms/detail views
       sortable: false,
-      filterable: true,
-      editable: !isReadonly,
-      editType: isReadonly ? 'readonly' : 'tags'
-    };
-  }
-
-  // ⭐ REFERENCE FIELDS (*_id) → renderReference()
-  if (FIELD_PATTERNS.reference.test(columnName) && dataType === 'uuid') {
-    const entityType = extractEntityType(columnName);
-    return {
-      type: 'reference',
-      label,
+      filterable: false,
+      searchable: false,
       width: '150px',
       align: 'left',
-      sortable: true,
-      filterable: true,
-      editable: !isReadonly,
-      editType: isReadonly ? 'readonly' : 'text',
-      entityType
+      format: (v: any) => v ? 'JSON {...}' : '-',
+      renderType: 'json',
+      inputType: 'jsonb',
+      component: 'MetadataTable',
+      editable: true,
+      editType: 'datatable',
+      toApi: identityTransform,
+      toDisplay: identityTransform,
+      pattern: 'JSONB',
+      category: 'structured'
     };
   }
 
-  // ⭐ NUMERIC FIELDS → formatNumber()
-  if (['integer', 'bigint', 'numeric', 'decimal', 'double precision', 'real'].includes(dataType)) {
+  // PATTERN 12: ARRAY (using Set for O(1) lookup)
+  if (PATTERNS.array.names.has(key) || dataType?.includes('[]')) {
     return {
-      type: 'number',
-      label,
-      width: '100px',
-      align: 'right',
-      sortable: true,
-      filterable: true,
-      editable: !isReadonly,
-      editType: isReadonly ? 'readonly' : 'number'
-    };
-  }
-
-  // ⭐ FILE FIELDS → file upload
-  if (FIELD_PATTERNS.file.test(columnName)) {
-    return {
-      type: 'text',
-      label,
-      width: '150px',
+      fieldName: memoizedFieldTitle(fieldKey),
+      visible: true,
+      sortable: false,
+      filterable: false,
+      searchable: false,
+      width: '200px',
       align: 'left',
-      sortable: true,
-      filterable: true,
-      editable: !isReadonly,
-      editType: isReadonly ? 'readonly' : 'file'
+      format: formatArrayOptimized,
+      renderType: 'array',
+      inputType: 'text',
+      editable: true,
+      editType: 'text',
+      toApi: transformArrayToApi,
+      toDisplay: transformArrayToDisplay,
+      pattern: 'ARRAY',
+      category: 'structured'
     };
   }
 
-  // ⭐ DEFAULT: Plain text
+  // FALLBACK: UNKNOWN
   return {
-    type: 'text',
-    label,
-    width: columnName === 'name' ? '200px' : columnName === 'code' ? '120px' : '150px',
-    align: 'left',
+    fieldName: memoizedFieldTitle(fieldKey),
+    visible: true,
     sortable: true,
     filterable: true,
-    editable: !isReadonly,
-    editType: isReadonly ? 'readonly' : 'text'
+    searchable: true,
+    width: '150px',
+    align: 'left',
+    format: formatTruncatedOptimized,
+    renderType: 'truncated',
+    inputType: 'text',
+    editable: true,
+    editType: 'text',
+    toApi: identityTransform,
+    toDisplay: identityTransform,
+    pattern: 'UNKNOWN',
+    category: 'content'
   };
+}
+
+/**
+ * Batch detection with shared cache
+ */
+export function detectFields(fieldKeys: string[], dataTypes?: Record<string, string>) {
+  return fieldKeys.map(key => detectField(key, dataTypes?.[key]));
+}
+
+/**
+ * Cache clearing utility (for testing or memory management)
+ */
+export function clearFieldCache() {
+  FIELD_TITLE_CACHE.clear();
+  lastNowTimestamp = 0;
+  cachedNow = 0;
 }
 
 /**
@@ -1144,10 +1614,13 @@ function getAcceptedFileTypes(fieldName: string): string {
 // ============================================================================
 
 export default {
-  // Format detection
-  detectFieldFormat,
+  // Field detection (CONSOLIDATED)
+  detectField,
+  detectFields,
   generateFieldLabel,
   getEditType,
+  clearFieldCache,
+  clearFieldTitleCache,
 
   // Value formatting
   formatFieldValue,
