@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS app.orchestrator_session (
   status varchar(50) DEFAULT 'active', -- 'active', 'paused', 'completed', 'failed'
 
   -- Session context (key entities)
-  session_context jsonb DEFAULT '{}'::jsonb, -- {customer_id, booking_id, job_id, etc.}
+  session_context jsonb DEFAULT '{}'::jsonb, -- {customer_id, calendar_event_id, job_id, etc.}
 
   -- Conversation summaries for context retention
   conversation_summary text,

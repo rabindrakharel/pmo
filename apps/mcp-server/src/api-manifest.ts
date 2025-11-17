@@ -1761,37 +1761,6 @@ export const API_MANIFEST: APIEndpoint[] = [
     }
   },
 
-  // ==================== BOOKING ====================
-  {
-    name: 'booking_list',
-    method: 'GET',
-    path: '/api/v1/booking',
-    description: 'List all bookings/appointments',
-    requiresAuth: false,
-    category: 'Booking'
-  },
-  {
-    name: 'booking_get',
-    method: 'GET',
-    path: '/api/v1/booking/:id',
-    description: 'Get single booking',
-    requiresAuth: false,
-    category: 'Booking',
-    parameters: {
-      path: {
-        id: 'Booking UUID'
-      }
-    }
-  },
-  {
-    name: 'booking_create',
-    method: 'POST',
-    path: '/api/v1/booking',
-    description: 'Create new booking/appointment',
-    requiresAuth: false,
-    category: 'Booking'
-  },
-
   // ==================== HEALTH ====================
   {
     name: 'health_check',
@@ -1847,7 +1816,6 @@ export const API_CATEGORIES = [
   'Interaction',
   'Calendar',
   'Chat',
-  'Booking',
   'System'
 ] as const;
 

@@ -20,8 +20,6 @@ export interface ChatSession {
   model_used: string;
   total_tokens: number;
   total_cost_cents: number;
-  booking_created_flag: boolean;
-  booking_id?: string;
   created_ts: string;
   updated_ts: string;
 }
@@ -47,8 +45,6 @@ export interface ChatMessageResponse {
   session_id: string;
   response: string;
   function_calls?: FunctionCallResult[];
-  booking_created: boolean;
-  booking_number?: string;
   tokens_used: number;
   timestamp: string;
 }
@@ -93,34 +89,6 @@ export interface TimeSlot {
   available: boolean;
   employee_id: string;
   employee_name: string;
-}
-
-export interface BookingRequest {
-  service_id: string;
-  customer_name: string;
-  customer_phone: string;
-  customer_email?: string;
-  customer_address: string;
-  customer_city?: string;
-  customer_province?: string;
-  customer_postal_code?: string;
-  requested_date: string; // YYYY-MM-DD
-  requested_time_start: string; // HH:MM
-  requested_time_end?: string;
-  assigned_employee_id?: string;
-  special_instructions?: string;
-  urgency_level?: 'low' | 'normal' | 'high' | 'emergency';
-}
-
-export interface BookingResponse {
-  booking_id: string;
-  booking_number: string;
-  service_name: string;
-  requested_date: string;
-  requested_time: string;
-  estimated_cost: number;
-  status: string;
-  assigned_employee_name?: string;
 }
 
 export interface OpenAIFunctionCall {

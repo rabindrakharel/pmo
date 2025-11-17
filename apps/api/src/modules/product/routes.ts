@@ -1,9 +1,22 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import { filterUniversalColumns, createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
+// ✅ Centralized unified data gate - loosely coupled API
+import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+// ✨ Entity Infrastructure Service - centralized infrastructure operations
+import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
+// ✨ Universal auto-filter builder - zero-config query filtering
+import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_TYPE = 'product';
+const TABLE_ALIAS = 'p';
 
 const ProductSchema = Type.Object({
   id: Type.String(),
@@ -43,6 +56,9 @@ const CreateProductSchema = Type.Object({
 const UpdateProductSchema = Type.Partial(CreateProductSchema);
 
 export async function productRoutes(fastify: FastifyInstance) {
+  // ✨ Initialize Entity Infrastructure Service
+  const entityInfra = getEntityInfrastructure(db);
+
   // List products
   fastify.get('/api/v1/product', {
     preHandler: [fastify.authenticate],
@@ -65,7 +81,7 @@ export async function productRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { active, search, product_category, limit = 20, offset: queryOffset, page } = request.query as any;
+    const { limit = 20, offset: queryOffset, page } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
     const userId = (request as any).user?.sub;
 
@@ -74,35 +90,22 @@ export async function productRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const baseConditions = [
-        sql`EXISTS (
-          SELECT 1 FROM app.d_entity_rbac rbac
-          WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-            AND rbac.entity_name = 'product'
-            AND (rbac.entity_id = p.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-            AND rbac.active_flag = true
-            AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-            AND rbac.permission >= 0
-        )`
-      ];
+      // Build WHERE conditions array
+      const conditions: SQL[] = [];
 
-      const conditions = [...baseConditions];
+      // ✨ UNIFIED RBAC - Use centralized RBAC gate for permission filtering
+      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
+        userId, ENTITY_TYPE, Permission.VIEW, TABLE_ALIAS
+      );
+      conditions.push(rbacCondition);
 
-      if (active !== undefined) {
-        conditions.push(sql`p.active_flag = ${active}`);
-      }
-
-      if (product_category) {
-        conditions.push(sql`p.product_category = ${product_category}`);
-      }
-
-      if (search) {
-        conditions.push(sql`(
-          p.name ILIKE ${`%${search}%`} OR
-          p.descr ILIKE ${`%${search}%`} OR
-          p.code ILIKE ${`%${search}%`}
-        )`);
-      }
+      // ✨ UNIVERSAL AUTO-FILTER SYSTEM
+      // Automatically builds filters from ANY query parameter based on field naming conventions
+      // Supports: ?product_category=X, ?active_flag=true, ?search=keyword, etc.
+      const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query as any, {
+        searchFields: ['name', 'code', 'descr', 'supplier_name']
+      });
+      conditions.push(...autoFilters);
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
@@ -140,21 +143,13 @@ export async function productRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    const access = await db.execute(sql`
-      SELECT 1 FROM app.d_entity_rbac rbac
-      WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-        AND rbac.entity_name = 'product'
-        AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND rbac.permission >= 0
-    `);
-
-    if (access.length === 0) {
-      return reply.status(403).send({ error: 'Insufficient permissions' });
-    }
-
     try {
+      // ✨ ENTITY INFRASTRUCTURE - Use centralized RBAC check
+      const canView = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.VIEW);
+      if (!canView) {
+        return reply.status(403).send({ error: 'Insufficient permissions' });
+      }
+
       const product = await db.execute(sql`
         SELECT * FROM app.d_product WHERE id = ${id}
       `);
@@ -310,6 +305,11 @@ export async function productRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Delete product
-  createEntityDeleteEndpoint(fastify, 'product');
+  // ============================================================================
+  // ✨ FACTORY-GENERATED ENDPOINTS
+  // ============================================================================
+
+  // ✨ Factory-generated DELETE endpoint
+  // Provides cascading soft delete for product and linked entities
+  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 }

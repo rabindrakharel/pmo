@@ -560,9 +560,6 @@
           },
           "if_project_mentioned": {
             "add_entities": ["Project", "Wiki", "Artifact", "Form"]
-          },
-          "if_appointment_booking": {
-            "add_entities": ["Booking", "Interaction"]
           }
         },
         "always_include_categories": ["Settings", "Linkage"],

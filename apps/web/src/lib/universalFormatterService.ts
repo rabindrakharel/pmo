@@ -419,7 +419,7 @@ function isInvisibleField(columnName: string): boolean {
  * extractEntityType('project_id') → 'project'
  */
 function extractEntityType(columnName: string): string | undefined {
-  const match = columnName.match(/^(.+?)_?(employee|project|task|business|office|customer|role|cust|event|calendar|booking)_id$/);
+  const match = columnName.match(/^(.+?)_?(employee|project|task|business|office|customer|role|cust|event|calendar)_id$/);
   if (match) {
     const entityType = match[2];
     return entityType === 'cust' ? 'customer' : entityType;

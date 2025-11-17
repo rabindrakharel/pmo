@@ -149,8 +149,6 @@ export async function getSession(sessionId: string): Promise<ChatSession | null>
       model_used: row.model_used || 'gpt-4',
       total_tokens: metadata?.total_tokens || 0,
       total_cost_cents: metadata?.total_cost_cents || 0,
-      booking_created_flag: false, // Will be determined below
-      booking_id: undefined,
       created_ts: row.created_ts,
       updated_ts: row.updated_ts
     };
@@ -170,7 +168,6 @@ export async function updateSession(
     total_tokens?: number;
     total_cost_cents?: number;
     model_used?: string;
-    booking_id?: string;
     function_calls?: string[];
   }
 ): Promise<void> {
@@ -214,21 +211,6 @@ export async function updateSession(
     `;
 
     await updateQuery;
-
-    // If booking was created, update metadata with resolution info
-    if (metadata.booking_id) {
-      await client`
-        UPDATE app.f_customer_interaction
-        SET
-          metadata = metadata || ${JSON.stringify({
-            resolution_status: 'resolved',
-            first_contact_resolution: true,
-            follow_up_required: false,
-            booking_id: metadata.booking_id
-          })}::jsonb
-        WHERE id = ${sessionId}::uuid
-      `;
-    }
 
   } catch (error) {
     console.error('Error updating session:', error);

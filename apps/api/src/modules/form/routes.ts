@@ -46,6 +46,8 @@ import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js'
 import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
 import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
+// ✨ Universal auto-filter builder - zero-config query filtering
+import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 
 // Response schema matching minimalistic database structure
 const FormSchema = Type.Object({

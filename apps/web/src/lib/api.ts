@@ -1121,9 +1121,6 @@ APIFactory.register('message_schema', createEntityAPI('/api/v1/message-schema'))
 APIFactory.register('workflow', createEntityAPI('/api/v1/workflow'));
 APIFactory.register('workflow_automation', createEntityAPI('/api/v1/workflow-automation'));
 
-// Booking
-APIFactory.register('booking', createEntityAPI('/api/v1/booking'));
-
 // Reports
 APIFactory.register('reports', createEntityAPI('/api/v1/reports'));
 

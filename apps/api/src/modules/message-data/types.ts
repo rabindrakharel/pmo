@@ -59,7 +59,6 @@ export interface EmailAttachment {
  */
 export interface MessageMetadata {
   event_id?: string;
-  booking_id?: string;
   priority?: 'standard' | 'high';
   template_id?: string;
   [key: string]: any;
