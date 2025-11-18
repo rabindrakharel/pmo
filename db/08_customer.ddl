@@ -50,7 +50,7 @@
 --      WHERE c.active_flag=true
 --        AND EXISTS (
 --          SELECT 1 FROM entity_rbac rbac
---          WHERE rbac.person_entity_name='employee' AND rbac.person_entity_id=$user_id
+--          WHERE rbac.person_code='employee' AND rbac.person_id=$user_id
 --            AND rbac.entity='cust'
 --            AND (rbac.entity_id=c.id::text OR rbac.entity_id='11111111-1111-1111-1111-111111111111')
 --            AND 0=ANY(rbac.permission)  -- View permission
@@ -70,10 +70,10 @@
 --    • Endpoint: GET /api/v1/cust/{id}/project?project_stage=Execution&limit=20
 --    • Database:
 --      SELECT p.* FROM d_project p
---      INNER JOIN entity_id_map eim ON eim.child_entity_id=p.id
---      WHERE eim.parent_entity_id=$1
---        AND eim.parent_entity_type='cust'
---        AND eim.child_entity_type='project'
+--      INNER JOIN entity_id_map eim ON eim.child_entity_instance_id=p.id
+--      WHERE eim.entity_instance_id=$1
+--        AND eim.entity_code='cust'
+--        AND eim.child_entity_code='project'
 --        AND p.active_flag=true
 --      ORDER BY p.created_ts DESC
 --    • Relationship: Via entity_id_map (flexible customer-project relationships)
@@ -88,8 +88,8 @@
 --        COUNT(p.id) AS project_count,
 --        SUM(p.budget_spent) AS total_project_spending
 --      FROM d_cust c
---      LEFT JOIN entity_id_map eim ON eim.parent_entity_id=c.id AND eim.parent_entity_type='cust'
---      LEFT JOIN d_project p ON p.id=eim.child_entity_id AND p.active_flag=true
+--      LEFT JOIN entity_id_map eim ON eim.entity_instance_id=c.id AND eim.entity_code='cust'
+--      LEFT JOIN d_project p ON p.id=eim.child_entity_instance_id AND p.active_flag=true
 --      WHERE c.id=$1
 --      GROUP BY c.id
 --    • Business Rule: Provides customer lifetime value and project spending analytics
@@ -165,9 +165,9 @@
 -- ============================================================================
 
 CREATE TABLE app.cust (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code varchar(50) UNIQUE NOT NULL,
-  name varchar(200) NOT NULL,
+  id uuid DEFAULT gen_random_uuid(),
+  code varchar(50),
+  name varchar(200),
   descr text,
   metadata jsonb DEFAULT '{}'::jsonb,
   active_flag boolean DEFAULT true,
@@ -178,9 +178,9 @@ CREATE TABLE app.cust (
   version integer DEFAULT 1,
 
   -- Customer identification
-  cust_number text NOT NULL,
-  cust_type text NOT NULL DEFAULT 'residential',
-  cust_status text NOT NULL DEFAULT 'active',
+  cust_number text,
+  cust_type text DEFAULT 'residential',
+  cust_status text DEFAULT 'active',
 
 
   -- Address and location (no direct FK - use entity_id_hierarchy_mapping)

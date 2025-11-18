@@ -19,24 +19,24 @@
 -- ============================================================================
 
 CREATE TABLE app.worksite (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id uuid DEFAULT gen_random_uuid(),
 
   -- Standard fields (common across all entities) - ALWAYS FIRST
   code varchar(100),
-  name text NOT NULL,
+  name text,
   descr text,
-  from_ts timestamptz NOT NULL DEFAULT now(),
+  from_ts timestamptz DEFAULT now(),
   to_ts timestamptz,
-  active_flag boolean NOT NULL DEFAULT true,
-  created_ts timestamptz NOT NULL DEFAULT now(),
-  updated_ts timestamptz NOT NULL DEFAULT now(),
+  active_flag boolean DEFAULT true,
+  created_ts timestamptz DEFAULT now(),
+  updated_ts timestamptz DEFAULT now(),
   version integer DEFAULT 1,
 
   -- Entity metadata (new standard)
   metadata jsonb DEFAULT '{}'::jsonb,
 
   -- Worksite-specific fields
-  worksite_type text NOT NULL DEFAULT 'project',
+  worksite_type text DEFAULT 'project',
 
   -- Location and organizational context (no direct FKs - use entity_id_hierarchy_mapping)
   addr text,

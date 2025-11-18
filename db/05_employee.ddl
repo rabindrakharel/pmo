@@ -16,7 +16,7 @@
 -- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • Parent: role (via entity_instance_link)
 -- • Self: manager_employee_id → employee.id
--- • RBAC: entity_rbac.person_entity_id (where person_entity_name='employee')
+-- • RBAC: entity_rbac.person_id (where person_code='employee')
 --
 -- SECURITY:
 -- • Account lockout: 5 failed attempts → 30 min lock
@@ -25,9 +25,9 @@
 -- =====================================================
 
 CREATE TABLE app.employee (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code varchar(50) UNIQUE NOT NULL,
-  name varchar(200) NOT NULL,
+  id uuid DEFAULT gen_random_uuid(),
+  code varchar(50),
+  name varchar(200),
   descr text,
   metadata jsonb DEFAULT '{}'::jsonb,
   active_flag boolean DEFAULT true,
@@ -38,7 +38,7 @@ CREATE TABLE app.employee (
   version integer DEFAULT 1,
 
   -- Employee-specific fields
-  email varchar(255) UNIQUE NOT NULL,
+  email varchar(255),
   password_hash varchar(255),
   first_name varchar(100),
   last_name varchar(100),
@@ -436,32 +436,28 @@ BEGIN
 END $$;
 
 -- =====================================================
--- REGISTER ALL EMPLOYEES IN d_entity_instance_registry
+-- REGISTER ALL EMPLOYEES IN entity_instance
 -- =====================================================
 
-INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT 'employee', id, name, code
 FROM app.employee
-WHERE active_flag = true
-ON CONFLICT (entity_type, entity_id) DO UPDATE
-SET entity_name = EXCLUDED.entity_name,
-    entity_code = EXCLUDED.entity_code,
-    updated_ts = now();
+WHERE active_flag = true;
 
 -- =====================================================
 -- ASSIGN ROLES TO EMPLOYEES VIA entity_instance_link
 -- =====================================================
 
 -- Clear existing employee-role mappings
-DELETE FROM app.entity_instance_link WHERE child_entity_type = 'employee';
+DELETE FROM app.entity_instance_link WHERE child_entity_code = 'employee';
 
 -- Assign roles to all employees based on their titles
-INSERT INTO app.entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
 SELECT
     'role',
-    r.id::text,
+    r.id,
     'employee',
-    e.id::text,
+    e.id,
     'assigned_to'
 FROM app.employee e
 INNER JOIN app.role r ON (
@@ -492,20 +488,20 @@ INNER JOIN app.role r ON (
 WHERE e.active_flag = true;
 
 -- Assign generic field technician role to any employee without a role match
-INSERT INTO app.entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
 SELECT
     'role',
-    (SELECT id FROM app.role WHERE role_code = 'TECH-FIELD')::text,
+    (SELECT id FROM app.role WHERE role_code = 'TECH-FIELD'),
     'employee',
-    e.id::text,
+    e.id,
     'assigned_to'
 FROM app.employee e
 WHERE e.active_flag = true
   AND NOT EXISTS (
     SELECT 1 FROM app.entity_instance_link eim
-    WHERE eim.child_entity_id = e.id::text
-      AND eim.child_entity_type = 'employee'
-      AND eim.parent_entity_type = 'role'
+    WHERE eim.child_entity_instance_id = e.id
+      AND eim.child_entity_code = 'employee'
+      AND eim.entity_code = 'role'
   );
 
 -- Show statistics
@@ -513,9 +509,8 @@ SELECT
     r.name as role_name,
     COUNT(*) as employee_count
 FROM app.entity_instance_link eim
-INNER JOIN app.role r ON r.id::text = eim.parent_entity_id
-WHERE eim.parent_entity_type = 'role'
-  AND eim.child_entity_type = 'employee'
-  AND eim.active_flag = true
+INNER JOIN app.role r ON r.id = eim.entity_instance_id
+WHERE eim.entity_code = 'role'
+  AND eim.child_entity_code = 'employee'
 GROUP BY r.name
 ORDER BY employee_count DESC;

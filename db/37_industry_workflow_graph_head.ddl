@@ -36,18 +36,18 @@
 
 CREATE TABLE app.industry_workflow_graph_head (
     -- Standard identity fields
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    code varchar(50) UNIQUE NOT NULL,
-    name text NOT NULL,
+    id uuid DEFAULT gen_random_uuid(),
+    code varchar(50),
+    name text,
     descr text,
     metadata jsonb DEFAULT '{}'::jsonb,
 
     -- Industry classification
-    industry_sector text NOT NULL,
+    industry_sector text,
     industry_subsector text,
 
     -- Workflow graph structure
-    workflow_graph jsonb NOT NULL,
+    workflow_graph jsonb,
 
     -- Workflow configuration
     workflow_version varchar(20) DEFAULT '1.0',

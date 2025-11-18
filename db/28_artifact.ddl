@@ -21,9 +21,9 @@
 -- =====================================================
 
 CREATE TABLE app.artifact (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    code varchar(50) UNIQUE NOT NULL,
-    name varchar(200) NOT NULL,
+    id uuid DEFAULT gen_random_uuid(),
+    code varchar(50),
+    name varchar(200),
     descr text,
     metadata jsonb DEFAULT '{}'::jsonb,
     active_flag boolean DEFAULT true,
@@ -206,7 +206,7 @@ INSERT INTO app.artifact (code, name, descr, metadata,
     visibility, dl__artifact_security_classification, latest_version_flag
 )
 SELECT
-    'ART-DOC-' || lpad(row_number() OVER ()::text, 3, '0'),
+    'ART-DOC-' || lpad(row_number() OVER (), 3, '0'),
     name,
     descr,
     '{"technical_review": true, "revision_date": current_date, "approved_by": "Engineering"}'::jsonb,
@@ -233,7 +233,7 @@ INSERT INTO app.artifact (code, name, descr, metadata,
     visibility, dl__artifact_security_classification, latest_version_flag
 )
 SELECT
-    'ART-VID-' || lpad(row_number() OVER ()::text, 3, '0'),
+    'ART-VID-' || lpad(row_number() OVER (), 3, '0'),
     name,
     descr,
     jsonb_build_object(
@@ -264,24 +264,24 @@ FROM (VALUES
 -- =====================================================
 
 -- Link all artifacts to their parent entities
-INSERT INTO app.entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
 SELECT
     a.entity_type,
-    a.entity_id::text,
+    a.entity_id,
     'artifact',
-    a.id::text,
+    a.id,
     'contains'
 FROM app.artifact a
-WHERE a.entity_id IS NOT NULL
-  AND a.entity_type IS NOT NULL
+WHERE a.entity_id IS
+  AND a.entity_type IS
   AND a.active_flag = true
 ON CONFLICT DO NOTHING;
 
 -- =====================================================
--- REGISTER ARTIFACTS IN d_entity_instance_registry
+-- REGISTER ARTIFACTS IN entity_instance
 -- =====================================================
 
-INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code entity_code)
+INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code entity_code)
 SELECT 'artifact', id, name, code
 FROM app.artifact
 WHERE active_flag = true
@@ -314,7 +314,7 @@ SELECT
     array_agg(DISTINCT dl__artifact_type) as artifact_types
 FROM app.artifact
 WHERE active_flag = true
-  AND entity_type IS NOT NULL
+  AND entity_type IS
 GROUP BY entity_type
 ORDER BY artifact_count DESC;
 

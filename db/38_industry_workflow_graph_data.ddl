@@ -47,18 +47,18 @@
 
 CREATE TABLE app.industry_workflow_graph_data (
     -- Standard identity fields
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    workflow_instance_id text UNIQUE NOT NULL,
-    code varchar(50) UNIQUE NOT NULL,
-    name text NOT NULL,
+    id uuid DEFAULT gen_random_uuid(),
+    workflow_instance_id text,
+    code varchar(50),
+    name text,
     descr text,
     metadata jsonb DEFAULT '{}'::jsonb,
 
     -- Workflow template reference
-    workflow_head_id uuid NOT NULL,
+    workflow_head_id uuid,
 
     -- Entity graph data (JSONB array following template structure with actual entity IDs)
-    workflow_graph_data jsonb NOT NULL,
+    workflow_graph_data jsonb,
 
     -- Current state tracking
     current_state_id integer,
@@ -106,7 +106,7 @@ SELECT
         jsonb_build_object(
             'id', 0,
             'entity_name', 'cust',
-            'entity_id', c.id::text,
+            'entity_id', c.id,
             'parent_ids', '[]'::jsonb,
             'current_flag', false,
             'terminal_flag', false
@@ -114,7 +114,7 @@ SELECT
         jsonb_build_object(
             'id', 3,
             'entity_name', 'task',
-            'entity_id', t.id::text,
+            'entity_id', t.id,
             'parent_ids', '[0]'::jsonb,
             'current_flag', true,
             'terminal_flag', true
@@ -154,7 +154,7 @@ SELECT
         jsonb_build_object(
             'id', 0,
             'entity_name', 'cust',
-            'entity_id', c.id::text,
+            'entity_id', c.id,
             'parent_ids', '[]'::jsonb,
             'current_flag', false,
             'terminal_flag', false
@@ -162,7 +162,7 @@ SELECT
         jsonb_build_object(
             'id', 1,
             'entity_name', 'task',
-            'entity_id', t.id::text,
+            'entity_id', t.id,
             'parent_ids', '[0]'::jsonb,
             'current_flag', true,
             'terminal_flag', true

@@ -29,7 +29,7 @@
 -- • QUERY: GET /api/v1/person/:id/events, list all events for a person
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • person_entity_id → employee.id OR d_client.id OR d_cust.id (polymorphic)
+-- • person_id → employee.id OR d_client.id OR d_cust.id (polymorphic)
 -- • event_id → d_event.id (many people can be linked to one event)
 -- • metadata can store additional context if needed
 --
@@ -52,8 +52,8 @@
 -- =====================================================
 
 CREATE TABLE app.entity_event_person_calendar (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code varchar(50) NOT NULL,
+  id uuid DEFAULT gen_random_uuid(),
+  code varchar(50),
   name varchar(200),
   descr text,
   metadata jsonb DEFAULT '{}'::jsonb,
@@ -63,18 +63,18 @@ CREATE TABLE app.entity_event_person_calendar (
   version integer DEFAULT 1,
 
   -- Person identification (polymorphic: employee, client, or customer)
-  person_entity_type varchar(50) NOT NULL, -- 'employee', 'client', 'customer'
-  person_entity_id uuid NOT NULL,
+  person_entity_type varchar(50), -- 'employee', 'client', 'customer'
+  person_id uuid,
 
   -- Event linkage
-  event_id uuid NOT NULL, -- Link to d_event.id
+  event_id uuid, -- Link to d_event.id
 
   -- RSVP tracking
   event_rsvp_status varchar(50) DEFAULT 'pending', -- 'accepted', 'declined', 'pending'
 
   -- Time commitment for this person
-  from_ts timestamptz NOT NULL,
-  to_ts timestamptz NOT NULL,
+  from_ts timestamptz,
+  to_ts timestamptz,
   timezone varchar(50) DEFAULT 'America/Toronto'
 );
 
@@ -86,7 +86,7 @@ CREATE TABLE app.entity_event_person_calendar (
 -- Employee: James Miller (accepted)
 INSERT INTO app.d_entity_event_person_calendar (
   code, name, descr,
-  person_entity_type, person_entity_id, event_id,
+  person_entity_type, person_id, event_id,
   event_rsvp_status,
   from_ts, to_ts, timezone
 ) VALUES (
@@ -106,7 +106,7 @@ INSERT INTO app.d_entity_event_person_calendar (
 -- Employee: James Miller (accepted)
 INSERT INTO app.d_entity_event_person_calendar (
   code, name, descr,
-  person_entity_type, person_entity_id, event_id,
+  person_entity_type, person_id, event_id,
   event_rsvp_status,
   from_ts, to_ts, timezone
 ) VALUES (
@@ -125,7 +125,7 @@ INSERT INTO app.d_entity_event_person_calendar (
 -- Employee: Sarah Johnson (accepted)
 INSERT INTO app.d_entity_event_person_calendar (
   code, name, descr,
-  person_entity_type, person_entity_id, event_id,
+  person_entity_type, person_id, event_id,
   event_rsvp_status,
   from_ts, to_ts, timezone
 ) VALUES (
@@ -144,7 +144,7 @@ INSERT INTO app.d_entity_event_person_calendar (
 -- Employee: Michael Chen (pending)
 INSERT INTO app.d_entity_event_person_calendar (
   code, name, descr,
-  person_entity_type, person_entity_id, event_id,
+  person_entity_type, person_id, event_id,
   event_rsvp_status,
   from_ts, to_ts, timezone
 ) VALUES (
@@ -164,7 +164,7 @@ INSERT INTO app.d_entity_event_person_calendar (
 -- First available plumbing technician (accepted)
 INSERT INTO app.d_entity_event_person_calendar (
   code, name, descr,
-  person_entity_type, person_entity_id, event_id,
+  person_entity_type, person_id, event_id,
   event_rsvp_status,
   from_ts, to_ts, timezone
 ) VALUES (
@@ -184,12 +184,12 @@ INSERT INTO app.d_entity_event_person_calendar (
 -- Multiple field technicians invited
 INSERT INTO app.d_entity_event_person_calendar (
   code, name, descr,
-  person_entity_type, person_entity_id, event_id,
+  person_entity_type, person_id, event_id,
   event_rsvp_status,
   from_ts, to_ts, timezone
 )
 SELECT
-  'EPC-TRAIN-004-' || substr(e.id::text, 1, 8),
+  'EPC-TRAIN-004-' || substr(e.id, 1, 8),
   e.name || ' - Safety Training',
   e.name || ' invited to Q1 Safety Training session',
   'employee',
@@ -208,7 +208,7 @@ LIMIT 5;
 -- James Miller (accepted)
 INSERT INTO app.d_entity_event_person_calendar (
   code, name, descr,
-  person_entity_type, person_entity_id, event_id,
+  person_entity_type, person_id, event_id,
   event_rsvp_status,
   from_ts, to_ts, timezone
 ) VALUES (
@@ -227,7 +227,7 @@ INSERT INTO app.d_entity_event_person_calendar (
 -- Michael Chen (accepted)
 INSERT INTO app.d_entity_event_person_calendar (
   code, name, descr,
-  person_entity_type, person_entity_id, event_id,
+  person_entity_type, person_id, event_id,
   event_rsvp_status,
   from_ts, to_ts, timezone
 ) VALUES (
@@ -247,7 +247,7 @@ INSERT INTO app.d_entity_event_person_calendar (
 -- Manufacturing Manager (accepted)
 INSERT INTO app.d_entity_event_person_calendar (
   code, name, descr,
-  person_entity_type, person_entity_id, event_id,
+  person_entity_type, person_id, event_id,
   event_rsvp_status,
   from_ts, to_ts, timezone
 ) VALUES (
@@ -264,10 +264,10 @@ INSERT INTO app.d_entity_event_person_calendar (
 );
 
 -- =====================================================
--- REGISTER IN d_entity_instance_registry
+-- REGISTER IN entity_instance
 -- =====================================================
 
-INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
 SELECT 'event_person_calendar', id, name, code
 FROM app.d_entity_event_person_calendar
 WHERE active_flag = true
@@ -285,7 +285,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   e.code as event_code,
 --   e.name as event_name,
 --   epc.person_entity_type,
---   epc.person_entity_id,
+--   epc.person_id,
 --   epc.name as person_name,
 --   epc.event_rsvp_status,
 --   epc.from_ts,
@@ -308,7 +308,7 @@ SET entity_name = EXCLUDED.entity_name,
 -- FROM app.d_entity_event_person_calendar epc
 -- JOIN app.event e ON e.id = epc.event_id
 -- WHERE epc.person_entity_type = 'employee'
---   AND epc.person_entity_id = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
+--   AND epc.person_id = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
 --   AND epc.active_flag = true
 --   AND e.active_flag = true
 -- ORDER BY e.from_ts;
@@ -354,7 +354,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   e.event_addr
 -- FROM app.d_entity_event_person_calendar epc
 -- JOIN app.event e ON e.id = epc.event_id
--- JOIN app.app.employee emp ON emp.id = epc.person_entity_id
+-- JOIN app.app.employee emp ON emp.id = epc.person_id
 -- WHERE epc.person_entity_type = 'employee'
 --   AND epc.event_rsvp_status = 'accepted'
 --   AND e.from_ts >= now()
@@ -368,7 +368,7 @@ SET entity_name = EXCLUDED.entity_name,
 
 COMMENT ON TABLE app.d_entity_event_person_calendar IS 'Event-person mapping with RSVP tracking. Links events to people (employees, clients, customers) with their response status.';
 COMMENT ON COLUMN app.d_entity_event_person_calendar.person_entity_type IS 'Type of person: employee, client, or customer';
-COMMENT ON COLUMN app.d_entity_event_person_calendar.person_entity_id IS 'Polymorphic reference to d_employee, d_client, or d_cust';
+COMMENT ON COLUMN app.d_entity_event_person_calendar.person_id IS 'Polymorphic reference to d_employee, d_client, or d_cust';
 COMMENT ON COLUMN app.d_entity_event_person_calendar.event_id IS 'Link to d_event.id - the event this person is invited to';
 COMMENT ON COLUMN app.d_entity_event_person_calendar.event_rsvp_status IS 'RSVP status: pending, accepted, or declined';
 COMMENT ON COLUMN app.d_entity_event_person_calendar.from_ts IS 'Start time of this person''s commitment to the event';

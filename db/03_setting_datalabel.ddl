@@ -31,19 +31,15 @@
 --
 
 CREATE TABLE app.setting_datalabel (
-    datalabel_name VARCHAR(100) PRIMARY KEY,
-    ui_label VARCHAR(100) NOT NULL,
+    datalabel_name VARCHAR(100),
+    ui_label VARCHAR(100),
     ui_icon VARCHAR(50),
-    metadata JSONB NOT NULL,
+    metadata JSONB,
     updated_ts TIMESTAMPTZ DEFAULT now()
 );
 
 
 -- Trigger to update updated_ts on modification
-CREATE TRIGGER trg_setting_datalabel_updated_ts
-    BEFORE UPDATE ON app.setting_datalabel
-    FOR EACH ROW
-    EXECUTE FUNCTION app.update_updated_ts_column();
 
 -- ============================================================================
 -- DATA CURATION:

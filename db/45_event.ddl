@@ -74,7 +74,7 @@
 --
 -- 2. LINK ATTENDEES: Add entries to d_entity_event_person_calendar
 --    - Track who is involved and their RSVP status
---    - Example: INSERT INTO d_entity_event_person_calendar (event_id, person_entity_type='employee', person_entity_id=emp_id, event_rsvp_status='accepted')
+--    - Example: INSERT INTO d_entity_event_person_calendar (event_id, person_entity_type='employee', person_id=emp_id, event_rsvp_status='accepted')
 --
 -- 3. QUERY: Retrieve events by action entity, organizer, or attendees
 --    - Find all events about a service: WHERE event_action_entity_type='service' AND event_action_entity_id=service_id
@@ -127,9 +127,9 @@
 -- =====================================================
 
 CREATE TABLE app.event (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code varchar(50) NOT NULL,
-  name varchar(200) NOT NULL,
+  id uuid DEFAULT gen_random_uuid(),
+  code varchar(50),
+  name varchar(200),
   descr text,
   active_flag boolean DEFAULT true,
   created_ts timestamptz DEFAULT now(),
@@ -137,29 +137,28 @@ CREATE TABLE app.event (
   version integer DEFAULT 1,
 
   -- Event action entity (what this event is about)
-  event_action_entity_type varchar(100) NOT NULL, -- 'service', 'product', 'project', 'task', 'quote'
-  event_action_entity_id uuid NOT NULL, -- ID of the entity this event is about
+  event_action_entity_type varchar(100), -- 'service', 'product', 'project', 'task', 'quote'
+  event_action_entity_id uuid, -- ID of the entity this event is about
 
   -- Organizer (who created/scheduled the event)
   organizer_employee_id uuid, -- Employee who organized the event
 
   -- Event specifics
-  event_type varchar(100) NOT NULL, -- 'onsite', 'virtual'
-  event_platform_provider_name varchar(50) NOT NULL, -- 'zoom', 'teams', 'google_meet', 'physical_hall', 'office', etc.
+  event_type varchar(100), -- 'onsite', 'virtual'
+  event_platform_provider_name varchar(50), -- 'zoom', 'teams', 'google_meet', 'physical_hall', 'office', etc.
   venue_type varchar(100), -- 'conference_room', 'office', 'warehouse', 'customer_site', 'remote', etc.
   event_addr text, -- Physical address for onsite OR meeting URL for virtual
   event_instructions text, -- Access codes, parking info, preparation notes, etc.
 
   -- Time slot details
-  from_ts timestamptz NOT NULL,
-  to_ts timestamptz NOT NULL,
+  from_ts timestamptz,
+  to_ts timestamptz,
   timezone varchar(50) DEFAULT 'America/Toronto',
 
   -- Event metadata (stores related entity IDs)
   event_metadata jsonb DEFAULT '{}'::jsonb,
 
   -- Constraint for event_action_entity_type
-  CONSTRAINT chk_event_action_entity_type CHECK (event_action_entity_type IN ('service', 'product', 'project', 'task', 'quote'))
 );
 
 -- =====================================================
@@ -345,10 +344,10 @@ INSERT INTO app.event (
 );
 
 -- =====================================================
--- REGISTER IN d_entity_instance_registry
+-- REGISTER IN entity_instance
 -- =====================================================
 
-INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
 SELECT 'event', id, name, code
 FROM app.event
 WHERE active_flag = true
@@ -375,11 +374,11 @@ SET entity_name = EXCLUDED.entity_name,
 -- SELECT
 --   e.code as event_code,
 --   e.name as event_name,
---   eim.child_entity_type,
---   eim.child_entity_id,
+--   eim.child_entity_code,
+--   eim.child_entity_instance_id,
 --   eim.relationship_type
 -- FROM app.event e
--- JOIN app.entity_instance_link eim ON eim.parent_entity_type = 'event' AND eim.parent_entity_id = e.id::text
+-- JOIN app.entity_instance_link eim ON eim.entity_code = 'event' AND eim.entity_instance_id = e.id
 -- WHERE e.code = 'EVT-HVAC-001'
 --   AND e.active_flag = true
 --   AND eim.active_flag = true;
@@ -389,7 +388,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   e.code as event_code,
 --   e.name as event_name,
 --   epc.person_entity_type,
---   epc.person_entity_id,
+--   epc.person_id,
 --   epc.event_rsvp_status,
 --   epc.from_ts,
 --   epc.to_ts

@@ -3,12 +3,12 @@
 -- Part of the LLM Orchestration Framework
 
 CREATE TABLE IF NOT EXISTS app.orchestrator_summary (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id uuid NOT NULL REFERENCES app.orchestrator_session(id) ON DELETE CASCADE,
+  id uuid DEFAULT gen_random_uuid(),
+  session_id uuid) ON DELETE CASCADE,
 
   -- Summary details
-  summary_type varchar(50) NOT NULL, -- 'full', 'incremental', 'node_completion'
-  summary_text text NOT NULL,
+  summary_type varchar(50), -- 'full', 'incremental', 'node_completion'
+  summary_text text,
 
   -- Context
   up_to_node varchar(100), -- Which node this summary covers up to

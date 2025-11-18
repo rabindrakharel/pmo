@@ -34,24 +34,24 @@ DROP TABLE IF EXISTS app.invoice CASCADE;
 
 CREATE TABLE app.invoice (
     -- Primary Key
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid(),
 
     -- Invoice Identification
-    invoice_number VARCHAR(50) NOT NULL UNIQUE,         -- Human-readable invoice number (e.g., "INV-2025-00123")
+    invoice_number VARCHAR(50),         -- Human-readable invoice number (e.g., "INV-2025-00123")
     invoice_line_number INTEGER DEFAULT 1,              -- Line item sequence within invoice
     invoice_type VARCHAR(50) DEFAULT 'standard',        -- 'standard', 'progress', 'final', 'credit_memo', 'debit_memo'
     billing_cycle VARCHAR(50),                          -- 'one_time', 'monthly', 'milestone', 'completion'
 
     -- Date/Time Dimensions
-    invoice_date DATE NOT NULL,                         -- Date invoice was generated
-    invoice_datetime TIMESTAMP NOT NULL DEFAULT NOW(),  -- Precise invoice timestamp
+    invoice_date DATE,                         -- Date invoice was generated
+    invoice_datetime TIMESTAMP DEFAULT NOW(),  -- Precise invoice timestamp
     due_date DATE,                                      -- Payment due date
     payment_terms VARCHAR(50) DEFAULT 'net_30',         -- 'due_on_receipt', 'net_30', 'net_60', 'net_90'
     service_period_start_date DATE,                     -- Period covered by invoice (start)
     service_period_end_date DATE,                       -- Period covered by invoice (end)
 
     -- Customer Dimension
-    cust_id UUID NOT NULL,                              -- Link to d_cust (REQUIRED)
+    cust_id UUID,                              -- Link to d_cust (REQUIRED)
     client_name VARCHAR(255),                           -- Denormalized for query performance
     client_type VARCHAR(50),                            -- 'residential', 'commercial', 'government'
     client_tier VARCHAR(50),                            -- Customer tier for analytics
@@ -81,11 +81,11 @@ CREATE TABLE app.invoice (
     office_name VARCHAR(255),                           -- Denormalized office
 
     -- Quantity Metrics
-    qty_billed DECIMAL(12,3) NOT NULL,             -- Quantity on this line
+    qty_billed DECIMAL(12,3),             -- Quantity on this line
     unit_of_measure VARCHAR(20) DEFAULT 'each',         -- 'each', 'hour', 'ft', 'sqft', 'lb'
 
     -- Pricing Metrics (Canadian Dollars)
-    unit_price_cad DECIMAL(12,2) NOT NULL,              -- Unit price charged
+    unit_price_cad DECIMAL(12,2),              -- Unit price charged
     unit_cost_cad DECIMAL(12,2),                        -- Unit cost (for margin calc)
     discount_percent DECIMAL(5,2) DEFAULT 0,            -- Discount percentage applied
     discount_amount_cad DECIMAL(12,2) DEFAULT 0,        -- Dollar discount
@@ -170,10 +170,6 @@ CREATE TABLE app.invoice (
 
 
 -- Trigger to calculate extended values and aging
-CREATE OR REPLACE FUNCTION app.calculate_f_invoice_extended() RETURNS TRIGGER AS $$
-BEGIN
-    -- Calculate extended amounts
-    NEW.extended_price_cad := NEW.qty_billed * NEW.unit_price_cad;
     NEW.extended_cost_cad := NEW.qty_billed * COALESCE(NEW.unit_cost_cad, 0);
     NEW.extended_margin_cad := NEW.extended_price_cad - NEW.extended_cost_cad;
 
@@ -217,8 +213,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER f_invoice_calculate_extended BEFORE INSERT OR UPDATE ON app.invoice
-    FOR EACH ROW EXECUTE FUNCTION app.calculate_f_invoice_extended();
 
 -- =====================================================
 -- SAMPLE DATA: Curated Invoices
@@ -380,7 +374,7 @@ BEGIN
     -- Generate invoices
     FOR i IN 1..v_invoice_count LOOP
         -- Generate invoice number
-        v_invoice_num := 'INV-2025-' || lpad(i::text, 5, '0');
+        v_invoice_num := 'INV-2025-' || lpad(i, 5, '0');
 
         -- Random invoice date in last 6 months
         v_invoice_date := CURRENT_DATE - (floor(random() * 180)::int || ' days')::interval;
@@ -556,7 +550,7 @@ SET amount_paid_cad = line_total_cad,
         WHEN 2 THEN 'cheque'
         ELSE 'wire'
     END,
-    payment_reference = 'PAY-' || lpad(floor(random() * 100000)::int::text, 6, '0')
+    payment_reference = 'PAY-' || lpad(floor(random() * 100000)::int, 6, '0')
 WHERE payment_status = 'paid';
 
 -- Set partial payment amounts (50-90% paid)
@@ -567,7 +561,7 @@ SET amount_paid_cad = line_total_cad * (0.5 + random() * 0.4),
         WHEN 1 THEN 'eft'
         ELSE 'cheque'
     END,
-    payment_reference = 'PAY-' || lpad(floor(random() * 100000)::int::text, 6, '0')
+    payment_reference = 'PAY-' || lpad(floor(random() * 100000)::int, 6, '0')
 WHERE payment_status = 'partial';
 
 -- Calculate tax amounts for all invoices
@@ -615,7 +609,7 @@ SELECT
     SUM(extended_margin_cad) as total_margin,
     AVG(margin_percent) as avg_margin_pct
 FROM app.invoice
-WHERE product_category IS NOT NULL
+WHERE product_category IS
 GROUP BY product_category
 ORDER BY total_revenue DESC;
 

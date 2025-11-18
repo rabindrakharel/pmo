@@ -26,19 +26,19 @@
 -- =====================================================
 
 CREATE TABLE app.office (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    code varchar(50) UNIQUE NOT NULL,
-    name varchar(200) NOT NULL,
+    id uuid DEFAULT gen_random_uuid(),
+    code varchar(50),
+    name varchar(200),
     descr text,
     metadata jsonb DEFAULT '{}'::jsonb,
     active_flag boolean DEFAULT true,
 
     -- Address fields (ALL offices have full addresses)
-    address_line1 varchar(200) NOT NULL,
+    address_line1 varchar(200),
     address_line2 varchar(200),
-    city varchar(100) NOT NULL,
-    province varchar(100) NOT NULL,
-    postal_code varchar(20) NOT NULL,
+    city varchar(100),
+    province varchar(100),
+    postal_code varchar(20),
     country varchar(100) DEFAULT 'Canada',
 
     -- Contact information
@@ -86,16 +86,16 @@ COMMENT ON TABLE app.office IS 'Physical office locations (address-level) with f
 -- =====================================================
 
 CREATE TABLE app.office_hierarchy (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    code varchar(50) UNIQUE NOT NULL,
-    name varchar(200) NOT NULL,
+    id uuid DEFAULT gen_random_uuid(),
+    code varchar(50),
+    name varchar(200),
     descr text,
     metadata jsonb DEFAULT '{}'::jsonb,
     active_flag boolean DEFAULT true,
 
     -- Hierarchy fields
     parent_office_hierarchy_id uuid, -- Self-referential for hierarchy (NULL for Corporate level)
-    dl__office_hierarchy_level text NOT NULL, -- References app.setting_datalabel (datalabel_name='dl__office_hierarchy_level')
+    dl__office_hierarchy_level text, -- References app.setting_datalabel (datalabel_name='dl__office_hierarchy_level')
 
     -- Organizational fields
     manager_employee_id uuid, -- Manager of this hierarchy node

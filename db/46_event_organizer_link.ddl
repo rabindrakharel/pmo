@@ -21,17 +21,14 @@ ADD COLUMN IF NOT EXISTS event_action_entity_type varchar(100);
 ALTER TABLE app.event
 ADD COLUMN IF NOT EXISTS event_action_entity_id uuid;
 
--- Add constraint for event_action_entity_type
-ALTER TABLE app.event
-ADD CONSTRAINT IF NOT EXISTS chk_event_action_entity_type CHECK (event_action_entity_type IN ('service', 'product', 'project', 'task', 'quote'));
-
 -- Update existing events to set organizer_employee_id from RBAC Owner permission
 UPDATE app.event e
-SET organizer_employee_id = r.empid
+SET organizer_employee_id = r.person_id
 FROM app.entity_rbac r
-WHERE r.entity = 'event'
-  AND r.entity_id = e.id::text
-  AND r.permission @> ARRAY[5]
+WHERE r.entity_code = 'event'
+  AND r.entity_instance_id = e.id
+  AND r.permission = 7
+  AND r.person_code = 'employee'
   AND e.organizer_employee_id IS NULL;
 
 -- Add comments for new columns

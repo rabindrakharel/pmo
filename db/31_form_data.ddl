@@ -38,18 +38,18 @@
 -- =====================================================
 
 CREATE TABLE app.form_data (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    form_id uuid NOT NULL REFERENCES app.form_head(id) ON DELETE CASCADE,
+    id uuid DEFAULT gen_random_uuid(),
+    form_id uuid) ON DELETE CASCADE,
 
     -- Submission data (JSONB with flattened structure - see documentation above)
-    submission_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+    submission_data jsonb DEFAULT '{}'::jsonb,
     submission_status varchar(50) DEFAULT 'draft', -- draft, submitted, approved, rejected
 
     -- Data stage
-    stage varchar(20) NOT NULL DEFAULT 'draft', -- draft, saved
+    stage varchar(20) DEFAULT 'draft', -- draft, saved
 
     -- Submission metadata
-    submitted_by_employee_id uuid NOT NULL,
+    submitted_by_employee_id uuid,
     submission_ip_address inet,
     submission_user_agent text,
 

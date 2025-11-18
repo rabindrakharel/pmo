@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS app.person (
     -- ─────────────────────────────────────────────────────────────────────────
     -- Standard Entity Fields
     -- ─────────────────────────────────────────────────────────────────────────
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    code varchar(100) UNIQUE NOT NULL,
+    id uuid DEFAULT gen_random_uuid(),
+    code varchar(100),
 
     -- ─────────────────────────────────────────────────────────────────────────
     -- Person Identification
@@ -39,10 +39,10 @@ CREATE TABLE IF NOT EXISTS app.person (
     last_name varchar(100),
     full_name varchar(255) GENERATED ALWAYS AS (
         CASE
-            WHEN first_name IS NOT NULL AND last_name IS NOT NULL
+            WHEN first_name IS AND last_name IS
             THEN first_name || ' ' || last_name
-            WHEN first_name IS NOT NULL THEN first_name
-            WHEN last_name IS NOT NULL THEN last_name
+            WHEN first_name IS THEN first_name
+            WHEN last_name IS THEN last_name
             ELSE NULL
         END
     ) STORED,
@@ -92,12 +92,6 @@ CREATE TABLE IF NOT EXISTS app.person (
 -- Indexes
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-CREATE INDEX idx_person_code ON app.person(code);
-CREATE INDEX idx_person_email ON app.person(email) WHERE email IS NOT NULL;
-CREATE INDEX idx_person_full_name ON app.person(full_name) WHERE full_name IS NOT NULL;
-CREATE INDEX idx_person_types ON app.person USING GIN(person_types);
-CREATE INDEX idx_person_active ON app.person(active_flag) WHERE active_flag = true;
-CREATE INDEX idx_person_postal_code ON app.person(postal_code) WHERE postal_code IS NOT NULL;
 
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 -- Comments

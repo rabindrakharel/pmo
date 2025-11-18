@@ -30,13 +30,13 @@ CREATE TABLE IF NOT EXISTS app.attachment (
     -- ─────────────────────────────────────────────────────────────────────────
     -- Standard Entity Fields
     -- ─────────────────────────────────────────────────────────────────────────
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    code varchar(100) UNIQUE NOT NULL,
+    id uuid DEFAULT gen_random_uuid(),
+    code varchar(100),
 
     -- ─────────────────────────────────────────────────────────────────────────
     -- File Metadata
     -- ─────────────────────────────────────────────────────────────────────────
-    file_name varchar(500) NOT NULL,
+    file_name varchar(500),
     file_size_bytes bigint,
     mime_type varchar(255),
     file_extension varchar(50),
@@ -85,22 +85,6 @@ CREATE TABLE IF NOT EXISTS app.attachment (
 -- Indexes
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-CREATE INDEX idx_attachment_code ON app.attachment(code);
-CREATE INDEX idx_attachment_s3_key ON app.attachment(s3_key) WHERE s3_key IS NOT NULL;
-CREATE INDEX idx_attachment_file_hash ON app.attachment(file_hash) WHERE file_hash IS NOT NULL;
-CREATE INDEX idx_attachment_type ON app.attachment(dl__attachment_type) WHERE dl__attachment_type IS NOT NULL;
-CREATE INDEX idx_attachment_category ON app.attachment(category) WHERE category IS NOT NULL;
-CREATE INDEX idx_attachment_active ON app.attachment(active_flag) WHERE active_flag = true;
-CREATE INDEX idx_attachment_uploaded_by ON app.attachment(uploaded_by_employee_id) WHERE uploaded_by_employee_id IS NOT NULL;
-CREATE INDEX idx_attachment_attached_to ON app.attachment(attached_to_entity_code, attached_to_entity_id)
-    WHERE attached_to_entity_code IS NOT NULL AND attached_to_entity_id IS NOT NULL;
-CREATE INDEX idx_attachment_uploaded_ts ON app.attachment(uploaded_ts);
-
--- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
--- Comments
--- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-COMMENT ON TABLE app.attachment IS 'File attachments entity for universal file management across all entities';
 COMMENT ON COLUMN app.attachment.id IS 'Unique identifier (UUID)';
 COMMENT ON COLUMN app.attachment.code IS 'Unique attachment code (e.g., ATT-00001)';
 COMMENT ON COLUMN app.attachment.file_name IS 'Original file name';

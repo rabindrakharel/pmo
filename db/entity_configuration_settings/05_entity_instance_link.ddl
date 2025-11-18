@@ -14,11 +14,11 @@
 -- • Performance: no FK validation on inserts
 --
 -- OPERATIONS:
--- • LINK: INSERT (parent_type, parent_id, child_type, child_id)
+-- • LINK: INSERT (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id)
 -- • QUERY: JOIN to filter children by parent + type
 -- • COUNT: GROUP BY child_entity_code for tab badges
--- • UNLINK: active_flag=false, to_ts=now() (child remains)
--- • REASSIGN: UPDATE parent_entity_id to move child
+-- • UNLINK: DELETE or set archived flag (child remains)
+-- • REASSIGN: UPDATE entity_instance_id to move child
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • Polymorphic linkage table connecting any entity type to any other

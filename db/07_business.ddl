@@ -27,9 +27,9 @@
 -- =====================================================
 
 CREATE TABLE app.business (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    code varchar(50) UNIQUE NOT NULL,
-    name varchar(200) NOT NULL,
+    id uuid DEFAULT gen_random_uuid(),
+    code varchar(50),
+    name varchar(200),
     descr text,
     metadata jsonb DEFAULT '{}'::jsonb,
     active_flag boolean DEFAULT true,
@@ -74,16 +74,16 @@ COMMENT ON TABLE app.business IS 'Operational business units (team-level) execut
 -- =====================================================
 
 CREATE TABLE app.business_hierarchy (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    code varchar(50) UNIQUE NOT NULL,
-    name varchar(200) NOT NULL,
+    id uuid DEFAULT gen_random_uuid(),
+    code varchar(50),
+    name varchar(200),
     descr text,
     metadata jsonb DEFAULT '{}'::jsonb,
     active_flag boolean DEFAULT true,
 
     -- Hierarchy fields
     parent_business_hierarchy_id uuid, -- Self-referential for hierarchy (NULL for Corporate level)
-    dl__business_hierarchy_level text NOT NULL, -- References app.setting_datalabel (datalabel_name='dl__business_hierarchy_level')
+    dl__business_hierarchy_level text, -- References app.setting_datalabel (datalabel_name='dl__business_hierarchy_level')
 
     -- Organizational fields
     manager_employee_id uuid, -- Manager of this hierarchy node

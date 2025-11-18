@@ -33,16 +33,16 @@ DROP TABLE IF EXISTS app.industry_workflow_events CASCADE;
 
 CREATE TABLE app.industry_workflow_events (
     -- Primary Key
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    id uuid DEFAULT gen_random_uuid(),
 
     -- Event Identification
-    event_number varchar(50) NOT NULL UNIQUE,
-    event_type varchar(50) NOT NULL,
+    event_number varchar(50),
+    event_type varchar(50),
     event_subtype varchar(50),
 
     -- Date/Time Dimensions
-    event_date date NOT NULL,
-    event_datetime timestamptz NOT NULL DEFAULT now(),
+    event_date date,
+    event_datetime timestamptz DEFAULT now(),
     event_year integer,
     event_quarter integer,
     event_month integer,
@@ -50,28 +50,28 @@ CREATE TABLE app.industry_workflow_events (
     event_hour integer,
 
     -- Workflow Dimensions
-    workflow_instance_id text NOT NULL,
-    workflow_template_id uuid NOT NULL,
+    workflow_instance_id text,
+    workflow_template_id uuid,
     workflow_template_code varchar(50),
     workflow_template_name text,
-    industry_sector text NOT NULL,
+    industry_sector text,
     industry_subsector text,
 
     -- State Dimensions
     from_state_id integer,
     from_state_name text,
-    to_state_id integer NOT NULL,
-    to_state_name text NOT NULL,
+    to_state_id integer,
+    to_state_name text,
     state_action text,
     terminal_state_flag boolean DEFAULT false,
     exception_state_flag boolean DEFAULT false,
 
     -- Entity Dimensions
-    entity_name text NOT NULL,
-    entity_id text NOT NULL,
-    entity_action text NOT NULL,
+    entity_name text,
+    entity_id text,
+    entity_action text,
     parent_entity_name text,
-    parent_entity_id text,
+    entity_instance_id text,
 
     -- Customer/Business Context
     customer_entity_id text,

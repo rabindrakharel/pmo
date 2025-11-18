@@ -3,12 +3,12 @@
 -- Part of the LLM Orchestration Framework
 
 CREATE TABLE IF NOT EXISTS app.orchestrator_agent_log (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id uuid NOT NULL REFERENCES app.orchestrator_session(id) ON DELETE CASCADE,
+  id uuid DEFAULT gen_random_uuid(),
+  session_id uuid) ON DELETE CASCADE,
 
   -- Agent info
-  agent_role varchar(50) NOT NULL, -- 'authenticator', 'orchestrator', 'worker', 'evaluator', 'critic'
-  agent_action varchar(100) NOT NULL, -- e.g., 'intent_detection', 'mcp_call', 'validation', 'quality_check'
+  agent_role varchar(50), -- 'authenticator', 'orchestrator', 'worker', 'evaluator', 'critic'
+  agent_action varchar(100), -- e.g., 'intent_detection', 'mcp_call', 'validation', 'quality_check'
 
   -- Context
   node_context varchar(100), -- Which graph node this action relates to

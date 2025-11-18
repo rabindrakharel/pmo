@@ -33,9 +33,9 @@
 -- =====================================================
 
 CREATE TABLE app.product (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    code varchar(50) UNIQUE NOT NULL,
-    name text NOT NULL,
+    id uuid DEFAULT gen_random_uuid(),
+    code varchar(50),
+    name text,
     descr text,
     metadata jsonb DEFAULT '{}'::jsonb,
     active_flag boolean DEFAULT true,
@@ -89,16 +89,16 @@ COMMENT ON TABLE app.product IS 'Product catalog (SKU-level) with pricing, inven
 -- =====================================================
 
 CREATE TABLE app.product_hierarchy (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    code varchar(50) UNIQUE NOT NULL,
-    name varchar(200) NOT NULL,
+    id uuid DEFAULT gen_random_uuid(),
+    code varchar(50),
+    name varchar(200),
     descr text,
     metadata jsonb DEFAULT '{}'::jsonb,
     active_flag boolean DEFAULT true,
 
     -- Hierarchy fields
     parent_product_hierarchy_id uuid, -- Self-referential for hierarchy (NULL for Division level)
-    dl__product_hierarchy_level text NOT NULL, -- References app.setting_datalabel (datalabel_name='dl__product_hierarchy_level')
+    dl__product_hierarchy_level text, -- References app.setting_datalabel (datalabel_name='dl__product_hierarchy_level')
 
     from_ts timestamptz DEFAULT now(),
     to_ts timestamptz,

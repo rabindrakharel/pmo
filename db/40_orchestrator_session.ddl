@@ -3,8 +3,8 @@
 -- Part of the LLM Orchestration Framework
 
 CREATE TABLE IF NOT EXISTS app.orchestrator_session (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_number varchar(50) UNIQUE NOT NULL,
+  id uuid DEFAULT gen_random_uuid(),
+  session_number varchar(50),
 
   -- Link to chat interaction
   chat_session_id uuid,
@@ -43,10 +43,6 @@ CREATE TABLE IF NOT EXISTS app.orchestrator_session (
 
 
 -- Auto-update timestamp
-CREATE TRIGGER orchestrator_session_updated_ts
-  BEFORE UPDATE ON app.orchestrator_session
-  FOR EACH ROW
-  EXECUTE FUNCTION app.update_updated_ts();
 
 -- Comments
 COMMENT ON TABLE app.orchestrator_session IS 'Multi-agent LLM orchestration sessions with stateful workflow tracking';

@@ -34,15 +34,15 @@ DROP TABLE IF EXISTS app.expense CASCADE;
 
 CREATE TABLE app.expense (
     -- Primary Key
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid(),
 
     -- Expense Identification
-    expense_number VARCHAR(50) NOT NULL UNIQUE,        -- Human-readable expense transaction number (e.g., "EXP-2025-00123")
+    expense_number VARCHAR(50),        -- Human-readable expense transaction number (e.g., "EXP-2025-00123")
     expense_type VARCHAR(50) DEFAULT 'standard',       -- 'standard', 'recurring', 'one_time', 'adjustment', 'reimbursement'
 
     -- Date/Time Dimensions
-    expense_date DATE NOT NULL,                         -- Date expense was incurred
-    expense_datetime TIMESTAMP NOT NULL DEFAULT NOW(),  -- Precise expense timestamp
+    expense_date DATE,                         -- Date expense was incurred
+    expense_datetime TIMESTAMP DEFAULT NOW(),  -- Precise expense timestamp
     recognition_date DATE,                              -- Accounting expense recognition date
     fiscal_year INTEGER,                                -- Fiscal year
     accounting_period VARCHAR(20),                      -- Accounting period (e.g., "2025-01", "Q1-2025")
@@ -69,7 +69,7 @@ CREATE TABLE app.expense (
     office_name VARCHAR(255),                           -- Denormalized office name
 
     -- Expense Metrics (Canadian Dollars)
-    expense_amount_cad DECIMAL(15,2) NOT NULL,          -- Total expense amount
+    expense_amount_cad DECIMAL(15,2),          -- Total expense amount
     deductible_amount_cad DECIMAL(15,2),                -- Tax-deductible amount (expense_amount * deductibility_percent / 100)
     reimbursable_flag BOOLEAN DEFAULT false,            -- Is this expense reimbursable to employee?
     reimbursed_flag BOOLEAN DEFAULT false,              -- Has this expense been reimbursed?
@@ -113,10 +113,6 @@ CREATE TABLE app.expense (
 );
 
 -- Trigger to calculate derived fields
-CREATE OR REPLACE FUNCTION app.calculate_f_expense_fields() RETURNS TRIGGER AS $$
-BEGIN
-    -- Calculate deductible amount
-    NEW.deductible_amount_cad := NEW.expense_amount_cad * (COALESCE(NEW.deductibility_percent, 100) / 100.0);
 
     -- Set accounting period
     NEW.accounting_period := TO_CHAR(NEW.expense_date, 'YYYY-MM');
@@ -132,20 +128,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER f_expense_calculate_fields BEFORE INSERT OR UPDATE ON app.expense
-    FOR EACH ROW EXECUTE FUNCTION app.calculate_f_expense_fields();
 
 -- Indexes for performance
-CREATE INDEX idx_f_expense_date ON app.expense(expense_date);
-CREATE INDEX idx_f_expense_category ON app.expense(dl__expense_category);
-CREATE INDEX idx_f_expense_subcategory ON app.expense(dl__expense_subcategory);
-CREATE INDEX idx_f_expense_project_id ON app.expense(project_id);
-CREATE INDEX idx_f_expense_employee_id ON app.expense(employee_id);
-CREATE INDEX idx_f_expense_client_id ON app.expense(client_id);
-CREATE INDEX idx_f_expense_period ON app.expense(accounting_period);
-CREATE INDEX idx_f_expense_fiscal_year ON app.expense(fiscal_year);
-CREATE INDEX idx_f_expense_status ON app.expense(expense_status);
-CREATE INDEX idx_f_expense_payment_status ON app.expense(payment_status);
 
 -- =====================================================
 -- SAMPLE DATA: Curated Expense Transactions
