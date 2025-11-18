@@ -15,9 +15,9 @@
 -- • QUERY: Filter by cost_code, currency, validity period
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: project, task, office, business (via d_entity_instance_link)
+-- • Parent: project, task, office, business (via entity_instance_link)
 -- • Child: attachments stored in S3/MinIO (referenced by attachment_object_key)
--- • RBAC: d_entity_rbac
+-- • RBAC: entity_rbac
 --
 -- ATTACHMENT WORKFLOW:
 -- • Upload file to S3/MinIO via presigned URL
@@ -26,7 +26,7 @@
 --
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS app.d_cost (
+CREATE TABLE IF NOT EXISTS app.cost (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   code varchar(50) UNIQUE NOT NULL,
   cost_code varchar(50) NOT NULL,
@@ -61,21 +61,21 @@ CREATE TABLE IF NOT EXISTS app.d_cost (
 
 -- Auto-update timestamp trigger
 CREATE TRIGGER d_cost_updated_ts
-  BEFORE UPDATE ON app.d_cost
+  BEFORE UPDATE ON app.cost
   FOR EACH ROW
   EXECUTE FUNCTION app.update_updated_ts();
 
 -- Indexes for performance
-CREATE INDEX idx_cost_active ON app.d_cost(active_flag) WHERE active_flag = true;
-CREATE INDEX idx_cost_code ON app.d_cost(cost_code);
-CREATE INDEX idx_cost_currency ON app.d_cost(invoice_currency);
-CREATE INDEX idx_cost_validity ON app.d_cost(from_ts, to_ts) WHERE from_ts IS NOT NULL;
+CREATE INDEX idx_cost_active ON app.cost(active_flag) WHERE active_flag = true;
+CREATE INDEX idx_cost_code ON app.cost(cost_code);
+CREATE INDEX idx_cost_currency ON app.cost(invoice_currency);
+CREATE INDEX idx_cost_validity ON app.cost(from_ts, to_ts) WHERE from_ts IS NOT NULL;
 
 -- Comments
-COMMENT ON TABLE app.d_cost IS 'Project and task-level cost tracking with attachment support';
-COMMENT ON COLUMN app.d_cost.cost_amt_lcl IS 'Cost amount in local currency (CAD)';
-COMMENT ON COLUMN app.d_cost.cost_amt_invoice IS 'Cost amount as per invoice (if different currency)';
-COMMENT ON COLUMN app.d_cost.exch_rate IS 'Exchange rate applied for currency conversion';
-COMMENT ON COLUMN app.d_cost.cust_budgeted_amt_lcl IS 'Customer budgeted amount in local currency';
-COMMENT ON COLUMN app.d_cost.from_ts IS 'Validity start date';
-COMMENT ON COLUMN app.d_cost.to_ts IS 'Validity end date';
+COMMENT ON TABLE app.cost IS 'Project and task-level cost tracking with attachment support';
+COMMENT ON COLUMN app.cost.cost_amt_lcl IS 'Cost amount in local currency (CAD)';
+COMMENT ON COLUMN app.cost.cost_amt_invoice IS 'Cost amount as per invoice (if different currency)';
+COMMENT ON COLUMN app.cost.exch_rate IS 'Exchange rate applied for currency conversion';
+COMMENT ON COLUMN app.cost.cust_budgeted_amt_lcl IS 'Customer budgeted amount in local currency';
+COMMENT ON COLUMN app.cost.from_ts IS 'Validity start date';
+COMMENT ON COLUMN app.cost.to_ts IS 'Validity end date';

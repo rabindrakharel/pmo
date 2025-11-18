@@ -18,9 +18,9 @@
 -- - Links to f_invoice (source transactions)
 -- - Links to d_client (customer generating revenue)
 -- - Links to d_project (project generating revenue)
--- - Links to d_employee (responsible employee)
--- - Links to d_business (business unit)
--- - Links to d_office (office/location)
+-- - Links to app.employee (responsible employee)
+-- - Links to app.business (business unit)
+-- - Links to app.office (office/location)
 --
 -- METRICS:
 -- - Total revenue amount by category/subcategory
@@ -30,9 +30,9 @@
 --
 -- =====================================================
 
-DROP TABLE IF EXISTS app.f_revenue CASCADE;
+DROP TABLE IF EXISTS app.revenue CASCADE;
 
-CREATE TABLE app.f_revenue (
+CREATE TABLE app.revenue (
     -- Primary Key
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -56,7 +56,7 @@ CREATE TABLE app.f_revenue (
     -- Entity Linkages
     invoice_id UUID,                                    -- Link to f_invoice (source invoice)
     invoice_number VARCHAR(50),                         -- Denormalized invoice number
-    client_id UUID,                                     -- Link to d_client
+    cust_id UUID,                                       -- Link to d_cust
     client_name VARCHAR(255),                           -- Denormalized client name
     client_type VARCHAR(50),                            -- 'residential', 'commercial', 'government'
     project_id UUID,                                    -- Link to d_project
@@ -124,25 +124,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER f_revenue_calculate_fields BEFORE INSERT OR UPDATE ON app.f_revenue
+CREATE TRIGGER f_revenue_calculate_fields BEFORE INSERT OR UPDATE ON app.revenue
     FOR EACH ROW EXECUTE FUNCTION app.calculate_f_revenue_fields();
 
 -- Indexes for performance
-CREATE INDEX idx_f_revenue_date ON app.f_revenue(revenue_date);
-CREATE INDEX idx_f_revenue_category ON app.f_revenue(dl__revenue_category);
-CREATE INDEX idx_f_revenue_subcategory ON app.f_revenue(dl__revenue_subcategory);
-CREATE INDEX idx_f_revenue_client_id ON app.f_revenue(client_id);
-CREATE INDEX idx_f_revenue_project_id ON app.f_revenue(project_id);
-CREATE INDEX idx_f_revenue_invoice_id ON app.f_revenue(invoice_id);
-CREATE INDEX idx_f_revenue_period ON app.f_revenue(accounting_period);
-CREATE INDEX idx_f_revenue_fiscal_year ON app.f_revenue(fiscal_year);
+CREATE INDEX idx_f_revenue_date ON app.revenue(revenue_date);
+CREATE INDEX idx_f_revenue_category ON app.revenue(dl__revenue_category);
+CREATE INDEX idx_f_revenue_subcategory ON app.revenue(dl__revenue_subcategory);
+CREATE INDEX idx_f_revenue_client_id ON app.revenue(client_id);
+CREATE INDEX idx_f_revenue_project_id ON app.revenue(project_id);
+CREATE INDEX idx_f_revenue_invoice_id ON app.revenue(invoice_id);
+CREATE INDEX idx_f_revenue_period ON app.revenue(accounting_period);
+CREATE INDEX idx_f_revenue_fiscal_year ON app.revenue(fiscal_year);
 
 -- =====================================================
 -- SAMPLE DATA: Curated Revenue Transactions
 -- Based on CRA T2125 Revenue Categories
 -- =====================================================
 
-INSERT INTO app.f_revenue (
+INSERT INTO app.revenue (
     revenue_number, revenue_type, revenue_date, revenue_datetime,
     dl__revenue_category, dl__revenue_subcategory, dl__revenue_code,
     client_name, client_type, employee_name,
@@ -221,9 +221,9 @@ INSERT INTO app.f_revenue (
  'recognized', 'paid', 'Inventory revaluation gain - year-end count');
 
 -- Update timestamps
-UPDATE app.f_revenue SET updated_ts = NOW();
+UPDATE app.revenue SET updated_ts = NOW();
 
-COMMENT ON TABLE app.f_revenue IS 'Revenue fact table at header level with CRA T2125 category classification';
-COMMENT ON COLUMN app.f_revenue.dl__revenue_category IS 'CRA T2125 revenue category (Sales/Commissions/Fees, Other Income, Interest Income, etc.)';
-COMMENT ON COLUMN app.f_revenue.dl__revenue_subcategory IS 'CRA T2125 revenue subcategory (Retail Sales, Service Income, etc.)';
-COMMENT ON COLUMN app.f_revenue.cra_line IS 'CRA T2125 form line number for tax reporting';
+COMMENT ON TABLE app.revenue IS 'Revenue fact table at header level with CRA T2125 category classification';
+COMMENT ON COLUMN app.revenue.dl__revenue_category IS 'CRA T2125 revenue category (Sales/Commissions/Fees, Other Income, Interest Income, etc.)';
+COMMENT ON COLUMN app.revenue.dl__revenue_subcategory IS 'CRA T2125 revenue subcategory (Retail Sales, Service Income, etc.)';
+COMMENT ON COLUMN app.revenue.cra_line IS 'CRA T2125 form line number for tax reporting';

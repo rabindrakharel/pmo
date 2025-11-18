@@ -37,9 +37,9 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_form_data (
+CREATE TABLE app.form_data (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    form_id uuid NOT NULL REFERENCES app.d_form_head(id) ON DELETE CASCADE,
+    form_id uuid NOT NULL REFERENCES app.form_head(id) ON DELETE CASCADE,
 
     -- Submission data (JSONB with flattened structure - see documentation above)
     submission_data jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -71,7 +71,7 @@ CREATE TABLE app.d_form_data (
 -- Sample submissions for Landscaping Form (ee8a6cfd-9d31-4705-b8f3-ad2d5589802c)
 -- Submitted by James Miller (8260b1b0-5efc-4611-ad33-ee76c0cf7f13)
 
-INSERT INTO app.d_form_data (
+INSERT INTO app.form_data (
     id,
     form_id,
     submission_data,
@@ -146,4 +146,4 @@ ON CONFLICT (id) DO UPDATE SET
     updated_ts = now();
 
 
-COMMENT ON TABLE app.d_form_data IS 'Form submissions with approval workflow';
+COMMENT ON TABLE app.form_data IS 'Form submissions with approval workflow';

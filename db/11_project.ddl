@@ -14,13 +14,13 @@
 -- • QUERY: Filter by dl__project_stage, business, RBAC enforced
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: business (via d_entity_instance_link)
+-- • Parent: business (via entity_instance_link)
 -- • Children: task, artifact, wiki, form, cost, revenue
--- • RBAC: d_entity_rbac
+-- • RBAC: entity_rbac
 --
 -- =====================================================
 
-CREATE TABLE app.d_project (
+CREATE TABLE app.project (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50) UNIQUE NOT NULL,
     name varchar(200) NOT NULL,
@@ -52,7 +52,7 @@ CREATE TABLE app.d_project (
     version integer DEFAULT 1
 );
 
-COMMENT ON TABLE app.d_project IS 'Project entities with budget tracking, schedule management, and team assignments';
+COMMENT ON TABLE app.project IS 'Project entities with budget tracking, schedule management, and team assignments';
 
 -- =====================================================
 -- DATA CURATION
@@ -60,7 +60,7 @@ COMMENT ON TABLE app.d_project IS 'Project entities with budget tracking, schedu
 
 -- Sample project data for James Miller as CEO/Project Sponsor
 -- Strategic Corporate Project
-INSERT INTO app.d_project (
+INSERT INTO app.project (
     id, code, name, descr, metadata,
     dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
@@ -81,7 +81,7 @@ INSERT INTO app.d_project (
 );
 
 -- Landscaping Service Project
-INSERT INTO app.d_project (
+INSERT INTO app.project (
     id, code, name, descr, metadata,
     dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
@@ -102,7 +102,7 @@ INSERT INTO app.d_project (
 );
 
 -- HVAC Modernization Project
-INSERT INTO app.d_project (
+INSERT INTO app.project (
     id, code, name, descr, metadata,
     dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
@@ -123,7 +123,7 @@ INSERT INTO app.d_project (
 );
 
 -- Corporate Office Expansion
-INSERT INTO app.d_project (
+INSERT INTO app.project (
     id, code, name, descr, metadata,
     dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
@@ -144,7 +144,7 @@ INSERT INTO app.d_project (
 );
 
 -- Customer Service Excellence Initiative
-INSERT INTO app.d_project (
+INSERT INTO app.project (
     id, code, name, descr, metadata,
     dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
@@ -164,4 +164,4 @@ INSERT INTO app.d_project (
     ARRAY['8260b1b0-5efc-4611-ad33-ee76c0cf7f13']::uuid[]
 );
 
-COMMENT ON TABLE app.d_project IS 'Core project management entity';
+COMMENT ON TABLE app.project IS 'Core project management entity';

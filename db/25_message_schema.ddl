@@ -31,7 +31,7 @@
 -- 4. LIST TEMPLATES
 --    • Endpoint: GET /api/v1/message-schema
 --    • Database: SELECT * FROM d_message_schema WHERE active_flag=true
---    • RBAC: Filtered by d_entity_rbac (permission 0=view required)
+--    • RBAC: Filtered by entity_rbac (permission 0=view required)
 --
 -- 5. GET SINGLE TEMPLATE
 --    • Endpoint: GET /api/v1/message-schema/{id}
@@ -98,7 +98,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_message_schema (
+CREATE TABLE app.message_schema (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50),
     name varchar(200) NOT NULL,

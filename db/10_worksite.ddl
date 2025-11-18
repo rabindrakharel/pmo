@@ -14,11 +14,11 @@
 -- • LIST: GET /api/v1/worksite, filters by worksite_type/geocoding, RBAC enforced
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • RBAC: d_entity_rbac
+-- • RBAC: entity_rbac
 --
 -- ============================================================================
 
-CREATE TABLE app.d_worksite (
+CREATE TABLE app.worksite (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Standard fields (common across all entities) - ALWAYS FIRST
@@ -72,7 +72,7 @@ CREATE TABLE app.d_worksite (
   emergency_contact jsonb DEFAULT '{}'::jsonb
 );
 
-COMMENT ON TABLE app.d_worksite IS 'Physical operational worksites including headquarters, branches, project sites, and storage facilities';
+COMMENT ON TABLE app.worksite IS 'Physical operational worksites including headquarters, branches, project sites, and storage facilities';
 
 -- ============================================================================
 -- DATA CURATION:
@@ -82,7 +82,7 @@ COMMENT ON TABLE app.d_worksite IS 'Physical operational worksites including hea
 -- Comprehensive worksite data covering all operational facility types
 
 -- Corporate Headquarters
-INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
+INSERT INTO app.worksite (code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage_flag, vehicle_parking,
   security_required_flag, indoor_space_sqft, outdoor_space_sqft, office_space_flag,
   washroom_facilities_flag, power_available_flag, water_available_flag, dl__worksite_safety_rating,
@@ -115,7 +115,7 @@ INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_cod
  }'::jsonb);
 
 -- Branch Office - Toronto Service Center
-INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
+INSERT INTO app.worksite (code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage_flag, vehicle_parking,
   security_required_flag, indoor_space_sqft, outdoor_space_sqft, office_space_flag,
   washroom_facilities_flag, power_available_flag, water_available_flag, dl__worksite_safety_rating,
@@ -147,7 +147,7 @@ INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_cod
  }'::jsonb);
 
 -- Seasonal Winter Operations Center
-INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
+INSERT INTO app.worksite (code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage_flag, vehicle_parking,
   security_required_flag, indoor_space_sqft, outdoor_space_sqft, office_space_flag,
   washroom_facilities_flag, power_available_flag, water_available_flag, dl__worksite_safety_rating,
@@ -181,7 +181,7 @@ INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_cod
  }'::jsonb);
 
 -- Project-Specific Worksite - Solar Installation
-INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
+INSERT INTO app.worksite (code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage_flag, vehicle_parking,
   security_required_flag, indoor_space_sqft, outdoor_space_sqft, office_space_flag,
   washroom_facilities_flag, power_available_flag, water_available_flag, dl__worksite_safety_rating,
@@ -213,7 +213,7 @@ INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_cod
  }'::jsonb);
 
 -- Commercial Landscaping Project Worksite
-INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
+INSERT INTO app.worksite (code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage_flag, vehicle_parking,
   security_required_flag, indoor_space_sqft, outdoor_space_sqft, office_space_flag,
   washroom_facilities_flag, power_available_flag, water_available_flag, dl__worksite_safety_rating,
@@ -245,7 +245,7 @@ INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_cod
  }'::jsonb);
 
 -- Equipment Storage and Maintenance Facility
-INSERT INTO app.d_worksite (code, name, "descr", worksite_type, addr, postal_code,
+INSERT INTO app.worksite (code, name, "descr", worksite_type, addr, postal_code,
   latitude, longitude, capacity_workers, equipment_storage_flag, vehicle_parking,
   security_required_flag, indoor_space_sqft, outdoor_space_sqft, office_space_flag,
   washroom_facilities_flag, power_available_flag, water_available_flag, dl__worksite_safety_rating,

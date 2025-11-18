@@ -14,12 +14,12 @@
 -- • LIST: GET /api/v1/role, filters by role_category, RBAC enforced
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Children: employee (via d_entity_instance_link)
--- • RBAC: d_entity_rbac
+-- • Children: employee (via entity_instance_link)
+-- • RBAC: entity_rbac
 --
 -- ============================================================================
 
-CREATE TABLE app.d_role (
+CREATE TABLE app.role (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Standard fields (common across all entities) - ALWAYS FIRST
@@ -63,7 +63,7 @@ CREATE TABLE app.d_role (
   education_requirements text
 );
 
-COMMENT ON TABLE app.d_role IS 'Organizational roles with permissions, requirements, and career progression mappings';
+COMMENT ON TABLE app.role IS 'Organizational roles with permissions, requirements, and career progression mappings';
 
 -- ============================================================================
 -- DATA CURATION:
@@ -73,7 +73,7 @@ COMMENT ON TABLE app.d_role IS 'Organizational roles with permissions, requireme
 -- Comprehensive role definitions across all operational areas and hierarchy levels
 
 -- Executive Leadership Roles
-INSERT INTO app.d_role (code, name, "descr", role_code, role_category, system_role_flag, management_role_flag,
+INSERT INTO app.role (code, name, "descr", role_code, role_category, system_role_flag, management_role_flag,
   client_facing_flag, safety_critical_flag, background_check_required_flag, bonding_required_flag,
   department_scope, reporting_level, required_certifications, required_skills,
   required_experience_years, education_requirements, metadata
@@ -115,7 +115,7 @@ INSERT INTO app.d_role (code, name, "descr", role_code, role_category, system_ro
  '{"operational_oversight": true, "safety_accountability": true, "service_quality": true, "performance_management": true, "crisis_management": true}');
 
 -- Senior Management Roles
-INSERT INTO app.d_role (code, name, "descr", role_code, role_category, system_role_flag, management_role_flag,
+INSERT INTO app.role (code, name, "descr", role_code, role_category, system_role_flag, management_role_flag,
   client_facing_flag, safety_critical_flag, background_check_required_flag, bonding_required_flag,
   department_scope, reporting_level, required_certifications, required_skills,
   required_experience_years, education_requirements, metadata
@@ -157,7 +157,7 @@ INSERT INTO app.d_role (code, name, "descr", role_code, role_category, system_ro
  '{"team_size": 40, "budget_authority": 25000000, "security_oversight": true, "vendor_management": true}');
 
 -- Operational Managers
-INSERT INTO app.d_role (code, name, "descr", role_code, role_category, system_role_flag, management_role_flag,
+INSERT INTO app.role (code, name, "descr", role_code, role_category, system_role_flag, management_role_flag,
   client_facing_flag, safety_critical_flag, background_check_required_flag, bonding_required_flag,
   department_scope, reporting_level, required_certifications, required_skills,
   required_experience_years, education_requirements, metadata
@@ -208,7 +208,7 @@ INSERT INTO app.d_role (code, name, "descr", role_code, role_category, system_ro
  '{"team_size": 12, "project_pipeline": 200, "electrical_license_req": true, "green_energy_specialist": true}');
 
 -- Field Supervisors and Technical Leads
-INSERT INTO app.d_role (code, name, "descr", role_code, role_category, system_role_flag, management_role_flag,
+INSERT INTO app.role (code, name, "descr", role_code, role_category, system_role_flag, management_role_flag,
   client_facing_flag, safety_critical_flag, background_check_required_flag, bonding_required_flag,
   department_scope, reporting_level, required_certifications, required_skills,
   required_experience_years, education_requirements, metadata
@@ -241,7 +241,7 @@ INSERT INTO app.d_role (code, name, "descr", role_code, role_category, system_ro
  '{"customer_interaction": true, "service_delivery": true, "technical_work": true, "equipment_operation": true}');
 
 -- Administrative and Support Roles
-INSERT INTO app.d_role (code, name, "descr", role_code, role_category, system_role_flag, management_role_flag,
+INSERT INTO app.role (code, name, "descr", role_code, role_category, system_role_flag, management_role_flag,
   client_facing_flag, safety_critical_flag, background_check_required_flag, bonding_required_flag,
   department_scope, reporting_level, required_certifications, required_skills,
   required_experience_years, education_requirements, metadata
@@ -283,7 +283,7 @@ INSERT INTO app.d_role (code, name, "descr", role_code, role_category, system_ro
  '{"user_support": true, "system_maintenance": true, "security_administration": true, "infrastructure_management": true}');
 
 -- Operational and Seasonal Roles
-INSERT INTO app.d_role (code, name, "descr", role_code, role_category, system_role_flag, management_role_flag,
+INSERT INTO app.role (code, name, "descr", role_code, role_category, system_role_flag, management_role_flag,
   client_facing_flag, safety_critical_flag, background_check_required_flag, bonding_required_flag,
   department_scope, reporting_level, required_certifications, required_skills,
   required_experience_years, education_requirements, metadata

@@ -49,7 +49,7 @@
 --      SELECT c.* FROM d_cust c
 --      WHERE c.active_flag=true
 --        AND EXISTS (
---          SELECT 1 FROM d_entity_rbac rbac
+--          SELECT 1 FROM entity_rbac rbac
 --          WHERE rbac.person_entity_name='employee' AND rbac.person_entity_id=$user_id
 --            AND rbac.entity='cust'
 --            AND (rbac.entity_id=c.id::text OR rbac.entity_id='11111111-1111-1111-1111-111111111111')
@@ -63,7 +63,7 @@
 -- 5. GET SINGLE CUSTOMER
 --    • Endpoint: GET /api/v1/cust/{id}
 --    • Database: SELECT * FROM d_cust WHERE id=$1 AND active_flag=true
---    • RBAC: Checks d_entity_rbac for view permission
+--    • RBAC: Checks entity_rbac for view permission
 --    • Frontend: EntityDetailPage renders fields + tabs for projects/tasks/forms
 --
 -- 6. GET CUSTOMER PROJECTS
@@ -164,7 +164,7 @@
 -- DDL:
 -- ============================================================================
 
-CREATE TABLE app.d_cust (
+CREATE TABLE app.cust (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   code varchar(50) UNIQUE NOT NULL,
   name varchar(200) NOT NULL,
@@ -233,7 +233,7 @@ CREATE TABLE app.d_cust (
 -- ALIGNED WITH DDL SCHEMA - Extra fields in metadata JSONB
 
 -- Premium Residential Customers
-INSERT INTO app.d_cust (
+INSERT INTO app.cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
@@ -253,7 +253,7 @@ INSERT INTO app.d_cust (
  '{"acquisition_date": "2020-08-10", "payment_terms": "net-30", "service_categories": ["landscaping", "garden_design", "seasonal_maintenance", "pool_maintenance"], "lifetime_value": 120000.00, "annual_contract_value": 35000.00, "preferred_service_times": {"preferred_days": ["monday", "tuesday"], "time_range": "10am-2pm", "seasonal_intensive": true}, "acquisition_cost": 380.00, "property_size_sqft": 12500, "pool": true, "tennis_court": true, "garden_specialty": "japanese_design", "irrigation_system": true}'::jsonb);
 
 -- Standard Residential Customers
-INSERT INTO app.d_cust (
+INSERT INTO app.cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
@@ -273,7 +273,7 @@ INSERT INTO app.d_cust (
  '{"acquisition_date": "2022-01-15", "payment_terms": "net-15", "service_categories": ["landscaping", "seasonal_cleanup"], "lifetime_value": 18000.00, "annual_contract_value": 6000.00, "preferred_service_times": {"preferred_days": ["saturday"], "time_range": "9am-1pm"}, "acquisition_cost": 320.00, "property_size_sqft": 1800, "front_yard_only": true, "small_space_design": true, "low_maintenance": true}'::jsonb);
 
 -- Enterprise Commercial Customers
-INSERT INTO app.d_cust (
+INSERT INTO app.cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
@@ -299,7 +299,7 @@ INSERT INTO app.d_cust (
  '{"acquisition_date": "2021-03-01", "payment_terms": "net-45", "service_categories": ["landscaping", "grounds_maintenance", "environmental_compliance"], "lifetime_value": 650000.00, "annual_contract_value": 180000.00, "preferred_service_times": {"security_clearance_required": true, "environmental_strict": true, "safety_protocols": "nuclear"}, "acquisition_cost": 18000.00, "facilities": 15, "environmental_compliance": "nuclear", "security_level": "high", "specialized_equipment": true}'::jsonb);
 
 -- Municipal Government Customers
-INSERT INTO app.d_cust (
+INSERT INTO app.cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
@@ -313,7 +313,7 @@ INSERT INTO app.d_cust (
  '{"acquisition_date": "2021-09-15", "payment_terms": "net-45", "service_categories": ["landscaping", "seasonal_maintenance", "snow_removal", "park_maintenance"], "lifetime_value": 750000.00, "annual_contract_value": 250000.00, "preferred_service_times": {"public_hours_coordination": true, "environmental_compliance": "strict", "public_safety": "priority"}, "acquisition_cost": 25000.00, "parks": 45, "public_spaces_acres": 2500, "environmental_standards": "highest", "public_visibility": "maximum", "citizen_satisfaction": "critical"}'::jsonb);
 
 -- Healthcare and Senior Living
-INSERT INTO app.d_cust (
+INSERT INTO app.cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,
@@ -333,7 +333,7 @@ INSERT INTO app.d_cust (
  '{"acquisition_date": "2022-02-15", "payment_terms": "net-45", "service_categories": ["landscaping", "seasonal_maintenance", "accessible_gardens", "safety_focus"], "lifetime_value": 340000.00, "annual_contract_value": 95000.00, "preferred_service_times": {"senior_safety": "priority", "accessible_design": true, "seasonal_activities": true}, "acquisition_cost": 9500.00, "residents": 220, "staff": 85, "garden_areas": 4, "accessibility_features": "full", "memory_care": true}'::jsonb);
 
 -- Industrial Manufacturing
-INSERT INTO app.d_cust (
+INSERT INTO app.cust (
   code, name, cust_number, cust_type, cust_status,
   primary_contact_name, primary_email, primary_phone,
   primary_address, city, province, postal_code,

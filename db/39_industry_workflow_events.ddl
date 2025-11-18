@@ -18,7 +18,7 @@
 -- - Links to d_industry_workflow_graph_head (workflow template)
 -- - Links to d_industry_workflow_graph_data (workflow instance dimension)
 -- - Links to entity tables (customer, quote, work_order, task, invoice) via entity_id
--- - Links to d_employee (who performed action)
+-- - Links to app.employee (who performed action)
 --
 -- METRICS:
 -- - Event count, duration between events, cycle time
@@ -29,9 +29,9 @@
 --
 -- =====================================================
 
-DROP TABLE IF EXISTS app.f_industry_workflow_events CASCADE;
+DROP TABLE IF EXISTS app.industry_workflow_events CASCADE;
 
-CREATE TABLE app.f_industry_workflow_events (
+CREATE TABLE app.industry_workflow_events (
     -- Primary Key
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 

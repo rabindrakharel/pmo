@@ -19,8 +19,8 @@
 -- RELATIONSHIPS (WITH FOREIGN KEYS):
 -- • Parent: task (via task_id FK) - CASCADE DELETE
 -- • Parent: project (via project_id FK) - CASCADE DELETE
--- • updated_by_empid → d_employee.id (no FK, soft reference)
--- • Mentions in data_richtext → d_employee records
+-- • updated_by_empid → employee.id (no FK, soft reference)
+-- • Mentions in data_richtext → app.employee records
 -- • Attachments in data_richtext → S3/MinIO objects
 --
 -- RICH TEXT FORMAT (Quill Delta):
@@ -30,12 +30,12 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_task_data (
+CREATE TABLE app.task_data (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
     -- Required FKs as specified
-    task_id uuid NOT NULL REFERENCES app.d_task(id) ON DELETE CASCADE,
-    project_id uuid NOT NULL REFERENCES app.d_project(id) ON DELETE CASCADE,
+    task_id uuid NOT NULL REFERENCES app.task(id) ON DELETE CASCADE,
+    project_id uuid NOT NULL REFERENCES app.project(id) ON DELETE CASCADE,
 
     -- Data stage
     stage varchar(20) NOT NULL DEFAULT 'draft', -- draft, saved

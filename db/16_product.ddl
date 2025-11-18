@@ -11,7 +11,7 @@
 -- **HIERARCHY CONCEPT**:
 -- • d_product: Actual product entity (SKU-level items)
 -- • d_product_hierarchy: Product categorization hierarchy (Division → Department → Class → Sub-Class)
--- • Relationship: d_product links to d_product_hierarchy via d_entity_instance_link
+-- • Relationship: app.product links to d_product_hierarchy via entity_instance_link
 -- • Example: Product "Carrier 3-Ton AC" links to hierarchy "HVAC Equipment > Residential HVAC > Central AC > 3-Ton Units"
 --
 -- OPERATIONS:
@@ -21,7 +21,7 @@
 -- • LIST: GET /api/v1/product, filters by category/brand, RBAC enforced
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: d_product_hierarchy (via d_entity_instance_link)
+-- • Parent: d_product_hierarchy (via entity_instance_link)
 -- • Children: fact_quote (via rel_quote_product), fact_work_order (via work order details)
 --
 -- USAGE:
@@ -32,7 +32,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_product (
+CREATE TABLE app.product (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50) UNIQUE NOT NULL,
     name text NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE app.d_product (
     supplier_part_number text -- Supplier's part/SKU number
 );
 
-COMMENT ON TABLE app.d_product IS 'Product catalog (SKU-level) with pricing, inventory, and supplier information';
+COMMENT ON TABLE app.product IS 'Product catalog (SKU-level) with pricing, inventory, and supplier information';
 
 -- =====================================================
 -- PRODUCT HIERARCHY (d_product_hierarchy) - CATEGORIZATION
@@ -69,7 +69,7 @@ COMMENT ON TABLE app.d_product IS 'Product catalog (SKU-level) with pricing, inv
 --
 -- SEMANTICS:
 -- Product hierarchy provides a 4-level categorization structure for organizing products.
--- This hierarchy is separate from actual products (d_product) and linked via d_entity_instance_link.
+-- This hierarchy is separate from actual products (d_product) and linked via entity_instance_link.
 --
 -- HIERARCHY LEVELS:
 -- • Division: Top-level product grouping (e.g., "HVAC Products", "Plumbing Products")
@@ -78,17 +78,17 @@ COMMENT ON TABLE app.d_product IS 'Product catalog (SKU-level) with pricing, inv
 -- • Sub-Class: Detailed classification (e.g., "3-Ton Units", "4-Ton Units")
 --
 -- DATABASE BEHAVIOR:
--- • CREATE: INSERT with parent_id pointing to parent hierarchy node
--- • HIERARCHY: Self-referential parent_id for tree structure
--- • TRAVERSE: Recursive CTE on parent_id for full hierarchy path
+-- • CREATE: INSERT with parent_product_hierarchy_id pointing to parent hierarchy node
+-- • HIERARCHY: Self-referential parent_product_hierarchy_id for tree structure
+-- • TRAVERSE: Recursive CTE on parent_product_hierarchy_id for full hierarchy path
 --
 -- RELATIONSHIPS:
--- • Self: parent_id → d_product_hierarchy.id
--- • Children: d_product (via d_entity_instance_link)
+-- • Self: parent_product_hierarchy_id → d_product_hierarchy.id
+-- • Children: app.product (via entity_instance_link)
 --
 -- =====================================================
 
-CREATE TABLE app.d_product_hierarchy (
+CREATE TABLE app.product_hierarchy (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50) UNIQUE NOT NULL,
     name varchar(200) NOT NULL,
@@ -97,7 +97,7 @@ CREATE TABLE app.d_product_hierarchy (
     active_flag boolean DEFAULT true,
 
     -- Hierarchy fields
-    parent_id uuid, -- Self-referential for hierarchy (NULL for Division level)
+    parent_product_hierarchy_id uuid, -- Self-referential for hierarchy (NULL for Division level)
     dl__product_hierarchy_level text NOT NULL, -- References app.setting_datalabel (datalabel_name='dl__product_hierarchy_level')
 
     from_ts timestamptz DEFAULT now(),
@@ -107,14 +107,14 @@ CREATE TABLE app.d_product_hierarchy (
     version integer DEFAULT 1
 );
 
-COMMENT ON TABLE app.d_product_hierarchy IS 'Product categorization hierarchy: Division → Department → Class → Sub-Class';
+COMMENT ON TABLE app.product_hierarchy IS 'Product categorization hierarchy: Division → Department → Class → Sub-Class';
 
 -- =====================================================
 -- DATA CURATION: Product Hierarchy
 -- =====================================================
 
 -- LEVEL 1: DIVISION (Top-level groupings)
-INSERT INTO app.d_product_hierarchy (code, name, descr, parent_id, dl__product_hierarchy_level) VALUES
+INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level) VALUES
 ('PROD-HIE-HVAC-DIV', 'HVAC Products', 'Heating, ventilation, and air conditioning equipment and supplies', NULL, 'Division'),
 ('PROD-HIE-PLUMB-DIV', 'Plumbing Products', 'Plumbing equipment, fixtures, and materials', NULL, 'Division'),
 ('PROD-HIE-ELEC-DIV', 'Electrical Products', 'Electrical equipment, fixtures, and materials', NULL, 'Division'),
@@ -123,57 +123,57 @@ INSERT INTO app.d_product_hierarchy (code, name, descr, parent_id, dl__product_h
 
 -- LEVEL 2: DEPARTMENT (Major categories within divisions)
 -- HVAC Departments
-INSERT INTO app.d_product_hierarchy (code, name, descr, parent_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-HVAC-RES', 'Residential HVAC', 'HVAC equipment and supplies for residential applications', id, 'Department'
-FROM app.d_product_hierarchy WHERE code = 'PROD-HIE-HVAC-DIV';
+FROM app.product_hierarchy WHERE code = 'PROD-HIE-HVAC-DIV';
 
-INSERT INTO app.d_product_hierarchy (code, name, descr, parent_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-HVAC-SUPP', 'HVAC Supplies', 'Consumable supplies and accessories for HVAC systems', id, 'Department'
-FROM app.d_product_hierarchy WHERE code = 'PROD-HIE-HVAC-DIV';
+FROM app.product_hierarchy WHERE code = 'PROD-HIE-HVAC-DIV';
 
 -- Plumbing Departments
-INSERT INTO app.d_product_hierarchy (code, name, descr, parent_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-PLUMB-EQP', 'Plumbing Equipment', 'Major plumbing equipment and appliances', id, 'Department'
-FROM app.d_product_hierarchy WHERE code = 'PROD-HIE-PLUMB-DIV';
+FROM app.product_hierarchy WHERE code = 'PROD-HIE-PLUMB-DIV';
 
-INSERT INTO app.d_product_hierarchy (code, name, descr, parent_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-PLUMB-FIX', 'Plumbing Fixtures', 'Faucets, sinks, and plumbing fixtures', id, 'Department'
-FROM app.d_product_hierarchy WHERE code = 'PROD-HIE-PLUMB-DIV';
+FROM app.product_hierarchy WHERE code = 'PROD-HIE-PLUMB-DIV';
 
-INSERT INTO app.d_product_hierarchy (code, name, descr, parent_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-PLUMB-MAT', 'Plumbing Materials', 'Pipes, fittings, and plumbing materials', id, 'Department'
-FROM app.d_product_hierarchy WHERE code = 'PROD-HIE-PLUMB-DIV';
+FROM app.product_hierarchy WHERE code = 'PROD-HIE-PLUMB-DIV';
 
 -- LEVEL 3: CLASS (Product classes within departments)
 -- HVAC Classes
-INSERT INTO app.d_product_hierarchy (code, name, descr, parent_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-HVAC-AC', 'Central Air Conditioning', 'Central AC units and systems', id, 'Class'
-FROM app.d_product_hierarchy WHERE code = 'PROD-HIE-HVAC-RES';
+FROM app.product_hierarchy WHERE code = 'PROD-HIE-HVAC-RES';
 
-INSERT INTO app.d_product_hierarchy (code, name, descr, parent_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-HVAC-THERM', 'Thermostats', 'HVAC thermostats and controls', id, 'Class'
-FROM app.d_product_hierarchy WHERE code = 'PROD-HIE-HVAC-RES';
+FROM app.product_hierarchy WHERE code = 'PROD-HIE-HVAC-RES';
 
-INSERT INTO app.d_product_hierarchy (code, name, descr, parent_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-HVAC-FILT', 'Air Filters', 'HVAC air filters and filtration', id, 'Class'
-FROM app.d_product_hierarchy WHERE code = 'PROD-HIE-HVAC-SUPP';
+FROM app.product_hierarchy WHERE code = 'PROD-HIE-HVAC-SUPP';
 
 -- LEVEL 4: SUB-CLASS (Detailed classifications)
 -- HVAC Sub-Classes
-INSERT INTO app.d_product_hierarchy (code, name, descr, parent_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-HVAC-AC-3TON', '3-Ton AC Units', '3-ton capacity central air conditioning units', id, 'Sub-Class'
-FROM app.d_product_hierarchy WHERE code = 'PROD-HIE-HVAC-AC';
+FROM app.product_hierarchy WHERE code = 'PROD-HIE-HVAC-AC';
 
-INSERT INTO app.d_product_hierarchy (code, name, descr, parent_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-HVAC-THERM-SMART', 'Smart Thermostats', 'WiFi-enabled smart thermostats', id, 'Sub-Class'
-FROM app.d_product_hierarchy WHERE code = 'PROD-HIE-HVAC-THERM';
+FROM app.product_hierarchy WHERE code = 'PROD-HIE-HVAC-THERM';
 
 -- =====================================================
 -- DATA CURATION: Sample Products for Huron Home Services
 -- =====================================================
 
 -- HVAC Products
-INSERT INTO app.d_product (
+INSERT INTO app.product (
     code, name, descr, metadata,
     style, sku, upc,
     product_category, dl__product_brand,
@@ -216,7 +216,7 @@ INSERT INTO app.d_product (
 );
 
 -- Plumbing Products
-INSERT INTO app.d_product (
+INSERT INTO app.product (
     code, name, descr, metadata,
     style, sku, upc,
     product_category, dl__product_brand,
@@ -259,7 +259,7 @@ INSERT INTO app.d_product (
 );
 
 -- Electrical Products
-INSERT INTO app.d_product (
+INSERT INTO app.product (
     code, name, descr, metadata,
     style, sku, upc,
     product_category, dl__product_brand,
@@ -302,7 +302,7 @@ INSERT INTO app.d_product (
 );
 
 -- Landscaping Products
-INSERT INTO app.d_product (
+INSERT INTO app.product (
     code, name, descr, metadata,
     style, sku, upc,
     product_category, dl__product_brand,
@@ -345,7 +345,7 @@ INSERT INTO app.d_product (
 );
 
 -- General Materials
-INSERT INTO app.d_product (
+INSERT INTO app.product (
     code, name, descr, metadata,
     style, sku, upc,
     product_category, dl__product_brand,
@@ -387,5 +387,5 @@ INSERT INTO app.d_product (
     true, 'DT-1212CER'
 );
 
-COMMENT ON TABLE app.d_product IS 'Product catalog (SKU-level) with pricing, inventory, and supplier information';
-COMMENT ON TABLE app.d_product_hierarchy IS 'Product categorization hierarchy: Division → Department → Class → Sub-Class';
+COMMENT ON TABLE app.product IS 'Product catalog (SKU-level) with pricing, inventory, and supplier information';
+COMMENT ON TABLE app.product_hierarchy IS 'Product categorization hierarchy: Division → Department → Class → Sub-Class';

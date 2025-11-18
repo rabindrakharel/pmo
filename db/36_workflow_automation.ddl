@@ -7,10 +7,10 @@
 -- Pattern: [ACTION ON] [ALL/specific] [ENTITY] THEN [ACTIONS] ON [ENTITY]
 
 -- Drop existing
-DROP TABLE IF EXISTS app.d_workflow_automation CASCADE;
+DROP TABLE IF EXISTS app.workflow_automation CASCADE;
 
 -- Create table
-CREATE TABLE app.d_workflow_automation (
+CREATE TABLE app.workflow_automation (
     -- Primary Key
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -45,22 +45,22 @@ CREATE TABLE app.d_workflow_automation (
     updated_ts TIMESTAMPTZ DEFAULT now(),
     version INTEGER DEFAULT 1
 
-    -- NOTE: Ownership tracked via d_entity_rbac with permission[5]=Owner
+    -- NOTE: Ownership tracked via entity_rbac with permission[5]=Owner
     -- Creator automatically receives Owner permission when workflow is created
 );
 
 
 -- Comments
-COMMENT ON TABLE app.d_workflow_automation IS 'Workflow automation system with trigger-action patterns';
-COMMENT ON COLUMN app.d_workflow_automation.trigger_entity_type IS 'Entity to watch for trigger events';
-COMMENT ON COLUMN app.d_workflow_automation.trigger_action_type IS 'Type of action that triggers the workflow';
-COMMENT ON COLUMN app.d_workflow_automation.trigger_scope IS 'all = any entity, specific = single entity';
-COMMENT ON COLUMN app.d_workflow_automation.trigger_conditions IS 'JSONB conditions for complex trigger logic';
-COMMENT ON COLUMN app.d_workflow_automation.actions IS 'JSONB array of actions to execute';
-COMMENT ON COLUMN app.d_workflow_automation.action_scope IS 'same = triggered entity, related = linked entities, specific = target entity';
+COMMENT ON TABLE app.workflow_automation IS 'Workflow automation system with trigger-action patterns';
+COMMENT ON COLUMN app.workflow_automation.trigger_entity_type IS 'Entity to watch for trigger events';
+COMMENT ON COLUMN app.workflow_automation.trigger_action_type IS 'Type of action that triggers the workflow';
+COMMENT ON COLUMN app.workflow_automation.trigger_scope IS 'all = any entity, specific = single entity';
+COMMENT ON COLUMN app.workflow_automation.trigger_conditions IS 'JSONB conditions for complex trigger logic';
+COMMENT ON COLUMN app.workflow_automation.actions IS 'JSONB array of actions to execute';
+COMMENT ON COLUMN app.workflow_automation.action_scope IS 'same = triggered entity, related = linked entities, specific = target entity';
 
 -- Seed Data
-INSERT INTO app.d_workflow_automation (workflow_name, workflow_description, trigger_entity_type, trigger_action_type, trigger_scope, action_entity_type, action_scope, actions, execution_order) VALUES
+INSERT INTO app.workflow_automation (workflow_name, workflow_description, trigger_entity_type, trigger_action_type, trigger_scope, action_entity_type, action_scope, actions, execution_order) VALUES
 -- Example 1: Auto-assign project manager when project is created
 ('Auto-assign PM on Project Create',
  'Automatically assigns the default project manager when a new project is created',
@@ -102,4 +102,4 @@ INSERT INTO app.d_workflow_automation (workflow_name, workflow_description, trig
  5);
 
 -- Grant permissions
-GRANT SELECT, INSERT, UPDATE, DELETE ON app.d_workflow_automation TO app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON app.workflow_automation TO app;

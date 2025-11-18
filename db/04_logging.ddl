@@ -3,7 +3,7 @@
 -- ============================================================================
 -- FILE: LI_f_logging.ddl
 -- PURPOSE: Comprehensive audit trail for all entity operations
--- DEPENDENCIES: III_d_employee.ddl, VI_d_cust.ddl, XLV_d_entity.ddl, XLIX_d_d_entity_rbac.ddl
+-- DEPENDENCIES: III_d_employee.ddl, VI_d_cust.ddl, XLV_d_entity.ddl, XLIX_d_entity_rbac.ddl
 -- SCHEMA: app
 -- TABLE: f_logging
 -- ============================================================================
@@ -27,7 +27,7 @@
 --   6. **Denormalized Person Data**: Stores fname, lname, username directly (not person_id)
 --      to preserve actor identity even if person record is deleted or modified
 --
--- ACTION CODE MAPPING (aligned with d_entity_rbac):
+-- ACTION CODE MAPPING (aligned with entity_rbac):
 --   [0] = View:   Read access - user viewed entity details
 --   [1] = Edit:   Modify existing entity - user changed field values
 --   [2] = Share:  Share entity with others - user granted access to another user
@@ -46,7 +46,7 @@
 -- RETENTION & COMPLIANCE:
 --   - Logs retained for minimum 7 years for regulatory compliance
 --   - Partition by month for efficient querying and archival
---   - Indexes on username, entity_name, entity_id, updated for fast lookups
+--   - Indexes on username, entity_code, entity_id, updated for fast lookups
 --   - Denormalized design ensures audit integrity if source person records change
 --
 -- USAGE PATTERNS:
@@ -74,9 +74,9 @@
 -- TABLE STRUCTURE
 -- ============================================================================
 
-DROP TABLE IF EXISTS app.f_logging CASCADE;
+DROP TABLE IF EXISTS app.logging CASCADE;
 
-CREATE TABLE app.f_logging (
+CREATE TABLE app.logging (
     -- Primary Identifier
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -87,7 +87,7 @@ CREATE TABLE app.f_logging (
     person_type varchar(50) NOT NULL CHECK (person_type IN ('employee', 'customer', 'system', 'guest')),
 
     -- Target Entity (WHAT was acted upon)
-    entity_name varchar(100) NOT NULL,  -- 'project', 'task', 'employee', etc.
+    entity_code varchar(100) NOT NULL,  -- Entity code (references d_entity.code): 'project', 'task', 'employee', etc.
     entity_id uuid NOT NULL,            -- Specific entity instance UUID
 
     -- Action Type (HOW the entity was accessed/modified)
@@ -118,51 +118,51 @@ CREATE TABLE app.f_logging (
 -- Primary query patterns: Filter by person, entity, time range, action type, person type
 
 -- Index for username-specific queries: "Show all actions by james.miller@huronhome.ca"
-CREATE INDEX idx_f_logging_username ON app.f_logging(username, updated DESC);
+CREATE INDEX idx_f_logging_username ON app.logging(username, updated DESC);
 
 -- Index for person name queries: "Show all actions by John Doe"
-CREATE INDEX idx_f_logging_person_name ON app.f_logging(lname, fname, updated DESC);
+CREATE INDEX idx_f_logging_person_name ON app.logging(lname, fname, updated DESC);
 
 -- Index for person type queries: "Show all customer actions"
-CREATE INDEX idx_f_logging_person_type ON app.f_logging(person_type, updated DESC);
+CREATE INDEX idx_f_logging_person_type ON app.logging(person_type, updated DESC);
 
 -- Index for entity-specific queries: "Show audit trail for project abc-123"
-CREATE INDEX idx_f_logging_entity ON app.f_logging(entity_name, entity_id, updated DESC);
+CREATE INDEX idx_f_logging_entity ON app.logging(entity_code, entity_id, updated DESC);
 
 -- Index for time-based queries: "Show all actions in last 30 days"
-CREATE INDEX idx_f_logging_updated ON app.f_logging(updated DESC);
+CREATE INDEX idx_f_logging_updated ON app.logging(updated DESC);
 
 -- Index for action-specific queries: "Show all deletes in last week"
-CREATE INDEX idx_f_logging_action ON app.f_logging(action, updated DESC);
+CREATE INDEX idx_f_logging_action ON app.logging(action, updated DESC);
 
 -- Index for security monitoring: "Show all access from suspicious IPs"
-CREATE INDEX idx_f_logging_ip ON app.f_logging(ip, updated DESC);
+CREATE INDEX idx_f_logging_ip ON app.logging(ip, updated DESC);
 
 -- Composite index for common filtered queries
-CREATE INDEX idx_f_logging_composite ON app.f_logging(username, person_type, entity_name, action, updated DESC);
+CREATE INDEX idx_f_logging_composite ON app.logging(username, person_type, entity_code, action, updated DESC);
 
 -- ============================================================================
 -- COMMENTS FOR SCHEMA DOCUMENTATION
 -- ============================================================================
 
-COMMENT ON TABLE app.f_logging IS 'Central audit trail logging all person actions on entities. Immutable, append-only records for compliance and forensic analysis. Person data denormalized for audit integrity.';
+COMMENT ON TABLE app.logging IS 'Central audit trail logging all person actions on entities. Immutable, append-only records for compliance and forensic analysis. Person data denormalized for audit integrity.';
 
-COMMENT ON COLUMN app.f_logging.id IS 'Unique log entry identifier (UUID)';
-COMMENT ON COLUMN app.f_logging.fname IS 'First name of person performing action (denormalized for immutability)';
-COMMENT ON COLUMN app.f_logging.lname IS 'Last name of person performing action (denormalized for immutability)';
-COMMENT ON COLUMN app.f_logging.username IS 'Username/email of person performing action (denormalized for immutability)';
-COMMENT ON COLUMN app.f_logging.person_type IS 'Type of person performing action (employee, customer, system, guest)';
-COMMENT ON COLUMN app.f_logging.entity_name IS 'Type of entity acted upon (e.g., project, task, client)';
-COMMENT ON COLUMN app.f_logging.entity_id IS 'Specific entity instance UUID';
-COMMENT ON COLUMN app.f_logging.action IS 'Action type code (0=View, 1=Edit, 2=Share, 3=Delete, 4=Create, 5=Owner)';
-COMMENT ON COLUMN app.f_logging.updated IS 'Timestamp when action occurred';
-COMMENT ON COLUMN app.f_logging.entity_from_version IS 'JSONB snapshot of entity state BEFORE action (NULL for create/view)';
-COMMENT ON COLUMN app.f_logging.entity_to_version IS 'JSONB snapshot of entity state AFTER action (NULL for view/delete)';
-COMMENT ON COLUMN app.f_logging.user_agent IS 'Browser/client user agent string for security context';
-COMMENT ON COLUMN app.f_logging.ip IS 'IP address of request origin (v4 or v6)';
-COMMENT ON COLUMN app.f_logging.device_name IS 'Device identifier (e.g., MacBook Pro, iPhone 13)';
-COMMENT ON COLUMN app.f_logging.created_at IS 'Record creation timestamp (immutable)';
-COMMENT ON COLUMN app.f_logging.log_source IS 'Source of log entry (api, web, mobile, system)';
+COMMENT ON COLUMN app.logging.id IS 'Unique log entry identifier (UUID)';
+COMMENT ON COLUMN app.logging.fname IS 'First name of person performing action (denormalized for immutability)';
+COMMENT ON COLUMN app.logging.lname IS 'Last name of person performing action (denormalized for immutability)';
+COMMENT ON COLUMN app.logging.username IS 'Username/email of person performing action (denormalized for immutability)';
+COMMENT ON COLUMN app.logging.person_type IS 'Type of person performing action (employee, customer, system, guest)';
+COMMENT ON COLUMN app.logging.entity_code IS 'Type of entity acted upon (e.g., project, task, client)';
+COMMENT ON COLUMN app.logging.entity_id IS 'Specific entity instance UUID';
+COMMENT ON COLUMN app.logging.action IS 'Action type code (0=View, 1=Edit, 2=Share, 3=Delete, 4=Create, 5=Owner)';
+COMMENT ON COLUMN app.logging.updated IS 'Timestamp when action occurred';
+COMMENT ON COLUMN app.logging.entity_from_version IS 'JSONB snapshot of entity state BEFORE action (NULL for create/view)';
+COMMENT ON COLUMN app.logging.entity_to_version IS 'JSONB snapshot of entity state AFTER action (NULL for view/delete)';
+COMMENT ON COLUMN app.logging.user_agent IS 'Browser/client user agent string for security context';
+COMMENT ON COLUMN app.logging.ip IS 'IP address of request origin (v4 or v6)';
+COMMENT ON COLUMN app.logging.device_name IS 'Device identifier (e.g., MacBook Pro, iPhone 13)';
+COMMENT ON COLUMN app.logging.created_at IS 'Record creation timestamp (immutable)';
+COMMENT ON COLUMN app.logging.log_source IS 'Source of log entry (api, web, mobile, system)';
 
 -- ============================================================================
 -- DATA CURATION: Sample Audit Log Records
@@ -172,12 +172,12 @@ COMMENT ON COLUMN app.f_logging.log_source IS 'Source of log entry (api, web, mo
 -- ============================================================================
 
 -- Sample 1: CREATE action - James (employee) creates a new project
-INSERT INTO app.f_logging (
+INSERT INTO app.logging (
     fname,
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -213,12 +213,12 @@ INSERT INTO app.f_logging (
 );
 
 -- Sample 2: EDIT action - James (employee) updates task status
-INSERT INTO app.f_logging (
+INSERT INTO app.logging (
     fname,
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -255,12 +255,12 @@ INSERT INTO app.f_logging (
 );
 
 -- Sample 3: VIEW action - James (employee) views client details
-INSERT INTO app.f_logging (
+INSERT INTO app.logging (
     fname,
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -288,12 +288,12 @@ INSERT INTO app.f_logging (
 );
 
 -- Sample 4: DELETE action - James (employee) soft-deletes an artifact
-INSERT INTO app.f_logging (
+INSERT INTO app.logging (
     fname,
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -330,12 +330,12 @@ INSERT INTO app.f_logging (
 );
 
 -- Sample 5: SHARE action - James (employee) shares a form with another employee
-INSERT INTO app.f_logging (
+INSERT INTO app.logging (
     fname,
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -373,12 +373,12 @@ INSERT INTO app.f_logging (
 );
 
 -- Sample 6: OWNER action - James (employee) modifies RBAC permissions on a project
-INSERT INTO app.f_logging (
+INSERT INTO app.logging (
     fname,
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -415,12 +415,12 @@ INSERT INTO app.f_logging (
 );
 
 -- Sample 7: EDIT action - James (employee) updates own employee profile
-INSERT INTO app.f_logging (
+INSERT INTO app.logging (
     fname,
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -456,12 +456,12 @@ INSERT INTO app.f_logging (
 );
 
 -- Sample 8: CREATE action - System auto-creates workflow automation (system actor)
-INSERT INTO app.f_logging (
+INSERT INTO app.logging (
     fname,
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -495,12 +495,12 @@ INSERT INTO app.f_logging (
 );
 
 -- Sample 9: VIEW action - Customer views their project status from portal
-INSERT INTO app.f_logging (
+INSERT INTO app.logging (
     fname,
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -528,12 +528,12 @@ INSERT INTO app.f_logging (
 );
 
 -- Sample 10: EDIT action - Customer updates project requirements via portal
-INSERT INTO app.f_logging (
+INSERT INTO app.logging (
     fname,
     lname,
     username,
     person_type,
-    entity_name,
+    entity_code,
     entity_id,
     action,
     updated,
@@ -569,37 +569,37 @@ INSERT INTO app.f_logging (
 -- ============================================================================
 
 -- Query 1: Audit trail for a specific entity
--- SELECT * FROM app.f_logging
--- WHERE entity_name = 'project' AND entity_id = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+-- SELECT * FROM app.logging
+-- WHERE entity_code = 'project' AND entity_id = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
 -- ORDER BY updated DESC;
 
 -- Query 2: All actions by a specific person (by username)
--- SELECT fname, lname, person_type, entity_name, entity_id, action, updated
--- FROM app.f_logging
+-- SELECT fname, lname, person_type, entity_code, entity_id, action, updated
+-- FROM app.logging
 -- WHERE username = 'james.miller@huronhome.ca'
 -- ORDER BY updated DESC;
 
 -- Query 2b: All actions by a specific person (by name)
--- SELECT fname, lname, username, person_type, entity_name, action, updated
--- FROM app.f_logging
+-- SELECT fname, lname, username, person_type, entity_code, action, updated
+-- FROM app.logging
 -- WHERE lname = 'Miller' AND fname = 'James'
 -- ORDER BY updated DESC;
 
 -- Query 2c: All actions by customers
--- SELECT fname, lname, username, entity_name, entity_id, action, updated
--- FROM app.f_logging
+-- SELECT fname, lname, username, entity_code, entity_id, action, updated
+-- FROM app.logging
 -- WHERE person_type = 'customer'
 -- ORDER BY updated DESC;
 
 -- Query 3: All delete operations in last 30 days
--- SELECT fname, lname, username, person_type, entity_name, entity_id, updated, entity_from_version
--- FROM app.f_logging
+-- SELECT fname, lname, username, person_type, entity_code, entity_id, updated, entity_from_version
+-- FROM app.logging
 -- WHERE action = 3 AND updated >= now() - interval '30 days'
 -- ORDER BY updated DESC;
 
 -- Query 4: Suspicious IP access patterns (multiple entities in short time)
 -- SELECT ip, COUNT(DISTINCT entity_id) as entity_count, MIN(updated), MAX(updated)
--- FROM app.f_logging
+-- FROM app.logging
 -- WHERE updated >= now() - interval '1 hour'
 -- GROUP BY ip
 -- HAVING COUNT(DISTINCT entity_id) > 50;

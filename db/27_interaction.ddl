@@ -46,9 +46,9 @@
 --
 -- =====================================================
 
-DROP TABLE IF EXISTS app.f_customer_interaction CASCADE;
+DROP TABLE IF EXISTS app.customer_interaction CASCADE;
 
-CREATE TABLE app.f_customer_interaction (
+CREATE TABLE app.customer_interaction (
     -- Primary Key
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -155,7 +155,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER f_customer_interaction_update_ts
-    BEFORE UPDATE ON app.f_customer_interaction
+    BEFORE UPDATE ON app.customer_interaction
     FOR EACH ROW EXECUTE FUNCTION app.update_f_customer_interaction_ts();
 
 -- =====================================================
@@ -163,7 +163,7 @@ CREATE TRIGGER f_customer_interaction_update_ts
 -- =====================================================
 
 -- Sample Customer Interactions (Voice Calls)
-INSERT INTO app.f_customer_interaction (
+INSERT INTO app.customer_interaction (
     interaction_number,
     interaction_type,
     interaction_subtype,
@@ -254,7 +254,7 @@ INSERT INTO app.f_customer_interaction (
 );
 
 -- Chat Interactions
-INSERT INTO app.f_customer_interaction (
+INSERT INTO app.customer_interaction (
     interaction_number,
     interaction_type,
     interaction_subtype,
@@ -326,18 +326,18 @@ INSERT INTO app.f_customer_interaction (
 -- COMMENTS
 -- =====================================================
 
-COMMENT ON TABLE app.f_customer_interaction IS 'Customer interaction fact table capturing omnichannel customer communications with S3 storage for multimedia content. Uses JSONB for polymorphic person entity references.';
-COMMENT ON COLUMN app.f_customer_interaction.interaction_number IS 'Human-readable unique identifier (e.g., INT-2025-00123)';
-COMMENT ON COLUMN app.f_customer_interaction.interaction_person_entities IS 'JSONB array of person entities involved: [{"person_entity_type": "customer|employee|client", "person_entity_id": "uuid"}]';
-COMMENT ON COLUMN app.f_customer_interaction.interaction_intention_entity IS 'What entity type should be created from this interaction (task, project, quote, etc.)';
-COMMENT ON COLUMN app.f_customer_interaction.chunk_number IS 'Sequence number for multi-part interactions (e.g., long calls split into segments)';
-COMMENT ON COLUMN app.f_customer_interaction.parent_interaction_id IS 'Links to primary chunk for multi-part interactions';
-COMMENT ON COLUMN app.f_customer_interaction.content_object_key IS 'S3 object key path for voice, video, or image content storage';
-COMMENT ON COLUMN app.f_customer_interaction.transcript_text IS 'Speech-to-text transcript for voice/video interactions';
-COMMENT ON COLUMN app.f_customer_interaction.sentiment_score IS 'AI-generated sentiment score ranging from -100 (very negative) to +100 (very positive)';
-COMMENT ON COLUMN app.f_customer_interaction.emotion_tags IS 'AI-detected emotions array (e.g., [frustrated, satisfied, confused])';
-COMMENT ON COLUMN app.f_customer_interaction.attachment_ids IS 'Array of artifact UUIDs for related documents/files';
-COMMENT ON COLUMN app.f_customer_interaction.metadata IS 'Flexible JSONB for additional context (project_id, task_id, meeting details, etc.)';
+COMMENT ON TABLE app.customer_interaction IS 'Customer interaction fact table capturing omnichannel customer communications with S3 storage for multimedia content. Uses JSONB for polymorphic person entity references.';
+COMMENT ON COLUMN app.customer_interaction.interaction_number IS 'Human-readable unique identifier (e.g., INT-2025-00123)';
+COMMENT ON COLUMN app.customer_interaction.interaction_person_entities IS 'JSONB array of person entities involved: [{"person_entity_type": "customer|employee|client", "person_entity_id": "uuid"}]';
+COMMENT ON COLUMN app.customer_interaction.interaction_intention_entity IS 'What entity type should be created from this interaction (task, project, quote, etc.)';
+COMMENT ON COLUMN app.customer_interaction.chunk_number IS 'Sequence number for multi-part interactions (e.g., long calls split into segments)';
+COMMENT ON COLUMN app.customer_interaction.parent_interaction_id IS 'Links to primary chunk for multi-part interactions';
+COMMENT ON COLUMN app.customer_interaction.content_object_key IS 'S3 object key path for voice, video, or image content storage';
+COMMENT ON COLUMN app.customer_interaction.transcript_text IS 'Speech-to-text transcript for voice/video interactions';
+COMMENT ON COLUMN app.customer_interaction.sentiment_score IS 'AI-generated sentiment score ranging from -100 (very negative) to +100 (very positive)';
+COMMENT ON COLUMN app.customer_interaction.emotion_tags IS 'AI-detected emotions array (e.g., [frustrated, satisfied, confused])';
+COMMENT ON COLUMN app.customer_interaction.attachment_ids IS 'Array of artifact UUIDs for related documents/files';
+COMMENT ON COLUMN app.customer_interaction.metadata IS 'Flexible JSONB for additional context (project_id, task_id, meeting details, etc.)';
 
 -- =====================================================
 -- VERIFICATION QUERIES
@@ -351,7 +351,7 @@ COMMENT ON COLUMN app.f_customer_interaction.metadata IS 'Flexible JSONB for add
 --     AVG(duration_seconds) as avg_duration_seconds,
 --     AVG(customer_satisfaction_score) as avg_csat,
 --     AVG(sentiment_score) as avg_sentiment
--- FROM app.f_customer_interaction
+-- FROM app.customer_interaction
 -- WHERE deleted_ts IS NULL
 -- GROUP BY interaction_type, channel
 -- ORDER BY interaction_count DESC;
@@ -363,7 +363,7 @@ COMMENT ON COLUMN app.f_customer_interaction.metadata IS 'Flexible JSONB for add
 --     SUM(content_size_bytes) as total_size_bytes,
 --     AVG(content_size_bytes) as avg_size_bytes,
 --     MAX(content_size_bytes) as max_size_bytes
--- FROM app.f_customer_interaction
+-- FROM app.customer_interaction
 -- WHERE content_object_key IS NOT NULL
 -- GROUP BY content_format
 -- ORDER BY total_size_bytes DESC;
@@ -375,7 +375,7 @@ COMMENT ON COLUMN app.f_customer_interaction.metadata IS 'Flexible JSONB for add
 --     total_chunks,
 --     duration_seconds,
 --     LENGTH(transcript_text) as transcript_length
--- FROM app.f_customer_interaction
+-- FROM app.customer_interaction
 -- WHERE total_chunks > 1
 -- ORDER BY interaction_number, chunk_number;
 
@@ -385,7 +385,7 @@ COMMENT ON COLUMN app.f_customer_interaction.metadata IS 'Flexible JSONB for add
 --     interaction_type,
 --     interaction_ts,
 --     interaction_person_entities
--- FROM app.f_customer_interaction
+-- FROM app.customer_interaction
 -- WHERE interaction_person_entities IS NOT NULL
 -- ORDER BY interaction_ts DESC
 -- LIMIT 10;

@@ -27,7 +27,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_service (
+CREATE TABLE app.service (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50) UNIQUE NOT NULL,
     name text NOT NULL,
@@ -49,14 +49,14 @@ CREATE TABLE app.d_service (
     requires_certification_flag boolean DEFAULT false -- Requires certified technician?
 );
 
-COMMENT ON TABLE app.d_service IS 'Service catalog for quotes and work orders';
+COMMENT ON TABLE app.service IS 'Service catalog for quotes and work orders';
 
 -- =====================================================
 -- DATA CURATION: Sample Services for Huron Home Services
 -- =====================================================
 
 -- HVAC Services
-INSERT INTO app.d_service (code, name, descr, metadata,
+INSERT INTO app.service (code, name, descr, metadata,
     service_category, standard_rate_amt, estimated_hours, minimum_charge_amt,
     taxable_flag, requires_certification_flag
 ) VALUES
@@ -83,7 +83,7 @@ INSERT INTO app.d_service (code, name, descr, metadata,
 );
 
 -- Plumbing Services
-INSERT INTO app.d_service (code, name, descr, metadata,
+INSERT INTO app.service (code, name, descr, metadata,
     service_category, standard_rate_amt, estimated_hours, minimum_charge_amt,
     taxable_flag, requires_certification_flag
 ) VALUES
@@ -110,7 +110,7 @@ INSERT INTO app.d_service (code, name, descr, metadata,
 );
 
 -- Electrical Services
-INSERT INTO app.d_service (code, name, descr, metadata,
+INSERT INTO app.service (code, name, descr, metadata,
     service_category, standard_rate_amt, estimated_hours, minimum_charge_amt,
     taxable_flag, requires_certification_flag
 ) VALUES
@@ -137,7 +137,7 @@ INSERT INTO app.d_service (code, name, descr, metadata,
 );
 
 -- Landscaping Services
-INSERT INTO app.d_service (code, name, descr, metadata,
+INSERT INTO app.service (code, name, descr, metadata,
     service_category, standard_rate_amt, estimated_hours, minimum_charge_amt,
     taxable_flag, requires_certification_flag
 ) VALUES
@@ -164,7 +164,7 @@ INSERT INTO app.d_service (code, name, descr, metadata,
 );
 
 -- General Contracting Services
-INSERT INTO app.d_service (code, name, descr, metadata,
+INSERT INTO app.service (code, name, descr, metadata,
     service_category, standard_rate_amt, estimated_hours, minimum_charge_amt,
     taxable_flag, requires_certification_flag
 ) VALUES
@@ -190,5 +190,5 @@ INSERT INTO app.d_service (code, name, descr, metadata,
     'General Contracting', 8500.00, 60.0, 3000.00, true, false
 );
 
-COMMENT ON TABLE app.d_service IS 'Service catalog for quotes and work orders with standard rates and estimates';
-COMMENT ON COLUMN app.d_service.service_category IS 'Service category - references dl__service_category settings (HVAC, Plumbing, Electrical, Landscaping, General Contracting)';
+COMMENT ON TABLE app.service IS 'Service catalog for quotes and work orders with standard rates and estimates';
+COMMENT ON COLUMN app.service.service_category IS 'Service category - references dl__service_category settings (HVAC, Plumbing, Electrical, Landscaping, General Contracting)';

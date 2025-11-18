@@ -9,7 +9,7 @@
 -- **HIERARCHY CONCEPT**:
 -- • d_office: Physical office locations (address-level entities)
 -- • d_office_hierarchy: Organizational hierarchy (Corporate → Region → District → Office)
--- • Relationship: d_office links to d_office_hierarchy via d_entity_instance_link
+-- • Relationship: app.office links to d_office_hierarchy via entity_instance_link
 -- • Example: "London Service Office" (d_office) links to "Southwestern Ontario District" (d_office_hierarchy)
 --
 -- OPERATIONS:
@@ -19,13 +19,13 @@
 -- • LIST: GET /api/v1/office, filters by province/city, RBAC enforced
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: d_office_hierarchy (via d_entity_instance_link)
+-- • Parent: d_office_hierarchy (via entity_instance_link)
 -- • Children: employee, business, equipment
--- • RBAC: d_entity_rbac
+-- • RBAC: entity_rbac
 --
 -- =====================================================
 
-CREATE TABLE app.d_office (
+CREATE TABLE app.office (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50) UNIQUE NOT NULL,
     name varchar(200) NOT NULL,
@@ -57,7 +57,7 @@ CREATE TABLE app.d_office (
     version integer DEFAULT 1
 );
 
-COMMENT ON TABLE app.d_office IS 'Physical office locations (address-level) with full address information';
+COMMENT ON TABLE app.office IS 'Physical office locations (address-level) with full address information';
 
 -- =====================================================
 -- OFFICE HIERARCHY (d_office_hierarchy) - ORGANIZATIONAL STRUCTURE
@@ -66,7 +66,7 @@ COMMENT ON TABLE app.d_office IS 'Physical office locations (address-level) with
 --
 -- SEMANTICS:
 -- Office hierarchy provides a 4-level organizational structure for office management.
--- This hierarchy is separate from physical offices (d_office) and linked via d_entity_instance_link.
+-- This hierarchy is separate from physical offices (d_office) and linked via entity_instance_link.
 --
 -- HIERARCHY LEVELS:
 -- • Corporate: Top-level corporate entity (e.g., "Corporate Headquarters")
@@ -75,17 +75,17 @@ COMMENT ON TABLE app.d_office IS 'Physical office locations (address-level) with
 -- • Office: Office level node (e.g., "London Service Offices Group")
 --
 -- DATABASE BEHAVIOR:
--- • CREATE: INSERT with parent_id pointing to parent hierarchy node
--- • HIERARCHY: Self-referential parent_id for tree structure
--- • TRAVERSE: Recursive CTE on parent_id for full hierarchy path
+-- • CREATE: INSERT with parent_office_hierarchy_id pointing to parent hierarchy node
+-- • HIERARCHY: Self-referential parent_office_hierarchy_id for tree structure
+-- • TRAVERSE: Recursive CTE on parent_office_hierarchy_id for full hierarchy path
 --
 -- RELATIONSHIPS:
--- • Self: parent_id → d_office_hierarchy.id
--- • Children: d_office (via d_entity_instance_link)
+-- • Self: parent_office_hierarchy_id → d_office_hierarchy.id
+-- • Children: app.office (via entity_instance_link)
 --
 -- =====================================================
 
-CREATE TABLE app.d_office_hierarchy (
+CREATE TABLE app.office_hierarchy (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50) UNIQUE NOT NULL,
     name varchar(200) NOT NULL,
@@ -94,7 +94,7 @@ CREATE TABLE app.d_office_hierarchy (
     active_flag boolean DEFAULT true,
 
     -- Hierarchy fields
-    parent_id uuid, -- Self-referential for hierarchy (NULL for Corporate level)
+    parent_office_hierarchy_id uuid, -- Self-referential for hierarchy (NULL for Corporate level)
     dl__office_hierarchy_level text NOT NULL, -- References app.setting_datalabel (datalabel_name='dl__office_hierarchy_level')
 
     -- Organizational fields
@@ -108,49 +108,49 @@ CREATE TABLE app.d_office_hierarchy (
     version integer DEFAULT 1
 );
 
-COMMENT ON TABLE app.d_office_hierarchy IS 'Office organizational hierarchy: Corporate → Region → District → Office';
+COMMENT ON TABLE app.office_hierarchy IS 'Office organizational hierarchy: Corporate → Region → District → Office';
 
 -- =====================================================
 -- DATA CURATION: Office Hierarchy
 -- =====================================================
 
 -- LEVEL 1: CORPORATE (Top-level)
-INSERT INTO app.d_office_hierarchy (code, name, descr, parent_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt) VALUES
+INSERT INTO app.office_hierarchy (code, name, descr, parent_office_hierarchy_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt) VALUES
 ('OFF-HIE-CORP-HQ', 'Corporate Headquarters', 'Top-level corporate entity for Huron Home Services, housing executive leadership and corporate functions', NULL, 'Corporate', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 10000000.00);
 
 -- LEVEL 2: REGION
-INSERT INTO app.d_office_hierarchy (code, name, descr, parent_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.office_hierarchy (code, name, descr, parent_office_hierarchy_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
 SELECT 'OFF-HIE-ON-REG', 'Ontario Region', 'Regional coordination center for all Ontario operations, overseeing multiple districts across the province', id, 'Region', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 7000000.00
-FROM app.d_office_hierarchy WHERE code = 'OFF-HIE-CORP-HQ';
+FROM app.office_hierarchy WHERE code = 'OFF-HIE-CORP-HQ';
 
-INSERT INTO app.d_office_hierarchy (code, name, descr, parent_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.office_hierarchy (code, name, descr, parent_office_hierarchy_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
 SELECT 'OFF-HIE-QC-REG', 'Quebec Region', 'Regional coordination center for all Quebec operations', id, 'Region', NULL, 3000000.00
-FROM app.d_office_hierarchy WHERE code = 'OFF-HIE-CORP-HQ';
+FROM app.office_hierarchy WHERE code = 'OFF-HIE-CORP-HQ';
 
 -- LEVEL 3: DISTRICT
-INSERT INTO app.d_office_hierarchy (code, name, descr, parent_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.office_hierarchy (code, name, descr, parent_office_hierarchy_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
 SELECT 'OFF-HIE-SWO-DIST', 'Southwestern Ontario District', 'District managing operations across London, Windsor, Kitchener-Waterloo, and surrounding communities', id, 'District', NULL, 3000000.00
-FROM app.d_office_hierarchy WHERE code = 'OFF-HIE-ON-REG';
+FROM app.office_hierarchy WHERE code = 'OFF-HIE-ON-REG';
 
-INSERT INTO app.d_office_hierarchy (code, name, descr, parent_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.office_hierarchy (code, name, descr, parent_office_hierarchy_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
 SELECT 'OFF-HIE-GTA-DIST', 'Greater Toronto Area District', 'District managing operations across Toronto, Mississauga, Brampton, and GTA municipalities', id, 'District', NULL, 4000000.00
-FROM app.d_office_hierarchy WHERE code = 'OFF-HIE-ON-REG';
+FROM app.office_hierarchy WHERE code = 'OFF-HIE-ON-REG';
 
 -- LEVEL 4: OFFICE (Hierarchy nodes for grouping physical offices)
-INSERT INTO app.d_office_hierarchy (code, name, descr, parent_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.office_hierarchy (code, name, descr, parent_office_hierarchy_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
 SELECT 'OFF-HIE-LONDON-GRP', 'London Service Offices Group', 'Group node for all London-area service offices', id, 'Office', NULL, 1500000.00
-FROM app.d_office_hierarchy WHERE code = 'OFF-HIE-SWO-DIST';
+FROM app.office_hierarchy WHERE code = 'OFF-HIE-SWO-DIST';
 
-INSERT INTO app.d_office_hierarchy (code, name, descr, parent_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.office_hierarchy (code, name, descr, parent_office_hierarchy_id, dl__office_hierarchy_level, manager_employee_id, budget_allocated_amt)
 SELECT 'OFF-HIE-KW-GRP', 'Kitchener-Waterloo Offices Group', 'Group node for Kitchener-Waterloo area offices', id, 'Office', NULL, 1000000.00
-FROM app.d_office_hierarchy WHERE code = 'OFF-HIE-SWO-DIST';
+FROM app.office_hierarchy WHERE code = 'OFF-HIE-SWO-DIST';
 
 -- =====================================================
 -- DATA CURATION: Physical Offices
 -- =====================================================
 
 -- London Service Office (Main)
-INSERT INTO app.d_office (
+INSERT INTO app.office (
     code, name, descr,
     address_line1, address_line2, city, province, postal_code, country,
     phone, email, office_type, capacity_employees, square_footage
@@ -163,7 +163,7 @@ INSERT INTO app.d_office (
 );
 
 -- London Warehouse
-INSERT INTO app.d_office (
+INSERT INTO app.office (
     code, name, descr,
     address_line1, address_line2, city, province, postal_code, country,
     phone, email, office_type, capacity_employees, square_footage
@@ -176,7 +176,7 @@ INSERT INTO app.d_office (
 );
 
 -- Kitchener Service Office
-INSERT INTO app.d_office (
+INSERT INTO app.office (
     code, name, descr,
     address_line1, address_line2, city, province, postal_code, country,
     phone, email, office_type, capacity_employees, square_footage
@@ -189,7 +189,7 @@ INSERT INTO app.d_office (
 );
 
 -- Toronto Downtown Office
-INSERT INTO app.d_office (
+INSERT INTO app.office (
     code, name, descr,
     address_line1, address_line2, city, province, postal_code, country,
     phone, email, office_type, capacity_employees, square_footage
@@ -202,7 +202,7 @@ INSERT INTO app.d_office (
 );
 
 -- Mississauga Service Center
-INSERT INTO app.d_office (
+INSERT INTO app.office (
     code, name, descr,
     address_line1, address_line2, city, province, postal_code, country,
     phone, email, office_type, capacity_employees, square_footage
@@ -215,7 +215,7 @@ INSERT INTO app.d_office (
 );
 
 -- Corporate Office (Physical location for executives)
-INSERT INTO app.d_office (
+INSERT INTO app.office (
     code, name, descr,
     address_line1, address_line2, city, province, postal_code, country,
     phone, email, office_type, capacity_employees, square_footage
@@ -227,5 +227,5 @@ INSERT INTO app.d_office (
     '519-555-9000', 'corporate@huronhome.ca', 'Headquarters', 30, 10000
 );
 
-COMMENT ON TABLE app.d_office IS 'Physical office locations (address-level) with full address information';
-COMMENT ON TABLE app.d_office_hierarchy IS 'Office organizational hierarchy: Corporate → Region → District → Office';
+COMMENT ON TABLE app.office IS 'Physical office locations (address-level) with full address information';
+COMMENT ON TABLE app.office_hierarchy IS 'Office organizational hierarchy: Corporate → Region → District → Office';
