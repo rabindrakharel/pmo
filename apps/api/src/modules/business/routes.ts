@@ -392,7 +392,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
 
     // Get entity configuration
     const entityConfig = await db.execute(sql`
-      SELECT child_entities
+      SELECT child_entity_codes
       FROM app.d_entity
       WHERE code = ${ENTITY_TYPE}
         AND active_flag = true
@@ -402,7 +402,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       return reply.send({ creatable: [] });
     }
 
-    const childEntities = entityConfig[0].child_entities || [];
+    const childEntities = entityConfig[0].child_entity_codes || [];
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ ENTITY INFRASTRUCTURE SERVICE - Check CREATE permissions
@@ -777,7 +777,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
   // ============================================================================
   // Child Entity Endpoints (Auto-Generated from d_entity metadata)
   // ============================================================================
-  // Creates: GET /api/v1/business/:id/{child} for each child in d_entity.child_entities
+  // Creates: GET /api/v1/business/:id/{child} for each child in d_entity.child_entity_codes
   // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
   await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

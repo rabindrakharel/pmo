@@ -432,7 +432,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     schema: {
       body: Type.Object({
         person_entity_name: Type.Union([Type.Literal('role'), Type.Literal('employee')]),
-        person_entity_id: Type.String({ format: 'uuid' }),
+        person_id: Type.String({ format: 'uuid' }),
         entity_name: Type.String(),
         entity_id: Type.String(), // 'all' or specific UUID
         permission: Type.Number({ minimum: 0, maximum: 5 }),
@@ -442,7 +442,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         201: Type.Object({
           id: Type.String(),
           person_entity_name: Type.String(),
-          person_entity_id: Type.String(),
+          person_id: Type.String(),
           entity_name: Type.String(),
           entity_id: Type.String(),
           permission: Type.Number(),
@@ -458,7 +458,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { person_entity_name, person_entity_id, entity_name, entity_id, permission, expires_ts } = request.body as any;
+    const { person_entity_name, person_id, entity_name, entity_id, permission, expires_ts } = request.body as any;
     const userId = (request as any).user?.sub;
 
     if (!userId) {
@@ -469,14 +469,14 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       // Verify the person exists
       if (person_entity_name === 'role') {
         const roleExists = await db.execute(sql`
-          SELECT id FROM app.d_role WHERE id = ${person_entity_id} AND active_flag = true
+          SELECT id FROM app.d_role WHERE id = ${person_id} AND active_flag = true
         `);
         if (roleExists.length === 0) {
           return reply.status(400).send({ error: 'Role not found or inactive' });
         }
       } else if (person_entity_name === 'employee') {
         const employeeExists = await db.execute(sql`
-          SELECT id FROM app.d_employee WHERE id = ${person_entity_id} AND active_flag = true
+          SELECT id FROM app.d_employee WHERE id = ${person_id} AND active_flag = true
         `);
         if (employeeExists.length === 0) {
           return reply.status(400).send({ error: 'Employee not found or inactive' });
@@ -497,7 +497,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         SELECT id, permission
         FROM app.d_entity_rbac
         WHERE person_entity_name = ${person_entity_name}
-          AND person_entity_id = ${person_entity_id}
+          AND person_id = ${person_id}
           AND entity_name = ${entity_name}
           AND entity_id = ${entity_id}
           AND active_flag = true
@@ -514,14 +514,14 @@ export async function rbacRoutes(fastify: FastifyInstance) {
               expires_ts = ${expires_ts || null},
               updated_ts = NOW()
           WHERE id = ${existingPermission[0].id}
-          RETURNING id, person_entity_name, person_entity_id, entity_name, entity_id, permission, granted_by_employee_id, granted_ts, expires_ts
+          RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by_employee_id, granted_ts, expires_ts
         `);
       } else {
         // Insert new permission
         result = await db.execute(sql`
           INSERT INTO app.d_entity_rbac (
             person_entity_name,
-            person_entity_id,
+            person_id,
             entity_name,
             entity_id,
             permission,
@@ -531,7 +531,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             active_flag
           ) VALUES (
             ${person_entity_name},
-            ${person_entity_id},
+            ${person_id},
             ${entity_name},
             ${entity_id},
             ${permission},
@@ -540,7 +540,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             ${expires_ts || null},
             true
           )
-          RETURNING id, person_entity_name, person_entity_id, entity_name, entity_id, permission, granted_by_employee_id, granted_ts, expires_ts
+          RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by_employee_id, granted_ts, expires_ts
         `);
       }
 
@@ -552,7 +552,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       return reply.status(201).send({
         id: granted.id,
         person_entity_name: granted.person_entity_name,
-        person_entity_id: granted.person_entity_id,
+        person_id: granted.person_id,
         entity_name: granted.entity_name,
         entity_id: granted.entity_id,
         permission: granted.permission,
@@ -613,7 +613,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           expires_ts
         FROM app.d_entity_rbac
         WHERE person_entity_name = ${personType}
-          AND person_entity_id = ${personId}
+          AND person_id = ${personId}
           AND active_flag = true
         ORDER BY entity_name ASC, entity_id ASC
       `);
@@ -694,7 +694,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           data: Type.Array(Type.Object({
             id: Type.String(),
             person_entity_name: Type.String(),
-            person_entity_id: Type.String(),
+            person_id: Type.String(),
             person_name: Type.String(),
             entity_type: Type.String(),
             entity_id: Type.String(),
@@ -729,7 +729,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         SELECT
           rbac.id,
           rbac.person_entity_name,
-          rbac.person_entity_id,
+          rbac.person_id,
           CASE
             WHEN rbac.person_entity_name = 'employee' THEN COALESCE(emp.name, emp.email, 'Unknown Employee')
             WHEN rbac.person_entity_name = 'role' THEN COALESCE(role.name, 'Unknown Role')
@@ -759,8 +759,8 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           rbac.created_ts,
           rbac.updated_ts
         FROM app.d_entity_rbac rbac
-        LEFT JOIN app.d_employee emp ON rbac.person_entity_name = 'employee' AND rbac.person_entity_id = emp.id
-        LEFT JOIN app.d_role role ON rbac.person_entity_name = 'role' AND rbac.person_entity_id = role.id
+        LEFT JOIN app.d_employee emp ON rbac.person_entity_name = 'employee' AND rbac.person_id = emp.id
+        LEFT JOIN app.d_role role ON rbac.person_entity_name = 'role' AND rbac.person_id = role.id
         LEFT JOIN app.d_employee granter ON rbac.granted_by_employee_id = granter.id
         -- Centralized entity name resolution using entity_instance_id registry
         LEFT JOIN app.d_entity_instance_registry entity_inst
@@ -803,7 +803,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         200: Type.Object({
           id: Type.String(),
           person_entity_name: Type.String(),
-          person_entity_id: Type.String(),
+          person_id: Type.String(),
           entity_name: Type.String(),
           entity_id: Type.String(),
           permission: Type.Number(),
@@ -832,7 +832,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         SELECT
           id,
           person_entity_name,
-          person_entity_id,
+          person_id,
           entity_name,
           entity_id,
           permission,
@@ -863,7 +863,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     schema: {
       body: Type.Object({
         person_entity_name: Type.Union([Type.Literal('role'), Type.Literal('employee')]),
-        person_entity_id: Type.String({ format: 'uuid' }),
+        person_id: Type.String({ format: 'uuid' }),
         entity_name: Type.String(),
         entity_id: Type.String(), // 'all' or specific UUID
         permission: Type.Number({ minimum: 0, maximum: 5 }),
@@ -873,7 +873,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         201: Type.Object({
           id: Type.String(),
           person_entity_name: Type.String(),
-          person_entity_id: Type.String(),
+          person_id: Type.String(),
           entity_name: Type.String(),
           entity_id: Type.String(),
           permission: Type.Number(),
@@ -888,7 +888,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { person_entity_name, person_entity_id, entity_name, entity_id, permission, expires_ts } = request.body as any;
+    const { person_entity_name, person_id, entity_name, entity_id, permission, expires_ts } = request.body as any;
     const userId = (request as any).user?.sub;
 
     if (!userId) {
@@ -899,14 +899,14 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       // Verify the person exists
       if (person_entity_name === 'role') {
         const roleExists = await db.execute(sql`
-          SELECT id FROM app.d_role WHERE id = ${person_entity_id} AND active_flag = true
+          SELECT id FROM app.d_role WHERE id = ${person_id} AND active_flag = true
         `);
         if (roleExists.length === 0) {
           return reply.status(400).send({ error: 'Role not found or inactive' });
         }
       } else if (person_entity_name === 'employee') {
         const employeeExists = await db.execute(sql`
-          SELECT id FROM app.d_employee WHERE id = ${person_entity_id} AND active_flag = true
+          SELECT id FROM app.d_employee WHERE id = ${person_id} AND active_flag = true
         `);
         if (employeeExists.length === 0) {
           return reply.status(400).send({ error: 'Employee not found or inactive' });
@@ -926,7 +926,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         SELECT id, permission
         FROM app.d_entity_rbac
         WHERE person_entity_name = ${person_entity_name}
-          AND person_entity_id = ${person_entity_id}
+          AND person_id = ${person_id}
           AND entity_name = ${entity_name}
           AND entity_id = ${entity_id}
           AND active_flag = true
@@ -943,14 +943,14 @@ export async function rbacRoutes(fastify: FastifyInstance) {
               expires_ts = ${expires_ts || null},
               updated_ts = NOW()
           WHERE id = ${existingPermission[0].id}
-          RETURNING id, person_entity_name, person_entity_id, entity_name, entity_id, permission, granted_by_employee_id, granted_ts, expires_ts
+          RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by_employee_id, granted_ts, expires_ts
         `);
       } else {
         // Insert new permission
         result = await db.execute(sql`
           INSERT INTO app.d_entity_rbac (
             person_entity_name,
-            person_entity_id,
+            person_id,
             entity_name,
             entity_id,
             permission,
@@ -960,7 +960,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             active_flag
           ) VALUES (
             ${person_entity_name},
-            ${person_entity_id},
+            ${person_id},
             ${entity_name},
             ${entity_id},
             ${permission},
@@ -969,7 +969,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             ${expires_ts || null},
             true
           )
-          RETURNING id, person_entity_name, person_entity_id, entity_name, entity_id, permission, granted_by_employee_id, granted_ts, expires_ts
+          RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by_employee_id, granted_ts, expires_ts
         `);
       }
 
@@ -981,7 +981,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       return reply.status(201).send({
         id: created.id,
         person_entity_name: created.person_entity_name,
-        person_entity_id: created.person_entity_id,
+        person_id: created.person_id,
         entity_name: created.entity_name,
         entity_id: created.entity_id,
         permission: created.permission,
@@ -1011,7 +1011,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         200: Type.Object({
           id: Type.String(),
           person_entity_name: Type.String(),
-          person_entity_id: Type.String(),
+          person_id: Type.String(),
           entity_name: Type.String(),
           entity_id: Type.String(),
           permission: Type.Number(),
@@ -1076,7 +1076,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             expires_ts = ${expires_ts !== undefined ? expires_ts : sql`expires_ts`},
             updated_ts = NOW()
         WHERE id = ${id}
-        RETURNING id, person_entity_name, person_entity_id, entity_name, entity_id, permission, granted_by_employee_id, granted_ts, expires_ts
+        RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by_employee_id, granted_ts, expires_ts
       `);
 
       if (result.length === 0) {
@@ -1087,7 +1087,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       return {
         id: updated.id,
         person_entity_name: updated.person_entity_name,
-        person_entity_id: updated.person_entity_id,
+        person_id: updated.person_id,
         entity_name: updated.entity_name,
         entity_id: updated.entity_id,
         permission: updated.permission,
@@ -1207,7 +1207,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         SELECT
           rbac.id,
           rbac.person_entity_name,
-          rbac.person_entity_id,
+          rbac.person_id,
           rbac.entity_name,
           rbac.entity_id,
           rbac.permission,
@@ -1224,8 +1224,8 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             ELSE NULL
           END AS person_code
         FROM app.d_entity_rbac rbac
-        LEFT JOIN app.d_employee emp ON rbac.person_entity_name = 'employee' AND rbac.person_entity_id = emp.id
-        LEFT JOIN app.d_role role ON rbac.person_entity_name = 'role' AND rbac.person_entity_id = role.id
+        LEFT JOIN app.d_employee emp ON rbac.person_entity_name = 'employee' AND rbac.person_id = emp.id
+        LEFT JOIN app.d_role role ON rbac.person_entity_name = 'role' AND rbac.person_id = role.id
         WHERE rbac.active_flag = true
         ORDER BY
           rbac.person_entity_name,
@@ -1260,7 +1260,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       let employeeCount = 0;
 
       for (const record of rbacRecords) {
-        const personKey = `${record.person_entity_name}:${record.person_entity_id}`;
+        const personKey = `${record.person_entity_name}:${record.person_id}`;
         uniquePersons.add(personKey);
         uniqueEntities.add(record.entity_name);
 
@@ -1274,7 +1274,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         if (!personMap.has(personKey)) {
           personMap.set(personKey, {
             person_type: record.person_entity_name,
-            person_id: record.person_entity_id,
+            person_id: record.person_id,
             person_name: record.person_name || 'Unknown',
             person_code: record.person_code,
             permissions: [],
@@ -1305,7 +1305,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
 
         entityMap.get(record.entity_name).permissions.push({
           person_type: record.person_entity_name,
-          person_id: record.person_entity_id,
+          person_id: record.person_id,
           person_name: record.person_name || 'Unknown',
           entity_id: record.entity_id,
           permission_level: record.permission,
@@ -1535,7 +1535,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         'id',
         'person_entity_name',
         'person_name', // computed
-        'person_entity_id',
+        'person_id',
         'entity_type',
         'entity_name', // computed
         'entity_id',

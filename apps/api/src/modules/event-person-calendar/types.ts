@@ -9,7 +9,7 @@ export interface EventPersonCalendar {
   name: string | null;
   descr: string | null;
   person_entity_type: 'employee' | 'client' | 'customer';
-  person_entity_id: string;
+  person_id: string;
   event_id: string;
   event_rsvp_status: 'pending' | 'accepted' | 'declined';
   from_ts: string;
@@ -27,7 +27,7 @@ export interface CreateEventPersonCalendarRequest {
   name?: string;
   descr?: string;
   person_entity_type: 'employee' | 'client' | 'customer';
-  person_entity_id: string;
+  person_id: string;
   event_id: string;
   event_rsvp_status?: 'pending' | 'accepted' | 'declined';
   from_ts: string;

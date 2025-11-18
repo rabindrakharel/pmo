@@ -37,7 +37,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           name,
           descr,
           person_entity_type,
-          person_entity_id::text,
+          person_id::text,
           from_ts::text,
           to_ts::text,
           timezone,
@@ -96,7 +96,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           name,
           descr,
           person_entity_type,
-          person_entity_id::text,
+          person_id::text,
           from_ts::text,
           to_ts::text,
           timezone,
@@ -135,18 +135,18 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/v1/person-calendar/available
    * Get available slots for a given time range
-   * Query params: person_entity_type, person_entity_id, from_ts, to_ts
+   * Query params: person_entity_type, person_id, from_ts, to_ts
    */
   fastify.get('/api/v1/person-calendar/available', async (request: FastifyRequest<{
     Querystring: {
       person_entity_type?: string;
-      person_entity_id?: string;
+      person_id?: string;
       from_ts?: string;
       to_ts?: string;
     };
   }>, reply) => {
     try {
-      const { person_entity_type, person_entity_id, from_ts, to_ts } = request.query;
+      const { person_entity_type, person_id, from_ts, to_ts } = request.query;
 
       let whereConditions = client`WHERE active_flag = true AND availability_flag = true`;
 
@@ -154,8 +154,8 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
         whereConditions = client`${whereConditions} AND person_entity_type = ${person_entity_type}`;
       }
 
-      if (person_entity_id) {
-        whereConditions = client`${whereConditions} AND person_entity_id = ${person_entity_id}::uuid`;
+      if (person_id) {
+        whereConditions = client`${whereConditions} AND person_id = ${person_id}::uuid`;
       }
 
       if (from_ts) {
@@ -172,7 +172,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           code,
           name,
           person_entity_type,
-          person_entity_id::text,
+          person_id::text,
           from_ts::text,
           to_ts::text,
           timezone,
@@ -225,7 +225,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           e.email as employee_email,
           e.phone as employee_phone
         FROM app.d_entity_person_calendar c
-        JOIN app.d_employee e ON c.person_entity_id = e.id
+        JOIN app.d_employee e ON c.person_id = e.id
         WHERE c.person_entity_type = 'employee'
           AND c.availability_flag = true
           AND c.active_flag = true
@@ -250,17 +250,17 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/v1/person-calendar/booked
    * Get booked slots for a given person
-   * Query params: person_entity_type, person_entity_id, from_ts
+   * Query params: person_entity_type, person_id, from_ts
    */
   fastify.get('/api/v1/person-calendar/booked', async (request: FastifyRequest<{
     Querystring: {
       person_entity_type?: string;
-      person_entity_id?: string;
+      person_id?: string;
       from_ts?: string;
     };
   }>, reply) => {
     try {
-      const { person_entity_type, person_entity_id, from_ts } = request.query;
+      const { person_entity_type, person_id, from_ts } = request.query;
 
       let whereConditions = client`WHERE active_flag = true AND availability_flag = false`;
 
@@ -268,8 +268,8 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
         whereConditions = client`${whereConditions} AND person_entity_type = ${person_entity_type}`;
       }
 
-      if (person_entity_id) {
-        whereConditions = client`${whereConditions} AND person_entity_id = ${person_entity_id}::uuid`;
+      if (person_id) {
+        whereConditions = client`${whereConditions} AND person_id = ${person_id}::uuid`;
       }
 
       if (from_ts) {
@@ -282,7 +282,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           code,
           name,
           person_entity_type,
-          person_entity_id::text,
+          person_id::text,
           from_ts::text,
           to_ts::text,
           timezone,
@@ -323,7 +323,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           name,
           descr,
           person_entity_type,
-          person_entity_id,
+          person_id,
           from_ts,
           to_ts,
           timezone,
@@ -339,7 +339,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           ${slot.name},
           ${slot.descr || null},
           ${slot.person_entity_type},
-          ${slot.person_entity_id}::uuid,
+          ${slot.person_id}::uuid,
           ${slot.from_ts}::timestamptz,
           ${slot.to_ts}::timestamptz,
           ${slot.timezone || 'America/Toronto'},

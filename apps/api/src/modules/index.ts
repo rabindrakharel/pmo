@@ -18,13 +18,11 @@ import { artifactRoutes } from './artifact/routes.js';
 import { businessRoutes } from './business/routes.js';
 import { officeRoutes } from './office/routes.js';
 import { worksiteRoutes } from './worksite/routes.js';
-import { reportsRoutes } from './reports/routes.js';
 import { taskDataRoutes } from './task-data/routes.js';
 // import { messageSchemaRoutes } from './message-schema/routes.js'; // REMOVED: message_schema is template storage, not user-facing entity
 import { messageDataRoutes } from './message-data/routes.js';
 import { uploadRoutes } from './upload/routes.js';
 import s3BackendRoutes from './s3-backend/routes.js';
-import { workflowAutomationRoutes } from './workflow-automation/routes.js';
 import { workflowRoutes } from './workflow/routes.js';
 
 // Product & Operations API modules
@@ -127,11 +125,9 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   await businessRoutes(fastify);
   await officeRoutes(fastify);
   await worksiteRoutes(fastify);
-  await reportsRoutes(fastify);
   await taskDataRoutes(fastify);
   // await messageSchemaRoutes(fastify); // REMOVED: message_schema is template storage, not user-facing entity
   await messageDataRoutes(fastify);
-  await workflowAutomationRoutes(fastify);
   await workflowRoutes(fastify);
 
   // Hierarchy entity API routes

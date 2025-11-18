@@ -83,7 +83,7 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
       // Build RBAC filter - user must have view permission (0)
       const rbacCondition = sql`EXISTS (
         SELECT 1 FROM app.d_entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = ${entityType}
           AND (rbac.entity_id = e.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
@@ -264,7 +264,7 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
       const parentAccessCheck = await db.execute(sql`
         SELECT 1
         FROM app.d_entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = ${parentType}
           AND (rbac.entity_id = ${parentId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
@@ -308,7 +308,7 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
         // Build RBAC filter for child entities
         const rbacCondition = sql`EXISTS (
           SELECT 1 FROM app.d_entity_rbac rbac
-          WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+          WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
             AND rbac.entity_name = ${childType}
             AND (rbac.entity_id = e.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
             AND rbac.active_flag = true

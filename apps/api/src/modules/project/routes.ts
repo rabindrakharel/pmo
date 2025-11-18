@@ -49,7 +49,7 @@
  * 3. FACTORY PATTERN (Child Entity Endpoints - Database-Driven)
  * ────────────────────────────────────────────────────────────
  * Child entity endpoints auto-generated via createChildEntityEndpointsFromMetadata():
- *   • Reads child_entities from d_entity table (single source of truth)
+ *   • Reads child_entity_codes from d_entity table (single source of truth)
  *   • Auto-creates: GET /api/v1/project/:id/task, /api/v1/project/:id/wiki, etc.
  *   • Zero maintenance - add child to d_entity DDL, routes auto-generated
  *
@@ -409,7 +409,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
     // Get entity configuration
     const entityConfig = await db.execute(sql`
-      SELECT child_entities
+      SELECT child_entity_codes
       FROM app.d_entity
       WHERE code = ${ENTITY_TYPE}
         AND active_flag = true
@@ -419,7 +419,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       return reply.send({ creatable: [] });
     }
 
-    const childEntities = (entityConfig[0].child_entities || []) as string[];
+    const childEntities = (entityConfig[0].child_entity_codes || []) as string[];
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ CENTRALIZED UNIFIED DATA GATE - Check CREATE permissions
@@ -857,7 +857,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
   // CHILD ENTITY ENDPOINTS (Database-Driven)
   // ========================================
   // Auto-create all child entity endpoints from d_entity metadata
-  // Reads project's child_entities from database: ["task", "wiki", "artifact", "form", "expense", "revenue"]
+  // Reads project's child_entity_codes from database: ["task", "wiki", "artifact", "form", "expense", "revenue"]
   // Creates endpoints: /api/v1/project/:id/task, /api/v1/project/:id/wiki, etc.
   //
   // Benefits:

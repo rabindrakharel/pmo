@@ -366,7 +366,7 @@ export async function linkageRoutes(fastify: FastifyInstance) {
 
       // ═══════════════════════════════════════════════════════════════
       // ✅ ENTITY INFRASTRUCTURE SERVICE - Get parent entity types
-      // Finds all entities that have this entity_type in their child_entities
+      // Finds all entities that have this entity_type in their child_entity_codes
       // ═══════════════════════════════════════════════════════════════
       const parents = await entityInfra.get_parent_entity_types(entity_type);
 
@@ -400,8 +400,8 @@ export async function linkageRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Extract child entity codes from child_entities array
-      const children = (entity.child_entities || []).sort();
+      // Extract child entity codes from child_entity_codes array
+      const children = (entity.child_entity_codes || []).sort();
 
       return reply.send({
         success: true,
@@ -435,11 +435,11 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const entities = await entityInfra.get_all_entity(false);
 
-      // Build type linkages from d_entity.child_entities
+      // Build type linkages from d_entity.child_entity_codes
       const typeLinkages: any[] = [];
       entities.forEach((entity) => {
         const parentType = entity.code;
-        const childEntities = entity.child_entities || [];
+        const childEntities = entity.child_entity_codes || [];
 
         childEntities.forEach((childCode) => {
           typeLinkages.push({

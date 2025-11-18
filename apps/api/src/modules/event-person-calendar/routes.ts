@@ -24,14 +24,14 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
     Querystring: {
       event_id?: string;
       person_entity_type?: string;
-      person_entity_id?: string;
+      person_id?: string;
       event_rsvp_status?: string;
       page?: number;
       limit?: number;
     };
   }>('/api/v1/event-person-calendar', async (request, reply) => {
     try {
-      const { event_id, person_entity_type, person_entity_id, event_rsvp_status } = request.query;
+      const { event_id, person_entity_type, person_id, event_rsvp_status } = request.query;
       const { page, limit, offset } = getPaginationParams(request.query);
 
       let whereConditions = client`WHERE active_flag = true`;
@@ -44,8 +44,8 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
         whereConditions = client`${whereConditions} AND person_entity_type = ${person_entity_type}`;
       }
 
-      if (person_entity_id) {
-        whereConditions = client`${whereConditions} AND person_entity_id = ${person_entity_id}::uuid`;
+      if (person_id) {
+        whereConditions = client`${whereConditions} AND person_id = ${person_id}::uuid`;
       }
 
       if (event_rsvp_status) {
@@ -59,7 +59,7 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
           name,
           descr,
           person_entity_type,
-          person_entity_id::text,
+          person_id::text,
           event_id::text,
           event_rsvp_status,
           from_ts::text,
@@ -108,7 +108,7 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
           name,
           descr,
           person_entity_type,
-          person_entity_id::text,
+          person_id::text,
           event_id::text,
           event_rsvp_status,
           from_ts::text,
@@ -153,7 +153,7 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
       const { person_entity_type, event_rsvp_status, from_ts } = request.query;
 
       let whereConditions = client`
-        WHERE epc.person_entity_id = ${personId}::uuid
+        WHERE epc.person_id = ${personId}::uuid
           AND epc.active_flag = true
           AND e.active_flag = true
       `;
@@ -222,7 +222,7 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
           name,
           descr,
           person_entity_type,
-          person_entity_id,
+          person_id,
           event_id,
           event_rsvp_status,
           from_ts,
@@ -234,7 +234,7 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
           ${mapping.name || null},
           ${mapping.descr || null},
           ${mapping.person_entity_type},
-          ${mapping.person_entity_id}::uuid,
+          ${mapping.person_id}::uuid,
           ${mapping.event_id}::uuid,
           ${mapping.event_rsvp_status || 'pending'},
           ${mapping.from_ts}::timestamptz,
@@ -246,7 +246,7 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
           id::text,
           code,
           person_entity_type,
-          person_entity_id::text,
+          person_id::text,
           event_id::text,
           event_rsvp_status,
           created_ts::text
@@ -352,7 +352,7 @@ export async function eventPersonCalendarRoutes(fastify: FastifyInstance) {
           id::text,
           code,
           person_entity_type,
-          person_entity_id::text,
+          person_id::text,
           event_id::text,
           event_rsvp_status,
           updated_ts::text

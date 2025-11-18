@@ -61,7 +61,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
       // Check if user has view permission on the task
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.d_entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = 'task'
           AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
@@ -140,7 +140,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
       // Check if user has edit permission on the task
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.d_entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = 'task'
           AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
@@ -238,7 +238,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
       // Check permission
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.d_entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = 'task'
           AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true

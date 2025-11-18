@@ -16,7 +16,7 @@ export interface PersonCalendar {
 
   // Person identification
   person_entity_type: 'employee' | 'client' | 'customer';
-  person_entity_id: string;
+  person_id: string;
 
   // Time slot
   from_ts: string;
@@ -45,7 +45,7 @@ export interface CreatePersonCalendarRequest {
   name: string;
   descr?: string;
   person_entity_type: 'employee' | 'client' | 'customer';
-  person_entity_id: string;
+  person_id: string;
   from_ts: string;
   to_ts: string;
   timezone?: string;

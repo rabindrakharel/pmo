@@ -62,7 +62,7 @@ export async function createSession(args: {
           'inbound',
           'live_chat',
           now(),
-          ${JSON.stringify(args.customer_id ? [{ person_entity_type: 'customer', person_entity_id: args.customer_id }] : [])}::jsonb,
+          ${JSON.stringify(args.customer_id ? [{ person_entity_type: 'customer', person_id: args.customer_id }] : [])}::jsonb,
           '',
           'ai_chat_widget',
           ${JSON.stringify({
@@ -137,7 +137,7 @@ export async function getSession(sessionId: string): Promise<ChatSession | null>
 
     // Find customer entity from person_entities
     const customerEntity = personEntities.find((e: any) => e.person_entity_type === 'customer');
-    const customerId = customerEntity?.person_entity_id;
+    const customerId = customerEntity?.person_id;
 
     return {
       session_id: row.session_id,
