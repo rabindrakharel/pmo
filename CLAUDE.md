@@ -344,7 +344,7 @@ import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // Entity Infrastructure Service - Single source of truth for all infrastructure operations
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 
-// Factory functions
+// Factory functions (thin wrappers around Entity Infrastructure Service)
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 ```
@@ -496,6 +496,7 @@ setting_datalabel_* tables → /api/v1/entity/:type/options → EntityFormContai
 - v3.4.0 (2025-11-18): **Major Architecture Cleanup** - 100% Entity Infrastructure Service adherence
   - **PURGED**: `unified-data-gate.ts` (33,690 bytes) - Completely replaced by Entity Infrastructure Service
   - **PURGED**: 10 obsolete files (linkage.service.ts, schema-driven-routes.ts, configTransformer.ts, etc.)
+  - **REFACTORED**: `entity-delete-route-factory.ts` - Now thin wrapper around Entity Infrastructure Service
   - **RENAMED**: `ENTITY_TYPE` → `ENTITY_CODE` across entire codebase (matches data model)
   - **FIXED**: All infrastructure table names (`d_entity` → `entity`, `d_entity_instance_link` → `entity_instance_link`)
   - **UPDATED**: 24 documentation files to reflect current architecture
