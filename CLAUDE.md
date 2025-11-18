@@ -292,7 +292,7 @@ const element = renderFieldDisplay(50000, { type: 'currency' });
 | Settings | `SettingsDataTable` | Reorderable, badges |
 | Forms | `EntityFormContainer` | Auto-detects 15+ field types |
 | Workflows | `DAGVisualizer` | `dl__*_stage` fields |
-| Child tabs | `DynamicChildEntityTabs` | From `d_entity` |
+| Child tabs | `DynamicChildEntityTabs` | From `entity` |
 | Kanban | `KanbanBoard` | Status columns |
 | Calendar | `CalendarView` | Event scheduling |
 
@@ -390,7 +390,7 @@ conditions.push(...autoFilters);
 ### Adding New Entity
 
 1. **Database**: Create `db/d_[entity].ddl` with standard fields (id, code, name, descr, metadata, active_flag, from_ts, to_ts)
-2. **Metadata**: Add to `d_entity` table (entity_type, label, icon, child_entities)
+2. **Metadata**: Add to `entity` table (entity_type, label, icon, child_entities)
 3. **API Module**: Create `apps/api/src/modules/[entity]/routes.ts`
    - Use standard import block (see API Standards section above)
    - Define module constants: `ENTITY_TYPE`, `TABLE_ALIAS`
@@ -443,7 +443,7 @@ tags          → Array field
 
 ❌ Creating entity-specific pages/components
 ❌ Hardcoding dropdown options or entity metadata
-❌ Adding foreign keys (use d_entity_instance_link)
+❌ Adding foreign keys (use entity_instance_link)
 ❌ Manual field formatting (use centralized transforms)
 ❌ Direct S3 uploads (use presigned URLs)
 ❌ Skipping db-import.sh after DDL changes
@@ -455,18 +455,18 @@ tags          → Array field
 User Action → Universal Page → EntityConfig → API Call → Service Layer → Database
                      ↓                            ↓
               Field Detection              RBAC Check
-              (12 patterns)               (d_entity_rbac)
+              (12 patterns)               (entity_rbac)
 ```
 
 ### Data Relationships
 ```
-d_entity (metadata) → defines → Entity Types
+entity (metadata) → defines → Entity Types
                                       ↓
                               d_{entity} tables
                                       ↓
-                              d_entity_instance_link (linkages)
+                              entity_instance_link (linkages)
                                       ↓
-                              d_entity_rbac (permissions)
+                              entity_rbac (permissions)
 ```
 
 ### Settings Integration
@@ -479,7 +479,7 @@ setting_datalabel_* tables → /api/v1/entity/:type/options → EntityFormContai
 ## Performance Optimizations
 
 - Universal Field Detector: 83% faster than v3.x
-- Cached entity metadata from d_entity
+- Cached entity metadata from entity
 - Optimistic updates with refetch
 - Lazy-loaded child entity tabs
 - Virtualized long lists
