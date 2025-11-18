@@ -421,7 +421,7 @@ export class EntityInfrastructureService {
    * - Pattern 4: {entity}_ids (e.g., "attachment_ids")
    *
    * @param fields Record of field names to UUID values (string or string[])
-   * @returns Record with original fields plus resolved label fields
+   * @returns Record with resolved fields
    *
    * @example
    * // Input:
@@ -434,8 +434,10 @@ export class EntityInfrastructureService {
    * {
    *   "manager__employee_id": "uuid-123",
    *   "manager": "James Miller",
-   *   "stakeholder__employee_ids": ["uuid-456", "uuid-789"],
-   *   "stakeholder": ["Sarah Johnson", "Michael Chen"]
+   *   "stakeholder": [
+   *     { "stakeholder__employee_id": "uuid-456", "stakeholder": "Sarah Johnson" },
+   *     { "stakeholder__employee_id": "uuid-789", "stakeholder": "Michael Chen" }
+   *   ]
    * }
    */
   async resolve_entity_references(
@@ -500,20 +502,21 @@ export class EntityInfrastructureService {
         }
       }
 
-      // Keep original field value
-      resolved[fieldName] = value;
+      // If no pattern matched, keep original field value
+      if (!entityCode || !label) {
+        resolved[fieldName] = value;
+        continue;
+      }
 
-      // If pattern matched and we have an entity code, collect UUIDs for resolution
-      if (entityCode && label) {
-        if (!uuidsToResolve[entityCode]) {
-          uuidsToResolve[entityCode] = new Set();
-        }
+      // Collect UUIDs for bulk resolution
+      if (!uuidsToResolve[entityCode]) {
+        uuidsToResolve[entityCode] = new Set();
+      }
 
-        if (isArray && Array.isArray(value)) {
-          value.forEach(uuid => uuidsToResolve[entityCode!].add(uuid));
-        } else if (!isArray && typeof value === 'string') {
-          uuidsToResolve[entityCode].add(value);
-        }
+      if (isArray && Array.isArray(value)) {
+        value.forEach(uuid => uuidsToResolve[entityCode!].add(uuid));
+      } else if (!isArray && typeof value === 'string') {
+        uuidsToResolve[entityCode].add(value);
       }
     }
 
@@ -537,7 +540,7 @@ export class EntityInfrastructureService {
       }
     }
 
-    // Now populate resolved labels for each field
+    // Now populate resolved fields
     for (const [fieldName, value] of Object.entries(fields)) {
       if (value === null || value === undefined) continue;
 
@@ -580,13 +583,27 @@ export class EntityInfrastructureService {
         }
       }
 
-      // Populate resolved label field
-      if (entityCode && label && resolvedNames[entityCode]) {
-        if (isArray && Array.isArray(value)) {
-          resolved[label] = value.map(uuid => resolvedNames[entityCode!][uuid] || 'Unknown');
-        } else if (!isArray && typeof value === 'string') {
-          resolved[label] = resolvedNames[entityCode][value] || 'Unknown';
-        }
+      if (!entityCode || !label) continue;
+
+      // Format output based on whether it's an array or single value
+      if (isArray && Array.isArray(value)) {
+        // For arrays: create array of objects under LABEL field name (without _ids suffix)
+        // Input: stakeholder__employee_ids: ["uuid-456", "uuid-789"]
+        // Output: stakeholder: [
+        //   { stakeholder__employee_id: "uuid-456", stakeholder: "Sarah Johnson" },
+        //   { stakeholder__employee_id: "uuid-789", stakeholder: "Michael Chen" }
+        // ]
+        const singularFieldName = fieldName.replace(/_ids$/, '_id');
+        resolved[label] = value.map(uuid => ({
+          [singularFieldName]: uuid,
+          [label]: resolvedNames[entityCode!]?.[uuid] || 'Unknown'
+        }));
+      } else if (!isArray && typeof value === 'string') {
+        // For single values: add both the original UUID field and resolved label field
+        // Input: manager__employee_id: "uuid-123"
+        // Output: manager__employee_id: "uuid-123", manager: "James Miller"
+        resolved[fieldName] = value;
+        resolved[label] = resolvedNames[entityCode]?.[value] || 'Unknown';
       }
     }
 

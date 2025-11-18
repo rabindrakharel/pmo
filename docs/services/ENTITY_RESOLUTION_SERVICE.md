@@ -2,11 +2,11 @@
 
 **Location**: `apps/api/src/services/entity-infrastructure.service.ts`
 **Method**: `resolve_entity_references()`
-**Endpoint**: `POST /api/v1/entity/entity_instance_id_lookup`
+**Usage**: Called automatically by entity endpoints that serve data to EntityFormDataContainer
 
 ## Purpose
 
-Resolve UUID fields to human-readable entity names based on the double-underscore naming convention. This enables the frontend to display meaningful labels instead of raw UUIDs.
+Automatically resolve UUID fields to human-readable entity names based on the double-underscore naming convention. This enables the frontend to display meaningful labels instead of raw UUIDs without making additional API calls.
 
 ## Naming Convention Patterns
 
@@ -19,122 +19,169 @@ The service automatically detects entity references based on field naming:
 | `{entity}_id` | `project_id` | `project` | `project` |
 | `{entity}_ids` | `attachment_ids` | `attachment` | `attachment` |
 
-## API Usage
+## Output Format
 
-### Request
+### Single UUID Field
 
-```http
-POST /api/v1/entity/entity_instance_id_lookup
-Authorization: Bearer <token>
-Content-Type: application/json
-
+**Input**:
+```json
 {
-  "sponsor__employee_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-  "stakeholder__employee_ids": [
-    "cccccccc-cccc-cccc-cccc-cccccccccccc",
-    "dddddddd-dddd-dddd-dddd-dddddddddddd"
-  ],
-  "project_id": "93106ffb-402e-43a7-8b26-5287e37a1b0e"
+  "sponsor__employee_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
 }
 ```
 
-### Response
-
+**Output**:
 ```json
 {
   "sponsor__employee_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-  "sponsor": "Sarah Johnson",
+  "sponsor": "James Miller"
+}
+```
+
+### UUID Array Field
+
+**Input**:
+```json
+{
   "stakeholder__employee_ids": [
     "cccccccc-cccc-cccc-cccc-cccccccccccc",
     "dddddddd-dddd-dddd-dddd-dddddddddddd"
-  ],
-  "stakeholder": ["Michael Chen", "Emily Brown"],
-  "project_id": "93106ffb-402e-43a7-8b26-5287e37a1b0e",
-  "project": "Digital Transformation"
+  ]
 }
 ```
 
-## Frontend Integration (EntityFormDataContainer)
-
-### Step 1: Import Resolution Hook
-
-```typescript
-import { useEntityResolution } from '@/hooks/useEntityResolution';
+**Output**:
+```json
+{
+  "stakeholder": [
+    {
+      "stakeholder__employee_id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      "stakeholder": "Sarah Johnson"
+    },
+    {
+      "stakeholder__employee_id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+      "stakeholder": "Michael Chen"
+    }
+  ]
+}
 ```
 
-### Step 2: Call Resolution Service
+**Note**: The array is placed under the **label field name** (`stakeholder`), not the original field name (`stakeholder__employee_ids`).
+
+## Backend Integration (Entity Routes)
+
+Entity endpoints that serve data to EntityFormDataContainer should call the resolution service before returning data.
+
+### Example: GET Single Entity
 
 ```typescript
+// apps/api/src/modules/project/routes.ts
+
+fastify.get('/api/v1/project/:id', {
+  preHandler: [fastify.authenticate]
+}, async (request, reply) => {
+  const { id } = request.params;
+  const userId = request.user.sub;
+
+  // STEP 1: Check RBAC permission
+  const canView = await entityInfra.check_entity_rbac(
+    userId, ENTITY_CODE, id, Permission.VIEW
+  );
+  if (!canView) {
+    return reply.status(403).send({ error: 'Forbidden' });
+  }
+
+  // STEP 2: Fetch entity data from primary table
+  const result = await db.execute(sql`
+    SELECT *
+    FROM app.d_project
+    WHERE id = ${id}
+  `);
+
+  if (result.length === 0) {
+    return reply.status(404).send({ error: 'Project not found' });
+  }
+
+  const project = result[0];
+
+  // STEP 3: Resolve UUID fields to human-readable names
+  const enrichedProject = await entityInfra.resolve_entity_references(project);
+
+  return reply.send(enrichedProject);
+});
+```
+
+### Example: GET Entity List
+
+```typescript
+fastify.get('/api/v1/project', {
+  preHandler: [fastify.authenticate]
+}, async (request, reply) => {
+  const userId = request.user.sub;
+
+  // STEP 1: Get RBAC WHERE condition
+  const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
+    userId, ENTITY_CODE, Permission.VIEW, 'e'
+  );
+
+  // STEP 2: Fetch entity list from primary table
+  const projects = await db.execute(sql`
+    SELECT e.*
+    FROM app.d_project e
+    WHERE ${rbacCondition}
+    ORDER BY e.created_ts DESC
+    LIMIT 50
+  `);
+
+  // STEP 3: Resolve UUID fields for each project
+  const enrichedProjects = await Promise.all(
+    projects.map(project => entityInfra.resolve_entity_references(project))
+  );
+
+  return reply.send({ data: enrichedProjects });
+});
+```
+
+## Frontend Usage (EntityFormDataContainer)
+
+The frontend receives enriched data automatically - no additional API calls needed!
+
+### Before Resolution Service
+
+```typescript
+// ❌ OLD: Frontend had to make separate lookups
 const EntityFormDataContainer = ({ entityData }: Props) => {
-  const [resolvedData, setResolvedData] = useState<Record<string, any>>({});
+  const [managerName, setManagerName] = useState('Loading...');
 
   useEffect(() => {
-    const resolveFields = async () => {
-      // Extract UUID fields from entity data
-      const uuidFields = extractUUIDFields(entityData);
+    // Had to fetch employee name separately
+    fetchEmployeeName(entityData.manager_employee_id)
+      .then(name => setManagerName(name));
+  }, [entityData.manager_employee_id]);
 
-      // Call resolution endpoint
-      const response = await fetch('/api/v1/entity/entity_instance_id_lookup', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(uuidFields)
-      });
-
-      const resolved = await response.json();
-      setResolvedData(resolved);
-    };
-
-    resolveFields();
-  }, [entityData]);
-
-  return (
-    <div>
-      {/* Display resolved labels instead of UUIDs */}
-      <div>
-        <label>Manager:</label>
-        <span>{resolvedData.manager || 'Loading...'}</span>
-      </div>
-
-      <div>
-        <label>Stakeholders:</label>
-        <ul>
-          {resolvedData.stakeholder?.map((name: string, i: number) => (
-            <li key={i}>{name}</li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
+  return <span>{managerName}</span>;
 };
 ```
 
-### Helper Function: Extract UUID Fields
+### After Resolution Service
 
 ```typescript
-function extractUUIDFields(data: Record<string, any>): Record<string, string | string[] | null> {
-  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const fieldPattern = /(^.+__[a-z_]+_ids?$|^[a-z_]+_ids?$)/;
+// ✅ NEW: Data arrives pre-enriched from backend
+const EntityFormDataContainer = ({ entityData }: Props) => {
+  return (
+    <div>
+      <label>Manager:</label>
+      <span>{entityData.manager || 'Unknown'}</span>
 
-  const uuidFields: Record<string, string | string[] | null> = {};
-
-  for (const [key, value] of Object.entries(data)) {
-    // Check if field name matches UUID field patterns
-    if (!fieldPattern.test(key)) continue;
-
-    if (typeof value === 'string' && uuidPattern.test(value)) {
-      uuidFields[key] = value;
-    } else if (Array.isArray(value) && value.every(v => typeof v === 'string' && uuidPattern.test(v))) {
-      uuidFields[key] = value;
-    } else if (value === null) {
-      uuidFields[key] = null;
-    }
-  }
-
-  return uuidFields;
-}
+      <label>Stakeholders:</label>
+      <ul>
+        {entityData.stakeholder?.map((item, i) => (
+          <li key={i}>{item.stakeholder}</li>
+        ))}
+      </ul>
+    </div>
+  );
+};
 ```
 
 ## Service Implementation Details
@@ -147,7 +194,7 @@ The service uses **bulk resolution** to minimize database queries:
 2. Executes **one query per entity type** (not one query per UUID)
 3. Maps results back to original fields
 
-Example: If resolving 3 employee UUIDs and 2 project UUIDs, the service executes:
+**Example**: If resolving 3 employee UUIDs and 2 project UUIDs, the service executes:
 - 1 query for all 3 employees: `WHERE entity_code = 'employee' AND entity_instance_id = ANY([...])`
 - 1 query for all 2 projects: `WHERE entity_code = 'project' AND entity_instance_id = ANY([...])`
 
@@ -165,8 +212,8 @@ WHERE entity_code = $1
 ```
 
 This table is automatically populated by:
-- Entity creation triggers
-- Manual registry sync in routes
+- Entity creation operations (via `set_entity_instance_registry()`)
+- Entity update operations (via `update_entity_instance_registry()`)
 - Backfill scripts (`entity_configuration_settings/04_entity_instance_backfill.ddl`)
 
 ## Error Handling
@@ -175,7 +222,7 @@ This table is automatically populated by:
 
 If a UUID doesn't exist in `entity_instance`, the service returns:
 - `"Unknown"` for the resolved name
-- Original UUID is preserved in the response
+- Original UUID is preserved
 
 Example:
 ```json
@@ -190,13 +237,6 @@ Example:
 Fields that don't match any of the 4 patterns are passed through unchanged:
 
 ```json
-// Input
-{
-  "custom_field": "some-value",
-  "manager__employee_id": "uuid"
-}
-
-// Output
 {
   "custom_field": "some-value",
   "manager__employee_id": "uuid",
@@ -204,13 +244,25 @@ Fields that don't match any of the 4 patterns are passed through unchanged:
 }
 ```
 
+## When to Use Resolution
+
+✅ **Use resolution for**:
+- Entity detail views (GET /api/v1/entity/:id)
+- Entity form data (EntityFormDataContainer)
+- Single entity retrieval with related references
+
+❌ **Skip resolution for**:
+- Large list endpoints (performance overhead)
+- Data export operations (raw UUIDs may be needed)
+- Internal API calls between services
+
 ## Benefits
 
-1. **Zero Configuration**: Field names self-describe their entity type and label
+1. **Zero Frontend Calls**: No additional API requests to resolve UUIDs
 2. **Bulk Resolution**: Efficient database queries (one per entity type)
 3. **Type Safety**: TypeScript interfaces ensure correct usage
 4. **Centralized Logic**: All resolution logic in one service method
-5. **Frontend Simplicity**: One API call resolves all UUID fields
+5. **Convention Over Configuration**: Field names self-describe entity type and label
 
 ## Related Documentation
 
@@ -220,6 +272,6 @@ Fields that don't match any of the 4 patterns are passed through unchanged:
 
 ---
 
-**Version**: 1.0.0
+**Version**: 2.0.0
 **Date**: 2025-01-18
-**Status**: ✅ Complete and deployed
+**Status**: ✅ Complete - Server-side resolution pattern
