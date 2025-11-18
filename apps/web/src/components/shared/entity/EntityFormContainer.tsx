@@ -659,10 +659,15 @@ export function EntityFormContainer({
   // In edit mode: name, code are in the page header, so exclude them
   // In create mode: include name and code so users can see auto-populated values and edit them
   // Always exclude: slug, id, tags, created_ts, updated_ts
+  // Also exclude: UUID reference fields (*_id, *_ids) - resolved labels shown instead
   const excludedFields = mode === 'create'
     ? ['title', 'id', 'created_ts', 'updated_ts']
     : ['name', 'title', 'code', 'id', 'created_ts', 'updated_ts'];
-  const visibleFields = fields.filter(f => !excludedFields.includes(f.key));
+  const visibleFields = fields.filter(f =>
+    !excludedFields.includes(f.key) &&
+    !f.key.endsWith('_id') &&   // Hide UUID reference fields (e.g., manager__employee_id)
+    !f.key.endsWith('_ids')     // Hide UUID array fields (e.g., stakeholder__employee_ids)
+  );
 
   return (
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200">

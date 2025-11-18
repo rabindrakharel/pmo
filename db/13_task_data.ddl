@@ -41,7 +41,7 @@ CREATE TABLE app.task_data (
     stage varchar(20) DEFAULT 'draft', -- draft, saved
 
     -- Update information
-    updated_by_employee_id uuid,
+    updated_by__employee_id uuid,
 
     -- Rich content in Quill Delta format
     -- Supported attributes:

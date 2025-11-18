@@ -63,7 +63,7 @@ const EmployeeSchema = Type.Object({
   // Compensation and HR (DDL columns)
   salary_band: Type.Optional(Type.String()),
   pay_grade: Type.Optional(Type.String()),
-  manager_employee_id: Type.Optional(Type.String()),
+  manager__employee_id: Type.Optional(Type.String()),
 
   // Compliance and tracking (DDL columns)
   sin: Type.Optional(Type.String()),
@@ -114,7 +114,7 @@ const CreateEmployeeSchema = Type.Object({
   // Compensation and HR (DDL columns)
   salary_band: Type.Optional(Type.String()),
   pay_grade: Type.Optional(Type.String()),
-  manager_employee_id: Type.Optional(Type.String({ format: 'uuid' })),
+  manager__employee_id: Type.Optional(Type.String({ format: 'uuid' })),
 
   // Compliance and tracking (DDL columns)
   sin: Type.Optional(Type.String()),
@@ -164,7 +164,7 @@ const UpdateEmployeeSchema = Type.Object({
   // Compensation and HR (DDL columns)
   salary_band: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   pay_grade: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  manager_employee_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
+  manager__employee_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
 
   // Compliance and tracking (DDL columns)
   sin: Type.Optional(Type.Union([Type.String(), Type.Null()])),
@@ -288,7 +288,7 @@ export async function empRoutes(fastify: FastifyInstance) {
             e.email, e.phone, e.mobile, e.first_name, e.last_name,
             e.address_line1, e.address_line2, e.city, e.province, e.postal_code, e.country,
             e.dl__employee_employment_type as employee_type, e.department, e.title, e.hire_date, e.termination_date,
-            e.salary_band, e.pay_grade, e.manager_employee_id,
+            e.salary_band, e.pay_grade, e.manager__employee_id,
             e.emergency_contact_name, e.emergency_contact_phone,
             e.sin, e.birth_date, e.dl__employee_citizenship_status as citizenship, e.dl__employee_security_clearance as security_clearance,
             e.remote_work_eligible_flag as remote_work_eligible, e.time_zone, e.preferred_language,
@@ -315,7 +315,7 @@ export async function empRoutes(fastify: FastifyInstance) {
             e.email, e.phone, e.mobile, e.first_name, e.last_name,
             e.address_line1, e.address_line2, e.city, e.province, e.postal_code, e.country,
             e.dl__employee_employment_type as employee_type, e.department, e.title, e.hire_date, e.termination_date,
-            e.salary_band, e.pay_grade, e.manager_employee_id,
+            e.salary_band, e.pay_grade, e.manager__employee_id,
             e.emergency_contact_name, e.emergency_contact_phone,
             e.sin, e.birth_date, e.dl__employee_citizenship_status as citizenship, e.dl__employee_security_clearance as security_clearance,
             e.remote_work_eligible_flag as remote_work_eligible, e.time_zone, e.preferred_language,
@@ -376,7 +376,7 @@ export async function empRoutes(fastify: FastifyInstance) {
           email, phone, mobile, first_name, last_name,
           address_line1, address_line2, city, province, postal_code, country,
           dl__employee_employment_type as employee_type, department, title, hire_date, termination_date,
-          salary_band, pay_grade, manager_employee_id,
+          salary_band, pay_grade, manager__employee_id,
           emergency_contact_name, emergency_contact_phone,
           sin, birth_date, dl__employee_citizenship_status as citizenship, dl__employee_security_clearance as security_clearance,
           remote_work_eligible_flag as remote_work_eligible, time_zone, preferred_language,
@@ -530,7 +530,7 @@ export async function empRoutes(fastify: FastifyInstance) {
           code, name, "descr", email, phone,
           first_name, last_name, title, department,
           hire_date, termination_date, dl__employee_employment_type,
-          manager_employee_id,
+          manager__employee_id,
           metadata, active_flag
         )
         VALUES (
@@ -546,7 +546,7 @@ export async function empRoutes(fastify: FastifyInstance) {
           ${data.hire_date},
           ${data.termination_date || null},
           ${data.employee_type || 'full-time'},
-          ${data.manager_employee_id || null},
+          ${data.manager__employee_id || null},
           ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
           ${data.active_flag !== false}
         )
@@ -679,7 +679,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // Compensation and HR
       if (data.salary_band !== undefined) updateFields.push(sql`salary_band = ${data.salary_band}`);
       if (data.pay_grade !== undefined) updateFields.push(sql`pay_grade = ${data.pay_grade}`);
-      if (data.manager_employee_id !== undefined) updateFields.push(sql`manager_employee_id = ${data.manager_employee_id}`);
+      if (data.manager__employee_id !== undefined) updateFields.push(sql`manager__employee_id = ${data.manager__employee_id}`);
 
       // Compliance and tracking
       if (data.sin !== undefined) updateFields.push(sql`sin = ${data.sin}`);
@@ -818,7 +818,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // Compensation and HR
       if (data.salary_band !== undefined) updateFields.push(sql`salary_band = ${data.salary_band}`);
       if (data.pay_grade !== undefined) updateFields.push(sql`pay_grade = ${data.pay_grade}`);
-      if (data.manager_employee_id !== undefined) updateFields.push(sql`manager_employee_id = ${data.manager_employee_id}`);
+      if (data.manager__employee_id !== undefined) updateFields.push(sql`manager__employee_id = ${data.manager__employee_id}`);
 
       // Compliance and tracking
       if (data.sin !== undefined) updateFields.push(sql`sin = ${data.sin}`);

@@ -65,8 +65,8 @@ CREATE TABLE app.industry_workflow_graph_data (
     terminal_state_flag boolean DEFAULT false,
 
     -- Audit fields
-    created_by_employee_id uuid,
-    updated_by_employee_id uuid,
+    created_by__employee_id uuid,
+    updated_by__employee_id uuid,
 
     -- Standard temporal fields
     active_flag boolean DEFAULT true,
@@ -93,7 +93,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
     workflow_graph_data,
     current_state_id,
     terminal_state_flag,
-    created_by_employee_id
+    created_by__employee_id
 )
 SELECT
     '660e8400-e29b-41d4-a716-446655440001',
@@ -141,7 +141,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
     workflow_graph_data,
     current_state_id,
     terminal_state_flag,
-    created_by_employee_id
+    created_by__employee_id
 )
 SELECT
     '660e8400-e29b-41d4-a716-446655440002',

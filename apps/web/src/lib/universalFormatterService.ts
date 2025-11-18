@@ -269,7 +269,7 @@ const PATTERNS = {
     priority: 7
   },
   foreignKey: {
-    regex: /_id$/i,
+    regex: /_ids?$/i,  // Matches both _id and _ids (UUID reference fields)
     exclude: /^id$/i,
     priority: 8
   },

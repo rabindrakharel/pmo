@@ -12,7 +12,7 @@
 --
 -- 1. CREATE WIKI PAGE
 --    • Endpoint: POST /api/v1/wiki
---    • Body: {name, code, wiki_type, category, page_path, parent_wiki_id, primary_entity_type, primary_entity_id}
+--    • Body: {name, code, wiki_type, category, page_path, parent__wiki_id, primary_entity_type, primary_entity_id}
 --    • Returns: {id: "new-uuid", version: 1, publication_status: "draft", ...}
 --    • Database: INSERT with version=1, active_flag=true, publication_status='draft', created_ts=now()
 --    • RBAC: Requires permission 4 (create) on entity='wiki', entity_id='11111111-1111-1111-1111-111111111111'
@@ -35,7 +35,7 @@
 --    • Frontend Action: User clicks "Publish" button on draft page
 --    • Endpoint: PUT /api/v1/wiki/{id}
 --    • Body: {publication_status: "published"}
---    • Database: UPDATE SET publication_status='published', published_ts=now(), published_by_employee_id=$user_id, version=version+1 WHERE id=$1
+--    • Database: UPDATE SET publication_status='published', published_ts=now(), published_by__employee_id=$user_id, version=version+1 WHERE id=$1
 --    • Business Rule: Publishes page to intended audience based on visibility setting
 --
 -- 4. ARCHIVE/DEPRECATE WIKI PAGE
@@ -77,7 +77,7 @@
 --    • Endpoint: GET /api/v1/wiki/{id}/children
 --    • Database:
 --      SELECT w.* FROM d_wiki w
---      WHERE w.parent_wiki_id=$1
+--      WHERE w.parent__wiki_id=$1
 --        AND w.active_flag=true
 --        AND w.publication_status='published'
 --      ORDER BY w.sort_order, w.name
@@ -97,14 +97,14 @@
 -- • publication_status: Workflow state ('draft', 'published', 'archived', 'deprecated')
 --   - Loaded from setting_datalabel_wiki_publication_status via /api/v1/setting?category=wiki_publication_status
 -- • page_path: Hierarchical path (/projects/methodology/agile) for URL routing
--- • parent_wiki_id: Hierarchical relationship (NULL for root pages, UUID for child pages)
+-- • parent__wiki_id: Hierarchical relationship (NULL for root pages, UUID for child pages)
 -- • visibility: Access level ('public', 'internal', 'restricted', 'private')
 -- • keywords: ARRAY for search indexing and SEO
 -- • published_ts, published_by_empid: Publication tracking for accountability
 --
 -- RELATIONSHIPS:
--- • parent_wiki_id → d_wiki (self-reference for hierarchical structure)
--- • published_by_employee_id → app.employee (who published the page)
+-- • parent__wiki_id → d_wiki (self-reference for hierarchical structure)
+-- • published_by__employee_id → app.employee (who published the page)
 -- • primary_entity_type, primary_entity_id: Links wiki to project/task/etc via entity_id_map
 -- • wiki_id ← d_wiki_data (content versions stored separately)
 --
@@ -125,13 +125,13 @@ CREATE TABLE app.wiki (
 
     -- Content structure
     page_path varchar(500), -- Hierarchical path like /projects/methodology/agile
-    parent_wiki_id uuid ,
+    parent__wiki_id uuid ,
     sort_order integer DEFAULT 0,
 
     -- Publication status
     publication_status varchar(50) DEFAULT 'draft', -- draft, published, archived, deprecated
     published_ts timestamptz,
-    published_by_employee_id uuid,
+    published_by__employee_id uuid,
 
     -- Access control
     visibility varchar(20) DEFAULT 'internal', -- public, internal, restricted, private

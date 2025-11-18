@@ -9,7 +9,7 @@ const TaskDataSchema = Type.Object({
   task_id: Type.String(),
   project_id: Type.String(),
   stage: Type.String(),
-  updated_by_employee_id: Type.String(),
+  updated_by__employee_id: Type.String(),
   data_richtext: Type.Any(),
   update_type: Type.String(),
   hours_logged: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
@@ -81,7 +81,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           td.task_id,
           td.project_id,
           td.stage,
-          td.updated_by_employee_id,
+          td.updated_by__employee_id,
           td.data_richtext,
           td.update_type,
           td.hours_logged,
@@ -92,7 +92,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           td.updated_ts,
           e.name as updated_by_name
         FROM app.d_task_data td
-        LEFT JOIN app.employee e ON td.updated_by_employee_id = e.id
+        LEFT JOIN app.employee e ON td.updated_by__employee_id = e.id
         WHERE td.task_id = ${taskId}
           AND td.stage = 'saved'
         ORDER BY td.created_ts DESC
@@ -159,7 +159,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           task_id,
           project_id,
           stage,
-          updated_by_employee_id,
+          updated_by__employee_id,
           data_richtext,
           update_type,
           hours_logged,
@@ -184,7 +184,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           task_id,
           project_id,
           stage,
-          updated_by_employee_id,
+          updated_by__employee_id,
           data_richtext,
           update_type,
           hours_logged,
@@ -257,7 +257,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           td.task_id,
           td.project_id,
           td.stage,
-          td.updated_by_employee_id,
+          td.updated_by__employee_id,
           td.data_richtext,
           td.update_type,
           td.hours_logged,
@@ -268,7 +268,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           td.updated_ts,
           e.name as updated_by_name
         FROM app.d_task_data td
-        LEFT JOIN app.employee e ON td.updated_by_employee_id = e.id
+        LEFT JOIN app.employee e ON td.updated_by__employee_id = e.id
         WHERE td.id = ${dataId} AND td.task_id = ${taskId}
       `);
 

@@ -98,7 +98,7 @@
  *
  * FILTERING:
  *   GET    /api/v1/task?project_id={id}          - Filter by project
- *   GET    /api/v1/task?assigned_to_employee_id={id}  - Filter by assignee
+ *   GET    /api/v1/task?assigned_to__employee_id={id}  - Filter by assignee
  *   GET    /api/v1/task?dl__task_stage={stage}   - Filter by workflow stage
  *
  * ============================================================================
@@ -216,7 +216,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     schema: {
       querystring: Type.Object({
         project_id: Type.Optional(Type.String()),
-        assigned_to_employee_id: Type.Optional(Type.String()),
+        assigned_to__employee_id: Type.Optional(Type.String()),
         dl__task_stage: Type.Optional(Type.String()),  // DDL column name (not task_status)
         task_type: Type.Optional(Type.String()),
         task_category: Type.Optional(Type.String()),
@@ -238,7 +238,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         403: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const {
-      project_id, assigned_to_employee_id, dl__task_stage, task_type, task_category,
+      project_id, assigned_to__employee_id, dl__task_stage, task_type, task_category,
       worksite_id, client_id, active, search, limit = 20, offset: queryOffset, page,
       parent_type, parent_id
     } = request.query as any;
@@ -299,13 +299,13 @@ export async function taskRoutes(fastify: FastifyInstance) {
       conditions.push(...autoFilters);
 
       // Custom filter: assignee via entity_instance_link (requires complex EXISTS clause)
-      if (assigned_to_employee_id !== undefined) {
+      if (assigned_to__employee_id !== undefined) {
         conditions.push(sql`EXISTS (
           SELECT 1 FROM app.entity_instance_link map
           WHERE map.entity_code = 'task'
             AND map.entity_instance_id = ${sql.raw(TABLE_ALIAS)}.id
             AND map.child_entity_code = 'employee'
-            AND map.child_entity_instance_id = ${assigned_to_employee_id}::uuid
+            AND map.child_entity_instance_id = ${assigned_to__employee_id}::uuid
             AND map.relationship_type = 'assigned_to'
         )`);
       }
@@ -1116,14 +1116,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
           tr.id,
           tr.record_content as content,
           tr.record_type as content_type,
-          tr.created_by_employee_id as author_id,
+          tr.created_by__employee_id as author_id,
           e.name as author_name,
           tr.created as created_at,
           tr.updated as updated_at,
           COALESCE(tr.metadata->>'mentions', '[]')::jsonb as mentions,
           COALESCE(tr.metadata->>'attachments', '[]')::jsonb as attachments
         FROM app.task_data tr
-        LEFT JOIN app.employee e ON e.id = tr.created_by_employee_id
+        LEFT JOIN app.employee e ON e.id = tr.created_by__employee_id
         WHERE tr.task_id = ${taskId}
           AND tr.record_type IN ('case_note', 'rich_note')
           AND tr.active_flag = true
@@ -1209,7 +1209,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           project_id,
           record_type,
           record_content,
-          updated_by_employee_id,
+          updated_by__employee_id,
           metadata,
           active_flag
         ) VALUES (
@@ -1283,12 +1283,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
           tr.id,
           tr.record_type as activity_type,
           tr.record_content as description,
-          tr.updated_by_employee_id as actor_id,
+          tr.updated_by__employee_id as actor_id,
           e.name as actor_name,
           tr.created_ts as timestamp,
           tr.metadata
         FROM app.task_data tr
-        LEFT JOIN app.employee e ON e.id = tr.updated_by_employee_id
+        LEFT JOIN app.employee e ON e.id = tr.updated_by__employee_id
         WHERE tr.task_id = ${taskId}
           AND tr.active_flag = true
 

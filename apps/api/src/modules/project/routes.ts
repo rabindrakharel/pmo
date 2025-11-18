@@ -64,7 +64,7 @@
  *   • ?name=Kitchen → WHERE name = 'Kitchen'
  *   • ?dl__project_stage=planning → WHERE dl__project_stage = 'planning'
  *   • ?active=true → WHERE active_flag = true
- *   • ?manager_employee_id=uuid → WHERE manager_employee_id::uuid = 'uuid'::uuid
+ *   • ?manager__employee_id=uuid → WHERE manager__employee_id::uuid = 'uuid'::uuid
  *   • ?search=kitchen → WHERE (name ILIKE '%kitchen%' OR code ILIKE '%kitchen%' OR ...)
  *
  * See: apps/api/src/lib/universal-filter-builder.ts
@@ -82,7 +82,7 @@
  *   • Core fields: id, code, name, descr, metadata
  *   • Project-specific: dl__project_stage, budget_allocated_amt, budget_spent_amt
  *   • Timeline: planned_start_date, planned_end_date, actual_start_date, actual_end_date
- *   • Team: manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
+ *   • Team: manager__employee_id, sponsor__employee_id, stakeholder__employee_ids
  *   • Temporal: from_ts, to_ts, active_flag, created_ts, updated_ts, version
  *
  * Relationships (via entity_instance_link):
@@ -176,9 +176,9 @@ const ProjectSchema = Type.Object({
   actual_start_date: Type.Optional(Type.String()),
   actual_end_date: Type.Optional(Type.String()),
   // Project team
-  manager_employee_id: Type.Optional(Type.String()),
-  sponsor_employee_id: Type.Optional(Type.String()),
-  stakeholder_employee_ids: Type.Optional(Type.Array(Type.String())),
+  manager__employee_id: Type.Optional(Type.String()),
+  sponsor__employee_id: Type.Optional(Type.String()),
+  stakeholder__employee_ids: Type.Optional(Type.Array(Type.String())),
   // Temporal fields
   from_ts: Type.Optional(Type.String()),
   to_ts: Type.Optional(Type.String()),
@@ -202,9 +202,9 @@ const CreateProjectSchema = Type.Object({
   planned_end_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
   actual_start_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
   actual_end_date: Type.Optional(Type.Union([Type.String({ format: 'date' }), Type.Null()])),
-  manager_employee_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
-  sponsor_employee_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
-  stakeholder_employee_ids: Type.Optional(Type.Union([Type.Array(Type.String({ format: 'uuid' })), Type.Null()])),
+  manager__employee_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
+  sponsor__employee_id: Type.Optional(Type.Union([Type.String({ format: 'uuid' }), Type.Null()])),
+  stakeholder__employee_ids: Type.Optional(Type.Union([Type.Array(Type.String({ format: 'uuid' })), Type.Null()])),
   active_flag: Type.Optional(Type.Boolean()),
 });
 
@@ -294,7 +294,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       // ✨ UNIVERSAL AUTO-FILTER SYSTEM
       // Automatically builds filters from ANY query parameter based on field naming conventions
-      // Supports: ?name=X, ?dl__project_stage=planning, ?active=true, ?manager_employee_id=uuid, etc.
+      // Supports: ?name=X, ?dl__project_stage=planning, ?active=true, ?manager__employee_id=uuid, etc.
       // See: apps/api/src/lib/universal-filter-builder.ts
       const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query as any, {
         // Optional: Override specific fields if needed (not required for standard conventions)
@@ -582,7 +582,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           dl__project_stage,
           budget_allocated_amt, budget_spent_amt,
           planned_start_date, planned_end_date, actual_start_date, actual_end_date,
-          manager_employee_id, sponsor_employee_id, stakeholder_employee_ids,
+          manager__employee_id, sponsor__employee_id, stakeholder__employee_ids,
           active_flag
         )
         VALUES (
@@ -597,9 +597,9 @@ export async function projectRoutes(fastify: FastifyInstance) {
           ${data.planned_end_date || null},
           ${data.actual_start_date || null},
           ${data.actual_end_date || null},
-          ${data.manager_employee_id || null},
-          ${data.sponsor_employee_id || null},
-          ${data.stakeholder_employee_ids && data.stakeholder_employee_ids.length > 0 ? `{${data.stakeholder_employee_ids.join(',')}}` : '{}'}::uuid[],
+          ${data.manager__employee_id || null},
+          ${data.sponsor__employee_id || null},
+          ${data.stakeholder__employee_ids && data.stakeholder__employee_ids.length > 0 ? `{${data.stakeholder__employee_ids.join(',')}}` : '{}'}::uuid[],
           ${data.active_flag !== false}
         )
         RETURNING *
@@ -699,13 +699,13 @@ export async function projectRoutes(fastify: FastifyInstance) {
       if (updates.planned_end_date !== undefined) updateFields.push(sql`planned_end_date = ${updates.planned_end_date}`);
       if (updates.actual_start_date !== undefined) updateFields.push(sql`actual_start_date = ${updates.actual_start_date}`);
       if (updates.actual_end_date !== undefined) updateFields.push(sql`actual_end_date = ${updates.actual_end_date}`);
-      if (updates.manager_employee_id !== undefined) updateFields.push(sql`manager_employee_id = ${updates.manager_employee_id}`);
-      if (updates.sponsor_employee_id !== undefined) updateFields.push(sql`sponsor_employee_id = ${updates.sponsor_employee_id}`);
-      if (updates.stakeholder_employee_ids !== undefined) {
-        const stakeholderArray = updates.stakeholder_employee_ids && updates.stakeholder_employee_ids.length > 0
-          ? `{${updates.stakeholder_employee_ids.join(',')}}`
+      if (updates.manager__employee_id !== undefined) updateFields.push(sql`manager__employee_id = ${updates.manager__employee_id}`);
+      if (updates.sponsor__employee_id !== undefined) updateFields.push(sql`sponsor__employee_id = ${updates.sponsor__employee_id}`);
+      if (updates.stakeholder__employee_ids !== undefined) {
+        const stakeholderArray = updates.stakeholder__employee_ids && updates.stakeholder__employee_ids.length > 0
+          ? `{${updates.stakeholder__employee_ids.join(',')}}`
           : '{}';
-        updateFields.push(sql`stakeholder_employee_ids = ${stakeholderArray}::uuid[]`);
+        updateFields.push(sql`stakeholder__employee_ids = ${stakeholderArray}::uuid[]`);
       }
       if (updates.active_flag !== undefined) updateFields.push(sql`active_flag = ${updates.active_flag}`);
 
@@ -797,13 +797,13 @@ export async function projectRoutes(fastify: FastifyInstance) {
       if (updates.planned_end_date !== undefined) updateFields.push(sql`planned_end_date = ${updates.planned_end_date}`);
       if (updates.actual_start_date !== undefined) updateFields.push(sql`actual_start_date = ${updates.actual_start_date}`);
       if (updates.actual_end_date !== undefined) updateFields.push(sql`actual_end_date = ${updates.actual_end_date}`);
-      if (updates.manager_employee_id !== undefined) updateFields.push(sql`manager_employee_id = ${updates.manager_employee_id}`);
-      if (updates.sponsor_employee_id !== undefined) updateFields.push(sql`sponsor_employee_id = ${updates.sponsor_employee_id}`);
-      if (updates.stakeholder_employee_ids !== undefined) {
-        const stakeholderArray = updates.stakeholder_employee_ids && updates.stakeholder_employee_ids.length > 0
-          ? `{${updates.stakeholder_employee_ids.join(',')}}`
+      if (updates.manager__employee_id !== undefined) updateFields.push(sql`manager__employee_id = ${updates.manager__employee_id}`);
+      if (updates.sponsor__employee_id !== undefined) updateFields.push(sql`sponsor__employee_id = ${updates.sponsor__employee_id}`);
+      if (updates.stakeholder__employee_ids !== undefined) {
+        const stakeholderArray = updates.stakeholder__employee_ids && updates.stakeholder__employee_ids.length > 0
+          ? `{${updates.stakeholder__employee_ids.join(',')}}`
           : '{}';
-        updateFields.push(sql`stakeholder_employee_ids = ${stakeholderArray}::uuid[]`);
+        updateFields.push(sql`stakeholder__employee_ids = ${stakeholderArray}::uuid[]`);
       }
       if (updates.active_flag !== undefined) updateFields.push(sql`active_flag = ${updates.active_flag}`);
 

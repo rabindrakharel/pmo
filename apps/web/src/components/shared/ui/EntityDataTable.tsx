@@ -1235,8 +1235,8 @@ export function EntityDataTable<T = any>({
                         {columns.filter(column => {
                           // Skip columns that are explicitly hidden in field detection
                           if (column.visible === false) return false;
-                          // Also skip 'id' and fields ending with '_id' or containing '_metadata'
-                          if (column.key === 'id' || column.key.endsWith('_id') || column.key.includes('_metadata')) return false;
+                          // Also skip 'id' and fields ending with '_id', '_ids' or containing '_metadata'
+                          if (column.key === 'id' || column.key.endsWith('_id') || column.key.endsWith('_ids') || column.key.includes('_metadata')) return false;
                           return true;
                         }).map(column => (
                           <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-dark-100 rounded cursor-pointer transition-colors">
@@ -1272,12 +1272,12 @@ export function EntityDataTable<T = any>({
                   <div className="absolute right-0 mt-2 w-56 bg-dark-100 border border-dark-300 rounded-md shadow-sm z-50">
                     <div className="p-2">
                       <div className="text-sm font-normal text-dark-700 mb-2 px-1">Show Columns</div>
-                      {/* Only show columns that aren't system/hidden fields (id, *_id, *_metadata) */}
+                      {/* Only show columns that aren't system/hidden fields (id, *_id, *_ids, *_metadata) */}
                       {columns.filter(column => {
                         // Skip columns that are explicitly hidden in field detection
                         if (column.visible === false) return false;
-                        // Also skip 'id' and fields ending with '_id' or containing '_metadata'
-                        if (column.key === 'id' || column.key.endsWith('_id') || column.key.includes('_metadata')) return false;
+                        // Also skip 'id' and fields ending with '_id', '_ids' or containing '_metadata'
+                        if (column.key === 'id' || column.key.endsWith('_id') || column.key.endsWith('_ids') || column.key.includes('_metadata')) return false;
                         return true;
                       }).map(column => (
                         <label key={column.key} className="flex items-center px-3 py-1.5 hover:bg-dark-100 rounded cursor-pointer transition-colors">

@@ -32,7 +32,7 @@ interface CreateEventRequest {
   descr?: string;
   event_action_entity_type: 'service' | 'product' | 'project' | 'task' | 'quote';
   event_action_entity_id: string;
-  organizer_employee_id?: string; // Defaults to current user if not provided
+  organizer__employee_id?: string; // Defaults to current user if not provided
   event_type: 'onsite' | 'virtual';
   event_platform_provider_name: string; // 'zoom', 'teams', 'google_meet', 'physical_hall', 'office', etc.
   venue_type?: string; // 'conference_room', 'office', 'warehouse', 'customer_site', 'remote', etc.
@@ -147,7 +147,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           e.descr,
           e.event_action_entity_type,
           e.event_action_entity_id::text,
-          e.organizer_employee_id::text,
+          e.organizer__employee_id::text,
           e.event_type,
           e.event_platform_provider_name,
           e.venue_type,
@@ -169,7 +169,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
               'email', emp.email
             )
             FROM app.employee emp
-            WHERE emp.id = e.organizer_employee_id
+            WHERE emp.id = e.organizer__employee_id
           ) as organizer
         FROM app.event e
         ${whereConditions}
@@ -227,7 +227,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
         if (person_type === 'employee') {
           personFilter = client`
             AND (
-              e.organizer_employee_id = ${person_id}::uuid
+              e.organizer__employee_id = ${person_id}::uuid
               OR EXISTS (
                 SELECT 1 FROM app.entity_event_person_calendar epc
                 WHERE epc.event_id = e.id
@@ -259,7 +259,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           e.descr,
           e.event_action_entity_type,
           e.event_action_entity_id::text,
-          e.organizer_employee_id::text,
+          e.organizer__employee_id::text,
           e.event_type,
           e.event_platform_provider_name,
           e.venue_type,
@@ -277,7 +277,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
               'email', emp.email
             )
             FROM app.employee emp
-            WHERE emp.id = e.organizer_employee_id
+            WHERE emp.id = e.organizer__employee_id
           ) as organizer
         FROM app.event e
         ${whereConditions}
@@ -378,7 +378,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           descr,
           event_action_entity_type,
           event_action_entity_id::text,
-          organizer_employee_id::text,
+          organizer__employee_id::text,
           event_type,
           event_platform_provider_name,
           venue_type,
@@ -460,7 +460,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
       const eventData = request.body;
       const eventId = uuidv4();
       const creatorEmpId = request.user?.sub;
-      const organizerEmpId = eventData.organizer_employee_id || creatorEmpId;
+      const organizerEmpId = eventData.organizer__employee_id || creatorEmpId;
 
       // Create event
       const insertQuery = client`
@@ -471,7 +471,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           descr,
           event_action_entity_type,
           event_action_entity_id,
-          organizer_employee_id,
+          organizer__employee_id,
           event_type,
           event_platform_provider_name,
           venue_type,
@@ -505,7 +505,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           name,
           event_action_entity_type,
           event_action_entity_id::text,
-          organizer_employee_id::text,
+          organizer__employee_id::text,
           event_type,
           event_platform_provider_name,
           venue_type,

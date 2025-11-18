@@ -85,7 +85,7 @@ CREATE TABLE app.industry_workflow_events (
     -- Employee Dimensions
     performed_by_employee_id uuid,
     performed_by_employee_name text,
-    assigned_to_employee_id uuid,
+    assigned_to__employee_id uuid,
     assigned_to_employee_name text,
 
     -- Duration Metrics (in minutes)
@@ -119,7 +119,7 @@ CREATE TABLE app.industry_workflow_events (
     event_metadata jsonb DEFAULT '{}'::jsonb,
 
     -- Audit Fields
-    created_by_employee_id uuid,
+    created_by__employee_id uuid,
     created_ts timestamptz DEFAULT now(),
     updated_ts timestamptz DEFAULT now(),
     active_flag boolean DEFAULT true
@@ -169,7 +169,7 @@ INSERT INTO app.f_industry_workflow_events (
     event_source,
     event_channel,
     event_metadata,
-    created_by_employee_id
+    created_by__employee_id
 ) VALUES (
     'WFE-2024-001-001',
     'workflow_started',
@@ -240,7 +240,7 @@ INSERT INTO app.f_industry_workflow_events (
     estimated_value_amt_cad,
     event_source,
     event_metadata,
-    created_by_employee_id
+    created_by__employee_id
 ) VALUES (
     'WFE-2024-001-002',
     'state_transition',
@@ -306,7 +306,7 @@ INSERT INTO app.f_industry_workflow_events (
     transaction_amt_cad,
     event_source,
     event_metadata,
-    created_by_employee_id
+    created_by__employee_id
 ) VALUES (
     'WFE-2024-001-003',
     'state_transition',
@@ -363,14 +363,14 @@ INSERT INTO app.f_industry_workflow_events (
     entity_action,
     customer_entity_id,
     customer_name,
-    assigned_to_employee_id,
+    assigned_to__employee_id,
     assigned_to_employee_name,
     state_duration_minutes,
     cumulative_workflow_duration_minutes,
     automated_flag,
     event_source,
     event_metadata,
-    created_by_employee_id
+    created_by__employee_id
 ) VALUES (
     'WFE-2024-001-004',
     'entity_created',
@@ -425,14 +425,14 @@ INSERT INTO app.f_industry_workflow_events (
     entity_id,
     entity_action,
     customer_entity_id,
-    assigned_to_employee_id,
+    assigned_to__employee_id,
     assigned_to_employee_name,
     state_duration_minutes,
     cumulative_workflow_duration_minutes,
     tasks_created_qty,
     event_source,
     event_metadata,
-    created_by_employee_id
+    created_by__employee_id
 ) VALUES (
     'WFE-2024-001-005',
     'entity_created',
@@ -494,7 +494,7 @@ INSERT INTO app.f_industry_workflow_events (
     on_time_flag,
     event_source,
     event_metadata,
-    created_by_employee_id
+    created_by__employee_id
 ) VALUES (
     'WFE-2024-001-006',
     'milestone_reached',
@@ -558,7 +558,7 @@ INSERT INTO app.f_industry_workflow_events (
     automated_flag,
     event_source,
     event_metadata,
-    created_by_employee_id
+    created_by__employee_id
 ) VALUES (
     'WFE-2024-001-007',
     'entity_created',
@@ -627,7 +627,7 @@ INSERT INTO app.f_industry_workflow_events (
     event_source,
     event_channel,
     event_metadata,
-    created_by_employee_id
+    created_by__employee_id
 ) VALUES (
     'WFE-2024-001-008',
     'workflow_completed',
@@ -700,7 +700,7 @@ INSERT INTO app.f_industry_workflow_events (
     event_source,
     event_priority,
     event_metadata,
-    created_by_employee_id
+    created_by__employee_id
 ) VALUES (
     'WFE-2024-002-001',
     'workflow_completed',

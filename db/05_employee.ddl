@@ -15,7 +15,7 @@
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • Parent: role (via entity_instance_link)
--- • Self: manager_employee_id → employee.id
+-- • Self: manager__employee_id → employee.id
 -- • RBAC: entity_rbac.person_id (where person_code='employee')
 --
 -- SECURITY:
@@ -67,7 +67,7 @@ CREATE TABLE app.employee (
   -- Compensation and HR
   salary_band varchar(50),
   pay_grade varchar(20),
-  manager_employee_id uuid, -- Self-reference for reporting structure
+  manager__employee_id uuid, -- Self-reference for reporting structure
 
   -- Authentication and security
   last_login_ts timestamptz,
@@ -185,7 +185,7 @@ INSERT INTO app.employee (
     department,
     title,
     hire_date,
-    manager_employee_id,
+    manager__employee_id,
     skills_service_categories
 ) VALUES
 ('EMP-002', 'Sarah Johnson', 'Chief Operating Officer responsible for day-to-day operations', 'sarah.johnson@huronhome.ca', '$2b$12$xaFJV661x3Rypk4Da27JduU/lZPphBowruE0iha9G3c8h9xwslEQq', 'Sarah', 'Johnson', '+1-519-555-0002', 'Full-time', 'Operations', 'Chief Operating Officer', '2020-02-01', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', ARRAY['HVAC', 'Plumbing', 'Electrical', 'Landscaping']::text[]),
@@ -400,7 +400,7 @@ BEGIN
             code, name, descr, email, password_hash,
             first_name, last_name, phone, mobile,
             address_line1, city, province, postal_code, country,
-            dl__employee_employment_type, department, title, hire_date, manager_employee_id,
+            dl__employee_employment_type, department, title, hire_date, manager__employee_id,
             skills_service_categories
         ) VALUES (
             v_code,

@@ -18,9 +18,9 @@
 --    - Quote review: event_action_entity_type='quote', event_action_entity_id=quote_id
 --    - Product demo: event_action_entity_type='product', event_action_entity_id=product_id
 --
--- 2. ORGANIZER: Who CREATED/ORGANIZED the event (organizer_employee_id)
---    - Employee organizer: organizer_employee_id=employee_id
---    - System-generated: organizer_employee_id can be NULL for automated events
+-- 2. ORGANIZER: Who CREATED/ORGANIZED the event (organizer__employee_id)
+--    - Employee organizer: organizer__employee_id=employee_id
+--    - System-generated: organizer__employee_id can be NULL for automated events
 --
 -- 3. ATTENDEES: Who is INVOLVED in the event (via d_entity_event_person_calendar)
 --    - Employees, customers, and clients with RSVP status tracking
@@ -32,43 +32,43 @@
 -- 3. LOCATION-AWARE: event_addr stores physical address OR virtual meeting URL
 -- 4. VENUE-CATEGORIZED: venue_type classifies the location (office, customer_site, warehouse, remote, etc.)
 -- 5. PLATFORM-SPECIFIC: event_platform_provider_name identifies the platform (Zoom, Teams, office, etc.)
--- 6. ORGANIZER-TRACKED: organizer_employee_id captures which employee created/scheduled the event
+-- 6. ORGANIZER-TRACKED: organizer__employee_id captures which employee created/scheduled the event
 --
 -- USE CASES:
 -- 1. CUSTOMER SERVICE APPOINTMENT:
 --    - Customer self-schedules HVAC consultation
 --    - event_action_entity_type='service', event_action_entity_id=hvac_service_id
---    - organizer_employee_id=assigned_technician_id
+--    - organizer__employee_id=assigned_technician_id
 --    - Attendees: assigned technician (via d_entity_event_person_calendar)
 --
 -- 2. PROJECT REVIEW MEETING:
 --    - Project manager schedules milestone review
 --    - event_action_entity_type='project', event_action_entity_id=project_id
---    - organizer_employee_id=manager_id
+--    - organizer__employee_id=manager_id
 --    - Attendees: team members, stakeholders
 --
 -- 3. TASK DISCUSSION:
 --    - Team lead schedules task planning session
 --    - event_action_entity_type='task', event_action_entity_id=task_id
---    - organizer_employee_id=team_lead_id
+--    - organizer__employee_id=team_lead_id
 --    - Attendees: assigned employees
 --
 -- 4. QUOTE REVIEW:
 --    - Sales rep schedules quote walkthrough with customer
 --    - event_action_entity_type='quote', event_action_entity_id=quote_id
---    - organizer_employee_id=sales_rep_id
+--    - organizer__employee_id=sales_rep_id
 --    - Attendees: customer, approvers
 --
 -- 5. PRODUCT DEMO:
 --    - Sales schedules product demonstration
 --    - event_action_entity_type='product', event_action_entity_id=product_id
---    - organizer_employee_id=sales_rep_id
+--    - organizer__employee_id=sales_rep_id
 --    - Attendees: potential customers
 --
 -- WORKFLOW:
 -- 1. CREATE EVENT: Define event details
 --    - Set event_action_entity_type and event_action_entity_id (what the event is about)
---    - Set organizer_employee_id (who created/scheduled it)
+--    - Set organizer__employee_id (who created/scheduled it)
 --    - Set venue_type, event_addr, event_platform_provider_name (where/how)
 --    - Set from_ts, to_ts, timezone (when)
 --
@@ -78,7 +78,7 @@
 --
 -- 3. QUERY: Retrieve events by action entity, organizer, or attendees
 --    - Find all events about a service: WHERE event_action_entity_type='service' AND event_action_entity_id=service_id
---    - Find all events organized by an employee: WHERE organizer_employee_id=emp_id
+--    - Find all events organized by an employee: WHERE organizer__employee_id=emp_id
 --    - Find all events involving a person: JOIN d_entity_event_person_calendar
 --
 -- 4. UPDATE: Modify event details
@@ -141,7 +141,7 @@ CREATE TABLE app.event (
   event_action_entity_id uuid, -- ID of the entity this event is about
 
   -- Organizer (who created/scheduled the event)
-  organizer_employee_id uuid, -- Employee who organized the event
+  organizer__employee_id uuid, -- Employee who organized the event
 
   -- Event specifics
   event_type varchar(100), -- 'onsite', 'virtual'

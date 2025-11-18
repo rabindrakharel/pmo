@@ -39,9 +39,9 @@ CREATE TABLE app.project (
     actual_end_date date,
 
     -- Project team
-    manager_employee_id uuid,
-    sponsor_employee_id uuid,
-    stakeholder_employee_ids uuid[] DEFAULT '{}',
+    manager__employee_id uuid,
+    sponsor__employee_id uuid,
+    stakeholder__employee_ids uuid[] DEFAULT '{}',
 
     -- Temporal fields
     active_flag boolean DEFAULT true,
@@ -65,7 +65,7 @@ INSERT INTO app.project (
     dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
     planned_start_date, planned_end_date, actual_start_date,
-    manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
+    manager__employee_id, sponsor__employee_id, stakeholder__employee_ids
 ) VALUES (
     '93106ffb-402e-43a7-8b26-5287e37a1b0e',
     'DT-2024-001',
@@ -86,7 +86,7 @@ INSERT INTO app.project (
     dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
     planned_start_date, planned_end_date, actual_start_date,
-    manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
+    manager__employee_id, sponsor__employee_id, stakeholder__employee_ids
 ) VALUES (
     '84215ccb-313d-48f8-9c37-4398f28c0b1f',
     'FLC-2024-001',
@@ -107,7 +107,7 @@ INSERT INTO app.project (
     dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
     planned_start_date, planned_end_date, actual_start_date,
-    manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
+    manager__employee_id, sponsor__employee_id, stakeholder__employee_ids
 ) VALUES (
     '72304dab-202c-39e7-8a26-3287d26a0c2d',
     'HVAC-MOD-001',
@@ -128,7 +128,7 @@ INSERT INTO app.project (
     dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
     planned_start_date, planned_end_date, actual_start_date,
-    manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
+    manager__employee_id, sponsor__employee_id, stakeholder__employee_ids
 ) VALUES (
     '61203bac-101b-28d6-7a15-2176c15a0b1c',
     'COE-2024-001',
@@ -149,7 +149,7 @@ INSERT INTO app.project (
     dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
     planned_start_date, planned_end_date, actual_start_date,
-    manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
+    manager__employee_id, sponsor__employee_id, stakeholder__employee_ids
 ) VALUES (
     '50192aab-000a-17c5-6904-1065b04a0a0b',
     'CSE-2024-001',

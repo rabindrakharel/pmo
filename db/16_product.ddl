@@ -78,12 +78,12 @@ COMMENT ON TABLE app.product IS 'Product catalog (SKU-level) with pricing, inven
 -- • Sub-Class: Detailed classification (e.g., "3-Ton Units", "4-Ton Units")
 --
 -- DATABASE BEHAVIOR:
--- • CREATE: INSERT with parent_product_hierarchy_id pointing to parent hierarchy node
--- • HIERARCHY: Self-referential parent_product_hierarchy_id for tree structure
--- • TRAVERSE: Recursive CTE on parent_product_hierarchy_id for full hierarchy path
+-- • CREATE: INSERT with parent__product_hierarchy_id pointing to parent hierarchy node
+-- • HIERARCHY: Self-referential parent__product_hierarchy_id for tree structure
+-- • TRAVERSE: Recursive CTE on parent__product_hierarchy_id for full hierarchy path
 --
 -- RELATIONSHIPS:
--- • Self: parent_product_hierarchy_id → d_product_hierarchy.id
+-- • Self: parent__product_hierarchy_id → d_product_hierarchy.id
 -- • Children: app.product (via entity_instance_link)
 --
 -- =====================================================
@@ -97,7 +97,7 @@ CREATE TABLE app.product_hierarchy (
     active_flag boolean DEFAULT true,
 
     -- Hierarchy fields
-    parent_product_hierarchy_id uuid, -- Self-referential for hierarchy (NULL for Division level)
+    parent__product_hierarchy_id uuid, -- Self-referential for hierarchy (NULL for Division level)
     dl__product_hierarchy_level text, -- References app.setting_datalabel (datalabel_name='dl__product_hierarchy_level')
 
     from_ts timestamptz DEFAULT now(),
@@ -114,7 +114,7 @@ COMMENT ON TABLE app.product_hierarchy IS 'Product categorization hierarchy: Div
 -- =====================================================
 
 -- LEVEL 1: DIVISION (Top-level groupings)
-INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level) VALUES
+INSERT INTO app.product_hierarchy (code, name, descr, parent__product_hierarchy_id, dl__product_hierarchy_level) VALUES
 ('PROD-HIE-HVAC-DIV', 'HVAC Products', 'Heating, ventilation, and air conditioning equipment and supplies', NULL, 'Division'),
 ('PROD-HIE-PLUMB-DIV', 'Plumbing Products', 'Plumbing equipment, fixtures, and materials', NULL, 'Division'),
 ('PROD-HIE-ELEC-DIV', 'Electrical Products', 'Electrical equipment, fixtures, and materials', NULL, 'Division'),
@@ -123,48 +123,48 @@ INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_i
 
 -- LEVEL 2: DEPARTMENT (Major categories within divisions)
 -- HVAC Departments
-INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent__product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-HVAC-RES', 'Residential HVAC', 'HVAC equipment and supplies for residential applications', id, 'Department'
 FROM app.product_hierarchy WHERE code = 'PROD-HIE-HVAC-DIV';
 
-INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent__product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-HVAC-SUPP', 'HVAC Supplies', 'Consumable supplies and accessories for HVAC systems', id, 'Department'
 FROM app.product_hierarchy WHERE code = 'PROD-HIE-HVAC-DIV';
 
 -- Plumbing Departments
-INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent__product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-PLUMB-EQP', 'Plumbing Equipment', 'Major plumbing equipment and appliances', id, 'Department'
 FROM app.product_hierarchy WHERE code = 'PROD-HIE-PLUMB-DIV';
 
-INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent__product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-PLUMB-FIX', 'Plumbing Fixtures', 'Faucets, sinks, and plumbing fixtures', id, 'Department'
 FROM app.product_hierarchy WHERE code = 'PROD-HIE-PLUMB-DIV';
 
-INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent__product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-PLUMB-MAT', 'Plumbing Materials', 'Pipes, fittings, and plumbing materials', id, 'Department'
 FROM app.product_hierarchy WHERE code = 'PROD-HIE-PLUMB-DIV';
 
 -- LEVEL 3: CLASS (Product classes within departments)
 -- HVAC Classes
-INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent__product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-HVAC-AC', 'Central Air Conditioning', 'Central AC units and systems', id, 'Class'
 FROM app.product_hierarchy WHERE code = 'PROD-HIE-HVAC-RES';
 
-INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent__product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-HVAC-THERM', 'Thermostats', 'HVAC thermostats and controls', id, 'Class'
 FROM app.product_hierarchy WHERE code = 'PROD-HIE-HVAC-RES';
 
-INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent__product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-HVAC-FILT', 'Air Filters', 'HVAC air filters and filtration', id, 'Class'
 FROM app.product_hierarchy WHERE code = 'PROD-HIE-HVAC-SUPP';
 
 -- LEVEL 4: SUB-CLASS (Detailed classifications)
 -- HVAC Sub-Classes
-INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent__product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-HVAC-AC-3TON', '3-Ton AC Units', '3-ton capacity central air conditioning units', id, 'Sub-Class'
 FROM app.product_hierarchy WHERE code = 'PROD-HIE-HVAC-AC';
 
-INSERT INTO app.product_hierarchy (code, name, descr, parent_product_hierarchy_id, dl__product_hierarchy_level)
+INSERT INTO app.product_hierarchy (code, name, descr, parent__product_hierarchy_id, dl__product_hierarchy_level)
 SELECT 'PROD-HIE-HVAC-THERM-SMART', 'Smart Thermostats', 'WiFi-enabled smart thermostats', id, 'Sub-Class'
 FROM app.product_hierarchy WHERE code = 'PROD-HIE-HVAC-THERM';
 

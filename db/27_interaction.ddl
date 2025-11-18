@@ -20,7 +20,7 @@
 -- RELATIONSHIPS (via JSONB, no foreign keys):
 -- - interaction_person_entities → polymorphic array linking to d_cust, d_employee, d_client
 -- - metadata can store project_id, task_id references
--- - parent_interaction_id → self-referencing for multi-chunk interactions
+-- - parent__interaction_id → self-referencing for multi-chunk interactions
 -- - attachment_ids → array of artifact IDs for related documents/files
 --
 -- STORAGE MODEL:
@@ -61,7 +61,7 @@ CREATE TABLE app.customer_interaction (
     -- Chunking Support (for multi-part interactions)
     chunk_number integer DEFAULT 1,                       -- Sequence number for chunked content
     total_chunks integer DEFAULT 1,                       -- Total chunks in this interaction
-    parent_interaction_id uuid,                           -- References parent if this is a chunk
+    parent__interaction_id uuid,                           -- References parent if this is a chunk
     is_primary_chunk boolean DEFAULT true,                -- True for main/first chunk
 
     -- Date/Time Dimensions
@@ -128,7 +128,7 @@ CREATE TABLE app.customer_interaction (
     metadata jsonb DEFAULT '{}'::jsonb,                   -- Additional metadata
 
     -- Audit Fields
-    created_by_employee_id uuid,                          -- Who created this record
+    created_by__employee_id uuid,                          -- Who created this record
     created_ts timestamptz DEFAULT now(),                 -- When created
     updated_ts timestamptz DEFAULT now(),                 -- Last updated
     deleted_ts timestamptz,                               -- When soft deleted
@@ -325,7 +325,7 @@ COMMENT ON COLUMN app.customer_interaction.interaction_number IS 'Human-readable
 COMMENT ON COLUMN app.customer_interaction.interaction_person_entities IS 'JSONB array of person entities involved: [{"person_entity_type": "customer|employee|client", "person_id": "uuid"}]';
 COMMENT ON COLUMN app.customer_interaction.interaction_intention_entity IS 'What entity type should be created from this interaction (task, project, quote, etc.)';
 COMMENT ON COLUMN app.customer_interaction.chunk_number IS 'Sequence number for multi-part interactions (e.g., long calls split into segments)';
-COMMENT ON COLUMN app.customer_interaction.parent_interaction_id IS 'Links to primary chunk for multi-part interactions';
+COMMENT ON COLUMN app.customer_interaction.parent__interaction_id IS 'Links to primary chunk for multi-part interactions';
 COMMENT ON COLUMN app.customer_interaction.content_object_key IS 'S3 object key path for voice, video, or image content storage';
 COMMENT ON COLUMN app.customer_interaction.transcript_text IS 'Speech-to-text transcript for voice/video interactions';
 COMMENT ON COLUMN app.customer_interaction.sentiment_score IS 'AI-generated sentiment score ranging from -100 (very negative) to +100 (very positive)';

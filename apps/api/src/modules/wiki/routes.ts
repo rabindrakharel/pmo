@@ -23,11 +23,11 @@ const WikiSchema = Type.Object({
   wiki_type: Type.Optional(Type.String()),
   category: Type.Optional(Type.String()),
   page_path: Type.Optional(Type.String()),
-  parent_wiki_id: Type.Optional(Type.String()),
+  parent__wiki_id: Type.Optional(Type.String()),
   sort_order: Type.Optional(Type.Number()),
   publication_status: Type.Optional(Type.String()),
   published_ts: Type.Optional(Type.String()),
-  published_by_employee_id: Type.Optional(Type.String()),
+  published_by__employee_id: Type.Optional(Type.String()),
   visibility: Type.Optional(Type.String()),
   read_access_groups: Type.Optional(Type.Array(Type.String())),
   edit_access_groups: Type.Optional(Type.Array(Type.String())),
@@ -54,11 +54,11 @@ const CreateWikiSchema = Type.Object({
   wiki_type: Type.Optional(Type.String()),
   category: Type.Optional(Type.String()),
   page_path: Type.Optional(Type.String()),
-  parent_wiki_id: Type.Optional(Type.String()),
+  parent__wiki_id: Type.Optional(Type.String()),
   sort_order: Type.Optional(Type.Number()),
   publication_status: Type.Optional(Type.String()),
   published_ts: Type.Optional(Type.String()),
-  published_by_employee_id: Type.Optional(Type.String()),
+  published_by__employee_id: Type.Optional(Type.String()),
   visibility: Type.Optional(Type.String()),
   read_access_groups: Type.Optional(Type.Array(Type.String())),
   edit_access_groups: Type.Optional(Type.Array(Type.String())),
@@ -165,11 +165,11 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           w.wiki_type,
           w.category,
           w.page_path,
-          w.parent_wiki_id,
+          w.parent__wiki_id,
           w.sort_order,
           w.publication_status,
           w.published_ts,
-          w.published_by_employee_id,
+          w.published_by__employee_id,
           w.visibility,
           w.read_access_groups,
           w.edit_access_groups,
@@ -258,11 +258,11 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           w.wiki_type,
           w.category,
           w.page_path,
-          w.parent_wiki_id,
+          w.parent__wiki_id,
           w.sort_order,
           w.publication_status,
           w.published_ts,
-          w.published_by_employee_id,
+          w.published_by__employee_id,
           w.visibility,
           w.read_access_groups,
           w.edit_access_groups,
@@ -358,8 +358,8 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       const wikiResult = await db.execute(sql`
         INSERT INTO app.wiki (
           code, name, descr, internal_url, shared_url, metadata,
-          wiki_type, category, page_path, parent_wiki_id, sort_order,
-          publication_status, published_ts, published_by_employee_id,
+          wiki_type, category, page_path, parent__wiki_id, sort_order,
+          publication_status, published_ts, published_by__employee_id,
           visibility, read_access_groups, edit_access_groups, keywords,
           summary, content, primary_entity_type, primary_entity_id,
           active_flag, version
@@ -373,11 +373,11 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           ${data.wiki_type || 'page'},
           ${data.category || null},
           ${data.page_path || null},
-          ${data.parent_wiki_id || null},
+          ${data.parent__wiki_id || null},
           ${data.sort_order || 0},
           ${data.publication_status || 'draft'},
           ${data.published_ts || null},
-          ${data.published_by_employee_id || null},
+          ${data.published_by__employee_id || null},
           ${data.visibility || 'internal'},
           ${data.read_access_groups || sql`'{}'::varchar[]`},
           ${data.edit_access_groups || sql`'{}'::varchar[]`},
@@ -390,8 +390,8 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           1
         )
         RETURNING id, code, name, descr, internal_url, shared_url, metadata,
-                  wiki_type, category, page_path, parent_wiki_id, sort_order,
-                  publication_status, published_ts, published_by_employee_id,
+                  wiki_type, category, page_path, parent__wiki_id, sort_order,
+                  publication_status, published_ts, published_by__employee_id,
                   visibility, read_access_groups, edit_access_groups, keywords,
                   summary, content, primary_entity_type, primary_entity_id,
                   active_flag, from_ts, to_ts, created_ts, updated_ts, version
@@ -413,7 +413,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       if (data.content_markdown || data.content_html) {
         await db.execute(sql`
           INSERT INTO app.d_wiki_data (
-            wiki_id, content_markdown, content_html, stage, updated_by_employee_id, update_type
+            wiki_id, content_markdown, content_html, stage, updated_by__employee_id, update_type
           ) VALUES (
             ${wiki.id},
             ${data.content_markdown || null},
@@ -507,8 +507,8 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       if (data.page_path !== undefined) {
         updateParts.push(sql`page_path = ${data.page_path}`);
       }
-      if (data.parent_wiki_id !== undefined) {
-        updateParts.push(sql`parent_wiki_id = ${data.parent_wiki_id}`);
+      if (data.parent__wiki_id !== undefined) {
+        updateParts.push(sql`parent__wiki_id = ${data.parent__wiki_id}`);
       }
       if (data.sort_order !== undefined) {
         updateParts.push(sql`sort_order = ${data.sort_order}`);
@@ -519,8 +519,8 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       if (data.published_ts !== undefined) {
         updateParts.push(sql`published_ts = ${data.published_ts}`);
       }
-      if (data.published_by_employee_id !== undefined) {
-        updateParts.push(sql`published_by_employee_id = ${data.published_by_employee_id}`);
+      if (data.published_by__employee_id !== undefined) {
+        updateParts.push(sql`published_by__employee_id = ${data.published_by__employee_id}`);
       }
       if (data.visibility !== undefined) {
         updateParts.push(sql`visibility = ${data.visibility}`);
@@ -581,7 +581,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       if (data.content_markdown !== undefined || data.content_html !== undefined) {
         await db.execute(sql`
           INSERT INTO app.d_wiki_data (
-            wiki_id, content_markdown, content_html, stage, updated_by_employee_id, update_type
+            wiki_id, content_markdown, content_html, stage, updated_by__employee_id, update_type
           ) VALUES (
             ${id},
             ${data.content_markdown || null},
