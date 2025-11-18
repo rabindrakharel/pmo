@@ -46,7 +46,6 @@ import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factor
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 // ✅ Centralized unified data gate - loosely coupled API
-import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
@@ -121,7 +120,7 @@ const UpdateArtifactSchema = Type.Partial(CreateArtifactSchema);
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
-const ENTITY_TYPE = 'artifact';
+const ENTITY_CODE = 'artifact';
 const TABLE_ALIAS = 'a';
 
 export async function artifactRoutes(fastify: FastifyInstance) {
@@ -166,13 +165,9 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       const conditions: SQL[] = [];
 
       // GATE 1: RBAC - Apply security filtering (REQUIRED)
-      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
-        userId,
-        ENTITY_TYPE,
-        Permission.VIEW,
-        TABLE_ALIAS
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
       );
-      conditions.push(rbacCondition);
+      conditions.push(sql.raw(rbacWhereClause));
 
       // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
       // Can be overridden with ?active=false to show inactive records
@@ -256,7 +251,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const canView = await entityInfra.check_entity_rbac(
         userId,
-        ENTITY_TYPE,
+        ENTITY_CODE,
         id,
         Permission.VIEW
       );
@@ -522,7 +517,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
   // 2. app.entity_instance (entity registry)
   // 3. app.entity_instance_link (linkages in both directions)
   // Adds proper RBAC checks and entity existence validation
-  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
+  createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 
   // Upload artifact file (generates presigned URL and saves metadata)
   fastify.post('/api/v1/artifact/upload', {
@@ -919,5 +914,5 @@ export async function artifactRoutes(fastify: FastifyInstance) {
   // ============================================================================
   // Creates: GET /api/v1/artifact/:id/{child} for each child in entity table.child_entity_codes
   // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
-  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }

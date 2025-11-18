@@ -4,7 +4,6 @@ import { db } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 // ✅ Centralized unified data gate - loosely coupled API
-import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
@@ -74,7 +73,7 @@ const UpdateWikiSchema = Type.Partial(CreateWikiSchema);
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
-const ENTITY_TYPE = 'wiki';
+const ENTITY_CODE = 'wiki';
 const TABLE_ALIAS = 'w';
 
 export async function wikiRoutes(fastify: FastifyInstance) {
@@ -124,13 +123,9 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       const conditions: SQL[] = [];
 
       // GATE 1: RBAC - Apply security filtering (REQUIRED)
-      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
-        userId,
-        ENTITY_TYPE,
-        Permission.VIEW,
-        TABLE_ALIAS
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
       );
-      conditions.push(rbacCondition);
+      conditions.push(sql.raw(rbacWhereClause));
 
       // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
       // Can be overridden with ?active=false to show inactive records
@@ -240,7 +235,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     // ═══════════════════════════════════════════════════════════════
     const canView = await entityInfra.check_entity_rbac(
       userId,
-      ENTITY_TYPE,
+      ENTITY_CODE,
       id,
       Permission.VIEW
     );
@@ -291,7 +286,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           wd.attached_artifacts
         FROM app.wiki w
         LEFT JOIN LATERAL (
-          SELECT * FROM app.d_wiki_data
+          SELECT * FROM app.wiki_data
           WHERE wiki_id = w.id AND stage = 'saved'
           ORDER BY updated_ts DESC
           LIMIT 1
@@ -344,7 +339,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     // Check: Can user CREATE wikis?
     // ═══════════════════════════════════════════════════════════════
     const canCreate = await entityInfra.check_entity_rbac(
-      userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE
+      userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE
     );
 
     if (!canCreate) {
@@ -465,7 +460,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     // Check: Can user EDIT this wiki?
     // ═══════════════════════════════════════════════════════════════
     const canEdit = await entityInfra.check_entity_rbac(
-      userId, ENTITY_TYPE, id, Permission.EDIT
+      userId, ENTITY_CODE, id, Permission.EDIT
     );
 
     if (!canEdit) {

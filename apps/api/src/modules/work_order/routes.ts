@@ -5,7 +5,6 @@ import { sql, SQL } from 'drizzle-orm';
 import { filterUniversalColumns, createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 // ✅ Centralized unified data gate - loosely coupled API
-import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
 import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
@@ -65,7 +64,7 @@ const UpdateWorkOrderSchema = Type.Partial(CreateWorkOrderSchema);
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
-const ENTITY_TYPE = 'work_order';
+const ENTITY_CODE = 'work_order';
 const TABLE_ALIAS = 'w';
 
 export async function workOrderRoutes(fastify: FastifyInstance) {
@@ -105,10 +104,9 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
       const conditions: SQL[] = [];
 
       // ✨ UNIFIED RBAC - Replace ~9 lines of manual SQL with single service call
-      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
-        userId, ENTITY_TYPE, Permission.VIEW, TABLE_ALIAS
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
       );
-      conditions.push(rbacCondition);
+      conditions.push(sql.raw(rbacWhereClause));
 
       // ✨ UNIVERSAL AUTO-FILTER SYSTEM
       // Automatically builds filters from ANY query parameter based on field naming conventions
@@ -155,7 +153,7 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
     }
 
     // ✨ UNIFIED RBAC - Replace ~9 lines of manual SQL with single service call
-    const canView = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.VIEW);
+    const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
     if (!canView) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
@@ -192,7 +190,7 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
     if (!data.code) data.code = `WO-${Date.now()}`;
 
     // ✨ UNIFIED RBAC - Replace ~9 lines of manual SQL with single service call
-    const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
+    const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE);
     if (!canCreate) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
@@ -259,7 +257,7 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
     }
 
     // ✨ UNIFIED RBAC - Replace ~9 lines of manual SQL with single service call
-    const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
+    const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
     if (!canEdit) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
@@ -309,8 +307,8 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
   });
 
   // ✨ Factory-generated DELETE endpoint
-  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
+  createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 
   // ✨ Factory-generated child entity endpoints
-  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }

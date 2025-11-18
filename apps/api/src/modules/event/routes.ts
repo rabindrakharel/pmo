@@ -21,7 +21,7 @@ import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-r
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
-const ENTITY_TYPE = 'event';
+const ENTITY_CODE = 'event';
 const TABLE_ALIAS = 'e';
 
 /**
@@ -172,7 +172,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
             FROM app.employee emp
             WHERE emp.id = e.organizer_employee_id
           ) as organizer
-        FROM app.d_event e
+        FROM app.event e
         ${whereConditions}
         ORDER BY e.from_ts DESC, e.created_ts DESC
         LIMIT ${limit}
@@ -181,7 +181,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
       const countQuery = client`
         SELECT COUNT(*) as total
-        FROM app.d_event
+        FROM app.event
         ${whereConditions}
       `;
 
@@ -230,7 +230,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
             AND (
               e.organizer_employee_id = ${person_id}::uuid
               OR EXISTS (
-                SELECT 1 FROM app.d_entity_event_person_calendar epc
+                SELECT 1 FROM app.entity_event_person_calendar epc
                 WHERE epc.event_id = e.id
                   AND epc.person_id = ${person_id}::uuid
                   AND epc.person_entity_type = ${person_type}
@@ -241,7 +241,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
         } else {
           personFilter = client`
             AND EXISTS (
-              SELECT 1 FROM app.d_entity_event_person_calendar epc
+              SELECT 1 FROM app.entity_event_person_calendar epc
               WHERE epc.event_id = e.id
                 AND epc.person_id = ${person_id}::uuid
                 AND epc.person_entity_type = ${person_type}
@@ -280,7 +280,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
             FROM app.employee emp
             WHERE emp.id = e.organizer_employee_id
           ) as organizer
-        FROM app.d_event e
+        FROM app.event e
         ${whereConditions}
         ${personFilter}
         ORDER BY e.from_ts ASC
@@ -309,7 +309,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
               WHEN epc.person_entity_type = 'employee' THEN emp.email
               WHEN epc.person_entity_type = 'customer' THEN cust.metadata->>'email'
             END as person_email
-          FROM app.d_entity_event_person_calendar epc
+          FROM app.entity_event_person_calendar epc
           LEFT JOIN app.employee emp ON epc.person_id = emp.id AND epc.person_entity_type = 'employee'
           LEFT JOIN app.d_cust cust ON epc.person_id = cust.id AND epc.person_entity_type = 'customer'
           WHERE epc.event_id = ANY(${eventIds}::uuid[])
@@ -337,7 +337,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
       // Count query
       const countQuery = client`
         SELECT COUNT(*) as total
-        FROM app.d_event e
+        FROM app.event e
         ${whereConditions}
         ${personFilter}
       `;
@@ -393,7 +393,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           created_ts::text,
           updated_ts::text,
           version
-        FROM app.d_event
+        FROM app.event
         WHERE id = ${id}::uuid AND active_flag = true
       `;
 
@@ -417,7 +417,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           from_ts::text,
           to_ts::text,
           timezone
-        FROM app.d_entity_event_person_calendar
+        FROM app.entity_event_person_calendar
         WHERE event_id = ${id}::uuid AND active_flag = true
         ORDER BY person_entity_type, event_rsvp_status
       `;
@@ -745,7 +745,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
       // Check if event exists
       const eventCheck = await client`
-        SELECT id FROM app.d_event
+        SELECT id FROM app.event
         WHERE id = ${id}::uuid AND active_flag = true
       `;
 
@@ -774,7 +774,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
             WHEN epc.person_entity_type = 'customer' THEN cust.email
             WHEN epc.person_entity_type = 'client' THEN NULL
           END as person_email
-        FROM app.d_entity_event_person_calendar epc
+        FROM app.entity_event_person_calendar epc
         LEFT JOIN app.employee emp ON epc.person_entity_type = 'employee' AND epc.person_id = emp.id
         LEFT JOIN app.d_cust cust ON epc.person_entity_type = 'customer' AND epc.person_id = cust.id
         WHERE epc.event_id = ${id}::uuid AND epc.active_flag = true
@@ -811,7 +811,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
       // Check if event exists
       const eventCheck = await client`
-        SELECT id FROM app.d_event
+        SELECT id FROM app.event
         WHERE id = ${id}::uuid AND active_flag = true
       `;
 
@@ -853,12 +853,12 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
   // ✨ Factory-generated DELETE endpoint
   // Provides cascading soft delete for event and all linked entities
-  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
+  createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 
   // ✨ Factory-generated child entity endpoints
   // Auto-generates endpoints for child entities based on entity metadata
   // Example: GET /api/v1/event/:id/{child_entity}
-  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 
   console.log('✅ Event routes registered');
 }

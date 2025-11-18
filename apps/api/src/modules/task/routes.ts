@@ -28,7 +28,7 @@
  *
  * Usage Example:
  *   const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
- *     db, userId, ENTITY_TYPE, id, Permission.VIEW
+ *     db, userId, ENTITY_CODE, id, Permission.VIEW
  *   );
  *
  * 2. CREATE-LINK-EDIT PATTERN (Parent-Child Relationships)
@@ -46,7 +46,7 @@
  *
  * 3. MODULE-LEVEL CONSTANTS (DRY Principle)
  * ──────────────────────────────────────────
- *   const ENTITY_TYPE = 'task';  // Used in all DB queries and gates
+ *   const ENTITY_CODE = 'task';  // Used in all DB queries and gates
  *   const TABLE_ALIAS = 't';     // Consistent SQL alias
  *
  * ============================================================================
@@ -148,7 +148,6 @@ import { universalEntityDelete, createEntityDeleteEndpoint } from '../../lib/ent
 // ✅ Child entity factory for parent-child relationships
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 // ✅ Centralized unified data gate - loosely coupled API
-import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
 import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
@@ -204,7 +203,7 @@ const UpdateTaskSchema = Type.Partial(CreateTaskSchema);
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
-const ENTITY_TYPE = 'task';
+const ENTITY_CODE = 'task';
 const TABLE_ALIAS = 't';
 
 export async function taskRoutes(fastify: FastifyInstance) {
@@ -262,12 +261,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // GATE 2: PARENT-CHILD FILTERING (MANDATORY when parent context provided)
       if (parent_type && parent_id) {
-        const parentJoin = unified_data_gate.parent_child_filtering_gate.getJoinClause(
-          ENTITY_TYPE,
-          parent_type,
-          parent_id,
-          TABLE_ALIAS
-        );
+        const parentJoin = sql`
+        INNER JOIN app.entity_instance_link eil
+          ON eil.child_entity_code = ${ENTITY_CODE}
+          AND eil.child_entity_instance_id = ${sql.raw(TABLE_ALIAS
+         || 'TABLE_ALIAS')}.id
+          AND eil.entity_code = ${parent_type}
+          AND eil.entity_instance_id = ${parent_id}
+      `;
         joins.push(parentJoin);
       }
 
@@ -275,13 +276,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const conditions: SQL[] = [];
 
       // GATE 1: RBAC - Apply security filtering (REQUIRED)
-      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
-        userId,
-        ENTITY_TYPE,
-        Permission.VIEW,
-        TABLE_ALIAS
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
       );
-      conditions.push(rbacCondition);
+      conditions.push(sql.raw(rbacWhereClause));
 
       // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
       // Can be overridden with ?active=false to show inactive records
@@ -417,7 +414,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const canView = await entityInfra.check_entity_rbac(
         userId,
-        ENTITY_TYPE,
+        ENTITY_CODE,
         id,
         Permission.VIEW
       );
@@ -510,7 +507,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
     // Check: Can user CREATE tasks?
     // ═══════════════════════════════════════════════════════════════
-    const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
+    const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE);
     if (!canCreate) {
       return reply.status(403).send({ error: 'No permission to create tasks' });
     }
@@ -553,7 +550,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance in registry
       // ═══════════════════════════════════════════════════════════════
       await entityInfra.set_entity_instance_registry({
-        entity_type: ENTITY_TYPE,
+        entity_type: ENTITY_CODE,
         entity_id: newTask.id,
         entity_name: newTask.name,
         entity_code: newTask.code
@@ -604,7 +601,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
     // Check: Can user EDIT this task?
     // ═══════════════════════════════════════════════════════════════
-    const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
+    const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
     if (!canEdit) {
       return reply.status(403).send({ error: 'No permission to edit this task' });
     }
@@ -659,7 +656,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
       // ═══════════════════════════════════════════════════════════════
       if (data.name !== undefined || data.code !== undefined) {
-        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+        await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
           entity_code: data.code
         });
@@ -711,7 +708,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
     // Check: Can user EDIT this task?
     // ═══════════════════════════════════════════════════════════════
-    const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
+    const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
     if (!canEdit) {
       return reply.status(403).send({ error: 'No permission to edit this task' });
     }
@@ -766,7 +763,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
       // ═══════════════════════════════════════════════════════════════
       if (data.name !== undefined || data.code !== undefined) {
-        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+        await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
           entity_code: data.code
         });
@@ -797,7 +794,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
   // 1. app.task (base entity table)
   // 2. app.entity_instance (entity registry)
   // 3. app.entity_instance_link (linkages in both directions)
-  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
+  createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 
   // Kanban status update endpoint (for drag-drop operations)
   fastify.patch('/api/v1/task/:id/status', {
@@ -836,7 +833,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Uses: RBAC_GATE only (checkPermission)
       // Check: Can user EDIT this task?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this task' });
       }
@@ -920,7 +917,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Uses: RBAC_GATE only (checkPermission)
       // Check: Can user EDIT this task?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this task' });
       }
@@ -1131,7 +1128,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           tr.updated as updated_at,
           COALESCE(tr.metadata->>'mentions', '[]')::jsonb as mentions,
           COALESCE(tr.metadata->>'attachments', '[]')::jsonb as attachments
-        FROM app.d_task_data tr
+        FROM app.task_data tr
         LEFT JOIN app.employee e ON e.id = tr.created_by_employee_id
         WHERE tr.task_id = ${taskId}
           AND tr.record_type IN ('case_note', 'rich_note')
@@ -1296,7 +1293,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           e.name as actor_name,
           tr.created_ts as timestamp,
           tr.metadata
-        FROM app.d_task_data tr
+        FROM app.task_data tr
         LEFT JOIN app.employee e ON e.id = tr.updated_by_employee_id
         WHERE tr.task_id = ${taskId}
           AND tr.active_flag = true
@@ -1428,5 +1425,5 @@ export async function taskRoutes(fastify: FastifyInstance) {
   // ============================================================================
   // Creates: GET /api/v1/task/:id/{child} for each child in entity table.child_entity_codes
   // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
-  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }

@@ -54,7 +54,6 @@ import {
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 // ✅ Centralized unified data gate - loosely coupled API
-import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
 import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
@@ -117,7 +116,7 @@ const UpdateOfficeSchema = Type.Partial(CreateOfficeSchema);
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
-const ENTITY_TYPE = 'office';
+const ENTITY_CODE = 'office';
 const TABLE_ALIAS = 'o';
 
 export async function officeRoutes(fastify: FastifyInstance) {
@@ -170,13 +169,9 @@ export async function officeRoutes(fastify: FastifyInstance) {
       const conditions: any[] = [];
 
       // GATE 1: RBAC - Apply security filtering (REQUIRED)
-      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
-        userId,
-        ENTITY_TYPE,
-        Permission.VIEW,
-        TABLE_ALIAS
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
       );
-      conditions.push(rbacCondition);
+      conditions.push(sql.raw(rbacWhereClause));
 
       // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
       // Can be overridden with ?active=false to show inactive records
@@ -248,7 +243,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const canView = await entityInfra.check_entity_rbac(
         userId,
-        ENTITY_TYPE,
+        ENTITY_CODE,
         id,
         Permission.VIEW
       );
@@ -300,7 +295,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
     // ═══════════════════════════════════════════════════════════════
     // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC check
     // ═══════════════════════════════════════════════════════════════
-    const canView = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.VIEW);
+    const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
     if (!canView) {
       return reply.status(403).send({ error: 'No permission to view this office' });
     }
@@ -309,7 +304,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
     // ✅ ENTITY INFRASTRUCTURE SERVICE - Get child entity metadata
     // Returns child entity types with labels/icons from entity
     // ═══════════════════════════════════════════════════════════════
-    const tabs = await entityInfra.get_dynamic_child_entity_tabs(ENTITY_TYPE);
+    const tabs = await entityInfra.get_dynamic_child_entity_tabs(ENTITY_CODE);
     return reply.send({ tabs });
   });
 
@@ -345,7 +340,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const canCreate = await entityInfra.check_entity_rbac(
         userId,
-        ENTITY_TYPE,
+        ENTITY_CODE,
         ALL_ENTITIES_ID,
         Permission.CREATE
       );
@@ -421,7 +416,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance in registry
       // ═══════════════════════════════════════════════════════════════
       await entityInfra.set_entity_instance_registry({
-        entity_type: ENTITY_TYPE,
+        entity_type: ENTITY_CODE,
         entity_id: officeId,
         entity_name: newOffice.name,
         entity_code: newOffice.code
@@ -430,7 +425,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Grant ownership to creator
       // ═══════════════════════════════════════════════════════════════
-      await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, officeId);
+      await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, officeId);
 
       // ═══════════════════════════════════════════════════════════════
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Link to parent (if provided)
@@ -439,7 +434,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
         await entityInfra.set_entity_instance_link({
           parent_entity_type: parent_type,
           parent_entity_id: parent_id,
-          child_entity_type: ENTITY_TYPE,
+          child_entity_type: ENTITY_CODE,
           child_entity_id: officeId,
           relationship_type: 'contains'
         });
@@ -491,7 +486,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
     // ═══════════════════════════════════════════════════════════════
     const canEdit = await entityInfra.check_entity_rbac(
       userId,
-      ENTITY_TYPE,
+      ENTITY_CODE,
       id,
       Permission.EDIT
     );
@@ -548,7 +543,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
       // ═══════════════════════════════════════════════════════════════
       if (data.name !== undefined || data.code !== undefined) {
-        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+        await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
           entity_code: data.code
         });
@@ -603,7 +598,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
     // ═══════════════════════════════════════════════════════════════
     const canEdit = await entityInfra.check_entity_rbac(
       userId,
-      ENTITY_TYPE,
+      ENTITY_CODE,
       id,
       Permission.EDIT
     );
@@ -660,7 +655,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
       // ═══════════════════════════════════════════════════════════════
       if (data.name !== undefined || data.code !== undefined) {
-        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+        await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
           entity_code: data.code
         });
@@ -688,14 +683,14 @@ export async function officeRoutes(fastify: FastifyInstance) {
   // 1. app.office (base entity table)
   // 2. app.entity_instance (entity registry)
   // 3. app.entity_instance_link (linkages in both directions)
-  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
+  createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 
   // ============================================================================
   // Child Entity Endpoints (Auto-Generated from entity metadata)
   // ============================================================================
   // Creates: GET /api/v1/office/:id/{child} for each child in entity table.child_entity_codes
   // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
-  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 
   // ========================================
   // CHILD ENTITY CREATION

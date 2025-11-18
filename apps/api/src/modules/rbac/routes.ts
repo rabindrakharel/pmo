@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 // ✅ Entity Infrastructure Service - Centralized infrastructure management

@@ -29,7 +29,7 @@
 
 ```typescript
 // Entity definition requires only:
-db/d_[entity].ddl                    // Database table
+db/[entity].ddl                    // Database table
 apps/api/src/modules/[entity]/       // API module
 apps/web/src/lib/entityConfig.ts     // Frontend config
 
@@ -110,7 +110,7 @@ entity_rbac                   -- Permissions (0=VIEW, 1=COMMENT, 3=EDIT, 4=SHARE
 ```typescript
 import { getEntityInfrastructure, Permission } from '@/services/entity-infrastructure.service.js';
 
-const ENTITY_TYPE = 'project';
+const ENTITY_CODE = 'project';
 const entityInfra = getEntityInfrastructure(db);
 
 // 6-STEP CREATE PATTERN
@@ -120,7 +120,7 @@ fastify.post('/api/v1/project', async (request, reply) => {
 
   // STEP 1: RBAC CHECK 1 - Can user CREATE this entity type?
   const canCreate = await entityInfra.check_entity_rbac(
-    userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE
+    userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE
   );
   if (!canCreate) return reply.status(403).send({ error: 'Forbidden' });
 
@@ -138,21 +138,21 @@ fastify.post('/api/v1/project', async (request, reply) => {
 
   // STEP 4: Register in entity_instance
   await entityInfra.set_entity_instance_registry({
-    entity_type: ENTITY_TYPE,
+    entity_type: ENTITY_CODE,
     entity_id: project.id,
     entity_name: project.name,
     entity_code: project.code
   });
 
   // STEP 5: Grant OWNER permission to creator
-  await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, project.id);
+  await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, project.id);
 
   // STEP 6: Link to parent (if provided)
   if (parent_type && parent_id) {
     await entityInfra.set_entity_instance_link({
       parent_entity_type: parent_type,
       parent_entity_id: parent_id,
-      child_entity_type: ENTITY_TYPE,
+      child_entity_type: ENTITY_CODE,
       child_entity_id: project.id,
       relationship_type: 'contains'
     });
@@ -169,7 +169,7 @@ fastify.patch('/api/v1/project/:id', async (request, reply) => {
 
   // STEP 1: RBAC check - Can user EDIT this entity?
   const canEdit = await entityInfra.check_entity_rbac(
-    userId, ENTITY_TYPE, id, Permission.EDIT
+    userId, ENTITY_CODE, id, Permission.EDIT
   );
   if (!canEdit) return reply.status(403).send({ error: 'Forbidden' });
 
@@ -178,7 +178,7 @@ fastify.patch('/api/v1/project/:id', async (request, reply) => {
 
   // STEP 3: Sync registry if name/code changed
   if (data.name !== undefined || data.code !== undefined) {
-    await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+    await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
       entity_name: data.name,
       entity_code: data.code
     });
@@ -191,7 +191,7 @@ fastify.patch('/api/v1/project/:id', async (request, reply) => {
 fastify.get('/api/v1/project', async (request, reply) => {
   // Service just provides RBAC WHERE condition helper
   const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
-    userId, ENTITY_TYPE, Permission.VIEW, 'e'
+    userId, ENTITY_CODE, Permission.VIEW, 'e'
   );
 
   // ✅ ROUTE builds its own query structure (full control)
@@ -302,10 +302,10 @@ const element = renderFieldDisplay(50000, { type: 'currency' });
 
 #### 5 Universal API Patterns (ALL entity routes follow these):
 
-1. **UNIFIED DATA GATE** - Centralized RBAC + parent-child filtering
+1. **ENTITY INFRASTRUCTURE SERVICE** - Centralized RBAC + parent-child filtering
 2. **CREATE-LINK-EDIT** - Simplified parent-child relationships
 3. **FACTORY PATTERN** - Auto-generated child/delete endpoints
-4. **MODULE CONSTANTS** - DRY principle (ENTITY_TYPE, TABLE_ALIAS)
+4. **MODULE CONSTANTS** - DRY principle (ENTITY_CODE, TABLE_ALIAS)
 5. **AUTO-FILTER SYSTEM** - Zero-config query filtering
 
 #### Standard Endpoints
@@ -340,7 +340,7 @@ import {
   createPaginatedResponse
 } from '../../lib/universal-schema-metadata.js';
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
-import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 
 // Factory functions
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
@@ -365,8 +365,8 @@ Permission.VIEW   = 0  // Read-only access
 ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111'
 
 // Permission checks
-unified_data_gate.rbac_gate.check_entity_rbac(db, userId, entityType, entityId, Permission.EDIT)
-unified_data_gate.rbac_gate.getWhereCondition(userId, entityType, Permission.VIEW, tableAlias)
+entityInfra.check_entity_rbac(db, userId, entityType, entityId, Permission.EDIT)
+entityInfra.get_entity_rbac_where_condition(userId, entityType, Permission.VIEW, tableAlias)
 ```
 
 #### Universal Auto-Filter System
@@ -389,11 +389,11 @@ conditions.push(...autoFilters);
 
 ### Adding New Entity
 
-1. **Database**: Create `db/d_[entity].ddl` with standard fields (id, code, name, descr, metadata, active_flag, from_ts, to_ts)
+1. **Database**: Create `db/[entity].ddl` with standard fields (id, code, name, descr, metadata, active_flag, from_ts, to_ts)
 2. **Metadata**: Add to `entity` table (entity_type, label, icon, child_entities)
 3. **API Module**: Create `apps/api/src/modules/[entity]/routes.ts`
    - Use standard import block (see API Standards section above)
-   - Define module constants: `ENTITY_TYPE`, `TABLE_ALIAS`
+   - Define module constants: `ENTITY_CODE`, `TABLE_ALIAS`
    - Implement LIST (with RBAC filtering), GET, CREATE (with linkage), PATCH
    - Add factory calls: `createEntityDeleteEndpoint()`, `createChildEntityEndpointsFromMetadata()`
    - Use `buildAutoFilters()` for zero-config query filtering

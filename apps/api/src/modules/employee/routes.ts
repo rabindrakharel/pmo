@@ -9,7 +9,6 @@ import {
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
 // ✅ Centralized unified data gate - loosely coupled API
-import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
 import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
@@ -181,7 +180,7 @@ const UpdateEmployeeSchema = Type.Object({
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
-const ENTITY_TYPE = 'employee';
+const ENTITY_CODE = 'employee';
 const TABLE_ALIAS = 'e';
 
 export async function empRoutes(fastify: FastifyInstance) {
@@ -447,7 +446,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const canCreate = await entityInfra.check_entity_rbac(
         userId,
-        ENTITY_TYPE,
+        ENTITY_CODE,
         ALL_ENTITIES_ID,
         Permission.CREATE
       );
@@ -567,7 +566,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance in registry
       // ═══════════════════════════════════════════════════════════════
       await entityInfra.set_entity_instance_registry({
-        entity_type: ENTITY_TYPE,
+        entity_type: ENTITY_CODE,
         entity_id: employeeId,
         entity_name: newEmployee.name,
         entity_code: newEmployee.code
@@ -576,7 +575,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Grant ownership to creator
       // ═══════════════════════════════════════════════════════════════
-      await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, employeeId);
+      await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, employeeId);
 
       // ═══════════════════════════════════════════════════════════════
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Link to parent (if provided)
@@ -585,7 +584,7 @@ export async function empRoutes(fastify: FastifyInstance) {
         await entityInfra.set_entity_instance_link({
           parent_entity_type: parent_type,
           parent_entity_id: parent_id,
-          child_entity_type: ENTITY_TYPE,
+          child_entity_type: ENTITY_CODE,
           child_entity_id: employeeId,
           relationship_type: 'contains'
         });
@@ -628,7 +627,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const canEdit = await entityInfra.check_entity_rbac(
         userId,
-        ENTITY_TYPE,
+        ENTITY_CODE,
         id,
         Permission.EDIT
       );
@@ -720,7 +719,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
       // ═══════════════════════════════════════════════════════════════
       if (data.name !== undefined || data.code !== undefined) {
-        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+        await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
           entity_code: data.code
         });
@@ -767,7 +766,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const canEdit = await entityInfra.check_entity_rbac(
         userId,
-        ENTITY_TYPE,
+        ENTITY_CODE,
         id,
         Permission.EDIT
       );
@@ -859,7 +858,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
       // ═══════════════════════════════════════════════════════════════
       if (data.name !== undefined || data.code !== undefined) {
-        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+        await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
           entity_code: data.code
         });
@@ -880,10 +879,10 @@ export async function empRoutes(fastify: FastifyInstance) {
   // ============================================================================
   // DELETE Employee (Soft Delete via Factory)
   // ============================================================================
-  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
+  createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 
   // ============================================================================
   // Child Entity Endpoints (Auto-Generated from entity metadata)
   // ============================================================================
-  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }

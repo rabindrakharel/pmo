@@ -4,16 +4,15 @@ import { db } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
 import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 // ✅ Centralized unified data gate - loosely coupled API
-import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
-import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
-const ENTITY_TYPE = 'shipment';
+const ENTITY_CODE = 'shipment';
 const TABLE_ALIAS = 's';
 
 export async function shipmentRoutes(fastify: FastifyInstance) {
@@ -238,5 +237,5 @@ export async function shipmentRoutes(fastify: FastifyInstance) {
 
   // NOTE: Shipment is a fact table, not a standard entity with child relationships
   // If it needs child entity endpoints, uncomment below:
-  // await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
+  // await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }

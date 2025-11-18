@@ -5,7 +5,6 @@ import { sql, SQL } from 'drizzle-orm';
 import { s3AttachmentService } from '../../lib/s3-attachments.js';
 import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 // ✅ Centralized unified data gate - loosely coupled API
-import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
 import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
@@ -14,7 +13,7 @@ import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
-const ENTITY_TYPE = 'invoice';
+const ENTITY_CODE = 'invoice';
 const TABLE_ALIAS = 'i';
 
 export async function invoiceRoutes(fastify: FastifyInstance) {
@@ -50,10 +49,9 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
 
       // OPTIONAL: RBAC filtering (if invoice entity has permissions configured)
       // Uncomment if entity_rbac has entries for invoice
-      // const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
-      //   userId, ENTITY_TYPE, Permission.VIEW, TABLE_ALIAS
+      // const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(//   userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
       // );
-      // conditions.push(rbacCondition);
+      // conditions.push(sql.raw(rbacWhereClause));
 
       // ✨ UNIVERSAL AUTO-FILTER SYSTEM
       // Automatically builds filters from ANY query parameter based on field naming conventions
@@ -111,7 +109,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     try {
       // OPTIONAL: RBAC check (if invoice entity has permissions configured)
       // Uncomment if entity_rbac has entries for invoice
-      // const canView = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.VIEW);
+      // const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
       // if (!canView) {
       //   return reply.status(403).send({ error: 'No permission to view this invoice' });
       // }
@@ -148,7 +146,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     try {
       // OPTIONAL: RBAC CHECK (if invoice entity has permissions configured)
       // Uncomment if entity_rbac has entries for invoice
-      // const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
+      // const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE);
       // if (!canCreate) {
       //   return reply.status(403).send({ error: 'No permission to create invoices' });
       // }
@@ -176,7 +174,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
       // NOTE: Invoice is a fact table, not a standard entity
       // If it needs to be tracked in entity_instance, uncomment below:
       // await entityInfra.set_entity_instance_registry({
-      //   entity_type: ENTITY_TYPE,
+      //   entity_type: ENTITY_CODE,
       //   entity_id: result[0].id,
       //   entity_name: result[0].invoice_number,
       //   entity_code: result[0].invoice_number
@@ -209,7 +207,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     try {
       // OPTIONAL: RBAC CHECK (if invoice entity has permissions configured)
       // Uncomment if entity_rbac has entries for invoice
-      // const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
+      // const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
       // if (!canEdit) {
       //   return reply.status(403).send({ error: 'No permission to edit this invoice' });
       // }
@@ -277,7 +275,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
 
       // OPTIONAL: Check RBAC permission using entity infrastructure service
       // Uncomment if entity_rbac has entries for invoice
-      // const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
+      // const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE);
       // if (!canCreate) {
       //   return reply.code(403).send({ error: 'Permission denied to upload invoice attachments' });
       // }
@@ -285,7 +283,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
       // Generate presigned upload URL using s3AttachmentService
       const result = await s3AttachmentService.generatePresignedUploadUrl({
         tenantId: 'demo',
-        entityType: ENTITY_TYPE,
+        entityType: ENTITY_CODE,
         entityId: 'temp-' + Date.now(), // Temporary ID, will be replaced when invoice is created
         fileName: filename,
         contentType: contentType || 'application/pdf'
@@ -320,7 +318,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     try {
       // OPTIONAL: RBAC CHECK (if invoice entity has permissions configured)
       // Uncomment if entity_rbac has entries for invoice
-      // const canDelete = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.DELETE);
+      // const canDelete = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.DELETE);
       // if (!canDelete) {
       //   return reply.status(403).send({ error: 'No permission to delete this invoice' });
       // }
@@ -334,7 +332,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
       if (!result.length) return reply.status(404).send({ error: 'Not found' });
 
       // NOTE: If invoice needs to be removed from entity_instance, uncomment:
-      // await entityInfra.deactivate_entity_instance_registry(ENTITY_TYPE, id);
+      // await entityInfra.deactivate_entity_instance_registry(ENTITY_CODE, id);
 
       return reply.status(204).send();
     } catch (error) {
@@ -345,5 +343,5 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
 
   // NOTE: Invoice is a fact table, not a standard entity with child relationships
   // If it needs child entity endpoints, uncomment below:
-  // await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
+  // await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }
