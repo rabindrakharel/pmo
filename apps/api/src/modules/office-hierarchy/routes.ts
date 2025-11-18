@@ -19,7 +19,7 @@ const OfficeHierarchySchema = Type.Object({
   metadata: Type.Optional(Type.Any()),
   parent_id: Type.Optional(Type.String()),
   dl__office_hierarchy_level: Type.String(),
-  manager_employee_id: Type.Optional(Type.String()),
+  manager__employee_id: Type.Optional(Type.String()),
   budget_allocated_amt: Type.Optional(Type.Number()),
   from_ts: Type.String(),
   to_ts: Type.Optional(Type.String()),
@@ -36,7 +36,7 @@ const CreateOfficeHierarchySchema = Type.Object({
   metadata: Type.Optional(Type.Any()),
   parent_id: Type.Optional(Type.String()),
   dl__office_hierarchy_level: Type.String({ minLength: 1 }),
-  manager_employee_id: Type.Optional(Type.String()),
+  manager__employee_id: Type.Optional(Type.String()),
   budget_allocated_amt: Type.Optional(Type.Number()),
   active_flag: Type.Optional(Type.Boolean()),
 });
@@ -134,12 +134,12 @@ export async function officeHierarchyRoutes(fastify: FastifyInstance) {
         SELECT
           oh.id, oh.code, oh.name, oh."descr", oh.metadata,
           oh.parent_id, oh.dl__office_hierarchy_level,
-          oh.manager_employee_id, oh.budget_allocated_amt,
+          oh.manager__employee_id, oh.budget_allocated_amt,
           oh.from_ts, oh.to_ts, oh.active_flag, oh.created_ts, oh.updated_ts, oh.version,
           emp.name as manager_name,
           parent.name as parent_name
         FROM app.d_office_hierarchy oh
-        LEFT JOIN app.employee emp ON oh.manager_employee_id = emp.id
+        LEFT JOIN app.employee emp ON oh.manager__employee_id = emp.id
         LEFT JOIN app.d_office_hierarchy parent ON oh.parent_id = parent.id
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY oh.dl__office_hierarchy_level ASC, oh.name ASC NULLS LAST
@@ -180,12 +180,12 @@ export async function officeHierarchyRoutes(fastify: FastifyInstance) {
         SELECT
           oh.id, oh.code, oh.name, oh."descr", oh.metadata,
           oh.parent_id, oh.dl__office_hierarchy_level,
-          oh.manager_employee_id, oh.budget_allocated_amt,
+          oh.manager__employee_id, oh.budget_allocated_amt,
           oh.from_ts, oh.to_ts, oh.active_flag, oh.created_ts, oh.updated_ts, oh.version,
           emp.name as manager_name,
           parent.name as parent_name
         FROM app.d_office_hierarchy oh
-        LEFT JOIN app.employee emp ON oh.manager_employee_id = emp.id
+        LEFT JOIN app.employee emp ON oh.manager__employee_id = emp.id
         LEFT JOIN app.d_office_hierarchy parent ON oh.parent_id = parent.id
         WHERE oh.id = ${id}::uuid
           AND EXISTS (
@@ -233,13 +233,13 @@ export async function officeHierarchyRoutes(fastify: FastifyInstance) {
       const result = await db.execute(sql`
         INSERT INTO app.d_office_hierarchy (
           code, name, "descr", metadata, parent_id, dl__office_hierarchy_level,
-          manager_employee_id, budget_allocated_amt, active_flag
+          manager__employee_id, budget_allocated_amt, active_flag
         )
         VALUES (
           ${data.code}, ${data.name}, ${data.descr || null}, ${data.metadata || {}},
           ${data.parent_id ? sql`${data.parent_id}::uuid` : sql`NULL`},
           ${data.dl__office_hierarchy_level},
-          ${data.manager_employee_id ? sql`${data.manager_employee_id}::uuid` : sql`NULL`},
+          ${data.manager__employee_id ? sql`${data.manager__employee_id}::uuid` : sql`NULL`},
           ${data.budget_allocated_amt || null}, ${data.active_flag !== false}
         )
         RETURNING *
@@ -289,8 +289,8 @@ export async function officeHierarchyRoutes(fastify: FastifyInstance) {
       if (data.dl__office_hierarchy_level !== undefined) {
         updates.push(sql`dl__office_hierarchy_level = ${data.dl__office_hierarchy_level}`);
       }
-      if (data.manager_employee_id !== undefined) {
-        updates.push(data.manager_employee_id ? sql`manager_employee_id = ${data.manager_employee_id}::uuid` : sql`manager_employee_id = NULL`);
+      if (data.manager__employee_id !== undefined) {
+        updates.push(data.manager__employee_id ? sql`manager__employee_id = ${data.manager__employee_id}::uuid` : sql`manager__employee_id = NULL`);
       }
       if (data.budget_allocated_amt !== undefined) {
         updates.push(sql`budget_allocated_amt = ${data.budget_allocated_amt}`);

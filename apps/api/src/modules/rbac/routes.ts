@@ -445,7 +445,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           entity_name: Type.String(),
           entity_id: Type.String(),
           permission: Type.Number(),
-          granted_by_employee_id: Type.String(),
+          granted_by__employee_id: Type.String(),
           granted_ts: Type.String(),
           expires_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
           message: Type.String(),
@@ -508,12 +508,12 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         result = await db.execute(sql`
           UPDATE app.entity_rbac
           SET permission = ${permission},
-              granted_by_employee_id = ${userId},
+              granted_by__employee_id = ${userId},
               granted_ts = NOW(),
               expires_ts = ${expires_ts || null},
               updated_ts = NOW()
           WHERE id = ${existingPermission[0].id}
-          RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by_employee_id, granted_ts, expires_ts
+          RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by__employee_id, granted_ts, expires_ts
         `);
       } else {
         // Insert new permission
@@ -524,7 +524,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             entity_name,
             entity_id,
             permission,
-            granted_by_employee_id,
+            granted_by__employee_id,
             granted_ts,
             expires_ts,
             active_flag
@@ -539,7 +539,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             ${expires_ts || null},
             true
           )
-          RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by_employee_id, granted_ts, expires_ts
+          RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by__employee_id, granted_ts, expires_ts
         `);
       }
 
@@ -555,7 +555,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         entity_name: granted.entity_name,
         entity_id: granted.entity_id,
         permission: granted.permission,
-        granted_by_employee_id: granted.granted_by_employee_id,
+        granted_by__employee_id: granted.granted_by__employee_id,
         granted_ts: granted.granted_ts,
         expires_ts: granted.expires_ts,
         message: existingPermission.length > 0 ? 'Permission updated successfully' : 'Permission granted successfully',
@@ -583,7 +583,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             entity_name: Type.String(),
             entity_id: Type.String(),
             permission: Type.Number(),
-            granted_by_employee_id: Type.Optional(Type.String()),
+            granted_by__employee_id: Type.Optional(Type.String()),
             granted_ts: Type.String(),
             expires_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
           })),
@@ -607,7 +607,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           entity_name,
           entity_id,
           permission,
-          granted_by_employee_id,
+          granted_by__employee_id,
           granted_ts,
           expires_ts
         FROM app.entity_rbac
@@ -700,7 +700,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             entity_name: Type.String(),
             permission: Type.Number(),
             permission_label: Type.String(),
-            granted_by_employee_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+            granted_by__employee_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
             granted_by_name: Type.String(),
             granted_ts: Type.String(),
             expires_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
@@ -750,7 +750,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             WHEN 5 THEN 'Owner'
             ELSE 'Unknown'
           END AS permission_label,
-          rbac.granted_by_employee_id,
+          rbac.granted_by__employee_id,
           COALESCE(granter.name, granter.email, 'System') AS granted_by_name,
           rbac.granted_ts,
           rbac.expires_ts,
@@ -760,7 +760,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         FROM app.entity_rbac rbac
         LEFT JOIN app.employee emp ON rbac.person_entity_name = 'employee' AND rbac.person_id = emp.id
         LEFT JOIN app.role role ON rbac.person_entity_name = 'role' AND rbac.person_id = role.id
-        LEFT JOIN app.employee granter ON rbac.granted_by_employee_id = granter.id
+        LEFT JOIN app.employee granter ON rbac.granted_by__employee_id = granter.id
         -- Centralized entity name resolution using entity_instance_id registry
         LEFT JOIN app.entity_instance entity_inst
           ON rbac.entity_name = entity_inst.entity_type
@@ -806,7 +806,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           entity_name: Type.String(),
           entity_id: Type.String(),
           permission: Type.Number(),
-          granted_by_employee_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+          granted_by__employee_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
           granted_ts: Type.String(),
           expires_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
           active_flag: Type.Boolean(),
@@ -835,7 +835,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           entity_name,
           entity_id,
           permission,
-          granted_by_employee_id,
+          granted_by__employee_id,
           granted_ts,
           expires_ts,
           active_flag,
@@ -876,7 +876,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           entity_name: Type.String(),
           entity_id: Type.String(),
           permission: Type.Number(),
-          granted_by_employee_id: Type.String(),
+          granted_by__employee_id: Type.String(),
           granted_ts: Type.String(),
           expires_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
           message: Type.String(),
@@ -937,12 +937,12 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         result = await db.execute(sql`
           UPDATE app.entity_rbac
           SET permission = ${permission},
-              granted_by_employee_id = ${userId},
+              granted_by__employee_id = ${userId},
               granted_ts = NOW(),
               expires_ts = ${expires_ts || null},
               updated_ts = NOW()
           WHERE id = ${existingPermission[0].id}
-          RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by_employee_id, granted_ts, expires_ts
+          RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by__employee_id, granted_ts, expires_ts
         `);
       } else {
         // Insert new permission
@@ -953,7 +953,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             entity_name,
             entity_id,
             permission,
-            granted_by_employee_id,
+            granted_by__employee_id,
             granted_ts,
             expires_ts,
             active_flag
@@ -968,7 +968,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             ${expires_ts || null},
             true
           )
-          RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by_employee_id, granted_ts, expires_ts
+          RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by__employee_id, granted_ts, expires_ts
         `);
       }
 
@@ -984,7 +984,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         entity_name: created.entity_name,
         entity_id: created.entity_id,
         permission: created.permission,
-        granted_by_employee_id: created.granted_by_employee_id,
+        granted_by__employee_id: created.granted_by__employee_id,
         granted_ts: created.granted_ts,
         expires_ts: created.expires_ts,
         message: existingPermission.length > 0 ? 'Permission updated successfully' : 'Permission created successfully',
@@ -1014,7 +1014,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           entity_name: Type.String(),
           entity_id: Type.String(),
           permission: Type.Number(),
-          granted_by_employee_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+          granted_by__employee_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
           granted_ts: Type.String(),
           expires_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
           message: Type.String(),
@@ -1050,7 +1050,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       if (permission !== undefined) {
         updates.push(`permission = $${updates.length + 1}`);
         values.push(permission);
-        updates.push(`granted_by_employee_id = $${updates.length + 1}`);
+        updates.push(`granted_by__employee_id = $${updates.length + 1}`);
         values.push(userId);
         updates.push(`granted_ts = NOW()`);
       }
@@ -1070,12 +1070,12 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       const result = await db.execute(sql`
         UPDATE app.entity_rbac
         SET permission = ${permission !== undefined ? permission : sql`permission`},
-            granted_by_employee_id = ${permission !== undefined ? userId : sql`granted_by_employee_id`},
+            granted_by__employee_id = ${permission !== undefined ? userId : sql`granted_by__employee_id`},
             granted_ts = ${permission !== undefined ? sql`NOW()` : sql`granted_ts`},
             expires_ts = ${expires_ts !== undefined ? expires_ts : sql`expires_ts`},
             updated_ts = NOW()
         WHERE id = ${id}
-        RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by_employee_id, granted_ts, expires_ts
+        RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by__employee_id, granted_ts, expires_ts
       `);
 
       if (result.length === 0) {
@@ -1090,7 +1090,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         entity_name: updated.entity_name,
         entity_id: updated.entity_id,
         permission: updated.permission,
-        granted_by_employee_id: updated.granted_by_employee_id,
+        granted_by__employee_id: updated.granted_by__employee_id,
         granted_ts: updated.granted_ts,
         expires_ts: updated.expires_ts,
         message: 'RBAC record updated successfully',
@@ -1540,7 +1540,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         'entity_id',
         'permission',
         'permission_label', // computed
-        'granted_by_employee_id',
+        'granted_by__employee_id',
         'granted_by_name', // computed
         'granted_ts',
         'expires_ts',

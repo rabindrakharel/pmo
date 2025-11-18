@@ -107,7 +107,7 @@ const CreateArtifactSchema = Type.Object({
   primary_entity_id: Type.Optional(Type.String()),
 
   // Versioning
-  parent_artifact_id: Type.Optional(Type.String()),
+  parent__artifact_id: Type.Optional(Type.String()),
   latest_version_flag: Type.Optional(Type.Boolean()),
   version: Type.Optional(Type.Number()),
 
