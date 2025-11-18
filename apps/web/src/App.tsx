@@ -47,7 +47,6 @@ import DataLabelsVisualizationPage from './pages/setting/DataLabelsVisualization
 import { SecurityPage } from './pages/security';
 import { BillingPage } from './pages/billing';
 import { LinkagePage } from './pages/LinkagePage';
-import { WorkflowAutomationPage } from './pages/WorkflowAutomationPage';
 import { RBACOverviewPage } from './pages/RBACOverviewPage';
 
 // Shared/Universal Components
@@ -268,14 +267,6 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <EntityLinkagePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/workflow-automation"
-        element={
-          <ProtectedRoute>
-            <WorkflowAutomationPage />
           </ProtectedRoute>
         }
       />
