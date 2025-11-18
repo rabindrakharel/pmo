@@ -8,14 +8,13 @@
 --
 -- DESIGN:
 -- • File Storage: S3 bucket/key for actual file storage
--- • Metadata: file_name, file_size, mime_type, file_hash for integrity
+-- • Metadata: name, file_size, mime_type, file_hash for integrity
 -- • Universal Linking: Via entity_instance_link (NO foreign keys for loose coupling)
 -- • Versioning: Supports version tracking via metadata
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • Parent: None (independent entity)
 -- • Linkage: ALL attachment relationships managed via entity_instance_link
--- • Optional tracking: attached_to_entity_code/attached_to_entity_id (no FK, just metadata)
 -- • Uploaded by: uploaded_by_employee_id (no FK, just reference)
 --
 -- USAGE PATTERNS:
@@ -36,7 +35,7 @@ CREATE TABLE IF NOT EXISTS app.attachment (
     -- ─────────────────────────────────────────────────────────────────────────
     -- File Metadata
     -- ─────────────────────────────────────────────────────────────────────────
-    file_name varchar(500),
+    name varchar(500),
     file_size_bytes bigint,
     mime_type varchar(255),
     file_extension varchar(50),
@@ -56,12 +55,6 @@ CREATE TABLE IF NOT EXISTS app.attachment (
     dl__attachment_type varchar(50), -- document, image, video, pdf, spreadsheet, etc.
     category varchar(100), -- invoice, contract, photo, report, etc.
     descr text,
-
-    -- ─────────────────────────────────────────────────────────────────────────
-    -- Attachment Context (Optional - for tracking what it's attached to)
-    -- ─────────────────────────────────────────────────────────────────────────
-    attached_to_entity_code varchar(100), -- Entity type (project, invoice, etc.)
-    attached_to_entity_id uuid, -- Specific entity instance ID
 
     -- ─────────────────────────────────────────────────────────────────────────
     -- Versioning & Ownership
@@ -87,7 +80,7 @@ CREATE TABLE IF NOT EXISTS app.attachment (
 
 COMMENT ON COLUMN app.attachment.id IS 'Unique identifier (UUID)';
 COMMENT ON COLUMN app.attachment.code IS 'Unique attachment code (e.g., ATT-00001)';
-COMMENT ON COLUMN app.attachment.file_name IS 'Original file name';
+COMMENT ON COLUMN app.attachment.name IS 'Original file name';
 COMMENT ON COLUMN app.attachment.file_size_bytes IS 'File size in bytes';
 COMMENT ON COLUMN app.attachment.mime_type IS 'MIME type (e.g., application/pdf, image/jpeg)';
 COMMENT ON COLUMN app.attachment.file_extension IS 'File extension (pdf, jpg, docx, etc.)';
@@ -99,8 +92,6 @@ COMMENT ON COLUMN app.attachment.s3_url IS 'Full S3 URL or CloudFront URL for ac
 COMMENT ON COLUMN app.attachment.dl__attachment_type IS 'Attachment type (document, image, video, pdf, spreadsheet)';
 COMMENT ON COLUMN app.attachment.category IS 'Category/purpose (invoice, contract, photo, report)';
 COMMENT ON COLUMN app.attachment.descr IS 'Description of attachment';
-COMMENT ON COLUMN app.attachment.attached_to_entity_code IS 'Entity code this is attached to (optional tracking)';
-COMMENT ON COLUMN app.attachment.attached_to_entity_id IS 'Entity instance ID this is attached to (optional tracking)';
 COMMENT ON COLUMN app.attachment.version IS 'Version number for file versioning';
 COMMENT ON COLUMN app.attachment.uploaded_by_employee_id IS 'Employee who uploaded this attachment';
 COMMENT ON COLUMN app.attachment.uploaded_ts IS 'Upload timestamp';
