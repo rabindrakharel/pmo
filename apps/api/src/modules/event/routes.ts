@@ -8,9 +8,8 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { client, db } from '../../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import { paginateQuery, getPaginationParams } from '../../lib/pagination.js';
-import { Permission } from '../../lib/unified-data-gate.js';
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
-import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Delete factory for cascading soft deletes

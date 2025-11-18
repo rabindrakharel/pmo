@@ -302,11 +302,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
       if (assigned_to_employee_id !== undefined) {
         conditions.push(sql`EXISTS (
           SELECT 1 FROM app.entity_instance_link map
-          WHERE map.entity_code = 'task'
-            AND map.entity_instance_id = ${sql.raw(TABLE_ALIAS)}.id
-            AND map.child_entity_code = 'employee'
-            AND map.child_entity_instance_id = ${assigned_to_employee_id}::uuid
+          WHERE map.parent_entity_type = 'task'
+            AND map.parent_entity_id = ${sql.raw(TABLE_ALIAS)}.id
+            AND map.child_entity_type = 'employee'
+            AND map.child_entity_id = ${assigned_to_employee_id}::uuid
             AND map.relationship_type = 'assigned_to'
+            AND map.active_flag = true
         )`);
       }
 
@@ -331,13 +332,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
           -- Get assignee IDs from entity_instance_link
           COALESCE(
             (
-              SELECT json_agg(map.child_entity_instance_id ORDER BY e.name)
+              SELECT json_agg(map.child_entity_id ORDER BY e.name)
               FROM app.entity_instance_link map
-              JOIN app.employee e ON e.id = map.child_entity_instance_id
-              WHERE map.entity_code = 'task'
-                AND map.entity_instance_id = t.id
-                AND map.child_entity_code = 'employee'
+              JOIN app.employee e ON e.id = map.child_entity_id
+              WHERE map.parent_entity_type = 'task'
+                AND map.parent_entity_id = t.id
+                AND map.child_entity_type = 'employee'
                 AND map.relationship_type = 'assigned_to'
+                AND map.active_flag = true
             ),
             '[]'::json
           ) as assignee_employee_ids,
@@ -346,11 +348,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
             (
               SELECT json_agg(e.name ORDER BY e.name)
               FROM app.entity_instance_link map
-              JOIN app.employee e ON e.id = map.child_entity_instance_id
-              WHERE map.entity_code = 'task'
-                AND map.entity_instance_id = t.id
-                AND map.child_entity_code = 'employee'
+              JOIN app.employee e ON e.id = map.child_entity_id
+              WHERE map.parent_entity_type = 'task'
+                AND map.parent_entity_id = t.id
+                AND map.child_entity_type = 'employee'
                 AND map.relationship_type = 'assigned_to'
+                AND map.active_flag = true
             ),
             '[]'::json
           ) as assignee_employee_names,
@@ -429,13 +432,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
           -- Get assignee IDs from entity_instance_link
           COALESCE(
             (
-              SELECT json_agg(map.child_entity_instance_id ORDER BY e.name)
+              SELECT json_agg(map.child_entity_id ORDER BY e.name)
               FROM app.entity_instance_link map
-              JOIN app.employee e ON e.id = map.child_entity_instance_id
-              WHERE map.entity_code = 'task'
-                AND map.entity_instance_id = t.id
-                AND map.child_entity_code = 'employee'
+              JOIN app.employee e ON e.id = map.child_entity_id
+              WHERE map.parent_entity_type = 'task'
+                AND map.parent_entity_id = t.id
+                AND map.child_entity_type = 'employee'
                 AND map.relationship_type = 'assigned_to'
+                AND map.active_flag = true
             ),
             '[]'::json
           ) as assignee_employee_ids,
@@ -444,11 +448,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
             (
               SELECT json_agg(e.name ORDER BY e.name)
               FROM app.entity_instance_link map
-              JOIN app.employee e ON e.id = map.child_entity_instance_id
-              WHERE map.entity_code = 'task'
-                AND map.entity_instance_id = t.id
-                AND map.child_entity_code = 'employee'
+              JOIN app.employee e ON e.id = map.child_entity_id
+              WHERE map.parent_entity_type = 'task'
+                AND map.parent_entity_id = t.id
+                AND map.child_entity_type = 'employee'
                 AND map.relationship_type = 'assigned_to'
+                AND map.active_flag = true
             ),
             '[]'::json
           ) as assignee_employee_names,
@@ -1009,11 +1014,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
       if (assignee) {
         filters.push(sql`EXISTS (
           SELECT 1 FROM app.entity_instance_link map
-          WHERE map.entity_code = 'task'
-            AND map.entity_instance_id = t.id
-            AND map.child_entity_code = 'employee'
-            AND map.child_entity_instance_id = ${assignee}::uuid
+          WHERE map.parent_entity_type = 'task'
+            AND map.parent_entity_id = t.id
+            AND map.child_entity_type = 'employee'
+            AND map.child_entity_id = ${assignee}::uuid
             AND map.relationship_type = 'assigned_to'
+            AND map.active_flag = true
         )`);
       }
 
@@ -1383,11 +1389,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
           e.email,
           map.id as linkage_id
         FROM app.entity_instance_link map
-        INNER JOIN app.employee e ON e.id = map.child_entity_instance_id
-        WHERE map.entity_code = 'task'
-          AND map.entity_instance_id = ${id}::uuid
-          AND map.child_entity_code = 'employee'
+        INNER JOIN app.employee e ON e.id = map.child_entity_id
+        WHERE map.parent_entity_type = 'task'
+          AND map.parent_entity_id = ${id}::uuid
+          AND map.child_entity_type = 'employee'
           AND map.relationship_type = 'assigned_to'
+          AND map.active_flag = true
         ORDER BY e.name
       `);
 

@@ -156,7 +156,7 @@ import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factor
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 // ✅ Centralized unified data gate - loosely coupled API
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
-import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 

@@ -120,7 +120,7 @@ import { db } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
 // ✅ Centralized unified data gate - loosely coupled API
 // ✨ NEW: Entity Infrastructure Service - centralized infrastructure operations
-import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Delete factory for cascading soft deletes

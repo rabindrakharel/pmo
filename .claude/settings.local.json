@@ -174,7 +174,8 @@
       "Bash(/tmp/test-rbac-coherence.sh)",
       "Bash(pnpm -F @pmo/api dev:*)",
       "Bash({} +)",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "Bash(do echo -n \"$endpoint: \")"
     ],
     "deny": [],
     "ask": [],

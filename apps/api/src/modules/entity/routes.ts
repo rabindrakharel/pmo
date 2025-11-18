@@ -383,7 +383,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
         code: Type.String()
       }),
       body: Type.Object({
-        child_entity_codes: Type.Array(Type.String())
+        child_entity_codes: Type.Optional(Type.Array(Type.String()))
       }),
       response: {
         200: Type.Object({
@@ -398,13 +398,13 @@ export async function entityRoutes(fastify: FastifyInstance) {
     }
   }, async (request, reply) => {
     const { code } = request.params as { code: string };
-    const { child_entity_codes } = request.body as { child_entity_codes: any[] };
+    const { child_entity_codes = [] } = request.body as { child_entity_codes?: any[] };
     const normalizedCode = normalizeEntityType(code);
 
     try {
-      // Validate that the entity exists
+      // Validate that the entity exists and get current children
       const existingEntity = await db.execute(sql`
-        SELECT code FROM app.entity
+        SELECT code, child_entity_codes FROM app.entity
         WHERE code = ${normalizedCode}
         LIMIT 1
       `);
@@ -415,11 +415,28 @@ export async function entityRoutes(fastify: FastifyInstance) {
         });
       }
 
+      // Get current children and merge with new children (append, no duplicates)
+      let currentChildren = existingEntity[0].child_entity_codes || [];
+      if (typeof currentChildren === 'string') {
+        currentChildren = JSON.parse(currentChildren);
+      }
+
+      // Extract entity codes from both formats (string or object)
+      const currentCodes = currentChildren.map((c: any) =>
+        typeof c === 'string' ? c : c.entity
+      );
+      const newCodes = child_entity_codes.map((c: any) =>
+        typeof c === 'string' ? c : c.entity
+      );
+
+      // Merge and deduplicate
+      const mergedCodes = [...new Set([...currentCodes, ...newCodes])];
+
       // Update the child_entity_codes JSONB field
       const result = await db.execute(sql`
         UPDATE app.entity
         SET
-          child_entity_codes = ${JSON.stringify(child_entity_codes)}::jsonb,
+          child_entity_codes = ${JSON.stringify(mergedCodes)}::jsonb,
           updated_ts = NOW()
         WHERE code = ${normalizedCode}
         RETURNING

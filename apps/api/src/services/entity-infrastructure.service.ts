@@ -51,7 +51,7 @@ export interface Entity {
   name: string;
   ui_label: string;
   ui_icon: string;
-  child_entity_codes: Array<{ entity: string; label: string; icon?: string }>;
+  child_entity_codes: Array<string | { entity: string; ui_label?: string; ui_icon?: string; order?: number }>;
   display_order: number;
   active_flag: boolean;
   created_ts: string;
@@ -248,7 +248,10 @@ export class EntityInfrastructureService {
       SELECT code
       FROM app.entity
       WHERE active_flag = true
-        AND child_entity_codes @> ${JSON.stringify([{ entity: child_entity_type }])}::jsonb
+        AND (
+          child_entity_codes @> ${JSON.stringify([child_entity_type])}::jsonb
+          OR child_entity_codes @> ${JSON.stringify([{ entity: child_entity_type }])}::jsonb
+        )
       ORDER BY code ASC
     `);
 
@@ -508,15 +511,33 @@ export class EntityInfrastructureService {
   async get_dynamic_child_entity_tabs(
     entity_type: string
   ): Promise<Array<{ entity: string; label: string; icon?: string }>> {
-    // Get entity metadata (includes child_entity_codes with labels/icons)
+    // Get parent entity metadata (includes child_entity_codes)
     const entityMetadata = await this.get_entity(entity_type);
 
     if (!entityMetadata || !entityMetadata.child_entity_codes) {
       return [];
     }
 
-    // Return child entity metadata directly
-    return entityMetadata.child_entity_codes;
+    // Extract child entity codes (handle both string[] and object[] formats)
+    const childCodes = entityMetadata.child_entity_codes.map(child =>
+      typeof child === 'string' ? child : child.entity
+    );
+
+    // Fetch metadata for all child entities from entity table
+    const childMetadata = await this.db.execute(sql`
+      SELECT code, ui_label, ui_icon
+      FROM app.entity
+      WHERE code = ANY(${childCodes})
+      ORDER BY ARRAY_POSITION(${childCodes}::varchar[], code)
+    `);
+
+    // Build result array with entity metadata
+    return childMetadata.map((child, index) => ({
+      entity: child.code,
+      label: child.ui_label || child.code,
+      icon: child.ui_icon,
+      order: index + 1
+    }));
   }
 
   // ==========================================================================
@@ -602,12 +623,16 @@ export class EntityInfrastructureService {
 
       -- ---------------------------------------------------------------------------
       -- 3. FIND PARENT ENTITY TYPES OF CURRENT ENTITY
-      --    (using entity.child_entity_codes)
+      --    (using entity.child_entity_codes - supports both string[] and object[] formats)
       -- ---------------------------------------------------------------------------
       parent_entities AS (
         SELECT d.code AS entity_code
         FROM app.entity d
-        WHERE ${entity_type} = ANY(SELECT jsonb_array_elements_text(d.child_entity_codes))
+        WHERE ${entity_type} = ANY(
+          SELECT jsonb_array_elements_text(d.child_entity_codes)
+          UNION
+          SELECT jsonb_array_elements(d.child_entity_codes)->>'entity'
+        )
       ),
 
       -- ---------------------------------------------------------------------------
@@ -806,12 +831,16 @@ export class EntityInfrastructureService {
     const result = await this.db.execute(sql`
       WITH
       -- ---------------------------------------------------------------------------
-      -- 1. PARENT ENTITY TYPES
+      -- 1. PARENT ENTITY TYPES (supports both string[] and object[] formats)
       -- ---------------------------------------------------------------------------
       parent_entities AS (
         SELECT d.code AS entity_code
         FROM app.entity d
-        WHERE ${entity_type} = ANY(SELECT jsonb_array_elements_text(d.child_entity_codes))
+        WHERE ${entity_type} = ANY(
+          SELECT jsonb_array_elements_text(d.child_entity_codes)
+          UNION
+          SELECT jsonb_array_elements(d.child_entity_codes)->>'entity'
+        )
       ),
 
       -- ---------------------------------------------------------------------------
