@@ -40,8 +40,8 @@ CREATE TABLE app.entity_rbac (
   id uuid DEFAULT gen_random_uuid(),
 
   -- Person-based permission mapping (supports both role and employee)
-  person_entity_name varchar(20), -- 'employee' for direct, 'role' for role-based
-  person_entity_id uuid, -- References employee.id OR role.id (depending on person_entity_name)
+  person_entity_code varchar(20), -- 'employee' for direct, 'role' for role-based
+  person_entity_id uuid, -- References employee.id OR role.id (depending on person_entity_code)
 
   -- Entity target
   entity_code varchar(50), -- Entity code (references entity.code): project, task, employee, office, business, worksite, customer, etc.
@@ -63,8 +63,8 @@ CREATE TABLE app.entity_rbac (
 );
 
 COMMENT ON TABLE app.entity_rbac IS 'Person-based RBAC system with integer permission levels: 0=View, 1=Edit, 2=Share, 3=Delete, 4=Create, 5=Owner. Higher levels automatically inherit all lower permissions via >= comparison. Supports both role-based (via entity_instance_link) and direct employee permissions. Permissions resolve via UNION, taking MAX level.';
-COMMENT ON COLUMN app.entity_rbac.person_entity_name IS 'Type of person: employee (direct permission) or role (inherited by all employees assigned to that role via entity_instance_link)';
-COMMENT ON COLUMN app.entity_rbac.person_entity_id IS 'UUID of employee (if person_entity_name=employee) or role (if person_entity_name=role)';
+COMMENT ON COLUMN app.entity_rbac.person_entity_code IS 'Type of person entity: employee (direct permission) or role (inherited by all employees assigned to that role via entity_instance_link)';
+COMMENT ON COLUMN app.entity_rbac.person_entity_id IS 'UUID of employee (if person_entity_code=employee) or role (if person_entity_code=role)';
 COMMENT ON COLUMN app.entity_rbac.entity_code IS 'Target entity code (references entity.code): project, task, employee, office, business, worksite, customer, service, product, order, invoice, etc.';
 COMMENT ON COLUMN app.entity_rbac.entity_instance_id IS 'Target entity instance UUID for instance-level permissions, or "11111111-1111-1111-1111-111111111111" for type-level permissions granting access to ALL instances of the entity type';
 COMMENT ON COLUMN app.entity_rbac.permission IS 'Permission level with automatic inheritance: 0=View, 1=Edit (implies View), 2=Share (implies Edit+View), 3=Delete (implies Share+Edit+View), 4=Create (implies all lower), 5=Owner (implies all permissions). Check using: permission >= required_level';
