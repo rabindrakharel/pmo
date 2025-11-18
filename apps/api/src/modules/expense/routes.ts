@@ -31,7 +31,6 @@ import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
 // ✅ Centralized unified data gate - loosely coupled API
-import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Delete factory for cascading soft deletes
@@ -138,7 +137,7 @@ const UpdateExpenseSchema = Type.Partial(CreateExpenseSchema);
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
-const ENTITY_TYPE = 'expense';
+const ENTITY_CODE = 'expense';
 const TABLE_ALIAS = 'e';
 
 export async function expenseRoutes(fastify: FastifyInstance) {
@@ -210,13 +209,9 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       const conditions: SQL[] = [];
 
       // GATE 1: RBAC - Apply security filtering (REQUIRED)
-      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
-        userId,
-        ENTITY_TYPE,
-        Permission.VIEW,
-        TABLE_ALIAS
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
       );
-      conditions.push(rbacCondition);
+      conditions.push(sql.raw(rbacWhereClause));
 
       // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
       // Can be overridden with ?active=false to show inactive records
@@ -308,7 +303,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       // GATE: RBAC - Check permission
       const canView = await entityInfra.check_entity_rbac(
         userId,
-        ENTITY_TYPE,
+        ENTITY_CODE,
         id,
         Permission.VIEW
       );
@@ -364,7 +359,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const canCreate = await entityInfra.check_entity_rbac(
         userId,
-        ENTITY_TYPE,
+        ENTITY_CODE,
         ALL_ENTITIES_ID,
         Permission.CREATE
       );
@@ -413,7 +408,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       // ✅ ENTITY INFRASTRUCTURE SERVICE - Grant OWNER permission to creator
       // ═══════════════════════════════════════════════════════════════
-      await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, newExpense.id);
+      await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, newExpense.id);
 
       return reply.status(201).send(newExpense);
     } catch (error) {
@@ -456,7 +451,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const canEdit = await entityInfra.check_entity_rbac(
         userId,
-        ENTITY_TYPE,
+        ENTITY_CODE,
         id,
         Permission.EDIT
       );
@@ -542,7 +537,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const canEdit = await entityInfra.check_entity_rbac(
         userId,
-        ENTITY_TYPE,
+        ENTITY_CODE,
         id,
         Permission.EDIT
       );
@@ -595,5 +590,5 @@ export async function expenseRoutes(fastify: FastifyInstance) {
   // ============================================================================
   // Delete Expense (Soft Delete via Factory)
   // ============================================================================
-  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
+  createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 }

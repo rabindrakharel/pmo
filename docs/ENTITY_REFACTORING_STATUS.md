@@ -69,7 +69,7 @@ All entity routes should follow these 4 architectural patterns:
 #### 1. invoice/routes.ts
 - ✅ Added `getEntityInfrastructure` import and initialization
 - ✅ Added `buildAutoFilters` for universal filtering
-- ✅ Added module constants (ENTITY_TYPE, TABLE_ALIAS)
+- ✅ Added module constants (ENTITY_CODE, TABLE_ALIAS)
 - ✅ Refactored LIST endpoint to use auto-filters
 - ✅ Added userId authentication checks to all endpoints
 - ✅ Improved UPDATE with SQL builder pattern
@@ -79,7 +79,7 @@ All entity routes should follow these 4 architectural patterns:
 #### 2. order/routes.ts
 - ✅ Added `getEntityInfrastructure` import and initialization
 - ✅ Added `buildAutoFilters` for universal filtering
-- ✅ Added module constants (ENTITY_TYPE, TABLE_ALIAS)
+- ✅ Added module constants (ENTITY_CODE, TABLE_ALIAS)
 - ✅ Refactored LIST endpoint with auto-filters and search support
 - ✅ Added userId authentication checks
 - ✅ Improved UPDATE with SQL builder pattern
@@ -88,7 +88,7 @@ All entity routes should follow these 4 architectural patterns:
 #### 3. shipment/routes.ts
 - ✅ Added `getEntityInfrastructure` import and initialization
 - ✅ Added `buildAutoFilters` for universal filtering
-- ✅ Added module constants (ENTITY_TYPE, TABLE_ALIAS)
+- ✅ Added module constants (ENTITY_CODE, TABLE_ALIAS)
 - ✅ Refactored LIST endpoint with auto-filters and search support
 - ✅ Added userId authentication checks
 - ✅ Improved UPDATE with SQL builder pattern
@@ -130,10 +130,10 @@ All entity routes should follow these 4 architectural patterns:
 
 #### work_order/routes.ts - Added infra + filter patterns
 - ✅ Added imports: `unified_data_gate`, `getEntityInfrastructure`, `buildAutoFilters`, `SQL` type, `createChildEntityEndpointsFromMetadata`
-- ✅ Added module constants: `ENTITY_TYPE = 'work_order'`, `TABLE_ALIAS = 'w'`
+- ✅ Added module constants: `ENTITY_CODE = 'work_order'`, `TABLE_ALIAS = 'w'`
 - ✅ Initialized Entity Infrastructure Service
 - ✅ **Refactored LIST endpoint:**
-  - Replaced manual RBAC SQL (~9 lines) with `unified_data_gate.rbac_gate.getWhereCondition()`
+  - Replaced manual RBAC SQL (~9 lines) with `entityInfra.get_entity_rbac_where_condition()`
   - Replaced manual filters (~16 lines) with `buildAutoFilters()` with search fields: name, descr, code, customer_name
   - Code reduction: ~25 lines → 5 lines
 - ✅ **Refactored GET single endpoint:**
@@ -146,8 +146,8 @@ All entity routes should follow these 4 architectural patterns:
 - ✅ **Refactored UPDATE endpoint:**
   - Replaced manual RBAC SQL (~9 lines) with `entityInfra.check_entity_rbac()`
   - Code reduction: ~9 lines → 2 lines
-- ✅ Updated delete factory call to use `ENTITY_TYPE` constant
-- ✅ Added child entity factory: `createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE)`
+- ✅ Updated delete factory call to use `ENTITY_CODE` constant
+- ✅ Added child entity factory: `createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE)`
 
 **Total code reduction:** ~52 lines of manual RBAC/filter logic → 11 service calls
 
@@ -155,10 +155,10 @@ All entity routes should follow these 4 architectural patterns:
 
 #### quote/routes.ts - Added infra + filter patterns
 - ✅ Added imports: `unified_data_gate`, `getEntityInfrastructure`, `buildAutoFilters`, `SQL` type
-- ✅ Added module constants: `ENTITY_TYPE = 'quote'`, `TABLE_ALIAS = 'q'`
+- ✅ Added module constants: `ENTITY_CODE = 'quote'`, `TABLE_ALIAS = 'q'`
 - ✅ Initialized Entity Infrastructure Service
 - ✅ **Refactored LIST endpoint:**
-  - Replaced manual RBAC SQL (~9 lines) with `unified_data_gate.rbac_gate.getWhereCondition()`
+  - Replaced manual RBAC SQL (~9 lines) with `entityInfra.get_entity_rbac_where_condition()`
   - Replaced manual filters (~16 lines) with `buildAutoFilters()` with search fields: name, descr, code, customer_name
   - Code reduction: ~25 lines → 5 lines
 - ✅ **Refactored GET single endpoint:**
@@ -171,8 +171,8 @@ All entity routes should follow these 4 architectural patterns:
 - ✅ **Refactored UPDATE endpoint:**
   - Replaced manual RBAC SQL (~9 lines) with `entityInfra.check_entity_rbac()`
   - Code reduction: ~9 lines → 2 lines
-- ✅ Updated delete factory call to use `ENTITY_TYPE` constant
-- ✅ Child entity factory already present - updated to use `ENTITY_TYPE` constant
+- ✅ Updated delete factory call to use `ENTITY_CODE` constant
+- ✅ Child entity factory already present - updated to use `ENTITY_CODE` constant
 
 **Total code reduction:** ~52 lines of manual RBAC/filter logic → 11 service calls
 
@@ -231,7 +231,7 @@ import { db } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
 
 // ✅ Centralized unified data gate - loosely coupled API
-import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '@/services/entity-infrastructure.service.js';
 
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
 import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
@@ -248,7 +248,7 @@ import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-r
 
 ### Module Constants
 ```typescript
-const ENTITY_TYPE = 'entity_name';
+const ENTITY_CODE = 'entity_name';
 const TABLE_ALIAS = 'e';
 ```
 
@@ -277,10 +277,10 @@ conditions.push(...autoFilters);
 ### Factory Endpoints (at end of file)
 ```typescript
 // ✨ Factory-generated DELETE endpoint
-createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
+createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 
 // ✨ Factory-generated child entity endpoints
-await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
+await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 ```
 
 ## Summary Statistics

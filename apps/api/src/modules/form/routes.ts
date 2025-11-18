@@ -43,7 +43,6 @@ import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factor
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 // ✅ Centralized unified data gate - loosely coupled API
-import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
 import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
@@ -82,7 +81,7 @@ const UpdateFormSchema = Type.Partial(CreateFormSchema);
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
-const ENTITY_TYPE = 'form';
+const ENTITY_CODE = 'form';
 const TABLE_ALIAS = 'f';
 
 export async function formRoutes(fastify: FastifyInstance) {
@@ -133,13 +132,9 @@ export async function formRoutes(fastify: FastifyInstance) {
       const conditions: SQL[] = [];
 
       // GATE 1: RBAC - Apply security filtering (REQUIRED)
-      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
-        userId,
-        ENTITY_TYPE,
-        Permission.VIEW,
-        TABLE_ALIAS
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
       );
-      conditions.push(rbacCondition);
+      conditions.push(sql.raw(rbacWhereClause));
 
       // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
       // Can be overridden with ?active_flag=false to show inactive records
@@ -338,7 +333,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const canView = await entityInfra.check_entity_rbac(
         userId,
-        ENTITY_TYPE,
+        ENTITY_CODE,
         id,
         Permission.VIEW
       );
@@ -406,7 +401,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const canCreate = await entityInfra.check_entity_rbac(
         userId,
-        ENTITY_TYPE,
+        ENTITY_CODE,
         ALL_ENTITIES_ID,
         Permission.CREATE
       );
@@ -477,7 +472,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       // ✅ ENTITY INFRASTRUCTURE SERVICE - Grant OWNER permission to creator
       // ═══════════════════════════════════════════════════════════════
-      await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, created.id);
+      await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, created.id);
 
       return reply.status(201).send(created);
     } catch (error) {
@@ -520,7 +515,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const canEdit = await entityInfra.check_entity_rbac(
         userId,
-        ENTITY_TYPE,
+        ENTITY_CODE,
         id,
         Permission.EDIT
       );
@@ -664,7 +659,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const canEdit = await entityInfra.check_entity_rbac(
         userId,
-        ENTITY_TYPE,
+        ENTITY_CODE,
         id,
         Permission.EDIT
       );
@@ -829,7 +824,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           fd.approved_ts,
           fd.created_ts,
           fd.updated_ts
-        FROM app.d_form_data fd
+        FROM app.form_data fd
         WHERE fd.form_id = ${id}::uuid
           AND fd.id = ${submissionId}::uuid
         LIMIT 1
@@ -922,7 +917,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Count total
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.d_form_data fd
+        FROM app.form_data fd
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
@@ -944,7 +939,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           fd.approved_ts,
           fd.created_ts,
           fd.updated_ts
-        FROM app.d_form_data fd
+        FROM app.form_data fd
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY fd.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -1005,7 +1000,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Verify submission exists
       const existingSubmission = await db.execute(sql`
-        SELECT id FROM app.d_form_data
+        SELECT id FROM app.form_data
         WHERE id = ${submissionId} AND form_id = ${id}
         LIMIT 1
       `);
@@ -1234,12 +1229,12 @@ export async function formRoutes(fastify: FastifyInstance) {
   // 1. app.form_head (base entity table)
   // 2. app.entity_instance (entity registry)
   // 3. app.entity_instance_link (linkages in both directions)
-  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
+  createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 
   // ============================================================================
   // Child Entity Endpoints (Auto-Generated from entity metadata)
   // ============================================================================
   // Creates: GET /api/v1/form/:id/{child} for each child in entity table.child_entity_codes
   // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
-  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }

@@ -566,7 +566,7 @@ paths:
       summary: Create entity linkage
       description: |
         Creates a relationship between two entities (parent-child).
-        Stored in d_entity_instance_link table.
+        Stored in entity_instance_link table.
       tags:
         - Linkage
       security:
@@ -1375,15 +1375,15 @@ for (const customer of customers) {
 ```
 Customer (d_customer)
   └─> Interactions (d_interaction)
-  └─> Tasks (d_task) via d_entity_instance_link
-  └─> Projects (d_project) via d_entity_instance_link
+  └─> Tasks (d_task) via entity_instance_link
+  └─> Projects (d_project) via entity_instance_link
 
 Project (d_project)
-  └─> Tasks (d_task) via d_entity_instance_link
-  └─> Wiki (d_wiki) via d_entity_instance_link
-  └─> Artifacts (d_artifact) via d_entity_instance_link
-  └─> Forms (d_form_head) via d_entity_instance_link
-  └─> Costs (d_cost) via d_entity_instance_link
+  └─> Tasks (d_task) via entity_instance_link
+  └─> Wiki (d_wiki) via entity_instance_link
+  └─> Artifacts (d_artifact) via entity_instance_link
+  └─> Forms (d_form_head) via entity_instance_link
+  └─> Costs (d_cost) via entity_instance_link
 
 Task (d_task)
   └─> Case Notes (d_task_case_note)

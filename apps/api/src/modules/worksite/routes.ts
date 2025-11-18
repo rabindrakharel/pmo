@@ -9,9 +9,8 @@ import {
   createPaginatedResponse
 } from '../../lib/universal-schema-metadata.js';
 // ✅ Centralized unified data gate - loosely coupled API
-import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
-import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Delete factory for cascading soft deletes
@@ -107,7 +106,7 @@ const UpdateWorksiteSchema = Type.Partial(CreateWorksiteSchema);
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
-const ENTITY_TYPE = 'worksite';
+const ENTITY_CODE = 'worksite';
 const TABLE_ALIAS = 'w';
 
 export async function worksiteRoutes(fastify: FastifyInstance) {
@@ -489,10 +488,10 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
   // ============================================================================
   // DELETE Worksite (Soft Delete via Factory)
   // ============================================================================
-  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
+  createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 
   // ============================================================================
   // Child Entity Endpoints (Auto-Generated from entity metadata)
   // ============================================================================
-  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }

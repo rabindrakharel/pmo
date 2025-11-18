@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-import { unified_data_gate, Permission } from './unified-data-gate.js';
+import { getEntityInfrastructure, Permission } from '../services/entity-infrastructure.service.js';
 
 /**
  * Entity-to-Table Mapping
@@ -10,56 +10,54 @@ import { unified_data_gate, Permission } from './unified-data-gate.js';
  * Maps entity type names to their corresponding database table names.
  * Used by child entity route factories to automatically resolve table names.
  *
- * Convention: Most entities use 'd_{entity}' pattern, with these exceptions:
- * - 'cust' → 'cust'
- * - 'form' → 'form_head'
+ * Convention: Most entities use direct mapping (entity code = table name), with these exceptions:
+ * - 'form' → 'form_head' (form has head/data split)
+ * - 'wiki' → 'wiki' (wiki has head/data split, head table is just 'wiki')
+ * - 'invoice' → 'invoice_head' (invoice has head/data split)
  * - 'biz' (legacy) → 'business'
- * - Fact tables: 'order', 'invoice', 'shipment', etc. → 'f_{entity}'
  */
 export const ENTITY_TABLE_MAP: Record<string, string> = {
-  // Core entities (d_ prefix)
+  // Core entities (direct mapping)
   task: 'task',
   project: 'project',
   employee: 'employee',
   role: 'role',
-  position: 'd_position',
   office: 'office',
   worksite: 'worksite',
   wiki: 'wiki',
   artifact: 'artifact',
-  reports: 'd_reports',
-  calendar: 'd_entity_person_calendar',
   service: 'service',
-  product: 'd_product',
-  workflow: 'd_workflow',
-  workflow_automation: 'd_workflow_automation',
-  event: 'd_event',
-
-  // Entities with different naming
+  product: 'product',
+  event: 'event',
   cust: 'cust',
   business: 'business',
-  biz: 'business', // Legacy alias
+  order: 'order',
+  shipment: 'shipment',
+  expense: 'expense',
+  revenue: 'revenue',
+  quote: 'quote',
+  work_order: 'work_order',
+
+  // Entities with head/data split
   form: 'form_head',
-  message_schema: 'd_message_schema',
+  invoice: 'invoice_head',
+  message: 'message_data',
 
   // Hierarchy entities
-  office_hierarchy: 'd_office_hierarchy',
-  business_hierarchy: 'd_business_hierarchy',
-  product_hierarchy: 'd_product_hierarchy',
+  office_hierarchy: 'office_hierarchy',
+  business_hierarchy: 'business_hierarchy',
+  product_hierarchy: 'product_hierarchy',
 
-  // Fact tables (f_ prefix)
-  order: 'f_order',
-  invoice: 'f_invoice',
-  shipment: 'f_shipment',
-  expense: 'f_expense',
-  revenue: 'f_revenue',
-  interaction: 'f_interaction',
-  message: 'f_message',
-  quote: 'fact_quote',
-  work_order: 'fact_work_order',
+  // Calendar entities
+  calendar: 'entity_person_calendar',
+  event_person_calendar: 'entity_event_person_calendar',
+
+  // Legacy aliases
+  biz: 'business',
 
   // Special entities
-  rbac: 'entity_rbac'
+  rbac: 'entity_rbac',
+  message_schema: 'message_schema'
 };
 
 /**
@@ -74,8 +72,8 @@ export function getEntityTableName(entityType: string): string {
     return ENTITY_TABLE_MAP[entityType];
   }
 
-  // Default convention: d_{entity}
-  return `d_${entityType}`;
+  // Default convention: direct mapping (entity code = table name)
+  return entityType;
 }
 
 /**
@@ -177,22 +175,25 @@ export async function createChildEntityEndpointsFromMetadata(
             return reply.status(401).send({ error: 'User not authenticated' });
           }
 
-          // ✅ UNIFIED DATA GATE: RBAC check for child entity access
+          const entityInfra = getEntityInfrastructure(db);
+
+          // ✅ ENTITY INFRASTRUCTURE SERVICE: RBAC check for child entity access
           // Note: We check child entity permission, NOT parent (child can be visible without parent access)
-          const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
+          const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(
             userId,
             childEntity,
             Permission.VIEW,
             'c'
           );
 
-          // ✅ UNIFIED DATA GATE: Parent-child filtering (mandatory for child entity listing)
-          const parentJoin = unified_data_gate.parent_child_filtering_gate.getJoinClause(
-            childEntity,
-            parentEntity,
-            parentId,
-            'c'
-          );
+          // ✅ Parent-child filtering (mandatory for child entity listing)
+          const parentJoin = sql`
+            INNER JOIN app.entity_instance_link eil
+              ON eil.child_entity_code = ${childEntity}
+              AND eil.child_entity_instance_id = c.id
+              AND eil.entity_code = ${parentEntity}
+              AND eil.entity_instance_id = ${parentId}
+          `;
 
           // Universal child entity query pattern
           const offset = (page - 1) * limit;
@@ -201,18 +202,18 @@ export async function createChildEntityEndpointsFromMetadata(
             SELECT c.*, COALESCE(c.name, 'Untitled') as name, c.descr
             FROM app.${sql.raw(childTable)} c
             ${parentJoin}
-            WHERE ${rbacCondition}
+            WHERE ${sql.raw(rbacWhereClause)}
               AND c.active_flag = true
             ORDER BY c.created_ts DESC
             LIMIT ${limit} OFFSET ${offset}
           `);
 
-          // Universal count query pattern with unified data gate
+          // Universal count query pattern with entity infrastructure service
           const countResult = await db.execute(sql`
             SELECT COUNT(*) as total
             FROM app.${sql.raw(childTable)} c
             ${parentJoin}
-            WHERE ${rbacCondition}
+            WHERE ${sql.raw(rbacWhereClause)}
               AND c.active_flag = true
           `);
 

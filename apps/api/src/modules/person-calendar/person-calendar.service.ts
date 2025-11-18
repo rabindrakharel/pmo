@@ -26,8 +26,7 @@
 
 import { client, db } from '../../db/index.js';
 import { PersonCalendarMessagingService } from './messaging.service.js';
-import { grantPermission } from '../../services/rbac-grant.service.js';
-import { Permission } from '../../lib/unified-data-gate.js';
+import { getEntityInfrastructure, Permission } from '../../services/entity-infrastructure.service.js';
 
 /**
  * Person calendar booking request from customer or agent
@@ -316,13 +315,8 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
     // ===============================================
 
     // Grant the assigned employee OWNER permission for this event
-    await grantPermission(db, {
-      personEntityName: 'employee',
-      personEntityId: assignedEmployeeId,
-      entityName: 'event',
-      entityId: eventId,
-      permission: Permission.OWNER
-    });
+    const entityInfra = getEntityInfrastructure(db);
+    await entityInfra.set_entity_rbac_owner(assignedEmployeeId, 'event', eventId);
 
     console.log(`✅ Granted event ownership to employee ${assignedEmployeeName}`);
 

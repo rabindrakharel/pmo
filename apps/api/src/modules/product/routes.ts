@@ -4,7 +4,6 @@ import { db } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
 import { filterUniversalColumns, createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 // ✅ Centralized unified data gate - loosely coupled API
-import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
 import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
@@ -15,7 +14,7 @@ import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factor
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
-const ENTITY_TYPE = 'product';
+const ENTITY_CODE = 'product';
 const TABLE_ALIAS = 'p';
 
 const ProductSchema = Type.Object({
@@ -94,10 +93,9 @@ export async function productRoutes(fastify: FastifyInstance) {
       const conditions: SQL[] = [];
 
       // ✨ UNIFIED RBAC - Use centralized RBAC gate for permission filtering
-      const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
-        userId, ENTITY_TYPE, Permission.VIEW, TABLE_ALIAS
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
       );
-      conditions.push(rbacCondition);
+      conditions.push(sql.raw(rbacWhereClause));
 
       // ✨ UNIVERSAL AUTO-FILTER SYSTEM
       // Automatically builds filters from ANY query parameter based on field naming conventions
@@ -109,14 +107,14 @@ export async function productRoutes(fastify: FastifyInstance) {
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.d_product p
+        FROM app.product p
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
 
       const products = await db.execute(sql`
         SELECT *
-        FROM app.d_product p
+        FROM app.product p
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY p.name ASC NULLS LAST
         LIMIT ${limit} OFFSET ${offset}
@@ -145,13 +143,13 @@ export async function productRoutes(fastify: FastifyInstance) {
 
     try {
       // ✨ ENTITY INFRASTRUCTURE - Use centralized RBAC check
-      const canView = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.VIEW);
+      const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
       if (!canView) {
         return reply.status(403).send({ error: 'Insufficient permissions' });
       }
 
       const product = await db.execute(sql`
-        SELECT * FROM app.d_product WHERE id = ${id}
+        SELECT * FROM app.product WHERE id = ${id}
       `);
 
       if (product.length === 0) {
@@ -263,7 +261,7 @@ export async function productRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const existing = await db.execute(sql`SELECT id FROM app.d_product WHERE id = ${id}`);
+      const existing = await db.execute(sql`SELECT id FROM app.product WHERE id = ${id}`);
       if (existing.length === 0) {
         return reply.status(404).send({ error: 'Product not found' });
       }
@@ -311,5 +309,5 @@ export async function productRoutes(fastify: FastifyInstance) {
 
   // ✨ Factory-generated DELETE endpoint
   // Provides cascading soft delete for product and linked entities
-  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
+  createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 }

@@ -10,7 +10,6 @@ import {
 } from '../../lib/universal-schema-metadata.js';
 import { transformRequestBody } from '../../lib/data-transformers.js';
 // ✅ Centralized unified data gate - loosely coupled API
-import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../lib/unified-data-gate.js';
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
 import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
@@ -105,7 +104,7 @@ const UpdateCustSchema = Type.Partial(CreateCustSchema);
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
-const ENTITY_TYPE = 'cust';
+const ENTITY_CODE = 'cust';
 const TABLE_ALIAS = 'c';
 
 export async function custRoutes(fastify: FastifyInstance) {
@@ -115,7 +114,7 @@ export async function custRoutes(fastify: FastifyInstance) {
   // Test endpoint
   fastify.get('/api/v1/cust/test', async (request, reply) => {
     try {
-      const result = await db.execute(sql`SELECT id, name FROM app.d_cust LIMIT 2`);
+      const result = await db.execute(sql`SELECT id, name FROM app.cust LIMIT 2`);
       return { success: true, count: result.length, data: result };
     } catch (error) {
       return { error: String(error) };
@@ -164,7 +163,7 @@ export async function custRoutes(fastify: FastifyInstance) {
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.d_cust c
+        FROM app.cust c
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
@@ -179,7 +178,7 @@ export async function custRoutes(fastify: FastifyInstance) {
           c.primary_contact_name, c.primary_email, c.primary_phone,
           c.secondary_contact_name, c.secondary_email, c.secondary_phone,
           c.entities
-        FROM app.d_cust c
+        FROM app.cust c
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY c.name ASC NULLS LAST, c.created_ts DESC
         LIMIT ${limit} OFFSET ${actualOffset}
@@ -218,7 +217,7 @@ export async function custRoutes(fastify: FastifyInstance) {
           c.primary_contact_name, c.primary_email, c.primary_phone,
           c.secondary_contact_name, c.secondary_email, c.secondary_phone,
           c.entities
-        FROM app.d_cust c
+        FROM app.cust c
         WHERE c.id = ${id}
       `);
 
@@ -267,7 +266,7 @@ export async function custRoutes(fastify: FastifyInstance) {
           c.primary_contact_name, c.primary_email, c.primary_phone,
           c.secondary_contact_name, c.secondary_email, c.secondary_phone,
           c.entities
-        FROM app.d_cust c
+        FROM app.cust c
         WHERE c.id = ${id}
       `);
 
@@ -349,7 +348,7 @@ export async function custRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 1
       // Check: Can user CREATE customers?
       // ═══════════════════════════════════════════════════════════════
-      const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
+      const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE);
       if (!canCreate) {
         return reply.status(403).send({ error: 'No permission to create customers' });
       }
@@ -367,7 +366,7 @@ export async function custRoutes(fastify: FastifyInstance) {
 
       // Check for unique customer number
       const existingCust = await db.execute(sql`
-        SELECT id FROM app.d_cust
+        SELECT id FROM app.cust
         WHERE cust_number = ${data.cust_number}
         AND active_flag = true
       `);
@@ -431,7 +430,7 @@ export async function custRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance in registry
       // ═══════════════════════════════════════════════════════════════
       await entityInfra.set_entity_instance_registry({
-        entity_type: ENTITY_TYPE,
+        entity_type: ENTITY_CODE,
         entity_id: custId,
         entity_name: newCustomer.name,
         entity_code: newCustomer.code
@@ -440,7 +439,7 @@ export async function custRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Grant ownership to creator
       // ═══════════════════════════════════════════════════════════════
-      await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, custId);
+      await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, custId);
 
       // ═══════════════════════════════════════════════════════════════
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Link to parent (if provided)
@@ -449,7 +448,7 @@ export async function custRoutes(fastify: FastifyInstance) {
         await entityInfra.set_entity_instance_link({
           parent_entity_type: parent_type,
           parent_entity_id: parent_id,
-          child_entity_type: ENTITY_TYPE,
+          child_entity_type: ENTITY_CODE,
           child_entity_id: custId,
           relationship_type: 'contains'
         });
@@ -495,13 +494,13 @@ export async function custRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
       // Check: Can user EDIT this customer?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this customer' });
       }
 
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_cust WHERE id = ${id}
+        SELECT id FROM app.cust WHERE id = ${id}
       `);
 
       if (existing.length === 0) {
@@ -511,7 +510,7 @@ export async function custRoutes(fastify: FastifyInstance) {
       // Check for unique customer number on update
       if (data.cust_number !== undefined) {
         const existingNumber = await db.execute(sql`
-          SELECT id FROM app.d_cust
+          SELECT id FROM app.cust
           WHERE cust_number = ${data.cust_number}
           AND id != ${id}
           AND active_flag = true
@@ -580,7 +579,7 @@ export async function custRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
       // ═══════════════════════════════════════════════════════════════
       if (data.name !== undefined || data.code !== undefined) {
-        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+        await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
           entity_code: data.code
         });
@@ -626,13 +625,13 @@ export async function custRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
       // Check: Can user EDIT this customer?
       // ═══════════════════════════════════════════════════════════════
-      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
       if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this customer' });
       }
 
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_cust WHERE id = ${id}
+        SELECT id FROM app.cust WHERE id = ${id}
       `);
 
       if (existing.length === 0) {
@@ -642,7 +641,7 @@ export async function custRoutes(fastify: FastifyInstance) {
       // Check for unique customer number on update
       if (data.cust_number !== undefined) {
         const existingNumber = await db.execute(sql`
-          SELECT id FROM app.d_cust
+          SELECT id FROM app.cust
           WHERE cust_number = ${data.cust_number}
           AND id != ${id}
           AND active_flag = true
@@ -710,7 +709,7 @@ export async function custRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Sync registry if name/code changed
       // ═══════════════════════════════════════════════════════════════
       if (data.name !== undefined || data.code !== undefined) {
-        await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+        await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
           entity_code: data.code
         });
@@ -731,11 +730,11 @@ export async function custRoutes(fastify: FastifyInstance) {
   // ============================================================================
   // Delete Customer (Soft Delete via Factory)
   // ============================================================================
-  createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
+  createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 
   // ============================================================================
   // Child Entity Endpoints (Auto-Generated from entity metadata)
   // ============================================================================
   // Child entity routes auto-generated from entity metadata via factory
-  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }

@@ -323,7 +323,7 @@ curl -X DELETE http://localhost:4000/api/v1/setting/dl__test_status/0 \
 
 ### Entity Relationships
 
-**d_entity table** stores:
+**entity table** stores:
 - Entity code (e.g., `task`, `project`)
 - UI metadata (label, icon, display order)
 - Child entity relationships (JSONB array)

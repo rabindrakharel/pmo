@@ -45,7 +45,7 @@ Currently, entity infrastructure operations are scattered across:
 ### The Solution
 
 A **single, comprehensive service class** that provides **infrastructure-only operations as an add-on**:
-- ✅ Infrastructure table management (d_entity, d_entity_instance_registry, d_entity_instance_link, d_entity_rbac)
+- ✅ Infrastructure table management (d_entity, d_entity_instance_registry, entity_instance_link, entity_rbac)
 - ✅ RBAC helper methods (checkPermission, grantPermission, getRbacWhereCondition)
 - ✅ Relationship helpers (createLinkage, getChildEntityIds)
 - ✅ Metadata helpers (getEntityTypeMetadata, validateInstanceExists)
@@ -93,8 +93,8 @@ A **single, comprehensive service class** that provides **infrastructure-only op
 │  ✅ Service ONLY manages infrastructure tables:                │
 │     • d_entity (entity type metadata)                          │
 │     • d_entity_instance_registry (instance registry)                 │
-│     • d_entity_instance_link (relationships/linkages)                 │
-│     • d_entity_rbac (permissions)                         │
+│     • entity_instance_link (relationships/linkages)                 │
+│     • entity_rbac (permissions)                         │
 │                                                                 │
 │  ✅ Service provides helper methods:                           │
 │     • set_entity_instance_registry() - Add to registry                     │
@@ -189,7 +189,7 @@ fastify.patch('/:id', async (request, reply) => {
 
   // 3. Service syncs infrastructure if name/code changed (add-on)
   if (request.body.name || request.body.code) {
-    await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+    await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
       entity_name: request.body.name,
       entity_code: request.body.code
     });
@@ -202,7 +202,7 @@ fastify.patch('/:id', async (request, reply) => {
 fastify.delete('/:id', async (request, reply) => {
   // Service orchestrates infrastructure cleanup (add-on)
   // But route provides callback for primary table delete
-  const result = await entityInfra.delete_all_entity_infrastructure(ENTITY_TYPE, id, {
+  const result = await entityInfra.delete_all_entity_infrastructure(ENTITY_CODE, id, {
     user_id: userId,
     primary_table_callback: async (db, entity_id) => {
       // ROUTE owns the actual DELETE query
@@ -255,7 +255,7 @@ fastify.post('/', async (request, reply) => {
   // 4. Create linkage (15 lines)
   if (parent_type && parent_id) {
     await db.execute(sql`
-      INSERT INTO app.d_entity_instance_link
+      INSERT INTO app.entity_instance_link
       (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, active_flag)
       VALUES (${parent_type}, ${parent_id}, 'project', ${project.id}, true)
       ON CONFLICT DO UPDATE SET active_flag = true
@@ -264,7 +264,7 @@ fastify.post('/', async (request, reply) => {
 
   // 5. Grant OWNER permission (10 lines)
   await db.execute(sql`
-    INSERT INTO app.d_entity_rbac
+    INSERT INTO app.entity_rbac
     (person_entity_name, person_entity_id, entity_name, entity_id, permission, active_flag)
     VALUES ('employee', ${userId}, 'project', ${project.id}, 5, true)
   `);
@@ -380,7 +380,7 @@ if (!accessibleIds.includes(projectId)) {
 }
 
 // Pattern 2: Manual WHERE condition (task/routes.ts)
-const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
+const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
   userId, 'task', Permission.VIEW, 'e'
 );
 const query = sql`SELECT * FROM d_task e WHERE ${rbacCondition}`;
@@ -389,7 +389,7 @@ const query = sql`SELECT * FROM d_task e WHERE ${rbacCondition}`;
 const result = await db.execute(sql`
   SELECT e.* FROM d_business e
   WHERE e.id IN (
-    SELECT entity_id FROM d_entity_rbac
+    SELECT entity_id FROM entity_rbac
     WHERE person_entity_id = ${userId} AND entity_name = 'business'
   )
 `);
@@ -427,7 +427,7 @@ await set_entity_instance_link(db, {
 // ⚠️ If step 3 fails, we have entity with linkage but no permissions
 // Step 3: Grant permission
 await db.execute(sql`
-  INSERT INTO d_entity_rbac ...
+  INSERT INTO entity_rbac ...
 `);
 
 // ❌ No rollback on failure
@@ -448,7 +448,7 @@ await db.execute(sql`
 
 ```sql
 -- 1. Entity Type Metadata (d_entity)
-CREATE TABLE app.d_entity (
+CREATE TABLE app.entity (
   code VARCHAR(50) PRIMARY KEY,              -- Entity type identifier
   name VARCHAR(100) NOT NULL,                -- Display name
   ui_label VARCHAR(100),                     -- Frontend label
@@ -474,8 +474,8 @@ CREATE TABLE app.d_entity_instance_registry (
   UNIQUE (entity_type, entity_id)
 );
 
--- 3. Entity Relationships (d_entity_instance_link)
-CREATE TABLE app.d_entity_instance_link (
+-- 3. Entity Relationships (entity_instance_link)
+CREATE TABLE app.entity_instance_link (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   parent_entity_type VARCHAR(50) NOT NULL,   -- Parent entity type
   parent_entity_id UUID NOT NULL,            -- Parent instance UUID
@@ -491,8 +491,8 @@ CREATE TABLE app.d_entity_instance_link (
   UNIQUE (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
 );
 
--- 4. Entity Permissions (d_entity_rbac)
-CREATE TABLE app.d_entity_rbac (
+-- 4. Entity Permissions (entity_rbac)
+CREATE TABLE app.entity_rbac (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   person_entity_name VARCHAR(50),            -- 'employee' or 'role'
   person_entity_id UUID NOT NULL,            -- Employee/Role UUID
@@ -606,7 +606,7 @@ export function createEntityDeleteEndpoint(
 │  └──────────────────────────────────────────────────────────┘ │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐ │
-│  │ 3. Relationship Management (d_entity_instance_link)             │ │
+│  │ 3. Relationship Management (entity_instance_link)             │ │
 │  │    • set_entity_instance_link()                                     │ │
 │  │    • delete_entity_instance_link()                                     │ │
 │  │    • getEntityLinkages()                                 │ │
@@ -614,7 +614,7 @@ export function createEntityDeleteEndpoint(
 │  └──────────────────────────────────────────────────────────┘ │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐ │
-│  │ 4. Permission Management (d_entity_rbac)            │ │
+│  │ 4. Permission Management (entity_rbac)            │ │
 │  │    • check_entity_rbac()                                   │ │
 │  │    • set_entity_rbac()                                   │ │
 │  │    • set_entity_rbac_owner()                                    │ │
@@ -648,10 +648,10 @@ export function createEntityDeleteEndpoint(
 ┌────────────────────────────────────────────────────────────────┐
 │                    DATABASE LAYER                               │
 │                                                                 │
-│  • app.d_entity (metadata)                                     │
+│  • app.entity (metadata)                                     │
 │  • app.d_entity_instance_registry (registry)                         │
-│  • app.d_entity_instance_link (relationships)                         │
-│  • app.d_entity_rbac (permissions)                        │
+│  • app.entity_instance_link (relationships)                         │
+│  • app.entity_rbac (permissions)                        │
 │  • app.d_project, d_task, etc. (primary tables)               │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -792,7 +792,7 @@ export class EntityInfrastructureService {
   ): Promise<EntityInstance[]>
 
   // ========================================================================
-  // SECTION 3: Relationship Management (d_entity_instance_link)
+  // SECTION 3: Relationship Management (entity_instance_link)
   // ========================================================================
 
   /**
@@ -841,7 +841,7 @@ export class EntityInfrastructureService {
   ): Promise<string[]>
 
   // ========================================================================
-  // SECTION 4: Permission Management (d_entity_rbac)
+  // SECTION 4: Permission Management (entity_rbac)
   // ========================================================================
 
   /**
@@ -925,7 +925,7 @@ export class EntityInfrastructureService {
    * 1. Check DELETE permission
    * 2. Optionally cascade delete children
    * 3. Deactivate in d_entity_instance_registry
-   * 4. Deactivate linkages in d_entity_instance_link
+   * 4. Deactivate linkages in entity_instance_link
    * 5. Optionally remove RBAC entries
    * 6. Optionally delete from primary table
    *
@@ -1068,7 +1068,7 @@ export const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111';
                  │                                  │
                  ▼                                  ▼
 ┌──────────────────────────────────┐  ┌──────────────────────────┐
-│      d_entity_instance_link              │  │   d_entity_rbac     │
+│      entity_instance_link              │  │   entity_rbac     │
 │     (Relationships)               │  │     (Permissions)        │
 │  • parent_entity_type             │  │  • entity_name           │
 │  • parent_entity_id               │  │  • entity_id             │
@@ -1097,13 +1097,13 @@ CREATE Operation:
        ▼
 ┌────────────────────────────────────────────────────────┐
 │  EntityInfrastructureService.set_entity_instance_link()           │
-│  2. Insert into d_entity_instance_link                        │
+│  2. Insert into entity_instance_link                        │
 └──────┬─────────────────────────────────────────────────┘
        │
        ▼
 ┌────────────────────────────────────────────────────────┐
 │  EntityInfrastructureService.set_entity_rbac_owner()          │
-│  3. Insert into d_entity_rbac                     │
+│  3. Insert into entity_rbac                     │
 └────────────────────────────────────────────────────────┘
 
 DELETE Operation:
@@ -1119,8 +1119,8 @@ DELETE Operation:
 │  1. check_entity_rbac() - RBAC check                     │
 │  2. CASCADE: Recursive delete_all_entity_infrastructure() for children     │
 │  3. UPDATE d_entity_instance_registry (soft delete)          │
-│  4. UPDATE d_entity_instance_link (deactivate linkages)       │
-│  5. DELETE FROM d_entity_rbac (optional)          │
+│  4. UPDATE entity_instance_link (deactivate linkages)       │
+│  5. DELETE FROM entity_rbac (optional)          │
 │  6. primary_table_callback() (optional)                │
 └────────────────────────────────────────────────────────┘
 ```
@@ -1152,7 +1152,7 @@ export function getEntityInfrastructure(db: DB): EntityInfrastructureService {
 
 import { db } from '@/db/index.js';
 import { d_project } from '@/db/schema';
-import { unified_data_gate, Permission } from '@/lib/unified-data-gate.js';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '@/services/entity-infrastructure.service.js';
 import { createLinkage } from '@/services/linkage.service.js';
 
 fastify.post('/api/v1/project', async (request, reply) => {
@@ -1160,7 +1160,7 @@ fastify.post('/api/v1/project', async (request, reply) => {
   const { parent_type, parent_id } = request.query;
 
   // 1. RBAC check (10 lines)
-  const canCreate = await unified_data_gate.rbac_gate.check_entity_rbac(
+  const canCreate = await entityInfra.check_entity_rbac(
     db, userId, 'project', ALL_ENTITIES_ID, Permission.CREATE
   );
   if (!canCreate) {
@@ -1198,11 +1198,11 @@ fastify.post('/api/v1/project', async (request, reply) => {
 
   // 5. Grant OWNER permission (15 lines)
   await db.execute(sql`
-    INSERT INTO app.d_entity_rbac
+    INSERT INTO app.entity_rbac
     (person_entity_name, person_entity_id, entity_name, entity_id, permission, active_flag)
     VALUES ('employee', ${userId}, 'project', ${project.id}, 5, true)
     ON CONFLICT (person_entity_name, person_entity_id, entity_name, entity_id)
-    DO UPDATE SET permission = GREATEST(d_entity_rbac.permission, 5)
+    DO UPDATE SET permission = GREATEST(entity_rbac.permission, 5)
   `);
 
   return reply.code(201).send({ data: project });
@@ -1218,7 +1218,7 @@ import { db } from '@/db/index.js';
 import { d_project } from '@/db/schema';
 import { getEntityInfrastructure, Permission } from '@/services/entity-infrastructure.service.js';
 
-const ENTITY_TYPE = 'project';
+const ENTITY_CODE = 'project';
 
 fastify.post('/api/v1/project', async (request, reply) => {
   const userId = request.user.sub;
@@ -1227,7 +1227,7 @@ fastify.post('/api/v1/project', async (request, reply) => {
 
   // 1. RBAC check (1 call)
   const canCreate = await entityInfra.check_entity_rbac(
-    userId, ENTITY_TYPE, entityInfra.ALL_ENTITIES_ID, Permission.CREATE
+    userId, ENTITY_CODE, entityInfra.ALL_ENTITIES_ID, Permission.CREATE
   );
   if (!canCreate) {
     return reply.code(403).send({ error: 'Forbidden' });
@@ -1239,19 +1239,19 @@ fastify.post('/api/v1/project', async (request, reply) => {
 
   // 3. Infrastructure operations (3 calls)
   await entityInfra.set_entity_instance_registry({
-    entity_type: ENTITY_TYPE,
+    entity_type: ENTITY_CODE,
     entity_id: project.id,
     entity_name: project.name,
     entity_code: project.code
   });
 
-  await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, project.id);
+  await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, project.id);
 
   if (parent_type && parent_id) {
     await entityInfra.set_entity_instance_link({
       parent_entity_type: parent_type,
       parent_entity_id: parent_id,
-      child_entity_type: ENTITY_TYPE,
+      child_entity_type: ENTITY_CODE,
       child_entity_id: project.id
     });
   }
@@ -1279,7 +1279,7 @@ import { getEntityInfrastructure, Permission } from '@/services/entity-infrastru
 import { createChildEntityEndpointsFromMetadata } from '@/lib/child-entity-route-factory.js';
 import { buildAutoFilters } from '@/lib/universal-filter-builder.js';
 
-const ENTITY_TYPE = 'project';
+const ENTITY_CODE = 'project';
 const TABLE_ALIAS = 'e';
 
 export default async function projectRoutes(fastify: FastifyInstance) {
@@ -1294,7 +1294,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
 
     // Service handles RBAC check
     const canCreate = await entityInfra.check_entity_rbac(
-      userId, ENTITY_TYPE, entityInfra.ALL_ENTITIES_ID, Permission.CREATE
+      userId, ENTITY_CODE, entityInfra.ALL_ENTITIES_ID, Permission.CREATE
     );
     if (!canCreate) {
       return reply.code(403).send({ error: 'Forbidden' });
@@ -1306,19 +1306,19 @@ export default async function projectRoutes(fastify: FastifyInstance) {
 
     // Service handles infrastructure
     await entityInfra.set_entity_instance_registry({
-      entity_type: ENTITY_TYPE,
+      entity_type: ENTITY_CODE,
       entity_id: project.id,
       entity_name: project.name,
       entity_code: project.code
     });
 
-    await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, project.id);
+    await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, project.id);
 
     if (parent_type && parent_id) {
       await entityInfra.set_entity_instance_link({
         parent_entity_type: parent_type,
         parent_entity_id: parent_id,
-        child_entity_type: ENTITY_TYPE,
+        child_entity_type: ENTITY_CODE,
         child_entity_id: project.id
       });
     }
@@ -1340,18 +1340,18 @@ export default async function projectRoutes(fastify: FastifyInstance) {
     // Service just provides RBAC WHERE condition as helper
     // Route is FREE to use it or build custom RBAC logic
     const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
-      userId, ENTITY_TYPE, Permission.VIEW, TABLE_ALIAS
+      userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
     );
     conditions.push(rbacCondition);
 
     // ✅ ROUTE decides how to handle parent filtering
     if (parent_type && parent_id) {
       joins.push(`
-        INNER JOIN app.d_entity_instance_link eim
+        INNER JOIN app.entity_instance_link eim
           ON eim.child_entity_id = ${TABLE_ALIAS}.id
           AND eim.parent_entity_type = '${parent_type}'
           AND eim.parent_entity_id = '${parent_id}'
-          AND eim.child_entity_type = '${ENTITY_TYPE}'
+          AND eim.child_entity_type = '${ENTITY_CODE}'
           AND eim.active_flag = true
       `);
     }
@@ -1372,14 +1372,14 @@ export default async function projectRoutes(fastify: FastifyInstance) {
       // ✅ ROUTE owns COUNT query
       db.execute(`
         SELECT COUNT(DISTINCT ${TABLE_ALIAS}.id) as total
-        FROM app.d_${ENTITY_TYPE} ${TABLE_ALIAS}
+        FROM app.d_${ENTITY_CODE} ${TABLE_ALIAS}
         ${joinClause}
         ${whereClause}
       `),
       // ✅ ROUTE owns SELECT query (could add JOINs, aggregations, etc.)
       db.execute(`
         SELECT DISTINCT ${TABLE_ALIAS}.*
-        FROM app.d_${ENTITY_TYPE} ${TABLE_ALIAS}
+        FROM app.d_${ENTITY_CODE} ${TABLE_ALIAS}
         ${joinClause}
         ${whereClause}
         ORDER BY ${TABLE_ALIAS}.created_ts DESC
@@ -1407,7 +1407,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
 
     // Service handles RBAC check
     const canView = await entityInfra.check_entity_rbac(
-      userId, ENTITY_TYPE, id, Permission.VIEW
+      userId, ENTITY_CODE, id, Permission.VIEW
     );
     if (!canView) {
       return reply.code(403).send({ error: 'Forbidden' });
@@ -1420,7 +1420,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
     }
 
     // Optional: Get user's permission level
-    const userPermission = await entityInfra.getUserPermission(userId, ENTITY_TYPE, id);
+    const userPermission = await entityInfra.getUserPermission(userId, ENTITY_CODE, id);
 
     return reply.send({
       data: result[0],
@@ -1443,7 +1443,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
 
     // Service handles RBAC check
     const canEdit = await entityInfra.check_entity_rbac(
-      userId, ENTITY_TYPE, id, Permission.EDIT
+      userId, ENTITY_CODE, id, Permission.EDIT
     );
     if (!canEdit) {
       return reply.code(403).send({ error: 'Forbidden' });
@@ -1457,7 +1457,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
 
     // Service handles registry sync
     if (updates.name || updates.code) {
-      await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+      await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
         entity_name: updates.name,
         entity_code: updates.code
       });
@@ -1475,7 +1475,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
     const userId = request.user.sub;
 
     // Service orchestrates ENTIRE delete operation
-    const result = await entityInfra.delete_all_entity_infrastructure(ENTITY_TYPE, id, {
+    const result = await entityInfra.delete_all_entity_infrastructure(ENTITY_CODE, id, {
       user_id: userId,
       hard_delete: hard_delete === 'true',
       cascade_delete_children: cascade === 'true',
@@ -1501,7 +1501,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
   // ==========================================================================
   // FACTORY: Child Entity Endpoints
   // ==========================================================================
-  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
+  await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }
 ```
 
@@ -1655,14 +1655,14 @@ CREATE INDEX idx_entity_instance_type ON app.d_entity_instance_registry(entity_t
 CREATE INDEX idx_entity_instance_search ON app.d_entity_instance_registry
   USING gin(to_tsvector('english', entity_name || ' ' || COALESCE(entity_code, '')));
 
--- d_entity_instance_link
-CREATE INDEX idx_eim_parent ON app.d_entity_instance_link(parent_entity_type, parent_entity_id, active_flag);
-CREATE INDEX idx_eim_child ON app.d_entity_instance_link(child_entity_type, child_entity_id, active_flag);
-CREATE INDEX idx_eim_relationship ON app.d_entity_instance_link(parent_entity_id, child_entity_id, active_flag);
+-- entity_instance_link
+CREATE INDEX idx_eim_parent ON app.entity_instance_link(parent_entity_type, parent_entity_id, active_flag);
+CREATE INDEX idx_eim_child ON app.entity_instance_link(child_entity_type, child_entity_id, active_flag);
+CREATE INDEX idx_eim_relationship ON app.entity_instance_link(parent_entity_id, child_entity_id, active_flag);
 
--- d_entity_rbac
-CREATE INDEX idx_rbac_person ON app.d_entity_rbac(person_entity_id, entity_name, active_flag);
-CREATE INDEX idx_rbac_entity ON app.d_entity_rbac(entity_name, entity_id, active_flag);
+-- entity_rbac
+CREATE INDEX idx_rbac_person ON app.entity_rbac(person_entity_id, entity_name, active_flag);
+CREATE INDEX idx_rbac_entity ON app.entity_rbac(entity_name, entity_id, active_flag);
 ```
 
 ### Query Optimization
@@ -1680,7 +1680,7 @@ const filtered = childEntities.filter(c => activeChildCodes.has(c.entity));
 
 // Use SQL IN clause instead of N+1 queries
 const placeholders = codes.map((_, i) => `$${i + 1}`).join(', ');
-const query = `SELECT * FROM d_entity WHERE code IN (${placeholders})`;
+const query = `SELECT * FROM entity WHERE code IN (${placeholders})`;
 const results = await this.db.execute(query, codes);
 ```
 
@@ -1847,14 +1847,14 @@ describe('Entity Routes with Infrastructure Service', () => {
 
     // Verify registry
     const registry = await db.execute(`
-      SELECT * FROM d_entity_instance_registry
+      SELECT * FROM entity_instance_registry
       WHERE entity_type = 'project' AND entity_id = '${response.body.data.id}'
     `);
     expect(registry.length).toBe(1);
 
     // Verify RBAC
     const rbac = await db.execute(`
-      SELECT * FROM d_entity_rbac
+      SELECT * FROM entity_rbac
       WHERE entity_name = 'project' AND entity_id = '${response.body.data.id}'
     `);
     expect(rbac.length).toBe(1);

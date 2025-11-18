@@ -16,7 +16,7 @@ d_product (15 records) ──┼──> fact_quote.quote_items[] (6 quotes) ─�
 ```
 
 **Key Design Decisions:**
-- **No foreign keys** - Intentional for flexibility; relationships tracked via JSONB and `d_entity_instance_link`
+- **No foreign keys** - Intentional for flexibility; relationships tracked via JSONB and `entity_instance_link`
 - **JSONB for line items** - Per-line discounts/taxes stored in `quote_items[]` array
 - **DRY field generation** - Convention-based type detection (suffixes: `_amt`, `_pct`, `_date`, `dl__*`)
 - **Universal components** - 3 pages handle all entities: `EntityMainPage`, `EntityDetailPage`, `EntityCreatePage`
@@ -415,7 +415,7 @@ execute_sql "32_d_entity_instance_backfill.ddl" # Line 265 - Backfills data!
 
 **Quote Entry:**
 ```sql
-INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, child_entities, display_order)
 VALUES (
   'quote', 'quote', 'Quotes', 'FileText',
   '[
@@ -531,7 +531,7 @@ await db.execute(sql`
 **How It Works:**
 1. Checks `d_entity_instance_registry` for parent entity existence
 2. Loads `child_entities` JSONB from `d_entity` table
-3. Counts child records from `d_entity_instance_link` table
+3. Counts child records from `entity_instance_link` table
 4. Returns formatted tab metadata
 
 ---
@@ -749,8 +749,8 @@ Database:
   /db/30_d_entity.ddl                ← Entity type metadata (parent-child relationships)
   /db/31_d_entity_instance_registry.ddl    ← Entity instance registry (table creation)
   /db/32_d_entity_instance_backfill.ddl ← Backfill existing records ⚠️ NEW!
-  /db/33_d_entity_instance_link.ddl         ← Instance relationships
-  /db/34_d_d_entity_rbac.ddl    ← RBAC permissions
+  /db/33_entity_instance_link.ddl         ← Instance relationships
+  /db/34_d_entity_rbac.ddl    ← RBAC permissions
 
 Frontend Config:
   /apps/web/src/lib/entityConfig.ts  ← Entity definitions (service, product, quote, work_order)

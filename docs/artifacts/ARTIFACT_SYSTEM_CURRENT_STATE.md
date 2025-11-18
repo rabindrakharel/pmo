@@ -130,16 +130,16 @@ The Artifact System serves multiple business needs:
 
 **Entity Linkage:**
 ```
-Project → Artifacts (via d_entity_instance_link)
-Task → Artifacts (via d_entity_instance_link)
-Form → Artifacts (via d_entity_instance_link)
-Wiki → Artifacts (via d_entity_instance_link)
-Office → Artifacts (via d_entity_instance_link)
+Project → Artifacts (via entity_instance_link)
+Task → Artifacts (via entity_instance_link)
+Form → Artifacts (via entity_instance_link)
+Wiki → Artifacts (via entity_instance_link)
+Office → Artifacts (via entity_instance_link)
 ```
 
 **Permission Model:**
 ```
-Artifact → RBAC (via d_entity_rbac)
+Artifact → RBAC (via entity_rbac)
   - View permission (0)
   - Edit permission (1)
   - Share permission (2)
@@ -195,8 +195,8 @@ Artifact → RBAC (via d_entity_rbac)
 │  │ Tables:                                              │   │
 │  │ - app.d_artifact (metadata)                         │   │
 │  │ - app.d_artifact_data (content)                     │   │
-│  │ - app.d_entity_instance_link (linkage)                     │   │
-│  │ - app.d_entity_rbac (permissions)              │   │
+│  │ - app.entity_instance_link (linkage)                     │   │
+│  │ - app.entity_rbac (permissions)              │   │
 │  │ - app.d_entity_instance_registry (registry)               │   │
 │  │                                                       │   │
 │  │ Indexes:                                             │   │
@@ -271,8 +271,8 @@ Database (PostgreSQL)
     │
     ├─ d_artifact (metadata table)
     ├─ d_artifact_data (content table)
-    ├─ d_entity_instance_link (parent-child linkage)
-    ├─ d_entity_rbac (permissions)
+    ├─ entity_instance_link (parent-child linkage)
+    ├─ entity_rbac (permissions)
     └─ d_entity_instance_registry (entity registry)
 
 Storage (MinIO/S3)
@@ -416,13 +416,13 @@ VALUES ('artifact-uuid', 'https://example.com/file.pdf', 'employee-uuid');
 
 ### 4.3 Entity Relationships
 
-**Linkage Table:** `d_entity_instance_link`
+**Linkage Table:** `entity_instance_link`
 
 Artifacts are linked to parent entities using the universal linkage pattern:
 
 ```sql
 -- Example: Link artifact to project
-INSERT INTO app.d_entity_instance_link (
+INSERT INTO app.entity_instance_link (
     parent_entity_type,
     parent_entity_id,
     child_entity_type,
@@ -439,7 +439,7 @@ INSERT INTO app.d_entity_instance_link (
 -- Query artifacts for a project
 SELECT a.*
 FROM app.d_artifact a
-JOIN app.d_entity_instance_link m
+JOIN app.entity_instance_link m
     ON m.child_entity_type = 'artifact'
     AND m.child_entity_id::text = a.id::text
 WHERE m.parent_entity_type = 'project'
@@ -447,11 +447,11 @@ WHERE m.parent_entity_type = 'project'
   AND a.active_flag = true;
 ```
 
-**Permission Table:** `d_entity_rbac`
+**Permission Table:** `entity_rbac`
 
 ```sql
 -- Example: Grant view permission to artifact
-INSERT INTO app.d_entity_rbac (
+INSERT INTO app.entity_rbac (
     entity_type,
     entity_id,
     emp_id,
@@ -1060,7 +1060,7 @@ async function checkArtifactPermission(
   artifactId: string,
   requiredPermission: number
 ): Promise<boolean> {
-  // 1. Check d_entity_rbac for specific artifact permission
+  // 1. Check entity_rbac for specific artifact permission
   const artifactPermissions = await getEntityPermissions('artifact', artifactId, userId);
 
   // 2. Check for 'all' artifact permissions
@@ -1570,7 +1570,7 @@ GROUP BY dl__artifact_security_classification, visibility;
 -- List artifacts for a project
 SELECT a.*
 FROM app.d_artifact a
-JOIN app.d_entity_instance_link m
+JOIN app.entity_instance_link m
     ON m.child_entity_type = 'artifact'
     AND m.child_entity_id = a.id::text
 WHERE m.parent_entity_type = 'project'
