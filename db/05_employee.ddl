@@ -464,7 +464,7 @@ SELECT
     e.id::text,
     'assigned_to'
 FROM app.employee e
-INNER JOIN app.d_role r ON (
+INNER JOIN app.role r ON (
     -- Match employee titles to roles
     (e.title LIKE '%CEO%' AND r.role_code = 'CEO') OR
     (e.title LIKE '%CFO%' OR e.title LIKE '%Chief Financial%' AND r.role_code = 'CFO') OR
@@ -495,7 +495,7 @@ WHERE e.active_flag = true;
 INSERT INTO app.entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
 SELECT
     'role',
-    (SELECT id FROM app.d_role WHERE role_code = 'TECH-FIELD')::text,
+    (SELECT id FROM app.role WHERE role_code = 'TECH-FIELD')::text,
     'employee',
     e.id::text,
     'assigned_to'
@@ -513,7 +513,7 @@ SELECT
     r.name as role_name,
     COUNT(*) as employee_count
 FROM app.entity_instance_link eim
-INNER JOIN app.d_role r ON r.id::text = eim.parent_entity_id
+INNER JOIN app.role r ON r.id::text = eim.parent_entity_id
 WHERE eim.parent_entity_type = 'role'
   AND eim.child_entity_type = 'employee'
   AND eim.active_flag = true

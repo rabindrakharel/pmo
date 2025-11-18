@@ -214,7 +214,7 @@ SELECT
     'pdf',
     400000 + floor(random() * 1600000)::bigint,
     'project',
-    (SELECT id FROM app.d_project WHERE active_flag = true ORDER BY random() LIMIT 1),
+    (SELECT id FROM app.project WHERE active_flag = true ORDER BY random() LIMIT 1),
     'internal',
     'Confidential',
     true

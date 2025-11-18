@@ -126,7 +126,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_event (
+CREATE TABLE app.event (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   code varchar(50) NOT NULL,
   name varchar(200) NOT NULL,
@@ -167,7 +167,7 @@ CREATE TABLE app.d_event (
 -- =====================================================
 
 -- Event 1: HVAC Consultation (Onsite)
-INSERT INTO app.d_event (
+INSERT INTO app.event (
   code, name, descr,
   event_action_entity_type, event_action_entity_id,
   event_type, event_platform_provider_name, venue_type, event_addr, event_instructions,
@@ -196,7 +196,7 @@ INSERT INTO app.d_event (
 );
 
 -- Event 2: Virtual Project Review Meeting
-INSERT INTO app.d_event (
+INSERT INTO app.event (
   code, name, descr,
   event_action_entity_type, event_action_entity_id,
   event_type, event_platform_provider_name, venue_type, event_addr, event_instructions,
@@ -225,7 +225,7 @@ INSERT INTO app.d_event (
 );
 
 -- Event 3: Emergency Service Call (Onsite)
-INSERT INTO app.d_event (
+INSERT INTO app.event (
   code, name, descr,
   event_action_entity_type, event_action_entity_id,
   event_type, event_platform_provider_name, venue_type, event_addr, event_instructions,
@@ -255,7 +255,7 @@ INSERT INTO app.d_event (
 );
 
 -- Event 4: Team Training Session (Virtual)
-INSERT INTO app.d_event (
+INSERT INTO app.event (
   code, name, descr,
   event_action_entity_type, event_action_entity_id,
   event_type, event_platform_provider_name, venue_type, event_addr, event_instructions,
@@ -286,7 +286,7 @@ INSERT INTO app.d_event (
 );
 
 -- Event 5: Project Kickoff Meeting (Onsite)
-INSERT INTO app.d_event (
+INSERT INTO app.event (
   code, name, descr,
   event_action_entity_type, event_action_entity_id,
   event_type, event_platform_provider_name, venue_type, event_addr, event_instructions,
@@ -315,7 +315,7 @@ INSERT INTO app.d_event (
 );
 
 -- Event 6: Manager-Supplier Meeting for Equipment Purchase (Virtual)
-INSERT INTO app.d_event (
+INSERT INTO app.event (
   code, name, descr,
   event_action_entity_type, event_action_entity_id,
   event_type, event_platform_provider_name, venue_type, event_addr, event_instructions,
@@ -350,7 +350,7 @@ INSERT INTO app.d_event (
 
 INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
 SELECT 'event', id, name, code
-FROM app.d_event
+FROM app.event
 WHERE active_flag = true
 ON CONFLICT (entity_type, entity_id) DO UPDATE
 SET entity_name = EXCLUDED.entity_name,
@@ -366,7 +366,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   code, name, event_type, event_platform_provider_name,
 --   from_ts, to_ts, timezone, event_addr,
 --   event_metadata
--- FROM app.d_event
+-- FROM app.event
 -- WHERE active_flag = true
 --   AND from_ts >= now()
 -- ORDER BY from_ts;
@@ -378,7 +378,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   eim.child_entity_type,
 --   eim.child_entity_id,
 --   eim.relationship_type
--- FROM app.d_event e
+-- FROM app.event e
 -- JOIN app.entity_instance_link eim ON eim.parent_entity_type = 'event' AND eim.parent_entity_id = e.id::text
 -- WHERE e.code = 'EVT-HVAC-001'
 --   AND e.active_flag = true
@@ -393,7 +393,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   epc.event_rsvp_status,
 --   epc.from_ts,
 --   epc.to_ts
--- FROM app.d_event e
+-- FROM app.event e
 -- JOIN app.d_entity_event_person_calendar epc ON epc.event_id = e.id
 -- WHERE e.code = 'EVT-PROJ-002'
 --   AND e.active_flag = true
@@ -404,7 +404,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   event_type,
 --   event_platform_provider_name,
 --   COUNT(*) as event_count
--- FROM app.d_event
+-- FROM app.event
 -- WHERE active_flag = true
 -- GROUP BY event_type, event_platform_provider_name
 -- ORDER BY event_count DESC;
@@ -412,7 +412,7 @@ SET entity_name = EXCLUDED.entity_name,
 -- Query 5: Find events happening in a specific time range
 -- SELECT
 --   code, name, event_type, from_ts, to_ts, event_addr
--- FROM app.d_event
+-- FROM app.event
 -- WHERE active_flag = true
 --   AND from_ts >= '2025-11-10 00:00:00'::timestamptz
 --   AND to_ts <= '2025-11-15 23:59:59'::timestamptz
@@ -422,12 +422,12 @@ SET entity_name = EXCLUDED.entity_name,
 -- COMMENTS
 -- =====================================================
 
-COMMENT ON TABLE app.d_event IS 'Universal parent entity for events/meetings/appointments. Can be linked to ANY entity type via entity_instance_link. Defines WHAT, WHEN, and WHERE.';
-COMMENT ON COLUMN app.d_event.event_type IS 'Event location type: onsite (physical location) or virtual (online meeting)';
-COMMENT ON COLUMN app.d_event.event_platform_provider_name IS 'Platform/provider: zoom, teams, google_meet, physical_hall, office, etc.';
-COMMENT ON COLUMN app.d_event.event_addr IS 'Physical address for onsite events OR meeting URL for virtual events';
-COMMENT ON COLUMN app.d_event.event_instructions IS 'Detailed instructions: access codes, parking, preparation notes, contact info, equipment needs';
-COMMENT ON COLUMN app.d_event.from_ts IS 'Event start time (timestamptz)';
-COMMENT ON COLUMN app.d_event.to_ts IS 'Event end time (timestamptz)';
-COMMENT ON COLUMN app.d_event.timezone IS 'Timezone for the event (default: America/Toronto)';
-COMMENT ON COLUMN app.d_event.event_metadata IS 'JSONB storing additional context: meeting_password, organizer_id, equipment_ids, budget, etc.';
+COMMENT ON TABLE app.event IS 'Universal parent entity for events/meetings/appointments. Can be linked to ANY entity type via entity_instance_link. Defines WHAT, WHEN, and WHERE.';
+COMMENT ON COLUMN app.event.event_type IS 'Event location type: onsite (physical location) or virtual (online meeting)';
+COMMENT ON COLUMN app.event.event_platform_provider_name IS 'Platform/provider: zoom, teams, google_meet, physical_hall, office, etc.';
+COMMENT ON COLUMN app.event.event_addr IS 'Physical address for onsite events OR meeting URL for virtual events';
+COMMENT ON COLUMN app.event.event_instructions IS 'Detailed instructions: access codes, parking, preparation notes, contact info, equipment needs';
+COMMENT ON COLUMN app.event.from_ts IS 'Event start time (timestamptz)';
+COMMENT ON COLUMN app.event.to_ts IS 'Event end time (timestamptz)';
+COMMENT ON COLUMN app.event.timezone IS 'Timezone for the event (default: America/Toronto)';
+COMMENT ON COLUMN app.event.event_metadata IS 'JSONB storing additional context: meeting_password, organizer_id, equipment_ids, budget, etc.';

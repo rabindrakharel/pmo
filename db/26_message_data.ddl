@@ -117,7 +117,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.f_message_data (
+CREATE TABLE app.message_data (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
     -- Reference to template
@@ -184,31 +184,31 @@ CREATE TABLE app.f_message_data (
 );
 
 -- Index for querying by template
-CREATE INDEX idx_f_message_data_schema_id ON app.f_message_data(message_schema_id);
+CREATE INDEX idx_f_message_data_schema_id ON app.message_data(message_schema_id);
 
 -- Index for querying by status
-CREATE INDEX idx_f_message_data_status ON app.f_message_data(status);
+CREATE INDEX idx_f_message_data_status ON app.message_data(status);
 
 -- Index for querying by delivery method
-CREATE INDEX idx_f_message_data_delivery_method ON app.f_message_data(message_delivery_method);
+CREATE INDEX idx_f_message_data_delivery_method ON app.message_data(message_delivery_method);
 
 -- Index for querying by recipient
-CREATE INDEX idx_f_message_data_recipient_email ON app.f_message_data(recipient_email);
-CREATE INDEX idx_f_message_data_recipient_phone ON app.f_message_data(recipient_phone);
-CREATE INDEX idx_f_message_data_recipient_entity ON app.f_message_data(recipient_entity_id);
+CREATE INDEX idx_f_message_data_recipient_email ON app.message_data(recipient_email);
+CREATE INDEX idx_f_message_data_recipient_phone ON app.message_data(recipient_phone);
+CREATE INDEX idx_f_message_data_recipient_entity ON app.message_data(recipient_entity_id);
 
 -- Index for querying by sent timestamp
-CREATE INDEX idx_f_message_data_sent_ts ON app.f_message_data(sent_ts DESC);
+CREATE INDEX idx_f_message_data_sent_ts ON app.message_data(sent_ts DESC);
 
 -- Index for querying scheduled messages
-CREATE INDEX idx_f_message_data_scheduled ON app.f_message_data(scheduled_ts) WHERE status = 'scheduled';
+CREATE INDEX idx_f_message_data_scheduled ON app.message_data(scheduled_ts) WHERE status = 'scheduled';
 
 -- =====================================================
 -- SAMPLE DATA - Message Data (Sent Messages)
 -- =====================================================
 
 -- EMAIL: Welcome email sent to a customer
-INSERT INTO app.f_message_data (
+INSERT INTO app.message_data (
     id,
     message_schema_id,
     code,
@@ -260,7 +260,7 @@ INSERT INTO app.f_message_data (
     updated_ts = now();
 
 -- SMS: Appointment reminder sent to a customer
-INSERT INTO app.f_message_data (
+INSERT INTO app.message_data (
     id,
     message_schema_id,
     code,
@@ -316,7 +316,7 @@ INSERT INTO app.f_message_data (
     updated_ts = now();
 
 -- PUSH: Notification sent to customer's device
-INSERT INTO app.f_message_data (
+INSERT INTO app.message_data (
     id,
     message_schema_id,
     code,
@@ -382,7 +382,7 @@ INSERT INTO app.f_message_data (
     updated_ts = now();
 
 -- SCHEDULED SMS: Future appointment reminder
-INSERT INTO app.f_message_data (
+INSERT INTO app.message_data (
     id,
     message_schema_id,
     code,

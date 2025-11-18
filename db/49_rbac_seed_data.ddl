@@ -29,7 +29,7 @@
 INSERT INTO app.entity_rbac (person_entity_name, person_entity_id, entity_name, entity_id, permission, granted_ts)
 SELECT
   'role', r.id, entity_type, '11111111-1111-1111-1111-111111111111', 5, now()  -- Level 5 = Owner
-FROM app.d_role r
+FROM app.role r
 CROSS JOIN (VALUES
   ('office'), ('business'), ('project'), ('task'), ('worksite'), ('cust'),
   ('role'), ('artifact'), ('wiki'), ('form'), ('reports'), ('employee'),
@@ -42,19 +42,19 @@ WHERE r.role_code = 'CEO';
 INSERT INTO app.entity_rbac (person_entity_name, person_entity_id, entity_name, entity_id, permission)
 SELECT
   'role', r.id, 'project', '11111111-1111-1111-1111-111111111111', 4  -- Level 4 = Create (+ Delete + Share + Edit + View)
-FROM app.d_role r
+FROM app.role r
 WHERE r.role_code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
 
 INSERT INTO app.entity_rbac (person_entity_name, person_entity_id, entity_name, entity_id, permission)
 SELECT
   'role', r.id, 'task', '11111111-1111-1111-1111-111111111111', 4  -- Level 4 = Create
-FROM app.d_role r
+FROM app.role r
 WHERE r.role_code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
 
 INSERT INTO app.entity_rbac (person_entity_name, person_entity_id, entity_name, entity_id, permission)
 SELECT
   'role', r.id, entity_type, '11111111-1111-1111-1111-111111111111', 2  -- Level 2 = Share (+ Edit + View)
-FROM app.d_role r
+FROM app.role r
 CROSS JOIN (VALUES
   ('worksite'), ('cust'), ('artifact'), ('wiki'), ('form'), ('reports')
 ) AS entities(entity_type)
@@ -63,20 +63,20 @@ WHERE r.role_code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB
 INSERT INTO app.entity_rbac (person_entity_name, person_entity_id, entity_name, entity_id, permission)
 SELECT
   'role', r.id, 'employee', '11111111-1111-1111-1111-111111111111', 1  -- Level 1 = Edit (+ View)
-FROM app.d_role r
+FROM app.role r
 WHERE r.role_code IN ('DEPT-MGR', 'MGR-LAND', 'MGR-SNOW', 'MGR-HVAC', 'MGR-PLUMB', 'MGR-SOLAR');
 
 -- Supervisor Roles - Field operation permissions (level 2-4)
 INSERT INTO app.entity_rbac (person_entity_name, person_entity_id, entity_name, entity_id, permission)
 SELECT
   'role', r.id, 'task', '11111111-1111-1111-1111-111111111111', 4  -- Level 4 = Create
-FROM app.d_role r
+FROM app.role r
 WHERE r.role_code IN ('SUP-FIELD', 'TECH-SR');
 
 INSERT INTO app.entity_rbac (person_entity_name, person_entity_id, entity_name, entity_id, permission)
 SELECT
   'role', r.id, entity_type, '11111111-1111-1111-1111-111111111111', 2  -- Level 2 = Share (+ Edit + View)
-FROM app.d_role r
+FROM app.role r
 CROSS JOIN (VALUES
   ('worksite'), ('cust'), ('artifact'), ('form')
 ) AS entities(entity_type)
@@ -85,14 +85,14 @@ WHERE r.role_code IN ('SUP-FIELD', 'TECH-SR');
 INSERT INTO app.entity_rbac (person_entity_name, person_entity_id, entity_name, entity_id, permission)
 SELECT
   'role', r.id, 'reports', '11111111-1111-1111-1111-111111111111', 1  -- Level 1 = Edit (+ View)
-FROM app.d_role r
+FROM app.role r
 WHERE r.role_code IN ('SUP-FIELD', 'TECH-SR');
 
 -- Technician Roles - Operational permissions (level 0-1)
 INSERT INTO app.entity_rbac (person_entity_name, person_entity_id, entity_name, entity_id, permission)
 SELECT
   'role', r.id, entity_type, '11111111-1111-1111-1111-111111111111', 1  -- Level 1 = Edit (+ View)
-FROM app.d_role r
+FROM app.role r
 CROSS JOIN (VALUES
   ('task'), ('worksite'), ('form'), ('reports')
 ) AS entities(entity_type)
@@ -101,20 +101,20 @@ WHERE r.role_code IN ('TECH-FIELD');
 INSERT INTO app.entity_rbac (person_entity_name, person_entity_id, entity_name, entity_id, permission)
 SELECT
   'role', r.id, 'cust', '11111111-1111-1111-1111-111111111111', 0  -- Level 0 = View only
-FROM app.d_role r
+FROM app.role r
 WHERE r.role_code IN ('TECH-FIELD');
 
 -- Admin Roles - Administrative permissions (level 1-4)
 INSERT INTO app.entity_rbac (person_entity_name, person_entity_id, entity_name, entity_id, permission)
 SELECT
   'role', r.id, 'task', '11111111-1111-1111-1111-111111111111', 4  -- Level 4 = Create
-FROM app.d_role r
+FROM app.role r
 WHERE r.role_code IN ('COORD-PROJ', 'COORD-HR');
 
 INSERT INTO app.entity_rbac (person_entity_name, person_entity_id, entity_name, entity_id, permission)
 SELECT
   'role', r.id, entity_type, '11111111-1111-1111-1111-111111111111', 2  -- Level 2 = Share (+ Edit + View)
-FROM app.d_role r
+FROM app.role r
 CROSS JOIN (VALUES
   ('project'), ('cust'), ('artifact'), ('form'), ('reports')
 ) AS entities(entity_type)
@@ -155,7 +155,7 @@ SELECT
   perm.permission,
   '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', -- Self-granted
   true
-FROM app.d_task t
+FROM app.task t
 CROSS JOIN (
   SELECT 0 AS permission UNION ALL  -- View
   SELECT 1 UNION ALL                -- Edit

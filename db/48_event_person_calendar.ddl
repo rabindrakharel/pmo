@@ -51,7 +51,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_entity_event_person_calendar (
+CREATE TABLE app.entity_event_person_calendar (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   code varchar(50) NOT NULL,
   name varchar(200),
@@ -95,7 +95,7 @@ INSERT INTO app.d_entity_event_person_calendar (
   'James Miller assigned to HVAC consultation at Thompson Residence',
   'employee',
   '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
-  (SELECT id FROM app.d_event WHERE code = 'EVT-HVAC-001'),
+  (SELECT id FROM app.event WHERE code = 'EVT-HVAC-001'),
   'accepted',
   CURRENT_DATE + interval '1 day' + interval '14 hours',
   CURRENT_DATE + interval '1 day' + interval '16 hours',
@@ -115,7 +115,7 @@ INSERT INTO app.d_entity_event_person_calendar (
   'James Miller attending Solar Installation Phase 2 Review meeting',
   'employee',
   '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
-  (SELECT id FROM app.d_event WHERE code = 'EVT-PROJ-002'),
+  (SELECT id FROM app.event WHERE code = 'EVT-PROJ-002'),
   'accepted',
   CURRENT_DATE + interval '2 days' + interval '10 hours',
   CURRENT_DATE + interval '2 days' + interval '11 hours',
@@ -134,7 +134,7 @@ INSERT INTO app.d_entity_event_person_calendar (
   'Sarah Johnson attending Solar Installation Phase 2 Review meeting',
   'employee',
   (SELECT id FROM app.app.employee WHERE email = 'sarah.johnson@huronhome.ca'),
-  (SELECT id FROM app.d_event WHERE code = 'EVT-PROJ-002'),
+  (SELECT id FROM app.event WHERE code = 'EVT-PROJ-002'),
   'accepted',
   CURRENT_DATE + interval '2 days' + interval '10 hours',
   CURRENT_DATE + interval '2 days' + interval '11 hours',
@@ -153,7 +153,7 @@ INSERT INTO app.d_entity_event_person_calendar (
   'Michael Chen invited to Solar Installation Phase 2 Review meeting',
   'employee',
   (SELECT id FROM app.app.employee WHERE email = 'michael.chen@huronhome.ca'),
-  (SELECT id FROM app.d_event WHERE code = 'EVT-PROJ-002'),
+  (SELECT id FROM app.event WHERE code = 'EVT-PROJ-002'),
   'pending',
   CURRENT_DATE + interval '2 days' + interval '10 hours',
   CURRENT_DATE + interval '2 days' + interval '11 hours',
@@ -173,7 +173,7 @@ INSERT INTO app.d_entity_event_person_calendar (
   'Plumbing technician assigned to emergency burst pipe repair',
   'employee',
   (SELECT id FROM app.app.employee WHERE department = 'Plumbing' AND active_flag = true LIMIT 1),
-  (SELECT id FROM app.d_event WHERE code = 'EVT-EMERG-003'),
+  (SELECT id FROM app.event WHERE code = 'EVT-EMERG-003'),
   'accepted',
   CURRENT_DATE + interval '4 hours',
   CURRENT_DATE + interval '6 hours',
@@ -194,7 +194,7 @@ SELECT
   e.name || ' invited to Q1 Safety Training session',
   'employee',
   e.id,
-  (SELECT id FROM app.d_event WHERE code = 'EVT-TRAIN-004'),
+  (SELECT id FROM app.event WHERE code = 'EVT-TRAIN-004'),
   CASE WHEN e.email = 'sarah.johnson@huronhome.ca' THEN 'accepted' ELSE 'pending' END,
   CURRENT_DATE + interval '3 days' + interval '13 hours',
   CURRENT_DATE + interval '3 days' + interval '14 hours' + interval '30 minutes',
@@ -217,7 +217,7 @@ INSERT INTO app.d_entity_event_person_calendar (
   'James Miller attending Commercial HVAC Installation kickoff meeting',
   'employee',
   '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
-  (SELECT id FROM app.d_event WHERE code = 'EVT-KICK-005'),
+  (SELECT id FROM app.event WHERE code = 'EVT-KICK-005'),
   'accepted',
   CURRENT_DATE + interval '5 days' + interval '9 hours',
   CURRENT_DATE + interval '5 days' + interval '11 hours',
@@ -236,7 +236,7 @@ INSERT INTO app.d_entity_event_person_calendar (
   'Michael Chen attending Commercial HVAC Installation kickoff meeting',
   'employee',
   (SELECT id FROM app.app.employee WHERE email = 'michael.chen@huronhome.ca'),
-  (SELECT id FROM app.d_event WHERE code = 'EVT-KICK-005'),
+  (SELECT id FROM app.event WHERE code = 'EVT-KICK-005'),
   'accepted',
   CURRENT_DATE + interval '5 days' + interval '9 hours',
   CURRENT_DATE + interval '5 days' + interval '11 hours',
@@ -256,7 +256,7 @@ INSERT INTO app.d_entity_event_person_calendar (
   'Manufacturing manager meeting with supplier about CNC machine purchase',
   'employee',
   (SELECT id FROM app.app.employee WHERE department = 'Manufacturing' AND active_flag = true LIMIT 1),
-  (SELECT id FROM app.d_event WHERE code = 'EVT-SUPP-006'),
+  (SELECT id FROM app.event WHERE code = 'EVT-SUPP-006'),
   'accepted',
   CURRENT_DATE + interval '7 days' + interval '15 hours',
   CURRENT_DATE + interval '7 days' + interval '16 hours' + interval '30 minutes',
@@ -290,7 +290,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   epc.event_rsvp_status,
 --   epc.from_ts,
 --   epc.to_ts
--- FROM app.d_event e
+-- FROM app.event e
 -- JOIN app.d_entity_event_person_calendar epc ON epc.event_id = e.id
 -- WHERE e.code = 'EVT-PROJ-002'
 --   AND e.active_flag = true
@@ -306,7 +306,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   e.to_ts,
 --   epc.event_rsvp_status
 -- FROM app.d_entity_event_person_calendar epc
--- JOIN app.d_event e ON e.id = epc.event_id
+-- JOIN app.event e ON e.id = epc.event_id
 -- WHERE epc.person_entity_type = 'employee'
 --   AND epc.person_entity_id = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
 --   AND epc.active_flag = true
@@ -321,7 +321,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   COUNT(*) FILTER (WHERE epc.event_rsvp_status = 'accepted') as accepted,
 --   COUNT(*) FILTER (WHERE epc.event_rsvp_status = 'declined') as declined,
 --   COUNT(*) FILTER (WHERE epc.event_rsvp_status = 'pending') as pending
--- FROM app.d_event e
+-- FROM app.event e
 -- JOIN app.d_entity_event_person_calendar epc ON epc.event_id = e.id
 -- WHERE e.active_flag = true
 --   AND epc.active_flag = true
@@ -336,7 +336,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   epc.person_entity_type,
 --   epc.name as person_name
 -- FROM app.d_entity_event_person_calendar epc
--- JOIN app.d_event e ON e.id = epc.event_id
+-- JOIN app.event e ON e.id = epc.event_id
 -- WHERE epc.event_rsvp_status = 'pending'
 --   AND e.from_ts >= now()
 --   AND epc.active_flag = true
@@ -353,7 +353,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   e.to_ts,
 --   e.event_addr
 -- FROM app.d_entity_event_person_calendar epc
--- JOIN app.d_event e ON e.id = epc.event_id
+-- JOIN app.event e ON e.id = epc.event_id
 -- JOIN app.app.employee emp ON emp.id = epc.person_entity_id
 -- WHERE epc.person_entity_type = 'employee'
 --   AND epc.event_rsvp_status = 'accepted'

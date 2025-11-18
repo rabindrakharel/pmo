@@ -110,7 +110,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_wiki (
+CREATE TABLE app.wiki (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50) UNIQUE NOT NULL,
     name varchar(200) NOT NULL,
@@ -160,4 +160,4 @@ CREATE TABLE app.d_wiki (
 
 
 
-COMMENT ON TABLE app.d_wiki IS 'Knowledge base with hierarchical page structure';
+COMMENT ON TABLE app.wiki IS 'Knowledge base with hierarchical page structure';

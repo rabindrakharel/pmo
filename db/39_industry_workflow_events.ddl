@@ -29,9 +29,9 @@
 --
 -- =====================================================
 
-DROP TABLE IF EXISTS app.f_industry_workflow_events CASCADE;
+DROP TABLE IF EXISTS app.industry_workflow_events CASCADE;
 
-CREATE TABLE app.f_industry_workflow_events (
+CREATE TABLE app.industry_workflow_events (
     -- Primary Key
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 

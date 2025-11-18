@@ -45,7 +45,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_industry_workflow_graph_data (
+CREATE TABLE app.industry_workflow_graph_data (
     -- Standard identity fields
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     workflow_instance_id text UNIQUE NOT NULL,
@@ -124,7 +124,7 @@ SELECT
     true,
     '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
 FROM app.d_cust c
-CROSS JOIN app.d_task t
+CROSS JOIN app.task t
 WHERE c.code = 'CL-RES-002'  -- Martinez Family Home
   AND t.code = 'CEO-TASK-001'  -- Quarterly Business Performance Review
 LIMIT 1;
@@ -172,7 +172,7 @@ SELECT
     true,
     '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
 FROM app.d_cust c
-CROSS JOIN app.d_task t
+CROSS JOIN app.task t
 WHERE c.code = 'CL-COM-007'  -- Amica Senior Living
   AND t.code = 'CSE-TASK-001'  -- Customer Service Process Optimization
 LIMIT 1;

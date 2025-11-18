@@ -30,12 +30,12 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_task_data (
+CREATE TABLE app.task_data (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
     -- Required FKs as specified
-    task_id uuid NOT NULL REFERENCES app.d_task(id) ON DELETE CASCADE,
-    project_id uuid NOT NULL REFERENCES app.d_project(id) ON DELETE CASCADE,
+    task_id uuid NOT NULL REFERENCES app.task(id) ON DELETE CASCADE,
+    project_id uuid NOT NULL REFERENCES app.project(id) ON DELETE CASCADE,
 
     -- Data stage
     stage varchar(20) NOT NULL DEFAULT 'draft', -- draft, saved

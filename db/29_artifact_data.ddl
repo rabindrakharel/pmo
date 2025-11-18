@@ -3,7 +3,7 @@
 -- Artifact content storage with binary and text support
 -- =====================================================
 
-CREATE TABLE app.d_artifact_data (
+CREATE TABLE app.artifact_data (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     artifact_id uuid NOT NULL  ON DELETE CASCADE,
 

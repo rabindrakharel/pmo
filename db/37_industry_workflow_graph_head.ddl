@@ -34,7 +34,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_industry_workflow_graph_head (
+CREATE TABLE app.industry_workflow_graph_head (
     -- Standard identity fields
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50) UNIQUE NOT NULL,

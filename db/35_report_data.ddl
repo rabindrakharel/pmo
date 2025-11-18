@@ -3,7 +3,7 @@
 -- Report execution data with performance metrics
 -- =====================================================
 
-CREATE TABLE app.d_report_data (
+CREATE TABLE app.report_data (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     report_id uuid NOT NULL  ON DELETE CASCADE,
 

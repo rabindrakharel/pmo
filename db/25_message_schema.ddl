@@ -98,7 +98,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_message_schema (
+CREATE TABLE app.message_schema (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50),
     name varchar(200) NOT NULL,

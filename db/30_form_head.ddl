@@ -38,7 +38,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_form_head (
+CREATE TABLE app.form_head (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50),   -- No unique constraint
     name varchar(200) NOT NULL,
@@ -70,7 +70,7 @@ CREATE TABLE app.d_form_head (
 -- =====================================================
 
 -- Landscaping Form
-INSERT INTO app.d_form_head (
+INSERT INTO app.form_head (
     id,
     name,
     descr,

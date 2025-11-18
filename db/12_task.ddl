@@ -20,7 +20,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_task (
+CREATE TABLE app.task (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50) UNIQUE NOT NULL,
     name varchar(200) NOT NULL,
@@ -43,14 +43,14 @@ CREATE TABLE app.d_task (
     story_points integer
 );
 
-COMMENT ON TABLE app.d_task IS 'Task head table with core task information';
+COMMENT ON TABLE app.task IS 'Task head table with core task information';
 
 -- =====================================================
 -- DATA CURATION
 -- =====================================================
 
 -- Sample task data
-INSERT INTO app.d_task (
+INSERT INTO app.task (
     id, code, name, descr, internal_url, shared_url, metadata,
     dl__task_stage, dl__task_priority, estimated_hours, actual_hours, story_points
 ) VALUES (
@@ -65,7 +65,7 @@ INSERT INTO app.d_task (
 );
 
 -- Fall Landscaping Campaign Tasks
-INSERT INTO app.d_task (
+INSERT INTO app.task (
     id, code, name, descr, internal_url, shared_url, metadata,
     dl__task_stage, dl__task_priority, estimated_hours, actual_hours, story_points
 ) VALUES (
@@ -79,7 +79,7 @@ INSERT INTO app.d_task (
     'Completed', 'high', 32.0, 35.0, 5
 );
 
-INSERT INTO app.d_task (
+INSERT INTO app.task (
     id, code, name, descr, internal_url, shared_url, metadata,
     dl__task_stage, dl__task_priority, estimated_hours, actual_hours, story_points
 ) VALUES (
@@ -94,7 +94,7 @@ INSERT INTO app.d_task (
 );
 
 -- HVAC Modernization Tasks
-INSERT INTO app.d_task (
+INSERT INTO app.task (
     id, code, name, descr, internal_url, shared_url, metadata,
     dl__task_stage, dl__task_priority, estimated_hours, actual_hours, story_points
 ) VALUES (
@@ -109,7 +109,7 @@ INSERT INTO app.d_task (
 );
 
 -- Corporate Office Expansion Tasks
-INSERT INTO app.d_task (
+INSERT INTO app.task (
     id, code, name, descr, internal_url, shared_url, metadata,
     dl__task_stage, dl__task_priority, estimated_hours, actual_hours, story_points
 ) VALUES (
@@ -124,7 +124,7 @@ INSERT INTO app.d_task (
 );
 
 -- Customer Service Excellence Tasks
-INSERT INTO app.d_task (
+INSERT INTO app.task (
     id, code, name, descr, internal_url, shared_url, metadata,
     dl__task_stage, dl__task_priority, estimated_hours, actual_hours, story_points
 ) VALUES (
@@ -139,7 +139,7 @@ INSERT INTO app.d_task (
 );
 
 -- Strategic CEO oversight tasks
-INSERT INTO app.d_task (
+INSERT INTO app.task (
     id, code, name, descr, internal_url, shared_url, metadata,
     dl__task_stage, dl__task_priority, estimated_hours, actual_hours, story_points
 ) VALUES (
@@ -153,4 +153,4 @@ INSERT INTO app.d_task (
     'In Progress', 'critical', 20.0, 8.0, 13
 );
 
-COMMENT ON TABLE app.d_task IS 'Task head table with core task information';
+COMMENT ON TABLE app.task IS 'Task head table with core task information';

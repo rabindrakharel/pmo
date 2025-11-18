@@ -232,7 +232,7 @@ $$;
 UPDATE app.person_calendar
 SET
   availability_flag = false,
-  event_id = (SELECT id FROM app.d_event WHERE code = 'EVT-HVAC-001'),
+  event_id = (SELECT id FROM app.event WHERE code = 'EVT-HVAC-001'),
   name = 'HVAC Consultation - Thompson Residence'
 WHERE person_entity_id = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
   AND person_entity_type = 'employee'
@@ -245,7 +245,7 @@ WHERE person_entity_id = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
 UPDATE app.person_calendar
 SET
   availability_flag = false,
-  event_id = (SELECT id FROM app.d_event WHERE code = 'EVT-PROJ-002'),
+  event_id = (SELECT id FROM app.event WHERE code = 'EVT-PROJ-002'),
   name = 'Solar Installation Phase 2 Review'
 WHERE person_entity_id = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
   AND person_entity_type = 'employee'
@@ -258,7 +258,7 @@ WHERE person_entity_id = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
 UPDATE app.person_calendar
 SET
   availability_flag = false,
-  event_id = (SELECT id FROM app.d_event WHERE code = 'EVT-EMERG-003'),
+  event_id = (SELECT id FROM app.event WHERE code = 'EVT-EMERG-003'),
   name = 'Emergency Plumbing Repair - Burst Pipe'
 WHERE person_entity_type = 'employee'
   AND person_entity_id IN (
@@ -310,7 +310,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   ev.event_instructions
 -- FROM app.person_calendar c
 -- JOIN app.app.employee e ON c.person_entity_id = e.id
--- LEFT JOIN app.d_event ev ON c.event_id = ev.id
+-- LEFT JOIN app.event ev ON c.event_id = ev.id
 -- WHERE c.person_entity_type = 'employee'
 --   AND c.availability_flag = false
 --   AND c.active_flag = true

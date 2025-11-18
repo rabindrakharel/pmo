@@ -120,7 +120,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_reports (
+CREATE TABLE app.reports (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50) UNIQUE NOT NULL,
     name varchar(200) NOT NULL,
@@ -165,4 +165,4 @@ CREATE TABLE app.d_reports (
 
 
 
-COMMENT ON TABLE app.d_reports IS 'Report definitions with data source configuration';
+COMMENT ON TABLE app.reports IS 'Report definitions with data source configuration';
