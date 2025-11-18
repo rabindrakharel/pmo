@@ -117,7 +117,7 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
 
         FROM app.d_entity_person_calendar pc
         LEFT JOIN app.d_event e ON e.id = pc.event_id AND e.active_flag = true
-        LEFT JOIN app.d_employee emp ON emp.id = pc.person_id AND pc.person_entity_type = 'employee' AND emp.active_flag = true
+        LEFT JOIN app.employee emp ON emp.id = pc.person_id AND pc.person_entity_type = 'employee' AND emp.active_flag = true
         LEFT JOIN app.d_cust cust ON cust.id = pc.person_id AND pc.person_entity_type = 'customer' AND cust.active_flag = true
         WHERE pc.active_flag = true ${whereClause}
         ORDER BY pc.from_ts ASC
@@ -156,7 +156,7 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
                   ELSE NULL
                 END as person_email
               FROM app.d_entity_event_person_calendar epc
-              LEFT JOIN app.d_employee emp ON emp.id = epc.person_id AND epc.person_entity_type = 'employee'
+              LEFT JOIN app.employee emp ON emp.id = epc.person_id AND epc.person_entity_type = 'employee'
               LEFT JOIN app.d_cust cust ON cust.id = epc.person_id AND epc.person_entity_type = 'customer'
               WHERE epc.event_id = ${slot.event_id}::uuid
                 AND epc.active_flag = true
@@ -249,7 +249,7 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
 
         FROM app.d_entity_person_calendar pc
         LEFT JOIN app.d_event e ON e.id = pc.event_id AND e.active_flag = true
-        LEFT JOIN app.d_employee emp ON emp.id = pc.person_id AND pc.person_entity_type = 'employee' AND emp.active_flag = true
+        LEFT JOIN app.employee emp ON emp.id = pc.person_id AND pc.person_entity_type = 'employee' AND emp.active_flag = true
         LEFT JOIN app.d_cust cust ON cust.id = pc.person_id AND pc.person_entity_type = 'customer' AND cust.active_flag = true
         WHERE pc.id = ${id}::uuid AND pc.active_flag = true
       `;
@@ -280,7 +280,7 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
               ELSE NULL
             END as person_email
           FROM app.d_entity_event_person_calendar epc
-          LEFT JOIN app.d_employee emp ON emp.id = epc.person_id AND epc.person_entity_type = 'employee'
+          LEFT JOIN app.employee emp ON emp.id = epc.person_id AND epc.person_entity_type = 'employee'
           LEFT JOIN app.d_cust cust ON cust.id = epc.person_id AND epc.person_entity_type = 'customer'
           WHERE epc.event_id = ${slot.event_id}::uuid
             AND epc.active_flag = true

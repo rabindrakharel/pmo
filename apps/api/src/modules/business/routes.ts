@@ -27,7 +27,7 @@
  *     - Parent-CREATE inheritance (if parent has CREATE, children gain CREATE)
  *
  *   • PARENT_CHILD_FILTERING_GATE - Context-aware data filtering
- *     - Filters entities by parent relationship via d_entity_instance_link
+ *     - Filters entities by parent relationship via entity_instance_link
  *     - Enables create-link-edit pattern (create child, link to parent)
  *
  * Usage Example:
@@ -39,7 +39,7 @@
  * ─────────────────────────────────────────────────────────
  * Instead of nested creation endpoints, we use:
  *   1. Create entity independently: POST /api/v1/business
- *   2. Link to parent via d_entity_instance_link (automatic if parent_type/parent_id provided)
+ *   2. Link to parent via entity_instance_link (automatic if parent_type/parent_id provided)
  *   3. Edit/view in context: GET /api/v1/business?parent_type=office&parent_id={id}
  *
  * Benefits:
@@ -56,12 +56,12 @@
  * DATA MODEL
  * ============================================================================
  *
- * Primary Table: app.d_business
+ * Primary Table: app.business
  *   • Core fields: id, code, name, descr, metadata
  *   • Business-specific: office_id, current_headcount, operational_status
  *   • Temporal: from_ts, to_ts, active_flag, created_ts, updated_ts, version
  *
- * Relationships (via d_entity_instance_link):
+ * Relationships (via entity_instance_link):
  *   • Parent entities: office
  *   • Child entities: project, employee, client
  *
@@ -69,7 +69,7 @@
  *   • Organizational structure separate from physical office locations
  *   • See /api/v1/business-hierarchy for hierarchy management
  *
- * Permissions (via d_entity_rbac):
+ * Permissions (via entity_rbac):
  *   • Supports both entity-level (entity_id = 'all') and instance-level permissions
  *   • Permission levels: 0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER
  *
@@ -102,7 +102,7 @@
  *   2. Check: Can user CREATE businesses? (type-level permission)
  *   3. Check: Can user EDIT parent office? (required to link child)
  *   4. Create business in d_business
- *   5. Link to office in d_entity_instance_link
+ *   5. Link to office in entity_instance_link
  *   6. Auto-grant DELETE permission to creator
  *
  * Example 3: Filter Businesses by Parent Office
@@ -360,7 +360,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ ENTITY INFRASTRUCTURE SERVICE - Get child entity metadata
-    // Returns child entity types with labels/icons from d_entity
+    // Returns child entity types with labels/icons from entity
     // ═══════════════════════════════════════════════════════════════
     const tabs = await entityInfra.get_dynamic_child_entity_tabs(ENTITY_TYPE);
     return reply.send({ tabs });
@@ -393,7 +393,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
     // Get entity configuration
     const entityConfig = await db.execute(sql`
       SELECT child_entity_codes
-      FROM app.d_entity
+      FROM app.entity
       WHERE code = ${ENTITY_TYPE}
         AND active_flag = true
     `);
@@ -465,7 +465,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       // Route owns the query
       const result = await db.execute(sql`
         SELECT *
-        FROM app.d_business
+        FROM app.business
         WHERE id = ${id}::uuid
           AND active_flag = true
       `);
@@ -536,7 +536,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       // ✅ ROUTE OWNS: CREATE business unit in primary table
       // ═══════════════════════════════════════════════════════════════
       const newBiz = await db.execute(sql`
-        INSERT INTO app.d_business (
+        INSERT INTO app.business (
           code, name, "descr", metadata,
           office_id, current_headcount, operational_status,
           active_flag, created_ts, updated_ts
@@ -653,7 +653,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
 
       // Update business
       const updated = await db.execute(sql`
-        UPDATE app.d_business
+        UPDATE app.business
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -742,7 +742,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
 
       // Update business
       const updated = await db.execute(sql`
-        UPDATE app.d_business
+        UPDATE app.business
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -775,9 +775,9 @@ export async function businessRoutes(fastify: FastifyInstance) {
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
   // ============================================================================
-  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // Child Entity Endpoints (Auto-Generated from entity metadata)
   // ============================================================================
-  // Creates: GET /api/v1/business/:id/{child} for each child in d_entity.child_entity_codes
+  // Creates: GET /api/v1/business/:id/{child} for each child in entity table.child_entity_codes
   // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
   await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

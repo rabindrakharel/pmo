@@ -101,7 +101,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       // Get total count
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total 
-        FROM app.d_role 
+        FROM app.role 
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
@@ -128,7 +128,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
           created_ts,
           updated_ts,
           metadata
-        FROM app.d_role
+        FROM app.role
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY name ASC
         LIMIT ${limit} OFFSET ${offset}
@@ -173,7 +173,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
           created_ts,
           updated_ts,
           metadata
-        FROM app.d_role
+        FROM app.role
         WHERE id = ${id} AND active_flag = true
       `);
 
@@ -233,7 +233,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
       // Check for unique name
       const existingRole = await db.execute(sql`
-        SELECT id FROM app.d_role WHERE name = ${data.name} AND active_flag = true
+        SELECT id FROM app.role WHERE name = ${data.name} AND active_flag = true
       `);
       if (existingRole.length > 0) {
         return reply.status(400).send({ error: 'Role with this name already exists' });
@@ -243,7 +243,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
       // ✅ Route owns INSERT query
       const result = await db.execute(sql`
-        INSERT INTO app.d_role (name, "descr", role_code, role_category, reporting_level, required_experience_years, management_role_flag, active_flag, from_ts, metadata)
+        INSERT INTO app.role (name, "descr", role_code, role_category, reporting_level, required_experience_years, management_role_flag, active_flag, from_ts, metadata)
         VALUES (${data.name}, ${data.descr || null}, ${data.roleType || 'functional'}, ${data.roleCategory || 'operational'}, ${data.authorityLevel || 0}, ${data.approvalLimit || 0}, ${data.delegationAllowed !== undefined ? data.delegationAllowed : false}, ${data.active !== false}, ${fromTs}, ${JSON.stringify(data.attr || {})})
         RETURNING
           id,
@@ -339,7 +339,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
       // Check if role exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_role WHERE id = ${id} AND active_flag = true
+        SELECT id FROM app.role WHERE id = ${id} AND active_flag = true
       `);
 
       if (existing.length === 0) {
@@ -349,7 +349,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       // Check for unique name on update
       if (data.name) {
         const existingName = await db.execute(sql`
-          SELECT id FROM app.d_role WHERE name = ${data.name} AND active_flag = true AND id != ${id}
+          SELECT id FROM app.role WHERE name = ${data.name} AND active_flag = true AND id != ${id}
         `);
         if (existingName.length > 0) {
           return reply.status(400).send({ error: 'Role with this name already exists' });
@@ -404,7 +404,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`version = version + 1`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_role
+        UPDATE app.role
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING
@@ -480,7 +480,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
       // Check if role exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_role WHERE id = ${id} AND active_flag = true
+        SELECT id FROM app.role WHERE id = ${id} AND active_flag = true
       `);
 
       if (existing.length === 0) {
@@ -490,7 +490,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       // Check for unique name on update
       if (data.name) {
         const existingName = await db.execute(sql`
-          SELECT id FROM app.d_role WHERE name = ${data.name} AND active_flag = true AND id != ${id}
+          SELECT id FROM app.role WHERE name = ${data.name} AND active_flag = true AND id != ${id}
         `);
         if (existingName.length > 0) {
           return reply.status(400).send({ error: 'Role with this name already exists' });
@@ -545,7 +545,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`version = version + 1`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_role
+        UPDATE app.role
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING
@@ -593,8 +593,8 @@ export async function roleRoutes(fastify: FastifyInstance) {
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
   // ============================================================================
-  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // Child Entity Endpoints (Auto-Generated from entity metadata)
   // ============================================================================
-  // Child entity routes auto-generated from d_entity metadata via factory
+  // Child entity routes auto-generated from entity metadata via factory
   await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

@@ -106,14 +106,14 @@ export async function serviceRoutes(fastify: FastifyInstance) {
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.d_service s
+        FROM app.service s
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
 
       const services = await db.execute(sql`
         SELECT *
-        FROM app.d_service s
+        FROM app.service s
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY s.name ASC NULLS LAST
         LIMIT ${limit} OFFSET ${offset}
@@ -148,7 +148,7 @@ export async function serviceRoutes(fastify: FastifyInstance) {
       }
 
       const service = await db.execute(sql`
-        SELECT * FROM app.d_service WHERE id = ${id}
+        SELECT * FROM app.service WHERE id = ${id}
       `);
 
       if (service.length === 0) {
@@ -178,7 +178,7 @@ export async function serviceRoutes(fastify: FastifyInstance) {
     if (!data.code) data.code = `SVC-${Date.now()}`;
 
     const access = await db.execute(sql`
-      SELECT 1 FROM app.d_entity_rbac rbac
+      SELECT 1 FROM app.entity_rbac rbac
       WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
         AND rbac.entity_name = 'service'
         AND rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid
@@ -193,7 +193,7 @@ export async function serviceRoutes(fastify: FastifyInstance) {
 
     try {
       const result = await db.execute(sql`
-        INSERT INTO app.d_service (
+        INSERT INTO app.service (
           code, name, descr, metadata,
           service_category, standard_rate_amt, estimated_hours,
           minimum_charge_amt, taxable_flag, requires_certification_flag,
@@ -213,7 +213,7 @@ export async function serviceRoutes(fastify: FastifyInstance) {
       const newService = result[0] as any;
 
       await db.execute(sql`
-        INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+        INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
         VALUES ('service', ${newService.id}::uuid, ${newService.name}, ${newService.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name, entity_code = EXCLUDED.entity_code, updated_ts = NOW()
@@ -245,7 +245,7 @@ export async function serviceRoutes(fastify: FastifyInstance) {
     }
 
     const access = await db.execute(sql`
-      SELECT 1 FROM app.d_entity_rbac rbac
+      SELECT 1 FROM app.entity_rbac rbac
       WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
         AND rbac.entity_name = 'service'
         AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -259,7 +259,7 @@ export async function serviceRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const existing = await db.execute(sql`SELECT id FROM app.d_service WHERE id = ${id}`);
+      const existing = await db.execute(sql`SELECT id FROM app.service WHERE id = ${id}`);
       if (existing.length === 0) {
         return reply.status(404).send({ error: 'Service not found' });
       }
@@ -284,7 +284,7 @@ export async function serviceRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated_ts = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_service
+        UPDATE app.service
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *

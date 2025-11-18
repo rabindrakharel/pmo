@@ -90,8 +90,8 @@ export function getPaginationParams(query: any): PaginationParams {
  *
  * @example
  * const result = await paginateQuery(
- *   client`SELECT * FROM app.d_project WHERE active_flag = true ORDER BY created_ts DESC LIMIT ${limit} OFFSET ${offset}`,
- *   client`SELECT COUNT(*) as total FROM app.d_project WHERE active_flag = true`,
+ *   client`SELECT * FROM app.project WHERE active_flag = true ORDER BY created_ts DESC LIMIT ${limit} OFFSET ${offset}`,
+ *   client`SELECT COUNT(*) as total FROM app.project WHERE active_flag = true`,
  *   page,
  *   limit
  * );

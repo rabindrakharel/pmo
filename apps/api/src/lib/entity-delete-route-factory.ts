@@ -9,8 +9,8 @@ import { sql } from 'drizzle-orm';
  * Provides both route factory and utility functions for consistent entity deletion.
  * Automatically handles cascading cleanup of:
  * 1. Main entity table (soft delete: active_flag=false)
- * 2. Entity instance registry (d_entity_instance_registry)
- * 3. Parent-child linkages (d_entity_instance_link)
+ * 2. Entity instance registry (entity_instance)
+ * 3. Parent-child linkages (entity_instance_link)
  *
  * Route Factory Usage:
  *   createEntityDeleteEndpoint(fastify, 'task');
@@ -44,9 +44,9 @@ export function getEntityTable(entityType: string): string {
  *
  * Performs the following operations in order:
  * 1. Soft-delete from main entity table (SET active_flag=false, to_ts=NOW())
- * 2. Soft-delete from entity instance registry (d_entity_instance_registry)
- * 3. Soft-delete child linkages (where entity is child in d_entity_instance_link)
- * 4. Soft-delete parent linkages (where entity is parent in d_entity_instance_link)
+ * 2. Soft-delete from entity instance registry (entity_instance)
+ * 3. Soft-delete child linkages (where entity is child in entity_instance_link)
+ * 4. Soft-delete parent linkages (where entity is parent in entity_instance_link)
  *
  * @param entityType - Entity type (e.g., 'task', 'project', 'wiki')
  * @param entityId - UUID of the entity to delete
@@ -85,7 +85,7 @@ export async function universalEntityDelete(
     // STEP 2: Soft-delete from entity instance registry
     if (!options?.skipRegistry) {
       await db.execute(sql`
-        UPDATE app.d_entity_instance_registry
+        UPDATE app.entity_instance
         SET active_flag = false,
             updated_ts = NOW()
         WHERE entity_type = ${entityType}
@@ -97,7 +97,7 @@ export async function universalEntityDelete(
     if (!options?.skipLinkages) {
       // Soft-delete linkages where this entity is a child
       await db.execute(sql`
-        UPDATE app.d_entity_instance_link
+        UPDATE app.entity_instance_link
         SET active_flag = false,
             updated_ts = NOW()
         WHERE child_entity_type = ${entityType}
@@ -106,7 +106,7 @@ export async function universalEntityDelete(
 
       // Soft-delete linkages where this entity is a parent
       await db.execute(sql`
-        UPDATE app.d_entity_instance_link
+        UPDATE app.entity_instance_link
         SET active_flag = false,
             updated_ts = NOW()
         WHERE parent_entity_type = ${entityType}

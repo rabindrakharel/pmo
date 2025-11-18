@@ -435,7 +435,7 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const entities = await entityInfra.get_all_entity(false);
 
-      // Build type linkages from d_entity.child_entity_codes
+      // Build type linkages from entity.child_entity_codes
       const typeLinkages: any[] = [];
       entities.forEach((entity) => {
         const parentType = entity.code;

@@ -9,7 +9,7 @@
  * - Rate limiting based on operation type
  * 
  * Usage:
- *   fastify.register(schemaMiddleware, { tables: ['app.d_employee', 'app.ops_project_head'] })
+ *   fastify.register(schemaMiddleware, { tables: ['app.employee', 'app.ops_project_head'] })
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
@@ -72,10 +72,10 @@ function getTableNameFromPath(path: string): string | null {
   
   // Map resource names to table names
   const resourceToTable: Record<string, string> = {
-    'emp': 'app.d_employee',
-    'employee': 'app.d_employee',
+    'emp': 'app.employee',
+    'employee': 'app.employee',
     'project': 'app.ops_project_head',
-    'task': 'app.d_task',
+    'task': 'app.task',
     'scope/location': 'app.d_scope_location',
     'scope/business': 'app.d_scope_business',
     'scope/hr': 'app.d_scope_hr',

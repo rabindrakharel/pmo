@@ -63,7 +63,7 @@ export async function createLinkage(
 
   // Check if linkage already exists
   const existingCheck = await db.execute(sql`
-    SELECT * FROM app.d_entity_instance_link
+    SELECT * FROM app.entity_instance_link
     WHERE parent_entity_type = ${parent_entity_type}
       AND parent_entity_id = ${parent_entity_id}
       AND child_entity_type = ${child_entity_type}
@@ -74,7 +74,7 @@ export async function createLinkage(
     // If linkage exists but is inactive, reactivate it
     if (!existingCheck[0].active_flag) {
       const reactivated = await db.execute(sql`
-        UPDATE app.d_entity_instance_link
+        UPDATE app.entity_instance_link
         SET active_flag = true, updated_ts = now()
         WHERE id = ${existingCheck[0].id}
         RETURNING *
@@ -87,7 +87,7 @@ export async function createLinkage(
 
   // Create new linkage
   const result = await db.execute(sql`
-    INSERT INTO app.d_entity_instance_link
+    INSERT INTO app.entity_instance_link
     (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type, active_flag)
     VALUES (${parent_entity_type}, ${parent_entity_id}, ${child_entity_type}, ${child_entity_id}, ${relationship_type}, true)
     RETURNING *
@@ -104,7 +104,7 @@ export async function deleteLinkage(
   linkageId: string
 ): Promise<Linkage> {
   const result = await db.execute(sql`
-    UPDATE app.d_entity_instance_link
+    UPDATE app.entity_instance_link
     SET active_flag = false, updated_ts = now()
     WHERE id = ${linkageId}
     RETURNING *

@@ -153,7 +153,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       }
 
       const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total FROM app.d_wiki w
+        SELECT COUNT(*) as total FROM app.wiki w
         WHERE ${sql.join(conditions, sql` AND `)}
       `);
       const total = Number(countResult[0]?.total || 0);
@@ -188,7 +188,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           w.created_ts,
           w.updated_ts,
           w.version
-        FROM app.d_wiki w
+        FROM app.wiki w
         WHERE ${sql.join(conditions, sql` AND `)}
         ORDER BY w.updated_ts DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -289,7 +289,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           wd.internal_links,
           wd.external_links,
           wd.attached_artifacts
-        FROM app.d_wiki w
+        FROM app.wiki w
         LEFT JOIN LATERAL (
           SELECT * FROM app.d_wiki_data
           WHERE wiki_id = w.id AND stage = 'saved'
@@ -361,7 +361,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
       // Insert into d_wiki (head table)
       const wikiResult = await db.execute(sql`
-        INSERT INTO app.d_wiki (
+        INSERT INTO app.wiki (
           code, name, descr, internal_url, shared_url, metadata,
           wiki_type, category, page_path, parent_wiki_id, sort_order,
           publication_status, published_ts, published_by_employee_id,
@@ -404,9 +404,9 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
       const wiki = wikiResult[0] as any;
 
-      // Register the wiki in d_entity_instance_registry for global entity operations
+      // Register the wiki in entity_instance for global entity operations
       await db.execute(sql`
-        INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+        INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
         VALUES ('wiki', ${wiki.id}::uuid, ${wiki.name}, ${wiki.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name,
@@ -475,7 +475,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     try {
       // Check if wiki exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_wiki WHERE id = ${id} AND active_flag = true
+        SELECT id FROM app.wiki WHERE id = ${id} AND active_flag = true
       `);
 
       if (existing.length === 0) {
@@ -558,7 +558,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
       // Execute update with proper parameterization
       const updated = await db.execute(sql`
-        UPDATE app.d_wiki
+        UPDATE app.wiki
         SET ${sql.join(updateParts, sql`, `)}
         WHERE id = ${id} AND active_flag = true
         RETURNING id, code, name, descr, metadata, content, wiki_type,
@@ -571,10 +571,10 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
       const updatedWiki = updated[0] as any;
 
-      // Sync with d_entity_instance_registry registry when name/code changes
+      // Sync with entity_instance registry when name/code changes
       if (data.name !== undefined || data.code !== undefined) {
         await db.execute(sql`
-          UPDATE app.d_entity_instance_registry
+          UPDATE app.entity_instance
           SET entity_name = ${updatedWiki.name},
               entity_code = ${updatedWiki.code},
               updated_ts = NOW()
@@ -607,9 +607,9 @@ export async function wikiRoutes(fastify: FastifyInstance) {
 
   // Delete wiki with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
-  // 1. app.d_wiki (base entity table)
-  // 2. app.d_entity_instance_registry (entity registry)
-  // 3. app.d_entity_instance_link (linkages in both directions)
+  // 1. app.wiki (base entity table)
+  // 2. app.entity_instance (entity registry)
+  // 3. app.entity_instance_link (linkages in both directions)
   createEntityDeleteEndpoint(fastify, 'wiki');
 }
 

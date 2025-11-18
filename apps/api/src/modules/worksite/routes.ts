@@ -180,7 +180,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
       // Get total count
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.d_worksite
+        FROM app.worksite
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
@@ -195,7 +195,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
           washroom_facilities_flag as washroom_facilities, power_available_flag as power_available, water_available_flag as water_available,
           dl__worksite_safety_rating as safety_rating, safety_last_inspection_date, environmental_permits,
           seasonal_use_flag as seasonal_use, seasonal_period, emergency_contact
-        FROM app.d_worksite
+        FROM app.worksite
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY name ASC NULLS LAST, created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -236,7 +236,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
           washroom_facilities_flag as washroom_facilities, power_available_flag as power_available, water_available_flag as water_available,
           dl__worksite_safety_rating as safety_rating, safety_last_inspection_date, environmental_permits,
           seasonal_use_flag as seasonal_use, seasonal_period, emergency_contact
-        FROM app.d_worksite
+        FROM app.worksite
         WHERE id = ${id}
       `);
 
@@ -268,7 +268,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
 
     try {
       const result = await db.execute(sql`
-        INSERT INTO app.d_worksite (
+        INSERT INTO app.worksite (
           code, name, "descr", metadata, worksite_type, addr,
           postal_code, latitude, longitude, time_zone, capacity_workers,
           equipment_storage_flag, vehicle_parking, security_required_flag,
@@ -343,7 +343,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
     try {
       // Check if worksite exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_worksite WHERE id = ${id}
+        SELECT id FROM app.worksite WHERE id = ${id}
       `);
 
       if (existing.length === 0) {
@@ -386,7 +386,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated_ts = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_worksite
+        UPDATE app.worksite
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -426,7 +426,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
     try {
       // Check if worksite exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_worksite WHERE id = ${id}
+        SELECT id FROM app.worksite WHERE id = ${id}
       `);
 
       if (existing.length === 0) {
@@ -469,7 +469,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated_ts = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_worksite
+        UPDATE app.worksite
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -492,7 +492,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
   // ============================================================================
-  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // Child Entity Endpoints (Auto-Generated from entity metadata)
   // ============================================================================
   await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

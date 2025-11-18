@@ -734,8 +734,8 @@ export async function custRoutes(fastify: FastifyInstance) {
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
   // ============================================================================
-  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // Child Entity Endpoints (Auto-Generated from entity metadata)
   // ============================================================================
-  // Child entity routes auto-generated from d_entity metadata via factory
+  // Child entity routes auto-generated from entity metadata via factory
   await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

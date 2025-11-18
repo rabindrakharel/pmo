@@ -124,7 +124,7 @@ export interface EntityConfig {
 export const ENTITY_CONFIG: Record<string, EntityConfig> = {
   // BUSINESS (biz)
   business: {
-    table: 'app.d_business',
+    table: 'app.business',
     primaryKey: 'id',
     apiEndpoint: '/api/v1/biz',
     displayName: 'Business Unit',
@@ -329,7 +329,7 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
 
   // OFFICE (location)
   office: {
-    table: 'app.d_office',
+    table: 'app.office',
     primaryKey: 'id',
     apiEndpoint: '/api/v1/office',
     displayName: 'Office',
@@ -542,7 +542,7 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
 
   // PROJECT
   project: {
-    table: 'app.d_project',
+    table: 'app.project',
     primaryKey: 'id',
     apiEndpoint: '/api/v1/project',
     displayName: 'Project',
@@ -825,7 +825,7 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
 
   // EMPLOYEE
   employee: {
-    table: 'app.d_employee',
+    table: 'app.employee',
     primaryKey: 'id',
     apiEndpoint: '/api/v1/employee',
     displayName: 'Employee',
@@ -1091,7 +1091,7 @@ export const ENTITY_CONFIG: Record<string, EntityConfig> = {
 
   // ROLE
   role: {
-    table: 'app.d_role',
+    table: 'app.role',
     primaryKey: 'id',
     apiEndpoint: '/api/v1/role',
     displayName: 'Role',

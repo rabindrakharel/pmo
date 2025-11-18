@@ -225,7 +225,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
           e.email as employee_email,
           e.phone as employee_phone
         FROM app.d_entity_person_calendar c
-        JOIN app.d_employee e ON c.person_id = e.id
+        JOIN app.employee e ON c.person_id = e.id
         WHERE c.person_entity_type = 'employee'
           AND c.availability_flag = true
           AND c.active_flag = true
@@ -359,7 +359,7 @@ export async function personCalendarRoutes(fastify: FastifyInstance) {
 
       // Register in entity_instance_id
       await client`
-        INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+        INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
         VALUES ('person_calendar', ${newSlot.id}::uuid, ${newSlot.name}, ${newSlot.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name,

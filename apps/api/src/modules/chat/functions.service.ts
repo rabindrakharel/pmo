@@ -36,7 +36,7 @@ export async function getAvailableServices(args: {
           estimated_hours,
           minimum_charge_amt,
           requires_certification_flag
-        FROM app.d_service
+        FROM app.service
         WHERE active_flag = true
           AND service_category = ${args.service_category}
         ORDER BY standard_rate_amt ASC
@@ -53,7 +53,7 @@ export async function getAvailableServices(args: {
           estimated_hours,
           minimum_charge_amt,
           requires_certification_flag
-        FROM app.d_service
+        FROM app.service
         WHERE active_flag = true
         ORDER BY service_category, standard_rate_amt ASC
       `;
@@ -87,7 +87,7 @@ export async function getServiceDetails(args: {
         minimum_charge_amt,
         requires_certification_flag,
         metadata
-      FROM app.d_service
+      FROM app.service
       WHERE id = ${args.service_id}::uuid
         AND active_flag = true
     `;
@@ -117,7 +117,7 @@ export async function getEmployeeAvailability(args: {
         email,
         title,
         department
-      FROM app.d_employee
+      FROM app.employee
       WHERE active_flag = true
         AND department = ${args.service_category}
         AND employee_type = 'full-time'
@@ -194,7 +194,7 @@ export async function getAvailableTimeSlots(args: {
   try {
     // Get employee details
     const empQuery = client`
-      SELECT name FROM app.d_employee
+      SELECT name FROM app.employee
       WHERE id = ${args.employee_id}::uuid AND active_flag = true
     `;
     const empResult = await empQuery;
@@ -341,7 +341,7 @@ export async function createCustomer(args: {
 
     // Register in entity_instance_id
     await client`
-      INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+      INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
       VALUES ('cust', ${customerId}::uuid, ${args.name}, ${customerCode})
     `;
 
@@ -438,7 +438,7 @@ export async function createTask(args: {
     const taskCode = await generateTaskCode();
 
     const query = client`
-      INSERT INTO app.d_task (
+      INSERT INTO app.task (
         id, code, name, descr,
         task_stage, task_priority,
         scheduled_start_date,
@@ -462,13 +462,13 @@ export async function createTask(args: {
 
     // Register in entity_instance_id
     await client`
-      INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+      INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
       VALUES ('task', ${taskId}::uuid, ${args.title}, ${taskCode})
     `;
 
     // Link task to customer
     await client`
-      INSERT INTO app.d_entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
+      INSERT INTO app.entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
       VALUES ('cust', ${args.customer_id}::uuid, 'task', ${taskId}::uuid)
     `;
 
@@ -507,7 +507,7 @@ async function generateCustomerCode(): Promise<string> {
 async function generateTaskCode(): Promise<string> {
   const year = new Date().getFullYear();
   const query = client`
-    SELECT code FROM app.d_task
+    SELECT code FROM app.task
     WHERE code LIKE ${`TSK-${year}-%`}
     ORDER BY code DESC
     LIMIT 1

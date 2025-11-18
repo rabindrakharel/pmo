@@ -15,7 +15,7 @@
  *   IMPORTANT: This module handles PHYSICAL LOCATIONS only. For organizational
  *   hierarchy (reporting structure), see /api/v1/office-hierarchy routes.
  *
- * Data Model (app.d_office):
+ * Data Model (app.office):
  *   • Core: id, code, name, descr, metadata
  *   • Address: address_line1, address_line2, city, province, postal_code, country
  *   • Contact: phone, email
@@ -195,7 +195,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.d_office o
+        FROM app.office o
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
       const total = Number(countResult[0]?.total || 0);
@@ -206,7 +206,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
           o.address_line1, o.address_line2, o.city, o.province, o.postal_code, o.country,
           o.phone, o.email, o.office_type, o.capacity_employees, o.square_footage,
           o.from_ts, o.to_ts, o.active_flag, o.created_ts, o.updated_ts, o.version
-        FROM app.d_office o
+        FROM app.office o
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY o.name ASC NULLS LAST, o.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -263,7 +263,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
           address_line1, address_line2, city, province, postal_code, country,
           phone, email, office_type, capacity_employees, square_footage,
           from_ts, to_ts, active_flag, created_ts, updated_ts, version
-        FROM app.d_office
+        FROM app.office
         WHERE id = ${id}
       `);
 
@@ -307,7 +307,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ ENTITY INFRASTRUCTURE SERVICE - Get child entity metadata
-    // Returns child entity types with labels/icons from d_entity
+    // Returns child entity types with labels/icons from entity
     // ═══════════════════════════════════════════════════════════════
     const tabs = await entityInfra.get_dynamic_child_entity_tabs(ENTITY_TYPE);
     return reply.send({ tabs });
@@ -374,7 +374,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       // Check for unique office code if provided
       if (data.code) {
         const existingOffice = await db.execute(sql`
-          SELECT id FROM app.d_office WHERE code = ${data.code} AND active_flag = true
+          SELECT id FROM app.office WHERE code = ${data.code} AND active_flag = true
         `);
         if (existingOffice.length > 0) {
           return reply.status(400).send({ error: 'Office with this code already exists' });
@@ -383,7 +383,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
 
       // ✅ ROUTE OWNS - INSERT into primary table
       const result = await db.execute(sql`
-        INSERT INTO app.d_office (
+        INSERT INTO app.office (
           code, name, "descr", metadata,
           address_line1, address_line2, city, province, postal_code, country,
           phone, email, office_type, capacity_employees, square_footage,
@@ -501,7 +501,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
 
     try {
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_office WHERE id = ${id}
+        SELECT id FROM app.office WHERE id = ${id}
       `);
 
       if (existing.length === 0) {
@@ -534,7 +534,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated_ts = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_office
+        UPDATE app.office
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -613,7 +613,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
 
     try {
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_office WHERE id = ${id}
+        SELECT id FROM app.office WHERE id = ${id}
       `);
 
       if (existing.length === 0) {
@@ -646,7 +646,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated_ts = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_office
+        UPDATE app.office
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -685,15 +685,15 @@ export async function officeRoutes(fastify: FastifyInstance) {
   // ============================================================================
   // Delete office with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
-  // 1. app.d_office (base entity table)
-  // 2. app.d_entity_instance_registry (entity registry)
-  // 3. app.d_entity_instance_link (linkages in both directions)
+  // 1. app.office (base entity table)
+  // 2. app.entity_instance (entity registry)
+  // 3. app.entity_instance_link (linkages in both directions)
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
   // ============================================================================
-  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // Child Entity Endpoints (Auto-Generated from entity metadata)
   // ============================================================================
-  // Creates: GET /api/v1/office/:id/{child} for each child in d_entity.child_entity_codes
+  // Creates: GET /api/v1/office/:id/{child} for each child in entity table.child_entity_codes
   // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
   await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 

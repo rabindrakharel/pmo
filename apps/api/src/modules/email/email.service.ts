@@ -195,7 +195,7 @@ export async function sendEventInviteToEmployee(args: {
     // Get employee email
     const empResult = await client`
       SELECT email, first_name, last_name
-      FROM app.d_employee
+      FROM app.employee
       WHERE id = ${args.employeeId}::uuid AND active_flag = true
     `;
 

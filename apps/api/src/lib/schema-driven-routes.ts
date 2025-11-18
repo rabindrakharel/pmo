@@ -165,7 +165,7 @@ function generateListRoute(
       const conditions: any[] = [];
       
       // Add scope filtering if needed - DISABLED for now
-      // if (accessibleIds.length > 0 && tableName !== 'app.d_employee') {
+      // if (accessibleIds.length > 0 && tableName !== 'app.employee') {
       //   conditions.push(sql`id = ANY(${accessibleIds})`);
       // }
       
@@ -564,7 +564,7 @@ export function generateCRUDRoutes(
 export function registerSchemaRoutes(fastify: FastifyInstance) {
   // Employee routes
   generateCRUDRoutes(fastify, {
-    tableName: 'app.d_employee',
+    tableName: 'app.employee',
     scopeType: 'emp',
     basePermissions: {
       list: Permission.VIEW,

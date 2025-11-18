@@ -35,8 +35,8 @@
  * ─────────────────────────────────────────────────────────
  * Instead of nested creation endpoints, we use:
  *   1. Create entity independently: POST /api/v1/task
- *   2. Link to parent via d_entity_instance_link (automatic if parent context)
- *   3. Link assignees via d_entity_instance_link (relationship_type='assigned_to')
+ *   2. Link to parent via entity_instance_link (automatic if parent context)
+ *   3. Link assignees via entity_instance_link (relationship_type='assigned_to')
  *   4. Edit/view in context: GET /api/v1/project/:id/task
  *
  * Benefits:
@@ -53,13 +53,13 @@
  * DATA MODEL
  * ============================================================================
  *
- * Primary Table: app.d_task
+ * Primary Table: app.task
  *   • Core fields: id, code, name, descr, metadata, internal_url, shared_url
  *   • Workflow fields: dl__task_stage, dl__task_priority
  *   • Effort tracking: estimated_hours, actual_hours, story_points
  *   • Temporal: from_ts, to_ts, active_flag, created_ts, updated_ts, version
  *
- * Relationships (via d_entity_instance_link):
+ * Relationships (via entity_instance_link):
  *   • Parent entities: project, business, office, worksite, client
  *   • Child entities: artifact, form
  *   • Assignees: employee (relationship_type='assigned_to')
@@ -67,7 +67,7 @@
  * Related Tables:
  *   • d_task_data - Case notes, rich editor content, activity logs
  *
- * Permissions (via d_entity_rbac):
+ * Permissions (via entity_rbac):
  *   • Supports both entity-level (entity_id = 'all') and instance-level permissions
  *   • Permission levels: 0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER
  *
@@ -301,10 +301,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
       });
       conditions.push(...autoFilters);
 
-      // Custom filter: assignee via d_entity_instance_link (requires complex EXISTS clause)
+      // Custom filter: assignee via entity_instance_link (requires complex EXISTS clause)
       if (assigned_to_employee_id !== undefined) {
         conditions.push(sql`EXISTS (
-          SELECT 1 FROM app.d_entity_instance_link map
+          SELECT 1 FROM app.entity_instance_link map
           WHERE map.parent_entity_type = 'task'
             AND map.parent_entity_id = ${sql.raw(TABLE_ALIAS)}.id
             AND map.child_entity_type = 'employee'
@@ -320,7 +320,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Get total count
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.d_task t
+        FROM app.task t
         ${joinClause}
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `);
@@ -332,12 +332,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
           t.id, t.code, t.name, t.descr,
           t.internal_url, t.shared_url,
           COALESCE(t.metadata, '{}'::jsonb) as metadata,
-          -- Get assignee IDs from d_entity_instance_link
+          -- Get assignee IDs from entity_instance_link
           COALESCE(
             (
               SELECT json_agg(map.child_entity_id ORDER BY e.name)
-              FROM app.d_entity_instance_link map
-              JOIN app.d_employee e ON e.id = map.child_entity_id
+              FROM app.entity_instance_link map
+              JOIN app.employee e ON e.id = map.child_entity_id
               WHERE map.parent_entity_type = 'task'
                 AND map.parent_entity_id = t.id
                 AND map.child_entity_type = 'employee'
@@ -346,12 +346,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
             ),
             '[]'::json
           ) as assignee_employee_ids,
-          -- Get assignee names from d_entity_instance_link
+          -- Get assignee names from entity_instance_link
           COALESCE(
             (
               SELECT json_agg(e.name ORDER BY e.name)
-              FROM app.d_entity_instance_link map
-              JOIN app.d_employee e ON e.id = map.child_entity_id
+              FROM app.entity_instance_link map
+              JOIN app.employee e ON e.id = map.child_entity_id
               WHERE map.parent_entity_type = 'task'
                 AND map.parent_entity_id = t.id
                 AND map.child_entity_type = 'employee'
@@ -372,7 +372,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           t.active_flag,
           t.created_ts, t.updated_ts,
           t.version
-        FROM app.d_task t
+        FROM app.task t
         ${joinClause}
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY t.created_ts DESC
@@ -432,12 +432,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
           t.id, t.code, t.name, t.descr,
           t.internal_url, t.shared_url,
           COALESCE(t.metadata, '{}'::jsonb) as metadata,
-          -- Get assignee IDs from d_entity_instance_link
+          -- Get assignee IDs from entity_instance_link
           COALESCE(
             (
               SELECT json_agg(map.child_entity_id ORDER BY e.name)
-              FROM app.d_entity_instance_link map
-              JOIN app.d_employee e ON e.id = map.child_entity_id
+              FROM app.entity_instance_link map
+              JOIN app.employee e ON e.id = map.child_entity_id
               WHERE map.parent_entity_type = 'task'
                 AND map.parent_entity_id = t.id
                 AND map.child_entity_type = 'employee'
@@ -446,12 +446,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
             ),
             '[]'::json
           ) as assignee_employee_ids,
-          -- Get assignee names from d_entity_instance_link
+          -- Get assignee names from entity_instance_link
           COALESCE(
             (
               SELECT json_agg(e.name ORDER BY e.name)
-              FROM app.d_entity_instance_link map
-              JOIN app.d_employee e ON e.id = map.child_entity_id
+              FROM app.entity_instance_link map
+              JOIN app.employee e ON e.id = map.child_entity_id
               WHERE map.parent_entity_type = 'task'
                 AND map.parent_entity_id = t.id
                 AND map.child_entity_type = 'employee'
@@ -468,7 +468,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           (t.metadata->>'office_id')::text as office_id,
           t.from_ts, t.to_ts, t.active_flag,
           t.created_ts, t.updated_ts, t.version
-        FROM app.d_task t
+        FROM app.task t
         WHERE t.id = ${id}
       `);
 
@@ -522,7 +522,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     try {
       // Create task using actual DDL structure (matches 19_d_task.ddl)
       const result = await db.execute(sql`
-        INSERT INTO app.d_task (
+        INSERT INTO app.task (
           code, name, descr, metadata,
           dl__task_stage, dl__task_priority,
           estimated_hours, actual_hours, story_points,
@@ -612,7 +612,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     try {
       // Check if task exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_task WHERE id = ${id}
+        SELECT id FROM app.task WHERE id = ${id}
       `);
 
       if (existing.length === 0) {
@@ -643,7 +643,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // ✅ Route owns UPDATE query
       const result = await db.execute(sql`
-        UPDATE app.d_task
+        UPDATE app.task
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -719,7 +719,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     try {
       // Check if task exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_task WHERE id = ${id}
+        SELECT id FROM app.task WHERE id = ${id}
       `);
 
       if (existing.length === 0) {
@@ -750,7 +750,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // ✅ Route owns UPDATE query
       const result = await db.execute(sql`
-        UPDATE app.d_task
+        UPDATE app.task
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -794,9 +794,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
   // ============================================================================
   // Delete task with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
-  // 1. app.d_task (base entity table)
-  // 2. app.d_entity_instance_registry (entity registry)
-  // 3. app.d_entity_instance_link (linkages in both directions)
+  // 1. app.task (base entity table)
+  // 2. app.entity_instance (entity registry)
+  // 3. app.entity_instance_link (linkages in both directions)
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
   // Kanban status update endpoint (for drag-drop operations)
@@ -843,7 +843,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Validate task exists
       const existingTask = await db.execute(sql`
-        SELECT id, name, dl__task_stage FROM app.d_task
+        SELECT id, name, dl__task_stage FROM app.task
         WHERE id = ${id} AND active_flag = true
       `);
 
@@ -853,7 +853,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Update task status with audit info
       const updateResult = await db.execute(sql`
-        UPDATE app.d_task
+        UPDATE app.task
         SET
           dl__task_stage = ${task_status},
           updated_ts = NOW(),
@@ -927,7 +927,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Validate task exists
       const existingTask = await db.execute(sql`
-        SELECT id, name, dl__task_stage FROM app.d_task
+        SELECT id, name, dl__task_stage FROM app.task
         WHERE id = ${id} AND active_flag = true
       `);
 
@@ -937,7 +937,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Update task status with audit info
       const updateResult = await db.execute(sql`
-        UPDATE app.d_task
+        UPDATE app.task
         SET
           dl__task_stage = ${task_status},
           updated_ts = NOW(),
@@ -998,7 +998,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Get project info
       const project = await db.execute(sql`
-        SELECT id, name FROM app.d_project 
+        SELECT id, name FROM app.project 
         WHERE id = ${projectId} AND active_flag = true
       `);
 
@@ -1013,10 +1013,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
         sql`t.active_flag = true`
       ];
 
-      // Assignee relationship managed via d_entity_instance_link
+      // Assignee relationship managed via entity_instance_link
       if (assignee) {
         filters.push(sql`EXISTS (
-          SELECT 1 FROM app.d_entity_instance_link map
+          SELECT 1 FROM app.entity_instance_link map
           WHERE map.parent_entity_type = 'task'
             AND map.parent_entity_id = t.id
             AND map.child_entity_type = 'employee'
@@ -1030,7 +1030,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Get all tasks for the project
       const tasks = await db.execute(sql`
-        SELECT t.* FROM app.d_task t
+        SELECT t.* FROM app.task t
         WHERE ${sql.join(filters, sql` AND `)}
         ORDER BY
           CASE t.dl__task_stage
@@ -1106,7 +1106,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Direct RBAC check for task access
       const taskAccess = await db.execute(sql`
-        SELECT 1 FROM app.d_entity_rbac rbac
+        SELECT 1 FROM app.entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${employeeId}
           AND rbac.entity_name = 'task'
           AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -1132,7 +1132,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           COALESCE(tr.metadata->>'mentions', '[]')::jsonb as mentions,
           COALESCE(tr.metadata->>'attachments', '[]')::jsonb as attachments
         FROM app.d_task_data tr
-        LEFT JOIN app.d_employee e ON e.id = tr.created_by_employee_id
+        LEFT JOIN app.employee e ON e.id = tr.created_by_employee_id
         WHERE tr.task_id = ${taskId}
           AND tr.record_type IN ('case_note', 'rich_note')
           AND tr.active_flag = true
@@ -1192,7 +1192,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Direct RBAC check for task edit access
       const taskEditAccess = await db.execute(sql`
-        SELECT 1 FROM app.d_entity_rbac rbac
+        SELECT 1 FROM app.entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${employeeId}
           AND rbac.entity_name = 'task'
           AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -1207,7 +1207,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Get author name
       const authorResult = await db.execute(sql`
-        SELECT name FROM app.d_employee WHERE id = ${employeeId}
+        SELECT name FROM app.employee WHERE id = ${employeeId}
       `);
       const authorName = authorResult[0]?.name || 'Unknown';
 
@@ -1223,7 +1223,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           active_flag
         ) VALUES (
           ${taskId}::uuid,
-          (SELECT (metadata->>'project_id')::uuid FROM app.d_task WHERE id = ${taskId}::uuid),
+          (SELECT (metadata->>'project_id')::uuid FROM app.task WHERE id = ${taskId}::uuid),
           ${content_type},
           ${content},
           ${employeeId}::uuid,
@@ -1273,7 +1273,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // Direct RBAC check for task access
       const taskAccess = await db.execute(sql`
-        SELECT 1 FROM app.d_entity_rbac rbac
+        SELECT 1 FROM app.entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${employeeId}
           AND rbac.entity_name = 'task'
           AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -1297,7 +1297,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           tr.created_ts as timestamp,
           tr.metadata
         FROM app.d_task_data tr
-        LEFT JOIN app.d_employee e ON e.id = tr.updated_by_employee_id
+        LEFT JOIN app.employee e ON e.id = tr.updated_by_employee_id
         WHERE tr.task_id = ${taskId}
           AND tr.active_flag = true
 
@@ -1315,7 +1315,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           'System' as actor_name,
           t.updated_ts as timestamp,
           t.metadata
-        FROM app.d_task t
+        FROM app.task t
         WHERE t.id = ${taskId}
           AND t.active_flag = true
 
@@ -1371,7 +1371,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
     // Check RBAC permission to view task
     const taskAccess = await db.execute(sql`
-      SELECT 1 FROM app.d_entity_rbac rbac
+      SELECT 1 FROM app.entity_rbac rbac
       WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
         AND rbac.entity_name = 'task'
         AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -1384,15 +1384,15 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Get assignees from d_entity_instance_link
+      // Get assignees from entity_instance_link
       const assignees = await db.execute(sql`
         SELECT
           e.id,
           e.name,
           e.email,
           map.id as linkage_id
-        FROM app.d_entity_instance_link map
-        INNER JOIN app.d_employee e ON e.id = map.child_entity_id
+        FROM app.entity_instance_link map
+        INNER JOIN app.employee e ON e.id = map.child_entity_id
         WHERE map.parent_entity_type = 'task'
           AND map.parent_entity_id = ${id}::uuid
           AND map.child_entity_type = 'employee'
@@ -1424,9 +1424,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
   // No special endpoints needed - reuses existing universal APIs
 
   // ============================================================================
-  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // Child Entity Endpoints (Auto-Generated from entity metadata)
   // ============================================================================
-  // Creates: GET /api/v1/task/:id/{child} for each child in d_entity.child_entity_codes
+  // Creates: GET /api/v1/task/:id/{child} for each child in entity table.child_entity_codes
   // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
   await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

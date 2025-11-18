@@ -78,7 +78,7 @@ function getRoom(wikiId: string): Room {
 async function loadWikiContent(wikiId: string, doc: Y.Doc) {
   try {
     const result = await db.execute(sql`
-      SELECT content FROM app.d_wiki
+      SELECT content FROM app.wiki
       WHERE id = ${wikiId} AND active_flag = true
     `);
 
@@ -112,7 +112,7 @@ async function saveWikiContent(wikiId: string, doc: Y.Doc) {
     };
 
     await db.execute(sql`
-      UPDATE app.d_wiki
+      UPDATE app.wiki
       SET content = ${JSON.stringify(content)}::jsonb,
           updated_ts = NOW()
       WHERE id = ${wikiId} AND active_flag = true

@@ -175,7 +175,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         // Show all versions - simple query
         const countResult = await db.execute(sql`
           SELECT COUNT(*) as total
-          FROM app.d_form_head f
+          FROM app.form_head f
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         `);
         const total = Number(countResult[0]?.total || 0);
@@ -196,7 +196,7 @@ export async function formRoutes(fastify: FastifyInstance) {
             f.created_ts,
             f.updated_ts,
             f.version
-          FROM app.d_form_head f
+          FROM app.form_head f
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
           ORDER BY f.code ASC, f.version DESC
           LIMIT ${limit} OFFSET ${offset}
@@ -210,7 +210,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           SELECT COUNT(*) as total
           FROM (
             SELECT DISTINCT ON (f.code) f.id
-            FROM app.d_form_head f
+            FROM app.form_head f
             ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
             ORDER BY f.code, f.version DESC
           ) subq
@@ -233,7 +233,7 @@ export async function formRoutes(fastify: FastifyInstance) {
             f.created_ts,
             f.updated_ts,
             f.version
-          FROM app.d_form_head f
+          FROM app.form_head f
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
           ORDER BY f.code, f.version DESC
           LIMIT ${limit} OFFSET ${offset}
@@ -283,11 +283,11 @@ export async function formRoutes(fastify: FastifyInstance) {
           f.created_ts,
           f.updated_ts,
           f.version
-        FROM app.d_form_head f
+        FROM app.form_head f
         WHERE f.id = ${id}
           AND (
             EXISTS (
-              SELECT 1 FROM app.d_entity_rbac rbac
+              SELECT 1 FROM app.entity_rbac rbac
               WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
                 AND rbac.entity_name = 'form'
                 AND (rbac.entity_id = f.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -363,7 +363,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           f.created_ts,
           f.updated_ts,
           f.version
-        FROM app.d_form_head f
+        FROM app.form_head f
         WHERE f.id = ${id}
       `);
 
@@ -423,7 +423,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Insert form with minimalistic schema
       const result = await db.execute(sql`
-        INSERT INTO app.d_form_head (
+        INSERT INTO app.form_head (
           code,
           name,
           descr,
@@ -464,9 +464,9 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       const created = result[0];
 
-      // Register in d_entity_instance_registry for global entity operations
+      // Register in entity_instance for global entity operations
       await db.execute(sql`
-        INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+        INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
         VALUES ('form', ${created.id}::uuid, ${created.name}, ${created.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name,
@@ -531,7 +531,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Get current form data
       const currentForm = await db.execute(sql`
         SELECT id, code, name, descr, form_type, form_schema, internal_url, shared_url, active_flag, version
-        FROM app.d_form_head
+        FROM app.form_head
         WHERE id = ${id}
       `);
 
@@ -552,7 +552,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         const newVersion = (current.version || 1) + 1;
 
         const result = await db.execute(sql`
-          UPDATE app.d_form_head
+          UPDATE app.form_head
           SET
             name = ${data.name !== undefined ? data.name : current.name},
             descr = ${data.descr !== undefined ? data.descr : current.descr},
@@ -598,7 +598,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         }
 
         const result = await db.execute(sql`
-          UPDATE app.d_form_head
+          UPDATE app.form_head
           SET ${sql.join(updateFields, sql`, `)}
           WHERE id = ${id}
           RETURNING
@@ -675,7 +675,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Get current form data
       const currentForm = await db.execute(sql`
         SELECT id, code, name, descr, form_type, form_schema, internal_url, shared_url, active_flag, version
-        FROM app.d_form_head
+        FROM app.form_head
         WHERE id = ${id}
       `);
 
@@ -696,7 +696,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         const newVersion = (current.version || 1) + 1;
 
         const result = await db.execute(sql`
-          UPDATE app.d_form_head
+          UPDATE app.form_head
           SET
             name = ${data.name !== undefined ? data.name : current.name},
             descr = ${data.descr !== undefined ? data.descr : current.descr},
@@ -742,7 +742,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         }
 
         const result = await db.execute(sql`
-          UPDATE app.d_form_head
+          UPDATE app.form_head
           SET ${sql.join(updateFields, sql`, `)}
           WHERE id = ${id}
           RETURNING
@@ -793,7 +793,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Check view permission on form
       const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.d_entity_rbac rbac
+        SELECT 1 FROM app.entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}::uuid
           AND rbac.entity_name = 'form'
           AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -898,7 +898,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Check view permission on form
       const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.d_entity_rbac rbac
+        SELECT 1 FROM app.entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = 'form'
           AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -989,7 +989,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Check edit permission on form (permission 1)
       const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.d_entity_rbac rbac
+        SELECT 1 FROM app.entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = 'form'
           AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -1062,7 +1062,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Check view permission on form
       const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.d_entity_rbac rbac
+        SELECT 1 FROM app.entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = 'form'
           AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -1078,7 +1078,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Verify form exists and is active
       const forms = await db.execute(sql`
-        SELECT id FROM app.d_form_head
+        SELECT id FROM app.form_head
         WHERE id = ${id} AND active_flag = true
       `);
 
@@ -1148,7 +1148,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           f.created_ts,
           f.updated_ts,
           f.version
-        FROM app.d_form_head f
+        FROM app.form_head f
         WHERE f.id = ${id}
           AND f.active_flag = true
       `);
@@ -1185,7 +1185,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Verify form exists and is active
       const forms = await db.execute(sql`
-        SELECT id FROM app.d_form_head
+        SELECT id FROM app.form_head
         WHERE id = ${id} AND active_flag = true
       `);
 
@@ -1231,15 +1231,15 @@ export async function formRoutes(fastify: FastifyInstance) {
   // ============================================================================
   // Delete form with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
-  // 1. app.d_form_head (base entity table)
-  // 2. app.d_entity_instance_registry (entity registry)
-  // 3. app.d_entity_instance_link (linkages in both directions)
+  // 1. app.form_head (base entity table)
+  // 2. app.entity_instance (entity registry)
+  // 3. app.entity_instance_link (linkages in both directions)
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
   // ============================================================================
-  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // Child Entity Endpoints (Auto-Generated from entity metadata)
   // ============================================================================
-  // Creates: GET /api/v1/form/:id/{child} for each child in d_entity.child_entity_codes
+  // Creates: GET /api/v1/form/:id/{child} for each child in entity table.child_entity_codes
   // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
   await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

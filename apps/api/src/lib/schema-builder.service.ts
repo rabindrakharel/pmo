@@ -11,7 +11,7 @@
  * ```typescript
  * import { buildEntitySchema } from '@/lib/schema-builder.service.js';
  *
- * const schema = await buildEntitySchema(db, 'project', 'd_project');
+ * const schema = await buildEntitySchema(db, 'project', 'project');
  * // Returns complete schema with columns, format specs, editability
  * ```
  */
@@ -102,7 +102,7 @@ const READONLY_FIELDS = new Set([
 // ============================================================================
 
 /**
- * Get database table name for entity from d_entity.db_table (FULLY DYNAMIC!)
+ * Get database table name for entity from entity.db_table (FULLY DYNAMIC!)
  *
  * @param db - Drizzle database instance
  * @param entityType - Entity type code (project, task, calendar, message, etc.)
@@ -114,21 +114,21 @@ export async function getTableNameFromEntity(
 ): Promise<string | null> {
   try {
     const result = await db.execute(
-      sql`SELECT db_table FROM app.d_entity WHERE code = ${entityType} AND active_flag = true LIMIT 1`
+      sql`SELECT db_table FROM app.entity WHERE code = ${entityType} AND active_flag = true LIMIT 1`
     );
 
     // Drizzle returns results directly as an array, not in a .rows property
     const rows = Array.isArray(result) ? result : (result as any).rows || [];
 
     if (rows.length === 0) {
-      console.warn(`Entity type "${entityType}" not found in d_entity table`);
+      console.warn(`Entity type "${entityType}" not found in entity table`);
       return null;
     }
 
     const dbTable = rows[0].db_table as string | null;
 
     if (!dbTable) {
-      console.warn(`Entity type "${entityType}" exists but db_table is NULL - update d_entity table!`);
+      console.warn(`Entity type "${entityType}" exists but db_table is NULL - update entity table!`);
       return null;
     }
 
@@ -147,11 +147,11 @@ export async function getTableNameFromEntity(
 /**
  * Build entity schema by introspecting database table
  *
- * ✨ FULLY DYNAMIC: tableName is now OPTIONAL - auto-fetched from d_entity.db_table!
+ * ✨ FULLY DYNAMIC: tableName is now OPTIONAL - auto-fetched from entity.db_table!
  *
  * @param db - Drizzle database instance
  * @param entityType - Entity type (e.g., 'project', 'task', 'calendar', 'message')
- * @param tableName - (Optional) Database table name - if omitted, fetched from d_entity.db_table
+ * @param tableName - (Optional) Database table name - if omitted, fetched from entity.db_table
  * @returns Entity schema with column metadata
  */
 export async function buildEntitySchema(
@@ -159,7 +159,7 @@ export async function buildEntitySchema(
   entityType: string,
   tableName?: string
 ): Promise<EntitySchema> {
-  // ✨ DYNAMIC: Fetch table name from d_entity.db_table if not provided
+  // ✨ DYNAMIC: Fetch table name from entity.db_table if not provided
   let resolvedTableName = tableName;
 
   if (!resolvedTableName) {
@@ -167,7 +167,7 @@ export async function buildEntitySchema(
 
     if (!resolvedTableName) {
       // Return empty schema if table not found
-      console.error(`Cannot build schema for "${entityType}" - no table mapping in d_entity.db_table`);
+      console.error(`Cannot build schema for "${entityType}" - no table mapping in entity table.db_table`);
       return {
         entityType,
         tableName: `app.d_${entityType}`, // Fallback for error reporting

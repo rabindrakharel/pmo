@@ -118,13 +118,13 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
       // Get parent entity info
       const parentTableMap: Record<string, string> = {
-        'biz': 'app.d_business',
-        'project': 'app.d_project',
-        'task': 'app.d_task',
-        'hr': 'app.d_office',
-        'org': 'app.d_office',
-        'client': 'app.d_client',
-        'worksite': 'app.d_worksite'};
+        'biz': 'app.business',
+        'project': 'app.project',
+        'task': 'app.task',
+        'hr': 'app.office',
+        'org': 'app.office',
+        'client': 'app.cust',
+        'worksite': 'app.worksite'};
 
       const parentTable = parentTableMap[parentEntity];
       if (!parentTable) {
@@ -169,11 +169,11 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         let contextFilteredCount = 0;
         {
           const entityTableMap: Record<string, string> = {
-            'project': 'app.d_project',
-            'task': 'app.d_task',
-            'wiki': 'app.d_wiki',
-            'form': 'app.d_form_head',
-            'artifact': 'app.d_artifact'};
+            'project': 'app.project',
+            'task': 'app.task',
+            'wiki': 'app.wiki',
+            'form': 'app.form_head',
+            'artifact': 'app.artifact'};
 
           const actionTable = entityTableMap[entityTypeCode];
           if (actionTable) {
@@ -474,12 +474,12 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
       // Verify entity exists
       const entityTableMap: Record<string, string> = {
-        'business': 'd_business',
-        'project': 'd_project',
-        'task': 'd_task',
-        'office': 'd_office',
-        'client': 'd_client',
-        'worksite': 'd_worksite'
+        'business': 'business',
+        'project': 'project',
+        'task': 'task',
+        'office': 'office',
+        'client': 'cust',
+        'worksite': 'worksite'
       };
 
       const entityTable = entityTableMap[entityType];
@@ -528,18 +528,18 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           eh.child_entity_id as entity_id,
           COALESCE(
             CASE eh.child_entity_type
-              WHEN 'biz' THEN (SELECT name FROM app.d_business WHERE id = eh.child_entity_id)
-              WHEN 'project' THEN (SELECT name FROM app.d_project WHERE id = eh.child_entity_id)
-              WHEN 'hr' THEN (SELECT name FROM app.d_office WHERE id = eh.child_entity_id)
-              WHEN 'org' THEN (SELECT name FROM app.d_office WHERE id = eh.child_entity_id)
-              WHEN 'client' THEN (SELECT name FROM app.d_client WHERE id = eh.child_entity_id)
-              WHEN 'worksite' THEN (SELECT name FROM app.d_worksite WHERE id = eh.child_entity_id)
-              WHEN 'employee' THEN (SELECT name FROM app.d_employee WHERE id = eh.child_entity_id)
-              WHEN 'role' THEN (SELECT name FROM app.d_role WHERE id = eh.child_entity_id)
-              WHEN 'wiki' THEN (SELECT name FROM app.d_wiki WHERE id = eh.child_entity_id)
-              WHEN 'form' THEN (SELECT name FROM app.d_form_head WHERE id = eh.child_entity_id)
-              WHEN 'task' THEN (SELECT name FROM app.d_task WHERE id = eh.child_entity_id)
-              WHEN 'artifact' THEN (SELECT name FROM app.d_artifact WHERE id = eh.child_entity_id)
+              WHEN 'biz' THEN (SELECT name FROM app.business WHERE id = eh.child_entity_id)
+              WHEN 'project' THEN (SELECT name FROM app.project WHERE id = eh.child_entity_id)
+              WHEN 'hr' THEN (SELECT name FROM app.office WHERE id = eh.child_entity_id)
+              WHEN 'org' THEN (SELECT name FROM app.office WHERE id = eh.child_entity_id)
+              WHEN 'client' THEN (SELECT name FROM app.cust WHERE id = eh.child_entity_id)
+              WHEN 'worksite' THEN (SELECT name FROM app.worksite WHERE id = eh.child_entity_id)
+              WHEN 'employee' THEN (SELECT name FROM app.employee WHERE id = eh.child_entity_id)
+              WHEN 'role' THEN (SELECT name FROM app.role WHERE id = eh.child_entity_id)
+              WHEN 'wiki' THEN (SELECT name FROM app.wiki WHERE id = eh.child_entity_id)
+              WHEN 'form' THEN (SELECT name FROM app.form_head WHERE id = eh.child_entity_id)
+              WHEN 'task' THEN (SELECT name FROM app.task WHERE id = eh.child_entity_id)
+              WHEN 'artifact' THEN (SELECT name FROM app.artifact WHERE id = eh.child_entity_id)
             END,
             'Unknown'
           ) as entity_name,
@@ -603,35 +603,35 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         context_fields?: string[]; 
       }> = {
         'project': { 
-          table: 'app.d_project', 
+          table: 'app.project', 
           name_field: 'name', 
           desc_field: 'descr',
           context_fields: ['project_code', 'project_type']
         },
         'task': { 
-          table: 'app.d_task', 
+          table: 'app.task', 
           name_field: 'name', 
           desc_field: 'descr',
           context_fields: ['task_number', 'task_type']
         },
         'biz': { 
-          table: 'app.d_business', 
+          table: 'app.business', 
           name_field: 'name', 
           desc_field: 'descr'
         },
         'client': { 
-          table: 'app.d_client', 
+          table: 'app.cust', 
           name_field: 'name', 
           desc_field: 'descr'
         },
         'employee': { 
-          table: 'app.d_employee', 
+          table: 'app.employee', 
           name_field: 'name', 
           desc_field: 'descr',
           context_fields: ['email', 'job_title']
         },
         'wiki': { 
-          table: 'app.d_wiki', 
+          table: 'app.wiki', 
           name_field: 'name', 
           desc_field: 'descr'
         }};
@@ -687,8 +687,8 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           // Add parent context based on entity type
           if (entityType === 'task' && result.entity_type) {
             const projectContext = await db.execute(sql`
-              SELECT p.name FROM app.d_project p
-              JOIN app.d_task t ON t.project_id = p.id
+              SELECT p.name FROM app.project p
+              JOIN app.task t ON t.project_id = p.id
               WHERE t.id = ${result.id}
             `);
             if (projectContext.length > 0) {
@@ -758,9 +758,9 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         const getEntityCountQuery = (entityType: string) => {
           switch (entityType) {
             case 'task':
-              return sql`(SELECT COUNT(*) FROM app.d_task WHERE project_id = d_project.id AND active_flag = true)`;
+              return sql`(SELECT COUNT(*) FROM app.task WHERE project_id = d_project.id AND active_flag = true)`;
             case 'wiki':
-              return sql`(SELECT COUNT(*) FROM app.d_wiki w
+              return sql`(SELECT COUNT(*) FROM app.wiki w
                          INNER JOIN app.entity_id_map eh ON eh.child_entity_id = w.id
                          WHERE eh.parent_entity_type_id = d_project.id
                            AND eh.child_entity_type = 'wiki'
@@ -768,7 +768,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
                            AND eh.active_flag = true
                            AND w.active_flag = true)`;
             case 'artifact':
-              return sql`(SELECT COUNT(*) FROM app.d_artifact a
+              return sql`(SELECT COUNT(*) FROM app.artifact a
                          INNER JOIN app.entity_id_map eh ON eh.child_entity_id = a.id
                          WHERE eh.parent_entity_type_id = d_project.id
                            AND eh.child_entity_type = 'artifact'
@@ -776,7 +776,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
                            AND eh.active_flag = true
                            AND a.active_flag = true)`;
             case 'form':
-              return sql`(SELECT COUNT(*) FROM app.d_form_head f
+              return sql`(SELECT COUNT(*) FROM app.form_head f
                          WHERE f.project_id = d_project.id AND f.active_flag = true)`;
             default:
               return sql`0`;
@@ -785,7 +785,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
         const projectScopes = await db.execute(sql`
           SELECT id, name, ${getEntityCountQuery(entity_type)} as entity_count
-          FROM app.d_project
+          FROM app.project
           WHERE active_flag = true
           ORDER BY name
         `);
@@ -804,13 +804,13 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         const getBusinessEntityCountQuery = (entityType: string) => {
           switch (entityType) {
             case 'task':
-              return sql`(SELECT COUNT(*) FROM app.d_task t
-                         INNER JOIN app.d_project p ON p.id = t.project_id
+              return sql`(SELECT COUNT(*) FROM app.task t
+                         INNER JOIN app.project p ON p.id = t.project_id
                          WHERE p.biz_id = d_business.id AND t.active_flag = true AND p.active_flag = true)`;
             case 'wiki':
-              return sql`(SELECT COUNT(*) FROM app.d_wiki w
+              return sql`(SELECT COUNT(*) FROM app.wiki w
                          INNER JOIN app.entity_id_map eh ON eh.child_entity_id = w.id
-                         INNER JOIN app.d_project p ON p.id = eh.parent_entity_type_id
+                         INNER JOIN app.project p ON p.id = eh.parent_entity_type_id
                          WHERE p.biz_id = d_business.id
                            AND eh.child_entity_type = 'wiki'
                            AND eh.parent_entity_type = 'project'
@@ -818,9 +818,9 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
                            AND w.active_flag = true
                            AND p.active_flag = true)`;
             case 'artifact':
-              return sql`(SELECT COUNT(*) FROM app.d_artifact a
+              return sql`(SELECT COUNT(*) FROM app.artifact a
                          INNER JOIN app.entity_id_map eh ON eh.child_entity_id = a.id
-                         INNER JOIN app.d_project p ON p.id = eh.parent_entity_type_id
+                         INNER JOIN app.project p ON p.id = eh.parent_entity_type_id
                          WHERE p.biz_id = d_business.id
                            AND eh.child_entity_type = 'artifact'
                            AND eh.parent_entity_type = 'project'
@@ -828,11 +828,11 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
                            AND a.active_flag = true
                            AND p.active_flag = true)`;
             case 'form':
-              return sql`(SELECT COUNT(*) FROM app.d_form_head f
-                         INNER JOIN app.d_project p ON p.id = f.project_id
+              return sql`(SELECT COUNT(*) FROM app.form_head f
+                         INNER JOIN app.project p ON p.id = f.project_id
                          WHERE p.biz_id = d_business.id AND f.active_flag = true AND p.active_flag = true)`;
             case 'project':
-              return sql`(SELECT COUNT(*) FROM app.d_project WHERE biz_id = d_business.id AND active_flag = true)`;
+              return sql`(SELECT COUNT(*) FROM app.project WHERE biz_id = d_business.id AND active_flag = true)`;
             default:
               return sql`0`;
           }
@@ -840,7 +840,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
         const bizScopes = await db.execute(sql`
           SELECT id, name, ${getBusinessEntityCountQuery(entity_type)} as entity_count
-          FROM app.d_business
+          FROM app.business
           WHERE active_flag = true
           ORDER BY name
         `);

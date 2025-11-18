@@ -51,7 +51,7 @@ export async function collabRoutes(fastify: FastifyInstance) {
 
       // Verify user has access to this wiki
       const accessCheck = await db.execute(sql`
-        SELECT 1 FROM app.d_entity_rbac rbac
+        SELECT 1 FROM app.entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = 'wiki'
           AND (rbac.entity_id = ${wikiId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -114,7 +114,7 @@ export async function collabRoutes(fastify: FastifyInstance) {
 
     // Verify user has access to this wiki
     const accessCheck = await db.execute(sql`
-      SELECT 1 FROM app.d_entity_rbac rbac
+      SELECT 1 FROM app.entity_rbac rbac
       WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
         AND rbac.entity_name = 'wiki'
         AND (rbac.entity_id = ${wikiId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)

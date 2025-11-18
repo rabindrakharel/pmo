@@ -26,7 +26,7 @@
  *     - Parent-CREATE inheritance (if parent has CREATE, children gain CREATE)
  *
  *   • PARENT_CHILD_FILTERING_GATE - Context-aware data filtering
- *     - Filters entities by parent relationship via d_entity_instance_link
+ *     - Filters entities by parent relationship via entity_instance_link
  *     - Enables create-link-edit pattern (create child, link to parent)
  *
  * Usage Example:
@@ -38,7 +38,7 @@
  * ─────────────────────────────────────────────────────────
  * Instead of nested creation endpoints, we use:
  *   1. Create entity independently: POST /api/v1/project
- *   2. Link to parent via d_entity_instance_link (automatic if parent_type/parent_id provided)
+ *   2. Link to parent via entity_instance_link (automatic if parent_type/parent_id provided)
  *   3. Edit/view in context: GET /api/v1/project?parent_type=business&parent_id={id}
  *
  * Benefits:
@@ -49,13 +49,13 @@
  * 3. FACTORY PATTERN (Child Entity Endpoints - Database-Driven)
  * ────────────────────────────────────────────────────────────
  * Child entity endpoints auto-generated via createChildEntityEndpointsFromMetadata():
- *   • Reads child_entity_codes from d_entity table (single source of truth)
+ *   • Reads child_entity_codes from entity table (single source of truth)
  *   • Auto-creates: GET /api/v1/project/:id/task, /api/v1/project/:id/wiki, etc.
- *   • Zero maintenance - add child to d_entity DDL, routes auto-generated
+ *   • Zero maintenance - add child to entity DDL, routes auto-generated
  *
  * No manual endpoint code needed - factory handles:
  *   • RBAC filtering (unified_data_gate)
- *   • Parent-child JOIN via d_entity_instance_link
+ *   • Parent-child JOIN via entity_instance_link
  *   • Pagination, search, sorting
  *
  * 4. UNIVERSAL AUTO-FILTER PATTERN (Zero-Config Filtering)
@@ -78,18 +78,18 @@
  * DATA MODEL
  * ============================================================================
  *
- * Primary Table: app.d_project
+ * Primary Table: app.project
  *   • Core fields: id, code, name, descr, metadata
  *   • Project-specific: dl__project_stage, budget_allocated_amt, budget_spent_amt
  *   • Timeline: planned_start_date, planned_end_date, actual_start_date, actual_end_date
  *   • Team: manager_employee_id, sponsor_employee_id, stakeholder_employee_ids
  *   • Temporal: from_ts, to_ts, active_flag, created_ts, updated_ts, version
  *
- * Relationships (via d_entity_instance_link):
+ * Relationships (via entity_instance_link):
  *   • Parent entities: business, office
  *   • Child entities: task, wiki, artifact, form, expense, revenue
  *
- * Permissions (via d_entity_rbac):
+ * Permissions (via entity_rbac):
  *   • Supports both entity-level (entity_id = 'all') and instance-level permissions
  *   • Permission levels: 0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER
  *
@@ -129,7 +129,7 @@
  *   2. Check: Can user CREATE projects? (type-level permission)
  *   3. Check: Can user EDIT parent business? (required to link child)
  *   4. Create project in d_project
- *   5. Link to business in d_entity_instance_link
+ *   5. Link to business in entity_instance_link
  *   6. Auto-grant DELETE permission to creator
  *
  * Example 3: View Project Detail with Child Tabs
@@ -377,7 +377,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ ENTITY INFRASTRUCTURE SERVICE - Get child entity metadata
-    // Returns child entity types with labels/icons from d_entity
+    // Returns child entity types with labels/icons from entity
     // ═══════════════════════════════════════════════════════════════
     const tabs = await entityInfra.get_dynamic_child_entity_tabs(ENTITY_TYPE);
     return reply.send({ tabs });
@@ -410,7 +410,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     // Get entity configuration
     const entityConfig = await db.execute(sql`
       SELECT child_entity_codes
-      FROM app.d_entity
+      FROM app.entity
       WHERE code = ${ENTITY_TYPE}
         AND active_flag = true
     `);
@@ -485,7 +485,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // Route owns the query
       const result = await db.execute(sql`
         SELECT *
-        FROM app.d_project
+        FROM app.project
         WHERE id = ${id}::uuid
           AND active_flag = true
       `);
@@ -572,7 +572,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // Check for unique project code if provided
       if (data.code) {
         const existingProject = await db.execute(sql`
-          SELECT id FROM app.d_project WHERE code = ${data.code} AND active_flag = true
+          SELECT id FROM app.project WHERE code = ${data.code} AND active_flag = true
         `);
         if (existingProject.length > 0) {
           return reply.status(400).send({ error: 'Project with this code already exists' });
@@ -580,7 +580,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       }
 
       const result = await db.execute(sql`
-        INSERT INTO app.d_project (
+        INSERT INTO app.project (
           code, name, descr, metadata,
           dl__project_stage,
           budget_allocated_amt, budget_spent_amt,
@@ -721,7 +721,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       // ✅ Route owns UPDATE query
       const updated = await db.execute(sql`
-        UPDATE app.d_project
+        UPDATE app.project
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -819,7 +819,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       // ✅ Route owns UPDATE query
       const updated = await db.execute(sql`
-        UPDATE app.d_project
+        UPDATE app.project
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -848,20 +848,20 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // Delete project with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
-  // 1. app.d_project (base entity table)
-  // 2. app.d_entity_instance_registry (entity registry)
-  // 3. app.d_entity_instance_link (linkages in both directions)
+  // 1. app.project (base entity table)
+  // 2. app.entity_instance (entity registry)
+  // 3. app.entity_instance_link (linkages in both directions)
   createEntityDeleteEndpoint(fastify, 'project');
 
   // ========================================
   // CHILD ENTITY ENDPOINTS (Database-Driven)
   // ========================================
-  // Auto-create all child entity endpoints from d_entity metadata
+  // Auto-create all child entity endpoints from entity metadata
   // Reads project's child_entity_codes from database: ["task", "wiki", "artifact", "form", "expense", "revenue"]
   // Creates endpoints: /api/v1/project/:id/task, /api/v1/project/:id/wiki, etc.
   //
   // Benefits:
-  // - Single source of truth: child relationships defined in d_entity DDL only
+  // - Single source of truth: child relationships defined in entity DDL only
   // - Zero repetition: no manual endpoint declarations needed
   // - Self-maintaining: add child entity → update d_entity → routes auto-created
   await createChildEntityEndpointsFromMetadata(fastify, 'project');

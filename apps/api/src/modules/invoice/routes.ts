@@ -49,7 +49,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
       const conditions: SQL[] = [];
 
       // OPTIONAL: RBAC filtering (if invoice entity has permissions configured)
-      // Uncomment if d_entity_rbac has entries for invoice
+      // Uncomment if entity_rbac has entries for invoice
       // const rbacCondition = await unified_data_gate.rbac_gate.getWhereCondition(
       //   userId, ENTITY_TYPE, Permission.VIEW, TABLE_ALIAS
       // );
@@ -110,7 +110,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
 
     try {
       // OPTIONAL: RBAC check (if invoice entity has permissions configured)
-      // Uncomment if d_entity_rbac has entries for invoice
+      // Uncomment if entity_rbac has entries for invoice
       // const canView = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.VIEW);
       // if (!canView) {
       //   return reply.status(403).send({ error: 'No permission to view this invoice' });
@@ -147,7 +147,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
 
     try {
       // OPTIONAL: RBAC CHECK (if invoice entity has permissions configured)
-      // Uncomment if d_entity_rbac has entries for invoice
+      // Uncomment if entity_rbac has entries for invoice
       // const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
       // if (!canCreate) {
       //   return reply.status(403).send({ error: 'No permission to create invoices' });
@@ -174,7 +174,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
       `);
 
       // NOTE: Invoice is a fact table, not a standard entity
-      // If it needs to be tracked in d_entity_instance_registry, uncomment below:
+      // If it needs to be tracked in entity_instance, uncomment below:
       // await entityInfra.set_entity_instance_registry({
       //   entity_type: ENTITY_TYPE,
       //   entity_id: result[0].id,
@@ -208,7 +208,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
 
     try {
       // OPTIONAL: RBAC CHECK (if invoice entity has permissions configured)
-      // Uncomment if d_entity_rbac has entries for invoice
+      // Uncomment if entity_rbac has entries for invoice
       // const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.EDIT);
       // if (!canEdit) {
       //   return reply.status(403).send({ error: 'No permission to edit this invoice' });
@@ -276,7 +276,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
       }
 
       // OPTIONAL: Check RBAC permission using entity infrastructure service
-      // Uncomment if d_entity_rbac has entries for invoice
+      // Uncomment if entity_rbac has entries for invoice
       // const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
       // if (!canCreate) {
       //   return reply.code(403).send({ error: 'Permission denied to upload invoice attachments' });
@@ -319,7 +319,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
 
     try {
       // OPTIONAL: RBAC CHECK (if invoice entity has permissions configured)
-      // Uncomment if d_entity_rbac has entries for invoice
+      // Uncomment if entity_rbac has entries for invoice
       // const canDelete = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.DELETE);
       // if (!canDelete) {
       //   return reply.status(403).send({ error: 'No permission to delete this invoice' });
@@ -333,7 +333,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
 
       if (!result.length) return reply.status(404).send({ error: 'Not found' });
 
-      // NOTE: If invoice needs to be removed from d_entity_instance_registry, uncomment:
+      // NOTE: If invoice needs to be removed from entity_instance, uncomment:
       // await entityInfra.deactivate_entity_instance_registry(ENTITY_TYPE, id);
 
       return reply.status(204).send();

@@ -48,7 +48,7 @@ export enum PermissionLevel {
 
 /**
  * Special UUID marker for TYPE-LEVEL permissions (all entities)
- * When this UUID is used as entity_id in d_entity_rbac, it means the permission
+ * When this UUID is used as entity_id in entity_rbac, it means the permission
  * applies to ALL instances of that entity type, not just one specific instance.
  *
  * Example: permission on (entity_name='project', entity_id=ALL_ENTITIES_ID)
@@ -82,7 +82,7 @@ async function getMaxPermissionLevelOfEntityID(
     -- ---------------------------------------------------------------------------
     direct_emp AS (
       SELECT permission
-      FROM app.d_entity_rbac
+      FROM app.entity_rbac
       WHERE person_entity_name = 'employee'
         AND person_entity_id = ${userId}::uuid
         AND entity_name = ${entityName}
@@ -93,12 +93,12 @@ async function getMaxPermissionLevelOfEntityID(
 
     -- ---------------------------------------------------------------------------
     -- 2. ROLE-BASED PERMISSIONS
-    --    employee -> role (via d_entity_instance_link) -> permissions
+    --    employee -> role (via entity_instance_link) -> permissions
     -- ---------------------------------------------------------------------------
     role_based AS (
       SELECT rbac.permission
-      FROM app.d_entity_rbac rbac
-      INNER JOIN app.d_entity_instance_link eim
+      FROM app.entity_rbac rbac
+      INNER JOIN app.entity_instance_link eim
         ON eim.parent_entity_type = 'role'
         AND eim.parent_entity_id = rbac.person_entity_id
         AND eim.child_entity_type = 'employee'
@@ -113,13 +113,13 @@ async function getMaxPermissionLevelOfEntityID(
 
     -- ---------------------------------------------------------------------------
     -- 3. FIND PARENT ENTITY TYPES OF CURRENT ENTITY
-    --    (using d_entity.child_entities)
+    --    (using d_entity.child_entity_codes)
     -- ---------------------------------------------------------------------------
     parent_entities AS (
       SELECT
         d.code AS parent_entity_name
-      FROM app.d_entity d
-      WHERE ${entityName} = ANY(SELECT jsonb_array_elements_text(d.child_entities))
+      FROM app.entity d
+      WHERE ${entityName} = ANY(SELECT jsonb_array_elements_text(d.child_entity_codes))
     ),
 
     -- ---------------------------------------------------------------------------
@@ -131,7 +131,7 @@ async function getMaxPermissionLevelOfEntityID(
       FROM parent_entities pe
 
       -- direct employee permissions on parent
-      LEFT JOIN app.d_entity_rbac emp
+      LEFT JOIN app.entity_rbac emp
         ON emp.person_entity_name = 'employee'
         AND emp.person_entity_id = ${userId}
         AND emp.entity_name = pe.parent_entity_name
@@ -139,13 +139,13 @@ async function getMaxPermissionLevelOfEntityID(
         AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
 
       -- role permissions on parent
-      LEFT JOIN app.d_entity_rbac rbac
+      LEFT JOIN app.entity_rbac rbac
         ON rbac.person_entity_name = 'role'
         AND rbac.entity_name = pe.parent_entity_name
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
 
-      LEFT JOIN app.d_entity_instance_link eim
+      LEFT JOIN app.entity_instance_link eim
         ON eim.parent_entity_type = 'role'
         AND eim.parent_entity_id = rbac.person_entity_id
         AND eim.child_entity_type = 'employee'
@@ -165,20 +165,20 @@ async function getMaxPermissionLevelOfEntityID(
       SELECT 4 AS permission
       FROM parent_entities pe
 
-      LEFT JOIN app.d_entity_rbac emp
+      LEFT JOIN app.entity_rbac emp
         ON emp.person_entity_name = 'employee'
         AND emp.person_entity_id = ${userId}
         AND emp.entity_name = pe.parent_entity_name
         AND emp.active_flag = true
         AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
 
-      LEFT JOIN app.d_entity_rbac rbac
+      LEFT JOIN app.entity_rbac rbac
         ON rbac.person_entity_name = 'role'
         AND rbac.entity_name = pe.parent_entity_name
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
 
-      LEFT JOIN app.d_entity_instance_link eim
+      LEFT JOIN app.entity_instance_link eim
         ON eim.parent_entity_type = 'role'
         AND eim.parent_entity_id = rbac.person_entity_id
         AND eim.child_entity_type = 'employee'
@@ -249,8 +249,8 @@ export async function data_gate_EntityIdsByEntityType(
       -- ---------------------------------------------------------------------------
       parent_entities AS (
         SELECT d.code AS parent_entity_name
-        FROM app.d_entity d
-        WHERE ${entityName} = ANY(SELECT jsonb_array_elements_text(d.child_entities))
+        FROM app.entity d
+        WHERE ${entityName} = ANY(SELECT jsonb_array_elements_text(d.child_entity_codes))
       ),
 
       -- ---------------------------------------------------------------------------
@@ -258,7 +258,7 @@ export async function data_gate_EntityIdsByEntityType(
       -- ---------------------------------------------------------------------------
       direct_emp AS (
         SELECT entity_id, permission
-        FROM app.d_entity_rbac
+        FROM app.entity_rbac
         WHERE person_entity_name = 'employee'
           AND person_entity_id = ${userId}::uuid
           AND entity_name = ${entityName}
@@ -272,8 +272,8 @@ export async function data_gate_EntityIdsByEntityType(
       -- ---------------------------------------------------------------------------
       role_based AS (
         SELECT rbac.entity_id, rbac.permission
-        FROM app.d_entity_rbac rbac
-        INNER JOIN app.d_entity_instance_link eim
+        FROM app.entity_rbac rbac
+        INNER JOIN app.entity_instance_link eim
           ON eim.parent_entity_type = 'role'
           AND eim.parent_entity_id = rbac.person_entity_id
           AND eim.child_entity_type = 'employee'
@@ -292,7 +292,7 @@ export async function data_gate_EntityIdsByEntityType(
       parents_with_view AS (
         SELECT DISTINCT emp.entity_id AS parent_id, pe.parent_entity_name
         FROM parent_entities pe
-        INNER JOIN app.d_entity_rbac emp
+        INNER JOIN app.entity_rbac emp
           ON emp.person_entity_name = 'employee'
           AND emp.person_entity_id = ${userId}::uuid
           AND emp.entity_name = pe.parent_entity_name
@@ -304,13 +304,13 @@ export async function data_gate_EntityIdsByEntityType(
 
         SELECT DISTINCT rbac.entity_id AS parent_id, pe.parent_entity_name
         FROM parent_entities pe
-        INNER JOIN app.d_entity_rbac rbac
+        INNER JOIN app.entity_rbac rbac
           ON rbac.person_entity_name = 'role'
           AND rbac.entity_name = pe.parent_entity_name
           AND rbac.permission >= 0
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        INNER JOIN app.d_entity_instance_link eim
+        INNER JOIN app.entity_instance_link eim
           ON eim.parent_entity_type = 'role'
           AND eim.parent_entity_id = rbac.person_entity_id
           AND eim.child_entity_type = 'employee'
@@ -325,7 +325,7 @@ export async function data_gate_EntityIdsByEntityType(
       parent_view_children AS (
         SELECT DISTINCT eim.child_entity_id AS entity_id, 0 AS permission
         FROM parents_with_view pwv
-        INNER JOIN app.d_entity_instance_link eim
+        INNER JOIN app.entity_instance_link eim
           ON eim.parent_entity_type = pwv.parent_entity_name
           AND eim.parent_entity_id = pwv.parent_id
           AND eim.child_entity_type = ${entityName}
@@ -338,7 +338,7 @@ export async function data_gate_EntityIdsByEntityType(
       parents_with_create AS (
         SELECT DISTINCT emp.entity_id AS parent_id, pe.parent_entity_name
         FROM parent_entities pe
-        INNER JOIN app.d_entity_rbac emp
+        INNER JOIN app.entity_rbac emp
           ON emp.person_entity_name = 'employee'
           AND emp.person_entity_id = ${userId}::uuid
           AND emp.entity_name = pe.parent_entity_name
@@ -350,13 +350,13 @@ export async function data_gate_EntityIdsByEntityType(
 
         SELECT DISTINCT rbac.entity_id AS parent_id, pe.parent_entity_name
         FROM parent_entities pe
-        INNER JOIN app.d_entity_rbac rbac
+        INNER JOIN app.entity_rbac rbac
           ON rbac.person_entity_name = 'role'
           AND rbac.entity_name = pe.parent_entity_name
           AND rbac.permission >= 4
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        INNER JOIN app.d_entity_instance_link eim
+        INNER JOIN app.entity_instance_link eim
           ON eim.parent_entity_type = 'role'
           AND eim.parent_entity_id = rbac.person_entity_id
           AND eim.child_entity_type = 'employee'
@@ -371,7 +371,7 @@ export async function data_gate_EntityIdsByEntityType(
       parent_create_children AS (
         SELECT DISTINCT eim.child_entity_id AS entity_id, 4 AS permission
         FROM parents_with_create pwc
-        INNER JOIN app.d_entity_instance_link eim
+        INNER JOIN app.entity_instance_link eim
           ON eim.parent_entity_type = pwc.parent_entity_name
           AND eim.parent_entity_id = pwc.parent_id
           AND eim.child_entity_type = ${entityName}
@@ -512,15 +512,15 @@ export async function api_gate_Delete(
  * The gates add security/filtering layers:
  *
  * 1. RBAC_GATE - Adds WHERE condition for accessible entity IDs
- * 2. PARENT_CHILD_FILTERING_GATE - Adds INNER JOIN on d_entity_instance_link
+ * 2. PARENT_CHILD_FILTERING_GATE - Adds INNER JOIN on entity_instance_link
  *
  * Example Usage:
  *
  * // Step 1: Entity route builds base query
  * let baseQuery = sql`
  *   SELECT e.*, b.name as business_name
- *   FROM app.d_project e
- *   LEFT JOIN app.d_business b ON e.business_id = b.id
+ *   FROM app.project e
+ *   LEFT JOIN app.business b ON e.business_id = b.id
  * `;
  *
  * // Step 2: Apply RBAC gate (security - REQUIRED)
@@ -538,8 +538,8 @@ export async function api_gate_Delete(
  * // Step 4: Compose final query
  * const query = sql`
  *   SELECT e.*, b.name as business_name
- *   FROM app.d_project e
- *   LEFT JOIN app.d_business b ON e.business_id = b.id
+ *   FROM app.project e
+ *   LEFT JOIN app.business b ON e.business_id = b.id
  *   ${parentJoin || sql``}
  *   WHERE ${rbacFilter}
  *   ORDER BY e.created_ts DESC
@@ -568,7 +568,7 @@ export const unified_data_gate = {
      * );
      *
      * const query = sql`
-     *   SELECT * FROM app.d_project e
+     *   SELECT * FROM app.project e
      *   WHERE ${rbacCondition}
      * `;
      */
@@ -673,7 +673,7 @@ export const unified_data_gate = {
      * );
      *
      * const query = sql`
-     *   SELECT * FROM app.d_project e
+     *   SELECT * FROM app.project e
      *   ${parentJoin}
      *   WHERE ...
      * `;
@@ -685,7 +685,7 @@ export const unified_data_gate = {
       tableAlias: string = 'e'
     ): SQL => {
       return sql`
-        INNER JOIN app.d_entity_instance_link eim ON (
+        INNER JOIN app.entity_instance_link eim ON (
           eim.child_entity_id = ${sql.raw(tableAlias)}.id
           AND eim.parent_entity_type = ${parentEntityType}
           AND eim.parent_entity_id = ${parentEntityId}::uuid
@@ -840,7 +840,7 @@ export async function buildEntityQuery<T = any>(
   // Only applied when filtering by parent entity
   if (parentType && parentId) {
     joins.push(sql`
-      INNER JOIN app.d_entity_instance_link eim ON (
+      INNER JOIN app.entity_instance_link eim ON (
         eim.child_entity_id = e.id
         AND eim.parent_entity_type = ${parentType}
         AND eim.parent_entity_id = ${parentId}::uuid

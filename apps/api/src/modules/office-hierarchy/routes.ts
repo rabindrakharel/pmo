@@ -85,7 +85,7 @@ export async function officeHierarchyRoutes(fastify: FastifyInstance) {
       const baseConditions = [
         sql`(
           EXISTS (
-            SELECT 1 FROM app.d_entity_rbac rbac
+            SELECT 1 FROM app.entity_rbac rbac
             WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}::uuid
               AND rbac.entity_name = 'office_hierarchy'
               AND (rbac.entity_id = oh.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -139,7 +139,7 @@ export async function officeHierarchyRoutes(fastify: FastifyInstance) {
           emp.name as manager_name,
           parent.name as parent_name
         FROM app.d_office_hierarchy oh
-        LEFT JOIN app.d_employee emp ON oh.manager_employee_id = emp.id
+        LEFT JOIN app.employee emp ON oh.manager_employee_id = emp.id
         LEFT JOIN app.d_office_hierarchy parent ON oh.parent_id = parent.id
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY oh.dl__office_hierarchy_level ASC, oh.name ASC NULLS LAST
@@ -185,11 +185,11 @@ export async function officeHierarchyRoutes(fastify: FastifyInstance) {
           emp.name as manager_name,
           parent.name as parent_name
         FROM app.d_office_hierarchy oh
-        LEFT JOIN app.d_employee emp ON oh.manager_employee_id = emp.id
+        LEFT JOIN app.employee emp ON oh.manager_employee_id = emp.id
         LEFT JOIN app.d_office_hierarchy parent ON oh.parent_id = parent.id
         WHERE oh.id = ${id}::uuid
           AND EXISTS (
-            SELECT 1 FROM app.d_entity_rbac rbac
+            SELECT 1 FROM app.entity_rbac rbac
             WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}::uuid
               AND rbac.entity_name = 'office_hierarchy'
               AND (rbac.entity_id = oh.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)

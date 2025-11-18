@@ -199,8 +199,8 @@ export const SCHEMA_METADATA: Record<string, TableMetadata> = {
   },
 
   // Domain tables
-  'app.d_employee': {
-    tableName: 'app.d_employee',
+  'app.employee': {
+    tableName: 'app.employee',
     defaultBehavior: {},
     columns: {
       'email': { 'api:pii_masking': true },

@@ -52,7 +52,7 @@ import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
 import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 
-// Artifact schemas aligned with actual app.d_artifact columns
+// Artifact schemas aligned with actual app.artifact columns
 const ArtifactSchema = Type.Object({
   id: Type.String(),
   code: Type.String(),
@@ -201,7 +201,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       // Get total count
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as count
-        FROM app.d_artifact ${sql.raw(TABLE_ALIAS)}
+        FROM app.artifact ${sql.raw(TABLE_ALIAS)}
         ${whereClause}
       `);
       const total = Number(countResult[0]?.count || 0);
@@ -216,7 +216,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           ${sql.raw(TABLE_ALIAS)}.dl__artifact_security_classification as security_classification,
           ${sql.raw(TABLE_ALIAS)}.latest_version_flag, ${sql.raw(TABLE_ALIAS)}.version, ${sql.raw(TABLE_ALIAS)}.active_flag,
           ${sql.raw(TABLE_ALIAS)}.from_ts, ${sql.raw(TABLE_ALIAS)}.to_ts, ${sql.raw(TABLE_ALIAS)}.created_ts, ${sql.raw(TABLE_ALIAS)}.updated_ts
-        FROM app.d_artifact ${sql.raw(TABLE_ALIAS)}
+        FROM app.artifact ${sql.raw(TABLE_ALIAS)}
         ${whereClause}
         ORDER BY ${sql.raw(TABLE_ALIAS)}.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -274,7 +274,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           visibility, dl__artifact_security_classification as security_classification,
           latest_version_flag, version, active_flag,
           from_ts, to_ts, created_ts, updated_ts
-        FROM app.d_artifact
+        FROM app.artifact
         WHERE id = ${id} AND active_flag = true
       `);
 
@@ -310,7 +310,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
     try {
       const result = await db.execute(sql`
-        INSERT INTO app.d_artifact (
+        INSERT INTO app.artifact (
           code, name, descr, metadata, dl__artifact_type,
           attachment_format, attachment_size_bytes,
           attachment_object_bucket, attachment_object_key,
@@ -412,7 +412,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       });
 
       const result = await db.execute(sql`
-        UPDATE app.d_artifact
+        UPDATE app.artifact
         SET ${sql.join(setClauses, sql`, `)}
         WHERE id = ${id} AND active_flag = true
         RETURNING *
@@ -499,7 +499,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       });
 
       const result = await db.execute(sql`
-        UPDATE app.d_artifact
+        UPDATE app.artifact
         SET ${sql.join(setClauses, sql`, `)}
         WHERE id = ${id} AND active_flag = true
         RETURNING *
@@ -518,9 +518,9 @@ export async function artifactRoutes(fastify: FastifyInstance) {
   // ============================================================================
   // Delete artifact with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
-  // 1. app.d_artifact (base entity table)
-  // 2. app.d_entity_instance_registry (entity registry)
-  // 3. app.d_entity_instance_link (linkages in both directions)
+  // 1. app.artifact (base entity table)
+  // 2. app.entity_instance (entity registry)
+  // 3. app.entity_instance_link (linkages in both directions)
   // Adds proper RBAC checks and entity existence validation
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
@@ -566,7 +566,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
       // Create artifact metadata record
       const result = await db.execute(sql`
-        INSERT INTO app.d_artifact (
+        INSERT INTO app.artifact (
           code, name, descr, metadata,
           dl__artifact_type, attachment_format, attachment_size_bytes,
           entity_type, entity_id,
@@ -630,7 +630,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       const result = await db.execute(sql`
         SELECT
           id, name, attachment_format, attachment_size_bytes, attachment_object_key, attachment_object_bucket
-        FROM app.d_artifact
+        FROM app.artifact
         WHERE id = ${id} AND active_flag = true
       `);
 
@@ -651,7 +651,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
       // Update download count (temporarily disabled - TODO: fix jsonb_set issue)
       // await db.execute(sql`
-      //   UPDATE app.d_artifact
+      //   UPDATE app.artifact
       //   SET metadata = jsonb_set(
       //     COALESCE(metadata, '{}'::jsonb),
       //     '{downloadCount}',
@@ -735,7 +735,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       // Get total count
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as count
-        FROM app.d_artifact
+        FROM app.artifact
         WHERE entity_type = ${entityType}
           AND entity_id = ${entityId}
           AND active_flag = true
@@ -745,7 +745,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       // Get artifacts
       const rows = await db.execute(sql`
         SELECT *
-        FROM app.d_artifact
+        FROM app.artifact
         WHERE entity_type = ${entityType}
           AND entity_id = ${entityId}
           AND active_flag = true
@@ -792,7 +792,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     const data = request.body as any;
 
     try {
-      const currentResult = await db.execute(sql`SELECT * FROM app.d_artifact WHERE id = ${id} AND active_flag = true`);
+      const currentResult = await db.execute(sql`SELECT * FROM app.artifact WHERE id = ${id} AND active_flag = true`);
       if (!currentResult.length) return reply.status(404).send({ error: 'Not found' });
 
       const current = currentResult[0] as any;
@@ -824,7 +824,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
       // In-place update: same ID, version++, new file (like form_head pattern)
       const updatedResult = await db.execute(sql`
-        UPDATE app.d_artifact SET
+        UPDATE app.artifact SET
           attachment_object_key = ${finalObjectKey},
           attachment_object_bucket = ${config.S3_ATTACHMENTS_BUCKET},
           attachment_format = ${data.attachment_format || ext},
@@ -877,7 +877,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
     const { id } = request.params as any;
 
     try {
-      const result = await db.execute(sql`SELECT * FROM app.d_artifact WHERE id = ${id}`);
+      const result = await db.execute(sql`SELECT * FROM app.artifact WHERE id = ${id}`);
       if (!result.length) return reply.status(404).send({ error: 'Not found' });
 
       const artifact = result[0] as any;
@@ -915,9 +915,9 @@ export async function artifactRoutes(fastify: FastifyInstance) {
   });
 
   // ============================================================================
-  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // Child Entity Endpoints (Auto-Generated from entity metadata)
   // ============================================================================
-  // Creates: GET /api/v1/artifact/:id/{child} for each child in d_entity.child_entity_codes
+  // Creates: GET /api/v1/artifact/:id/{child} for each child in entity table.child_entity_codes
   // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
   await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

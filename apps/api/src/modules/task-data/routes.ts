@@ -60,7 +60,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
 
       // Check if user has view permission on the task
       const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.d_entity_rbac rbac
+        SELECT 1 FROM app.entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = 'task'
           AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -92,7 +92,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           td.updated_ts,
           e.name as updated_by_name
         FROM app.d_task_data td
-        LEFT JOIN app.d_employee e ON td.updated_by_employee_id = e.id
+        LEFT JOIN app.employee e ON td.updated_by_employee_id = e.id
         WHERE td.task_id = ${taskId}
           AND td.stage = 'saved'
         ORDER BY td.created_ts DESC
@@ -139,7 +139,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
 
       // Check if user has edit permission on the task
       const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.d_entity_rbac rbac
+        SELECT 1 FROM app.entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = 'task'
           AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -199,7 +199,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
 
       // Get employee name
       const employee = await db.execute(sql`
-        SELECT name FROM app.d_employee WHERE id = ${userId}
+        SELECT name FROM app.employee WHERE id = ${userId}
       `);
 
       return reply.status(201).send({
@@ -237,7 +237,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
 
       // Check permission
       const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.d_entity_rbac rbac
+        SELECT 1 FROM app.entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = 'task'
           AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -268,7 +268,7 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
           td.updated_ts,
           e.name as updated_by_name
         FROM app.d_task_data td
-        LEFT JOIN app.d_employee e ON td.updated_by_employee_id = e.id
+        LEFT JOIN app.employee e ON td.updated_by_employee_id = e.id
         WHERE td.id = ${dataId} AND td.task_id = ${taskId}
       `);
 

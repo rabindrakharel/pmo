@@ -10,15 +10,15 @@
  *   * d_entity_person_calendar: Person availability slots + event link
  *   * d_entity_event_person_calendar: RSVP tracking (who's attending what)
  * - Message: Independent entity sent via messaging service (email/SMS)
- * - Ownership: Event owner stored in d_entity_rbac (permission[5])
- * - Relationships: Event relationships in d_entity_instance_link (event → service, customer)
+ * - Ownership: Event owner stored in entity_rbac (permission[5])
+ * - Relationships: Event relationships in entity_instance_link (event → service, customer)
  *
  * ORCHESTRATION FLOW:
  * 1. Create event in d_event (event details: from_ts, to_ts, location, etc.)
- * 2. Link attendees in d_entity_event_person_calendar (RSVP tracking)
- * 3. Book calendar slots in d_entity_person_calendar (mark unavailable, link event_id)
- * 4. Link entities in d_entity_instance_link (event → service, customer, project)
- * 5. Grant event ownership in d_entity_rbac (assigned employee gets permission[5])
+ * 2. Link attendees in entity table_event_person_calendar (RSVP tracking)
+ * 3. Book calendar slots in entity table_person_calendar (mark unavailable, link event_id)
+ * 4. Link entities in entity_instance_link (event → service, customer, project)
+ * 5. Grant event ownership in entity_rbac (assigned employee gets permission[5])
  * 6. Send email/SMS notifications via messaging service (calendar invites)
  *
  * @module person-calendar/person-calendar.service
@@ -176,7 +176,7 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
 
     // Register in entity_instance_id
     await client`
-      INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+      INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
       VALUES ('event', ${eventId}::uuid, ${event.name}, ${event.code})
       ON CONFLICT (entity_type, entity_id) DO UPDATE
       SET entity_name = EXCLUDED.entity_name,
@@ -269,7 +269,7 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
     }
 
     // ===============================================
-    // STEP 4: Link Entities (d_entity_instance_link)
+    // STEP 4: Link Entities (entity_instance_link)
     // ===============================================
 
     const entityLinks = [];
@@ -297,7 +297,7 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
     // Insert entity linkages
     for (const link of entityLinks) {
       await client`
-        INSERT INTO app.d_entity_instance_link (
+        INSERT INTO app.entity_instance_link (
           parent_entity_type, parent_entity_id,
           child_entity_type, child_entity_id
         ) VALUES (
@@ -380,7 +380,7 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
     // First, get employee email
     const employeeResult = await client`
       SELECT first_name, last_name, email, phone
-      FROM app.d_employee
+      FROM app.employee
       WHERE id = ${assignedEmployeeId}::uuid AND active_flag = true
     `;
 
@@ -512,7 +512,7 @@ export async function cancelPersonCalendar(eventId: string, cancellationReason?:
           ELSE NULL
         END as person_phone
       FROM app.d_entity_event_person_calendar epc
-      LEFT JOIN app.d_employee emp ON emp.id = epc.person_id AND epc.person_entity_type = 'employee'
+      LEFT JOIN app.employee emp ON emp.id = epc.person_id AND epc.person_entity_type = 'employee'
       LEFT JOIN app.d_cust cust ON cust.id = epc.person_id AND epc.person_entity_type = 'customer'
       WHERE epc.event_id = ${eventId}::uuid AND epc.active_flag = true
     `;
@@ -533,7 +533,7 @@ export async function cancelPersonCalendar(eventId: string, cancellationReason?:
 
     // Soft delete entity linkages
     await client`
-      UPDATE app.d_entity_instance_link
+      UPDATE app.entity_instance_link
       SET active_flag = false, to_ts = now(), updated_ts = now()
       WHERE parent_entity_type = 'event' AND parent_entity_id = ${eventId}::uuid
     `;

@@ -73,7 +73,7 @@ export async function grantPermission(
 
   // Check if permission already exists
   const existingCheck = await db.execute(sql`
-    SELECT * FROM app.d_entity_rbac
+    SELECT * FROM app.entity_rbac
     WHERE person_entity_name = ${personEntityName}
       AND person_entity_id = ${personEntityId}::uuid
       AND entity_name = ${entityName}
@@ -86,7 +86,7 @@ export async function grantPermission(
     // If permission exists but is inactive or has different permission level, update it
     if (!existing.active_flag || existing.permission !== permission) {
       const updated = await db.execute(sql`
-        UPDATE app.d_entity_rbac
+        UPDATE app.entity_rbac
         SET
           permission = ${permission},
           active_flag = true,
@@ -104,7 +104,7 @@ export async function grantPermission(
 
   // Create new permission grant
   const result = await db.execute(sql`
-    INSERT INTO app.d_entity_rbac (
+    INSERT INTO app.entity_rbac (
       person_entity_name,
       person_entity_id,
       entity_name,
@@ -147,7 +147,7 @@ export async function revokePermission(
   } = params;
 
   const result = await db.execute(sql`
-    UPDATE app.d_entity_rbac
+    UPDATE app.entity_rbac
     SET
       active_flag = false,
       updated_ts = NOW()

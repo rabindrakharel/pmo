@@ -168,7 +168,7 @@ export function buildSearchCondition(
  *
  * @example
  * const conditions = buildAutoFilters('e', request.query);
- * const query = sql`SELECT * FROM app.d_project e WHERE ${sql.join(conditions, sql` AND `)}`;
+ * const query = sql`SELECT * FROM app.project e WHERE ${sql.join(conditions, sql` AND `)}`;
  */
 export function buildAutoFilters(
   tableAlias: string,

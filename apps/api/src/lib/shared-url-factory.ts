@@ -19,17 +19,17 @@ import { sql } from 'drizzle-orm';
  * Maps frontend entity names to database table names
  */
 export const ENTITY_TABLE_MAP: Record<string, string> = {
-  task: 'd_task',
-  form: 'd_form_head',
-  wiki: 'd_wiki',
-  artifact: 'd_artifact',
-  project: 'd_project',
-  biz: 'd_business',
-  office: 'd_office',
-  employee: 'd_employee',
-  client: 'd_client',
-  worksite: 'd_worksite',
-  role: 'd_role',
+  task: 'task',
+  form: 'form_head',
+  wiki: 'wiki',
+  artifact: 'artifact',
+  project: 'project',
+  biz: 'business',
+  office: 'office',
+  employee: 'employee',
+  client: 'cust',
+  worksite: 'worksite',
+  role: 'role',
   position: 'd_position',
 };
 

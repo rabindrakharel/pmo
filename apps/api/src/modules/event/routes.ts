@@ -169,7 +169,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
               'name', emp.name,
               'email', emp.email
             )
-            FROM app.d_employee emp
+            FROM app.employee emp
             WHERE emp.id = e.organizer_employee_id
           ) as organizer
         FROM app.d_event e
@@ -277,7 +277,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
               'name', emp.name,
               'email', emp.email
             )
-            FROM app.d_employee emp
+            FROM app.employee emp
             WHERE emp.id = e.organizer_employee_id
           ) as organizer
         FROM app.d_event e
@@ -310,7 +310,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
               WHEN epc.person_entity_type = 'customer' THEN cust.metadata->>'email'
             END as person_email
           FROM app.d_entity_event_person_calendar epc
-          LEFT JOIN app.d_employee emp ON epc.person_id = emp.id AND epc.person_entity_type = 'employee'
+          LEFT JOIN app.employee emp ON epc.person_id = emp.id AND epc.person_entity_type = 'employee'
           LEFT JOIN app.d_cust cust ON epc.person_id = cust.id AND epc.person_entity_type = 'customer'
           WHERE epc.event_id = ANY(${eventIds}::uuid[])
             AND epc.active_flag = true
@@ -405,7 +405,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
       const event = eventResult[0];
 
-      // Get linked people (attendees) from d_entity_event_person_calendar
+      // Get linked people (attendees) from entity_event_person_calendar
       const attendeesQuery = client`
         SELECT
           id::text,
@@ -424,13 +424,13 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
       const attendeesResult = await attendeesQuery;
 
-      // Get linked entities from d_entity_instance_link
+      // Get linked entities from entity_instance_link
       const linkedEntitiesQuery = client`
         SELECT
           child_entity_type,
           child_entity_id,
           relationship_type
-        FROM app.d_entity_instance_link
+        FROM app.entity_instance_link
         WHERE parent_entity_type = 'event'
           AND parent_entity_id = ${id}
           AND active_flag = true
@@ -520,7 +520,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
       // Register in entity_instance_id
       await client`
-        INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+        INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
         VALUES ('event', ${newEvent.id}::uuid, ${newEvent.name}, ${newEvent.code})
         ON CONFLICT (entity_type, entity_id) DO UPDATE
         SET entity_name = EXCLUDED.entity_name,
@@ -602,7 +602,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
           // Register in entity_instance_id
           await client`
-            INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+            INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
             VALUES ('event_person_calendar', ${attendeeResult[0].id}::uuid, ${attendeeCode}, ${attendeeCode})
             ON CONFLICT (entity_type, entity_id) DO UPDATE
             SET entity_name = EXCLUDED.entity_name,
@@ -775,7 +775,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
             WHEN epc.person_entity_type = 'client' THEN NULL
           END as person_email
         FROM app.d_entity_event_person_calendar epc
-        LEFT JOIN app.d_employee emp ON epc.person_entity_type = 'employee' AND epc.person_id = emp.id
+        LEFT JOIN app.employee emp ON epc.person_entity_type = 'employee' AND epc.person_id = emp.id
         LEFT JOIN app.d_cust cust ON epc.person_entity_type = 'customer' AND epc.person_id = cust.id
         WHERE epc.event_id = ${id}::uuid AND epc.active_flag = true
         ORDER BY epc.event_rsvp_status, epc.person_entity_type
@@ -801,7 +801,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
 
   /**
    * GET /api/v1/event/:id/entities
-   * Get all linked entities for a specific event (from d_entity_instance_link)
+   * Get all linked entities for a specific event (from entity_instance_link)
    */
   fastify.get<{
     Params: { id: string };
@@ -827,7 +827,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           relationship_type,
           from_ts::text,
           to_ts::text
-        FROM app.d_entity_instance_link
+        FROM app.entity_instance_link
         WHERE parent_entity_type = 'event'
           AND parent_entity_id = ${id}
           AND active_flag = true
@@ -856,7 +856,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
   // ✨ Factory-generated child entity endpoints
-  // Auto-generates endpoints for child entities based on d_entity metadata
+  // Auto-generates endpoints for child entities based on entity metadata
   // Example: GET /api/v1/event/:id/{child_entity}
   await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 

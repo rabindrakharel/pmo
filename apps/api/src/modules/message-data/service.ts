@@ -168,7 +168,7 @@ export class MessageDataService {
 
     // Register in entity instance registry
     await db.execute(sql`
-      INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+      INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
       VALUES ('message', ${message.id}::uuid, ${message.name}, ${message.code})
       ON CONFLICT (entity_type, entity_id) DO UPDATE
       SET entity_name = EXCLUDED.entity_name,

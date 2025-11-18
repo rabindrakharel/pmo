@@ -32,18 +32,18 @@ const UpdateEntitySchema = Type.Partial(CreateEntitySchema);
 
 // Entity table mapping
 const ENTITY_TABLE_MAP: Record<string, string> = {
-  'biz': 'app.d_business',
-  'project': 'app.d_project',
-  'hr': 'app.d_office',
-  'org': 'app.d_office',
-  'client': 'app.d_client',
-  'worksite': 'app.d_worksite',
-  'employee': 'app.d_employee',
-  'role': 'app.d_role',
-  'wiki': 'app.d_wiki',
-  'form': 'app.d_form_head',
-  'task': 'app.d_task',
-  'artifact': 'app.d_artifact'};
+  'biz': 'app.business',
+  'project': 'app.project',
+  'hr': 'app.office',
+  'org': 'app.office',
+  'client': 'app.cust',
+  'worksite': 'app.worksite',
+  'employee': 'app.employee',
+  'role': 'app.role',
+  'wiki': 'app.wiki',
+  'form': 'app.form_head',
+  'task': 'app.task',
+  'artifact': 'app.artifact'};
 
 // Relationship type configuration
 interface RelationshipConfig {

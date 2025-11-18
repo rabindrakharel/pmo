@@ -497,7 +497,7 @@ export class EntityInfrastructureService {
    * Get dynamic child entity tabs for detail page
    * Universal endpoint handler for GET /:id/dynamic-child-entity-tabs
    *
-   * Returns child entity types with metadata (label, icon) from d_entity.child_entity_codes
+   * Returns child entity types with metadata (label, icon) from entity.child_entity_codes
    * Routes should handle RBAC checks and counting separately if needed
    *
    * @example

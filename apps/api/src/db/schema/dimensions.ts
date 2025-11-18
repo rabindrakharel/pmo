@@ -98,7 +98,7 @@ export const dScopeApp = pgTable('d_scope_app', {
   updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow()});
 
 // Employee
-export const dEmployee = pgTable('d_employee', {
+export const dEmployee = pgTable('employee', {
   id: uuid('id').primaryKey().defaultRandom(),
   
   // Standard fields (audit, metadata, SCD type 2)
@@ -153,7 +153,7 @@ export const dEmployee = pgTable('d_employee', {
   emergencyContact: jsonb('emergency_contact').default('{}')});
 
 // Role (deprecated - use unified scope system)
-export const dRole = pgTable('d_role', {
+export const dRole = pgTable('role', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   descr: text('descr'),
@@ -355,7 +355,7 @@ export const dCustRelations = relations(dCust, ({ one, many }) => ({
     references: [dEmployee.id]})}));
 
 // Wiki table (from DDL)
-export const dWiki = pgTable('d_wiki', {
+export const dWiki = pgTable('wiki', {
   id: uuid('id').primaryKey().defaultRandom(),
   
   // Standard fields

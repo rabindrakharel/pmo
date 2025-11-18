@@ -98,7 +98,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       // Find employee by email
       const employeeResult = await db.execute(sql`
         SELECT id, name, email, password_hash
-        FROM app.d_employee
+        FROM app.employee
         WHERE email = ${email}
           AND active_flag = true
           AND (to_ts IS NULL OR to_ts > NOW())
@@ -167,7 +167,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       // Get employee profile
       const employeeResult = await db.execute(sql`
         SELECT id, name, email
-        FROM app.d_employee
+        FROM app.employee
         WHERE id = ${userId}
           AND active_flag = true
           AND (to_ts IS NULL OR to_ts > NOW())

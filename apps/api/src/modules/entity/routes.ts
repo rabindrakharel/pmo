@@ -7,7 +7,7 @@ import { getEntityInfrastructure } from '@/services/entity-infrastructure.servic
 /**
  * Entity Metadata Routes
  *
- * Provides centralized entity TYPE metadata from d_entity table including:
+ * Provides centralized entity TYPE metadata from entity table including:
  * - Parent-child relationships (child_entity_codes JSONB)
  * - Entity icons
  * - Entity display names
@@ -170,7 +170,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/v1/entity/child-tabs/:entity_type/:entity_id
    * Get complete tab configuration for an entity including metadata + counts
-   * Combines child_entity_codes metadata from d_entity with actual counts from d_entity_instance_link
+   * Combines child_entity_codes metadata from entity with actual counts from entity_instance_link
    * This is the PRIMARY endpoint for DynamicChildEntityTabs
    */
   fastify.get('/api/v1/entity/child-tabs/:entity_type/:entity_id', {
@@ -210,7 +210,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Step 1: Get entity TYPE metadata from d_entity
+      // Step 1: Get entity TYPE metadata from entity
       const entityTypeResult = await db.execute(sql`
         SELECT
           code,
@@ -218,7 +218,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
           ui_label,
           ui_icon,
           child_entity_codes
-        FROM app.d_entity
+        FROM app.entity
         WHERE code = ${normalizedEntityType}
           AND active_flag = true
         LIMIT 1
@@ -241,7 +241,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
         childEntityCodes = [];
       }
 
-      // Step 1.5: Enrich child entities with metadata from d_entity and filter inactive
+      // Step 1.5: Enrich child entities with metadata from entity and filter inactive
       // Query d_entity to get ui_icon, ui_label for each child entity
       let childEntitiesEnriched: any[] = [];
 
@@ -250,7 +250,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
         const placeholders = childEntityCodes.map((_: any, i: number) => `$${i + 1}`).join(', ');
         const query = `
           SELECT code, ui_icon, ui_label
-          FROM app.d_entity
+          FROM app.entity
           WHERE code IN (${placeholders})
             AND active_flag = true
           ORDER BY display_order ASC
@@ -316,7 +316,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
       }
 
       // Step 3: Get actual counts for each child entity type
-      // For most entities, count from d_entity_instance_link (parent-child relationships)
+      // For most entities, count from entity_instance_link (parent-child relationships)
       // For special entities like 'rbac', count from their own table
       const countMap: Record<string, number> = {};
 
@@ -327,17 +327,17 @@ export async function entityRoutes(fastify: FastifyInstance) {
           // Count RBAC permissions for this role/employee
           const rbacCount = await db.execute(sql`
             SELECT COUNT(*) as count
-            FROM app.d_entity_rbac
+            FROM app.entity_rbac
             WHERE person_entity_name = ${normalizedEntityType}
               AND person_id = ${entity_id}
               AND active_flag = true
           `);
           countMap[childEntityType] = Number(rbacCount[0]?.count || 0);
         } else {
-          // Count from d_entity_instance_link for regular parent-child relationships
+          // Count from entity_instance_link for regular parent-child relationships
           const childCount = await db.execute(sql`
             SELECT COUNT(DISTINCT eim.child_entity_id) as count
-            FROM app.d_entity_instance_link eim
+            FROM app.entity_instance_link eim
             WHERE eim.parent_entity_type = ${normalizedEntityType}
               AND eim.parent_entity_id = ${entity_id}
               AND eim.child_entity_type = ${childEntityType}
@@ -373,7 +373,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
   /**
    * PUT /api/v1/entity/:code/children
    * Update child entities for an entity type
-   * Modifies the child_entity_codes JSONB array in d_entity table
+   * Modifies the child_entity_codes JSONB array in entity table
    * Expects simple string array: ["task", "artifact", "wiki"]
    */
   fastify.put('/api/v1/entity/:code/children', {
@@ -404,7 +404,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
     try {
       // Validate that the entity exists
       const existingEntity = await db.execute(sql`
-        SELECT code FROM app.d_entity
+        SELECT code FROM app.entity
         WHERE code = ${normalizedCode}
         LIMIT 1
       `);
@@ -417,7 +417,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
 
       // Update the child_entity_codes JSONB field
       const result = await db.execute(sql`
-        UPDATE app.d_entity
+        UPDATE app.entity
         SET
           child_entity_codes = ${JSON.stringify(child_entity_codes)}::jsonb,
           updated_ts = NOW()
@@ -490,7 +490,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
     try {
       // Check if entity already exists
       const existing = await db.execute(sql`
-        SELECT code FROM app.d_entity
+        SELECT code FROM app.entity
         WHERE code = ${code}
       `);
 
@@ -503,14 +503,14 @@ export async function entityRoutes(fastify: FastifyInstance) {
       if (!finalDisplayOrder) {
         const maxOrder = await db.execute(sql`
           SELECT COALESCE(MAX(display_order), 0) + 10 as next_order
-          FROM app.d_entity
+          FROM app.entity
         `);
         finalDisplayOrder = maxOrder[0].next_order;
       }
 
       // Create new entity
       const result = await db.execute(sql`
-        INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entity_codes, display_order, active_flag)
+        INSERT INTO app.entity (code, name, ui_label, ui_icon, child_entity_codes, display_order, active_flag)
         VALUES (${code}, ${name}, ${ui_label}, ${ui_icon || null}, '[]'::jsonb, ${finalDisplayOrder}, true)
         RETURNING code, name, ui_label, ui_icon, child_entity_codes, display_order, active_flag
       `);
@@ -572,7 +572,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
     try {
       // Check if entity exists
       const existing = await db.execute(sql`
-        SELECT code FROM app.d_entity WHERE code = ${code}
+        SELECT code FROM app.entity WHERE code = ${code}
       `);
 
       if (existing.length === 0) {
@@ -608,7 +608,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
         // No updates provided
         const result = await db.execute(sql`
           SELECT code, name, ui_label, ui_icon, child_entity_codes, display_order, active_flag
-          FROM app.d_entity WHERE code = ${code}
+          FROM app.entity WHERE code = ${code}
         `);
         return { success: true, data: result[0] };
       }
@@ -617,7 +617,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
       values.push(code);
 
       const updateQuery = `
-        UPDATE app.d_entity
+        UPDATE app.entity
         SET ${setClauses.join(', ')}
         WHERE code = $${values.length}
         RETURNING code, name, ui_label, ui_icon, child_entity_codes, display_order, active_flag
@@ -674,7 +674,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
     try {
       // Check if entity exists
       const existing = await db.execute(sql`
-        SELECT code FROM app.d_entity WHERE code = ${code} AND active_flag = true
+        SELECT code FROM app.entity WHERE code = ${code} AND active_flag = true
       `);
 
       if (existing.length === 0) {
@@ -683,7 +683,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
 
       // Soft delete by setting active_flag to false
       await db.execute(sql`
-        UPDATE app.d_entity
+        UPDATE app.entity
         SET active_flag = false, updated_ts = NOW()
         WHERE code = ${code}
       `);
@@ -757,7 +757,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
       // Validate that the entity exists
       const existingEntity = await db.execute(sql`
         SELECT code, name, ui_label, ui_icon, display_order, metadata
-        FROM app.d_entity
+        FROM app.entity
         WHERE code = ${normalizedCode}
         LIMIT 1
       `);
@@ -806,7 +806,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
       // Execute update
       values.push(normalizedCode);
       const updateQuery = `
-        UPDATE app.d_entity
+        UPDATE app.entity
         SET ${setClauses.join(', ')}
         WHERE code = $${values.length}
         RETURNING code, name, ui_label, ui_icon, display_order, metadata
@@ -886,7 +886,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
           column_metadata,
           data_labels,
           display_order
-        FROM app.d_entity
+        FROM app.entity
         WHERE active_flag = true
           AND dl_entity_domain IS NOT NULL
         ORDER BY dl_entity_domain, display_order ASC
@@ -984,7 +984,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
     try {
       // First, verify user has access to the parent entity
       const parentAccess = await db.execute(sql`
-        SELECT 1 FROM app.d_entity_rbac rbac
+        SELECT 1 FROM app.entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = ${normalizedEntityType}
           AND (rbac.entity_id = ${entity_id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -997,12 +997,12 @@ export async function entityRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: 'Access denied' });
       }
 
-      // Get child entity counts using d_entity_instance_link
+      // Get child entity counts using entity_instance_link
       const childCounts = await db.execute(sql`
         SELECT
           eim.child_entity_type as entity_type,
           COUNT(DISTINCT eim.child_entity_id) as count
-        FROM app.d_entity_instance_link eim
+        FROM app.entity_instance_link eim
         WHERE eim.parent_entity_type = ${normalizedEntityType}
           AND eim.parent_entity_id = ${entity_id}
           AND eim.active_flag = true
@@ -1082,7 +1082,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
       // Import schema builder service
       const { buildEntitySchema } = await import('../../lib/schema-builder.service.js');
 
-      // ✨ FULLY DYNAMIC: Table name auto-fetched from d_entity.db_table!
+      // ✨ FULLY DYNAMIC: Table name auto-fetched from entity.db_table!
       // No more hardcoded table mappings!
       const schema = await buildEntitySchema(db, normalizedEntityType);
 
@@ -1173,7 +1173,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
 
       // Verify entity exists
       const entityCheck = await db.execute(sql`
-        SELECT code FROM app.d_entity
+        SELECT code FROM app.entity
         WHERE code = ${code}
         LIMIT 1
       `);
@@ -1184,7 +1184,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
 
       // Update entity configuration
       await db.execute(sql`
-        UPDATE app.d_entity
+        UPDATE app.entity
         SET
           name = ${name},
           ui_label = ${ui_label},

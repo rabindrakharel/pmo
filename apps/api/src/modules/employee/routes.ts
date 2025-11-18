@@ -276,8 +276,8 @@ export async function empRoutes(fastify: FastifyInstance) {
         // Query WITH JOIN for parent filtering
         countResult = await db.execute(sql`
           SELECT COUNT(*) as total
-          FROM app.d_employee e
-          INNER JOIN app.d_entity_instance_link eim ON eim.child_entity_id = e.id
+          FROM app.employee e
+          INNER JOIN app.entity_instance_link eim ON eim.child_entity_id = e.id
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         `);
 
@@ -294,8 +294,8 @@ export async function empRoutes(fastify: FastifyInstance) {
             e.sin, e.birth_date, e.dl__employee_citizenship_status as citizenship, e.dl__employee_security_clearance as security_clearance,
             e.remote_work_eligible_flag as remote_work_eligible, e.time_zone, e.preferred_language,
             COALESCE(e.metadata, '{}'::jsonb) as metadata
-          FROM app.d_employee e
-          INNER JOIN app.d_entity_instance_link eim ON eim.child_entity_id = e.id
+          FROM app.employee e
+          INNER JOIN app.entity_instance_link eim ON eim.child_entity_id = e.id
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
           ORDER BY e.name ASC NULLS LAST, e.created_ts DESC
           LIMIT ${limit} OFFSET ${offset}
@@ -304,7 +304,7 @@ export async function empRoutes(fastify: FastifyInstance) {
         // Query WITHOUT JOIN for normal listing
         countResult = await db.execute(sql`
           SELECT COUNT(*) as total
-          FROM app.d_employee e
+          FROM app.employee e
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         `);
 
@@ -321,7 +321,7 @@ export async function empRoutes(fastify: FastifyInstance) {
             e.sin, e.birth_date, e.dl__employee_citizenship_status as citizenship, e.dl__employee_security_clearance as security_clearance,
             e.remote_work_eligible_flag as remote_work_eligible, e.time_zone, e.preferred_language,
             COALESCE(e.metadata, '{}'::jsonb) as metadata
-          FROM app.d_employee e
+          FROM app.employee e
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
           ORDER BY e.name ASC NULLS LAST, e.created_ts DESC
           LIMIT ${limit} OFFSET ${offset}
@@ -382,7 +382,7 @@ export async function empRoutes(fastify: FastifyInstance) {
           sin, birth_date, dl__employee_citizenship_status as citizenship, dl__employee_security_clearance as security_clearance,
           remote_work_eligible_flag as remote_work_eligible, time_zone, preferred_language,
           COALESCE(metadata, '{}'::jsonb) as metadata
-        FROM app.d_employee
+        FROM app.employee
         WHERE id = ${id}
       `);
 
@@ -511,7 +511,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       // Check for unique email if provided
       if (data.email) {
         const existingEmail = await db.execute(sql`
-          SELECT id FROM app.d_employee WHERE email = ${data.email} AND active_flag = true
+          SELECT id FROM app.employee WHERE email = ${data.email} AND active_flag = true
         `);
         if (existingEmail.length > 0) {
           return reply.status(400).send({ error: 'Employee with this email already exists' });
@@ -527,7 +527,7 @@ export async function empRoutes(fastify: FastifyInstance) {
 
       // ✅ ROUTE OWNS - INSERT into primary table
       const result = await db.execute(sql`
-        INSERT INTO app.d_employee (
+        INSERT INTO app.employee (
           code, name, "descr", email, phone,
           first_name, last_name, title, department,
           hire_date, termination_date, dl__employee_employment_type,
@@ -637,7 +637,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       }
 
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_employee WHERE id = ${id}
+        SELECT id FROM app.employee WHERE id = ${id}
       `);
 
       if (existing.length === 0) {
@@ -706,7 +706,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated_ts = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_employee
+        UPDATE app.employee
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -776,7 +776,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       }
 
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_employee WHERE id = ${id}
+        SELECT id FROM app.employee WHERE id = ${id}
       `);
 
       if (existing.length === 0) {
@@ -845,7 +845,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated_ts = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_employee 
+        UPDATE app.employee 
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -883,7 +883,7 @@ export async function empRoutes(fastify: FastifyInstance) {
   createEntityDeleteEndpoint(fastify, ENTITY_TYPE);
 
   // ============================================================================
-  // Child Entity Endpoints (Auto-Generated from d_entity metadata)
+  // Child Entity Endpoints (Auto-Generated from entity metadata)
   // ============================================================================
   await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

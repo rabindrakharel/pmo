@@ -14,21 +14,21 @@ import { sql } from 'drizzle-orm';
 
 // Map of entity types to their database table names
 const ENTITY_TABLE_MAP: Record<string, string> = {
-  employee: 'd_employee',
-  project: 'd_project',
-  task: 'd_task',
-  biz: 'd_business',
-  business: 'd_business',
-  office: 'd_office',
-  org: 'd_office',
-  client: 'd_client',
-  cust: 'd_client',
-  worksite: 'd_worksite',
-  role: 'd_role',
+  employee: 'employee',
+  project: 'project',
+  task: 'task',
+  biz: 'business',
+  business: 'business',
+  office: 'office',
+  org: 'office',
+  client: 'cust',
+  cust: 'cust',
+  worksite: 'worksite',
+  role: 'role',
   position: 'd_position',
-  artifact: 'd_artifact',
-  wiki: 'd_wiki',
-  form: 'd_form_head',
+  artifact: 'artifact',
+  wiki: 'wiki',
+  form: 'form_head',
 };
 
 export async function entityOptionsRoutes(fastify: FastifyInstance) {
@@ -82,7 +82,7 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
     try {
       // Build RBAC filter - user must have view permission (0)
       const rbacCondition = sql`EXISTS (
-        SELECT 1 FROM app.d_entity_rbac rbac
+        SELECT 1 FROM app.entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = ${entityType}
           AND (rbac.entity_id = e.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -212,7 +212,7 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
    * GET /api/v1/entity/:parentType/:parentId/children
    *
    * Universal API to get all child entities for a given parent entity.
-   * Uses d_entity_instance_link to find relationships and returns grouped results.
+   * Uses entity_instance_link to find relationships and returns grouped results.
    *
    * Example response:
    * [
@@ -263,7 +263,7 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
       // First, verify user has access to the parent entity
       const parentAccessCheck = await db.execute(sql`
         SELECT 1
-        FROM app.d_entity_rbac rbac
+        FROM app.entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = ${parentType}
           AND (rbac.entity_id = ${parentId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -279,10 +279,10 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Get all child entity types for this parent from d_entity_instance_link
+      // Get all child entity types for this parent from entity_instance_link
       const childTypesResult = await db.execute(sql`
         SELECT DISTINCT child_entity_type
-        FROM app.d_entity_instance_link
+        FROM app.entity_instance_link
         WHERE parent_entity_type = ${parentType}
           AND parent_entity_id = ${parentId}
           AND active_flag = true
@@ -307,7 +307,7 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
 
         // Build RBAC filter for child entities
         const rbacCondition = sql`EXISTS (
-          SELECT 1 FROM app.d_entity_rbac rbac
+          SELECT 1 FROM app.entity_rbac rbac
           WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
             AND rbac.entity_name = ${childType}
             AND (rbac.entity_id = e.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
@@ -327,7 +327,7 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
           SELECT
             e.id::text as id,
             e.name
-          FROM app.d_entity_instance_link map
+          FROM app.entity_instance_link map
           JOIN app.${sql.identifier(childTableName)} e ON e.id::text = map.child_entity_id
           WHERE map.parent_entity_type = ${parentType}
             AND map.parent_entity_id = ${parentId}

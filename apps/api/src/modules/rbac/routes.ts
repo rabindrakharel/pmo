@@ -251,21 +251,21 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         if (parentEntity === 'project' && actionEntity === 'task') {
           const directResult = await db.execute(sql`
             SELECT DISTINCT id
-            FROM app.d_task
+            FROM app.task
             WHERE project_id = ${parentEntityId}
           `);
           childEntityIds = directResult.map(row => row.id as string);
         } else if (parentEntity === 'project' && actionEntity === 'wiki') {
           const directResult = await db.execute(sql`
             SELECT DISTINCT id
-            FROM app.d_wiki
+            FROM app.wiki
             WHERE project_id = ${parentEntityId}
           `);
           childEntityIds = directResult.map(row => row.id as string);
         } else if (parentEntity === 'project' && actionEntity === 'artifact') {
           const directResult = await db.execute(sql`
             SELECT DISTINCT id
-            FROM app.d_artifact
+            FROM app.artifact
             WHERE project_id = ${parentEntityId}
           `);
           childEntityIds = directResult.map(row => row.id as string);
@@ -469,14 +469,14 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       // Verify the person exists
       if (person_entity_name === 'role') {
         const roleExists = await db.execute(sql`
-          SELECT id FROM app.d_role WHERE id = ${person_id} AND active_flag = true
+          SELECT id FROM app.role WHERE id = ${person_id} AND active_flag = true
         `);
         if (roleExists.length === 0) {
           return reply.status(400).send({ error: 'Role not found or inactive' });
         }
       } else if (person_entity_name === 'employee') {
         const employeeExists = await db.execute(sql`
-          SELECT id FROM app.d_employee WHERE id = ${person_id} AND active_flag = true
+          SELECT id FROM app.employee WHERE id = ${person_id} AND active_flag = true
         `);
         if (employeeExists.length === 0) {
           return reply.status(400).send({ error: 'Employee not found or inactive' });
@@ -495,7 +495,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       // Check if permission already exists
       const existingPermission = await db.execute(sql`
         SELECT id, permission
-        FROM app.d_entity_rbac
+        FROM app.entity_rbac
         WHERE person_entity_name = ${person_entity_name}
           AND person_id = ${person_id}
           AND entity_name = ${entity_name}
@@ -507,7 +507,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       if (existingPermission.length > 0) {
         // Update existing permission
         result = await db.execute(sql`
-          UPDATE app.d_entity_rbac
+          UPDATE app.entity_rbac
           SET permission = ${permission},
               granted_by_employee_id = ${userId},
               granted_ts = NOW(),
@@ -519,7 +519,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       } else {
         // Insert new permission
         result = await db.execute(sql`
-          INSERT INTO app.d_entity_rbac (
+          INSERT INTO app.entity_rbac (
             person_entity_name,
             person_id,
             entity_name,
@@ -611,7 +611,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           granted_by_employee_id,
           granted_ts,
           expires_ts
-        FROM app.d_entity_rbac
+        FROM app.entity_rbac
         WHERE person_entity_name = ${personType}
           AND person_id = ${personId}
           AND active_flag = true
@@ -656,7 +656,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     try {
       // Check if permission exists
       const permissionExists = await db.execute(sql`
-        SELECT id FROM app.d_entity_rbac WHERE id = ${permissionId} AND active_flag = true
+        SELECT id FROM app.entity_rbac WHERE id = ${permissionId} AND active_flag = true
       `);
 
       if (permissionExists.length === 0) {
@@ -665,7 +665,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
 
       // Soft delete the permission
       await db.execute(sql`
-        UPDATE app.d_entity_rbac
+        UPDATE app.entity_rbac
         SET active_flag = false, updated_ts = NOW()
         WHERE id = ${permissionId}
       `);
@@ -758,12 +758,12 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           rbac.active_flag,
           rbac.created_ts,
           rbac.updated_ts
-        FROM app.d_entity_rbac rbac
-        LEFT JOIN app.d_employee emp ON rbac.person_entity_name = 'employee' AND rbac.person_id = emp.id
-        LEFT JOIN app.d_role role ON rbac.person_entity_name = 'role' AND rbac.person_id = role.id
-        LEFT JOIN app.d_employee granter ON rbac.granted_by_employee_id = granter.id
+        FROM app.entity_rbac rbac
+        LEFT JOIN app.employee emp ON rbac.person_entity_name = 'employee' AND rbac.person_id = emp.id
+        LEFT JOIN app.role role ON rbac.person_entity_name = 'role' AND rbac.person_id = role.id
+        LEFT JOIN app.employee granter ON rbac.granted_by_employee_id = granter.id
         -- Centralized entity name resolution using entity_instance_id registry
-        LEFT JOIN app.d_entity_instance_registry entity_inst
+        LEFT JOIN app.entity_instance entity_inst
           ON rbac.entity_name = entity_inst.entity_type
           AND rbac.entity_id = entity_inst.entity_id
         WHERE rbac.active_flag = true
@@ -775,7 +775,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       // Get total count
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as count
-        FROM app.d_entity_rbac
+        FROM app.entity_rbac
         WHERE active_flag = true
       `);
 
@@ -842,7 +842,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           active_flag,
           created_ts,
           updated_ts
-        FROM app.d_entity_rbac
+        FROM app.entity_rbac
         WHERE id = ${id} AND active_flag = true
       `);
 
@@ -899,14 +899,14 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       // Verify the person exists
       if (person_entity_name === 'role') {
         const roleExists = await db.execute(sql`
-          SELECT id FROM app.d_role WHERE id = ${person_id} AND active_flag = true
+          SELECT id FROM app.role WHERE id = ${person_id} AND active_flag = true
         `);
         if (roleExists.length === 0) {
           return reply.status(400).send({ error: 'Role not found or inactive' });
         }
       } else if (person_entity_name === 'employee') {
         const employeeExists = await db.execute(sql`
-          SELECT id FROM app.d_employee WHERE id = ${person_id} AND active_flag = true
+          SELECT id FROM app.employee WHERE id = ${person_id} AND active_flag = true
         `);
         if (employeeExists.length === 0) {
           return reply.status(400).send({ error: 'Employee not found or inactive' });
@@ -924,7 +924,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       // Check if permission already exists
       const existingPermission = await db.execute(sql`
         SELECT id, permission
-        FROM app.d_entity_rbac
+        FROM app.entity_rbac
         WHERE person_entity_name = ${person_entity_name}
           AND person_id = ${person_id}
           AND entity_name = ${entity_name}
@@ -936,7 +936,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       if (existingPermission.length > 0) {
         // Update existing permission
         result = await db.execute(sql`
-          UPDATE app.d_entity_rbac
+          UPDATE app.entity_rbac
           SET permission = ${permission},
               granted_by_employee_id = ${userId},
               granted_ts = NOW(),
@@ -948,7 +948,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       } else {
         // Insert new permission
         result = await db.execute(sql`
-          INSERT INTO app.d_entity_rbac (
+          INSERT INTO app.entity_rbac (
             person_entity_name,
             person_id,
             entity_name,
@@ -1037,7 +1037,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     try {
       // Check if record exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.d_entity_rbac WHERE id = ${id} AND active_flag = true
+        SELECT id FROM app.entity_rbac WHERE id = ${id} AND active_flag = true
       `);
 
       if (existing.length === 0) {
@@ -1069,7 +1069,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
 
       // Execute update
       const result = await db.execute(sql`
-        UPDATE app.d_entity_rbac
+        UPDATE app.entity_rbac
         SET permission = ${permission !== undefined ? permission : sql`permission`},
             granted_by_employee_id = ${permission !== undefined ? userId : sql`granted_by_employee_id`},
             granted_ts = ${permission !== undefined ? sql`NOW()` : sql`granted_ts`},
@@ -1129,7 +1129,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     try {
       // Check if permission exists
       const permissionExists = await db.execute(sql`
-        SELECT id FROM app.d_entity_rbac WHERE id = ${id} AND active_flag = true
+        SELECT id FROM app.entity_rbac WHERE id = ${id} AND active_flag = true
       `);
 
       if (permissionExists.length === 0) {
@@ -1138,7 +1138,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
 
       // Soft delete the permission
       await db.execute(sql`
-        UPDATE app.d_entity_rbac
+        UPDATE app.entity_rbac
         SET active_flag = false, updated_ts = NOW()
         WHERE id = ${id}
       `);
@@ -1223,9 +1223,9 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             WHEN rbac.person_entity_name = 'role' THEN role.code
             ELSE NULL
           END AS person_code
-        FROM app.d_entity_rbac rbac
-        LEFT JOIN app.d_employee emp ON rbac.person_entity_name = 'employee' AND rbac.person_id = emp.id
-        LEFT JOIN app.d_role role ON rbac.person_entity_name = 'role' AND rbac.person_id = role.id
+        FROM app.entity_rbac rbac
+        LEFT JOIN app.employee emp ON rbac.person_entity_name = 'employee' AND rbac.person_id = emp.id
+        LEFT JOIN app.role role ON rbac.person_entity_name = 'role' AND rbac.person_id = role.id
         WHERE rbac.active_flag = true
         ORDER BY
           rbac.person_entity_name,
