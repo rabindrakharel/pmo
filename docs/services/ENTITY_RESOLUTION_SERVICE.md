@@ -2,7 +2,7 @@
 
 **Location**: `apps/api/src/services/entity-infrastructure.service.ts`
 **Method**: `resolve_entity_references()`
-**Endpoint**: `POST /api/v1/entity/resolve`
+**Endpoint**: `POST /api/v1/entity/entity_instance_id_lookup`
 
 ## Purpose
 
@@ -24,7 +24,7 @@ The service automatically detects entity references based on field naming:
 ### Request
 
 ```http
-POST /api/v1/entity/resolve
+POST /api/v1/entity/entity_instance_id_lookup
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -74,7 +74,7 @@ const EntityFormDataContainer = ({ entityData }: Props) => {
       const uuidFields = extractUUIDFields(entityData);
 
       // Call resolution endpoint
-      const response = await fetch('/api/v1/entity/resolve', {
+      const response = await fetch('/api/v1/entity/entity_instance_id_lookup', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

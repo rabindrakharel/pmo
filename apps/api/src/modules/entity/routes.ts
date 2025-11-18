@@ -1101,7 +1101,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
   });
 
   /**
-   * POST /api/v1/entity/resolve
+   * POST /api/v1/entity/entity_instance_id_lookup
    * Resolve UUID fields to human-readable entity names using Entity Infrastructure Service
    *
    * NAMING CONVENTION RESOLUTION:
@@ -1129,7 +1129,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
    *
    * Used by: EntityFormDataContainer for displaying human-readable names
    */
-  fastify.post('/api/v1/entity/resolve', {
+  fastify.post('/api/v1/entity/entity_instance_id_lookup', {
     preHandler: [fastify.authenticate],
     schema: {
       body: Type.Record(Type.String(), Type.Union([
