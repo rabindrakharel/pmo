@@ -340,14 +340,13 @@ import {
   createPaginatedResponse
 } from '../../lib/universal-schema-metadata.js';
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
-import { unified_data_gate, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
+
+// Entity Infrastructure Service - Single source of truth for all infrastructure operations
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 
 // Factory functions
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
-
-// Services
-import { createLinkage } from '../../services/linkage.service.js';
 ```
 
 #### RBAC Permission Model (Person-Based)
@@ -491,14 +490,19 @@ setting_datalabel_* tables → /api/v1/entity/:type/options → EntityFormContai
 
 ---
 
-**Version**: 3.3.0 | **Updated**: 2025-01-17 | **Entity System**: v4.0 active
+**Version**: 3.4.0 | **Updated**: 2025-11-18 | **Entity System**: v4.0 active
 
 **Recent Updates**:
+- v3.4.0 (2025-11-18): **Major Architecture Cleanup** - 100% Entity Infrastructure Service adherence
+  - **PURGED**: `unified-data-gate.ts` (33,690 bytes) - Completely replaced by Entity Infrastructure Service
+  - **PURGED**: 10 obsolete files (linkage.service.ts, schema-driven-routes.ts, configTransformer.ts, etc.)
+  - **RENAMED**: `ENTITY_TYPE` → `ENTITY_CODE` across entire codebase (matches data model)
+  - **FIXED**: All infrastructure table names (`d_entity` → `entity`, `d_entity_instance_link` → `entity_instance_link`)
+  - **UPDATED**: 24 documentation files to reflect current architecture
+  - **RESULT**: -4,965 lines removed, 100% standardization, zero competing systems
 - v3.3.0 (2025-01-17): Complete documentation revamp based on actual implementation
   - Added `docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md` - Complete service documentation
   - Added `docs/services/UNIVERSAL_FORMATTER_SERVICE.md` - Complete formatter documentation
   - Revamped `docs/datamodel/README.md` - Database schema based on DDL files
   - Revamped `docs/api/entity_endpoint_design.md` - Actual patterns with architecture diagrams
-  - Removed obsolete documentation (entity_design_pattern, linkage, universal_rbac folders)
 - v3.2.0 (2025-11-15): Added comprehensive API patterns, universal filter system, RBAC model details
-- v3.1.0 (2025-11-12): Entity System v4.0 preparation
