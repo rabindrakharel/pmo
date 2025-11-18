@@ -15,11 +15,11 @@
 -- - Foundation for tax reporting (GST/HST/PST remittance)
 --
 -- RELATIONSHIPS:
--- - Links to d_product (products/services billed)
+-- - Links to app.product (products/services billed)
 -- - Links to d_client (customer being invoiced)
 -- - Links to d_project (project being billed, if applicable)
 -- - Links to f_order (originating order, if applicable)
--- - Links to d_employee (who generated invoice, project manager)
+-- - Links to app.employee (who generated invoice, project manager)
 -- - Parent-child within table (invoice header → invoice lines)
 --
 -- METRICS:
@@ -30,9 +30,9 @@
 --
 -- =====================================================
 
-DROP TABLE IF EXISTS app.f_invoice CASCADE;
+DROP TABLE IF EXISTS app.invoice CASCADE;
 
-CREATE TABLE app.f_invoice (
+CREATE TABLE app.invoice (
     -- Primary Key
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -57,7 +57,7 @@ CREATE TABLE app.f_invoice (
     client_tier VARCHAR(50),                            -- Customer tier for analytics
 
     -- Product/Service Dimension
-    product_id UUID,                                    -- Link to d_product (if product/service item)
+    product_id UUID,                                    -- Link to app.product (if product/service item)
     product_code VARCHAR(50),                           -- Denormalized product code
     product_name VARCHAR(255),                          -- Denormalized name
     product_category VARCHAR(100),                      -- Denormalized category
@@ -146,7 +146,7 @@ CREATE TABLE app.f_invoice (
     cost_center VARCHAR(50),                            -- Cost center/department
 
     -- Attachment Reference
-    attachment_id UUID,                                  -- Link to d_attachment (no FK for loose coupling)
+    attachment_id UUID,                                  -- Link to app.attachment (no FK for loose coupling)
 
     -- Standardized S3 Attachment Fields
     attachment TEXT,                                     -- Full S3 URI: s3://bucket/key (invoice PDF)
@@ -217,14 +217,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER f_invoice_calculate_extended BEFORE INSERT OR UPDATE ON app.f_invoice
+CREATE TRIGGER f_invoice_calculate_extended BEFORE INSERT OR UPDATE ON app.invoice
     FOR EACH ROW EXECUTE FUNCTION app.calculate_f_invoice_extended();
 
 -- =====================================================
 -- SAMPLE DATA: Curated Invoices
 -- =====================================================
 
-INSERT INTO app.f_invoice (
+INSERT INTO app.invoice (
     invoice_number, invoice_line_number, invoice_type, invoice_date, invoice_datetime, due_date,
     client_name, client_type, product_id, product_code, product_name, product_category, line_item_type,
     project_manager_name, quantity_billed, unit_of_measure,
@@ -234,14 +234,14 @@ INSERT INTO app.f_invoice (
 -- Invoice 1: Completed framing job
 ('INV-2025-00001', 1, 'final', '2025-01-15', '2025-01-15 16:00:00', '2025-02-14',
  'Smith Residence Renovation', 'residential',
- (SELECT id FROM app.d_product WHERE code = 'LBR-001'), 'LBR-001', '2x4 SPF Stud 8ft KD', 'Lumber', 'product',
+ (SELECT id FROM app.app.product WHERE code = 'LBR-001'), 'LBR-001', '2x4 SPF Stud 8ft KD', 'Lumber', 'product',
  'James Miller', 150, 'each',
  6.49, 4.20, 0, 13.00,
  'sent', 'unpaid', 'net_30'),
 
 ('INV-2025-00001', 2, 'final', '2025-01-15', '2025-01-15 16:00:00', '2025-02-14',
  'Smith Residence Renovation', 'residential',
- (SELECT id FROM app.d_product WHERE code = 'LBR-003'), 'LBR-003', '3/4" Plywood 4x8 Sanded', 'Lumber', 'product',
+ (SELECT id FROM app.app.product WHERE code = 'LBR-003'), 'LBR-003', '3/4" Plywood 4x8 Sanded', 'Lumber', 'product',
  'James Miller', 25, 'sheet',
  43.99, 32.00, 0, 13.00,
  'sent', 'unpaid', 'net_30'),
@@ -256,14 +256,14 @@ INSERT INTO app.f_invoice (
 -- Invoice 2: Electrical materials (paid)
 ('INV-2025-00002', 1, 'standard', '2025-01-14', '2025-01-14 10:30:00', '2025-02-13',
  'Downtown Office Building', 'commercial',
- (SELECT id FROM app.d_product WHERE code = 'ELC-001'), 'ELC-001', '14/2 NMD90 Wire 75m', 'Electrical', 'product',
+ (SELECT id FROM app.app.product WHERE code = 'ELC-001'), 'ELC-001', '14/2 NMD90 Wire 75m', 'Electrical', 'product',
  'James Miller', 40, 'roll',
  85.00, 62.00, 0, 13.00,
  'paid', 'paid', 'net_30'),
 
 ('INV-2025-00002', 2, 'standard', '2025-01-14', '2025-01-14 10:30:00', '2025-02-13',
  'Downtown Office Building', 'commercial',
- (SELECT id FROM app.d_product WHERE code = 'ELC-003'), 'ELC-003', '15A Duplex Receptacle White', 'Electrical', 'product',
+ (SELECT id FROM app.app.product WHERE code = 'ELC-003'), 'ELC-003', '15A Duplex Receptacle White', 'Electrical', 'product',
  'James Miller', 200, 'each',
  2.25, 1.40, 0, 13.00,
  'paid', 'paid', 'net_30'),
@@ -271,7 +271,7 @@ INSERT INTO app.f_invoice (
 -- Invoice 3: HVAC installation (progress billing)
 ('INV-2025-00003', 1, 'progress', '2025-01-20', '2025-01-20 14:00:00', '2025-02-19',
  'Johnson Family Home', 'residential',
- (SELECT id FROM app.d_product WHERE code = 'HVAC-001'), 'HVAC-001', 'Gas Furnace 60K BTU 96% AFUE', 'HVAC', 'product',
+ (SELECT id FROM app.app.product WHERE code = 'HVAC-001'), 'HVAC-001', 'Gas Furnace 60K BTU 96% AFUE', 'HVAC', 'product',
  'James Miller', 1, 'each',
  2299.99, 1750.00, 0, 13.00,
  'sent', 'unpaid', 'net_30'),
@@ -286,14 +286,14 @@ INSERT INTO app.f_invoice (
 -- Invoice 4: Bathroom renovation (partial payment)
 ('INV-2025-00004', 1, 'standard', '2025-01-22', '2025-01-22 15:30:00', '2025-02-21',
  'Brown Bathroom Remodel', 'residential',
- (SELECT id FROM app.d_product WHERE code = 'PLM-003'), 'PLM-003', 'Elongated Toilet 2-Piece White', 'Plumbing', 'product',
+ (SELECT id FROM app.app.product WHERE code = 'PLM-003'), 'PLM-003', 'Elongated Toilet 2-Piece White', 'Plumbing', 'product',
  'James Miller', 2, 'each',
  239.99, 175.00, 0, 13.00,
  'sent', 'partial', 'net_30'),
 
 ('INV-2025-00004', 2, 'standard', '2025-01-22', '2025-01-22 15:30:00', '2025-02-21',
  'Brown Bathroom Remodel', 'residential',
- (SELECT id FROM app.d_product WHERE code = 'PLM-001'), 'PLM-001', '3/4" Type L Copper Pipe 10ft', 'Plumbing', 'product',
+ (SELECT id FROM app.app.product WHERE code = 'PLM-001'), 'PLM-001', '3/4" Type L Copper Pipe 10ft', 'Plumbing', 'product',
  'James Miller', 12, 'length',
  32.99, 24.50, 0, 13.00,
  'sent', 'partial', 'net_30'),
@@ -301,7 +301,7 @@ INSERT INTO app.f_invoice (
 -- Invoice 5: Paint job completed
 ('INV-2025-00005', 1, 'final', '2025-01-25', '2025-01-25 11:00:00', '2025-02-24',
  'Wilson Interior Refresh', 'residential',
- (SELECT id FROM app.d_product WHERE code = 'PNT-001'), 'PNT-001', 'Interior Latex Paint 1 Gal White', 'Paint', 'product',
+ (SELECT id FROM app.app.product WHERE code = 'PNT-001'), 'PNT-001', 'Interior Latex Paint 1 Gal White', 'Paint', 'product',
  'James Miller', 15, 'gallon',
  49.99, 35.00, 0, 13.00,
  'draft', 'unpaid', 'net_30'),
@@ -314,19 +314,19 @@ INSERT INTO app.f_invoice (
  'draft', 'unpaid', 'net_30');
 
 -- Update paid amounts for partial payment example
-UPDATE app.f_invoice
+UPDATE app.invoice
 SET amount_paid_cad = line_total_cad * 0.5
 WHERE invoice_number = 'INV-2025-00004';
 
 -- Mark invoice 2 as fully paid
-UPDATE app.f_invoice
+UPDATE app.invoice
 SET amount_paid_cad = line_total_cad, paid_date = '2025-01-20'
 WHERE invoice_number = 'INV-2025-00002';
 
 -- Update timestamps
-UPDATE app.f_invoice SET updated_at = NOW();
+UPDATE app.invoice SET updated_at = NOW();
 
-COMMENT ON TABLE app.f_invoice IS 'Invoice fact table with grain at invoice line item level';
+COMMENT ON TABLE app.invoice IS 'Invoice fact table with grain at invoice line item level';
 -- =====================================================
 -- COMPREHENSIVE INVOICE DATA (100+ Invoices)
 -- Realistic billing transactions across customers and projects
@@ -458,7 +458,7 @@ BEGIN
                         WHEN code LIKE 'FLR-%' THEN 3.00 + random() * 12
                         ELSE 10.00 + random() * 100
                     END INTO v_unit_price
-                FROM app.d_product WHERE id = v_product_id;
+                FROM app.app.product WHERE id = v_product_id;
 
                 v_unit_cost := v_unit_price * (0.55 + random() * 0.15); -- 55-70% cost
 
@@ -474,7 +474,7 @@ BEGIN
                     ELSE 1 + floor(random() * 10)::int
                 END;
 
-                INSERT INTO app.f_invoice (
+                INSERT INTO app.invoice (
                     invoice_number, invoice_line_number, invoice_type, invoice_date, invoice_datetime,
                     due_date, client_name, client_type,
                     product_id, product_code, product_name, product_category, line_item_type,
@@ -519,7 +519,7 @@ BEGIN
                 v_unit_cost := 40.00 + random() * 35; -- $40-$75/hr (employee cost)
                 v_qty := 4 + floor(random() * 32)::int; -- 4-36 hours
 
-                INSERT INTO app.f_invoice (
+                INSERT INTO app.invoice (
                     invoice_number, invoice_line_number, invoice_type, invoice_date, invoice_datetime,
                     due_date, client_name, client_type,
                     product_code, product_name, product_category, line_item_type,
@@ -548,7 +548,7 @@ END $$;
 -- =====================================================
 
 -- Set payment amounts for fully paid invoices
-UPDATE app.f_invoice
+UPDATE app.invoice
 SET amount_paid_cad = line_total_cad,
     payment_method = CASE floor(random() * 4)::int
         WHEN 0 THEN 'credit_card'
@@ -560,7 +560,7 @@ SET amount_paid_cad = line_total_cad,
 WHERE payment_status = 'paid';
 
 -- Set partial payment amounts (50-90% paid)
-UPDATE app.f_invoice
+UPDATE app.invoice
 SET amount_paid_cad = line_total_cad * (0.5 + random() * 0.4),
     payment_method = CASE floor(random() * 3)::int
         WHEN 0 THEN 'credit_card'
@@ -571,7 +571,7 @@ SET amount_paid_cad = line_total_cad * (0.5 + random() * 0.4),
 WHERE payment_status = 'partial';
 
 -- Calculate tax amounts for all invoices
-UPDATE app.f_invoice
+UPDATE app.invoice
 SET
     gst_amount_cad = 0,
     pst_amount_cad = 0,
@@ -579,7 +579,7 @@ SET
     tax_amount_cad = line_subtotal_cad * (tax_rate / 100);
 
 -- Update timestamps
-UPDATE app.f_invoice SET updated_at = NOW();
+UPDATE app.invoice SET updated_at = NOW();
 
 -- =====================================================
 -- INVOICE STATISTICS AND SUMMARY
@@ -591,7 +591,7 @@ SELECT
     COUNT(DISTINCT invoice_number) as invoice_count,
     SUM(line_total_cad) as total_amount,
     AVG(line_total_cad) as avg_line_amount
-FROM app.f_invoice
+FROM app.invoice
 GROUP BY invoice_status
 ORDER BY invoice_status;
 
@@ -602,7 +602,7 @@ SELECT
     SUM(line_total_cad) as billed_amount,
     SUM(amount_paid_cad) as paid_amount,
     SUM(amount_outstanding_cad) as outstanding_amount
-FROM app.f_invoice
+FROM app.invoice
 GROUP BY payment_status
 ORDER BY payment_status;
 
@@ -614,7 +614,7 @@ SELECT
     SUM(line_total_cad) as total_revenue,
     SUM(extended_margin_cad) as total_margin,
     AVG(margin_percent) as avg_margin_pct
-FROM app.f_invoice
+FROM app.invoice
 WHERE product_category IS NOT NULL
 GROUP BY product_category
 ORDER BY total_revenue DESC;
@@ -624,9 +624,9 @@ SELECT
     aging_bucket,
     COUNT(DISTINCT invoice_number) as invoice_count,
     SUM(amount_outstanding_cad) as outstanding_amount
-FROM app.f_invoice
+FROM app.invoice
 WHERE payment_status IN ('unpaid', 'partial')
 GROUP BY aging_bucket
 ORDER BY aging_bucket;
 
-COMMENT ON TABLE app.f_invoice IS 'Invoice fact table with 100+ realistic transactions across customers and time periods';
+COMMENT ON TABLE app.invoice IS 'Invoice fact table with 100+ realistic transactions across customers and time periods';

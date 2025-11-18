@@ -14,7 +14,7 @@
 -- • LIST: GET /api/v1/worksite, filters by worksite_type/geocoding, RBAC enforced
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • RBAC: d_entity_rbac
+-- • RBAC: entity_rbac
 --
 -- ============================================================================
 

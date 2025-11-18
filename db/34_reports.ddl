@@ -58,7 +58,7 @@
 --      SELECT r.* FROM d_reports r
 --      WHERE r.active_flag=true
 --        AND EXISTS (
---          SELECT 1 FROM d_entity_rbac rbac
+--          SELECT 1 FROM entity_rbac rbac
 --          WHERE rbac.person_entity_name='employee' AND rbac.person_entity_id=$user_id
 --            AND rbac.entity='reports'
 --            AND (rbac.entity_id=r.id::text OR rbac.entity_id='11111111-1111-1111-1111-111111111111')
@@ -74,7 +74,7 @@
 --    • Database:
 --      - SELECT * FROM d_reports WHERE id=$1 AND active_flag=true
 --      - JOIN d_report_data to fetch latest execution results
---    • RBAC: Checks d_entity_rbac for view permission
+--    • RBAC: Checks entity_rbac for view permission
 --    • Frontend: Renders chart/table/dashboard with latest data; shows last_execution_ts
 --
 -- 8. GET REPORT EXECUTION HISTORY
@@ -114,7 +114,7 @@
 -- • last_execution_ts, execution_duration_ms: Performance tracking
 --
 -- RELATIONSHIPS:
--- • email_subscribers[] → d_employee (who receives email notifications)
+-- • email_subscribers[] → app.employee (who receives email notifications)
 -- • primary_entity_type, primary_entity_id: Links report to project/task/etc via entity_id_map
 -- • report_id ← d_report_data (execution results and historical data)
 --

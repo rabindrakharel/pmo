@@ -17,7 +17,7 @@
 -- • STATUS TRANSITIONS: Scheduled → In Progress → Completed
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: task (via d_entity_instance_link)
+-- • Parent: task (via entity_instance_link)
 -- • Related: quote (via metadata or separate linker if needed)
 -- • Uses: service, product (tracked in metadata or via line items)
 --
@@ -27,7 +27,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.f_work_order (
+CREATE TABLE app.work_order (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50) UNIQUE NOT NULL,
     name text NOT NULL,

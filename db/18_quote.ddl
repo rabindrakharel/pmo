@@ -38,8 +38,8 @@
 -- ]
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: task (via d_entity_instance_link)
--- • References: d_service, d_product (via quote_items JSONB, no FK)
+-- • Parent: task (via entity_instance_link)
+-- • References: d_service, app.product (via quote_items JSONB, no FK)
 --
 -- DATALABEL INTEGRATION:
 -- • dl__quote_stage: setting_datalabel WHERE datalabel_name='dl__quote_stage'
@@ -47,7 +47,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.f_quote (
+CREATE TABLE app.quote (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50) UNIQUE NOT NULL,
     name text NOT NULL,

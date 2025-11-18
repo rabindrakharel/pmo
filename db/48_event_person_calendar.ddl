@@ -29,7 +29,7 @@
 -- • QUERY: GET /api/v1/person/:id/events, list all events for a person
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • person_entity_id → d_employee.id OR d_client.id OR d_cust.id (polymorphic)
+-- • person_entity_id → employee.id OR d_client.id OR d_cust.id (polymorphic)
 -- • event_id → d_event.id (many people can be linked to one event)
 -- • metadata can store additional context if needed
 --
@@ -133,7 +133,7 @@ INSERT INTO app.d_entity_event_person_calendar (
   'Sarah Johnson - Solar Phase 2 Review',
   'Sarah Johnson attending Solar Installation Phase 2 Review meeting',
   'employee',
-  (SELECT id FROM app.d_employee WHERE email = 'sarah.johnson@huronhome.ca'),
+  (SELECT id FROM app.app.employee WHERE email = 'sarah.johnson@huronhome.ca'),
   (SELECT id FROM app.d_event WHERE code = 'EVT-PROJ-002'),
   'accepted',
   CURRENT_DATE + interval '2 days' + interval '10 hours',
@@ -152,7 +152,7 @@ INSERT INTO app.d_entity_event_person_calendar (
   'Michael Chen - Solar Phase 2 Review',
   'Michael Chen invited to Solar Installation Phase 2 Review meeting',
   'employee',
-  (SELECT id FROM app.d_employee WHERE email = 'michael.chen@huronhome.ca'),
+  (SELECT id FROM app.app.employee WHERE email = 'michael.chen@huronhome.ca'),
   (SELECT id FROM app.d_event WHERE code = 'EVT-PROJ-002'),
   'pending',
   CURRENT_DATE + interval '2 days' + interval '10 hours',
@@ -172,7 +172,7 @@ INSERT INTO app.d_entity_event_person_calendar (
   'Plumbing Technician - Emergency Repair',
   'Plumbing technician assigned to emergency burst pipe repair',
   'employee',
-  (SELECT id FROM app.d_employee WHERE department = 'Plumbing' AND active_flag = true LIMIT 1),
+  (SELECT id FROM app.app.employee WHERE department = 'Plumbing' AND active_flag = true LIMIT 1),
   (SELECT id FROM app.d_event WHERE code = 'EVT-EMERG-003'),
   'accepted',
   CURRENT_DATE + interval '4 hours',
@@ -199,7 +199,7 @@ SELECT
   CURRENT_DATE + interval '3 days' + interval '13 hours',
   CURRENT_DATE + interval '3 days' + interval '14 hours' + interval '30 minutes',
   'America/Toronto'
-FROM app.d_employee e
+FROM app.app.employee e
 WHERE e.active_flag = true
   AND e.department IN ('Operations', 'Plumbing', 'HVAC', 'Electrical')
 LIMIT 5;
@@ -235,7 +235,7 @@ INSERT INTO app.d_entity_event_person_calendar (
   'Michael Chen - HVAC Installation Kickoff',
   'Michael Chen attending Commercial HVAC Installation kickoff meeting',
   'employee',
-  (SELECT id FROM app.d_employee WHERE email = 'michael.chen@huronhome.ca'),
+  (SELECT id FROM app.app.employee WHERE email = 'michael.chen@huronhome.ca'),
   (SELECT id FROM app.d_event WHERE code = 'EVT-KICK-005'),
   'accepted',
   CURRENT_DATE + interval '5 days' + interval '9 hours',
@@ -255,7 +255,7 @@ INSERT INTO app.d_entity_event_person_calendar (
   'Manufacturing Manager - Equipment Purchase Meeting',
   'Manufacturing manager meeting with supplier about CNC machine purchase',
   'employee',
-  (SELECT id FROM app.d_employee WHERE department = 'Manufacturing' AND active_flag = true LIMIT 1),
+  (SELECT id FROM app.app.employee WHERE department = 'Manufacturing' AND active_flag = true LIMIT 1),
   (SELECT id FROM app.d_event WHERE code = 'EVT-SUPP-006'),
   'accepted',
   CURRENT_DATE + interval '7 days' + interval '15 hours',
@@ -354,7 +354,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   e.event_addr
 -- FROM app.d_entity_event_person_calendar epc
 -- JOIN app.d_event e ON e.id = epc.event_id
--- JOIN app.d_employee emp ON emp.id = epc.person_entity_id
+-- JOIN app.app.employee emp ON emp.id = epc.person_entity_id
 -- WHERE epc.person_entity_type = 'employee'
 --   AND epc.event_rsvp_status = 'accepted'
 --   AND e.from_ts >= now()

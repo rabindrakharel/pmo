@@ -29,7 +29,7 @@
 -- }
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: project (via metadata.primary_entity_id or d_entity_instance_link)
+-- • Parent: project (via metadata.primary_entity_id or entity_instance_link)
 -- • Children: d_form_data (submissions), artifact (attachments)
 --
 -- URL ACCESS MODES:

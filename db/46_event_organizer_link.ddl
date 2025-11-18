@@ -28,7 +28,7 @@ ADD CONSTRAINT IF NOT EXISTS chk_event_action_entity_type CHECK (event_action_en
 -- Update existing events to set organizer_employee_id from RBAC Owner permission
 UPDATE app.d_event e
 SET organizer_employee_id = r.empid
-FROM app.d_entity_rbac r
+FROM app.entity_rbac r
 WHERE r.entity = 'event'
   AND r.entity_id = e.id::text
   AND r.permission @> ARRAY[5]
@@ -50,5 +50,5 @@ COMMENT ON COLUMN app.d_event.event_action_entity_id IS 'UUID of the entity this
 --   emp.name as organizer_name,
 --   emp.email as organizer_email
 -- FROM app.d_event e
--- LEFT JOIN app.d_employee emp ON e.organizer_employee_id = emp.id
+-- LEFT JOIN app.app.employee emp ON e.organizer_employee_id = emp.id
 -- WHERE e.active_flag = true;

@@ -1,5 +1,5 @@
 -- =====================================================
--- ENTITY INSTANCE LINKAGE (d_entity_instance_link)
+-- ENTITY INSTANCE LINKAGE (entity_instance_link)
 -- =====================================================
 --
 -- SEMANTICS:
@@ -38,11 +38,11 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_entity_instance_link (
+CREATE TABLE app.entity_instance_link (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    parent_entity_code varchar(50) NOT NULL, -- References d_entity.code (no FK for loose coupling)
+    parent_entity_code varchar(50) NOT NULL, -- References entity.code (no FK for loose coupling)
     parent_entity_id uuid NOT NULL,
-    child_entity_code varchar(50) NOT NULL,  -- References d_entity.code (no FK for loose coupling)
+    child_entity_code varchar(50) NOT NULL,  -- References entity.code (no FK for loose coupling)
     child_entity_id uuid NOT NULL,
     relationship_type varchar(50) DEFAULT 'contains',
     metadata jsonb DEFAULT '{}'::jsonb,
@@ -54,7 +54,7 @@ CREATE TABLE app.d_entity_instance_link (
     version integer DEFAULT 1
 );
 
-COMMENT ON TABLE app.d_entity_instance_link IS 'Parent-child relationships between specific entity instances for navigation, filtering, and linkage management';
+COMMENT ON TABLE app.entity_instance_link IS 'Parent-child relationships between specific entity instances for navigation, filtering, and linkage management';
 
 -- =====================================================
 -- DATA CURATION: Port Existing Relationships
@@ -62,20 +62,20 @@ COMMENT ON TABLE app.d_entity_instance_link IS 'Parent-child relationships betwe
 -- =====================================================
 
 -- Business → Project relationships
-INSERT INTO app.d_entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
 SELECT 'business', p.business_id, 'project', p.id, 'owns'
 FROM app.d_project p
 WHERE p.business_id IS NOT NULL AND p.active_flag = true;
 
 -- Office → Business relationships
-INSERT INTO app.d_entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
 SELECT 'office', b.office_id, 'business', b.id, 'hosts'
 FROM app.d_business b
 WHERE b.office_id IS NOT NULL AND b.active_flag = true;
 
 -- Project → Task relationships (Curated mappings based on task codes and project context)
 -- Note: Not using d_task.project_id - tasks are explicitly mapped to relevant projects
-INSERT INTO app.d_entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
 VALUES
   -- Corporate Office Expansion Project
   ('project', '61203bac-101b-28d6-7a15-2176c15a0b1c', 'task', 'd1111111-1111-1111-1111-111111111111', NULL), -- Corporate Office Space Planning (COE-TASK-001)
@@ -93,7 +93,7 @@ VALUES
   ('project', '72304dab-202c-39e7-8a26-3287d26a0c2d', 'task', 'c1111111-1111-1111-1111-111111111111', NULL); -- Smart HVAC Market Research (HVAC-TASK-001)
 
 -- Parent → Artifact relationships (using primary_entity_code and primary_entity_id)
-INSERT INTO app.d_entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
 SELECT a.primary_entity_code, a.primary_entity_id, 'artifact', a.id, 'contains'
 FROM app.d_artifact a
 WHERE a.primary_entity_id IS NOT NULL
@@ -101,7 +101,7 @@ WHERE a.primary_entity_id IS NOT NULL
   AND a.active_flag = true;
 
 -- Parent → Wiki relationships (using primary_entity_code and primary_entity_id)
-INSERT INTO app.d_entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
 SELECT w.primary_entity_code, w.primary_entity_id, 'wiki', w.id, 'documents'
 FROM app.d_wiki w
 WHERE w.primary_entity_id IS NOT NULL
@@ -109,7 +109,7 @@ WHERE w.primary_entity_id IS NOT NULL
   AND w.active_flag = true;
 
 -- Parent → Form relationships (using primary_entity_code and primary_entity_id)
-INSERT INTO app.d_entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
 SELECT f.primary_entity_code, f.primary_entity_id, 'form', f.id, 'uses'
 FROM app.d_form_head f
 WHERE f.primary_entity_id IS NOT NULL
@@ -118,7 +118,7 @@ WHERE f.primary_entity_id IS NOT NULL
 
 -- Task → Employee relationships (Task Assignees)
 -- All tasks assigned to James Miller
-INSERT INTO app.d_entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
 VALUES
     ('task', 'a1111111-1111-1111-1111-111111111111', 'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 'assigned_to'),
     ('task', 'a2222222-2222-2222-2222-222222222222', 'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 'assigned_to'),
@@ -131,7 +131,7 @@ VALUES
 
 -- Task → Quote relationships
 -- Quotes are children of tasks
-INSERT INTO app.d_entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
 VALUES
     ('task', 'a2222222-2222-2222-2222-222222222222', 'quote', 'q1111111-1111-1111-1111-111111111111', 'contains'),
     ('task', 'b1111111-1111-1111-1111-111111111111', 'quote', 'q1111112-1111-1111-1111-111111111112', 'contains'),
@@ -142,7 +142,7 @@ VALUES
 
 -- Task → Work Order relationships
 -- Work orders are children of tasks
-INSERT INTO app.d_entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
 VALUES
     ('task', 'a2222222-2222-2222-2222-222222222222', 'work_order', 'w1111111-1111-1111-1111-111111111111', 'contains'),
     ('task', 'b1111111-1111-1111-1111-111111111111', 'work_order', 'w1111112-1111-1111-1111-111111111112', 'contains'),
@@ -154,20 +154,20 @@ VALUES
 -- Event → Entity relationships
 -- Events are universal parent entities that can be linked to multiple entity types
 -- Example: HVAC Consultation event linked to project, customer, employee
-INSERT INTO app.d_entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
 SELECT 'event', e.id, 'project', '93106ffb-402e-43a7-8b26-5287e37a1b0e'::uuid, 'relates_to'
 FROM app.d_event e
 WHERE e.code = 'EVT-HVAC-001'
 ON CONFLICT (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id) DO NOTHING;
 
-INSERT INTO app.d_entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
 SELECT 'event', e.id, 'employee', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'::uuid, 'assigned_to'
 FROM app.d_event e
 WHERE e.code = 'EVT-HVAC-001'
 ON CONFLICT (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id) DO NOTHING;
 
 -- Example: Virtual Project Review event linked to project, task
-INSERT INTO app.d_entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
 SELECT 'event', e.id, 'project', p.id, 'relates_to'
 FROM app.d_event e
 CROSS JOIN app.d_project p
@@ -175,7 +175,7 @@ WHERE e.code = 'EVT-PROJ-002'
   AND p.code = 'PROJ-004'
 ON CONFLICT (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id) DO NOTHING;
 
-INSERT INTO app.d_entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
 SELECT 'event', e.id, 'task', t.id, 'relates_to'
 FROM app.d_event e
 CROSS JOIN app.d_task t
@@ -185,7 +185,7 @@ ON CONFLICT (parent_entity_code, parent_entity_id, child_entity_code, child_enti
 
 -- Example: Emergency Service event linked to service (if service entity exists)
 -- Note: Add more linkages as services are created
--- INSERT INTO app.d_entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
+-- INSERT INTO app.entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
 -- SELECT 'event', e.id::text, 'service', s.id::text, 'provides'
 -- FROM app.d_event e
 -- CROSS JOIN app.d_service s

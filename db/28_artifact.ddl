@@ -16,11 +16,11 @@
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • Parent: project, task, form, etc. (via entity_type/entity_id)
--- • RBAC: d_entity_rbac
+-- • RBAC: entity_rbac
 --
 -- =====================================================
 
-CREATE TABLE app.d_artifact (
+CREATE TABLE app.artifact (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50) UNIQUE NOT NULL,
     name varchar(200) NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE app.d_artifact (
     version integer DEFAULT 1,
 
     -- Artifact-specific fields
-    attachment_id uuid, -- Link to d_attachment (no FK for loose coupling)
+    attachment_id uuid, -- Link to app.attachment (no FK for loose coupling)
     dl__artifact_type text, -- References app.setting_datalabel (datalabel_name='dl__artifact_type')
     attachment_format text,
     attachment_size_bytes bigint,
@@ -48,7 +48,7 @@ CREATE TABLE app.d_artifact (
     latest_version_flag boolean DEFAULT true
 );
 
-COMMENT ON TABLE app.d_artifact IS 'Artifact table for document and file management';
+COMMENT ON TABLE app.artifact IS 'Artifact table for document and file management';
 
 -- =====================================================
 -- DATA CURATION
@@ -56,7 +56,7 @@ COMMENT ON TABLE app.d_artifact IS 'Artifact table for document and file managem
 
 -- Sample artifact data
 -- Artifact 3: Client Service Agreement Template
-INSERT INTO app.d_artifact (
+INSERT INTO app.artifact (
     id,
     code,
     name,
@@ -93,7 +93,7 @@ INSERT INTO app.d_artifact (
 );
 
 -- Artifact 4: Training Video - Aeration Techniques
-INSERT INTO app.d_artifact (
+INSERT INTO app.artifact (
     id,
     code,
     name,
@@ -130,7 +130,7 @@ INSERT INTO app.d_artifact (
 );
 
 -- Artifact 7: Safety Incident Report Template
-INSERT INTO app.d_artifact (
+INSERT INTO app.artifact (
     id,
     code,
     name,
@@ -187,7 +187,7 @@ DECLARE
     'pdf',
     250000 + floor(random() * 500000)::bigint,
     'office',
-    (SELECT id FROM app.d_office WHERE active_flag = true ORDER BY random() LIMIT 1),
+    (SELECT id FROM app.app.office WHERE active_flag = true ORDER BY random() LIMIT 1),
     'internal',
     'confidential',
     true
@@ -200,7 +200,7 @@ FROM (VALUES
 ) AS t(name, descr);
 
 -- Marketing and Sales Materials
-INSERT INTO app.d_artifact (code, name, descr, metadata,
+INSERT INTO app.artifact (code, name, descr, metadata,
     dl__artifact_type, attachment_format, attachment_size_bytes,
     entity_type, entity_id,
     visibility, dl__artifact_security_classification, latest_version_flag
@@ -227,7 +227,7 @@ FROM (VALUES
 ) AS t(name, descr);
 
 -- Training Videos
-INSERT INTO app.d_artifact (code, name, descr, metadata,
+INSERT INTO app.artifact (code, name, descr, metadata,
     dl__artifact_type, attachment_format, attachment_size_bytes,
     entity_type, entity_id,
     visibility, dl__artifact_security_classification, latest_version_flag
@@ -247,7 +247,7 @@ SELECT
     'mp4',
     duration * 1000000 * 8::bigint, -- ~8MB per minute
     'office',
-    (SELECT id FROM app.d_office WHERE active_flag = true ORDER BY random() LIMIT 1),
+    (SELECT id FROM app.app.office WHERE active_flag = true ORDER BY random() LIMIT 1),
     'internal',
     'General',
     true
@@ -260,18 +260,18 @@ FROM (VALUES
 ) AS t(name, descr, duration, category);
 
 -- =====================================================
--- REGISTER ARTIFACTS IN d_entity_instance_link
+-- REGISTER ARTIFACTS IN entity_instance_link
 -- =====================================================
 
 -- Link all artifacts to their parent entities
-INSERT INTO app.d_entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
 SELECT
     a.entity_type,
     a.entity_id::text,
     'artifact',
     a.id::text,
     'contains'
-FROM app.d_artifact a
+FROM app.artifact a
 WHERE a.entity_id IS NOT NULL
   AND a.entity_type IS NOT NULL
   AND a.active_flag = true
@@ -283,7 +283,7 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code entity_code)
 SELECT 'artifact', id, name, code
-FROM app.d_artifact
+FROM app.artifact
 WHERE active_flag = true
 ON CONFLICT (entity_type, entity_id) DO UPDATE
 SET entity_name = EXCLUDED.entity_name,
@@ -302,7 +302,7 @@ SELECT
     SUM(attachment_size_bytes) as total_size_bytes,
     AVG(attachment_size_bytes) as avg_size_bytes,
     MAX(attachment_size_bytes) as max_size_bytes
-FROM app.d_artifact
+FROM app.artifact
 WHERE active_flag = true
 GROUP BY dl__artifact_type
 ORDER BY artifact_count DESC;
@@ -312,7 +312,7 @@ SELECT
     entity_type,
     COUNT(*) as artifact_count,
     array_agg(DISTINCT dl__artifact_type) as artifact_types
-FROM app.d_artifact
+FROM app.artifact
 WHERE active_flag = true
   AND entity_type IS NOT NULL
 GROUP BY entity_type
@@ -323,9 +323,9 @@ SELECT
     visibility,
     dl__artifact_security_classification,
     COUNT(*) as artifact_count
-FROM app.d_artifact
+FROM app.artifact
 WHERE active_flag = true
 GROUP BY visibility, dl__artifact_security_classification
 ORDER BY visibility, dl__artifact_security_classification;
 
-COMMENT ON TABLE app.d_artifact IS 'Artifact table with 50+ curated documents, images, videos, and files across entities';
+COMMENT ON TABLE app.artifact IS 'Artifact table with 50+ curated documents, images, videos, and files across entities';

@@ -14,9 +14,9 @@
 -- • QUERY: Filter by dl__task_stage, dl__task_priority
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: project (via d_entity_instance_link)
+-- • Parent: project (via entity_instance_link)
 -- • Children: artifact, form, employee (assignees), cost, revenue
--- • RBAC: d_entity_rbac
+-- • RBAC: entity_rbac
 --
 -- =====================================================
 

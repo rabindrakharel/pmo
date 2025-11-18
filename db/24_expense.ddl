@@ -16,10 +16,10 @@
 --
 -- RELATIONSHIPS:
 -- - Links to f_invoice (associated expenses for invoiced work)
--- - Links to d_employee (employee incurring expense)
+-- - Links to app.employee (employee incurring expense)
 -- - Links to d_project (project expense allocation)
--- - Links to d_business (business unit)
--- - Links to d_office (office/location)
+-- - Links to app.business (business unit)
+-- - Links to app.office (office/location)
 -- - Links to d_client (client-related expenses)
 --
 -- METRICS:
@@ -30,9 +30,9 @@
 --
 -- =====================================================
 
-DROP TABLE IF EXISTS app.f_expense CASCADE;
+DROP TABLE IF EXISTS app.expense CASCADE;
 
-CREATE TABLE app.f_expense (
+CREATE TABLE app.expense (
     -- Primary Key
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -132,27 +132,27 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER f_expense_calculate_fields BEFORE INSERT OR UPDATE ON app.f_expense
+CREATE TRIGGER f_expense_calculate_fields BEFORE INSERT OR UPDATE ON app.expense
     FOR EACH ROW EXECUTE FUNCTION app.calculate_f_expense_fields();
 
 -- Indexes for performance
-CREATE INDEX idx_f_expense_date ON app.f_expense(expense_date);
-CREATE INDEX idx_f_expense_category ON app.f_expense(dl__expense_category);
-CREATE INDEX idx_f_expense_subcategory ON app.f_expense(dl__expense_subcategory);
-CREATE INDEX idx_f_expense_project_id ON app.f_expense(project_id);
-CREATE INDEX idx_f_expense_employee_id ON app.f_expense(employee_id);
-CREATE INDEX idx_f_expense_client_id ON app.f_expense(client_id);
-CREATE INDEX idx_f_expense_period ON app.f_expense(accounting_period);
-CREATE INDEX idx_f_expense_fiscal_year ON app.f_expense(fiscal_year);
-CREATE INDEX idx_f_expense_status ON app.f_expense(expense_status);
-CREATE INDEX idx_f_expense_payment_status ON app.f_expense(payment_status);
+CREATE INDEX idx_f_expense_date ON app.expense(expense_date);
+CREATE INDEX idx_f_expense_category ON app.expense(dl__expense_category);
+CREATE INDEX idx_f_expense_subcategory ON app.expense(dl__expense_subcategory);
+CREATE INDEX idx_f_expense_project_id ON app.expense(project_id);
+CREATE INDEX idx_f_expense_employee_id ON app.expense(employee_id);
+CREATE INDEX idx_f_expense_client_id ON app.expense(client_id);
+CREATE INDEX idx_f_expense_period ON app.expense(accounting_period);
+CREATE INDEX idx_f_expense_fiscal_year ON app.expense(fiscal_year);
+CREATE INDEX idx_f_expense_status ON app.expense(expense_status);
+CREATE INDEX idx_f_expense_payment_status ON app.expense(payment_status);
 
 -- =====================================================
 -- SAMPLE DATA: Curated Expense Transactions
 -- Based on CRA T2125 Expense Categories
 -- =====================================================
 
-INSERT INTO app.f_expense (
+INSERT INTO app.expense (
     expense_number, expense_type, expense_date, expense_datetime,
     dl__expense_category, dl__expense_subcategory, dl__expense_code, cra_line, deductibility_percent,
     employee_name, vendor_name,
@@ -236,11 +236,11 @@ INSERT INTO app.f_expense (
  'approved', 'paid', 'Coffee meeting with supplier - negotiate volume discounts');
 
 -- Update timestamps
-UPDATE app.f_expense SET updated_ts = NOW();
+UPDATE app.expense SET updated_ts = NOW();
 
-COMMENT ON TABLE app.f_expense IS 'Expense fact table at header level with CRA T2125 category classification';
-COMMENT ON COLUMN app.f_expense.dl__expense_category IS 'CRA T2125 expense category (Advertising, Meals and Entertainment, etc.)';
-COMMENT ON COLUMN app.f_expense.dl__expense_subcategory IS 'CRA T2125 expense subcategory (Google Ads, Business Meals, etc.)';
-COMMENT ON COLUMN app.f_expense.cra_line IS 'CRA T2125 form line number for tax reporting (8521, 8523, etc.)';
-COMMENT ON COLUMN app.f_expense.deductibility_percent IS 'Tax deductibility percentage (50% for meals/entertainment, 100% for most others)';
-COMMENT ON COLUMN app.f_expense.deductible_amount_cad IS 'Tax-deductible amount after applying deductibility percentage';
+COMMENT ON TABLE app.expense IS 'Expense fact table at header level with CRA T2125 category classification';
+COMMENT ON COLUMN app.expense.dl__expense_category IS 'CRA T2125 expense category (Advertising, Meals and Entertainment, etc.)';
+COMMENT ON COLUMN app.expense.dl__expense_subcategory IS 'CRA T2125 expense subcategory (Google Ads, Business Meals, etc.)';
+COMMENT ON COLUMN app.expense.cra_line IS 'CRA T2125 form line number for tax reporting (8521, 8523, etc.)';
+COMMENT ON COLUMN app.expense.deductibility_percent IS 'Tax deductibility percentage (50% for meals/entertainment, 100% for most others)';
+COMMENT ON COLUMN app.expense.deductible_amount_cad IS 'Tax-deductible amount after applying deductibility percentage';

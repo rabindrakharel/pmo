@@ -45,7 +45,7 @@ CREATE TABLE app.d_workflow_automation (
     updated_ts TIMESTAMPTZ DEFAULT now(),
     version INTEGER DEFAULT 1
 
-    -- NOTE: Ownership tracked via d_entity_rbac with permission[5]=Owner
+    -- NOTE: Ownership tracked via entity_rbac with permission[5]=Owner
     -- Creator automatically receives Owner permission when workflow is created
 );
 

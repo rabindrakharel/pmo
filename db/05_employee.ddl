@@ -14,9 +14,9 @@
 -- • DELETE: active_flag=false, termination_date=now(), to_ts=now()
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: role (via d_entity_instance_link)
--- • Self: manager_employee_id → d_employee.id
--- • RBAC: d_entity_rbac.person_entity_id (where person_entity_name='employee')
+-- • Parent: role (via entity_instance_link)
+-- • Self: manager_employee_id → employee.id
+-- • RBAC: entity_rbac.person_entity_id (where person_entity_name='employee')
 --
 -- SECURITY:
 -- • Account lockout: 5 failed attempts → 30 min lock
@@ -24,7 +24,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.d_employee (
+CREATE TABLE app.employee (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   code varchar(50) UNIQUE NOT NULL,
   name varchar(200) NOT NULL,
@@ -91,14 +91,14 @@ CREATE TABLE app.d_employee (
   skills_service_categories text[] DEFAULT ARRAY[]::text[] -- Array of service categories from d_service (HVAC, Plumbing, Electrical, Landscaping, General Contracting, etc.)
 );
 
-COMMENT ON TABLE app.d_employee IS 'Employee entities with authentication, contact info, and organizational assignments';
+COMMENT ON TABLE app.employee IS 'Employee entities with authentication, contact info, and organizational assignments';
 
 -- =====================================================
 -- DATA CURATION
 -- =====================================================
 
 -- Insert sample employee data for James Miller CEO
-INSERT INTO app.d_employee (
+INSERT INTO app.employee (
     id,
     code,
     name,
@@ -172,7 +172,7 @@ INSERT INTO app.d_employee (
 );
 
 -- Additional sample employees for testing
-INSERT INTO app.d_employee (
+INSERT INTO app.employee (
     code,
     name,
     descr,
@@ -390,13 +390,13 @@ BEGIN
         END CASE;
 
         -- Get manager ID
-        SELECT id INTO v_manager_id FROM app.d_employee WHERE email = v_manager_email LIMIT 1;
+        SELECT id INTO v_manager_id FROM app.employee WHERE email = v_manager_email LIMIT 1;
 
         -- Generate hire date (between 2021-2024)
         v_hire_date := '2021-01-01'::date + (floor(random() * 1460)::int || ' days')::interval;
 
         -- Insert employee
-        INSERT INTO app.d_employee (
+        INSERT INTO app.employee (
             code, name, descr, email, password_hash,
             first_name, last_name, phone, mobile,
             address_line1, city, province, postal_code, country,
@@ -441,7 +441,7 @@ END $$;
 
 INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
 SELECT 'employee', id, name, code
-FROM app.d_employee
+FROM app.employee
 WHERE active_flag = true
 ON CONFLICT (entity_type, entity_id) DO UPDATE
 SET entity_name = EXCLUDED.entity_name,
@@ -449,21 +449,21 @@ SET entity_name = EXCLUDED.entity_name,
     updated_ts = now();
 
 -- =====================================================
--- ASSIGN ROLES TO EMPLOYEES VIA d_entity_instance_link
+-- ASSIGN ROLES TO EMPLOYEES VIA entity_instance_link
 -- =====================================================
 
 -- Clear existing employee-role mappings
-DELETE FROM app.d_entity_instance_link WHERE child_entity_type = 'employee';
+DELETE FROM app.entity_instance_link WHERE child_entity_type = 'employee';
 
 -- Assign roles to all employees based on their titles
-INSERT INTO app.d_entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
 SELECT
     'role',
     r.id::text,
     'employee',
     e.id::text,
     'assigned_to'
-FROM app.d_employee e
+FROM app.employee e
 INNER JOIN app.d_role r ON (
     -- Match employee titles to roles
     (e.title LIKE '%CEO%' AND r.role_code = 'CEO') OR
@@ -492,17 +492,17 @@ INNER JOIN app.d_role r ON (
 WHERE e.active_flag = true;
 
 -- Assign generic field technician role to any employee without a role match
-INSERT INTO app.d_entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+INSERT INTO app.entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
 SELECT
     'role',
     (SELECT id FROM app.d_role WHERE role_code = 'TECH-FIELD')::text,
     'employee',
     e.id::text,
     'assigned_to'
-FROM app.d_employee e
+FROM app.employee e
 WHERE e.active_flag = true
   AND NOT EXISTS (
-    SELECT 1 FROM app.d_entity_instance_link eim
+    SELECT 1 FROM app.entity_instance_link eim
     WHERE eim.child_entity_id = e.id::text
       AND eim.child_entity_type = 'employee'
       AND eim.parent_entity_type = 'role'
@@ -512,7 +512,7 @@ WHERE e.active_flag = true
 SELECT
     r.name as role_name,
     COUNT(*) as employee_count
-FROM app.d_entity_instance_link eim
+FROM app.entity_instance_link eim
 INNER JOIN app.d_role r ON r.id::text = eim.parent_entity_id
 WHERE eim.parent_entity_type = 'role'
   AND eim.child_entity_type = 'employee'

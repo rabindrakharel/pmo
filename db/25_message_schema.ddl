@@ -31,7 +31,7 @@
 -- 4. LIST TEMPLATES
 --    • Endpoint: GET /api/v1/message-schema
 --    • Database: SELECT * FROM d_message_schema WHERE active_flag=true
---    • RBAC: Filtered by d_entity_rbac (permission 0=view required)
+--    • RBAC: Filtered by entity_rbac (permission 0=view required)
 --
 -- 5. GET SINGLE TEMPLATE
 --    • Endpoint: GET /api/v1/message-schema/{id}

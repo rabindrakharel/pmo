@@ -1,5 +1,5 @@
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
--- d_person - Base Entity for All People
+-- app.person - Base Entity for All People
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 --
 -- PURPOSE:
@@ -15,7 +15,7 @@
 -- RELATIONSHIPS:
 -- • Parent: None (base entity)
 -- • Children: d_employee.person_id, d_cust.person_id (future: d_vendor, d_supplier)
--- • RBAC: d_entity_rbac.person_id references this table
+-- • RBAC: entity_rbac.person_id references this table
 --
 -- USAGE PATTERNS:
 -- • CREATE: Person created first, then specialized role entity
@@ -25,7 +25,7 @@
 --
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-CREATE TABLE IF NOT EXISTS app.d_person (
+CREATE TABLE IF NOT EXISTS app.person (
     -- ─────────────────────────────────────────────────────────────────────────
     -- Standard Entity Fields
     -- ─────────────────────────────────────────────────────────────────────────
@@ -73,9 +73,9 @@ CREATE TABLE IF NOT EXISTS app.d_person (
     -- ─────────────────────────────────────────────────────────────────────────
     -- Role References (person references specialized role entities - NO FKs for loose coupling)
     -- ─────────────────────────────────────────────────────────────────────────
-    employee_id uuid, -- If this person is an employee (references d_employee.id)
+    employee_id uuid, -- If this person is an employee (references employee.id)
     cust_id uuid,     -- If this person is a customer (references d_cust.id)
-    supplier_id uuid, -- If this person is a supplier (references d_supplier.id)
+    supplier_id uuid, -- If this person is a supplier (references supplier.id)
 
     -- ─────────────────────────────────────────────────────────────────────────
     -- Standard Metadata & Temporal Fields
@@ -92,36 +92,36 @@ CREATE TABLE IF NOT EXISTS app.d_person (
 -- Indexes
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-CREATE INDEX idx_person_code ON app.d_person(code);
-CREATE INDEX idx_person_email ON app.d_person(email) WHERE email IS NOT NULL;
-CREATE INDEX idx_person_full_name ON app.d_person(full_name) WHERE full_name IS NOT NULL;
-CREATE INDEX idx_person_types ON app.d_person USING GIN(person_types);
-CREATE INDEX idx_person_active ON app.d_person(active_flag) WHERE active_flag = true;
-CREATE INDEX idx_person_postal_code ON app.d_person(postal_code) WHERE postal_code IS NOT NULL;
+CREATE INDEX idx_person_code ON app.person(code);
+CREATE INDEX idx_person_email ON app.person(email) WHERE email IS NOT NULL;
+CREATE INDEX idx_person_full_name ON app.person(full_name) WHERE full_name IS NOT NULL;
+CREATE INDEX idx_person_types ON app.person USING GIN(person_types);
+CREATE INDEX idx_person_active ON app.person(active_flag) WHERE active_flag = true;
+CREATE INDEX idx_person_postal_code ON app.person(postal_code) WHERE postal_code IS NOT NULL;
 
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 -- Comments
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-COMMENT ON TABLE app.d_person IS 'Base entity for all people (employees, customers, vendors, suppliers) with common fields';
-COMMENT ON COLUMN app.d_person.id IS 'Unique identifier (UUID)';
-COMMENT ON COLUMN app.d_person.code IS 'Unique person code (e.g., PER-00001)';
-COMMENT ON COLUMN app.d_person.first_name IS 'First name';
-COMMENT ON COLUMN app.d_person.last_name IS 'Last name';
-COMMENT ON COLUMN app.d_person.full_name IS 'Generated full name (first + last)';
-COMMENT ON COLUMN app.d_person.email IS 'Primary email address';
-COMMENT ON COLUMN app.d_person.phone IS 'Primary phone number';
-COMMENT ON COLUMN app.d_person.mobile IS 'Mobile phone number';
-COMMENT ON COLUMN app.d_person.addr_line1 IS 'Address line 1';
-COMMENT ON COLUMN app.d_person.addr_line2 IS 'Address line 2 (unit, suite, etc.)';
-COMMENT ON COLUMN app.d_person.city IS 'City';
-COMMENT ON COLUMN app.d_person.province IS 'Province/State';
-COMMENT ON COLUMN app.d_person.postal_code IS 'Postal code / ZIP code';
-COMMENT ON COLUMN app.d_person.country IS 'Country (default: Canada)';
-COMMENT ON COLUMN app.d_person.person_types IS 'Array of person types/roles (employee, customer, vendor, supplier) for multi-role support';
-COMMENT ON COLUMN app.d_person.metadata IS 'Additional flexible attributes';
-COMMENT ON COLUMN app.d_person.active_flag IS 'Soft delete flag (true = active)';
-COMMENT ON COLUMN app.d_person.from_ts IS 'Valid from timestamp';
-COMMENT ON COLUMN app.d_person.to_ts IS 'Valid to timestamp (NULL = current)';
-COMMENT ON COLUMN app.d_person.created_ts IS 'Record creation timestamp';
-COMMENT ON COLUMN app.d_person.updated_ts IS 'Last update timestamp';
+COMMENT ON TABLE app.person IS 'Base entity for all people (employees, customers, vendors, suppliers) with common fields';
+COMMENT ON COLUMN app.person.id IS 'Unique identifier (UUID)';
+COMMENT ON COLUMN app.person.code IS 'Unique person code (e.g., PER-00001)';
+COMMENT ON COLUMN app.person.first_name IS 'First name';
+COMMENT ON COLUMN app.person.last_name IS 'Last name';
+COMMENT ON COLUMN app.person.full_name IS 'Generated full name (first + last)';
+COMMENT ON COLUMN app.person.email IS 'Primary email address';
+COMMENT ON COLUMN app.person.phone IS 'Primary phone number';
+COMMENT ON COLUMN app.person.mobile IS 'Mobile phone number';
+COMMENT ON COLUMN app.person.addr_line1 IS 'Address line 1';
+COMMENT ON COLUMN app.person.addr_line2 IS 'Address line 2 (unit, suite, etc.)';
+COMMENT ON COLUMN app.person.city IS 'City';
+COMMENT ON COLUMN app.person.province IS 'Province/State';
+COMMENT ON COLUMN app.person.postal_code IS 'Postal code / ZIP code';
+COMMENT ON COLUMN app.person.country IS 'Country (default: Canada)';
+COMMENT ON COLUMN app.person.person_types IS 'Array of person types/roles (employee, customer, vendor, supplier) for multi-role support';
+COMMENT ON COLUMN app.person.metadata IS 'Additional flexible attributes';
+COMMENT ON COLUMN app.person.active_flag IS 'Soft delete flag (true = active)';
+COMMENT ON COLUMN app.person.from_ts IS 'Valid from timestamp';
+COMMENT ON COLUMN app.person.to_ts IS 'Valid to timestamp (NULL = current)';
+COMMENT ON COLUMN app.person.created_ts IS 'Record creation timestamp';
+COMMENT ON COLUMN app.person.updated_ts IS 'Last update timestamp';

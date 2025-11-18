@@ -15,9 +15,9 @@
 -- • QUERY: Filter by cost_code, currency, validity period
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: project, task, office, business (via d_entity_instance_link)
+-- • Parent: project, task, office, business (via entity_instance_link)
 -- • Child: attachments stored in S3/MinIO (referenced by attachment_object_key)
--- • RBAC: d_entity_rbac
+-- • RBAC: entity_rbac
 --
 -- ATTACHMENT WORKFLOW:
 -- • Upload file to S3/MinIO via presigned URL

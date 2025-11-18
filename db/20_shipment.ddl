@@ -15,11 +15,11 @@
 -- - Foundation for freight cost analysis and delivery SLA reporting
 --
 -- RELATIONSHIPS:
--- - Links to d_product (products shipped)
+-- - Links to app.product (products shipped)
 -- - Links to d_client (customer receiving shipment)
 -- - Links to f_order (originating order)
 -- - Links to d_project (project shipment is for)
--- - Links to d_office (shipping warehouse)
+-- - Links to app.office (shipping warehouse)
 -- - Links to d_worksite (delivery location)
 -- - Parent-child within table (shipment header → shipment lines)
 --
@@ -31,9 +31,9 @@
 --
 -- =====================================================
 
-DROP TABLE IF EXISTS app.f_shipment CASCADE;
+DROP TABLE IF EXISTS app.shipment CASCADE;
 
-CREATE TABLE app.f_shipment (
+CREATE TABLE app.shipment (
     -- Primary Key
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -60,7 +60,7 @@ CREATE TABLE app.f_shipment (
     client_type VARCHAR(50),                            -- 'residential', 'commercial', 'government'
 
     -- Product Dimension
-    product_id UUID NOT NULL,                           -- Link to d_product (REQUIRED)
+    product_id UUID NOT NULL,                           -- Link to app.product (REQUIRED)
     product_code VARCHAR(50),                           -- Denormalized product code
     product_name VARCHAR(255),                          -- Denormalized name
     product_category VARCHAR(100),                      -- Denormalized category
@@ -76,7 +76,7 @@ CREATE TABLE app.f_shipment (
     worksite_id UUID,                                   -- Link to d_worksite (delivery location)
 
     -- Shipping Warehouse
-    warehouse_office_id UUID,                           -- Link to d_office (shipping warehouse)
+    warehouse_office_id UUID,                           -- Link to app.office (shipping warehouse)
     warehouse_name VARCHAR(255),                        -- Denormalized warehouse name
     warehouse_location VARCHAR(50),                     -- Bin location where picked from
 
@@ -214,14 +214,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER f_shipment_calculate_metrics BEFORE INSERT OR UPDATE ON app.f_shipment
+CREATE TRIGGER f_shipment_calculate_metrics BEFORE INSERT OR UPDATE ON app.shipment
     FOR EACH ROW EXECUTE FUNCTION app.calculate_f_shipment_metrics();
 
 -- =====================================================
 -- SAMPLE DATA: Curated Shipments
 -- =====================================================
 
-INSERT INTO app.f_shipment (
+INSERT INTO app.shipment (
     shipment_number, shipment_line_number, shipment_type, shipment_method,
     shipment_date, shipment_datetime, shipped_date, estimated_delivery_date, promised_delivery_date, actual_delivery_date,
     client_name, client_type, product_id, product_code, product_name, product_category,
@@ -234,7 +234,7 @@ INSERT INTO app.f_shipment (
 ('SHIP-2025-00001', 1, 'standard', 'freight',
  '2025-01-10', '2025-01-10 14:00:00', '2025-01-10', '2025-01-12', '2025-01-12', '2025-01-12',
  'Smith Residence Renovation', 'residential',
- (SELECT id FROM app.d_product WHERE code = 'LBR-001'), 'LBR-001', '2x4 SPF Stud 8ft KD', 'Lumber',
+ (SELECT id FROM app.app.product WHERE code = 'LBR-001'), 'LBR-001', '2x4 SPF Stud 8ft KD', 'Lumber',
  'ORD-2025-00001', 'Main Warehouse', 150, 150, 'each',
  'Own Fleet', 'standard', 'FLEET-2025-001',
  75.00, 'delivered', 'delivered', 'James Miller', 'James Miller',
@@ -243,7 +243,7 @@ INSERT INTO app.f_shipment (
 ('SHIP-2025-00001', 2, 'standard', 'freight',
  '2025-01-10', '2025-01-10 14:00:00', '2025-01-10', '2025-01-12', '2025-01-12', '2025-01-12',
  'Smith Residence Renovation', 'residential',
- (SELECT id FROM app.d_product WHERE code = 'LBR-003'), 'LBR-003', '3/4" Plywood 4x8 Sanded', 'Lumber',
+ (SELECT id FROM app.app.product WHERE code = 'LBR-003'), 'LBR-003', '3/4" Plywood 4x8 Sanded', 'Lumber',
  'ORD-2025-00001', 'Main Warehouse', 25, 25, 'sheet',
  'Own Fleet', 'standard', 'FLEET-2025-001',
  75.00, 'delivered', 'delivered', 'James Miller', 'James Miller',
@@ -253,7 +253,7 @@ INSERT INTO app.f_shipment (
 ('SHIP-2025-00002', 1, 'standard', 'courier',
  '2025-01-12', '2025-01-12 16:00:00', '2025-01-13', '2025-01-16', '2025-01-17', '2025-01-15',
  'Downtown Office Building', 'commercial',
- (SELECT id FROM app.d_product WHERE code = 'ELC-001'), 'ELC-001', '14/2 NMD90 Wire 75m', 'Electrical',
+ (SELECT id FROM app.app.product WHERE code = 'ELC-001'), 'ELC-001', '14/2 NMD90 Wire 75m', 'Electrical',
  'ORD-2025-00002', 'Main Warehouse', 40, 40, 'roll',
  'Purolator', 'expedited', 'PUR-123456789',
  125.50, 'delivered', 'delivered', 'James Miller', 'James Miller',
@@ -262,7 +262,7 @@ INSERT INTO app.f_shipment (
 ('SHIP-2025-00002', 2, 'standard', 'courier',
  '2025-01-12', '2025-01-12 16:00:00', '2025-01-13', '2025-01-16', '2025-01-17', '2025-01-15',
  'Downtown Office Building', 'commercial',
- (SELECT id FROM app.d_product WHERE code = 'ELC-003'), 'ELC-003', '15A Duplex Receptacle White', 'Electrical',
+ (SELECT id FROM app.app.product WHERE code = 'ELC-003'), 'ELC-003', '15A Duplex Receptacle White', 'Electrical',
  'ORD-2025-00002', 'Main Warehouse', 200, 200, 'each',
  'Purolator', 'expedited', 'PUR-123456789',
  125.50, 'delivered', 'delivered', 'James Miller', 'James Miller',
@@ -272,7 +272,7 @@ INSERT INTO app.f_shipment (
 ('SHIP-2025-00003', 1, 'rush', 'freight',
  '2025-01-20', '2025-01-20 10:00:00', '2025-01-21', '2025-01-24', '2025-01-24', NULL,
  'Johnson Family Home', 'residential',
- (SELECT id FROM app.d_product WHERE code = 'HVAC-001'), 'HVAC-001', 'Gas Furnace 60K BTU 96% AFUE', 'HVAC',
+ (SELECT id FROM app.app.product WHERE code = 'HVAC-001'), 'HVAC-001', 'Gas Furnace 60K BTU 96% AFUE', 'HVAC',
  'ORD-2025-00003', 'Main Warehouse', 1, 1, 'each',
  'UPS Freight', 'expedited', 'UPS-FRT-789012345',
  189.99, 'in_transit', 'not_delivered', 'James Miller', 'James Miller',
@@ -282,7 +282,7 @@ INSERT INTO app.f_shipment (
 ('SHIP-2025-00004', 1, 'standard', 'ground',
  '2025-01-22', '2025-01-22 09:00:00', '2025-01-23', '2025-01-26', '2025-01-27', NULL,
  'Brown Bathroom Remodel', 'residential',
- (SELECT id FROM app.d_product WHERE code = 'PLM-003'), 'PLM-003', 'Elongated Toilet 2-Piece White', 'Plumbing',
+ (SELECT id FROM app.app.product WHERE code = 'PLM-003'), 'PLM-003', 'Elongated Toilet 2-Piece White', 'Plumbing',
  'ORD-2025-00004', 'Main Warehouse', 2, 2, 'each',
  'Canada Post', 'standard', 'CP-234567890123',
  45.00, 'shipped', 'not_delivered', 'James Miller', 'James Miller',
@@ -291,7 +291,7 @@ INSERT INTO app.f_shipment (
 ('SHIP-2025-00004', 2, 'standard', 'ground',
  '2025-01-22', '2025-01-22 09:00:00', '2025-01-23', '2025-01-26', '2025-01-27', NULL,
  'Brown Bathroom Remodel', 'residential',
- (SELECT id FROM app.d_product WHERE code = 'PLM-001'), 'PLM-001', '3/4" Type L Copper Pipe 10ft', 'Plumbing',
+ (SELECT id FROM app.app.product WHERE code = 'PLM-001'), 'PLM-001', '3/4" Type L Copper Pipe 10ft', 'Plumbing',
  'ORD-2025-00004', 'Main Warehouse', 12, 12, 'length',
  'Canada Post', 'standard', 'CP-234567890123',
  45.00, 'shipped', 'not_delivered', 'James Miller', 'James Miller',
@@ -301,7 +301,7 @@ INSERT INTO app.f_shipment (
 ('SHIP-2025-00005', 1, 'standard', 'ground',
  '2025-01-24', '2025-01-24 13:00:00', NULL, '2025-01-28', '2025-01-28', NULL,
  'Wilson Interior Refresh', 'residential',
- (SELECT id FROM app.d_product WHERE code = 'PNT-001'), 'PNT-001', 'Interior Latex Paint 1 Gal White', 'Paint',
+ (SELECT id FROM app.app.product WHERE code = 'PNT-001'), 'PNT-001', 'Interior Latex Paint 1 Gal White', 'Paint',
  'ORD-2025-00005', 'Main Warehouse', 15, 15, 'gallon',
  'Own Fleet', 'standard', NULL,
  NULL, 'packed', 'not_delivered', 'James Miller', 'James Miller',
@@ -310,7 +310,7 @@ INSERT INTO app.f_shipment (
 ('SHIP-2025-00005', 2, 'standard', 'ground',
  '2025-01-24', '2025-01-24 13:00:00', NULL, '2025-01-28', '2025-01-28', NULL,
  'Wilson Interior Refresh', 'residential',
- (SELECT id FROM app.d_product WHERE code = 'PNT-003'), 'PNT-003', 'Primer Sealer 1 Gal', 'Paint',
+ (SELECT id FROM app.app.product WHERE code = 'PNT-003'), 'PNT-003', 'Primer Sealer 1 Gal', 'Paint',
  'ORD-2025-00005', 'Main Warehouse', 8, 8, 'gallon',
  'Own Fleet', 'standard', NULL,
  NULL, 'packed', 'not_delivered', 'James Miller', 'James Miller',
@@ -320,13 +320,13 @@ INSERT INTO app.f_shipment (
 ('SHIP-2025-00006', 1, 'standard', 'freight',
  '2025-01-25', '2025-01-25 11:00:00', '2025-01-26', '2025-01-28', '2025-01-28', '2025-01-28',
  'Heritage Home Restoration', 'residential',
- (SELECT id FROM app.d_product WHERE code = 'FLR-001'), 'FLR-001', 'Red Oak Hardwood 3/4" x 3.25"', 'Flooring',
+ (SELECT id FROM app.app.product WHERE code = 'FLR-001'), 'FLR-001', 'Red Oak Hardwood 3/4" x 3.25"', 'Flooring',
  'ORD-2025-00006', 'Main Warehouse', 850, 850, 'sqft',
  'Own Fleet', 'standard', 'FLEET-2025-002',
  150.00, 'delivered', 'delivered', 'James Miller', 'James Miller',
  '987 Heritage Lane', 'Burlington', 'ON', 'L7M 4Y8');
 
 -- Update timestamps
-UPDATE app.f_shipment SET updated_at = NOW();
+UPDATE app.shipment SET updated_at = NOW();
 
-COMMENT ON TABLE app.f_shipment IS 'Shipment fact table with grain at shipment line item level';
+COMMENT ON TABLE app.shipment IS 'Shipment fact table with grain at shipment line item level';

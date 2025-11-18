@@ -56,7 +56,7 @@
 --      SELECT w.* FROM d_wiki w
 --      WHERE w.active_flag=true
 --        AND EXISTS (
---          SELECT 1 FROM d_entity_rbac rbac
+--          SELECT 1 FROM entity_rbac rbac
 --          WHERE rbac.person_entity_name='employee' AND rbac.person_entity_id=$user_id
 --            AND rbac.entity='wiki'
 --            AND (rbac.entity_id=w.id::text OR rbac.entity_id='11111111-1111-1111-1111-111111111111')
@@ -70,7 +70,7 @@
 -- 7. GET SINGLE WIKI PAGE (WITH CONTENT)
 --    • Endpoint: GET /api/v1/wiki/{id}
 --    • Database: SELECT * FROM d_wiki WHERE id=$1 AND active_flag=true
---    • RBAC: Checks d_entity_rbac for view permission
+--    • RBAC: Checks entity_rbac for view permission
 --    • Frontend: WikiContentRenderer displays formatted content from d_wiki_data
 --
 -- 8. GET WIKI HIERARCHY (Tree Structure)
@@ -104,7 +104,7 @@
 --
 -- RELATIONSHIPS:
 -- • parent_wiki_id → d_wiki (self-reference for hierarchical structure)
--- • published_by_employee_id → d_employee (who published the page)
+-- • published_by_employee_id → app.employee (who published the page)
 -- • primary_entity_type, primary_entity_id: Links wiki to project/task/etc via entity_id_map
 -- • wiki_id ← d_wiki_data (content versions stored separately)
 --
