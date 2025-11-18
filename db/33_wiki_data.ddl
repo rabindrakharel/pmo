@@ -16,7 +16,7 @@ CREATE TABLE app.wiki_data (
     stage varchar(20) DEFAULT 'draft', -- draft, saved
 
     -- Update information
-    updated_by_employee_id uuid,
+    updated_by__employee_id uuid,
     update_type varchar(50) DEFAULT 'content_edit', -- content_edit, structure_change, metadata_update
     change_summary text,
     change_description text,

@@ -63,12 +63,12 @@ COMMENT ON TABLE app.business IS 'Operational business units (team-level) execut
 -- • Department: Department management level (e.g., "Landscaping Department")
 --
 -- DATABASE BEHAVIOR:
--- • CREATE: INSERT with parent_business_hierarchy_id pointing to parent hierarchy node
--- • HIERARCHY: Self-referential parent_business_hierarchy_id for tree structure
--- • TRAVERSE: Recursive CTE on parent_business_hierarchy_id for full hierarchy path
+-- • CREATE: INSERT with parent__business_hierarchy_id pointing to parent hierarchy node
+-- • HIERARCHY: Self-referential parent__business_hierarchy_id for tree structure
+-- • TRAVERSE: Recursive CTE on parent__business_hierarchy_id for full hierarchy path
 --
 -- RELATIONSHIPS:
--- • Self: parent_business_hierarchy_id → d_business_hierarchy.id
+-- • Self: parent__business_hierarchy_id → d_business_hierarchy.id
 -- • Children: app.business (via entity_instance_link)
 --
 -- =====================================================
@@ -82,11 +82,11 @@ CREATE TABLE app.business_hierarchy (
     active_flag boolean DEFAULT true,
 
     -- Hierarchy fields
-    parent_business_hierarchy_id uuid, -- Self-referential for hierarchy (NULL for Corporate level)
+    parent__business_hierarchy_id uuid, -- Self-referential for hierarchy (NULL for Corporate level)
     dl__business_hierarchy_level text, -- References app.setting_datalabel (datalabel_name='dl__business_hierarchy_level')
 
     -- Organizational fields
-    manager_employee_id uuid, -- Manager of this hierarchy node
+    manager__employee_id uuid, -- Manager of this hierarchy node
     budget_allocated_amt decimal(15,2), -- Budget allocated to this node
 
     from_ts timestamptz DEFAULT now(),
@@ -103,37 +103,37 @@ COMMENT ON TABLE app.business_hierarchy IS 'Business organizational hierarchy: C
 -- =====================================================
 
 -- LEVEL 1: CORPORATE (Top-level)
-INSERT INTO app.business_hierarchy (code, name, descr, parent_business_hierarchy_id, dl__business_hierarchy_level, manager_employee_id, budget_allocated_amt) VALUES
+INSERT INTO app.business_hierarchy (code, name, descr, parent__business_hierarchy_id, dl__business_hierarchy_level, manager__employee_id, budget_allocated_amt) VALUES
 ('BIZ-HIE-CORP', 'Huron Home Services Corporation', 'Corporate parent entity overseeing all divisions and operations. Led by CEO James Miller with comprehensive oversight of strategic direction, financial performance, and operational excellence.', NULL, 'Corporate', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 5000000.00);
 
 -- LEVEL 2: DIVISIONS
-INSERT INTO app.business_hierarchy (code, name, descr, parent_business_hierarchy_id, dl__business_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.business_hierarchy (code, name, descr, parent__business_hierarchy_id, dl__business_hierarchy_level, manager__employee_id, budget_allocated_amt)
 SELECT 'BIZ-HIE-SOD', 'Service Operations Division', 'Primary service delivery division managing all customer-facing operations including landscaping, HVAC, plumbing, and property maintenance services across Ontario.', id, 'Division', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 3000000.00
 FROM app.business_hierarchy WHERE code = 'BIZ-HIE-CORP';
 
-INSERT INTO app.business_hierarchy (code, name, descr, parent_business_hierarchy_id, dl__business_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.business_hierarchy (code, name, descr, parent__business_hierarchy_id, dl__business_hierarchy_level, manager__employee_id, budget_allocated_amt)
 SELECT 'BIZ-HIE-CSD', 'Corporate Services Division', 'Internal support division providing HR, Finance, IT, Legal, and Administrative services to support business operations. Ensures compliance, efficiency, and strategic support.', id, 'Division', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 1500000.00
 FROM app.business_hierarchy WHERE code = 'BIZ-HIE-CORP';
 
 -- LEVEL 3: DEPARTMENTS (Service Operations Division)
-INSERT INTO app.business_hierarchy (code, name, descr, parent_business_hierarchy_id, dl__business_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.business_hierarchy (code, name, descr, parent__business_hierarchy_id, dl__business_hierarchy_level, manager__employee_id, budget_allocated_amt)
 SELECT 'BIZ-HIE-LAND-DEPT', 'Landscaping Department', 'Comprehensive landscaping services including design, installation, maintenance, seasonal cleanup, and grounds management for residential and commercial properties.', id, 'Department', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 800000.00
 FROM app.business_hierarchy WHERE code = 'BIZ-HIE-SOD';
 
-INSERT INTO app.business_hierarchy (code, name, descr, parent_business_hierarchy_id, dl__business_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.business_hierarchy (code, name, descr, parent__business_hierarchy_id, dl__business_hierarchy_level, manager__employee_id, budget_allocated_amt)
 SELECT 'BIZ-HIE-HVAC-DEPT', 'HVAC Department', 'Heating, ventilation, and air conditioning services including installation, repair, maintenance, and energy efficiency consulting for residential and commercial clients.', id, 'Department', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 600000.00
 FROM app.business_hierarchy WHERE code = 'BIZ-HIE-SOD';
 
-INSERT INTO app.business_hierarchy (code, name, descr, parent_business_hierarchy_id, dl__business_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.business_hierarchy (code, name, descr, parent__business_hierarchy_id, dl__business_hierarchy_level, manager__employee_id, budget_allocated_amt)
 SELECT 'BIZ-HIE-PROP-DEPT', 'Property Maintenance Department', 'General property maintenance services including repairs, preventive maintenance, emergency response, and facility management for commercial and residential properties.', id, 'Department', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 500000.00
 FROM app.business_hierarchy WHERE code = 'BIZ-HIE-SOD';
 
 -- LEVEL 3: DEPARTMENTS (Corporate Services Division)
-INSERT INTO app.business_hierarchy (code, name, descr, parent_business_hierarchy_id, dl__business_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.business_hierarchy (code, name, descr, parent__business_hierarchy_id, dl__business_hierarchy_level, manager__employee_id, budget_allocated_amt)
 SELECT 'BIZ-HIE-HR-DEPT', 'Human Resources Department', 'Comprehensive HR services including recruitment, employee relations, training, benefits administration, performance management, and compliance oversight.', id, 'Department', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 400000.00
 FROM app.business_hierarchy WHERE code = 'BIZ-HIE-CSD';
 
-INSERT INTO app.business_hierarchy (code, name, descr, parent_business_hierarchy_id, dl__business_hierarchy_level, manager_employee_id, budget_allocated_amt)
+INSERT INTO app.business_hierarchy (code, name, descr, parent__business_hierarchy_id, dl__business_hierarchy_level, manager__employee_id, budget_allocated_amt)
 SELECT 'BIZ-HIE-FIN-DEPT', 'Finance Department', 'Financial management including accounting, budgeting, financial reporting, treasury management, and strategic financial planning.', id, 'Department', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13', 350000.00
 FROM app.business_hierarchy WHERE code = 'BIZ-HIE-CSD';
 

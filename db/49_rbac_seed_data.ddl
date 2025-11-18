@@ -289,7 +289,7 @@ WHERE e.email = 'james.miller@huronhome.ca';
 -- Grant owner permissions to project managers on their specific projects
 -- (This will be auto-created when projects are created via API with proper linkage)
 -- Example: Sarah Chen owns "Downtown Condo Renovation" project
-INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_by_employee_id)
+INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_by__employee_id)
 SELECT
   'employee',
   e.id,
@@ -303,7 +303,7 @@ WHERE e.email = 'sarah.chen@huronhome.ca'
   AND p.code = 'PROJ-001';
 
 -- Grant edit permissions to department managers on related business projects
-INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_by_employee_id)
+INSERT INTO app.entity_rbac (person_code, person_id, entity_code, entity_instance_id, permission, granted_by__employee_id)
 SELECT
   'employee',
   e.id,

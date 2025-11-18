@@ -56,7 +56,7 @@ CREATE TABLE app.entity_rbac (
   -- 0=View, 1=Comment, 3=Edit/Contribute, 4=Share, 5=Delete, 6=Create, 7=Owner (higher levels inherit all lower permissions)
 
   -- Permission lifecycle management
-  granted_by_employee_id uuid, -- References employee.id (who granted this permission - delegation tracking)
+  granted_by__employee_id uuid, -- References employee.id (who granted this permission - delegation tracking)
   granted_ts timestamptz DEFAULT now(),
   expires_ts timestamptz, -- Optional expiration for temporary permissions
 
@@ -71,7 +71,7 @@ COMMENT ON COLUMN app.entity_rbac.person_id IS 'UUID of person (references perso
 COMMENT ON COLUMN app.entity_rbac.entity_code IS 'Target entity code (references entity.code): project, task, employee, office, business, worksite, customer, service, product, order, invoice, etc.';
 COMMENT ON COLUMN app.entity_rbac.entity_instance_id IS 'Target entity instance UUID for instance-level permissions, or "11111111-1111-1111-1111-111111111111" for type-level permissions granting access to ALL instances of the entity type';
 COMMENT ON COLUMN app.entity_rbac.permission IS 'Permission level with automatic inheritance: 0=View, 1=Comment (implies View), 3=Edit/Contribute (implies Comment+View), 4=Share (implies Edit+Comment+View), 5=Delete (implies Share+Edit+Comment+View), 6=Create (implies all lower), 7=Owner (implies all permissions). Check using: permission >= required_level';
-COMMENT ON COLUMN app.entity_rbac.granted_by_employee_id IS 'Employee who granted this permission - enables delegation tracking and audit trail';
+COMMENT ON COLUMN app.entity_rbac.granted_by__employee_id IS 'Employee who granted this permission - enables delegation tracking and audit trail';
 COMMENT ON COLUMN app.entity_rbac.expires_ts IS 'Optional expiration timestamp for temporary permissions (contractor access, time-limited delegation)';
 
 -- ============================================================================
