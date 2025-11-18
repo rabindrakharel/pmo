@@ -5,10 +5,10 @@
  *
  * PURPOSE:
  * Centralized, self-contained service for managing entity infrastructure:
- *   • d_entity (entity type metadata)
- *   • d_entity_instance_registry (instance registry)
- *   • d_entity_instance_link (relationships/linkages)
- *   • d_entity_rbac (permissions + RBAC logic)
+ *   • entity (entity type metadata)
+ *   • entity_instance (instance registry)
+ *   • entity_instance_link (relationships/linkages)
+ *   • entity_rbac (permissions + RBAC logic)
  *
  * DESIGN PATTERN: Add-On Helper
  *   ✅ Service ONLY manages infrastructure tables
@@ -59,11 +59,11 @@ export interface Entity {
 }
 
 export interface EntityInstance {
-  entity_type: string;
-  entity_id: string;
+  entity_code: string;
+  entity_instance_id: string;
   order_id: number;
-  entity_name: string;
-  entity_code: string | null;
+  entity_instance_name: string;
+  code: string | null;
   active_flag: boolean;
   created_ts: string;
   updated_ts: string;
@@ -71,10 +71,10 @@ export interface EntityInstance {
 
 export interface EntityLink {
   id: string;
-  parent_entity_type: string;
-  parent_entity_id: string;
-  child_entity_type: string;
-  child_entity_id: string;
+  parent_entity_code: string;
+  parent_entity_instance_id: string;
+  child_entity_code: string;
+  child_entity_instance_id: string;
   relationship_type: string;
   active_flag: boolean;
   created_ts: string;
@@ -137,11 +137,11 @@ export class EntityInfrastructureService {
   }
 
   // ==========================================================================
-  // SECTION 1: Entity Type Metadata (d_entity)
+  // SECTION 1: Entity Type Metadata (entity)
   // ==========================================================================
 
   /**
-   * Get entity type metadata from d_entity table
+   * Get entity type metadata from entity table
    * @param entity_type Entity type code (e.g., 'project', 'task')
    * @param include_inactive Include inactive entity types
    * @returns Entity metadata or null if not found
@@ -160,7 +160,7 @@ export class EntityInfrastructureService {
 
     const result = await this.db.execute(sql`
       SELECT code, name, ui_label, ui_icon, child_entities, display_order, active_flag, created_ts, updated_ts
-      FROM app.d_entity
+      FROM app.entity
       WHERE code = ${entity_type}
         ${include_inactive ? sql`` : sql`AND active_flag = true`}
     `);
@@ -199,7 +199,7 @@ export class EntityInfrastructureService {
   async get_all_entity(include_inactive = false): Promise<Entity[]> {
     const result = await this.db.execute(sql`
       SELECT code, name, ui_label, ui_icon, child_entities, display_order, active_flag, created_ts, updated_ts
-      FROM app.d_entity
+      FROM app.entity
       ${include_inactive ? sql`` : sql`WHERE active_flag = true`}
       ORDER BY display_order ASC, name ASC
     `);
@@ -234,7 +234,7 @@ export class EntityInfrastructureService {
   async get_parent_entity_types(child_entity_type: string): Promise<string[]> {
     const result = await this.db.execute(sql`
       SELECT code
-      FROM app.d_entity
+      FROM app.entity
       WHERE active_flag = true
         AND child_entities @> ${JSON.stringify([{ entity: child_entity_type }])}::jsonb
       ORDER BY code ASC
@@ -244,7 +244,7 @@ export class EntityInfrastructureService {
   }
 
   // ==========================================================================
-  // SECTION 2: Instance Registry (d_entity_instance_registry)
+  // SECTION 2: Instance Registry (entity_instance)
   // ==========================================================================
 
   /**
@@ -268,14 +268,9 @@ export class EntityInfrastructureService {
     const { entity_type, entity_id, entity_name, entity_code } = params;
 
     const result = await this.db.execute(sql`
-      INSERT INTO app.d_entity_instance_registry
-      (entity_type, entity_id, entity_name, entity_code, active_flag)
+      INSERT INTO app.entity_instance
+      (entity_code, entity_instance_id, entity_instance_name, code, active_flag)
       VALUES (${entity_type}, ${entity_id}, ${entity_name}, ${entity_code || null}, true)
-      ON CONFLICT (entity_type, entity_id) DO UPDATE
-      SET entity_name = EXCLUDED.entity_name,
-          entity_code = EXCLUDED.entity_code,
-          active_flag = true,
-          updated_ts = now()
       RETURNING *
     `);
 
@@ -295,11 +290,11 @@ export class EntityInfrastructureService {
     const params: any[] = [];
 
     if (updates.entity_name !== undefined) {
-      setClauses.push('entity_name');
+      setClauses.push('entity_instance_name');
       params.push(updates.entity_name);
     }
     if (updates.entity_code !== undefined) {
-      setClauses.push('entity_code');
+      setClauses.push('code');
       params.push(updates.entity_code);
     }
 
@@ -309,9 +304,9 @@ export class EntityInfrastructureService {
     const setExpressions = setClauses.map((col, i) => `${col} = '${String(params[i]).replace(/'/g, "''")}'`).join(', ');
 
     const result = await this.db.execute(sql.raw(`
-      UPDATE app.d_entity_instance_registry
+      UPDATE app.entity_instance
       SET ${setExpressions}, updated_ts = now()
-      WHERE entity_type = '${entity_type}' AND entity_id = '${entity_id}'
+      WHERE entity_code = '${entity_type}' AND entity_instance_id = '${entity_id}'
       RETURNING *
     `));
 
@@ -323,9 +318,9 @@ export class EntityInfrastructureService {
    */
   async deactivate_entity_instance_registry(entity_type: string, entity_id: string): Promise<EntityInstance | null> {
     const result = await this.db.execute(sql`
-      UPDATE app.d_entity_instance_registry
+      UPDATE app.entity_instance
       SET active_flag = false, updated_ts = now()
-      WHERE entity_type = ${entity_type} AND entity_id = ${entity_id}
+      WHERE entity_code = ${entity_type} AND entity_instance_id = ${entity_id}
       RETURNING *
     `);
 
@@ -342,8 +337,8 @@ export class EntityInfrastructureService {
   ): Promise<boolean> {
     const result = await this.db.execute(sql`
       SELECT EXISTS(
-        SELECT 1 FROM app.d_entity_instance_registry
-        WHERE entity_type = ${entity_type} AND entity_id = ${entity_id}
+        SELECT 1 FROM app.entity_instance
+        WHERE entity_code = ${entity_type} AND entity_instance_id = ${entity_id}
           ${require_active ? sql`AND active_flag = true` : sql``}
       ) AS exists
     `);
@@ -352,7 +347,7 @@ export class EntityInfrastructureService {
   }
 
   // ==========================================================================
-  // SECTION 3: Relationship Management (d_entity_instance_link)
+  // SECTION 3: Relationship Management (entity_instance_link)
   // ==========================================================================
 
   /**
@@ -391,11 +386,9 @@ export class EntityInfrastructureService {
     // }
 
     const result = await this.db.execute(sql`
-      INSERT INTO app.d_entity_instance_link
-      (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type, active_flag)
+      INSERT INTO app.entity_instance_link
+      (parent_entity_code, parent_entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type, active_flag)
       VALUES (${parent_entity_type}, ${parent_entity_id}, ${child_entity_type}, ${child_entity_id}, ${relationship_type}, true)
-      ON CONFLICT (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
-      DO UPDATE SET active_flag = true, relationship_type = EXCLUDED.relationship_type, updated_ts = now()
       RETURNING *
     `);
 
@@ -407,7 +400,7 @@ export class EntityInfrastructureService {
    */
   async delete_entity_instance_link(linkage_id: string): Promise<EntityLink | null> {
     const result = await this.db.execute(sql`
-      UPDATE app.d_entity_instance_link
+      UPDATE app.entity_instance_link
       SET active_flag = false, updated_ts = now()
       WHERE id = ${linkage_id}
       RETURNING *
@@ -426,15 +419,15 @@ export class EntityInfrastructureService {
     child_entity_type: string
   ): Promise<string[]> {
     const result = await this.db.execute(sql`
-      SELECT child_entity_id
-      FROM app.d_entity_instance_link
-      WHERE parent_entity_type = ${parent_entity_type}
-        AND parent_entity_id = ${parent_entity_id}
-        AND child_entity_type = ${child_entity_type}
+      SELECT child_entity_instance_id
+      FROM app.entity_instance_link
+      WHERE parent_entity_code = ${parent_entity_type}
+        AND parent_entity_instance_id = ${parent_entity_id}
+        AND child_entity_code = ${child_entity_type}
         AND active_flag = true
     `);
 
-    return result.map(row => row.child_entity_id);
+    return result.map(row => row.child_entity_instance_id);
   }
 
   /**
@@ -442,7 +435,7 @@ export class EntityInfrastructureService {
    */
   async get_entity_instance_link_by_id(linkage_id: string): Promise<EntityLink | null> {
     const result = await this.db.execute(sql`
-      SELECT * FROM app.d_entity_instance_link
+      SELECT * FROM app.entity_instance_link
       WHERE id = ${linkage_id}
     `);
 
@@ -462,23 +455,23 @@ export class EntityInfrastructureService {
     let conditions = sql`1=1`;
 
     if (filters?.parent_entity_type) {
-      conditions = sql`${conditions} AND parent_entity_type = ${filters.parent_entity_type}`;
+      conditions = sql`${conditions} AND parent_entity_code = ${filters.parent_entity_type}`;
     }
     if (filters?.parent_entity_id) {
-      conditions = sql`${conditions} AND parent_entity_id = ${filters.parent_entity_id}`;
+      conditions = sql`${conditions} AND parent_entity_instance_id = ${filters.parent_entity_id}`;
     }
     if (filters?.child_entity_type) {
-      conditions = sql`${conditions} AND child_entity_type = ${filters.child_entity_type}`;
+      conditions = sql`${conditions} AND child_entity_code = ${filters.child_entity_type}`;
     }
     if (filters?.child_entity_id) {
-      conditions = sql`${conditions} AND child_entity_id = ${filters.child_entity_id}`;
+      conditions = sql`${conditions} AND child_entity_instance_id = ${filters.child_entity_id}`;
     }
     if (filters?.active_flag !== undefined) {
       conditions = sql`${conditions} AND active_flag = ${filters.active_flag}`;
     }
 
     const result = await this.db.execute(sql`
-      SELECT * FROM app.d_entity_instance_link
+      SELECT * FROM app.entity_instance_link
       WHERE ${conditions}
       ORDER BY created_ts DESC
     `);
@@ -506,7 +499,7 @@ export class EntityInfrastructureService {
     }
 
     const result = await this.db.execute(sql`
-      UPDATE app.d_entity_instance_link
+      UPDATE app.entity_instance_link
       SET ${sql.join(updateClauses, sql`, `)}
       WHERE id = ${linkage_id}
       RETURNING *
@@ -542,14 +535,14 @@ export class EntityInfrastructureService {
   }
 
   // ==========================================================================
-  // SECTION 4: Permission Management (d_entity_rbac)
+  // SECTION 4: Permission Management (entity_rbac)
   // ==========================================================================
 
   /**
    * Check if user has specific permission on entity
    *
    * Permission resolution (automatic inheritance):
-   * 1. Direct employee permissions (d_entity_rbac)
+   * 1. Direct employee permissions (entity_rbac)
    * 2. Role-based permissions (employee → role → permissions)
    * 3. Parent-VIEW inheritance (if parent has VIEW, child gains VIEW)
    * 4. Parent-CREATE inheritance (if parent has CREATE, child gains CREATE)
@@ -592,15 +585,15 @@ export class EntityInfrastructureService {
       WITH
       -- ---------------------------------------------------------------------------
       -- 1. DIRECT EMPLOYEE PERMISSIONS
-      --    Check d_entity_rbac for direct employee permissions
+      --    Check entity_rbac for direct employee permissions
       -- ---------------------------------------------------------------------------
       direct_emp AS (
         SELECT permission
-        FROM app.d_entity_rbac
-        WHERE person_entity_name = 'employee'
+        FROM app.entity_rbac
+        WHERE person_entity_code = 'employee'
           AND person_entity_id = ${user_id}::uuid
-          AND entity_name = ${entity_type}
-          AND (entity_id = '11111111-1111-1111-1111-111111111111'::uuid OR entity_id = ${entity_id}::uuid)
+          AND entity_code = ${entity_type}
+          AND (entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid OR entity_instance_id = ${entity_id}::uuid)
           AND active_flag = true
           AND (expires_ts IS NULL OR expires_ts > NOW())
       ),
@@ -611,27 +604,27 @@ export class EntityInfrastructureService {
       -- ---------------------------------------------------------------------------
       role_based AS (
         SELECT rbac.permission
-        FROM app.d_entity_rbac rbac
-        INNER JOIN app.d_entity_instance_link eim
-          ON eim.parent_entity_type = 'role'
-          AND eim.parent_entity_id = rbac.person_entity_id
-          AND eim.child_entity_type = 'employee'
-          AND eim.child_entity_id = ${user_id}::uuid
+        FROM app.entity_rbac rbac
+        INNER JOIN app.entity_instance_link eim
+          ON eim.parent_entity_code = 'role'
+          AND eim.parent_entity_instance_id = rbac.person_entity_id
+          AND eim.child_entity_code = 'employee'
+          AND eim.child_entity_instance_id = ${user_id}::uuid
           AND eim.active_flag = true
-        WHERE rbac.person_entity_name = 'role'
-          AND rbac.entity_name = ${entity_type}
-          AND (rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid OR rbac.entity_id = ${entity_id}::uuid)
+        WHERE rbac.person_entity_code = 'role'
+          AND rbac.entity_code = ${entity_type}
+          AND (rbac.entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid OR rbac.entity_instance_id = ${entity_id}::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
       ),
 
       -- ---------------------------------------------------------------------------
       -- 3. FIND PARENT ENTITY TYPES OF CURRENT ENTITY
-      --    (using d_entity.child_entities)
+      --    (using entity.child_entities)
       -- ---------------------------------------------------------------------------
       parent_entities AS (
-        SELECT d.code AS parent_entity_name
-        FROM app.d_entity d
+        SELECT d.code AS parent_entity_code
+        FROM app.entity d
         WHERE ${entity_type} = ANY(SELECT jsonb_array_elements_text(d.child_entities))
       ),
 
@@ -644,25 +637,25 @@ export class EntityInfrastructureService {
         FROM parent_entities pe
 
         -- direct employee permissions on parent
-        LEFT JOIN app.d_entity_rbac emp
-          ON emp.person_entity_name = 'employee'
+        LEFT JOIN app.entity_rbac emp
+          ON emp.person_entity_code = 'employee'
           AND emp.person_entity_id = ${user_id}
-          AND emp.entity_name = pe.parent_entity_name
+          AND emp.entity_code = pe.parent_entity_code
           AND emp.active_flag = true
           AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
 
         -- role permissions on parent
-        LEFT JOIN app.d_entity_rbac rbac
-          ON rbac.person_entity_name = 'role'
-          AND rbac.entity_name = pe.parent_entity_name
+        LEFT JOIN app.entity_rbac rbac
+          ON rbac.person_entity_code = 'role'
+          AND rbac.entity_code = pe.parent_entity_code
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
 
-        LEFT JOIN app.d_entity_instance_link eim
-          ON eim.parent_entity_type = 'role'
-          AND eim.parent_entity_id = rbac.person_entity_id
-          AND eim.child_entity_type = 'employee'
-          AND eim.child_entity_id = ${user_id}::uuid
+        LEFT JOIN app.entity_instance_link eim
+          ON eim.parent_entity_code = 'role'
+          AND eim.parent_entity_instance_id = rbac.person_entity_id
+          AND eim.child_entity_code = 'employee'
+          AND eim.child_entity_instance_id = ${user_id}::uuid
           AND eim.active_flag = true
 
         WHERE
@@ -678,24 +671,24 @@ export class EntityInfrastructureService {
         SELECT 4 AS permission
         FROM parent_entities pe
 
-        LEFT JOIN app.d_entity_rbac emp
-          ON emp.person_entity_name = 'employee'
+        LEFT JOIN app.entity_rbac emp
+          ON emp.person_entity_code = 'employee'
           AND emp.person_entity_id = ${user_id}
-          AND emp.entity_name = pe.parent_entity_name
+          AND emp.entity_code = pe.parent_entity_code
           AND emp.active_flag = true
           AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
 
-        LEFT JOIN app.d_entity_rbac rbac
-          ON rbac.person_entity_name = 'role'
-          AND rbac.entity_name = pe.parent_entity_name
+        LEFT JOIN app.entity_rbac rbac
+          ON rbac.person_entity_code = 'role'
+          AND rbac.entity_code = pe.parent_entity_code
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
 
-        LEFT JOIN app.d_entity_instance_link eim
-          ON eim.parent_entity_type = 'role'
-          AND eim.parent_entity_id = rbac.person_entity_id
-          AND eim.child_entity_type = 'employee'
-          AND eim.child_entity_id = ${user_id}::uuid
+        LEFT JOIN app.entity_instance_link eim
+          ON eim.parent_entity_code = 'role'
+          AND eim.parent_entity_instance_id = rbac.person_entity_id
+          AND eim.child_entity_code = 'employee'
+          AND eim.child_entity_instance_id = ${user_id}::uuid
           AND eim.active_flag = true
 
         WHERE
@@ -736,14 +729,9 @@ export class EntityInfrastructureService {
     permission_level: Permission
   ): Promise<any> {
     const result = await this.db.execute(sql`
-      INSERT INTO app.d_entity_rbac
-      (person_entity_name, person_entity_id, entity_name, entity_id, permission, active_flag)
+      INSERT INTO app.entity_rbac
+      (person_entity_code, person_entity_id, entity_code, entity_instance_id, permission, active_flag)
       VALUES ('employee', ${user_id}, ${entity_type}, ${entity_id}, ${permission_level}, true)
-      ON CONFLICT (person_entity_name, person_entity_id, entity_name, entity_id)
-      DO UPDATE SET
-        permission = GREATEST(d_entity_rbac.permission, EXCLUDED.permission),
-        active_flag = true,
-        updated_ts = now()
       RETURNING *
     `);
 
@@ -771,10 +759,10 @@ export class EntityInfrastructureService {
     entity_id: string
   ): Promise<void> {
     await this.db.execute(sql`
-      DELETE FROM app.d_entity_rbac
+      DELETE FROM app.entity_rbac
       WHERE person_entity_id = ${user_id}
-        AND entity_name = ${entity_type}
-        AND entity_id = ${entity_id}
+        AND entity_code = ${entity_type}
+        AND entity_instance_id = ${entity_id}
     `);
   }
 
@@ -845,8 +833,8 @@ export class EntityInfrastructureService {
       -- 1. PARENT ENTITY TYPES
       -- ---------------------------------------------------------------------------
       parent_entities AS (
-        SELECT d.code AS parent_entity_name
-        FROM app.d_entity d
+        SELECT d.code AS parent_entity_code
+        FROM app.entity d
         WHERE ${entity_type} = ANY(SELECT jsonb_array_elements_text(d.child_entities))
       ),
 
@@ -854,12 +842,12 @@ export class EntityInfrastructureService {
       -- 2. DIRECT EMPLOYEE PERMISSIONS
       -- ---------------------------------------------------------------------------
       direct_emp AS (
-        SELECT entity_id, permission
-        FROM app.d_entity_rbac
-        WHERE person_entity_name = 'employee'
+        SELECT entity_instance_id, permission
+        FROM app.entity_rbac
+        WHERE person_entity_code = 'employee'
           AND person_entity_id = ${user_id}::uuid
-          AND entity_name = ${entity_type}
-          AND entity_id != '11111111-1111-1111-1111-111111111111'::uuid
+          AND entity_code = ${entity_type}
+          AND entity_instance_id != '11111111-1111-1111-1111-111111111111'::uuid
           AND active_flag = true
           AND (expires_ts IS NULL OR expires_ts > NOW())
       ),
@@ -868,17 +856,17 @@ export class EntityInfrastructureService {
       -- 3. ROLE-BASED PERMISSIONS
       -- ---------------------------------------------------------------------------
       role_based AS (
-        SELECT rbac.entity_id, rbac.permission
-        FROM app.d_entity_rbac rbac
-        INNER JOIN app.d_entity_instance_link eim
-          ON eim.parent_entity_type = 'role'
-          AND eim.parent_entity_id = rbac.person_entity_id
-          AND eim.child_entity_type = 'employee'
-          AND eim.child_entity_id = ${user_id}::uuid
+        SELECT rbac.entity_instance_id, rbac.permission
+        FROM app.entity_rbac rbac
+        INNER JOIN app.entity_instance_link eim
+          ON eim.parent_entity_code = 'role'
+          AND eim.parent_entity_instance_id = rbac.person_entity_id
+          AND eim.child_entity_code = 'employee'
+          AND eim.child_entity_instance_id = ${user_id}::uuid
           AND eim.active_flag = true
-        WHERE rbac.person_entity_name = 'role'
-          AND rbac.entity_name = ${entity_type}
-          AND rbac.entity_id != '11111111-1111-1111-1111-111111111111'::uuid
+        WHERE rbac.person_entity_code = 'role'
+          AND rbac.entity_code = ${entity_type}
+          AND rbac.entity_instance_id != '11111111-1111-1111-1111-111111111111'::uuid
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
       ),
@@ -887,29 +875,29 @@ export class EntityInfrastructureService {
       -- 4. PARENT ENTITIES WITH VIEW PERMISSION (permission >= 0)
       -- ---------------------------------------------------------------------------
       parents_with_view AS (
-        SELECT DISTINCT emp.entity_id AS parent_id, pe.parent_entity_name
+        SELECT DISTINCT emp.entity_instance_id AS parent_id, pe.parent_entity_code
         FROM parent_entities pe
-        INNER JOIN app.d_entity_rbac emp
-          ON emp.person_entity_name = 'employee'
+        INNER JOIN app.entity_rbac emp
+          ON emp.person_entity_code = 'employee'
           AND emp.person_entity_id = ${user_id}::uuid
-          AND emp.entity_name = pe.parent_entity_name
+          AND emp.entity_code = pe.parent_entity_code
           AND emp.permission >= 0
           AND emp.active_flag = true
           AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
         UNION
-        SELECT DISTINCT rbac.entity_id AS parent_id, pe.parent_entity_name
+        SELECT DISTINCT rbac.entity_instance_id AS parent_id, pe.parent_entity_code
         FROM parent_entities pe
-        INNER JOIN app.d_entity_rbac rbac
-          ON rbac.person_entity_name = 'role'
-          AND rbac.entity_name = pe.parent_entity_name
+        INNER JOIN app.entity_rbac rbac
+          ON rbac.person_entity_code = 'role'
+          AND rbac.entity_code = pe.parent_entity_code
           AND rbac.permission >= 0
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        INNER JOIN app.d_entity_instance_link eim
-          ON eim.parent_entity_type = 'role'
-          AND eim.parent_entity_id = rbac.person_entity_id
-          AND eim.child_entity_type = 'employee'
-          AND eim.child_entity_id = ${user_id}::uuid
+        INNER JOIN app.entity_instance_link eim
+          ON eim.parent_entity_code = 'role'
+          AND eim.parent_entity_instance_id = rbac.person_entity_id
+          AND eim.child_entity_code = 'employee'
+          AND eim.child_entity_instance_id = ${user_id}::uuid
           AND eim.active_flag = true
       ),
 
@@ -917,12 +905,12 @@ export class EntityInfrastructureService {
       -- 5. CHILDREN OF PARENTS WITH VIEW (inherit VIEW permission)
       -- ---------------------------------------------------------------------------
       children_from_view AS (
-        SELECT DISTINCT eim.child_entity_id AS entity_id, 0 AS permission
+        SELECT DISTINCT eim.child_entity_instance_id AS entity_instance_id, 0 AS permission
         FROM parents_with_view pw
-        INNER JOIN app.d_entity_instance_link eim
-          ON eim.parent_entity_type = pw.parent_entity_name
-          AND eim.parent_entity_id = pw.parent_id
-          AND eim.child_entity_type = ${entity_type}
+        INNER JOIN app.entity_instance_link eim
+          ON eim.parent_entity_code = pw.parent_entity_code
+          AND eim.parent_entity_instance_id = pw.parent_id
+          AND eim.child_entity_code = ${entity_type}
           AND eim.active_flag = true
       ),
 
@@ -930,29 +918,29 @@ export class EntityInfrastructureService {
       -- 6. PARENT ENTITIES WITH CREATE PERMISSION (permission >= 4)
       -- ---------------------------------------------------------------------------
       parents_with_create AS (
-        SELECT DISTINCT emp.entity_id AS parent_id, pe.parent_entity_name
+        SELECT DISTINCT emp.entity_instance_id AS parent_id, pe.parent_entity_code
         FROM parent_entities pe
-        INNER JOIN app.d_entity_rbac emp
-          ON emp.person_entity_name = 'employee'
+        INNER JOIN app.entity_rbac emp
+          ON emp.person_entity_code = 'employee'
           AND emp.person_entity_id = ${user_id}::uuid
-          AND emp.entity_name = pe.parent_entity_name
+          AND emp.entity_code = pe.parent_entity_code
           AND emp.permission >= 4
           AND emp.active_flag = true
           AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
         UNION
-        SELECT DISTINCT rbac.entity_id AS parent_id, pe.parent_entity_name
+        SELECT DISTINCT rbac.entity_instance_id AS parent_id, pe.parent_entity_code
         FROM parent_entities pe
-        INNER JOIN app.d_entity_rbac rbac
-          ON rbac.person_entity_name = 'role'
-          AND rbac.entity_name = pe.parent_entity_name
+        INNER JOIN app.entity_rbac rbac
+          ON rbac.person_entity_code = 'role'
+          AND rbac.entity_code = pe.parent_entity_code
           AND rbac.permission >= 4
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        INNER JOIN app.d_entity_instance_link eim
-          ON eim.parent_entity_type = 'role'
-          AND eim.parent_entity_id = rbac.person_entity_id
-          AND eim.child_entity_type = 'employee'
-          AND eim.child_entity_id = ${user_id}::uuid
+        INNER JOIN app.entity_instance_link eim
+          ON eim.parent_entity_code = 'role'
+          AND eim.parent_entity_instance_id = rbac.person_entity_id
+          AND eim.child_entity_code = 'employee'
+          AND eim.child_entity_instance_id = ${user_id}::uuid
           AND eim.active_flag = true
       ),
 
@@ -960,12 +948,12 @@ export class EntityInfrastructureService {
       -- 7. CHILDREN OF PARENTS WITH CREATE (inherit CREATE permission)
       -- ---------------------------------------------------------------------------
       children_from_create AS (
-        SELECT DISTINCT eim.child_entity_id AS entity_id, 4 AS permission
+        SELECT DISTINCT eim.child_entity_instance_id AS entity_instance_id, 4 AS permission
         FROM parents_with_create pc
-        INNER JOIN app.d_entity_instance_link eim
-          ON eim.parent_entity_type = pc.parent_entity_name
-          AND eim.parent_entity_id = pc.parent_id
-          AND eim.child_entity_type = ${entity_type}
+        INNER JOIN app.entity_instance_link eim
+          ON eim.parent_entity_code = pc.parent_entity_code
+          AND eim.parent_entity_instance_id = pc.parent_id
+          AND eim.child_entity_code = ${entity_type}
           AND eim.active_flag = true
       ),
 
@@ -973,7 +961,7 @@ export class EntityInfrastructureService {
       -- UNION ALL PERMISSION SOURCES + FILTER BY REQUIRED PERMISSION
       -- ---------------------------------------------------------------------------
       all_permissions AS (
-        SELECT entity_id, MAX(permission) AS max_permission
+        SELECT entity_instance_id, MAX(permission) AS max_permission
         FROM (
           SELECT * FROM direct_emp
           UNION ALL
@@ -983,15 +971,15 @@ export class EntityInfrastructureService {
           UNION ALL
           SELECT * FROM children_from_create
         ) AS perms
-        GROUP BY entity_id
+        GROUP BY entity_instance_id
       )
 
-      SELECT entity_id::text
+      SELECT entity_instance_id::text
       FROM all_permissions
       WHERE max_permission >= ${required_permission}
     `);
 
-    return result.map(row => row.entity_id);
+    return result.map(row => row.entity_instance_id);
   }
 
   // ==========================================================================
@@ -1004,8 +992,8 @@ export class EntityInfrastructureService {
    * Orchestrates deletion across all infrastructure tables:
    * 1. Check DELETE permission
    * 2. Optionally cascade delete children
-   * 3. Deactivate in d_entity_instance_registry
-   * 4. Deactivate linkages in d_entity_instance_link
+   * 3. Deactivate in entity_instance
+   * 4. Deactivate linkages in entity_instance_link
    * 5. Optionally remove RBAC entries
    * 6. Optionally delete from primary table via callback
    *
@@ -1021,7 +1009,7 @@ export class EntityInfrastructureService {
    *   hard_delete: true,
    *   cascade_delete_children: true,
    *   primary_table_callback: async (db, id) => {
-   *     await db.delete(d_project).where(eq(d_project.id, id));
+   *     await db.delete(project).where(eq(project.id, id));
    *   }
    * });
    */
@@ -1064,15 +1052,15 @@ export class EntityInfrastructureService {
     // Step 2: Handle cascading child deletes (if requested)
     if (cascade_delete_children) {
       const childLinkages = await this.db.execute(sql`
-        SELECT * FROM app.d_entity_instance_link
-        WHERE parent_entity_type = ${entity_type}
-          AND parent_entity_id = ${entity_id}
+        SELECT * FROM app.entity_instance_link
+        WHERE parent_entity_code = ${entity_type}
+          AND parent_entity_instance_id = ${entity_id}
           AND active_flag = true
       `);
 
       for (const linkage of childLinkages) {
         try {
-          await this.delete_all_entity_infrastructure(linkage.child_entity_type, linkage.child_entity_id, {
+          await this.delete_all_entity_infrastructure(linkage.child_entity_code, linkage.child_entity_instance_id, {
             user_id,
             hard_delete,
             cascade_delete_children: true,
@@ -1081,30 +1069,30 @@ export class EntityInfrastructureService {
           });
           children_deleted++;
         } catch (error) {
-          console.error(`Failed to cascade delete child: ${linkage.child_entity_type}/${linkage.child_entity_id}`, error);
+          console.error(`Failed to cascade delete child: ${linkage.child_entity_code}/${linkage.child_entity_instance_id}`, error);
         }
       }
     }
 
-    // Step 3: Deactivate in d_entity_instance_registry
+    // Step 3: Deactivate in entity_instance
     if (hard_delete) {
       await this.db.execute(sql`
-        DELETE FROM app.d_entity_instance_registry
-        WHERE entity_type = ${entity_type} AND entity_id = ${entity_id}
+        DELETE FROM app.entity_instance
+        WHERE entity_code = ${entity_type} AND entity_instance_id = ${entity_id}
       `);
     } else {
       await this.deactivate_entity_instance_registry(entity_type, entity_id);
     }
     registry_deactivated = true;
 
-    // Step 4: Deactivate linkages in d_entity_instance_link
+    // Step 4: Deactivate linkages in entity_instance_link
     const linkageResult = await this.db.execute(sql`
-      UPDATE app.d_entity_instance_link
+      UPDATE app.entity_instance_link
       SET active_flag = false, updated_ts = now()
       WHERE (
-        (parent_entity_type = ${entity_type} AND parent_entity_id = ${entity_id})
+        (parent_entity_code = ${entity_type} AND parent_entity_instance_id = ${entity_id})
         OR
-        (child_entity_type = ${entity_type} AND child_entity_id = ${entity_id})
+        (child_entity_code = ${entity_type} AND child_entity_instance_id = ${entity_id})
       )
       AND active_flag = true
     `);
@@ -1113,8 +1101,8 @@ export class EntityInfrastructureService {
     // Step 5: Remove RBAC entries (optional)
     if (remove_rbac_entries) {
       const rbacResult = await this.db.execute(sql`
-        DELETE FROM app.d_entity_rbac
-        WHERE entity_name = ${entity_type} AND entity_id = ${entity_id}
+        DELETE FROM app.entity_rbac
+        WHERE entity_code = ${entity_type} AND entity_instance_id = ${entity_id}
       `);
       rbac_entries_removed = rbacResult.rowCount || 0;
     }
