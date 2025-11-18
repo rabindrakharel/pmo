@@ -2,28 +2,30 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import { getEntityInfrastructure, Permission } from '../services/entity-infrastructure.service.js';
 
 /**
- * Universal Entity Delete Factory
+ * Universal Entity Delete Factory (v2.0)
  *
- * Provides both route factory and utility functions for consistent entity deletion.
- * Automatically handles cascading cleanup of:
- * 1. Main entity table (soft delete: active_flag=false)
- * 2. Entity instance registry (entity_instance)
- * 3. Parent-child linkages (entity_instance_link)
+ * Thin wrapper around Entity Infrastructure Service for DELETE endpoint generation.
+ * Creates standardized DELETE /api/v1/{entityType}/:id endpoints.
+ *
+ * ARCHITECTURE:
+ * - Uses Entity Infrastructure Service (single source of truth)
+ * - Supports RBAC permission checking
+ * - Supports cascade delete (optional)
+ * - Supports primary table callbacks
  *
  * Route Factory Usage:
- *   createEntityDeleteEndpoint(fastify, 'task');
- *   createEntityDeleteEndpoint(fastify, 'project');
- *
- * Utility Function Usage:
- *   await universalEntityDelete('task', taskId);
- *   await universalEntityDelete('project', projectId);
+ *   createEntityDeleteEndpoint(fastify, 'task', {
+ *     primary_table_callback: async (db, id) => {
+ *       await db.execute(sql`DELETE FROM app.task WHERE id = ${id}`);
+ *     }
+ *   });
  */
 
 // ============================================================================
-// ENTITY TYPE TO TABLE MAPPING
-// Imported from child-entity-route-factory for consistency
+// ENTITY TYPE TO TABLE MAPPING (for primary table deletion)
 // ============================================================================
 
 import { ENTITY_TABLE_MAP } from './child-entity-route-factory.js';
@@ -32,161 +34,75 @@ import { ENTITY_TABLE_MAP } from './child-entity-route-factory.js';
  * Get database table name for an entity type
  */
 export function getEntityTable(entityType: string): string {
-  const table = ENTITY_TABLE_MAP[entityType];
-  if (!table) {
-    throw new Error(`Unknown entity type: ${entityType}. Add mapping to ENTITY_TABLE_MAP.`);
-  }
-  return table;
-}
-
-/**
- * Universal entity soft-delete with cascading cleanup
- *
- * Performs the following operations in order:
- * 1. Soft-delete from main entity table (SET active_flag=false, to_ts=NOW())
- * 2. Soft-delete from entity instance registry (entity_instance)
- * 3. Soft-delete child linkages (where entity is child in entity_instance_link)
- * 4. Soft-delete parent linkages (where entity is parent in entity_instance_link)
- *
- * @param entityType - Entity type (e.g., 'task', 'project', 'wiki')
- * @param entityId - UUID of the entity to delete
- * @param options - Optional configuration
- * @throws Error if entity type is not recognized or delete fails
- */
-export async function universalEntityDelete(
-  entityType: string,
-  entityId: string,
-  options?: {
-    skipRegistry?: boolean;
-    skipLinkages?: boolean;
-    customCleanup?: () => Promise<void>;
-  }
-): Promise<void> {
-  const table = getEntityTable(entityType);
-
-  try {
-    // Optional: Run custom cleanup before delete (e.g., delete S3 files for artifacts)
-    if (options?.customCleanup) {
-      await options.customCleanup();
-    }
-
-    // Use sql.identifier for table name (matching child-entity-route-factory pattern)
-    const tableIdentifier = sql.identifier(table);
-
-    // STEP 1: Soft-delete from main entity table
-    await db.execute(sql`
-      UPDATE app.${tableIdentifier}
-      SET active_flag = false,
-          to_ts = NOW(),
-          updated_ts = NOW()
-      WHERE id::text = ${entityId}
-    `);
-
-    // STEP 2: Soft-delete from entity instance registry
-    if (!options?.skipRegistry) {
-      await db.execute(sql`
-        UPDATE app.entity_instance
-        SET active_flag = false,
-            updated_ts = NOW()
-        WHERE entity_type = ${entityType}
-          AND entity_id::text = ${entityId}
-      `);
-    }
-
-    // STEP 3 & 4: Soft-delete all linkages (both as parent and child)
-    if (!options?.skipLinkages) {
-      // Soft-delete linkages where this entity is a child
-      await db.execute(sql`
-        UPDATE app.entity_instance_link
-        SET active_flag = false,
-            updated_ts = NOW()
-        WHERE child_entity_type = ${entityType}
-          AND child_entity_id = ${entityId}
-      `);
-
-      // Soft-delete linkages where this entity is a parent
-      await db.execute(sql`
-        UPDATE app.entity_instance_link
-        SET active_flag = false,
-            updated_ts = NOW()
-        WHERE parent_entity_type = ${entityType}
-          AND parent_entity_id = ${entityId}
-      `);
-    }
-  } catch (error) {
-    console.error(`Universal delete failed for ${entityType}/${entityId}:`, error);
-    throw error;
-  }
-}
-
-/**
- * Check if an entity exists and is active
- */
-export async function entityExists(
-  entityType: string,
-  entityId: string
-): Promise<boolean> {
-  const table = getEntityTable(entityType);
-  const tableIdentifier = sql.identifier(table);
-
-  const result = await db.execute(sql`
-    SELECT 1
-    FROM app.${tableIdentifier}
-    WHERE id::text = ${entityId}
-      AND active_flag = true
-    LIMIT 1
-  `);
-
-  return result.length > 0;
-}
-
-/**
- * Get entity count for a specific type
- */
-export async function getEntityCount(
-  entityType: string,
-  activeOnly: boolean = true
-): Promise<number> {
-  const table = getEntityTable(entityType);
-  const tableIdentifier = sql.identifier(table);
-
-  const whereClause = activeOnly ? sql`WHERE active_flag = true` : sql``;
-
-  const result = await db.execute(sql`
-    SELECT COUNT(*) as count
-    FROM app.${tableIdentifier}
-    ${whereClause}
-  `);
-
-  return Number(result[0]?.count || 0);
+  return ENTITY_TABLE_MAP[entityType] || entityType;
 }
 
 // ============================================================================
-// ROUTE FACTORY (Consistent with child-entity-route-factory.ts pattern)
+// ROUTE FACTORY (Uses Entity Infrastructure Service)
 // ============================================================================
+
+export interface DeleteEndpointOptions {
+  /**
+   * Callback to delete from primary table
+   * If not provided, only infrastructure tables are cleaned up
+   */
+  primary_table_callback?: (db: typeof import('@/db/index.js').db, entity_id: string) => Promise<void>;
+
+  /**
+   * Enable cascade delete of child entities
+   * Default: false
+   */
+  cascade_delete_children?: boolean;
+
+  /**
+   * Remove RBAC entries on delete
+   * Default: false (preserves audit trail)
+   */
+  remove_rbac_entries?: boolean;
+
+  /**
+   * Custom RBAC check override
+   * Default: uses Entity Infrastructure Service RBAC
+   */
+  skip_rbac_check?: boolean;
+}
 
 /**
  * Create DELETE endpoint for an entity type
  *
- * Follows the universal factory pattern for standardized entity operations.
+ * Uses Entity Infrastructure Service for all infrastructure operations.
  * Creates standardized delete endpoint: DELETE /api/v1/{entityType}/:id
  *
  * @example
- * // Usage in task/routes.ts
- * import { createEntityDeleteEndpoint } from '../../lib/universal-entity-delete.js';
+ * // Basic usage (infrastructure cleanup only)
  * createEntityDeleteEndpoint(fastify, 'task');
  *
+ * // With primary table deletion
+ * createEntityDeleteEndpoint(fastify, 'project', {
+ *   primary_table_callback: async (db, id) => {
+ *     await db.execute(sql`DELETE FROM app.project WHERE id = ${id}`);
+ *   }
+ * });
+ *
+ * // With cascade delete
+ * createEntityDeleteEndpoint(fastify, 'business', {
+ *   cascade_delete_children: true,
+ *   primary_table_callback: async (db, id) => {
+ *     await db.execute(sql`DELETE FROM app.business WHERE id = ${id}`);
+ *   }
+ * });
+ *
  * @param fastify - Fastify instance
- * @param entityType - Entity type (e.g., 'task', 'project', 'wiki')
- * @param options - Optional configuration for custom cleanup
+ * @param entityType - Entity type code (e.g., 'task', 'project', 'wiki')
+ * @param options - Delete endpoint configuration
  */
 export function createEntityDeleteEndpoint(
   fastify: FastifyInstance,
   entityType: string,
-  options?: {
-    customCleanup?: (entityId: string) => Promise<void>;
-  }
+  options?: DeleteEndpointOptions
 ) {
+  const entityInfra = getEntityInfrastructure(db);
+
   fastify.delete(`/api/v1/${entityType}/:id`, {
     preHandler: [fastify.authenticate],
     schema: {
@@ -195,6 +111,16 @@ export function createEntityDeleteEndpoint(
       }),
       response: {
         204: Type.Null(),
+        200: Type.Object({
+          success: Type.Boolean(),
+          entity_type: Type.String(),
+          entity_id: Type.String(),
+          registry_deactivated: Type.Boolean(),
+          linkages_deactivated: Type.Number(),
+          rbac_entries_removed: Type.Number(),
+          primary_table_deleted: Type.Boolean(),
+          children_deleted: Type.Optional(Type.Number())
+        }),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })
@@ -209,23 +135,99 @@ export function createEntityDeleteEndpoint(
     }
 
     try {
-      // Check if entity exists
-      const exists = await entityExists(entityType, id);
-      if (!exists) {
-        return reply.status(404).send({ error: `${entityType} not found` });
+      // Use Entity Infrastructure Service for unified delete
+      const result = await entityInfra.delete_all_entity_infrastructure(
+        entityType,
+        id,
+        {
+          user_id: userId,
+          cascade_delete_children: options?.cascade_delete_children || false,
+          remove_rbac_entries: options?.remove_rbac_entries || false,
+          skip_rbac_check: options?.skip_rbac_check || false,
+          primary_table_callback: options?.primary_table_callback
+        }
+      );
+
+      fastify.log.info(`Deleted ${entityType} ${id}:`, result);
+
+      // Return detailed result (useful for debugging)
+      return reply.status(200).send(result);
+    } catch (error: any) {
+      // Check for permission error
+      if (error.message?.includes('lacks DELETE permission')) {
+        return reply.status(403).send({ error: error.message });
       }
 
-      // Perform universal cascading delete
-      await universalEntityDelete(entityType, id, {
-        customCleanup: options?.customCleanup ? () => options.customCleanup!(id) : undefined
-      });
-
-      fastify.log.info(`Deleted ${entityType} ${id} with cascading cleanup`);
-
-      return reply.status(204).send();
-    } catch (error) {
-      fastify.log.error(`Error deleting ${entityType}:`, error as any);
+      fastify.log.error(`Error deleting ${entityType}:`, error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
+}
+
+// ============================================================================
+// LEGACY EXPORTS (Deprecated - use Entity Infrastructure Service directly)
+// ============================================================================
+
+/**
+ * @deprecated Use Entity Infrastructure Service directly:
+ *   const entityInfra = getEntityInfrastructure(db);
+ *   await entityInfra.delete_all_entity_infrastructure(entityType, entityId, options);
+ */
+export async function universalEntityDelete(
+  entityType: string,
+  entityId: string,
+  options?: {
+    skipRegistry?: boolean;
+    skipLinkages?: boolean;
+    customCleanup?: () => Promise<void>;
+  }
+): Promise<void> {
+  console.warn('universalEntityDelete is deprecated - use Entity Infrastructure Service directly');
+
+  const entityInfra = getEntityInfrastructure(db);
+
+  await entityInfra.delete_all_entity_infrastructure(entityType, entityId, {
+    user_id: 'SYSTEM', // Legacy calls don't have user context
+    skip_rbac_check: true,
+    primary_table_callback: options?.customCleanup
+      ? async () => await options.customCleanup!()
+      : undefined
+  });
+}
+
+/**
+ * @deprecated Use Entity Infrastructure Service directly:
+ *   const entityInfra = getEntityInfrastructure(db);
+ *   await entityInfra.validate_entity_instance_registry(entityType, entityId);
+ */
+export async function entityExists(
+  entityType: string,
+  entityId: string
+): Promise<boolean> {
+  console.warn('entityExists is deprecated - use Entity Infrastructure Service directly');
+
+  const entityInfra = getEntityInfrastructure(db);
+  return await entityInfra.validate_entity_instance_registry(entityType, entityId);
+}
+
+/**
+ * @deprecated Query database directly or use Entity Infrastructure Service
+ */
+export async function getEntityCount(
+  entityType: string,
+  activeOnly: boolean = true
+): Promise<number> {
+  console.warn('getEntityCount is deprecated - query database directly');
+
+  const table = getEntityTable(entityType);
+  const tableIdentifier = sql.identifier(table);
+  const whereClause = activeOnly ? sql`WHERE active_flag = true` : sql``;
+
+  const result = await db.execute(sql`
+    SELECT COUNT(*) as count
+    FROM app.${tableIdentifier}
+    ${whereClause}
+  `);
+
+  return Number(result[0]?.count || 0);
 }
