@@ -26,12 +26,12 @@
 
 The PMO Platform uses a **50-table PostgreSQL schema** organized with Roman numeral prefixes for deterministic import ordering. The data model follows these core principles:
 
-- **No Foreign Keys:** All relationships via `d_entity_instance_link` (polymorphic linkage)
+- **No Foreign Keys:** All relationships via `entity_instance_link` (polymorphic linkage)
 - **Soft Deletes:** `active_flag` for logical deletion
 - **In-Place Versioning:** `version` column for optimistic locking
 - **Temporal Tracking:** `from_ts`/`to_ts` for time-based queries
 - **Audit Trail:** `created_ts`/`updated_ts` for change tracking
-- **Universal RBAC:** `d_entity_rbac` for all entity permissions
+- **Universal RBAC:** `entity_rbac` for all entity permissions
 
 **Schema:** `app`
 **Database:** PostgreSQL 14+
@@ -179,8 +179,8 @@ Schema → Settings → Core Entities → Entity Infrastructure → RBAC → Ope
 | **XLV_d_entity.ddl** | `d_entity` | Entity metadata registry (source of truth) |
 | **XLVI_d_entity_instance_registry.ddl** | `d_entity_instance_registry` | Entity instance registry |
 | **XLVII_d_entity_instance_backfill.ddl** | `d_entity_instance_backfill` | Instance backfill tracking |
-| **XLVIII_d_entity_instance_link.ddl** | `d_entity_instance_link` | Parent-child entity linkages |
-| **XLIX_d_d_entity_rbac.ddl** | `d_entity_rbac` | Entity permissions (RBAC) |
+| **XLVIII_entity_instance_link.ddl** | `entity_instance_link` | Parent-child entity linkages |
+| **XLIX_d_entity_rbac.ddl** | `entity_rbac` | Entity permissions (RBAC) |
 
 ### Operational Tables (L-LI)
 
@@ -347,8 +347,8 @@ ORDER BY sort_order;
 **Entity System:**
 - `d_entity` - Entity type metadata (icons, labels, child entities)
 - `d_entity_instance_registry` - Entity instance registry
-- `d_entity_instance_link` - Parent-child relationships
-- `d_entity_rbac` - Permissions
+- `entity_instance_link` - Parent-child relationships
+- `entity_rbac` - Permissions
 
 **Orchestrator:**
 - `orchestrator_session` - AI session state
@@ -369,12 +369,12 @@ ORDER BY sort_order;
 - Simplified schema evolution
 - Performance (no cascade locks)
 
-### d_entity_instance_link: Universal Linkage Table
+### entity_instance_link: Universal Linkage Table
 
 **Purpose:** Store all parent-child entity relationships
 
 ```sql
-CREATE TABLE app.d_entity_instance_link (
+CREATE TABLE app.entity_instance_link (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     parent_entity_type varchar(50) NOT NULL,  -- 'PROJECT', 'CUSTOMER', etc.
     parent_entity_id uuid NOT NULL,
@@ -401,7 +401,7 @@ VALUES ('TASK-001', 'Design Homepage')
 RETURNING id; -- Returns: def-456-uuid
 
 -- Link task to project
-INSERT INTO app.d_entity_instance_link (
+INSERT INTO app.entity_instance_link (
     parent_entity_type, parent_entity_id,
     child_entity_type, child_entity_id
 ) VALUES (
@@ -415,7 +415,7 @@ INSERT INTO app.d_entity_instance_link (
 ```sql
 SELECT t.*
 FROM app.d_task t
-JOIN app.d_entity_instance_link map
+JOIN app.entity_instance_link map
     ON map.child_entity_id = t.id
     AND map.child_entity_type = 'TASK'
 WHERE map.parent_entity_type = 'PROJECT'
@@ -428,12 +428,12 @@ WHERE map.parent_entity_type = 'PROJECT'
 
 ## RBAC Permission Model
 
-### d_entity_rbac: Universal Permissions
+### entity_rbac: Universal Permissions
 
 **Purpose:** Store entity-level permissions for all resources
 
 ```sql
-CREATE TABLE app.d_entity_rbac (
+CREATE TABLE app.entity_rbac (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     entity_type varchar(50) NOT NULL,     -- 'PROJECT', 'TASK', 'all'
     entity_id varchar(50) NOT NULL,       -- UUID or 'all' for type-wide
@@ -462,7 +462,7 @@ permission[5] = OWNER     (1=allowed, 0=denied)
 **Example 1: Full Access to All Projects**
 
 ```sql
-INSERT INTO app.d_entity_rbac (
+INSERT INTO app.entity_rbac (
     entity_type, entity_id, employee_id, permission
 ) VALUES (
     'PROJECT', 'all', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
@@ -473,7 +473,7 @@ INSERT INTO app.d_entity_rbac (
 **Example 2: Read-Only Access to Specific Task**
 
 ```sql
-INSERT INTO app.d_entity_rbac (
+INSERT INTO app.entity_rbac (
     entity_type, entity_id, employee_id, permission
 ) VALUES (
     'TASK', 'def-456-uuid', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
@@ -485,7 +485,7 @@ INSERT INTO app.d_entity_rbac (
 
 ```sql
 -- Assigned employee gets owner permissions (permission[5] = 1)
-INSERT INTO app.d_entity_rbac (
+INSERT INTO app.entity_rbac (
     entity_type, entity_id, employee_id, permission
 ) VALUES (
     'EVENT', 'event-uuid', 'assigned-employee-uuid',
@@ -498,7 +498,7 @@ INSERT INTO app.d_entity_rbac (
 ```sql
 -- Check if employee can edit project
 SELECT COALESCE(MAX(permission[1]), 0) AS can_edit
-FROM app.d_entity_rbac
+FROM app.entity_rbac
 WHERE entity_type = 'PROJECT'
   AND (entity_id = 'abc-123-uuid' OR entity_id = 'all')
   AND employee_id = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
@@ -666,7 +666,7 @@ VALUES
 **3. Link Tasks to Project**
 
 ```sql
-INSERT INTO app.d_entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
+INSERT INTO app.entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
 VALUES
     ('PROJECT', '550e8400-e29b-41d4-a716-446655440001', 'TASK', '550e8400-e29b-41d4-a716-446655440002'),
     ('PROJECT', '550e8400-e29b-41d4-a716-446655440001', 'TASK', '550e8400-e29b-41d4-a716-446655440003');
@@ -689,7 +689,7 @@ VALUES (
 **5. Link Artifact to Project**
 
 ```sql
-INSERT INTO app.d_entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
+INSERT INTO app.entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
 VALUES
     ('PROJECT', '550e8400-e29b-41d4-a716-446655440001', 'ARTIFACT', '550e8400-e29b-41d4-a716-446655440004');
 ```
@@ -698,7 +698,7 @@ VALUES
 
 ```sql
 -- Project owner (full permissions)
-INSERT INTO app.d_entity_rbac (entity_type, entity_id, employee_id, permission)
+INSERT INTO app.entity_rbac (entity_type, entity_id, employee_id, permission)
 VALUES (
     'PROJECT', '550e8400-e29b-41d4-a716-446655440001',
     '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
@@ -706,7 +706,7 @@ VALUES (
 );
 
 -- Task permissions (view + edit)
-INSERT INTO app.d_entity_rbac (entity_type, entity_id, employee_id, permission)
+INSERT INTO app.entity_rbac (entity_type, entity_id, employee_id, permission)
 VALUES (
     'TASK', '550e8400-e29b-41d4-a716-446655440002',
     '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
@@ -727,12 +727,12 @@ SELECT
     a.code AS artifact_code,
     a.name AS artifact_name
 FROM app.d_project p
-LEFT JOIN app.d_entity_instance_link task_map
+LEFT JOIN app.entity_instance_link task_map
     ON task_map.parent_entity_id = p.id
     AND task_map.parent_entity_type = 'PROJECT'
     AND task_map.child_entity_type = 'TASK'
 LEFT JOIN app.d_task t ON t.id = task_map.child_entity_id
-LEFT JOIN app.d_entity_instance_link art_map
+LEFT JOIN app.entity_instance_link art_map
     ON art_map.parent_entity_id = p.id
     AND art_map.parent_entity_type = 'PROJECT'
     AND art_map.child_entity_type = 'ARTIFACT'
@@ -812,7 +812,7 @@ VALUES
 **4. Set Event Owner Permissions**
 
 ```sql
-INSERT INTO app.d_entity_rbac (entity_type, entity_id, employee_id, permission)
+INSERT INTO app.entity_rbac (entity_type, entity_id, employee_id, permission)
 VALUES (
     'EVENT', '660e8400-e29b-41d4-a716-446655440001',
     '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
@@ -1046,7 +1046,7 @@ ddl_files=(
 **5. Register in d_entity Table**
 
 ```sql
-INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order, active_flag)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, child_entities, display_order, active_flag)
 VALUES (
     'new_entity',
     'New Entity',
@@ -1061,7 +1061,7 @@ VALUES (
 ### Modifying Existing Tables
 
 **DON'T:**
-- Add foreign keys (use d_entity_instance_link instead)
+- Add foreign keys (use entity_instance_link instead)
 - Remove standard columns (id, code, name, active_flag, etc.)
 - Change column data types without migration plan
 
@@ -1078,8 +1078,8 @@ VALUES (
 **Key Takeaways:**
 
 1. **50 DDL Files:** Roman numerals I-LI ensure deterministic import order
-2. **No Foreign Keys:** All relationships via `d_entity_instance_link`
-3. **Universal RBAC:** `d_entity_rbac` for all entity permissions
+2. **No Foreign Keys:** All relationships via `entity_instance_link`
+3. **Universal RBAC:** `entity_rbac` for all entity permissions
 4. **Soft Deletes:** `active_flag` for logical deletion
 5. **Temporal Tracking:** `from_ts`/`to_ts` for time-based queries
 6. **Audit Trail:** `created_ts`/`updated_ts` for change tracking

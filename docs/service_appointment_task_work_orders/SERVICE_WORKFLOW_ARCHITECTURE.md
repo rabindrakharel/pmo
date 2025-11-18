@@ -672,7 +672,7 @@ fastify.addHook('preHandler', fastify.authenticate)
 
 **RBAC Middleware:**
 ```
-- Checks d_entity_rbac for permissions
+- Checks entity_rbac for permissions
 - Permission array: [0:view, 1:edit, 2:share, 3:delete, 4:create]
 - entity_id='all' grants type-wide access
 - Specific UUIDs scope to individual records
@@ -962,7 +962,7 @@ AI:   [System: Create TWO tasks, find specialists for each]
 **Problem:** Unauthorized access to customer data
 **RBAC Enforcement:**
 ```
-✓ Check d_entity_rbac for EVERY API call
+✓ Check entity_rbac for EVERY API call
 ✓ Customer can only view their own tasks (customer_id match)
 ✓ Employees can view assigned tasks (assigned_employee_id match)
 ✓ Managers can view all tasks (entity_id='all' with view permission)

@@ -19,7 +19,7 @@ The PMO platform uses a **PostgreSQL 14+** database with a carefully designed sc
 | `d_` | **Dimension tables** (entities) | `d_project`, `d_task`, `d_employee`, `d_business` |
 | `f_` | **Fact tables** (transactions) | `f_expense`, `f_revenue`, `f_invoice`, `f_order` |
 | `setting_datalabel_` | **Settings/dropdowns** | `setting_datalabel_project_stage`, `setting_datalabel_task_priority` |
-| `d_entity_*` | **Infrastructure tables** | `d_entity`, `d_entity_instance_registry`, `d_entity_instance_link`, `d_entity_rbac` |
+| `d_entity_*` | **Infrastructure tables** | `d_entity`, `d_entity_instance_registry`, `entity_instance_link`, `entity_rbac` |
 
 ## 4 Infrastructure Tables (Zero-Config System)
 
@@ -42,13 +42,13 @@ The PMO platform uses a **PostgreSQL 14+** database with a carefully designed sc
 **Key Operations**:
 ```sql
 -- Get entity type metadata
-SELECT * FROM app.d_entity WHERE code = 'project';
+SELECT * FROM app.entity WHERE code = 'project';
 
 -- Get all active entity types
-SELECT * FROM app.d_entity WHERE active_flag = true ORDER BY display_order;
+SELECT * FROM app.entity WHERE active_flag = true ORDER BY display_order;
 
 -- Get child entity metadata
-SELECT child_entities FROM app.d_entity WHERE code = 'project';
+SELECT child_entities FROM app.entity WHERE code = 'project';
 -- Returns: [{"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks"}]
 ```
 
@@ -105,7 +105,7 @@ WHERE active_flag = true
 GROUP BY entity_type;
 ```
 
-### 3. d_entity_instance_link - Parent-Child Relationships
+### 3. entity_instance_link - Parent-Child Relationships
 
 **Purpose**: Polymorphic linkage table connecting any entity to any other
 
@@ -116,7 +116,7 @@ GROUP BY entity_type;
 - `relationship_type` - Relationship label (`contains`, `assigned_to`, `relates_to`)
 - `active_flag` - Soft delete flag
 
-**DDL**: `db/entity_configuration_settings/05_d_entity_instance_link.ddl`
+**DDL**: `db/entity_configuration_settings/05_entity_instance_link.ddl`
 
 **Why No Foreign Keys**:
 - ✅ Flexible cross-entity linking without constraints
@@ -127,7 +127,7 @@ GROUP BY entity_type;
 **Key Operations**:
 ```sql
 -- Create linkage (idempotent)
-INSERT INTO app.d_entity_instance_link
+INSERT INTO app.entity_instance_link
 (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
 VALUES ('business', '...uuid...', 'project', '...uuid...', 'contains')
 ON CONFLICT (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
@@ -135,7 +135,7 @@ DO UPDATE SET active_flag = true, updated_ts = now();
 
 -- Get children of specific type
 SELECT child_entity_id
-FROM app.d_entity_instance_link
+FROM app.entity_instance_link
 WHERE parent_entity_type = 'project'
   AND parent_entity_id = '...uuid...'
   AND child_entity_type = 'task'
@@ -143,7 +143,7 @@ WHERE parent_entity_type = 'project'
 
 -- Count children for tab badges
 SELECT child_entity_type, COUNT(*) as count
-FROM app.d_entity_instance_link
+FROM app.entity_instance_link
 WHERE parent_entity_type = 'project'
   AND parent_entity_id = '...uuid...'
   AND active_flag = true
@@ -174,7 +174,7 @@ child_entity_id: '...'
 relationship_type: 'assigned_to'
 ```
 
-### 4. d_entity_rbac - Person-Based RBAC System
+### 4. entity_rbac - Person-Based RBAC System
 
 **Purpose**: Row-level permissions with role inheritance and parent-child propagation
 
@@ -186,7 +186,7 @@ relationship_type: 'assigned_to'
 - `permission` - Integer 0-5 (VIEW, EDIT, SHARE, DELETE, CREATE, OWNER)
 - `expires_ts` - Optional expiration for temporary permissions
 
-**DDL**: `db/entity_configuration_settings/06_d_entity_rbac.ddl`
+**DDL**: `db/entity_configuration_settings/06_entity_rbac.ddl`
 
 **Permission Hierarchy**:
 ```
@@ -196,27 +196,27 @@ OWNER (5) >= CREATE (4) >= DELETE (3) >= SHARE (2) >= EDIT (1) >= VIEW (0)
 **Type-Level Permissions**:
 ```sql
 -- Grant CREATE permission on ALL projects
-INSERT INTO app.d_entity_rbac
+INSERT INTO app.entity_rbac
 (person_entity_name, person_entity_id, entity_name, entity_id, permission)
 VALUES ('employee', '...userId...', 'project', '11111111-1111-1111-1111-111111111111', 4);
 ```
 
 **Permission Resolution** (4 Sources):
 1. **Direct Employee Permissions** - `person_entity_name='employee'`
-2. **Role-Based Permissions** - `person_entity_name='role'` (via `d_entity_instance_link`)
+2. **Role-Based Permissions** - `person_entity_name='role'` (via `entity_instance_link`)
 3. **Parent-VIEW Inheritance** - If parent has VIEW (≥0), child gains VIEW
 4. **Parent-CREATE Inheritance** - If parent has CREATE (≥4), child gains CREATE
 
 **Key Operations**:
 ```sql
 -- Grant OWNER permission to creator
-INSERT INTO app.d_entity_rbac
+INSERT INTO app.entity_rbac
 (person_entity_name, person_entity_id, entity_name, entity_id, permission)
 VALUES ('employee', '...userId...', 'project', '...projectId...', 5);
 
 -- Check permission (simplified - service does full resolution)
 SELECT EXISTS(
-  SELECT 1 FROM app.d_entity_rbac
+  SELECT 1 FROM app.entity_rbac
   WHERE person_entity_name = 'employee'
     AND person_entity_id = '...userId...'
     AND entity_name = 'project'
@@ -337,7 +337,7 @@ Fields starting with `dl__` reference settings dropdown options:
 **Purpose**: RBAC, entity definitions
 
 **Tables**:
-- `d_entity_rbac` - Permissions
+- `entity_rbac` - Permissions
 - `d_entity` - Entity metadata
 
 ### 9. Automation & Workflow (`automation_workflow`)
@@ -400,7 +400,7 @@ updated_ts timestamptz DEFAULT now()
 version integer DEFAULT 1
 ```
 
-**Relationships** (via `d_entity_instance_link`):
+**Relationships** (via `entity_instance_link`):
 - **Parents**: `business`, `office`
 - **Children**: `task`, `wiki`, `artifact`, `form`, `expense`, `revenue`
 
@@ -437,7 +437,7 @@ updated_ts timestamptz DEFAULT now()
 version integer DEFAULT 1
 ```
 
-**Relationships** (via `d_entity_instance_link`):
+**Relationships** (via `entity_instance_link`):
 - **Parents**: `project`, `business`, `office`, `worksite`, `cust`
 - **Children**: `form`, `artifact`, `expense`, `revenue`
 - **Assignees**: `employee` (relationship_type='assigned_to')
@@ -471,7 +471,7 @@ updated_ts timestamptz DEFAULT now()
 version integer DEFAULT 1
 ```
 
-**Relationships** (via `d_entity_instance_link`):
+**Relationships** (via `entity_instance_link`):
 - **Parents**: `office`
 - **Children**: `project`, `expense`, `revenue`
 
@@ -529,8 +529,8 @@ INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name,
 SELECT 'task', id, name, code FROM app.d_task WHERE active_flag = true;
 -- ... for all 46+ entity tables
 
--- Seed d_entity_instance_link from existing relationships
-INSERT INTO app.d_entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
+-- Seed entity_instance_link from existing relationships
+INSERT INTO app.entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
 SELECT 'business', business_id, 'project', id
 FROM app.d_project
 WHERE business_id IS NOT NULL;
@@ -575,7 +575,7 @@ ALTER TABLE d_project
 ADD CONSTRAINT fk_business
 FOREIGN KEY (business_id) REFERENCES d_business(id);
 ```
-Use `d_entity_instance_link` instead.
+Use `entity_instance_link` instead.
 
 ❌ **Hardcoding Relationships in Application Code**:
 ```typescript

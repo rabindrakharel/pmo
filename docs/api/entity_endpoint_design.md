@@ -22,7 +22,7 @@ All entity routes (business, project, task, employee, etc.) follow **identical p
 │                                                               │
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │  Module Constants (DRY)                             │    │
-│  │  - ENTITY_TYPE = 'project'                          │    │
+│  │  - ENTITY_CODE = 'project'                          │    │
 │  │  - TABLE_ALIAS = 'e'                                │    │
 │  └─────────────────────────────────────────────────────┘    │
 │                                                               │
@@ -120,8 +120,8 @@ All entity routes (business, project, task, employee, etc.) follow **identical p
 │                                                               │
 │  - d_entity (entity type metadata)                           │
 │  - d_entity_instance_registry (instance registry)            │
-│  - d_entity_instance_link (parent-child relationships)       │
-│  - d_entity_rbac (permissions)                               │
+│  - entity_instance_link (parent-child relationships)       │
+│  - entity_rbac (permissions)                               │
 │  - d_project, d_task, d_business, ... (46+ entity tables)   │
 └───────────────────────────────────────────────────────────────┘
 ```
@@ -170,7 +170,7 @@ import { createChildEntityEndpointsFromMetadata } from '@/lib/child-entity-route
 // ========================================
 // MODULE CONSTANTS (DRY Principle)
 // ========================================
-const ENTITY_TYPE = 'project';  // Used in all RBAC, queries, messages
+const ENTITY_CODE = 'project';  // Used in all RBAC, queries, messages
 const TABLE_ALIAS = 'e';        // Consistent SQL alias for primary table
 ```
 
@@ -209,7 +209,7 @@ fastify.post('/api/v1/project', {
   // ═══════════════════════════════════════════════════════════════
   const canCreate = await entityInfra.check_entity_rbac(
     userId,
-    ENTITY_TYPE,
+    ENTITY_CODE,
     ALL_ENTITIES_ID,  // Type-level permission
     Permission.CREATE
   );
@@ -260,7 +260,7 @@ fastify.post('/api/v1/project', {
   // STEP 4: Register in d_entity_instance_registry
   // ═══════════════════════════════════════════════════════════════
   await entityInfra.set_entity_instance_registry({
-    entity_type: ENTITY_TYPE,
+    entity_type: ENTITY_CODE,
     entity_id: project.id,
     entity_name: project.name,
     entity_code: project.code
@@ -269,7 +269,7 @@ fastify.post('/api/v1/project', {
   // ═══════════════════════════════════════════════════════════════
   // STEP 5: Grant OWNER permission to creator
   // ═══════════════════════════════════════════════════════════════
-  await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, project.id);
+  await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, project.id);
 
   // ═══════════════════════════════════════════════════════════════
   // STEP 6: Link to parent (if provided)
@@ -278,7 +278,7 @@ fastify.post('/api/v1/project', {
     await entityInfra.set_entity_instance_link({
       parent_entity_type: parent_type,
       parent_entity_id: parent_id,
-      child_entity_type: ENTITY_TYPE,
+      child_entity_type: ENTITY_CODE,
       child_entity_id: project.id,
       relationship_type: 'contains'
     });
@@ -316,7 +316,7 @@ fastify.patch('/api/v1/project/:id', {
   // ═══════════════════════════════════════════════════════════════
   const canEdit = await entityInfra.check_entity_rbac(
     userId,
-    ENTITY_TYPE,
+    ENTITY_CODE,
     id,
     Permission.EDIT
   );
@@ -363,7 +363,7 @@ fastify.patch('/api/v1/project/:id', {
   // STEP 3: Sync registry if name/code changed
   // ═══════════════════════════════════════════════════════════════
   if (updates.name !== undefined || updates.code !== undefined) {
-    await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+    await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
       entity_name: updates.name,
       entity_code: updates.code
     });
@@ -410,7 +410,7 @@ fastify.get('/api/v1/project', {
   // REQUIRED: RBAC filtering
   const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
     userId,
-    ENTITY_TYPE,
+    ENTITY_CODE,
     Permission.VIEW,
     TABLE_ALIAS
   );
@@ -488,7 +488,7 @@ fastify.get('/api/v1/project/:id', {
   // RBAC check
   const canView = await entityInfra.check_entity_rbac(
     userId,
-    ENTITY_TYPE,
+    ENTITY_CODE,
     id,
     Permission.VIEW
   );
@@ -527,7 +527,7 @@ fastify.get('/api/v1/project/:id', {
 // Auto-generates: DELETE /api/v1/project/:id
 // Includes RBAC check, soft delete, and optional cascading
 createEntityDeleteEndpoint(fastify, {
-  entityType: ENTITY_TYPE,
+  entityType: ENTITY_CODE,
   tableAlias: TABLE_ALIAS,
   primaryTableCallback: async (db, id) => {
     await db.execute(sql`
@@ -549,7 +549,7 @@ createEntityDeleteEndpoint(fastify, {
 // GET /api/v1/project/:id/form
 // GET /api/v1/project/:id/expense
 // GET /api/v1/project/:id/revenue
-await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
+await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 ```
 
 ## RBAC Permission Model
@@ -584,8 +584,8 @@ await entityInfra.set_entity_rbac(
 
 ### Permission Resolution (4 Sources)
 
-1. **Direct Employee Permissions** - `d_entity_rbac` where `person_entity_name='employee'`
-2. **Role-Based Permissions** - `d_entity_rbac` where `person_entity_name='role'`
+1. **Direct Employee Permissions** - `entity_rbac` where `person_entity_name='employee'`
+2. **Role-Based Permissions** - `entity_rbac` where `person_entity_name='role'`
 3. **Parent-VIEW Inheritance** - If parent has VIEW (≥0), child gains VIEW
 4. **Parent-CREATE Inheritance** - If parent has CREATE (≥4), child gains CREATE
 
@@ -669,7 +669,7 @@ const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query, {
 │  └────────────────┘  └────────────────┘               │
 │                                                          │
 │  ┌────────────────┐  ┌────────────────┐               │
-│  │  d_entity_     │  │  d_entity_rbac │               │
+│  │  d_entity_     │  │  entity_rbac │               │
 │  │  instance_link │  │  (permissions) │               │
 │  └────────────────┘  └────────────────┘               │
 │                                                          │
@@ -691,7 +691,7 @@ const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query, {
 **Source**: `apps/api/src/modules/business/routes.ts`
 
 ```typescript
-const ENTITY_TYPE = 'business';
+const ENTITY_CODE = 'business';
 const TABLE_ALIAS = 'e';
 const entityInfra = getEntityInfrastructure(db);
 
@@ -709,7 +709,7 @@ const entityInfra = getEntityInfrastructure(db);
 **Source**: `apps/api/src/modules/project/routes.ts`
 
 ```typescript
-const ENTITY_TYPE = 'project';
+const ENTITY_CODE = 'project';
 const TABLE_ALIAS = 'e';
 const entityInfra = getEntityInfrastructure(db);
 
@@ -721,7 +721,7 @@ const entityInfra = getEntityInfrastructure(db);
 **Source**: `apps/api/src/modules/task/routes.ts`
 
 ```typescript
-const ENTITY_TYPE = 'task';
+const ENTITY_CODE = 'task';
 const TABLE_ALIAS = 't';
 const entityInfra = getEntityInfrastructure(db);
 

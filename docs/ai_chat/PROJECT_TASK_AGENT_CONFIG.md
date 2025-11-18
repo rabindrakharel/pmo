@@ -67,7 +67,7 @@ Responses include:
 
 Single query can span:
 - Projects → Tasks → Employees → Budgets
-- Automatic entity linking via `d_entity_instance_link`
+- Automatic entity linking via `entity_instance_link`
 - Cross-entity aggregation (e.g., "total budget across all projects")
 
 ### 4. Formatted Responses

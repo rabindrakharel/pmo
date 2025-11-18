@@ -72,9 +72,9 @@ Every event must answer: **"What is this event about?"**
 - `d_person_calendar` - Personal availability slots
 
 ### Integration Tables
-- `d_entity_rbac` - Event permissions
+- `entity_rbac` - Event permissions
 - `d_entity_instance_registry` - Event entity registry
-- `d_entity_instance_link` - Event-entity relationships
+- `entity_instance_link` - Event-entity relationships
 
 ---
 

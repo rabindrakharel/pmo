@@ -567,7 +567,7 @@ ORDER BY message_delivery_method, status;
 ## Security Considerations
 
 ✅ **IAM Roles** - EC2 instance role, no hardcoded credentials
-✅ **RBAC** - Message entity permissions required (`d_entity_rbac`)
+✅ **RBAC** - Message entity permissions required (`entity_rbac`)
 ✅ **Rate Limiting** - Recommended via Fastify plugin
 ✅ **Phone/Email Validation** - Built into providers
 ✅ **DKIM** - Email authenticity configured
@@ -649,11 +649,11 @@ GET /api/v1/message-data?recipient_phone=+14165551234
 
 ### RBAC Permissions
 
-Messages follow standard entity RBAC pattern via `d_entity_rbac` table:
+Messages follow standard entity RBAC pattern via `entity_rbac` table:
 
 ```sql
 -- Grant full message permissions to employee (including Owner)
-INSERT INTO app.d_entity_rbac (empid, entity, entity_id, permission)
+INSERT INTO app.entity_rbac (empid, entity, entity_id, permission)
 VALUES (
   '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',  -- Employee ID
   'message',                                 -- Entity type
@@ -662,7 +662,7 @@ VALUES (
 );
 
 -- Grant view-only permissions
-INSERT INTO app.d_entity_rbac (empid, entity, entity_id, permission)
+INSERT INTO app.entity_rbac (empid, entity, entity_id, permission)
 VALUES (
   'employee-uuid',
   'message',
@@ -671,7 +671,7 @@ VALUES (
 );
 
 -- Grant ownership of specific message (creator)
-INSERT INTO app.d_entity_rbac (empid, entity, entity_id, permission)
+INSERT INTO app.entity_rbac (empid, entity, entity_id, permission)
 VALUES (
   'creator-employee-uuid',
   'message',
@@ -690,15 +690,15 @@ VALUES (
 
 ### Entity Relationships
 
-Messages can be linked to other entities via `d_entity_instance_link`:
+Messages can be linked to other entities via `entity_instance_link`:
 
 ```sql
 -- Link message to project
-INSERT INTO app.d_entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
+INSERT INTO app.entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
 VALUES ('project', 'project-uuid', 'message', 'message-uuid');
 
 -- Link message to customer
-INSERT INTO app.d_entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
+INSERT INTO app.entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
 VALUES ('customer', 'customer-uuid', 'message', 'message-uuid');
 ```
 

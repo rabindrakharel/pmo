@@ -32,7 +32,7 @@ The Entity Infrastructure Service is a **self-contained, singleton service** tha
 ```typescript
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '@/services/entity-infrastructure.service.js';
 
-const ENTITY_TYPE = 'project';
+const ENTITY_CODE = 'project';
 const entityInfra = getEntityInfrastructure(db);
 ```
 
@@ -46,7 +46,7 @@ fastify.post('/api/v1/project', async (request, reply) => {
 
   // STEP 1: RBAC CHECK 1 - Can user CREATE this entity type?
   const canCreate = await entityInfra.check_entity_rbac(
-    userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE
+    userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE
   );
   if (!canCreate) return reply.status(403).send({ error: 'Forbidden' });
 
@@ -68,21 +68,21 @@ fastify.post('/api/v1/project', async (request, reply) => {
 
   // STEP 4: Register in entity_instance
   await entityInfra.set_entity_instance_registry({
-    entity_type: ENTITY_TYPE,
+    entity_type: ENTITY_CODE,
     entity_id: project.id,
     entity_name: project.name,
     entity_code: project.code
   });
 
   // STEP 5: Grant OWNER permission to creator
-  await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, project.id);
+  await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, project.id);
 
   // STEP 6: Link to parent (if provided)
   if (parent_type && parent_id) {
     await entityInfra.set_entity_instance_link({
       parent_entity_type: parent_type,
       parent_entity_id: parent_id,
-      child_entity_type: ENTITY_TYPE,
+      child_entity_type: ENTITY_CODE,
       child_entity_id: project.id,
       relationship_type: 'contains'
     });
@@ -102,7 +102,7 @@ fastify.patch('/api/v1/project/:id', async (request, reply) => {
 
   // STEP 1: RBAC check - Can user EDIT this entity?
   const canEdit = await entityInfra.check_entity_rbac(
-    userId, ENTITY_TYPE, id, Permission.EDIT
+    userId, ENTITY_CODE, id, Permission.EDIT
   );
   if (!canEdit) return reply.status(403).send({ error: 'Forbidden' });
 
@@ -123,7 +123,7 @@ fastify.patch('/api/v1/project/:id', async (request, reply) => {
 
   // STEP 3: Sync registry if name/code changed
   if (updates.name !== undefined || updates.code !== undefined) {
-    await entityInfra.update_entity_instance_registry(ENTITY_TYPE, id, {
+    await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
       entity_name: updates.name,
       entity_code: updates.code
     });
@@ -142,7 +142,7 @@ fastify.get('/api/v1/project', async (request, reply) => {
 
   // Service just provides RBAC WHERE condition helper
   const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
-    userId, ENTITY_TYPE, Permission.VIEW, 'e'
+    userId, ENTITY_CODE, Permission.VIEW, 'e'
   );
 
   // ✅ ROUTE builds its own query structure (full control)
@@ -320,27 +320,27 @@ const canEdit = await entityInfra.check_entity_rbac(userId, entityType, id, Perm
 const entityInfra = getEntityInfrastructure(db);
 
 // Line 356: RBAC check with service
-const canView = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.VIEW);
+const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
 
 // Line 365: Get child tabs metadata
-const tabs = await entityInfra.get_dynamic_child_entity_tabs(ENTITY_TYPE);
+const tabs = await entityInfra.get_dynamic_child_entity_tabs(ENTITY_CODE);
 
 // Line 564: Register instance
 await entityInfra.set_entity_instance_registry({
-  entity_type: ENTITY_TYPE,
+  entity_type: ENTITY_CODE,
   entity_id: bizId,
   entity_name: bizData.name,
   entity_code: bizData.code
 });
 
 // Line 574: Grant ownership
-await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, bizId);
+await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, bizId);
 
 // Line 580: Create linkage
 await entityInfra.set_entity_instance_link({
   parent_entity_type: parent_type,
   parent_entity_id: parent_id,
-  child_entity_type: ENTITY_TYPE,
+  child_entity_type: ENTITY_CODE,
   child_entity_id: bizId,
   relationship_type: 'contains'
 });
@@ -353,14 +353,14 @@ await entityInfra.set_entity_instance_link({
 const entityInfra = getEntityInfrastructure(db);
 
 // Line 474: RBAC check
-const canView = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, id, Permission.VIEW);
+const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
 
 // Line 538: Type-level CREATE check
-const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_TYPE, ALL_ENTITIES_ID, Permission.CREATE);
+const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE);
 
 // Line 621: Register + grant + link (3-line pattern)
 await entityInfra.set_entity_instance_registry({...});
-await entityInfra.set_entity_rbac_owner(userId, ENTITY_TYPE, projectId);
+await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, projectId);
 await entityInfra.set_entity_instance_link({...});
 ```
 

@@ -254,7 +254,7 @@ fastify.get('/api/v1/employee', {
 
   const conditions = [];
 
-  // Parent filtering via d_entity_instance_link JOIN
+  // Parent filtering via entity_instance_link JOIN
   if (parent_type && parent_id) {
     conditions.push(sql`eim.parent_entity_type = ${parent_type}`);
     conditions.push(sql`eim.parent_entity_id = ${parent_id}`);
@@ -276,7 +276,7 @@ fastify.get('/api/v1/employee', {
     employees = await db.execute(sql`
       SELECT e.id, e.code, e.name, e.email, ... /* ALL 25+ columns */
       FROM app.d_employee e
-      INNER JOIN app.d_entity_instance_link eim ON eim.child_entity_id = e.id
+      INNER JOIN app.entity_instance_link eim ON eim.child_entity_id = e.id
       ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       ORDER BY e.name ASC
       LIMIT ${limit} OFFSET ${offset}
@@ -335,13 +335,13 @@ export function FilteredDataTable({
 }
 ```
 
-#### Database Relationships (d_entity_instance_link)
+#### Database Relationships (entity_instance_link)
 
-The create-link-edit pattern relies on the `d_entity_instance_link` table for parent-child relationships:
+The create-link-edit pattern relies on the `entity_instance_link` table for parent-child relationships:
 
 ```sql
 -- Parent-child relationship storage
-CREATE TABLE app.d_entity_instance_link (
+CREATE TABLE app.entity_instance_link (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     parent_entity_type varchar(20) NOT NULL,  -- e.g., 'role'
     parent_entity_id uuid NOT NULL,           -- Specific role UUID
@@ -353,7 +353,7 @@ CREATE TABLE app.d_entity_instance_link (
 );
 
 -- Example linkage: CTO role → James Miller
-INSERT INTO app.d_entity_instance_link (
+INSERT INTO app.entity_instance_link (
     parent_entity_type, parent_entity_id,
     child_entity_type, child_entity_id,
     relationship_type
@@ -390,7 +390,7 @@ User navigates to: http://localhost:5173/role/{id}/employee
 ┌─────────────────────────────────────────────────────────────────┐
 │ 4. BACKEND PROCESSING                                           │
 │    • Detect parent_type and parent_id params                    │
-│    • Add JOIN with d_entity_instance_link                              │
+│    • Add JOIN with entity_instance_link                              │
 │    • Filter: WHERE eim.parent_entity_type = 'role'              │
 │    •         AND eim.parent_entity_id = '{id}'                  │
 │    •         AND eim.child_entity_type = 'employee'             │
@@ -436,7 +436,7 @@ User navigates to: http://localhost:5173/role/{id}/employee
 | **Type Safety** | ❌ Separate schemas can drift | ✅ Single schema, enforced |
 | **Testing** | ❌ Test each endpoint separately | ✅ Test once, applies to all contexts |
 | **API Surface** | ❌ N endpoints (N parent types) | ✅ 1 endpoint with params |
-| **New Relationships** | ❌ Create new endpoint | ✅ Just add linkage in d_entity_instance_link |
+| **New Relationships** | ❌ Create new endpoint | ✅ Just add linkage in entity_instance_link |
 
 #### Common Parent-Child Relationships
 
@@ -467,13 +467,13 @@ GET /api/v1/artifact?parent_type=project&parent_id={id}
 
 #### Critical Implementation Notes
 
-1. **UUID Type Handling**: Both `d_entity_instance_link` columns and entity ID columns are UUID type. Do NOT cast in JOIN:
+1. **UUID Type Handling**: Both `entity_instance_link` columns and entity ID columns are UUID type. Do NOT cast in JOIN:
    ```typescript
    // ✅ CORRECT
-   INNER JOIN app.d_entity_instance_link eim ON eim.child_entity_id = e.id
+   INNER JOIN app.entity_instance_link eim ON eim.child_entity_id = e.id
 
    // ❌ WRONG - causes "operator does not exist: uuid = text" error
-   INNER JOIN app.d_entity_instance_link eim ON eim.child_entity_id = e.id::text
+   INNER JOIN app.entity_instance_link eim ON eim.child_entity_id = e.id::text
    ```
 
 2. **Conditional Query Logic**: Use separate if/else blocks for WITH JOIN vs WITHOUT JOIN queries to maintain clean SQL:

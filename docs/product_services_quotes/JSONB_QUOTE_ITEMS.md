@@ -314,7 +314,7 @@ fastify.post('/api/v1/quote', {
 
   // RBAC check
   const access = await db.execute(sql`
-    SELECT 1 FROM app.d_entity_rbac rbac
+    SELECT 1 FROM app.entity_rbac rbac
     WHERE rbac.empid = ${userId}
       AND rbac.entity = 'quote'
       AND rbac.entity_id = 'all'

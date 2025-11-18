@@ -211,7 +211,7 @@ The PMO Calendar & Event Management System enables scheduling, tracking, and man
          │ has permissions on
          ▼
 ┌────────────────────────────────────┐
-│  d_entity_rbac                │
+│  entity_rbac                │
 │                                    │
 │ • empid (FK → d_employee)          │
 │ • entity ('event')                 │
@@ -238,7 +238,7 @@ The PMO Calendar & Event Management System enables scheduling, tracking, and man
    - One person attends many events
    - Junction table tracks RSVP status
 
-4. **Event → RBAC**: Through `d_entity_rbac`
+4. **Event → RBAC**: Through `entity_rbac`
    - Organizer automatically gets Owner permission [5]
    - Additional permissions can be granted
 
@@ -562,7 +562,7 @@ CREATE INDEX idx_person_cal_avail ON app.d_person_calendar(availability_flag);
 **Behavior**:
 1. Creates event record in `d_event`
 2. Registers in `d_entity_instance_registry`
-3. Grants Owner permission [5] to creator via `d_entity_rbac`
+3. Grants Owner permission [5] to creator via `entity_rbac`
 4. Adds organizer as attendee with `accepted` RSVP
 5. Creates attendee records in `d_entity_event_person_calendar`
 
@@ -584,7 +584,7 @@ CREATE INDEX idx_person_cal_avail ON app.d_person_calendar(availability_flag);
 **Behavior**:
 1. Sets `active_flag = false` on event
 2. Soft-deletes linked attendee records
-3. Soft-deletes entity linkages in `d_entity_instance_link`
+3. Soft-deletes entity linkages in `entity_instance_link`
 
 ---
 
@@ -761,7 +761,7 @@ interface EventFormData {
    │  (entity_type, entity_id, entity_name, entity_code)
    │  VALUES ('event', new_event_id, ...)
    │
-   ├─ INSERT INTO app.d_entity_rbac
+   ├─ INSERT INTO app.entity_rbac
    │  (empid, entity, entity_id, permission)
    │  VALUES (creator_id, 'event', new_event_id, ARRAY[0,1,2,3,4,5])
    │  -- Grant Owner [5] permission to creator
@@ -1018,7 +1018,7 @@ FROM d_event e
 WHERE
   e.organizer_employee_id = '{employee_id}'
   OR EXISTS (
-    SELECT 1 FROM d_entity_event_person_calendar epc
+    SELECT 1 FROM entity_event_person_calendar epc
     WHERE epc.event_id = e.id
       AND epc.person_entity_type = 'employee'
       AND epc.person_entity_id = '{employee_id}'
@@ -1088,7 +1088,7 @@ WHERE epc.person_entity_id IN ('{employee1_id}')
 ## Integration Points
 
 ### 1. RBAC System
-**Integration**: `d_entity_rbac`
+**Integration**: `entity_rbac`
 
 **Permissions**:
 - `0`: View event details
@@ -1104,12 +1104,12 @@ WHERE epc.person_entity_id IN ('{employee1_id}')
 - Organizer field is independent of RBAC (for display only)
 
 ### 2. Entity System
-**Integration**: `d_entity`, `d_entity_instance_registry`, `d_entity_instance_link`
+**Integration**: `d_entity`, `d_entity_instance_registry`, `entity_instance_link`
 
 **Event as Entity**:
 - Registered in `d_entity` with type='event'
 - Each event instance in `d_entity_instance_registry`
-- Can be parent/child in `d_entity_instance_link`
+- Can be parent/child in `entity_instance_link`
 
 **Action Entity Linkage**:
 - Event links to service/product/project/task/quote via `event_action_entity_id`
