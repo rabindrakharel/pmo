@@ -64,7 +64,6 @@ export interface EntityInstance {
   order_id: number;
   entity_instance_name: string;
   code: string | null;
-  active_flag: boolean;
   created_ts: string;
   updated_ts: string;
 }
@@ -82,7 +81,7 @@ export interface EntityLink {
 
 export interface DeleteEntityOptions {
   user_id: string;
-  hard_delete?: boolean;              // true = DELETE FROM, false = soft delete
+  hard_delete?: boolean;              // NOTE: entity_instance and entity_instance_link are always hard-deleted (no active_flag). This parameter only affects primary_table_callback behavior
   cascade_delete_children?: boolean;  // Delete child entities recursively
   remove_rbac_entries?: boolean;      // Remove permission entries
   skip_rbac_check?: boolean;          // Skip permission validation
@@ -282,8 +281,8 @@ export class EntityInfrastructureService {
 
     const result = await this.db.execute(sql`
       INSERT INTO app.entity_instance
-      (entity_code, entity_instance_id, entity_instance_name, code, active_flag)
-      VALUES (${entity_type}, ${entity_id}, ${entity_name}, ${entity_code || null}, true)
+      (entity_code, entity_instance_id, entity_instance_name, code)
+      VALUES (${entity_type}, ${entity_id}, ${entity_name}, ${entity_code || null})
       RETURNING *
     `);
 
@@ -327,17 +326,13 @@ export class EntityInfrastructureService {
   }
 
   /**
-   * Deactivate instance (soft delete from registry)
+   * Delete instance from registry (hard delete - no active_flag in entity_instance anymore)
    */
-  async deactivate_entity_instance_registry(entity_type: string, entity_id: string): Promise<EntityInstance | null> {
-    const result = await this.db.execute(sql`
-      UPDATE app.entity_instance
-      SET active_flag = false, updated_ts = now()
+  async delete_entity_instance_registry(entity_type: string, entity_id: string): Promise<void> {
+    await this.db.execute(sql`
+      DELETE FROM app.entity_instance
       WHERE entity_code = ${entity_type} AND entity_instance_id = ${entity_id}
-      RETURNING *
     `);
-
-    return result.length > 0 ? (result[0] as EntityInstance) : null;
   }
 
   /**
@@ -345,14 +340,12 @@ export class EntityInfrastructureService {
    */
   async validate_entity_instance_registry(
     entity_type: string,
-    entity_id: string,
-    require_active = true
+    entity_id: string
   ): Promise<boolean> {
     const result = await this.db.execute(sql`
       SELECT EXISTS(
         SELECT 1 FROM app.entity_instance
         WHERE entity_code = ${entity_type} AND entity_instance_id = ${entity_id}
-          ${require_active ? sql`AND active_flag = true` : sql``}
       ) AS exists
     `);
 
@@ -400,8 +393,8 @@ export class EntityInfrastructureService {
 
     const result = await this.db.execute(sql`
       INSERT INTO app.entity_instance_link
-      (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type, active_flag)
-      VALUES (${parent_entity_type}, ${parent_entity_id}, ${child_entity_type}, ${child_entity_id}, ${relationship_type}, true)
+      (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
+      VALUES (${parent_entity_type}, ${parent_entity_id}, ${child_entity_type}, ${child_entity_id}, ${relationship_type})
       RETURNING *
     `);
 
@@ -409,17 +402,13 @@ export class EntityInfrastructureService {
   }
 
   /**
-   * Delete linkage (soft delete)
+   * Delete linkage (hard delete - no active_flag in entity_instance_link anymore)
    */
-  async delete_entity_instance_link(linkage_id: string): Promise<EntityLink | null> {
-    const result = await this.db.execute(sql`
-      UPDATE app.entity_instance_link
-      SET active_flag = false, updated_ts = now()
+  async delete_entity_instance_link(linkage_id: string): Promise<void> {
+    await this.db.execute(sql`
+      DELETE FROM app.entity_instance_link
       WHERE id = ${linkage_id}
-      RETURNING *
     `);
-
-    return result.length > 0 ? (result[0] as EntityLink) : null;
   }
 
   /**
@@ -437,7 +426,6 @@ export class EntityInfrastructureService {
       WHERE entity_code = ${parent_entity_type}
         AND entity_instance_id = ${parent_entity_id}
         AND child_entity_code = ${child_entity_type}
-        AND active_flag = true
     `);
 
     return result.map(row => row.child_entity_instance_id);
@@ -463,7 +451,6 @@ export class EntityInfrastructureService {
     parent_entity_id?: string;
     child_entity_type?: string;
     child_entity_id?: string;
-    active_flag?: boolean;
   }): Promise<EntityLink[]> {
     let conditions = sql`1=1`;
 
@@ -479,9 +466,6 @@ export class EntityInfrastructureService {
     if (filters?.child_entity_id) {
       conditions = sql`${conditions} AND child_entity_instance_id = ${filters.child_entity_id}`;
     }
-    if (filters?.active_flag !== undefined) {
-      conditions = sql`${conditions} AND active_flag = ${filters.active_flag}`;
-    }
 
     const result = await this.db.execute(sql`
       SELECT * FROM app.entity_instance_link
@@ -493,27 +477,15 @@ export class EntityInfrastructureService {
   }
 
   /**
-   * Update linkage (relationship_type, active_flag)
+   * Update linkage relationship_type
    */
   async update_entity_instance_link(
     linkage_id: string,
-    updates: {
-      relationship_type?: string;
-      active_flag?: boolean;
-    }
+    relationship_type: string
   ): Promise<EntityLink | null> {
-    const updateClauses: any[] = [sql`updated_ts = now()`];
-
-    if (updates.relationship_type !== undefined) {
-      updateClauses.push(sql`relationship_type = ${updates.relationship_type}`);
-    }
-    if (updates.active_flag !== undefined) {
-      updateClauses.push(sql`active_flag = ${updates.active_flag}`);
-    }
-
     const result = await this.db.execute(sql`
       UPDATE app.entity_instance_link
-      SET ${sql.join(updateClauses, sql`, `)}
+      SET relationship_type = ${relationship_type}, updated_ts = now()
       WHERE id = ${linkage_id}
       RETURNING *
     `);
@@ -607,7 +579,6 @@ export class EntityInfrastructureService {
           AND person_id = ${user_id}::uuid
           AND entity_code = ${entity_type}
           AND (entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid OR entity_instance_id = ${entity_id}::uuid)
-          AND active_flag = true
           AND (expires_ts IS NULL OR expires_ts > NOW())
       ),
 
@@ -623,11 +594,9 @@ export class EntityInfrastructureService {
           AND eim.entity_instance_id = rbac.person_id
           AND eim.child_entity_code = 'employee'
           AND eim.child_entity_instance_id = ${user_id}::uuid
-          AND eim.active_flag = true
         WHERE rbac.person_code = 'role'
           AND rbac.entity_code = ${entity_type}
           AND (rbac.entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid OR rbac.entity_instance_id = ${entity_id}::uuid)
-          AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
       ),
 
@@ -654,14 +623,12 @@ export class EntityInfrastructureService {
           ON emp.person_code = 'employee'
           AND emp.person_id = ${user_id}
           AND emp.entity_code = pe.entity_code
-          AND emp.active_flag = true
           AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
 
         -- role permissions on parent
         LEFT JOIN app.entity_rbac rbac
           ON rbac.person_code = 'role'
           AND rbac.entity_code = pe.entity_code
-          AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
 
         LEFT JOIN app.entity_instance_link eim
@@ -669,7 +636,6 @@ export class EntityInfrastructureService {
           AND eim.entity_instance_id = rbac.person_id
           AND eim.child_entity_code = 'employee'
           AND eim.child_entity_instance_id = ${user_id}::uuid
-          AND eim.active_flag = true
 
         WHERE
             COALESCE(emp.permission, -1) >= 0
@@ -688,13 +654,11 @@ export class EntityInfrastructureService {
           ON emp.person_code = 'employee'
           AND emp.person_id = ${user_id}
           AND emp.entity_code = pe.entity_code
-          AND emp.active_flag = true
           AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
 
         LEFT JOIN app.entity_rbac rbac
           ON rbac.person_code = 'role'
           AND rbac.entity_code = pe.entity_code
-          AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
 
         LEFT JOIN app.entity_instance_link eim
@@ -702,7 +666,6 @@ export class EntityInfrastructureService {
           AND eim.entity_instance_id = rbac.person_id
           AND eim.child_entity_code = 'employee'
           AND eim.child_entity_instance_id = ${user_id}::uuid
-          AND eim.active_flag = true
 
         WHERE
             COALESCE(emp.permission, -1) >= 4
@@ -743,8 +706,8 @@ export class EntityInfrastructureService {
   ): Promise<any> {
     const result = await this.db.execute(sql`
       INSERT INTO app.entity_rbac
-      (person_code, person_id, entity_code, entity_instance_id, permission, active_flag)
-      VALUES ('employee', ${user_id}, ${entity_type}, ${entity_id}, ${permission_level}, true)
+      (person_code, person_id, entity_code, entity_instance_id, permission)
+      VALUES ('employee', ${user_id}, ${entity_type}, ${entity_id}, ${permission_level})
       RETURNING *
     `);
 
@@ -861,7 +824,6 @@ export class EntityInfrastructureService {
           AND person_id = ${user_id}::uuid
           AND entity_code = ${entity_type}
           AND entity_instance_id != '11111111-1111-1111-1111-111111111111'::uuid
-          AND active_flag = true
           AND (expires_ts IS NULL OR expires_ts > NOW())
       ),
 
@@ -876,11 +838,9 @@ export class EntityInfrastructureService {
           AND eim.entity_instance_id = rbac.person_id
           AND eim.child_entity_code = 'employee'
           AND eim.child_entity_instance_id = ${user_id}::uuid
-          AND eim.active_flag = true
         WHERE rbac.person_code = 'role'
           AND rbac.entity_code = ${entity_type}
           AND rbac.entity_instance_id != '11111111-1111-1111-1111-111111111111'::uuid
-          AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
       ),
 
@@ -895,7 +855,6 @@ export class EntityInfrastructureService {
           AND emp.person_id = ${user_id}::uuid
           AND emp.entity_code = pe.entity_code
           AND emp.permission >= 0
-          AND emp.active_flag = true
           AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
         UNION
         SELECT DISTINCT rbac.entity_instance_id AS parent_id, pe.entity_code
@@ -904,14 +863,12 @@ export class EntityInfrastructureService {
           ON rbac.person_code = 'role'
           AND rbac.entity_code = pe.entity_code
           AND rbac.permission >= 0
-          AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
         INNER JOIN app.entity_instance_link eim
           ON eim.entity_code = 'role'
           AND eim.entity_instance_id = rbac.person_id
           AND eim.child_entity_code = 'employee'
           AND eim.child_entity_instance_id = ${user_id}::uuid
-          AND eim.active_flag = true
       ),
 
       -- ---------------------------------------------------------------------------
@@ -924,7 +881,6 @@ export class EntityInfrastructureService {
           ON eim.entity_code = pw.entity_code
           AND eim.entity_instance_id = pw.parent_id
           AND eim.child_entity_code = ${entity_type}
-          AND eim.active_flag = true
       ),
 
       -- ---------------------------------------------------------------------------
@@ -938,7 +894,6 @@ export class EntityInfrastructureService {
           AND emp.person_id = ${user_id}::uuid
           AND emp.entity_code = pe.entity_code
           AND emp.permission >= 4
-          AND emp.active_flag = true
           AND (emp.expires_ts IS NULL OR emp.expires_ts > NOW())
         UNION
         SELECT DISTINCT rbac.entity_instance_id AS parent_id, pe.entity_code
@@ -947,14 +902,12 @@ export class EntityInfrastructureService {
           ON rbac.person_code = 'role'
           AND rbac.entity_code = pe.entity_code
           AND rbac.permission >= 4
-          AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
         INNER JOIN app.entity_instance_link eim
           ON eim.entity_code = 'role'
           AND eim.entity_instance_id = rbac.person_id
           AND eim.child_entity_code = 'employee'
           AND eim.child_entity_instance_id = ${user_id}::uuid
-          AND eim.active_flag = true
       ),
 
       -- ---------------------------------------------------------------------------
@@ -967,7 +920,6 @@ export class EntityInfrastructureService {
           ON eim.entity_code = pc.entity_code
           AND eim.entity_instance_id = pc.parent_id
           AND eim.child_entity_code = ${entity_type}
-          AND eim.active_flag = true
       ),
 
       -- ---------------------------------------------------------------------------
@@ -1005,21 +957,23 @@ export class EntityInfrastructureService {
    * Orchestrates deletion across all infrastructure tables:
    * 1. Check DELETE permission
    * 2. Optionally cascade delete children
-   * 3. Deactivate in entity_instance
-   * 4. Deactivate linkages in entity_instance_link
+   * 3. Hard delete from entity_instance (no active_flag, always DELETE FROM)
+   * 4. Hard delete linkages from entity_instance_link (no active_flag, always DELETE FROM)
    * 5. Optionally remove RBAC entries
    * 6. Optionally delete from primary table via callback
    *
+   * NOTE: entity_instance and entity_instance_link are always hard-deleted (no active_flag columns).
+   * The hard_delete parameter only affects the primary_table_callback behavior.
+   *
    * @example
-   * // Simple soft delete
+   * // Delete entity infrastructure
    * await entityInfra.deleteEntity('project', projectId, {
    *   user_id: userId
    * });
    *
-   * // Hard delete with cascade
+   * // Delete with cascade and primary table cleanup
    * await entityInfra.deleteEntity('project', projectId, {
    *   user_id: userId,
-   *   hard_delete: true,
    *   cascade_delete_children: true,
    *   primary_table_callback: async (db, id) => {
    *     await db.delete(project).where(eq(project.id, id));
@@ -1068,7 +1022,6 @@ export class EntityInfrastructureService {
         SELECT * FROM app.entity_instance_link
         WHERE entity_code = ${entity_type}
           AND entity_instance_id = ${entity_id}
-          AND active_flag = true
       `);
 
       for (const linkage of childLinkages) {
@@ -1087,27 +1040,21 @@ export class EntityInfrastructureService {
       }
     }
 
-    // Step 3: Deactivate in entity_instance
-    if (hard_delete) {
-      await this.db.execute(sql`
-        DELETE FROM app.entity_instance
-        WHERE entity_code = ${entity_type} AND entity_instance_id = ${entity_id}
-      `);
-    } else {
-      await this.deactivate_entity_instance_registry(entity_type, entity_id);
-    }
+    // Step 3: Delete from entity_instance (hard delete - no active_flag anymore)
+    await this.db.execute(sql`
+      DELETE FROM app.entity_instance
+      WHERE entity_code = ${entity_type} AND entity_instance_id = ${entity_id}
+    `);
     registry_deactivated = true;
 
-    // Step 4: Deactivate linkages in entity_instance_link
+    // Step 4: Delete linkages from entity_instance_link (hard delete - no active_flag anymore)
     const linkageResult = await this.db.execute(sql`
-      UPDATE app.entity_instance_link
-      SET active_flag = false, updated_ts = now()
+      DELETE FROM app.entity_instance_link
       WHERE (
         (entity_code = ${entity_type} AND entity_instance_id = ${entity_id})
         OR
         (child_entity_code = ${entity_type} AND child_entity_instance_id = ${entity_id})
       )
-      AND active_flag = true
     `);
     linkages_deactivated = linkageResult.rowCount || 0;
 
