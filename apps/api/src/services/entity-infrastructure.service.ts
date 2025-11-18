@@ -41,6 +41,8 @@
 
 import { sql } from 'drizzle-orm';
 import type { DB } from '@/db/index.js';
+import { getRedisClient } from '@/lib/redis.js';
+import type Redis from 'ioredis';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -141,11 +143,13 @@ export const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111';
 
 export class EntityInfrastructureService {
   private db: DB;
-  private metadataCache: Map<string, { data: Entity; expiry: number }> = new Map();
-  private CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  private redis: Redis;
+  private CACHE_TTL = 300; // 5 minutes in seconds (Redis uses seconds for TTL)
+  private CACHE_PREFIX = 'entity:metadata:'; // Redis key prefix
 
   constructor(db: DB) {
     this.db = db;
+    this.redis = getRedisClient();
   }
 
   // ==========================================================================
@@ -162,14 +166,23 @@ export class EntityInfrastructureService {
     entity_type: string,
     include_inactive = false
   ): Promise<Entity | null> {
-    // Check cache
+    // Check Redis cache (only for active entities)
     if (!include_inactive) {
-      const cached = this.metadataCache.get(entity_type);
-      if (cached && cached.expiry > Date.now()) {
-        return cached.data;
+      try {
+        const cacheKey = `${this.CACHE_PREFIX}${entity_type}`;
+        const cached = await this.redis.get(cacheKey);
+
+        if (cached) {
+          // Cache hit - return parsed data
+          return JSON.parse(cached) as Entity;
+        }
+      } catch (error) {
+        console.warn(`Redis cache read error for entity ${entity_type}:`, error);
+        // Continue to DB query on cache error
       }
     }
 
+    // Cache miss or inactive query - fetch from database
     const result = await this.db.execute(sql`
       SELECT code, name, ui_label, ui_icon, child_entity_codes, display_order, active_flag, created_ts, updated_ts
       FROM app.entity
@@ -193,15 +206,58 @@ export class EntityInfrastructureService {
       updated_ts: result[0].updated_ts,
     };
 
-    // Cache if active
+    // Store in Redis cache (only if active)
     if (!include_inactive && metadata.active_flag) {
-      this.metadataCache.set(entity_type, {
-        data: metadata,
-        expiry: Date.now() + this.CACHE_TTL
-      });
+      try {
+        const cacheKey = `${this.CACHE_PREFIX}${entity_type}`;
+        await this.redis.setex(
+          cacheKey,
+          this.CACHE_TTL,
+          JSON.stringify(metadata)
+        );
+      } catch (error) {
+        console.warn(`Redis cache write error for entity ${entity_type}:`, error);
+        // Continue without caching on error
+      }
     }
 
     return metadata;
+  }
+
+  /**
+   * Invalidate Redis cache for a specific entity type
+   * Used after updating entity metadata (child_entity_codes, etc.)
+   *
+   * This ensures all API instances get fresh data on next request,
+   * since Redis is shared across all instances.
+   */
+  async invalidate_entity_cache(entity_type: string): Promise<void> {
+    try {
+      const cacheKey = `${this.CACHE_PREFIX}${entity_type}`;
+      await this.redis.del(cacheKey);
+      console.log(`🗑️  Cache invalidated for entity: ${entity_type}`);
+    } catch (error) {
+      console.error(`Redis cache invalidation error for entity ${entity_type}:`, error);
+      // Non-critical error - don't throw
+    }
+  }
+
+  /**
+   * Clear all entity metadata cache
+   * Useful for bulk operations or system maintenance
+   */
+  async clear_all_entity_cache(): Promise<void> {
+    try {
+      const pattern = `${this.CACHE_PREFIX}*`;
+      const keys = await this.redis.keys(pattern);
+
+      if (keys.length > 0) {
+        await this.redis.del(...keys);
+        console.log(`🗑️  Cleared ${keys.length} entity cache entries`);
+      }
+    } catch (error) {
+      console.error('Redis cache clear error:', error);
+    }
   }
 
   /**

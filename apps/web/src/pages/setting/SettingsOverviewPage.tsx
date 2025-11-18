@@ -50,7 +50,13 @@ interface EntityRow {
   display_order: number;
   active_flag: boolean;
   dl_entity_domain?: string;
-  child_entities?: string[]; // Simple array of entity codes
+  child_entity_codes?: string[]; // Simple array of entity codes
+  child_entities?: Array<{
+    entity: string;
+    ui_icon: string;
+    ui_label: string;
+    order: number;
+  }>; // Enriched child metadata (from API)
 }
 
 type MainTab = 'entities' | 'entityMapping' | 'secretsVault' | 'integrations' | 'accessControl';
@@ -205,7 +211,8 @@ export function SettingsOverviewPage() {
     try {
       setEntitiesLoading(true);
       const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:4000/api/v1/entity/types?include_inactive=true', {
+      // ✅ UNIFIED ENDPOINT: /api/v1/entity/type (no param = all entities)
+      const response = await fetch('http://localhost:4000/api/v1/entity/type?include_inactive=true', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -404,7 +411,7 @@ export function SettingsOverviewPage() {
   };
 
   // Handle updating child entities
-  const handleUpdateChildEntities = async (code: string, childEntities: string[]) => {
+  const handleUpdateChildEntities = async (code: string, childEntityCodes: string[], mode: 'append' | 'replace' = 'append') => {
     try {
       const token = localStorage.getItem('auth_token');
       const response = await fetch(`http://localhost:4000/api/v1/entity/${code}/children`, {
@@ -413,7 +420,7 @@ export function SettingsOverviewPage() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ child_entities: childEntities })
+        body: JSON.stringify({ child_entity_codes: childEntityCodes, mode })
       });
 
       if (!response.ok) {
@@ -433,12 +440,13 @@ export function SettingsOverviewPage() {
     const parent = entities.find(e => e.code === parentCode);
     if (!parent) return;
 
-    const updatedChildren = (parent.child_entities || []).filter(c => c !== childEntity);
-    await handleUpdateChildEntities(parentCode, updatedChildren);
+    const updatedChildren = (parent.child_entity_codes || []).filter(c => c !== childEntity);
+    // Use 'replace' mode to set the exact list (with item removed)
+    await handleUpdateChildEntities(parentCode, updatedChildren, 'replace');
 
     // Update selected entity for modal
     if (selectedEntityForChildren && selectedEntityForChildren.code === parentCode) {
-      setSelectedEntityForChildren({ ...parent, child_entities: updatedChildren });
+      setSelectedEntityForChildren({ ...parent, child_entity_codes: updatedChildren });
     }
   };
 
@@ -449,17 +457,18 @@ export function SettingsOverviewPage() {
     if (!parent || !child) return;
 
     // Check if already exists
-    if ((parent.child_entities || []).includes(childCode)) {
+    if ((parent.child_entity_codes || []).includes(childCode)) {
       alert('This child entity is already added');
       return;
     }
 
-    const updatedChildren = [...(parent.child_entities || []), childCode];
-    await handleUpdateChildEntities(parentCode, updatedChildren);
+    const updatedChildren = [...(parent.child_entity_codes || []), childCode];
+    // Use 'append' mode to add new child (default behavior)
+    await handleUpdateChildEntities(parentCode, updatedChildren, 'append');
 
     // Update selected entity for modal
     if (selectedEntityForChildren && selectedEntityForChildren.code === parentCode) {
-      setSelectedEntityForChildren({ ...parent, child_entities: updatedChildren });
+      setSelectedEntityForChildren({ ...parent, child_entity_codes: updatedChildren });
     }
 
     setChildSearchQuery('');
@@ -1116,23 +1125,19 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                               title="Manage child entities"
                             >
                               <LucideIcons.GitBranch className="h-3.5 w-3.5" />
-                              <span>{(entity.child_entities || []).length}</span>
+                              <span>{(entity.child_entity_codes || []).length}</span>
                             </button>
 
-                            {/* Tooltip showing child icons */}
+                            {/* Tooltip showing enriched child entities with icons & labels */}
                             {(entity.child_entities || []).length > 0 && (
                               <div className="invisible group-hover:visible absolute left-0 top-8 z-10 bg-dark-900 text-white text-xs rounded-md py-2 px-3 shadow-lg whitespace-nowrap">
                                 <div className="space-y-1">
-                                  {(entity.child_entities || []).slice(0, 5).map((childCode) => {
-                                    const childMetadata = getEntityMetadata(childCode);
-                                    if (!childMetadata) return null;
+                                  {(entity.child_entities || []).slice(0, 5).map((child) => {
+                                    const ChildIcon = getIconComponent(child.ui_icon || 'Tag');
                                     return (
-                                      <div key={childCode} className="flex items-center gap-2">
-                                        {(() => {
-                                          const ChildIcon = getIconComponent(childMetadata.ui_icon || 'Tag');
-                                          return <ChildIcon className="h-3 w-3" />;
-                                        })()}
-                                        <span>{childMetadata.ui_label}</span>
+                                      <div key={child.entity} className="flex items-center gap-2">
+                                        <ChildIcon className="h-3 w-3" />
+                                        <span>{child.ui_label}</span>
                                       </div>
                                     );
                                   })}
@@ -1438,11 +1443,11 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
               {/* Current Children */}
               <div className="mb-4">
                 <h3 className="text-sm font-medium text-dark-600 mb-2">Current Child Entities</h3>
-                {(selectedEntityForChildren.child_entities || []).length === 0 ? (
+                {(selectedEntityForChildren.child_entity_codes || []).length === 0 ? (
                   <p className="text-xs text-dark-700 italic">No child entities configured</p>
                 ) : (
                   <div className="space-y-1">
-                    {(selectedEntityForChildren.child_entities || []).map((childCode) => {
+                    {(selectedEntityForChildren.child_entity_codes || []).map((childCode) => {
                       const childMetadata = getEntityMetadata(childCode);
                       if (!childMetadata) return null; // Skip if entity not found
 
@@ -1492,7 +1497,7 @@ VALUES ('role', '{role_uuid}', 'employee', '{employee_uuid}');  -- Assign employ
                   {entities
                     .filter(e =>
                       e.code !== selectedEntityForChildren.code && // Not self
-                      !(selectedEntityForChildren.child_entities || []).includes(e.code) && // Not already added
+                      !(selectedEntityForChildren.child_entity_codes || []).includes(e.code) && // Not already added
                       (childSearchQuery === '' ||
                         e.code.toLowerCase().includes(childSearchQuery.toLowerCase()) ||
                         e.ui_label.toLowerCase().includes(childSearchQuery.toLowerCase()))

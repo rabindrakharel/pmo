@@ -44,6 +44,12 @@ const EntityTypeMetadataSchema = Type.Object({
   ui_label: Type.String(),
   ui_icon: Type.Optional(Type.String()),
   child_entity_codes: Type.Array(Type.String()), // Simple array of entity codes
+  child_entities: Type.Optional(Type.Array(Type.Object({
+    entity: Type.String(),
+    ui_icon: Type.String(),
+    ui_label: Type.String(),
+    order: Type.Number()
+  }))), // Enriched child entity metadata
   display_order: Type.Number(),
   active_flag: Type.Boolean()
 });
@@ -58,23 +64,87 @@ export async function entityRoutes(fastify: FastifyInstance) {
   const entityInfra = getEntityInfrastructure(db);
 
   /**
-   * GET /api/v1/entity/type/:entity_type
-   * Get metadata for a specific entity TYPE
+   * GET /api/v1/entity/type/:entity_type?
+   * UNIFIED ENDPOINT - Serves both Settings page and DynamicChildEntityTabs
+   *
+   * - With :entity_type → Returns single entity metadata (for tabs)
+   * - Without :entity_type → Returns all entity metadata (for settings)
+   *
+   * Replaces:
+   * - GET /api/v1/entity/types (removed)
+   * - GET /api/v1/entity/child-tabs/:entity_type/:entity_id (removed)
    */
-  fastify.get('/api/v1/entity/type/:entity_type', {
+  fastify.get('/api/v1/entity/type/:entity_type?', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        entity_type: Type.String()
+        entity_type: Type.Optional(Type.String())
+      }),
+      querystring: Type.Object({
+        include_inactive: Type.Optional(Type.Boolean())
       }),
       response: {
-        200: EntityTypeMetadataSchema,
+        200: Type.Union([
+          EntityTypeMetadataSchema,  // Single entity
+          Type.Array(EntityTypeMetadataSchema)  // All entities
+        ]),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })
       }
     }
   }, async (request, reply) => {
-    const { entity_type } = request.params as { entity_type: string };
+    const { entity_type } = request.params as { entity_type?: string };
+    const { include_inactive } = request.query as { include_inactive?: boolean };
+
+    // ═══════════════════════════════════════════════════════════════
+    // CASE 1: No entity_type → Return ALL entities (Settings page)
+    // ═══════════════════════════════════════════════════════════════
+    if (!entity_type) {
+      try {
+        const entities = await entityInfra.get_all_entity(include_inactive);
+        const allActiveEntities = await entityInfra.get_all_entity(false);
+        const activeEntityCodes = new Set(allActiveEntities.map(e => e.code));
+
+        const result = entities.map(entity => {
+          const filteredChildCodes = (entity.child_entity_codes || []).filter(c =>
+            activeEntityCodes.has(c)
+          );
+
+          const enrichedChildEntities = filteredChildCodes
+            .map((code: string, index: number) => {
+              const childMeta = allActiveEntities.find(e => e.code === code);
+              if (!childMeta) return null;
+              return {
+                entity: code,
+                ui_icon: childMeta.ui_icon,
+                ui_label: childMeta.ui_label,
+                order: index
+              };
+            })
+            .filter((item: any) => item !== null);
+
+          return {
+            code: entity.code,
+            name: entity.name,
+            ui_label: entity.ui_label,
+            ui_icon: entity.ui_icon,
+            display_order: entity.display_order,
+            active_flag: entity.active_flag,
+            child_entity_codes: filteredChildCodes,
+            child_entities: enrichedChildEntities
+          };
+        });
+
+        return result;
+      } catch (error) {
+        fastify.log.error('Error fetching all entity types:', error as any);
+        return reply.status(500).send({ error: 'Internal server error' });
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CASE 2: With entity_type → Return SINGLE entity (Tabs)
+    // ═══════════════════════════════════════════════════════════════
     const normalizedEntityType = normalizeEntityType(entity_type);
 
     try {
@@ -96,12 +166,35 @@ export async function entityRoutes(fastify: FastifyInstance) {
         activeEntityCodes.has(c)
       );
 
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENRICH CHILD ENTITY METADATA (ui_icon, ui_label, order)
+      // Replaces /api/v1/entity/child-tabs/:entity_type/:entity_id endpoint
+      // ═══════════════════════════════════════════════════════════════
+      let enrichedChildEntities: any[] = [];
+
+      if (filteredChildEntities.length > 0) {
+        // Build enriched array from all active entities (already fetched)
+        enrichedChildEntities = filteredChildEntities
+          .map((code: string, index: number) => {
+            const childMeta = allActiveEntities.find(e => e.code === code);
+            if (!childMeta) return null; // Skip if not found
+            return {
+              entity: code,
+              ui_icon: childMeta.ui_icon,
+              ui_label: childMeta.ui_label,
+              order: index
+            };
+          })
+          .filter((item: any) => item !== null);
+      }
+
       return {
         code: entity.code,
         name: entity.name,
         ui_label: entity.ui_label,
         ui_icon: entity.ui_icon,
         child_entity_codes: filteredChildEntities,
+        child_entities: enrichedChildEntities,  // ✅ NEW: Enriched child metadata
         display_order: entity.display_order,
         active_flag: entity.active_flag
       };
@@ -111,270 +204,24 @@ export async function entityRoutes(fastify: FastifyInstance) {
     }
   });
 
-  /**
-   * GET /api/v1/entity/types
-   * Get all entity TYPES with their metadata
-   * Query params:
-   *   - include_inactive: boolean (default: false) - include inactive entities
-   */
-  fastify.get('/api/v1/entity/types', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      querystring: Type.Object({
-        include_inactive: Type.Optional(Type.Boolean())
-      }),
-      response: {
-        200: Type.Array(Type.Object({
-          code: Type.String(),
-          name: Type.String(),
-          ui_label: Type.String(),
-          ui_icon: Type.Optional(Type.String()),
-          display_order: Type.Number(),
-          active_flag: Type.Boolean(),
-          child_entity_codes: Type.Optional(Type.Array(Type.String())) // Simple string array
-        })),
-        500: Type.Object({ error: Type.String() })
-      }
-    }
-  }, async (request, reply) => {
-    const { include_inactive } = request.query as { include_inactive?: boolean };
-
-    try {
-      // Use Entity Infrastructure Service to get all entity types
-      const entities = await entityInfra.get_all_entity(include_inactive);
-
-      // Get all active entity codes for filtering child_entity_codes
-      const allActiveEntities = await entityInfra.get_all_entity(false);
-      const activeEntityCodes = new Set(allActiveEntities.map(e => e.code));
-
-      // Map and filter child_entity_codes to only include active ones
-      const result = entities.map(entity => ({
-        code: entity.code,
-        name: entity.name,
-        ui_label: entity.ui_label,
-        ui_icon: entity.ui_icon,
-        display_order: entity.display_order,
-        active_flag: entity.active_flag,
-        child_entity_codes: (entity.child_entity_codes || []).filter(c =>
-          activeEntityCodes.has(c)
-        )
-      }));
-
-      return result;
-    } catch (error) {
-      fastify.log.error('Error fetching all entity types:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
-
-  /**
-   * GET /api/v1/entity/child-tabs/:entity_type/:entity_id
-   * Get complete tab configuration for an entity including metadata + counts
-   * Combines child_entity_codes metadata from entity with actual counts from entity_instance_link
-   * This is the PRIMARY endpoint for DynamicChildEntityTabs
-   */
-  fastify.get('/api/v1/entity/child-tabs/:entity_type/:entity_id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: Type.Object({
-        entity_type: Type.String(),
-        entity_id: Type.String({ format: 'uuid' })
-      }),
-      response: {
-        200: Type.Object({
-          parent_entity_type: Type.String(),
-          parent_entity_id: Type.String(),
-          parent_name: Type.Optional(Type.String()),
-          parent_ui_label: Type.Optional(Type.String()),
-          parent_ui_icon: Type.Optional(Type.String()),
-          tabs: Type.Array(Type.Object({
-            entity: Type.String(),
-            ui_icon: Type.String(),
-            ui_label: Type.String(),
-            count: Type.Number(),
-            order: Type.Number()
-          }))
-        }),
-        404: Type.Object({ error: Type.String() }),
-        403: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })
-      }
-    }
-  }, async (request, reply) => {
-    const { entity_type, entity_id } = request.params as { entity_type: string; entity_id: string };
-    const normalizedEntityType = normalizeEntityType(entity_type);
-    const userId = (request as any).user?.sub;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'User not authenticated' });
-    }
-
-    try {
-      // Step 1: Get entity TYPE metadata from entity
-      const entityTypeResult = await db.execute(sql`
-        SELECT
-          code,
-          name,
-          ui_label,
-          ui_icon,
-          child_entity_codes
-        FROM app.entity
-        WHERE code = ${normalizedEntityType}
-          AND active_flag = true
-        LIMIT 1
-      `);
-
-      if (entityTypeResult.length === 0) {
-        return reply.status(404).send({
-          error: `Entity type not found: ${entity_type}`
-        });
-      }
-
-      const entityType = entityTypeResult[0];
-
-      // Parse child_entity_codes - now a simple array of entity codes
-      let childEntityCodes = entityType.child_entity_codes || [];
-      if (typeof childEntityCodes === 'string') {
-        childEntityCodes = JSON.parse(childEntityCodes);
-      }
-      if (!Array.isArray(childEntityCodes)) {
-        childEntityCodes = [];
-      }
-
-      // Step 1.5: Enrich child entities with metadata from entity and filter inactive
-      // Query d_entity to get ui_icon, ui_label for each child entity
-      let childEntitiesEnriched: any[] = [];
-
-      if (childEntityCodes.length > 0) {
-        // Build IN clause with raw SQL
-        const placeholders = childEntityCodes.map((_: any, i: number) => `$${i + 1}`).join(', ');
-        const query = `
-          SELECT code, ui_icon, ui_label
-          FROM app.entity
-          WHERE code IN (${placeholders})
-            AND active_flag = true
-          ORDER BY display_order ASC
-        `;
-        const childMetadata = await client.unsafe(query, childEntityCodes);
-
-        // Build enriched array maintaining order from parent's child_entity_codes
-        childEntitiesEnriched = childEntityCodes
-          .map((code: string, index: number) => {
-            const metadata = childMetadata.find((m: any) => m.code === code);
-            if (!metadata) return null; // Skip inactive or non-existent entities
-            return {
-              entity: code,
-              ui_icon: metadata.ui_icon,
-              ui_label: metadata.ui_label,
-              order: index
-            };
-          })
-          .filter((item: any) => item !== null);
-      }
-
-      // Step 2: No RBAC check - allow access for all authenticated users
-
-      // Step 2.5: Get entity name from the actual entity table
-      // Different entities use different fields for display names
-      const nameFieldMap: Record<string, string> = {
-        'expense': 'expense_number',
-        'invoice': 'invoice_number',
-        'quote': 'quote_number',
-        'work_order': 'work_order_number',
-        // Default: most entities use 'name'
-      };
-
-      const tablePrefix = normalizedEntityType === 'expense' ? 'f_' : 'd_';
-      const tableName = `${tablePrefix}${normalizedEntityType}`;
-      const nameField = nameFieldMap[normalizedEntityType] || 'name';
-      let entityName = entity_id; // Fallback to ID if name not found
-
-      try {
-        const nameResult = await client.unsafe(`
-          SELECT ${nameField} as display_name FROM app.${tableName}
-          WHERE id = $1
-        `, [entity_id]);
-
-        if (nameResult.length > 0 && nameResult[0].display_name) {
-          entityName = nameResult[0].display_name;
-        }
-      } catch (err) {
-        // If table doesn't exist or query fails, use ID as name
-        fastify.log.warn(`Could not fetch ${nameField} from ${tableName} for ${entity_id}:`, err);
-      }
-
-      // If no child entities defined in type metadata, return empty tabs
-      if (childEntitiesEnriched.length === 0) {
-        return {
-          parent_entity_type: entity_type,
-          parent_entity_id: entity_id,
-          parent_name: entityName,
-          parent_ui_label: entityType.ui_label,
-          parent_ui_icon: entityType.ui_icon,
-          tabs: []
-        };
-      }
-
-      // Step 3: Get actual counts for each child entity type
-      // For most entities, count from entity_instance_link (parent-child relationships)
-      // For special entities like 'rbac', count from their own table
-      const countMap: Record<string, number> = {};
-
-      for (const childMeta of childEntitiesEnriched) {
-        const childEntityType = childMeta.entity;
-
-        if (childEntityType === 'rbac') {
-          // Count RBAC permissions for this role/employee
-          const rbacCount = await db.execute(sql`
-            SELECT COUNT(*) as count
-            FROM app.entity_rbac
-            WHERE person_entity_name = ${normalizedEntityType}
-              AND person_id = ${entity_id}
-              AND active_flag = true
-          `);
-          countMap[childEntityType] = Number(rbacCount[0]?.count || 0);
-        } else {
-          // Count from entity_instance_link for regular parent-child relationships
-          const childCount = await db.execute(sql`
-            SELECT COUNT(DISTINCT eim.child_entity_id) as count
-            FROM app.entity_instance_link eim
-            WHERE eim.parent_entity_type = ${normalizedEntityType}
-              AND eim.parent_entity_id = ${entity_id}
-              AND eim.child_entity_type = ${childEntityType}
-              AND eim.active_flag = true
-          `);
-          countMap[childEntityType] = Number(childCount[0]?.count || 0);
-        }
-      }
-
-      // Combine enriched metadata with counts
-      const tabs = childEntitiesEnriched.map((childMeta: any) => ({
-        entity: childMeta.entity,
-        ui_icon: childMeta.ui_icon,
-        ui_label: childMeta.ui_label,
-        count: countMap[childMeta.entity] || 0,
-        order: childMeta.order
-      }));
-
-      return {
-        parent_entity_type: entity_type,
-        parent_entity_id: entity_id,
-        parent_name: entityName,
-        parent_ui_label: entityType.ui_label,
-        parent_ui_icon: entityType.ui_icon,
-        tabs
-      };
-    } catch (error) {
-      fastify.log.error('Error fetching child tabs:', error as any);
-      return reply.status(500).send({ error: 'Internal server error' });
-    }
-  });
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ REMOVED: GET /api/v1/entity/types
+  // Replaced by GET /api/v1/entity/type (no :entity_type param)
+  // ═══════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ REMOVED: GET /api/v1/entity/child-tabs/:entity_type/:entity_id
+  // Replaced by GET /api/v1/entity/type/:entity_type with enriched child_entities
+  // ═══════════════════════════════════════════════════════════════
 
   /**
    * PUT /api/v1/entity/:code/children
    * Update child entities for an entity type
    * Modifies the child_entity_codes JSONB array in entity table
    * Expects simple string array: ["task", "artifact", "wiki"]
+   *
+   * Modes:
+   * - append (default): Merge new children with existing (for adding)
+   * - replace: Replace entire array with provided list (for removing)
    */
   fastify.put('/api/v1/entity/:code/children', {
     preHandler: [fastify.authenticate],
@@ -383,7 +230,8 @@ export async function entityRoutes(fastify: FastifyInstance) {
         code: Type.String()
       }),
       body: Type.Object({
-        child_entity_codes: Type.Optional(Type.Array(Type.String()))
+        child_entity_codes: Type.Optional(Type.Array(Type.String())),
+        mode: Type.Optional(Type.Union([Type.Literal('append'), Type.Literal('replace')]))
       }),
       response: {
         200: Type.Object({
@@ -415,7 +263,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Get current children and merge with new children (append, no duplicates)
+      // Get current children
       let currentChildren = existingEntity[0].child_entity_codes || [];
       if (typeof currentChildren === 'string') {
         currentChildren = JSON.parse(currentChildren);
@@ -429,16 +277,27 @@ export async function entityRoutes(fastify: FastifyInstance) {
         typeof c === 'string' ? c : c.entity
       );
 
-      // Merge and deduplicate
-      const mergedCodes = [...new Set([...currentCodes, ...newCodes])];
+      // Determine update mode (append or replace)
+      const updateMode = request.body.mode || 'append';
+
+      let finalCodes: string[];
+      if (updateMode === 'replace') {
+        // Replace mode: Use provided list as-is (for removals)
+        finalCodes = newCodes;
+      } else {
+        // Append mode: Merge and deduplicate (for additions)
+        finalCodes = [...new Set([...currentCodes, ...newCodes])];
+      }
 
       // Update the child_entity_codes JSONB field
-      const result = await db.execute(sql`
+      // Use string interpolation for JSONB to ensure proper array storage (not string-in-JSONB)
+      const jsonbArray = JSON.stringify(finalCodes);
+      const result = await client.unsafe(`
         UPDATE app.entity
         SET
-          child_entity_codes = ${JSON.stringify(mergedCodes)},
+          child_entity_codes = '${jsonbArray}'::jsonb,
           updated_ts = NOW()
-        WHERE code = ${normalizedCode}
+        WHERE code = $1
         RETURNING
           code,
           name,
@@ -447,7 +306,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
           child_entity_codes,
           display_order,
           active_flag
-      `);
+      `, [normalizedCode]);
 
       if (result.length === 0) {
         return reply.status(500).send({
@@ -466,6 +325,10 @@ export async function entityRoutes(fastify: FastifyInstance) {
       if (!Array.isArray(updatedEntity.child_entity_codes)) {
         updatedEntity.child_entity_codes = [];
       }
+
+      // IMPORTANT: Invalidate entity cache to ensure GET endpoint returns fresh data
+      // Now async with Redis - ensures all API instances get fresh data
+      await entityInfra.invalidate_entity_cache(normalizedCode);
 
       return {
         success: true,

@@ -116,8 +116,9 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
           return;
         }
 
-        // Fetch child tabs from centralized entity metadata API
-        const response = await fetch(`${API_BASE_URL}/api/v1/entity/child-tabs/${parentType}/${parentId}`, {
+        // ✅ UNIFIED ENDPOINT: Fetch entity type metadata (includes enriched child entities)
+        // Replaces: /api/v1/entity/child-tabs/${parentType}/${parentId}
+        const response = await fetch(`${API_BASE_URL}/api/v1/entity/type/${parentType}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -127,28 +128,26 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
         if (response.ok) {
           const data = await response.json();
 
-          // If no tabs returned (leaf entity or no children), show overview only
-          if (!data.tabs || data.tabs.length === 0) {
+          // If no child entities defined, show overview only
+          if (!data.child_entities || data.child_entities.length === 0) {
             setTabs([
               {
                 id: 'overview',
                 label: 'Overview',
                 path: `/${parentType}/${parentId}`,
-                icon: getIconComponent(data.parent_ui_icon),
+                icon: getIconComponent(data.ui_icon),
               }
             ]);
             setLoading(false);
             return;
           }
 
-          // Convert API data to tab format - tabs are already ordered from API by order field
-          // API sorts by order field, so we preserve that order here
-          // IMPORTANT: Use ui_icon from API response (from d_entity table)
-          const generatedTabs: HeaderTab[] = data.tabs.map((tab: any) => ({
+          // Convert API data to tab format - child_entities are already ordered
+          // IMPORTANT: Use ui_icon from child_entities (from entity table)
+          const generatedTabs: HeaderTab[] = data.child_entities.map((tab: any) => ({
             id: tab.entity,
             label: tab.ui_label,
-            count: tab.count,
-            icon: getIconComponent(tab.ui_icon), // ✅ Uses API-provided icon from d_entity.ui_icon
+            icon: getIconComponent(tab.ui_icon), // ✅ Uses API-provided icon from entity.ui_icon
             path: `/${parentType}/${parentId}/${tab.entity}`,
             disabled: false,
             order: tab.order || 999
@@ -160,7 +159,7 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
               id: 'overview',
               label: 'Overview',
               path: `/${parentType}/${parentId}`,
-              icon: getIconComponent(data.parent_ui_icon), // ✅ Uses parent icon from API
+              icon: getIconComponent(data.ui_icon), // ✅ Uses parent icon from API
             },
             ...generatedTabs
           ]);

@@ -356,9 +356,7 @@ VALUES (
   'FileText',
   'quote',
   'f',
-  '[
-    {"entity": "work_order", "ui_icon": "ClipboardCheck", "ui_label": "Work Orders", "order": 1}
-  ]'::jsonb,
+  '["work_order"]'::jsonb,
   145
 );
 
@@ -397,10 +395,7 @@ VALUES (
   'ShoppingCart',
   'order',
   'f',
-  '[
-    {"entity": "invoice", "ui_icon": "Receipt", "ui_label": "Invoices", "order": 1},
-    {"entity": "shipment", "ui_icon": "Truck", "ui_label": "Shipments", "order": 2}
-  ]'::jsonb,
+  '["invoice", "shipment"]'::jsonb,
   160
 );
 
@@ -478,14 +473,7 @@ VALUES (
   'Calendar',
   'event',
   'f',
-  '[
-    {"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1},
-    {"entity": "project", "ui_icon": "FolderOpen", "ui_label": "Projects", "order": 2},
-    {"entity": "service", "ui_icon": "Wrench", "ui_label": "Services", "order": 3},
-    {"entity": "cust", "ui_icon": "Users", "ui_label": "Customers", "order": 4},
-    {"entity": "employee", "ui_icon": "Users", "ui_label": "Employees", "order": 5},
-    {"entity": "business", "ui_icon": "Building2", "ui_label": "Businesses", "order": 6}
-  ]'::jsonb,
+  '["task", "project", "service", "cust", "employee", "business"]'::jsonb,
   215
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,

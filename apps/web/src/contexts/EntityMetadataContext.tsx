@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { getIconComponent } from '../lib/iconMapping';
 import type { LucideIcon } from 'lucide-react';
+import { useAuth } from './AuthContext';
 
 interface EntityMetadata {
   code: string;
@@ -37,19 +38,34 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000
 export function EntityMetadataProvider({ children }: EntityMetadataProviderProps) {
   const [entities, setEntities] = useState<Map<string, EntityMetadata>>(new Map());
   const [loading, setLoading] = useState(true);
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
 
   useEffect(() => {
     const fetchEntityMetadata = async () => {
       try {
-        const token = localStorage.getItem('auth_token');
+        // ✅ FIX: Wait for auth validation to complete before fetching
+        if (isAuthLoading) {
+          console.log('[EntityMetadataContext] Waiting for auth validation...');
+          return;
+        }
 
-        if (!token || token === 'no-auth-needed') {
-          console.warn('[EntityMetadataContext] No auth token, skipping fetch');
+        if (!isAuthenticated) {
+          console.warn('[EntityMetadataContext] Not authenticated, skipping fetch');
           setLoading(false);
           return;
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/v1/entity/types`, {
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          console.warn('[EntityMetadataContext] No auth token in localStorage');
+          setLoading(false);
+          return;
+        }
+
+        console.log('[EntityMetadataContext] Fetching entity metadata...');
+
+        // ✅ UNIFIED ENDPOINT: /api/v1/entity/type (no param = all entities)
+        const response = await fetch(`${API_BASE_URL}/api/v1/entity/type`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -73,7 +89,7 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
           });
 
           setEntities(entityMap);
-          console.log(`[EntityMetadataContext] Loaded ${entityMap.size} entity types`);
+          console.log(`[EntityMetadataContext] ✅ Loaded ${entityMap.size} entity types`);
         } else {
           console.error('[EntityMetadataContext] Failed to fetch entity types:', response.status);
         }
@@ -85,7 +101,7 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
     };
 
     fetchEntityMetadata();
-  }, []);
+  }, [isAuthenticated, isAuthLoading]); // ✅ FIX: Re-fetch when auth state changes
 
   const getEntityMetadata = (entityCode: string): EntityMetadata | undefined => {
     return entities.get(entityCode);
