@@ -12,10 +12,10 @@
 -- • CREATE: POST /api/v1/artifact (multipart/form-data), uploads to S3, INSERT with version=1
 -- • UPDATE: PUT /api/v1/artifact/{id}, metadata only, version++
 -- • DELETE: active_flag=false, to_ts=now() (file remains in S3)
--- • LIST: Filter by artifact_type, entity_type, security_classification
+-- • LIST: Filter by artifact_type, security_classification, visibility
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Parent: project, task, form, etc. (via entity_type/entity_id)
+-- • Parent: ANY entity (via entity_instance_link)
 -- • RBAC: entity_rbac
 --
 -- =====================================================
@@ -41,8 +41,6 @@ CREATE TABLE app.artifact (
     attachment_object_bucket text,
     attachment_object_key text,
     attachment text,
-    entity_type text,
-    entity_id uuid,
     visibility text,
     dl__artifact_security_classification text, -- References app.setting_datalabel (datalabel_name='dl__artifact_security_classification')
     latest_version_flag boolean DEFAULT true
@@ -68,8 +66,6 @@ INSERT INTO app.artifact (
     attachment_object_bucket,
     attachment_object_key,
     attachment,
-    entity_type,
-    entity_id,
     visibility,
     dl__artifact_security_classification,
     latest_version_flag
@@ -85,8 +81,6 @@ INSERT INTO app.artifact (
     'pmo-attachments',
     'artifacts/33a33333-3333-3333-3333-333333333333/file.docx',
     's3://pmo-attachments/artifacts/33a33333-3333-3333-3333-333333333333/file.docx',
-    'project',
-    '84215ccb-313d-48f8-9c37-4398f28c0b1f',
     'internal',
     'Confidential',
     true
@@ -105,8 +99,6 @@ INSERT INTO app.artifact (
     attachment_object_bucket,
     attachment_object_key,
     attachment,
-    entity_type,
-    entity_id,
     visibility,
     dl__artifact_security_classification,
     latest_version_flag
@@ -122,8 +114,6 @@ INSERT INTO app.artifact (
     'pmo-attachments',
     'artifacts/44a44444-4444-4444-4444-444444444444/file.mp4',
     's3://pmo-attachments/artifacts/44a44444-4444-4444-4444-444444444444/file.mp4',
-    'project',
-    '84215ccb-313d-48f8-9c37-4398f28c0b1f',
     'restricted',
     'General',
     true
@@ -142,8 +132,6 @@ INSERT INTO app.artifact (
     attachment_object_bucket,
     attachment_object_key,
     attachment,
-    entity_type,
-    entity_id,
     visibility,
     dl__artifact_security_classification,
     latest_version_flag
@@ -159,8 +147,6 @@ INSERT INTO app.artifact (
     'pmo-attachments',
     'artifacts/77a77777-7777-7777-7777-777777777777/file.pdf',
     's3://pmo-attachments/artifacts/77a77777-7777-7777-7777-777777777777/file.pdf',
-    'project',
-    '84215ccb-313d-48f8-9c37-4398f28c0b1f',
     'internal',
     'Confidential',
     true
@@ -202,7 +188,6 @@ FROM (VALUES
 -- Marketing and Sales Materials
 INSERT INTO app.artifact (code, name, descr, metadata,
     dl__artifact_type, attachment_format, attachment_size_bytes,
-    entity_type, entity_id,
     visibility, dl__artifact_security_classification, latest_version_flag
 )
 SELECT
@@ -213,8 +198,6 @@ SELECT
     'Document',
     'pdf',
     400000 + floor(random() * 1600000)::bigint,
-    'project',
-    (SELECT id FROM app.project WHERE active_flag = true ORDER BY random() LIMIT 1),
     'internal',
     'Confidential',
     true
@@ -229,7 +212,6 @@ FROM (VALUES
 -- Training Videos
 INSERT INTO app.artifact (code, name, descr, metadata,
     dl__artifact_type, attachment_format, attachment_size_bytes,
-    entity_type, entity_id,
     visibility, dl__artifact_security_classification, latest_version_flag
 )
 SELECT
@@ -246,8 +228,6 @@ SELECT
     'Video',
     'mp4',
     duration * 1000000 * 8::bigint, -- ~8MB per minute
-    'office',
-    (SELECT id FROM app.app.office WHERE active_flag = true ORDER BY random() LIMIT 1),
     'internal',
     'General',
     true
@@ -263,33 +243,18 @@ FROM (VALUES
 -- REGISTER ARTIFACTS IN entity_instance_link
 -- =====================================================
 
--- Link all artifacts to their parent entities
-INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
-SELECT
-    a.entity_type,
-    a.entity_id,
-    'artifact',
-    a.id,
-    'contains'
-FROM app.artifact a
-WHERE a.entity_id IS
-  AND a.entity_type IS
-  AND a.active_flag = true
-ON CONFLICT DO NOTHING;
+-- NOTE: Artifact-to-parent linkages are now created via API when artifacts
+-- are attached to entities. The artifact table no longer stores entity_type/entity_id.
+-- All relationships are managed centrally via entity_instance_link table.
 
 -- =====================================================
 -- REGISTER ARTIFACTS IN entity_instance
 -- =====================================================
 
-INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code entity_code)
+INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT 'artifact', id, name, code
 FROM app.artifact
-WHERE active_flag = true
-ON CONFLICT (entity_type, entity_id) DO UPDATE
-SET entity_name = EXCLUDED.entity_name,
-    entity_code = EXCLUDED.entity_code
-    entity_code = EXCLUDED.entity_code,
-    updated_ts = now();
+WHERE active_flag = true;
 
 -- =====================================================
 -- ARTIFACT STATISTICS
@@ -304,18 +269,8 @@ SELECT
     MAX(attachment_size_bytes) as max_size_bytes
 FROM app.artifact
 WHERE active_flag = true
+  AND dl__artifact_type IS NOT NULL
 GROUP BY dl__artifact_type
-ORDER BY artifact_count DESC;
-
--- Show artifact distribution by entity type
-SELECT
-    entity_type,
-    COUNT(*) as artifact_count,
-    array_agg(DISTINCT dl__artifact_type) as artifact_types
-FROM app.artifact
-WHERE active_flag = true
-  AND entity_type IS
-GROUP BY entity_type
 ORDER BY artifact_count DESC;
 
 -- Show visibility and security distribution
