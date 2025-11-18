@@ -2,7 +2,7 @@
 
 > Complete catalog of reusable services across the platform
 
-**Total Services**: 28 services organized by domain
+**Total Services**: 30 services organized by domain (3 CORE + 27 specialized)
 
 ---
 
@@ -12,7 +12,10 @@
 
 | Service | File | Purpose |
 |---------|------|---------|
-| **Linkage Service** | `services/linkage.service.ts` | Parent-child entity relationship management |
+| **Entity Infrastructure Service** | `services/entity-infrastructure.service.ts` | Centralized management of 4 infrastructure tables (entity, entity_instance, entity_instance_link, entity_rbac) |
+| **Universal Formatter Service** | `lib/universalFormatterService.ts` | Single source of truth for ALL formatting (currency, dates, badges, transforms) |
+| **Universal Filter Builder** | `lib/universal-filter-builder.ts` | Zero-config query filtering with auto-type detection |
+| **Linkage Service** | `services/linkage.service.ts` | Parent-child entity relationship management (legacy, use Entity Infrastructure Service) |
 | **S3 Attachment Service** | `lib/s3-attachments.ts` | File upload/download with presigned URLs |
 
 ### 2. Email & Messaging Services
@@ -94,7 +97,10 @@
 
 Each service has dedicated documentation:
 
-- [linkage-service.md](./linkage-service.md) - Entity relationship management
+- [ENTITY_INFRASTRUCTURE_SERVICE.md](./ENTITY_INFRASTRUCTURE_SERVICE.md) - Infrastructure tables management (CORE)
+- [UNIVERSAL_FORMATTER_SERVICE.md](./UNIVERSAL_FORMATTER_SERVICE.md) - Formatting service (CORE)
+- [UNIVERSAL_FILTER_BUILDER.md](./UNIVERSAL_FILTER_BUILDER.md) - Auto-filter builder (CORE)
+- [linkage-service.md](./linkage-service.md) - Entity relationship management (legacy)
 - [s3-attachment-service.md](./s3-attachment-service.md) - File storage operations
 - [email-service.md](./email-service.md) - Email sending
 - [messaging-service.md](./messaging-service.md) - Calendar notifications

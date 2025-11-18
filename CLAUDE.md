@@ -55,40 +55,37 @@ d_project, d_task, d_employee, d_client, d_office, d_business
 setting_datalabel_project_stage, setting_datalabel_task_priority
 
 -- Infrastructure tables
-d_entity                      -- Entity metadata (icons, labels, child entities)
-d_entity_instance_link              -- Parent-child relationships (NO foreign keys)
-d_entity_rbac           -- Person-based permissions (single integer 0-5)
-d_entity_instance_registry         -- Entity registry
+entity                        -- Entity metadata (icons, labels, child_entity_codes)
+entity_instance               -- Entity instance registry (entity_instance_name, code)
+entity_instance_link          -- Parent-child relationships (NO foreign keys, hard delete only)
+entity_rbac                   -- Person-based permissions (0-7: VIEW, COMMENT, EDIT, SHARE, DELETE, CREATE, OWNER)
 ```
 
 ### 3. Key Design Patterns
 
-**Inline Create-Then-Link**: Child entities auto-link to parent via `d_entity_instance_link`
+**Inline Create-Then-Link**: Child entities auto-link to parent via `entity_instance_link`
 **Default-Editable**: All fields editable unless explicitly readonly
 **Column Consistency**: Same columns regardless of navigation context
 **Settings-Driven**: All dropdowns from `/api/v1/entity/:type/options`
-**Factory Routes**: Use `createChildEntityEndpoint()` for parent-child APIs
+**Convention Over Configuration**: Column names determine field types, formatting, and behavior
 **Centralized Formatting**: `universalFormatterService.ts` handles all field transforms
 
-### 4. Centralized Services & Libraries
+### 4. Core Services & Libraries
 
 **Purpose**: Eliminate boilerplate and enforce consistency across all entity routes
 
-| Service | File | Purpose |
-|---------|------|---------|
-| **Entity Infrastructure Service** | `services/entity-infrastructure.service.ts` | Centralized management of all 4 infrastructure tables (registry, links, RBAC, metadata) |
-| **Universal Formatter Service** | `lib/universalFormatterService.ts` | Single source of truth for ALL formatting (currency, dates, badges, transforms) |
-| **Universal Filter Builder** | `lib/universal-filter-builder.ts` | Zero-config query filtering with auto-type detection |
-| **Unified Data Gate** | `lib/unified-data-gate.ts` | Centralized RBAC + parent-child filtering |
-| **Delete Factory** | `lib/entity-delete-route-factory.ts` | Auto-generate DELETE endpoints with cascading cleanup |
-| **Child Entity Factory** | `lib/child-entity-route-factory.ts` | Auto-generate `GET /{parent}/:id/{child}` endpoints |
-| **Schema Metadata** | `lib/universal-schema-metadata.ts` | Database schema introspection and column detection |
+| Service | File | Documentation | Purpose |
+|---------|------|---------------|---------|
+| **Entity Infrastructure Service** | `services/entity-infrastructure.service.ts` | [ENTITY_INFRASTRUCTURE_SERVICE.md](docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md) | Centralized management of all 4 infrastructure tables (entity, entity_instance, entity_instance_link, entity_rbac) |
+| **Universal Formatter Service** | `lib/universalFormatterService.ts` | [UNIVERSAL_FORMATTER_SERVICE.md](docs/services/UNIVERSAL_FORMATTER_SERVICE.md) | Single source of truth for ALL formatting (currency, dates, badges, transforms) - Convention over Configuration |
+| **Universal Filter Builder** | `lib/universal-filter-builder.ts` | [UNIVERSAL_FILTER_BUILDER.md](docs/services/UNIVERSAL_FILTER_BUILDER.md) | Zero-config query filtering with auto-type detection from column naming conventions |
 
 **Key Benefits**:
 - ✅ Zero boilerplate for standard CRUD operations
-- ✅ Consistent RBAC enforcement across all entities
-- ✅ Auto-detection of filter types from column naming
-- ✅ Factory-generated endpoints reduce code by 80%+
+- ✅ Consistent RBAC enforcement across all entities (via Entity Infrastructure Service)
+- ✅ Auto-detection of filter types from column naming (via Universal Filter Builder)
+- ✅ Convention over configuration (column names determine everything)
+- ✅ 80%+ code reduction across entity routes
 
 ### 5. Entity Infrastructure Service (Add-On Pattern)
 
@@ -103,10 +100,10 @@ d_entity_instance_registry         -- Entity registry
 
 **4 Infrastructure Tables Managed**:
 ```sql
-d_entity                      -- Entity type metadata (icons, labels, child_entities)
-d_entity_instance_registry    -- Instance registry (entity_name, entity_code cache)
-d_entity_instance_link        -- Parent-child relationships (idempotent)
-d_entity_rbac                 -- Permissions (0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER)
+entity                        -- Entity type metadata (icons, labels, child_entity_codes)
+entity_instance               -- Instance registry (entity_instance_name, code cache)
+entity_instance_link          -- Parent-child relationships (hard delete only, no active_flag)
+entity_rbac                   -- Permissions (0=VIEW, 1=COMMENT, 3=EDIT, 4=SHARE, 5=DELETE, 6=CREATE, 7=OWNER)
 ```
 
 **Usage Pattern in Routes**:
@@ -139,7 +136,7 @@ fastify.post('/api/v1/project', async (request, reply) => {
   const result = await db.execute(sql`INSERT INTO app.d_project ...`);
   const project = result[0];
 
-  // STEP 4: Register in d_entity_instance_registry
+  // STEP 4: Register in entity_instance
   await entityInfra.set_entity_instance_registry({
     entity_type: ENTITY_TYPE,
     entity_id: project.id,
