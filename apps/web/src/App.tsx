@@ -1,4 +1,4 @@
-import React, { Fragment } from 'react';
+import React, { Fragment, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
@@ -6,6 +6,8 @@ import { NavigationHistoryProvider } from './contexts/NavigationHistoryContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { EntityPreviewProvider } from './contexts/EntityPreviewContext';
 import { EntityMetadataProvider, useEntityMetadata } from './contexts/EntityMetadataContext';
+import { LabelToUuidMappingProvider, useLabelToUuidMappingContext } from './contexts/LabelToUuidMappingContext';
+import { registerMappingContextSetter } from './lib/api';
 import { LoginForm } from './components/shared';
 import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPanel';
 
@@ -71,6 +73,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>;
+}
+
+/**
+ * Component to register mapping context with API interceptor
+ * Must be inside LabelToUuidMappingProvider to access context
+ */
+function MappingContextRegistrar() {
+  const { setMappingFromData } = useLabelToUuidMappingContext();
+
+  useEffect(() => {
+    // Register the context setter with API interceptor on mount
+    registerMappingContextSetter(setMappingFromData);
+  }, [setMappingFromData]);
+
+  return null; // This component doesn't render anything
 }
 
 function AppRoutes() {
@@ -336,18 +353,22 @@ function App() {
   return (
     <AuthProvider>
       <EntityMetadataProvider>
-        <Router>
-          <SidebarProvider>
-            <SettingsProvider>
-              <NavigationHistoryProvider>
-                <EntityPreviewProvider>
-                  <AppRoutes />
-                  <EntityPreviewPanel />
-                </EntityPreviewProvider>
-              </NavigationHistoryProvider>
-            </SettingsProvider>
-          </SidebarProvider>
-        </Router>
+        <LabelToUuidMappingProvider>
+          <Router>
+            <SidebarProvider>
+              <SettingsProvider>
+                <NavigationHistoryProvider>
+                  <EntityPreviewProvider>
+                    {/* Register mapping context with API interceptor */}
+                    <MappingContextRegistrar />
+                    <AppRoutes />
+                    <EntityPreviewPanel />
+                  </EntityPreviewProvider>
+                </NavigationHistoryProvider>
+              </SettingsProvider>
+            </SidebarProvider>
+          </Router>
+        </LabelToUuidMappingProvider>
       </EntityMetadataProvider>
     </AuthProvider>
   );
