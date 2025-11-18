@@ -2,7 +2,7 @@
 
 > **Complete catalog of reusable services with building block documentation**
 
-**Total Services**: 27 services
+**Total Services**: 30 services (3 CORE + 27 specialized)
 **Documentation Pattern**: How It Works + Component Architecture + Operational Flow
 
 ---
@@ -13,7 +13,10 @@
 
 | Service | File | Documentation |
 |---------|------|---------------|
-| **Linkage Service** | `services/linkage.service.ts` | [linkage-service.md](./linkage-service.md) |
+| **Entity Infrastructure Service** | `services/entity-infrastructure.service.ts` | [ENTITY_INFRASTRUCTURE_SERVICE.md](./ENTITY_INFRASTRUCTURE_SERVICE.md) |
+| **Universal Formatter Service** | `lib/universalFormatterService.ts` | [UNIVERSAL_FORMATTER_SERVICE.md](./UNIVERSAL_FORMATTER_SERVICE.md) |
+| **Universal Filter Builder** | `lib/universal-filter-builder.ts` | [UNIVERSAL_FILTER_BUILDER.md](./UNIVERSAL_FILTER_BUILDER.md) |
+| **Linkage Service** | `services/linkage.service.ts` | [linkage-service.md](./linkage-service.md) *(legacy)* |
 | **S3 Attachment Service** | `lib/s3-attachments.ts` | [s3-attachment-service.md](./s3-attachment-service.md) |
 
 ### Email & Messaging Services
@@ -160,8 +163,14 @@ AI Stack:
 
 ---
 
-## Currently Documented Services (10/27)
+## Currently Documented Services (13/30)
 
+### Core Services (3/3) ✅
+✅ **Entity Infrastructure Service** - Infrastructure tables management
+✅ **Universal Formatter Service** - Formatting and field detection
+✅ **Universal Filter Builder** - Auto-filter query builder
+
+### Specialized Services (10/27)
 ✅ **Linkage Service** - Entity relationships
 ✅ **S3 Attachment Service** - File storage
 ✅ **Email Service** - Email sending
@@ -198,6 +207,6 @@ AI Stack:
 
 ---
 
-**Last Updated**: 2025-11-16
-**Documentation Status**: 10/27 services documented (37%)
+**Last Updated**: 2025-01-18
+**Documentation Status**: 13/30 services documented (43% - ALL core services complete)
 **Next Priority**: Data Extraction Agent, State Manager, Config Loader

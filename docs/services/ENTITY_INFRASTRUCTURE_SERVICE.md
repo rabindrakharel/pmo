@@ -20,10 +20,10 @@ The Entity Infrastructure Service is a **self-contained, singleton service** tha
 
 | Table | Purpose | Operations |
 |-------|---------|------------|
-| **d_entity** | Entity TYPE metadata (icons, labels, child_entities) | get_entity(), get_all_entity(), get_parent_entity_types() |
-| **d_entity_instance_registry** | Instance registry (entity_name, entity_code cache) | set_entity_instance_registry(), update_entity_instance_registry(), deactivate_entity_instance_registry() |
-| **d_entity_instance_link** | Parent-child relationships (idempotent) | set_entity_instance_link(), get_entity_instance_link_children(), get_all_entity_instance_links() |
-| **d_entity_rbac** | Permissions (0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER) | check_entity_rbac(), set_entity_rbac(), set_entity_rbac_owner(), get_entity_rbac_where_condition() |
+| **entity** | Entity TYPE metadata (icons, labels, child_entity_codes) | get_entity(), get_all_entity(), get_parent_entity_types() |
+| **entity_instance** | Instance registry (entity_instance_name, code cache) | set_entity_instance_registry(), update_entity_instance_registry(), delete_entity_instance_registry() |
+| **entity_instance_link** | Parent-child relationships (hard delete only) | set_entity_instance_link(), get_entity_instance_link_children(), get_all_entity_instance_links() |
+| **entity_rbac** | Permissions (0=VIEW, 1=COMMENT, 3=EDIT/CONTRIBUTE, 4=SHARE, 5=DELETE, 6=CREATE, 7=OWNER) | check_entity_rbac(), set_entity_rbac(), set_entity_rbac_owner(), get_entity_rbac_where_condition() |
 
 ## Usage in Routes
 
@@ -66,7 +66,7 @@ fastify.post('/api/v1/project', async (request, reply) => {
   `);
   const project = result[0];
 
-  // STEP 4: Register in d_entity_instance_registry
+  // STEP 4: Register in entity_instance
   await entityInfra.set_entity_instance_registry({
     entity_type: ENTITY_TYPE,
     entity_id: project.id,
@@ -168,16 +168,18 @@ fastify.get('/api/v1/project', async (request, reply) => {
 
 ## RBAC Permission Model
 
-### Permission Hierarchy (0-5)
+### Permission Hierarchy (0-7)
 
 ```typescript
 export enum Permission {
-  VIEW = 0,    // Read-only access
-  EDIT = 1,    // Modify entity (implies VIEW)
-  SHARE = 2,   // Share with others (implies EDIT + VIEW)
-  DELETE = 3,  // Soft delete (implies SHARE + EDIT + VIEW)
-  CREATE = 4,  // Create new entities (type-level only, implies all below)
-  OWNER = 5    // Full control (implies all permissions)
+  VIEW = 0,        // Read-only access
+  COMMENT = 1,     // Add comments on entities (implies VIEW)
+  EDIT = 3,        // Modify entity (implies COMMENT + VIEW)
+  CONTRIBUTE = 3,  // Alias for EDIT (submit data)
+  SHARE = 4,       // Share with others (implies EDIT + COMMENT + VIEW)
+  DELETE = 5,      // Soft delete (implies SHARE + EDIT + COMMENT + VIEW)
+  CREATE = 6,      // Create new entities (type-level only, implies all below)
+  OWNER = 7        // Full control including permission management (implies ALL)
 }
 ```
 
@@ -200,10 +202,10 @@ await entityInfra.set_entity_rbac(
 
 The service automatically resolves permissions from 4 sources:
 
-1. **Direct Employee Permissions** - `d_entity_rbac` where `person_entity_name='employee'`
-2. **Role-Based Permissions** - `d_entity_rbac` where `person_entity_name='role'` (via `d_entity_instance_link`)
-3. **Parent-VIEW Inheritance** - If parent has VIEW (0+), child gains VIEW
-4. **Parent-CREATE Inheritance** - If parent has CREATE (4+), child gains CREATE
+1. **Direct Employee Permissions** - `entity_rbac` where `person_code='employee'`
+2. **Role-Based Permissions** - `entity_rbac` where `person_code='role'` (via `entity_instance_link`)
+3. **Parent-VIEW Inheritance** - If parent has VIEW (0+), child gains VIEW (permission 0)
+4. **Parent-CREATE Inheritance** - If parent has CREATE (6+), child gains SHARE (permission 4)
 
 The service takes the **MAX permission level** from all sources.
 
@@ -223,19 +225,21 @@ The service takes the **MAX permission level** from all sources.
 
 | Method | Purpose | Returns |
 |--------|---------|---------|
-| `set_entity_instance_registry({entity_type, entity_id, entity_name, entity_code})` | Register instance (upsert) | `EntityInstance` |
+| `set_entity_instance_registry({entity_type, entity_id, entity_name, entity_code})` | Register instance (insert only) | `EntityInstance` |
 | `update_entity_instance_registry(entityType, entityId, {entity_name, entity_code})` | Update name/code | `EntityInstance | null` |
-| `deactivate_entity_instance_registry(entityType, entityId)` | Soft delete from registry | `EntityInstance | null` |
-| `validate_entity_instance_registry(entityType, entityId, requireActive)` | Check if instance exists | `boolean` |
+| `delete_entity_instance_registry(entityType, entityId)` | Hard delete from registry | `void` |
+| `validate_entity_instance_registry(entityType, entityId)` | Check if instance exists | `boolean` |
 
 ### Linkage Methods
 
 | Method | Purpose | Returns |
 |--------|---------|---------|
-| `set_entity_instance_link({parent_entity_type, parent_entity_id, child_entity_type, child_entity_id})` | Create/reactivate linkage (idempotent) | `EntityLink` |
+| `set_entity_instance_link({parent_entity_type, parent_entity_id, child_entity_type, child_entity_id})` | Create linkage (insert only) | `EntityLink` |
 | `get_entity_instance_link_children(parentType, parentId, childType)` | Get child IDs of specific type | `string[]` (child IDs) |
 | `get_all_entity_instance_links(filters)` | Query linkages with filters | `EntityLink[]` |
-| `delete_entity_instance_link(linkageId)` | Soft delete linkage | `EntityLink | null` |
+| `delete_entity_instance_link(linkageId)` | Hard delete linkage | `void` |
+| `update_entity_instance_link(linkageId, relationshipType)` | Update relationship_type | `EntityLink | null` |
+| `get_entity_instance_link_by_id(linkageId)` | Get single linkage | `EntityLink | null` |
 | `get_dynamic_child_entity_tabs(entityType)` | Get child entity metadata for tabs | `{entity, label, icon}[]` |
 
 ### Entity Metadata Methods
@@ -254,9 +258,10 @@ The service takes the **MAX permission level** from all sources.
 
 **Options**:
 - `user_id` - User performing delete (required)
-- `hard_delete` - true = DELETE, false = soft delete (default: false)
+- `hard_delete` - Only affects primary_table_callback behavior (default: false)
+  - **NOTE**: `entity_instance` and `entity_instance_link` are ALWAYS hard-deleted (no active_flag columns)
 - `cascade_delete_children` - Recursively delete children (default: false)
-- `remove_rbac_entries` - Remove permission entries (default: false)
+- `remove_rbac_entries` - Remove permission entries from entity_rbac (default: false)
 - `skip_rbac_check` - Skip permission validation (default: false)
 - `primary_table_callback` - Custom delete logic for primary table
 
@@ -267,13 +272,13 @@ The service takes the **MAX permission level** from all sources.
 **Before** (Manual Infrastructure Code):
 ```typescript
 // Register instance
-await db.execute(sql`INSERT INTO app.d_entity_instance_registry ...`);
+await db.execute(sql`INSERT INTO app.entity_instance ...`);
 
 // Grant permission
-await db.execute(sql`INSERT INTO app.d_entity_rbac ...`);
+await db.execute(sql`INSERT INTO app.entity_rbac ...`);
 
 // Create linkage
-await db.execute(sql`INSERT INTO app.d_entity_instance_link ...`);
+await db.execute(sql`INSERT INTO app.entity_instance_link ...`);
 
 // Check permission with complex query
 const result = await db.execute(sql`
@@ -366,13 +371,29 @@ await entityInfra.set_entity_instance_link({...});
 // Zero variation - 100% consistency
 ```
 
+## Important: Hard Delete vs Soft Delete
+
+The infrastructure tables have been simplified to use **hard deletes only**:
+
+- ❌ **NO `active_flag`** in `entity_instance`
+- ❌ **NO `active_flag`** in `entity_instance_link`
+
+**Implications**:
+1. `delete_entity_instance_registry()` - Always performs `DELETE FROM`
+2. `delete_entity_instance_link()` - Always performs `DELETE FROM`
+3. `delete_all_entity_infrastructure()` - Always hard-deletes infrastructure records
+   - The `hard_delete` parameter **only affects** the `primary_table_callback` behavior
+   - Infrastructure tables are ALWAYS hard-deleted regardless of this flag
+
+**Primary tables** (like `d_project`, `d_task`) still have `active_flag` for soft deletion.
+
 ## Related Documentation
 
 - **DDL Files**:
-  - `db/entity_configuration_settings/02_entity.ddl` - d_entity table
-  - `db/entity_configuration_settings/03_d_entity_instance_registry.ddl` - Registry table
-  - `db/entity_configuration_settings/05_d_entity_instance_link.ddl` - Linkage table
-  - `db/entity_configuration_settings/06_d_entity_rbac.ddl` - RBAC table
+  - `db/entity_configuration_settings/02_entity.ddl` - entity table
+  - `db/entity_configuration_settings/03_entity_instance.ddl` - Registry table
+  - `db/entity_configuration_settings/05_entity_instance_link.ddl` - Linkage table
+  - `db/entity_configuration_settings/06_entity_rbac.ddl` - RBAC table
 
 - **Service Implementation**: `apps/api/src/services/entity-infrastructure.service.ts`
 
@@ -392,7 +413,7 @@ const projects = await entityInfra.getAll('project', filters);
 ❌ **Routes bypass service for infrastructure operations**:
 ```typescript
 // WRONG - Use service instead
-await db.execute(sql`INSERT INTO d_entity_rbac ...`);
+await db.execute(sql`INSERT INTO app.entity_rbac ...`);
 ```
 
 ❌ **Inconsistent patterns across routes**:
@@ -413,6 +434,11 @@ If you find routes NOT using Entity Infrastructure Service:
 
 ## Version History
 
-- **v1.0.0** (2025-01-17) - Initial implementation (1160 lines)
-- **Pattern**: Add-On Helper Service (routes own queries)
-- **Coverage**: 100% of entity routes (business, project, task, and 42+ others)
+- **v2.0.0** (2025-01-18) - Updated for new data model
+  - Table renames: `d_entity_instance_registry` → `entity_instance`, etc.
+  - Hard delete only for infrastructure tables (no `active_flag`)
+  - Updated permission hierarchy (0-7 with COMMENT and CONTRIBUTE)
+  - Parent-CREATE inheritance now grants SHARE (permission 4) instead of CREATE
+- **v1.0.0** (2025-01-17) - Initial implementation (1108 lines)
+  - Pattern: Add-On Helper Service (routes own queries)
+  - Coverage: 100% of entity routes (business, project, task, and 42+ others)
