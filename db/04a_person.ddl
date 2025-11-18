@@ -8,9 +8,9 @@
 --
 -- DESIGN:
 -- • Common Fields: name, email, phone, address shared across all person types
--- • Multi-Role Support: person_types[] array allows one person to have multiple roles
--- • Specialized Entities: d_employee, d_cust extend with role-specific fields
--- • Standard Entity: Follows d_ prefix with code, name, metadata pattern
+-- • Single Type: type_code field identifies primary person type (employee, customer, vendor, supplier)
+-- • Specialized Entities: employee, cust extend with role-specific fields
+-- • Standard Entity: Standard code, name, metadata pattern
 --
 -- RELATIONSHIPS:
 -- • Parent: None (base entity)
@@ -20,8 +20,8 @@
 -- USAGE PATTERNS:
 -- • CREATE: Person created first, then specialized role entity
 -- • UPDATE: Common fields updated here, role-specific in specialized tables
--- • QUERY: Join with d_employee/d_cust for complete person view
--- • MULTI-ROLE: Person can be both employee and customer via person_types array
+-- • QUERY: Join with employee/cust for complete person view
+-- • TYPE: Person has single primary type_code (employee, customer, vendor, supplier)
 --
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -66,9 +66,9 @@ CREATE TABLE IF NOT EXISTS app.person (
     country varchar(50) DEFAULT 'Canada',
 
     -- ─────────────────────────────────────────────────────────────────────────
-    -- Person Type Management (Multi-Role Support)
+    -- Person Type (Single Primary Type)
     -- ─────────────────────────────────────────────────────────────────────────
-    person_types varchar[] DEFAULT '{}', -- ['employee', 'customer', 'vendor', 'supplier']
+    type_code varchar(100), -- Primary person type: 'employee', 'customer', 'vendor', 'supplier'
 
     -- ─────────────────────────────────────────────────────────────────────────
     -- Role References (person references specialized role entities - NO FKs for loose coupling)
@@ -112,7 +112,7 @@ COMMENT ON COLUMN app.person.city IS 'City';
 COMMENT ON COLUMN app.person.province IS 'Province/State';
 COMMENT ON COLUMN app.person.postal_code IS 'Postal code / ZIP code';
 COMMENT ON COLUMN app.person.country IS 'Country (default: Canada)';
-COMMENT ON COLUMN app.person.person_types IS 'Array of person types/roles (employee, customer, vendor, supplier) for multi-role support';
+COMMENT ON COLUMN app.person.type_code IS 'Primary person type code: employee, customer, vendor, or supplier';
 COMMENT ON COLUMN app.person.metadata IS 'Additional flexible attributes';
 COMMENT ON COLUMN app.person.active_flag IS 'Soft delete flag (true = active)';
 COMMENT ON COLUMN app.person.from_ts IS 'Valid from timestamp';
