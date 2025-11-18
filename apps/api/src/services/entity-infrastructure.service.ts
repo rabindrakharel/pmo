@@ -411,6 +411,188 @@ export class EntityInfrastructureService {
     return result[0]?.exists === true;
   }
 
+  /**
+   * Resolve UUID fields to human-readable entity names
+   *
+   * Supports 4 naming patterns:
+   * - Pattern 1: {label}__{entity}_id (e.g., "manager__employee_id")
+   * - Pattern 2: {label}__{entity}_ids (e.g., "stakeholder__employee_ids")
+   * - Pattern 3: {entity}_id (e.g., "project_id")
+   * - Pattern 4: {entity}_ids (e.g., "attachment_ids")
+   *
+   * @param fields Record of field names to UUID values (string or string[])
+   * @returns Record with original fields plus resolved label fields
+   *
+   * @example
+   * // Input:
+   * {
+   *   "manager__employee_id": "uuid-123",
+   *   "stakeholder__employee_ids": ["uuid-456", "uuid-789"]
+   * }
+   *
+   * // Output:
+   * {
+   *   "manager__employee_id": "uuid-123",
+   *   "manager": "James Miller",
+   *   "stakeholder__employee_ids": ["uuid-456", "uuid-789"],
+   *   "stakeholder": ["Sarah Johnson", "Michael Chen"]
+   * }
+   */
+  async resolve_entity_references(
+    fields: Record<string, string | string[] | null>
+  ): Promise<Record<string, any>> {
+    const resolved: Record<string, any> = {};
+
+    // Pattern matching regexes
+    const labeledSinglePattern = /^(.+)__([a-z_]+)_id$/;
+    const labeledArrayPattern = /^(.+)__([a-z_]+)_ids$/;
+    const simpleSinglePattern = /^([a-z_]+)_id$/;
+    const simpleArrayPattern = /^([a-z_]+)_ids$/;
+
+    // Collect all UUIDs to resolve in a single query (grouped by entity_code)
+    const uuidsToResolve: Record<string, Set<string>> = {};
+
+    for (const [fieldName, value] of Object.entries(fields)) {
+      if (value === null || value === undefined) {
+        resolved[fieldName] = value;
+        continue;
+      }
+
+      let entityCode: string | null = null;
+      let label: string | null = null;
+      let isArray = false;
+
+      // Pattern 1: {label}__{entity}_id
+      const labeledSingleMatch = fieldName.match(labeledSinglePattern);
+      if (labeledSingleMatch) {
+        label = labeledSingleMatch[1];
+        entityCode = labeledSingleMatch[2];
+        isArray = false;
+      }
+
+      // Pattern 2: {label}__{entity}_ids
+      if (!entityCode) {
+        const labeledArrayMatch = fieldName.match(labeledArrayPattern);
+        if (labeledArrayMatch) {
+          label = labeledArrayMatch[1];
+          entityCode = labeledArrayMatch[2];
+          isArray = true;
+        }
+      }
+
+      // Pattern 3: {entity}_id
+      if (!entityCode) {
+        const simpleSingleMatch = fieldName.match(simpleSinglePattern);
+        if (simpleSingleMatch) {
+          entityCode = simpleSingleMatch[1];
+          label = simpleSingleMatch[1];
+          isArray = false;
+        }
+      }
+
+      // Pattern 4: {entity}_ids
+      if (!entityCode) {
+        const simpleArrayMatch = fieldName.match(simpleArrayPattern);
+        if (simpleArrayMatch) {
+          entityCode = simpleArrayMatch[1];
+          label = simpleArrayMatch[1];
+          isArray = true;
+        }
+      }
+
+      // Keep original field value
+      resolved[fieldName] = value;
+
+      // If pattern matched and we have an entity code, collect UUIDs for resolution
+      if (entityCode && label) {
+        if (!uuidsToResolve[entityCode]) {
+          uuidsToResolve[entityCode] = new Set();
+        }
+
+        if (isArray && Array.isArray(value)) {
+          value.forEach(uuid => uuidsToResolve[entityCode!].add(uuid));
+        } else if (!isArray && typeof value === 'string') {
+          uuidsToResolve[entityCode].add(value);
+        }
+      }
+    }
+
+    // Bulk resolve all UUIDs in a single query per entity type
+    const resolvedNames: Record<string, Record<string, string>> = {};
+
+    for (const [entityCode, uuidSet] of Object.entries(uuidsToResolve)) {
+      const uuids = Array.from(uuidSet);
+      if (uuids.length === 0) continue;
+
+      const result = await this.db.execute(sql`
+        SELECT entity_instance_id::text, entity_instance_name
+        FROM app.entity_instance
+        WHERE entity_code = ${entityCode}
+          AND entity_instance_id = ANY(${uuids}::uuid[])
+      `);
+
+      resolvedNames[entityCode] = {};
+      for (const row of result) {
+        resolvedNames[entityCode][row.entity_instance_id] = row.entity_instance_name;
+      }
+    }
+
+    // Now populate resolved labels for each field
+    for (const [fieldName, value] of Object.entries(fields)) {
+      if (value === null || value === undefined) continue;
+
+      let entityCode: string | null = null;
+      let label: string | null = null;
+      let isArray = false;
+
+      // Pattern matching (same as before)
+      const labeledSingleMatch = fieldName.match(labeledSinglePattern);
+      if (labeledSingleMatch) {
+        label = labeledSingleMatch[1];
+        entityCode = labeledSingleMatch[2];
+        isArray = false;
+      }
+
+      if (!entityCode) {
+        const labeledArrayMatch = fieldName.match(labeledArrayPattern);
+        if (labeledArrayMatch) {
+          label = labeledArrayMatch[1];
+          entityCode = labeledArrayMatch[2];
+          isArray = true;
+        }
+      }
+
+      if (!entityCode) {
+        const simpleSingleMatch = fieldName.match(simpleSinglePattern);
+        if (simpleSingleMatch) {
+          entityCode = simpleSingleMatch[1];
+          label = simpleSingleMatch[1];
+          isArray = false;
+        }
+      }
+
+      if (!entityCode) {
+        const simpleArrayMatch = fieldName.match(simpleArrayPattern);
+        if (simpleArrayMatch) {
+          entityCode = simpleArrayMatch[1];
+          label = simpleArrayMatch[1];
+          isArray = true;
+        }
+      }
+
+      // Populate resolved label field
+      if (entityCode && label && resolvedNames[entityCode]) {
+        if (isArray && Array.isArray(value)) {
+          resolved[label] = value.map(uuid => resolvedNames[entityCode!][uuid] || 'Unknown');
+        } else if (!isArray && typeof value === 'string') {
+          resolved[label] = resolvedNames[entityCode][value] || 'Unknown';
+        }
+      }
+    }
+
+    return resolved;
+  }
+
   // ==========================================================================
   // SECTION 3: Relationship Management (entity_instance_link)
   // ==========================================================================
