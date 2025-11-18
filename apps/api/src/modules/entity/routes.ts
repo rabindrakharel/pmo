@@ -436,7 +436,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
       const result = await db.execute(sql`
         UPDATE app.entity
         SET
-          child_entity_codes = ${JSON.stringify(mergedCodes)}::jsonb,
+          child_entity_codes = ${JSON.stringify(mergedCodes)},
           updated_ts = NOW()
         WHERE code = ${normalizedCode}
         RETURNING
@@ -473,7 +473,9 @@ export async function entityRoutes(fastify: FastifyInstance) {
         data: updatedEntity
       };
     } catch (error) {
-      fastify.log.error('Error updating entity children:', error as any);
+      fastify.log.error('Error updating entity children:');
+      fastify.log.error(error);
+      console.error('Full error updating children:', error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

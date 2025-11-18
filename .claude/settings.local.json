@@ -175,7 +175,8 @@
       "Bash(pnpm -F @pmo/api dev:*)",
       "Bash({} +)",
       "Bash(kill:*)",
-      "Bash(do echo -n \"$endpoint: \")"
+      "Bash(do echo -n \"$endpoint: \")",
+      "Bash(/tmp/test-append-children.sh:*)"
     ],
     "deny": [],
     "ask": [],
