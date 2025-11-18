@@ -26,19 +26,19 @@
 -- =====================================================
 
 CREATE TABLE app.entity (
-    code varchar(50) NOT NULL PRIMARY KEY,
-    name varchar(100) NOT NULL,
-    ui_label varchar(100) NOT NULL,
+    code varchar(50),
+    name varchar(100),
+    ui_label varchar(100),
     ui_icon varchar(50),
     db_table varchar(100), -- Physical table name without prefix (person, inventory, order, etc.)
     db_model_type varchar(2), -- Data model type: 'd'=dimension, 'dh'=dimension hierarchy, 'f'=fact, 'fh'=fact head, 'fd'=fact data
     child_entities jsonb DEFAULT '[]'::jsonb,
-    display_order int4 NOT NULL DEFAULT 999,
+    display_order int4 DEFAULT 999,
     dl_entity_domain varchar(100), -- DEPRECATED: Legacy domain categorization (use domain_id/code/name instead)
-    domain_id int4, -- Foreign key to d_domain.domain_id (denormalized for performance)
-    domain_code varchar(50), -- Denormalized domain code (customer_360, operations, etc.)
-    domain_name varchar(100), -- Denormalized domain name (Customer 360, Operations, etc.)
-    column_metadata jsonb DEFAULT '[]'::jsonb, -- Column definitions: [{orderid, name, descr, datatype, is_nullable, default_value}]
+    domain_id int4,
+    domain_code varchar(50),
+    domain_name varchar(100),
+    column_metadata jsonb DEFAULT '[]'::jsonb,
     active_flag boolean DEFAULT true,
     created_ts timestamptz DEFAULT now(),
     updated_ts timestamptz DEFAULT now()

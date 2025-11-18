@@ -82,15 +82,14 @@
 -- =====================================================
 
 CREATE TABLE app.entity_instance (
-    entity_code varchar(50) NOT NULL, -- References entity.code (entity type: project, task, employee, etc.)
-    entity_instance_id uuid NOT NULL, -- UUID of the specific entity instance
+    entity_code varchar(50), -- References entity.code (entity type: project, task, employee, etc.)
+    entity_instance_id uuid, -- UUID of the specific entity instance
     order_id int4 GENERATED ALWAYS AS IDENTITY, -- Ordering for sidebar display
-    entity_instance_name varchar(255) NOT NULL, -- Name of the instance (cached from source table)
+    entity_instance_name varchar(255), -- Name of the instance (cached from source table)
     code varchar(100), -- Instance code (e.g., PROJ-001, EMP-123)
     active_flag boolean DEFAULT true,
     created_ts timestamptz DEFAULT now(),
-    updated_ts timestamptz DEFAULT now(),
-    PRIMARY KEY (entity_code, entity_instance_id)
+    updated_ts timestamptz DEFAULT now()
 );
 
 

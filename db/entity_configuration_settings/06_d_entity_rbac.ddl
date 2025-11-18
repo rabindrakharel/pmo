@@ -37,39 +37,30 @@
 -- ============================================================================
 
 CREATE TABLE app.entity_rbac (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id uuid DEFAULT gen_random_uuid(),
 
   -- Person-based permission mapping (supports both role and employee)
-  person_entity_name varchar(20) NOT NULL CHECK (person_entity_name IN ('employee', 'role')), -- 'employee' for direct, 'role' for role-based
-  person_entity_id uuid NOT NULL, -- References employee.id OR role.id (depending on person_entity_name)
+  person_entity_name varchar(20), -- 'employee' for direct, 'role' for role-based
+  person_entity_id uuid, -- References employee.id OR role.id (depending on person_entity_name)
 
   -- Entity target
-  entity_code varchar(50) NOT NULL, -- Entity code (references entity.code): project, task, employee, office, business, worksite, customer, etc.
-  entity_instance_id uuid NOT NULL, -- Specific entity instance UUID or '11111111-1111-1111-1111-111111111111' for type-level permissions
+  entity_code varchar(50), -- Entity code (references entity.code): project, task, employee, office, business, worksite, customer, etc.
+  entity_instance_id uuid, -- Specific entity instance UUID or '11111111-1111-1111-1111-111111111111' for type-level permissions
 
   -- Permission level (single integer 0-5 with hierarchical inheritance)
-  permission integer NOT NULL DEFAULT 0 CHECK (permission >= 0 AND permission <= 5),
+  permission integer DEFAULT 0,
   -- 0=View, 1=Edit, 2=Share, 3=Delete, 4=Create, 5=Owner (higher levels inherit all lower permissions)
 
   -- Permission lifecycle management
   granted_by_employee_id uuid, -- References employee.id (who granted this permission - delegation tracking)
-  granted_ts timestamptz NOT NULL DEFAULT now(),
+  granted_ts timestamptz DEFAULT now(),
   expires_ts timestamptz, -- Optional expiration for temporary permissions
-  active_flag boolean NOT NULL DEFAULT true,
+  active_flag boolean DEFAULT true,
 
   -- Standard temporal fields
-  created_ts timestamptz NOT NULL DEFAULT now(),
-  updated_ts timestamptz NOT NULL DEFAULT now()
+  created_ts timestamptz DEFAULT now(),
+  updated_ts timestamptz DEFAULT now()
 );
-
--- Composite index for fast permission lookups
-CREATE INDEX idx_rbac_person_entity ON app.entity_rbac(person_entity_name, person_entity_id, entity_code, entity_instance_id) WHERE active_flag = true;
-
--- Index for permission resolution via roles
-CREATE INDEX idx_rbac_role_entity ON app.entity_rbac(person_entity_name, person_entity_id, entity_code) WHERE person_entity_name = 'role' AND active_flag = true;
-
--- Index for expiration cleanup
-CREATE INDEX idx_rbac_expires ON app.entity_rbac(expires_ts) WHERE expires_ts IS NOT NULL AND active_flag = true;
 
 COMMENT ON TABLE app.entity_rbac IS 'Person-based RBAC system with integer permission levels: 0=View, 1=Edit, 2=Share, 3=Delete, 4=Create, 5=Owner. Higher levels automatically inherit all lower permissions via >= comparison. Supports both role-based (via entity_instance_link) and direct employee permissions. Permissions resolve via UNION, taking MAX level.';
 COMMENT ON COLUMN app.entity_rbac.person_entity_name IS 'Type of person: employee (direct permission) or role (inherited by all employees assigned to that role via entity_instance_link)';

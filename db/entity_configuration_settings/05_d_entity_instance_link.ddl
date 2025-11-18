@@ -39,18 +39,18 @@
 -- =====================================================
 
 CREATE TABLE app.entity_instance_link (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    parent_entity_code varchar(50) NOT NULL, -- References entity.code (entity type: project, office, business, etc.)
-    parent_entity_instance_id uuid NOT NULL, -- UUID of the parent entity instance
-    child_entity_code varchar(50) NOT NULL,  -- References entity.code (entity type: task, artifact, wiki, etc.)
-    child_entity_instance_id uuid NOT NULL, -- UUID of the child entity instance
+    id uuid DEFAULT gen_random_uuid(),
+    parent_entity_code varchar(50), -- References entity.code (entity type: project, office, business, etc.)
+    parent_entity_instance_id uuid, -- UUID of the parent entity instance
+    child_entity_code varchar(50), -- References entity.code (entity type: task, artifact, wiki, etc.)
+    child_entity_instance_id uuid, -- UUID of the child entity instance
     relationship_type varchar(50) DEFAULT 'contains',
     metadata jsonb DEFAULT '{}'::jsonb,
-    from_ts timestamptz NOT NULL DEFAULT now(),
+    from_ts timestamptz DEFAULT now(),
     to_ts timestamptz,
-    active_flag boolean NOT NULL DEFAULT true,
-    created_ts timestamptz NOT NULL DEFAULT now(),
-    updated_ts timestamptz NOT NULL DEFAULT now(),
+    active_flag boolean DEFAULT true,
+    created_ts timestamptz DEFAULT now(),
+    updated_ts timestamptz DEFAULT now(),
     version integer DEFAULT 1
 );
 
