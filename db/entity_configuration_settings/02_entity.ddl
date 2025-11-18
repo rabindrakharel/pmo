@@ -10,7 +10,7 @@
 -- OPERATIONS:
 -- • GET TYPE: GET /api/v1/entity/type/:code
 -- • GET ALL: GET /api/v1/entity/types ORDER BY display_order
--- • GET CHILDREN: SELECT child_entities WHERE code=$1
+-- • GET CHILDREN: SELECT child_entity_codes WHERE code=$1
 -- • UPSERT: INSERT ... ON CONFLICT (code) DO UPDATE
 --
 -- PARENT-CHILD MAPPING:
@@ -20,7 +20,7 @@
 -- • task → form, artifact, cost, revenue, employee (assignees)
 -- • cust → project, artifact, form, cost, revenue
 -- • role → employee
--- • form, quote, order → (have children per child_entities JSONB)
+-- • form, quote, order → (have children per child_entity_codes JSONB)
 -- • Leaf nodes: employee, wiki, artifact, worksite, reports, service, product, etc.
 --
 -- =====================================================
@@ -30,11 +30,10 @@ CREATE TABLE app.entity (
     name varchar(100),
     ui_label varchar(100),
     ui_icon varchar(50),
-    db_table varchar(100), -- Physical table name without prefix (person, inventory, order, etc.)
-    db_model_type varchar(2), -- Data model type: 'd'=dimension, 'dh'=dimension hierarchy, 'f'=fact, 'fh'=fact head, 'fd'=fact data
-    child_entities jsonb DEFAULT '[]'::jsonb,
+    db_table varchar(100), -- Physical table name without prefix (db table name)
+    db_model_type varchar(2), -- Data model type: 'd'=dimension, 'dh'=dimension hierarchy, 'f'=fact, 'fh'=fact head
+    child_entity_codes jsonb DEFAULT '[]'::jsonb,
     display_order int4 DEFAULT 999,
-    dl_entity_domain varchar(100), -- DEPRECATED: Legacy domain categorization (use domain_id/code/name instead)
     domain_id int4,
     domain_code varchar(50),
     domain_name varchar(100),
@@ -51,7 +50,7 @@ COMMENT ON COLUMN app.entity.ui_label IS 'UI display label for entity type plura
 COMMENT ON COLUMN app.entity.ui_icon IS 'Lucide icon name for UI display (FolderOpen, CheckSquare, Users, etc.)';
 COMMENT ON COLUMN app.entity.db_table IS 'Physical table name without prefix (person, inventory, order, office_hierarchy, etc.) - Single source of truth for entity-to-table mapping';
 COMMENT ON COLUMN app.entity.db_model_type IS 'Data model classification: d=dimension, dh=dimension hierarchy, f=fact, fh=fact head, fd=fact data';
-COMMENT ON COLUMN app.entity.child_entities IS 'JSONB array of child entity metadata: [{"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1}]';
+COMMENT ON COLUMN app.entity.child_entity_codes IS 'JSONB array of child entity metadata: [{"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks", "order": 1}]';
 COMMENT ON COLUMN app.entity.domain_id IS 'Domain ID (denormalized from d_domain for performance)';
 COMMENT ON COLUMN app.entity.domain_code IS 'Domain code (denormalized from d_domain for performance)';
 COMMENT ON COLUMN app.entity.domain_name IS 'Domain name (denormalized from d_domain for performance)';
@@ -62,7 +61,7 @@ COMMENT ON COLUMN app.entity.domain_name IS 'Domain name (denormalized from d_do
 -- =====================================================
 
 -- Office entity type (has 6 child types)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order, dl_entity_domain)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'office',
   'Office',
@@ -71,12 +70,11 @@ VALUES (
   'office',
   'd',
   '["task", "artifact", "wiki", "form", "expense", "revenue"]'::jsonb,
-  10,
-  'Organization'
+  10
 );
 
 -- Business entity type (has 3 child types)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'business',
   'Business',
@@ -89,7 +87,7 @@ VALUES (
 );
 
 -- Project entity type (has 6 child types)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'project',
   'Project',
@@ -102,7 +100,7 @@ VALUES (
 );
 
 -- Task entity type (has 4 child types)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'task',
   'Task',
@@ -115,7 +113,7 @@ VALUES (
 );
 
 -- Customer entity type (has 5 child types)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'cust',
   'Customer',
@@ -128,7 +126,7 @@ VALUES (
 );
 
 -- Role entity type (has 2 child types)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'role',
   'Role',
@@ -141,7 +139,7 @@ VALUES (
 );
 
 -- Form entity type (has 1 child type) - Fact Head
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'form',
   'Form',
@@ -154,7 +152,7 @@ VALUES (
 );
 
 -- Employee entity type (has 1 child type)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'employee',
   'Employee',
@@ -167,7 +165,7 @@ VALUES (
 );
 
 -- RBAC entity type (permissions - child of role and employee)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'rbac',
   'Permission',
@@ -183,12 +181,12 @@ VALUES (
   ui_icon = EXCLUDED.ui_icon,
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
-  child_entities = EXCLUDED.child_entities,
+  child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Wiki entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'wiki',
   'Wiki',
@@ -201,7 +199,7 @@ VALUES (
 );
 
 -- Person entity type (base entity for all people)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'person',
   'Person',
@@ -217,12 +215,12 @@ VALUES (
   ui_icon = EXCLUDED.ui_icon,
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
-  child_entities = EXCLUDED.child_entities,
+  child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Artifact entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'artifact',
   'Artifact',
@@ -235,7 +233,7 @@ VALUES (
 );
 
 -- Attachment entity type (file attachments - referenced by artifact, invoice)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'attachment',
   'Attachment',
@@ -251,12 +249,12 @@ VALUES (
   ui_icon = EXCLUDED.ui_icon,
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
-  child_entities = EXCLUDED.child_entities,
+  child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Worksite entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'worksite',
   'Worksite',
@@ -269,7 +267,7 @@ VALUES (
 );
 
 -- Reports entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'reports',
   'Reports',
@@ -282,7 +280,7 @@ VALUES (
 );
 
 -- Calendar entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'calendar',
   'Calendar',
@@ -298,12 +296,12 @@ VALUES (
   ui_icon = EXCLUDED.ui_icon,
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
-  child_entities = EXCLUDED.child_entities,
+  child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Service entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'service',
   'Service',
@@ -316,7 +314,7 @@ VALUES (
 );
 
 -- Product entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'product',
   'Product',
@@ -329,7 +327,7 @@ VALUES (
 );
 
 -- Supplier entity type (vendors/suppliers for procurement)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'supplier',
   'Supplier',
@@ -345,12 +343,12 @@ VALUES (
   ui_icon = EXCLUDED.ui_icon,
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
-  child_entities = EXCLUDED.child_entities,
+  child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Quote entity type (has 1 child type: work_order)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'quote',
   'Quote',
@@ -365,7 +363,7 @@ VALUES (
 );
 
 -- Work Order entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'work_order',
   'Work Order',
@@ -378,7 +376,7 @@ VALUES (
 );
 
 -- Inventory entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'inventory',
   'Inventory',
@@ -391,7 +389,7 @@ VALUES (
 );
 
 -- Order entity type (has 2 child types)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'order',
   'Order',
@@ -407,7 +405,7 @@ VALUES (
 );
 
 -- Invoice entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'invoice',
   'Invoice',
@@ -420,7 +418,7 @@ VALUES (
 );
 
 -- Shipment entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'shipment',
   'Shipment',
@@ -433,7 +431,7 @@ VALUES (
 );
 
 -- Expense entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'expense',
   'Expense',
@@ -446,7 +444,7 @@ VALUES (
 );
 
 -- Revenue entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'revenue',
   'Revenue',
@@ -459,7 +457,7 @@ VALUES (
 );
 
 -- Workflow entity type (leaf node - no children)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'workflow',
   'Workflow',
@@ -472,7 +470,7 @@ VALUES (
 );
 
 -- Event entity type (Universal parent - can have many child entities)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'event',
   'Event',
@@ -495,12 +493,12 @@ VALUES (
   ui_icon = EXCLUDED.ui_icon,
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
-  child_entities = EXCLUDED.child_entities,
+  child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Office Hierarchy entity type (Organizational structure hierarchy - separate from operational office)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'office_hierarchy',
   'Office Hierarchy',
@@ -516,12 +514,12 @@ VALUES (
   ui_icon = EXCLUDED.ui_icon,
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
-  child_entities = EXCLUDED.child_entities,
+  child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Business Hierarchy entity type (Organizational structure hierarchy - separate from operational business)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'business_hierarchy',
   'Business Hierarchy',
@@ -537,12 +535,12 @@ VALUES (
   ui_icon = EXCLUDED.ui_icon,
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
-  child_entities = EXCLUDED.child_entities,
+  child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Product Hierarchy entity type (Product categorization hierarchy - separate from SKU-level products)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'product_hierarchy',
   'Product Hierarchy',
@@ -558,12 +556,12 @@ VALUES (
   ui_icon = EXCLUDED.ui_icon,
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
-  child_entities = EXCLUDED.child_entities,
+  child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Message Schema entity type (Email/SMS/Push templates)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'message_schema',
   'Message Schema',
@@ -579,12 +577,12 @@ VALUES (
   ui_icon = EXCLUDED.ui_icon,
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
-  child_entities = EXCLUDED.child_entities,
+  child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Message entity type (Sent/scheduled messages)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'message',
   'Message',
@@ -600,12 +598,12 @@ VALUES (
   ui_icon = EXCLUDED.ui_icon,
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
-  child_entities = EXCLUDED.child_entities,
+  child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Interaction entity type (Customer Interactions)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'interaction',
   'Interaction',
@@ -621,12 +619,12 @@ VALUES (
   ui_icon = EXCLUDED.ui_icon,
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
-  child_entities = EXCLUDED.child_entities,
+  child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Workflow Automation entity type
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'workflow_automation',
   'Workflow Automation',
@@ -642,7 +640,7 @@ VALUES (
   ui_icon = EXCLUDED.ui_icon,
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
-  child_entities = EXCLUDED.child_entities,
+  child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
@@ -653,7 +651,7 @@ VALUES (
 -- Creates self-describing entity system where d_entity describes itself
 
 -- Entity meta-entity (represents the concept of 'entity' itself)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'entity',
   'Entity',
@@ -669,12 +667,12 @@ VALUES (
   ui_icon = EXCLUDED.ui_icon,
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
-  child_entities = EXCLUDED.child_entities,
+  child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Entity Instance meta-entity (renamed from entity_instance_registry)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'entity_instance',
   'Entity Instance',
@@ -690,12 +688,12 @@ VALUES (
   ui_icon = EXCLUDED.ui_icon,
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
-  child_entities = EXCLUDED.child_entities,
+  child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Entity Instance Link meta-entity
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'entity_instance_link',
   'Entity Instance Link',
@@ -711,12 +709,12 @@ VALUES (
   ui_icon = EXCLUDED.ui_icon,
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
-  child_entities = EXCLUDED.child_entities,
+  child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
 -- Entity RBAC meta-entity
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entities, display_order)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'entity_rbac',
   'Entity RBAC',
@@ -732,51 +730,9 @@ VALUES (
   ui_icon = EXCLUDED.ui_icon,
   db_table = EXCLUDED.db_table,
   db_model_type = EXCLUDED.db_model_type,
-  child_entities = EXCLUDED.child_entities,
+  child_entity_codes = EXCLUDED.child_entity_codes,
   display_order = EXCLUDED.display_order,
   updated_ts = now();
-
--- =====================================================
--- DATA CURATION: DOMAIN CATEGORIZATION (LEGACY)
--- =====================================================
--- DEPRECATED: Use domain_id/domain_code/domain_name instead
--- Assign entities to business domains for Settings page tabs (old system)
-
--- Core Management domain
-UPDATE app.entity SET dl_entity_domain = 'Core Management'
-WHERE code IN ('project', 'task');
-
--- Organization domain
-UPDATE app.entity SET dl_entity_domain = 'Organization'
-WHERE code IN ('office', 'employee', 'role', 'office_hierarchy');
-
--- Business domain
-UPDATE app.entity SET dl_entity_domain = 'Business'
-WHERE code IN ('business', 'business_hierarchy', 'worksite');
-
--- Operations domain
-UPDATE app.entity SET dl_entity_domain = 'Operations'
-WHERE code IN ('quote', 'work_order', 'workflow', 'workflow_automation');
-
--- Customers domain
-UPDATE app.entity SET dl_entity_domain = 'Customers'
-WHERE code IN ('cust', 'interaction');
-
--- Retail domain
-UPDATE app.entity SET dl_entity_domain = 'Retail'
-WHERE code IN ('service', 'product', 'product_hierarchy', 'inventory', 'order', 'shipment');
-
--- Sales & Finance domain
-UPDATE app.entity SET dl_entity_domain = 'Sales & Finance'
-WHERE code IN ('invoice', 'expense', 'revenue');
-
--- Content & Docs domain
-UPDATE app.entity SET dl_entity_domain = 'Content & Docs'
-WHERE code IN ('wiki', 'artifact', 'form', 'reports', 'message_schema', 'message');
-
--- Advanced domain
-UPDATE app.entity SET dl_entity_domain = 'Advanced'
-WHERE code IN ('event', 'calendar');
 
 -- =====================================================
 -- DATA CURATION: NEW DOMAIN ARCHITECTURE MAPPING
