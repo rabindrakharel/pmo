@@ -19,11 +19,11 @@ The PMO platform uses a **PostgreSQL 14+** database with a carefully designed sc
 | `d_` | **Dimension tables** (entities) | `d_project`, `d_task`, `d_employee`, `d_business` |
 | `f_` | **Fact tables** (transactions) | `f_expense`, `f_revenue`, `f_invoice`, `f_order` |
 | `setting_datalabel_` | **Settings/dropdowns** | `setting_datalabel_project_stage`, `setting_datalabel_task_priority` |
-| `d_entity_*` | **Infrastructure tables** | `d_entity`, `d_entity_instance_registry`, `entity_instance_link`, `entity_rbac` |
+| `entity*` | **Infrastructure tables** (no prefix) | `entity`, `entity_instance`, `entity_instance_link`, `entity_rbac` |
 
 ## 4 Infrastructure Tables (Zero-Config System)
 
-### 1. d_entity - Entity TYPE Metadata
+### 1. entity - Entity TYPE Metadata
 
 **Purpose**: Single source of truth for entity TYPE definitions
 
@@ -32,8 +32,8 @@ The PMO platform uses a **PostgreSQL 14+** database with a carefully designed sc
 - `name` - Entity name (`Project`, `Task`, `Business`)
 - `ui_label` - Plural label for UI (`Projects`, `Tasks`, `Businesses`)
 - `ui_icon` - Lucide icon name (`FolderOpen`, `CheckSquare`, `Building2`)
-- `child_entities` (JSONB) - Array of child entity metadata
-- `db_table` - Database table name (`d_project`, `f_expense`)
+- `child_entity_codes` (JSONB array) - Array of child entity type codes (`["task", "wiki", "artifact"]`)
+- `db_table` - Database table name (`project`, `task`, `expense`)
 - `column_metadata` (JSONB) - Column definitions from information_schema
 - `domain_id`, `domain_code`, `domain_name` - Domain categorization
 
@@ -71,38 +71,34 @@ child_entities: ["form", "artifact", "expense", "revenue"]
 db_table: 'd_task'
 ```
 
-### 2. d_entity_instance_registry - Entity INSTANCE Registry
+### 2. entity_instance - Entity INSTANCE Registry
 
 **Purpose**: Central registry of all entity instances with IDs and metadata
 
 **Key Fields**:
-- `entity_type`, `entity_id` (Composite PK) - Entity identifier
-- `entity_name` - Cached name for search/display
-- `entity_code` - Cached code for search/display
+- `entity_code` - Entity type code (`project`, `task`, `employee`)
+- `entity_instance_id` - UUID of specific instance
+- `entity_instance_name` - Cached name for search/display
+- `code` - Cached entity code for search/display (e.g., `PROJ-001`, `EMP-123`)
 - `order_id` - Auto-incrementing display order
-- `active_flag` - Soft delete flag
 
-**DDL**: `db/entity_configuration_settings/03_d_entity_instance_registry.ddl`
+**DDL**: `db/entity_configuration_settings/03_entity_instance.ddl`
 
 **Key Operations**:
 ```sql
 -- Register instance
-INSERT INTO app.d_entity_instance_registry
-(entity_type, entity_id, entity_name, entity_code)
-VALUES ('project', '...uuid...', 'Kitchen Renovation', 'PROJ-001')
-ON CONFLICT (entity_type, entity_id) DO UPDATE
-SET entity_name = EXCLUDED.entity_name, updated_ts = now();
+INSERT INTO app.entity_instance
+(entity_code, entity_instance_id, entity_instance_name, code)
+VALUES ('project', '...uuid...', 'Kitchen Renovation', 'PROJ-001');
 
 -- Global search across all entities
-SELECT * FROM app.d_entity_instance_registry
-WHERE entity_name ILIKE '%kitchen%'
-  AND active_flag = true;
+SELECT * FROM app.entity_instance
+WHERE entity_instance_name ILIKE '%kitchen%';
 
 -- Count entities by type
-SELECT entity_type, COUNT(*) as count
-FROM app.d_entity_instance_registry
-WHERE active_flag = true
-GROUP BY entity_type;
+SELECT entity_code, COUNT(*) as count
+FROM app.entity_instance
+GROUP BY entity_code;
 ```
 
 ### 3. entity_instance_link - Parent-Child Relationships
@@ -176,55 +172,89 @@ relationship_type: 'assigned_to'
 
 ### 4. entity_rbac - Person-Based RBAC System
 
-**Purpose**: Row-level permissions with role inheritance and parent-child propagation
+**Purpose**: Row-level permissions with role inheritance and person-based access control
 
 **Key Fields**:
-- `person_entity_name` - `'employee'` or `'role'`
-- `person_entity_id` - UUID of employee or role
-- `entity_name` - Target entity type (`project`, `task`)
-- `entity_id` - Target entity UUID (or `ALL_ENTITIES_ID` for type-level)
-- `permission` - Integer 0-5 (VIEW, EDIT, SHARE, DELETE, CREATE, OWNER)
+- `person_code` - `'employee'`, `'role'`, `'customer'`, `'vendor'`, or `'supplier'`
+- `person_id` - UUID of person (employee, role, customer, vendor, supplier)
+- `entity_code` - Target entity type (`project`, `task`, `business`, `office`)
+- `entity_instance_id` - Target entity UUID (or `'11111111-1111-1111-1111-111111111111'` for type-level)
+- `permission` - Integer 0-7 (VIEW, COMMENT, EDIT, SHARE, DELETE, CREATE, OWNER)
+- `granted_by_employee_id` - Employee who granted this permission (delegation tracking)
+- `granted_ts` - Timestamp when permission was granted
 - `expires_ts` - Optional expiration for temporary permissions
 
 **DDL**: `db/entity_configuration_settings/06_entity_rbac.ddl`
 
-**Permission Hierarchy**:
+**Permission Hierarchy** (Automatic Inheritance):
 ```
-OWNER (5) >= CREATE (4) >= DELETE (3) >= SHARE (2) >= EDIT (1) >= VIEW (0)
+OWNER (7) >= CREATE (6) >= DELETE (5) >= SHARE (4) >= EDIT (3) >= COMMENT (1) >= VIEW (0)
 ```
 
-**Type-Level Permissions**:
+**Permission Checks** (using >= operator):
+- **View**: `permission >= 0` (everyone with any permission)
+- **Comment**: `permission >= 1` (add comments on entities)
+- **Edit/Contribute**: `permission >= 3` (modify entity, form submission, task updates, wiki edits)
+- **Share**: `permission >= 4` (share entity with others)
+- **Delete**: `permission >= 5` (soft delete entity)
+- **Create**: `permission >= 6` (create new entities - **type-level only**, requires `entity_instance_id='11111111-1111-1111-1111-111111111111'`)
+- **Owner**: `permission >= 7` (full control including permission management)
+
+**Type-Level Permissions** (grants access to ALL entities of a type):
 ```sql
--- Grant CREATE permission on ALL projects
+-- Grant CREATE permission on ALL projects (type-level only)
 INSERT INTO app.entity_rbac
-(person_entity_name, person_entity_id, entity_name, entity_id, permission)
-VALUES ('employee', '...userId...', 'project', '11111111-1111-1111-1111-111111111111', 4);
+(person_code, person_id, entity_code, entity_instance_id, permission)
+VALUES ('employee', '...userId...', 'project', '11111111-1111-1111-1111-111111111111', 6);  -- Level 6 = CREATE
+
+-- Grant VIEW permission to a role on ALL tasks
+INSERT INTO app.entity_rbac
+(person_code, person_id, entity_code, entity_instance_id, permission)
+VALUES ('role', '...roleId...', 'task', '11111111-1111-1111-1111-111111111111', 0);  -- Level 0 = VIEW
 ```
 
-**Permission Resolution** (4 Sources):
-1. **Direct Employee Permissions** - `person_entity_name='employee'`
-2. **Role-Based Permissions** - `person_entity_name='role'` (via `entity_instance_link`)
-3. **Parent-VIEW Inheritance** - If parent has VIEW (≥0), child gains VIEW
-4. **Parent-CREATE Inheritance** - If parent has CREATE (≥4), child gains CREATE
+**Instance-Level Permissions** (grants access to specific entity instances):
+```sql
+-- Grant OWNER permission to project creator
+INSERT INTO app.entity_rbac
+(person_code, person_id, entity_code, entity_instance_id, permission, granted_ts)
+VALUES ('employee', '...userId...', 'project', '...projectId...', 7, now());  -- Level 7 = OWNER
+
+-- Grant EDIT permission on specific task
+INSERT INTO app.entity_rbac
+(person_code, person_id, entity_code, entity_instance_id, permission)
+VALUES ('employee', '...userId...', 'task', '...taskId...', 3);  -- Level 3 = EDIT
+```
+
+**Permission Resolution** (UNION of sources, MAX permission wins):
+1. **Direct Person Permissions** - `person_code='employee'` with specific person_id
+2. **Role-Based Permissions** - `person_code='role'` (resolved via `entity_instance_link` to find user's roles)
+3. **Type-Level Fallback** - Check `entity_instance_id='11111111-1111-1111-1111-111111111111'` for type-level permissions
+4. **Highest Permission Wins** - If user has multiple permissions, take MAX(permission)
 
 **Key Operations**:
 ```sql
--- Grant OWNER permission to creator
-INSERT INTO app.entity_rbac
-(person_entity_name, person_entity_id, entity_name, entity_id, permission)
-VALUES ('employee', '...userId...', 'project', '...projectId...', 5);
-
--- Check permission (simplified - service does full resolution)
+-- Check if user can EDIT specific entity (permission >= 3)
 SELECT EXISTS(
   SELECT 1 FROM app.entity_rbac
-  WHERE person_entity_name = 'employee'
-    AND person_entity_id = '...userId...'
-    AND entity_name = 'project'
-    AND entity_id = '...projectId...'
-    AND permission >= 1  -- Check for EDIT permission
-    AND active_flag = true
+  WHERE person_code = 'employee'
+    AND person_id = '...userId...'
+    AND entity_code = 'project'
+    AND entity_instance_id IN ('...projectId...', '11111111-1111-1111-1111-111111111111')
+    AND permission >= 3  -- Check for EDIT permission (level 3)
 );
+
+-- Get all entities user can VIEW (permission >= 0)
+SELECT e.* FROM app.project e
+INNER JOIN app.entity_rbac r
+  ON r.entity_code = 'project'
+  AND r.entity_instance_id IN (e.id, '11111111-1111-1111-1111-111111111111')
+WHERE r.person_code = 'employee'
+  AND r.person_id = '...userId...'
+  AND r.permission >= 0;  -- VIEW permission
 ```
+
+**Seed Data**: See `db/49_rbac_seed_data.ddl` for realistic role-based permissions
 
 ## Standard Entity Table Fields
 
