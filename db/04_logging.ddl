@@ -78,24 +78,24 @@ DROP TABLE IF EXISTS app.logging CASCADE;
 
 CREATE TABLE app.logging (
     -- Primary Identifier
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    id uuid DEFAULT gen_random_uuid(),
 
     -- Actor (WHO performed the action) - Denormalized for immutable audit trail
     fname varchar(100),                 -- First name of person performing action
     lname varchar(100),                 -- Last name of person performing action
     username varchar(255),              -- Username/email identifier
-    person_type varchar(50) NOT NULL CHECK (person_type IN ('employee', 'customer', 'system', 'guest')),
+    person_type varchar(50) CHECK (person_type IN ('employee', 'customer', 'system', 'guest')),
 
     -- Target Entity (WHAT was acted upon)
-    entity_code varchar(100) NOT NULL,  -- Entity code (references d_entity.code): 'project', 'task', 'employee', etc.
-    entity_id uuid NOT NULL,            -- Specific entity instance UUID
+    entity_code varchar(100),  -- Entity code (references d_entity.code): 'project', 'task', 'employee', etc.
+    entity_id uuid,            -- Specific entity instance UUID
 
     -- Action Type (HOW the entity was accessed/modified)
-    action smallint NOT NULL CHECK (action >= 0 AND action <= 5),
+    action smallint CHECK (action >= 0 AND action <= 5),
     -- 0=View, 1=Edit, 2=Share, 3=Delete, 4=Create, 5=Owner
 
     -- Temporal (WHEN the action occurred)
-    updated timestamptz NOT NULL DEFAULT now(),
+    updated timestamptz DEFAULT now(),
 
     -- Versioning (State Snapshots)
     entity_from_version jsonb,          -- Entity state BEFORE action (NULL for create/view)
@@ -107,7 +107,7 @@ CREATE TABLE app.logging (
     device_name varchar(255),           -- Device identifier (e.g., "MacBook Pro", "iPhone 13")
 
     -- Audit Metadata
-    created_at timestamptz NOT NULL DEFAULT now(),
+    created_at timestamptz DEFAULT now(),
     log_source varchar(50) DEFAULT 'api' -- 'api', 'web', 'mobile', 'system'
 );
 
@@ -118,28 +118,12 @@ CREATE TABLE app.logging (
 -- Primary query patterns: Filter by person, entity, time range, action type, person type
 
 -- Index for username-specific queries: "Show all actions by james.miller@huronhome.ca"
-CREATE INDEX idx_f_logging_username ON app.logging(username, updated DESC);
-
--- Index for person name queries: "Show all actions by John Doe"
-CREATE INDEX idx_f_logging_person_name ON app.logging(lname, fname, updated DESC);
 
 -- Index for person type queries: "Show all customer actions"
-CREATE INDEX idx_f_logging_person_type ON app.logging(person_type, updated DESC);
-
--- Index for entity-specific queries: "Show audit trail for project abc-123"
-CREATE INDEX idx_f_logging_entity ON app.logging(entity_code, entity_id, updated DESC);
 
 -- Index for time-based queries: "Show all actions in last 30 days"
-CREATE INDEX idx_f_logging_updated ON app.logging(updated DESC);
-
--- Index for action-specific queries: "Show all deletes in last week"
-CREATE INDEX idx_f_logging_action ON app.logging(action, updated DESC);
 
 -- Index for security monitoring: "Show all access from suspicious IPs"
-CREATE INDEX idx_f_logging_ip ON app.logging(ip, updated DESC);
-
--- Composite index for common filtered queries
-CREATE INDEX idx_f_logging_composite ON app.logging(username, person_type, entity_code, action, updated DESC);
 
 -- ============================================================================
 -- COMMENTS FOR SCHEMA DOCUMENTATION

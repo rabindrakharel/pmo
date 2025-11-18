@@ -34,17 +34,17 @@ DROP TABLE IF EXISTS app.order CASCADE;
 
 CREATE TABLE app.order (
     -- Primary Key
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid(),
 
     -- Order Identification
-    order_number VARCHAR(50) NOT NULL UNIQUE,           -- Human-readable order number (e.g., "ORD-2025-00123")
+    order_number VARCHAR(50),           -- Human-readable order number (e.g., "ORD-2025-00123")
     order_line_number INTEGER DEFAULT 1,                -- Line item sequence within order
     order_type VARCHAR(50) DEFAULT 'standard',          -- 'quote', 'standard', 'rush', 'backorder', 'standing'
     order_source VARCHAR(50) DEFAULT 'direct',          -- 'direct', 'phone', 'web', 'mobile', 'email'
 
     -- Date/Time Dimensions
-    order_date DATE NOT NULL,                           -- Date order was placed
-    order_datetime TIMESTAMP NOT NULL DEFAULT NOW(),    -- Precise order timestamp
+    order_date DATE,                           -- Date order was placed
+    order_datetime TIMESTAMP DEFAULT NOW(),    -- Precise order timestamp
     requested_delivery_date DATE,                       -- Customer requested delivery
     promised_delivery_date DATE,                        -- Company promised delivery
     actual_delivery_date DATE,                          -- Actual delivery date
@@ -57,7 +57,7 @@ CREATE TABLE app.order (
     client_tier VARCHAR(50),                            -- Customer tier for analytics
 
     -- Product Dimension
-    product_id UUID NOT NULL,                           -- Link to app.product (REQUIRED)
+    product_id UUID,                           -- Link to app.product (REQUIRED)
     product_code VARCHAR(50),                           -- Denormalized product code
     product_name VARCHAR(255),                          -- Denormalized name
     product_category VARCHAR(100),                      -- Denormalized category
@@ -74,15 +74,15 @@ CREATE TABLE app.order (
     office_name VARCHAR(255),                           -- Denormalized office
 
     -- Quantity Metrics
-    qty_ordered DECIMAL(12,3) NOT NULL,            -- Quantity on this line
+    qty_ordered DECIMAL(12,3),            -- Quantity on this line
     qty_shipped DECIMAL(12,3) DEFAULT 0,           -- Quantity shipped so far
     quantity_backordered DECIMAL(12,3) DEFAULT 0,       -- Quantity on backorder
     quantity_cancelled DECIMAL(12,3) DEFAULT 0,         -- Quantity cancelled
     unit_of_measure VARCHAR(20) DEFAULT 'each',         -- 'each', 'ft', 'sqft', 'lb', 'gal'
 
     -- Pricing Metrics (Canadian Dollars)
-    unit_list_price_cad DECIMAL(12,2) NOT NULL,        -- Standard unit price
-    unit_sale_price_cad DECIMAL(12,2) NOT NULL,        -- Actual selling price (after discounts)
+    unit_list_price_cad DECIMAL(12,2),        -- Standard unit price
+    unit_sale_price_cad DECIMAL(12,2),        -- Actual selling price (after discounts)
     unit_cost_cad DECIMAL(12,2),                        -- Unit cost from supplier
     discount_percent DECIMAL(5,2) DEFAULT 0,            -- Discount percentage applied
     discount_amount_cad DECIMAL(12,2) DEFAULT 0,        -- Dollar discount per unit
@@ -151,9 +151,6 @@ CREATE TABLE app.order (
 
 
 -- Trigger to calculate extended values
-CREATE OR REPLACE FUNCTION app.calculate_f_order_extended() RETURNS TRIGGER AS $$
-BEGIN
-    NEW.extended_list_price_cad := NEW.qty_ordered * NEW.unit_list_price_cad;
     NEW.extended_sale_price_cad := NEW.qty_ordered * NEW.unit_sale_price_cad;
     NEW.extended_cost_cad := NEW.qty_ordered * COALESCE(NEW.unit_cost_cad, 0);
     NEW.extended_margin_cad := NEW.extended_sale_price_cad - NEW.extended_cost_cad;
@@ -171,8 +168,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER f_order_calculate_extended BEFORE INSERT OR UPDATE ON app.order
-    FOR EACH ROW EXECUTE FUNCTION app.calculate_f_order_extended();
 
 -- =====================================================
 -- SAMPLE DATA: Curated Customer Orders

@@ -117,7 +117,7 @@ export async function sharedRoutes(fastify: FastifyInstance) {
 
     const hasPermission = await db.execute(sql`
       SELECT 1 FROM app.d_entity_rbac rbac
-      WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+      WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
         AND rbac.entity_name = ${entityType}
         AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
         AND rbac.active_flag = true

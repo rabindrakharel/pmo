@@ -8,7 +8,7 @@ import { getEntityInfrastructure } from '@/services/entity-infrastructure.servic
  * Entity Metadata Routes
  *
  * Provides centralized entity TYPE metadata from d_entity table including:
- * - Parent-child relationships (child_entities JSONB)
+ * - Parent-child relationships (child_entity_codes JSONB)
  * - Entity icons
  * - Entity display names
  *
@@ -43,7 +43,7 @@ const EntityTypeMetadataSchema = Type.Object({
   name: Type.String(),
   ui_label: Type.String(),
   ui_icon: Type.Optional(Type.String()),
-  child_entities: Type.Array(Type.String()), // Simple array of entity codes
+  child_entity_codes: Type.Array(Type.String()), // Simple array of entity codes
   display_order: Type.Number(),
   active_flag: Type.Boolean()
 });
@@ -87,12 +87,12 @@ export async function entityRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Get all active entities to filter child_entities
+      // Get all active entities to filter child_entity_codes
       const allActiveEntities = await entityInfra.get_all_entity(false);
       const activeEntityCodes = new Set(allActiveEntities.map(e => e.code));
 
-      // Filter child_entities to only include active ones
-      const filteredChildEntities = (entity.child_entities || []).filter(c =>
+      // Filter child_entity_codes to only include active ones
+      const filteredChildEntities = (entity.child_entity_codes || []).filter(c =>
         activeEntityCodes.has(c)
       );
 
@@ -101,7 +101,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
         name: entity.name,
         ui_label: entity.ui_label,
         ui_icon: entity.ui_icon,
-        child_entities: filteredChildEntities,
+        child_entity_codes: filteredChildEntities,
         display_order: entity.display_order,
         active_flag: entity.active_flag
       };
@@ -131,7 +131,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
           ui_icon: Type.Optional(Type.String()),
           display_order: Type.Number(),
           active_flag: Type.Boolean(),
-          child_entities: Type.Optional(Type.Array(Type.String())) // Simple string array
+          child_entity_codes: Type.Optional(Type.Array(Type.String())) // Simple string array
         })),
         500: Type.Object({ error: Type.String() })
       }
@@ -143,11 +143,11 @@ export async function entityRoutes(fastify: FastifyInstance) {
       // Use Entity Infrastructure Service to get all entity types
       const entities = await entityInfra.get_all_entity(include_inactive);
 
-      // Get all active entity codes for filtering child_entities
+      // Get all active entity codes for filtering child_entity_codes
       const allActiveEntities = await entityInfra.get_all_entity(false);
       const activeEntityCodes = new Set(allActiveEntities.map(e => e.code));
 
-      // Map and filter child_entities to only include active ones
+      // Map and filter child_entity_codes to only include active ones
       const result = entities.map(entity => ({
         code: entity.code,
         name: entity.name,
@@ -155,7 +155,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
         ui_icon: entity.ui_icon,
         display_order: entity.display_order,
         active_flag: entity.active_flag,
-        child_entities: (entity.child_entities || []).filter(c =>
+        child_entity_codes: (entity.child_entity_codes || []).filter(c =>
           activeEntityCodes.has(c)
         )
       }));
@@ -170,7 +170,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/v1/entity/child-tabs/:entity_type/:entity_id
    * Get complete tab configuration for an entity including metadata + counts
-   * Combines child_entities metadata from d_entity with actual counts from d_entity_instance_link
+   * Combines child_entity_codes metadata from d_entity with actual counts from d_entity_instance_link
    * This is the PRIMARY endpoint for DynamicChildEntityTabs
    */
   fastify.get('/api/v1/entity/child-tabs/:entity_type/:entity_id', {
@@ -217,7 +217,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
           name,
           ui_label,
           ui_icon,
-          child_entities
+          child_entity_codes
         FROM app.d_entity
         WHERE code = ${normalizedEntityType}
           AND active_flag = true
@@ -232,8 +232,8 @@ export async function entityRoutes(fastify: FastifyInstance) {
 
       const entityType = entityTypeResult[0];
 
-      // Parse child_entities - now a simple array of entity codes
-      let childEntityCodes = entityType.child_entities || [];
+      // Parse child_entity_codes - now a simple array of entity codes
+      let childEntityCodes = entityType.child_entity_codes || [];
       if (typeof childEntityCodes === 'string') {
         childEntityCodes = JSON.parse(childEntityCodes);
       }
@@ -257,7 +257,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
         `;
         const childMetadata = await client.unsafe(query, childEntityCodes);
 
-        // Build enriched array maintaining order from parent's child_entities
+        // Build enriched array maintaining order from parent's child_entity_codes
         childEntitiesEnriched = childEntityCodes
           .map((code: string, index: number) => {
             const metadata = childMetadata.find((m: any) => m.code === code);
@@ -329,7 +329,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
             SELECT COUNT(*) as count
             FROM app.d_entity_rbac
             WHERE person_entity_name = ${normalizedEntityType}
-              AND person_entity_id = ${entity_id}
+              AND person_id = ${entity_id}
               AND active_flag = true
           `);
           countMap[childEntityType] = Number(rbacCount[0]?.count || 0);
@@ -373,7 +373,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
   /**
    * PUT /api/v1/entity/:code/children
    * Update child entities for an entity type
-   * Modifies the child_entities JSONB array in d_entity table
+   * Modifies the child_entity_codes JSONB array in d_entity table
    * Expects simple string array: ["task", "artifact", "wiki"]
    */
   fastify.put('/api/v1/entity/:code/children', {
@@ -383,7 +383,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
         code: Type.String()
       }),
       body: Type.Object({
-        child_entities: Type.Array(Type.String())
+        child_entity_codes: Type.Array(Type.String())
       }),
       response: {
         200: Type.Object({
@@ -398,7 +398,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
     }
   }, async (request, reply) => {
     const { code } = request.params as { code: string };
-    const { child_entities } = request.body as { child_entities: any[] };
+    const { child_entity_codes } = request.body as { child_entity_codes: any[] };
     const normalizedCode = normalizeEntityType(code);
 
     try {
@@ -415,11 +415,11 @@ export async function entityRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Update the child_entities JSONB field
+      // Update the child_entity_codes JSONB field
       const result = await db.execute(sql`
         UPDATE app.d_entity
         SET
-          child_entities = ${JSON.stringify(child_entities)}::jsonb,
+          child_entity_codes = ${JSON.stringify(child_entity_codes)}::jsonb,
           updated_ts = NOW()
         WHERE code = ${normalizedCode}
         RETURNING
@@ -427,7 +427,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
           name,
           ui_label,
           ui_icon,
-          child_entities,
+          child_entity_codes,
           display_order,
           active_flag
       `);
@@ -440,14 +440,14 @@ export async function entityRoutes(fastify: FastifyInstance) {
 
       const updatedEntity = result[0];
 
-      // Parse child_entities if it's a string (JSONB returned as string)
-      if (typeof updatedEntity.child_entities === 'string') {
-        updatedEntity.child_entities = JSON.parse(updatedEntity.child_entities);
+      // Parse child_entity_codes if it's a string (JSONB returned as string)
+      if (typeof updatedEntity.child_entity_codes === 'string') {
+        updatedEntity.child_entity_codes = JSON.parse(updatedEntity.child_entity_codes);
       }
 
-      // Ensure child_entities is always an array
-      if (!Array.isArray(updatedEntity.child_entities)) {
-        updatedEntity.child_entities = [];
+      // Ensure child_entity_codes is always an array
+      if (!Array.isArray(updatedEntity.child_entity_codes)) {
+        updatedEntity.child_entity_codes = [];
       }
 
       return {
@@ -510,9 +510,9 @@ export async function entityRoutes(fastify: FastifyInstance) {
 
       // Create new entity
       const result = await db.execute(sql`
-        INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entities, display_order, active_flag)
+        INSERT INTO app.d_entity (code, name, ui_label, ui_icon, child_entity_codes, display_order, active_flag)
         VALUES (${code}, ${name}, ${ui_label}, ${ui_icon || null}, '[]'::jsonb, ${finalDisplayOrder}, true)
-        RETURNING code, name, ui_label, ui_icon, child_entities, display_order, active_flag
+        RETURNING code, name, ui_label, ui_icon, child_entity_codes, display_order, active_flag
       `);
 
       if (result.length === 0) {
@@ -521,12 +521,12 @@ export async function entityRoutes(fastify: FastifyInstance) {
 
       const newEntity = result[0];
 
-      // Parse child_entities
-      if (typeof newEntity.child_entities === 'string') {
-        newEntity.child_entities = JSON.parse(newEntity.child_entities);
+      // Parse child_entity_codes
+      if (typeof newEntity.child_entity_codes === 'string') {
+        newEntity.child_entity_codes = JSON.parse(newEntity.child_entity_codes);
       }
-      if (!Array.isArray(newEntity.child_entities)) {
-        newEntity.child_entities = [];
+      if (!Array.isArray(newEntity.child_entity_codes)) {
+        newEntity.child_entity_codes = [];
       }
 
       return {
@@ -607,7 +607,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
       if (values.length === 0) {
         // No updates provided
         const result = await db.execute(sql`
-          SELECT code, name, ui_label, ui_icon, child_entities, display_order, active_flag
+          SELECT code, name, ui_label, ui_icon, child_entity_codes, display_order, active_flag
           FROM app.d_entity WHERE code = ${code}
         `);
         return { success: true, data: result[0] };
@@ -620,7 +620,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
         UPDATE app.d_entity
         SET ${setClauses.join(', ')}
         WHERE code = $${values.length}
-        RETURNING code, name, ui_label, ui_icon, child_entities, display_order, active_flag
+        RETURNING code, name, ui_label, ui_icon, child_entity_codes, display_order, active_flag
       `;
 
       const result = await client.unsafe(updateQuery, values);
@@ -631,12 +631,12 @@ export async function entityRoutes(fastify: FastifyInstance) {
 
       const updatedEntity = result[0];
 
-      // Parse child_entities
-      if (typeof updatedEntity.child_entities === 'string') {
-        updatedEntity.child_entities = JSON.parse(updatedEntity.child_entities);
+      // Parse child_entity_codes
+      if (typeof updatedEntity.child_entity_codes === 'string') {
+        updatedEntity.child_entity_codes = JSON.parse(updatedEntity.child_entity_codes);
       }
-      if (!Array.isArray(updatedEntity.child_entities)) {
-        updatedEntity.child_entities = [];
+      if (!Array.isArray(updatedEntity.child_entity_codes)) {
+        updatedEntity.child_entity_codes = [];
       }
 
       return {
@@ -985,7 +985,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
       // First, verify user has access to the parent entity
       const parentAccess = await db.execute(sql`
         SELECT 1 FROM app.d_entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = ${normalizedEntityType}
           AND (rbac.entity_id = ${entity_id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true

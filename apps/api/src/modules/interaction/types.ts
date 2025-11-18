@@ -25,7 +25,7 @@ export interface Interaction {
   after_call_work_seconds?: number;
 
   // Person entities (polymorphic)
-  interaction_person_entities?: any[]; // JSONB array: [{"person_entity_type": "customer", "person_entity_id": "uuid"}]
+  interaction_person_entities?: any[]; // JSONB array: [{"person_entity_type": "customer", "person_id": "uuid"}]
   interaction_intention_entity?: string; // 'task', 'project', 'quote', etc.
 
   // Content storage (S3/MinIO)

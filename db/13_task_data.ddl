@@ -31,17 +31,17 @@
 -- =====================================================
 
 CREATE TABLE app.task_data (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    id uuid DEFAULT gen_random_uuid(),
 
     -- Required FKs as specified
-    task_id uuid NOT NULL REFERENCES app.task(id) ON DELETE CASCADE,
-    project_id uuid NOT NULL REFERENCES app.project(id) ON DELETE CASCADE,
+    task_id uuid) ON DELETE CASCADE,
+    project_id uuid) ON DELETE CASCADE,
 
     -- Data stage
-    stage varchar(20) NOT NULL DEFAULT 'draft', -- draft, saved
+    stage varchar(20) DEFAULT 'draft', -- draft, saved
 
     -- Update information
-    updated_by_employee_id uuid NOT NULL,
+    updated_by_employee_id uuid,
 
     -- Rich content in Quill Delta format
     -- Supported attributes:

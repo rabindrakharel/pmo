@@ -1107,7 +1107,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Direct RBAC check for task access
       const taskAccess = await db.execute(sql`
         SELECT 1 FROM app.d_entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${employeeId}
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${employeeId}
           AND rbac.entity_name = 'task'
           AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
@@ -1193,7 +1193,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Direct RBAC check for task edit access
       const taskEditAccess = await db.execute(sql`
         SELECT 1 FROM app.d_entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${employeeId}
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${employeeId}
           AND rbac.entity_name = 'task'
           AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
@@ -1274,7 +1274,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Direct RBAC check for task access
       const taskAccess = await db.execute(sql`
         SELECT 1 FROM app.d_entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${employeeId}
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${employeeId}
           AND rbac.entity_name = 'task'
           AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
@@ -1372,7 +1372,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     // Check RBAC permission to view task
     const taskAccess = await db.execute(sql`
       SELECT 1 FROM app.d_entity_rbac rbac
-      WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+      WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
         AND rbac.entity_name = 'task'
         AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
         AND rbac.active_flag = true
@@ -1426,7 +1426,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
   // ============================================================================
   // Child Entity Endpoints (Auto-Generated from d_entity metadata)
   // ============================================================================
-  // Creates: GET /api/v1/task/:id/{child} for each child in d_entity.child_entities
+  // Creates: GET /api/v1/task/:id/{child} for each child in d_entity.child_entity_codes
   // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
   await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

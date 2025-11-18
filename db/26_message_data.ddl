@@ -118,19 +118,19 @@
 -- =====================================================
 
 CREATE TABLE app.message_data (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    id uuid DEFAULT gen_random_uuid(),
 
     -- Reference to template
-    message_schema_id uuid REFERENCES app.d_message_schema(id),
+    message_schema_id uuid),
 
     -- Message identification (copied from template for query performance)
     code varchar(50),
-    name varchar(200) NOT NULL,
+    name varchar(200),
     subject varchar(500),
     descr text,
 
     -- Delivery Method (copied from template)
-    message_delivery_method varchar(50) NOT NULL CHECK (message_delivery_method IN ('EMAIL', 'SMS', 'PUSH')),
+    message_delivery_method varchar(50) CHECK (message_delivery_method IN ('EMAIL', 'SMS', 'PUSH')),
 
     -- Message Status
     status varchar(50) DEFAULT 'pending' CHECK (status IN ('pending', 'scheduled', 'sent', 'delivered', 'failed', 'bounced', 'unsubscribed')),
@@ -184,24 +184,10 @@ CREATE TABLE app.message_data (
 );
 
 -- Index for querying by template
-CREATE INDEX idx_f_message_data_schema_id ON app.message_data(message_schema_id);
-
--- Index for querying by status
-CREATE INDEX idx_f_message_data_status ON app.message_data(status);
 
 -- Index for querying by delivery method
-CREATE INDEX idx_f_message_data_delivery_method ON app.message_data(message_delivery_method);
-
--- Index for querying by recipient
-CREATE INDEX idx_f_message_data_recipient_email ON app.message_data(recipient_email);
-CREATE INDEX idx_f_message_data_recipient_phone ON app.message_data(recipient_phone);
-CREATE INDEX idx_f_message_data_recipient_entity ON app.message_data(recipient_entity_id);
 
 -- Index for querying by sent timestamp
-CREATE INDEX idx_f_message_data_sent_ts ON app.message_data(sent_ts DESC);
-
--- Index for querying scheduled messages
-CREATE INDEX idx_f_message_data_scheduled ON app.message_data(scheduled_ts) WHERE status = 'scheduled';
 
 -- =====================================================
 -- SAMPLE DATA - Message Data (Sent Messages)

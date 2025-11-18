@@ -4,8 +4,8 @@
 -- =====================================================
 
 CREATE TABLE app.wiki_data (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    wiki_id uuid NOT NULL REFERENCES app.wiki(id) ON DELETE CASCADE,
+    id uuid DEFAULT gen_random_uuid(),
+    wiki_id uuid) ON DELETE CASCADE,
 
     -- Content storage
     content_markdown text,
@@ -13,10 +13,10 @@ CREATE TABLE app.wiki_data (
     content_metadata jsonb DEFAULT '{}'::jsonb,
 
     -- Data stage
-    stage varchar(20) NOT NULL DEFAULT 'draft', -- draft, saved
+    stage varchar(20) DEFAULT 'draft', -- draft, saved
 
     -- Update information
-    updated_by_employee_id uuid NOT NULL,
+    updated_by_employee_id uuid,
     update_type varchar(50) DEFAULT 'content_edit', -- content_edit, structure_change, metadata_update
     change_summary text,
     change_description text,

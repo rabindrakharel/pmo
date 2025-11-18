@@ -30,7 +30,7 @@
 -- - Presigned URLs for secure content access
 -- - Person entities stored as JSONB array for flexibility
 --
--- - interaction_person_entities: JSONB array of {person_entity_type, person_entity_id}
+-- - interaction_person_entities: JSONB array of {person_entity_type, person_id}
 -- - interaction_intention_entity: varchar(50) indicating what to create next (task, quote, etc.)
 -- - interaction_ts: timestamptz for when interaction occurred
 -- - chunk_number/total_chunks: for splitting long interactions
@@ -50,13 +50,13 @@ DROP TABLE IF EXISTS app.customer_interaction CASCADE;
 
 CREATE TABLE app.customer_interaction (
     -- Primary Key
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    id uuid DEFAULT gen_random_uuid(),
 
     -- Interaction Identification
-    interaction_number varchar(50) NOT NULL UNIQUE,      -- Human-readable ID (e.g., INT-2025-00123)
-    interaction_type varchar(50) NOT NULL,                -- 'voice_call', 'chat', 'email', 'sms', 'video_call', 'social_media', 'in_person'
+    interaction_number varchar(50),      -- Human-readable ID (e.g., INT-2025-00123)
+    interaction_type varchar(50),                -- 'voice_call', 'chat', 'email', 'sms', 'video_call', 'social_media', 'in_person'
     interaction_subtype varchar(50),                      -- 'inbound', 'outbound', 'follow_up', 'escalation'
-    channel varchar(50) NOT NULL,                         -- 'phone', 'live_chat', 'whatsapp', 'email', 'facebook', 'twitter', 'zoom', 'in_store'
+    channel varchar(50),                         -- 'phone', 'live_chat', 'whatsapp', 'email', 'facebook', 'twitter', 'zoom', 'in_store'
 
     -- Chunking Support (for multi-part interactions)
     chunk_number integer DEFAULT 1,                       -- Sequence number for chunked content
@@ -75,7 +75,7 @@ CREATE TABLE app.customer_interaction (
     after_call_work_seconds integer,                      -- Agent work after interaction
 
     -- Person Entities (polymorphic references to employees, clients, customers)
-    -- Stored as JSONB array: [{"person_entity_type": "customer", "person_entity_id": "uuid"}, {"person_entity_type": "employee", "person_entity_id": "uuid"}]
+    -- Stored as JSONB array: [{"person_entity_type": "customer", "person_id": "uuid"}, {"person_entity_type": "employee", "person_id": "uuid"}]
     interaction_person_entities jsonb DEFAULT '[]'::jsonb,
 
     -- Interaction Intention (what entity should be created from this interaction)
@@ -147,16 +147,10 @@ CREATE TABLE app.customer_interaction (
 -- =====================================================
 
 -- Automatically update updated_ts timestamp
-CREATE OR REPLACE FUNCTION app.update_f_customer_interaction_ts() RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_ts := NOW();
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER f_customer_interaction_update_ts
-    BEFORE UPDATE ON app.customer_interaction
-    FOR EACH ROW EXECUTE FUNCTION app.update_f_customer_interaction_ts();
 
 -- =====================================================
 -- CURATED SEED DATA
@@ -200,8 +194,8 @@ INSERT INTO app.customer_interaction (
     '2025-01-15 09:30:00-05'::timestamptz,
     420, 12, 408,
     jsonb_build_array(
-        jsonb_build_object('person_entity_type', 'customer', 'person_entity_id', (SELECT id FROM app.d_cust WHERE code = 'CL-RES-001')),
-        jsonb_build_object('person_entity_type', 'employee', 'person_entity_id', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13')
+        jsonb_build_object('person_entity_type', 'customer', 'person_id', (SELECT id FROM app.d_cust WHERE code = 'CL-RES-001')),
+        jsonb_build_object('person_entity_type', 'employee', 'person_id', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13')
     ),
     'mp3',
     2450000,
@@ -231,8 +225,8 @@ INSERT INTO app.customer_interaction (
     '2025-01-15 14:20:00-05'::timestamptz,
     680, 45, 635,
     jsonb_build_array(
-        jsonb_build_object('person_entity_type', 'customer', 'person_entity_id', (SELECT id FROM app.d_cust WHERE code = 'CL-COM-002')),
-        jsonb_build_object('person_entity_type', 'employee', 'person_entity_id', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13')
+        jsonb_build_object('person_entity_type', 'customer', 'person_id', (SELECT id FROM app.d_cust WHERE code = 'CL-COM-002')),
+        jsonb_build_object('person_entity_type', 'employee', 'person_id', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13')
     ),
     'mp3',
     3100000,
@@ -282,8 +276,8 @@ INSERT INTO app.customer_interaction (
     '2025-01-16 10:15:00-05'::timestamptz,
     180,
     jsonb_build_array(
-        jsonb_build_object('person_entity_type', 'customer', 'person_entity_id', (SELECT id FROM app.d_cust WHERE code = 'CL-RES-002')),
-        jsonb_build_object('person_entity_type', 'employee', 'person_entity_id', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13')
+        jsonb_build_object('person_entity_type', 'customer', 'person_id', (SELECT id FROM app.d_cust WHERE code = 'CL-RES-002')),
+        jsonb_build_object('person_entity_type', 'employee', 'person_id', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13')
     ),
     E'Customer: Hi, I have a question about my January invoice.\nAgent: Hello! I''d be happy to help. What''s your question?\nCustomer: I see a charge for snow removal but we didn''t have service this month.\nAgent: Let me check... I see the issue. That was a pre-payment for February based on forecast. I''ll send you a revised invoice with clarification.\nCustomer: Oh, that makes sense. Thank you for explaining!\nAgent: You''re welcome! Anything else I can help with?\nCustomer: No, that''s all. Thanks!',
     72.0,
@@ -306,8 +300,8 @@ INSERT INTO app.customer_interaction (
     '2025-01-16 15:45:00-05'::timestamptz,
     420,
     jsonb_build_array(
-        jsonb_build_object('person_entity_type', 'customer', 'person_entity_id', (SELECT id FROM app.d_cust WHERE code = 'CL-RES-004')),
-        jsonb_build_object('person_entity_type', 'employee', 'person_entity_id', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13')
+        jsonb_build_object('person_entity_type', 'customer', 'person_id', (SELECT id FROM app.d_cust WHERE code = 'CL-RES-004')),
+        jsonb_build_object('person_entity_type', 'employee', 'person_id', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13')
     ),
     E'Customer: I''m interested in landscaping services for a small townhouse yard.\nAgent: Great! I can help you with that. What type of services are you looking for?\nCustomer: I need seasonal cleanup and some simple plant maintenance. Nothing too elaborate.\nAgent: Perfect. For a townhouse, we offer our Silver package which includes bi-weekly maintenance and seasonal cleanups.\nCustomer: What''s the pricing?\nAgent: For a property your size, it would be around $500/month during growing season. I can schedule a free consultation to give you an exact quote.\nCustomer: That sounds good. Can we do next week?\nAgent: Absolutely! I have availability on Wednesday or Friday. Which works better?\nCustomer: Wednesday works. Morning if possible.\nAgent: Perfect! I''ll schedule you for Wednesday at 10 AM. You''ll receive a confirmation email shortly.\nCustomer: Thank you!',
     90.5,
@@ -328,7 +322,7 @@ INSERT INTO app.customer_interaction (
 
 COMMENT ON TABLE app.customer_interaction IS 'Customer interaction fact table capturing omnichannel customer communications with S3 storage for multimedia content. Uses JSONB for polymorphic person entity references.';
 COMMENT ON COLUMN app.customer_interaction.interaction_number IS 'Human-readable unique identifier (e.g., INT-2025-00123)';
-COMMENT ON COLUMN app.customer_interaction.interaction_person_entities IS 'JSONB array of person entities involved: [{"person_entity_type": "customer|employee|client", "person_entity_id": "uuid"}]';
+COMMENT ON COLUMN app.customer_interaction.interaction_person_entities IS 'JSONB array of person entities involved: [{"person_entity_type": "customer|employee|client", "person_id": "uuid"}]';
 COMMENT ON COLUMN app.customer_interaction.interaction_intention_entity IS 'What entity type should be created from this interaction (task, project, quote, etc.)';
 COMMENT ON COLUMN app.customer_interaction.chunk_number IS 'Sequence number for multi-part interactions (e.g., long calls split into segments)';
 COMMENT ON COLUMN app.customer_interaction.parent_interaction_id IS 'Links to primary chunk for multi-part interactions';
@@ -364,7 +358,7 @@ COMMENT ON COLUMN app.customer_interaction.metadata IS 'Flexible JSONB for addit
 --     AVG(content_size_bytes) as avg_size_bytes,
 --     MAX(content_size_bytes) as max_size_bytes
 -- FROM app.customer_interaction
--- WHERE content_object_key IS NOT NULL
+-- WHERE content_object_key IS
 -- GROUP BY content_format
 -- ORDER BY total_size_bytes DESC;
 
@@ -386,6 +380,6 @@ COMMENT ON COLUMN app.customer_interaction.metadata IS 'Flexible JSONB for addit
 --     interaction_ts,
 --     interaction_person_entities
 -- FROM app.customer_interaction
--- WHERE interaction_person_entities IS NOT NULL
+-- WHERE interaction_person_entities IS
 -- ORDER BY interaction_ts DESC
 -- LIMIT 10;

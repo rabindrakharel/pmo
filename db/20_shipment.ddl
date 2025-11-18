@@ -35,17 +35,17 @@ DROP TABLE IF EXISTS app.shipment CASCADE;
 
 CREATE TABLE app.shipment (
     -- Primary Key
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid(),
 
     -- Shipment Identification
-    shipment_number VARCHAR(50) NOT NULL UNIQUE,        -- Human-readable shipment number (e.g., "SHIP-2025-00123")
+    shipment_number VARCHAR(50),        -- Human-readable shipment number (e.g., "SHIP-2025-00123")
     shipment_line_number INTEGER DEFAULT 1,             -- Line item sequence within shipment
     shipment_type VARCHAR(50) DEFAULT 'standard',       -- 'standard', 'rush', 'direct', 'partial', 'backorder', 'return'
     shipment_method VARCHAR(50) DEFAULT 'ground',       -- 'ground', 'air', 'freight', 'courier', 'pickup', 'direct'
 
     -- Date/Time Dimensions
-    shipment_date DATE NOT NULL,                        -- Date shipment created
-    shipment_datetime TIMESTAMP NOT NULL DEFAULT NOW(), -- Precise shipment timestamp
+    shipment_date DATE,                        -- Date shipment created
+    shipment_datetime TIMESTAMP DEFAULT NOW(), -- Precise shipment timestamp
     picked_date DATE,                                   -- When items were picked from warehouse
     packed_date DATE,                                   -- When shipment was packed
     shipped_date DATE,                                  -- When shipment left warehouse
@@ -55,12 +55,12 @@ CREATE TABLE app.shipment (
     delivery_datetime TIMESTAMP,                        -- Precise delivery timestamp
 
     -- Customer Dimension
-    cust_id UUID NOT NULL,                              -- Link to d_cust (REQUIRED)
+    cust_id UUID,                              -- Link to d_cust (REQUIRED)
     client_name VARCHAR(255),                           -- Denormalized for query performance
     client_type VARCHAR(50),                            -- 'residential', 'commercial', 'government'
 
     -- Product Dimension
-    product_id UUID NOT NULL,                           -- Link to app.product (REQUIRED)
+    product_id UUID,                           -- Link to app.product (REQUIRED)
     product_code VARCHAR(50),                           -- Denormalized product code
     product_name VARCHAR(255),                          -- Denormalized name
     product_category VARCHAR(100),                      -- Denormalized category
@@ -82,7 +82,7 @@ CREATE TABLE app.shipment (
 
     -- Quantity Metrics
     qty_ordered DECIMAL(12,3),                     -- Original qty ordered
-    qty_shipped DECIMAL(12,3) NOT NULL,            -- Qty on this shipment line
+    qty_shipped DECIMAL(12,3),            -- Qty on this shipment line
     quantity_received DECIMAL(12,3),                    -- Qty confirmed received by customer
     quantity_damaged DECIMAL(12,3) DEFAULT 0,           -- Qty received damaged
     quantity_short DECIMAL(12,3) DEFAULT 0,             -- Qty short shipped
@@ -180,17 +180,9 @@ CREATE TABLE app.shipment (
 
 
 -- Trigger to calculate shipping costs and delivery performance
-CREATE OR REPLACE FUNCTION app.calculate_f_shipment_metrics() RETURNS TRIGGER AS $$
-BEGIN
-    -- Calculate total shipping cost
-    NEW.total_shipping_cost_cad :=
-        COALESCE(NEW.freight_charge_cad, 0) +
-        COALESCE(NEW.fuel_surcharge_cad, 0) +
-        COALESCE(NEW.insurance_charge_cad, 0) +
-        COALESCE(NEW.handling_charge_cad, 0);
 
     -- Calculate delivery variance and performance flags
-    IF NEW.actual_delivery_date IS NOT NULL AND NEW.promised_delivery_date IS NOT NULL THEN
+    IF NEW.actual_delivery_date IS AND NEW.promised_delivery_date IS THEN
         NEW.delivery_variance_days := NEW.actual_delivery_date - NEW.promised_delivery_date;
 
         IF NEW.delivery_variance_days <= 0 THEN
@@ -214,8 +206,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER f_shipment_calculate_metrics BEFORE INSERT OR UPDATE ON app.shipment
-    FOR EACH ROW EXECUTE FUNCTION app.calculate_f_shipment_metrics();
 
 -- =====================================================
 -- SAMPLE DATA: Curated Shipments

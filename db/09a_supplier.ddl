@@ -28,9 +28,9 @@ CREATE TABLE IF NOT EXISTS app.supplier (
     -- ─────────────────────────────────────────────────────────────────────────
     -- Standard Entity Fields
     -- ─────────────────────────────────────────────────────────────────────────
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    code varchar(100) UNIQUE NOT NULL,
-    name varchar(255) NOT NULL,
+    id uuid DEFAULT gen_random_uuid(),
+    code varchar(100),
+    name varchar(255),
     descr text,
 
     -- ─────────────────────────────────────────────────────────────────────────
@@ -87,14 +87,6 @@ CREATE TABLE IF NOT EXISTS app.supplier (
 -- Indexes
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-CREATE INDEX idx_supplier_code ON app.supplier(code);
-CREATE INDEX idx_supplier_name ON app.supplier(name);
-CREATE INDEX idx_supplier_person_id ON app.supplier(person_id) WHERE person_id IS NOT NULL;
-CREATE INDEX idx_supplier_number ON app.supplier(supplier_number) WHERE supplier_number IS NOT NULL;
-CREATE INDEX idx_supplier_type ON app.supplier(dl__supplier_type) WHERE dl__supplier_type IS NOT NULL;
-CREATE INDEX idx_supplier_rating ON app.supplier(dl__supplier_rating) WHERE dl__supplier_rating IS NOT NULL;
-CREATE INDEX idx_supplier_preferred ON app.supplier(is_preferred) WHERE is_preferred = true;
-CREATE INDEX idx_supplier_active ON app.supplier(active_flag) WHERE active_flag = true;
 
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 -- Comments

@@ -57,7 +57,7 @@
 --      WHERE w.active_flag=true
 --        AND EXISTS (
 --          SELECT 1 FROM entity_rbac rbac
---          WHERE rbac.person_entity_name='employee' AND rbac.person_entity_id=$user_id
+--          WHERE rbac.person_code='employee' AND rbac.person_id=$user_id
 --            AND rbac.entity='wiki'
 --            AND (rbac.entity_id=w.id::text OR rbac.entity_id='11111111-1111-1111-1111-111111111111')
 --            AND 0=ANY(rbac.permission)  -- View permission
@@ -111,9 +111,9 @@
 -- =====================================================
 
 CREATE TABLE app.wiki (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    code varchar(50) UNIQUE NOT NULL,
-    name varchar(200) NOT NULL,
+    id uuid DEFAULT gen_random_uuid(),
+    code varchar(50),
+    name varchar(200),
     descr text,
     internal_url varchar(500),   -- Internal wiki URL: /wiki/{id} (authenticated access)
     shared_url varchar(500),     -- Public shared URL: /wiki/shared/{8-char-random} (presigned, no auth required)

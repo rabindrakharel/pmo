@@ -188,13 +188,13 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
     // STEP 2: Link Attendees (RSVP Tracking)
     // ===============================================
 
-    const attendees: Array<{ person_entity_type: string; person_entity_id: string; rsvp_status: string }> = [];
+    const attendees: Array<{ person_entity_type: string; person_id: string; rsvp_status: string }> = [];
 
     // Add customer (if customerId provided)
     if (customerId) {
       attendees.push({
         person_entity_type: 'customer',
-        person_entity_id: customerId,
+        person_id: customerId,
         rsvp_status: 'pending'
       });
     }
@@ -202,7 +202,7 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
     // Add assigned employee
     attendees.push({
       person_entity_type: 'employee',
-      person_entity_id: assignedEmployeeId,
+      person_id: assignedEmployeeId,
       rsvp_status: 'accepted'
     });
 
@@ -214,12 +214,12 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
 
       await client`
         INSERT INTO app.d_entity_event_person_calendar (
-          code, person_entity_type, person_entity_id, event_id,
+          code, person_entity_type, person_id, event_id,
           event_rsvp_status, from_ts, to_ts
         ) VALUES (
           ${attendeeCode},
           ${attendee.person_entity_type},
-          ${attendee.person_entity_id}::uuid,
+          ${attendee.person_id}::uuid,
           ${eventId}::uuid,
           ${attendee.rsvp_status},
           ${startTime.toISOString()}::timestamptz,
@@ -239,7 +239,7 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
       SELECT id::text
       FROM app.d_entity_person_calendar
       WHERE person_entity_type = 'employee'
-        AND person_entity_id = ${assignedEmployeeId}::uuid
+        AND person_id = ${assignedEmployeeId}::uuid
         AND availability_flag = true
         AND from_ts >= ${startTime.toISOString()}::timestamptz
         AND to_ts <= ${endTime.toISOString()}::timestamptz
@@ -495,7 +495,7 @@ export async function cancelPersonCalendar(eventId: string, cancellationReason?:
     const attendeesResult = await client`
       SELECT
         epc.person_entity_type,
-        epc.person_entity_id::text,
+        epc.person_id::text,
         CASE
           WHEN epc.person_entity_type = 'employee' THEN emp.first_name || ' ' || emp.last_name
           WHEN epc.person_entity_type = 'customer' THEN cust.name
@@ -512,8 +512,8 @@ export async function cancelPersonCalendar(eventId: string, cancellationReason?:
           ELSE NULL
         END as person_phone
       FROM app.d_entity_event_person_calendar epc
-      LEFT JOIN app.d_employee emp ON emp.id = epc.person_entity_id AND epc.person_entity_type = 'employee'
-      LEFT JOIN app.d_cust cust ON cust.id = epc.person_entity_id AND epc.person_entity_type = 'customer'
+      LEFT JOIN app.d_employee emp ON emp.id = epc.person_id AND epc.person_entity_type = 'employee'
+      LEFT JOIN app.d_cust cust ON cust.id = epc.person_id AND epc.person_entity_type = 'customer'
       WHERE epc.event_id = ${eventId}::uuid AND epc.active_flag = true
     `;
 
@@ -636,7 +636,7 @@ export async function reschedulePersonCalendar(args: {
       SELECT id::text
       FROM app.d_entity_person_calendar
       WHERE person_entity_type = 'employee'
-        AND person_entity_id = ${assignedEmployeeId}::uuid
+        AND person_id = ${assignedEmployeeId}::uuid
         AND availability_flag = true
         AND from_ts >= ${newStartTime.toISOString()}::timestamptz
         AND to_ts <= ${newEndTime.toISOString()}::timestamptz

@@ -99,14 +99,14 @@
 -- =====================================================
 
 CREATE TABLE app.message_schema (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    id uuid DEFAULT gen_random_uuid(),
     code varchar(50),
-    name varchar(200) NOT NULL,
+    name varchar(200),
     subject varchar(500),
     descr text,
 
     -- Delivery Method
-    message_delivery_method varchar(50) NOT NULL CHECK (message_delivery_method IN ('EMAIL', 'SMS', 'PUSH')),
+    message_delivery_method varchar(50) CHECK (message_delivery_method IN ('EMAIL', 'SMS', 'PUSH')),
 
     -- Template Status
     status varchar(50) DEFAULT 'draft', -- draft, published, archived

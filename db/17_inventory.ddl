@@ -24,7 +24,7 @@ DROP TABLE IF EXISTS app.inventory CASCADE;
 
 CREATE TABLE app.inventory (
     -- Primary Key
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid(),
 
     -- Location
     office_id UUID,                                     -- Link to app.office (warehouse/store location)
@@ -48,15 +48,10 @@ CREATE TABLE app.inventory (
 
 
 -- Trigger to update timestamp
-CREATE OR REPLACE FUNCTION app.update_f_inventory_timestamp() RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at := NOW();
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER f_inventory_update_timestamp BEFORE UPDATE ON app.inventory
-    FOR EACH ROW EXECUTE FUNCTION app.update_f_inventory_timestamp();
 
 -- =====================================================
 -- SAMPLE DATA: Current Stock Levels

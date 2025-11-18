@@ -82,7 +82,7 @@ export async function productHierarchyRoutes(fastify: FastifyInstance) {
         sql`(
           EXISTS (
             SELECT 1 FROM app.d_entity_rbac rbac
-            WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}::uuid
+            WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}::uuid
               AND rbac.entity_name = 'product_hierarchy'
               AND (rbac.entity_id = ph.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
               AND rbac.active_flag = true
@@ -180,7 +180,7 @@ export async function productHierarchyRoutes(fastify: FastifyInstance) {
         WHERE ph.id = ${id}::uuid
           AND EXISTS (
             SELECT 1 FROM app.d_entity_rbac rbac
-            WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}::uuid
+            WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}::uuid
               AND rbac.entity_name = 'product_hierarchy'
               AND (rbac.entity_id = ph.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
               AND rbac.active_flag = true

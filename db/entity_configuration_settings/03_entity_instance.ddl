@@ -81,13 +81,13 @@
 --
 -- =====================================================
 
+--always current view, no scd
 CREATE TABLE app.entity_instance (
-    entity_code varchar(50), -- References entity.code (entity type: project, task, employee, etc.)
-    entity_instance_id uuid, -- UUID of the specific entity instance
     order_id int4 GENERATED ALWAYS AS IDENTITY, -- Ordering for sidebar display
+    entity_code varchar(50), -- References entity.code (entity type: project, task, employee, etc.)
+    entity_instance_id uuid, -- UUID of the specific entity instance, eg. project ID, task ID
     entity_instance_name varchar(255), -- Name of the instance (cached from source table)
     code varchar(100), -- Instance code (e.g., PROJ-001, EMP-123)
-    active_flag boolean DEFAULT true,
     created_ts timestamptz DEFAULT now(),
     updated_ts timestamptz DEFAULT now()
 );
@@ -107,64 +107,64 @@ COMMENT ON COLUMN app.entity_instance.code IS 'Instance code (e.g., PROJ-001, EM
 -- Register office entities
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT 'office', id, name, code
-FROM app.office WHERE active_flag = true;
+FROM app.office;
 
 -- Register business entities
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT 'business', id, name, code
-FROM app.business WHERE active_flag = true;
+FROM app.business;
 
 -- Register project entities
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT 'project', id, name, code
-FROM app.project WHERE active_flag = true;
+FROM app.project;
 
 -- Register task entities
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT 'task', id, name, code
-FROM app.task WHERE active_flag = true;
+FROM app.task;
 
 -- Register employee entities
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT 'employee', id, name, code
-FROM app.employee WHERE active_flag = true;
+FROM app.employee;
 
 -- Register customer entities
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT 'cust', id, name, code
-FROM app.cust WHERE active_flag = true;
+FROM app.cust;
 
 -- Register role entities
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT 'role', id, name, code
-FROM app.role WHERE active_flag = true;
+FROM app.role;
 
 -- Register position entities
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT 'position', id, name, code
-FROM app.position WHERE active_flag = true;
+FROM app.position;
 
 -- Register worksite entities
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT 'worksite', id, name, code
-FROM app.worksite WHERE active_flag = true;
+FROM app.worksite;
 
 -- Register wiki entities
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT 'wiki', id, name, code
-FROM app.wiki WHERE active_flag = true;
+FROM app.wiki;
 
 -- Register artifact entities
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT 'artifact', id, name, code
-FROM app.artifact WHERE active_flag = true;
+FROM app.artifact;
 
 -- Register form entities
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT 'form', id, name, code
-FROM app.form_head WHERE active_flag = true;
+FROM app.form_head;
 
 -- Register reports entities
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT 'reports', id, name, code
-FROM app.reports WHERE active_flag = true;
+FROM app.reports;

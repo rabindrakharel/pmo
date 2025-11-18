@@ -48,9 +48,9 @@
 -- =====================================================
 
 CREATE TABLE app.quote (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    code varchar(50) UNIQUE NOT NULL,
-    name text NOT NULL,
+    id uuid DEFAULT gen_random_uuid(),
+    code varchar(50),
+    name text,
     descr text,
     metadata jsonb DEFAULT '{}'::jsonb,
     active_flag boolean DEFAULT true,

@@ -20,7 +20,7 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
   fastify.get<{
     Querystring: {
       person_entity_type?: string;
-      person_entity_id?: string;
+      person_id?: string;
       from_ts?: string;
       to_ts?: string;
       availability_flag?: string;
@@ -31,7 +31,7 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
     try {
       const {
         person_entity_type,
-        person_entity_id,
+        person_id,
         from_ts,
         to_ts,
         availability_flag
@@ -45,8 +45,8 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
         filters.push(client`pc.person_entity_type = ${person_entity_type}`);
       }
 
-      if (person_entity_id) {
-        filters.push(client`pc.person_entity_id = ${person_entity_id}::uuid`);
+      if (person_id) {
+        filters.push(client`pc.person_id = ${person_id}::uuid`);
       }
 
       if (from_ts) {
@@ -73,7 +73,7 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
           pc.name,
           pc.descr,
           pc.person_entity_type,
-          pc.person_entity_id::text,
+          pc.person_id::text,
           pc.from_ts::text,
           pc.to_ts::text,
           pc.timezone,
@@ -117,8 +117,8 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
 
         FROM app.d_entity_person_calendar pc
         LEFT JOIN app.d_event e ON e.id = pc.event_id AND e.active_flag = true
-        LEFT JOIN app.d_employee emp ON emp.id = pc.person_entity_id AND pc.person_entity_type = 'employee' AND emp.active_flag = true
-        LEFT JOIN app.d_cust cust ON cust.id = pc.person_entity_id AND pc.person_entity_type = 'customer' AND cust.active_flag = true
+        LEFT JOIN app.d_employee emp ON emp.id = pc.person_id AND pc.person_entity_type = 'employee' AND emp.active_flag = true
+        LEFT JOIN app.d_cust cust ON cust.id = pc.person_id AND pc.person_entity_type = 'customer' AND cust.active_flag = true
         WHERE pc.active_flag = true ${whereClause}
         ORDER BY pc.from_ts ASC
         LIMIT ${limit}
@@ -143,7 +143,7 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
             const attendeesResult = await client`
               SELECT
                 epc.person_entity_type,
-                epc.person_entity_id::text,
+                epc.person_id::text,
                 epc.event_rsvp_status,
                 CASE
                   WHEN epc.person_entity_type = 'employee' THEN emp.first_name || ' ' || emp.last_name
@@ -156,8 +156,8 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
                   ELSE NULL
                 END as person_email
               FROM app.d_entity_event_person_calendar epc
-              LEFT JOIN app.d_employee emp ON emp.id = epc.person_entity_id AND epc.person_entity_type = 'employee'
-              LEFT JOIN app.d_cust cust ON cust.id = epc.person_entity_id AND epc.person_entity_type = 'customer'
+              LEFT JOIN app.d_employee emp ON emp.id = epc.person_id AND epc.person_entity_type = 'employee'
+              LEFT JOIN app.d_cust cust ON cust.id = epc.person_id AND epc.person_entity_type = 'customer'
               WHERE epc.event_id = ${slot.event_id}::uuid
                 AND epc.active_flag = true
             `;
@@ -166,7 +166,7 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
               ...slot,
               attendees: attendeesResult.map((a: any) => ({
                 person_entity_type: a.person_entity_type,
-                person_entity_id: a.person_entity_id,
+                person_id: a.person_id,
                 event_rsvp_status: a.event_rsvp_status,
                 person_name: a.person_name,
                 person_email: a.person_email
@@ -205,7 +205,7 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
           pc.name,
           pc.descr,
           pc.person_entity_type,
-          pc.person_entity_id::text,
+          pc.person_id::text,
           pc.from_ts::text,
           pc.to_ts::text,
           pc.timezone,
@@ -249,8 +249,8 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
 
         FROM app.d_entity_person_calendar pc
         LEFT JOIN app.d_event e ON e.id = pc.event_id AND e.active_flag = true
-        LEFT JOIN app.d_employee emp ON emp.id = pc.person_entity_id AND pc.person_entity_type = 'employee' AND emp.active_flag = true
-        LEFT JOIN app.d_cust cust ON cust.id = pc.person_entity_id AND pc.person_entity_type = 'customer' AND cust.active_flag = true
+        LEFT JOIN app.d_employee emp ON emp.id = pc.person_id AND pc.person_entity_type = 'employee' AND emp.active_flag = true
+        LEFT JOIN app.d_cust cust ON cust.id = pc.person_id AND pc.person_entity_type = 'customer' AND cust.active_flag = true
         WHERE pc.id = ${id}::uuid AND pc.active_flag = true
       `;
 
@@ -267,7 +267,7 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
         const attendeesResult = await client`
           SELECT
             epc.person_entity_type,
-            epc.person_entity_id::text,
+            epc.person_id::text,
             epc.event_rsvp_status,
             CASE
               WHEN epc.person_entity_type = 'employee' THEN emp.first_name || ' ' || emp.last_name
@@ -280,15 +280,15 @@ export async function enrichedCalendarRoutes(fastify: FastifyInstance) {
               ELSE NULL
             END as person_email
           FROM app.d_entity_event_person_calendar epc
-          LEFT JOIN app.d_employee emp ON emp.id = epc.person_entity_id AND epc.person_entity_type = 'employee'
-          LEFT JOIN app.d_cust cust ON cust.id = epc.person_entity_id AND epc.person_entity_type = 'customer'
+          LEFT JOIN app.d_employee emp ON emp.id = epc.person_id AND epc.person_entity_type = 'employee'
+          LEFT JOIN app.d_cust cust ON cust.id = epc.person_id AND epc.person_entity_type = 'customer'
           WHERE epc.event_id = ${slot.event_id}::uuid
             AND epc.active_flag = true
         `;
 
         slot.attendees = attendeesResult.map((a: any) => ({
           person_entity_type: a.person_entity_type,
-          person_entity_id: a.person_entity_id,
+          person_id: a.person_id,
           event_rsvp_status: a.event_rsvp_status,
           person_name: a.person_name,
           person_email: a.person_email

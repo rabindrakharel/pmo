@@ -24,12 +24,12 @@
 -- • CREATE: POST /api/v1/calendar-slot, INSERT 15-minute slots with availability_flag=true
 -- • UPDATE: PUT /api/v1/calendar-slot/{id}, book/unbook slots, update availability_flag
 -- • DELETE: DELETE /api/v1/calendar-slot/{id}, active_flag=false (soft delete)
--- • LIST: GET /api/v1/calendar-slot, filters by person_entity_id/availability_flag/date range, RBAC enforced
+-- • LIST: GET /api/v1/calendar-slot, filters by person_id/availability_flag/date range, RBAC enforced
 -- • BOOK: POST /api/v1/calendar-slot/book, set availability_flag=false and link event_id
 -- • CANCEL: POST /api/v1/calendar-slot/cancel, set availability_flag=true and clear event_id
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • person_entity_id → employee.id OR d_client.id OR d_cust.id (polymorphic)
+-- • person_id → employee.id OR d_client.id OR d_cust.id (polymorphic)
 -- • event_id → d_event.id (many calendar slots can reference one event)
 -- • metadata can store additional context if needed
 --
@@ -50,8 +50,8 @@
 -- =====================================================
 
 CREATE TABLE app.person_calendar (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code varchar(50) UNIQUE NOT NULL,
+  id uuid DEFAULT gen_random_uuid(),
+  code varchar(50),
   name varchar(200),
   descr text,
   metadata jsonb DEFAULT '{}'::jsonb,
@@ -61,12 +61,12 @@ CREATE TABLE app.person_calendar (
   version integer DEFAULT 1,
 
   -- Person identification (polymorphic: employee, client, or customer)
-  person_entity_type varchar(50) NOT NULL, -- 'employee', 'client', 'customer'
-  person_entity_id uuid NOT NULL,
+  person_entity_type varchar(50), -- 'employee', 'client', 'customer'
+  person_id uuid,
 
   -- Time slot details
-  from_ts timestamptz NOT NULL,
-  to_ts timestamptz NOT NULL,
+  from_ts timestamptz,
+  to_ts timestamptz,
   timezone varchar(50) DEFAULT 'America/Toronto',
 
   -- Availability tracking
@@ -103,9 +103,6 @@ CREATE TABLE app.person_calendar (
   confirmation_sent_flag boolean DEFAULT false,
   confirmation_sent_ts timestamptz,
 
-  CONSTRAINT chk_person_entity_type CHECK (person_entity_type IN ('employee', 'client', 'customer')),
-  CONSTRAINT chk_appointment_medium CHECK (appointment_medium IS NULL OR appointment_medium IN ('onsite', 'virtual')),
-  CONSTRAINT chk_time_range CHECK (to_ts > from_ts)
 );
 
 -- =====================================================
@@ -122,7 +119,7 @@ CREATE TABLE app.person_calendar (
 
 CREATE OR REPLACE FUNCTION app.generate_calendar_slots(
   p_person_entity_type varchar(50),
-  p_person_entity_id uuid,
+  p_person_id uuid,
   p_start_date date,
   p_end_date date,
   p_timezone varchar(50) DEFAULT 'America/Toronto'
@@ -157,17 +154,17 @@ BEGIN
         code,
         name,
         person_entity_type,
-        person_entity_id,
+        person_id,
         from_ts,
         to_ts,
         timezone,
         availability_flag,
         event_id
       ) VALUES (
-        v_code_base || '-' || to_char(v_slot_start, 'YYYYMMDD-HH24MI') || '-' || substr(p_person_entity_id::text, 1, 8),
+        v_code_base || '-' || to_char(v_slot_start, 'YYYYMMDD-HH24MI') || '-' || substr(p_person_id, 1, 8),
         'Available Slot - ' || to_char(v_slot_start, 'YYYY-MM-DD HH24:MI'),
         p_person_entity_type,
-        p_person_entity_id,
+        p_person_id,
         v_slot_start,
         v_slot_end,
         p_timezone,
@@ -234,7 +231,7 @@ SET
   availability_flag = false,
   event_id = (SELECT id FROM app.event WHERE code = 'EVT-HVAC-001'),
   name = 'HVAC Consultation - Thompson Residence'
-WHERE person_entity_id = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
+WHERE person_id = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
   AND person_entity_type = 'employee'
   AND from_ts >= (CURRENT_DATE + interval '1 day' + interval '14 hours')
   AND to_ts <= (CURRENT_DATE + interval '1 day' + interval '15 hours')
@@ -247,7 +244,7 @@ SET
   availability_flag = false,
   event_id = (SELECT id FROM app.event WHERE code = 'EVT-PROJ-002'),
   name = 'Solar Installation Phase 2 Review'
-WHERE person_entity_id = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
+WHERE person_id = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
   AND person_entity_type = 'employee'
   AND from_ts >= (CURRENT_DATE + interval '2 days' + interval '10 hours')
   AND to_ts <= (CURRENT_DATE + interval '2 days' + interval '11 hours')
@@ -261,7 +258,7 @@ SET
   event_id = (SELECT id FROM app.event WHERE code = 'EVT-EMERG-003'),
   name = 'Emergency Plumbing Repair - Burst Pipe'
 WHERE person_entity_type = 'employee'
-  AND person_entity_id IN (
+  AND person_id IN (
     SELECT id FROM app.d_employee
     WHERE department = 'Plumbing'
       AND active_flag = true
@@ -273,10 +270,10 @@ WHERE person_entity_type = 'employee'
   AND availability_flag = true;
 
 -- =====================================================
--- REGISTER IN d_entity_instance_registry
+-- REGISTER IN entity_instance
 -- =====================================================
 
-INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
 SELECT 'person_calendar', id, name, code
 FROM app.person_calendar
 WHERE active_flag = true
@@ -296,7 +293,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   AND from_ts >= '2025-11-06 14:00:00-05'::timestamptz
 --   AND to_ts <= '2025-11-06 16:00:00-05'::timestamptz
 --   AND active_flag = true
--- ORDER BY person_entity_id, from_ts;
+-- ORDER BY person_id, from_ts;
 
 -- Query 2: Get employee's booked appointments with event details
 -- SELECT
@@ -309,7 +306,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   ev.event_addr,
 --   ev.event_instructions
 -- FROM app.person_calendar c
--- JOIN app.app.employee e ON c.person_entity_id = e.id
+-- JOIN app.app.employee e ON c.person_id = e.id
 -- LEFT JOIN app.event ev ON c.event_id = ev.id
 -- WHERE c.person_entity_type = 'employee'
 --   AND c.availability_flag = false
@@ -324,7 +321,7 @@ SET entity_name = EXCLUDED.entity_name,
 --   COUNT(*) FILTER (WHERE c.availability_flag = false) as booked_slots,
 --   ROUND(100.0 * COUNT(*) FILTER (WHERE c.availability_flag = false) / COUNT(*), 2) as utilization_pct
 -- FROM app.app.employee e
--- LEFT JOIN app.person_calendar c ON e.id = c.person_entity_id
+-- LEFT JOIN app.person_calendar c ON e.id = c.person_id
 --   AND c.person_entity_type = 'employee'
 --   AND c.active_flag = true
 --   AND c.from_ts >= CURRENT_DATE
@@ -334,13 +331,13 @@ SET entity_name = EXCLUDED.entity_name,
 
 -- Query 4: Get all calendar slots for a specific event
 -- SELECT
---   c.person_entity_id,
+--   c.person_id,
 --   e.name as employee_name,
 --   c.from_ts,
 --   c.to_ts,
 --   c.timezone
 -- FROM app.person_calendar c
--- JOIN app.app.employee e ON c.person_entity_id = e.id
+-- JOIN app.app.employee e ON c.person_id = e.id
 -- WHERE c.event_id = '<event-uuid>'
 --   AND c.active_flag = true
 -- ORDER BY c.from_ts;
@@ -351,7 +348,7 @@ SET entity_name = EXCLUDED.entity_name,
 
 COMMENT ON TABLE app.person_calendar IS 'Universal calendar/booking system with 15-minute slot granularity (9am-8pm). Pre-seeded availability slots that link to d_event when booked. Defines WHEN and WHO for events.';
 COMMENT ON COLUMN app.person_calendar.person_entity_type IS 'Type of person: employee, client, or customer';
-COMMENT ON COLUMN app.person_calendar.person_entity_id IS 'Polymorphic reference to d_employee, d_client, or d_cust';
+COMMENT ON COLUMN app.person_calendar.person_id IS 'Polymorphic reference to d_employee, d_client, or d_cust';
 COMMENT ON COLUMN app.person_calendar.availability_flag IS 'true=available/open slot, false=booked/busy';
 COMMENT ON COLUMN app.person_calendar.event_id IS 'Link to d_event.id for full event details (null when slot is available, populated when booked)';
 COMMENT ON COLUMN app.person_calendar.from_ts IS 'Slot start time (timestamptz)';

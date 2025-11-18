@@ -28,12 +28,12 @@
 -- =====================================================
 
 CREATE TABLE app.d_domain (
-    domain_id SERIAL PRIMARY KEY,
-    code varchar(50) NOT NULL UNIQUE,
-    name varchar(100) NOT NULL,
+    domain_id SERIAL,
+    code varchar(50),
+    name varchar(100),
     description text,
     subscription_flag boolean DEFAULT true,
-    display_order int4 NOT NULL DEFAULT 999,
+    display_order int4 DEFAULT 999,
     ui_icon varchar(50),
     active_flag boolean DEFAULT true,
     created_ts timestamptz DEFAULT now(),

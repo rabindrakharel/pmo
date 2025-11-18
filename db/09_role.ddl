@@ -20,31 +20,31 @@
 -- ============================================================================
 
 CREATE TABLE app.role (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id uuid DEFAULT gen_random_uuid(),
 
   -- Standard fields (common across all entities) - ALWAYS FIRST
   code varchar(100),
-  name text NOT NULL,
+  name text,
   descr text,
-  from_ts timestamptz NOT NULL DEFAULT now(),
+  from_ts timestamptz DEFAULT now(),
   to_ts timestamptz,
-  active_flag boolean NOT NULL DEFAULT true,
-  created_ts timestamptz NOT NULL DEFAULT now(),
-  updated_ts timestamptz NOT NULL DEFAULT now(),
+  active_flag boolean DEFAULT true,
+  created_ts timestamptz DEFAULT now(),
+  updated_ts timestamptz DEFAULT now(),
   version integer DEFAULT 1,
 
   -- Entity metadata (new standard)
   metadata jsonb DEFAULT '{}'::jsonb,
 
   -- Role identification
-  role_code text NOT NULL,
-  role_category text NOT NULL DEFAULT 'operational',
+  role_code text,
+  role_category text DEFAULT 'operational',
 
   -- Role attributes (renamed to *_flag pattern)
-  system_role_flag boolean NOT NULL DEFAULT false,
-  management_role_flag boolean NOT NULL DEFAULT false,
-  client_facing_flag boolean NOT NULL DEFAULT false,
-  safety_critical_flag boolean NOT NULL DEFAULT false,
+  system_role_flag boolean DEFAULT false,
+  management_role_flag boolean DEFAULT false,
+  client_facing_flag boolean DEFAULT false,
+  safety_critical_flag boolean DEFAULT false,
 
   -- Access and permissions (renamed to *_flag pattern)
   background_check_required_flag boolean DEFAULT false,

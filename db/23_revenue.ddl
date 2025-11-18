@@ -34,15 +34,15 @@ DROP TABLE IF EXISTS app.revenue CASCADE;
 
 CREATE TABLE app.revenue (
     -- Primary Key
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid(),
 
     -- Revenue Identification
-    revenue_number VARCHAR(50) NOT NULL UNIQUE,        -- Human-readable revenue transaction number (e.g., "REV-2025-00123")
+    revenue_number VARCHAR(50),        -- Human-readable revenue transaction number (e.g., "REV-2025-00123")
     revenue_type VARCHAR(50) DEFAULT 'standard',       -- 'standard', 'recurring', 'one_time', 'adjustment', 'refund'
 
     -- Date/Time Dimensions
-    revenue_date DATE NOT NULL,                         -- Date revenue was recognized
-    revenue_datetime TIMESTAMP NOT NULL DEFAULT NOW(),  -- Precise revenue timestamp
+    revenue_date DATE,                         -- Date revenue was recognized
+    revenue_datetime TIMESTAMP DEFAULT NOW(),  -- Precise revenue timestamp
     recognition_date DATE,                              -- Accounting revenue recognition date
     fiscal_year INTEGER,                                -- Fiscal year
     accounting_period VARCHAR(20),                      -- Accounting period (e.g., "2025-01", "Q1-2025")
@@ -69,7 +69,7 @@ CREATE TABLE app.revenue (
     office_name VARCHAR(255),                           -- Denormalized office name
 
     -- Revenue Metrics (Canadian Dollars)
-    revenue_amount_cad DECIMAL(15,2) NOT NULL,          -- Total revenue amount
+    revenue_amount_cad DECIMAL(15,2),          -- Total revenue amount
     cost_amount_cad DECIMAL(15,2) DEFAULT 0,            -- Associated cost (for margin calculation)
     margin_amount_cad DECIMAL(15,2),                    -- Margin (revenue - cost)
     margin_percent DECIMAL(5,2),                        -- Margin percentage
@@ -99,10 +99,6 @@ CREATE TABLE app.revenue (
 );
 
 -- Trigger to calculate derived fields
-CREATE OR REPLACE FUNCTION app.calculate_f_revenue_fields() RETURNS TRIGGER AS $$
-BEGIN
-    -- Calculate margin
-    NEW.margin_amount_cad := NEW.revenue_amount_cad - COALESCE(NEW.cost_amount_cad, 0);
 
     IF NEW.revenue_amount_cad > 0 THEN
         NEW.margin_percent := (NEW.margin_amount_cad / NEW.revenue_amount_cad) * 100;
@@ -124,18 +120,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER f_revenue_calculate_fields BEFORE INSERT OR UPDATE ON app.revenue
-    FOR EACH ROW EXECUTE FUNCTION app.calculate_f_revenue_fields();
 
 -- Indexes for performance
-CREATE INDEX idx_f_revenue_date ON app.revenue(revenue_date);
-CREATE INDEX idx_f_revenue_category ON app.revenue(dl__revenue_category);
-CREATE INDEX idx_f_revenue_subcategory ON app.revenue(dl__revenue_subcategory);
-CREATE INDEX idx_f_revenue_client_id ON app.revenue(client_id);
-CREATE INDEX idx_f_revenue_project_id ON app.revenue(project_id);
-CREATE INDEX idx_f_revenue_invoice_id ON app.revenue(invoice_id);
-CREATE INDEX idx_f_revenue_period ON app.revenue(accounting_period);
-CREATE INDEX idx_f_revenue_fiscal_year ON app.revenue(fiscal_year);
 
 -- =====================================================
 -- SAMPLE DATA: Curated Revenue Transactions

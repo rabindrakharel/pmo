@@ -288,7 +288,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           AND (
             EXISTS (
               SELECT 1 FROM app.d_entity_rbac rbac
-              WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+              WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
                 AND rbac.entity_name = 'form'
                 AND (rbac.entity_id = f.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
                 AND rbac.active_flag = true
@@ -794,7 +794,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Check view permission on form
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.d_entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}::uuid
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}::uuid
           AND rbac.entity_name = 'form'
           AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
@@ -899,7 +899,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Check view permission on form
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.d_entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = 'form'
           AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
@@ -990,7 +990,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Check edit permission on form (permission 1)
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.d_entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = 'form'
           AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
@@ -1063,7 +1063,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Check view permission on form
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.d_entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
+        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
           AND rbac.entity_name = 'form'
           AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
@@ -1239,7 +1239,7 @@ export async function formRoutes(fastify: FastifyInstance) {
   // ============================================================================
   // Child Entity Endpoints (Auto-Generated from d_entity metadata)
   // ============================================================================
-  // Creates: GET /api/v1/form/:id/{child} for each child in d_entity.child_entities
+  // Creates: GET /api/v1/form/:id/{child} for each child in d_entity.child_entity_codes
   // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
   await createChildEntityEndpointsFromMetadata(fastify, ENTITY_TYPE);
 }

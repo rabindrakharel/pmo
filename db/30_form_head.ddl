@@ -39,9 +39,9 @@
 -- =====================================================
 
 CREATE TABLE app.form_head (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    id uuid DEFAULT gen_random_uuid(),
     code varchar(50),   -- No unique constraint
-    name varchar(200) NOT NULL,
+    name varchar(200),
     descr text,
     metadata jsonb DEFAULT '{}'::jsonb,
     internal_url varchar(500),   -- Internal form URL: /form/{id} (authenticated access)

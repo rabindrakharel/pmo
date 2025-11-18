@@ -46,7 +46,7 @@ interface CreateEventRequest {
   // Optional: Attendees to automatically create event-person mappings
   attendees?: Array<{
     person_entity_type: 'employee' | 'client' | 'customer';
-    person_entity_id: string;
+    person_id: string;
     event_rsvp_status?: 'pending' | 'accepted' | 'declined';
   }>;
 }
@@ -232,7 +232,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
               OR EXISTS (
                 SELECT 1 FROM app.d_entity_event_person_calendar epc
                 WHERE epc.event_id = e.id
-                  AND epc.person_entity_id = ${person_id}::uuid
+                  AND epc.person_id = ${person_id}::uuid
                   AND epc.person_entity_type = ${person_type}
                   AND epc.active_flag = true
               )
@@ -243,7 +243,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
             AND EXISTS (
               SELECT 1 FROM app.d_entity_event_person_calendar epc
               WHERE epc.event_id = e.id
-                AND epc.person_entity_id = ${person_id}::uuid
+                AND epc.person_id = ${person_id}::uuid
                 AND epc.person_entity_type = ${person_type}
                 AND epc.active_flag = true
             )
@@ -299,7 +299,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           SELECT
             epc.event_id::text,
             epc.person_entity_type,
-            epc.person_entity_id::text,
+            epc.person_id::text,
             epc.event_rsvp_status,
             CASE
               WHEN epc.person_entity_type = 'employee' THEN emp.name
@@ -310,8 +310,8 @@ export async function eventRoutes(fastify: FastifyInstance) {
               WHEN epc.person_entity_type = 'customer' THEN cust.metadata->>'email'
             END as person_email
           FROM app.d_entity_event_person_calendar epc
-          LEFT JOIN app.d_employee emp ON epc.person_entity_id = emp.id AND epc.person_entity_type = 'employee'
-          LEFT JOIN app.d_cust cust ON epc.person_entity_id = cust.id AND epc.person_entity_type = 'customer'
+          LEFT JOIN app.d_employee emp ON epc.person_id = emp.id AND epc.person_entity_type = 'employee'
+          LEFT JOIN app.d_cust cust ON epc.person_id = cust.id AND epc.person_entity_type = 'customer'
           WHERE epc.event_id = ANY(${eventIds}::uuid[])
             AND epc.active_flag = true
           ORDER BY epc.person_entity_type, epc.event_rsvp_status
@@ -412,7 +412,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           code,
           name,
           person_entity_type,
-          person_entity_id::text,
+          person_id::text,
           event_rsvp_status,
           from_ts::text,
           to_ts::text,
@@ -544,7 +544,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
             code,
             name,
             person_entity_type,
-            person_entity_id,
+            person_id,
             event_id,
             event_rsvp_status,
             from_ts,
@@ -570,14 +570,14 @@ export async function eventRoutes(fastify: FastifyInstance) {
       let attendees = [];
       if (eventData.attendees && eventData.attendees.length > 0) {
         for (const attendee of eventData.attendees) {
-          const attendeeCode = `EPC-${eventData.code}-${attendee.person_entity_type.toUpperCase()}-${attendee.person_entity_id.substring(0, 8)}`;
+          const attendeeCode = `EPC-${eventData.code}-${attendee.person_entity_type.toUpperCase()}-${attendee.person_id.substring(0, 8)}`;
 
           const attendeeQuery = client`
             INSERT INTO app.d_entity_event_person_calendar (
               code,
               name,
               person_entity_type,
-              person_entity_id,
+              person_id,
               event_id,
               event_rsvp_status,
               from_ts,
@@ -587,7 +587,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
               ${attendeeCode},
               ${`${eventData.name} - ${attendee.person_entity_type}`},
               ${attendee.person_entity_type},
-              ${attendee.person_entity_id}::uuid,
+              ${attendee.person_id}::uuid,
               ${newEvent.id}::uuid,
               ${attendee.event_rsvp_status || 'pending'},
               ${eventData.from_ts}::timestamptz,
@@ -759,7 +759,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           epc.id::text,
           epc.code,
           epc.person_entity_type,
-          epc.person_entity_id::text,
+          epc.person_id::text,
           epc.event_rsvp_status,
           epc.from_ts::text,
           epc.to_ts::text,
@@ -775,8 +775,8 @@ export async function eventRoutes(fastify: FastifyInstance) {
             WHEN epc.person_entity_type = 'client' THEN NULL
           END as person_email
         FROM app.d_entity_event_person_calendar epc
-        LEFT JOIN app.d_employee emp ON epc.person_entity_type = 'employee' AND epc.person_entity_id = emp.id
-        LEFT JOIN app.d_cust cust ON epc.person_entity_type = 'customer' AND epc.person_entity_id = cust.id
+        LEFT JOIN app.d_employee emp ON epc.person_entity_type = 'employee' AND epc.person_id = emp.id
+        LEFT JOIN app.d_cust cust ON epc.person_entity_type = 'customer' AND epc.person_id = cust.id
         WHERE epc.event_id = ${id}::uuid AND epc.active_flag = true
         ORDER BY epc.event_rsvp_status, epc.person_entity_type
       `;
