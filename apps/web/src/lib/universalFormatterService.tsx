@@ -1748,6 +1748,7 @@ export interface RenderFieldEditOptions {
   onChange: (fieldKey: string, value: any) => void;
   required?: boolean;
   disabled?: boolean;
+  inlineMode?: boolean;  // For DataTable inline editing (bordered inputs)
 }
 
 export function renderFieldEdit({
@@ -1756,7 +1757,8 @@ export function renderFieldEdit({
   data,
   onChange,
   required = false,
-  disabled = false
+  disabled = false,
+  inlineMode = false
 }: RenderFieldEditOptions): React.ReactElement {
 
   const fieldMeta = detectField(fieldKey, typeof value);
@@ -1767,7 +1769,10 @@ export function renderFieldEdit({
     return renderFieldView(fieldKey, value, data);
   }
 
-  const baseClassName = "w-full border-0 focus:ring-0 focus:outline-none bg-transparent px-0 py-0.5 text-base tracking-tight";
+  // Styling: inline mode uses bordered inputs, form mode uses borderless
+  const baseClassName = inlineMode
+    ? "w-full px-2 py-1.5 border border-dark-400 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500 text-sm"
+    : "w-full border-0 focus:ring-0 focus:outline-none bg-transparent px-0 py-0.5 text-base tracking-tight";
 
   switch (capability.editType) {
     case 'number':
@@ -1801,7 +1806,7 @@ export function renderFieldEdit({
           type="checkbox"
           checked={value || false}
           onChange={(e) => onChange(fieldKey, e.target.checked)}
-          className="w-4 h-4"
+          className={inlineMode ? "h-4 w-4 rounded border-dark-400" : "w-4 h-4"}
           disabled={disabled}
         />
       );
@@ -1875,10 +1880,21 @@ export interface RenderFieldOptions {
   onChange?: (fieldKey: string, value: any) => void;
   required?: boolean;
   disabled?: boolean;
+  inlineMode?: boolean;  // For DataTable inline editing
+  customRender?: (value: any, record: any, allData?: any[]) => React.ReactNode;  // Custom renderer override
 }
 
 export function renderField(options: RenderFieldOptions): React.ReactElement {
-  const { fieldKey, value, mode, data, onChange, required, disabled } = options;
+  const { fieldKey, value, mode, data, onChange, required, disabled, inlineMode, customRender } = options;
+
+  // Use custom render if provided (for view mode only)
+  if (customRender && mode === 'view') {
+    const rendered = customRender(value, data);
+    if (React.isValidElement(rendered)) {
+      return rendered as React.ReactElement;
+    }
+    return <span>{String(rendered)}</span>;
+  }
 
   if (mode === 'view') {
     return renderFieldView(fieldKey, value, data);
@@ -1888,7 +1904,7 @@ export function renderField(options: RenderFieldOptions): React.ReactElement {
     throw new Error('onChange is required in edit mode');
   }
 
-  return renderFieldEdit({ fieldKey, value, data, onChange, required, disabled });
+  return renderFieldEdit({ fieldKey, value, data, onChange, required, disabled, inlineMode });
 }
 
 /**

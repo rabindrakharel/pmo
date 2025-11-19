@@ -12,7 +12,7 @@
 
 import React from 'react';
 import {
-  renderSettingBadge,
+  renderDataLabelBadge,
   loadSettingsColors,
   COLOR_MAP
 } from './universalFormatterService';
@@ -53,10 +53,10 @@ export { COLOR_MAP };
  * - Pass color_code directly from record
  * - Example: renderColorBadge(record.color_code, value)
  *
- * @deprecated Use renderSettingBadge from universalFormatterService.ts directly
+ * @deprecated Use renderDataLabelBadge from universalFormatterService.ts directly
  */
 export function renderColorBadge(colorCode: string, label?: string): React.ReactElement {
-  return renderSettingBadge(colorCode, label);
+  return renderDataLabelBadge(colorCode, label);
 }
 
 /**
@@ -81,7 +81,7 @@ export function createSettingBadgeRenderer(datalabel: string) {
 
   // Return renderer function
   return (value: string | null | undefined): React.ReactElement => {
-    return renderSettingBadge(value, { datalabel });
+    return renderDataLabelBadge(value, { datalabel });
   };
 }
 
@@ -130,7 +130,7 @@ function extractSettingsDatalabel(fieldKey: string): string {
  * const columns = applySettingsBadgeRenderers([
  *   { key: 'project_stage', title: 'Stage', loadOptionsFromSettings: true }
  * ]);
- * // Automatically adds: render: renderSettingBadge('project_stage')
+ * // Automatically adds: render: renderDataLabelBadge('project_stage')
  * ```
  */
 export function applySettingsBadgeRenderers<T extends { key: string; loadOptionsFromSettings?: boolean; render?: any }>(

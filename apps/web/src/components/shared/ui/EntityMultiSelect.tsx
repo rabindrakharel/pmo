@@ -98,6 +98,3 @@ export function EntityMultiSelect({
     />
   );
 }
-
-// Backwards compatibility export
-export const EntityMultiSelectTags = EntityMultiSelect;

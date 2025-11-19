@@ -38,11 +38,12 @@ import {
   type FieldCapability,
   formatCurrency,
   isCurrencyField,
-  renderSettingBadge,
+  renderDataLabelBadge,
   COLOR_MAP,
   getSettingColor,
   loadSettingsColors,
-  formatRelativeTime
+  formatRelativeTime,
+  renderField
 } from '../../../lib/universalFormatterService';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 
@@ -64,7 +65,7 @@ function renderCellValue(column: Column, value: any): React.ReactNode {
   if (column.loadOptionsFromSettings && typeof value === 'string') {
     const datalabel = extractSettingsDatalabel(column.key);
     const colorCode = getSettingColor(datalabel, value);
-    return renderSettingBadge(colorCode, value);
+    return renderDataLabelBadge(colorCode, value);
   }
 
   // Auto-format currency fields
@@ -206,7 +207,7 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
           maxHeight: '32px'}}
       >
         {selectedOption ? (
-          renderSettingBadge(selectedColor, String(selectedOption.label))
+          renderDataLabelBadge(selectedColor, String(selectedOption.label))
         ) : (
           <span className="text-dark-600">Select...</span>
         )}
@@ -243,7 +244,7 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-dark-100 transition-colors flex items-center"
                 >
-                  {renderSettingBadge(optionColor, String(opt.label))}
+                  {renderDataLabelBadge(optionColor, String(opt.label))}
                 </button>
               );
             })}
@@ -1178,7 +1179,7 @@ export function EntityDataTable<T = any>({
                                   <div className="flex-1 min-w-0">
                                     {isSettingsField ? (
                                       // Settings field - always render badge (with or without color)
-                                      colorCode ? renderSettingBadge(colorCode, option) : renderSettingBadge(undefined, option)
+                                      colorCode ? renderDataLabelBadge(colorCode, option) : renderDataLabelBadge(undefined, option)
                                     ) : (
                                       // Non-settings field - render text
                                       <span className="text-sm text-dark-600 group-hover:text-dark-600 truncate">{option}</span>
@@ -1554,20 +1555,23 @@ export function EntityDataTable<T = any>({
                           onClick={(e) => isEditing && e.stopPropagation()}
                         >
                           {isEditing && fieldEditable ? (
-                            // FILE UPLOAD FIELD (drag-drop)
+                            // ============================================================================
+                            // EDIT MODE - Universal Field Renderer
+                            // ============================================================================
+                            // Special cases that need custom components
                             editType === 'file' ? (
+                              // FILE UPLOAD - Complex drag-drop component
                               <InlineFileUploadCell
                                 value={(record as any)[column.key]}
-                                entityCode={onEdit ? 'artifact' : 'cost'} // Inferred from context
+                                entityCode={onEdit ? 'artifact' : 'cost'}
                                 entityId={(record as any).id}
                                 fieldName={column.key}
                                 accept={capability?.acceptedFileTypes}
                                 onUploadComplete={(fileUrl) => onInlineEdit?.(recordId, column.key, fileUrl)}
                                 disabled={false}
                               />
-                            ) :
-                            // COLOR PICKER FIELD (for settings entities)
-                            column.key === 'color_code' && colorOptions ? (
+                            ) : column.key === 'color_code' && colorOptions ? (
+                              // COLOR PICKER - Entity-specific field for settings tables
                               <div className="relative w-full">
                                 <select
                                   value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
@@ -1590,117 +1594,33 @@ export function EntityDataTable<T = any>({
                                     </option>
                                   ))}
                                 </select>
-                                {/* Custom dropdown arrow */}
                                 <ChevronDown className="h-4 w-4 text-dark-700 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                               </div>
-                            ) :
-                            // SETTINGS DROPDOWN FIELD WITH COLORED BADGES
-                            editType === 'select' && hasSettingOptions ? (
+                            ) : editType === 'select' && hasSettingOptions ? (
+                              // SETTINGS DROPDOWN - ColoredDropdown component for dl__* fields
                               <ColoredDropdown
                                 value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
                                 options={columnOptions}
                                 onChange={(value) => onInlineEdit?.(recordId, column.key, value)}
                                 onClick={(e) => e.stopPropagation()}
                               />
-                            ) :
-                            // TAGS FIELD (comma-separated text)
-                            editType === 'tags' ? (
-                              <input
-                                type="text"
-                                value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
-                                onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                placeholder="Enter tags (comma-separated)"
-                                className="w-full px-2 py-1.5 border border-dark-400 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500"
-                                style={{
-                                  fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
-                                  fontSize: '14px',
-                                  color: '#37352F'
-                                }}
-                              />
-                            ) :
-                            // NUMBER FIELD
-                            editType === 'number' ? (
-                              <input
-                                type="number"
-                                value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
-                                onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-full px-2 py-1.5 border border-dark-400 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500"
-                                style={{
-                                  fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
-                                  fontSize: '14px',
-                                  color: '#37352F'
-                                }}
-                              />
-                            ) :
-                            // DATE FIELD
-                            editType === 'date' ? (
-                              <input
-                                type="date"
-                                value={(() => {
-                                  const dateValue = editedData[column.key] ?? (record as any)[column.key];
-                                  if (!dateValue) return '';
-                                  // Format to yyyy-MM-dd if it's a full ISO timestamp
-                                  try {
-                                    const date = new Date(dateValue);
-                                    if (isNaN(date.getTime())) return '';
-                                    return date.toISOString().split('T')[0];
-                                  } catch {
-                                    return '';
-                                  }
-                                })()}
-                                onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value || null)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-full px-2 py-1.5 border border-dark-400 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500"
-                                style={{
-                                  fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
-                                  fontSize: '14px',
-                                  color: '#37352F'
-                                }}
-                              />
-                            ) :
-                            // BOOLEAN FIELD (checkbox)
-                            editType === 'boolean' ? (
-                              <input
-                                type="checkbox"
-                                checked={editedData[column.key] ?? (record as any)[column.key] ?? false}
-                                onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.checked)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="h-4 w-4 rounded border-dark-400 text-slate-600 focus:ring-2 focus:ring-slate-500/30"
-                              />
-                            ) :
-                            // READONLY FIELD (display only)
-                            editType === 'readonly' ? (
-                              <div
-                                className="px-2 py-1.5 text-dark-600 italic"
-                                style={{
-                                  fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
-                                  fontSize: '14px'
-                                }}
-                              >
-                                {column.render
-                                  ? column.render((record as any)[column.key], record, data)
-                                  : renderCellValue(column, (record as any)[column.key])
-                                }
-                              </div>
                             ) : (
-                              // TEXT FIELD (default)
-                              <input
-                                type="text"
-                                value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
-                                onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-full px-2 py-1.5 border border-dark-400 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500"
-                                style={{
-                                  fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
-                                  fontSize: '14px',
-                                  color: '#37352F'
-                                }}
-                              />
+                              // ALL OTHER FIELDS - Universal renderer handles text, number, date, boolean, etc.
+                              <div onClick={(e) => e.stopPropagation()}>
+                                {renderField({
+                                  fieldKey: column.key,
+                                  value: editedData[column.key] ?? (record as any)[column.key],
+                                  mode: 'edit',
+                                  onChange: (key, val) => onInlineEdit?.(recordId, key, val),
+                                  inlineMode: true,
+                                  data: record
+                                })}
+                              </div>
                             )
                           ) : (
-                            // Display mode for all fields (editable or not)
+                            // ============================================================================
+                            // VIEW MODE - Universal Field Renderer
+                            // ============================================================================
                             <div
                               style={{
                                 position: 'relative',

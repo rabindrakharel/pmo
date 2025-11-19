@@ -74,6 +74,3 @@ export function EntitySelect({
     />
   );
 }
-
-// Backwards compatibility export
-export const EntitySelectDropdown = EntitySelect;
