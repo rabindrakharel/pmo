@@ -1400,6 +1400,57 @@ export function transformForApi(data: Record<string, any>, originalRecord?: Reco
     }
   }
 
+  // ============================================================================
+  // Convert _ID and _IDS structured format to flat UUID fields for API
+  // ============================================================================
+  // Backend expects: { manager__employee_id: "uuid" }
+  // Frontend sends: { _ID: { manager: { entity_code: "employee", manager__employee_id: "uuid", manager: "John" } } }
+  // This converts back to the flat format before API submission
+
+  // Convert single entity references (_ID)
+  if (transformed._ID && typeof transformed._ID === 'object') {
+    Object.entries(transformed._ID).forEach(([labelField, refData]: [string, any]) => {
+      if (!refData || typeof refData !== 'object') return;
+
+      // Find the UUID field (e.g., "manager__employee_id")
+      const uuidField = Object.keys(refData).find(k => k.endsWith('_id'));
+      if (uuidField && refData[uuidField]) {
+        // Add flat UUID field to transformed object
+        transformed[uuidField] = refData[uuidField];
+      }
+    });
+    // Remove _ID from payload
+    delete transformed._ID;
+  }
+
+  // Convert array entity references (_IDS)
+  if (transformed._IDS && typeof transformed._IDS === 'object') {
+    Object.entries(transformed._IDS).forEach(([labelField, refArray]: [string, any[]]) => {
+      if (!Array.isArray(refArray) || refArray.length === 0) return;
+
+      // Get first item to determine UUID field name
+      const firstItem = refArray[0];
+      if (!firstItem || typeof firstItem !== 'object') return;
+
+      // Find the UUID field (e.g., "stakeholder__employee_id")
+      const uuidField = Object.keys(firstItem).find(k => k.endsWith('_id'));
+      if (uuidField) {
+        // Convert to plural form (e.g., "stakeholder__employee_ids")
+        const pluralUuidField = uuidField.replace(/_id$/, '_ids');
+
+        // Extract all UUIDs from the array
+        const uuids = refArray
+          .map(ref => ref[uuidField])
+          .filter(Boolean); // Remove null/undefined
+
+        // Add flat UUID array field to transformed object
+        transformed[pluralUuidField] = uuids;
+      }
+    });
+    // Remove _IDS from payload
+    delete transformed._IDS;
+  }
+
   return transformed;
 }
 
