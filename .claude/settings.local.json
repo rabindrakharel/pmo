@@ -208,7 +208,8 @@
       "Bash(git -C /home/rabin/projects/pmo log --follow --name-status -- apps/api/src/modules/entity-instance-lookup/routes.ts)",
       "Bash(git -C /home/rabin/projects/pmo diff apps/api/src/modules/index.ts)",
       "Bash(git -C /home/rabin/projects/pmo diff apps/web/src/lib/api.ts)",
-      "Bash(git -C /home/rabin/projects/pmo log --oneline -5 apps/web/src/lib/api.ts)"
+      "Bash(git -C /home/rabin/projects/pmo log --oneline -5 apps/web/src/lib/api.ts)",
+      "Bash(git -C /home/rabin/projects/pmo log --oneline claude/brainstorm-solution-01TEN3Q2icCG4PGPwp6wAXbV -5)"
     ],
     "deny": [],
     "ask": [],

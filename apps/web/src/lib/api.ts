@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { generateMappingFromStructuredFormat } from './labelToUuidFieldMapper';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -7,40 +6,6 @@ export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json'}});
-
-// ========================================
-// LABEL→UUID MAPPING AUTO-GENERATION
-// ========================================
-
-/**
- * Global reference to mapping context setter
- * Injected by App.tsx after context is available
- */
-let mappingContextSetter: ((entityCode: string, entityId: string, data: Record<string, any>) => void) | null = null;
-
-/**
- * Register the mapping context setter from LabelToUuidMappingContext
- * Called once during app initialization
- *
- * @param setter - Function from useLabelToUuidMappingContext().setMappingFromData
- */
-export function registerMappingContextSetter(
-  setter: (entityCode: string, entityId: string, data: Record<string, any>) => void
-) {
-  mappingContextSetter = setter;
-}
-
-/**
- * Extract entity type from API URL
- *
- * @example
- * "/api/v1/project/abc-123" → "project"
- * "/api/v1/employee/xyz-789" → "employee"
- */
-function extractEntityTypeFromUrl(url: string): string | null {
-  const match = url.match(/\/api\/v1\/([^/?]+)/);
-  return match ? match[1] : null;
-}
 
 // ========================================
 // INTERCEPTORS
@@ -53,96 +18,6 @@ apiClient.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
-});
-
-// Auto-generate label→UUID mappings from API responses
-apiClient.interceptors.response.use((response) => {
-  try {
-    // Only process successful responses with data
-    if (!response.data || !response.config.url) {
-      return response;
-    }
-
-    // Skip processing for specific endpoints that don't contain entity references
-    const url = response.config.url;
-    const skipPatterns = [
-      '/entity-instance-lookup', // /api/v1/entity/*/entity-instance-lookup (dropdown options)
-      '/auth/',           // Authentication endpoints
-      '/setting',         // Settings/datalabel endpoints
-      '/types',           // Entity type metadata
-      '/children',        // Child entity metadata
-      '/dynamic-child'    // Dynamic child tabs
-    ];
-
-    if (skipPatterns.some(pattern => url.includes(pattern))) {
-      return response;
-    }
-
-    const data = response.data;
-
-    // Generate mapping from structured _ID/_IDS format
-    const generateMapping = (item: any): any => {
-      if (item._ID || item._IDS) {
-        return generateMappingFromStructuredFormat(item._ID, item._IDS);
-      }
-      return {}; // No entity references
-    };
-
-    // Handle single entity responses (has `id` field)
-    if (data.id && typeof data.id === 'string') {
-      const entityCode = extractEntityTypeFromUrl(response.config.url);
-
-      if (entityCode && mappingContextSetter) {
-        // Generate and cache mapping for this entity
-        const mapping = generateMapping(data);
-
-        // Only store if mapping is non-empty
-        if (Object.keys(mapping).length > 0) {
-          mappingContextSetter(entityCode, data.id, data);
-        }
-      }
-    }
-
-    // Handle list responses (array or paginated)
-    if (Array.isArray(data)) {
-      const entityCode = extractEntityTypeFromUrl(response.config.url);
-
-      if (entityCode && mappingContextSetter) {
-        // Generate mappings for each item in list
-        data.forEach((item: any) => {
-          if (item.id && typeof item.id === 'string') {
-            const mapping = generateMapping(item);
-
-            if (Object.keys(mapping).length > 0) {
-              mappingContextSetter(entityCode, item.id, item);
-            }
-          }
-        });
-      }
-    }
-
-    // Handle paginated responses with `data` array
-    if (data.data && Array.isArray(data.data)) {
-      const entityCode = extractEntityTypeFromUrl(response.config.url);
-
-      if (entityCode && mappingContextSetter) {
-        data.data.forEach((item: any) => {
-          if (item.id && typeof item.id === 'string') {
-            const mapping = generateMapping(item);
-
-            if (Object.keys(mapping).length > 0) {
-              mappingContextSetter(entityCode, item.id, item);
-            }
-          }
-        });
-      }
-    }
-  } catch (error) {
-    // Don't break API responses if mapping generation fails
-    console.error('Error generating label→UUID mapping from API response:', error);
-  }
-
-  return response;
 });
 
 export interface LoginRequest {

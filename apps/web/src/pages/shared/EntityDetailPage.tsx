@@ -135,7 +135,7 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
   }, [tabs, entityCode, id, hasChildEntities]);
 
   // Load entity data - defined before useEffect to avoid TDZ error
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (signal?: AbortSignal) => {
     try {
       setLoading(true);
       setError(null);
@@ -143,6 +143,12 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
       // Type-safe API call using APIFactory
       const api = APIFactory.getAPI(entityCode);
       const response = await api.get(id!);
+
+      // Check if the request was aborted
+      if (signal?.aborted) {
+        return;
+      }
+
       let responseData = response.data || response;
 
       // Special handling for form entity - parse schema if it's a string
@@ -182,11 +188,33 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
     }
   }, [id, entityCode]);
 
+  // Use a ref to track if data is currently being loaded to prevent double fetching
+  const isLoadingRef = React.useRef(false);
+
   useEffect(() => {
-    if (id) {
-      loadData();
-    }
-  }, [id, entityCode, loadData]);
+    const abortController = new AbortController();
+
+    const fetchData = async () => {
+      if (id && !isLoadingRef.current) {
+        isLoadingRef.current = true;
+        try {
+          await loadData(abortController.signal);
+        } finally {
+          if (!abortController.signal.aborted) {
+            isLoadingRef.current = false;
+          }
+        }
+      }
+    };
+
+    fetchData();
+
+    return () => {
+      abortController.abort();
+      isLoadingRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, entityCode]); // loadData excluded to prevent circular dependency
 
   // Auto-edit mode when navigating from child entity creation
   useEffect(() => {
@@ -196,11 +224,16 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
       // Clear the state to prevent re-entering edit mode on subsequent navigations
       window.history.replaceState({}, document.title);
     }
-  }, [data, loading, location.state]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, location.state]); // data removed from deps - we only care if it exists, not its contents
 
   // Register entity in navigation history when data is loaded
+  // Use a ref to track if we've already pushed this entity to prevent duplicates
+  const hasPushedEntityRef = React.useRef(false);
+
   useEffect(() => {
-    if (data && id) {
+    if (data && id && !hasPushedEntityRef.current) {
+      hasPushedEntityRef.current = true;
       pushEntity({
         entityCode,
         entityId: id,
@@ -208,23 +241,42 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
         timestamp: Date.now()
       });
     }
-  }, [data, id, entityCode, pushEntity]);
+
+    // Reset the flag when entity changes
+    return () => {
+      if (id !== data?.id) {
+        hasPushedEntityRef.current = false;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.id, id, entityCode]); // Only re-run when entity ID changes, not entire data object
 
   // Update entity name in navigation history when it changes
+  // Use a timeout to debounce rapid updates
   useEffect(() => {
     if (data) {
-      const entityName = data.name || data.title || 'Untitled';
-      updateCurrentEntityName(entityName);
+      const timeoutId = setTimeout(() => {
+        const entityName = data.name || data.title || 'Untitled';
+        updateCurrentEntityName(entityName);
+      }, 100); // Small debounce to prevent rapid updates
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [data?.name, data?.title, updateCurrentEntityName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.name, data?.title]); // updateCurrentEntityName removed from deps
 
   // Update current entity's active tab when viewing a child entity tab
   // This ensures we return to the correct tab when going back
   useEffect(() => {
     if (currentChildEntity) {
-      updateCurrentEntityActiveTab(currentChildEntity);
+      const timeoutId = setTimeout(() => {
+        updateCurrentEntityActiveTab(currentChildEntity);
+      }, 50); // Small debounce
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [currentChildEntity, updateCurrentEntityActiveTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentChildEntity]); // updateCurrentEntityActiveTab removed from deps
 
   const handleSave = async () => {
     try {

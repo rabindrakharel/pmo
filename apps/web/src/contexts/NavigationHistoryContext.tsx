@@ -175,21 +175,36 @@ export function NavigationHistoryProvider({ children }: { children: ReactNode })
     }
   }, [history, navigate, popEntity]);
 
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = React.useMemo(
+    () => ({
+      history,
+      pushEntity,
+      popEntity,
+      clearHistory,
+      goBack,
+      getCurrentEntity,
+      getParentEntity,
+      updateCurrentEntityName,
+      updateParentActiveTab,
+      updateCurrentEntityActiveTab
+    }),
+    [
+      history,
+      pushEntity,
+      popEntity,
+      clearHistory,
+      goBack,
+      getCurrentEntity,
+      getParentEntity,
+      updateCurrentEntityName,
+      updateParentActiveTab,
+      updateCurrentEntityActiveTab
+    ]
+  );
+
   return (
-    <NavigationHistoryContext.Provider
-      value={{
-        history,
-        pushEntity,
-        popEntity,
-        clearHistory,
-        goBack,
-        getCurrentEntity,
-        getParentEntity,
-        updateCurrentEntityName,
-        updateParentActiveTab,
-        updateCurrentEntityActiveTab
-      }}
-    >
+    <NavigationHistoryContext.Provider value={contextValue}>
       {children}
     </NavigationHistoryContext.Provider>
   );

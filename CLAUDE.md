@@ -507,3 +507,4 @@ setting_datalabel_* tables → /api/v1/entity/:entityCode/entity-instance-lookup
   - Revamped `docs/datamodel/README.md` - Database schema based on DDL files
   - Revamped `docs/api/entity_endpoint_design.md` - Actual patterns with architecture diagrams
 - v3.2.0 (2025-11-15): Added comprehensive API patterns, universal filter system, RBAC model details
+- 2
