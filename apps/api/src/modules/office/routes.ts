@@ -55,9 +55,11 @@ import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factor
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 // ✅ Centralized unified data gate - loosely coupled API
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
-import { getEntityInfrastructure, Permission } from '../../services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✨ Backend Formatter Service - backend-driven metadata generation
+import { getEntityMetadata } from '../../services/backend-formatter.service.js';
 
 // Schema based on actual d_office table structure (physical locations only)
 // NOTE: Hierarchy fields (parent_id, dl__office_hierarchy_level) are in d_office_hierarchy
@@ -207,7 +209,15 @@ export async function officeRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return createPaginatedResponse(offices, total, limit, offset);
+      // ✨ Generate field metadata from first row (if available)
+      const fieldMetadata = offices.length > 0
+        ? getEntityMetadata(ENTITY_CODE, offices[0])
+        : getEntityMetadata(ENTITY_CODE);
+
+      return {
+        ...createPaginatedResponse(offices, total, limit, offset),
+        metadata: fieldMetadata
+      };
     } catch (error) {
       fastify.log.error({ error, stack: (error as Error).stack }, 'Error fetching offices');
       return reply.status(500).send({ error: 'Internal server error' });
@@ -273,7 +283,13 @@ export async function officeRoutes(fastify: FastifyInstance) {
         canSeeSafetyInfo: true,
       };
 
-      return filterUniversalColumns(office[0], userPermissions);
+      // ✨ Generate field metadata from the actual row
+      const fieldMetadata = getEntityMetadata(ENTITY_CODE, office[0]);
+
+      return {
+        data: filterUniversalColumns(office[0], userPermissions),
+        metadata: fieldMetadata
+      };
     } catch (error) {
       fastify.log.error('Error fetching office:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

@@ -149,9 +149,11 @@ import { universalEntityDelete, createEntityDeleteEndpoint } from '../../lib/ent
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 // ✅ Centralized unified data gate - loosely coupled API
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
-import { getEntityInfrastructure, Permission } from '../../services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✨ Backend Formatter Service - backend-driven metadata generation
+import { getEntityMetadata } from '../../services/backend-formatter.service.js';
 
 const TaskSchema = Type.Object({
   id: Type.String(),
@@ -373,12 +375,19 @@ export async function taskRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
+      // ✨ Generate field metadata from first row (if available)
+      const fieldMetadata = tasks.length > 0
+        ? getEntityMetadata(ENTITY_CODE, tasks[0])
+        : getEntityMetadata(ENTITY_CODE);
+
       // Return all columns without filtering
       return {
         data: tasks,
         total,
         limit,
-        offset};
+        offset,
+        metadata: fieldMetadata
+      };
     } catch (error) {
       fastify.log.error('Error fetching tasks:', error);
       console.error('Detailed task error:', error);
@@ -472,9 +481,16 @@ export async function taskRoutes(fastify: FastifyInstance) {
         canSeePII: true,
         canSeeFinancial: true,
         canSeeSystemFields: true,
-        canSeeSafetyInfo: true};
+        canSeeSafetyInfo: true
+      };
 
-      return filterUniversalColumns(task[0], userPermissions);
+      // ✨ Generate field metadata from the actual row
+      const fieldMetadata = getEntityMetadata(ENTITY_CODE, task[0]);
+
+      return {
+        data: filterUniversalColumns(task[0], userPermissions),
+        metadata: fieldMetadata
+      };
     } catch (error) {
       fastify.log.error('Error fetching task:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
