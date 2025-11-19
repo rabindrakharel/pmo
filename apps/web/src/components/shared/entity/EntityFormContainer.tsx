@@ -12,8 +12,8 @@ import { formatRelativeTime, formatFriendlyDate, formatCurrency, isCurrencyField
 import { MetadataTable } from './MetadataTable';
 import { QuoteItemsRenderer } from './QuoteItemsRenderer';
 import { getBadgeClass, textStyles } from '../../../lib/designSystem';
-import { EntitySelectDropdown } from '../ui/EntitySelectDropdown';
-import { EntityMultiSelectTags } from '../ui/EntityMultiSelectTags';
+import { EntitySelect } from '../ui/EntitySelect';
+import { EntityMultiSelect } from '../ui/EntityMultiSelect';
 
 // ============================================================================
 // NEW: Universal Field Detector Integration
@@ -755,8 +755,7 @@ export function EntityFormContainer({
                             </span>
                           ) : (
                             // Edit mode: Show dropdown
-                            <EntitySelectDropdown
-                              label=""
+                            <EntitySelect
                               entityCode={entityCode}
                               value={currentUuid}
                               currentLabel={currentLabel}
@@ -838,8 +837,7 @@ export function EntityFormContainer({
                             </span>
                           ) : (
                             // Edit mode: Show multi-select with tags
-                            <EntityMultiSelectTags
-                              label=""
+                            <EntityMultiSelect
                               entityCode={entityCode}
                               values={refArray || []}
                               labelField={labelField}
