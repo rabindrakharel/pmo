@@ -17,7 +17,7 @@ This document describes the complete data flow from database to UI components, f
 │                          DATABASE LAYER                              │
 │  PostgreSQL 14+ with 50 tables                                      │
 │                                                                      │
-│  CREATE TABLE app.d_project (                                       │
+│  CREATE TABLE app.project (                                       │
 │    id uuid PRIMARY KEY,                                             │
 │    name text,                                                       │
 │    manager__employee_id uuid,           ← Raw UUID                  │
@@ -34,7 +34,7 @@ This document describes the complete data flow from database to UI components, f
 │                                                                      │
 │  fastify.get('/api/v1/project/:id', async (request, reply) => {    │
 │    // STEP 1: Query database                                       │
-│    const project = await db.execute(sql`SELECT * FROM d_project`)  │
+│    const project = await db.execute(sql`SELECT * FROM app.project`)  │
 │    // Result: { manager__employee_id: "uuid-123", ... }            │
 │                                                                      │
 │    // STEP 2: Resolve UUID references (CRITICAL!)                  │
@@ -159,7 +159,7 @@ SELECT
   manager__employee_id,
   sponsor__employee_id,
   stakeholder__employee_ids
-FROM app.d_project
+FROM app.project
 WHERE id = '93106ffb-402e-43a7-8b26-5287e37a1b0e';
 ```
 
@@ -201,7 +201,7 @@ fastify.get('/api/v1/project/:id', {
   // STEP 2: Query database (raw data with UUIDs)
   const result = await db.execute(sql`
     SELECT *
-    FROM app.d_project
+    FROM app.project
     WHERE id = ${id}
   `);
 
@@ -584,7 +584,7 @@ fastify.get('/api/v1/project/:id', async () => {
 
 // ❌ Skip resolution: Large exports, analytics
 fastify.get('/api/v1/project/export', async () => {
-  const projects = await db.execute(sql`SELECT * FROM d_project LIMIT 10000`);
+  const projects = await db.execute(sql`SELECT * FROM app.project LIMIT 10000`);
   return projects;  // Raw UUIDs for export
 });
 ```

@@ -37,10 +37,10 @@
 
 | Problem Area | Where to Look | Key File |
 |--------------|---------------|----------|
-| **RBAC permissions** | `services/`, `datamodel/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` (d_entity_rbac) |
+| **RBAC permissions** | `services/`, `datamodel/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` (entity_rbac) |
 | **Column consistency issues** | `services/` | `UNIVERSAL_FORMATTER_SERVICE.md` (field detection) |
 | **API not working** | `docs/` | `tools.md` (test scripts & troubleshooting) |
-| **Entity linkage broken** | `services/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` (d_entity_instance_link patterns) |
+| **Entity linkage broken** | `services/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` (entity_instance_link patterns) |
 | **Settings/dropdowns** | `settings/` | `settings.md` (20+ settings tables) |
 | **File uploads** | `services/` | `s3-attachment-service.md` |
 | **Styling issues** | `styling/` | `styling_patterns.md` |
@@ -109,9 +109,9 @@
 - `DRY_ARCHITECTURE.md` - Comprehensive DRY principles guide (95% code reuse, 30+ entity types)
 - `COLUMN_CONSISTENCY_UPDATE.md` - v3.1.1 context-independent column pattern
 - `COLUMN_VISIBILITY_SYSTEM.md` - Column selector and visibility management
-- `ENTITY_METADATA_COHERENCE.md` - Entity metadata from d_entity table
+- `ENTITY_METADATA_COHERENCE.md` - Entity metadata from entity table
 - `ENTITY_COHERENCE_ANALYSIS.md` - Entity system coherence analysis
-- `UnifiedLinkageSystem.md` - Entity linkage patterns (d_entity_instance_link)
+- `UnifiedLinkageSystem.md` - Entity linkage patterns (entity_instance_link)
 - `navigation_context.md` - Navigation & breadcrumb system
 - `core_algorithm_design_pattern.md` - Core algorithms & patterns
 - `DYNAMIC_ENTITY_BUILDER.md` - Dynamic entity builder system
@@ -125,12 +125,12 @@
 **When to use:** Understanding database schema, entity relationships, RBAC, table structure
 
 **Files:**
-- `README.md` - Complete data model (50+ tables, NO foreign keys, d_entity_instance_link linkage)
+- `README.md` - Complete data model (50+ tables, NO foreign keys, entity_instance_link linkage)
 - `DDL_STANDARDIZATION_GUIDE.md` - DDL naming conventions and standards
 - `DDL_ROMAN_NUMERAL_MAPPING.md` - Roman numeral prefix mapping for DDL files
 - `NAMING_CONVENTION_MIGRATION_PLAN.md` - Database naming convention migration plan
 
-**Keywords:** database, schema, DDL, tables, relationships, RBAC, d_entity_rbac, d_entity_instance_link, NO foreign keys, naming conventions
+**Keywords:** database, schema, DDL, tables, relationships, RBAC, entity_rbac, entity_instance_link, NO foreign keys, naming conventions
 
 ---
 
@@ -395,9 +395,9 @@
 |----------|----------|--------------|
 | **entity infrastructure, RBAC, registry** | `services/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` ⭐ |
 | **formatting, field detection, currency, dates** | `services/` | `UNIVERSAL_FORMATTER_SERVICE.md` ⭐ |
-| **linkage, parent-child, d_entity_instance_link** | `services/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` |
+| **linkage, parent-child, entity_instance_link** | `services/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` |
 | **database, schema, DDL, NO foreign keys** | `datamodel/` | `README.md` |
-| **RBAC, permissions, d_entity_rbac** | `services/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` |
+| **RBAC, permissions, entity_rbac** | `services/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` |
 | **API, endpoints, routes, entity patterns** | `api/` | `entity_endpoint_design.md` ⭐ |
 | **AI chat, voice calling, MCP, GPT-4** | `ai_chat/` | `AI_CHAT_SYSTEM.md` ⭐ |
 | **MCP, Model Context Protocol, tools** | `mcp/` | `MCP_ARCHITECTURE.md` |

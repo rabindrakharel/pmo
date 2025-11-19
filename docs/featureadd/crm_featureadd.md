@@ -547,7 +547,7 @@ Monday.com is the **#1 Work OS** with 186,000+ customers and $900M ARR. It excel
     - Library: `react-gantt-chart` or `frappe-gantt`
     - Schema addition:
     ```sql
-    ALTER TABLE app.d_task
+    ALTER TABLE app.task
       ADD COLUMN start_date date,
       ADD COLUMN end_date date,
       ADD COLUMN predecessor_task_ids uuid[],
@@ -579,7 +579,7 @@ Monday.com is the **#1 Work OS** with 186,000+ customers and $900M ARR. It excel
       ADD COLUMN longitude decimal(11,8),
       ADD COLUMN geofence_radius_meters integer DEFAULT 100;
 
-    ALTER TABLE app.d_task
+    ALTER TABLE app.task
       ADD COLUMN worksite_id uuid,  -- Link task to worksite
       ADD COLUMN scheduled_arrival_time timestamptz,
       ADD COLUMN actual_arrival_time timestamptz;
@@ -612,8 +612,8 @@ Monday.com is the **#1 Work OS** with 186,000+ customers and $900M ARR. It excel
     function calculateWorkload(employeeId: string, week: Date): Workload {
       const tasks = await db.query(`
         SELECT estimated_hours, actual_hours
-        FROM app.d_task t
-        INNER JOIN app.entity_linkage el ON el.child_task_id = t.id
+        FROM app.task t
+        INNER JOIN app.entity_linkage el ON el.chiltask_id = t.id
         WHERE el.child_entity_type = 'employee'
           AND el.child_entity_id = $1
           AND t.start_date <= $2

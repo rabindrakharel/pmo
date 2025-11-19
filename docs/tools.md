@@ -114,7 +114,7 @@ tools/
 ### Run Database Queries
 
 ```bash
-./tools/run_query.sh "SELECT * FROM app.d_project LIMIT 5;"
+./tools/run_query.sh "SELECT * FROM app.project LIMIT 5;"
 ```
 
 **What it does:**
@@ -126,17 +126,17 @@ tools/
 **Examples:**
 ```bash
 # Query data
-./tools/run_query.sh "SELECT * FROM app.d_employee;"
-./tools/run_query.sh "SELECT COUNT(*) FROM app.d_project;"
+./tools/run_query.sh "SELECT * FROM app.employee;"
+./tools/run_query.sh "SELECT COUNT(*) FROM app.project;"
 
 # Describe table structure
-./tools/run_query.sh "\d app.d_project"
+./tools/run_query.sh "\d app.project"
 
 # List all tables
 ./tools/run_query.sh "\dt app.*"
 
 # Query with joins
-./tools/run_query.sh "SELECT p.name, e.first_name FROM app.d_project p JOIN app.d_employee e ON p.owner_id = e.id;"
+./tools/run_query.sh "SELECT p.name, e.first_name FROM app.project p JOIN app.employee e ON p.owner_id = e.id;"
 
 # Check settings data
 ./tools/run_query.sh "SELECT * FROM app.setting_datalabel_project_stage ORDER BY sort_order;"
@@ -177,7 +177,7 @@ tools/
 ./tools/start-all.sh
 
 # 2. Verify database
-./tools/run_query.sh "SELECT COUNT(*) FROM app.d_employee;"
+./tools/run_query.sh "SELECT COUNT(*) FROM app.employee;"
 
 # 3. Test API is working
 ./tools/test-api.sh GET /api/v1/form
@@ -216,7 +216,7 @@ tools/
 ### Debugging Issues
 ```bash
 # 1. Check database data
-./tools/run_query.sh "SELECT * FROM app.d_employee WHERE id='8260b1b0-5efc-4611-ad33-ee76c0cf7f13';"
+./tools/run_query.sh "SELECT * FROM app.employee WHERE id='8260b1b0-5efc-4611-ad33-ee76c0cf7f13';"
 
 # 2. Check API logs
 ./tools/logs-api.sh

@@ -1594,7 +1594,7 @@ if (/^\d{10}$/.test(phone)) {
 ./tools/logs-api.sh | grep "Tool error:"
 
 # Expected output:
-# [MCPAdapter] ❌ Tool error: customer_create - UNIQUE constraint failed: d_customer.primary_phone
+# [MCPAdapter] ❌ Tool error: customer_create - UNIQUE constraint failed: customer.primary_phone
 ```
 
 ---

@@ -136,7 +136,7 @@ Executes user requests by combining LLM reasoning with function calling to perfo
 5. Function Executor:
    - Validates arguments (name is string, business_id is valid UUID)
    - Calls Functions Service → create_project
-   - Functions Service inserts into d_project table
+   - Functions Service inserts into project table
    - Returns: `{ id: "proj-123", name: "Kitchen Renovation", ... }`
 6. Result sent back to LLM
 7. LLM generates response: "I've created the Kitchen Renovation project for ABC Corp"

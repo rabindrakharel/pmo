@@ -76,7 +76,7 @@ The Order & Fulfillment Domain manages the complete sales lifecycle from initial
 │       │                                                ▼              │
 │  ┌──────────────┐                               ┌────────────┐       │
 │  │   Project    │                               │  Revenue   │       │
-│  │ (d_project)  │                               │(f_revenue) │       │
+│  │ (project)  │                               │(f_revenue) │       │
 │  │              │                               │            │       │
 │  │from Operations│                              │  Financial │       │
 │  │   Domain     │                               │ Management │       │

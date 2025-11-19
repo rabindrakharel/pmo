@@ -118,7 +118,7 @@ The Identity & Access Control Domain is the platform's foundational infrastructu
 │           ▼                                                            │
 │  ┌───────────────────────┐                                            │
 │  │    Employee           │                                             │
-│  │  (d_employee)         │                                             │
+│  │  (employee)         │                                             │
 │  │                       │                                             │
 │  │ from Customer 360     │                                             │
 │  │ Domain                │                                             │
@@ -381,7 +381,7 @@ SELECT EXISTS (
 When entity created, instance auto-registered:
 
 ```sql
--- Trigger on d_project INSERT
+-- Trigger on project INSERT
 INSERT INTO d_entity_instance_registry (
     entity_type,
     entity_id,
@@ -419,7 +419,7 @@ Filter child entities by parent:
 ```sql
 -- Get all tasks for project
 SELECT t.*
-FROM d_task t
+FROM app.task t
 JOIN d_entity_instance_link m
   ON m.child_entity_type = 'task'
   AND m.child_entity_id = t.id::text

@@ -81,7 +81,7 @@ The Communication & Interaction Domain manages all customer-facing communication
 │                                                        ▼            │
 │  ┌────────────────────┐                        ┌──────────────┐    │
 │  │     Employee       │◄───────────────────────┤   Project    │    │
-│  │  (d_employee)      │                        │ (d_project)  │    │
+│  │  (employee)      │                        │ (project)  │    │
 │  │                    │                        │              │    │
 │  │from Customer 360   │                        │from Operations│   │
 │  │Domain              │                        │ Domain       │    │

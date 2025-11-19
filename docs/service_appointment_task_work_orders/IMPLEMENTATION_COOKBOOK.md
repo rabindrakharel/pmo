@@ -520,7 +520,7 @@ export class AIAgentOrchestratorService {
           // Assign to task
           await this.taskClient.update(task.id, {
             metadata: {
-              assigned_employee_id: employee.id,
+              assigneemployee_id: employee.id,
               assigned_at: new Date().toISOString(),
               assigned_by: 'ai_agent'
             }
@@ -1145,7 +1145,7 @@ echo "5. Verifying task..."
 TASK=$(curl -s -X GET "$API_URL/api/v1/task/$TASK_ID" \
   -H "Authorization: Bearer $TOKEN")
 
-echo "$TASK" | jq '{code, name, metadata: {customer_id, assigned_employee_id, event_id}}'
+echo "$TASK" | jq '{code, name, metadata: {customer_id, assigneemployee_id, event_id}}'
 echo ""
 
 # Step 6: Check employee calendar

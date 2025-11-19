@@ -52,7 +52,7 @@ The Financial Management Domain provides comprehensive financial tracking and re
 │         ▼                                        │                │
 │  ┌──────────────────┐                   ┌──────────────────┐      │
 │  │     Project      │──incurs costs────►│     Expense      │      │
-│  │   (d_project)    │                   │   (f_expense)    │      │
+│  │   (project)    │                   │   (f_expense)    │      │
 │  │                  │                   │                  │      │
 │  │ from Operations  │                   │ • CRA Category   │      │
 │  │ Domain           │                   │ • CRA Subcategory│      │
@@ -63,7 +63,7 @@ The Financial Management Domain provides comprehensive financial tracking and re
 │         │                                        ▲                │
 │  ┌──────────────────┐                           │                │
 │  │    Employee      │──incurs expense───────────┘                │
-│  │  (d_employee)    │                                             │
+│  │  (employee)    │                                             │
 │  │                  │                                             │
 │  │ from Customer 360│                                             │
 │  │ Domain           │                                             │
@@ -73,7 +73,7 @@ The Financial Management Domain provides comprehensive financial tracking and re
 │         ▼                                                          │
 │  ┌──────────────────┐        ┌──────────────────┐                │
 │  │     Office       │        │    Business      │                │
-│  │   (d_office)     │        │  (d_business)    │                │
+│  │   (office)     │        │  (business)    │                │
 │  │                  │        │                  │                │
 │  │ P&L Rollup by:   │        │ P&L Rollup by:   │                │
 │  │ • Office         │        │ • Business       │                │

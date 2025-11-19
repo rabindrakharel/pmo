@@ -182,7 +182,7 @@ WHERE id = '33a33333-...';
 ### Schema Structure
 
 ```sql
-CREATE TABLE app.d_project (
+CREATE TABLE app.project (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),  -- New ID per version
     code varchar(50) NOT NULL,                       -- Business key (stable)
     name varchar(200) NOT NULL,
@@ -231,31 +231,31 @@ CREATE TABLE app.d_project (
 
 ```sql
 -- Version 1: Create
-INSERT INTO app.d_project (id, code, name, budget_allocated_amt, version, from_ts, to_ts, active_flag)
+INSERT INTO app.project (id, code, name, budget_allocated_amt, version, from_ts, to_ts, active_flag)
 VALUES ('aaaaaaaa-...', 'PRJ-2024-001', 'Office Expansion', 500000, 1, NOW(), NULL, true);
 
 -- Version 2: Budget increase
 -- Step 1: Close current version
-UPDATE app.d_project
+UPDATE app.project
 SET to_ts = NOW(),
     active_flag = false,
     updated_ts = NOW()
 WHERE id = 'aaaaaaaa-...';
 
 -- Step 2: Create new version
-INSERT INTO app.d_project (id, code, name, budget_allocated_amt, version, from_ts, to_ts, active_flag)
+INSERT INTO app.project (id, code, name, budget_allocated_amt, version, from_ts, to_ts, active_flag)
 VALUES ('bbbbbbbb-...', 'PRJ-2024-001', 'Office Expansion', 750000, 2, NOW(), NULL, true);
          ↑ New ID                                                    ↑ Increased budget  ↑ Version 2
 
 -- Version 3: Name and budget change
 -- Step 1: Close version 2
-UPDATE app.d_project
+UPDATE app.project
 SET to_ts = NOW(),
     active_flag = false
 WHERE id = 'bbbbbbbb-...';
 
 -- Step 2: Create version 3
-INSERT INTO app.d_project (id, code, name, budget_allocated_amt, version, from_ts, to_ts, active_flag)
+INSERT INTO app.project (id, code, name, budget_allocated_amt, version, from_ts, to_ts, active_flag)
 VALUES ('cccccccc-...', 'PRJ-2024-001', 'Corporate HQ Expansion', 1000000, 3, NOW(), NULL, true);
          ↑ New ID                        ↑ New name                  ↑ Higher budget
 ```
@@ -264,7 +264,7 @@ VALUES ('cccccccc-...', 'PRJ-2024-001', 'Corporate HQ Expansion', 1000000, 3, NO
 
 ```sql
 -- Get current active version
-SELECT * FROM app.d_project
+SELECT * FROM app.project
 WHERE code = 'PRJ-2024-001'
   AND active_flag = true
   AND to_ts IS NULL;
@@ -274,7 +274,7 @@ WHERE code = 'PRJ-2024-001'
 
 ```sql
 -- Get project state as of February 20, 2024
-SELECT * FROM app.d_project
+SELECT * FROM app.project
 WHERE code = 'PRJ-2024-001'
   AND from_ts <= '2024-02-20'
   AND (to_ts IS NULL OR to_ts > '2024-02-20');
@@ -285,7 +285,7 @@ WHERE code = 'PRJ-2024-001'
 ```sql
 -- Get all versions ordered by time
 SELECT id, code, name, budget_allocated_amt, version, from_ts, to_ts, active_flag
-FROM app.d_project
+FROM app.project
 WHERE code = 'PRJ-2024-001'
 ORDER BY version DESC, from_ts DESC;
 ```
@@ -353,28 +353,28 @@ WHERE id = 'artifact-uuid';
 
 | Entity | Table | Code Field | Use Case |
 |--------|-------|------------|----------|
-| **Projects** | `d_project` | `code` | Budget tracking, timeline changes |
-| **Tasks** | `d_task` | `code` | Status transitions, assignment changes |
-| **Employees** | `d_employee` | `code` | Role changes, compensation history |
-| **Offices** | `d_office` | `code` | Organizational restructuring |
+| **Projects** | `project` | `code` | Budget tracking, timeline changes |
+| **Tasks** | `task` | `code` | Status transitions, assignment changes |
+| **Employees** | `employee` | `code` | Role changes, compensation history |
+| **Offices** | `office` | `code` | Organizational restructuring |
 | **Businesses** | `d_biz` | `code` | Business unit changes |
-| **Clients** | `d_cust` | `code` | Contract modifications |
+| **Clients** | `cust` | `code` | Contract modifications |
 
 #### Projects Example
 
 ```sql
 -- Initial project creation
-INSERT INTO app.d_project (id, code, name, budget_allocated_amt, dl__project_stage)
+INSERT INTO app.project (id, code, name, budget_allocated_amt, dl__project_stage)
 VALUES ('proj-v1-id', 'PRJ-001', 'Website Redesign', 50000, 'Planning');
 
 -- Status change: Planning → Execution
-UPDATE app.d_project SET to_ts = NOW(), active_flag = false WHERE id = 'proj-v1-id';
-INSERT INTO app.d_project (id, code, name, budget_allocated_amt, dl__project_stage, version)
+UPDATE app.project SET to_ts = NOW(), active_flag = false WHERE id = 'proj-v1-id';
+INSERT INTO app.project (id, code, name, budget_allocated_amt, dl__project_stage, version)
 VALUES ('proj-v2-id', 'PRJ-001', 'Website Redesign', 50000, 'Execution', 2);
 
 -- Budget increase during execution
-UPDATE app.d_project SET to_ts = NOW(), active_flag = false WHERE id = 'proj-v2-id';
-INSERT INTO app.d_project (id, code, name, budget_allocated_amt, dl__project_stage, version)
+UPDATE app.project SET to_ts = NOW(), active_flag = false WHERE id = 'proj-v2-id';
+INSERT INTO app.project (id, code, name, budget_allocated_amt, dl__project_stage, version)
 VALUES ('proj-v3-id', 'PRJ-001', 'Website Redesign', 75000, 'Execution', 3);
 ```
 
@@ -382,17 +382,17 @@ VALUES ('proj-v3-id', 'PRJ-001', 'Website Redesign', 75000, 'Execution', 3);
 
 ```sql
 -- Initial hire
-INSERT INTO app.d_employee (id, code, first_name, last_name, title, department, salary_band)
+INSERT INTO app.employee (id, code, first_name, last_name, title, department, salary_band)
 VALUES ('emp-v1-id', 'EMP-123', 'John', 'Smith', 'Developer', 'Engineering', 'L3');
 
 -- Promotion to Senior Developer
-UPDATE app.d_employee SET to_ts = NOW(), active_flag = false WHERE id = 'emp-v1-id';
-INSERT INTO app.d_employee (id, code, first_name, last_name, title, department, salary_band, version)
+UPDATE app.employee SET to_ts = NOW(), active_flag = false WHERE id = 'emp-v1-id';
+INSERT INTO app.employee (id, code, first_name, last_name, title, department, salary_band, version)
 VALUES ('emp-v2-id', 'EMP-123', 'John', 'Smith', 'Senior Developer', 'Engineering', 'L4', 2);
 
 -- Transfer to different department
-UPDATE app.d_employee SET to_ts = NOW(), active_flag = false WHERE id = 'emp-v2-id';
-INSERT INTO app.d_employee (id, code, first_name, last_name, title, department, salary_band, version)
+UPDATE app.employee SET to_ts = NOW(), active_flag = false WHERE id = 'emp-v2-id';
+INSERT INTO app.employee (id, code, first_name, last_name, title, department, salary_band, version)
 VALUES ('emp-v3-id', 'EMP-123', 'John', 'Smith', 'Tech Lead', 'Platform', 'L5', 3);
 ```
 
@@ -466,7 +466,7 @@ async function getArtifactVersions(id) {
 SELECT
   id, code, name, budget_allocated_amt, dl__project_stage,
   version, from_ts, to_ts, active_flag, created_ts, updated_ts
-FROM app.d_project
+FROM app.project
 WHERE code = 'PRJ-001'
 ORDER BY version DESC;
 ```
@@ -478,7 +478,7 @@ ORDER BY version DESC;
 
 async function getProjectVersions(code) {
   const versions = await db.execute(sql`
-    SELECT * FROM app.d_project
+    SELECT * FROM app.project
     WHERE code = ${code}
     ORDER BY version DESC, from_ts DESC
   `);
@@ -620,10 +620,10 @@ WHERE metadata->'versionHistory' IS NOT NULL;
 ```sql
 -- Example: Collapse project versions into single row
 -- 1. Keep only active version
-DELETE FROM app.d_project WHERE active_flag = false;
+DELETE FROM app.project WHERE active_flag = false;
 
 -- 2. Store history in metadata
-UPDATE app.d_project
+UPDATE app.project
 SET metadata = jsonb_build_object(
   'versionHistory',
   (SELECT jsonb_agg(
@@ -635,8 +635,8 @@ SET metadata = jsonb_build_object(
       'budget', budget_allocated_amt
     )
   )
-  FROM app.d_project_archive -- Archived old versions
-  WHERE code = d_project.code)
+  FROM app.project_archive -- Archived old versions
+  WHERE code = project.code)
 );
 ```
 

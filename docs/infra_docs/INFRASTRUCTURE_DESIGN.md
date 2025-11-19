@@ -435,12 +435,12 @@ open http://localhost:9001
 ```
 app (schema)
 ├── Core Entities (13 tables)
-│   ├── d_project          # Projects
-│   ├── d_task            # Tasks
-│   ├── d_employee        # Employees
+│   ├── project          # Projects
+│   ├── task            # Tasks
+│   ├── employee        # Employees
 │   ├── d_client          # Clients
-│   ├── d_business        # Business units
-│   ├── d_office          # Office locations
+│   ├── business        # Business units
+│   ├── office          # Office locations
 │   ├── d_role            # Organizational roles
 │   ├── d_position        # Employee positions
 │   ├── d_worksite        # Work sites
@@ -489,7 +489,7 @@ app (schema)
 
 **Query Database:**
 ```bash
-./tools/run_query.sh "SELECT * FROM app.d_project LIMIT 10"
+./tools/run_query.sh "SELECT * FROM app.project LIMIT 10"
 ```
 
 **Backup Database:**

@@ -275,7 +275,7 @@ fastify.get('/api/v1/employee', {
     // Query WITH JOIN for parent filtering
     employees = await db.execute(sql`
       SELECT e.id, e.code, e.name, e.email, ... /* ALL 25+ columns */
-      FROM app.d_employee e
+      FROM app.employee e
       INNER JOIN app.entity_instance_link eim ON eim.child_entity_id = e.id
       ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       ORDER BY e.name ASC
@@ -285,7 +285,7 @@ fastify.get('/api/v1/employee', {
     // Query WITHOUT JOIN for normal listing
     employees = await db.execute(sql`
       SELECT e.id, e.code, e.name, e.email, ... /* SAME 25+ columns */
-      FROM app.d_employee e
+      FROM app.employee e
       ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       ORDER BY e.name ASC
       LIMIT ${limit} OFFSET ${offset}
@@ -630,7 +630,7 @@ const handleTableScroll = () => {
 
 ```typescript
 // Database entity table
-CREATE TABLE app.d_project (
+CREATE TABLE app.project (
     dl__project_stage text  -- Column name
 );
 
@@ -911,7 +911,7 @@ if (columns.length > 7) {
 
 ```sql
 -- ✅ Database: Use dl__ prefix
-CREATE TABLE app.d_project (
+CREATE TABLE app.project (
   dl__project_stage text  -- ✅ Correct
 );
 

@@ -188,7 +188,7 @@ NOTICE:  Total tasks created: 15,000
 ```bash
 # Check total count
 psql -h localhost -p 5434 -U app -d app -c "
-  SELECT COUNT(*) FROM app.d_task WHERE code LIKE '%-PERF-%';
+  SELECT COUNT(*) FROM app.task WHERE code LIKE '%-PERF-%';
 "
 
 # Check by project
@@ -196,7 +196,7 @@ psql -h localhost -p 5434 -U app -d app -c "
   SELECT
     LEFT(code, POSITION('-PERF' IN code) - 1) as project,
     COUNT(*) as task_count
-  FROM app.d_task
+  FROM app.task
   WHERE code LIKE '%-PERF-%'
   GROUP BY LEFT(code, POSITION('-PERF' IN code) - 1);
 "
@@ -213,7 +213,7 @@ psql -h localhost -p 5434 -U app -d app -c "
 ```bash
 # Delete all performance test tasks
 PGPASSWORD=app psql -h localhost -p 5434 -U app -d app -c "
-  DELETE FROM app.d_task WHERE code LIKE '%-PERF-%';
+  DELETE FROM app.task WHERE code LIKE '%-PERF-%';
 "
 ```
 

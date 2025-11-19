@@ -212,7 +212,7 @@ Security Group: pmo-security-group
 │
 ├── db/                         # Database DDL files
 │   ├── 01_schema.ddl
-│   ├── 02_d_project.ddl
+│   ├── 02_project.ddl
 │   └── ...
 │
 ├── infra-tf/                   # Terraform IaC

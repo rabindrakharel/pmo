@@ -14,12 +14,14 @@ The PMO platform uses a **PostgreSQL 14+** database with a carefully designed sc
 
 ## Table Naming Conventions
 
-| Prefix | Purpose | Examples |
-|--------|---------|----------|
-| `d_` | **Dimension tables** (entities) | `d_project`, `d_task`, `d_employee`, `d_business` |
-| `f_` | **Fact tables** (transactions) | `f_expense`, `f_revenue`, `f_invoice`, `f_order` |
-| `setting_datalabel_` | **Settings/dropdowns** | `setting_datalabel_project_stage`, `setting_datalabel_task_priority` |
-| `entity*` | **Infrastructure tables** (no prefix) | `entity`, `entity_instance`, `entity_instance_link`, `entity_rbac` |
+| Pattern | Purpose | Examples |
+|---------|---------|----------|
+| `app.{entity}` | **Business entity tables** | `app.project`, `app.task`, `app.employee`, `app.business` |
+| `app.{entity}_hierarchy` | **Hierarchy tables** | `app.office_hierarchy`, `app.business_hierarchy`, `app.product_hierarchy` |
+| `app.{entity}_head` / `{entity}_data` | **Head/data tables** | `app.invoice_head`, `app.invoice_data`, `app.form_head`, `app.form_data` |
+| `app.setting_datalabel` | **Settings/dropdowns** | `app.setting_datalabel` (single table with type field) |
+| `app.entity*` | **Infrastructure tables** | `app.entity`, `app.entity_instance`, `app.entity_instance_link`, `app.entity_rbac` |
+| `app.d_domain` | **Domain metadata** | `app.d_domain` (one of few tables with `d_` prefix) |
 
 ## 4 Infrastructure Tables (Zero-Config System)
 
@@ -33,7 +35,8 @@ The PMO platform uses a **PostgreSQL 14+** database with a carefully designed sc
 - `ui_label` - Plural label for UI (`Projects`, `Tasks`, `Businesses`)
 - `ui_icon` - Lucide icon name (`FolderOpen`, `CheckSquare`, `Building2`)
 - `child_entity_codes` (JSONB array) - Array of child entity type codes (`["task", "wiki", "artifact"]`)
-- `db_table` - Database table name (`project`, `task`, `expense`)
+- `db_table` - Physical table name without schema prefix (`project`, `task`, `expense`)
+- `db_model_type` - Data model classification: `d`=dimension, `dh`=dimension hierarchy, `f`=fact, `fh`=fact head, `fd`=fact data
 - `column_metadata` (JSONB) - Column definitions from information_schema
 - `domain_id`, `domain_code`, `domain_name` - Domain categorization
 
@@ -47,9 +50,9 @@ SELECT * FROM app.entity WHERE code = 'project';
 -- Get all active entity types
 SELECT * FROM app.entity WHERE active_flag = true ORDER BY display_order;
 
--- Get child entity metadata
-SELECT child_entities FROM app.entity WHERE code = 'project';
--- Returns: [{"entity": "task", "ui_icon": "CheckSquare", "ui_label": "Tasks"}]
+-- Get child entity codes
+SELECT child_entity_codes FROM app.entity WHERE code = 'project';
+-- Returns: ["task", "wiki", "artifact", "form", "expense", "revenue"]
 ```
 
 **Example Records**:
@@ -59,16 +62,18 @@ code: 'project'
 name: 'Project'
 ui_label: 'Projects'
 ui_icon: 'FolderOpen'
-child_entities: ["task", "wiki", "artifact", "form", "expense", "revenue"]
-db_table: 'd_project'
+child_entity_codes: ["task", "wiki", "artifact", "form", "expense", "revenue"]
+db_table: 'project'
+db_model_type: 'f'
 
 -- Task entity type
 code: 'task'
 name: 'Task'
 ui_label: 'Tasks'
 ui_icon: 'CheckSquare'
-child_entities: ["form", "artifact", "expense", "revenue"]
-db_table: 'd_task'
+child_entity_codes: ["form", "artifact", "expense", "revenue", "employee"]
+db_table: 'task'
+db_model_type: 'f'
 ```
 
 ### 2. entity_instance - Entity INSTANCE Registry
@@ -76,10 +81,10 @@ db_table: 'd_task'
 **Purpose**: Central registry of all entity instances with IDs and metadata
 
 **Key Fields**:
-- `entity_code` - Entity type code (`project`, `task`, `employee`)
-- `entity_instance_id` - UUID of specific instance
-- `entity_instance_name` - Cached name for search/display
-- `code` - Cached entity code for search/display (e.g., `PROJ-001`, `EMP-123`)
+- `entity_type` - Entity type code (`project`, `task`, `employee`)
+- `entity_id` - UUID of specific instance
+- `entity_name` - Cached name for search/display
+- `entity_code` - Cached business code for search/display (e.g., `PROJ-001`, `EMP-123`)
 - `order_id` - Auto-incrementing display order
 
 **DDL**: `db/entity_configuration_settings/03_entity_instance.ddl`
@@ -88,17 +93,17 @@ db_table: 'd_task'
 ```sql
 -- Register instance
 INSERT INTO app.entity_instance
-(entity_code, entity_instance_id, entity_instance_name, code)
+(entity_type, entity_id, entity_name, entity_code)
 VALUES ('project', '...uuid...', 'Kitchen Renovation', 'PROJ-001');
 
 -- Global search across all entities
 SELECT * FROM app.entity_instance
-WHERE entity_instance_name ILIKE '%kitchen%';
+WHERE entity_name ILIKE '%kitchen%';
 
 -- Count entities by type
-SELECT entity_code, COUNT(*) as count
+SELECT entity_type, COUNT(*) as count
 FROM app.entity_instance
-GROUP BY entity_code;
+GROUP BY entity_type;
 ```
 
 ### 3. entity_instance_link - Parent-Child Relationships
@@ -107,43 +112,49 @@ GROUP BY entity_code;
 
 **Key Fields**:
 - `id` (PK) - Linkage UUID
-- `parent_entity_type`, `parent_entity_id` - Parent entity
-- `child_entity_type`, `child_entity_id` - Child entity
+- `parent_entity_type`, `parent_entity_id` - Parent entity (e.g., `'project'`, uuid)
+- `child_entity_type`, `child_entity_id` - Child entity (e.g., `'task'`, uuid)
 - `relationship_type` - Relationship label (`contains`, `assigned_to`, `relates_to`)
-- `active_flag` - Soft delete flag
+- **NO active_flag** - Hard deletes only (DELETE removes row completely)
 
 **DDL**: `db/entity_configuration_settings/05_entity_instance_link.ddl`
 
 **Why No Foreign Keys**:
 - ✅ Flexible cross-entity linking without constraints
-- ✅ Soft deletes preserve children when parent deleted
-- ✅ Temporal versioning with `from_ts`/`to_ts`
+- ✅ Polymorphic relationships (any entity → any entity)
+- ✅ No cascading deletes - explicit relationship management
 - ✅ Performance - no FK validation on inserts
+- ✅ Idempotent linkage via UNIQUE constraint on (parent_type, parent_id, child_type, child_id)
 
 **Key Operations**:
 ```sql
--- Create linkage (idempotent)
+-- Create linkage (idempotent via UNIQUE constraint)
 INSERT INTO app.entity_instance_link
 (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
 VALUES ('business', '...uuid...', 'project', '...uuid...', 'contains')
 ON CONFLICT (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
-DO UPDATE SET active_flag = true, updated_ts = now();
+DO NOTHING;
 
 -- Get children of specific type
 SELECT child_entity_id
 FROM app.entity_instance_link
 WHERE parent_entity_type = 'project'
-  AND parent_entity_id = '...uuid...'
-  AND child_entity_type = 'task'
-  AND active_flag = true;
+  AND parent_entity_id = '...uuid...';
+  AND child_entity_type = 'task';
 
 -- Count children for tab badges
 SELECT child_entity_type, COUNT(*) as count
 FROM app.entity_instance_link
 WHERE parent_entity_type = 'project'
   AND parent_entity_id = '...uuid...'
-  AND active_flag = true
 GROUP BY child_entity_type;
+
+-- Delete linkage (hard delete)
+DELETE FROM app.entity_instance_link
+WHERE parent_entity_type = 'project'
+  AND parent_entity_id = '...uuid...'
+  AND child_entity_type = 'task'
+  AND child_entity_id = '...taskId...';
 ```
 
 **Example Relationships**:
@@ -299,102 +310,113 @@ Fields starting with `dl__` reference settings dropdown options:
 **Purpose**: Unified people, organizations, and business structures
 
 **Tables**:
-- `d_cust` - Customers/clients
-- `d_business` - Business units/divisions
-- `d_employee` - Employees
-- `d_role` - User roles
-- `d_office` - Physical locations
-- `d_worksite` - Work sites
+- `app.cust` - Customers/clients
+- `app.business` - Business units/divisions
+- `app.employee` - Employees
+- `app.role` - User roles
+- `app.office` - Physical locations
+- `app.worksite` - Work sites
 
 ### 2. Operations (`operations`)
 
 **Purpose**: Internal operational execution
 
 **Tables**:
-- `d_project` - Projects
-- `d_task` - Tasks/work items
-- `fact_work_order` - Work orders
-- `d_service` - Services offered
+- `app.project` - Projects
+- `app.task` - Tasks/work items
+- `app.work_order` - Work orders
+- `app.service` - Services offered
 
 ### 3. Product & Inventory (`product_inventory`)
 
 **Purpose**: Products, stock, materials
 
 **Tables**:
-- `d_product` - Products/SKUs
-- `f_inventory` - Inventory transactions
-- `d_product_hierarchy` - Product categorization
+- `app.product` - Products/SKUs
+- `app.inventory` - Inventory transactions
+- `app.product_hierarchy` - Product categorization
 
 ### 4. Order & Fulfillment (`order_fulfillment`)
 
 **Purpose**: Sales pipelines, purchasing, delivery
 
 **Tables**:
-- `fact_quote` - Quotes/estimates
-- `f_order` - Orders
-- `f_shipment` - Shipments
-- `f_invoice` - Invoices
+- `app.quote` - Quotes/estimates
+- `app.order` - Orders
+- `app.shipment` - Shipments
+- `app.invoice_head` - Invoices (head table)
+- `app.invoice_data` - Invoice line items (data table)
 
 ### 5. Financial Management (`financial_management`)
 
 **Purpose**: Cost control, profitability, billing
 
 **Tables**:
-- `f_expense` - Expenses
-- `f_revenue` - Revenue
+- `app.expense` - Expenses
+- `app.revenue` - Revenue
 
 ### 6. Communication & Interaction (`communication_interaction`)
 
 **Purpose**: Messaging, engagement, interaction logs
 
 **Tables**:
-- `d_message_schema` - Message templates
-- `f_message_data` - Sent messages
-- `f_customer_interaction` - Customer interactions
+- `app.message_schema` - Message templates
+- `app.message_data` - Sent messages
+- `app.interaction` - Customer interactions
 
 ### 7. Knowledge & Documentation (`knowledge_documentation`)
 
 **Purpose**: Wikis, forms, artifacts, reports
 
 **Tables**:
-- `d_wiki` - Wiki pages
-- `d_artifact` - File attachments
-- `d_form_head` - Forms
-- `d_reports` - Reports
+- `app.wiki_head` - Wiki pages (head table)
+- `app.wiki_data` - Wiki content (data table)
+- `app.artifact` - File attachments
+- `app.form_head` - Forms (head table)
+- `app.form_data` - Form submissions (data table)
 
 ### 8. Identity & Access Control (`identity_access_control`)
 
 **Purpose**: RBAC, entity definitions
 
 **Tables**:
-- `entity_rbac` - Permissions
-- `d_entity` - Entity metadata
+- `app.entity_rbac` - Permissions
+- `app.entity` - Entity metadata
+- `app.entity_instance` - Entity instance registry
+- `app.entity_instance_link` - Entity relationships
 
 ### 9. Automation & Workflow (`automation_workflow`)
 
 **Purpose**: DAG workflows, automation engine
 
 **Tables**:
-- `d_workflow_automation` - Workflow definitions
+- `app.industry_workflow_graph_head` - Workflow definitions (head table)
+- `app.industry_workflow_graph_data` - Workflow nodes/edges (data table)
+- `app.industry_workflow_events` - Workflow execution events
 
 ### 10. Event & Calendar (`event_calendar`)
 
 **Purpose**: Events, appointments, scheduling
 
 **Tables**:
-- `d_event` - Events
-- `d_entity_person_calendar` - Person calendars
+- `app.event` - Events
+- `app.person_calendar` - Person calendars
+- `app.entity_event_person_calendar` - Event-calendar link table
+- `app.event_organizer_link` - Event organizer relationships
 
 ### 11. Service Delivery (`service_delivery`)
 
 **Purpose**: Service execution, logging
 
 **Tables**:
-- `d_task_data` - Task activity logs, case notes
+- `app.task_data` - Task activity logs, case notes
+- `app.person` - Person records (base table)
+- `app.attachment` - File attachments
+- `app.logging` - System audit logs
 
 ## Example Entity Tables
 
-### d_project
+### app.project
 
 **DDL**: `db/11_project.ddl`
 
@@ -434,7 +456,7 @@ version integer DEFAULT 1
 - **Parents**: `business`, `office`
 - **Children**: `task`, `wiki`, `artifact`, `form`, `expense`, `revenue`
 
-### d_task
+### app.task
 
 **DDL**: `db/12_task.ddl`
 
@@ -469,10 +491,10 @@ version integer DEFAULT 1
 
 **Relationships** (via `entity_instance_link`):
 - **Parents**: `project`, `business`, `office`, `worksite`, `cust`
-- **Children**: `form`, `artifact`, `expense`, `revenue`
+- **Children**: `form`, `artifact`, `expense`, `revenue`, `employee` (assignees)
 - **Assignees**: `employee` (relationship_type='assigned_to')
 
-### d_business
+### app.business
 
 **DDL**: `db/07_business.ddl`
 
@@ -488,7 +510,7 @@ descr text
 metadata jsonb DEFAULT '{}'::jsonb
 
 -- Business-specific fields
-office_id uuid  -- reference to d_office (via linkage, not FK)
+office_id uuid  -- reference to app.office (via linkage, not FK)
 current_headcount integer
 operational_status varchar(50)
 
@@ -551,18 +573,18 @@ VALUES
 All 4 infrastructure tables are auto-populated from entity tables:
 
 ```sql
--- Seed d_entity_instance_registry from all entity tables
-INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
-SELECT 'project', id, name, code FROM app.d_project WHERE active_flag = true;
+-- Seed entity_instance from all entity tables
+INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
+SELECT 'project', id, name, code FROM app.project WHERE active_flag = true;
 
-INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
-SELECT 'task', id, name, code FROM app.d_task WHERE active_flag = true;
+INSERT INTO app.entity_instance (entity_type, entity_id, entity_name, entity_code)
+SELECT 'task', id, name, code FROM app.task WHERE active_flag = true;
 -- ... for all 46+ entity tables
 
 -- Seed entity_instance_link from existing relationships
 INSERT INTO app.entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
 SELECT 'business', business_id, 'project', id
-FROM app.d_project
+FROM app.project
 WHERE business_id IS NOT NULL;
 ```
 
@@ -582,12 +604,12 @@ Default permissions for system roles and users.
 ```
 
 **Import Order**:
-1. Schema creation (`01_schema_create.ddl`)
-2. Domain definitions (`02_domain.ddl`)
-3. Settings tables (`03_setting_datalabel.ddl`)
-4. Infrastructure tables (`02_entity.ddl`, `03_d_entity_instance_registry.ddl`, etc.)
-5. Entity tables (`05_employee.ddl` through `48_event_person_calendar.ddl`)
-6. RBAC seed data (`49_rbac_seed_data.ddl`)
+1. Schema creation (`db/01_schema_create.ddl`)
+2. Settings tables (`db/03_setting_datalabel.ddl`)
+3. Supporting tables (`db/04a_person.ddl`, `db/04b_attachment.ddl`, `db/04_logging.ddl`)
+4. Infrastructure tables (`db/entity_configuration_settings/02_domain.ddl`, `02_entity.ddl`, `03_entity_instance.ddl`, `05_entity_instance_link.ddl`, `06_entity_rbac.ddl`)
+5. Entity tables (`db/05_employee.ddl` through `db/48_event_person_calendar.ddl`)
+6. RBAC seed data (`db/49_rbac_seed_data.ddl`)
 
 ### After DDL Changes
 
@@ -601,9 +623,9 @@ Default permissions for system roles and users.
 ❌ **Adding Foreign Keys**:
 ```sql
 -- WRONG - No foreign keys allowed
-ALTER TABLE d_project
+ALTER TABLE app.project
 ADD CONSTRAINT fk_business
-FOREIGN KEY (business_id) REFERENCES d_business(id);
+FOREIGN KEY (business_id) REFERENCES app.business(id);
 ```
 Use `entity_instance_link` instead.
 
@@ -612,7 +634,7 @@ Use `entity_instance_link` instead.
 // WRONG - Hardcoded relationships
 const children = ['task', 'wiki', 'artifact'];
 ```
-Read from `d_entity.child_entities` instead.
+Read from `app.entity.child_entity_codes` instead.
 
 ❌ **Skipping db-import.sh After DDL Changes**:
 ```bash

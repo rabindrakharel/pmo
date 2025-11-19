@@ -523,7 +523,7 @@ Content-Type: application/json
 
 {
   "metadata": {
-    "assigned_employee_id": "emp-uuid-1",
+    "assigneemployee_id": "emp-uuid-1",
     "assigned_at": "2025-11-05T14:05:00Z",
     "assigned_by": "ai_agent"
   }
@@ -808,7 +808,7 @@ interface Task {
     urgency_level: 'emergency' | 'urgent' | 'normal' | 'scheduled';
     service_address: string;
     conversation_id: string;
-    assigned_employee_id?: string;
+    assigneemployee_id?: string;
     event_id?: string;
     scheduled_at?: string;
   };
@@ -1089,7 +1089,7 @@ export class AIAgentService {
             },
             body: JSON.stringify({
               metadata: {
-                assigned_employee_id: employee.id,
+                assigneemployee_id: employee.id,
                 assigned_at: new Date().toISOString()
               }
             })
@@ -1347,7 +1347,7 @@ try {
 A: AI agent should prompt for missing required fields: service type, urgency, location, preferred time. Task is only created once minimum required info is collected.
 
 **Q: Can customer request specific employee?**
-A: Yes. Check `metadata.preferred_employee_id` and prioritize in assignment algorithm, but still verify skills and availability.
+A: Yes. Check `metadata.preferreemployee_id` and prioritize in assignment algorithm, but still verify skills and availability.
 
 **Q: How to handle time zone differences?**
 A: Store all timestamps as UTC. Convert to customer's local time zone for display and booking confirmations.

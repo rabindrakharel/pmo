@@ -80,12 +80,12 @@ This application is built **entirely** using the PMO platform's existing infrast
 ### 2.2 Data Model Entities Used
 
 ```
-Customer Entity (d_customer / d_client)
+Customer Entity (customer / d_client)
 ├── Fields: name, phone, email, address, customer_tier, acquisition_channel
 ├── Linked to: Tasks (service requests), Calendar events (appointments)
 └── RBAC: Agent ownership (permission[0]=view, [1]=edit, [4]=create)
 
-Task Entity (d_task)
+Task Entity (task)
 ├── Fields: name, description, assignee_id, status, priority, due_date
 ├── Linked to: Customer (parent), Calendar event (scheduled work)
 └── RBAC: Assigned agent (edit/complete permissions)
@@ -217,12 +217,12 @@ Call Transcript Entity (d_artifact)
 │  │  apps/api/src/modules/{customer,task,calendar}/           │    │
 │  │                                                             │    │
 │  │  POST /api/v1/customer                                     │    │
-│  │  → Creates d_customer record                               │    │
+│  │  → Creates customer record                               │    │
 │  │  → Adds entity_instance_id in d_entity_instance_registry         │    │
 │  │  → Sets RBAC (agent ownership in d_entity_rbac)       │    │
 │  │                                                             │    │
 │  │  POST /api/v1/task                                         │    │
-│  │  → Creates d_task record                                   │    │
+│  │  → Creates task record                                   │    │
 │  │  → Assigns to agent (assignee_id)                          │    │
 │  │  → Links to customer via d_entity_instance_link                   │    │
 │  │                                                             │    │
@@ -253,8 +253,8 @@ Call Transcript Entity (d_artifact)
                                     │
                         ┌───────────▼───────────┐
                         │  💾 PostgreSQL DB     │
-                        │  - d_customer         │
-                        │  - d_task             │
+                        │  - customer         │
+                        │  - task             │
                         │  - d_entity_person_   │
                         │    calendar           │
                         │  - d_entity_instance_link    │
@@ -286,7 +286,7 @@ Customer → Twilio → Agent Mobile App → WebSocket → Deepgram STT
                         MCP: create_customer   MCP: create_task    MCP: create_calendar
                                 │                      │                      │
                                 ▼                      ▼                      ▼
-                        d_customer (NEW)       d_task (NEW)        d_entity_person_calendar
+                        customer (NEW)       task (NEW)        d_entity_person_calendar
                         - id: uuid-A           - id: uuid-B        - id: uuid-C
                         - name: "John Smith"   - name: "Property   - event_name: "Property
                         - phone: +1-555-0123     Viewing"            Viewing - John Smith"
@@ -349,8 +349,8 @@ Customer (existing) → Call → Transcription → LLM
 ### 3.3 Database Schema Integration
 
 ```sql
--- Customer Record (d_customer)
-CREATE TABLE app.d_customer (
+-- Customer Record (customer)
+CREATE TABLE app.customer (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(200),
     phone VARCHAR(20),
@@ -362,12 +362,12 @@ CREATE TABLE app.d_customer (
     active_flag BOOLEAN DEFAULT TRUE
 );
 
--- Task Record (d_task)
-CREATE TABLE app.d_task (
+-- Task Record (task)
+CREATE TABLE app.task (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(200),
     description TEXT,
-    assignee_id UUID,  -- References d_employee (agent)
+    assignee_id UUID,  -- References employee (agent)
     status VARCHAR(50),  -- 'PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'
     priority VARCHAR(50),  -- 'LOW', 'MEDIUM', 'HIGH', 'URGENT'
     due_date TIMESTAMPTZ,
@@ -2317,7 +2317,7 @@ docker run -d \
 ./tools/db-import.sh
 
 # Verify schema creation
-PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app -c "\dt app.*" | grep -E "(d_customer|d_task|d_entity_person_calendar)"
+PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app -c "\dt app.*" | grep -E "(customer|task|d_entity_person_calendar)"
 ```
 
 #### Step 2: Add Real Estate Settings Data
@@ -2367,7 +2367,7 @@ PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app -f /tmp/real-estate-set
 ```bash
 # Create real estate agent user
 cat > /tmp/create-agent.sql << 'EOF'
-INSERT INTO app.d_employee (id, name, email, phone, position_id, active_flag)
+INSERT INTO app.employee (id, name, email, phone, position_id, active_flag)
 VALUES
 (
   '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',

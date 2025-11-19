@@ -24,7 +24,7 @@ Home services companies face customer acquisition friction: customers must creat
 - Progressive profiling: gather additional data over time
 
 **Task-First Creation Pattern**
-- Service requests become `d_task` records BEFORE customer records
+- Service requests become `task` records BEFORE customer records
 - Ensures atomic capture of service need
 - Prevents orphaned requests if customer creation fails
 - Task metadata stores customer phone even if customer record pending
@@ -95,8 +95,8 @@ All service taxonomies reference `setting_datalabel_service_category`:
 ┌──────────────────────────────────────────────────────────────┐
 │                    DATABASE LAYER                             │
 │  • d_client (customer records)                                │
-│  • d_task (service requests)                                  │
-│  • d_employee (technicians with skills)                       │
+│  • task (service requests)                                  │
+│  • employee (technicians with skills)                       │
 │  • d_event (appointments)                                     │
 │  • d_entity_person_calendar (availability slots)              │
 │  • d_service (service catalog)                                │
@@ -172,7 +172,7 @@ Benefit: Reusable, testable, type-safe API interactions
 Principle: JSONB metadata fields connect entities without rigid FK constraints
 Implementation:
   - Task.metadata.customer_id → Links to customer
-  - Task.metadata.assigned_employee_id → Links to employee
+  - Task.metadata.assigneemployee_id → Links to employee
   - Task.metadata.event_id → Links to appointment
   - Task.metadata.conversation_id → Links to chat interaction
 
@@ -250,8 +250,8 @@ Benefit: Instant availability checks, no complex calendar math
 | Business Entity | Database Table | API Endpoint | Frontend View |
 |----------------|----------------|--------------|---------------|
 | Customer | `d_client` | `/api/v1/cust` | `/cust` (EntityMainPage) |
-| Service Request | `d_task` | `/api/v1/task` | `/task` (EntityMainPage) |
-| Technician | `d_employee` | `/api/v1/employee` | `/employee` (EntityMainPage) |
+| Service Request | `task` | `/api/v1/task` | `/task` (EntityMainPage) |
+| Technician | `employee` | `/api/v1/employee` | `/employee` (EntityMainPage) |
 | Appointment | `d_event` | `/api/v1/event` | `/event` (EntityMainPage) |
 | Calendar Slot | `d_entity_person_calendar` | `/api/v1/person-calendar` | `/person_calendar` (CalendarView) |
 | Service Catalog | `d_service` | `/api/v1/service` | `/service` (EntityMainPage) |
@@ -289,7 +289,7 @@ Internal Orchestration:
        IF (available) → BREAK, assign this employee
 
   6. PUT /api/v1/task/:taskId
-     Payload: { metadata: { assigned_employee_id: "emp-uuid", assigned_at: "...", assigned_by: "ai_agent" } }
+     Payload: { metadata: { assigneemployee_id: "emp-uuid", assigned_at: "...", assigned_by: "ai_agent" } }
 
   7. POST /api/v1/event
      Payload: { name, event_entity_action, event_medium: "onsite", event_addr, event_metadata: {...} }
@@ -335,7 +335,7 @@ Customer Phone Number
                           │             │
                           ▼             │
                   Assignment ───────────┤
-                  metadata.assigned_employee_id
+                  metadata.assigneemployee_id
                           │             │
                           ▼             │
                    Event Record ────────┤
@@ -414,7 +414,7 @@ Frontend Rendering:
        ▼                      ▼
 ┌──────────────┐        ┌──────────────┐
 │     Task     │◄───────│     Event    │
-│   (d_task)   │  1:1   │   (d_event)  │
+│   (task)   │  1:1   │   (d_event)  │
 └──────┬───────┘        └──────┬───────┘
        │                       │
        │ N:1                   │ 1:N
@@ -422,7 +422,7 @@ Frontend Rendering:
        ▼                       ▼
 ┌──────────────┐        ┌─────────────────────────┐
 │   Employee   │───────▶│    Calendar Slots       │
-│ (d_employee) │  1:N   │ (d_entity_person_calendar) │
+│ (employee) │  1:N   │ (d_entity_person_calendar) │
 └──────────────┘        └─────────────────────────┘
 
 ┌──────────────┐
@@ -459,7 +459,7 @@ Lifecycle: Event created AFTER task, employee assigned
 
 **Employee → Task (1:N)**
 ```
-Linkage: Task.metadata.assigned_employee_id → Employee.id
+Linkage: Task.metadata.assigneemployee_id → Employee.id
 Cardinality: One employee handles many tasks
 Nullability: Task exists without employee (unassigned, pending)
 Selection: Filtered by skills_service_categories, checked for availability
@@ -504,7 +504,7 @@ Task.metadata = {
   service_category: string,       // "HVAC", "Plumbing", etc.
 
   // Assignment linkage
-  assigned_employee_id?: string,  // UUID reference to d_employee
+  assigneemployee_id?: string,  // UUID reference to employee
   assigned_at?: string,           // ISO 8601 timestamp
   assigned_by?: string,           // "ai_agent", "manual", "auto"
 
@@ -533,9 +533,9 @@ Task.metadata = {
 **Event Metadata Schema:**
 ```typescript
 Event.event_metadata = {
-  task_id: string,                    // UUID reference to d_task (REQUIRED)
+  task_id: string,                    // UUID reference to task (REQUIRED)
   customer_id: string,                // UUID reference to d_client
-  employee_id: string,                // UUID reference to d_employee
+  employee_id: string,                // UUID reference to employee
   service_category: string,           // "HVAC", "Plumbing", etc.
   urgency_level: string,              // Match from task
   estimated_duration_minutes: number, // Expected appointment length
@@ -594,7 +594,7 @@ task: {
     { key: 'stage', label: 'Stage', badgeColor: statusColor },
     { key: 'metadata.urgency_level', label: 'Urgency', ... },
     { key: 'metadata.service_category', label: 'Service', ... },
-    { key: 'metadata.assigned_employee_id', label: 'Employee', ... }
+    { key: 'metadata.assigneemployee_id', label: 'Employee', ... }
   ],
 
   fields: [
@@ -775,7 +775,7 @@ AI:   [System: Execute workflow]
 4. PUT /api/v1/task/task-uuid → { metadata: { customer_id: "cust-uuid" } }
 5. GET /api/v1/employee?skills_service_categories=HVAC → { data: [emp1, emp2] }
 6. GET /api/v1/employee/emp1-uuid/availability?from=...&to=... → { available: true }
-7. PUT /api/v1/task/task-uuid → { metadata: { assigned_employee_id: "emp1-uuid" } }
+7. PUT /api/v1/task/task-uuid → { metadata: { assigneemployee_id: "emp1-uuid" } }
 8. POST /api/v1/event → { id: "evt-uuid", code: "EVT-20251106-789" }
 9. POST /api/v1/calendar/book → { success: true, slots_booked: 8 }
 10. PUT /api/v1/task/task-uuid → { metadata: { event_id: "evt-uuid" } }
@@ -817,7 +817,7 @@ AI:   [System: Execute workflow]
 3. POST /api/v1/task → { id: "task-uuid", code: "TASK-45678", metadata: { customer_id: "cust-uuid" } }
 4. GET /api/v1/employee?skills_service_categories=HVAC → { data: [Mike Chen, ...] }
 5. GET /api/v1/employee/mike-uuid/availability?from=...&to=... → { available: true }
-6. PUT /api/v1/task/task-uuid → { metadata: { assigned_employee_id: "mike-uuid" } }
+6. PUT /api/v1/task/task-uuid → { metadata: { assigneemployee_id: "mike-uuid" } }
 7. POST /api/v1/event → { id: "evt-uuid", code: "EVT-20251113-890" }
 8. POST /api/v1/calendar/book → { success: true, slots_booked: 4 }
 9. PUT /api/v1/task/task-uuid → { metadata: { event_id: "evt-uuid" } }
@@ -964,7 +964,7 @@ AI:   [System: Create TWO tasks, find specialists for each]
 ```
 ✓ Check entity_rbac for EVERY API call
 ✓ Customer can only view their own tasks (customer_id match)
-✓ Employees can view assigned tasks (assigned_employee_id match)
+✓ Employees can view assigned tasks (assigneemployee_id match)
 ✓ Managers can view all tasks (entity_id='all' with view permission)
 ```
 
@@ -1091,14 +1091,14 @@ Customer (d_client)
   ├─ name, email, customer_type
   └─ metadata { initial_task_id, conversation_id, created_via }
 
-Task (d_task)
+Task (task)
   ├─ code (TASK-12345), name, descr, stage
   └─ metadata {
        customer_id, customer_phone, service_category, urgency_level,
-       assigned_employee_id, event_id, conversation_id, service_address
+       assigneemployee_id, event_id, conversation_id, service_address
      }
 
-Employee (d_employee)
+Employee (employee)
   ├─ code, name, department, phone, email
   └─ skills_service_categories: ["HVAC", "Plumbing"]
 
@@ -1121,7 +1121,7 @@ Calendar Slot (d_entity_person_calendar)
 ☐ 4. IF new customer: POST /api/v1/cust, then PUT /api/v1/task/:id (link customer_id)
 ☐ 5. Find employees by skills: GET /api/v1/employee?skills_service_categories=...
 ☐ 6. Check availability: GET /api/v1/employee/:id/availability?from=...&to=...
-☐ 7. Assign employee: PUT /api/v1/task/:id (metadata.assigned_employee_id)
+☐ 7. Assign employee: PUT /api/v1/task/:id (metadata.assigneemployee_id)
 ☐ 8. Create event: POST /api/v1/event (with task_id, customer_id, employee_id)
 ☐ 9. Book calendar: POST /api/v1/calendar/book (employee_id, event_id, time range)
 ☐ 10. Link event to task: PUT /api/v1/task/:id (metadata.event_id, scheduled_at)

@@ -110,7 +110,7 @@ All entity routes (business, project, task, employee, etc.) follow **identical p
 │                                                               │
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │  createChildEntityEndpointsFromMetadata()           │    │
-│  │  Auto-generate child endpoints from d_entity        │    │
+│  │  Auto-generate child endpoints from entity metadata │    │
 │  └─────────────────────────────────────────────────────┘    │
 └───────────────────────────────────────────────────────────────┘
                          │
@@ -122,7 +122,7 @@ All entity routes (business, project, task, employee, etc.) follow **identical p
 │  - entity_instance (instance registry)                       │
 │  - entity_instance_link (parent-child relationships)         │
 │  - entity_rbac (permissions)                                 │
-│  - d_project, d_task, d_business, ... (46+ entity tables)   │
+│  - project, task, business, employee, office, ... (46+ entity tables) │
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -238,7 +238,7 @@ fastify.post('/api/v1/project', {
   // STEP 3: ✅ ROUTE OWNS INSERT into primary table
   // ═══════════════════════════════════════════════════════════════
   const result = await db.execute(sql`
-    INSERT INTO app.d_project (
+    INSERT INTO app.project (
       code, name, descr, dl__project_stage,
       budget_allocated_amt, manager_employee_id, metadata
     )
@@ -347,7 +347,7 @@ fastify.patch('/api/v1/project/:id', {
   }
 
   const result = await db.execute(sql`
-    UPDATE app.d_project
+    UPDATE app.project
     SET ${sql.join(updateFields, sql`, `)}
     WHERE id = ${id}
     RETURNING *
@@ -436,10 +436,10 @@ fastify.get('/api/v1/project', {
       b.name as business_name,
       m.name as manager_name,
       COUNT(t.id) as task_count
-    FROM app.d_project e
-    LEFT JOIN app.d_business b ON e.business_id = b.id
-    LEFT JOIN app.d_employee m ON e.manager_employee_id = m.id
-    LEFT JOIN app.d_task t ON t.project_id = e.id
+    FROM app.project e
+    LEFT JOIN app.business b ON e.business_id = b.id
+    LEFT JOIN app.employee m ON e.manager_employee_id = m.id
+    LEFT JOIN app.task t ON t.project_id = e.id
     WHERE ${sql.join(conditions, sql` AND `)}
     GROUP BY e.id, b.name, m.name
     ORDER BY e.created_ts DESC
@@ -451,7 +451,7 @@ fastify.get('/api/v1/project', {
   // Count total (for pagination)
   const countQuery = sql`
     SELECT COUNT(*) as total
-    FROM app.d_project e
+    FROM app.project e
     WHERE ${sql.join(conditions, sql` AND `)}
   `;
   const countResult = await db.execute(countQuery);
@@ -504,10 +504,10 @@ fastify.get('/api/v1/project/:id', {
       b.name as business_name,
       m.name as manager_name,
       s.name as sponsor_name
-    FROM app.d_project e
-    LEFT JOIN app.d_business b ON e.business_id = b.id
-    LEFT JOIN app.d_employee m ON e.manager_employee_id = m.id
-    LEFT JOIN app.d_employee s ON e.sponsor_employee_id = s.id
+    FROM app.project e
+    LEFT JOIN app.business b ON e.business_id = b.id
+    LEFT JOIN app.employee m ON e.manager_employee_id = m.id
+    LEFT JOIN app.employee s ON e.sponsor_employee_id = s.id
     WHERE e.id = ${id}
   `);
 
@@ -531,7 +531,7 @@ createEntityDeleteEndpoint(fastify, {
   tableAlias: TABLE_ALIAS,
   primaryTableCallback: async (db, id) => {
     await db.execute(sql`
-      UPDATE app.d_project
+      UPDATE app.project
       SET active_flag = false, updated_ts = now()
       WHERE id = ${id}
     `);
@@ -542,7 +542,7 @@ createEntityDeleteEndpoint(fastify, {
 ### Child Entity Endpoints (Factory)
 
 ```typescript
-// Auto-generates ALL child endpoints from d_entity.child_entities:
+// Auto-generates ALL child endpoints from entity.child_entity_codes:
 // GET /api/v1/project/:id/task
 // GET /api/v1/project/:id/wiki
 // GET /api/v1/project/:id/artifact
@@ -764,7 +764,7 @@ const projects = await entityInfra.getAll('project');
 ❌ **Routes bypass service for RBAC**:
 ```typescript
 // WRONG - Must use service
-const result = await db.execute(sql`SELECT * FROM d_project WHERE id = ${id}`);
+const result = await db.execute(sql`SELECT * FROM app.project WHERE id = ${id}`);
 ```
 
 ❌ **Inconsistent patterns**:

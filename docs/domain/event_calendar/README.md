@@ -78,7 +78,7 @@ The Event & Calendar Domain provides comprehensive event and appointment managem
 │           ▼                                                            │
 │  ┌───────────────────────┐                                            │
 │  │     Employee          │                                             │
-│  │   (d_employee)        │                                             │
+│  │   (employee)        │                                             │
 │  │                       │                                             │
 │  │ from Customer 360     │                                             │
 │  │ Domain                │                                             │
@@ -204,7 +204,7 @@ Events are categorized by their action entity type:
 **venue_type** classifies event locations:
 
 - **office**: Company office or branch
-  - event_addr: Office address from d_office
+  - event_addr: Office address from office
   - Example: "Toronto HQ - 123 Business Blvd"
 
 - **customer_site**: On-site at customer location

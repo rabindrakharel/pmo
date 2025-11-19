@@ -148,7 +148,7 @@ code varchar(50) UNIQUE
 
 -- Person Reference (Polymorphic)
 person_entity_type varchar(50)  -- 'employee' | 'customer'
-person_entity_id uuid            -- FK to d_employee.id OR d_cust.id
+person_entity_id uuid            -- FK to employee.id OR cust.id
 
 -- Time Slot
 from_ts timestamptz              -- Slot start time
@@ -309,8 +309,8 @@ POST /api/v1/person-calendar/cancel
 
 ```
 person_entity_type + person_entity_id → POLYMORPHIC FK
-  ├─▶ 'employee' → d_employee.id
-  └─▶ 'customer' → d_cust.id
+  ├─▶ 'employee' → employee.id
+  └─▶ 'customer' → cust.id
 
 NO FOREIGN KEYS (PMO pattern)
 Relationships tracked via:
@@ -559,7 +559,7 @@ apiEndpoint: '/api/v1/calendar'  // Already used by /api/v1/person-calendar
 ```sql
 -- Store person type AND ID
 person_entity_type IN ('employee', 'customer')  -- NO 'client'!
-person_entity_id → d_employee.id OR d_cust.id
+person_entity_id → employee.id OR cust.id
 
 -- NOT d_client.id (doesn't exist)
 ```
@@ -820,8 +820,8 @@ The PMO platform supports automatic calendar event email invites with full compa
 **3. Database Integration**
 - `d_event` - Event master records
 - `d_entity_person_calendar` - Calendar slots linked to events via `event_id`
-- `d_employee` - Employee records with email
-- `d_cust` - Customer records with email
+- `employee` - Employee records with email
+- `cust` - Customer records with email
 
 ### Create Event with Calendar Invites
 

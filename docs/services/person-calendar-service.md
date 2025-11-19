@@ -264,7 +264,7 @@ Cancelled  Cancelled
 
 - **d_entity_event** - Event details
 - **d_entity_event_person_link** - Attendee relationships
-- **d_employee** - Employee data
+- **employee** - Employee data
 - **d_client** - Customer data
 - **d_entity_person_calendar** - Person calendar metadata
 

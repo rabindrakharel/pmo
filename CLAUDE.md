@@ -49,7 +49,7 @@ detectField('employee_id') → entity reference
 
 ```sql
 -- Core tables (d_ prefix)
-d_project, d_task, d_employee, d_client, d_office, d_business
+project, task, employee, cust, office, business
 
 -- Settings tables (setting_datalabel_ prefix)
 setting_datalabel_project_stage, setting_datalabel_task_priority
@@ -133,7 +133,7 @@ fastify.post('/api/v1/project', async (request, reply) => {
   }
 
   // STEP 3: ✅ ROUTE OWNS INSERT into primary table
-  const result = await db.execute(sql`INSERT INTO app.d_project ...`);
+  const result = await db.execute(sql`INSERT INTO app.project ...`);
   const project = result[0];
 
   // STEP 4: Register in entity_instance
@@ -174,7 +174,7 @@ fastify.patch('/api/v1/project/:id', async (request, reply) => {
   if (!canEdit) return reply.status(403).send({ error: 'Forbidden' });
 
   // STEP 2: ✅ ROUTE OWNS UPDATE query
-  const result = await db.execute(sql`UPDATE app.d_project ...`);
+  const result = await db.execute(sql`UPDATE app.project ...`);
 
   // STEP 3: Sync registry if name/code changed
   if (data.name !== undefined || data.code !== undefined) {
@@ -200,9 +200,9 @@ fastify.get('/api/v1/project', async (request, reply) => {
       e.*,
       b.name as business_name,
       COUNT(t.id) as task_count
-    FROM app.d_project e
-    LEFT JOIN app.d_business b ON e.business_id = b.id
-    LEFT JOIN app.d_task t ON t.project_id = e.id
+    FROM app.project e
+    LEFT JOIN app.business b ON e.business_id = b.id
+    LEFT JOIN app.task t ON t.project_id = e.id
     WHERE ${rbacCondition}
       AND e.active_flag = true
       AND e.budget_allocated_amt > 10000

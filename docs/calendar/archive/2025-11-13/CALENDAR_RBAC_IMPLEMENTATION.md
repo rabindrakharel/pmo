@@ -132,7 +132,7 @@ SELECT
   e.name,
   e.email
 FROM d_entity_rbac r
-JOIN d_employee e ON r.empid = e.id
+JOIN employee e ON r.empid = e.id
 WHERE r.entity = 'event'
   AND r.entity_id = :event_id
   AND r.permission @> ARRAY[5];
@@ -151,7 +151,7 @@ SELECT
       )
     )
     FROM d_entity_rbac r
-    LEFT JOIN d_employee emp ON r.empid = emp.id
+    LEFT JOIN employee emp ON r.empid = emp.id
     WHERE r.entity = 'event'
       AND r.entity_id = e.id::text
       AND r.permission @> ARRAY[5]

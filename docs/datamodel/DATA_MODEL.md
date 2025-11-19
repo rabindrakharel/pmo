@@ -51,7 +51,7 @@ The PMO Platform uses a **50-table PostgreSQL schema** organized with Roman nume
 **Examples:**
 - `I_schemaCreate.ddl` - Creates app schema
 - `II_setting_datalabel.ddl` - Settings/datalabel master table
-- `III_d_employee.ddl` - Employee entity
+- `III_employee.ddl` - Employee entity
 - `XLV_d_entity.ddl` - Entity metadata registry
 - `LI_f_logging.ddl` - Logging fact table
 
@@ -85,10 +85,10 @@ Schema → Settings → Core Entities → Entity Infrastructure → RBAC → Ope
 
 | File | Table | Purpose |
 |------|-------|---------|
-| **III_d_employee.ddl** | `d_employee` | Employee records |
-| **IV_d_office.ddl** | `d_office` | Office locations |
-| **V_d_business.ddl** | `d_business` | Business units |
-| **VI_d_cust.ddl** | `d_cust` | Customer records |
+| **III_employee.ddl** | `employee` | Employee records |
+| **IV_office.ddl** | `office` | Office locations |
+| **V_business.ddl** | `business` | Business units |
+| **VI_cust.ddl** | `cust` | Customer records |
 | **VII_d_role.ddl** | `d_role` | User roles |
 | **IX_d_worksite.ddl** | `d_worksite` | Job sites |
 
@@ -103,9 +103,9 @@ Schema → Settings → Core Entities → Entity Infrastructure → RBAC → Ope
 
 | File | Table | Purpose |
 |------|-------|---------|
-| **XII_d_project.ddl** | `d_project` | Projects |
-| **XIII_d_task.ddl** | `d_task` | Tasks |
-| **XIV_d_task_data.ddl** | `d_task_data` | Task extended data (JSONB) |
+| **XII_project.ddl** | `project` | Projects |
+| **XIII_task.ddl** | `task` | Tasks |
+| **XIV_task_data.ddl** | `task_data` | Task extended data (JSONB) |
 
 ### Core Entities - Content Management (XV-XX)
 
@@ -295,16 +295,16 @@ version int4 DEFAULT 1                -- Optimistic locking
 
 **17 Core Business Entities:**
 
-1. `d_employee` - Employees
-2. `d_office` - Offices
-3. `d_business` - Business units
-4. `d_cust` - Customers
+1. `employee` - Employees
+2. `office` - Offices
+3. `business` - Business units
+4. `cust` - Customers
 5. `d_role` - Roles
 6. `d_worksite` - Work sites
 7. `d_service` - Services
 8. `d_product` - Products
-9. `d_project` - Projects
-10. `d_task` - Tasks
+9. `project` - Projects
+10. `task` - Tasks
 11. `d_artifact` - Documents/files
 12. `d_form_head` - Forms
 13. `d_wiki` - Wiki pages
@@ -391,12 +391,12 @@ CREATE TABLE app.entity_instance_link (
 
 ```sql
 -- Create project
-INSERT INTO app.d_project (code, name)
+INSERT INTO app.project (code, name)
 VALUES ('PRJ-001', 'Website Redesign')
 RETURNING id; -- Returns: abc-123-uuid
 
 -- Create task
-INSERT INTO app.d_task (code, name)
+INSERT INTO app.task (code, name)
 VALUES ('TASK-001', 'Design Homepage')
 RETURNING id; -- Returns: def-456-uuid
 
@@ -414,7 +414,7 @@ INSERT INTO app.entity_instance_link (
 
 ```sql
 SELECT t.*
-FROM app.d_task t
+FROM app.task t
 JOIN app.entity_instance_link map
     ON map.child_entity_id = t.id
     AND map.child_entity_type = 'TASK'
@@ -578,7 +578,7 @@ s3_key varchar(500)                -- S3 object key
 **Never physically delete records - use soft delete:**
 
 ```sql
-UPDATE app.d_project
+UPDATE app.project
 SET active_flag = false,
     to_ts = now(),
     updated_ts = now()
@@ -588,7 +588,7 @@ WHERE id = 'abc-123-uuid';
 **Query Active Records Only:**
 
 ```sql
-SELECT * FROM app.d_project
+SELECT * FROM app.project
 WHERE active_flag = true;
 ```
 
@@ -598,7 +598,7 @@ WHERE active_flag = true;
 
 ```sql
 -- Get current active records
-SELECT * FROM app.d_employee
+SELECT * FROM app.employee
 WHERE active_flag = true
   AND from_ts <= now()
   AND (to_ts IS NULL OR to_ts > now());
@@ -609,7 +609,7 @@ WHERE active_flag = true
 ```sql
 -- Who was assigned to this project on 2024-06-01?
 SELECT e.*
-FROM app.d_employee e
+FROM app.employee e
 WHERE e.from_ts <= '2024-06-01'
   AND (e.to_ts IS NULL OR e.to_ts > '2024-06-01');
 ```
@@ -620,11 +620,11 @@ WHERE e.from_ts <= '2024-06-01'
 
 ```sql
 -- Read record with version
-SELECT id, name, version FROM app.d_task WHERE id = 'task-uuid';
+SELECT id, name, version FROM app.task WHERE id = 'task-uuid';
 -- Returns: version = 5
 
 -- Update with version check
-UPDATE app.d_task
+UPDATE app.task
 SET name = 'Updated Task Name',
     version = version + 1,
     updated_ts = now()
@@ -643,7 +643,7 @@ WHERE id = 'task-uuid'
 **1. Create Project**
 
 ```sql
-INSERT INTO app.d_project (id, code, name, descr, dl__project_stage, active_flag)
+INSERT INTO app.project (id, code, name, descr, dl__project_stage, active_flag)
 VALUES (
     '550e8400-e29b-41d4-a716-446655440001',
     'PRJ-2025-001',
@@ -657,7 +657,7 @@ VALUES (
 **2. Create Tasks**
 
 ```sql
-INSERT INTO app.d_task (id, code, name, dl__task_priority, dl__task_stage, assigned_empid)
+INSERT INTO app.task (id, code, name, dl__task_priority, dl__task_stage, assigned_empid)
 VALUES
     ('550e8400-e29b-41d4-a716-446655440002', 'TASK-001', 'Design Homepage', 'high', 'in_progress', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'),
     ('550e8400-e29b-41d4-a716-446655440003', 'TASK-002', 'Setup Backend API', 'medium', 'backlog', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13');
@@ -726,12 +726,12 @@ SELECT
     t.dl__task_stage,
     a.code AS artifact_code,
     a.name AS artifact_name
-FROM app.d_project p
+FROM app.project p
 LEFT JOIN app.entity_instance_link task_map
     ON task_map.parent_entity_id = p.id
     AND task_map.parent_entity_type = 'PROJECT'
     AND task_map.child_entity_type = 'TASK'
-LEFT JOIN app.d_task t ON t.id = task_map.child_entity_id
+LEFT JOIN app.task t ON t.id = task_map.child_entity_id
 LEFT JOIN app.entity_instance_link art_map
     ON art_map.parent_entity_id = p.id
     AND art_map.parent_entity_type = 'PROJECT'
@@ -837,11 +837,11 @@ SELECT
     STRING_AGG(att_emp.name, ', ') AS attendees
 FROM app.d_entity_person_calendar pc
 LEFT JOIN app.d_event e ON e.id = pc.event_id
-LEFT JOIN app.d_employee emp
+LEFT JOIN app.employee emp
     ON emp.id = pc.person_entity_id
     AND pc.person_entity_type = 'EMPLOYEE'
 LEFT JOIN app.d_entity_event_person_calendar rsvp ON rsvp.event_id = e.id
-LEFT JOIN app.d_employee att_emp
+LEFT JOIN app.employee att_emp
     ON att_emp.id = rsvp.person_entity_id
     AND rsvp.person_entity_type = 'EMPLOYEE'
 WHERE pc.person_entity_id = '8260b1b0-5efc-4611-ad33-ee76c0cf7f13'
@@ -964,7 +964,7 @@ PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app
 
 # Common queries
 \dt app.*              # List all tables
-\d app.d_project       # Describe table structure
+\d app.project       # Describe table structure
 \di app.*              # List all indexes
 ```
 

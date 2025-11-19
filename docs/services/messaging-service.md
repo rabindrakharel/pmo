@@ -82,7 +82,7 @@ Orchestrates calendar event notifications (invitations, updates, reminders, canc
 **Flow**:
 1. **Query event** from `d_entity_event`
 2. **Query attendees** from `d_entity_event_person_link`
-3. **Resolve person details** from `d_employee` or `d_client`
+3. **Resolve person details** from `employee` or `d_client`
 4. **Extract email addresses** for notification
 5. **Filter** based on RSVP status (optional)
 
@@ -269,7 +269,7 @@ END:VCALENDAR
 
 - **d_entity_event** - Event details
 - **d_entity_event_person_link** - Attendee relationships
-- **d_employee** - Employee data
+- **employee** - Employee data
 - **d_client** - Customer data
 - **d_message_schema** - Notification templates
 - **f_message** - Delivery tracking

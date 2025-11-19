@@ -257,7 +257,7 @@ const eventQuery = client`
         'name', emp.name,
         'email', emp.email
       )
-      FROM app.d_employee emp
+      FROM app.employee emp
       WHERE emp.id = e.organizer_employee_id
     ) as organizer,
     -- Enrich event action entity

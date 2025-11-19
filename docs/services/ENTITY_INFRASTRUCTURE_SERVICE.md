@@ -85,7 +85,7 @@ import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '@/services
                           ▼
         ┌─────────────────────────────────────┐
         │   PRIMARY ENTITY TABLES              │
-        │   (d_project, d_task, d_employee)    │
+        │   (project, task, employee)    │
         │   Routes OWN these queries           │
         └─────────────────────────────────────┘
 ```
@@ -169,7 +169,7 @@ USER REQUEST: POST /api/v1/project?parent_type=business&parent_id=123
 │  └─ entityInfra.check_entity_rbac(userId, 'business', '123', Permission.EDIT)
 │
 ├─ STEP 3: Route OWNS INSERT (Primary Table)
-│  └─ db.execute(sql`INSERT INTO app.d_project ...`)
+│  └─ db.execute(sql`INSERT INTO app.project ...`)
 │
 ├─ STEP 4: Register Instance (entity_instance)
 │  └─ entityInfra.set_entity_instance_registry({
@@ -200,7 +200,7 @@ USER REQUEST: PATCH /api/v1/project/456
 │  └─ entityInfra.check_entity_rbac(userId, 'project', '456', Permission.EDIT)
 │
 ├─ STEP 2: Route OWNS UPDATE (Primary Table)
-│  └─ db.execute(sql`UPDATE app.d_project SET ... WHERE id = '456'`)
+│  └─ db.execute(sql`UPDATE app.project SET ... WHERE id = '456'`)
 │
 └─ STEP 3: Sync Registry (entity_instance - if name/code changed)
    └─ entityInfra.update_entity_instance_registry('project', '456', {
@@ -226,9 +226,9 @@ USER REQUEST: GET /api/v1/project
 └─ STEP 2: Route Builds Custom Query (Full Control)
    └─ db.execute(sql`
         SELECT e.*, b.name as business_name, COUNT(t.id) as task_count
-        FROM app.d_project e
-        LEFT JOIN app.d_business b ON e.business_id = b.id
-        LEFT JOIN app.d_task t ON t.project_id = e.id
+        FROM app.project e
+        LEFT JOIN app.business b ON e.business_id = b.id
+        LEFT JOIN app.task t ON t.project_id = e.id
         WHERE ${rbacCondition}
           AND e.active_flag = true
           AND e.budget_allocated_amt > 10000
@@ -495,7 +495,7 @@ API: POST /api/v1/project?parent_type=business&parent_id=123
     ├─ Check: Can user EDIT parent business? (linkage permission)
     │  ✅ entityInfra.check_entity_rbac(userId, 'business', '123', Permission.EDIT)
     │
-    ├─ Create: INSERT INTO app.d_project (route-controlled)
+    ├─ Create: INSERT INTO app.project (route-controlled)
     │
     ├─ Register: entityInfra.set_entity_instance_registry(...)
     │
@@ -519,8 +519,8 @@ API: GET /api/v1/project
     │  └─ rbacCondition = entityInfra.get_entity_rbac_where_condition(userId, 'project', Permission.VIEW, 'e')
     │
     ├─ Route builds custom query
-    │  └─ SELECT e.*, b.name FROM d_project e
-    │     LEFT JOIN d_business b ON ...
+    │  └─ SELECT e.*, b.name FROM app.project e
+    │     LEFT JOIN business b ON ...
     │     WHERE ${rbacCondition}
     │
     └─ Returns only projects user can VIEW
@@ -542,7 +542,7 @@ API: DELETE /api/v1/project/789
          cascade_delete_children: true,
          remove_rbac_entries: true,
          primary_table_callback: async (db, id) => {
-           await db.execute(sql`UPDATE app.d_project SET active_flag = false WHERE id = ${id}`)
+           await db.execute(sql`UPDATE app.project SET active_flag = false WHERE id = ${id}`)
          }
        })
     │
@@ -551,7 +551,7 @@ API: DELETE /api/v1/project/789
     ├─ Step 3: Hard delete from entity_instance
     ├─ Step 4: Hard delete from entity_instance_link
     ├─ Step 5: Remove all RBAC entries
-    └─ Step 6: Soft delete from d_project (via callback)
+    └─ Step 6: Soft delete from project (via callback)
     │
     ▼
 FRONTEND: Redirects to /project (entity no longer visible)
@@ -567,9 +567,9 @@ FRONTEND: Redirects to /project (entity no longer visible)
 ✅ DO: Routes OWN primary table queries
    const result = await db.execute(sql`
      SELECT e.*, b.name, COUNT(t.id)
-     FROM app.d_project e
-     LEFT JOIN app.d_business b ON e.business_id = b.id
-     LEFT JOIN app.d_task t ON t.project_id = e.id
+     FROM app.project e
+     LEFT JOIN app.business b ON e.business_id = b.id
+     LEFT JOIN app.task t ON t.project_id = e.id
      WHERE ${rbacCondition}  ← Service provides this only
      GROUP BY e.id, b.name
    `);
@@ -598,13 +598,13 @@ FRONTEND: Redirects to /project (entity no longer visible)
 
 ```
 ✅ Always sync registry after name/code changes
-   await db.execute(sql`UPDATE app.d_project SET name = ${newName}`);
+   await db.execute(sql`UPDATE app.project SET name = ${newName}`);
    await entityInfra.update_entity_instance_registry('project', id, {
      entity_name: newName
    });
 
 ❌ Don't forget registry sync - breaks name resolution
-   await db.execute(sql`UPDATE app.d_project SET name = ${newName}`);
+   await db.execute(sql`UPDATE app.project SET name = ${newName}`);
    // Missing registry sync → stale names in UI
 ```
 
@@ -617,7 +617,7 @@ INFRASTRUCTURE TABLES (Always Hard Delete):
   • entity_rbac - No expiration = hard delete
 
 PRIMARY TABLES (Route Decides):
-  • d_project, d_task, etc. - Have active_flag for soft delete
+  • project, task, etc. - Have active_flag for soft delete
   • Route controls via primary_table_callback parameter
 ```
 

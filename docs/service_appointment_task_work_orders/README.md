@@ -217,7 +217,7 @@ interface Task {
     urgency_level: 'emergency' | 'urgent' | 'normal' | 'scheduled';
     service_address: string;
     conversation_id: string;
-    assigned_employee_id?: string;
+    assigneemployee_id?: string;
     event_id?: string;
     scheduled_at?: string;
   };

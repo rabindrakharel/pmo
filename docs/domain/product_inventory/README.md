@@ -88,7 +88,7 @@ The Product & Inventory Domain manages the complete product catalog with SKU-lev
 
 4. **Inventory → Office**: Many-to-one
    - Each inventory record tied to one warehouse/office location
-   - Uses `store_id` field linking to `d_office.id`
+   - Uses `store_id` field linking to `office.id`
    - Supports multi-location inventory visibility
 
 ## Business Semantics
@@ -239,7 +239,7 @@ SELECT o.name as warehouse,
        SUM(i.qty * p.unit_cost) as inventory_value
 FROM app.f_inventory i
 JOIN app.d_product p ON p.id = i.product_id
-JOIN app.d_office o ON o.id = i.store_id
+JOIN app.office o ON o.id = i.store_id
 GROUP BY o.name;
 ```
 
@@ -368,7 +368,7 @@ CREATE TABLE app.f_inventory (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     -- Location & Product
-    store_id UUID,                                  -- Link to d_office
+    store_id UUID,                                  -- Link to office
     product_id UUID,                                -- Link to d_product
 
     -- Stock Level

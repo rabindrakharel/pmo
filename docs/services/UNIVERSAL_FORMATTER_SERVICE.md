@@ -426,7 +426,7 @@ Color Preloading (Optional Optimization):
    ↓
 15. PATCH /api/v1/project/{id} with flat format
     ↓
-16. Backend: UPDATE app.d_project SET manager__employee_id = 'emp-999'
+16. Backend: UPDATE app.project SET manager__employee_id = 'emp-999'
     ↓
 17. Backend: update_entity_instance_registry() if name changed
     ↓

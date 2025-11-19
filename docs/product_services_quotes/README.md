@@ -542,7 +542,7 @@ export async function serviceRoutes(fastify: FastifyInstance) {
 ```
 ┌─────────────┐
 │    Task     │
-│ (d_task)    │
+│ (task)    │
 └──────┬──────┘
        │
        │ (via entity_instance_link)

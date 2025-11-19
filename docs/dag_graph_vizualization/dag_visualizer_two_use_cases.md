@@ -149,7 +149,7 @@ CREATE TABLE app.setting_datalabel (
 }
 
 -- Entity tables store current stage name
-CREATE TABLE app.d_task (
+CREATE TABLE app.task (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     dl__task_stage VARCHAR(100),    -- Current stage name (matches stage.name)

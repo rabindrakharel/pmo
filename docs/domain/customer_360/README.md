@@ -18,11 +18,11 @@ Customer 360 is the core identity domain that maintains a complete, unified view
 
 | Entity | DDL File | Table | Purpose |
 |--------|----------|-------|---------|
-| **Customer** | VI_d_cust.ddl | `d_client` | Customer/client master with contact info, addresses, and relationships |
-| **Business** | V_d_business.ddl | `d_business` | Business unit master with 3-level hierarchy (Business → Region → Enterprise) |
-| **Employee** | III_d_employee.ddl | `d_employee` | Employee master with authentication, roles, and org assignments |
+| **Customer** | VI_cust.ddl | `d_client` | Customer/client master with contact info, addresses, and relationships |
+| **Business** | V_business.ddl | `business` | Business unit master with 3-level hierarchy (Business → Region → Enterprise) |
+| **Employee** | III_employee.ddl | `employee` | Employee master with authentication, roles, and org assignments |
 | **Role** | VII_d_role.ddl | `d_role` | Role definitions for employees (CEO, Project Manager, Technician, etc.) |
-| **Office** | IV_d_office.ddl | `d_office` | Office locations with 4-level hierarchy (Office → District → Region → Corporate) |
+| **Office** | IV_office.ddl | `office` | Office locations with 4-level hierarchy (Office → District → Region → Corporate) |
 | **Worksite** | IX_d_worksite.ddl | `d_worksite` | Customer site locations for field service delivery |
 
 ## Entity Relationships
@@ -41,7 +41,7 @@ Customer 360 is the core identity domain that maintains a complete, unified view
 │       ▼                                                         │
 │  ┌────────────────┐         belongs to       ┌──────────────┐  │
 │  │   Business     │◄────────────────────────►│   Office     │  │
-│  │ (d_business)   │                          │  (d_office)  │  │
+│  │ (business)   │                          │  (office)  │  │
 │  │                │                          │              │  │
 │  │ 3-Level Hier:  │                          │ 4-Level Hier:│  │
 │  │ • Business     │                          │ • Office     │  │
@@ -55,7 +55,7 @@ Customer 360 is the core identity domain that maintains a complete, unified view
 │       │                                             │          │
 │  ┌────────────────┐         has         ┌──────────────────┐  │
 │  │   Employee     │◄────────────────────►│      Role       │  │
-│  │  (d_employee)  │      1:many          │    (d_role)     │  │
+│  │  (employee)  │      1:many          │    (d_role)     │  │
 │  │                │                      │                 │  │
 │  │ • email/auth   │                      │ • CEO           │  │
 │  │ • name         │                      │ • PM            │  │
@@ -130,7 +130,7 @@ The **3-level business hierarchy** supports:
 
 ```
 1. User enters email: james.miller@huronhome.ca
-2. System queries: SELECT * FROM d_employee WHERE email = ?
+2. System queries: SELECT * FROM app.employee WHERE email = ?
 3. Password verified via bcrypt hash
 4. JWT token issued with employee_id + role_id
 5. RBAC checked via d_entity_rbac for all operations
@@ -228,25 +228,25 @@ CREATE TABLE app.d_client (
     phone VARCHAR(50),
     address_json JSONB,
     dl__customer_status VARCHAR(50), -- settings dropdown
-    business_id INT4, -- soft link to d_business
+    business_id INT4, -- soft link to business
     created_ts TIMESTAMPTZ DEFAULT now()
 );
 
--- Employee (d_employee)
-CREATE TABLE app.d_employee (
+-- Employee (employee)
+CREATE TABLE app.employee (
     employee_id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255),
     role_id INT4, -- soft link to d_role
-    office_id INT4, -- soft link to d_office
-    business_id INT4, -- soft link to d_business
+    office_id INT4, -- soft link to office
+    business_id INT4, -- soft link to business
     dl__employee_status VARCHAR(50),
     created_ts TIMESTAMPTZ DEFAULT now()
 );
 
--- Office (d_office) - 4-level hierarchy
-CREATE TABLE app.d_office (
+-- Office (office) - 4-level hierarchy
+CREATE TABLE app.office (
     office_id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     parent_office_id INT4, -- self-referential hierarchy
@@ -326,12 +326,12 @@ Permissions array: `[view, edit, share, delete, create]`
 
 ```sql
 -- Critical indexes for performance
-CREATE INDEX idx_employee_email ON app.d_employee(email);
-CREATE INDEX idx_employee_role ON app.d_employee(role_id);
-CREATE INDEX idx_employee_office ON app.d_employee(office_id);
+CREATE INDEX idx_employee_email ON app.employee(email);
+CREATE INDEX idx_employee_role ON app.employee(role_id);
+CREATE INDEX idx_employee_office ON app.employee(office_id);
 CREATE INDEX idx_client_status ON app.d_client(dl__customer_status);
-CREATE INDEX idx_office_parent ON app.d_office(parent_office_id);
-CREATE INDEX idx_business_parent ON app.d_business(parent_business_id);
+CREATE INDEX idx_office_parent ON app.office(parent_office_id);
+CREATE INDEX idx_business_parent ON app.business(parent_business_id);
 ```
 
 ## Future Enhancements

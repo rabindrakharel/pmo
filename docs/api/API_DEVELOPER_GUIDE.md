@@ -172,7 +172,7 @@ const access = await db.execute(sql`
 import { createChildEntityEndpoint } from '@/lib/child-entity-route-factory.js';
 
 // ✅ CORRECT: Use factory
-createChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
+createChildEntityEndpoint(fastify, 'project', 'task', 'task');
 createChildEntityEndpoint(fastify, 'project', 'artifact', 'd_artifact');
 createChildEntityEndpoint(fastify, 'project', 'form', 'd_form_head');
 createChildEntityEndpoint(fastify, 'project', 'wiki', 'd_wiki');
@@ -368,8 +368,8 @@ export async function universalEntityDelete(
 **File:** `db/d_{entity}.ddl`
 
 ```sql
--- Example: db/d_project.ddl
-CREATE TABLE IF NOT EXISTS app.d_project (
+-- Example: db/project.ddl
+CREATE TABLE IF NOT EXISTS app.project (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(50) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -400,9 +400,9 @@ CREATE TABLE IF NOT EXISTS app.d_project (
     CONSTRAINT uk_project_code UNIQUE (code)
 );
 
-CREATE INDEX IF NOT EXISTS idx_project_active ON app.d_project(active_flag);
-CREATE INDEX IF NOT EXISTS idx_project_created_ts ON app.d_project(created_ts);
-CREATE INDEX IF NOT EXISTS idx_project_status ON app.d_project(project_status);
+CREATE INDEX IF NOT EXISTS idx_project_active ON app.project(active_flag);
+CREATE INDEX IF NOT EXISTS idx_project_created_ts ON app.project(created_ts);
+CREATE INDEX IF NOT EXISTS idx_project_status ON app.project(project_status);
 ```
 
 **Standards:**
@@ -421,7 +421,7 @@ CREATE INDEX IF NOT EXISTS idx_project_status ON app.d_project(project_status);
 // apps/api/src/db/schema/project.ts
 import { pgTable, uuid, varchar, text, boolean, timestamp, integer, decimal, date, jsonb } from 'drizzle-orm/pg-core';
 
-export const projectTable = pgTable('d_project', {
+export const projectTable = pgTable('project', {
   id: uuid('id').primaryKey().defaultRandom(),
   code: varchar('code', { length: 50 }).notNull().unique(),
   name: varchar('name', { length: 255 }).notNull(),
@@ -510,7 +510,7 @@ export class ProjectService {
     // Get total count
     const countResult = await db.execute(sql`
       SELECT COUNT(*) as total
-      FROM app.d_project p
+      FROM app.project p
       WHERE ${whereClause}
     `);
     const total = parseInt(countResult.rows[0]?.total || '0');
@@ -520,8 +520,8 @@ export class ProjectService {
       SELECT
         p.*,
         e.name as manager_name
-      FROM app.d_project p
-      LEFT JOIN app.d_employee e ON p.manager_employee_id = e.id
+      FROM app.project p
+      LEFT JOIN app.employee e ON p.manager_employee_id = e.id
       WHERE ${whereClause}
       ORDER BY p.created_ts DESC
       LIMIT ${limit} OFFSET ${offset}
@@ -543,8 +543,8 @@ export class ProjectService {
       SELECT
         p.*,
         e.name as manager_name
-      FROM app.d_project p
-      LEFT JOIN app.d_employee e ON p.manager_employee_id = e.id
+      FROM app.project p
+      LEFT JOIN app.employee e ON p.manager_employee_id = e.id
       WHERE p.id::text = ${id}
         AND p.active_flag = true
         AND EXISTS (
@@ -565,7 +565,7 @@ export class ProjectService {
    */
   async create(data: NewProject, userId: string): Promise<Project> {
     const result = await db.execute(sql`
-      INSERT INTO app.d_project (
+      INSERT INTO app.project (
         code, name, descr, project_status, project_stage,
         manager_employee_id, budget_allocated_amt, start_date,
         created_by, updated_by
@@ -586,7 +586,7 @@ export class ProjectService {
    */
   async update(id: string, data: Partial<Project>, userId: string): Promise<Project> {
     const result = await db.execute(sql`
-      UPDATE app.d_project
+      UPDATE app.project
       SET
         name = COALESCE(${data.name}, name),
         descr = COALESCE(${data.descr}, descr),
@@ -742,7 +742,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
   createEntityDeleteEndpoint(fastify, 'project');
 
   // CHILD ENTITY ENDPOINTS (using factory)
-  createChildEntityEndpoint(fastify, 'project', 'task', 'd_task');
+  createChildEntityEndpoint(fastify, 'project', 'task', 'task');
   createChildEntityEndpoint(fastify, 'project', 'wiki', 'd_wiki');
   createChildEntityEndpoint(fastify, 'project', 'artifact', 'd_artifact');
   createChildEntityEndpoint(fastify, 'project', 'form', 'd_form_head');
@@ -778,7 +778,7 @@ export async function registerAllRoutes(fastify: FastifyInstance) {
 ./tools/db-import.sh
 
 # Verify table created
-PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app -c "\dt app.d_project"
+PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app -c "\dt app.project"
 ```
 
 ### Step 7: Test API
@@ -861,13 +861,13 @@ const result = await db.execute(sql`
     p.*,
     e.name as manager_name,
     COUNT(t.id) as task_count
-  FROM app.d_project p
-  LEFT JOIN app.d_employee e ON p.manager_employee_id = e.id
+  FROM app.project p
+  LEFT JOIN app.employee e ON p.manager_employee_id = e.id
   LEFT JOIN app.entity_instance_link eim ON eim.parent_entity_id = p.id::text
     AND eim.parent_entity_type = 'project'
     AND eim.child_entity_type = 'task'
     AND eim.active_flag = true
-  LEFT JOIN app.d_task t ON t.id::text = eim.child_entity_id
+  LEFT JOIN app.task t ON t.id::text = eim.child_entity_id
     AND t.active_flag = true
   WHERE p.active_flag = true
     AND p.project_status = ${status}
@@ -883,7 +883,7 @@ const projects = result.rows as (Project & { manager_name: string; task_count: n
 
 ```typescript
 // NEVER do this - SQL injection vulnerability!
-const query = `SELECT * FROM app.d_project WHERE project_status = '${status}'`;
+const query = `SELECT * FROM app.project WHERE project_status = '${status}'`;
 const result = await db.execute(query); // ❌ UNSAFE
 ```
 
@@ -894,7 +894,7 @@ const result = await db.execute(query); // ❌ UNSAFE
 await db.transaction(async (tx) => {
   // Step 1: Create project
   const project = await tx.execute(sql`
-    INSERT INTO app.d_project (code, name, created_by)
+    INSERT INTO app.project (code, name, created_by)
     VALUES (${code}, ${name}, ${userId})
     RETURNING *
   `);
@@ -985,7 +985,7 @@ await db.transaction(async (tx) => {
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ 6. ORM LAYER (Drizzle)                                      │
-│    db.execute(sql`SELECT ... FROM app.d_project ...`)       │
+│    db.execute(sql`SELECT ... FROM app.project ...`)       │
 │    Execute parameterized query with RBAC                    │
 └────────────────────┬────────────────────────────────────────┘
                      │
@@ -1024,7 +1024,7 @@ await db.transaction(async (tx) => {
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ STEP 1: Create Task Entity                                 │
-│ INSERT INTO app.d_task (name, ...)                         │
+│ INSERT INTO app.task (name, ...)                         │
 │ RETURNING id → "def-456"                                    │
 └────────────────────┬────────────────────────────────────────┘
                      │
@@ -1149,7 +1149,7 @@ Before merging API code:
 Do you need child entity endpoints (e.g., /project/:id/task)?
 │
 ├─ YES → Use createChildEntityEndpoint()
-│         Example: createChildEntityEndpoint(fastify, 'project', 'task', 'd_task')
+│         Example: createChildEntityEndpoint(fastify, 'project', 'task', 'task')
 │
 └─ NO → Does the entity need custom business logic?
           │
@@ -1259,7 +1259,7 @@ console.log('Has permission 0 (read):', access.some(r => r.permission.includes(0
 ```typescript
 // Check entity exists and is active
 const result = await db.execute(sql`
-  SELECT * FROM app.d_project
+  SELECT * FROM app.project
   WHERE id::text = ${id}
 `);
 console.log('Entity found:', result.rows.length > 0);
@@ -1300,7 +1300,7 @@ async list(params: { page: number; limit: number; userId: string }) {
       b.name as business_name,
       (
         SELECT COUNT(*)
-        FROM app.d_task t
+        FROM app.task t
         INNER JOIN app.entity_instance_link eim ON t.id::text = eim.child_entity_id
         WHERE eim.parent_entity_id = p.id::text
           AND eim.parent_entity_type = 'project'
@@ -1308,9 +1308,9 @@ async list(params: { page: number; limit: number; userId: string }) {
           AND eim.active_flag = true
           AND t.active_flag = true
       ) as task_count
-    FROM app.d_project p
-    LEFT JOIN app.d_employee e ON p.manager_employee_id = e.id
-    LEFT JOIN app.d_business b ON p.business_id = b.id
+    FROM app.project p
+    LEFT JOIN app.employee e ON p.manager_employee_id = e.id
+    LEFT JOIN app.business b ON p.business_id = b.id
     WHERE p.active_flag = true
       AND EXISTS (
         SELECT 1 FROM app.entity_rbac rbac
@@ -1327,7 +1327,7 @@ async list(params: { page: number; limit: number; userId: string }) {
   // Get total count
   const countResult = await db.execute(sql`
     SELECT COUNT(*) as total
-    FROM app.d_project p
+    FROM app.project p
     WHERE p.active_flag = true
       AND EXISTS (
         SELECT 1 FROM app.entity_rbac rbac
@@ -1356,7 +1356,7 @@ async createTask(data: { name: string; project_id: string }, userId: string) {
   return await db.transaction(async (tx) => {
     // Step 1: Create task
     const taskResult = await tx.execute(sql`
-      INSERT INTO app.d_task (name, created_by, updated_by)
+      INSERT INTO app.task (name, created_by, updated_by)
       VALUES (${data.name}, ${userId}, ${userId})
       RETURNING *
     `);
@@ -1451,9 +1451,9 @@ async list(filters: {
       t.*,
       e.name as assignee_name,
       p.name as project_name
-    FROM app.d_task t
-    LEFT JOIN app.d_employee e ON t.assignee_employee_id = e.id
-    LEFT JOIN app.d_project p ON t.project_id = p.id
+    FROM app.task t
+    LEFT JOIN app.employee e ON t.assignee_employee_id = e.id
+    LEFT JOIN app.project p ON t.project_id = p.id
     WHERE ${whereClause}
     ORDER BY t.created_ts DESC
     LIMIT ${filters.limit} OFFSET ${offset}
@@ -1461,7 +1461,7 @@ async list(filters: {
 
   const countResult = await db.execute(sql`
     SELECT COUNT(*) as total
-    FROM app.d_task t
+    FROM app.task t
     WHERE ${whereClause}
   `);
 
@@ -1499,7 +1499,7 @@ fastify.get('/api/v1/entity/task/options', {
            AND active_flag = true
          ORDER BY display_order) as priority,
         (SELECT json_agg(json_build_object('value', id::text, 'label', name))
-         FROM app.d_employee
+         FROM app.employee
          WHERE active_flag = true
          ORDER BY name) as assignees
     `);

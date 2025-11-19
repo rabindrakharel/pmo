@@ -83,7 +83,7 @@ The PMO Calendar & Event Management System enables scheduling, tracking, and man
 └─────────────────────────────────────────────────────────────────┘
 
 ┌──────────────────┐                ┌──────────────────┐
-│   d_employee     │                │   d_customer     │
+│   employee     │                │   customer     │
 │                  │                │                  │
 │ • id (PK)        │                │ • id (PK)        │
 │ • name           │                │ • name           │
@@ -156,7 +156,7 @@ The PMO Calendar & Event Management System enables scheduling, tracking, and man
 └──────────────────────────────────────────────────────────────┘
 
 ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-│ d_service   │  │ d_product   │  │ d_project   │
+│ d_service   │  │ d_product   │  │ project   │
 │             │  │             │  │             │
 │ • id (PK)   │  │ • id (PK)   │  │ • id (PK)   │
 │ • name      │  │ • name      │  │ • name      │
@@ -168,7 +168,7 @@ The PMO Calendar & Event Management System enables scheduling, tracking, and man
            event_action_entity_id
 
 ┌─────────────┐  ┌─────────────┐
-│  d_task     │  │  d_quote    │
+│  task     │  │  d_quote    │
 │             │  │             │
 │ • id (PK)   │  │ • id (PK)   │
 │ • name      │  │ • name      │
@@ -184,7 +184,7 @@ The PMO Calendar & Event Management System enables scheduling, tracking, and man
 └─────────────────────────────────────────────────────────────┘
 
 ┌──────────────────┐
-│ d_employee       │
+│ employee       │
 └────────┬─────────┘
          │ has availability slots
          ▼
@@ -206,14 +206,14 @@ The PMO Calendar & Event Management System enables scheduling, tracking, and man
 └─────────────────────────────────────────────────────────────┘
 
 ┌──────────────────┐
-│ d_employee       │
+│ employee       │
 └────────┬─────────┘
          │ has permissions on
          ▼
 ┌────────────────────────────────────┐
 │  entity_rbac                │
 │                                    │
-│ • empid (FK → d_employee)          │
+│ • empid (FK → employee)          │
 │ • entity ('event')                 │
 │ • entity_id (FK → d_event.id)      │
 │ • permission [view,edit,share,     │
@@ -224,7 +224,7 @@ The PMO Calendar & Event Management System enables scheduling, tracking, and man
 
 ### Key Relationships
 
-1. **Event → Organizer**: `d_event.organizer_employee_id` → `d_employee.id`
+1. **Event → Organizer**: `d_event.organizer_employee_id` → `employee.id`
    - One-to-One: Each event has exactly one organizer
    - Mandatory: Cannot be NULL
 
@@ -263,7 +263,7 @@ CREATE TABLE app.d_event (
 
   -- Organizer
   organizer_employee_id uuid,
-    -- FK to d_employee.id
+    -- FK to employee.id
 
   -- Logistics
   event_type varchar(100) NOT NULL,
@@ -312,7 +312,7 @@ CREATE TABLE app.d_entity_event_person_calendar (
   person_entity_type varchar(50) NOT NULL,
     -- Values: 'employee', 'customer', 'client'
   person_entity_id uuid NOT NULL,
-    -- FK to d_employee.id OR d_customer.id
+    -- FK to employee.id OR customer.id
 
   -- RSVP Status
   event_rsvp_status varchar(50) NOT NULL DEFAULT 'pending',
@@ -345,7 +345,7 @@ CREATE TABLE app.d_person_calendar (
   person_entity_type varchar(50) NOT NULL,
     -- Values: 'employee'
   person_entity_id uuid NOT NULL,
-    -- FK to d_employee.id
+    -- FK to employee.id
 
   -- Availability Slot
   from_ts timestamptz NOT NULL,
@@ -782,7 +782,7 @@ interface EventFormData {
    ├─ Query created event with enriched data:
    │  SELECT e.*,
    │    (SELECT jsonb_build_object('empid', emp.id, 'name', emp.name, ...)
-   │     FROM d_employee emp WHERE emp.id = e.organizer_employee_id) as organizer
+   │     FROM app.employee emp WHERE emp.id = e.organizer_employee_id) as organizer
    │  FROM d_event e WHERE e.id = new_event_id
    │
    └─ Return 201 Created with:
@@ -820,9 +820,9 @@ interface EventFormData {
 
 2. API ENRICHES DATA
    ├─ Query d_event table
-   ├─ LEFT JOIN d_employee for organizer details
+   ├─ LEFT JOIN employee for organizer details
    ├─ Query d_entity_event_person_calendar for attendees
-   ├─ LEFT JOIN d_employee/d_customer for attendee names
+   ├─ LEFT JOIN employee/customer for attendee names
    └─ Return enriched response
 
 3. UI DISPLAYS

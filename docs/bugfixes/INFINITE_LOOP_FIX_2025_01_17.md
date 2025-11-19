@@ -232,7 +232,7 @@ const fields = useMemo(() => {
 ### **Test Case 3: Add New Field to Task**
 
 **Steps**:
-1. Add new column to `d_task` table: `ALTER TABLE app.d_task ADD COLUMN priority_level TEXT;`
+1. Add new column to `task` table: `ALTER TABLE app.task ADD COLUMN priority_level TEXT;`
 2. Navigate to task detail page
 3. Monitor field rendering
 

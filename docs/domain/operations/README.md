@@ -19,9 +19,9 @@ The Operations domain is the **execution engine** of the PMO platform. It manage
 
 | Entity | DDL File | Table | Purpose |
 |--------|----------|-------|---------|
-| **Project** | XII_d_project.ddl | `d_project` | Project master with stages, budgets, and parent-child hierarchy |
-| **Task** | XIII_d_task.ddl | `d_task` | Task head with assignments, deadlines, and workflow stages |
-| **Task Data** | XIV_d_task_data.ddl | `d_task_data` | Temporal task data (versioned task details) |
+| **Project** | XII_project.ddl | `project` | Project master with stages, budgets, and parent-child hierarchy |
+| **Task** | XIII_task.ddl | `task` | Task head with assignments, deadlines, and workflow stages |
+| **Task Data** | XIV_task_data.ddl | `task_data` | Temporal task data (versioned task details) |
 | **Work Order** | XXXI_fact_work_order.ddl | `fact_work_order` | Field service work orders linked to tasks/projects |
 
 ## Entity Relationships
@@ -39,7 +39,7 @@ The Operations domain is the **execution engine** of the PMO platform. It manage
 │           ▼                                                    │
 │  ┌─────────────────┐         parent/child     ┌────────────┐ │
 │  │    Project      │◄──────────────────────►│  Project   │ │
-│  │  (d_project)    │      (sub-projects)     │  (parent)  │ │
+│  │  (project)    │      (sub-projects)     │  (parent)  │ │
 │  │                 │                          └────────────┘ │
 │  │ • name          │                                          │
 │  │ • dl__stage     │◄─────────┐                              │
@@ -52,7 +52,7 @@ The Operations domain is the **execution engine** of the PMO platform. It manage
 │           ▼                   │                              │
 │  ┌─────────────────┐          │                              │
 │  │      Task       │──────────┘                              │
-│  │    (d_task)     │                                          │
+│  │    (task)     │                                          │
 │  │                 │◄──────┐                                 │
 │  │ • name          │       │ has                             │
 │  │ • dl__priority  │       │                                 │
@@ -65,7 +65,7 @@ The Operations domain is the **execution engine** of the PMO platform. It manage
 │           ▼                │                                 │
 │  ┌─────────────────┐       │                                 │
 │  │   Task Data     │       │                                 │
-│  │ (d_task_data)   │       │                                 │
+│  │ (task_data)   │       │                                 │
 │  │                 │       │                                 │
 │  │ • task_id (FK)  │       │                                 │
 │  │ • version       │       │                                 │
@@ -160,14 +160,14 @@ Implemented via `parent_project_id` self-referential foreign key.
 
 Tasks use **head/data pattern** for version control:
 
-- **d_task**: Immutable task header (ID, name, project link)
-- **d_task_data**: Versioned task details (description, estimates, metadata)
+- **task**: Immutable task header (ID, name, project link)
+- **task_data**: Versioned task details (description, estimates, metadata)
 
 ```sql
 -- Query current task state
 SELECT t.task_id, t.name, td.description, td.estimate_hours
-FROM d_task t
-JOIN d_task_data td ON t.task_id = td.task_id
+FROM app.task t
+JOIN task_data td ON t.task_id = td.task_id
 WHERE td.valid_to IS NULL; -- current version
 ```
 
@@ -243,8 +243,8 @@ All via `d_entity_instance_link` with `parent_entity_type` polymorphism.
 ### Key Tables
 
 ```sql
--- Project (d_project)
-CREATE TABLE app.d_project (
+-- Project (project)
+CREATE TABLE app.project (
     project_id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -258,8 +258,8 @@ CREATE TABLE app.d_project (
     created_ts TIMESTAMPTZ DEFAULT now()
 );
 
--- Task (d_task) - Head table
-CREATE TABLE app.d_task (
+-- Task (task) - Head table
+CREATE TABLE app.task (
     task_id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     project_id INT4,
@@ -270,8 +270,8 @@ CREATE TABLE app.d_task (
     created_ts TIMESTAMPTZ DEFAULT now()
 );
 
--- Task Data (d_task_data) - Temporal versioning
-CREATE TABLE app.d_task_data (
+-- Task Data (task_data) - Temporal versioning
+CREATE TABLE app.task_data (
     task_data_id SERIAL PRIMARY KEY,
     task_id INT4 NOT NULL,
     version INT4 DEFAULT 1,
@@ -373,12 +373,12 @@ INSERT INTO f_industry_workflow_events (
 ### Indexing Strategy
 
 ```sql
-CREATE INDEX idx_project_stage ON app.d_project(dl__project_stage);
-CREATE INDEX idx_project_parent ON app.d_project(parent_project_id);
-CREATE INDEX idx_task_project ON app.d_task(project_id);
-CREATE INDEX idx_task_assignee ON app.d_task(assignee_employee_id);
-CREATE INDEX idx_task_stage ON app.d_task(dl__task_stage);
-CREATE INDEX idx_task_data_task ON app.d_task_data(task_id, valid_to);
+CREATE INDEX idx_project_stage ON app.project(dl__project_stage);
+CREATE INDEX idx_project_parent ON app.project(parent_project_id);
+CREATE INDEX idx_task_project ON app.task(project_id);
+CREATE INDEX idx_task_assignee ON app.task(assignee_employee_id);
+CREATE INDEX idx_task_stage ON app.task(dl__task_stage);
+CREATE INDEX idx_task_data_task ON app.task_data(task_id, valid_to);
 CREATE INDEX idx_wo_task ON app.fact_work_order(task_id);
 ```
 

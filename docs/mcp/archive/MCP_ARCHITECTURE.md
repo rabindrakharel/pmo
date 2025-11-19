@@ -320,8 +320,8 @@ The AI chat system needs to perform real business operations:
                   │
                   ▼
      ┌─────────────────────────────┐
-     │  Database: app.d_customer   │
-     │  INSERT INTO app.d_customer │
+     │  Database: app.customer   │
+     │  INSERT INTO app.customer │
      │  (                          │
      │    name,                    │
      │    primary_phone,           │
@@ -396,7 +396,7 @@ The AI chat system needs to perform real business operations:
                      │
                      ▼
         ┌─────────────────────────┐
-        │  Database: app.d_task   │
+        │  Database: app.task   │
         │  INSERT with rich descr │
         └─────────────┬───────────┘
                       │
@@ -623,7 +623,7 @@ async function executeMCPTool(
 **Database State After Call:**
 
 ```
-app.d_customer:
+app.customer:
   id: abc-123
   name: "John Doe"
   primary_phone: "555-1234"
@@ -632,7 +632,7 @@ app.d_customer:
   province: "California"
   postal_code: NULL
 
-app.d_task:
+app.task:
   id: def-456
   name: "Fix plumbing leak"
   descr: "## Customer Information

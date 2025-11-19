@@ -15,8 +15,8 @@ The PMO platform implements a comprehensive person-calendar system that orchestr
    - Event metadata (type, instructions, urgency)
 
 2. **Person** (employee/customer) - Independent entities
-   - Employees (`d_employee`)
-   - Customers (`d_cust`)
+   - Employees (`employee`)
+   - Customers (`cust`)
 
 3. **Calendar** - Construct where Event + Person come together:
    - **`d_entity_person_calendar`**: Availability slots + event link
