@@ -6,13 +6,14 @@ import {
 } from '../../../lib/settingsLoader';
 import { DAGVisualizer, type DAGNode } from '../../workflow/DAGVisualizer';
 import { renderEmployeeNames } from '../../../lib/entityConfig';
-import { entityOptionsApi } from '../../../lib/api';
 import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
 import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
-import { formatRelativeTime, formatFriendlyDate, formatCurrency, isCurrencyField } from '../../../lib/universalFormatterService';
+import { formatRelativeTime, formatFriendlyDate, formatCurrency, isCurrencyField, generateFieldLabel } from '../../../lib/universalFormatterService';
 import { MetadataTable } from './MetadataTable';
 import { QuoteItemsRenderer } from './QuoteItemsRenderer';
 import { getBadgeClass, textStyles } from '../../../lib/designSystem';
+import { EntitySelectDropdown } from '../ui/EntitySelectDropdown';
+import { EntityMultiSelectTags } from '../ui/EntityMultiSelectTags';
 
 // ============================================================================
 // NEW: Universal Field Detector Integration
@@ -129,7 +130,6 @@ export function EntityFormContainer({
     return [];
   }, [config, autoGenerateFields, fieldKeysString, dataTypes, requiredFields]);
   const [settingOptions, setSettingOptions] = useState<Map<string, SettingOption[]>>(new Map());
-  const [entityOptions, setEntityOptions] = useState<Map<string, SettingOption[]>>(new Map());
   const [dagNodes, setDagNodes] = useState<Map<string, DAGNode[]>>(new Map());
 
   // Helper to determine if a field should use DAG visualization
@@ -204,17 +204,11 @@ export function EntityFormContainer({
       if (!fields || fields.length === 0) return;
 
       const settingsMap = new Map<string, SettingOption[]>();
-      const entitiesMap = new Map<string, SettingOption[]>();
       const dagNodesMap = new Map<string, DAGNode[]>();
 
       // Find all fields that need dynamic settings
       const fieldsNeedingSettings = fields.filter(
         field => field.loadOptionsFromSettings && (field.type === 'select' || field.type === 'multiselect')
-      );
-
-      // Find all fields that need entity options
-      const fieldsNeedingEntityOptions = fields.filter(
-        field => field.loadOptionsFromEntity && (field.type === 'select' || field.type === 'multiselect')
       );
 
       // Load settings options
@@ -242,26 +236,7 @@ export function EntityFormContainer({
         })
       );
 
-      // Load entity options
-      await Promise.all(
-        fieldsNeedingEntityOptions.map(async (field) => {
-          try {
-            const response = await entityOptionsApi.getOptions(field.loadOptionsFromEntity!, { limit: 500 });
-            const options = response.data.map((item: any) => ({
-              value: item.id,
-              label: item.name
-            }));
-            if (options.length > 0) {
-              entitiesMap.set(field.key, options);
-            }
-          } catch (error) {
-            console.error(`Failed to load entity options for ${field.key}:`, error);
-          }
-        })
-      );
-
       setSettingOptions(settingsMap);
-      setEntityOptions(entitiesMap);
       setDagNodes(dagNodesMap);
     };
 
@@ -274,10 +249,7 @@ export function EntityFormContainer({
 
     // Check if this is a sequential state field
     const hasSettingOptions = field.loadOptionsFromSettings && settingOptions.has(field.key);
-    const hasEntityOptions = field.loadOptionsFromEntity && entityOptions.has(field.key);
-    const options = hasEntityOptions
-      ? entityOptions.get(field.key)!
-      : hasSettingOptions
+    const options = hasSettingOptions
       ? settingOptions.get(field.key)!
       : field.options || [];
     const isSequentialField = field.type === 'select'
@@ -728,6 +700,180 @@ export function EntityFormContainer({
             </div>
             );
           })}
+
+          {/* ========================================================================== */}
+          {/* Render single entity references (_ID fields) */}
+          {/* ========================================================================== */}
+          {data._ID && typeof data._ID === 'object' && Object.keys(data._ID).length > 0 && (
+            <>
+              {Object.entries(data._ID).map(([labelField, refData]: [string, any], index) => {
+                // Extract UUID field name (e.g., "manager__employee_id")
+                const uuidField = Object.keys(refData).find(k => k.endsWith('_id'));
+                if (!uuidField) return null;
+
+                const currentUuid = refData[uuidField];
+                const currentLabel = refData[labelField] || '';
+                const entityType = refData.entity_code;
+
+                // Skip if no entity type (malformed data)
+                if (!entityType) return null;
+
+                const fieldIndex = visibleFields.length + index;
+
+                return (
+                  <div key={`_id_${labelField}`}>
+                    {fieldIndex > 0 && (
+                      <div
+                        className="h-px my-1.5 opacity-60"
+                        style={{
+                          backgroundImage: 'linear-gradient(90deg, transparent, rgba(209, 213, 219, 0.2) 50%, transparent)'
+                        }}
+                      />
+                    )}
+                    <div className="group transition-all duration-300 ease-out py-1">
+                      <div className="grid grid-cols-[160px_1fr] gap-4 items-start">
+                        <label className="text-2xs font-medium text-dark-700 pt-2 flex items-center gap-1.5 uppercase tracking-wide">
+                          <span className="opacity-50 group-hover:opacity-100 transition-all duration-300 group-hover:text-dark-700">
+                            {generateFieldLabel(labelField)}
+                          </span>
+                        </label>
+                        <div
+                          className={`
+                            relative break-words rounded-md px-3 py-2 -ml-3
+                            transition-all duration-300 ease-out
+                            ${isEditing
+                              ? 'bg-gray-50 hover:bg-gray-100 hover:shadow-sm focus-within:bg-white focus-within:shadow-sm focus-within:border focus-within:border-blue-200'
+                              : 'hover:bg-gray-50'
+                            }
+                            text-sm text-gray-700 tracking-tight leading-normal
+                          `}
+                        >
+                          {!isEditing ? (
+                            // View mode: Display label only
+                            <span className="text-dark-600 text-base tracking-tight">
+                              {currentLabel || '-'}
+                            </span>
+                          ) : (
+                            // Edit mode: Show dropdown
+                            <EntitySelectDropdown
+                              label=""
+                              entityType={entityType}
+                              value={currentUuid}
+                              currentLabel={currentLabel}
+                              onChange={(newUuid, newLabel) => {
+                                onChange('_ID', {
+                                  ...data._ID,
+                                  [labelField]: {
+                                    entity_code: entityType,
+                                    [uuidField]: newUuid,
+                                    [labelField]: newLabel
+                                  }
+                                });
+                              }}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
+
+          {/* ========================================================================== */}
+          {/* Render array entity references (_IDS fields) */}
+          {/* ========================================================================== */}
+          {data._IDS && typeof data._IDS === 'object' && Object.keys(data._IDS).length > 0 && (
+            <>
+              {Object.entries(data._IDS).map(([labelField, refArray]: [string, any[]], index) => {
+                // Safely get first item or use empty object
+                const firstItem = refArray && refArray.length > 0 ? refArray[0] : {};
+
+                // Extract UUID field name (e.g., "stakeholder__employee_id")
+                const uuidField = Object.keys(firstItem).find(k => k.endsWith('_id'));
+                if (!uuidField) return null;
+
+                const entityType = firstItem.entity_code;
+
+                // Skip if no entity type
+                if (!entityType) return null;
+
+                const fieldIndex = visibleFields.length + Object.keys(data._ID || {}).length + index;
+
+                return (
+                  <div key={`_ids_${labelField}`}>
+                    {fieldIndex > 0 && (
+                      <div
+                        className="h-px my-1.5 opacity-60"
+                        style={{
+                          backgroundImage: 'linear-gradient(90deg, transparent, rgba(209, 213, 219, 0.2) 50%, transparent)'
+                        }}
+                      />
+                    )}
+                    <div className="group transition-all duration-300 ease-out py-1">
+                      <div className="grid grid-cols-[160px_1fr] gap-4 items-start">
+                        <label className="text-2xs font-medium text-dark-700 pt-2 flex items-center gap-1.5 uppercase tracking-wide">
+                          <span className="opacity-50 group-hover:opacity-100 transition-all duration-300 group-hover:text-dark-700">
+                            {generateFieldLabel(labelField)}
+                          </span>
+                        </label>
+                        <div
+                          className={`
+                            relative break-words rounded-md px-3 py-2 -ml-3
+                            transition-all duration-300 ease-out
+                            ${isEditing
+                              ? 'bg-gray-50 hover:bg-gray-100 hover:shadow-sm focus-within:bg-white focus-within:shadow-sm focus-within:border focus-within:border-blue-200'
+                              : 'hover:bg-gray-50'
+                            }
+                            text-sm text-gray-700 tracking-tight leading-normal
+                          `}
+                        >
+                          {!isEditing ? (
+                            // View mode: Display labels as comma-separated list
+                            <span className="text-dark-600 text-base tracking-tight">
+                              {refArray && refArray.length > 0
+                                ? refArray.map(ref => ref[labelField]).join(', ')
+                                : '-'}
+                            </span>
+                          ) : (
+                            // Edit mode: Show multi-select with tags
+                            <EntityMultiSelectTags
+                              label=""
+                              entityType={entityType}
+                              values={refArray || []}
+                              labelField={labelField}
+                              onAdd={(newUuid, newLabel) => {
+                                const currentArray = data._IDS?.[labelField] || [];
+                                onChange('_IDS', {
+                                  ...data._IDS,
+                                  [labelField]: [
+                                    ...currentArray,
+                                    {
+                                      entity_code: entityType,
+                                      [uuidField]: newUuid,
+                                      [labelField]: newLabel
+                                    }
+                                  ]
+                                });
+                              }}
+                              onRemove={(uuidToRemove) => {
+                                const currentArray = data._IDS?.[labelField] || [];
+                                onChange('_IDS', {
+                                  ...data._IDS,
+                                  [labelField]: currentArray.filter(item => item[uuidField] !== uuidToRemove)
+                                });
+                              }}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
         </div>
       </div>
     </div>
