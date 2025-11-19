@@ -63,6 +63,21 @@ apiClient.interceptors.response.use((response) => {
       return response;
     }
 
+    // Skip processing for specific endpoints that don't contain entity references
+    const url = response.config.url;
+    const skipPatterns = [
+      '/options',        // /api/v1/entity/*/options
+      '/auth/',          // Authentication endpoints
+      '/setting',        // Settings/datalabel endpoints
+      '/types',          // Entity type metadata
+      '/children',       // Child entity metadata
+      '/dynamic-child'   // Dynamic child tabs
+    ];
+
+    if (skipPatterns.some(pattern => url.includes(pattern))) {
+      return response;
+    }
+
     const data = response.data;
 
     // Helper function to generate mapping from entity data
