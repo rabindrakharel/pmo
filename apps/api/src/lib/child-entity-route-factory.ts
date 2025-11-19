@@ -139,7 +139,16 @@ export async function createChildEntityEndpointsFromMetadata(
     );
 
     if (childCodes.length === 0) {
-      fastify.log.info(`No child entities defined for '${parentEntity}'`);
+      // Known leaf entities (no children by design)
+      const leafEntities = new Set([
+        'work_order', 'artifact', 'wiki', 'interaction', 'event',
+        'booking', 'cost', 'invoice', 'payment', 'quote'
+      ]);
+
+      // Only log if this entity is NOT a known leaf entity
+      if (!leafEntities.has(parentEntity)) {
+        fastify.log.info(`No child entities defined for '${parentEntity}'`);
+      }
       return;
     }
 
