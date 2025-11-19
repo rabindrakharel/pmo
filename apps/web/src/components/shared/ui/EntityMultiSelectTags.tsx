@@ -4,7 +4,7 @@ import { SearchableMultiSelect } from './SearchableMultiSelect';
 
 interface EntityMultiSelectTagsProps {
   label: string;
-  entityType: string;
+  entityCode: string;
   values: any[];           // Array of { entity_code, *__*_id, label }
   labelField: string;      // The label field name (e.g., "stakeholder")
   onAdd: (uuid: string, label: string) => void;
@@ -18,13 +18,13 @@ interface EntityMultiSelectTagsProps {
  * EntityMultiSelectTags - Multi-select with tags for _IDS fields
  *
  * Uses existing SearchableMultiSelect component
- * Loads options from /api/v1/entity/{entityType}/instance-lookup
+ * Loads options from /api/v1/entity/{entityCode}/instance-lookup
  * Returns both UUID and label on add
  *
  * Usage:
  * <EntityMultiSelectTags
  *   label="Stakeholder"
- *   entityType="employee"
+ *   entityCode="employee"
  *   values={[ { entity_code: "employee", stakeholder__employee_id: "uuid", stakeholder: "Mike" } ]}
  *   labelField="stakeholder"
  *   onAdd={(uuid, label) => handleAdd(uuid, label)}
@@ -33,7 +33,7 @@ interface EntityMultiSelectTagsProps {
  */
 export const EntityMultiSelectTags: React.FC<EntityMultiSelectTagsProps> = ({
   label,
-  entityType,
+  entityCode,
   values,
   labelField,
   onAdd,
@@ -46,13 +46,13 @@ export const EntityMultiSelectTags: React.FC<EntityMultiSelectTagsProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load options from /api/v1/entity/{entityType}/instance-lookup
+  // Load options from /api/v1/entity/{entityCode}/instance-lookup
   useEffect(() => {
     const loadOptions = async () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await apiClient.get(`/api/v1/entity/${entityType}/instance-lookup`, {
+        const response = await apiClient.get(`/api/v1/entity/${entityCode}/instance-lookup`, {
           params: { active_only: true, limit: 500 }
         });
 
@@ -64,18 +64,18 @@ export const EntityMultiSelectTags: React.FC<EntityMultiSelectTagsProps> = ({
 
         setOptions(formattedOptions);
       } catch (err) {
-        console.error(`Error loading ${entityType} instance lookup:`, err);
-        setError(`Failed to load ${entityType} options`);
+        console.error(`Error loading ${entityCode} instance lookup:`, err);
+        setError(`Failed to load ${entityCode} options`);
         setOptions([]);
       } finally {
         setLoading(false);
       }
     };
 
-    if (entityType) {
+    if (entityCode) {
       loadOptions();
     }
-  }, [entityType]);
+  }, [entityCode]);
 
   // Extract current UUIDs from values
   const selectedUuids = values.map((value) => {

@@ -128,7 +128,7 @@
  *   1. User requests POST /api/v1/project?parent_type=business&parent_id={id}
  *   2. Check: Can user CREATE projects? (type-level permission)
  *   3. Check: Can user EDIT parent business? (required to link child)
- *   4. Create project in d_project
+ *   4. Create project in project table
  *   5. Link to business in entity_instance_link
  *   6. Auto-grant DELETE permission to creator
  *

@@ -713,10 +713,10 @@ export function EntityFormContainer({
 
                 const currentUuid = refData[uuidField];
                 const currentLabel = refData[labelField] || '';
-                const entityType = refData.entity_code;
+                const entityCode = refData.entity_code;
 
-                // Skip if no entity type (malformed data)
-                if (!entityType) return null;
+                // Skip if no entity code (malformed data)
+                if (!entityCode) return null;
 
                 const fieldIndex = visibleFields.length + index;
 
@@ -757,14 +757,14 @@ export function EntityFormContainer({
                             // Edit mode: Show dropdown
                             <EntitySelectDropdown
                               label=""
-                              entityType={entityType}
+                              entityCode={entityCode}
                               value={currentUuid}
                               currentLabel={currentLabel}
                               onChange={(newUuid, newLabel) => {
                                 onChange('_ID', {
                                   ...data._ID,
                                   [labelField]: {
-                                    entity_code: entityType,
+                                    entity_code: entityCode,
                                     [uuidField]: newUuid,
                                     [labelField]: newLabel
                                   }
@@ -794,10 +794,10 @@ export function EntityFormContainer({
                 const uuidField = Object.keys(firstItem).find(k => k.endsWith('_id'));
                 if (!uuidField) return null;
 
-                const entityType = firstItem.entity_code;
+                const entityCode = firstItem.entity_code;
 
-                // Skip if no entity type
-                if (!entityType) return null;
+                // Skip if no entity code
+                if (!entityCode) return null;
 
                 const fieldIndex = visibleFields.length + Object.keys(data._ID || {}).length + index;
 
@@ -840,7 +840,7 @@ export function EntityFormContainer({
                             // Edit mode: Show multi-select with tags
                             <EntityMultiSelectTags
                               label=""
-                              entityType={entityType}
+                              entityCode={entityCode}
                               values={refArray || []}
                               labelField={labelField}
                               onAdd={(newUuid, newLabel) => {
@@ -850,7 +850,7 @@ export function EntityFormContainer({
                                   [labelField]: [
                                     ...currentArray,
                                     {
-                                      entity_code: entityType,
+                                      entity_code: entityCode,
                                       [uuidField]: newUuid,
                                       [labelField]: newLabel
                                     }

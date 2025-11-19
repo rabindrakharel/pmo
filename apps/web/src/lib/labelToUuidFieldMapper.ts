@@ -15,7 +15,7 @@ export interface LabelToUuidMapping {
   [labelField: string]: {
     labelField: string;     // The label field name (e.g., "manager")
     uuidField: string;      // The UUID field name (e.g., "manager__employee_id")
-    entityType: string;     // The entity type (e.g., "employee")
+    entityCode: string;     // The entity code (e.g., "employee")
     multiple: boolean;      // Whether it's an array field (_ids)
   };
 }
@@ -48,8 +48,8 @@ export interface LabelToUuidMapping {
  * @example
  * const mapping = generateMappingFromStructuredFormat(data._ID, data._IDS);
  * // Returns: {
- * //   "manager": { uuidField: "manager__employee_id", entityType: "employee", multiple: false },
- * //   "stakeholder": { uuidField: "stakeholder__employee_ids", entityType: "employee", multiple: true }
+ * //   "manager": { uuidField: "manager__employee_id", entityCode: "employee", multiple: false },
+ * //   "stakeholder": { uuidField: "stakeholder__employee_ids", entityCode: "employee", multiple: true }
  * // }
  */
 export function generateMappingFromStructuredFormat(
@@ -71,7 +71,7 @@ export function generateMappingFromStructuredFormat(
         mapping[labelField] = {
           labelField,
           uuidField,
-          entityType: entityCode,
+          entityCode: entityCode,
           multiple: false
         };
       }
@@ -97,7 +97,7 @@ export function generateMappingFromStructuredFormat(
         mapping[labelField] = {
           labelField,
           uuidField: pluralUuidField,
-          entityType: entityCode,
+          entityCode: entityCode,
           multiple: true
         };
       }

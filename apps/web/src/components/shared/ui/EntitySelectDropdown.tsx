@@ -3,7 +3,7 @@ import { apiClient } from '@/lib/api';
 
 interface EntitySelectDropdownProps {
   label: string;
-  entityType: string;
+  entityCode: string;
   value: string;           // Current UUID
   currentLabel: string;    // Current display label
   onChange: (uuid: string, label: string) => void;
@@ -16,13 +16,13 @@ interface EntitySelectDropdownProps {
 /**
  * EntitySelectDropdown - Single select dropdown for _ID fields
  *
- * Loads options from /api/v1/entity/{entityType}/instance-lookup
+ * Loads options from /api/v1/entity/{entityCode}/instance-lookup
  * Returns both UUID and label on change
  *
  * Usage:
  * <EntitySelectDropdown
  *   label="Manager"
- *   entityType="employee"
+ *   entityCode="employee"
  *   value="uuid-123"
  *   currentLabel="James Miller"
  *   onChange={(uuid, label) => handleChange(uuid, label)}
@@ -30,7 +30,7 @@ interface EntitySelectDropdownProps {
  */
 export const EntitySelectDropdown: React.FC<EntitySelectDropdownProps> = ({
   label,
-  entityType,
+  entityCode,
   value,
   currentLabel,
   onChange,
@@ -43,29 +43,29 @@ export const EntitySelectDropdown: React.FC<EntitySelectDropdownProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load options from /api/v1/entity/{entityType}/instance-lookup
+  // Load options from /api/v1/entity/{entityCode}/instance-lookup
   useEffect(() => {
     const loadOptions = async () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await apiClient.get(`/api/v1/entity/${entityType}/instance-lookup`, {
+        const response = await apiClient.get(`/api/v1/entity/${entityCode}/instance-lookup`, {
           params: { active_only: true, limit: 500 }
         });
         setOptions(response.data.data || []);
       } catch (err) {
-        console.error(`Error loading ${entityType} instance lookup:`, err);
-        setError(`Failed to load ${entityType} options`);
+        console.error(`Error loading ${entityCode} instance lookup:`, err);
+        setError(`Failed to load ${entityCode} options`);
         setOptions([]);
       } finally {
         setLoading(false);
       }
     };
 
-    if (entityType) {
+    if (entityCode) {
       loadOptions();
     }
-  }, [entityType]);
+  }, [entityCode]);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedUuid = e.target.value;

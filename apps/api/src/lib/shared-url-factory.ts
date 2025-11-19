@@ -30,7 +30,7 @@ export const ENTITY_TABLE_MAP: Record<string, string> = {
   client: 'cust',
   worksite: 'worksite',
   role: 'role',
-  position: 'd_position',
+  position: 'position',
 };
 
 /**
