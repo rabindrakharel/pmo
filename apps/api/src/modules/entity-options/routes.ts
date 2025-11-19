@@ -33,12 +33,14 @@ const ENTITY_TABLE_MAP: Record<string, string> = {
 
 export async function entityOptionsRoutes(fastify: FastifyInstance) {
   /**
-   * GET /api/v1/entity/:entityType/options
+   * GET /api/v1/entity/:entityType/instance-lookup
    *
    * Returns list of {id, name} for a given entity type
    * Filtered by RBAC permissions
+   *
+   * Used by EntitySelectDropdown and EntityMultiSelectTags for dropdown options
    */
-  fastify.get('/api/v1/entity/:entityType/options', {
+  fastify.get('/api/v1/entity/:entityType/instance-lookup', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -139,12 +141,12 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
   });
 
   /**
-   * GET /api/v1/entity/:entityType/options/bulk
+   * POST /api/v1/entity/:entityType/instance-lookup/bulk
    *
    * Get names for specific IDs (bulk lookup)
    * Useful for resolving IDs to names
    */
-  fastify.post('/api/v1/entity/:entityType/options/bulk', {
+  fastify.post('/api/v1/entity/:entityType/instance-lookup/bulk', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({

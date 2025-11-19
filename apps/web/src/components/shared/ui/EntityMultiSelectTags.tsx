@@ -18,7 +18,7 @@ interface EntityMultiSelectTagsProps {
  * EntityMultiSelectTags - Multi-select with tags for _IDS fields
  *
  * Uses existing SearchableMultiSelect component
- * Loads options from /api/v1/entity/{entityType}/options
+ * Loads options from /api/v1/entity/{entityType}/instance-lookup
  * Returns both UUID and label on add
  *
  * Usage:
@@ -46,25 +46,25 @@ export const EntityMultiSelectTags: React.FC<EntityMultiSelectTagsProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load options from /api/v1/entity/{entityType}/options
+  // Load options from /api/v1/entity/{entityType}/instance-lookup
   useEffect(() => {
     const loadOptions = async () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await apiClient.get(`/api/v1/entity/${entityType}/options`, {
+        const response = await apiClient.get(`/api/v1/entity/${entityType}/instance-lookup`, {
           params: { active_only: true, limit: 500 }
         });
 
         // Convert to SearchableMultiSelect format
-        const formattedOptions = (response.data || []).map((item: any) => ({
+        const formattedOptions = (response.data.data || []).map((item: any) => ({
           value: item.id,
           label: item.name
         }));
 
         setOptions(formattedOptions);
       } catch (err) {
-        console.error(`Error loading ${entityType} options:`, err);
+        console.error(`Error loading ${entityType} instance lookup:`, err);
         setError(`Failed to load ${entityType} options`);
         setOptions([]);
       } finally {

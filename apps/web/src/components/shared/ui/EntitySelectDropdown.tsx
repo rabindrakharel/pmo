@@ -16,7 +16,7 @@ interface EntitySelectDropdownProps {
 /**
  * EntitySelectDropdown - Single select dropdown for _ID fields
  *
- * Loads options from /api/v1/entity/{entityType}/options
+ * Loads options from /api/v1/entity/{entityType}/instance-lookup
  * Returns both UUID and label on change
  *
  * Usage:
@@ -43,18 +43,18 @@ export const EntitySelectDropdown: React.FC<EntitySelectDropdownProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load options from /api/v1/entity/{entityType}/options
+  // Load options from /api/v1/entity/{entityType}/instance-lookup
   useEffect(() => {
     const loadOptions = async () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await apiClient.get(`/api/v1/entity/${entityType}/options`, {
+        const response = await apiClient.get(`/api/v1/entity/${entityType}/instance-lookup`, {
           params: { active_only: true, limit: 500 }
         });
-        setOptions(response.data || []);
+        setOptions(response.data.data || []);
       } catch (err) {
-        console.error(`Error loading ${entityType} options:`, err);
+        console.error(`Error loading ${entityType} instance lookup:`, err);
         setError(`Failed to load ${entityType} options`);
         setOptions([]);
       } finally {
