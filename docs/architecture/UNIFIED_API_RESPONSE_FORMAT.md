@@ -1,14 +1,14 @@
-# Unified API Response Format - Complete Specification
+# Unified API Response Format - Production Specification
 
-**Version**: 1.0
+**Version**: 2.0
 **Date**: 2025-01-19
-**Status**: Final Design
+**Status**: Production Ready
 
 ---
 
 ## 1. Complete Field Metadata Structure
 
-Every field in the metadata includes ALL information the frontend needs to make rendering decisions:
+Based on current `universalFormatterService.tsx` implementation:
 
 ```typescript
 interface FieldMetadata {
@@ -17,58 +17,136 @@ interface FieldMetadata {
   label: string;                        // Human-readable label (e.g., "Budget Allocated")
 
   // === TYPE & FORMAT ===
-  type: string;                         // Field type: currency, date, badge, reference, etc.
-  format: Record<string, any>;          // Type-specific formatting config
+  type: FieldType;                      // Field type: currency, date, badge, reference, etc.
+  dataType?: string;                    // Database data type (varchar, numeric, uuid, etc.)
+  format: FormatConfig;                 // Type-specific formatting configuration
 
-  // === RENDERING ===
-  editType: string;                     // Input type for forms: number, select, date, toggle, readonly
-  viewType: string;                     // Display type for tables: text, badge, tags, link, json-viewer
-  widget: WidgetConfig | null;          // Advanced widget (progress-bar, date-range-progress)
+  // === RENDERING (View Mode) ===
+  renderType: RenderType;               // Display renderer for tables/detail views
+  viewType: ViewType;                   // Display type variant
+  component?: ComponentType;            // Special component override
+
+  // === INPUT (Edit Mode) ===
+  inputType: InputType;                 // Input type for forms
+  editType?: EditType;                  // Edit mode input component
 
   // === BEHAVIOR ===
-  editable: boolean;                    // Can user edit this field?
-  sortable: boolean;                    // Can table sort by this column?
   visible: boolean;                     // Show in default views?
+  sortable: boolean;                    // Can table sort by this column?
+  filterable: boolean;                  // Can be filtered?
+  searchable: boolean;                  // Included in text search?
+  editable: boolean;                    // Can user edit this field?
   required?: boolean;                   // Required in forms?
 
   // === LAYOUT ===
   align: 'left' | 'right' | 'center';   // Table cell alignment
-  width?: string;                       // Suggested column width (e.g., "120px", "auto")
+  width: string;                        // Column width (e.g., "120px", "auto")
 
-  // === OPTIONS (for dropdowns) ===
-  optionsEndpoint?: string;             // API endpoint for dropdown options
-  options?: Array<{                     // Static options (small lists)
-    value: string | number;
-    label: string;
-    color?: string;                     // For badges
-  }>;
+  // === OPTIONS (for dropdowns/selects) ===
+  endpoint?: string;                    // API endpoint for dynamic options
+  loadFromSettings?: boolean;           // Load from settings table (dl__* fields)
+  loadFromEntity?: string;              // Load from entity (for references)
+  settingsDatalabel?: string;           // Datalabel name for settings
+  options?: StaticOption[];             // Static options (small lists)
 
-  // === VIEW-SPECIFIC COMPONENTS ===
-  component?: {
-    dataTable?: string;                 // Component override for EntityDataTable
-    entityFormContainer?: string;       // Component override for EntityFormContainer
-    entityDetailPage?: string;          // Component override for EntityDetailPage
-    kanbanBoard?: string;               // Component override for KanbanBoard
-  };
+  // === TRANSFORMATION ===
+  toApi?: (value: any) => any;          // Transform frontend → API
+  toDisplay?: (value: any) => any;      // Transform API → frontend
 
   // === VALIDATION ===
-  validation?: {
-    min?: number;                       // Minimum value (numeric/date)
-    max?: number;                       // Maximum value (numeric/date)
-    minLength?: number;                 // Minimum string length
-    maxLength?: number;                 // Maximum string length
-    pattern?: string;                   // Regex pattern
-    custom?: string;                    // Custom validation rule name
-  };
+  validation?: ValidationRules;         // Validation rules
 
-  // === HELP TEXT ===
+  // === HELP ===
   help?: string;                        // Help text for forms
   placeholder?: string;                 // Placeholder text for inputs
+
+  // === PATTERN METADATA ===
+  pattern?: PatternType;                // Detection pattern matched
+  category?: CategoryType;              // Field category
 }
 
-interface WidgetConfig {
-  type: string;                         // Widget type identifier
-  config: Record<string, any>;          // Widget-specific configuration
+// === TYPES (from universalFormatterService.tsx) ===
+
+type FieldType =
+  | 'text' | 'currency' | 'percentage' | 'date' | 'timestamp'
+  | 'boolean' | 'reference' | 'array-reference' | 'badge'
+  | 'json' | 'url' | 'uuid';
+
+type RenderType =
+  | 'text' | 'badge' | 'currency' | 'percentage' | 'date' | 'timestamp'
+  | 'boolean' | 'json' | 'array' | 'dag' | 'link' | 'truncated';
+
+type ViewType =
+  | 'text' | 'badge' | 'tags' | 'link' | 'json-viewer';
+
+type InputType =
+  | 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time'
+  | 'select' | 'multiselect' | 'checkbox' | 'textarea' | 'richtext'
+  | 'tags' | 'jsonb' | 'file' | 'dag-select' | 'readonly';
+
+type EditType =
+  | 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time'
+  | 'select' | 'multiselect' | 'checkbox' | 'textarea'
+  | 'tags' | 'jsonb' | 'datatable' | 'file' | 'dag-select';
+
+type ComponentType =
+  | 'DAGVisualizer'           // For dl__*_stage (workflow visualization)
+  | 'MetadataTable'           // For metadata JSONB fields
+  | 'TagsInput'               // For array fields
+  | 'DateRangeVisualizer'     // For date range pairs
+  | 'FileUpload'              // For file fields
+  | 'RichTextEditor'          // For rich text content
+  | 'SearchableMultiSelect';  // For large multiselect lists
+
+type PatternType =
+  | 'CURRENCY' | 'PERCENTAGE' | 'TIMESTAMP' | 'DATE' | 'BOOLEAN'
+  | 'FOREIGN_KEY' | 'COUNT' | 'DATALABEL' | 'STANDARD'
+  | 'JSONB' | 'ARRAY' | 'SYSTEM' | 'UNKNOWN';
+
+type CategoryType =
+  | 'identity' | 'financial' | 'temporal' | 'reference' | 'boolean'
+  | 'quantitative' | 'standard' | 'structured' | 'system' | 'content';
+
+interface FormatConfig {
+  // Currency
+  symbol?: string;                      // e.g., "$", "€"
+  decimals?: number;                    // Decimal places
+  locale?: string;                      // Locale for formatting
+
+  // Date/Time
+  style?: 'short' | 'long' | 'relative' | 'datetime';
+  timeZone?: string;
+
+  // Badge (dl__* fields)
+  loadFromSettings?: boolean;           // Load colors from settings
+  colorMap?: Record<string, string>;    // Static color mapping
+
+  // Boolean
+  trueLabel?: string;                   // Label for true
+  falseLabel?: string;                  // Label for false
+  trueColor?: string;                   // Badge color for true
+  falseColor?: string;                  // Badge color for false
+
+  // Reference
+  entity?: string;                      // Referenced entity code
+  displayField?: string;                // Field to display (usually 'name')
+}
+
+interface StaticOption {
+  value: string | number | boolean;
+  label: string;
+  color?: string;                       // For badges
+  icon?: string;                        // For enhanced display
+  order?: number;                       // Display order
+}
+
+interface ValidationRules {
+  min?: number;                         // Minimum value (numeric/date)
+  max?: number;                         // Maximum value (numeric/date)
+  minLength?: number;                   // Minimum string length
+  maxLength?: number;                   // Maximum string length
+  pattern?: string;                     // Regex pattern
+  custom?: string;                      // Custom validation function name
 }
 
 interface EntityMetadata {
@@ -79,13 +157,391 @@ interface EntityMetadata {
   fields: FieldMetadata[];              // Array of field metadata
   primaryKey: string;                   // Primary key field (usually "id")
   displayField: string;                 // Field to use for display (usually "name")
+  apiEndpoint: string;                  // Base API endpoint
+  supportedViews?: string[];            // Supported views (table, kanban, calendar, grid)
+  defaultView?: string;                 // Default view
   generated_at: string;                 // ISO timestamp
 }
 ```
 
 ---
 
-## 2. Complete API Response Example (Project Entity)
+## 2. Universal Component Library (Production)
+
+Based on current `universalFormatterService.tsx` and component files:
+
+### 2.1 RenderType → Component Mapping
+
+| RenderType | Component/Renderer | File Path | Usage |
+|------------|-------------------|-----------|-------|
+| `text` | Plain text renderer | Built-in | Standard text fields |
+| `badge` | `<Badge>` with color mapping | Built-in | dl__* fields, boolean flags |
+| `currency` | `formatCurrency()` → `"$50,000.00"` | `lib/universalFormatterService.tsx` | *_amt, *_price, *_cost |
+| `percentage` | `formatPercentage()` → `"75.0%"` | `lib/universalFormatterService.tsx` | *_pct, *_rate |
+| `date` | `formatFriendlyDate()` → `"Jan 15, 2025"` | `lib/universalFormatterService.tsx` | *_date fields |
+| `timestamp` | `formatRelativeTime()` → `"2 hours ago"` | `lib/universalFormatterService.tsx` | *_ts, created_ts, updated_ts |
+| `boolean` | `formatBooleanBadge()` | `lib/universalFormatterService.tsx` | active_flag, is_* fields |
+| `json` | `<MetadataTable>` | `components/shared/entity/MetadataTable.tsx` | metadata JSONB fields |
+| `array` | `formatTagsList()` → Tags display | `lib/universalFormatterService.tsx` | Array fields, *_ids |
+| `dag` | `<DAGVisualizer>` | `components/workflow/DAGVisualizer.tsx` | dl__*_stage fields |
+| `link` | `<a>` element | Built-in | URL fields |
+| `truncated` | Truncated text with "..." | Built-in | Long text fields (descr) |
+
+### 2.2 ComponentType → React Component
+
+| ComponentType | React Component | File Path | Usage |
+|---------------|----------------|-----------|-------|
+| `DAGVisualizer` | `<DAGVisualizer>` | `components/workflow/DAGVisualizer.tsx` | dl__*_stage (workflow stages) |
+| `MetadataTable` | `<MetadataTable>` | `components/shared/entity/MetadataTable.tsx` | metadata JSONB field |
+| `TagsInput` | `<EditableTags>` | `components/shared/ui/EditableTags.tsx` | Array fields (edit mode) |
+| `DateRangeVisualizer` | `<DateRangeVisualizer>` | `components/shared/ui/DateRangeVisualizer.tsx` | Date range pairs |
+| `FileUpload` | `<DragDropFileUpload>` | `components/shared/file/DragDropFileUpload.tsx` | File upload fields |
+| `RichTextEditor` | `<ModularEditor>` | `components/shared/editor/ModularEditor.tsx` | Rich text content |
+| `SearchableMultiSelect` | `<SearchableMultiSelect>` | `components/shared/ui/SearchableMultiSelect.tsx` | Large multiselect lists |
+
+### 2.3 InputType → Form Component
+
+| InputType | Component | File Path | Usage |
+|-----------|-----------|-----------|-------|
+| `text` | `<input type="text">` | Built-in | Standard text fields |
+| `number` | `<input type="number">` | Built-in | Numeric fields |
+| `currency` | `<input type="number">` + formatter | Built-in | *_amt fields |
+| `date` | `<input type="date">` | Built-in | Date fields |
+| `datetime` | `<input type="datetime-local">` | Built-in | Timestamp fields |
+| `time` | `<input type="time">` | Built-in | Time fields |
+| `select` | `<DataLabelSelect>` | `components/shared/ui/DataLabelSelect.tsx` | Dropdown (single) - for dl__* |
+| `select` | `<EntitySelect>` | `components/shared/ui/EntitySelect.tsx` | Dropdown (single) - for references |
+| `multiselect` | `<MultiSelect>` | `components/shared/ui/MultiSelect.tsx` | Dropdown (multiple) - small lists |
+| `multiselect` | `<SearchableMultiSelect>` | `components/shared/ui/SearchableMultiSelect.tsx` | Dropdown (multiple) - large lists |
+| `checkbox` | `<input type="checkbox">` | Built-in | Boolean fields |
+| `textarea` | `<textarea>` | Built-in | Long text (descr) |
+| `richtext` | `<ModularEditor>` | `components/shared/editor/ModularEditor.tsx` | Rich content |
+| `tags` | `<EditableTags>` | `components/shared/ui/EditableTags.tsx` | Array fields |
+| `jsonb` | `<MetadataTable>` | `components/shared/entity/MetadataTable.tsx` | JSONB fields |
+| `file` | `<DragDropFileUpload>` | `components/shared/file/DragDropFileUpload.tsx` | File uploads |
+| `dag-select` | `<DataLabelSelect>` + DAG viz | `components/shared/ui/DataLabelSelect.tsx` | Workflow stages |
+| `readonly` | Read-only display | Built-in | System fields |
+
+### 2.4 EditType → Edit Mode Component
+
+| EditType | Component | File Path | Usage |
+|----------|-----------|-----------|-------|
+| `text` | `<InlineEditField>` | `components/shared/view/InlineEditField.tsx` | Editable text |
+| `number` | `<InlineEditField>` | `components/shared/view/InlineEditField.tsx` | Numeric edit |
+| `currency` | `<InlineEditField>` | `components/shared/view/InlineEditField.tsx` | Money edit |
+| `date` | `<InlineEditField>` | `components/shared/view/InlineEditField.tsx` | Date edit |
+| `datetime` | `<InlineEditField>` | `components/shared/view/InlineEditField.tsx` | Timestamp edit |
+| `time` | `<InlineEditField>` | `components/shared/view/InlineEditField.tsx` | Time edit |
+| `select` | `<InlineEditField>` | `components/shared/view/InlineEditField.tsx` | Single select edit |
+| `multiselect` | `<InlineEditField>` | `components/shared/view/InlineEditField.tsx` | Multi-select edit |
+| `checkbox` | `<InlineEditField>` | `components/shared/view/InlineEditField.tsx` | Boolean edit |
+| `textarea` | `<InlineEditField>` | `components/shared/view/InlineEditField.tsx` | Long text edit |
+| `tags` | Inline tags editor | `components/shared/ui/EditableTags.tsx` | Array edit |
+| `jsonb` | Modal metadata editor | `components/shared/entity/MetadataTable.tsx` | JSONB edit |
+| `datatable` | Inline data table | `components/shared/ui/EntityDataTable.tsx` | Complex nested data |
+| `file` | File upload modal | `components/shared/file/DragDropFileUpload.tsx` | File edit |
+| `dag-select` | Inline stage selector | `components/shared/ui/DataLabelSelect.tsx` | Workflow edit |
+
+---
+
+## 3. Field Type Detection Patterns (Backend)
+
+Based on column naming conventions:
+
+```typescript
+// Pattern matching rules (backend formatter service)
+const DETECTION_PATTERNS = {
+  // === CURRENCY ===
+  '*_amt': {
+    type: 'currency',
+    renderType: 'currency',
+    inputType: 'currency',
+    align: 'right',
+    width: '140px',
+    pattern: 'CURRENCY',
+    category: 'financial'
+  },
+  '*_price': {
+    type: 'currency',
+    renderType: 'currency',
+    inputType: 'currency',
+    align: 'right',
+    width: '120px',
+    pattern: 'CURRENCY',
+    category: 'financial'
+  },
+  '*_cost': {
+    type: 'currency',
+    renderType: 'currency',
+    inputType: 'currency',
+    align: 'right',
+    width: '120px',
+    pattern: 'CURRENCY',
+    category: 'financial'
+  },
+
+  // === PERCENTAGE ===
+  '*_pct': {
+    type: 'percentage',
+    renderType: 'percentage',
+    inputType: 'number',
+    align: 'right',
+    width: '100px',
+    pattern: 'PERCENTAGE',
+    category: 'quantitative'
+  },
+  '*_rate': {
+    type: 'percentage',
+    renderType: 'percentage',
+    inputType: 'number',
+    align: 'right',
+    width: '100px',
+    pattern: 'PERCENTAGE',
+    category: 'quantitative'
+  },
+
+  // === DATE/TIME ===
+  '*_date': {
+    type: 'date',
+    renderType: 'date',
+    inputType: 'date',
+    format: { style: 'short' },
+    align: 'left',
+    width: '120px',
+    pattern: 'DATE',
+    category: 'temporal'
+  },
+  '*_ts': {
+    type: 'timestamp',
+    renderType: 'timestamp',
+    inputType: 'readonly',
+    format: { style: 'relative' },
+    align: 'left',
+    width: '120px',
+    pattern: 'TIMESTAMP',
+    category: 'temporal'
+  },
+  'created_ts': {
+    type: 'timestamp',
+    renderType: 'timestamp',
+    inputType: 'readonly',
+    format: { style: 'datetime' },
+    align: 'left',
+    width: '160px',
+    visible: true,
+    pattern: 'TIMESTAMP',
+    category: 'temporal'
+  },
+  'updated_ts': {
+    type: 'timestamp',
+    renderType: 'timestamp',
+    inputType: 'readonly',
+    format: { style: 'datetime' },
+    align: 'left',
+    width: '160px',
+    visible: true,
+    pattern: 'TIMESTAMP',
+    category: 'temporal'
+  },
+  'from_ts': {
+    type: 'timestamp',
+    renderType: 'timestamp',
+    inputType: 'readonly',
+    format: { style: 'relative' },
+    align: 'left',
+    width: '120px',
+    visible: false,
+    pattern: 'TIMESTAMP',
+    category: 'temporal'
+  },
+  'to_ts': {
+    type: 'timestamp',
+    renderType: 'timestamp',
+    inputType: 'readonly',
+    format: { style: 'relative' },
+    align: 'left',
+    width: '120px',
+    visible: false,
+    pattern: 'TIMESTAMP',
+    category: 'temporal'
+  },
+
+  // === BOOLEAN ===
+  '*_flag': {
+    type: 'boolean',
+    renderType: 'boolean',
+    viewType: 'badge',
+    inputType: 'checkbox',
+    align: 'center',
+    width: '100px',
+    pattern: 'BOOLEAN',
+    category: 'boolean'
+  },
+  'is_*': {
+    type: 'boolean',
+    renderType: 'boolean',
+    viewType: 'badge',
+    inputType: 'checkbox',
+    align: 'center',
+    width: '100px',
+    pattern: 'BOOLEAN',
+    category: 'boolean'
+  },
+
+  // === BADGE (Settings) ===
+  'dl__*': {
+    type: 'badge',
+    renderType: 'badge',
+    viewType: 'badge',
+    inputType: 'select',
+    editType: 'select',
+    loadFromSettings: true,
+    align: 'left',
+    width: '140px',
+    pattern: 'DATALABEL',
+    category: 'standard',
+    // Check if stage/funnel for DAG component
+    component: (fieldKey) =>
+      fieldKey.includes('_stage') || fieldKey.includes('_funnel')
+        ? 'DAGVisualizer'
+        : undefined
+  },
+
+  // === REFERENCE (Foreign Keys) ===
+  '*__employee_id': {
+    type: 'reference',
+    renderType: 'text',
+    inputType: 'select',
+    format: { entity: 'employee', displayField: 'name' },
+    loadFromEntity: 'employee',
+    endpoint: '/api/v1/entity/employee/entity-instance-lookup',
+    align: 'left',
+    width: '150px',
+    pattern: 'FOREIGN_KEY',
+    category: 'reference'
+  },
+  '*__employee_ids': {
+    type: 'array-reference',
+    renderType: 'array',
+    viewType: 'tags',
+    inputType: 'multiselect',
+    component: 'SearchableMultiSelect',
+    format: { entity: 'employee', displayField: 'name' },
+    loadFromEntity: 'employee',
+    endpoint: '/api/v1/entity/employee/entity-instance-lookup',
+    align: 'left',
+    width: 'auto',
+    sortable: false,
+    pattern: 'ARRAY',
+    category: 'reference'
+  },
+  '*_id': {
+    type: 'reference',
+    renderType: 'text',
+    inputType: 'select',
+    // Auto-detect entity from field name prefix
+    align: 'left',
+    width: '150px',
+    pattern: 'FOREIGN_KEY',
+    category: 'reference'
+  },
+
+  // === URL ===
+  '*_url': {
+    type: 'url',
+    renderType: 'link',
+    viewType: 'link',
+    inputType: 'text',
+    align: 'left',
+    width: 'auto',
+    pattern: 'STANDARD',
+    category: 'reference'
+  },
+
+  // === JSON ===
+  'metadata': {
+    type: 'json',
+    renderType: 'json',
+    viewType: 'json-viewer',
+    inputType: 'jsonb',
+    component: 'MetadataTable',
+    visible: false,
+    editable: false,
+    align: 'left',
+    width: 'auto',
+    pattern: 'JSONB',
+    category: 'structured'
+  },
+
+  // === SYSTEM ===
+  'id': {
+    type: 'uuid',
+    renderType: 'text',
+    inputType: 'readonly',
+    visible: false,
+    sortable: false,
+    editable: false,
+    align: 'left',
+    width: 'auto',
+    pattern: 'SYSTEM',
+    category: 'identity'
+  },
+  'version': {
+    type: 'text',
+    renderType: 'text',
+    inputType: 'readonly',
+    visible: false,
+    sortable: false,
+    editable: false,
+    align: 'right',
+    width: '80px',
+    pattern: 'SYSTEM',
+    category: 'system'
+  },
+
+  // === STANDARD ===
+  'code': {
+    type: 'text',
+    renderType: 'text',
+    inputType: 'text',
+    align: 'left',
+    width: '120px',
+    visible: true,
+    sortable: true,
+    searchable: true,
+    pattern: 'STANDARD',
+    category: 'identity'
+  },
+  'name': {
+    type: 'text',
+    renderType: 'text',
+    inputType: 'text',
+    align: 'left',
+    width: 'auto',
+    visible: true,
+    sortable: true,
+    searchable: true,
+    pattern: 'STANDARD',
+    category: 'identity'
+  },
+  'descr': {
+    type: 'text',
+    renderType: 'truncated',
+    inputType: 'textarea',
+    align: 'left',
+    width: 'auto',
+    visible: true,
+    sortable: false,
+    searchable: true,
+    pattern: 'STANDARD',
+    category: 'content'
+  }
+};
+```
+
+---
+
+## 4. Complete API Response Example (Project Entity)
 
 ```json
 {
@@ -94,12 +550,8 @@ interface EntityMetadata {
       "id": "93106ffb-402e-43a7-8b26-5287e37a1b0e",
       "code": "DT-2024-001",
       "name": "Digital Transformation Initiative 2024",
-      "descr": "Comprehensive digital transformation project to modernize operations...",
-      "metadata": {
-        "project_type": "strategic",
-        "priority": "high",
-        "complexity": "high"
-      },
+      "descr": "Comprehensive digital transformation project...",
+      "metadata": { "project_type": "strategic", "priority": "high" },
       "dl__project_stage": "In Progress",
       "budget_allocated_amt": 750000.00,
       "budget_spent_amt": 285000.00,
@@ -129,86 +581,15 @@ interface EntityMetadata {
     "icon": "briefcase",
     "primaryKey": "id",
     "displayField": "name",
+    "apiEndpoint": "/api/v1/project",
+    "supportedViews": ["table", "kanban", "grid"],
+    "defaultView": "table",
     "fields": [
-      {
-        "key": "id",
-        "label": "ID",
-        "type": "uuid",
-        "format": {},
-        "editType": "readonly",
-        "viewType": "text",
-        "widget": null,
-        "editable": false,
-        "sortable": false,
-        "visible": false,
-        "align": "left"
-      },
-
-      {
-        "key": "code",
-        "label": "Code",
-        "type": "text",
-        "format": {},
-        "editType": "text",
-        "viewType": "text",
-        "widget": null,
-        "editable": true,
-        "sortable": true,
-        "visible": true,
-        "required": true,
-        "align": "left",
-        "width": "120px",
-        "validation": {
-          "maxLength": 50,
-          "pattern": "^[A-Z0-9-]+$"
-        },
-        "help": "Unique project code (e.g., DT-2024-001)",
-        "placeholder": "Enter project code"
-      },
-
-      {
-        "key": "name",
-        "label": "Project Name",
-        "type": "text",
-        "format": {},
-        "editType": "text",
-        "viewType": "text",
-        "widget": null,
-        "editable": true,
-        "sortable": true,
-        "visible": true,
-        "required": true,
-        "align": "left",
-        "width": "auto",
-        "validation": {
-          "maxLength": 200,
-          "minLength": 3
-        },
-        "help": "Full project name",
-        "placeholder": "Enter project name"
-      },
-
-      {
-        "key": "descr",
-        "label": "Description",
-        "type": "text",
-        "format": {},
-        "editType": "textarea",
-        "viewType": "text",
-        "widget": null,
-        "editable": true,
-        "sortable": false,
-        "visible": true,
-        "required": false,
-        "align": "left",
-        "help": "Detailed project description",
-        "placeholder": "Enter project description"
-      },
-
       {
         "key": "dl__project_stage",
         "label": "Project Stage",
         "type": "badge",
+        "dataType": "text",
         "format": {
           "loadFromSettings": true,
           "colorMap": {
@@ -220,416 +601,84 @@ interface EntityMetadata {
             "On Hold": "red"
           }
         },
-        "editType": "select",
+        "renderType": "badge",
         "viewType": "badge",
-        "widget": null,
-        "editable": true,
-        "sortable": true,
+        "inputType": "select",
+        "editType": "select",
+        "component": "DAGVisualizer",
         "visible": true,
+        "sortable": true,
+        "filterable": true,
+        "searchable": false,
+        "editable": true,
         "required": true,
         "align": "left",
         "width": "140px",
-        "optionsEndpoint": "/api/v1/entity/project/entity-instance-lookup?field=dl__project_stage",
+        "loadFromSettings": true,
+        "settingsDatalabel": "dl__project_stage",
+        "endpoint": "/api/v1/setting?datalabel=dl__project_stage",
         "options": [
-          { "value": "Planning", "label": "Planning", "color": "gray" },
-          { "value": "Initiation", "label": "Initiation", "color": "blue" },
-          { "value": "In Progress", "label": "In Progress", "color": "yellow" },
-          { "value": "Execution", "label": "Execution", "color": "orange" },
-          { "value": "Completed", "label": "Completed", "color": "green" },
-          { "value": "On Hold", "label": "On Hold", "color": "red" }
+          { "value": "Planning", "label": "Planning", "color": "gray", "order": 1 },
+          { "value": "Initiation", "label": "Initiation", "color": "blue", "order": 2 },
+          { "value": "In Progress", "label": "In Progress", "color": "yellow", "order": 3 },
+          { "value": "Execution", "label": "Execution", "color": "orange", "order": 4 },
+          { "value": "Completed", "label": "Completed", "color": "green", "order": 5 },
+          { "value": "On Hold", "label": "On Hold", "color": "red", "order": 6 }
         ],
-        "component": {
-          "kanbanBoard": "KanbanColumn",
-          "entityDetailPage": "StageTimeline"
-        },
-        "help": "Current stage in the project lifecycle"
+        "help": "Current stage in the project lifecycle",
+        "pattern": "DATALABEL",
+        "category": "standard"
       },
 
       {
         "key": "budget_allocated_amt",
         "label": "Budget Allocated",
         "type": "currency",
-        "format": {
-          "symbol": "$",
-          "decimals": 2,
-          "locale": "en-US"
-        },
-        "editType": "number",
+        "dataType": "numeric",
+        "format": { "symbol": "$", "decimals": 2, "locale": "en-CA" },
+        "renderType": "currency",
         "viewType": "text",
-        "widget": null,
-        "editable": true,
-        "sortable": true,
+        "inputType": "currency",
+        "editType": "number",
         "visible": true,
+        "sortable": true,
+        "filterable": true,
+        "searchable": false,
+        "editable": true,
         "required": false,
         "align": "right",
         "width": "140px",
-        "validation": {
-          "min": 0,
-          "max": 100000000
-        },
+        "validation": { "min": 0, "max": 100000000 },
         "help": "Total budget allocated for this project",
-        "placeholder": "0.00"
-      },
-
-      {
-        "key": "budget_spent_amt",
-        "label": "Budget Spent",
-        "type": "currency",
-        "format": {
-          "symbol": "$",
-          "decimals": 2,
-          "locale": "en-US"
-        },
-        "editType": "number",
-        "viewType": "text",
-        "widget": {
-          "type": "progress-bar",
-          "config": {
-            "maxField": "budget_allocated_amt",
-            "currentField": "budget_spent_amt",
-            "showPercentage": true,
-            "showValues": true,
-            "color": "orange",
-            "warningThreshold": 80,
-            "dangerThreshold": 100,
-            "label": "Budget Progress"
-          }
-        },
-        "editable": true,
-        "sortable": true,
-        "visible": true,
-        "required": false,
-        "align": "right",
-        "width": "180px",
-        "validation": {
-          "min": 0
-        },
-        "component": {
-          "dataTable": "ProgressBarCell",
-          "entityDetailPage": "BudgetProgressWidget"
-        },
-        "help": "Amount of budget spent to date"
-      },
-
-      {
-        "key": "planned_start_date",
-        "label": "Planned Start Date",
-        "type": "date",
-        "format": {
-          "style": "short",
-          "locale": "en-US"
-        },
-        "editType": "date",
-        "viewType": "text",
-        "widget": {
-          "type": "date-range-progress",
-          "config": {
-            "startField": "planned_start_date",
-            "endField": "planned_end_date",
-            "showPercentage": true,
-            "showDaysRemaining": true,
-            "color": "blue",
-            "label": "Planned Timeline"
-          }
-        },
-        "editable": true,
-        "sortable": true,
-        "visible": true,
-        "required": false,
-        "align": "left",
-        "width": "140px",
-        "component": {
-          "dataTable": "DateRangeProgressCell",
-          "entityDetailPage": "TimelineWidget"
-        },
-        "help": "Planned project start date"
-      },
-
-      {
-        "key": "planned_end_date",
-        "label": "Planned End Date",
-        "type": "date",
-        "format": {
-          "style": "short",
-          "locale": "en-US"
-        },
-        "editType": "date",
-        "viewType": "text",
-        "widget": {
-          "type": "date-range-progress",
-          "config": {
-            "startField": "planned_start_date",
-            "endField": "planned_end_date",
-            "showPercentage": true,
-            "showDaysRemaining": true,
-            "color": "blue",
-            "label": "Planned Timeline"
-          }
-        },
-        "editable": true,
-        "sortable": true,
-        "visible": true,
-        "required": false,
-        "align": "left",
-        "width": "140px",
-        "validation": {
-          "custom": "endDateAfterStartDate"
-        },
-        "component": {
-          "dataTable": "DateRangeProgressCell",
-          "entityDetailPage": "TimelineWidget"
-        },
-        "help": "Planned project end date"
-      },
-
-      {
-        "key": "actual_start_date",
-        "label": "Actual Start Date",
-        "type": "date",
-        "format": {
-          "style": "short",
-          "locale": "en-US"
-        },
-        "editType": "date",
-        "viewType": "text",
-        "widget": {
-          "type": "date-range-progress",
-          "config": {
-            "startField": "actual_start_date",
-            "endField": "actual_end_date",
-            "showPercentage": true,
-            "showDaysRemaining": true,
-            "color": "green",
-            "label": "Actual Timeline"
-          }
-        },
-        "editable": true,
-        "sortable": true,
-        "visible": true,
-        "required": false,
-        "align": "left",
-        "width": "140px",
-        "help": "Actual project start date"
-      },
-
-      {
-        "key": "actual_end_date",
-        "label": "Actual End Date",
-        "type": "date",
-        "format": {
-          "style": "short",
-          "locale": "en-US"
-        },
-        "editType": "date",
-        "viewType": "text",
-        "widget": {
-          "type": "date-range-progress",
-          "config": {
-            "startField": "actual_start_date",
-            "endField": "actual_end_date",
-            "showPercentage": true,
-            "showDaysRemaining": true,
-            "color": "green",
-            "label": "Actual Timeline"
-          }
-        },
-        "editable": true,
-        "sortable": true,
-        "visible": true,
-        "required": false,
-        "align": "left",
-        "width": "140px",
-        "help": "Actual project completion date"
-      },
-
-      {
-        "key": "manager__employee_id",
-        "label": "Manager",
-        "type": "reference",
-        "format": {
-          "entity": "employee",
-          "displayField": "name"
-        },
-        "editType": "select",
-        "viewType": "text",
-        "widget": null,
-        "editable": true,
-        "sortable": true,
-        "visible": true,
-        "required": false,
-        "align": "left",
-        "width": "150px",
-        "optionsEndpoint": "/api/v1/entity/employee/entity-instance-lookup",
-        "help": "Project manager responsible for execution"
-      },
-
-      {
-        "key": "sponsor__employee_id",
-        "label": "Sponsor",
-        "type": "reference",
-        "format": {
-          "entity": "employee",
-          "displayField": "name"
-        },
-        "editType": "select",
-        "viewType": "text",
-        "widget": null,
-        "editable": true,
-        "sortable": true,
-        "visible": true,
-        "required": false,
-        "align": "left",
-        "width": "150px",
-        "optionsEndpoint": "/api/v1/entity/employee/entity-instance-lookup",
-        "help": "Executive sponsor for the project"
+        "placeholder": "0.00",
+        "pattern": "CURRENCY",
+        "category": "financial"
       },
 
       {
         "key": "stakeholder__employee_ids",
         "label": "Stakeholders",
         "type": "array-reference",
-        "format": {
-          "entity": "employee",
-          "displayField": "name"
-        },
-        "editType": "multiselect",
+        "dataType": "uuid[]",
+        "format": { "entity": "employee", "displayField": "name" },
+        "renderType": "array",
         "viewType": "tags",
-        "widget": null,
-        "editable": true,
-        "sortable": false,
+        "inputType": "multiselect",
+        "editType": "multiselect",
+        "component": "SearchableMultiSelect",
         "visible": true,
+        "sortable": false,
+        "filterable": false,
+        "searchable": false,
+        "editable": true,
         "required": false,
         "align": "left",
         "width": "auto",
-        "optionsEndpoint": "/api/v1/entity/employee/entity-instance-lookup",
-        "component": {
-          "dataTable": "TagsCell",
-          "entityFormContainer": "MultiSelectTags"
-        },
-        "help": "Key stakeholders for this project"
-      },
-
-      {
-        "key": "active_flag",
-        "label": "Active",
-        "type": "boolean",
-        "format": {
-          "trueLabel": "Active",
-          "falseLabel": "Inactive",
-          "trueColor": "green",
-          "falseColor": "gray"
-        },
-        "editType": "toggle",
-        "viewType": "badge",
-        "widget": null,
-        "editable": true,
-        "sortable": true,
-        "visible": true,
-        "required": false,
-        "align": "center",
-        "width": "100px",
-        "help": "Whether this project is currently active"
-      },
-
-      {
-        "key": "metadata",
-        "label": "Metadata",
-        "type": "json",
-        "format": {},
-        "editType": "readonly",
-        "viewType": "json-viewer",
-        "widget": null,
-        "editable": false,
-        "sortable": false,
-        "visible": false,
-        "align": "left"
-      },
-
-      {
-        "key": "from_ts",
-        "label": "Valid From",
-        "type": "timestamp",
-        "format": {
-          "style": "relative-time"
-        },
-        "editType": "readonly",
-        "viewType": "text",
-        "widget": null,
-        "editable": false,
-        "sortable": true,
-        "visible": false,
-        "align": "left",
-        "width": "120px"
-      },
-
-      {
-        "key": "to_ts",
-        "label": "Valid To",
-        "type": "timestamp",
-        "format": {
-          "style": "relative-time"
-        },
-        "editType": "readonly",
-        "viewType": "text",
-        "widget": null,
-        "editable": false,
-        "sortable": true,
-        "visible": false,
-        "align": "left",
-        "width": "120px"
-      },
-
-      {
-        "key": "created_ts",
-        "label": "Created",
-        "type": "timestamp",
-        "format": {
-          "style": "datetime",
-          "locale": "en-US"
-        },
-        "editType": "readonly",
-        "viewType": "text",
-        "widget": null,
-        "editable": false,
-        "sortable": true,
-        "visible": true,
-        "align": "left",
-        "width": "160px"
-      },
-
-      {
-        "key": "updated_ts",
-        "label": "Last Updated",
-        "type": "timestamp",
-        "format": {
-          "style": "datetime",
-          "locale": "en-US"
-        },
-        "editType": "readonly",
-        "viewType": "text",
-        "widget": null,
-        "editable": false,
-        "sortable": true,
-        "visible": true,
-        "align": "left",
-        "width": "160px"
-      },
-
-      {
-        "key": "version",
-        "label": "Version",
-        "type": "numeric",
-        "format": {
-          "decimals": 0
-        },
-        "editType": "readonly",
-        "viewType": "text",
-        "widget": null,
-        "editable": false,
-        "sortable": false,
-        "visible": false,
-        "align": "right",
-        "width": "80px"
+        "loadFromEntity": "employee",
+        "endpoint": "/api/v1/entity/employee/entity-instance-lookup",
+        "help": "Key stakeholders for this project",
+        "pattern": "ARRAY",
+        "category": "reference"
       }
     ],
     "generated_at": "2025-01-19T12:00:00.000Z"
@@ -647,296 +696,81 @@ interface EntityMetadata {
 
 ---
 
-## 3. All Field Types Across All Entities
-
-### Business Entity
-
-| Field | Type | Widget | Component Overrides |
-|-------|------|--------|---------------------|
-| `code` | text | - | - |
-| `name` | text | - | - |
-| `descr` | text | - | - |
-| `active_flag` | boolean | - | dataTable: "BooleanBadge" |
-| `office_id` | reference | - | - |
-| `current_headcount` | numeric | - | - |
-| `operational_status` | text | - | dataTable: "StatusBadge" |
-
-### Office Entity
-
-| Field | Type | Widget | Component Overrides |
-|-------|------|--------|---------------------|
-| `code` | text | - | - |
-| `name` | text | - | - |
-| `address_line1` | text | - | - |
-| `address_line2` | text | - | - |
-| `city` | text | - | - |
-| `province` | text | - | - |
-| `postal_code` | text | - | - |
-| `country` | text | - | - |
-| `phone` | text | - | dataTable: "PhoneLink" |
-| `email` | text | - | dataTable: "EmailLink" |
-| `office_type` | text | - | - |
-| `capacity_employees` | numeric | - | - |
-| `square_footage` | numeric | - | - |
-
-### Project Entity
-
-| Field | Type | Widget | Component Overrides |
-|-------|------|--------|---------------------|
-| `dl__project_stage` | badge | - | kanbanBoard: "KanbanColumn", entityDetailPage: "StageTimeline" |
-| `budget_allocated_amt` | currency | - | - |
-| `budget_spent_amt` | currency | progress-bar | dataTable: "ProgressBarCell", entityDetailPage: "BudgetProgressWidget" |
-| `planned_start_date` | date | date-range-progress | dataTable: "DateRangeProgressCell", entityDetailPage: "TimelineWidget" |
-| `planned_end_date` | date | date-range-progress | dataTable: "DateRangeProgressCell", entityDetailPage: "TimelineWidget" |
-| `actual_start_date` | date | date-range-progress | - |
-| `actual_end_date` | date | date-range-progress | - |
-| `manager__employee_id` | reference | - | - |
-| `sponsor__employee_id` | reference | - | - |
-| `stakeholder__employee_ids` | array-reference | - | dataTable: "TagsCell", entityFormContainer: "MultiSelectTags" |
-
-### Task Entity
-
-| Field | Type | Widget | Component Overrides |
-|-------|------|--------|---------------------|
-| `internal_url` | url | - | dataTable: "LinkCell" |
-| `shared_url` | url | - | dataTable: "LinkCell" |
-| `dl__task_stage` | badge | - | kanbanBoard: "KanbanColumn" |
-| `dl__task_priority` | badge | - | - |
-| `estimated_hours` | numeric | - | - |
-| `actual_hours` | numeric | progress-bar | dataTable: "ProgressBarCell" |
-| `story_points` | numeric | - | - |
-
----
-
-## 4. Frontend Rendering Decision Tree
+## 5. Frontend Rendering Decision Logic
 
 ```typescript
 // Frontend formatter service
 function renderField(
   value: any,
   metadata: FieldMetadata,
-  rowData: Record<string, any>,
-  view: 'dataTable' | 'entityFormContainer' | 'entityDetailPage' | 'kanbanBoard'
-) {
-  // STEP 1: Check for component override
-  if (metadata.component?.[view]) {
-    const Component = getComponent(metadata.component[view]);
-    return <Component value={value} metadata={metadata} rowData={rowData} />;
-  }
-
-  // STEP 2: Check for widget (only in dataTable and entityDetailPage)
-  if (metadata.widget && ['dataTable', 'entityDetailPage'].includes(view)) {
-    switch (metadata.widget.type) {
-      case 'progress-bar':
-        return <ProgressBar metadata={metadata} rowData={rowData} />;
-      case 'date-range-progress':
-        return <DateRangeProgress metadata={metadata} rowData={rowData} />;
+  record?: any
+): React.ReactNode {
+  // STEP 1: Check for special component
+  if (metadata.component) {
+    switch (metadata.component) {
+      case 'DAGVisualizer':
+        return <DAGVisualizer value={value} />;
+      case 'MetadataTable':
+        return <MetadataTable data={value} />;
+      case 'TagsInput':
+        return <EditableTags tags={value} />;
+      case 'DateRangeVisualizer':
+        return <DateRangeVisualizer start={record.start} end={record.end} />;
+      case 'SearchableMultiSelect':
+        return <SearchableMultiSelect values={value} />;
     }
   }
 
-  // STEP 3: Check viewType
-  switch (metadata.viewType) {
+  // STEP 2: Check renderType
+  switch (metadata.renderType) {
     case 'badge':
-      return <Badge value={value} options={metadata.options} format={metadata.format} />;
-    case 'tags':
-      return <TagsList values={value} />;
+      return renderDataLabelBadge(value, metadata.settingsDatalabel);
+
+    case 'currency':
+      return <span>{formatCurrency(value)}</span>;
+
+    case 'percentage':
+      return <span>{formatPercentage(value)}</span>;
+
+    case 'date':
+      return <span>{formatFriendlyDate(value)}</span>;
+
+    case 'timestamp':
+      if (metadata.format.style === 'relative') {
+        return <span>{formatRelativeTime(value)}</span>;
+      }
+      return <span>{formatTimestamp(value)}</span>;
+
+    case 'boolean':
+      return formatBooleanBadge(value, metadata.format);
+
+    case 'array':
+      return formatTagsList(value);
+
     case 'link':
-      return <a href={value}>{value}</a>;
-    case 'json-viewer':
-      return <JSONViewer data={value} />;
+      return <a href={value} target="_blank">{value}</a>;
+
+    case 'truncated':
+      return <span title={value}>{truncate(value, 100)}</span>;
+
     default:
-      // STEP 4: Format value based on type
-      const formatted = formatValue(value, metadata);
-      return <span>{formatted}</span>;
+      return <span>{value}</span>;
   }
 }
 ```
 
 ---
 
-## 5. Key Design Decisions
+## 6. Key Changes from v1.0
 
-### Component Override Strategy
-
-The `component` field allows view-specific rendering overrides:
-
-```json
-{
-  "component": {
-    "dataTable": "ProgressBarCell",         // Use ProgressBarCell in tables
-    "entityDetailPage": "BudgetProgressWidget",  // Use full widget in detail pages
-    "entityFormContainer": "MultiSelectTags",    // Use tag selector in forms
-    "kanbanBoard": "KanbanColumn"          // Use as kanban column grouping
-  }
-}
-```
-
-### Widget vs Component Override
-
-- **Widget**: General-purpose, works across multiple views (progress bars, date ranges)
-- **Component Override**: View-specific custom component (e.g., timeline viz in detail page)
-
-### Options: Static vs Dynamic
-
-**Static options** (small lists, cached):
-```json
-{
-  "options": [
-    { "value": "Planning", "label": "Planning", "color": "gray" },
-    { "value": "In Progress", "label": "In Progress", "color": "yellow" }
-  ]
-}
-```
-
-**Dynamic options** (large lists, fetched on-demand):
-```json
-{
-  "optionsEndpoint": "/api/v1/entity/employee/entity-instance-lookup"
-}
-```
-
-### Validation Rules
-
-All validation rules in metadata:
-```json
-{
-  "validation": {
-    "min": 0,
-    "max": 100000000,
-    "minLength": 3,
-    "maxLength": 200,
-    "pattern": "^[A-Z0-9-]+$",
-    "custom": "endDateAfterStartDate"
-  }
-}
-```
-
-Frontend validates using metadata before submission.
+1. ✅ **Changed `optionsEndpoint` → `endpoint`** (consistent naming)
+2. ✅ **Added production components** (DAGVisualizer, MetadataTable, SearchableMultiSelect)
+3. ✅ **Added pattern & category** (from universalFormatterService)
+4. ✅ **Added dataType** (database column type)
+5. ✅ **Aligned with current codebase** (renderType, inputType, editType)
+6. ✅ **Added complete component library** (with file paths)
+7. ✅ **Documented actual components in use** (DataLabelSelect, EntitySelect, InlineEditField)
 
 ---
 
-## 6. Minimal API Response (for performance)
-
-For list views where full metadata is already cached:
-
-```json
-{
-  "data": [...],
-  "metadata": {
-    "entity": "project",
-    "generated_at": "2025-01-19T12:00:00.000Z"
-  },
-  "pagination": { ... }
-}
-```
-
-Frontend checks cache first:
-- If metadata exists in cache → Use it
-- If cache miss → Fetch full metadata from `/api/v1/metadata/project`
-
----
-
-## 7. Complete Type Definitions (TypeScript)
-
-```typescript
-// Full type definitions for copy-paste
-export type FieldType =
-  | 'text'
-  | 'currency'
-  | 'date'
-  | 'timestamp'
-  | 'boolean'
-  | 'numeric'
-  | 'percentage'
-  | 'badge'
-  | 'reference'
-  | 'array-reference'
-  | 'url'
-  | 'json'
-  | 'uuid';
-
-export type EditType =
-  | 'text'
-  | 'textarea'
-  | 'number'
-  | 'date'
-  | 'datetime'
-  | 'toggle'
-  | 'select'
-  | 'multiselect'
-  | 'readonly';
-
-export type ViewType =
-  | 'text'
-  | 'badge'
-  | 'tags'
-  | 'link'
-  | 'json-viewer';
-
-export type WidgetType =
-  | 'progress-bar'
-  | 'date-range-progress'
-  | 'timeline'
-  | 'kanban-column';
-
-export interface FieldMetadata {
-  key: string;
-  label: string;
-  type: FieldType;
-  format: Record<string, any>;
-  editType: EditType;
-  viewType: ViewType;
-  widget: WidgetConfig | null;
-  editable: boolean;
-  sortable: boolean;
-  visible: boolean;
-  required?: boolean;
-  align: 'left' | 'right' | 'center';
-  width?: string;
-  optionsEndpoint?: string;
-  options?: Array<{ value: string | number; label: string; color?: string }>;
-  component?: Record<string, string>;
-  validation?: {
-    min?: number;
-    max?: number;
-    minLength?: number;
-    maxLength?: number;
-    pattern?: string;
-    custom?: string;
-  };
-  help?: string;
-  placeholder?: string;
-}
-
-export interface WidgetConfig {
-  type: WidgetType;
-  config: Record<string, any>;
-}
-
-export interface EntityMetadata {
-  entity: string;
-  label: string;
-  labelPlural: string;
-  icon?: string;
-  fields: FieldMetadata[];
-  primaryKey: string;
-  displayField: string;
-  generated_at: string;
-}
-
-export interface ApiResponse<T = any> {
-  data: T[];
-  metadata: EntityMetadata;
-  pagination?: {
-    limit: number;
-    offset: number;
-    total: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-  };
-}
-```
-
----
-
-**End of Unified API Response Format**
+**End of Unified API Response Format - Production Specification**
