@@ -47,7 +47,7 @@ Currently, entity reference fields in EntityFormContainer show resolved human-re
 │         ↓                                                            │
 │     Detect entity reference fields                                  │
 │         ↓                                                            │
-│     Fetch options from /api/v1/entity/{type}/options                │
+│     Fetch options from /api/v1/entity/{entityCode}/entity-instance-lookup                │
 │         ↓                                                            │
 │     Render Select/MultiSelect                                       │
 │         ↓                                                            │
@@ -67,8 +67,8 @@ Currently, entity reference fields in EntityFormContainer show resolved human-re
 
 | Endpoint | Purpose | Returns |
 |----------|---------|---------|
-| `GET /api/v1/entity/{type}/options` | Get all options for entity type | `[{ id: "uuid", name: "..." }, ...]` |
-| `POST /api/v1/entity/{type}/options/bulk` | Bulk lookup by IDs | `[{ id: "uuid", name: "..." }, ...]` |
+| `GET /api/v1/entity/{entityCode}/entity-instance-lookup` | Get all options for entity type | `[{ id: "uuid", name: "..." }, ...]` |
+| `POST /api/v1/entity/{entityCode}/entity-instance-lookup/bulk` | Bulk lookup by IDs | `[{ id: "uuid", name: "..." }, ...]` |
 | `resolve_entity_references()` | Server-side UUID→name resolution | Enriched data with both UUIDs and names |
 
 ### ✅ Frontend Components
@@ -209,7 +209,7 @@ export function useEntityReferenceOptions(
     const loadOptions = async () => {
       setLoading(true);
       try {
-        // Call existing API: GET /api/v1/entity/{type}/options
+        // Call existing API: GET /api/v1/entity/{entityCode}/entity-instance-lookup
         const response = await entityOptionsApi.getOptions(entityType, {
           limit: 1000,
           active_only: true
@@ -435,8 +435,8 @@ const handleSubmit = async (formData: Record<string, any>) => {
 
 ### Backend (No Changes Needed!)
 
-- [x] `GET /api/v1/entity/{type}/options` - Already exists
-- [x] `POST /api/v1/entity/{type}/options/bulk` - Already exists
+- [x] `GET /api/v1/entity/{entityCode}/entity-instance-lookup` - Already exists
+- [x] `POST /api/v1/entity/{entityCode}/entity-instance-lookup/bulk` - Already exists
 - [x] `resolve_entity_references()` - Already exists
 - [x] API accepts UUID fields in POST/PATCH - Already works
 

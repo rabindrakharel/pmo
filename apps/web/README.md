@@ -453,14 +453,14 @@ export function EntityDetailPage({ entityType }: { entityType: string }) {
 
 ```typescript
 export function EntityChildListPage({
-  parentType,  // "project"
+  parentCode,  // "project"
   childType    // "task"
 }: EntityChildListPageProps) {
   const { id: parentId } = useParams();  // Inherited from parent route
   const config = getEntityConfig(childType);
 
   const loadData = async () => {
-    const api = APIFactory.getAPI(parentType);  // projectApi
+    const api = APIFactory.getAPI(parentCode);  // projectApi
     const response = await api.getTasks(parentId);  // GET /api/v1/project/:id/task
     setData(response.data || []);
   };
@@ -468,7 +468,7 @@ export function EntityChildListPage({
   return (
     <FilteredDataTable
       entityType={childType}
-      parentType={parentType}
+      parentCode={parentCode}
       parentId={parentId}
       onRowClick={(item) => navigate(`/${childType}/${item.id}`)}
     />
@@ -618,15 +618,15 @@ Response:
 **Rendering:**
 
 ```typescript
-export function DynamicChildEntityTabs({ parentType, parentId }: Props) {
-  const { tabs } = useDynamicChildEntityTabs(parentType, parentId);
+export function DynamicChildEntityTabs({ parentCode, parentId }: Props) {
+  const { tabs } = useDynamicChildEntityTabs(parentCode, parentId);
 
   return (
     <div className="flex gap-2">
       {tabs.map(tab => (
         <Link
           key={tab.entity}
-          to={`/${parentType}/${parentId}/${tab.entity}`}
+          to={`/${parentCode}/${parentId}/${tab.entity}`}
           className={isActive ? 'active' : ''}
         >
           <Icon name={tab.ui_icon} />

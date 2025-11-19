@@ -160,7 +160,7 @@ Special ID: '11111111-1111-1111-1111-111111111111' = type-level access
 ### 4.1 CREATE Flow (6-Step Pattern)
 
 ```
-USER REQUEST: POST /api/v1/project?parent_type=business&parent_id=123
+USER REQUEST: POST /api/v1/project?parent_code=business&parent_id=123
 │
 ├─ STEP 1: RBAC Check (Type-Level CREATE Permission)
 │  └─ entityInfra.check_entity_rbac(userId, 'project', ALL_ENTITIES_ID, Permission.CREATE)
@@ -484,10 +484,10 @@ async delete_all_entity_infrastructure(
 FRONTEND: User clicks "Add Project" in Business detail page
     │
     ▼
-UI: Opens ProjectForm with parent_type=business, parent_id=123
+UI: Opens ProjectForm with parent_code=business, parent_id=123
     │
     ▼
-API: POST /api/v1/project?parent_type=business&parent_id=123
+API: POST /api/v1/project?parent_code=business&parent_id=123
     │
     ├─ Check: Can user CREATE projects? (type-level)
     │  ✅ entityInfra.check_entity_rbac(userId, 'project', ALL_ENTITIES_ID, Permission.CREATE)
@@ -588,7 +588,7 @@ FRONTEND: Redirects to /project (entity no longer visible)
    entityInfra.check_entity_rbac(userId, entityType, entityId, Permission.EDIT)
 
 ✅ Parent linkage requires EDIT on parent
-   entityInfra.check_entity_rbac(userId, parentType, parentId, Permission.EDIT)
+   entityInfra.check_entity_rbac(userId, parentCode, parentId, Permission.EDIT)
 
 ❌ Don't assume type-level permission = instance permission
    CREATE permission doesn't grant EDIT on existing entities

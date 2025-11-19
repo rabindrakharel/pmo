@@ -1477,9 +1477,9 @@ async list(filters: {
 ### Pattern 5: Options/Settings Endpoint
 
 ```typescript
-// GET /api/v1/entity/task/options
-// Returns dropdown options from settings tables
-fastify.get('/api/v1/entity/task/options', {
+// GET /api/v1/entity/task/entity-instance-lookup
+// Returns entity instance lookup options
+fastify.get('/api/v1/entity/task/entity-instance-lookup', {
   preHandler: [fastify.authenticate],
   schema: {
     tags: ['Settings'],

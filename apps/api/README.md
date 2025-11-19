@@ -109,10 +109,10 @@ apps/api/src/
 **meta** - Legacy metadata API (DEPRECATED - use setting instead)
 - `GET /api/v1/meta/:category` - Get metadata by category
 
-**entity** - Entity type metadata (d_entity table)
+**entity** - Entity type metadata (entity table)
 - `GET /api/v1/entity/types` - List all entity types
-- `GET /api/v1/entity/type/:entityType` - Get entity type metadata
-- `GET /api/v1/entity/child-tabs/:entityType/:entityId` - Dynamic child tabs
+- `GET /api/v1/entity/type/:entityCode` - Get entity type metadata
+- `GET /api/v1/entity/child-tabs/:entityCode/:entityId` - Dynamic child tabs
 
 **rbac** - RBAC permission utilities
 - `GET /api/v1/rbac/check` - Check user permissions

@@ -258,11 +258,11 @@ export const SingleSelectDropdown: React.FC<SingleSelectDropdownProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Load options from /api/v1/entity/{entityType}/options
+  // Load options from /api/v1/entity/{entityType}/entity-instance-lookup
   useEffect(() => {
     const loadOptions = async () => {
       try {
-        const response = await apiClient.get(`/api/v1/entity/${entityType}/options`, {
+        const response = await apiClient.get(`/api/v1/entity/${entityType}/entity-instance-lookup`, {
           params: { active_only: true }
         });
         setOptions(response.data || []);
@@ -390,11 +390,11 @@ export const MultiSelectTags: React.FC<MultiSelectTagsProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Load options from /api/v1/entity/{entityType}/options
+  // Load options from /api/v1/entity/{entityType}/entity-instance-lookup
   useEffect(() => {
     const loadOptions = async () => {
       try {
-        const response = await apiClient.get(`/api/v1/entity/${entityType}/options`, {
+        const response = await apiClient.get(`/api/v1/entity/${entityType}/entity-instance-lookup`, {
           params: { active_only: true }
         });
         setOptions(response.data || []);
@@ -660,7 +660,7 @@ const handleSave = async (formData: Record<string, any>) => {
 - Always send **UUIDs** to backend on save (not labels)
 - Backend uses `entity_instance` table for name resolution
 - Frontend mapping cache auto-populated via interceptor
-- All components use `/api/v1/entity/:type/options` for dropdowns
+- All components use `/api/v1/entity/:entityCode/entity-instance-lookup` for dropdowns
 - Backwards compatible with flat format (interceptor handles both)
 
 ---

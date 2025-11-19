@@ -170,7 +170,7 @@ const columns: Column[] = useMemo(() => {
 }, [config]);
 ```
 
-**Key Design Decision:** No conditional logic based on `parentType` or `parentId`. Columns are pure functions of entity type.
+**Key Design Decision:** No conditional logic based on `parentCode` or `parentId`. Columns are pure functions of entity type.
 
 **Navigation Context Examples:**
 - `/task` → Shows 6 columns (name, code, stage, priority, hours, assignee)
@@ -215,9 +215,9 @@ const columns: Column[] = useMemo(() => {
 ├────────────────────────────────────────────────────────────────┤
 │ Main Endpoint with Query Parameter Filtering:                 │
 │                                                                │
-│ GET /api/v1/employee?parent_type=role&parent_id={uuid}        │
-│ GET /api/v1/task?parent_type=project&parent_id={uuid}         │
-│ GET /api/v1/project?parent_type=business&parent_id={uuid}     │
+│ GET /api/v1/employee?parent_code=role&parent_id={uuid}        │
+│ GET /api/v1/task?parent_code=project&parent_id={uuid}         │
+│ GET /api/v1/project?parent_code=business&parent_id={uuid}     │
 │                                                                │
 │ ✅ Single endpoint, single query, single source of truth      │
 │ ✅ Identical columns in all contexts (main + child views)     │
@@ -240,7 +240,7 @@ fastify.get('/api/v1/employee', {
       search: Type.Optional(Type.String()),
 
       // 🆕 Parent filtering (create-link-edit pattern)
-      parent_type: Type.Optional(Type.String()),
+      parent_code: Type.Optional(Type.String()),
       parent_id: Type.Optional(Type.String({ format: 'uuid' })),
 
       // Pagination
@@ -250,13 +250,13 @@ fastify.get('/api/v1/employee', {
     })
   }
 }, async (request, reply) => {
-  const { parent_type, parent_id, active_flag, search, limit = 50, offset = 0 } = request.query;
+  const { parent_code, parent_id, active_flag, search, limit = 50, offset = 0 } = request.query;
 
   const conditions = [];
 
   // Parent filtering via entity_instance_link JOIN
-  if (parent_type && parent_id) {
-    conditions.push(sql`eim.parent_entity_type = ${parent_type}`);
+  if (parent_code && parent_id) {
+    conditions.push(sql`eim.parent_entity_type = ${parent_code}`);
     conditions.push(sql`eim.parent_entity_id = ${parent_id}`);
     conditions.push(sql`eim.child_entity_type = 'employee'`);
     conditions.push(sql`eim.active_flag = true`);
@@ -271,7 +271,7 @@ fastify.get('/api/v1/employee', {
   }
 
   // Build query with conditional JOIN
-  if (parent_type && parent_id) {
+  if (parent_code && parent_id) {
     // Query WITH JOIN for parent filtering
     employees = await db.execute(sql`
       SELECT e.id, e.code, e.name, e.email, ... /* ALL 25+ columns */
@@ -303,7 +303,7 @@ fastify.get('/api/v1/employee', {
 
 export function FilteredDataTable({
   entityType,
-  parentType,
+  parentCode,
   parentId
 }: FilteredDataTableProps) {
 
@@ -314,8 +314,8 @@ export function FilteredDataTable({
   let queryParams = `page=${currentPage}&limit=${pageSize}`;
 
   // Add parent filtering via query params (create-link-edit pattern)
-  if (parentType && parentId) {
-    queryParams += `&parent_type=${parentType}&parent_id=${parentId}`;
+  if (parentCode && parentId) {
+    queryParams += `&parent_code=${parentCode}&parent_id=${parentId}`;
   }
 
   // Fetch data
@@ -372,24 +372,24 @@ User navigates to: http://localhost:5173/role/{id}/employee
 ┌─────────────────────────────────────────────────────────────────┐
 │ 1. FRONTEND ROUTING                                             │
 │    EntityDetailPage → DynamicChildEntityTabs → "employee" tab   │
-│    Props: entityType="employee", parentType="role", parentId=id │
+│    Props: entityType="employee", parentCode="role", parentId=id │
 └─────────────────────────────────────────────────────────────────┘
                                           ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ 2. FILTEREDATATABLE COMPONENT                                   │
 │    endpoint = "/api/v1/employee" (main endpoint)                │
-│    queryParams = "?parent_type=role&parent_id={id}&page=1"      │
+│    queryParams = "?parent_code=role&parent_id={id}&page=1"      │
 │    columns = config.columns (SAME as main employee view)        │
 └─────────────────────────────────────────────────────────────────┘
                                           ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ 3. API REQUEST                                                  │
-│    GET /api/v1/employee?parent_type=role&parent_id={id}&page=1  │
+│    GET /api/v1/employee?parent_code=role&parent_id={id}&page=1  │
 └─────────────────────────────────────────────────────────────────┘
                                           ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ 4. BACKEND PROCESSING                                           │
-│    • Detect parent_type and parent_id params                    │
+│    • Detect parent_code and parent_id params                    │
 │    • Add JOIN with entity_instance_link                              │
 │    • Filter: WHERE eim.parent_entity_type = 'role'              │
 │    •         AND eim.parent_entity_id = '{id}'                  │
@@ -444,25 +444,25 @@ User navigates to: http://localhost:5173/role/{id}/employee
 // All use the create-link-edit pattern:
 
 // Role → Employee
-GET /api/v1/employee?parent_type=role&parent_id={id}
+GET /api/v1/employee?parent_code=role&parent_id={id}
 
 // Project → Task
-GET /api/v1/task?parent_type=project&parent_id={id}
+GET /api/v1/task?parent_code=project&parent_id={id}
 
 // Business → Project
-GET /api/v1/project?parent_type=business&parent_id={id}
+GET /api/v1/project?parent_code=business&parent_id={id}
 
 // Office → Business
-GET /api/v1/business?parent_type=office&parent_id={id}
+GET /api/v1/business?parent_code=office&parent_id={id}
 
 // Task → Form
-GET /api/v1/form?parent_type=task&parent_id={id}
+GET /api/v1/form?parent_code=task&parent_id={id}
 
 // Project → Wiki
-GET /api/v1/wiki?parent_type=project&parent_id={id}
+GET /api/v1/wiki?parent_code=project&parent_id={id}
 
 // Project → Artifact
-GET /api/v1/artifact?parent_type=project&parent_id={id}
+GET /api/v1/artifact?parent_code=project&parent_id={id}
 ```
 
 #### Critical Implementation Notes
@@ -478,7 +478,7 @@ GET /api/v1/artifact?parent_type=project&parent_id={id}
 
 2. **Conditional Query Logic**: Use separate if/else blocks for WITH JOIN vs WITHOUT JOIN queries to maintain clean SQL:
    ```typescript
-   if (parent_type && parent_id) {
+   if (parent_code && parent_id) {
      // Full query WITH JOIN
    } else {
      // Full query WITHOUT JOIN (same SELECT columns)
@@ -986,7 +986,7 @@ useEffect(() => {
 
 ```typescript
 // ❌ DON'T add parent column conditionally
-if (parentType) {
+if (parentCode) {
   columns.unshift({ key: 'parent_id', title: 'Parent' });  // ❌ Breaks consistency
 }
 

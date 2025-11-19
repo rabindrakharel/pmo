@@ -194,13 +194,13 @@ fastify.post('/api/v1/project', {
   preHandler: [fastify.authenticate],
   schema: {
     querystring: Type.Object({
-      parent_type: Type.Optional(Type.String()),
+      parent_code: Type.Optional(Type.String()),
       parent_id: Type.Optional(Type.String({ format: 'uuid' }))
     }),
     body: CreateProjectSchema
   }
 }, async (request, reply) => {
-  const { parent_type, parent_id } = request.query;
+  const { parent_code, parent_id } = request.query;
   const userId = request.user.sub;
   const data = request.body;
 
@@ -221,10 +221,10 @@ fastify.post('/api/v1/project', {
   // ═══════════════════════════════════════════════════════════════
   // STEP 2: RBAC CHECK 2 - If linking to parent, can user EDIT parent?
   // ═══════════════════════════════════════════════════════════════
-  if (parent_type && parent_id) {
+  if (parent_code && parent_id) {
     const canEditParent = await entityInfra.check_entity_rbac(
       userId,
-      parent_type,
+      parent_code,
       parent_id,
       Permission.EDIT
     );
@@ -274,9 +274,9 @@ fastify.post('/api/v1/project', {
   // ═══════════════════════════════════════════════════════════════
   // STEP 6: Link to parent (if provided)
   // ═══════════════════════════════════════════════════════════════
-  if (parent_type && parent_id) {
+  if (parent_code && parent_id) {
     await entityInfra.set_entity_instance_link({
-      parent_entity_type: parent_type,
+      parent_entity_type: parent_code,
       parent_entity_id: parent_id,
       child_entity_type: ENTITY_CODE,
       child_entity_id: project.id,
@@ -391,7 +391,7 @@ fastify.get('/api/v1/project', {
       offset: Type.Optional(Type.Number({ minimum: 0 })),
       page: Type.Optional(Type.Number({ minimum: 1 })),
       search: Type.Optional(Type.String()),
-      parent_type: Type.Optional(Type.String()),
+      parent_code: Type.Optional(Type.String()),
       parent_id: Type.Optional(Type.String({ format: 'uuid' })),
       dl__project_stage: Type.Optional(Type.String())
       // ... entity-specific query params
