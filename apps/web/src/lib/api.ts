@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { generateLabelToUuidMapping, generateMappingFromStructuredFormat } from './labelToUuidFieldMapper';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -7,6 +8,44 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json'}});
 
+// ========================================
+// LABEL→UUID MAPPING AUTO-GENERATION
+// ========================================
+
+/**
+ * Global reference to mapping context setter
+ * Injected by App.tsx after context is available
+ */
+let mappingContextSetter: ((entityType: string, entityId: string, data: Record<string, any>) => void) | null = null;
+
+/**
+ * Register the mapping context setter from LabelToUuidMappingContext
+ * Called once during app initialization
+ *
+ * @param setter - Function from useLabelToUuidMappingContext().setMappingFromData
+ */
+export function registerMappingContextSetter(
+  setter: (entityType: string, entityId: string, data: Record<string, any>) => void
+) {
+  mappingContextSetter = setter;
+}
+
+/**
+ * Extract entity type from API URL
+ *
+ * @example
+ * "/api/v1/project/abc-123" → "project"
+ * "/api/v1/employee/xyz-789" → "employee"
+ */
+function extractEntityTypeFromUrl(url: string): string | null {
+  const match = url.match(/\/api\/v1\/([^/?]+)/);
+  return match ? match[1] : null;
+}
+
+// ========================================
+// INTERCEPTORS
+// ========================================
+
 // Add authentication headers
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token');
@@ -14,6 +53,84 @@ apiClient.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
+});
+
+// Auto-generate label→UUID mappings from API responses
+apiClient.interceptors.response.use((response) => {
+  try {
+    // Only process successful responses with data
+    if (!response.data || !response.config.url) {
+      return response;
+    }
+
+    const data = response.data;
+
+    // Helper function to generate mapping from entity data
+    const generateMapping = (item: any): any => {
+      // Priority 1: Check for structured _ID/_IDS format (new backend format)
+      if (item._ID || item._IDS) {
+        return generateMappingFromStructuredFormat(item._ID, item._IDS);
+      }
+
+      // Fallback: Legacy flat format detection
+      return generateLabelToUuidMapping(item);
+    };
+
+    // Handle single entity responses (has `id` field)
+    if (data.id && typeof data.id === 'string') {
+      const entityType = extractEntityTypeFromUrl(response.config.url);
+
+      if (entityType && mappingContextSetter) {
+        // Generate and cache mapping for this entity
+        const mapping = generateMapping(data);
+
+        // Only store if mapping is non-empty
+        if (Object.keys(mapping).length > 0) {
+          mappingContextSetter(entityType, data.id, data);
+        }
+      }
+    }
+
+    // Handle list responses (array or paginated)
+    if (Array.isArray(data)) {
+      const entityType = extractEntityTypeFromUrl(response.config.url);
+
+      if (entityType && mappingContextSetter) {
+        // Generate mappings for each item in list
+        data.forEach((item: any) => {
+          if (item.id && typeof item.id === 'string') {
+            const mapping = generateMapping(item);
+
+            if (Object.keys(mapping).length > 0) {
+              mappingContextSetter(entityType, item.id, item);
+            }
+          }
+        });
+      }
+    }
+
+    // Handle paginated responses with `data` array
+    if (data.data && Array.isArray(data.data)) {
+      const entityType = extractEntityTypeFromUrl(response.config.url);
+
+      if (entityType && mappingContextSetter) {
+        data.data.forEach((item: any) => {
+          if (item.id && typeof item.id === 'string') {
+            const mapping = generateMapping(item);
+
+            if (Object.keys(mapping).length > 0) {
+              mappingContextSetter(entityType, item.id, item);
+            }
+          }
+        });
+      }
+    }
+  } catch (error) {
+    // Don't break API responses if mapping generation fails
+    console.error('Error generating label→UUID mapping from API response:', error);
+  }
+
+  return response;
 });
 
 export interface LoginRequest {

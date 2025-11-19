@@ -340,7 +340,21 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const total = Number(countResult[0]?.total || 0);
       const projects = dataResult;
 
-      return createPaginatedResponse(projects, total, limit, offset);
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ RESOLVE ENTITY REFERENCES - Get _ID and _IDS for each project
+      // ═══════════════════════════════════════════════════════════════
+      const projectsWithReferences = await Promise.all(
+        projects.map(async (project) => {
+          const { _ID, _IDS } = await entityInfra.resolve_entity_references(project);
+          return {
+            ...project,
+            _ID,
+            _IDS
+          };
+        })
+      );
+
+      return createPaginatedResponse(projectsWithReferences, total, limit, offset);
     } catch (error) {
       fastify.log.error('Error fetching projects:', error as any);
       console.error('Full error details:', error);
@@ -491,7 +505,21 @@ export async function projectRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Project not found' });
       }
 
-      return reply.send(result[0]);
+      const project = result[0];
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ RESOLVE ENTITY REFERENCES - Get _ID and _IDS structured format
+      // ═══════════════════════════════════════════════════════════════
+      const { _ID, _IDS } = await entityInfra.resolve_entity_references(project);
+
+      // Merge structured references with original data
+      const response = {
+        ...project,
+        _ID,
+        _IDS
+      };
+
+      return reply.send(response);
     } catch (error) {
       fastify.log.error('Error fetching project:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
