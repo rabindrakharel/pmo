@@ -8,18 +8,15 @@ import { DAGVisualizer, type DAGNode } from '../../workflow/DAGVisualizer';
 import { renderEmployeeNames } from '../../../lib/entityConfig';
 import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
 import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
-import { formatRelativeTime, formatFriendlyDate, formatCurrency, isCurrencyField, generateFieldLabel } from '../../../lib/universalFormatterService';
+import { formatRelativeTime, formatFriendlyDate, formatCurrency, isCurrencyField, generateFieldLabel, formatFieldValue, detectField } from '../../../lib/universalFormatterService';
 import { MetadataTable } from './MetadataTable';
 import { QuoteItemsRenderer } from './QuoteItemsRenderer';
 import { getBadgeClass, textStyles } from '../../../lib/designSystem';
-import { EntitySelect } from '../ui/EntitySelect';
-import { EntityMultiSelect } from '../ui/EntityMultiSelect';
 
 // ============================================================================
 // NEW: Universal Field Detector Integration
 // ============================================================================
 import { generateFormConfig, type FormField } from '../../../lib/viewConfigGenerator';
-import { detectField } from '../../../lib/universalFormatterService';
 
 /**
  * Helper function to render badge with color based on field type and value
@@ -89,6 +86,23 @@ export function EntityFormContainer({
   dataTypes,
   requiredFields = []
 }: EntityFormContainerProps) {
+  // ✅ FIX: Add internal debouncing to prevent excessive parent updates
+  const localDataRef = React.useRef<Record<string, any>>({});
+  const updateTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Sync local data when data prop changes
+  React.useEffect(() => {
+    localDataRef.current = { ...data };
+  }, [data]);
+
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+    };
+  }, []);
   // ============================================================================
   // AUTO-GENERATION: Universal Field Detector Integration
   // ============================================================================
@@ -99,7 +113,7 @@ export function EntityFormContainer({
   // Create stable string representation directly
   const fieldKeysString = useMemo(() => {
     return Object.keys(data).sort().join(',');
-  }, [Object.keys(data).length, ...Object.keys(data).sort()]);
+  }, [JSON.stringify(Object.keys(data).sort())]); // Use stable stringified dependency
 
   const fields = useMemo(() => {
     // If config provided with fields, use them (backward compatibility)
@@ -131,6 +145,32 @@ export function EntityFormContainer({
   }, [config, autoGenerateFields, fieldKeysString, dataTypes, requiredFields]);
   const [settingOptions, setSettingOptions] = useState<Map<string, SettingOption[]>>(new Map());
   const [dagNodes, setDagNodes] = useState<Map<string, DAGNode[]>>(new Map());
+
+  // ✅ FIX: Debounced onChange handler to prevent excessive updates
+  const handleFieldChange = React.useCallback((fieldKey: string, value: any) => {
+    // Update local ref immediately (no re-render)
+    localDataRef.current = { ...localDataRef.current, [fieldKey]: value };
+
+    // Clear any pending update
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+
+    // For certain field types that should update immediately (like selects, checkboxes)
+    const immediateUpdateTypes = ['select', 'multiselect', 'checkbox', 'boolean', 'date'];
+    const field = fields.find(f => f.key === fieldKey);
+    const shouldUpdateImmediately = field && immediateUpdateTypes.includes(field.type);
+
+    if (shouldUpdateImmediately) {
+      // Update immediately for select/checkbox type fields
+      onChange(fieldKey, value);
+    } else {
+      // Debounce text input fields
+      updateTimeoutRef.current = setTimeout(() => {
+        onChange(fieldKey, value);
+      }, 300); // 300ms debounce for typing
+    }
+  }, [fields, onChange]);
 
   // Helper to determine if a field should use DAG visualization
   // All dl__% fields that are stage or funnel fields use DAG visualization
@@ -356,7 +396,28 @@ export function EntityFormContainer({
         }
 
         const option = options.find((opt: any) => String(opt.value) === String(value));
-        const displayValue = option?.label || value;
+        const rawValue = option?.label || value;
+
+        // ✅ Use universalFormatterService to format the value properly
+        let displayValue: string;
+        const fieldFormat = detectField(field.key);
+
+        try {
+          // Try to format using the detected field type
+          displayValue = formatFieldValue(rawValue, fieldFormat.type);
+        } catch (e) {
+          // If formatting fails, handle object/array cases
+          if (typeof rawValue === 'object' && rawValue !== null) {
+            if (Array.isArray(rawValue)) {
+              displayValue = rawValue.join(', ');
+            } else {
+              // For objects, try to stringify meaningfully
+              displayValue = JSON.stringify(rawValue);
+            }
+          } else {
+            displayValue = String(rawValue || '-');
+          }
+        }
 
         if (!displayValue) return (
           <span className="text-dark-600 text-base tracking-tight">
@@ -453,7 +514,7 @@ export function EntityFormContainer({
           <input
             type={field.type}
             value={value || ''}
-            onChange={(e) => onChange(field.key, e.target.value)}
+            onChange={(e) => handleFieldChange(field.key, e.target.value)}
             className={`w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-base tracking-tight ${
               field.readonly ? 'cursor-not-allowed text-dark-600' : 'text-dark-600 placeholder:text-dark-600/60 hover:placeholder:text-dark-700/80'
             }`}
@@ -467,7 +528,7 @@ export function EntityFormContainer({
         return (
           <textarea
             value={value || ''}
-            onChange={(e) => onChange(field.key, e.target.value)}
+            onChange={(e) => handleFieldChange(field.key, e.target.value)}
             rows={field.type === 'richtext' ? 6 : 4}
             className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 resize-none text-dark-600 placeholder:text-dark-600/60 hover:placeholder:text-dark-700/80 text-base tracking-tight leading-relaxed"
             placeholder={field.placeholder}
@@ -480,7 +541,7 @@ export function EntityFormContainer({
           <input
             type="text"
             value={Array.isArray(value) ? value.join(', ') : ''}
-            onChange={(e) => onChange(field.key, e.target.value.split(',').map(v => v.trim()).filter(Boolean))}
+            onChange={(e) => handleFieldChange(field.key, e.target.value.split(',').map(v => v.trim()).filter(Boolean))}
             placeholder={field.placeholder || "Enter comma-separated values"}
             className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-dark-600 placeholder:text-dark-600/60 hover:placeholder:text-dark-700/80 text-base tracking-tight"
             disabled={field.disabled || field.readonly}
@@ -492,7 +553,7 @@ export function EntityFormContainer({
           return (
             <MetadataTable
               value={value || {}}
-              onChange={(newValue) => onChange(field.key, newValue)}
+              onChange={(newValue) => handleFieldChange(field.key, newValue)}
               isEditing={true}
             />
           );
@@ -501,7 +562,7 @@ export function EntityFormContainer({
           return (
             <QuoteItemsRenderer
               value={value || []}
-              onChange={(newValue) => onChange(field.key, newValue)}
+              onChange={(newValue) => handleFieldChange(field.key, newValue)}
               isEditing={true}
             />
           );
@@ -512,7 +573,7 @@ export function EntityFormContainer({
             value={value ? JSON.stringify(value, null, 2) : ''}
             onChange={(e) => {
               try {
-                onChange(field.key, JSON.parse(e.target.value));
+                handleFieldChange(field.key, JSON.parse(e.target.value));
               } catch {
                 // Invalid JSON, don't update
               }
@@ -553,7 +614,7 @@ export function EntityFormContainer({
                   // Backend stores stage name (not ID) in entity.dl__xxx_stage
                   const selectedNode = nodes.find(n => n.id === nodeId);
                   if (selectedNode) {
-                    onChange(field.key, selectedNode.node_name); // Saves stage name to entity table
+                    handleFieldChange(field.key, selectedNode.node_name); // Saves stage name to entity table
                   }
                 }}
               />
@@ -570,7 +631,7 @@ export function EntityFormContainer({
               if (field.coerceBoolean) {
                 newValue = e.target.value === 'true';
               }
-              onChange(field.key, newValue === '' ? undefined : newValue);
+              handleFieldChange(field.key, newValue === '' ? undefined : newValue);
             }}
             className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-dark-600 cursor-pointer hover:text-dark-700 text-base tracking-tight"
             disabled={field.disabled || field.readonly}
@@ -594,7 +655,7 @@ export function EntityFormContainer({
           <SearchableMultiSelect
             options={options}
             value={selectedValues}
-            onChange={(newValues) => onChange(field.key, newValues)}
+            onChange={(newValues) => handleFieldChange(field.key, newValues)}
             placeholder={field.placeholder || 'Select...'}
             disabled={field.disabled}
             readonly={field.readonly}
@@ -606,7 +667,7 @@ export function EntityFormContainer({
           <input
             type="date"
             value={value ? new Date(value).toISOString().split('T')[0] : ''}
-            onChange={(e) => onChange(field.key, e.target.value || null)}
+            onChange={(e) => handleFieldChange(field.key, e.target.value || null)}
             className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-dark-600 cursor-pointer hover:text-dark-700 text-base tracking-tight"
             disabled={field.disabled || field.readonly}
             required={field.required && mode === 'create'}
@@ -623,7 +684,26 @@ export function EntityFormContainer({
           </span>
         );
       default:
-        return <span>{value || '-'}</span>;
+        // ✅ Use universalFormatterService for consistent formatting
+        let defaultDisplay: string;
+        const fieldFormat = detectField(field.key);
+
+        try {
+          // Try to format using the detected field type
+          defaultDisplay = formatFieldValue(value, fieldFormat.type);
+        } catch (e) {
+          // If formatting fails or value is an object, stringify it
+          if (typeof value === 'object' && value !== null) {
+            if (Array.isArray(value)) {
+              defaultDisplay = value.join(', ');
+            } else {
+              defaultDisplay = JSON.stringify(value);
+            }
+          } else {
+            defaultDisplay = String(value || '-');
+          }
+        }
+        return <span className="text-dark-600 text-base tracking-tight">{defaultDisplay}</span>;
     }
   };
 
@@ -701,177 +781,6 @@ export function EntityFormContainer({
             );
           })}
 
-          {/* ========================================================================== */}
-          {/* Render single entity references (_ID fields) */}
-          {/* ========================================================================== */}
-          {data._ID && typeof data._ID === 'object' && Object.keys(data._ID).length > 0 && (
-            <>
-              {Object.entries(data._ID).map(([labelField, refData]: [string, any], index) => {
-                // Extract UUID field name (e.g., "manager__employee_id")
-                const uuidField = Object.keys(refData).find(k => k.endsWith('_id'));
-                if (!uuidField) return null;
-
-                const currentUuid = refData[uuidField];
-                const currentLabel = refData[labelField] || '';
-                const entityCode = refData.entity_code;
-
-                // Skip if no entity code (malformed data)
-                if (!entityCode) return null;
-
-                const fieldIndex = visibleFields.length + index;
-
-                return (
-                  <div key={`_id_${labelField}`}>
-                    {fieldIndex > 0 && (
-                      <div
-                        className="h-px my-1.5 opacity-60"
-                        style={{
-                          backgroundImage: 'linear-gradient(90deg, transparent, rgba(209, 213, 219, 0.2) 50%, transparent)'
-                        }}
-                      />
-                    )}
-                    <div className="group transition-all duration-300 ease-out py-1">
-                      <div className="grid grid-cols-[160px_1fr] gap-4 items-start">
-                        <label className="text-2xs font-medium text-dark-700 pt-2 flex items-center gap-1.5 uppercase tracking-wide">
-                          <span className="opacity-50 group-hover:opacity-100 transition-all duration-300 group-hover:text-dark-700">
-                            {generateFieldLabel(labelField)}
-                          </span>
-                        </label>
-                        <div
-                          className={`
-                            relative break-words rounded-md px-3 py-2 -ml-3
-                            transition-all duration-300 ease-out
-                            ${isEditing
-                              ? 'bg-gray-50 hover:bg-gray-100 hover:shadow-sm focus-within:bg-white focus-within:shadow-sm focus-within:border focus-within:border-blue-200'
-                              : 'hover:bg-gray-50'
-                            }
-                            text-sm text-gray-700 tracking-tight leading-normal
-                          `}
-                        >
-                          {!isEditing ? (
-                            // View mode: Display label only
-                            <span className="text-dark-600 text-base tracking-tight">
-                              {currentLabel || '-'}
-                            </span>
-                          ) : (
-                            // Edit mode: Show dropdown
-                            <EntitySelect
-                              entityCode={entityCode}
-                              value={currentUuid}
-                              currentLabel={currentLabel}
-                              onChange={(newUuid, newLabel) => {
-                                onChange('_ID', {
-                                  ...data._ID,
-                                  [labelField]: {
-                                    entity_code: entityCode,
-                                    [uuidField]: newUuid,
-                                    [labelField]: newLabel
-                                  }
-                                });
-                              }}
-                            />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </>
-          )}
-
-          {/* ========================================================================== */}
-          {/* Render array entity references (_IDS fields) */}
-          {/* ========================================================================== */}
-          {data._IDS && typeof data._IDS === 'object' && Object.keys(data._IDS).length > 0 && (
-            <>
-              {Object.entries(data._IDS).map(([labelField, refArray]: [string, any[]], index) => {
-                // Safely get first item or use empty object
-                const firstItem = refArray && refArray.length > 0 ? refArray[0] : {};
-
-                // Extract UUID field name (e.g., "stakeholder__employee_id")
-                const uuidField = Object.keys(firstItem).find(k => k.endsWith('_id'));
-                if (!uuidField) return null;
-
-                const entityCode = firstItem.entity_code;
-
-                // Skip if no entity code
-                if (!entityCode) return null;
-
-                const fieldIndex = visibleFields.length + Object.keys(data._ID || {}).length + index;
-
-                return (
-                  <div key={`_ids_${labelField}`}>
-                    {fieldIndex > 0 && (
-                      <div
-                        className="h-px my-1.5 opacity-60"
-                        style={{
-                          backgroundImage: 'linear-gradient(90deg, transparent, rgba(209, 213, 219, 0.2) 50%, transparent)'
-                        }}
-                      />
-                    )}
-                    <div className="group transition-all duration-300 ease-out py-1">
-                      <div className="grid grid-cols-[160px_1fr] gap-4 items-start">
-                        <label className="text-2xs font-medium text-dark-700 pt-2 flex items-center gap-1.5 uppercase tracking-wide">
-                          <span className="opacity-50 group-hover:opacity-100 transition-all duration-300 group-hover:text-dark-700">
-                            {generateFieldLabel(labelField)}
-                          </span>
-                        </label>
-                        <div
-                          className={`
-                            relative break-words rounded-md px-3 py-2 -ml-3
-                            transition-all duration-300 ease-out
-                            ${isEditing
-                              ? 'bg-gray-50 hover:bg-gray-100 hover:shadow-sm focus-within:bg-white focus-within:shadow-sm focus-within:border focus-within:border-blue-200'
-                              : 'hover:bg-gray-50'
-                            }
-                            text-sm text-gray-700 tracking-tight leading-normal
-                          `}
-                        >
-                          {!isEditing ? (
-                            // View mode: Display labels as comma-separated list
-                            <span className="text-dark-600 text-base tracking-tight">
-                              {refArray && refArray.length > 0
-                                ? refArray.map(ref => ref[labelField]).join(', ')
-                                : '-'}
-                            </span>
-                          ) : (
-                            // Edit mode: Show multi-select with tags
-                            <EntityMultiSelect
-                              entityCode={entityCode}
-                              values={refArray || []}
-                              labelField={labelField}
-                              onAdd={(newUuid, newLabel) => {
-                                const currentArray = data._IDS?.[labelField] || [];
-                                onChange('_IDS', {
-                                  ...data._IDS,
-                                  [labelField]: [
-                                    ...currentArray,
-                                    {
-                                      entity_code: entityCode,
-                                      [uuidField]: newUuid,
-                                      [labelField]: newLabel
-                                    }
-                                  ]
-                                });
-                              }}
-                              onRemove={(uuidToRemove) => {
-                                const currentArray = data._IDS?.[labelField] || [];
-                                onChange('_IDS', {
-                                  ...data._IDS,
-                                  [labelField]: currentArray.filter(item => item[uuidField] !== uuidToRemove)
-                                });
-                              }}
-                            />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </>
-          )}
         </div>
       </div>
     </div>

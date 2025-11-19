@@ -36,7 +36,7 @@ import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
-import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 
 // Schema based on f_revenue table structure from db/LII_f_revenue.ddl
 const RevenueSchema = Type.Object({

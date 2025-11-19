@@ -452,9 +452,32 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
     setIsEditing(false);
   };
 
-  const handleFieldChange = (fieldName: string, value: any) => {
-    setEditedData((prev: any) => ({ ...prev, [fieldName]: value }));
-  };
+  // Use refs to avoid re-renders on every field change
+  const editedDataRef = React.useRef<any>({});
+  const updateTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Sync editedData when entering edit mode
+  React.useEffect(() => {
+    if (isEditing && data) {
+      editedDataRef.current = { ...data };
+      setEditedData({ ...data });
+    }
+  }, [data, isEditing]);
+
+  const handleFieldChange = React.useCallback((fieldName: string, value: any) => {
+    // Update the ref immediately (no re-render)
+    editedDataRef.current = { ...editedDataRef.current, [fieldName]: value };
+
+    // Clear any pending update
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+
+    // Debounce the state update to reduce re-renders
+    updateTimeoutRef.current = setTimeout(() => {
+      setEditedData({ ...editedDataRef.current });
+    }, 300); // 300ms debounce for typing
+  }, []);
 
   const handleTabClick = (tabPath: string) => {
     if (tabPath === 'overview') {

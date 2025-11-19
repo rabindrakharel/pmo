@@ -518,27 +518,6 @@ export function detectField(
 
   // Early pattern checks for common fields (optimize hot path)
 
-  // METADATA FIELDS: _ID and _IDS (entity reference metadata - not displayable columns)
-  // Same pattern as 'id' field - visible: false but proper transforms
-  if (fieldKey === '_ID' || fieldKey === '_IDS') {
-    return {
-      fieldName: fieldKey,
-      visible: false,  // Never show in tables - used only in forms
-      sortable: false,
-      filterable: false,
-      searchable: false,
-      width: '150px',
-      align: 'left',
-      format: stringTransform,  // Same as id field
-      renderType: 'text',
-      inputType: 'readonly',
-      editable: false,
-      toApi: identityTransform,
-      toDisplay: identityTransform,
-      pattern: 'METADATA',
-      category: 'metadata'
-    };
-  }
 
   // PATTERN 1: SYSTEM FIELDS
   if (PATTERNS.system.regex.test(key)) {
@@ -1422,56 +1401,6 @@ export function transformForApi(data: Record<string, any>, originalRecord?: Reco
     }
   }
 
-  // ============================================================================
-  // Convert _ID and _IDS structured format to flat UUID fields for API
-  // ============================================================================
-  // Backend expects: { manager__employee_id: "uuid" }
-  // Frontend sends: { _ID: { manager: { entity_code: "employee", manager__employee_id: "uuid", manager: "John" } } }
-  // This converts back to the flat format before API submission
-
-  // Convert single entity references (_ID)
-  if (transformed._ID && typeof transformed._ID === 'object') {
-    Object.entries(transformed._ID).forEach(([labelField, refData]: [string, any]) => {
-      if (!refData || typeof refData !== 'object') return;
-
-      // Find the UUID field (e.g., "manager__employee_id")
-      const uuidField = Object.keys(refData).find(k => k.endsWith('_id'));
-      if (uuidField && refData[uuidField]) {
-        // Add flat UUID field to transformed object
-        transformed[uuidField] = refData[uuidField];
-      }
-    });
-    // Remove _ID from payload
-    delete transformed._ID;
-  }
-
-  // Convert array entity references (_IDS)
-  if (transformed._IDS && typeof transformed._IDS === 'object') {
-    Object.entries(transformed._IDS).forEach(([labelField, refArray]: [string, any[]]) => {
-      if (!Array.isArray(refArray) || refArray.length === 0) return;
-
-      // Get first item to determine UUID field name
-      const firstItem = refArray[0];
-      if (!firstItem || typeof firstItem !== 'object') return;
-
-      // Find the UUID field (e.g., "stakeholder__employee_id")
-      const uuidField = Object.keys(firstItem).find(k => k.endsWith('_id'));
-      if (uuidField) {
-        // Convert to plural form (e.g., "stakeholder__employee_ids")
-        const pluralUuidField = uuidField.replace(/_id$/, '_ids');
-
-        // Extract all UUIDs from the array
-        const uuids = refArray
-          .map(ref => ref[uuidField])
-          .filter(Boolean); // Remove null/undefined
-
-        // Add flat UUID array field to transformed object
-        transformed[pluralUuidField] = uuids;
-      }
-    });
-    // Remove _IDS from payload
-    delete transformed._IDS;
-  }
 
   return transformed;
 }
@@ -1952,22 +1881,6 @@ export function renderField(options: RenderFieldOptions): React.ReactElement {
   return renderFieldEdit({ fieldKey, value, data, onChange, required, disabled, inlineMode });
 }
 
-/**
- * Get entity reference fields from _ID/_IDS structure
- */
-export function getEntityReferenceFields(data: Record<string, any>): string[] {
-  const fields: string[] = [];
-
-  if (data._ID && typeof data._ID === 'object') {
-    fields.push(...Object.keys(data._ID));
-  }
-
-  if (data._IDS && typeof data._IDS === 'object') {
-    fields.push(...Object.keys(data._IDS));
-  }
-
-  return fields;
-}
 
 /**
  * Get visible fields (excludes system fields, UUIDs, etc.)
@@ -1977,8 +1890,8 @@ export function getVisibleFields(
   mode: 'create' | 'edit' = 'edit'
 ): string[] {
   const excludedFields = mode === 'create'
-    ? ['id', 'created_ts', 'updated_ts', '_ID', '_IDS']
-    : ['id', 'name', 'code', 'created_ts', 'updated_ts', '_ID', '_IDS'];
+    ? ['id', 'created_ts', 'updated_ts']
+    : ['id', 'name', 'code', 'created_ts', 'updated_ts'];
 
   return Object.keys(data).filter(key =>
     !excludedFields.includes(key) &&
@@ -2021,7 +1934,6 @@ export default {
   renderFieldEdit,
 
   // Helper functions
-  getEntityReferenceFields,
   getVisibleFields,
 
   // Data transformation

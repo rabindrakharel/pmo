@@ -203,7 +203,7 @@ export async function createChildEntityEndpointsFromMetadata(
             SELECT c.*, COALESCE(c.name, 'Untitled') as name, c.descr
             FROM app.${sql.raw(childTable)} c
             ${parentJoin}
-            WHERE ${sql.raw(rbacWhereClause)}
+            WHERE ${rbacWhereClause}
               AND c.active_flag = true
             ORDER BY c.created_ts DESC
             LIMIT ${limit} OFFSET ${offset}
@@ -214,7 +214,7 @@ export async function createChildEntityEndpointsFromMetadata(
             SELECT COUNT(*) as total
             FROM app.${sql.raw(childTable)} c
             ${parentJoin}
-            WHERE ${sql.raw(rbacWhereClause)}
+            WHERE ${rbacWhereClause}
               AND c.active_flag = true
           `);
 
