@@ -122,7 +122,7 @@ export function EntityFormContainer({
         type: field.type as any, // FormField.type matches FieldDef.type
         required: generatedConfig.requiredFields.includes(field.key),
         readonly: !field.editable,
-        loadOptionsFromSettings: field.loadFromSettings,
+        loadDataLabels: field.loadFromSettings,
         loadOptionsFromEntity: field.loadFromEntity} as FieldDef));
     }
 
@@ -208,7 +208,7 @@ export function EntityFormContainer({
 
       // Find all fields that need dynamic settings
       const fieldsNeedingSettings = fields.filter(
-        field => field.loadOptionsFromSettings && (field.type === 'select' || field.type === 'multiselect')
+        field => field.loadDataLabels && (field.type === 'select' || field.type === 'multiselect')
       );
 
       // Load settings options
@@ -248,7 +248,7 @@ export function EntityFormContainer({
     const value = data[field.key];
 
     // Check if this is a sequential state field
-    const hasSettingOptions = field.loadOptionsFromSettings && settingOptions.has(field.key);
+    const hasSettingOptions = field.loadDataLabels && settingOptions.has(field.key);
     const options = hasSettingOptions
       ? settingOptions.get(field.key)!
       : field.options || [];

@@ -28,7 +28,6 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronUp, Search, Filter, Columns, ChevronLeft, ChevronRight, Edit, Share, Trash2, X, Plus, Check } from 'lucide-react';
 import {
-  isSettingField,
   loadFieldOptions,
   getSettingDatalabel,
   type SettingOption
@@ -36,13 +35,10 @@ import {
 import {
   getFieldCapability,
   type FieldCapability,
-  formatCurrency,
-  isCurrencyField,
   renderDataLabelBadge,
   COLOR_MAP,
   getSettingColor,
   loadSettingsColors,
-  formatRelativeTime,
   renderField
 } from '../../../lib/universalFormatterService';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
@@ -52,13 +48,12 @@ import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 // ============================================================================
 import { generateDataTableConfig, type DataTableColumn } from '../../../lib/viewConfigGenerator';
 
-/**
- * ============================================================================
- * DEPRECATED: renderCellValue() removed in v3.5.0
- * ============================================================================
- * All cell rendering now uses renderField() from universalFormatterService
- * with support for both auto-detection and explicit column hints
- */
+// ============================================================================
+// CELL RENDERING: 100% Universal System
+// ============================================================================
+// ALL field rendering (view + edit modes) now handled by renderField()
+// from universalFormatterService - single source of truth with zero duplication
+// ============================================================================
 
 /**
  * Extract settings datalabel from column key
@@ -76,7 +71,7 @@ function extractSettingsDatalabel(columnKey: string): string {
     return mapped;
   }
 
-  // Fallback: strip common suffixes for backwards compatibility
+  // Fallback: strip common suffixes for legacy field patterns
   return columnKey
     .replace(/_name$/, '')
     .replace(/_id$/, '')
@@ -253,16 +248,16 @@ export interface Column<T = any> {
   editType?: 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time' |
              'select' | 'multiselect' | 'checkbox' | 'textarea' | 'tags' |
              'jsonb' | 'datatable' | 'file' | 'dag-select';
-  loadOptionsFromSettings?: boolean;
+  loadDataLabels?: boolean;
   loadFromEntity?: string;         // Load options from entity API (e.g., 'employee', 'project')
   /**
-   * Static options for inline editing dropdowns (alternative to loadOptionsFromSettings)
+   * Static options for inline editing dropdowns (alternative to loadDataLabels)
    * Use this when options are hardcoded (e.g., color_code field in settings tables)
    */
   options?: SettingOption[];
   /**
    * When true, this column can be edited inline in the DataTable.
-   * Fields with loadOptionsFromSettings automatically become editable with dropdowns.
+   * Fields with loadDataLabels automatically become editable with dropdowns.
    * Tags fields are also automatically editable with text inputs.
    */
   inlineEditable?: boolean;
@@ -390,7 +385,7 @@ export function EntityDataTable<T = any>({
   }, [autoGenerateColumns, data.length, data.length > 0 ? Object.keys(data[0]).length : 0, ...(data.length > 0 ? Object.keys(data[0]).sort() : [])]);
 
   const columns = useMemo(() => {
-    // If columns explicitly provided, use them (backward compatibility)
+    // If columns explicitly provided, use them (legacy field patterns)
     if (initialColumns && initialColumns.length > 0) {
       return initialColumns;
     }
@@ -414,7 +409,7 @@ export function EntityDataTable<T = any>({
         align: col.align,
         editable: col.editable,
         editType: col.editType,
-        loadOptionsFromSettings: col.loadFromSettings,
+        loadDataLabels: col.loadFromSettings,
         loadFromEntity: col.loadFromEntity} as Column<T>));
     }
 
@@ -510,7 +505,7 @@ export function EntityDataTable<T = any>({
       // Find all columns that need dynamic settings using capability detection
       const columnsNeedingSettings = columns.filter(col => {
         const capability = columnCapabilities.get(col.key);
-        return capability?.loadOptionsFromSettings;
+        return capability?.loadDataLabels;
       });
 
       // Load options for each column
@@ -540,10 +535,10 @@ export function EntityDataTable<T = any>({
   // Preload colors for all settings columns (for filter dropdowns and inline edit)
   useEffect(() => {
     const preloadColors = async () => {
-      // Find all columns with loadOptionsFromSettings
+      // Find all columns with loadDataLabels
       const settingsColumns = columns.filter(col => {
         const capability = columnCapabilities.get(col.key);
-        return col.loadOptionsFromSettings || capability?.loadOptionsFromSettings;
+        return col.loadDataLabels || capability?.loadDataLabels;
       });
 
       // Extract datalabels and preload colors
@@ -1128,7 +1123,7 @@ export function EntityDataTable<T = any>({
                               // Check if this column has settings options loaded
                               const selectedColumn = columns.find(col => col.key === selectedFilterColumn);
                               const capability = columnCapabilities.get(selectedFilterColumn);
-                              const isSettingsField = selectedColumn?.loadOptionsFromSettings || capability?.loadOptionsFromSettings;
+                              const isSettingsField = selectedColumn?.loadDataLabels || capability?.loadDataLabels;
 
                               // If this is a settings field, look up the color from centralized cache
                               let colorCode: string | undefined;
@@ -1286,7 +1281,7 @@ export function EntityDataTable<T = any>({
                     // Check if this column is a settings field
                     const column = columns.find(col => col.key === columnKey);
                     const capability = columnCapabilities.get(columnKey);
-                    const isSettingsField = column?.loadOptionsFromSettings || capability?.loadOptionsFromSettings;
+                    const isSettingsField = column?.loadDataLabels || capability?.loadDataLabels;
 
                     // If this is a settings field, look up the color from centralized cache
                     let colorCode: string | undefined;
@@ -1620,7 +1615,7 @@ export function EntityDataTable<T = any>({
                                 mode: 'view',
                                 customRender: column.render,
                                 data: record,
-                                loadOptionsFromSettings: column.loadOptionsFromSettings
+                                loadDataLabels: column.loadDataLabels
                               })}
                             </div>
                           )}

@@ -95,7 +95,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         align: col.align,
         editable: col.editable,
         editType: col.editType as any,
-        loadOptionsFromSettings: col.dataSource?.type === 'settings',
+        loadDataLabels: col.dataSource?.type === 'settings',
 
         // Schema-driven formatting - use renderFieldDisplay for React elements (badges, etc.)
         render: (value: any) => renderFieldDisplay(value, col.format)

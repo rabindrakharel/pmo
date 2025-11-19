@@ -129,7 +129,7 @@ export type FormatType =
 export interface FieldCapability {
   inlineEditable: boolean;
   editType: EditType;
-  loadOptionsFromSettings?: boolean;
+  loadDataLabels?: boolean;
   settingsDatalabel?: string;
   acceptedFileTypes?: string;
   isFileUpload: boolean;
@@ -1580,7 +1580,7 @@ export function getFieldCapability(columnKey: string, dataType?: string): FieldC
     return {
       inlineEditable: true,
       editType: 'select',
-      loadOptionsFromSettings: true,
+      loadDataLabels: true,
       settingsDatalabel: columnKey.replace('dl__', ''),
       isFileUpload: false
     };
@@ -1671,13 +1671,13 @@ function getAcceptedFileTypes(fieldName: string): string {
  * @param fieldKey - The field name (column key)
  * @param value - The value to render
  * @param data - Full record data (optional)
- * @param loadOptionsFromSettings - Explicit flag to force badge rendering (overrides auto-detection)
+ * @param loadDataLabels - Explicit flag to force badge rendering (overrides auto-detection)
  */
 export function renderFieldView(
   fieldKey: string,
   value: any,
   data?: Record<string, any>,
-  loadOptionsFromSettings?: boolean
+  loadDataLabels?: boolean
 ): React.ReactElement {
   // Empty value handling
   if (value === null || value === undefined || value === '') {
@@ -1686,7 +1686,7 @@ export function renderFieldView(
 
   // EXPLICIT HINT: If column explicitly says it loads from settings, render as badge
   // This takes precedence over auto-detection to maintain backwards compatibility
-  if (loadOptionsFromSettings && typeof value === 'string') {
+  if (loadDataLabels && typeof value === 'string') {
     const datalabel = fieldKey.replace(/_name$/, '').replace(/_id$/, '');
     const colorCode = getSettingColor(datalabel, value);
     return renderDataLabelBadge(colorCode, value);
@@ -1903,12 +1903,12 @@ export interface RenderFieldOptions {
   inlineMode?: boolean;  // For DataTable inline editing
   customRender?: (value: any, record: any, allData?: any[]) => React.ReactNode;  // Custom renderer override
   // Column config hints (override auto-detection)
-  loadOptionsFromSettings?: boolean;  // Force badge rendering
+  loadDataLabels?: boolean;  // Force badge rendering
   editType?: EditType;  // Override detected edit type
 }
 
 export function renderField(options: RenderFieldOptions): React.ReactElement {
-  const { fieldKey, value, mode, data, onChange, required, disabled, inlineMode, customRender, loadOptionsFromSettings, editType } = options;
+  const { fieldKey, value, mode, data, onChange, required, disabled, inlineMode, customRender, loadDataLabels, editType } = options;
 
   // Use custom render if provided (for view mode only)
   if (customRender && mode === 'view') {
@@ -1920,7 +1920,7 @@ export function renderField(options: RenderFieldOptions): React.ReactElement {
   }
 
   if (mode === 'view') {
-    return renderFieldView(fieldKey, value, data, loadOptionsFromSettings);
+    return renderFieldView(fieldKey, value, data, loadDataLabels);
   }
 
   if (!onChange) {

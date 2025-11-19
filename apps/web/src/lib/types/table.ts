@@ -135,9 +135,9 @@ export interface UIColumn extends BaseColumn {
   editType?: EditType;
 
   /**
-   * Load options from settings API
+   * Load options from data labels (dl__* fields)
    */
-  loadOptionsFromSettings?: boolean;
+  loadDataLabels?: boolean;
 
   /**
    * Searchable in global search

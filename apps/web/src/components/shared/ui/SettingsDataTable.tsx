@@ -35,7 +35,7 @@
 import React, { useState } from 'react';
 import { DataTableBase, ActionButtons, type BaseColumn } from './DataTableBase';
 import { ColoredDropdown, type ColoredDropdownOption } from './ColoredDropdown';
-import { renderColorBadge } from '../../../lib/settingsConfig';
+import { renderDataLabelBadge } from '../../../lib/universalFormatterService';
 import { COLOR_OPTIONS } from '../../../lib/settingsConfig';
 import { inputStyles, actionButtonStyles } from '../../../lib/designSystem';
 
@@ -260,7 +260,7 @@ export function SettingsDataTable({
             autoFocus
           />
         ) : (
-          renderColorBadge(record.color_code, String(value))
+          renderDataLabelBadge(record.color_code, String(value))
         );
 
       case 'descr':
@@ -298,7 +298,7 @@ export function SettingsDataTable({
             placeholder="Select color..."
           />
         ) : (
-          renderColorBadge(String(value), String(value).charAt(0).toUpperCase() + String(value).slice(1))
+          renderDataLabelBadge(String(value), String(value).charAt(0).toUpperCase() + String(value).slice(1))
         );
 
       default:
