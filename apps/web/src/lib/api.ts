@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { generateLabelToUuidMapping, generateMappingFromStructuredFormat } from './labelToUuidFieldMapper';
+import { generateMappingFromStructuredFormat } from './labelToUuidFieldMapper';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -80,15 +80,12 @@ apiClient.interceptors.response.use((response) => {
 
     const data = response.data;
 
-    // Helper function to generate mapping from entity data
+    // Generate mapping from structured _ID/_IDS format
     const generateMapping = (item: any): any => {
-      // Priority 1: Check for structured _ID/_IDS format (new backend format)
       if (item._ID || item._IDS) {
         return generateMappingFromStructuredFormat(item._ID, item._IDS);
       }
-
-      // Fallback: Legacy flat format detection
-      return generateLabelToUuidMapping(item);
+      return {}; // No entity references
     };
 
     // Handle single entity responses (has `id` field)
