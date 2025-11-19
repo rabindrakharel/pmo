@@ -66,7 +66,7 @@ entity_rbac                   -- Person-based permissions (0-7: VIEW, COMMENT, E
 **Inline Create-Then-Link**: Child entities auto-link to parent via `entity_instance_link`
 **Default-Editable**: All fields editable unless explicitly readonly
 **Column Consistency**: Same columns regardless of navigation context
-**Settings-Driven**: All dropdowns from `/api/v1/entity/:type/options`
+**Settings-Driven**: All dropdowns from `/api/v1/entity/:entityCode/entity-instance-lookup`
 **Convention Over Configuration**: Column names determine field types, formatting, and behavior
 **Centralized Formatting**: `universalFormatterService.ts` handles all field transforms
 
@@ -115,7 +115,7 @@ const entityInfra = getEntityInfrastructure(db);
 
 // 6-STEP CREATE PATTERN
 fastify.post('/api/v1/project', async (request, reply) => {
-  const { parent_type, parent_id } = request.query;
+  const { parent_code, parent_id } = request.query;
   const userId = request.user.sub;
 
   // STEP 1: RBAC CHECK 1 - Can user CREATE this entity type?
@@ -125,9 +125,9 @@ fastify.post('/api/v1/project', async (request, reply) => {
   if (!canCreate) return reply.status(403).send({ error: 'Forbidden' });
 
   // STEP 2: RBAC CHECK 2 - If linking to parent, can user EDIT parent?
-  if (parent_type && parent_id) {
+  if (parent_code && parent_id) {
     const canEditParent = await entityInfra.check_entity_rbac(
-      userId, parent_type, parent_id, Permission.EDIT
+      userId, parent_code, parent_id, Permission.EDIT
     );
     if (!canEditParent) return reply.status(403).send({ error: 'Forbidden' });
   }
@@ -148,9 +148,9 @@ fastify.post('/api/v1/project', async (request, reply) => {
   await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, project.id);
 
   // STEP 6: Link to parent (if provided)
-  if (parent_type && parent_id) {
+  if (parent_code && parent_id) {
     await entityInfra.set_entity_instance_link({
-      parent_entity_type: parent_type,
+      parent_entity_type: parent_code,
       parent_entity_id: parent_id,
       child_entity_type: ENTITY_CODE,
       child_entity_id: project.id,
@@ -322,8 +322,8 @@ DELETE /api/v1/{entity}/{id}         // Soft delete (factory-generated)
 GET    /api/v1/{parent}/{id}/{child} // Filtered children with RBAC
 
 // Options/metadata
-GET    /api/v1/entity/types          // All entity metadata
-GET    /api/v1/entity/{type}/options // Dropdown options
+GET    /api/v1/entity/types                         // All entity metadata
+GET    /api/v1/entity/{entityCode}/entity-instance-lookup // Entity instance lookup
 ```
 
 #### Required Imports (Standard Block)
@@ -470,9 +470,9 @@ entity (metadata) → defines → Entity Types
 
 ### Settings Integration
 ```
-setting_datalabel_* tables → /api/v1/entity/:type/options → EntityFormContainer
-                                                                    ↓
-                                                            Auto-renders dropdowns
+setting_datalabel_* tables → /api/v1/entity/:entityCode/entity-instance-lookup → EntityFormContainer
+                                                                                          ↓
+                                                                                  Auto-renders dropdowns
 ```
 
 ## Performance Optimizations

@@ -185,7 +185,7 @@ useEffect(() => {
 ```
 
 **Example**: Task form with `project_id` field automatically loads:
-- Fetches `/api/v1/entity/project/options`
+- Fetches `/api/v1/entity/project/entity-instance-lookup`
 - Renders dropdown with all available projects
 - No manual API call needed!
 
@@ -251,7 +251,7 @@ useEffect(() => {
 
 ### ⚠️ **Issue #1: Infinite Loop on Entity Detail Pages**
 
-**Symptom**: Page repeatedly calls `/api/v1/entity/*/options` endpoints in infinite loop
+**Symptom**: Page repeatedly calls `/api/v1/entity/*/entity-instance-lookup` endpoints in infinite loop
 
 **Root Cause**: `fields` useMemo depends on entire `data` object (Line 122)
 

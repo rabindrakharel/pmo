@@ -397,7 +397,7 @@ PATCH  /api/v1/product/:id             # Update product
 DELETE /api/v1/product/:id             # Soft delete product
 
 # Product Options
-GET    /api/v1/entity/product/options  # Dropdown options (brands, categories, UOM)
+GET    /api/v1/entity/product/entity-instance-lookup  # Entity instance lookup (brands, categories, UOM)
 
 # Product Hierarchy
 GET    /api/v1/product_hierarchy       # List hierarchy nodes

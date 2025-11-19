@@ -2374,7 +2374,7 @@ VALUES
   'Sarah Johnson',
   'sarah.johnson@realestate.ca',
   '+1-555-AGENT-01',
-  (SELECT id FROM app.d_position WHERE name = 'Agent' LIMIT 1),
+  (SELECT id FROM app.position WHERE name = 'Agent' LIMIT 1),
   TRUE
 );
 

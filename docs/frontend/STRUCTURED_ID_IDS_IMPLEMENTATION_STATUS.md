@@ -62,7 +62,7 @@
 #### `EntitySelectDropdown` (Single Select for _ID fields)
 **File**: `apps/web/src/components/shared/ui/EntitySelectDropdown.tsx`
 - ✅ Uses native HTML `<select>` element
-- ✅ Loads options from `/api/v1/entity/{entityType}/options`
+- ✅ Loads options from `/api/v1/entity/{entityType}/entity-instance-lookup`
 - ✅ Returns both UUID and label on change
 - ✅ Loading and error states
 - ✅ Disabled/readonly support
@@ -70,7 +70,7 @@
 #### `EntityMultiSelectTags` (Multi-Select for _IDS fields)
 **File**: `apps/web/src/components/shared/ui/EntityMultiSelectTags.tsx`
 - ✅ Reuses existing `SearchableMultiSelect` component
-- ✅ Loads options from `/api/v1/entity/{entityType}/options`
+- ✅ Loads options from `/api/v1/entity/{entityType}/entity-instance-lookup`
 - ✅ Tag chips with X removal button
 - ✅ Search functionality (from SearchableMultiSelect)
 - ✅ Add/remove callbacks

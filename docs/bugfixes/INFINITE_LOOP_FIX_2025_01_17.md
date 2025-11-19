@@ -12,9 +12,9 @@
 ### **Symptom**
 
 Navigating to task detail page at `http://localhost:5173/task/f1111111-1111-1111-1111-111111111111` caused infinite loop:
-- Page repeatedly called `/api/v1/entity/business/options`
-- Page repeatedly called `/api/v1/entity/office/options`
-- Page repeatedly called `/api/v1/entity/project/options`
+- Page repeatedly called `/api/v1/entity/business/entity-instance-lookup`
+- Page repeatedly called `/api/v1/entity/office/entity-instance-lookup`
+- Page repeatedly called `/api/v1/entity/project/entity-instance-lookup`
 - CPU usage spiked
 - Page became unresponsive
 
@@ -110,9 +110,9 @@ const fields = useMemo(() => {
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ loadAllOptions() makes API calls:                           │
-│ - GET /api/v1/entity/project/options                        │
-│ - GET /api/v1/entity/business/options                       │
-│ - GET /api/v1/entity/office/options                         │
+│ - GET /api/v1/entity/project/entity-instance-lookup                        │
+│ - GET /api/v1/entity/business/entity-instance-lookup                       │
+│ - GET /api/v1/entity/office/entity-instance-lookup                         │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ▼
@@ -207,7 +207,7 @@ const fields = useMemo(() => {
 3. Check for repeated API calls
 
 **Expected Result** (Before Fix):
-- ❌ Infinite calls to `/api/v1/entity/*/options`
+- ❌ Infinite calls to `/api/v1/entity/*/entity-instance-lookup`
 - ❌ CPU spike
 - ❌ Page freeze
 

@@ -89,7 +89,7 @@ export const EntityFormContainer: React.FC<EntityFormContainerProps> = ({
               onChange(info.uuidField, e.target.value);
             }}
           >
-            {/* Options loaded from /api/v1/entity/{info.entityType}/options */}
+            {/* Options loaded from /api/v1/entity/{info.entityType}/entity-instance-lookup */}
           </select>
         </div>
       ))}

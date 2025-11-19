@@ -536,7 +536,7 @@ VALUES
   ('Cancelled', 5, '{"color_code": "red"}');
 ```
 
-**API Endpoint**: `GET /api/v1/entity/project/options?field=project_stage`
+**API Endpoint**: `GET /api/v1/entity/project/entity-instance-lookup?field=project_stage`
 
 **Frontend Usage**:
 ```typescript

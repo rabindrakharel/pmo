@@ -509,7 +509,7 @@ entityConfigs.task.kanban = {
 
 ```typescript
 // Route: /project/93106ffb.../task
-<EntityChildListPage parentType="project" childType="task" />
+<EntityChildListPage parentCode="project" childType="task" />
 
 // Same behavior as Example 1
 // Shows ALL 7 stages (even if project has 0 tasks)
@@ -519,7 +519,7 @@ entityConfigs.task.kanban = {
 
 ```typescript
 // Route: /office/55555555.../task
-<EntityChildListPage parentType="office" childType="task" />
+<EntityChildListPage parentCode="office" childType="task" />
 
 // Even with 0 tasks linked to office:
 // Shows all 7 configured stages

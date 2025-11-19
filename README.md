@@ -59,7 +59,7 @@ The **PMO Platform** is an enterprise-grade project management and operations sy
 
 | Document | Purpose | When to Use | Key Topics |
 |----------|---------|-------------|------------|
-| **[Entity Options API](./docs/ENTITY_OPTIONS_API.md)** | Universal dropdown/select options service | Building forms, filters, dropdowns | `/api/v1/entity/:type/options`, Dynamic options loading |
+| **[Entity Options API](./docs/ENTITY_OPTIONS_API.md)** | Universal dropdown/select options service | Building forms, filters, dropdowns | `/api/v1/entity/:entityCode/entity-instance-lookup`, Dynamic options loading |
 | **[S3 Attachment Service](./docs/S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md)** | File upload and attachment management | Implementing file uploads, document management | Presigned URLs, Attachment metadata, S3/MinIO integration |
 
 ### 🎨 Frontend Components & Features
