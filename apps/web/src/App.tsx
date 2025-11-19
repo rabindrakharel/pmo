@@ -377,12 +377,12 @@ function App() {
                       <EntityPreviewPanel />
                     </EntityPreviewProvider>
                   </NavigationHistoryProvider>
-              </SettingsProvider>
-            </SidebarProvider>
-          </Router>
-        </LabelToUuidMappingProvider>
-      </EntityMetadataProvider>
-    </AuthProvider>
+                </SettingsProvider>
+              </SidebarProvider>
+            </Router>
+          </LabelToUuidMappingProvider>
+        </EntityMetadataProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

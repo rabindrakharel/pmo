@@ -73,7 +73,7 @@ Every event must answer: **"What is this event about?"**
 
 ### Integration Tables
 - `entity_rbac` - Event permissions
-- `d_entity_instance_registry` - Event entity registry
+- `entity_instance` - Event entity registry
 - `entity_instance_link` - Event-entity relationships
 
 ---

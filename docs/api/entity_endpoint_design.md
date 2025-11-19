@@ -77,14 +77,14 @@ All entity routes (business, project, task, employee, etc.) follow **identical p
 │  │  Registry Methods                                   │    │
 │  │  - set_entity_instance_registry() → upsert          │    │
 │  │  - update_entity_instance_registry() → sync         │    │
-│  │  - deactivate_entity_instance_registry() → soft del│    │
+│  │  - delete_entity_instance_registry() → hard delete  │    │
 │  └─────────────────────────────────────────────────────┘    │
 │                                                               │
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │  Linkage Methods                                    │    │
-│  │  - set_entity_instance_link() → create/reactivate   │    │
+│  │  - set_entity_instance_link() → create (idempotent) │    │
 │  │  - get_entity_instance_link_children() → get IDs    │    │
-│  │  - delete_entity_instance_link() → soft delete      │    │
+│  │  - delete_entity_instance_link() → hard delete      │    │
 │  └─────────────────────────────────────────────────────┘    │
 │                                                               │
 │  ┌─────────────────────────────────────────────────────┐    │
@@ -118,10 +118,10 @@ All entity routes (business, project, task, employee, etc.) follow **identical p
 │                    Database Layer                             │
 │  PostgreSQL 14+ with 4 infrastructure + 46+ entity tables    │
 │                                                               │
-│  - d_entity (entity type metadata)                           │
-│  - d_entity_instance_registry (instance registry)            │
-│  - entity_instance_link (parent-child relationships)       │
-│  - entity_rbac (permissions)                               │
+│  - entity (entity type metadata)                             │
+│  - entity_instance (instance registry)                       │
+│  - entity_instance_link (parent-child relationships)         │
+│  - entity_rbac (permissions)                                 │
 │  - d_project, d_task, d_business, ... (46+ entity tables)   │
 └───────────────────────────────────────────────────────────────┘
 ```
@@ -257,7 +257,7 @@ fastify.post('/api/v1/project', {
   const project = result[0];
 
   // ═══════════════════════════════════════════════════════════════
-  // STEP 4: Register in d_entity_instance_registry
+  // STEP 4: Register in entity_instance
   // ═══════════════════════════════════════════════════════════════
   await entityInfra.set_entity_instance_registry({
     entity_type: ENTITY_CODE,
@@ -554,16 +554,17 @@ await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 
 ## RBAC Permission Model
 
-### Permission Hierarchy (0-5)
+### Permission Hierarchy (0-7)
 
 ```typescript
 export enum Permission {
-  VIEW = 0,    // Read-only access
-  EDIT = 1,    // Modify entity (implies VIEW)
-  SHARE = 2,   // Share with others (implies EDIT + VIEW)
-  DELETE = 3,  // Soft delete (implies SHARE + EDIT + VIEW)
-  CREATE = 4,  // Create new entities (type-level only)
-  OWNER = 5    // Full control (implies ALL permissions)
+  VIEW = 0,       // Read-only access
+  COMMENT = 1,    // Add comments (implies VIEW)
+  EDIT = 3,       // Modify entity (implies COMMENT + VIEW)
+  SHARE = 4,      // Share with others (implies EDIT + COMMENT + VIEW)
+  DELETE = 5,     // Soft delete (implies SHARE + EDIT + COMMENT + VIEW)
+  CREATE = 6,     // Create new entities (type-level only)
+  OWNER = 7       // Full control (implies ALL permissions)
 }
 ```
 
@@ -584,10 +585,10 @@ await entityInfra.set_entity_rbac(
 
 ### Permission Resolution (4 Sources)
 
-1. **Direct Employee Permissions** - `entity_rbac` where `person_entity_name='employee'`
-2. **Role-Based Permissions** - `entity_rbac` where `person_entity_name='role'`
+1. **Direct Employee Permissions** - `entity_rbac` where `person_code='employee'`
+2. **Role-Based Permissions** - `entity_rbac` where `person_code='role'`
 3. **Parent-VIEW Inheritance** - If parent has VIEW (≥0), child gains VIEW
-4. **Parent-CREATE Inheritance** - If parent has CREATE (≥4), child gains CREATE
+4. **Parent-CREATE Inheritance** - If parent has CREATE (≥6), child gains CREATE
 
 **Result**: MAX permission level from all 4 sources
 
@@ -663,13 +664,13 @@ const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query, {
 │  (Manages 4 infrastructure tables)                      │
 │                                                          │
 │  ┌────────────────┐  ┌────────────────┐               │
-│  │  d_entity      │  │  d_entity_     │               │
-│  │  (metadata)    │  │  instance_     │               │
-│  │                │  │  registry      │               │
+│  │  entity        │  │  entity_       │               │
+│  │  (metadata)    │  │  instance      │               │
+│  │                │  │  (registry)    │               │
 │  └────────────────┘  └────────────────┘               │
 │                                                          │
 │  ┌────────────────┐  ┌────────────────┐               │
-│  │  d_entity_     │  │  entity_rbac │               │
+│  │  entity_       │  │  entity_rbac   │               │
 │  │  instance_link │  │  (permissions) │               │
 │  └────────────────┘  └────────────────┘               │
 │                                                          │

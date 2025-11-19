@@ -561,8 +561,8 @@ CREATE INDEX idx_person_cal_avail ON app.d_person_calendar(availability_flag);
 
 **Behavior**:
 1. Creates event record in `d_event`
-2. Registers in `d_entity_instance_registry`
-3. Grants Owner permission [5] to creator via `entity_rbac`
+2. Registers in `entity_instance`
+3. Grants Owner permission [7] to creator via `entity_rbac`
 4. Adds organizer as attendee with `accepted` RSVP
 5. Creates attendee records in `d_entity_event_person_calendar`
 
@@ -757,8 +757,8 @@ interface EventFormData {
    │  VALUES (gen_random_uuid(), ...)
    │  RETURNING id, code, name, ...
    │
-   ├─ INSERT INTO app.d_entity_instance_registry
-   │  (entity_type, entity_id, entity_name, entity_code)
+   ├─ INSERT INTO app.entity_instance
+   │  (entity_code, entity_instance_id, entity_instance_name, code)
    │  VALUES ('event', new_event_id, ...)
    │
    ├─ INSERT INTO app.entity_rbac
@@ -1104,11 +1104,11 @@ WHERE epc.person_entity_id IN ('{employee1_id}')
 - Organizer field is independent of RBAC (for display only)
 
 ### 2. Entity System
-**Integration**: `d_entity`, `d_entity_instance_registry`, `entity_instance_link`
+**Integration**: `entity`, `entity_instance`, `entity_instance_link`
 
 **Event as Entity**:
-- Registered in `d_entity` with type='event'
-- Each event instance in `d_entity_instance_registry`
+- Registered in `entity` with code='event'
+- Each event instance in `entity_instance`
 - Can be parent/child in `entity_instance_link`
 
 **Action Entity Linkage**:

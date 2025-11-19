@@ -382,7 +382,7 @@ export function EntityDataTable<T = any>({
   const fieldKeysString = useMemo(() => {
     if (!autoGenerateColumns || data.length === 0) return '';
     return Object.keys(data[0]).sort().join(',');
-  }, [autoGenerateColumns, data.length, data.length > 0 ? Object.keys(data[0]).length : 0, ...(data.length > 0 ? Object.keys(data[0]).sort() : [])]);
+  }, [autoGenerateColumns, data.length, data.length > 0 ? JSON.stringify(Object.keys(data[0]).sort()) : '']);
 
   const columns = useMemo(() => {
     // If columns explicitly provided, use them (legacy field patterns)

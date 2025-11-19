@@ -197,7 +197,7 @@ Artifact → RBAC (via entity_rbac)
 │  │ - app.d_artifact_data (content)                     │   │
 │  │ - app.entity_instance_link (linkage)                     │   │
 │  │ - app.entity_rbac (permissions)              │   │
-│  │ - app.d_entity_instance_registry (registry)               │   │
+│  │ - app.entity_instance (registry)               │   │
 │  │                                                       │   │
 │  │ Indexes:                                             │   │
 │  │ - Primary key (id)                                   │   │
@@ -273,7 +273,7 @@ Database (PostgreSQL)
     ├─ d_artifact_data (content table)
     ├─ entity_instance_link (parent-child linkage)
     ├─ entity_rbac (permissions)
-    └─ d_entity_instance_registry (entity registry)
+    └─ entity_instance (entity registry)
 
 Storage (MinIO/S3)
     │
@@ -464,11 +464,11 @@ INSERT INTO app.entity_rbac (
 );
 ```
 
-**Registry Table:** `d_entity_instance_registry`
+**Registry Table:** `entity_instance`
 
 ```sql
 -- Automatically registered on artifact creation
-INSERT INTO app.d_entity_instance_registry (
+INSERT INTO app.entity_instance (
     entity_type,
     entity_id,
     entity_name,

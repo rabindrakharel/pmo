@@ -191,7 +191,9 @@
       "Bash(/tmp/test-child-remove.sh:*)",
       "Bash(/tmp/test-redis-comprehensive.sh)",
       "Bash(do echo \"=== Testing $entity ===\" /home/rabin/projects/pmo/tools/test-api.sh GET \"/api/v1/$entity?limit=2\")",
-      "Bash(do sed -i 's/conditions\\.push(sql\\.raw(rbacWhereClause));/conditions.push(rbacWhereClause);/g' $file/routes.ts)"
+      "Bash(do sed -i 's/conditions\\.push(sql\\.raw(rbacWhereClause));/conditions.push(rbacWhereClause);/g' $file/routes.ts)",
+      "Bash(git -C /home/rabin/projects/pmo log -1 --format=\"%ci\" -- apps/api/src/services/entity-infrastructure.service.ts)",
+      "Bash(git -C /home/rabin/projects/pmo status --short docs/services/)"
     ],
     "deny": [],
     "ask": [],
