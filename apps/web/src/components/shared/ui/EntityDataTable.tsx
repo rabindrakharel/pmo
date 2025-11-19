@@ -53,34 +53,12 @@ import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 import { generateDataTableConfig, type DataTableColumn } from '../../../lib/viewConfigGenerator';
 
 /**
- * Helper function to render cell value with automatic formatting
+ * ============================================================================
+ * DEPRECATED: renderCellValue() removed in v3.5.0
+ * ============================================================================
+ * All cell rendering now uses renderField() from universalFormatterService
+ * with support for both auto-detection and explicit column hints
  */
-function renderCellValue(column: Column, value: any): React.ReactNode {
-  // Return empty state if no value
-  if (value === null || value === undefined || value === '') {
-    return <span className="text-dark-600 italic">—</span>;
-  }
-
-  // Settings fields with colored badges (loadOptionsFromSettings: true)
-  if (column.loadOptionsFromSettings && typeof value === 'string') {
-    const datalabel = extractSettingsDatalabel(column.key);
-    const colorCode = getSettingColor(datalabel, value);
-    return renderDataLabelBadge(colorCode, value);
-  }
-
-  // Auto-format currency fields
-  if (isCurrencyField(column.key) && typeof value === 'number') {
-    return formatCurrency(value);
-  }
-
-  // Auto-format timestamp fields (_ts, _at suffixes)
-  if (/_ts$|_at$|timestamp/i.test(column.key)) {
-    return formatRelativeTime(value);
-  }
-
-  // Default: toString
-  return value.toString();
-}
 
 /**
  * Extract settings datalabel from column key
@@ -430,7 +408,7 @@ export function EntityDataTable<T = any>({
         sortable: col.sortable,
         filterable: col.filterable,
         searchable: col.searchable,
-        // Don't set render for fields with loadFromSettings - let renderCellValue handle badge rendering
+        // Don't set render for fields with loadFromSettings - renderField() will handle badge rendering via hints
         render: col.loadFromSettings ? undefined : col.render,
         width: col.width,
         align: col.align,
@@ -1636,10 +1614,14 @@ export function EntityDataTable<T = any>({
                                 cursor: 'inherit'
                               } as React.CSSProperties}
                             >
-                              {column.render
-                                ? column.render((record as any)[column.key], record, data)
-                                : renderCellValue(column, (record as any)[column.key])
-                              }
+                              {renderField({
+                                fieldKey: column.key,
+                                value: (record as any)[column.key],
+                                mode: 'view',
+                                customRender: column.render,
+                                data: record,
+                                loadOptionsFromSettings: column.loadOptionsFromSettings
+                              })}
                             </div>
                           )}
                         </td>

@@ -1667,12 +1667,32 @@ function getAcceptedFileTypes(fieldName: string): string {
 /**
  * Render field in VIEW mode
  * Returns formatted React element for display
+ *
+ * @param fieldKey - The field name (column key)
+ * @param value - The value to render
+ * @param data - Full record data (optional)
+ * @param loadOptionsFromSettings - Explicit flag to force badge rendering (overrides auto-detection)
  */
 export function renderFieldView(
   fieldKey: string,
   value: any,
-  data?: Record<string, any>
+  data?: Record<string, any>,
+  loadOptionsFromSettings?: boolean
 ): React.ReactElement {
+  // Empty value handling
+  if (value === null || value === undefined || value === '') {
+    return <span className="text-dark-600 italic">—</span>;
+  }
+
+  // EXPLICIT HINT: If column explicitly says it loads from settings, render as badge
+  // This takes precedence over auto-detection to maintain backwards compatibility
+  if (loadOptionsFromSettings && typeof value === 'string') {
+    const datalabel = fieldKey.replace(/_name$/, '').replace(/_id$/, '');
+    const colorCode = getSettingColor(datalabel, value);
+    return renderDataLabelBadge(colorCode, value);
+  }
+
+  // AUTO-DETECTION: Fall back to convention-based detection
   const fieldMeta = detectField(fieldKey, typeof value);
 
   switch (fieldMeta.renderType) {
@@ -1882,10 +1902,13 @@ export interface RenderFieldOptions {
   disabled?: boolean;
   inlineMode?: boolean;  // For DataTable inline editing
   customRender?: (value: any, record: any, allData?: any[]) => React.ReactNode;  // Custom renderer override
+  // Column config hints (override auto-detection)
+  loadOptionsFromSettings?: boolean;  // Force badge rendering
+  editType?: EditType;  // Override detected edit type
 }
 
 export function renderField(options: RenderFieldOptions): React.ReactElement {
-  const { fieldKey, value, mode, data, onChange, required, disabled, inlineMode, customRender } = options;
+  const { fieldKey, value, mode, data, onChange, required, disabled, inlineMode, customRender, loadOptionsFromSettings, editType } = options;
 
   // Use custom render if provided (for view mode only)
   if (customRender && mode === 'view') {
@@ -1897,7 +1920,7 @@ export function renderField(options: RenderFieldOptions): React.ReactElement {
   }
 
   if (mode === 'view') {
-    return renderFieldView(fieldKey, value, data);
+    return renderFieldView(fieldKey, value, data, loadOptionsFromSettings);
   }
 
   if (!onChange) {
