@@ -51,34 +51,34 @@ export function generateSharedCode(): string {
  * Generate shared URL for an entity
  * Database stores: /{entity}/{code}
  * Frontend routes as: /{entity}/shared/{code}
- * @param entityType - Entity type (task, form, wiki, artifact)
+ * @param entityCode - Entity type (task, form, wiki, artifact)
  * @param code - 8-character shared code
  * @returns Shared URL string for database storage
  */
-export function generateSharedUrl(entityType: string, code: string): string {
-  return `/${entityType}/${code}`;
+export function generateSharedUrl(entityCode: string, code: string): string {
+  return `/${entityCode}/${code}`;
 }
 
 /**
  * Update entity with shared URL in database
- * @param entityType - Entity type (task, form, wiki, artifact)
+ * @param entityCode - Entity type (task, form, wiki, artifact)
  * @param entityId - Entity UUID
  * @param sharedCode - 8-character shared code
  * @returns Updated entity record
  */
 export async function saveSharedUrl(
-  entityType: string,
+  entityCode: string,
   entityId: string,
   sharedCode: string
 ): Promise<any> {
-  const tableName = ENTITY_TABLE_MAP[entityType];
+  const tableName = ENTITY_TABLE_MAP[entityCode];
 
   if (!tableName) {
-    throw new Error(`Unsupported entity type: ${entityType}`);
+    throw new Error(`Unsupported entity type: ${entityCode}`);
   }
 
-  const sharedUrl = generateSharedUrl(entityType, sharedCode);
-  const internalUrl = `/${entityType}/${entityId}`;
+  const sharedUrl = generateSharedUrl(entityCode, sharedCode);
+  const internalUrl = `/${entityCode}/${entityId}`;
 
   // Update the entity with both URLs
   const result = await db.execute(sql`
@@ -92,7 +92,7 @@ export async function saveSharedUrl(
   `);
 
   if (result.length === 0) {
-    throw new Error(`Entity not found: ${entityType}/${entityId}`);
+    throw new Error(`Entity not found: ${entityCode}/${entityId}`);
   }
 
   return result[0];
@@ -101,19 +101,19 @@ export async function saveSharedUrl(
 /**
  * Generate and save shared URL for an entity
  * Complete workflow: generate code → create URL → save to DB
- * @param entityType - Entity type (task, form, wiki, artifact)
+ * @param entityCode - Entity type (task, form, wiki, artifact)
  * @param entityId - Entity UUID
  * @returns Object with shared URL and code
  */
 export async function createSharedUrl(
-  entityType: string,
+  entityCode: string,
   entityId: string
 ): Promise<{ sharedUrl: string; sharedCode: string; internalUrl: string }> {
   const sharedCode = generateSharedCode();
-  const sharedUrl = generateSharedUrl(entityType, sharedCode);
-  const internalUrl = `/${entityType}/${entityId}`;
+  const sharedUrl = generateSharedUrl(entityCode, sharedCode);
+  const internalUrl = `/${entityCode}/${entityId}`;
 
-  await saveSharedUrl(entityType, entityId, sharedCode);
+  await saveSharedUrl(entityCode, entityId, sharedCode);
 
   return {
     sharedUrl,
@@ -125,22 +125,22 @@ export async function createSharedUrl(
 /**
  * Resolve shared URL code to entity ID and type
  * Looks up entity by shared URL pattern across all supported tables
- * @param entityType - Entity type (task, form, wiki, artifact)
+ * @param entityCode - Entity type (task, form, wiki, artifact)
  * @param sharedCode - 8-character shared code
  * @returns Entity data or null if not found
  */
 export async function resolveSharedUrl(
-  entityType: string,
+  entityCode: string,
   sharedCode: string
 ): Promise<any | null> {
-  const tableName = ENTITY_TABLE_MAP[entityType];
+  const tableName = ENTITY_TABLE_MAP[entityCode];
 
   if (!tableName) {
-    throw new Error(`Unsupported entity type: ${entityType}`);
+    throw new Error(`Unsupported entity type: ${entityCode}`);
   }
 
   // Database stores /{entity}/{code}, not /{entity}/shared/{code}
-  const sharedUrl = generateSharedUrl(entityType, sharedCode);
+  const sharedUrl = generateSharedUrl(entityCode, sharedCode);
 
   const result = await db.execute(sql`
     SELECT *
@@ -155,32 +155,32 @@ export async function resolveSharedUrl(
 
 /**
  * Validate if a shared code is already in use
- * @param entityType - Entity type (task, form, wiki, artifact)
+ * @param entityCode - Entity type (task, form, wiki, artifact)
  * @param sharedCode - 8-character shared code
  * @returns true if code is available, false if already in use
  */
 export async function isSharedCodeAvailable(
-  entityType: string,
+  entityCode: string,
   sharedCode: string
 ): Promise<boolean> {
-  const entity = await resolveSharedUrl(entityType, sharedCode);
+  const entity = await resolveSharedUrl(entityCode, sharedCode);
   return entity === null;
 }
 
 /**
  * Get shared URL info for an entity
- * @param entityType - Entity type (task, form, wiki, artifact)
+ * @param entityCode - Entity type (task, form, wiki, artifact)
  * @param entityId - Entity UUID
  * @returns Shared URL info or null if not set
  */
 export async function getSharedUrlInfo(
-  entityType: string,
+  entityCode: string,
   entityId: string
 ): Promise<{ sharedUrl: string | null; internalUrl: string | null } | null> {
-  const tableName = ENTITY_TABLE_MAP[entityType];
+  const tableName = ENTITY_TABLE_MAP[entityCode];
 
   if (!tableName) {
-    throw new Error(`Unsupported entity type: ${entityType}`);
+    throw new Error(`Unsupported entity type: ${entityCode}`);
   }
 
   const result = await db.execute(sql`

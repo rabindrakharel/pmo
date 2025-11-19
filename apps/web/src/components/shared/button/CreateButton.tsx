@@ -5,12 +5,12 @@ import { useNavigate } from 'react-router-dom';
 interface CreateButtonProps {
   label: string;
   href: string;
-  entityType: string;  // Keep for consistency but no longer used for permissions
+  entityCode: string;  // Keep for consistency but no longer used for permissions
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
 
-export function CreateButton({ label, href, entityType, size = 'sm', className = '' }: CreateButtonProps) {
+export function CreateButton({ label, href, entityCode, size = 'sm', className = '' }: CreateButtonProps) {
   const navigate = useNavigate();
 
   // Permission checking removed - handled at API level via RBAC joins

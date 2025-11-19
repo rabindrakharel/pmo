@@ -436,7 +436,7 @@ export interface ConfigContext {
 // ============================================================================
 
 export interface EntityConfig {
-  entityType: string;
+  entityCode: string;
   displayName: string;
   displayNamePlural: string;
   description: string;

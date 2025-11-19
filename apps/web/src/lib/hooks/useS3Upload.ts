@@ -12,7 +12,7 @@ import { useState } from 'react';
  *
  * const handleFileUpload = async (file: File) => {
  *   const objectKey = await uploadToS3({
- *     entityType: 'artifact',
+ *     entityCode: 'artifact',
  *     entityId: artifactId,
  *     file,
  *     fileName: file.name,
@@ -30,7 +30,7 @@ import { useState } from 'react';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 export interface UploadToS3Options {
-  entityType: string;
+  entityCode: string;
   entityId: string;
   file: Blob | File;
   fileName: string;
@@ -56,7 +56,7 @@ export function useS3Upload() {
    */
   const uploadToS3 = async (options: UploadToS3Options): Promise<string | null> => {
     const {
-      entityType,
+      entityCode,
       entityId,
       file,
       fileName,
@@ -81,7 +81,7 @@ export function useS3Upload() {
         },
         body: JSON.stringify({
           tenantId,
-          entityType,
+          entityCode,
           entityId,
           fileName,
           contentType

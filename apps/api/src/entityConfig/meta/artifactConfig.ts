@@ -1,7 +1,7 @@
 import type { EntityConfig } from '../types';
 
 export const artifactConfig: EntityConfig = {
-  entityType: 'artifact',
+  entityCode: 'artifact',
   displayName: 'Artifact',
   displayNamePlural: 'Artifacts',
   description: 'Document and file management',

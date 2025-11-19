@@ -140,8 +140,8 @@ export function LabelsPage() {
   };
 
   // Handler for creating new label
-  const handleCreateClick = (entityType: string) => {
-    setEditingEntityType(entityType);
+  const handleCreateClick = (entityCode: string) => {
+    setEditingEntityType(entityCode);
     setEditingEntityId('new');
     setIsCreateModalOpen(true);
   };
@@ -320,7 +320,7 @@ export function LabelsPage() {
                       <div className="p-4">
                         <FilteredDataTable
                           key={`${settingId}-${refreshTrigger}`}
-                          entityType={settingId}
+                          entityCode={settingId}
                           showActionButtons={true}
                           createLabel={`Create ${setting?.label || 'Label'}`}
                           onCreateClick={() => handleCreateClick(settingId)}
@@ -343,7 +343,7 @@ export function LabelsPage() {
       {/* Create/Edit Modal */}
       {editingEntityType && (
         <EntityEditModal
-          entityType={editingEntityType}
+          entityCode={editingEntityType}
           entityId={editingEntityId}
           isOpen={isCreateModalOpen}
           onClose={handleModalClose}

@@ -50,12 +50,12 @@ export interface FormatSpecification {
 
   // Optional config - only include what's needed
   settingsDatalabel?: string;   // For badge type
-  entityType?: string;          // For reference type
+  entityCode?: string;          // For reference type
   dateFormat?: string;          // For date type
 }
 
 export interface EntitySchema {
-  entityType: string;
+  entityCode: string;
   tableName: string;
   columns: SchemaColumn[];
 }
@@ -105,37 +105,37 @@ const READONLY_FIELDS = new Set([
  * Get database table name for entity from entity.db_table (FULLY DYNAMIC!)
  *
  * @param db - Drizzle database instance
- * @param entityType - Entity type code (project, task, calendar, message, etc.)
+ * @param entityCode - Entity type code (project, task, calendar, message, etc.)
  * @returns Database table name or null if not found
  */
 export async function getTableNameFromEntity(
   db: NodePgDatabase<any>,
-  entityType: string
+  entityCode: string
 ): Promise<string | null> {
   try {
     const result = await db.execute(
-      sql`SELECT db_table FROM app.entity WHERE code = ${entityType} AND active_flag = true LIMIT 1`
+      sql`SELECT db_table FROM app.entity WHERE code = ${entityCode} AND active_flag = true LIMIT 1`
     );
 
     // Drizzle returns results directly as an array, not in a .rows property
     const rows = Array.isArray(result) ? result : (result as any).rows || [];
 
     if (rows.length === 0) {
-      console.warn(`Entity type "${entityType}" not found in entity table`);
+      console.warn(`Entity type "${entityCode}" not found in entity table`);
       return null;
     }
 
     const dbTable = rows[0].db_table as string | null;
 
     if (!dbTable) {
-      console.warn(`Entity type "${entityType}" exists but db_table is NULL - update entity table!`);
+      console.warn(`Entity type "${entityCode}" exists but db_table is NULL - update entity table!`);
       return null;
     }
 
-    console.log(`✅ Resolved table for "${entityType}": ${dbTable}`);
+    console.log(`✅ Resolved table for "${entityCode}": ${dbTable}`);
     return dbTable;
   } catch (error) {
-    console.error(`Failed to fetch table name for entity "${entityType}":`, error);
+    console.error(`Failed to fetch table name for entity "${entityCode}":`, error);
     return null;
   }
 }
@@ -150,27 +150,27 @@ export async function getTableNameFromEntity(
  * ✨ FULLY DYNAMIC: tableName is now OPTIONAL - auto-fetched from entity.db_table!
  *
  * @param db - Drizzle database instance
- * @param entityType - Entity type (e.g., 'project', 'task', 'calendar', 'message')
+ * @param entityCode - Entity type (e.g., 'project', 'task', 'calendar', 'message')
  * @param tableName - (Optional) Database table name - if omitted, fetched from entity.db_table
  * @returns Entity schema with column metadata
  */
 export async function buildEntitySchema(
   db: NodePgDatabase<any>,
-  entityType: string,
+  entityCode: string,
   tableName?: string
 ): Promise<EntitySchema> {
   // ✨ DYNAMIC: Fetch table name from entity.db_table if not provided
   let resolvedTableName = tableName;
 
   if (!resolvedTableName) {
-    resolvedTableName = await getTableNameFromEntity(db, entityType);
+    resolvedTableName = await getTableNameFromEntity(db, entityCode);
 
     if (!resolvedTableName) {
       // Return empty schema if table not found
-      console.error(`Cannot build schema for "${entityType}" - no table mapping in entity table.db_table`);
+      console.error(`Cannot build schema for "${entityCode}" - no table mapping in entity table.db_table`);
       return {
-        entityType,
-        tableName: `app.d_${entityType}`, // Fallback for error reporting
+        entityCode,
+        tableName: `app.d_${entityCode}`, // Fallback for error reporting
         columns: []
       };
     }
@@ -188,7 +188,7 @@ export async function buildEntitySchema(
     .map(col => buildSchemaColumn(col));
 
   return {
-    entityType,
+    entityCode,
     tableName: fullTableName,
     columns
   };
@@ -316,7 +316,7 @@ function buildFormatSpecification(dbCol: DbColumn): FormatSpecification {
     if (match) {
       return {
         type: 'reference',
-        entityType: match[2] === 'cust' ? 'customer' : match[2]
+        entityCode: match[2] === 'cust' ? 'customer' : match[2]
       };
     }
   }

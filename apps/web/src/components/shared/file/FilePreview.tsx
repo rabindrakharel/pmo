@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Upload } from 'lucide-react';
 
 interface FilePreviewProps {
-  entityType: 'artifact' | 'cost' | 'revenue';
+  entityCode: 'artifact' | 'cost' | 'revenue';
   entityId: string;
   data: any;
   isEditing: boolean;
@@ -20,18 +20,18 @@ interface FilePreviewProps {
  * - Shows file metadata (format, size)
  * - Handles loading and error states
  */
-export function FilePreview({ entityType, entityId, data, isEditing }: FilePreviewProps) {
+export function FilePreview({ entityCode, entityId, data, isEditing }: FilePreviewProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const lastObjectKeyRef = useRef<string | null>(null);
 
   // Determine which field contains the file reference
   const getFileReference = () => {
-    if (entityType === 'artifact') {
+    if (entityCode === 'artifact') {
       return data?.attachment_object_key;
-    } else if (entityType === 'cost') {
+    } else if (entityCode === 'cost') {
       return data?.invoice_attachment;
-    } else if (entityType === 'revenue') {
+    } else if (entityCode === 'revenue') {
       return data?.sales_receipt_attachment;
     }
     return null;
@@ -39,7 +39,7 @@ export function FilePreview({ entityType, entityId, data, isEditing }: FilePrevi
 
   // Extract file format from different sources
   const getFileFormat = () => {
-    if (entityType === 'artifact') {
+    if (entityCode === 'artifact') {
       return data?.attachment_format?.toLowerCase();
     }
 
@@ -54,7 +54,7 @@ export function FilePreview({ entityType, entityId, data, isEditing }: FilePrevi
 
   // Get file size
   const getFileSize = () => {
-    if (entityType === 'artifact' && data?.attachment_size_bytes) {
+    if (entityCode === 'artifact' && data?.attachment_size_bytes) {
       return (data.attachment_size_bytes / 1024).toFixed(2);
     }
     return null;
@@ -62,24 +62,24 @@ export function FilePreview({ entityType, entityId, data, isEditing }: FilePrevi
 
   // Get display label
   const getLabel = () => {
-    if (entityType === 'cost') return 'Invoice Preview';
-    if (entityType === 'revenue') return 'Receipt Preview';
+    if (entityCode === 'cost') return 'Invoice Preview';
+    if (entityCode === 'revenue') return 'Receipt Preview';
     return 'File Preview';
   };
 
   // Get empty state message
   const getEmptyMessage = () => {
-    if (entityType === 'cost') return 'No invoice uploaded';
-    if (entityType === 'revenue') return 'No receipt uploaded';
+    if (entityCode === 'cost') return 'No invoice uploaded';
+    if (entityCode === 'revenue') return 'No receipt uploaded';
     return 'No file uploaded';
   };
 
   // Get empty state description
   const getEmptyDescription = () => {
-    if (entityType === 'cost') {
+    if (entityCode === 'cost') {
       return `This cost entry has no invoice attached.${!isEditing ? ' Click Edit to upload an invoice.' : ''}`;
     }
-    if (entityType === 'revenue') {
+    if (entityCode === 'revenue') {
       return `This revenue entry has no receipt attached.${!isEditing ? ' Click Edit to upload a receipt.' : ''}`;
     }
     return `This artifact has metadata but no associated file.${!isEditing ? ' Click Edit to upload a file.' : ''}`;
@@ -93,7 +93,7 @@ export function FilePreview({ entityType, entityId, data, isEditing }: FilePrevi
       return;
     }
 
-    console.log('Fetching preview URL:', { entityType, entityId, fileRef });
+    console.log('Fetching preview URL:', { entityCode, entityId, fileRef });
     setLoadingPreview(true);
 
     try {
@@ -102,7 +102,7 @@ export function FilePreview({ entityType, entityId, data, isEditing }: FilePrevi
 
       let url: string;
 
-      if (entityType === 'artifact') {
+      if (entityCode === 'artifact') {
         // Artifact uses object_key - call download endpoint
         const response = await fetch(`${apiUrl}/api/v1/artifact/${entityId}/download`, {
           headers: { Authorization: `Bearer ${token}` }
@@ -144,7 +144,7 @@ export function FilePreview({ entityType, entityId, data, isEditing }: FilePrevi
     } finally {
       setLoadingPreview(false);
     }
-  }, [entityType, entityId, data]);
+  }, [entityCode, entityId, data]);
 
   // Fetch preview when file reference changes
   useEffect(() => {

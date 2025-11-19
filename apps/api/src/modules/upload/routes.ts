@@ -59,7 +59,7 @@ export async function uploadRoutes(fastify: FastifyInstance) {
         // Upload to S3 using unified S3AttachmentService
         const uploadResult = await s3AttachmentService.generatePresignedUploadUrl({
           tenantId: 'demo',
-          entityType: 'upload',
+          entityCode: 'upload',
           entityId: uploadId,
           fileName: data.filename,
           contentType: data.mimetype});
@@ -164,7 +164,7 @@ export async function uploadRoutes(fastify: FastifyInstance) {
           // Upload to S3 using unified S3AttachmentService
           const uploadResult = await s3AttachmentService.generatePresignedUploadUrl({
             tenantId: 'demo',
-            entityType: 'upload',
+            entityCode: 'upload',
             entityId: uploadId,
             fileName: file.filename,
             contentType: file.mimetype});

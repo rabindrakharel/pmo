@@ -63,17 +63,17 @@ export const ENTITY_TABLE_MAP: Record<string, string> = {
 /**
  * Resolve Database Table Name for Entity Type
  *
- * @param entityType - Entity type code (e.g., 'task', 'form', 'cust')
+ * @param entityCode - Entity type code (e.g., 'task', 'form', 'cust')
  * @returns Database table name (e.g., 'task', 'form_head', 'cust')
  */
-export function getEntityTableName(entityType: string): string {
+export function getEntityTableName(entityCode: string): string {
   // Check map first
-  if (ENTITY_TABLE_MAP[entityType]) {
-    return ENTITY_TABLE_MAP[entityType];
+  if (ENTITY_TABLE_MAP[entityCode]) {
+    return ENTITY_TABLE_MAP[entityCode];
   }
 
   // Default convention: direct mapping (entity code = table name)
-  return entityType;
+  return entityCode;
 }
 
 /**

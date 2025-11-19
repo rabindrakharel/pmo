@@ -33,8 +33,8 @@
  * USAGE:
  *   const entityInfra = getEntityInfrastructure(db);
  *   await entityInfra.set_entity_instance_registry({...});
- *   await entityInfra.set_entity_rbac_owner(userId, entityType, entityId);
- *   const canEdit = await entityInfra.check_entity_rbac(userId, entityType, id, Permission.EDIT);
+ *   await entityInfra.set_entity_rbac_owner(userId, entityCode, entityId);
+ *   const canEdit = await entityInfra.check_entity_rbac(userId, entityCode, id, Permission.EDIT);
  *
  * ============================================================================
  */

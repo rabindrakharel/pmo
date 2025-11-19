@@ -123,7 +123,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
     searchQuery,
     setSearchQuery
   } = useEntityInstancePicker({
-    entityType: selectedEntityType || null,
+    entityCode: selectedEntityType || null,
     enabled: !!selectedEntityType
   });
 

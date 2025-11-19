@@ -1,7 +1,7 @@
 import type { EntityConfig } from '../types';
 
 export const bizConfig: EntityConfig = {
-  entityType: 'biz',
+  entityCode: 'biz',
   displayName: 'Business Unit',
   displayNamePlural: 'Business Units',
   description: 'Business unit management and organization',

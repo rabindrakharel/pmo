@@ -13,7 +13,7 @@ interface ColumnDefinition {
 interface ColumnEditorProps {
   columns: ColumnDefinition[];
   onChange: (columns: ColumnDefinition[]) => void;
-  entityType: 'attribute' | 'transactional';
+  entityCode: 'attribute' | 'transactional';
 }
 
 /**
@@ -23,7 +23,7 @@ interface ColumnEditorProps {
  * Standard columns (id, code, name, created_ts, etc.) are automatically included.
  * Users can add custom columns with name, type, description, required flag.
  */
-export function ColumnEditor({ columns, onChange, entityType }: ColumnEditorProps) {
+export function ColumnEditor({ columns, onChange, entityCode }: ColumnEditorProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<ColumnDefinition>>({});
 
@@ -41,7 +41,7 @@ export function ColumnEditor({ columns, onChange, entityType }: ColumnEditorProp
   ];
 
   // Transactional entities also get parent entity linkage columns
-  const transactionalColumns = entityType === 'transactional' ? [
+  const transactionalColumns = entityCode === 'transactional' ? [
     { name: 'parent_entity_type', type: 'VARCHAR(50)', description: 'Parent entity type (e.g., PROJECT)' },
     { name: 'parent_entity_id', type: 'UUID', description: 'Parent entity ID' },
   ] : [];

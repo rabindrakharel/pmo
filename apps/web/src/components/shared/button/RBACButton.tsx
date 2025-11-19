@@ -4,7 +4,7 @@ import { LucideIcon, Lock } from 'lucide-react';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 interface RBACPermission {
-  entityType: string;
+  entityCode: string;
   entityId?: string;
   action: 'create' | 'view' | 'edit' | 'share' | 'delete';
   parentEntity?: string;
@@ -35,7 +35,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // Unified hook that handles both TIER 1 and TIER 3 scenarios
 export function useUnifiedRBACPermissions(
-  entityType: string,
+  entityCode: string,
   records: any[],
   actions: string[],
   parentEntity?: string,
@@ -48,11 +48,11 @@ export function useUnifiedRBACPermissions(
   const apiCallKey = useMemo(() => {
     const isParentActionContext = !!(parentEntity && parentEntityId);
     if (isParentActionContext) {
-      return `tier3:${parentEntity}:${parentEntityId}:${entityType}`;
+      return `tier3:${parentEntity}:${parentEntityId}:${entityCode}`;
     } else {
-      return `tier1:${entityType}`;
+      return `tier1:${entityCode}`;
     }
-  }, [entityType, parentEntity, parentEntityId]);
+  }, [entityCode, parentEntity, parentEntityId]);
 
   // Memoize stable values to prevent unnecessary effects
   const stableActions = useMemo(() => [...actions].sort(), [actions]);
@@ -61,7 +61,7 @@ export function useUnifiedRBACPermissions(
   // API call effect - only depends on the API call key, not records
   useEffect(() => {
     const fetchPermissions = async () => {
-      if (!stableActions.length || !entityType) {
+      if (!stableActions.length || !entityCode) {
         setLoading(false);
         return;
       }
@@ -99,19 +99,19 @@ export function useUnifiedRBACPermissions(
             body: JSON.stringify({
               parentEntity,
               parentEntityId,
-              actionEntity: entityType,
+              actionEntity: entityCode,
             }),
           });
         } else {
           // TIER 1: Main page context
-          response = await fetch(`${API_BASE_URL}/api/v1/rbac/get-permissions-by-entityType`, {
+          response = await fetch(`${API_BASE_URL}/api/v1/rbac/get-permissions-by-entityCode`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              entityType,
+              entityCode,
             }),
           });
         }
@@ -135,7 +135,7 @@ export function useUnifiedRBACPermissions(
     };
 
     fetchPermissions();
-  }, [apiCallKey, entityType, stableActions.length]); // Stable dependencies only
+  }, [apiCallKey, entityCode, stableActions.length]); // Stable dependencies only
 
   // Process permissions based on current records and actions
   const permissions = useMemo(() => {
@@ -192,8 +192,8 @@ export function useUnifiedRBACPermissions(
 }
 
 // LEGACY: TIER 1 Hook (kept for backward compatibility) - uses unified hook internally
-export function useBatchRBACPermissions(entityType: string, records: any[], actions: string[]) {
-  return useUnifiedRBACPermissions(entityType, records, actions);
+export function useBatchRBACPermissions(entityCode: string, records: any[], actions: string[]) {
+  return useUnifiedRBACPermissions(entityCode, records, actions);
 }
 
 // TIER 3: Hook for action entity tabs (Case III)
@@ -234,7 +234,7 @@ export function useRBACPermission(permission: RBACPermission) {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              entityType: permission.entityType,
+              entityCode: permission.entityCode,
               entityId: permission.entityId,
             }),
           });
@@ -252,14 +252,14 @@ export function useRBACPermission(permission: RBACPermission) {
         }
         // For global permissions, use TIER 1 API
         else {
-          const response = await fetch(`${API_BASE_URL}/api/v1/rbac/get-permissions-by-entityType`, {
+          const response = await fetch(`${API_BASE_URL}/api/v1/rbac/get-permissions-by-entityCode`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              entityType: permission.entityType,
+              entityCode: permission.entityCode,
             }),
           });
 
@@ -334,7 +334,7 @@ export function RBACButton({
   const isDisabled = disabled || !hasPermission || permissionLoading || loading;
 
   const tooltipText = !hasPermission && !permissionLoading
-    ? tooltip || `You need ${permission.action} permission on ${permission.entityType}`
+    ? tooltip || `You need ${permission.action} permission on ${permission.entityCode}`
     : undefined;
 
   const handleClick = () => {
@@ -379,7 +379,7 @@ export function RBACButton({
 
 // Specialized create button with parent context
 interface RBACCreateButtonProps {
-  entityType: string;
+  entityCode: string;
   parentEntity?: string;
   parentEntityId?: string;
   onCreateClick?: () => void;
@@ -389,7 +389,7 @@ interface RBACCreateButtonProps {
 }
 
 export function RBACCreateButton({
-  entityType,
+  entityCode,
   parentEntity,
   parentEntityId,
   onCreateClick,
@@ -399,13 +399,13 @@ export function RBACCreateButton({
 }: RBACCreateButtonProps) {
   const permission: RBACPermission = parentEntity && parentEntityId
     ? {
-        entityType,
+        entityCode,
         action: 'create',
         parentEntity,
         parentEntityId,
       }
     : {
-        entityType,
+        entityCode,
         action: 'create',
       };
 
@@ -425,7 +425,7 @@ export function RBACCreateButton({
       size={size}
       className={className}
     >
-      Create {entityType.charAt(0).toUpperCase() + entityType.slice(1)}
+      Create {entityCode.charAt(0).toUpperCase() + entityCode.slice(1)}
     </RBACButton>
   );
 }
@@ -434,7 +434,7 @@ export function RBACCreateButton({
 interface ActionBarProps {
   title?: string;
   createButton?: {
-    entityType: string;
+    entityCode: string;
     parentEntity?: string;
     parentEntityId?: string;
     onCreateClick?: () => void;
@@ -462,7 +462,7 @@ export function ActionBar({
         {additionalActions}
         {createButton && (
           <RBACCreateButton
-            entityType={createButton.entityType}
+            entityCode={createButton.entityCode}
             parentEntity={createButton.parentEntity}
             parentEntityId={createButton.parentEntityId}
             onCreateClick={createButton.onCreateClick}

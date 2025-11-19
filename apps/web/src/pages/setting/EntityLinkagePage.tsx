@@ -20,7 +20,7 @@ interface ChildEntity {
 }
 
 interface EntityPreviewProps {
-  entityType: EntityType;
+  entityCode: EntityType;
   onClose: () => void;
 }
 
@@ -28,7 +28,7 @@ interface EntityPreviewProps {
  * Entity Preview Modal
  * Shows a preview of how the entity detail page will look with current child tabs
  */
-function EntityPreviewModal({ entityType, onClose }: EntityPreviewProps) {
+function EntityPreviewModal({ entityCode, onClose }: EntityPreviewProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className="bg-dark-100 rounded-md shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
@@ -37,7 +37,7 @@ function EntityPreviewModal({ entityType, onClose }: EntityPreviewProps) {
           <div className="flex items-center gap-3">
             <Eye className="h-5 w-5 text-dark-700" />
             <h2 className="text-lg font-semibold text-dark-600">
-              Entity Preview: {entityType.name}
+              Entity Preview: {entityCode.name}
             </h2>
           </div>
           <button
@@ -53,7 +53,7 @@ function EntityPreviewModal({ entityType, onClose }: EntityPreviewProps) {
           {/* Entity Header Mockup */}
           <div className="mb-6 p-6 bg-dark-100 rounded-md border border-dark-300">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-dark-600">{entityType.ui_label}</h3>
+              <h3 className="text-xl font-semibold text-dark-600">{entityCode.ui_label}</h3>
               <span className="px-3 py-1 text-xs font-medium bg-dark-100 text-dark-600 rounded-full">
                 Sample Entity
               </span>
@@ -73,8 +73,8 @@ function EntityPreviewModal({ entityType, onClose }: EntityPreviewProps) {
               </button>
 
               {/* Child Entity Tabs */}
-              {entityType.child_entities.length > 0 ? (
-                entityType.child_entities.map((child, index) => (
+              {entityCode.child_entities.length > 0 ? (
+                entityCode.child_entities.map((child, index) => (
                   <button
                     key={child.entity}
                     className="px-4 py-3 text-sm font-medium text-dark-700 hover:text-dark-600 hover:bg-dark-100 whitespace-nowrap"
@@ -95,13 +95,13 @@ function EntityPreviewModal({ entityType, onClose }: EntityPreviewProps) {
                 <strong>Overview Tab Content:</strong> Entity fields will be displayed here in a Notion-style layout.
               </div>
 
-              {entityType.child_entities.length > 0 && (
+              {entityCode.child_entities.length > 0 && (
                 <div className="mt-4 space-y-2">
                   <div className="text-sm font-medium text-dark-600">Child Entity Tabs:</div>
                   <ul className="list-disc list-inside space-y-1 text-sm text-dark-700">
-                    {entityType.child_entities.map(child => (
+                    {entityCode.child_entities.map(child => (
                       <li key={child.entity}>
-                        <strong>{child.ui_label}</strong> - Filtered list of {child.entity} entities related to this {entityType.name}
+                        <strong>{child.ui_label}</strong> - Filtered list of {child.entity} entities related to this {entityCode.name}
                       </li>
                     ))}
                   </ul>
@@ -445,7 +445,7 @@ export function EntityLinkagePage() {
       {/* Preview Modal */}
       {previewEntity && (
         <EntityPreviewModal
-          entityType={previewEntity}
+          entityCode={previewEntity}
           onClose={() => setPreviewEntity(null)}
         />
       )}

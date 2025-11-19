@@ -446,14 +446,14 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
   });
 
   // Get entity instance hierarchy (breadcrumb data)
-  fastify.get('/api/v1/meta/entity/:entityType/:entityId/hierarchy', {
+  fastify.get('/api/v1/meta/entity/:entityCode/:entityId/hierarchy', {
     preHandler: [fastify.authenticate],
     schema: {
       tags: ['meta', 'hierarchy'],
       summary: 'Get entity instance hierarchy',
       description: 'Returns parent hierarchy chain for a specific entity instance (for breadcrumbs)',
       params: Type.Object({
-        entityType: Type.String(),
+        entityCode: Type.String(),
         entityId: Type.String({ format: 'uuid' })}),
       response: {
         200: Type.Array(Type.Object({
@@ -466,7 +466,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
-      const { entityType, entityId } = request.params as { entityType: string; entityId: string };
+      const { entityCode, entityId } = request.params as { entityCode: string; entityId: string };
 
       if (!employeeId) {
         return reply.status(401).send({ error: 'Unauthorized' });
@@ -482,7 +482,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
         'worksite': 'worksite'
       };
 
-      const entityTable = entityTableMap[entityType];
+      const entityTable = entityTableMap[entityCode];
       if (entityTable) {
         const entityCheck = await db.execute(sql`
           SELECT id FROM app.${sql.identifier(entityTable)}
@@ -507,7 +507,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
             0 as level
           FROM app.entity_id_map eih
           WHERE eih.action_entity_id = ${entityId} 
-            AND eih.action_entity = ${entityType}
+            AND eih.action_entity = ${entityCode}
             AND eih.active_flag = true
           
           UNION ALL
@@ -644,8 +644,8 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       const allResults = [];
       const entityCounts: Record<string, number> = {};
 
-      for (const entityType of targetEntityTypes) {
-        const config = searchableEntities[entityType];
+      for (const entityCode of targetEntityTypes) {
+        const config = searchableEntities[entityCode];
         if (!config) continue;
 
         // Build search query with full-text search and fuzzy matching
@@ -670,7 +670,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
               ${config.desc_field ? sql`WHEN ${sql.raw(config.desc_field)} ILIKE ${'%' + q + '%'} THEN 80` : sql``}
               ELSE 60
             END as match_score,
-            '${entityType}' as entity_type
+            '${entityCode}' as entity_type
           FROM ${sql.raw(config.table)}
           WHERE active_flag = true
             AND (${sql.join(searchConditions, sql` OR `)})
@@ -678,14 +678,14 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
           LIMIT ${Math.ceil(limit / targetEntityTypes.length) + 5}
         `);
 
-        entityCounts[entityType] = searchResults.length;
+        entityCounts[entityCode] = searchResults.length;
         
         // Add breadcrumb context for results
         const resultsWithBreadcrumb = await Promise.all(searchResults.map(async (result) => {
           const breadcrumb = [String(result.entity_type)];
           
           // Add parent context based on entity type
-          if (entityType === 'task' && result.entity_type) {
+          if (entityCode === 'task' && result.entity_type) {
             const projectContext = await db.execute(sql`
               SELECT p.name FROM app.project p
               JOIN app.task t ON t.project_id = p.id
@@ -755,8 +755,8 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
       // Get project scopes (parent entities for action entities like task, wiki, artifact, form)
       {
         // Map action entity types to their counting queries
-        const getEntityCountQuery = (entityType: string) => {
-          switch (entityType) {
+        const getEntityCountQuery = (entityCode: string) => {
+          switch (entityCode) {
             case 'task':
               return sql`(SELECT COUNT(*) FROM app.task WHERE project_id = d_project.id AND active_flag = true)`;
             case 'wiki':
@@ -801,8 +801,8 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
 
       // Get business unit scopes (secondary filtering)
       {
-        const getBusinessEntityCountQuery = (entityType: string) => {
-          switch (entityType) {
+        const getBusinessEntityCountQuery = (entityCode: string) => {
+          switch (entityCode) {
             case 'task':
               return sql`(SELECT COUNT(*) FROM app.task t
                          INNER JOIN app.project p ON p.id = t.project_id

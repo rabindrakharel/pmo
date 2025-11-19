@@ -213,9 +213,9 @@ export async function authRoutes(fastify: FastifyInstance) {
       const permissions: any = {};
       const entityCounts: any = {};
 
-      for (const entityType of entityTypes) {
-        entityCounts[entityType] = 0;
-        permissions[entityType] = actions;
+      for (const entityCode of entityTypes) {
+        entityCounts[entityCode] = 0;
+        permissions[entityCode] = actions;
       }
       
       return {
@@ -232,14 +232,14 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Get accessible entities by type
-  fastify.get('/scopes/:entityType', {
+  fastify.get('/scopes/:entityCode', {
     
     schema: {
       tags: ['auth', 'permissions'],
       summary: 'Get accessible entities by type',
       description: 'Get all entities of a specific type that the user has access to',
       params: Type.Object({
-        entityType: Type.String()}),
+        entityCode: Type.String()}),
       querystring: Type.Object({
         action: Type.Optional(Type.String())}),
       response: {
@@ -249,7 +249,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         500: ErrorResponseSchema}}}, async (request, reply) => {
     try {
       const employeeId = (request as any).user?.sub;
-      const { entityType } = request.params as { entityType: string };
+      const { entityCode } = request.params as { entityCode: string };
       const { action = 'view' } = request.query as { action?: string };
       
       if (!employeeId) {
@@ -262,8 +262,8 @@ export async function authRoutes(fastify: FastifyInstance) {
         'worksite', 'employee', 'role', 'wiki', 'form', 'artifact'
       ];
       
-      if (!validEntityTypes.includes(entityType)) {
-        return reply.status(400).send({ error: `Invalid entity type: ${entityType}` });
+      if (!validEntityTypes.includes(entityCode)) {
+        return reply.status(400).send({ error: `Invalid entity type: ${entityCode}` });
       }
 
       // Validate action
@@ -274,7 +274,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       // Convert action to permission level
       return {
-        scopeType: entityType,
+        scopeType: entityCode,
         accessibleIds: [],
         total: 0};
     } catch (error) {
@@ -383,7 +383,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     try {
       // Check if email already exists
       const existingCustomer = await db.execute(sql`
-        SELECT id FROM app.d_cust
+        SELECT id FROM app.cust
         WHERE primary_email = ${primary_email}
           AND active_flag = true
       `);
@@ -397,7 +397,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       // Generate customer number (simple incrementing system)
       const lastCustNumber = await db.execute(sql`
-        SELECT cust_number FROM app.d_cust
+        SELECT cust_number FROM app.cust
         WHERE cust_number LIKE 'APP-%'
         ORDER BY created_ts DESC
         LIMIT 1
@@ -411,7 +411,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       // Create customer account
       const result = await db.execute(sql`
-        INSERT INTO app.d_cust (
+        INSERT INTO app.cust (
           name,
           cust_number,
           cust_type,
@@ -483,7 +483,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       // Find customer by email
       const customerResult = await db.execute(sql`
         SELECT id, name, primary_email, password_hash, entities
-        FROM app.d_cust
+        FROM app.cust
         WHERE primary_email = ${email}
           AND active_flag = true
           AND password_hash IS NOT NULL
@@ -505,7 +505,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       if (!isValidPassword) {
         // Increment failed login attempts
         await db.execute(sql`
-          UPDATE app.d_cust
+          UPDATE app.cust
           SET failed_login_attempts = failed_login_attempts + 1,
               account_locked_until = CASE
                 WHEN failed_login_attempts >= 4
@@ -519,7 +519,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       // Update last login and reset failed attempts
       await db.execute(sql`
-        UPDATE app.d_cust
+        UPDATE app.cust
         SET last_login_ts = NOW(),
             failed_login_attempts = 0,
             account_locked_until = NULL
@@ -570,7 +570,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       const customerResult = await db.execute(sql`
         SELECT id, name, primary_email, entities, cust_type
-        FROM app.d_cust
+        FROM app.cust
         WHERE id = ${userId}
           AND active_flag = true
       `);
@@ -631,7 +631,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       // Update customer entities
       const result = await db.execute(sql`
-        UPDATE app.d_cust
+        UPDATE app.cust
         SET entities = ${sql`ARRAY[${sql.join(entities.map(e => sql`${e}`), sql`, `)}]::text[]`},
             updated_ts = NOW()
         WHERE id = ${userId}

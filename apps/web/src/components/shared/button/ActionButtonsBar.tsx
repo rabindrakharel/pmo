@@ -13,7 +13,7 @@ interface ActionButtonsBarProps {
   onBulkDelete?: () => void;
 
   // Entity type for proper labeling
-  entityType?: string;
+  entityCode?: string;
 
   // Additional custom actions
   additionalActions?: React.ReactNode;
@@ -28,7 +28,7 @@ export function ActionButtonsBar({
   selectedCount = 0,
   onBulkShare,
   onBulkDelete,
-  entityType = 'item',
+  entityCode = 'item',
   additionalActions,
   className = '',
 }: ActionButtonsBarProps) {
@@ -48,7 +48,7 @@ export function ActionButtonsBar({
         {/* Selection info */}
         {hasSelection && (
           <span className="text-sm text-dark-700">
-            {selectedCount} {entityType}{selectedCount !== 1 ? 's' : ''} selected
+            {selectedCount} {entityCode}{selectedCount !== 1 ? 's' : ''} selected
           </span>
         )}
 
@@ -89,7 +89,7 @@ export function ActionButtonsBar({
             className="inline-flex items-center gap-2 px-3 py-2 border border-slate-600 text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 hover:border-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-500/50 transition-all"
           >
             <Plus className="h-3.5 w-3.5" />
-            {createLabel || `Create ${entityType.charAt(0).toUpperCase() + entityType.slice(1)}`}
+            {createLabel || `Create ${entityCode.charAt(0).toUpperCase() + entityCode.slice(1)}`}
           </button>
         )}
       </div>

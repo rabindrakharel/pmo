@@ -75,7 +75,7 @@ export type FormatType =
 export interface FormatSpecification {
   type: FormatType;
   settingsDatalabel?: string;   // For badge type
-  entityType?: string;          // For reference type
+  entityCode?: string;          // For reference type
   dateFormat?: string;          // For date type
 }
 
@@ -89,7 +89,7 @@ export interface FormatSpecification {
 export interface DataSourceConfig {
   type: 'settings' | 'entity' | 'static';
   datalabel?: string;          // For settings type
-  entityType?: string;         // For entity type
+  entityCode?: string;         // For entity type
   options?: Array<{ value: string; label: string }>; // For static type
 }
 
@@ -199,7 +199,7 @@ export interface SchemaColumn extends BaseColumn {
  * Complete entity schema response from API
  */
 export interface EntitySchema {
-  entityType: string;
+  entityCode: string;
   tableName: string;
   columns: SchemaColumn[];
 }

@@ -47,14 +47,14 @@ export const API_CONFIG = {
  */
 export const API_ENDPOINTS = {
   entity: {
-    schema: (entityType: string) => `${API_CONFIG.BASE_URL}/api/v1/entity/${entityType}/schema`,
-    list: (entityType: string) => `${API_CONFIG.BASE_URL}/api/v1/${entityType}`,
-    get: (entityType: string, id: string) => `${API_CONFIG.BASE_URL}/api/v1/${entityType}/${id}`,
-    create: (entityType: string) => `${API_CONFIG.BASE_URL}/api/v1/${entityType}`,
-    update: (entityType: string, id: string) => `${API_CONFIG.BASE_URL}/api/v1/${entityType}/${id}`,
-    delete: (entityType: string, id: string) => `${API_CONFIG.BASE_URL}/api/v1/${entityType}/${id}`,
+    schema: (entityCode: string) => `${API_CONFIG.BASE_URL}/api/v1/entity/${entityCode}/schema`,
+    list: (entityCode: string) => `${API_CONFIG.BASE_URL}/api/v1/${entityCode}`,
+    get: (entityCode: string, id: string) => `${API_CONFIG.BASE_URL}/api/v1/${entityCode}/${id}`,
+    create: (entityCode: string) => `${API_CONFIG.BASE_URL}/api/v1/${entityCode}`,
+    update: (entityCode: string, id: string) => `${API_CONFIG.BASE_URL}/api/v1/${entityCode}/${id}`,
+    delete: (entityCode: string, id: string) => `${API_CONFIG.BASE_URL}/api/v1/${entityCode}/${id}`,
     types: () => `${API_CONFIG.BASE_URL}/api/v1/entity/types`,
-    options: (entityType: string) => `${API_CONFIG.BASE_URL}/api/v1/entity/${entityType}/options`
+    options: (entityCode: string) => `${API_CONFIG.BASE_URL}/api/v1/entity/${entityCode}/options`
   },
   auth: {
     login: () => `${API_CONFIG.BASE_URL}/api/v1/auth/login`,

@@ -253,7 +253,7 @@ export function InteractiveForm({
    */
   const uploadFileToS3 = async (fieldName: string, file: File): Promise<string | null> => {
     return uploadToS3({
-      entityType: 'form',
+      entityCode: 'form',
       entityId: formId,
       file,
       fileName: file.name,
@@ -283,7 +283,7 @@ export function InteractiveForm({
       const contentType = isSvg ? 'image/svg+xml' : 'image/png';
 
       const objectKey = await uploadToS3({
-        entityType: 'form',
+        entityCode: 'form',
         entityId: formId,
         file: blob,
         fileName: `${fieldName}_${Date.now()}.${fileExt}`,

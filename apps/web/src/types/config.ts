@@ -120,14 +120,14 @@ export interface FrontendEntityConfig {
 export interface ConfigApiResponse {
   success: boolean;
   data: FrontendEntityConfig;
-  entityType: string;
+  entityCode: string;
   timestamp: string;
 }
 
 export interface EntityTypesApiResponse {
   success: boolean;
   data: Array<{
-    entityType: string;
+    entityCode: string;
     displayName: string;
     displayNamePlural: string;
     description: string;

@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom';
  */
 
 export interface NavigationNode {
-  entityType: string;
+  entityCode: string;
   entityId: string;
   entityName: string;
   timestamp: number;
@@ -49,7 +49,7 @@ export function NavigationHistoryProvider({ children }: { children: ReactNode })
     setHistory(prev => {
       // Check if the same entity is already at the top (prevent duplicate)
       const current = prev[prev.length - 1];
-      if (current?.entityType === node.entityType && current?.entityId === node.entityId) {
+      if (current?.entityCode === node.entityCode && current?.entityId === node.entityId) {
         // Just update the timestamp and name
         return [
           ...prev.slice(0, -1),
@@ -157,7 +157,7 @@ export function NavigationHistoryProvider({ children }: { children: ReactNode })
       // At top level, go to the entity list page
       const current = history[0];
       popEntity();
-      navigate(`/${current.entityType}`);
+      navigate(`/${current.entityCode}`);
       return;
     }
 
@@ -168,9 +168,9 @@ export function NavigationHistoryProvider({ children }: { children: ReactNode })
     if (parent) {
       // Navigate to parent detail page with optional child tab
       if (parent.activeChildTab) {
-        navigate(`/${parent.entityType}/${parent.entityId}/${parent.activeChildTab}`);
+        navigate(`/${parent.entityCode}/${parent.entityId}/${parent.activeChildTab}`);
       } else {
-        navigate(`/${parent.entityType}/${parent.entityId}`);
+        navigate(`/${parent.entityCode}/${parent.entityId}`);
       }
     }
   }, [history, navigate, popEntity]);

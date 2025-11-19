@@ -60,8 +60,8 @@ export function SidebarProvider({ children }: SidebarProviderProps) {
     const path = location.pathname;
 
     // Detect if this is a detail page (has an ID parameter)
-    // Pattern: /{entityType}/{id} where id is typically a UUID or slug
-    // List page pattern: /{entityType} (no trailing segments)
+    // Pattern: /{entityCode}/{id} where id is typically a UUID or slug
+    // List page pattern: /{entityCode} (no trailing segments)
     const pathSegments = path.split('/').filter(segment => segment.length > 0);
 
     // If path has 2 or more segments and second segment looks like an ID

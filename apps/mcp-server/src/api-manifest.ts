@@ -55,13 +55,13 @@ export const API_MANIFEST: APIEndpoint[] = [
   {
     name: 'auth_get_scopes',
     method: 'GET',
-    path: '/api/v1/auth/scopes/:entityType',
+    path: '/api/v1/auth/scopes/:entityCode',
     description: 'Get accessible entities by type for current user',
     requiresAuth: true,
     category: 'Authentication',
     parameters: {
       path: {
-        entityType: 'Entity type (project, task, etc.)'
+        entityCode: 'Entity type (project, task, etc.)'
       },
       query: {
         action: 'Permission action to check (view, edit, create, delete)'

@@ -17,7 +17,7 @@ import crypto from 'crypto';
 
 export interface AttachmentMetadata {
   tenantId?: string;
-  entityType: string;
+  entityCode: string;
   entityId: string;
   fileName: string;
   contentType?: string;
@@ -77,7 +77,7 @@ export class S3AttachmentService {
     const hash = crypto.randomBytes(16).toString('hex');
     const extension = metadata.fileName.split('.').pop() || '';
 
-    return `tenant_id=${tenantId}/entity=${metadata.entityType}/entity_id=${metadata.entityId}/${hash}.${extension}`;
+    return `tenant_id=${tenantId}/entity=${metadata.entityCode}/entity_id=${metadata.entityId}/${hash}.${extension}`;
   }
 
   /**
@@ -159,17 +159,17 @@ export class S3AttachmentService {
   /**
    * List attachments for a specific entity
    * @param tenantId - Tenant ID (optional, defaults to 'demo')
-   * @param entityType - Entity type (e.g., 'project', 'task')
+   * @param entityCode - Entity type (e.g., 'project', 'task')
    * @param entityId - Entity ID
    * @returns List of attachment objects
    */
   async listAttachments(
     tenantId: string | undefined,
-    entityType: string,
+    entityCode: string,
     entityId: string
   ): Promise<AttachmentListItem[]> {
     const tenant = tenantId || this.defaultTenantId;
-    const prefix = `tenant_id=${tenant}/entity=${entityType}/entity_id=${entityId}/`;
+    const prefix = `tenant_id=${tenant}/entity=${entityCode}/entity_id=${entityId}/`;
 
     try {
       const command = new ListObjectsV2Command({

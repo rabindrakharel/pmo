@@ -1160,10 +1160,10 @@ import { APIFactory } from './api-factory';
  * Register all entity APIs in the factory for type-safe access
  *
  * This eliminates the need for unsafe dynamic API calls like:
- * const apiModule = (api as any)[`${entityType}Api`];
+ * const apiModule = (api as any)[`${entityCode}Api`];
  *
  * Instead, use the type-safe factory:
- * const api = APIFactory.getAPI(entityType);
+ * const api = APIFactory.getAPI(entityCode);
  */
 
 // Core business entities

@@ -727,7 +727,7 @@ export function SettingsOverviewPage() {
               </h2>
               <p className="text-sm text-dark-600">
                 Manage roles, assign employees to roles, and grant entity-level permissions using the Person-Based RBAC system.
-                All changes affect the <strong>d_role</strong>, <strong>d_entity_id_map</strong>, and <strong>entity_id_rbac_map</strong> tables.
+                All changes affect the <strong>role</strong>, <strong>entity_instance</strong>, and <strong>entity_rbac</strong> tables.
               </p>
             </div>
 
@@ -826,7 +826,7 @@ export function SettingsOverviewPage() {
                 View and manage all permissions across roles and employees. Click any row to edit or delete permissions.
               </p>
               <FilteredDataTable
-                entityType="rbac"
+                entityCode="rbac"
                 showActionButtons={false}
                 showActionIcons={true}
                 showEditIcon={true}
@@ -857,10 +857,10 @@ export function SettingsOverviewPage() {
                 <div>
                   <p className="font-medium mb-2">Database Tables:</p>
                   <ul className="list-disc list-inside space-y-1 text-blue-700">
-                    <li><code>d_role</code> - Role definitions</li>
-                    <li><code>d_employee</code> - Employee records</li>
-                    <li><code>d_entity_id_map</code> - Role ↔ Employee links</li>
-                    <li><code>entity_id_rbac_map</code> - Permissions (0-5)</li>
+                    <li><code>role</code> - Role definitions</li>
+                    <li><code>employee</code> - Employee records</li>
+                    <li><code>entity_instance</code> - Entity instance registry</li>
+                    <li><code>entity_rbac</code> - Permissions (0-7)</li>
                   </ul>
                 </div>
               </div>

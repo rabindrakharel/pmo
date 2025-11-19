@@ -54,7 +54,7 @@ export function PermissionManagementModal({ isOpen, onClose, onSave }: Permissio
 
   // Use the hook to get instance data for summary display
   const { instances } = useEntityInstancePicker({
-    entityType: selectedEntity || null,
+    entityCode: selectedEntity || null,
     enabled: selectedEntityInstance !== 'all' && !!selectedEntity
   });
 
@@ -302,7 +302,7 @@ export function PermissionManagementModal({ isOpen, onClose, onSave }: Permissio
                   {selectedEntityInstance !== 'all' && selectedEntity && (
                     <div className="ml-6 mt-3">
                       <EntityInstancePicker
-                        entityType={selectedEntity}
+                        entityCode={selectedEntity}
                         selectedInstanceId={selectedEntityInstance === '' ? null : selectedEntityInstance}
                         onSelect={(id) => setSelectedEntityInstance(id)}
                         showAllOption={false}

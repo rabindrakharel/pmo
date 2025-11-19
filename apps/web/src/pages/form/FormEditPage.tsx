@@ -55,7 +55,7 @@ export function FormEditPage() {
   useEffect(() => {
     if (formData && id) {
       pushEntity({
-        entityType: 'form',
+        entityCode: 'form',
         entityId: id,
         entityName: formData.name || 'Untitled Form',
         timestamp: Date.now()
@@ -201,7 +201,7 @@ export function FormEditPage() {
         <ShareModal
           isOpen={isShareModalOpen}
           onClose={() => setIsShareModalOpen(false)}
-          entityType="form"
+          entityCode="form"
           entityId={id}
           entityName={formData?.name}
           currentSharedUrl={formData?.shared_url}

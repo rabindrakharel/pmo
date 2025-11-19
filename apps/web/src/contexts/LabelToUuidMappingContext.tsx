@@ -9,11 +9,11 @@ import { generateLabelToUuidMapping, type LabelToUuidMapping } from '../lib/labe
  * Example:
  * {
  *   "project-abc-123": {
- *     "manager": { uuidField: "manager__employee_id", entityType: "employee", multiple: false },
- *     "stakeholder": { uuidField: "stakeholder__employee_ids", entityType: "employee", multiple: true }
+ *     "manager": { uuidField: "manager__employee_id", entityCode: "employee", multiple: false },
+ *     "stakeholder": { uuidField: "stakeholder__employee_ids", entityCode: "employee", multiple: true }
  *   },
  *   "task-def-456": {
- *     "assignee": { uuidField: "assignee__employee_id", entityType: "employee", multiple: false }
+ *     "assignee": { uuidField: "assignee__employee_id", entityCode: "employee", multiple: false }
  *   }
  * }
  */
@@ -23,10 +23,10 @@ interface MappingCache {
 
 interface LabelToUuidMappingContextType {
   /**
-   * Get mapping for a specific entity (by type and ID)
+   * Get mapping for a specific entity (by code and ID)
    * Returns undefined if mapping not yet generated
    */
-  getMapping: (entityType: string, entityId: string) => LabelToUuidMapping | undefined;
+  getMapping: (entityCode: string, entityId: string) => LabelToUuidMapping | undefined;
 
   /**
    * Get mapping from raw data object (generates on-the-fly if not cached)
@@ -37,12 +37,12 @@ interface LabelToUuidMappingContextType {
    * Set mapping for a specific entity
    * Usually called automatically by API interceptor
    */
-  setMapping: (entityType: string, entityId: string, mapping: LabelToUuidMapping) => void;
+  setMapping: (entityCode: string, entityId: string, mapping: LabelToUuidMapping) => void;
 
   /**
    * Set mapping from raw data (auto-generates mapping)
    */
-  setMappingFromData: (entityType: string, entityId: string, data: Record<string, any>) => void;
+  setMappingFromData: (entityCode: string, entityId: string, data: Record<string, any>) => void;
 
   /**
    * Clear all mappings (for logout or cache reset)
@@ -73,15 +73,15 @@ export const LabelToUuidMappingProvider: React.FC<{ children: ReactNode }> = ({ 
   /**
    * Generate entity key for cache lookup
    */
-  const getEntityKey = useCallback((entityType: string, entityId: string): string => {
-    return `${entityType}:${entityId}`;
+  const getEntityKey = useCallback((entityCode: string, entityId: string): string => {
+    return `${entityCode}:${entityId}`;
   }, []);
 
   /**
    * Get mapping for specific entity from cache
    */
-  const getMapping = useCallback((entityType: string, entityId: string): LabelToUuidMapping | undefined => {
-    const key = getEntityKey(entityType, entityId);
+  const getMapping = useCallback((entityCode: string, entityId: string): LabelToUuidMapping | undefined => {
+    const key = getEntityKey(entityCode, entityId);
     return cache[key];
   }, [cache, getEntityKey]);
 
@@ -95,8 +95,8 @@ export const LabelToUuidMappingProvider: React.FC<{ children: ReactNode }> = ({ 
   /**
    * Set mapping for specific entity
    */
-  const setMapping = useCallback((entityType: string, entityId: string, mapping: LabelToUuidMapping) => {
-    const key = getEntityKey(entityType, entityId);
+  const setMapping = useCallback((entityCode: string, entityId: string, mapping: LabelToUuidMapping) => {
+    const key = getEntityKey(entityCode, entityId);
     setCache(prev => ({
       ...prev,
       [key]: mapping
@@ -106,12 +106,12 @@ export const LabelToUuidMappingProvider: React.FC<{ children: ReactNode }> = ({ 
   /**
    * Auto-generate and set mapping from raw data
    */
-  const setMappingFromData = useCallback((entityType: string, entityId: string, data: Record<string, any>) => {
+  const setMappingFromData = useCallback((entityCode: string, entityId: string, data: Record<string, any>) => {
     const mapping = generateLabelToUuidMapping(data);
 
     // Only cache if mapping is non-empty
     if (Object.keys(mapping).length > 0) {
-      setMapping(entityType, entityId, mapping);
+      setMapping(entityCode, entityId, mapping);
     }
   }, [setMapping]);
 
@@ -151,11 +151,11 @@ export const LabelToUuidMappingProvider: React.FC<{ children: ReactNode }> = ({ 
  * @throws Error if used outside LabelToUuidMappingProvider
  *
  * @example
- * const MyComponent = ({ entityType, entityId, data }) => {
+ * const MyComponent = ({ entityCode, entityId, data }) => {
  *   const { getMapping, getMappingFromData } = useLabelToUuidMappingContext();
  *
  *   // Get cached mapping
- *   const cachedMapping = getMapping(entityType, entityId);
+ *   const cachedMapping = getMapping(entityCode, entityId);
  *
  *   // Or generate on-the-fly from data
  *   const mapping = getMappingFromData(data);

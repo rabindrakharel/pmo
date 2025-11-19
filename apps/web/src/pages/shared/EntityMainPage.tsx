@@ -20,21 +20,21 @@ import { useSidebar } from '../../contexts/SidebarContext';
  * Supports table, kanban, and grid views based on entity configuration.
  *
  * Usage via routing:
- * - /project -> EntityMainPage with entityType="project"
- * - /task -> EntityMainPage with entityType="task"
- * - /wiki -> EntityMainPage with entityType="wiki"
+ * - /project -> EntityMainPage with entityCode="project"
+ * - /task -> EntityMainPage with entityCode="task"
+ * - /wiki -> EntityMainPage with entityCode="wiki"
  * etc.
  */
 
 interface EntityMainPageProps {
-  entityType: string;
+  entityCode: string;
   defaultView?: ViewMode;
 }
 
-export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps) {
+export function EntityMainPage({ entityCode, defaultView }: EntityMainPageProps) {
   const navigate = useNavigate();
-  const config = getEntityConfig(entityType);
-  const [view, setView] = useViewMode(entityType, defaultView);
+  const config = getEntityConfig(entityCode);
+  const [view, setView] = useViewMode(entityCode, defaultView);
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +58,7 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
     if (view !== 'table' && config) {
       loadData();
     }
-  }, [view, entityType]);
+  }, [view, entityCode]);
 
   const loadData = async (page: number = 1, append: boolean = false) => {
     try {
@@ -66,7 +66,7 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
       setError(null);
 
       // Type-safe API call using APIFactory
-      const api = APIFactory.getAPI(entityType);
+      const api = APIFactory.getAPI(entityCode);
 
       // Use pageSize of 100 to align with API maximum limit
       const params: any = { page, pageSize: 100 };
@@ -80,7 +80,7 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
       setCurrentPage(page);
       setHasMore(newData.length === 100); // If we got 100 records, there might be more
     } catch (err) {
-      console.error(`Failed to load ${entityType}:`, err);
+      console.error(`Failed to load ${entityCode}:`, err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
       if (!append) {
         setData([]);
@@ -94,11 +94,11 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
     // Use custom detail page ID field if specified, otherwise default to 'id'
     const idField = config.detailPageIdField || 'id';
     const id = item[idField];
-    navigate(`/${entityType}/${id}`);
+    navigate(`/${entityCode}/${id}`);
   };
 
   const handleCreateClick = () => {
-    navigate(`/${entityType}/new`);
+    navigate(`/${entityCode}/new`);
   };
 
   const handleLoadMore = () => {
@@ -106,14 +106,14 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
   };
 
   const handleBulkShare = (selectedItems: any[]) => {
-    console.log(`Bulk share ${entityType}:`, selectedItems.map(i => i.id));
-    alert(`Sharing ${selectedItems.length} ${config?.displayName || entityType}${selectedItems.length !== 1 ? 's' : ''}`);
+    console.log(`Bulk share ${entityCode}:`, selectedItems.map(i => i.id));
+    alert(`Sharing ${selectedItems.length} ${config?.displayName || entityCode}${selectedItems.length !== 1 ? 's' : ''}`);
   };
 
   const handleBulkDelete = async (selectedItems: any[]) => {
-    if (window.confirm(`Are you sure you want to delete ${selectedItems.length} ${config?.displayName || entityType}${selectedItems.length !== 1 ? 's' : ''}?`)) {
-      console.log(`Bulk delete ${entityType}:`, selectedItems.map(i => i.id));
-      alert(`Deleted ${selectedItems.length} ${config?.displayName || entityType}${selectedItems.length !== 1 ? 's' : ''}`);
+    if (window.confirm(`Are you sure you want to delete ${selectedItems.length} ${config?.displayName || entityCode}${selectedItems.length !== 1 ? 's' : ''}?`)) {
+      console.log(`Bulk delete ${entityCode}:`, selectedItems.map(i => i.id));
+      alert(`Deleted ${selectedItems.length} ${config?.displayName || entityCode}${selectedItems.length !== 1 ? 's' : ''}`);
 
       // Reload data after delete
       if (view !== 'table') {
@@ -125,7 +125,7 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
   const handleCardMove = async (itemId: string, fromColumn: string, toColumn: string) => {
     if (!config?.kanban) return;
 
-    console.log(`Moving ${entityType} ${itemId} from ${fromColumn} to ${toColumn}`);
+    console.log(`Moving ${entityCode} ${itemId} from ${fromColumn} to ${toColumn}`);
 
     // Optimistic update
     setData(prev => prev.map(item =>
@@ -134,10 +134,10 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
 
     // Type-safe API call to update
     try {
-      const api = APIFactory.getAPI(entityType);
+      const api = APIFactory.getAPI(entityCode);
       await api.update(itemId, { [config.kanban.groupByField]: toColumn });
     } catch (err) {
-      console.error(`Failed to update ${entityType}:`, err);
+      console.error(`Failed to update ${entityCode}:`, err);
       // Revert optimistic update on error
       loadData();
     }
@@ -147,7 +147,7 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
     return (
       <Layout>
         <div className="text-center py-12">
-          <p className="text-red-600">Entity configuration not found for: {entityType}</p>
+          <p className="text-red-600">Entity configuration not found for: {entityCode}</p>
         </div>
       </Layout>
     );
@@ -158,7 +158,7 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
     if (view === 'table') {
       return (
         <FilteredDataTable
-          entityType={entityType}
+          entityCode={entityCode}
           showActionButtons={false}
           showActionIcons={true}
           showEditIcon={true}
@@ -279,7 +279,7 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
     // GRAPH VIEW - Hierarchies vs Workflows
     if (view === 'graph') {
       // Check if this is a hierarchy entity (has parent_id field)
-      const isHierarchyEntity = entityType.includes('hierarchy') ||
+      const isHierarchyEntity = entityCode.includes('hierarchy') ||
                                (data.length > 0 && 'parent_id' in data[0]);
 
       if (isHierarchyEntity) {
@@ -313,7 +313,7 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
   };
 
   // Get entity icon from centralized icon system
-  const EntityIcon = getEntityIcon(entityType);
+  const EntityIcon = getEntityIcon(entityCode);
 
   return (
     <Layout>
@@ -374,13 +374,13 @@ export function EntityMainPage({ entityType, defaultView }: EntityMainPageProps)
  * Usage Examples:
  *
  * In routes:
- * <Route path="/project" element={<EntityMainPage entityType="project" />} />
- * <Route path="/task" element={<EntityMainPage entityType="task" />} />
- * <Route path="/wiki" element={<EntityMainPage entityType="wiki" />} />
- * <Route path="/artifact" element={<EntityMainPage entityType="artifact" />} />
- * <Route path="/form" element={<EntityMainPage entityType="form" />} />
- * <Route path="/business" element={<EntityMainPage entityType="business" />} />
- * <Route path="/office" element={<EntityMainPage entityType="office" />} />
- * <Route path="/employee" element={<EntityMainPage entityType="employee" />} />
- * <Route path="/role" element={<EntityMainPage entityType="role" />} />
+ * <Route path="/project" element={<EntityMainPage entityCode="project" />} />
+ * <Route path="/task" element={<EntityMainPage entityCode="task" />} />
+ * <Route path="/wiki" element={<EntityMainPage entityCode="wiki" />} />
+ * <Route path="/artifact" element={<EntityMainPage entityCode="artifact" />} />
+ * <Route path="/form" element={<EntityMainPage entityCode="form" />} />
+ * <Route path="/business" element={<EntityMainPage entityCode="business" />} />
+ * <Route path="/office" element={<EntityMainPage entityCode="office" />} />
+ * <Route path="/employee" element={<EntityMainPage entityCode="employee" />} />
+ * <Route path="/role" element={<EntityMainPage entityCode="role" />} />
  */

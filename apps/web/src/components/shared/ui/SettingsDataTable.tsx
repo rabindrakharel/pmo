@@ -23,7 +23,7 @@
  * - No dynamic column configuration needed
  *
  * Used by:
- * - FilteredDataTable when entityType is a settings entity (e.g., "taskStage")
+ * - FilteredDataTable when entityCode is a settings entity (e.g., "taskStage")
  * - Routes: /setting/taskStage, /setting/acquisitionChannel, etc.
  * - Entity configs using createSettingsEntityConfig()
  *

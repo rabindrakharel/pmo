@@ -1558,7 +1558,7 @@ export function EntityDataTable<T = any>({
                             editType === 'file' ? (
                               <InlineFileUploadCell
                                 value={(record as any)[column.key]}
-                                entityType={onEdit ? 'artifact' : 'cost'} // Inferred from context
+                                entityCode={onEdit ? 'artifact' : 'cost'} // Inferred from context
                                 entityId={(record as any).id}
                                 fieldName={column.key}
                                 accept={capability?.acceptedFileTypes}

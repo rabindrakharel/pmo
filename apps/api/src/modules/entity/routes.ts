@@ -34,8 +34,8 @@ const ENTITY_ALIAS_MAP: Record<string, string> = {
 /**
  * Normalize entity type - convert frontend alias to database entity_type
  */
-function normalizeEntityType(entityType: string): string {
-  return ENTITY_ALIAS_MAP[entityType] || entityType;
+function normalizeEntityType(entityCode: string): string {
+  return ENTITY_ALIAS_MAP[entityCode] || entityCode;
 }
 
 const EntityTypeMetadataSchema = Type.Object({
@@ -907,7 +907,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
   });
 
   /**
-   * GET /api/v1/entity/:entityType/schema
+   * GET /api/v1/entity/:entityCode/schema
    * Get database-driven schema for an entity type
    *
    * Returns column metadata by introspecting the database table structure.
@@ -915,15 +915,15 @@ export async function entityRoutes(fastify: FastifyInstance) {
    *
    * Used by FilteredDataTable to render columns even when no data exists.
    */
-  fastify.get('/api/v1/entity/:entityType/schema', {
+  fastify.get('/api/v1/entity/:entityCode/schema', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        entityType: Type.String()
+        entityCode: Type.String()
       }),
       response: {
         200: Type.Object({
-          entityType: Type.String(),
+          entityCode: Type.String(),
           tableName: Type.String(),
           columns: Type.Array(Type.Object({
             key: Type.String(),
@@ -939,7 +939,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
             format: Type.Object({
               type: Type.String(),
               settingsDatalabel: Type.Optional(Type.String()),
-              entityType: Type.Optional(Type.String()),
+              entityCode: Type.Optional(Type.String()),
               dateFormat: Type.Optional(Type.String())
             }),
             editable: Type.Boolean(),
@@ -957,8 +957,8 @@ export async function entityRoutes(fastify: FastifyInstance) {
       }
     }
   }, async (request, reply) => {
-    const { entityType } = request.params as { entityType: string };
-    const normalizedEntityType = normalizeEntityType(entityType);
+    const { entityCode } = request.params as { entityCode: string };
+    const normalizedEntityType = normalizeEntityType(entityCode);
 
     try {
       // Import schema builder service
@@ -970,12 +970,12 @@ export async function entityRoutes(fastify: FastifyInstance) {
 
       return schema;
     } catch (error) {
-      fastify.log.error(`Error building schema for ${entityType}:`, error as any);
+      fastify.log.error(`Error building schema for ${entityCode}:`, error as any);
 
       // Check if error is due to table not existing
       if (error instanceof Error && error.message.includes('relation') && error.message.includes('does not exist')) {
         return reply.status(404).send({
-          error: `Entity type "${entityType}" not found or table does not exist`
+          error: `Entity type "${entityCode}" not found or table does not exist`
         });
       }
 

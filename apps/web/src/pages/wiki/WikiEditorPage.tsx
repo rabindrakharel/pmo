@@ -63,7 +63,7 @@ export function WikiEditorPage() {
   useEffect(() => {
     if (page && id) {
       pushEntity({
-        entityType: 'wiki',
+        entityCode: 'wiki',
         entityId: id,
         entityName: page.name || 'Untitled Wiki',
         timestamp: Date.now()
@@ -250,7 +250,7 @@ export function WikiEditorPage() {
         <ShareModal
           isOpen={isShareModalOpen}
           onClose={() => setIsShareModalOpen(false)}
-          entityType="wiki"
+          entityCode="wiki"
           entityId={id}
           entityName={page?.name}
           currentSharedUrl={page?.shared_url}

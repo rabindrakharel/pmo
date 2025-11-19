@@ -66,8 +66,8 @@ export const ENTITY_ICONS: Record<string, LucideIcon> = {
  * Get icon for an entity type
  * Falls back to FileText if not found
  */
-export function getEntityIcon(entityType: string): LucideIcon {
-  return ENTITY_ICONS[entityType] || FileText;
+export function getEntityIcon(entityCode: string): LucideIcon {
+  return ENTITY_ICONS[entityCode] || FileText;
 }
 
 /**

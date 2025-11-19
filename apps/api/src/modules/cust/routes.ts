@@ -376,7 +376,7 @@ export async function custRoutes(fastify: FastifyInstance) {
 
       // ✅ Route owns INSERT query
       const result = await db.execute(sql`
-        INSERT INTO app.d_cust (
+        INSERT INTO app.cust (
           code, name, "descr", cust_number, cust_type, cust_status,
           primary_address, city, province, postal_code, country, geo_coordinates,
           business_legal_name, business_type, gst_hst_number, business_number,
@@ -565,7 +565,7 @@ export async function custRoutes(fastify: FastifyInstance) {
 
       // ✅ Route owns UPDATE query
       const result = await db.execute(sql`
-        UPDATE app.d_cust
+        UPDATE app.cust
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *
@@ -695,7 +695,7 @@ export async function custRoutes(fastify: FastifyInstance) {
       updateFields.push(sql`updated_ts = NOW()`);
 
       const result = await db.execute(sql`
-        UPDATE app.d_cust
+        UPDATE app.cust
         SET ${sql.join(updateFields, sql`, `)}
         WHERE id = ${id}
         RETURNING *

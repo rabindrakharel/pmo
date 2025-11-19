@@ -10,7 +10,7 @@ import { Upload, FileIcon, CheckCircle, Loader2, X } from 'lucide-react';
 
 interface InlineFileUploadCellProps {
   value: string | null; // Current file URL/path
-  entityType: 'artifact' | 'cost' | 'revenue' | string;
+  entityCode: 'artifact' | 'cost' | 'revenue' | string;
   entityId: string;
   fieldName: string;
   accept?: string;
@@ -27,7 +27,7 @@ interface InlineFileUploadCellProps {
  */
 export function InlineFileUploadCell({
   value,
-  entityType,
+  entityCode,
   entityId,
   fieldName,
   accept = '*',
@@ -57,7 +57,7 @@ export function InlineFileUploadCell({
 
       // Step 1: Get presigned URL from API
       const presignedResponse = await fetch(
-        `${API_BASE_URL}/api/v1/${entityType}/presigned-upload`,
+        `${API_BASE_URL}/api/v1/${entityCode}/presigned-upload`,
         {
           method: 'POST',
           headers: {

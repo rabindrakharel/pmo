@@ -8,7 +8,7 @@ import { getEntityInfrastructure, Permission } from '../services/entity-infrastr
  * Universal Entity Delete Factory (v2.0)
  *
  * Thin wrapper around Entity Infrastructure Service for DELETE endpoint generation.
- * Creates standardized DELETE /api/v1/{entityType}/:id endpoints.
+ * Creates standardized DELETE /api/v1/{entityCode}/:id endpoints.
  *
  * ARCHITECTURE:
  * - Uses Entity Infrastructure Service (single source of truth)
@@ -33,8 +33,8 @@ import { ENTITY_TABLE_MAP } from './child-entity-route-factory.js';
 /**
  * Get database table name for an entity type
  */
-export function getEntityTable(entityType: string): string {
-  return ENTITY_TABLE_MAP[entityType] || entityType;
+export function getEntityTable(entityCode: string): string {
+  return ENTITY_TABLE_MAP[entityCode] || entityCode;
 }
 
 // ============================================================================
@@ -71,7 +71,7 @@ export interface DeleteEndpointOptions {
  * Create DELETE endpoint for an entity type
  *
  * Uses Entity Infrastructure Service for all infrastructure operations.
- * Creates standardized delete endpoint: DELETE /api/v1/{entityType}/:id
+ * Creates standardized delete endpoint: DELETE /api/v1/{entityCode}/:id
  *
  * @example
  * // Basic usage (infrastructure cleanup only)
@@ -93,17 +93,17 @@ export interface DeleteEndpointOptions {
  * });
  *
  * @param fastify - Fastify instance
- * @param entityType - Entity type code (e.g., 'task', 'project', 'wiki')
+ * @param entityCode - Entity type code (e.g., 'task', 'project', 'wiki')
  * @param options - Delete endpoint configuration
  */
 export function createEntityDeleteEndpoint(
   fastify: FastifyInstance,
-  entityType: string,
+  entityCode: string,
   options?: DeleteEndpointOptions
 ) {
   const entityInfra = getEntityInfrastructure(db);
 
-  fastify.delete(`/api/v1/${entityType}/:id`, {
+  fastify.delete(`/api/v1/${entityCode}/:id`, {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -137,7 +137,7 @@ export function createEntityDeleteEndpoint(
     try {
       // Use Entity Infrastructure Service for unified delete
       const result = await entityInfra.delete_all_entity_infrastructure(
-        entityType,
+        entityCode,
         id,
         {
           user_id: userId,
@@ -148,7 +148,7 @@ export function createEntityDeleteEndpoint(
         }
       );
 
-      fastify.log.info(`Deleted ${entityType} ${id}:`, result);
+      fastify.log.info(`Deleted ${entityCode} ${id}:`, result);
 
       // Return detailed result (useful for debugging)
       return reply.status(200).send(result);
@@ -158,7 +158,7 @@ export function createEntityDeleteEndpoint(
         return reply.status(403).send({ error: error.message });
       }
 
-      fastify.log.error(`Error deleting ${entityType}:`, error);
+      fastify.log.error(`Error deleting ${entityCode}:`, error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -171,10 +171,10 @@ export function createEntityDeleteEndpoint(
 /**
  * @deprecated Use Entity Infrastructure Service directly:
  *   const entityInfra = getEntityInfrastructure(db);
- *   await entityInfra.delete_all_entity_infrastructure(entityType, entityId, options);
+ *   await entityInfra.delete_all_entity_infrastructure(entityCode, entityId, options);
  */
 export async function universalEntityDelete(
-  entityType: string,
+  entityCode: string,
   entityId: string,
   options?: {
     skipRegistry?: boolean;
@@ -186,7 +186,7 @@ export async function universalEntityDelete(
 
   const entityInfra = getEntityInfrastructure(db);
 
-  await entityInfra.delete_all_entity_infrastructure(entityType, entityId, {
+  await entityInfra.delete_all_entity_infrastructure(entityCode, entityId, {
     user_id: 'SYSTEM', // Legacy calls don't have user context
     skip_rbac_check: true,
     primary_table_callback: options?.customCleanup
@@ -198,28 +198,28 @@ export async function universalEntityDelete(
 /**
  * @deprecated Use Entity Infrastructure Service directly:
  *   const entityInfra = getEntityInfrastructure(db);
- *   await entityInfra.validate_entity_instance_registry(entityType, entityId);
+ *   await entityInfra.validate_entity_instance_registry(entityCode, entityId);
  */
 export async function entityExists(
-  entityType: string,
+  entityCode: string,
   entityId: string
 ): Promise<boolean> {
   console.warn('entityExists is deprecated - use Entity Infrastructure Service directly');
 
   const entityInfra = getEntityInfrastructure(db);
-  return await entityInfra.validate_entity_instance_registry(entityType, entityId);
+  return await entityInfra.validate_entity_instance_registry(entityCode, entityId);
 }
 
 /**
  * @deprecated Query database directly or use Entity Infrastructure Service
  */
 export async function getEntityCount(
-  entityType: string,
+  entityCode: string,
   activeOnly: boolean = true
 ): Promise<number> {
   console.warn('getEntityCount is deprecated - query database directly');
 
-  const table = getEntityTable(entityType);
+  const table = getEntityTable(entityCode);
   const tableIdentifier = sql.identifier(table);
   const whereClause = activeOnly ? sql`WHERE active_flag = true` : sql``;
 

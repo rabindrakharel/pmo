@@ -13,7 +13,7 @@ interface PermissionResult {
 
 // Helper functions for RBAC API endpoints (frontend UI needs)
 // Uses unified_data_gate to determine permissions
-async function getEmployeeEntityPermissions(employeeId: string, entityType: string, entityId?: string): Promise<PermissionResult[]> {
+async function getEmployeeEntityPermissions(employeeId: string, entityCode: string, entityId?: string): Promise<PermissionResult[]> {
   const targetEntityId = entityId || ALL_ENTITIES_ID;
 
   // Test each permission level using unified_data_gate
@@ -21,26 +21,26 @@ async function getEmployeeEntityPermissions(employeeId: string, entityType: stri
 
   // Test view
   const canView = await entityInfra.check_entity_rbac(
-    employeeId, entityType, targetEntityId, Permission.VIEW
+    employeeId, entityCode, targetEntityId, Permission.VIEW
   );
   if (canView) permissions.push('view');
 
   // Test edit
   const canEdit = await entityInfra.check_entity_rbac(
-    employeeId, entityType, targetEntityId, Permission.EDIT
+    employeeId, entityCode, targetEntityId, Permission.EDIT
   );
   if (canEdit) permissions.push('edit');
 
   // Test delete
   const canDelete = await entityInfra.check_entity_rbac(
-    employeeId, entityType, targetEntityId, Permission.DELETE
+    employeeId, entityCode, targetEntityId, Permission.DELETE
   );
   if (canDelete) permissions.push('delete');
 
   // Test create (only for type-level)
   if (targetEntityId === ALL_ENTITIES_ID) {
     const canCreate = await entityInfra.check_entity_rbac(
-      employeeId, entityType, ALL_ENTITIES_ID, Permission.CREATE
+      employeeId, entityCode, ALL_ENTITIES_ID, Permission.CREATE
     );
     if (canCreate) permissions.push('create');
   }
@@ -51,14 +51,14 @@ async function getEmployeeEntityPermissions(employeeId: string, entityType: stri
   }];
 }
 
-async function getMainPageActionPermissions(employeeId: string, entityType: string) {
+async function getMainPageActionPermissions(employeeId: string, entityCode: string) {
   // Test type-level permissions using unified_data_gate
   const canCreate = await entityInfra.check_entity_rbac(
-    employeeId, entityType, ALL_ENTITIES_ID, Permission.CREATE
+    employeeId, entityCode, ALL_ENTITIES_ID, Permission.CREATE
   );
 
   const canDelete = await entityInfra.check_entity_rbac(
-    employeeId, entityType, ALL_ENTITIES_ID, Permission.DELETE
+    employeeId, entityCode, ALL_ENTITIES_ID, Permission.DELETE
   );
 
   return {
@@ -95,15 +95,15 @@ export async function rbacRoutes(fastify: FastifyInstance) {
 
   // TIER 1: Get comprehensive permissions by entity type (for main page data tables)
   // Case I: Main page data table rbac buttons: project list (/project) and project detail overview (/project/{id})
-  fastify.post('/api/v1/rbac/get-permissions-by-entityType', {
+  fastify.post('/api/v1/rbac/get-permissions-by-entityCode', {
     preHandler: [fastify.authenticate],
     schema: {
       body: Type.Object({
-        entityType: Type.String(),
+        entityCode: Type.String(),
       }),
       response: {
         200: Type.Object({
-          entityType: Type.String(),
+          entityCode: Type.String(),
           permissions: Type.Array(Type.Object({
             actionEntityId: Type.String({ minLength: 0, description: "Entity ID - empty string for global permissions" }),
             actions: Type.Array(Type.String()),
@@ -114,7 +114,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { entityType } = request.body as any;
+    const { entityCode } = request.body as any;
     const userId = (request as any).user?.sub;
 
     if (!userId) {
@@ -122,10 +122,10 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const permissions = await getEmployeeEntityPermissions(userId, entityType);
+      const permissions = await getEmployeeEntityPermissions(userId, entityCode);
 
       return {
-        entityType,
+        entityCode,
         permissions: permissions.map(p => ({
           actionEntityId: p.actionEntityId,
           actions: p.permissions,
@@ -143,12 +143,12 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       body: Type.Object({
-        entityType: Type.String(),
+        entityCode: Type.String(),
         entityId: Type.String(),
       }),
       response: {
         200: Type.Object({
-          entityType: Type.String(),
+          entityCode: Type.String(),
           entityId: Type.String(),
           permissions: Type.Array(Type.Object({
             actionEntityId: Type.String({ minLength: 0, description: "Entity ID - empty string for global permissions" }),
@@ -160,7 +160,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { entityType, entityId } = request.body as any;
+    const { entityCode, entityId } = request.body as any;
     const userId = (request as any).user?.sub;
 
     if (!userId) {
@@ -169,10 +169,10 @@ export async function rbacRoutes(fastify: FastifyInstance) {
 
     try {
       // Get permission levels for the specific entity using new system
-      const permissionResults = await getEmployeeEntityPermissions(userId, entityType, entityId);
+      const permissionResults = await getEmployeeEntityPermissions(userId, entityCode, entityId);
 
       return {
-        entityType,
+        entityCode,
         entityId,
         permissions: permissionResults,
       };
@@ -312,11 +312,11 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       body: Type.Object({
-        entityType: Type.String(),
+        entityCode: Type.String(),
       }),
       response: {
         200: Type.Object({
-          entityType: Type.String(),
+          entityCode: Type.String(),
           canCreate: Type.Boolean(),
           canShare: Type.Boolean(),
           canDelete: Type.Boolean(),
@@ -328,7 +328,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { entityType } = request.body as any;
+    const { entityCode } = request.body as any;
     const userId = (request as any).user?.sub;
 
     if (!userId) {
@@ -336,10 +336,10 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const permissions = await getMainPageActionPermissions(userId, entityType);
+      const permissions = await getMainPageActionPermissions(userId, entityCode);
 
       return {
-        entityType,
+        entityCode,
         ...permissions,
       };
     } catch (error) {
@@ -1336,7 +1336,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     schema: {
       response: {
         200: Type.Object({
-          entityType: Type.String(),
+          entityCode: Type.String(),
           tableName: Type.String(),
           columns: Type.Array(Type.Object({
             key: Type.String(),
@@ -1352,7 +1352,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             format: Type.Object({
               type: Type.String(),
               settingsDatalabel: Type.Optional(Type.String()),
-              entityType: Type.Optional(Type.String()),
+              entityCode: Type.Optional(Type.String()),
               dateFormat: Type.Optional(Type.String())
             }),
             editable: Type.Boolean(),
@@ -1576,7 +1576,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       }
 
       return {
-        entityType: 'rbac',
+        entityCode: 'rbac',
         tableName: baseSchema.tableName,
         columns: orderedColumns
       };

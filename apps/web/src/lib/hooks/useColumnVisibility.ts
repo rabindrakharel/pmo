@@ -20,7 +20,7 @@
  *   showAllColumns,
  *   hideAllColumns,
  *   isColumnVisible
- * } = useColumnVisibility(entityType, configuredColumns, data);
+ * } = useColumnVisibility(entityCode, configuredColumns, data);
  * ```
  */
 
@@ -116,19 +116,19 @@ function mergeColumns(configuredColumns: Column[], discoveredKeys: string[]): Co
 /**
  * Hook for managing column visibility with localStorage persistence
  *
- * @param entityType - The entity type (for storage key)
+ * @param entityCode - The entity type (for storage key)
  * @param configuredColumns - Columns defined in entity config
  * @param data - Current data records (for column discovery)
  * @param defaultVisible - Default visibility state (true = show all by default)
  * @returns Column visibility management functions and state
  */
 export function useColumnVisibility(
-  entityType: string,
+  entityCode: string,
   configuredColumns: Column[] = [],
   data: any[] = [],
   defaultVisible: boolean = true
 ): UseColumnVisibilityReturn {
-  const storageKey = `${STORAGE_KEY_PREFIX}${entityType}`;
+  const storageKey = `${STORAGE_KEY_PREFIX}${entityCode}`;
 
   // Only use configured columns - don't discover from data
   // This respects the filtering done by the parent component

@@ -4,7 +4,7 @@
  * Universal endpoint for resolving shared URLs across all entity types.
  * Public access endpoint - no authentication required.
  *
- * Endpoint: GET /api/v1/shared/:entityType/:code
+ * Endpoint: GET /api/v1/shared/:entityCode/:code
  * Example: GET /api/v1/shared/task/aB3xK9mZ
  * Example: GET /api/v1/shared/form/pQ7wM2nX
  */
@@ -18,10 +18,10 @@ export async function sharedRoutes(fastify: FastifyInstance) {
    * Resolve shared URL code to entity data
    * PUBLIC ENDPOINT - No authentication required
    */
-  fastify.get('/api/v1/shared/:entityType/:code', {
+  fastify.get('/api/v1/shared/:entityCode/:code', {
     schema: {
       params: Type.Object({
-        entityType: Type.String({
+        entityCode: Type.String({
           description: 'Entity type (task, form, wiki, artifact)',
           examples: ['task', 'form', 'wiki', 'artifact'],
         }),
@@ -35,7 +35,7 @@ export async function sharedRoutes(fastify: FastifyInstance) {
       }),
       response: {
         200: Type.Object({
-          entityType: Type.String(),
+          entityCode: Type.String(),
           entityId: Type.String(),
           data: Type.Any(),
         }),
@@ -49,22 +49,22 @@ export async function sharedRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { entityType, code } = request.params as { entityType: string; code: string };
+    const { entityCode, code } = request.params as { entityCode: string; code: string };
 
     try {
       // Resolve shared URL to entity data
-      const entity = await resolveSharedUrl(entityType, code);
+      const entity = await resolveSharedUrl(entityCode, code);
 
       if (!entity) {
         return reply.status(404).send({
           error: 'Not Found',
-          message: `Shared URL not found: /${entityType}/shared/${code}`,
+          message: `Shared URL not found: /${entityCode}/shared/${code}`,
         });
       }
 
       // Return entity data with metadata
       return {
-        entityType,
+        entityCode,
         entityId: entity.id,
         data: entity,
       };
@@ -80,11 +80,11 @@ export async function sharedRoutes(fastify: FastifyInstance) {
    * Generate shared URL for an entity
    * AUTHENTICATED ENDPOINT - Requires edit permission
    */
-  fastify.post('/api/v1/shared/:entityType/:id/generate', {
+  fastify.post('/api/v1/shared/:entityCode/:id/generate', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        entityType: Type.String({
+        entityCode: Type.String({
           description: 'Entity type (task, form, wiki, artifact)',
         }),
         id: Type.String({
@@ -104,7 +104,7 @@ export async function sharedRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { entityType, id } = request.params as { entityType: string; id: string };
+    const { entityCode, id } = request.params as { entityCode: string; id: string };
     const userId = (request as any).user?.sub;
 
     if (!userId) {
@@ -118,7 +118,7 @@ export async function sharedRoutes(fastify: FastifyInstance) {
     const hasPermission = await db.execute(sql`
       SELECT 1 FROM app.entity_rbac rbac
       WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-        AND rbac.entity_name = ${entityType}
+        AND rbac.entity_name = ${entityCode}
         AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
         AND rbac.active_flag = true
         AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
@@ -131,7 +131,7 @@ export async function sharedRoutes(fastify: FastifyInstance) {
 
     try {
       const { createSharedUrl } = await import('../../lib/shared-url-factory.js');
-      const result = await createSharedUrl(entityType, id);
+      const result = await createSharedUrl(entityCode, id);
       return result;
     } catch (error) {
       fastify.log.error('Error generating shared URL:', error);

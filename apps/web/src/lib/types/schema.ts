@@ -14,7 +14,7 @@ export interface FormatSpecification {
 
   // Optional config - only include what's needed
   settingsDatalabel?: string;   // For badge type
-  entityType?: string;          // For reference type
+  entityCode?: string;          // For reference type
   dateFormat?: string;          // For date type
 }
 
@@ -39,7 +39,7 @@ export interface SchemaColumn {
 }
 
 export interface EntitySchema {
-  entityType: string;
+  entityCode: string;
   tableName: string;
   columns: SchemaColumn[];
 }

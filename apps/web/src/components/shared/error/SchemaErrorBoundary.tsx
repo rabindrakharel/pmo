@@ -12,14 +12,14 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 export interface SchemaErrorFallbackProps {
   error: string;
-  entityType: string;
+  entityCode: string;
   onRetry?: () => void;
 }
 
 /**
  * Error fallback UI for schema loading failures
  */
-export function SchemaErrorFallback({ error, entityType, onRetry }: SchemaErrorFallbackProps) {
+export function SchemaErrorFallback({ error, entityCode, onRetry }: SchemaErrorFallbackProps) {
   const [showDetails, setShowDetails] = React.useState(false);
 
   return (
@@ -35,7 +35,7 @@ export function SchemaErrorFallback({ error, entityType, onRetry }: SchemaErrorF
           <p className="text-yellow-800 mb-4">
             Failed to load schema for entity{' '}
             <code className="bg-yellow-100 px-2 py-1 rounded font-mono text-sm">
-              {entityType}
+              {entityCode}
             </code>
           </p>
 

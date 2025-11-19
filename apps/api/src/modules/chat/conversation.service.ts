@@ -33,7 +33,7 @@ export async function createSession(args: {
 
       if (args.customer_id) {
         const custResult = await client`
-          SELECT name, cust_type FROM app.d_cust
+          SELECT name, cust_type FROM app.cust
           WHERE id = ${args.customer_id}::uuid AND active_flag = true
         `;
         if (custResult.length > 0) {

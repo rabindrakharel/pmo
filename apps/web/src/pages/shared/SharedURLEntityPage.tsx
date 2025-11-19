@@ -7,7 +7,7 @@
  * This page resolves short shared URL codes to display public entity content
  * without requiring authentication.
  *
- * Route: /:entityType/shared/:code
+ * Route: /:entityCode/shared/:code
  * Example: /task/shared/yrRD79cb
  * Example: /form/shared/pQ7wM2nX
  * Example: /wiki/shared/aB3xK9mZ
@@ -25,15 +25,15 @@ import { TaskDataContainer } from '../../components/entity/task/TaskDataContaine
 
 interface SharedURLEntityPageProps {
   // Optional: can be passed as prop or read from URL params
-  entityType?: string;
+  entityCode?: string;
   code?: string;
 }
 
-export function SharedURLEntityPage({ entityType: propEntityType, code: propCode }: SharedURLEntityPageProps = {}) {
-  const params = useParams<{ entityType: string; code: string }>();
+export function SharedURLEntityPage({ entityCode: propEntityType, code: propCode }: SharedURLEntityPageProps = {}) {
+  const params = useParams<{ entityCode: string; code: string }>();
   const navigate = useNavigate();
 
-  const entityType = propEntityType || params.entityType || '';
+  const entityCode = propEntityType || params.entityCode || '';
   const code = propCode || params.code || '';
 
   const [loading, setLoading] = useState(true);
@@ -42,7 +42,7 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
 
   useEffect(() => {
     const fetchSharedEntity = async () => {
-      if (!entityType || !code) {
+      if (!entityCode || !code) {
         setError('Invalid shared URL');
         setLoading(false);
         return;
@@ -52,7 +52,7 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
         setLoading(true);
         setError(null);
 
-        const apiUrl = `${API_BASE_URL}/api/v1/shared/${entityType}/${code}`;
+        const apiUrl = `${API_BASE_URL}/api/v1/shared/${entityCode}/${code}`;
         const token = localStorage.getItem('auth_token');
 
         // Call shared URL resolver endpoint (auth required)
@@ -83,7 +83,7 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
     };
 
     fetchSharedEntity();
-  }, [entityType, code]);
+  }, [entityCode, code]);
 
   // Render loading state
   if (loading) {
@@ -128,7 +128,7 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
 
   // Render entity-specific view based on type
   const renderEntityContent = () => {
-    switch (entityType) {
+    switch (entityCode) {
       case 'form': {
         // Extract fields and steps from form_schema
         const formSchema = data.form_schema || {};
@@ -306,7 +306,7 @@ export function SharedURLEntityPage({ entityType: propEntityType, code: propCode
           <div className="flex items-center space-x-2">
             <Share2 className="h-5 w-5 text-dark-700" />
             <p className="text-sm text-dark-600">
-              <strong>Shared Content</strong> - Viewing shared {entityType}
+              <strong>Shared Content</strong> - Viewing shared {entityCode}
             </p>
           </div>
         </div>

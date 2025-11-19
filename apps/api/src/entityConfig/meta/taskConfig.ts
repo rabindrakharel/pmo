@@ -1,7 +1,7 @@
 import type { EntityConfig } from '../types';
 
 export const taskConfig: EntityConfig = {
-  entityType: 'task',
+  entityCode: 'task',
   displayName: 'Task',
   displayNamePlural: 'Tasks',
   description: 'Task management and tracking',

@@ -48,26 +48,26 @@ const ENTITY_TABLE_MAP: Record<string, string> = {
 const VALID_ENTITY_TYPES = Object.keys(ENTITY_TABLE_MAP);
 
 // Helper function to validate entity type
-function validateEntityType(entityType: string): boolean {
-  return VALID_ENTITY_TYPES.includes(entityType);
+function validateEntityType(entityCode: string): boolean {
+  return VALID_ENTITY_TYPES.includes(entityCode);
 }
 
 // Helper function to get table name for entity type
-function getTableName(entityType: string): string {
-  return ENTITY_TABLE_MAP[entityType];
+function getTableName(entityCode: string): string {
+  return ENTITY_TABLE_MAP[entityCode];
 }
 
 export async function singleEntityRoutes(fastify: FastifyInstance) {
 
   // List entities of a specific type
-  fastify.get('/api/v1/entity/:entityType', {
+  fastify.get('/api/v1/entity/:entityCode', {
     
     schema: {
       tags: ['entity'],
       summary: 'List entities of specific type',
       description: 'Returns paginated list of entities with RBAC filtering',
       params: Type.Object({
-        entityType: Type.String()}),
+        entityCode: Type.String()}),
       querystring: Type.Object({
         active: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
@@ -85,7 +85,7 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
         401: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
-      const { entityType } = request.params as { entityType: string };
+      const { entityCode } = request.params as { entityCode: string };
       const { 
         active, 
         search, 
@@ -95,11 +95,11 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
         sortOrder = 'asc'
       } = request.query as any;
 
-      if (!validateEntityType(entityType)) {
-        return reply.status(400).send({ error: `Invalid entity type: ${entityType}` });
+      if (!validateEntityType(entityCode)) {
+        return reply.status(400).send({ error: `Invalid entity type: ${entityCode}` });
       }
 
-      const tableName = getTableName(entityType);
+      const tableName = getTableName(entityCode);
       const conditions = [];
 
       // Add filters
@@ -135,20 +135,20 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
         limit,
         offset};
     } catch (error) {
-      fastify.log.error(`Error fetching ${request.params.entityType} entities:`, error);
+      fastify.log.error(`Error fetching ${request.params.entityCode} entities:`, error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
   // Get single entity by ID
-  fastify.get('/api/v1/entity/:entityType/:id', {
+  fastify.get('/api/v1/entity/:entityCode/:id', {
     
     schema: {
       tags: ['entity'],
       summary: 'Get single entity by ID',
       description: 'Returns single entity with RBAC check',
       params: Type.Object({
-        entityType: Type.String(),
+        entityCode: Type.String(),
         id: Type.String({ format: 'uuid' })}),
       response: {
         200: UniversalEntitySchema,
@@ -157,13 +157,13 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
-      const { entityType, id } = request.params as { entityType: string; id: string };
+      const { entityCode, id } = request.params as { entityCode: string; id: string };
 
-      if (!validateEntityType(entityType)) {
-        return reply.status(400).send({ error: `Invalid entity type: ${entityType}` });
+      if (!validateEntityType(entityCode)) {
+        return reply.status(400).send({ error: `Invalid entity type: ${entityCode}` });
       }
 
-      const tableName = getTableName(entityType);
+      const tableName = getTableName(entityCode);
       const query = `SELECT * FROM ${tableName} WHERE id = $1 AND active_flag = true`;
       const entities = await db.execute(sql.raw(query, [id]));
 
@@ -173,20 +173,20 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
 
       return entities[0];
     } catch (error) {
-      fastify.log.error(`Error fetching ${request.params.entityType} entity:`, error);
+      fastify.log.error(`Error fetching ${request.params.entityCode} entity:`, error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
   // Create new entity (root level)
-  fastify.post('/api/v1/entity/:entityType', {
+  fastify.post('/api/v1/entity/:entityCode', {
     
     schema: {
       tags: ['entity'],
       summary: 'Create new root entity',
       description: 'Creates new root-level entity (for root-capable entities only)',
       params: Type.Object({
-        entityType: Type.String()}),
+        entityCode: Type.String()}),
       body: CreateEntitySchema,
       response: {
         201: UniversalEntitySchema,
@@ -195,18 +195,18 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
         403: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
-      const { entityType } = request.params as { entityType: string };
+      const { entityCode } = request.params as { entityCode: string };
       const data = request.body as any;
 
-      if (!validateEntityType(entityType)) {
-        return reply.status(400).send({ error: `Invalid entity type: ${entityType}` });
+      if (!validateEntityType(entityCode)) {
+        return reply.status(400).send({ error: `Invalid entity type: ${entityCode}` });
       }
 
       // Check if entity type is root-capable
       const entityTypeInfo = await db.execute(sql`
         SELECT is_root_capable 
         FROM app.meta_entity_types 
-        WHERE entity_type_code = ${entityType} AND active_flag = true
+        WHERE entity_type_code = ${entityCode} AND active_flag = true
       `);
 
       if (entityTypeInfo.length === 0) {
@@ -215,11 +215,11 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
 
       if (!entityTypeInfo[0].is_root_capable) {
         return reply.status(403).send({ 
-          error: `Entity type '${entityType}' requires a parent entity. Use parent-scoped creation endpoint instead.` 
+          error: `Entity type '${entityCode}' requires a parent entity. Use parent-scoped creation endpoint instead.` 
         });
       }
 
-      const tableName = getTableName(entityType);
+      const tableName = getTableName(entityCode);
 
       // Build insert query dynamically based on provided fields
       const fields = ['name', 'active'];
@@ -261,25 +261,25 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
       await db.execute(sql`
         INSERT INTO app.entity_id_map 
         (action_entity_id, action_entity, parent_entity_id, parent_entity)
-        VALUES (${result[0].id}, ${entityType}, NULL, NULL)
+        VALUES (${result[0].id}, ${entityCode}, NULL, NULL)
       `);
 
       return reply.status(201).send(result[0]);
     } catch (error) {
-      fastify.log.error(`Error creating ${request.params.entityType} entity:`, error);
+      fastify.log.error(`Error creating ${request.params.entityCode} entity:`, error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
   // Update entity
-  fastify.put('/api/v1/entity/:entityType/:id', {
+  fastify.put('/api/v1/entity/:entityCode/:id', {
     
     schema: {
       tags: ['entity'],
       summary: 'Update entity',
       description: 'Updates entity with RBAC check',
       params: Type.Object({
-        entityType: Type.String(),
+        entityCode: Type.String(),
         id: Type.String({ format: 'uuid' })}),
       body: UpdateEntitySchema,
       response: {
@@ -289,14 +289,14 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
-      const { entityType, id } = request.params as { entityType: string; id: string };
+      const { entityCode, id } = request.params as { entityCode: string; id: string };
       const data = request.body as any;
 
-      if (!validateEntityType(entityType)) {
-        return reply.status(400).send({ error: `Invalid entity type: ${entityType}` });
+      if (!validateEntityType(entityCode)) {
+        return reply.status(400).send({ error: `Invalid entity type: ${entityCode}` });
       }
 
-      const tableName = getTableName(entityType);
+      const tableName = getTableName(entityCode);
 
       // Build update query dynamically
       const updateFields = [];
@@ -350,20 +350,20 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
 
       return result[0];
     } catch (error) {
-      fastify.log.error(`Error updating ${request.params.entityType} entity:`, error);
+      fastify.log.error(`Error updating ${request.params.entityCode} entity:`, error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
   // Delete entity (soft delete)
-  fastify.delete('/api/v1/entity/:entityType/:id', {
+  fastify.delete('/api/v1/entity/:entityCode/:id', {
     
     schema: {
       tags: ['entity'],
       summary: 'Delete entity',
       description: 'Soft deletes entity with RBAC check',
       params: Type.Object({
-        entityType: Type.String(),
+        entityCode: Type.String(),
         id: Type.String({ format: 'uuid' })}),
       response: {
         204: Type.Null(),
@@ -372,13 +372,13 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
-      const { entityType, id } = request.params as { entityType: string; id: string };
+      const { entityCode, id } = request.params as { entityCode: string; id: string };
 
-      if (!validateEntityType(entityType)) {
-        return reply.status(400).send({ error: `Invalid entity type: ${entityType}` });
+      if (!validateEntityType(entityCode)) {
+        return reply.status(400).send({ error: `Invalid entity type: ${entityCode}` });
       }
 
-      const tableName = getTableName(entityType);
+      const tableName = getTableName(entityCode);
 
       // Check if entity exists
       const existingEntity = await db.execute(sql.raw(
@@ -400,12 +400,12 @@ export async function singleEntityRoutes(fastify: FastifyInstance) {
       await db.execute(sql`
         UPDATE app.entity_id_map 
         SET active_flag = false, to_ts = NOW(), updated = NOW()
-        WHERE action_entity_id = ${id} AND action_entity = ${entityType}
+        WHERE action_entity_id = ${id} AND action_entity = ${entityCode}
       `);
 
       return reply.status(204).send();
     } catch (error) {
-      fastify.log.error(`Error deleting ${request.params.entityType} entity:`, error);
+      fastify.log.error(`Error deleting ${request.params.entityCode} entity:`, error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

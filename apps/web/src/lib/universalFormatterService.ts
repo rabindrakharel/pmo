@@ -891,8 +891,8 @@ function isInvisibleField(columnName: string): boolean {
 function extractEntityType(columnName: string): string | undefined {
   const match = columnName.match(/^(.+?)_?(employee|project|task|business|office|customer|role|cust|event|calendar)_id$/);
   if (match) {
-    const entityType = match[2];
-    return entityType === 'cust' ? 'customer' : entityType;
+    const entityCode = match[2];
+    return entityCode === 'cust' ? 'customer' : entityCode;
   }
   return undefined;
 }
@@ -1231,7 +1231,7 @@ export function renderBadge(
  * @param format - Field format specification
  * @returns React element
  */
-export function renderFieldDisplay(value: any, format: { type: FormatType; settingsDatalabel?: string; entityType?: string }): React.ReactNode {
+export function renderFieldDisplay(value: any, format: { type: FormatType; settingsDatalabel?: string; entityCode?: string }): React.ReactNode {
   // Handle null/undefined/empty
   if (value === null || value === undefined || value === '') {
     return React.createElement('span', { className: 'text-dark-600 italic' }, '—');
@@ -1268,7 +1268,7 @@ export function renderFieldDisplay(value: any, format: { type: FormatType; setti
       return formatTagsList(value);
 
     case 'reference':
-      return formatReference(value, format.entityType);
+      return formatReference(value, format.entityCode);
 
     case 'text':
     default:
@@ -1339,7 +1339,7 @@ function formatTagsList(value: string[] | string): React.ReactNode {
 /**
  * Format reference link
  */
-function formatReference(value: any, entityType?: string): React.ReactNode {
+function formatReference(value: any, entityCode?: string): React.ReactNode {
   if (!value) {
     return React.createElement('span', { className: 'text-dark-600 italic' }, '—');
   }
@@ -1350,11 +1350,11 @@ function formatReference(value: any, entityType?: string): React.ReactNode {
 
   const id = typeof value === 'object' && value.id ? value.id : null;
 
-  if (entityType && id) {
+  if (entityCode && id) {
     return React.createElement(
       'a',
       {
-        href: `/${entityType}/${id}`,
+        href: `/${entityCode}/${id}`,
         className: 'text-dark-600 hover:text-dark-600 underline',
         onClick: (e: React.MouseEvent) => e.stopPropagation()
       },
