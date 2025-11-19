@@ -120,9 +120,11 @@ import { db } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
 // ✅ Centralized unified data gate - loosely coupled API
 // ✨ NEW: Entity Infrastructure Service - centralized infrastructure operations
-import { getEntityInfrastructure, Permission } from '../../services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✨ Backend Formatter Service - backend-driven metadata generation
+import { getEntityMetadata } from '../../services/backend-formatter.service.js';
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 // ✅ Child entity factory for parent-child relationships
@@ -304,6 +306,11 @@ export async function businessRoutes(fastify: FastifyInstance) {
 
       const total = Number(countResult[0]?.total || 0);
 
+      // ✨ Generate field metadata from first row (if available)
+      const fieldMetadata = dataResult.length > 0
+        ? getEntityMetadata(ENTITY_CODE, dataResult[0])
+        : getEntityMetadata(ENTITY_CODE);
+
       return reply.send({
         data: dataResult,
         total,
@@ -314,7 +321,8 @@ export async function businessRoutes(fastify: FastifyInstance) {
           parent: Boolean(parent_type && parent_id),
           search: Boolean(search),
           active: Boolean(active_flag)
-        }
+        },
+        metadata: fieldMetadata
       });
     } catch (error) {
       fastify.log.error('Error fetching business units:', error as any);
@@ -469,7 +477,13 @@ export async function businessRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Business not found' });
       }
 
-      return reply.send(result[0]);
+      // ✨ Generate field metadata from the actual row
+      const fieldMetadata = getEntityMetadata(ENTITY_CODE, result[0]);
+
+      return reply.send({
+        data: result[0],
+        metadata: fieldMetadata
+      });
     } catch (error) {
       fastify.log.error('Error fetching business:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

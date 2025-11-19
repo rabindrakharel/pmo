@@ -156,9 +156,11 @@ import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factor
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 // ✅ Centralized unified data gate - loosely coupled API
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
-import { getEntityInfrastructure, Permission } from '../../services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✨ Backend Formatter Service - backend-driven metadata generation
+import { getEntityMetadata } from '../../services/backend-formatter.service.js';
 
 // Schema for entity reference resolution (_ID and _IDS fields)
 const EntityReferenceSchema = Type.Object({
@@ -362,7 +364,15 @@ export async function projectRoutes(fastify: FastifyInstance) {
         })
       );
 
-      return createPaginatedResponse(projectsWithReferences, total, limit, offset);
+      // ✨ Generate field metadata from first row (if available)
+      const fieldMetadata = projectsWithReferences.length > 0
+        ? getEntityMetadata(ENTITY_CODE, projectsWithReferences[0])
+        : getEntityMetadata(ENTITY_CODE);
+
+      return {
+        ...createPaginatedResponse(projectsWithReferences, total, limit, offset),
+        metadata: fieldMetadata
+      };
     } catch (error) {
       fastify.log.error('Error fetching projects:', error as any);
       console.error('Full error details:', error);
@@ -521,13 +531,19 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const { _ID, _IDS } = await entityInfra.resolve_entity_references(project);
 
       // Merge structured references with original data
-      const response = {
+      const projectData = {
         ...project,
         _ID,
         _IDS
       };
 
-      return reply.send(response);
+      // ✨ Generate field metadata from the actual row
+      const fieldMetadata = getEntityMetadata(ENTITY_CODE, projectData);
+
+      return reply.send({
+        data: projectData,
+        metadata: fieldMetadata
+      });
     } catch (error) {
       fastify.log.error('Error fetching project:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
