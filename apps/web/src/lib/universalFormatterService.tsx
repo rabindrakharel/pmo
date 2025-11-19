@@ -518,6 +518,28 @@ export function detectField(
 
   // Early pattern checks for common fields (optimize hot path)
 
+  // METADATA FIELDS: _ID and _IDS (entity reference metadata - not displayable columns)
+  // Same pattern as 'id' field - visible: false but proper transforms
+  if (fieldKey === '_ID' || fieldKey === '_IDS') {
+    return {
+      fieldName: fieldKey,
+      visible: false,  // Never show in tables - used only in forms
+      sortable: false,
+      filterable: false,
+      searchable: false,
+      width: '150px',
+      align: 'left',
+      format: stringTransform,  // Same as id field
+      renderType: 'text',
+      inputType: 'readonly',
+      editable: false,
+      toApi: identityTransform,
+      toDisplay: identityTransform,
+      pattern: 'METADATA',
+      category: 'metadata'
+    };
+  }
+
   // PATTERN 1: SYSTEM FIELDS
   if (PATTERNS.system.regex.test(key)) {
     const isId = key === 'id';

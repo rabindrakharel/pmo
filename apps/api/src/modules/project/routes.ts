@@ -160,6 +160,11 @@ import { getEntityInfrastructure, Permission } from '../../services/entity-infra
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 
+// Schema for entity reference resolution (_ID and _IDS fields)
+const EntityReferenceSchema = Type.Object({
+  entity_code: Type.String(),
+}, { additionalProperties: true });
+
 // Schema based on actual project table structure from db/XV_d_project.ddl
 const ProjectSchema = Type.Object({
   id: Type.String(),
@@ -186,6 +191,9 @@ const ProjectSchema = Type.Object({
   created_ts: Type.Optional(Type.String()),
   updated_ts: Type.Optional(Type.String()),
   version: Type.Optional(Type.Number()),
+  // Entity reference resolution (populated by resolve_entity_references)
+  _ID: Type.Optional(Type.Record(Type.String(), EntityReferenceSchema)),
+  _IDS: Type.Optional(Type.Record(Type.String(), Type.Array(EntityReferenceSchema))),
 });
 
 const CreateProjectSchema = Type.Object({
@@ -284,7 +292,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // GATE 1: RBAC - Apply security filtering (REQUIRED)
       const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
       );
-      conditions.push(sql.raw(rbacWhereClause));
+      conditions.push(rbacWhereClause);
 
       // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
       // Can be overridden with ?active=false to show inactive records

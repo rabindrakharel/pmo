@@ -39,7 +39,7 @@
  * ============================================================================
  */
 
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import type { DB } from '@/db/index.js';
 import { getRedisClient } from '@/lib/redis.js';
 import type Redis from 'ioredis';
@@ -538,7 +538,7 @@ export class EntityInfrastructureService {
         SELECT entity_instance_id::text, entity_instance_name
         FROM app.entity_instance
         WHERE entity_code = ${entityCode}
-          AND entity_instance_id = ANY(${uuids}::uuid[])
+          AND entity_instance_id IN (${sql.join(uuids.map(id => sql`${id}`), sql`, `)})
       `);
 
       resolvedNames[entityCode] = {};
@@ -894,10 +894,12 @@ export class EntityInfrastructureService {
       parent_entities AS (
         SELECT d.code AS entity_code
         FROM app.entity d
-        WHERE ${entity_type} = ANY(
-          SELECT jsonb_array_elements_text(d.child_entity_codes)
+        WHERE EXISTS (
+          SELECT 1 FROM jsonb_array_elements_text(d.child_entity_codes) AS child
+          WHERE child = ${entity_type}
           UNION
-          SELECT jsonb_array_elements(d.child_entity_codes)->>'entity'
+          SELECT 1 FROM jsonb_array_elements(d.child_entity_codes) AS child_obj
+          WHERE child_obj->>'entity' = ${entity_type}
         )
       ),
 
@@ -1052,23 +1054,26 @@ export class EntityInfrastructureService {
     entity_type: string,
     required_permission: Permission,
     table_alias: string = 'e'
-  ): Promise<string> {
+  ): Promise<SQL> {
     const accessibleIds = await this.getAccessibleEntityIds(user_id, entity_type, required_permission);
 
     // No access at all - return FALSE condition
     if (accessibleIds.length === 0) {
-      return 'FALSE';
+      return sql.raw('FALSE');
     }
 
     // Type-level access - no filtering needed, return TRUE
     const hasTypeLevelAccess = accessibleIds.includes('11111111-1111-1111-1111-111111111111');
     if (hasTypeLevelAccess) {
-      return 'TRUE';
+      return sql.raw('TRUE');
     }
 
-    // Filter by accessible IDs
-    const idsArray = accessibleIds.map(id => `'${id}'::uuid`).join(', ');
-    return `${table_alias}.id = ANY(ARRAY[${idsArray}])`;
+    // Filter by accessible IDs using proper SQL fragment
+    // Use parameterized query - Drizzle will handle UUID casting
+    return sql`${sql.raw(table_alias)}.id IN (${sql.join(
+      accessibleIds.map(id => sql`${id}`),
+      sql`, `
+    )})`;
   }
 
   /**
@@ -1102,10 +1107,12 @@ export class EntityInfrastructureService {
       parent_entities AS (
         SELECT d.code AS entity_code
         FROM app.entity d
-        WHERE ${entity_type} = ANY(
-          SELECT jsonb_array_elements_text(d.child_entity_codes)
+        WHERE EXISTS (
+          SELECT 1 FROM jsonb_array_elements_text(d.child_entity_codes) AS child
+          WHERE child = ${entity_type}
           UNION
-          SELECT jsonb_array_elements(d.child_entity_codes)->>'entity'
+          SELECT 1 FROM jsonb_array_elements(d.child_entity_codes) AS child_obj
+          WHERE child_obj->>'entity' = ${entity_type}
         )
       ),
 

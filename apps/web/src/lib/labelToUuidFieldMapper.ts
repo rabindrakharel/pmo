@@ -106,3 +106,17 @@ export function generateMappingFromStructuredFormat(
 
   return mapping;
 }
+
+/**
+ * Convenience wrapper that extracts _ID/_IDS from data object
+ *
+ * @param data - Raw data object containing _ID and/or _IDS properties
+ * @returns LabelToUuidMapping
+ *
+ * @example
+ * const mapping = generateLabelToUuidMapping(apiResponse);
+ * // Same as: generateMappingFromStructuredFormat(apiResponse._ID, apiResponse._IDS)
+ */
+export function generateLabelToUuidMapping(data: Record<string, any>): LabelToUuidMapping {
+  return generateMappingFromStructuredFormat(data._ID, data._IDS);
+}

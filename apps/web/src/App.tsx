@@ -1,5 +1,6 @@
 import React, { Fragment, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { NavigationHistoryProvider } from './contexts/NavigationHistoryContext';
@@ -10,6 +11,16 @@ import { LabelToUuidMappingProvider, useLabelToUuidMappingContext } from './cont
 import { registerMappingContextSetter } from './lib/api';
 import { LoginForm } from './components/shared';
 import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPanel';
+
+// Create a client for React Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 // Landing & Auth Pages
 import { LandingPage } from './pages/LandingPage';
@@ -351,26 +362,28 @@ function AppRoutes() {
 
 function App() {
   return (
-    <AuthProvider>
-      <EntityMetadataProvider>
-        <LabelToUuidMappingProvider>
-          <Router>
-            <SidebarProvider>
-              <SettingsProvider>
-                <NavigationHistoryProvider>
-                  <EntityPreviewProvider>
-                    {/* Register mapping context with API interceptor */}
-                    <MappingContextRegistrar />
-                    <AppRoutes />
-                    <EntityPreviewPanel />
-                  </EntityPreviewProvider>
-                </NavigationHistoryProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <EntityMetadataProvider>
+          <LabelToUuidMappingProvider>
+            <Router>
+              <SidebarProvider>
+                <SettingsProvider>
+                  <NavigationHistoryProvider>
+                    <EntityPreviewProvider>
+                      {/* Register mapping context with API interceptor */}
+                      <MappingContextRegistrar />
+                      <AppRoutes />
+                      <EntityPreviewPanel />
+                    </EntityPreviewProvider>
+                  </NavigationHistoryProvider>
               </SettingsProvider>
             </SidebarProvider>
           </Router>
         </LabelToUuidMappingProvider>
       </EntityMetadataProvider>
     </AuthProvider>
+    </QueryClientProvider>
   );
 }
 

@@ -190,7 +190,8 @@
       "Bash(pnpm add:*)",
       "Bash(/tmp/test-child-remove.sh:*)",
       "Bash(/tmp/test-redis-comprehensive.sh)",
-      "Bash(do echo \"=== Testing $entity ===\" /home/rabin/projects/pmo/tools/test-api.sh GET \"/api/v1/$entity?limit=2\")"
+      "Bash(do echo \"=== Testing $entity ===\" /home/rabin/projects/pmo/tools/test-api.sh GET \"/api/v1/$entity?limit=2\")",
+      "Bash(do sed -i 's/conditions\\.push(sql\\.raw(rbacWhereClause));/conditions.push(rbacWhereClause);/g' $file/routes.ts)"
     ],
     "deny": [],
     "ask": [],

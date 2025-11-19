@@ -106,7 +106,7 @@ export async function workOrderRoutes(fastify: FastifyInstance) {
       // ✨ UNIFIED RBAC - Replace ~9 lines of manual SQL with single service call
       const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
       );
-      conditions.push(sql.raw(rbacWhereClause));
+      conditions.push(rbacWhereClause);
 
       // ✨ UNIVERSAL AUTO-FILTER SYSTEM
       // Automatically builds filters from ANY query parameter based on field naming conventions

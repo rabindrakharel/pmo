@@ -92,7 +92,7 @@ export async function serviceRoutes(fastify: FastifyInstance) {
       // ✨ UNIFIED RBAC - Use centralized RBAC gate for permission filtering
       const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
       );
-      conditions.push(sql.raw(rbacWhereClause));
+      conditions.push(rbacWhereClause);
 
       // ✨ UNIVERSAL AUTO-FILTER SYSTEM
       // Automatically builds filters from ANY query parameter based on field naming conventions

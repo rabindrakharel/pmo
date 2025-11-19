@@ -211,7 +211,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       // GATE 1: RBAC - Apply security filtering (REQUIRED)
       const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
       );
-      conditions.push(sql.raw(rbacWhereClause));
+      conditions.push(rbacWhereClause);
 
       // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
       // Can be overridden with ?active=false to show inactive records
