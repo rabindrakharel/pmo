@@ -1901,6 +1901,231 @@ export function getVisibleFields(
 }
 
 // ============================================================================
+// BACKEND-DRIVEN METADATA FUNCTIONS
+// ============================================================================
+
+/**
+ * Backend-provided field metadata structure (matches backend-formatter.service.ts)
+ */
+export interface BackendFieldMetadata {
+  key: string;
+  label: string;
+  type: string;
+  dataType?: string;
+  format: Record<string, any>;
+  renderType: RenderType;
+  viewType?: string;
+  component?: ComponentType;
+  inputType: InputType;
+  editType?: EditType;
+  visible: boolean;
+  sortable: boolean;
+  filterable: boolean;
+  searchable: boolean;
+  editable: boolean;
+  required?: boolean;
+  align: 'left' | 'right' | 'center';
+  width: string;
+  endpoint?: string;
+  loadFromSettings?: boolean;
+  loadFromEntity?: string;
+  settingsDatalabel?: string;
+  options?: Array<{ value: any; label: string; color?: string }>;
+  validation?: Record<string, any>;
+  help?: string;
+  placeholder?: string;
+  pattern?: PatternType;
+  category?: CategoryType;
+}
+
+/**
+ * API response structure with metadata
+ */
+export interface ApiResponseWithMetadata {
+  data: any;
+  metadata?: {
+    entity: string;
+    label: string;
+    fields: BackendFieldMetadata[];
+    [key: string]: any;
+  };
+  total?: number;
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Extract field metadata from API response
+ */
+export function getFieldMetadataFromResponse(
+  response: ApiResponseWithMetadata,
+  fieldKey: string
+): BackendFieldMetadata | undefined {
+  if (!response.metadata?.fields) {
+    return undefined;
+  }
+  return response.metadata.fields.find(f => f.key === fieldKey);
+}
+
+/**
+ * Get all field metadata from API response
+ */
+export function getAllFieldMetadataFromResponse(
+  response: ApiResponseWithMetadata
+): BackendFieldMetadata[] {
+  return response.metadata?.fields || [];
+}
+
+/**
+ * Format value using backend-provided metadata
+ */
+export function formatValueFromMetadata(
+  value: any,
+  metadata: BackendFieldMetadata
+): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  // Use backend-specified renderType to determine formatting
+  switch (metadata.renderType) {
+    case 'currency':
+      return formatCurrency(value);
+
+    case 'percentage':
+      return `${Number(value).toFixed(metadata.format.decimals || 1)}%`;
+
+    case 'date':
+      return formatFriendlyDate(value);
+
+    case 'timestamp':
+      return metadata.format.style === 'relative'
+        ? formatRelativeTime(value)
+        : formatFriendlyDate(value);
+
+    case 'boolean':
+      return value ? (metadata.format.trueLabel || 'Yes') : (metadata.format.falseLabel || 'No');
+
+    case 'badge':
+      // For badges, return the value as-is (will be rendered as badge component)
+      return String(value);
+
+    case 'array':
+      return Array.isArray(value) ? value.join(', ') : String(value);
+
+    case 'truncated':
+      const str = String(value);
+      return str.length > 100 ? str.substring(0, 100) + '...' : str;
+
+    case 'json':
+      return typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
+
+    case 'link':
+    case 'text':
+    default:
+      return String(value);
+  }
+}
+
+/**
+ * Render field value as React element using backend-provided metadata
+ */
+export function renderFieldFromMetadata(
+  value: any,
+  metadata: BackendFieldMetadata,
+  record?: any
+): React.ReactNode {
+  if (value === null || value === undefined) {
+    return <span className="text-gray-400">—</span>;
+  }
+
+  // Use backend-specified renderType for rendering
+  switch (metadata.renderType) {
+    case 'currency':
+      return <span className="font-mono">{formatCurrency(value)}</span>;
+
+    case 'percentage':
+      return <span className="font-mono">{formatValueFromMetadata(value, metadata)}</span>;
+
+    case 'date':
+    case 'timestamp':
+      return <span className="text-sm">{formatValueFromMetadata(value, metadata)}</span>;
+
+    case 'boolean':
+      const boolValue = Boolean(value);
+      const color = boolValue
+        ? (metadata.format.trueColor || 'green')
+        : (metadata.format.falseColor || 'gray');
+      return renderBadge(
+        formatValueFromMetadata(value, metadata),
+        color
+      );
+
+    case 'badge':
+      // For dl__* fields, render as badge (will get color from settings)
+      if (metadata.loadFromSettings && metadata.settingsDatalabel) {
+        return renderDataLabelBadge(value, metadata.settingsDatalabel);
+      }
+      return renderBadge(String(value), 'blue');
+
+    case 'array':
+      if (Array.isArray(value)) {
+        return (
+          <div className="flex flex-wrap gap-1">
+            {value.map((item, idx) => (
+              <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                {String(item)}
+              </span>
+            ))}
+          </div>
+        );
+      }
+      return <span>{String(value)}</span>;
+
+    case 'link':
+      return (
+        <a
+          href={String(value)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-800 underline"
+        >
+          {String(value)}
+        </a>
+      );
+
+    case 'truncated':
+      const str = String(value);
+      return (
+        <span title={str}>
+          {str.length > 100 ? str.substring(0, 100) + '...' : str}
+        </span>
+      );
+
+    case 'json':
+      return (
+        <pre className="text-xs bg-gray-50 p-2 rounded max-w-xs overflow-auto">
+          {JSON.stringify(value, null, 2)}
+        </pre>
+      );
+
+    case 'text':
+    default:
+      return <span>{String(value)}</span>;
+  }
+}
+
+/**
+ * Check if API response contains backend metadata
+ */
+export function hasBackendMetadata(response: any): response is ApiResponseWithMetadata {
+  return response &&
+         typeof response === 'object' &&
+         'metadata' in response &&
+         response.metadata?.fields !== undefined;
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
@@ -1944,6 +2169,13 @@ export default {
 
   // Field capability
   getFieldCapability,
+
+  // Backend metadata functions (NEW)
+  getFieldMetadataFromResponse,
+  getAllFieldMetadataFromResponse,
+  formatValueFromMetadata,
+  renderFieldFromMetadata,
+  hasBackendMetadata,
 
   // Constants
   COLOR_MAP,
