@@ -32,10 +32,62 @@ export interface ListParams {
 }
 
 /**
- * Standard paginated response format
+ * Backend field metadata (matches backend-formatter.service.ts)
+ */
+export interface BackendFieldMetadata {
+  key: string;
+  label: string;
+  type: string;
+  dataType?: string;
+  format: Record<string, any>;
+  renderType: string;
+  viewType?: string;
+  component?: string;
+  inputType: string;
+  editType?: string;
+  visible: boolean;
+  sortable: boolean;
+  filterable: boolean;
+  searchable: boolean;
+  editable: boolean;
+  required?: boolean;
+  align: 'left' | 'right' | 'center';
+  width: string;
+  endpoint?: string;
+  loadFromSettings?: boolean;
+  loadFromEntity?: string;
+  settingsDatalabel?: string;
+  options?: Array<{ value: any; label: string; color?: string }>;
+  validation?: Record<string, any>;
+  help?: string;
+  placeholder?: string;
+  pattern?: string;
+  category?: string;
+}
+
+/**
+ * Entity metadata from backend
+ */
+export interface EntityMetadata {
+  entity: string;
+  label: string;
+  labelPlural: string;
+  icon?: string;
+  fields: BackendFieldMetadata[];
+  primaryKey: string;
+  displayField: string;
+  apiEndpoint: string;
+  supportedViews?: string[];
+  defaultView?: string;
+  generated_at: string;
+}
+
+/**
+ * Standard paginated response format (with backend metadata)
  */
 export interface PaginatedResponse<T> {
   data: T[];
+  metadata?: EntityMetadata;  // Backend-driven field metadata
   total: number;
   page?: number;
   limit?: number;
@@ -55,9 +107,9 @@ export interface EntityAPI {
   list(params?: ListParams): Promise<PaginatedResponse<any>>;
 
   /**
-   * Get a single entity by ID
+   * Get a single entity by ID (with backend metadata)
    */
-  get(id: string): Promise<any>;
+  get(id: string): Promise<{ data: any; metadata?: EntityMetadata }>;
 
   /**
    * Create a new entity

@@ -12,9 +12,11 @@ import type { SchemaColumn } from '../../../lib/types/table';
 import { SchemaErrorFallback } from '../error/SchemaErrorBoundary';
 import { TableSkeleton } from '../ui/TableSkeleton';
 import { API_CONFIG, API_ENDPOINTS } from '../../../lib/config/api';
+import type { EntityMetadata } from '../../../lib/api';
 
 export interface FilteredDataTableProps {
   entityCode: string;
+  metadata?: EntityMetadata | null;  // Backend metadata from API
   parentType?: string;
   parentId?: string;
   onRowClick?: (record: any) => void;
@@ -39,6 +41,7 @@ export interface FilteredDataTableProps {
 
 export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   entityCode,
+  metadata: propsMetadata,  // Metadata from parent (EntityMainPage)
   parentType,
   parentId,
   onRowClick,
@@ -57,6 +60,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   const navigate = useNavigate();
   const config = getEntityConfig(entityCode);
   const [data, setData] = useState<any[]>([]);
+  const [metadata, setMetadata] = useState<EntityMetadata | null>(propsMetadata || null);  // Backend metadata
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -65,6 +69,13 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editedData, setEditedData] = useState<any>({});
   const [isAddingRow, setIsAddingRow] = useState(false);
+
+  // Update metadata when prop changes
+  useEffect(() => {
+    if (propsMetadata) {
+      setMetadata(propsMetadata);
+    }
+  }, [propsMetadata]);
 
   // Fetch schema from API (independent of data)
   const { schema, loading: schemaLoading, error: schemaError } = useEntitySchema(entityCode);
@@ -226,6 +237,11 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         const result = await response.json();
         setData(result.data || result || []);
         setTotalRecords(result.total || result.length || 0);
+
+        // Extract backend metadata if available (only if not already provided via props)
+        if (!propsMetadata && result.metadata) {
+          setMetadata(result.metadata);
+        }
       } else {
         console.error('Failed to fetch data:', response.statusText);
         setData([]);
@@ -828,6 +844,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           /* Render regular EntityDataTable for regular entities */
           <EntityDataTable
             data={data}
+            metadata={metadata}  // Pass backend metadata
             columns={columns}
             loading={loading}
             pagination={pagination}
