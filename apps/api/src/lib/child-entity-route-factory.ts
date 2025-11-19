@@ -139,16 +139,8 @@ export async function createChildEntityEndpointsFromMetadata(
     );
 
     if (childCodes.length === 0) {
-      // Known leaf entities (no children by design)
-      const leafEntities = new Set([
-        'work_order', 'artifact', 'wiki', 'interaction', 'event',
-        'booking', 'cost', 'invoice', 'payment', 'quote'
-      ]);
-
-      // Only log if this entity is NOT a known leaf entity
-      if (!leafEntities.has(parentEntity)) {
-        fastify.log.info(`No child entities defined for '${parentEntity}'`);
-      }
+      // Leaf entity - empty child_entity_codes is intentional by design
+      // No logging needed - this is normal for entities like work_order, artifact, etc.
       return;
     }
 
