@@ -413,6 +413,7 @@ export class EntityInfrastructureService {
 
   /**
    * Resolve UUID fields to human-readable entity names
+   * Returns structured format with _ID (single references) and _IDS (array references)
    *
    * Supports 4 naming patterns:
    * - Pattern 1: {label}__{entity}_id (e.g., "manager__employee_id")
@@ -421,7 +422,7 @@ export class EntityInfrastructureService {
    * - Pattern 4: {entity}_ids (e.g., "attachment_ids")
    *
    * @param fields Record of field names to UUID values (string or string[])
-   * @returns Record with resolved fields
+   * @returns Record with _ID and _IDS structured objects
    *
    * @example
    * // Input:
@@ -432,18 +433,26 @@ export class EntityInfrastructureService {
    *
    * // Output:
    * {
-   *   "manager__employee_id": "uuid-123",
-   *   "manager": "James Miller",
-   *   "stakeholder": [
-   *     { "stakeholder__employee_id": "uuid-456", "stakeholder": "Sarah Johnson" },
-   *     { "stakeholder__employee_id": "uuid-789", "stakeholder": "Michael Chen" }
-   *   ]
+   *   "_ID": {
+   *     "manager": {
+   *       "entity_code": "employee",
+   *       "manager__employee_id": "uuid-123",
+   *       "manager": "James Miller"
+   *     }
+   *   },
+   *   "_IDS": {
+   *     "stakeholder": [
+   *       { "entity_code": "employee", "stakeholder__employee_id": "uuid-456", "stakeholder": "Sarah Johnson" },
+   *       { "entity_code": "employee", "stakeholder__employee_id": "uuid-789", "stakeholder": "Michael Chen" }
+   *     ]
+   *   }
    * }
    */
   async resolve_entity_references(
     fields: Record<string, string | string[] | null>
   ): Promise<Record<string, any>> {
-    const resolved: Record<string, any> = {};
+    const _ID: Record<string, any> = {};
+    const _IDS: Record<string, any> = {};
 
     // Pattern matching regexes
     const labeledSinglePattern = /^(.+)__([a-z_]+)_id$/;
@@ -456,7 +465,6 @@ export class EntityInfrastructureService {
 
     for (const [fieldName, value] of Object.entries(fields)) {
       if (value === null || value === undefined) {
-        resolved[fieldName] = value;
         continue;
       }
 
@@ -502,9 +510,8 @@ export class EntityInfrastructureService {
         }
       }
 
-      // If no pattern matched, keep original field value
+      // If no pattern matched, skip this field
       if (!entityCode || !label) {
-        resolved[fieldName] = value;
         continue;
       }
 
@@ -540,7 +547,7 @@ export class EntityInfrastructureService {
       }
     }
 
-    // Now populate resolved fields
+    // Now populate _ID and _IDS structured objects
     for (const [fieldName, value] of Object.entries(fields)) {
       if (value === null || value === undefined) continue;
 
@@ -587,27 +594,31 @@ export class EntityInfrastructureService {
 
       // Format output based on whether it's an array or single value
       if (isArray && Array.isArray(value)) {
-        // For arrays: create array of objects under LABEL field name (without _ids suffix)
+        // For arrays: create array of objects under _IDS[label]
         // Input: stakeholder__employee_ids: ["uuid-456", "uuid-789"]
-        // Output: stakeholder: [
-        //   { stakeholder__employee_id: "uuid-456", stakeholder: "Sarah Johnson" },
-        //   { stakeholder__employee_id: "uuid-789", stakeholder: "Michael Chen" }
+        // Output: _IDS.stakeholder: [
+        //   { entity_code: "employee", stakeholder__employee_id: "uuid-456", stakeholder: "Sarah Johnson" },
+        //   { entity_code: "employee", stakeholder__employee_id: "uuid-789", stakeholder: "Michael Chen" }
         // ]
         const singularFieldName = fieldName.replace(/_ids$/, '_id');
-        resolved[label] = value.map(uuid => ({
+        _IDS[label] = value.map(uuid => ({
+          entity_code: entityCode,
           [singularFieldName]: uuid,
           [label]: resolvedNames[entityCode!]?.[uuid] || 'Unknown'
         }));
       } else if (!isArray && typeof value === 'string') {
-        // For single values: add both the original UUID field and resolved label field
+        // For single values: create object under _ID[label]
         // Input: manager__employee_id: "uuid-123"
-        // Output: manager__employee_id: "uuid-123", manager: "James Miller"
-        resolved[fieldName] = value;
-        resolved[label] = resolvedNames[entityCode]?.[value] || 'Unknown';
+        // Output: _ID.manager: { entity_code: "employee", manager__employee_id: "uuid-123", manager: "James Miller" }
+        _ID[label] = {
+          entity_code: entityCode,
+          [fieldName]: value,
+          [label]: resolvedNames[entityCode]?.[value] || 'Unknown'
+        };
       }
     }
 
-    return resolved;
+    return { _ID, _IDS };
   }
 
   // ==========================================================================

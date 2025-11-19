@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { generateLabelToUuidMapping } from './labelToUuidFieldMapper';
+import { generateLabelToUuidMapping, generateMappingFromStructuredFormat } from './labelToUuidFieldMapper';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -65,13 +65,24 @@ apiClient.interceptors.response.use((response) => {
 
     const data = response.data;
 
+    // Helper function to generate mapping from entity data
+    const generateMapping = (item: any): any => {
+      // Priority 1: Check for structured _ID/_IDS format (new backend format)
+      if (item._ID || item._IDS) {
+        return generateMappingFromStructuredFormat(item._ID, item._IDS);
+      }
+
+      // Fallback: Legacy flat format detection
+      return generateLabelToUuidMapping(item);
+    };
+
     // Handle single entity responses (has `id` field)
     if (data.id && typeof data.id === 'string') {
       const entityType = extractEntityTypeFromUrl(response.config.url);
 
       if (entityType && mappingContextSetter) {
         // Generate and cache mapping for this entity
-        const mapping = generateLabelToUuidMapping(data);
+        const mapping = generateMapping(data);
 
         // Only store if mapping is non-empty
         if (Object.keys(mapping).length > 0) {
@@ -88,7 +99,7 @@ apiClient.interceptors.response.use((response) => {
         // Generate mappings for each item in list
         data.forEach((item: any) => {
           if (item.id && typeof item.id === 'string') {
-            const mapping = generateLabelToUuidMapping(item);
+            const mapping = generateMapping(item);
 
             if (Object.keys(mapping).length > 0) {
               mappingContextSetter(entityType, item.id, item);
@@ -105,7 +116,7 @@ apiClient.interceptors.response.use((response) => {
       if (entityType && mappingContextSetter) {
         data.data.forEach((item: any) => {
           if (item.id && typeof item.id === 'string') {
-            const mapping = generateLabelToUuidMapping(item);
+            const mapping = generateMapping(item);
 
             if (Object.keys(mapping).length > 0) {
               mappingContextSetter(entityType, item.id, item);
