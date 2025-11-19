@@ -1,7 +1,7 @@
 import type { EntityConfig } from '../types';
 
 export const formConfig: EntityConfig = {
-  entityType: 'form',
+  entityCode: 'form',
   displayName: 'Form',
   displayNamePlural: 'Forms',
   description: 'Dynamic form management',

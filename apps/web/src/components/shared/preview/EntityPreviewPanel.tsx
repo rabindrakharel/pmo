@@ -33,8 +33,8 @@ export function EntityPreviewPanel() {
     return null;
   }
 
-  const config = getEntityConfig(entityPreviewData.entityType);
-  const detailPageUrl = `/${entityPreviewData.entityType}/${entityPreviewData.entityId}`;
+  const config = getEntityConfig(entityPreviewData.entityCode);
+  const detailPageUrl = `/${entityPreviewData.entityCode}/${entityPreviewData.entityId}`;
 
   return (
     <>

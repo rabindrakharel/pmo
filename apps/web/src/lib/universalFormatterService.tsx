@@ -9,7 +9,7 @@
  * This service provides:
  * 1. Field metadata detection (detectField - column name → complete metadata)
  * 2. Value formatting (formatCurrency, formatDate, formatRelativeTime, etc.)
- * 3. Badge rendering (renderSettingBadge with database-driven colors)
+ * 3. Badge rendering (renderDataLabelBadge with database-driven colors)
  * 4. Field capability detection (editable vs readonly)
  * 5. Data transformation (API ↔ Frontend)
  *
@@ -129,7 +129,7 @@ export type FormatType =
 export interface FieldCapability {
   inlineEditable: boolean;
   editType: EditType;
-  loadOptionsFromSettings?: boolean;
+  loadDataLabels?: boolean;
   settingsDatalabel?: string;
   acceptedFileTypes?: string;
   isFileUpload: boolean;
@@ -891,8 +891,8 @@ function isInvisibleField(columnName: string): boolean {
 function extractEntityType(columnName: string): string | undefined {
   const match = columnName.match(/^(.+?)_?(employee|project|task|business|office|customer|role|cust|event|calendar)_id$/);
   if (match) {
-    const entityType = match[2];
-    return entityType === 'cust' ? 'customer' : entityType;
+    const entityCode = match[2];
+    return entityCode === 'cust' ? 'customer' : entityCode;
   }
   return undefined;
 }
@@ -1127,7 +1127,7 @@ export async function preloadSettingsColors(datalabels: string[]): Promise<void>
 /**
  * Render setting badge with database-driven colors
  */
-export function renderSettingBadge(
+export function renderDataLabelBadge(
   colorCodeOrValue: string | null | undefined,
   labelOrOptions?: string | null | undefined | { datalabel: string },
   size: 'xs' | 'sm' | 'md' = 'xs'
@@ -1231,7 +1231,7 @@ export function renderBadge(
  * @param format - Field format specification
  * @returns React element
  */
-export function renderFieldDisplay(value: any, format: { type: FormatType; settingsDatalabel?: string; entityType?: string }): React.ReactNode {
+export function renderFieldDisplay(value: any, format: { type: FormatType; settingsDatalabel?: string; entityCode?: string }): React.ReactNode {
   // Handle null/undefined/empty
   if (value === null || value === undefined || value === '') {
     return React.createElement('span', { className: 'text-dark-600 italic' }, '—');
@@ -1259,7 +1259,7 @@ export function renderFieldDisplay(value: any, format: { type: FormatType; setti
     case 'badge':
       const datalabel = format.settingsDatalabel || '';
       const colorCode = getSettingColor(datalabel, String(value));
-      return renderSettingBadge(colorCode, String(value));
+      return renderDataLabelBadge(colorCode, String(value));
 
     case 'boolean':
       return formatBooleanBadge(value);
@@ -1268,7 +1268,7 @@ export function renderFieldDisplay(value: any, format: { type: FormatType; setti
       return formatTagsList(value);
 
     case 'reference':
-      return formatReference(value, format.entityType);
+      return formatReference(value, format.entityCode);
 
     case 'text':
     default:
@@ -1339,7 +1339,7 @@ function formatTagsList(value: string[] | string): React.ReactNode {
 /**
  * Format reference link
  */
-function formatReference(value: any, entityType?: string): React.ReactNode {
+function formatReference(value: any, entityCode?: string): React.ReactNode {
   if (!value) {
     return React.createElement('span', { className: 'text-dark-600 italic' }, '—');
   }
@@ -1350,11 +1350,11 @@ function formatReference(value: any, entityType?: string): React.ReactNode {
 
   const id = typeof value === 'object' && value.id ? value.id : null;
 
-  if (entityType && id) {
+  if (entityCode && id) {
     return React.createElement(
       'a',
       {
-        href: `/${entityType}/${id}`,
+        href: `/${entityCode}/${id}`,
         className: 'text-dark-600 hover:text-dark-600 underline',
         onClick: (e: React.MouseEvent) => e.stopPropagation()
       },
@@ -1398,6 +1398,57 @@ export function transformForApi(data: Record<string, any>, originalRecord?: Reco
     else if (value === '') {
       transformed[key] = null;
     }
+  }
+
+  // ============================================================================
+  // Convert _ID and _IDS structured format to flat UUID fields for API
+  // ============================================================================
+  // Backend expects: { manager__employee_id: "uuid" }
+  // Frontend sends: { _ID: { manager: { entity_code: "employee", manager__employee_id: "uuid", manager: "John" } } }
+  // This converts back to the flat format before API submission
+
+  // Convert single entity references (_ID)
+  if (transformed._ID && typeof transformed._ID === 'object') {
+    Object.entries(transformed._ID).forEach(([labelField, refData]: [string, any]) => {
+      if (!refData || typeof refData !== 'object') return;
+
+      // Find the UUID field (e.g., "manager__employee_id")
+      const uuidField = Object.keys(refData).find(k => k.endsWith('_id'));
+      if (uuidField && refData[uuidField]) {
+        // Add flat UUID field to transformed object
+        transformed[uuidField] = refData[uuidField];
+      }
+    });
+    // Remove _ID from payload
+    delete transformed._ID;
+  }
+
+  // Convert array entity references (_IDS)
+  if (transformed._IDS && typeof transformed._IDS === 'object') {
+    Object.entries(transformed._IDS).forEach(([labelField, refArray]: [string, any[]]) => {
+      if (!Array.isArray(refArray) || refArray.length === 0) return;
+
+      // Get first item to determine UUID field name
+      const firstItem = refArray[0];
+      if (!firstItem || typeof firstItem !== 'object') return;
+
+      // Find the UUID field (e.g., "stakeholder__employee_id")
+      const uuidField = Object.keys(firstItem).find(k => k.endsWith('_id'));
+      if (uuidField) {
+        // Convert to plural form (e.g., "stakeholder__employee_ids")
+        const pluralUuidField = uuidField.replace(/_id$/, '_ids');
+
+        // Extract all UUIDs from the array
+        const uuids = refArray
+          .map(ref => ref[uuidField])
+          .filter(Boolean); // Remove null/undefined
+
+        // Add flat UUID array field to transformed object
+        transformed[pluralUuidField] = uuids;
+      }
+    });
+    // Remove _IDS from payload
+    delete transformed._IDS;
   }
 
   return transformed;
@@ -1529,7 +1580,7 @@ export function getFieldCapability(columnKey: string, dataType?: string): FieldC
     return {
       inlineEditable: true,
       editType: 'select',
-      loadOptionsFromSettings: true,
+      loadDataLabels: true,
       settingsDatalabel: columnKey.replace('dl__', ''),
       isFileUpload: false
     };
@@ -1610,6 +1661,311 @@ function getAcceptedFileTypes(fieldName: string): string {
 }
 
 // ============================================================================
+// REACT FIELD RENDERERS (View & Edit Modes)
+// ============================================================================
+
+/**
+ * Render field in VIEW mode
+ * Returns formatted React element for display
+ *
+ * @param fieldKey - The field name (column key)
+ * @param value - The value to render
+ * @param data - Full record data (optional)
+ * @param loadDataLabels - Explicit flag to force badge rendering (overrides auto-detection)
+ */
+export function renderFieldView(
+  fieldKey: string,
+  value: any,
+  data?: Record<string, any>,
+  loadDataLabels?: boolean
+): React.ReactElement {
+  // Empty value handling
+  if (value === null || value === undefined || value === '') {
+    return <span className="text-dark-600 italic">—</span>;
+  }
+
+  // EXPLICIT HINT: If column explicitly says it loads from settings, render as badge
+  // This takes precedence over auto-detection to maintain backwards compatibility
+  if (loadDataLabels && typeof value === 'string') {
+    const datalabel = fieldKey.replace(/_name$/, '').replace(/_id$/, '');
+    const colorCode = getSettingColor(datalabel, value);
+    return renderDataLabelBadge(colorCode, value);
+  }
+
+  // AUTO-DETECTION: Fall back to convention-based detection
+  const fieldMeta = detectField(fieldKey, typeof value);
+
+  switch (fieldMeta.renderType) {
+    case 'currency':
+      return <span className="font-medium text-base tracking-tight">{formatCurrency(value)}</span>;
+
+    case 'date':
+      return <span className="text-base tracking-tight">{formatFriendlyDate(value)}</span>;
+
+    case 'timestamp':
+      return (
+        <span
+          className="text-base tracking-tight"
+          title={formatFriendlyDate(value)}
+        >
+          {formatRelativeTime(value)}
+        </span>
+      );
+
+    case 'badge':
+      const colorCode = fieldMeta.settingsDatalabel || fieldKey;
+      return renderDataLabelBadge(colorCode, String(value));
+
+    case 'boolean':
+      return (
+        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+          value ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+        }`}>
+          {value ? '✓ Yes' : '✗ No'}
+        </span>
+      );
+
+    case 'percentage':
+      return <span className="text-base tracking-tight">{value ? `${value}%` : '-'}</span>;
+
+    case 'array':
+      if (Array.isArray(value) && value.length > 0) {
+        return (
+          <div className="flex flex-wrap gap-1">
+            {value.map((item, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700"
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+        );
+      }
+      return <span className="text-gray-400">-</span>;
+
+    case 'json':
+      return (
+        <pre className="text-xs bg-gray-50 p-2 rounded overflow-auto max-h-40">
+          {JSON.stringify(value, null, 2)}
+        </pre>
+      );
+
+    default:
+      return <span className="text-base tracking-tight">{value || '-'}</span>;
+  }
+}
+
+/**
+ * Render field in EDIT mode
+ * Returns appropriate input component
+ */
+export interface RenderFieldEditOptions {
+  fieldKey: string;
+  value: any;
+  data?: Record<string, any>;
+  onChange: (fieldKey: string, value: any) => void;
+  required?: boolean;
+  disabled?: boolean;
+  inlineMode?: boolean;  // For DataTable inline editing (bordered inputs)
+}
+
+export function renderFieldEdit({
+  fieldKey,
+  value,
+  data,
+  onChange,
+  required = false,
+  disabled = false,
+  inlineMode = false
+}: RenderFieldEditOptions): React.ReactElement {
+
+  const fieldMeta = detectField(fieldKey, typeof value);
+  const capability = getFieldCapability(fieldKey, typeof value);
+
+  // Check if this is a read-only field
+  if (!capability.inlineEditable || disabled) {
+    return renderFieldView(fieldKey, value, data);
+  }
+
+  // Styling: inline mode uses bordered inputs, form mode uses borderless
+  const baseClassName = inlineMode
+    ? "w-full px-2 py-1.5 border border-dark-400 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500 text-sm"
+    : "w-full border-0 focus:ring-0 focus:outline-none bg-transparent px-0 py-0.5 text-base tracking-tight";
+
+  switch (capability.editType) {
+    case 'number':
+    case 'currency':
+      return (
+        <input
+          type="number"
+          value={value || ''}
+          onChange={(e) => onChange(fieldKey, parseFloat(e.target.value) || 0)}
+          className={baseClassName}
+          required={required}
+          disabled={disabled}
+        />
+      );
+
+    case 'date':
+      return (
+        <input
+          type="date"
+          value={value ? new Date(value).toISOString().split('T')[0] : ''}
+          onChange={(e) => onChange(fieldKey, e.target.value)}
+          className={baseClassName}
+          required={required}
+          disabled={disabled}
+        />
+      );
+
+    case 'boolean':
+      return (
+        <input
+          type="checkbox"
+          checked={value || false}
+          onChange={(e) => onChange(fieldKey, e.target.checked)}
+          className={inlineMode ? "h-4 w-4 rounded border-dark-400" : "w-4 h-4"}
+          disabled={disabled}
+        />
+      );
+
+    case 'tags':
+      return (
+        <input
+          type="text"
+          value={Array.isArray(value) ? value.join(', ') : ''}
+          onChange={(e) => onChange(fieldKey, e.target.value.split(',').map(v => v.trim()).filter(Boolean))}
+          placeholder="Enter comma-separated values"
+          className={baseClassName}
+          disabled={disabled}
+        />
+      );
+
+    case 'textarea':
+      return (
+        <textarea
+          value={value || ''}
+          onChange={(e) => onChange(fieldKey, e.target.value)}
+          rows={4}
+          className={`${baseClassName} resize-none`}
+          required={required}
+          disabled={disabled}
+        />
+      );
+
+    case 'json':
+      return (
+        <textarea
+          value={value ? JSON.stringify(value, null, 2) : ''}
+          onChange={(e) => {
+            try {
+              onChange(fieldKey, JSON.parse(e.target.value));
+            } catch {
+              // Invalid JSON, don't update
+            }
+          }}
+          rows={6}
+          className={`${baseClassName} font-mono text-sm resize-none`}
+          disabled={disabled}
+        />
+      );
+
+    default:
+      return (
+        <input
+          type="text"
+          value={value || ''}
+          onChange={(e) => onChange(fieldKey, e.target.value)}
+          className={baseClassName}
+          required={required}
+          disabled={disabled}
+        />
+      );
+  }
+}
+
+/**
+ * 🎯 MASTER API - Universal field renderer
+ *
+ * One function to render any field in any mode
+ * Used by EntityDataTable, EntityFormContainer, etc.
+ */
+export interface RenderFieldOptions {
+  fieldKey: string;
+  value: any;
+  mode: 'view' | 'edit';
+  data?: Record<string, any>;
+  onChange?: (fieldKey: string, value: any) => void;
+  required?: boolean;
+  disabled?: boolean;
+  inlineMode?: boolean;  // For DataTable inline editing
+  customRender?: (value: any, record: any, allData?: any[]) => React.ReactNode;  // Custom renderer override
+  // Column config hints (override auto-detection)
+  loadDataLabels?: boolean;  // Force badge rendering
+  editType?: EditType;  // Override detected edit type
+}
+
+export function renderField(options: RenderFieldOptions): React.ReactElement {
+  const { fieldKey, value, mode, data, onChange, required, disabled, inlineMode, customRender, loadDataLabels, editType } = options;
+
+  // Use custom render if provided (for view mode only)
+  if (customRender && mode === 'view') {
+    const rendered = customRender(value, data);
+    if (React.isValidElement(rendered)) {
+      return rendered as React.ReactElement;
+    }
+    return <span>{String(rendered)}</span>;
+  }
+
+  if (mode === 'view') {
+    return renderFieldView(fieldKey, value, data, loadDataLabels);
+  }
+
+  if (!onChange) {
+    throw new Error('onChange is required in edit mode');
+  }
+
+  return renderFieldEdit({ fieldKey, value, data, onChange, required, disabled, inlineMode });
+}
+
+/**
+ * Get entity reference fields from _ID/_IDS structure
+ */
+export function getEntityReferenceFields(data: Record<string, any>): string[] {
+  const fields: string[] = [];
+
+  if (data._ID && typeof data._ID === 'object') {
+    fields.push(...Object.keys(data._ID));
+  }
+
+  if (data._IDS && typeof data._IDS === 'object') {
+    fields.push(...Object.keys(data._IDS));
+  }
+
+  return fields;
+}
+
+/**
+ * Get visible fields (excludes system fields, UUIDs, etc.)
+ */
+export function getVisibleFields(
+  data: Record<string, any>,
+  mode: 'create' | 'edit' = 'edit'
+): string[] {
+  const excludedFields = mode === 'create'
+    ? ['id', 'created_ts', 'updated_ts', '_ID', '_IDS']
+    : ['id', 'name', 'code', 'created_ts', 'updated_ts', '_ID', '_IDS'];
+
+  return Object.keys(data).filter(key =>
+    !excludedFields.includes(key) &&
+    !key.endsWith('_id') &&
+    !key.endsWith('_ids')
+  );
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
@@ -1630,7 +1986,7 @@ export default {
   isCurrencyField,
 
   // Badge rendering
-  renderSettingBadge,
+  renderDataLabelBadge,
   renderBadge,
   loadSettingsColors,
   getSettingColor,
@@ -1638,6 +1994,13 @@ export default {
 
   // React element rendering
   renderFieldDisplay,
+  renderField,
+  renderFieldView,
+  renderFieldEdit,
+
+  // Helper functions
+  getEntityReferenceFields,
+  getVisibleFields,
 
   // Data transformation
   transformForApi,

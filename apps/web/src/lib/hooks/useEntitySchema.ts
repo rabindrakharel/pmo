@@ -15,7 +15,7 @@
  * const { schema, loading, error, refresh } = useEntitySchema('project');
  *
  * if (loading) return <TableSkeleton />;
- * if (error) return <SchemaErrorFallback error={error} entityType="project" onRetry={refresh} />;
+ * if (error) return <SchemaErrorFallback error={error} entityCode="project" onRetry={refresh} />;
  * if (schema) return <Table columns={schema.columns} />;
  * ```
  */
@@ -92,7 +92,7 @@ export interface UseEntitySchemaResult {
   refresh: () => void;
 }
 
-export function useEntitySchema(entityType: string | undefined): UseEntitySchemaResult {
+export function useEntitySchema(entityCode: string | undefined): UseEntitySchemaResult {
   const [schema, setSchema] = useState<EntitySchema | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,15 +102,15 @@ export function useEntitySchema(entityType: string | undefined): UseEntitySchema
    * Manual refresh - clears cache and refetches
    */
   const refresh = useCallback(() => {
-    if (entityType) {
-      schemaCache.delete(entityType);
+    if (entityCode) {
+      schemaCache.delete(entityCode);
       setRefreshTrigger(prev => prev + 1);
     }
-  }, [entityType]);
+  }, [entityCode]);
 
   useEffect(() => {
     // No entity type provided
-    if (!entityType) {
+    if (!entityCode) {
       setLoading(false);
       setSchema(null);
       setError(null);
@@ -118,7 +118,7 @@ export function useEntitySchema(entityType: string | undefined): UseEntitySchema
     }
 
     // Check cache first
-    const cached = schemaCache.get(entityType);
+    const cached = schemaCache.get(entityCode);
     if (cached) {
       setSchema(cached);
       setLoading(false);
@@ -142,14 +142,14 @@ export function useEntitySchema(entityType: string | undefined): UseEntitySchema
         }
 
         const response = await fetchWithRetry(
-          API_ENDPOINTS.entity.schema(entityType),
+          API_ENDPOINTS.entity.schema(entityCode),
           { headers }
         );
 
         const schemaData = await response.json();
 
         // Cache the schema
-        schemaCache.set(entityType, schemaData);
+        schemaCache.set(entityCode, schemaData);
 
         setSchema(schemaData);
         setError(null);
@@ -157,14 +157,14 @@ export function useEntitySchema(entityType: string | undefined): UseEntitySchema
         const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
         setError(errorMessage);
         setSchema(null);
-        console.error(`[useEntitySchema] Failed to fetch schema for ${entityType}:`, err);
+        console.error(`[useEntitySchema] Failed to fetch schema for ${entityCode}:`, err);
       } finally {
         setLoading(false);
       }
     };
 
     fetchSchema();
-  }, [entityType, refreshTrigger]);
+  }, [entityCode, refreshTrigger]);
 
   return { schema, loading, error, refresh };
 }

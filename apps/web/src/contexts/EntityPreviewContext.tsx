@@ -12,7 +12,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export interface EntityPreviewData {
-  entityType: string;
+  entityCode: string;
   entityId: string;
   label?: string;  // Optional display label (e.g., "Project: Website Redesign")
 }

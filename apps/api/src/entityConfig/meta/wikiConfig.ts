@@ -1,7 +1,7 @@
 import type { EntityConfig } from '../types';
 
 export const wikiConfig: EntityConfig = {
-  entityType: 'wiki',
+  entityCode: 'wiki',
   displayName: 'Wiki',
   displayNamePlural: 'Wiki Pages',
   description: 'Knowledge base and documentation',

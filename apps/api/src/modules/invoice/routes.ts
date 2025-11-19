@@ -283,7 +283,7 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
       // Generate presigned upload URL using s3AttachmentService
       const result = await s3AttachmentService.generatePresignedUploadUrl({
         tenantId: 'demo',
-        entityType: ENTITY_CODE,
+        entityCode: ENTITY_CODE,
         entityId: 'temp-' + Date.now(), // Temporary ID, will be replaced when invoice is created
         fileName: filename,
         contentType: contentType || 'application/pdf'

@@ -4,7 +4,7 @@ import { Button } from '../button/Button';
 import { API_BASE_URL } from '../../../lib/api';
 
 interface ShareURLSectionProps {
-  entityType: string;
+  entityCode: string;
   entityId: string;
   currentSharedUrl?: string;
   onUrlGenerated?: (url: string) => void;
@@ -20,7 +20,7 @@ interface ShareURLSectionProps {
  * - Works with any entity type (task, form, etc.)
  */
 export function ShareURLSection({
-  entityType,
+  entityCode,
   entityId,
   currentSharedUrl,
   onUrlGenerated
@@ -47,10 +47,10 @@ export function ShareURLSection({
 
       // Generate the share code
       const shareCode = generateShareCode();
-      const newSharedUrl = `/${entityType}/${shareCode}`;
+      const newSharedUrl = `/${entityCode}/${shareCode}`;
 
       // Save to backend
-      const response = await fetch(`${API_BASE_URL}/api/v1/${entityType}/${entityId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/${entityCode}/${entityId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

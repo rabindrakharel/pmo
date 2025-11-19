@@ -2,7 +2,7 @@ import { Search, Check, AlertCircle } from 'lucide-react';
 import { useEntityInstancePicker } from '../../hooks/useEntityInstancePicker';
 
 interface EntityInstancePickerProps {
-  entityType: string;
+  entityCode: string;
   selectedInstanceId: string | null;
   onSelect: (instanceId: string) => void;
   showAllOption?: boolean;
@@ -17,7 +17,7 @@ interface EntityInstancePickerProps {
  *
  * @example
  * <EntityInstancePicker
- *   entityType="project"
+ *   entityCode="project"
  *   selectedInstanceId={selectedId}
  *   onSelect={setSelectedId}
  *   showAllOption={true}
@@ -25,7 +25,7 @@ interface EntityInstancePickerProps {
  * />
  */
 export function EntityInstancePicker({
-  entityType,
+  entityCode,
   selectedInstanceId,
   onSelect,
   showAllOption = false,
@@ -39,9 +39,9 @@ export function EntityInstancePicker({
     error,
     searchQuery,
     setSearchQuery
-  } = useEntityInstancePicker({ entityType, enabled: true });
+  } = useEntityInstancePicker({ entityCode, enabled: true });
 
-  const displayPlaceholder = placeholder || `Search ${entityType} by name...`;
+  const displayPlaceholder = placeholder || `Search ${entityCode} by name...`;
 
   return (
     <div className="space-y-2">
@@ -70,11 +70,11 @@ export function EntityInstancePicker({
         {loading ? (
           <div className="text-center py-8 text-dark-700">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="text-xs mt-2">Loading {entityType} instances...</p>
+            <p className="text-xs mt-2">Loading {entityCode} instances...</p>
           </div>
         ) : filteredInstances.length === 0 && !showAllOption ? (
           <div className="text-center py-8 text-dark-700">
-            <p className="text-sm">No {entityType} instances found</p>
+            <p className="text-sm">No {entityCode} instances found</p>
             <p className="text-xs text-dark-600 mt-1">
               {searchQuery ? `No results for "${searchQuery}"` : 'Create one first'}
             </p>
@@ -174,7 +174,7 @@ export function EntityInstancePicker({
       {/* Instance Count Summary */}
       {!loading && filteredInstances.length > 0 && (
         <p className="text-xs text-dark-600 text-center">
-          Showing {filteredInstances.length} {entityType} instance(s)
+          Showing {filteredInstances.length} {entityCode} instance(s)
         </p>
       )}
     </div>

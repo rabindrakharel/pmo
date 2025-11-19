@@ -29,7 +29,7 @@ import { getIconComponent } from '../../../lib/iconMapping';
 interface CreateButtonConfig {
   label: string;
   href: string;
-  entityType: string;  // Added for RBAC
+  entityCode: string;  // Added for RBAC
 }
 
 interface LayoutProps {
@@ -313,7 +313,7 @@ export function Layout({ children, createButton }: LayoutProps) {
               <CreateButton
                 label={createButton.label}
                 href={createButton.href}
-                entityType={createButton.entityType}
+                entityCode={createButton.entityCode}
                 size="sm"
               />
             </div>

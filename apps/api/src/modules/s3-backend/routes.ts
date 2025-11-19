@@ -25,7 +25,7 @@ const s3BackendRoutes: FastifyPluginAsync = async (fastify) => {
       description: 'Create a presigned URL for uploading files to S3 with multi-tenant storage structure',
       body: Type.Object({
         tenantId: Type.Optional(Type.String({ description: 'Tenant ID (defaults to "demo")' })),
-        entityType: Type.String({ description: 'Entity type (e.g., "project", "task", "employee")' }),
+        entityCode: Type.String({ description: 'Entity type (e.g., "project", "task", "employee")' }),
         entityId: Type.String({ description: 'Entity UUID' }),
         fileName: Type.String({ description: 'Original file name with extension' }),
         contentType: Type.Optional(Type.String({ description: 'MIME type of the file' }))}),
@@ -34,11 +34,11 @@ const s3BackendRoutes: FastifyPluginAsync = async (fastify) => {
           url: Type.String({ description: 'Presigned upload URL' }),
           objectKey: Type.String({ description: 'S3 object key (save this to database)' }),
           expiresIn: Type.Number({ description: 'URL expiration time in seconds' })})}}}, async (request) => {
-    const { tenantId, entityType, entityId, fileName, contentType } = request.body as any;
+    const { tenantId, entityCode, entityId, fileName, contentType } = request.body as any;
 
     const result = await s3AttachmentService.generatePresignedUploadUrl({
       tenantId,
-      entityType,
+      entityCode,
       entityId,
       fileName,
       contentType});
@@ -70,16 +70,16 @@ const s3BackendRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
-   * GET /api/v1/s3-backend/list/:entityType/:entityId
+   * GET /api/v1/s3-backend/list/:entityCode/:entityId
    * List all attachments for a specific entity
    */
-  fastify.get('/list/:entityType/:entityId', {
+  fastify.get('/list/:entityCode/:entityId', {
     schema: {
       tags: ['s3-backend'],
       summary: 'List entity attachments',
       description: 'Retrieve list of all attachments for a specific entity',
       params: Type.Object({
-        entityType: Type.String({ description: 'Entity type (e.g., "project", "task")' }),
+        entityCode: Type.String({ description: 'Entity type (e.g., "project", "task")' }),
         entityId: Type.String({ description: 'Entity UUID' })}),
       querystring: Type.Object({
         tenantId: Type.Optional(Type.String({ description: 'Tenant ID (defaults to "demo")' }))}),
@@ -88,12 +88,12 @@ const s3BackendRoutes: FastifyPluginAsync = async (fastify) => {
           key: Type.String({ description: 'S3 object key' }),
           size: Type.Number({ description: 'File size in bytes' }),
           lastModified: Type.String({ description: 'Last modified date' })}))}}}, async (request) => {
-    const { entityType, entityId } = request.params as any;
+    const { entityCode, entityId } = request.params as any;
     const { tenantId } = request.query as any;
 
     const attachments = await s3AttachmentService.listAttachments(
       tenantId,
-      entityType,
+      entityCode,
       entityId
     );
 

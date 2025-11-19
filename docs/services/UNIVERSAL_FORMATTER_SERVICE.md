@@ -1,568 +1,820 @@
-# Universal Formatter Service
+# Universal Formatter Service - Complete Architecture
 
-> **Single source of truth for ALL formatting across the application - Convention over Configuration**
+**Version**: 3.5.0
+**Status**: Production (Zero Backwards Compatibility)
+**File**: `apps/web/src/lib/universalFormatterService.tsx`
 
-## Overview
+---
 
-The Universal Formatter Service is a **local, zero-API frontend service** that consolidates ALL formatting concerns into one place. It uses **convention over configuration** - column names automatically determine format types, requiring zero manual configuration.
+## Executive Summary
 
-**Location**: `apps/web/src/lib/universalFormatterService.ts` (1182 lines)
+Single source of truth for ALL field detection, formatting, and rendering across the entire frontend. Uses **convention over configuration** - column names automatically determine formatting, edit types, and rendering behavior.
 
-### Key Principles
+**Key Principle**: Add a column to the database with proper naming → entire frontend auto-detects format, rendering, and behavior with ZERO configuration.
 
-- ✅ **Convention over Configuration** - Column name + data type → complete format spec
-- ✅ **Zero API Calls** - Everything is local logic (except badge colors which are cached)
-- ✅ **Single Import** - One service for all formatting needs
-- ✅ **DRY Principle** - Change format once, applies everywhere
-- ✅ **Type-Safe** - Full TypeScript support
+---
 
-## 5 Functional Areas
+## Architecture Overview
 
-| Area | Functions | Purpose |
-|------|-----------|---------|
-| **1. Format Detection** | `detectFieldFormat()`, `generateFieldLabel()`, `getEditType()` | Auto-detect format from column name + data type |
-| **2. Value Formatting** | `formatCurrency()`, `formatRelativeTime()`, `formatFieldValue()` | Format values to strings |
-| **3. React Rendering** | `renderFieldDisplay()`, `formatBooleanBadge()`, `formatTagsList()` | Render values as React elements |
-| **4. Badge Rendering** | `renderSettingBadge()`, `renderBadge()` | Render colored badges from settings |
-| **5. Field Capability** | `getFieldCapability()`, `isInvisibleField()` | Determine editability, visibility |
-
-## Naming Conventions (Auto-Detection)
-
-### Currency Fields
-
-**Pattern**: `*_amt`, `*_price`, `*_cost`, `budget_*`, `revenue_*`, `expense_*`
-
-```typescript
-detectFieldFormat('budget_allocated_amt', 'numeric')
-// Returns: {
-//   type: 'currency',
-//   label: 'Budget Allocated',
-//   width: '120px',
-//   align: 'right',
-//   editType: 'number'
-// }
-
-formatFieldValue(50000, 'currency')
-// Returns: "$50,000.00"
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   UNIVERSAL FORMATTER SERVICE                    │
+│                  (universalFormatterService.tsx)                 │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌───────────────┐ │
+│  │ Format Detection │  │ React Renderers  │  │ Data Transform│ │
+│  │                  │  │                  │  │               │ │
+│  │ detectField()    │  │ renderFieldView()│  │ transformForApi│ │
+│  │ detectFieldFormat│  │ renderFieldEdit()│  │ transformFrom │ │
+│  │ getEditType()    │  │ renderField()    │  │               │ │
+│  └──────────────────┘  └──────────────────┘  └───────────────┘ │
+│                                                                   │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌───────────────┐ │
+│  │ Value Formatting │  │ Badge Rendering  │  │ Field Caps    │ │
+│  │                  │  │                  │  │               │ │
+│  │ formatCurrency() │  │renderDataLabel   │  │getFieldCap()  │ │
+│  │ formatDate()     │  │Badge()           │  │               │ │
+│  │ formatRelative() │  │getSettingColor() │  │               │ │
+│  └──────────────────┘  └──────────────────┘  └───────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+                               │
+          ┌────────────────────┼────────────────────┐
+          ▼                    ▼                    ▼
+  EntityDataTable      EntityFormContainer   FilteredDataTable
+  (100% usage)         (100% usage)          (100% usage)
 ```
 
-### Settings/Datalabel Fields
+---
 
-**Pattern**: `dl__*`
+## System Design: Field Rendering Flow
 
-```typescript
-detectFieldFormat('dl__project_stage', 'varchar')
-// Returns: {
-//   type: 'badge',
-//   label: 'Project Stage',
-//   editType: 'select',
-//   settingsDatalabel: 'project_stage'
-// }
+```mermaid
+graph TD
+    A[Column Name: budget_allocated_amt] --> B{renderField}
+    B --> C{Mode?}
 
-renderFieldDisplay('planning', { type: 'badge', settingsDatalabel: 'project_stage' })
-// Returns: <span class="badge badge-blue">Planning</span>
+    C -->|view| D[renderFieldView]
+    C -->|edit| E[renderFieldEdit]
+
+    D --> F{Check Empty?}
+    F -->|null/undefined| G[Return —]
+    F -->|has value| H{loadDataLabels hint?}
+
+    H -->|true| I[renderDataLabelBadge]
+    H -->|false| J[detectField]
+
+    J --> K{Pattern Match}
+    K -->|*_amt| L[formatCurrency → $50,000.00]
+    K -->|dl__*| I
+    K -->|*_ts| M[formatRelativeTime → 2 hours ago]
+    K -->|is_*| N[Boolean badge → ✓ Yes]
+
+    E --> O{inlineMode?}
+    O -->|true| P[Bordered input - table style]
+    O -->|false| Q[Borderless input - form style]
+
+    P --> R{editType?}
+    Q --> R
+
+    R -->|number| S[&lt;input type=number&gt;]
+    R -->|date| T[&lt;input type=date&gt;]
+    R -->|checkbox| U[&lt;input type=checkbox&gt;]
 ```
 
-### Boolean Fields
+---
 
-**Pattern**: `*_flag`, `is_*`, `has_*`, `can_*`
+## Core Functions
 
+### 1. Format Detection (Convention → Configuration)
+
+#### `detectField(fieldKey: string, dataType: string): UniversalFieldMetadata`
+
+Auto-detects complete field metadata from column name.
+
+**Pattern Matching Table**:
+
+| Pattern | Render Type | Edit Type | Align | Width | Example |
+|---------|-------------|-----------|-------|-------|---------|
+| `*_amt`, `*_price`, `*_cost` | `currency` | `number` | `right` | `120px` | `budget_allocated_amt` |
+| `dl__*` | `badge` | `select` | `left` | `150px` | `dl__project_stage` |
+| `*_ts`, `*_at` | `timestamp` | `datetime` | `left` | `150px` | `created_ts` |
+| `*_date` | `date` | `date` | `left` | `120px` | `due_date` |
+| `is_*`, `has_*`, `*_flag` | `boolean` | `checkbox` | `center` | `80px` | `is_active` |
+| `*_pct`, `*_rate` | `percentage` | `number` | `right` | `100px` | `completion_pct` |
+| `*__*_id` (uuid) | `reference` | `entity-select` | `left` | `200px` | `manager__employee_id` |
+| `*__*_ids` (uuid[]) | `array` | `entity-multiselect` | `left` | `200px` | `stakeholder__employee_ids` |
+| `tags`, `*_list` | `array` | `tags` | `left` | `200px` | `tags` |
+| `metadata`, `*_json` | `json` | `textarea` | `left` | `300px` | `metadata` |
+
+**Returns**:
 ```typescript
-detectFieldFormat('active_flag', 'boolean')
-// Returns: {
-//   type: 'boolean',
-//   editType: 'boolean',
-//   align: 'center'
-// }
-
-formatBooleanBadge(true, true)
-// Returns: <span class="badge badge-green">Active</span>
+interface UniversalFieldMetadata {
+  fieldName: string;          // Human-readable: "Budget Allocated"
+  renderType: RenderType;     // How to display: 'currency'
+  inputType: InputType;       // Form input type: 'currency'
+  editType: EditType;         // Edit component: 'number'
+  format: (value) => string;  // Formatter function
+  editable: boolean;          // Can be edited
+  align: 'left'|'center'|'right';
+  width: string;              // Column width
+  loadFromSettings?: boolean; // For dl__* fields
+  settingsDatalabel?: string; // Extracted datalabel name
+}
 ```
 
-### Date Fields
+---
 
-**Pattern**: `*_date`
+### 2. React Field Renderers (Master API)
 
+#### `renderField(options: RenderFieldOptions): React.ReactElement`
+
+**Single function** for rendering ANY field in ANY mode.
+
+**Interface**:
 ```typescript
-detectFieldFormat('planned_start_date', 'date')
-// Returns: {
-//   type: 'date',
-//   editType: 'date',
-//   dateFormat: 'MMM DD, YYYY'
-// }
+interface RenderFieldOptions {
+  fieldKey: string;              // Column name
+  value: any;                    // Current value
+  mode: 'view' | 'edit';         // Display or edit mode
+  data?: Record<string, any>;    // Full record (for context)
+  onChange?: (key, val) => void; // Edit mode callback (required for edit)
+  required?: boolean;            // Mark as required
+  disabled?: boolean;            // Disable editing
+  inlineMode?: boolean;          // Table vs form styling
+  customRender?: (value, record) => React.ReactNode; // Custom override
 
-formatFieldValue('2025-01-15', 'date')
-// Returns: "Jan 15, 2025"
+  // COLUMN HINTS (override auto-detection)
+  loadDataLabels?: boolean;      // Force badge rendering
+  editType?: EditType;           // Override detected edit type
+}
 ```
 
-### Timestamp Fields
-
-**Pattern**: `*_ts`, `*_at`
-
+**Execution Flow**:
 ```typescript
-// System timestamps (created_ts, updated_ts) → relative time
-detectFieldFormat('created_ts', 'timestamp with time zone')
-// Returns: {
-//   type: 'relative-time',
-//   editType: 'readonly'
-// }
-
-formatRelativeTime('2025-01-15T10:30:00Z')
-// Returns: "2 hours ago"
-
-// Other timestamps → datetime
-detectFieldFormat('scheduled_at', 'timestamp with time zone')
-// Returns: {
-//   type: 'datetime',
-//   editType: 'date'
-// }
+renderField(options)
+    │
+    ├─ Has customRender && mode='view'?
+    │   └─→ Use custom renderer
+    │
+    ├─ mode === 'view'
+    │   └─→ renderFieldView(fieldKey, value, data, loadDataLabels)
+    │       ├─ value empty? → "—"
+    │       ├─ loadDataLabels hint? → renderDataLabelBadge()
+    │       └─ detectField() → auto-render
+    │
+    └─ mode === 'edit'
+        └─→ renderFieldEdit({ ...options })
+            ├─ Check editType
+            ├─ Apply inlineMode styling
+            └─ Return appropriate input
 ```
 
-### Tag/Array Fields
+---
 
-**Pattern**: `tags`, `*_tags`, data type `ARRAY`
+### 3. View Mode Rendering
 
-```typescript
-detectFieldFormat('tags', 'ARRAY')
-// Returns: {
-//   type: 'tags',
-//   editType: 'tags'
-// }
+#### `renderFieldView(fieldKey, value, data?, loadDataLabels?): React.ReactElement`
 
-formatTagsList(['tag1', 'tag2', 'tag3'])
-// Returns: <span><badge>tag1</badge> <badge>tag2</badge> ...</span>
-```
+Renders field for display (read-only).
 
-### Reference Fields
+**Priority Order**:
+1. **Empty check** → `<span className="text-dark-600 italic">—</span>`
+2. **Explicit hint** (`loadDataLabels: true`) → Force badge
+3. **Auto-detection** → Pattern matching
 
-**Pattern**: `*_id` (with uuid data type)
+**Render Type Mapping**:
 
 ```typescript
-detectFieldFormat('manager_employee_id', 'uuid')
-// Returns: {
-//   type: 'reference',
-//   editType: 'text',
-//   entityType: 'employee'
-// }
+switch (fieldMeta.renderType) {
+  case 'currency':
+    return <span className="font-medium">{formatCurrency(value)}</span>;
+    // Example: $50,000.00
 
-formatReference({ id: '123', name: 'John Doe' }, 'employee')
-// Returns: <a href="/employee/123">John Doe</a>
+  case 'date':
+    return <span>{formatFriendlyDate(value)}</span>;
+    // Example: Jan 15, 2025
+
+  case 'timestamp':
+    return <span title={formatFriendlyDate(value)}>{formatRelativeTime(value)}</span>;
+    // Example: "2 hours ago" (hover shows "Jan 15, 2025, 2:30 PM")
+
+  case 'badge':
+    return renderDataLabelBadge(colorCode, String(value));
+    // Example: 🟢 "In Progress"
+
+  case 'boolean':
+    return (
+      <span className={value ? 'bg-green-100' : 'bg-gray-100'}>
+        {value ? '✓ Yes' : '✗ No'}
+      </span>
+    );
+
+  case 'percentage':
+    return <span>{value}%</span>;
+    // Example: 75.0%
+
+  case 'array':
+    return (
+      <div className="flex gap-1">
+        {value.map(item => (
+          <span className="chip">{item}</span>
+        ))}
+      </div>
+    );
+    // Example: [urgent] [client] [phase-1]
+
+  case 'json':
+    return <pre>{JSON.stringify(value, null, 2)}</pre>;
+
+  default:
+    return <span>{value || '-'}</span>;
+}
 ```
 
-### Percentage Fields
+---
 
-**Pattern**: `*_pct`, `*_percentage`, `*_rate`
+### 4. Edit Mode Rendering
+
+#### `renderFieldEdit(options: RenderFieldEditOptions): React.ReactElement`
+
+Renders editable input component.
+
+**Styling Modes**:
+```typescript
+// INLINE MODE (EntityDataTable)
+inlineMode: true
+→ className: "w-full px-2 py-1.5 border border-dark-400 rounded-md
+              focus:ring-2 focus:ring-slate-500/30"
+→ Bordered, padded, table-friendly
+
+// FORM MODE (EntityFormContainer)
+inlineMode: false
+→ className: "w-full border-0 bg-transparent px-0 py-0.5
+              focus:ring-0"
+→ Borderless, transparent, form-friendly
+```
+
+**Edit Type Handling**:
+```typescript
+switch (editType) {
+  case 'number':
+  case 'currency':
+    return (
+      <input
+        type="number"
+        value={value || ''}
+        onChange={(e) => onChange(fieldKey, parseFloat(e.target.value) || 0)}
+        className={baseClassName}
+      />
+    );
+
+  case 'date':
+    return (
+      <input
+        type="date"
+        value={formatDateForInput(value)}
+        onChange={(e) => onChange(fieldKey, e.target.value || null)}
+        className={baseClassName}
+      />
+    );
+
+  case 'checkbox':
+    return (
+      <input
+        type="checkbox"
+        checked={value || false}
+        onChange={(e) => onChange(fieldKey, e.target.checked)}
+        className="h-4 w-4 rounded"
+      />
+    );
+
+  case 'textarea':
+    return (
+      <textarea
+        value={value || ''}
+        onChange={(e) => onChange(fieldKey, e.target.value)}
+        className={baseClassName}
+        rows={4}
+      />
+    );
+
+  case 'tags':
+    return (
+      <input
+        type="text"
+        value={value || ''}
+        placeholder="Enter tags (comma-separated)"
+        onChange={(e) => onChange(fieldKey, e.target.value)}
+        className={baseClassName}
+      />
+    );
+
+  default:  // text
+    return (
+      <input
+        type="text"
+        value={value || ''}
+        onChange={(e) => onChange(fieldKey, e.target.value)}
+        className={baseClassName}
+      />
+    );
+}
+```
+
+---
+
+### 5. Badge Rendering (Data Labels)
+
+#### `renderDataLabelBadge(colorCode: string | undefined, value: string): React.ReactElement`
+
+Renders colored status badges with database-driven colors.
+
+**Color Resolution Flow**:
+```typescript
+// 1. Check global COLOR_MAP cache
+const cachedColor = COLOR_MAP.get(`${datalabel}:${value}`);
+if (cachedColor) return renderBadge(cachedColor, value);
+
+// 2. Fallback to semantic color mapping
+const semanticColors = {
+  'Completed': 'green',
+  'In Progress': 'blue',
+  'Planning': 'cyan',
+  'Pending': 'yellow',
+  'On Hold': 'orange',
+  'Cancelled': 'red',
+  'Draft': 'gray'
+};
+
+// 3. Default to provided colorCode or gray
+const finalColor = semanticColors[value] || colorCode || 'gray';
+```
+
+**Badge Component**:
+```typescript
+<span
+  className={`inline-flex items-center px-2.5 py-0.5 rounded-full
+              text-xs font-medium bg-${color}-100 text-${color}-800`}
+>
+  {value}
+</span>
+```
+
+**Preloading Colors**:
+```typescript
+// Preload all colors for a datalabel
+await loadSettingsColors('project_stage');
+
+// Populates COLOR_MAP:
+// "project_stage:Planning" → "blue"
+// "project_stage:In Progress" → "cyan"
+// "project_stage:Completed" → "green"
+```
+
+---
+
+### 6. Data Transformation
+
+#### `transformForApi(data: Record<string, any>): Record<string, any>`
+
+Transforms frontend structure → API-ready format.
+
+**Transformation Rules**:
 
 ```typescript
-detectFieldFormat('completion_pct', 'numeric')
-// Returns: {
-//   type: 'percentage',
-//   align: 'right',
-//   editType: 'number'
-// }
+// INPUT (Frontend Format):
+{
+  name: "Project Alpha",
+  budget_allocated_amt: 50000,
+  _ID: {
+    manager: {
+      entity_code: 'employee',
+      manager__employee_id: 'uuid-123',
+      manager: 'John Doe'
+    }
+  },
+  _IDS: {
+    stakeholder: [
+      { stakeholder__employee_id: 'uuid-1', stakeholder: 'Alice' },
+      { stakeholder__employee_id: 'uuid-2', stakeholder: 'Bob' }
+    ]
+  }
+}
 
-formatFieldValue(75.5, 'percentage')
-// Returns: "75.5%"
+// OUTPUT (API Format):
+{
+  name: "Project Alpha",
+  budget_allocated_amt: 50000,
+  manager__employee_id: 'uuid-123',
+  stakeholder__employee_ids: ['uuid-1', 'uuid-2']
+}
 ```
 
-### Numeric Fields
+**Algorithm**:
+```typescript
+1. Flatten _ID objects:
+   - Extract {labelField__entityCode_id: uuid}
+   - Remove label values
 
-**Pattern**: `*_count`, `*_qty`, `*_quantity`, `*_level`, `*_order`
+2. Flatten _IDS arrays:
+   - Extract UUIDs into array
+   - Convert to {labelField__entityCode_ids: [uuid1, uuid2]}
+
+3. Remove _ID and _IDS top-level keys
+
+4. Pass through all other fields
+```
+
+#### `transformFromApi(data: Record<string, any>): Record<string, any>`
+
+API format → frontend structure (inverse transformation).
+
+---
+
+## Column Hints System
+
+**Problem**: Some columns can't express their intent via naming conventions alone.
+
+**Solution**: Explicit hints override auto-detection.
+
+### Priority Order
+
+```
+1. loadDataLabels: true     → Force badge rendering
+2. editType: 'select'       → Force dropdown
+3. customRender: (v) => ... → Custom renderer
+4. Auto-detection           → Pattern matching
+5. Default                  → Plain text
+```
+
+### Example: Non-Prefixed Data Label Field
 
 ```typescript
-detectFieldFormat('task_count', 'integer')
-// Returns: {
-//   type: 'number',
-//   align: 'right',
-//   editType: 'number'
-// }
+// Column config
+{
+  key: 'project_stage',     // ← No dl__ prefix
+  title: 'Stage',
+  loadDataLabels: true      // ← Explicit hint
+}
+
+// renderFieldView checks hints FIRST
+if (loadDataLabels && typeof value === 'string') {
+  const datalabel = fieldKey.replace(/_name$/, '');
+  const colorCode = getSettingColor(datalabel, value);
+  return renderDataLabelBadge(colorCode, value);  // ✅ Forced badge
+}
+
+// Then auto-detection
+const fieldMeta = detectField(fieldKey, typeof value);
 ```
 
-## Complete Auto-Detection Pattern Table
+---
 
-| Pattern | Format Type | Example Column | Display Example |
-|---------|-------------|----------------|-----------------|
-| `*_amt`, `*_price`, `*_cost` | `currency` | `budget_allocated_amt` | `$50,000.00` |
-| `dl__*` | `badge` | `dl__project_stage` | 🟢 `Planning` |
-| `*_flag`, `is_*`, `has_*` | `boolean` | `active_flag` | 🟢 `Active` |
-| `*_date` | `date` | `planned_start_date` | `Jan 15, 2025` |
-| `created_ts`, `updated_ts` | `relative-time` | `created_ts` | `2 hours ago` |
-| Other `*_ts`, `*_at` | `datetime` | `scheduled_at` | `Jan 15, 2025, 2:30 PM` |
-| `tags`, `*_tags`, `ARRAY` | `tags` | `tags` | `tag1` `tag2` `tag3` |
-| `*_id` (uuid) | `reference` | `manager_employee_id` | Link to employee |
-| `*_pct`, `*_rate` | `percentage` | `completion_pct` | `75.0%` |
-| `*_count`, `*_qty` | `number` | `task_count` | `42` |
-| Default | `text` | `name`, `description` | Plain text |
+## Performance Optimizations
+
+### 1. LRU Cache for Field Titles
+
+```typescript
+const TITLE_CACHE = new LRUCache<string, string>({ max: 500 });
+
+generateFieldLabel('budget_allocated_amt')
+// First call: Generates "Budget Allocated" → stores in cache
+// Subsequent calls: O(1) lookup
+```
+
+### 2. Cached Intl Formatters
+
+```typescript
+// Created once, reused forever
+const currencyFormatter = new Intl.NumberFormat('en-CA', {
+  style: 'currency',
+  currency: 'CAD',
+  minimumFractionDigits: 2
+});
+
+const dateFormatter = new Intl.DateTimeFormat('en-CA', {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric'
+});
+```
+
+### 3. Set-Based Lookups (O(1))
+
+```typescript
+const SYSTEM_FIELDS = new Set([
+  'id', 'created_ts', 'updated_ts', 'created_by', 'updated_by'
+]);
+
+// Fast membership check
+if (SYSTEM_FIELDS.has(fieldKey)) {
+  return { editable: false };
+}
+```
+
+### 4. Global Color Map
+
+```typescript
+COLOR_MAP = new Map<string, string>();
+// Format: "datalabel:value" → "colorCode"
+
+// Preloaded once per datalabel
+loadSettingsColors('project_stage');
+// Populates all project_stage values and colors
+
+// Later lookups: O(1)
+const color = COLOR_MAP.get('project_stage:Planning');
+```
+
+---
+
+## Integration Points
+
+### Components Using Universal Formatter
+
+| Component | View Mode | Edit Mode | Notes |
+|-----------|-----------|-----------|-------|
+| **EntityDataTable** | ✅ `renderField()` | ✅ `renderField()` | 100% usage, inlineMode: true |
+| **EntityFormContainer** | ✅ `renderField()` | ✅ `renderField()` | 100% usage, inlineMode: false |
+| **FilteredDataTable** | ✅ `formatFieldValue()` | ❌ | Display only |
+| **EntityDetailPage** | ✅ `renderFieldView()` | ❌ | Read-only details |
+| **SettingsDataTable** | ✅ `renderDataLabelBadge()` | ✅ `ColoredDropdown` | Badge-focused |
+
+### External Components (Not Handled by renderField)
+
+Special-case components that renderField delegates to:
+
+| Component | When Used | Purpose |
+|-----------|-----------|---------|
+| **InlineFileUploadCell** | `editType === 'file'` | Drag-drop file uploads |
+| **ColoredDropdown** | `editType === 'select' && hasSettingOptions` | Settings dropdown with badges |
+| **EntitySelect** | `_ID` fields | Single entity reference picker |
+| **EntityMultiSelect** | `_IDS` fields | Multiple entity reference picker |
+| **DAGVisualizer** | `dl__*_stage` fields | Workflow stage visualization |
+
+---
+
+## Data Flow Diagram
+
+```
+User Interaction
+       │
+       ▼
+┌─────────────────────────────────────────┐
+│  EntityDataTable / EntityFormContainer  │
+└─────────────────────────────────────────┘
+       │
+       ├─ View Mode ──────────────────┐
+       │                              │
+       ▼                              ▼
+┌──────────────┐              ┌──────────────┐
+│ renderField()│              │ customRender?│
+└──────────────┘              └──────────────┘
+       │                              │
+       ▼                              ▼
+┌────────────────────┐         [Custom Logic]
+│ renderFieldView()  │
+└────────────────────┘
+       │
+       ├─ Empty? → "—"
+       ├─ loadDataLabels? → renderDataLabelBadge()
+       └─ detectField() → Pattern match
+              │
+              ├─ *_amt → formatCurrency()
+              ├─ dl__* → renderDataLabelBadge()
+              ├─ *_ts → formatRelativeTime()
+              ├─ is_* → Boolean badge
+              └─ default → Plain text
+       │
+       ▼
+┌────────────────────┐
+│  Rendered Element  │
+└────────────────────┘
+
+       │
+       ├─ Edit Mode ──────────────────┐
+       │                              │
+       ▼                              ▼
+┌──────────────┐              ┌──────────────────┐
+│ renderField()│              │ Special Component│
+└──────────────┘              │ (File/Select)    │
+       │                      └──────────────────┘
+       ▼
+┌────────────────────┐
+│ renderFieldEdit()  │
+└────────────────────┘
+       │
+       ├─ inlineMode? → Apply table/form styling
+       └─ editType? → Return input component
+              │
+              ├─ number → <input type="number" />
+              ├─ date → <input type="date" />
+              ├─ checkbox → <input type="checkbox" />
+              └─ text → <input type="text" />
+       │
+       ▼
+┌────────────────────┐
+│  Input Component   │
+└────────────────────┘
+       │
+       ▼
+  onChange(key, value)
+       │
+       ▼
+┌────────────────────┐
+│ transformForApi()  │
+└────────────────────┘
+       │
+       ▼
+    API Call
+```
+
+---
 
 ## Usage Examples
 
-### 1. Auto-Detect Format from Column
+### Example 1: EntityDataTable
 
 ```typescript
-import { detectFieldFormat } from '@/lib/universalFormatterService';
+// View mode
+{renderField({
+  fieldKey: 'budget_allocated_amt',
+  value: 50000,
+  mode: 'view',
+  data: record
+})}
+// Renders: <span className="font-medium">$50,000.00</span>
 
-// Example: budget_allocated_amt column
-const format = detectFieldFormat('budget_allocated_amt', 'numeric');
-// Result: {
-//   type: 'currency',
-//   label: 'Budget Allocated',
-//   width: '120px',
-//   align: 'right',
-//   sortable: true,
-//   filterable: true,
-//   editable: true,
-//   editType: 'number'
-// }
+// Edit mode (inline table editing)
+{renderField({
+  fieldKey: 'budget_allocated_amt',
+  value: editedData['budget_allocated_amt'],
+  mode: 'edit',
+  onChange: (key, val) => handleInlineEdit(recordId, key, val),
+  inlineMode: true  // ← Bordered input for tables
+})}
+// Renders: <input type="number" className="border rounded..." />
 ```
 
-### 2. Format Value for Display
+### Example 2: EntityFormContainer
 
 ```typescript
-import { formatFieldValue } from '@/lib/universalFormatterService';
-
-// Currency
-formatFieldValue(50000, 'currency');          // "$50,000.00"
-
-// Date
-formatFieldValue('2025-01-15', 'date');        // "Jan 15, 2025"
-
-// Relative time
-formatFieldValue('2025-01-15T10:30:00Z', 'relative-time');  // "2 hours ago"
-
-// Percentage
-formatFieldValue(75.5, 'percentage');          // "75.5%"
-
-// Boolean
-formatFieldValue(true, 'boolean');             // "Yes"
-
-// Tags
-formatFieldValue(['tag1', 'tag2'], 'tags');    // "tag1, tag2"
+// Form field rendering
+{fields.map(field => (
+  <div key={field.key} className="form-field">
+    <label>{field.label}</label>
+    {renderField({
+      fieldKey: field.key,
+      value: data[field.key],
+      mode: isEditing ? 'edit' : 'view',
+      onChange: handleChange,
+      required: field.required,
+      inlineMode: false,  // ← Borderless for forms
+      loadDataLabels: field.loadDataLabels
+    })}
+  </div>
+))}
 ```
 
-### 3. Render as React Element
+### Example 3: Data Label with Hint
 
 ```typescript
-import { renderFieldDisplay } from '@/lib/universalFormatterService';
-
-// Currency with styling
-const currencyElement = renderFieldDisplay(50000, { type: 'currency' });
-// <span>$50,000.00</span>
-
-// Badge with color
-const badgeElement = renderFieldDisplay('planning', {
-  type: 'badge',
-  settingsDatalabel: 'project_stage'
-});
-// <span class="badge badge-blue">Planning</span>
-
-// Boolean badge
-const boolElement = renderFieldDisplay(true, { type: 'boolean' });
-// <span class="badge badge-green">Active</span>
-
-// Tags list
-const tagsElement = renderFieldDisplay(['tag1', 'tag2', 'tag3'], { type: 'tags' });
-// <span><badge>tag1</badge> <badge>tag2</badge> <badge>tag3</badge></span>
-```
-
-### 4. Render Settings Badge
-
-```typescript
-import { renderSettingBadge, loadSettingsColors } from '@/lib/universalFormatterService';
-
-// Preload colors from API (cached)
-await loadSettingsColors('project_stage');
-
-// Render badge with database color
-const badge = renderSettingBadge('blue', 'Planning');
-// <span class="badge bg-blue-100 text-blue-800">Planning</span>
-
-// OR use datalabel-based lookup
-const badge2 = renderSettingBadge('Planning', { datalabel: 'project_stage' });
-// Auto-fetches color from cache, renders with correct color
-```
-
-### 5. Generate Field Label
-
-```typescript
-import { generateFieldLabel } from '@/lib/universalFormatterService';
-
-generateFieldLabel('budget_allocated_amt');    // "Budget Allocated"
-generateFieldLabel('dl__project_stage');       // "Project Stage"
-generateFieldLabel('manager_employee_id');     // "Manager Employee"
-generateFieldLabel('updated_ts');              // "Updated"
-generateFieldLabel('active_flag');             // "Active"
-```
-
-### 6. Get Edit Type
-
-```typescript
-import { getEditType } from '@/lib/universalFormatterService';
-
-getEditType('budget_allocated_amt', 'numeric');     // "number"
-getEditType('dl__project_stage', 'varchar');        // "select"
-getEditType('active_flag', 'boolean');              // "boolean"
-getEditType('planned_start_date', 'date');          // "date"
-getEditType('tags', 'ARRAY');                       // "tags"
-getEditType('attachment', 'varchar');               // "file"
-getEditType('name', 'varchar');                     // "text"
-```
-
-## Field Capability Detection
-
-### Readonly Fields
-
-Automatically readonly (cannot be edited):
-
-- `id`
-- `created_ts`, `updated_ts`
-- `created_by`, `updated_by`
-- `from_ts`, `to_ts`
-- `parent_id`, `parent_type`, `parent_name`
-- `child_count`
-- `version`
-- `total_*`, `sum_*`, `avg_*`, `max_*`, `min_*` (computed fields)
-
-### Invisible Fields
-
-Hidden from UI by default:
-
-- All `*_id` fields (except `id`)
-- `metadata` field
-
-### File Upload Fields
-
-Auto-detected from column name:
-
-- `attachment`
-- `attachment_object_key`
-- `*_file`
-- `*_document`
-
-## Badge Color System
-
-### Color Mapping
-
-Database `color_code` → Tailwind CSS classes:
-
-```typescript
-const COLOR_MAP = {
-  'blue': 'bg-dark-100 text-dark-600 border border-dark-400',
-  'purple': 'bg-purple-100 text-purple-800 border border-purple-200',
-  'green': 'bg-green-100 text-green-800 border border-green-200',
-  'red': 'bg-red-100 text-red-800 border border-red-200',
-  'yellow': 'bg-yellow-100 text-yellow-800 border border-yellow-200',
-  'orange': 'bg-orange-100 text-orange-800 border border-orange-200',
-  'gray': 'bg-dark-100 text-dark-600 border border-dark-300',
-  'cyan': 'bg-cyan-100 text-cyan-800 border border-cyan-200',
-  'pink': 'bg-pink-100 text-pink-800 border border-pink-200',
-  'amber': 'bg-amber-100 text-amber-800 border border-amber-200'
+// Column doesn't follow dl__* convention
+const column = {
+  key: 'project_stage',
+  loadDataLabels: true  // ← Explicit hint
 };
+
+{renderField({
+  fieldKey: column.key,
+  value: 'Planning',
+  mode: 'view',
+  loadDataLabels: column.loadDataLabels  // ← Pass hint
+})}
+// Renders: renderDataLabelBadge('project_stage', 'Planning')
+// → 🟢 "Planning" badge
 ```
 
-### Color Cache
-
-Settings colors are cached to avoid repeated API calls:
+### Example 4: Custom Renderer with Fallback
 
 ```typescript
-// Preload colors for multiple datalabels
-await preloadSettingsColors(['project_stage', 'task_priority', 'task_stage']);
-
-// Colors are cached and reused across all renders
+{renderField({
+  fieldKey: 'budget_allocated_amt',
+  value: 50000,
+  mode: 'view',
+  customRender: (value, record) => {
+    if (record.is_critical) {
+      return <span className="text-red-600 font-bold">${value}</span>;
+    }
+    // Return null to fallback to auto-detection
+    return null;
+  }
+})}
+// If is_critical: Custom rendering
+// Otherwise: Auto-detection → formatCurrency()
 ```
 
-## Integration with Components
+---
 
-### EntityDataTable
+## Critical Considerations for Developers
+
+### ✅ DO
+
+1. **Trust auto-detection** - Use naming conventions (dl__*, *_amt, etc.)
+2. **Use renderField() directly** - Don't create wrapper functions
+3. **Handle empty values** - All renderers return "—" for null/undefined
+4. **Preload colors** - Call `loadSettingsColors(datalabel)` on mount
+5. **Set inlineMode correctly** - `true` for tables, `false` for forms
+6. **Use column hints** - When naming conventions can't express intent
+
+### ❌ DON'T
+
+1. **Don't bypass renderField()** - Even for "simple" text fields
+2. **Don't duplicate formatting** - Import from this service
+3. **Don't hardcode field types** - Let detection work
+4. **Don't create new badge renderers** - Use `renderDataLabelBadge()`
+5. **Don't forget onChange** - Required for edit mode
+6. **Don't mix inline/form styles** - Use inlineMode parameter
+
+---
+
+## Breaking Changes (v3.5.0)
+
+### REMOVED (No Migration Path)
 
 ```typescript
-import { detectFieldFormat, renderFieldDisplay } from '@/lib/universalFormatterService';
+// ❌ REMOVED - Use renderDataLabelBadge()
+renderSettingBadge(colorCode, value)
 
-// Auto-detect all column formats
-const columns = dbColumns.map(col => {
-  const format = detectFieldFormat(col.name, col.dataType);
-  return {
-    ...format,
-    // Use renderFieldDisplay for cell rendering
-    render: (value) => renderFieldDisplay(value, format)
-  };
-});
+// ❌ REMOVED - Use renderDataLabelBadge()
+renderColorBadge(colorCode, value)
+
+// ❌ REMOVED - Use renderField() with hints
+createSettingBadgeRenderer(datalabel)
+
+// ❌ REMOVED - Use loadDataLabels
+column.loadOptionsFromSettings
 ```
 
-### EntityFormContainer
+### Replacements
 
 ```typescript
-import { detectFieldFormat, getEditType } from '@/lib/universalFormatterService';
+// OLD
+renderSettingBadge('blue', 'Planning')
 
-// Auto-detect field edit types
-const fields = dbColumns.map(col => {
-  const editType = getEditType(col.name, col.dataType);
-  const label = generateFieldLabel(col.name);
-  return { name: col.name, editType, label };
-});
+// NEW
+renderDataLabelBadge('blue', 'Planning')
+
+---
+
+// OLD
+column.loadOptionsFromSettings = true
+
+// NEW
+column.loadDataLabels = true
+
+---
+
+// OLD
+render: createSettingBadgeRenderer('project_stage')
+
+// NEW
+renderField({
+  fieldKey: 'project_stage',
+  value: 'Planning',
+  mode: 'view',
+  loadDataLabels: true
+})
 ```
 
-### FilteredDataTable
-
-```typescript
-import { formatFieldValue } from '@/lib/universalFormatterService';
-
-// Format filter values
-const formattedValue = formatFieldValue(filterValue, columnFormat.type);
-```
-
-## Benefits
-
-### Before (Without Service)
-
-```typescript
-// CURRENCY: Manual formatting in every component
-const formatted = `$${Number(value).toFixed(2)}`;
-
-// DATE: Inconsistent date formatting
-const date1 = new Date(value).toLocaleDateString();
-const date2 = moment(value).format('MMM DD, YYYY');
-const date3 = value.substring(0, 10);
-
-// BADGE: Manual badge rendering
-<span className="px-2 py-1 rounded bg-blue-100 text-blue-800">
-  {value}
-</span>
-
-// RESULT: 50+ different formatting implementations across codebase
-```
-
-### After (With Service)
-
-```typescript
-import {
-  detectFieldFormat,
-  formatFieldValue,
-  renderFieldDisplay
-} from '@/lib/universalFormatterService';
-
-// Auto-detect format
-const format = detectFieldFormat('budget_allocated_amt', 'numeric');
-
-// Format value
-const formatted = formatFieldValue(value, format.type);
-
-// OR render as React element
-const element = renderFieldDisplay(value, format);
-
-// RESULT: Single source of truth, 100% consistency
-```
-
-## TypeScript Types
-
-```typescript
-export type FormatType =
-  | 'text' | 'currency' | 'number' | 'percentage'
-  | 'date' | 'datetime' | 'relative-time'
-  | 'badge' | 'tags' | 'reference' | 'boolean';
-
-export type EditType =
-  | 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time'
-  | 'select' | 'multiselect' | 'checkbox' | 'boolean'
-  | 'textarea' | 'tags' | 'jsonb' | 'datatable' | 'file'
-  | 'dag-select' | 'readonly';
-
-export interface FieldFormat {
-  type: FormatType;
-  label: string;
-  width: string;
-  align: 'left' | 'center' | 'right';
-  sortable: boolean;
-  filterable: boolean;
-  editable: boolean;
-  editType: EditType;
-  settingsDatalabel?: string;
-  entityType?: string;
-  dateFormat?: string;
-}
-```
-
-## Configuration Files
-
-### Locale Configuration
-
-**Location**: `apps/web/src/lib/config/locale.ts`
-
-```typescript
-export const formatters = {
-  currency: (value: number) => new Intl.NumberFormat('en-CA', {
-    style: 'currency',
-    currency: 'CAD'
-  }).format(value),
-
-  number: (value: number) => new Intl.NumberFormat('en-CA').format(value),
-
-  percentage: (value: number) => `${value}%`,
-
-  date: (value: string) => new Date(value).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  }),
-
-  datetime: (value: string) => new Date(value).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit'
-  })
-};
-```
-
-### Display Configuration
-
-**Location**: `apps/web/src/lib/config/display.ts`
-
-```typescript
-export const DISPLAY_CONFIG = {
-  MAX_TAGS_DISPLAY: 3,
-  MAX_TEXT_LENGTH: 100
-};
-```
-
-## Anti-Patterns (Avoid)
-
-❌ **Manual formatting in components**:
-```typescript
-// WRONG - Manual formatting
-const formatted = `$${Number(value).toFixed(2)}`;
-```
-
-❌ **Hardcoded badge colors**:
-```typescript
-// WRONG - Hardcoded colors
-<span className="bg-blue-100 text-blue-800">{value}</span>
-```
-
-❌ **Inconsistent date formatting**:
-```typescript
-// WRONG - Different formats in different places
-const date1 = moment(value).format('MM/DD/YYYY');
-const date2 = new Date(value).toLocaleDateString();
-```
-
-❌ **Duplicate format detection logic**:
-```typescript
-// WRONG - Reimplementing detection
-if (columnName.endsWith('_amt')) {
-  // format as currency
-}
-```
-
-## Related Documentation
-
-- **Implementation**: `apps/web/src/lib/universalFormatterService.ts`
-- **Locale Config**: `apps/web/src/lib/config/locale.ts`
-- **Display Config**: `apps/web/src/lib/config/display.ts`
-- **Component Integration**: `apps/web/src/components/shared/ui/EntityDataTable.tsx`
+---
 
 ## Version History
 
-- **v1.0.0** (2025-01-17) - Initial implementation (1182 lines)
-- **Pattern**: Convention over Configuration
-- **Coverage**: 100% of frontend formatting needs
+| Version | Date | Changes |
+|---------|------|---------|
+| **3.5.0** | 2025-01-19 | Removed ALL backwards compatibility, purged deprecated wrappers |
+| 3.4.0 | 2025-01-18 | Added column hints system (loadDataLabels) |
+| 3.3.0 | 2025-01-17 | Renamed renderSettingBadge → renderDataLabelBadge |
+| 3.2.0 | 2025-01-15 | Added renderField() master API |
+| 3.1.0 | 2025-01-10 | Added React renderer functions |
+| 3.0.0 | 2025-01-05 | Consolidated detector + formatter into single service |
+
+---
+
+## File Details
+
+**Location**: `/home/user/pmo/apps/web/src/lib/universalFormatterService.tsx`
+**Size**: ~1900 lines
+**Dependencies**:
+- `react` - JSX rendering
+- `lucide-react` - Icon components (Copy, Check)
+- `./config/locale` - Intl formatters
+- `./config/display` - Display configuration
+
+**No API Dependencies** - Pure frontend service
+
+---
+
+**End of Document**

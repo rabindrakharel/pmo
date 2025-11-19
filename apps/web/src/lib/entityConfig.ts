@@ -136,15 +136,15 @@ export interface ColumnDef {
    * for use in inline editing dropdowns. The column key will be mapped to the appropriate
    * settings category.
    */
-  loadOptionsFromSettings?: boolean;
+  loadDataLabels?: boolean;
   /**
-   * Static options for inline editing dropdowns (alternative to loadOptionsFromSettings)
+   * Static options for inline editing dropdowns (alternative to loadDataLabels)
    * Use this when options are hardcoded (e.g., color_code field in settings tables)
    */
   options?: SettingOption[];
   /**
    * When true, this column can be edited inline in the DataTable.
-   * Fields with loadOptionsFromSettings automatically become editable with dropdowns.
+   * Fields with loadDataLabels automatically become editable with dropdowns.
    * Tags fields are also automatically editable with text inputs.
    */
   inlineEditable?: boolean;
@@ -170,10 +170,10 @@ export interface FieldDef {
    * The field key will be mapped to the appropriate settings category.
    * Example: project_stage → loads from setting_project_stage table
    *
-   * NOTE: Fields with loadOptionsFromSettings that contain 'stage' or 'funnel'
+   * NOTE: Fields with loadDataLabels that contain 'stage' or 'funnel'
    * in their name will automatically use DAGVisualizer for workflow visualization.
    */
-  loadOptionsFromSettings?: boolean;
+  loadDataLabels?: boolean;
   /**
    * When set, options will be dynamically loaded from the specified entity type.
    * Uses the universal entity options API to fetch {id, name} pairs.
@@ -1087,14 +1087,14 @@ export const entityConfigs: Record<string, EntityConfig> = {
 // ============================================================================
 
 /**
- * Automatically apply badge renderers to all columns with loadOptionsFromSettings
+ * Automatically apply badge renderers to all columns with loadDataLabels
  * This eliminates the need to manually specify render functions for settings fields
  *
  * BEFORE (Manual):
- * { key: 'project_stage', loadOptionsFromSettings: true, render: renderSettingBadge('project_stage') }
+ * { key: 'project_stage', loadDataLabels: true, render: renderSettingBadge('project_stage') }
  *
  * AFTER (Automatic):
- * { key: 'project_stage', loadOptionsFromSettings: true }  // ← render added automatically!
+ * { key: 'project_stage', loadDataLabels: true }  // ← render added automatically!
  */
 Object.keys(entityConfigs).forEach(entityKey => {
   const config = entityConfigs[entityKey];

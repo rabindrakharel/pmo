@@ -529,7 +529,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       body: Type.Object({
         name: Type.String({ minLength: 1, description: 'Artifact name' }),
         descr: Type.Optional(Type.String({ description: 'Description' })),
-        entityType: Type.String({ description: 'Entity type (e.g., "project", "task")' }),
+        entityCode: Type.String({ description: 'Entity type (e.g., "project", "task")' }),
         entityId: Type.String({ format: 'uuid', description: 'Entity UUID' }),
         fileName: Type.String({ description: 'File name with extension' }),
         contentType: Type.Optional(Type.String({ description: 'MIME type' })),
@@ -548,7 +548,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       // Generate presigned upload URL
       const uploadResult = await s3AttachmentService.generatePresignedUploadUrl({
         tenantId: 'demo',
-        entityType: data.entityType,
+        entityCode: data.entityCode,
         entityId: data.entityId,
         fileName: data.fileName,
         contentType: data.contentType});
@@ -576,7 +576,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           ${data.contentType?.startsWith('image/') ? 'image' : data.contentType?.startsWith('video/') ? 'video' : 'document'},
           ${fileExtension},
           ${data.fileSize || null},
-          ${data.entityType},
+          ${data.entityCode},
           ${data.entityId},
           ${config.S3_ATTACHMENTS_BUCKET},
           ${uploadResult.objectKey},
@@ -707,14 +707,14 @@ export async function artifactRoutes(fastify: FastifyInstance) {
   });
 
   // List artifacts by entity
-  fastify.get('/api/v1/artifact/entity/:entityType/:entityId', {
+  fastify.get('/api/v1/artifact/entity/:entityCode/:entityId', {
     preHandler: [fastify.authenticate],
     schema: {
       tags: ['artifact'],
       summary: 'List artifacts by entity',
       description: 'Get all artifacts linked to a specific entity',
       params: Type.Object({
-        entityType: Type.String({ description: 'Entity type (e.g., "project", "task")' }),
+        entityCode: Type.String({ description: 'Entity type (e.g., "project", "task")' }),
         entityId: Type.String({ format: 'uuid', description: 'Entity UUID' })}),
       querystring: Type.Object({
         limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 50 })),
@@ -723,7 +723,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         200: Type.Object({
           data: Type.Array(ArtifactSchema),
           total: Type.Integer()})}}}, async (request, reply) => {
-    const { entityType, entityId } = request.params as any;
+    const { entityCode, entityId } = request.params as any;
     const { limit = 50, offset = 0 } = request.query as any;
 
     try {
@@ -731,7 +731,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.artifact
-        WHERE entity_type = ${entityType}
+        WHERE entity_type = ${entityCode}
           AND entity_id = ${entityId}
           AND active_flag = true
       `);
@@ -741,7 +741,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       const rows = await db.execute(sql`
         SELECT *
         FROM app.artifact
-        WHERE entity_type = ${entityType}
+        WHERE entity_type = ${entityCode}
           AND entity_id = ${entityId}
           AND active_flag = true
         ORDER BY created_ts DESC
@@ -806,7 +806,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         // Generate presigned upload URL for backward compatibility
         const uploadResult = await s3AttachmentService.generatePresignedUploadUrl({
           tenantId: 'demo',
-          entityType: current.entity_type || 'artifact',
+          entityCode: current.entity_type || 'artifact',
           entityId: id,
           fileName: data.fileName,
           contentType: data.contentType});

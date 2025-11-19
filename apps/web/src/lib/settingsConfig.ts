@@ -10,9 +10,7 @@
  * All badge rendering logic moved to single source of truth.
  */
 
-import React from 'react';
 import {
-  renderSettingBadge,
   loadSettingsColors,
   COLOR_MAP
 } from './universalFormatterService';
@@ -43,83 +41,14 @@ export const COLOR_OPTIONS = [
 export { COLOR_MAP };
 
 // ============================================================================
-// BADGE RENDERERS - Wrappers for centralized functions
+// BADGE RENDERING - Direct use of universalFormatterService
+// ============================================================================
+// All badge rendering now done via renderDataLabelBadge() directly
+// Deprecated wrappers removed - use universal formatter service
 // ============================================================================
 
 /**
- * Universal Badge Renderer for Settings Tables
- *
- * USE CASE: Settings Tables (project_stage, task_priority, etc.)
- * - Pass color_code directly from record
- * - Example: renderColorBadge(record.color_code, value)
- *
- * @deprecated Use renderSettingBadge from universalFormatterService.ts directly
- */
-export function renderColorBadge(colorCode: string, label?: string): React.ReactElement {
-  return renderSettingBadge(colorCode, label);
-}
-
-/**
- * Create a badge renderer that fetches colors from settings database
- *
- * DRY SOLUTION for entity tables (project, task, client, etc.)
- *
- * Usage in entityConfig.ts:
- * ```typescript
- * {
- *   key: 'project_stage',
- *   title: 'Stage',
- *   render: createSettingBadgeRenderer('project_stage')
- * }
- * ```
- *
- * This replaces hardcoded color maps with database-driven colors.
- */
-export function createSettingBadgeRenderer(datalabel: string) {
-  // Preload colors for this datalabel
-  loadSettingsColors(datalabel);
-
-  // Return renderer function
-  return (value: string | null | undefined): React.ReactElement => {
-    return renderSettingBadge(value, { datalabel });
-  };
-}
-
-/**
- * Extract settings datalabel from field key
- *
- * Examples:
- * - dl__project_stage → dl__project_stage
- * - dl__customer_opportunity_funnel → dl__customer_opportunity_funnel
- * - project_stage → dl__project_stage (legacy support)
- * - stage → dl__task_stage (special case)
- * - priority_level → dl__task_priority (special case)
- */
-function extractSettingsDatalabel(fieldKey: string): string {
-  // If already has dl__ prefix, return as-is
-  if (fieldKey.startsWith('dl__')) {
-    return fieldKey;
-  }
-
-  // Remove common suffixes
-  let datalabel = fieldKey
-    .replace(/_name$/, '')
-    .replace(/_id$/, '')
-    .replace(/_level_id$/, '');
-
-  // Special mappings for short field names
-  const specialMappings: Record<string, string> = {
-    'stage': 'dl__task_stage',
-    'priority_level': 'dl__task_priority',
-    'status': 'dl__task_stage'
-  };
-
-  // Return with dl__ prefix
-  return specialMappings[datalabel] || `dl__${datalabel}`;
-}
-
-/**
- * DRY ENHANCEMENT: Automatically apply badge renderer to columns with loadOptionsFromSettings
+ * DRY ENHANCEMENT: Automatically apply badge renderer to columns with loadDataLabels
  *
  * This function processes column definitions and automatically adds:
  * - Database-driven badge rendering for settings fields
@@ -128,17 +57,17 @@ function extractSettingsDatalabel(fieldKey: string): string {
  * Usage:
  * ```typescript
  * const columns = applySettingsBadgeRenderers([
- *   { key: 'project_stage', title: 'Stage', loadOptionsFromSettings: true }
+ *   { key: 'project_stage', title: 'Stage', loadDataLabels: true }
  * ]);
- * // Automatically adds: render: renderSettingBadge('project_stage')
+ * // Automatically adds: render: renderDataLabelBadge('project_stage')
  * ```
  */
-export function applySettingsBadgeRenderers<T extends { key: string; loadOptionsFromSettings?: boolean; render?: any }>(
+export function applySettingsBadgeRenderers<T extends { key: string; loadDataLabels?: boolean; render?: any }>(
   columns: T[]
 ): T[] {
   return columns.map(col => {
-    // If loadOptionsFromSettings is true and no custom render function exists
-    if (col.loadOptionsFromSettings && !col.render) {
+    // If loadDataLabels is true and no custom render function exists
+    if (col.loadDataLabels && !col.render) {
       const datalabel = extractSettingsDatalabel(col.key);
       return {
         ...col,

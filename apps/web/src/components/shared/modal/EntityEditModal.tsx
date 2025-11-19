@@ -13,7 +13,7 @@ import { APIFactory } from '../../../lib/api';
  *
  * Usage:
  * <EntityEditModal
- *   entityType="task"
+ *   entityCode="task"
  *   entityId="123-456-789"
  *   isOpen={true}
  *   onClose={() => setIsOpen(false)}
@@ -22,7 +22,7 @@ import { APIFactory } from '../../../lib/api';
  */
 
 interface EntityEditModalProps {
-  entityType: string;
+  entityCode: string;
   entityId: string | null;
   isOpen: boolean;
   onClose: () => void;
@@ -30,13 +30,13 @@ interface EntityEditModalProps {
 }
 
 export function EntityEditModal({
-  entityType,
+  entityCode,
   entityId,
   isOpen,
   onClose,
   onSave
 }: EntityEditModalProps) {
-  const config = getEntityConfig(entityType);
+  const config = getEntityConfig(entityCode);
   const [data, setData] = useState<any>(null);
   const [editedData, setEditedData] = useState<any>({});
   const [loading, setLoading] = useState(true);
@@ -58,21 +58,21 @@ export function EntityEditModal({
         loadData();
       }
     }
-  }, [isOpen, entityId, entityType, isCreateMode]);
+  }, [isOpen, entityId, entityCode, isCreateMode]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const api = APIFactory.getAPI(entityType);
+      const api = APIFactory.getAPI(entityCode);
       const response = await api.get(entityId);
       const responseData = response.data || response;
 
       setData(responseData);
       setEditedData(responseData);
     } catch (err) {
-      console.error(`Failed to load ${entityType}:`, err);
+      console.error(`Failed to load ${entityCode}:`, err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       setLoading(false);
@@ -101,7 +101,7 @@ export function EntityEditModal({
         }
       });
 
-      const api = APIFactory.getAPI(entityType);
+      const api = APIFactory.getAPI(entityCode);
 
       if (isCreateMode) {
         // Create new record
@@ -116,7 +116,7 @@ export function EntityEditModal({
       }
       onClose();
     } catch (err) {
-      console.error(`Failed to save ${entityType}:`, err);
+      console.error(`Failed to save ${entityCode}:`, err);
       setError(err instanceof Error ? err.message : 'Failed to save changes');
     } finally {
       setSaving(false);

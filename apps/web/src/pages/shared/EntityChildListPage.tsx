@@ -289,7 +289,7 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
     if (view === 'table') {
       return (
         <FilteredDataTable
-          entityType={childType}
+          entityCode={childType}
           parentType={parentType}
           parentId={parentId}
           showActionButtons={false}
@@ -404,14 +404,14 @@ export function EntityChildListPage({ parentType, childType: propChildType }: En
  * Usage Examples:
  *
  * In routes (nested under parent detail route):
- * <Route path="/project/:id" element={<EntityDetailPage entityType="project" />}>
+ * <Route path="/project/:id" element={<EntityDetailPage entityCode="project" />}>
  *   <Route path="task" element={<EntityChildListPage parentType="project" childType="task" />} />
  *   <Route path="wiki" element={<EntityChildListPage parentType="project" childType="wiki" />} />
  *   <Route path="artifact" element={<EntityChildListPage parentType="project" childType="artifact" />} />
  *   <Route path="form" element={<EntityChildListPage parentType="project" childType="form" />} />
  * </Route>
  *
- * <Route path="/business/:id" element={<EntityDetailPage entityType="business" />}>
+ * <Route path="/business/:id" element={<EntityDetailPage entityCode="business" />}>
  *   <Route path="project" element={<EntityChildListPage parentType="business" childType="project" />} />
  * </Route>
  */

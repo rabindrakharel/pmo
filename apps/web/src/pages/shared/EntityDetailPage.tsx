@@ -25,21 +25,21 @@ import { useNavigationHistory } from '../../contexts/NavigationHistoryContext';
  * Integrates with DynamicChildEntityTabs for child entity navigation.
  *
  * Usage via routing:
- * - /project/:id -> EntityDetailPage with entityType="project"
- * - /task/:id -> EntityDetailPage with entityType="task"
- * - /wiki/:id -> EntityDetailPage with entityType="wiki"
+ * - /project/:id -> EntityDetailPage with entityCode="project"
+ * - /task/:id -> EntityDetailPage with entityCode="task"
+ * - /wiki/:id -> EntityDetailPage with entityCode="wiki"
  * etc.
  */
 
 interface EntityDetailPageProps {
-  entityType: string;
+  entityCode: string;
 }
 
-export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
+export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const config = getEntityConfig(entityType);
+  const config = getEntityConfig(entityCode);
   const { hideSidebar } = useSidebar();
   const { pushEntity, updateCurrentEntityName, updateCurrentEntityActiveTab } = useNavigationHistory();
 
@@ -73,7 +73,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   const [isUploadingFile, setIsUploadingFile] = useState(false);
 
   // Fetch dynamic child entity tabs from API
-  const { tabs, loading: tabsLoading } = useDynamicChildEntityTabs(entityType, id || '');
+  const { tabs, loading: tabsLoading } = useDynamicChildEntityTabs(entityCode, id || '');
 
   // Check if this entity has child entities (based on API response)
   const hasChildEntities = tabs && tabs.length > 0;
@@ -89,25 +89,25 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   // Prepare tabs with Overview as first tab - MUST be before any returns
   const allTabs = React.useMemo(() => {
     // Special handling for form entity - always show tabs
-    if (entityType === 'form') {
+    if (entityCode === 'form') {
       const overviewTab = {
         id: 'overview',
         label: 'Overview',
-        path: `/${entityType}/${id}`,
+        path: `/${entityCode}/${id}`,
         icon: undefined
       };
 
       const formDataTab = {
         id: 'form-data',
         label: 'Form Data',
-        path: `/${entityType}/${id}/form-data`,
+        path: `/${entityCode}/${id}/form-data`,
         icon: undefined
       };
 
       const editSubmissionTab = {
         id: 'edit-submission',
         label: 'Edit Form Submission',
-        path: `/${entityType}/${id}/edit-submission`,
+        path: `/${entityCode}/${id}/edit-submission`,
         icon: undefined
       };
 
@@ -122,7 +122,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
     const overviewTab = {
       id: 'overview',
       label: 'Overview',
-      path: `/${entityType}/${id}`,
+      path: `/${entityCode}/${id}`,
       icon: undefined
     };
 
@@ -132,13 +132,13 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
     );
 
     return [overviewTab, ...filteredTabs];
-  }, [tabs, entityType, id, hasChildEntities]);
+  }, [tabs, entityCode, id, hasChildEntities]);
 
   useEffect(() => {
     if (id) {
       loadData();
     }
-  }, [id, entityType]);
+  }, [id, entityCode]);
 
   // Auto-edit mode when navigating from child entity creation
   useEffect(() => {
@@ -154,13 +154,13 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   useEffect(() => {
     if (data && id) {
       pushEntity({
-        entityType,
+        entityCode,
         entityId: id,
         entityName: data.name || data.title || 'Untitled',
         timestamp: Date.now()
       });
     }
-  }, [data, id, entityType, pushEntity]);
+  }, [data, id, entityCode, pushEntity]);
 
   // Update entity name in navigation history when it changes
   useEffect(() => {
@@ -185,12 +185,12 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
       setError(null);
 
       // Type-safe API call using APIFactory
-      const api = APIFactory.getAPI(entityType);
+      const api = APIFactory.getAPI(entityCode);
       const response = await api.get(id!);
       let responseData = response.data || response;
 
       // Special handling for form entity - parse schema if it's a string
-      if (entityType === 'form' && responseData.form_schema && typeof responseData.form_schema === 'string') {
+      if (entityCode === 'form' && responseData.form_schema && typeof responseData.form_schema === 'string') {
         try {
           responseData = {
             ...responseData,
@@ -219,7 +219,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
       setEditedData(responseData);
       // Preview URL will be fetched by useEffect
     } catch (err) {
-      console.error(`Failed to load ${entityType}:`, err);
+      console.error(`Failed to load ${entityCode}:`, err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       setLoading(false);
@@ -229,7 +229,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
   const handleSave = async () => {
     try {
       // Special handling for artifact with new file upload (create new version)
-      if (entityType === 'artifact' && uploadedObjectKey && selectedFile) {
+      if (entityCode === 'artifact' && uploadedObjectKey && selectedFile) {
         const token = localStorage.getItem('auth_token');
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -268,8 +268,8 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
       }
 
       // Special handling for cost/revenue with new file upload (replace attachment)
-      if ((entityType === 'cost' || entityType === 'revenue') && uploadedObjectKey) {
-        const attachmentField = entityType === 'cost' ? 'invoice_attachment' : 'sales_receipt_attachment';
+      if ((entityCode === 'cost' || entityCode === 'revenue') && uploadedObjectKey) {
+        const attachmentField = entityCode === 'cost' ? 'invoice_attachment' : 'sales_receipt_attachment';
         editedData[attachmentField] = `s3://cohuron-attachments-prod-957207443425/${uploadedObjectKey}`;
 
         // Reset file upload state after adding to edited data
@@ -289,11 +289,11 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
       delete dataToUpdate.assignee_employee_names; // Remove computed field
 
       // Type-safe API call using APIFactory
-      const api = APIFactory.getAPI(entityType);
+      const api = APIFactory.getAPI(entityCode);
       await api.update(id!, dataToUpdate);
 
       // Handle assignees separately via linkage API (only for task entity)
-      if (entityType === 'task' && assigneeIds !== undefined) {
+      if (entityCode === 'task' && assigneeIds !== undefined) {
         await updateTaskAssignees(id!, assigneeIds);
       }
 
@@ -304,7 +304,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
       setIsEditing(false);
       // Optionally show success toast
     } catch (err) {
-      console.error(`Failed to update ${entityType}:`, err);
+      console.error(`Failed to update ${entityCode}:`, err);
       alert(err instanceof Error ? err.message : 'Failed to update');
     }
   };
@@ -406,14 +406,14 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
 
   const handleTabClick = (tabPath: string) => {
     if (tabPath === 'overview') {
-      navigate(`/${entityType}/${id}`);
+      navigate(`/${entityCode}/${id}`);
     } else {
-      navigate(`/${entityType}/${id}/${tabPath}`);
+      navigate(`/${entityCode}/${id}/${tabPath}`);
     }
   };
 
   const handleDownload = async () => {
-    if (entityType !== 'artifact' || !data?.attachment_object_key) {
+    if (entityCode !== 'artifact' || !data?.attachment_object_key) {
       alert('No file available for download');
       return;
     }
@@ -454,10 +454,10 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
     setIsUploadingFile(true);
     try {
       const tempId = `temp-${Date.now()}`;
-      const uploadType = entityType === 'cost' ? 'invoice' : entityType === 'revenue' ? 'receipt' : 'artifact';
+      const uploadType = entityCode === 'cost' ? 'invoice' : entityCode === 'revenue' ? 'receipt' : 'artifact';
 
       const objectKey = await uploadToS3({
-        entityType: entityType === 'cost' || entityType === 'revenue' ? entityType : 'artifact',
+        entityCode: entityCode === 'cost' || entityCode === 'revenue' ? entityCode : 'artifact',
         entityId: tempId,
         file: selectedFile,
         fileName: selectedFile.name,
@@ -513,7 +513,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
       const token = localStorage.getItem('auth_token');
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
-      const response = await fetch(`${apiUrl}/api/v1/${entityType}/${id}/share-url`, {
+      const response = await fetch(`${apiUrl}/api/v1/${entityCode}/${id}/share-url`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -560,7 +560,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
     return (
       <Layout>
         <div className="text-center py-12">
-          <p className="text-red-600">Entity configuration not found for: {entityType}</p>
+          <p className="text-red-600">Entity configuration not found for: {entityCode}</p>
         </div>
       </Layout>
     );
@@ -605,7 +605,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
           <div className="flex items-center justify-between py-3 border-b border-gray-100">
           <div className="flex items-center space-x-4 flex-1 min-w-0">
             {/* Exit button on left */}
-            <ExitButton entityType={entityType} isDetailPage={true} />
+            <ExitButton entityCode={entityCode} isDetailPage={true} />
 
             <div className="flex-1 min-w-0 px-2">
               {/* Compact metadata row using DRY components */}
@@ -685,10 +685,10 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                   </>
                 )}
 
-                <MetadataSeparator show={!!(entityType === 'artifact' && data.version && id)} />
+                <MetadataSeparator show={!!(entityCode === 'artifact' && data.version && id)} />
 
                 {/* Version badge (for artifacts) */}
-                {entityType === 'artifact' && data.version && (
+                {entityCode === 'artifact' && data.version && (
                   <MetadataField
                     label="version"
                     value={`v${data.version}`}
@@ -711,7 +711,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
             {!isEditing ? (
               <>
                 {/* Special Design Email button for marketing entity */}
-                {entityType === 'marketing' && (
+                {entityCode === 'marketing' && (
                   <Button
                     variant="primary"
                     icon={Palette}
@@ -721,7 +721,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                   </Button>
                 )}
                 {/* Download button for artifact entity with attachment_object_key */}
-                {entityType === 'artifact' && data?.attachment_object_key && (
+                {entityCode === 'artifact' && data?.attachment_object_key && (
                   <button
                     onClick={handleDownload}
                     className="p-2 hover:bg-gray-50 rounded-md transition-colors"
@@ -733,7 +733,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 {/* Link button for managing entity relationships */}
                 <button
                   onClick={() => linkageModal.openAssignParent({
-                    childEntityType: entityType,
+                    childEntityType: entityCode,
                     childEntityId: id!,
                     childEntityName: data?.name || data?.title
                   })}
@@ -756,9 +756,9 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 <button
                   onClick={() => {
                     // Special handling for form entity - navigate to edit page
-                    if (entityType === 'form') {
+                    if (entityCode === 'form') {
                       navigate(`/form/${id}/edit`);
-                    } else if (entityType === 'marketing') {
+                    } else if (entityCode === 'marketing') {
                       navigate(`/marketing/${id}/design`);
                     } else {
                       setIsEditing(true);
@@ -796,7 +796,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
             <div className="mt-4 border-b border-gray-100">
               <DynamicChildEntityTabs
                 title={data?.name || data?.title || config.displayName}
-                parentType={entityType}
+                parentType={entityCode}
                 parentId={id!}
                 parentName={data?.name || data?.title}
                 tabs={allTabs}
@@ -812,18 +812,18 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
           // Overview Tab - Entity Details
           <>
             {/* Entity-specific content - METADATA COMES FIRST */}
-            {entityType === 'wiki' ? (
+            {entityCode === 'wiki' ? (
             // Special Wiki Content Renderer
             <WikiContentRenderer
               data={data}
               onEdit={() => navigate(`/wiki/${id}/edit`)}
             />
-          ) : entityType === 'marketing' ? (
+          ) : entityCode === 'marketing' ? (
             // Special Email Template Renderer
             <div className="space-y-4">
               <EmailTemplateRenderer template={data} />
             </div>
-          ) : entityType === 'form' ? (
+          ) : entityCode === 'form' ? (
             // Special Interactive Form Renderer
             <div className="space-y-4 bg-dark-100 border border-dark-300 rounded-xl p-6 shadow-sm">
               {(() => {
@@ -888,7 +888,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
               />
 
               {/* Task Data Container - Only show for task entity */}
-              {entityType === 'task' && (
+              {entityCode === 'task' && (
                 <TaskDataContainer
                   taskId={id!}
                   projectId={data.project_id || undefined}
@@ -902,9 +902,9 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
           )}
 
             {/* File Preview Section - For artifacts, cost, and revenue - BELOW METADATA */}
-            {(entityType === 'artifact' || entityType === 'cost' || entityType === 'revenue') && data && (
+            {(entityCode === 'artifact' || entityCode === 'cost' || entityCode === 'revenue') && data && (
               <FilePreview
-                entityType={entityType as 'artifact' | 'cost' | 'revenue'}
+                entityCode={entityCode as 'artifact' | 'cost' | 'revenue'}
                 entityId={id!}
                 data={data}
                 isEditing={isEditing}
@@ -912,9 +912,9 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
             )}
 
             {/* File Upload for Artifacts, Cost, Revenue - Only in Edit Mode */}
-            {(entityType === 'artifact' || entityType === 'cost' || entityType === 'revenue') && isEditing && (
+            {(entityCode === 'artifact' || entityCode === 'cost' || entityCode === 'revenue') && isEditing && (
               <DragDropFileUpload
-                entityType={entityType as 'artifact' | 'cost' | 'revenue'}
+                entityCode={entityCode as 'artifact' | 'cost' | 'revenue'}
                 selectedFile={selectedFile}
                 uploadedObjectKey={uploadedObjectKey}
                 isUploading={isUploadingFile}
@@ -922,7 +922,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
                 onFileRemove={handleRemoveFile}
                 onFileUpload={handleFileUpload}
                 uploadError={uploadErrors.default}
-                accept={entityType === 'cost' || entityType === 'revenue' ? '.pdf,.png,.jpg,.jpeg' : undefined}
+                accept={entityCode === 'cost' || entityCode === 'revenue' ? '.pdf,.png,.jpg,.jpeg' : undefined}
               />
             )}
           </>
@@ -953,7 +953,7 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
       <ShareModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
-        entityType={entityType}
+        entityCode={entityCode}
         entityId={id!}
         entityName={data?.name || data?.title}
         currentSharedUrl={data?.shared_url}
@@ -981,13 +981,13 @@ export function EntityDetailPage({ entityType }: EntityDetailPageProps) {
  * Usage Examples:
  *
  * In routes:
- * <Route path="/project/:id" element={<EntityDetailPage entityType="project" />}>
- *   <Route path="task" element={<EntityChildListPage entityType="task" />} />
- *   <Route path="wiki" element={<EntityChildListPage entityType="wiki" />} />
- *   <Route path="artifact" element={<EntityChildListPage entityType="artifact" />} />
+ * <Route path="/project/:id" element={<EntityDetailPage entityCode="project" />}>
+ *   <Route path="task" element={<EntityChildListPage entityCode="task" />} />
+ *   <Route path="wiki" element={<EntityChildListPage entityCode="wiki" />} />
+ *   <Route path="artifact" element={<EntityChildListPage entityCode="artifact" />} />
  * </Route>
  *
- * <Route path="/task/:id" element={<EntityDetailPage entityType="task" />} />
- * <Route path="/wiki/:id" element={<EntityDetailPage entityType="wiki" />} />
- * <Route path="/artifact/:id" element={<EntityDetailPage entityType="artifact" />} />
+ * <Route path="/task/:id" element={<EntityDetailPage entityCode="task" />} />
+ * <Route path="/wiki/:id" element={<EntityDetailPage entityCode="wiki" />} />
+ * <Route path="/artifact/:id" element={<EntityDetailPage entityCode="artifact" />} />
  */

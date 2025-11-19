@@ -28,7 +28,6 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronUp, Search, Filter, Columns, ChevronLeft, ChevronRight, Edit, Share, Trash2, X, Plus, Check } from 'lucide-react';
 import {
-  isSettingField,
   loadFieldOptions,
   getSettingDatalabel,
   type SettingOption
@@ -36,13 +35,11 @@ import {
 import {
   getFieldCapability,
   type FieldCapability,
-  formatCurrency,
-  isCurrencyField,
-  renderSettingBadge,
+  renderDataLabelBadge,
   COLOR_MAP,
   getSettingColor,
   loadSettingsColors,
-  formatRelativeTime
+  renderField
 } from '../../../lib/universalFormatterService';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 
@@ -51,35 +48,12 @@ import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 // ============================================================================
 import { generateDataTableConfig, type DataTableColumn } from '../../../lib/viewConfigGenerator';
 
-/**
- * Helper function to render cell value with automatic formatting
- */
-function renderCellValue(column: Column, value: any): React.ReactNode {
-  // Return empty state if no value
-  if (value === null || value === undefined || value === '') {
-    return <span className="text-dark-600 italic">—</span>;
-  }
-
-  // Settings fields with colored badges (loadOptionsFromSettings: true)
-  if (column.loadOptionsFromSettings && typeof value === 'string') {
-    const datalabel = extractSettingsDatalabel(column.key);
-    const colorCode = getSettingColor(datalabel, value);
-    return renderSettingBadge(colorCode, value);
-  }
-
-  // Auto-format currency fields
-  if (isCurrencyField(column.key) && typeof value === 'number') {
-    return formatCurrency(value);
-  }
-
-  // Auto-format timestamp fields (_ts, _at suffixes)
-  if (/_ts$|_at$|timestamp/i.test(column.key)) {
-    return formatRelativeTime(value);
-  }
-
-  // Default: toString
-  return value.toString();
-}
+// ============================================================================
+// CELL RENDERING: 100% Universal System
+// ============================================================================
+// ALL field rendering (view + edit modes) now handled by renderField()
+// from universalFormatterService - single source of truth with zero duplication
+// ============================================================================
 
 /**
  * Extract settings datalabel from column key
@@ -97,7 +71,7 @@ function extractSettingsDatalabel(columnKey: string): string {
     return mapped;
   }
 
-  // Fallback: strip common suffixes for backwards compatibility
+  // Fallback: strip common suffixes for legacy field patterns
   return columnKey
     .replace(/_name$/, '')
     .replace(/_id$/, '')
@@ -206,7 +180,7 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
           maxHeight: '32px'}}
       >
         {selectedOption ? (
-          renderSettingBadge(selectedColor, String(selectedOption.label))
+          renderDataLabelBadge(selectedColor, String(selectedOption.label))
         ) : (
           <span className="text-dark-600">Select...</span>
         )}
@@ -243,7 +217,7 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-dark-100 transition-colors flex items-center"
                 >
-                  {renderSettingBadge(optionColor, String(opt.label))}
+                  {renderDataLabelBadge(optionColor, String(opt.label))}
                 </button>
               );
             })}
@@ -274,16 +248,16 @@ export interface Column<T = any> {
   editType?: 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time' |
              'select' | 'multiselect' | 'checkbox' | 'textarea' | 'tags' |
              'jsonb' | 'datatable' | 'file' | 'dag-select';
-  loadOptionsFromSettings?: boolean;
+  loadDataLabels?: boolean;
   loadFromEntity?: string;         // Load options from entity API (e.g., 'employee', 'project')
   /**
-   * Static options for inline editing dropdowns (alternative to loadOptionsFromSettings)
+   * Static options for inline editing dropdowns (alternative to loadDataLabels)
    * Use this when options are hardcoded (e.g., color_code field in settings tables)
    */
   options?: SettingOption[];
   /**
    * When true, this column can be edited inline in the DataTable.
-   * Fields with loadOptionsFromSettings automatically become editable with dropdowns.
+   * Fields with loadDataLabels automatically become editable with dropdowns.
    * Tags fields are also automatically editable with text inputs.
    */
   inlineEditable?: boolean;
@@ -411,7 +385,7 @@ export function EntityDataTable<T = any>({
   }, [autoGenerateColumns, data.length, data.length > 0 ? Object.keys(data[0]).length : 0, ...(data.length > 0 ? Object.keys(data[0]).sort() : [])]);
 
   const columns = useMemo(() => {
-    // If columns explicitly provided, use them (backward compatibility)
+    // If columns explicitly provided, use them (legacy field patterns)
     if (initialColumns && initialColumns.length > 0) {
       return initialColumns;
     }
@@ -429,13 +403,13 @@ export function EntityDataTable<T = any>({
         sortable: col.sortable,
         filterable: col.filterable,
         searchable: col.searchable,
-        // Don't set render for fields with loadFromSettings - let renderCellValue handle badge rendering
+        // Don't set render for fields with loadFromSettings - renderField() will handle badge rendering via hints
         render: col.loadFromSettings ? undefined : col.render,
         width: col.width,
         align: col.align,
         editable: col.editable,
         editType: col.editType,
-        loadOptionsFromSettings: col.loadFromSettings,
+        loadDataLabels: col.loadFromSettings,
         loadFromEntity: col.loadFromEntity} as Column<T>));
     }
 
@@ -531,7 +505,7 @@ export function EntityDataTable<T = any>({
       // Find all columns that need dynamic settings using capability detection
       const columnsNeedingSettings = columns.filter(col => {
         const capability = columnCapabilities.get(col.key);
-        return capability?.loadOptionsFromSettings;
+        return capability?.loadDataLabels;
       });
 
       // Load options for each column
@@ -561,10 +535,10 @@ export function EntityDataTable<T = any>({
   // Preload colors for all settings columns (for filter dropdowns and inline edit)
   useEffect(() => {
     const preloadColors = async () => {
-      // Find all columns with loadOptionsFromSettings
+      // Find all columns with loadDataLabels
       const settingsColumns = columns.filter(col => {
         const capability = columnCapabilities.get(col.key);
-        return col.loadOptionsFromSettings || capability?.loadOptionsFromSettings;
+        return col.loadDataLabels || capability?.loadDataLabels;
       });
 
       // Extract datalabels and preload colors
@@ -1149,7 +1123,7 @@ export function EntityDataTable<T = any>({
                               // Check if this column has settings options loaded
                               const selectedColumn = columns.find(col => col.key === selectedFilterColumn);
                               const capability = columnCapabilities.get(selectedFilterColumn);
-                              const isSettingsField = selectedColumn?.loadOptionsFromSettings || capability?.loadOptionsFromSettings;
+                              const isSettingsField = selectedColumn?.loadDataLabels || capability?.loadDataLabels;
 
                               // If this is a settings field, look up the color from centralized cache
                               let colorCode: string | undefined;
@@ -1178,7 +1152,7 @@ export function EntityDataTable<T = any>({
                                   <div className="flex-1 min-w-0">
                                     {isSettingsField ? (
                                       // Settings field - always render badge (with or without color)
-                                      colorCode ? renderSettingBadge(colorCode, option) : renderSettingBadge(undefined, option)
+                                      colorCode ? renderDataLabelBadge(colorCode, option) : renderDataLabelBadge(undefined, option)
                                     ) : (
                                       // Non-settings field - render text
                                       <span className="text-sm text-dark-600 group-hover:text-dark-600 truncate">{option}</span>
@@ -1307,7 +1281,7 @@ export function EntityDataTable<T = any>({
                     // Check if this column is a settings field
                     const column = columns.find(col => col.key === columnKey);
                     const capability = columnCapabilities.get(columnKey);
-                    const isSettingsField = column?.loadOptionsFromSettings || capability?.loadOptionsFromSettings;
+                    const isSettingsField = column?.loadDataLabels || capability?.loadDataLabels;
 
                     // If this is a settings field, look up the color from centralized cache
                     let colorCode: string | undefined;
@@ -1554,20 +1528,23 @@ export function EntityDataTable<T = any>({
                           onClick={(e) => isEditing && e.stopPropagation()}
                         >
                           {isEditing && fieldEditable ? (
-                            // FILE UPLOAD FIELD (drag-drop)
+                            // ============================================================================
+                            // EDIT MODE - Universal Field Renderer
+                            // ============================================================================
+                            // Special cases that need custom components
                             editType === 'file' ? (
+                              // FILE UPLOAD - Complex drag-drop component
                               <InlineFileUploadCell
                                 value={(record as any)[column.key]}
-                                entityType={onEdit ? 'artifact' : 'cost'} // Inferred from context
+                                entityCode={onEdit ? 'artifact' : 'cost'}
                                 entityId={(record as any).id}
                                 fieldName={column.key}
                                 accept={capability?.acceptedFileTypes}
                                 onUploadComplete={(fileUrl) => onInlineEdit?.(recordId, column.key, fileUrl)}
                                 disabled={false}
                               />
-                            ) :
-                            // COLOR PICKER FIELD (for settings entities)
-                            column.key === 'color_code' && colorOptions ? (
+                            ) : column.key === 'color_code' && colorOptions ? (
+                              // COLOR PICKER - Entity-specific field for settings tables
                               <div className="relative w-full">
                                 <select
                                   value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
@@ -1590,117 +1567,33 @@ export function EntityDataTable<T = any>({
                                     </option>
                                   ))}
                                 </select>
-                                {/* Custom dropdown arrow */}
                                 <ChevronDown className="h-4 w-4 text-dark-700 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                               </div>
-                            ) :
-                            // SETTINGS DROPDOWN FIELD WITH COLORED BADGES
-                            editType === 'select' && hasSettingOptions ? (
+                            ) : editType === 'select' && hasSettingOptions ? (
+                              // SETTINGS DROPDOWN - ColoredDropdown component for dl__* fields
                               <ColoredDropdown
                                 value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
                                 options={columnOptions}
                                 onChange={(value) => onInlineEdit?.(recordId, column.key, value)}
                                 onClick={(e) => e.stopPropagation()}
                               />
-                            ) :
-                            // TAGS FIELD (comma-separated text)
-                            editType === 'tags' ? (
-                              <input
-                                type="text"
-                                value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
-                                onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                placeholder="Enter tags (comma-separated)"
-                                className="w-full px-2 py-1.5 border border-dark-400 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500"
-                                style={{
-                                  fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
-                                  fontSize: '14px',
-                                  color: '#37352F'
-                                }}
-                              />
-                            ) :
-                            // NUMBER FIELD
-                            editType === 'number' ? (
-                              <input
-                                type="number"
-                                value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
-                                onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-full px-2 py-1.5 border border-dark-400 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500"
-                                style={{
-                                  fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
-                                  fontSize: '14px',
-                                  color: '#37352F'
-                                }}
-                              />
-                            ) :
-                            // DATE FIELD
-                            editType === 'date' ? (
-                              <input
-                                type="date"
-                                value={(() => {
-                                  const dateValue = editedData[column.key] ?? (record as any)[column.key];
-                                  if (!dateValue) return '';
-                                  // Format to yyyy-MM-dd if it's a full ISO timestamp
-                                  try {
-                                    const date = new Date(dateValue);
-                                    if (isNaN(date.getTime())) return '';
-                                    return date.toISOString().split('T')[0];
-                                  } catch {
-                                    return '';
-                                  }
-                                })()}
-                                onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value || null)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-full px-2 py-1.5 border border-dark-400 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500"
-                                style={{
-                                  fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
-                                  fontSize: '14px',
-                                  color: '#37352F'
-                                }}
-                              />
-                            ) :
-                            // BOOLEAN FIELD (checkbox)
-                            editType === 'boolean' ? (
-                              <input
-                                type="checkbox"
-                                checked={editedData[column.key] ?? (record as any)[column.key] ?? false}
-                                onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.checked)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="h-4 w-4 rounded border-dark-400 text-slate-600 focus:ring-2 focus:ring-slate-500/30"
-                              />
-                            ) :
-                            // READONLY FIELD (display only)
-                            editType === 'readonly' ? (
-                              <div
-                                className="px-2 py-1.5 text-dark-600 italic"
-                                style={{
-                                  fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
-                                  fontSize: '14px'
-                                }}
-                              >
-                                {column.render
-                                  ? column.render((record as any)[column.key], record, data)
-                                  : renderCellValue(column, (record as any)[column.key])
-                                }
-                              </div>
                             ) : (
-                              // TEXT FIELD (default)
-                              <input
-                                type="text"
-                                value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
-                                onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-full px-2 py-1.5 border border-dark-400 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500"
-                                style={{
-                                  fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
-                                  fontSize: '14px',
-                                  color: '#37352F'
-                                }}
-                              />
+                              // ALL OTHER FIELDS - Universal renderer handles text, number, date, boolean, etc.
+                              <div onClick={(e) => e.stopPropagation()}>
+                                {renderField({
+                                  fieldKey: column.key,
+                                  value: editedData[column.key] ?? (record as any)[column.key],
+                                  mode: 'edit',
+                                  onChange: (key, val) => onInlineEdit?.(recordId, key, val),
+                                  inlineMode: true,
+                                  data: record
+                                })}
+                              </div>
                             )
                           ) : (
-                            // Display mode for all fields (editable or not)
+                            // ============================================================================
+                            // VIEW MODE - Universal Field Renderer
+                            // ============================================================================
                             <div
                               style={{
                                 position: 'relative',
@@ -1716,10 +1609,14 @@ export function EntityDataTable<T = any>({
                                 cursor: 'inherit'
                               } as React.CSSProperties}
                             >
-                              {column.render
-                                ? column.render((record as any)[column.key], record, data)
-                                : renderCellValue(column, (record as any)[column.key])
-                              }
+                              {renderField({
+                                fieldKey: column.key,
+                                value: (record as any)[column.key],
+                                mode: 'view',
+                                customRender: column.render,
+                                data: record,
+                                loadDataLabels: column.loadDataLabels
+                              })}
                             </div>
                           )}
                         </td>

@@ -6,7 +6,7 @@ import { useNavigationHistory } from '../../../contexts/NavigationHistoryContext
 
 interface ExitButtonProps {
   /** Entity type for navigation (e.g., 'project', 'task') */
-  entityType?: string;
+  entityCode?: string;
   /** Whether this is a detail page (navigates back to list) or main page (shows sidebar) */
   isDetailPage?: boolean;
   /** Custom onClick handler (overrides default behavior) */
@@ -16,7 +16,7 @@ interface ExitButtonProps {
 }
 
 export function ExitButton({
-  entityType,
+  entityCode,
   isDetailPage = false,
   onClick,
   className = ''
@@ -32,14 +32,14 @@ export function ExitButton({
       return;
     }
 
-    if (isDetailPage && entityType) {
+    if (isDetailPage && entityCode) {
       // Check if we have navigation history
       if (history.length > 0) {
         // Use smart back navigation with history
         goBack();
       } else {
         // Fallback: Navigate to list page with collapsed sidebar
-        navigate(`/${entityType}`);
+        navigate(`/${entityCode}`);
         // Sidebar will be collapsed by EntityMainPage's useEffect
       }
     }

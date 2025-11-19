@@ -3,7 +3,7 @@ import { Upload, X, CheckCircle, Loader2 } from 'lucide-react';
 import { Button } from '../button/Button';
 
 interface DragDropFileUploadProps {
-  entityType: 'artifact' | 'cost' | 'revenue';
+  entityCode: 'artifact' | 'cost' | 'revenue';
   selectedFile: File | null;
   uploadedObjectKey: string | null;
   isUploading: boolean;
@@ -28,7 +28,7 @@ interface DragDropFileUploadProps {
  * Used in EntityCreatePage and EntityDetailPage for artifact, cost, and revenue uploads.
  */
 export function DragDropFileUpload({
-  entityType,
+  entityCode,
   selectedFile,
   uploadedObjectKey,
   isUploading,
@@ -43,20 +43,20 @@ export function DragDropFileUpload({
 
   // Get context-aware labels
   const getLabel = () => {
-    if (entityType === 'cost') return 'Invoice';
-    if (entityType === 'revenue') return 'Receipt';
+    if (entityCode === 'cost') return 'Invoice';
+    if (entityCode === 'revenue') return 'Receipt';
     return 'File';
   };
 
   const getDescription = () => {
-    if (entityType === 'cost') return 'Upload invoice (PDF, PNG, JPG)';
-    if (entityType === 'revenue') return 'Upload sales receipt (PDF, PNG, JPG)';
+    if (entityCode === 'cost') return 'Upload invoice (PDF, PNG, JPG)';
+    if (entityCode === 'revenue') return 'Upload sales receipt (PDF, PNG, JPG)';
     return 'Upload documents, images, videos, or any file type';
   };
 
   const getTitle = () => {
-    if (entityType === 'cost') return 'Invoice Upload';
-    if (entityType === 'revenue') return 'Sales Receipt Upload';
+    if (entityCode === 'cost') return 'Invoice Upload';
+    if (entityCode === 'revenue') return 'Sales Receipt Upload';
     return 'File Upload';
   };
 

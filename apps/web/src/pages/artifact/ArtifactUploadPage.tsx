@@ -129,7 +129,7 @@ export function ArtifactUploadPage() {
     try {
       // Use the reusable S3 upload hook (DRY principle)
       const objectKey = await uploadToS3({
-        entityType: 'artifact',
+        entityCode: 'artifact',
         entityId: fileData.id, // Temporary ID, will be replaced when artifact is created
         file: fileData.file,
         fileName: fileData.file.name,

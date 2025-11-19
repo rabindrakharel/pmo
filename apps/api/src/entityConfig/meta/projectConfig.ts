@@ -1,7 +1,7 @@
 import type { EntityConfig } from '../types';
 
 export const projectConfig: EntityConfig = {
-  entityType: 'project',
+  entityCode: 'project',
   displayName: 'Project',
   displayNamePlural: 'Projects',
   description: 'Project management and tracking',

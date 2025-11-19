@@ -68,11 +68,11 @@ export async function schemaRoutes(fastify: FastifyInstance) {
   });
 
   // Get specific entity schema
-  fastify.get('/api/v1/schema/:entityType', {
+  fastify.get('/api/v1/schema/:entityCode', {
     
     schema: {
       params: Type.Object({
-        entityType: Type.String()
+        entityCode: Type.String()
       }),
       response: {
         200: EntityConfigSchema,
@@ -82,30 +82,30 @@ export async function schemaRoutes(fastify: FastifyInstance) {
       }
     }
   }, async (request, reply) => {
-    const { entityType } = request.params as { entityType: string };
+    const { entityCode } = request.params as { entityCode: string };
 
     try {
-      const entityConfig = getEntityConfig(entityType);
+      const entityConfig = getEntityConfig(entityCode);
       
       if (!entityConfig) {
         return reply.status(404).send({ 
-          error: `Entity schema '${entityType}' not found` 
+          error: `Entity schema '${entityCode}' not found` 
         });
       }
 
       return entityConfig;
     } catch (error) {
-      fastify.log.error(`Error fetching schema for ${entityType}:`, error);
+      fastify.log.error(`Error fetching schema for ${entityCode}:`, error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
   // Get field configuration for specific entity and field
-  fastify.get('/api/v1/schema/:entityType/field/:fieldName', {
+  fastify.get('/api/v1/schema/:entityCode/field/:fieldName', {
     
     schema: {
       params: Type.Object({
-        entityType: Type.String(),
+        entityCode: Type.String(),
         fieldName: Type.String()
       }),
       response: {
@@ -116,17 +116,17 @@ export async function schemaRoutes(fastify: FastifyInstance) {
       }
     }
   }, async (request, reply) => {
-    const { entityType, fieldName } = request.params as { 
-      entityType: string; 
+    const { entityCode, fieldName } = request.params as { 
+      entityCode: string; 
       fieldName: string; 
     };
 
     try {
-      const entityConfig = getEntityConfig(entityType);
+      const entityConfig = getEntityConfig(entityCode);
       
       if (!entityConfig) {
         return reply.status(404).send({ 
-          error: `Entity schema '${entityType}' not found` 
+          error: `Entity schema '${entityCode}' not found` 
         });
       }
 
@@ -134,27 +134,27 @@ export async function schemaRoutes(fastify: FastifyInstance) {
       
       if (!fieldConfig) {
         return reply.status(404).send({ 
-          error: `Field '${fieldName}' not found in entity '${entityType}'` 
+          error: `Field '${fieldName}' not found in entity '${entityCode}'` 
         });
       }
 
       return fieldConfig;
     } catch (error) {
-      fastify.log.error(`Error fetching field config for ${entityType}.${fieldName}:`, error);
+      fastify.log.error(`Error fetching field config for ${entityCode}.${fieldName}:`, error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
   // Get form configuration for creating new entity
-  fastify.get('/api/v1/schema/:entityType/create-form', {
+  fastify.get('/api/v1/schema/:entityCode/create-form', {
     
     schema: {
       params: Type.Object({
-        entityType: Type.String()
+        entityCode: Type.String()
       }),
       response: {
         200: Type.Object({
-          entityType: Type.String(),
+          entityCode: Type.String(),
           displayName: Type.String(),
           sections: Type.Optional(Type.Array(Type.Any())),
           fields: Type.Array(Type.String()),
@@ -166,14 +166,14 @@ export async function schemaRoutes(fastify: FastifyInstance) {
       }
     }
   }, async (request, reply) => {
-    const { entityType } = request.params as { entityType: string };
+    const { entityCode } = request.params as { entityCode: string };
 
     try {
-      const entityConfig = getEntityConfig(entityType);
+      const entityConfig = getEntityConfig(entityCode);
       
       if (!entityConfig) {
         return reply.status(404).send({ 
-          error: `Entity schema '${entityType}' not found` 
+          error: `Entity schema '${entityCode}' not found` 
         });
       }
 
@@ -190,28 +190,28 @@ export async function schemaRoutes(fastify: FastifyInstance) {
       });
 
       return {
-        entityType,
+        entityCode,
         displayName: entityConfig.displayName,
         sections: entityConfig.createForm?.sections,
         fields: createFields,
         fieldConfigs
       };
     } catch (error) {
-      fastify.log.error(`Error fetching create form schema for ${entityType}:`, error);
+      fastify.log.error(`Error fetching create form schema for ${entityCode}:`, error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
   // Get list view configuration for entity
-  fastify.get('/api/v1/schema/:entityType/list-view', {
+  fastify.get('/api/v1/schema/:entityCode/list-view', {
     
     schema: {
       params: Type.Object({
-        entityType: Type.String()
+        entityCode: Type.String()
       }),
       response: {
         200: Type.Object({
-          entityType: Type.String(),
+          entityCode: Type.String(),
           displayName: Type.String(),
           displayNamePlural: Type.Optional(Type.String()),
           defaultSort: Type.Optional(Type.String()),
@@ -228,14 +228,14 @@ export async function schemaRoutes(fastify: FastifyInstance) {
       }
     }
   }, async (request, reply) => {
-    const { entityType } = request.params as { entityType: string };
+    const { entityCode } = request.params as { entityCode: string };
 
     try {
-      const entityConfig = getEntityConfig(entityType);
+      const entityConfig = getEntityConfig(entityCode);
       
       if (!entityConfig) {
         return reply.status(404).send({ 
-          error: `Entity schema '${entityType}' not found` 
+          error: `Entity schema '${entityCode}' not found` 
         });
       }
 
@@ -251,7 +251,7 @@ export async function schemaRoutes(fastify: FastifyInstance) {
       });
 
       return {
-        entityType,
+        entityCode,
         displayName: entityConfig.displayName,
         displayNamePlural: entityConfig.displayNamePlural,
         defaultSort: listView.defaultSort,
@@ -263,21 +263,21 @@ export async function schemaRoutes(fastify: FastifyInstance) {
         fieldConfigs
       };
     } catch (error) {
-      fastify.log.error(`Error fetching list view schema for ${entityType}:`, error);
+      fastify.log.error(`Error fetching list view schema for ${entityCode}:`, error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 
   // Get validation rules for entity
-  fastify.get('/api/v1/schema/:entityType/validation', {
+  fastify.get('/api/v1/schema/:entityCode/validation', {
     
     schema: {
       params: Type.Object({
-        entityType: Type.String()
+        entityCode: Type.String()
       }),
       response: {
         200: Type.Object({
-          entityType: Type.String(),
+          entityCode: Type.String(),
           validationRules: Type.Record(Type.String(), Type.Any())
         }),
         401: Type.Object({ error: Type.String() }),
@@ -286,14 +286,14 @@ export async function schemaRoutes(fastify: FastifyInstance) {
       }
     }
   }, async (request, reply) => {
-    const { entityType } = request.params as { entityType: string };
+    const { entityCode } = request.params as { entityCode: string };
 
     try {
-      const entityConfig = getEntityConfig(entityType);
+      const entityConfig = getEntityConfig(entityCode);
       
       if (!entityConfig) {
         return reply.status(404).send({ 
-          error: `Entity schema '${entityType}' not found` 
+          error: `Entity schema '${entityCode}' not found` 
         });
       }
 
@@ -316,11 +316,11 @@ export async function schemaRoutes(fastify: FastifyInstance) {
       });
 
       return {
-        entityType,
+        entityCode,
         validationRules
       };
     } catch (error) {
-      fastify.log.error(`Error fetching validation rules for ${entityType}:`, error);
+      fastify.log.error(`Error fetching validation rules for ${entityCode}:`, error);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

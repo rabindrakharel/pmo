@@ -38,7 +38,7 @@ export function NavigationBreadcrumb() {
     }
 
     // Navigate to the clicked entity
-    navigate(`/${node.entityType}/${node.entityId}`);
+    navigate(`/${node.entityCode}/${node.entityId}`);
   };
 
   return (
@@ -48,12 +48,12 @@ export function NavigationBreadcrumb() {
         const isCurrent = isLast;
 
         // Get entity metadata from API-driven context (loaded from d_entity table)
-        const entityMetadata = getEntityMetadata(node.entityType);
+        const entityMetadata = getEntityMetadata(node.entityCode);
         const EntityIcon = entityMetadata?.icon || FileText; // Lucide icon component
-        const displayName = entityMetadata?.name || node.entityType;
+        const displayName = entityMetadata?.name || node.entityCode;
 
         return (
-          <React.Fragment key={`${node.entityType}-${node.entityId}-${index}`}>
+          <React.Fragment key={`${node.entityCode}-${node.entityId}-${index}`}>
             {/* Separator */}
             {index > 0 && (
               <ChevronRight className="h-3.5 w-3.5 text-dark-600 flex-shrink-0" />

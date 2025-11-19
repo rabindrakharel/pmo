@@ -6,7 +6,7 @@ import { Button } from '../button/Button';
 interface ShareModalProps {
   isOpen: boolean;
   onClose: () => void;
-  entityType: string;
+  entityCode: string;
   entityId: string;
   entityName?: string;
   currentSharedUrl?: string;
@@ -34,7 +34,7 @@ interface Role {
 export const ShareModal: React.FC<ShareModalProps> = ({
   isOpen,
   onClose,
-  entityType,
+  entityCode,
   entityId,
   entityName,
   currentSharedUrl,
@@ -101,7 +101,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         const token = localStorage.getItem('auth_token');
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
-        const response = await fetch(`${apiUrl}/api/v1/${entityType}/${entityId}/share-url`, {
+        const response = await fetch(`${apiUrl}/api/v1/${entityCode}/${entityId}/share-url`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -139,7 +139,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Share ${entityType}`}
+      title={`Share ${entityCode}`}
       size="md"
       footer={
         <>

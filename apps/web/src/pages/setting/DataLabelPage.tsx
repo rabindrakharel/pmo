@@ -290,7 +290,7 @@ export function DataLabelPage() {
                       {/* Data Table */}
                       <div className="p-4">
                         <FilteredDataTable
-                          entityType={settingId}
+                          entityCode={settingId}
                           showActionIcons={true}
                           showEditIcon={true}
                           inlineEditable={true}

@@ -57,10 +57,10 @@ export function LinkagePage() {
   const { exitSettingsMode } = useSettings();
 
   // Helper function to map entity types to API endpoints
-  const getApiEndpoint = (entityType: string): string => {
-    if (entityType === 'business') return 'biz';
-    if (entityType === 'client') return 'cust';
-    return entityType;
+  const getApiEndpoint = (entityCode: string): string => {
+    if (entityCode === 'business') return 'biz';
+    if (entityCode === 'client') return 'cust';
+    return entityCode;
   };
 
   // State for parent entity selection (left panel)
@@ -191,10 +191,10 @@ export function LinkagePage() {
     }
   };
 
-  const loadEntityTypeMetadata = async (entityType: string) => {
+  const loadEntityTypeMetadata = async (entityCode: string) => {
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE_URL}/api/v1/entity/type/${entityType}`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/entity/type/${entityCode}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -223,7 +223,7 @@ export function LinkagePage() {
       // Calculate available child types (all types except self and current children)
       const allTypes = entityTypes.map(t => t.value);
       const available = allTypes.filter(t =>
-        t !== entityType && !childEntityCodes.includes(t)
+        t !== entityCode && !childEntityCodes.includes(t)
       );
       setAvailableChildTypes(available);
     } catch (err: any) {
@@ -406,16 +406,16 @@ export function LinkagePage() {
     }
   };
 
-  const loadParentInstances = async (entityType: string) => {
+  const loadParentInstances = async (entityCode: string) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('auth_token');
-      const endpoint = getApiEndpoint(entityType);
+      const endpoint = getApiEndpoint(entityCode);
       const response = await fetch(`${API_BASE_URL}/api/v1/${endpoint}?limit=100`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      if (!response.ok) throw new Error(`Failed to load ${entityType} instances`);
+      if (!response.ok) throw new Error(`Failed to load ${entityCode} instances`);
 
       const data = await response.json();
       const instances = (data.data || data.results || []).map((e: any) => ({
@@ -426,23 +426,23 @@ export function LinkagePage() {
       }));
       setParentInstances(instances);
     } catch (err: any) {
-      console.error(`Error loading ${entityType} instances:`, err);
+      console.error(`Error loading ${entityCode} instances:`, err);
       setParentInstances([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadChildInstances = async (entityType: string) => {
+  const loadChildInstances = async (entityCode: string) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('auth_token');
-      const endpoint = getApiEndpoint(entityType);
+      const endpoint = getApiEndpoint(entityCode);
       const response = await fetch(`${API_BASE_URL}/api/v1/${endpoint}?limit=100`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      if (!response.ok) throw new Error(`Failed to load ${entityType} instances`);
+      if (!response.ok) throw new Error(`Failed to load ${entityCode} instances`);
 
       const data = await response.json();
       const instances = (data.data || data.results || []).map((e: any) => ({
@@ -453,7 +453,7 @@ export function LinkagePage() {
       }));
       setChildInstances(instances);
     } catch (err: any) {
-      console.error(`Error loading ${entityType} instances:`, err);
+      console.error(`Error loading ${entityCode} instances:`, err);
       setChildInstances([]);
     } finally {
       setLoading(false);
@@ -539,7 +539,7 @@ export function LinkagePage() {
       const parentType = selectedParentTypes[0];
       const apiEndpoint = getApiEndpoint(parentType);
       setPreviewData({
-        entityType: apiEndpoint,
+        entityCode: apiEndpoint,
         entityId: instance.id,
         label: `${getEntityLabel(parentType)}: ${instance.name}`
       });

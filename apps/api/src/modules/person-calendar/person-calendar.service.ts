@@ -507,7 +507,7 @@ export async function cancelPersonCalendar(eventId: string, cancellationReason?:
         END as person_phone
       FROM app.d_entity_event_person_calendar epc
       LEFT JOIN app.employee emp ON emp.id = epc.person_id AND epc.person_entity_type = 'employee'
-      LEFT JOIN app.d_cust cust ON cust.id = epc.person_id AND epc.person_entity_type = 'customer'
+      LEFT JOIN app.cust cust ON cust.id = epc.person_id AND epc.person_entity_type = 'customer'
       WHERE epc.event_id = ${eventId}::uuid AND epc.active_flag = true
     `;
 

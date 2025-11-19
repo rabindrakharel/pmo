@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { generateLabelToUuidMapping, generateMappingFromStructuredFormat } from './labelToUuidFieldMapper';
+import { generateMappingFromStructuredFormat } from './labelToUuidFieldMapper';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -16,7 +16,7 @@ export const apiClient = axios.create({
  * Global reference to mapping context setter
  * Injected by App.tsx after context is available
  */
-let mappingContextSetter: ((entityType: string, entityId: string, data: Record<string, any>) => void) | null = null;
+let mappingContextSetter: ((entityCode: string, entityId: string, data: Record<string, any>) => void) | null = null;
 
 /**
  * Register the mapping context setter from LabelToUuidMappingContext
@@ -25,7 +25,7 @@ let mappingContextSetter: ((entityType: string, entityId: string, data: Record<s
  * @param setter - Function from useLabelToUuidMappingContext().setMappingFromData
  */
 export function registerMappingContextSetter(
-  setter: (entityType: string, entityId: string, data: Record<string, any>) => void
+  setter: (entityCode: string, entityId: string, data: Record<string, any>) => void
 ) {
   mappingContextSetter = setter;
 }
@@ -63,46 +63,58 @@ apiClient.interceptors.response.use((response) => {
       return response;
     }
 
+    // Skip processing for specific endpoints that don't contain entity references
+    const url = response.config.url;
+    const skipPatterns = [
+      '/instance-lookup', // /api/v1/entity/*/instance-lookup (dropdown options)
+      '/auth/',           // Authentication endpoints
+      '/setting',         // Settings/datalabel endpoints
+      '/types',           // Entity type metadata
+      '/children',        // Child entity metadata
+      '/dynamic-child'    // Dynamic child tabs
+    ];
+
+    if (skipPatterns.some(pattern => url.includes(pattern))) {
+      return response;
+    }
+
     const data = response.data;
 
-    // Helper function to generate mapping from entity data
+    // Generate mapping from structured _ID/_IDS format
     const generateMapping = (item: any): any => {
-      // Priority 1: Check for structured _ID/_IDS format (new backend format)
       if (item._ID || item._IDS) {
         return generateMappingFromStructuredFormat(item._ID, item._IDS);
       }
-
-      // Fallback: Legacy flat format detection
-      return generateLabelToUuidMapping(item);
+      return {}; // No entity references
     };
 
     // Handle single entity responses (has `id` field)
     if (data.id && typeof data.id === 'string') {
-      const entityType = extractEntityTypeFromUrl(response.config.url);
+      const entityCode = extractEntityTypeFromUrl(response.config.url);
 
-      if (entityType && mappingContextSetter) {
+      if (entityCode && mappingContextSetter) {
         // Generate and cache mapping for this entity
         const mapping = generateMapping(data);
 
         // Only store if mapping is non-empty
         if (Object.keys(mapping).length > 0) {
-          mappingContextSetter(entityType, data.id, data);
+          mappingContextSetter(entityCode, data.id, data);
         }
       }
     }
 
     // Handle list responses (array or paginated)
     if (Array.isArray(data)) {
-      const entityType = extractEntityTypeFromUrl(response.config.url);
+      const entityCode = extractEntityTypeFromUrl(response.config.url);
 
-      if (entityType && mappingContextSetter) {
+      if (entityCode && mappingContextSetter) {
         // Generate mappings for each item in list
         data.forEach((item: any) => {
           if (item.id && typeof item.id === 'string') {
             const mapping = generateMapping(item);
 
             if (Object.keys(mapping).length > 0) {
-              mappingContextSetter(entityType, item.id, item);
+              mappingContextSetter(entityCode, item.id, item);
             }
           }
         });
@@ -111,15 +123,15 @@ apiClient.interceptors.response.use((response) => {
 
     // Handle paginated responses with `data` array
     if (data.data && Array.isArray(data.data)) {
-      const entityType = extractEntityTypeFromUrl(response.config.url);
+      const entityCode = extractEntityTypeFromUrl(response.config.url);
 
-      if (entityType && mappingContextSetter) {
+      if (entityCode && mappingContextSetter) {
         data.data.forEach((item: any) => {
           if (item.id && typeof item.id === 'string') {
             const mapping = generateMapping(item);
 
             if (Object.keys(mapping).length > 0) {
-              mappingContextSetter(entityType, item.id, item);
+              mappingContextSetter(entityCode, item.id, item);
             }
           }
         });
@@ -1064,16 +1076,16 @@ export const entityOptionsApi = {
    * Get list of {id, name} pairs for any entity type
    * Used for populating dropdowns and selection fields
    */
-  async getOptions(entityType: string, params?: { search?: string; limit?: number; active_only?: boolean }) {
-    const response = await apiClient.get(`/api/v1/entity/${entityType}/options`, { params });
+  async getOptions(entityCode: string, params?: { search?: string; limit?: number; active_only?: boolean }) {
+    const response = await apiClient.get(`/api/v1/entity/${entityCode}/instance-lookup`, { params });
     return response.data;
   },
 
   /**
    * Get names for specific entity IDs (bulk lookup)
    */
-  async getBulkOptions(entityType: string, ids: string[]) {
-    const response = await apiClient.post(`/api/v1/entity/${entityType}/options/bulk`, { ids });
+  async getBulkOptions(entityCode: string, ids: string[]) {
+    const response = await apiClient.post(`/api/v1/entity/${entityCode}/instance-lookup/bulk`, { ids });
     return response.data;
   },
 
@@ -1148,10 +1160,10 @@ import { APIFactory } from './api-factory';
  * Register all entity APIs in the factory for type-safe access
  *
  * This eliminates the need for unsafe dynamic API calls like:
- * const apiModule = (api as any)[`${entityType}Api`];
+ * const apiModule = (api as any)[`${entityCode}Api`];
  *
  * Instead, use the type-safe factory:
- * const api = APIFactory.getAPI(entityType);
+ * const api = APIFactory.getAPI(entityCode);
  */
 
 // Core business entities
@@ -1250,20 +1262,20 @@ export { APIFactory } from './api-factory';
  * Universal entity data fetcher - fetches a single entity by type and ID
  * Used by entity preview panel and other components that need to fetch entity data
  *
- * @param entityType - Entity type (e.g., 'project', 'task', 'client')
+ * @param entityCode - Entity code (e.g., 'project', 'task', 'client')
  * @param entityId - Entity UUID
  * @returns Promise<any> - Entity data object
  *
  * @example
  * const projectData = await fetchEntityData('project', 'abc-123');
  */
-export async function fetchEntityData(entityType: string, entityId: string): Promise<any> {
+export async function fetchEntityData(entityCode: string, entityId: string): Promise<any> {
   try {
-    const api = APIFactory.getAPI(entityType);
+    const api = APIFactory.getAPI(entityCode);
     const data = await api.get(entityId);
     return data;
   } catch (error) {
-    console.error(`Error fetching ${entityType} data:`, error);
+    console.error(`Error fetching ${entityCode} data:`, error);
     throw error;
   }
 }

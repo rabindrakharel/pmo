@@ -12,7 +12,7 @@ import { sql } from 'drizzle-orm';
  * Respects RBAC permissions - only returns entities the user has access to.
  */
 
-// Map of entity types to their database table names
+// Map of entity codes to their database table names
 const ENTITY_TABLE_MAP: Record<string, string> = {
   employee: 'employee',
   project: 'project',
@@ -25,7 +25,7 @@ const ENTITY_TABLE_MAP: Record<string, string> = {
   cust: 'cust',
   worksite: 'worksite',
   role: 'role',
-  position: 'd_position',
+  position: 'position',
   artifact: 'artifact',
   wiki: 'wiki',
   form: 'form_head',
@@ -33,16 +33,18 @@ const ENTITY_TABLE_MAP: Record<string, string> = {
 
 export async function entityOptionsRoutes(fastify: FastifyInstance) {
   /**
-   * GET /api/v1/entity/:entityType/options
+   * GET /api/v1/entity/:entityCode/instance-lookup
    *
-   * Returns list of {id, name} for a given entity type
+   * Returns list of {id, name} for a given entity code
    * Filtered by RBAC permissions
+   *
+   * Used by EntitySelectDropdown and EntityMultiSelectTags for dropdown options
    */
-  fastify.get('/api/v1/entity/:entityType/options', {
+  fastify.get('/api/v1/entity/:entityCode/instance-lookup', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        entityType: Type.String(),
+        entityCode: Type.String(),
       }),
       querystring: Type.Object({
         search: Type.Optional(Type.String()),
@@ -63,7 +65,7 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { entityType } = request.params as { entityType: string };
+    const { entityCode } = request.params as { entityCode: string };
     const { search, limit = 100, active_only = true } = request.query as any;
 
     const userId = (request as any).user?.sub;
@@ -71,11 +73,11 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Validate entity type
-    const tableName = ENTITY_TABLE_MAP[entityType];
+    // Validate entity code
+    const tableName = ENTITY_TABLE_MAP[entityCode];
     if (!tableName) {
       return reply.status(400).send({
-        error: `Invalid entity type: ${entityType}. Supported types: ${Object.keys(ENTITY_TABLE_MAP).join(', ')}`
+        error: `Invalid entity code: ${entityCode}. Supported codes: ${Object.keys(ENTITY_TABLE_MAP).join(', ')}`
       });
     }
 
@@ -84,7 +86,7 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
       const rbacCondition = sql`EXISTS (
         SELECT 1 FROM app.entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-          AND rbac.entity_name = ${entityType}
+          AND rbac.entity_name = ${entityCode}
           AND (rbac.entity_id = e.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
@@ -139,16 +141,16 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
   });
 
   /**
-   * GET /api/v1/entity/:entityType/options/bulk
+   * POST /api/v1/entity/:entityCode/instance-lookup/bulk
    *
    * Get names for specific IDs (bulk lookup)
    * Useful for resolving IDs to names
    */
-  fastify.post('/api/v1/entity/:entityType/options/bulk', {
+  fastify.post('/api/v1/entity/:entityCode/instance-lookup/bulk', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        entityType: Type.String(),
+        entityCode: Type.String(),
       }),
       body: Type.Object({
         ids: Type.Array(Type.String({ format: 'uuid' })),
@@ -165,7 +167,7 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { entityType } = request.params as { entityType: string };
+    const { entityCode } = request.params as { entityCode: string };
     const { ids } = request.body as { ids: string[] };
 
     const userId = (request as any).user?.sub;
@@ -173,11 +175,11 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Validate entity type
-    const tableName = ENTITY_TABLE_MAP[entityType];
+    // Validate entity code
+    const tableName = ENTITY_TABLE_MAP[entityCode];
     if (!tableName) {
       return reply.status(400).send({
-        error: `Invalid entity type: ${entityType}`
+        error: `Invalid entity code: ${entityCode}`
       });
     }
 
@@ -209,7 +211,7 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
   });
 
   /**
-   * GET /api/v1/entity/:parentType/:parentId/children
+   * GET /api/v1/entity/:parentCode/:parentId/children
    *
    * Universal API to get all child entities for a given parent entity.
    * Uses entity_instance_link to find relationships and returns grouped results.
@@ -222,11 +224,11 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
    *
    * Respects RBAC permissions for both parent and child entities.
    */
-  fastify.get('/api/v1/entity/:parentType/:parentId/children', {
+  fastify.get('/api/v1/entity/:parentCode/:parentId/children', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        parentType: Type.String(),
+        parentCode: Type.String(),
         parentId: Type.String({ format: 'uuid' }),
       }),
       querystring: Type.Object({
@@ -243,7 +245,7 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { parentType, parentId } = request.params as { parentType: string; parentId: string };
+    const { parentCode, parentId } = request.params as { parentCode: string; parentId: string };
     const { active_only = true } = request.query as any;
 
     const userId = (request as any).user?.sub;
@@ -251,11 +253,11 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Validate parent entity type
-    const parentTableName = ENTITY_TABLE_MAP[parentType];
+    // Validate parent entity code
+    const parentTableName = ENTITY_TABLE_MAP[parentCode];
     if (!parentTableName) {
       return reply.status(400).send({
-        error: `Invalid parent entity type: ${parentType}. Supported types: ${Object.keys(ENTITY_TABLE_MAP).join(', ')}`
+        error: `Invalid parent entity code: ${parentCode}. Supported codes: ${Object.keys(ENTITY_TABLE_MAP).join(', ')}`
       });
     }
 
@@ -265,7 +267,7 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
         SELECT 1
         FROM app.entity_rbac rbac
         WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-          AND rbac.entity_name = ${parentType}
+          AND rbac.entity_name = ${parentCode}
           AND (rbac.entity_id = ${parentId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND rbac.active_flag = true
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
@@ -279,29 +281,29 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Get all child entity types for this parent from entity_instance_link
-      const childTypesResult = await db.execute(sql`
+      // Get all child entity codes for this parent from entity_instance_link
+      const childCodesResult = await db.execute(sql`
         SELECT DISTINCT child_entity_type
         FROM app.entity_instance_link
-        WHERE parent_entity_type = ${parentType}
+        WHERE parent_entity_type = ${parentCode}
           AND parent_entity_id = ${parentId}
           AND active_flag = true
         ORDER BY child_entity_type
       `);
 
-      const childTypes = childTypesResult.map(row => String(row.child_entity_type));
+      const childCodes = childCodesResult.map(row => String(row.child_entity_type));
 
-      if (childTypes.length === 0) {
+      if (childCodes.length === 0) {
         return [];
       }
 
-      // For each child type, fetch the entities with RBAC filtering
+      // For each child code, fetch the entities with RBAC filtering
       const results: Record<string, Array<{ id: string; name: string }>>[] = [];
 
-      for (const childType of childTypes) {
-        const childTableName = ENTITY_TABLE_MAP[childType];
+      for (const childCode of childCodes) {
+        const childTableName = ENTITY_TABLE_MAP[childCode];
         if (!childTableName) {
-          fastify.log.warn(`Skipping unknown child entity type: ${childType}`);
+          fastify.log.warn(`Skipping unknown child entity code: ${childCode}`);
           continue;
         }
 
@@ -309,7 +311,7 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
         const rbacCondition = sql`EXISTS (
           SELECT 1 FROM app.entity_rbac rbac
           WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-            AND rbac.entity_name = ${childType}
+            AND rbac.entity_name = ${childCode}
             AND (rbac.entity_id = e.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
             AND rbac.active_flag = true
             AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
@@ -329,9 +331,9 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
             e.name
           FROM app.entity_instance_link map
           JOIN app.${sql.identifier(childTableName)} e ON e.id::text = map.child_entity_id
-          WHERE map.parent_entity_type = ${parentType}
+          WHERE map.parent_entity_type = ${parentCode}
             AND map.parent_entity_id = ${parentId}
-            AND map.child_entity_type = ${childType}
+            AND map.child_entity_type = ${childCode}
             AND map.active_flag = true
             AND ${sql.join(conditions, sql` AND `)}
           ORDER BY e.name ASC
@@ -343,7 +345,7 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
         }));
 
         if (entities.length > 0) {
-          results.push({ [childType]: entities });
+          results.push({ [childCode]: entities });
         }
       }
 

@@ -94,7 +94,7 @@ export function Button({
 
 // Create button specialized for entity creation
 interface CreateButtonProps {
-  entityType: string;
+  entityCode: string;
   onCreateClick?: () => void;
   createUrl?: string;
   className?: string;
@@ -103,7 +103,7 @@ interface CreateButtonProps {
 }
 
 export function CreateButton({
-  entityType,
+  entityCode,
   onCreateClick,
   createUrl,
   className,
@@ -118,7 +118,7 @@ export function CreateButton({
     }
   };
 
-  const displayLabel = label || `Create ${entityType.charAt(0).toUpperCase() + entityType.slice(1)}`;
+  const displayLabel = label || `Create ${entityCode.charAt(0).toUpperCase() + entityCode.slice(1)}`;
 
   return (
     <Button
@@ -136,7 +136,7 @@ export function CreateButton({
 interface ActionBarProps {
   title?: string;
   createButton?: {
-    entityType: string;
+    entityCode: string;
     onCreateClick?: () => void;
     createUrl?: string;
   };
@@ -162,7 +162,7 @@ export function ActionBar({
         {additionalActions}
         {createButton && (
           <CreateButton
-            entityType={createButton.entityType}
+            entityCode={createButton.entityCode}
             onCreateClick={createButton.onCreateClick}
             createUrl={createButton.createUrl}
           />

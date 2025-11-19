@@ -36,8 +36,8 @@ class SchemaCache {
    * Get schema from cache
    * Returns null if not found or expired
    */
-  get(entityType: string): EntitySchema | null {
-    const cached = this.cache.get(entityType);
+  get(entityCode: string): EntitySchema | null {
+    const cached = this.cache.get(entityCode);
 
     if (!cached) {
       this.stats.misses++;
@@ -47,7 +47,7 @@ class SchemaCache {
     // Check if expired
     const age = Date.now() - cached.timestamp;
     if (age > this.TTL) {
-      this.cache.delete(entityType);
+      this.cache.delete(entityCode);
       this.stats.size = this.cache.size;
       this.stats.misses++;
       return null;
@@ -60,14 +60,14 @@ class SchemaCache {
   /**
    * Set schema in cache with validation
    */
-  set(entityType: string, schema: EntitySchema): void {
+  set(entityCode: string, schema: EntitySchema): void {
     // Validate schema before caching
     if (!this.isValidSchema(schema)) {
-      console.error('[SchemaCache] Invalid schema for entity:', entityType, schema);
+      console.error('[SchemaCache] Invalid schema for entity:', entityCode, schema);
       return;
     }
 
-    this.cache.set(entityType, {
+    this.cache.set(entityCode, {
       schema,
       timestamp: Date.now()
     });
@@ -78,15 +78,15 @@ class SchemaCache {
   /**
    * Check if entity schema exists in cache (not expired)
    */
-  has(entityType: string): boolean {
-    return this.get(entityType) !== null;
+  has(entityCode: string): boolean {
+    return this.get(entityCode) !== null;
   }
 
   /**
    * Delete specific entity schema from cache
    */
-  delete(entityType: string): boolean {
-    const result = this.cache.delete(entityType);
+  delete(entityCode: string): boolean {
+    const result = this.cache.delete(entityCode);
     this.stats.size = this.cache.size;
     return result;
   }
@@ -121,9 +121,9 @@ class SchemaCache {
     let removed = 0;
     const now = Date.now();
 
-    for (const [entityType, entry] of this.cache.entries()) {
+    for (const [entityCode, entry] of this.cache.entries()) {
       if (now - entry.timestamp > this.TTL) {
-        this.cache.delete(entityType);
+        this.cache.delete(entityCode);
         removed++;
       }
     }
@@ -140,8 +140,8 @@ class SchemaCache {
       return false;
     }
 
-    if (typeof schema.entityType !== 'string' || !schema.entityType) {
-      console.error('[SchemaCache] Invalid entityType:', schema.entityType);
+    if (typeof schema.entityCode !== 'string' || !schema.entityCode) {
+      console.error('[SchemaCache] Invalid entityCode:', schema.entityCode);
       return false;
     }
 

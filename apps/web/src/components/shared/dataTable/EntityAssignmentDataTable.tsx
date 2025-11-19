@@ -84,8 +84,8 @@ export function EntityAssignmentDataTable({
   };
 
   // Get entity name from available parents list (avoid additional API calls)
-  const getEntityNameFromCache = (entityType: string, entityId: string): string => {
-    const entity = availableParents.find(p => p.entity_type === entityType && p.id === entityId);
+  const getEntityNameFromCache = (entityCode: string, entityId: string): string => {
+    const entity = availableParents.find(p => p.entity_type === entityCode && p.id === entityId);
     return entity?.name || 'Unknown Entity';
   };
 
@@ -225,7 +225,7 @@ export function EntityAssignmentDataTable({
   }, []);
 
   // Helper function to get API endpoint for entity type
-  const getEntityEndpoint = (entityType: string): string => {
+  const getEntityEndpoint = (entityCode: string): string => {
     const endpoints: Record<string, string> = {
       'biz': '/api/v1/biz',
       'org': '/api/v1/entity/org',
@@ -236,11 +236,11 @@ export function EntityAssignmentDataTable({
       'employee': '/api/v1/employee',
       'role': '/api/v1/role'
     };
-    return endpoints[entityType] || `/api/v1/entity/${entityType}`;
+    return endpoints[entityCode] || `/api/v1/entity/${entityCode}`;
   };
 
   // Helper function to get entity type display name
-  const getEntityTypeDisplayName = (entityType: string): string => {
+  const getEntityTypeDisplayName = (entityCode: string): string => {
     const displayNames: Record<string, string> = {
       'biz': 'Business',
       'org': 'Organization',
@@ -249,11 +249,11 @@ export function EntityAssignmentDataTable({
       'hr': 'HR',
       'worksite': 'Worksite'
     };
-    return displayNames[entityType] || entityType.charAt(0).toUpperCase() + entityType.slice(1);
+    return displayNames[entityCode] || entityCode.charAt(0).toUpperCase() + entityCode.slice(1);
   };
 
   // Helper function to get entity type color
-  const getEntityTypeColor = (entityType: string): string => {
+  const getEntityTypeColor = (entityCode: string): string => {
     const colors: Record<string, string> = {
       'biz': 'bg-dark-1000',
       'org': 'bg-green-500',
@@ -262,7 +262,7 @@ export function EntityAssignmentDataTable({
       'hr': 'bg-pink-500',
       'worksite': 'bg-indigo-500'
     };
-    return colors[entityType] || 'bg-dark-1000';
+    return colors[entityCode] || 'bg-dark-1000';
   };
 
   // Filter available parents by search term
@@ -288,11 +288,11 @@ export function EntityAssignmentDataTable({
   const getGroupedAvailableParents = () => {
     const filtered = getFilteredAvailableParents();
     const grouped = filtered.reduce((groups, parent) => {
-      const entityType = parent.entity_type;
-      if (!groups[entityType]) {
-        groups[entityType] = [];
+      const entityCode = parent.entity_type;
+      if (!groups[entityCode]) {
+        groups[entityCode] = [];
       }
-      groups[entityType].push(parent);
+      groups[entityCode].push(parent);
       return groups;
     }, {} as Record<string, AvailableParentEntity[]>);
 
@@ -302,18 +302,18 @@ export function EntityAssignmentDataTable({
   // Group current assignments by entity type
   const getGroupedAssignments = () => {
     const grouped = assignments.reduce((groups, assignment) => {
-      const entityType = assignment.parent_entity;
-      if (!groups[entityType]) {
-        groups[entityType] = [];
+      const entityCode = assignment.parent_entity;
+      if (!groups[entityCode]) {
+        groups[entityCode] = [];
       }
-      groups[entityType].push(assignment);
+      groups[entityCode].push(assignment);
       return groups;
     }, {} as Record<string, AssignedEntity[]>);
 
     return grouped;
   };
 
-  const handleAddAssignment = async (entityType: string, entityId: string, entityName: string, closeSearchOnSuccess: boolean = true) => {
+  const handleAddAssignment = async (entityCode: string, entityId: string, entityName: string, closeSearchOnSuccess: boolean = true) => {
     if (!effectiveCanAssign) return;
 
     try {
@@ -327,7 +327,7 @@ export function EntityAssignmentDataTable({
         action_entity_id: actionEntityId,
         action_entity: actionEntityType,
         parent_entity_id: entityId,
-        parent_entity: entityType
+        parent_entity: entityCode
       };
 
       const response = await fetch(
@@ -344,13 +344,13 @@ export function EntityAssignmentDataTable({
         const newAssignment: AssignedEntity = {
           id: responseData.data?.id || `temp-${Date.now()}`,
           parent_entity_id: entityId,
-          parent_entity: entityType,
+          parent_entity: entityCode,
           parent_entity_name: entityName,
           from_ts: new Date().toISOString(),
           active: true
         };
         setAssignments(prev => [...prev, newAssignment]);
-        setSuccessMessage(`Added ${getEntityTypeDisplayName(entityType)}: ${entityName}`);
+        setSuccessMessage(`Added ${getEntityTypeDisplayName(entityCode)}: ${entityName}`);
         setTimeout(() => setSuccessMessage(null), 3000);
 
         if (closeSearchOnSuccess) {
@@ -418,10 +418,10 @@ export function EntityAssignmentDataTable({
     }
   };
 
-  const toggleGroupCollapse = (entityType: string) => {
+  const toggleGroupCollapse = (entityCode: string) => {
     setCollapsedGroups(prev => ({
       ...prev,
-      [entityType]: !prev[entityType]
+      [entityCode]: !prev[entityCode]
     }));
   };
 
@@ -524,13 +524,13 @@ export function EntityAssignmentDataTable({
         {/* Grouped Assignment Display */}
         {Object.keys(getGroupedAssignments()).length > 0 ? (
           <div className="space-y-2">
-            {Object.entries(getGroupedAssignments()).map(([entityType, entityAssignments]) => (
-              <div key={entityType} className="bg-dark-100 rounded p-3 border border-dark-300">
+            {Object.entries(getGroupedAssignments()).map(([entityCode, entityAssignments]) => (
+              <div key={entityCode} className="bg-dark-100 rounded p-3 border border-dark-300">
                 {/* Entity Type Header */}
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-xs font-normal text-dark-600 flex items-center gap-1.5">
                     <div className="w-2 h-2 bg-dark-1000 rounded-full"></div>
-                    {getEntityTypeDisplayName(entityType)}
+                    {getEntityTypeDisplayName(entityCode)}
                     <span className="text-xs text-dark-600 font-normal">
                       ({entityAssignments.length} assigned)
                     </span>
@@ -616,19 +616,19 @@ export function EntityAssignmentDataTable({
                     </div>
                   ) : (
                     <div className="p-1">
-                      {Object.entries(getGroupedAvailableParents()).map(([entityType, parents]) => {
-                        const isCollapsed = collapsedGroups[entityType];
+                      {Object.entries(getGroupedAvailableParents()).map(([entityCode, parents]) => {
+                        const isCollapsed = collapsedGroups[entityCode];
                         const assignedCount = parents.filter(parent => isEntityAssigned(parent.id)).length;
 
                         return (
-                          <div key={entityType} className="mb-2 last:mb-0">
+                          <div key={entityCode} className="mb-2 last:mb-0">
                             {/* Entity Type Header - Clickable */}
                             <div
                               className="sticky top-0 bg-dark-100 px-2 py-1.5 border-b border-dark-300 mb-1.5 cursor-pointer hover:bg-dark-100 transition-colors rounded"
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                toggleGroupCollapse(entityType);
+                                toggleGroupCollapse(entityCode);
                               }}
                             >
                               <div className="flex items-center justify-between">
@@ -639,7 +639,7 @@ export function EntityAssignmentDataTable({
                                     <ChevronDown className="h-2.5 w-2.5 text-dark-700" />
                                   )}
                                   <h4 className="text-xs font-normal text-dark-600 uppercase tracking-wide">
-                                    {getEntityTypeDisplayName(entityType)}
+                                    {getEntityTypeDisplayName(entityCode)}
                                   </h4>
                                 </div>
                                 <div className="flex items-center space-x-1.5">

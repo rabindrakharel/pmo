@@ -261,7 +261,7 @@ export function EntityDesignerPage() {
             <ColumnEditor
               columns={entityData.columns}
               onChange={handleColumnsChange}
-              entityType={entityData.entity_type}
+              entityCode={entityData.entity_type}
             />
           </div>
 

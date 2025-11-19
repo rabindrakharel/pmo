@@ -468,9 +468,9 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       const allEntityTypes = entities.map((e) => e.code);
 
       // Initialize all entity types with empty arrays
-      allEntityTypes.forEach(entityType => {
-        grouped[entityType] = {
-          entity_type: entityType,
+      allEntityTypes.forEach(entityCode => {
+        grouped[entityCode] = {
+          entity_type: entityCode,
           type_linkages: [],
           instance_linkages: [],
           type_count: 0,

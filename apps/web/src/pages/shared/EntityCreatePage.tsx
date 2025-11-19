@@ -24,14 +24,14 @@ import { useSidebar } from '../../contexts/SidebarContext';
  */
 
 interface EntityCreatePageProps {
-  entityType: string;
+  entityCode: string;
 }
 
-export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
+export function EntityCreatePage({ entityCode }: EntityCreatePageProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const config = getEntityConfig(entityType);
-  const EntityIcon = getEntityIcon(entityType);
+  const config = getEntityConfig(entityCode);
+  const EntityIcon = getEntityIcon(entityCode);
   const { hideSidebar } = useSidebar();
 
   // Get parent context from navigation state (if creating from child list page)
@@ -64,16 +64,16 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
     });
 
     // Entity-specific defaults
-    if (entityType === 'artifact') {
+    if (entityCode === 'artifact') {
       const timestamp = Date.now();
       defaults.code = defaults.code || `ART-${timestamp}`;
-    } else if (entityType === 'cost') {
+    } else if (entityCode === 'cost') {
       const timestamp = Date.now();
       defaults.code = defaults.code || `CST-${timestamp}`;
       defaults.cost_code = defaults.cost_code || `COST-${timestamp}`;
       defaults.invoice_currency = defaults.invoice_currency || 'CAD';
       defaults.exch_rate = defaults.exch_rate || 1.0;
-    } else if (entityType === 'revenue') {
+    } else if (entityCode === 'revenue') {
       const timestamp = Date.now();
       defaults.code = defaults.code || `REV-${timestamp}`;
       defaults.revenue_code = defaults.revenue_code || `REV-${timestamp}`;
@@ -115,10 +115,10 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
     setIsUploading(true);
     try {
       const tempId = `temp-${Date.now()}`;
-      const uploadType = entityType === 'cost' ? 'invoice' : entityType === 'revenue' ? 'receipt' : 'artifact';
+      const uploadType = entityCode === 'cost' ? 'invoice' : entityCode === 'revenue' ? 'receipt' : 'artifact';
 
       const objectKey = await uploadToS3({
-        entityType: entityType === 'cost' || entityType === 'revenue' ? entityType : 'artifact',
+        entityCode: entityCode === 'cost' || entityCode === 'revenue' ? entityCode : 'artifact',
         entityId: tempId,
         file: selectedFile,
         fileName: selectedFile.name,
@@ -133,19 +133,19 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
         // Auto-populate form fields based on entity type
         const fileExtension = selectedFile.name.split('.').pop() || 'unknown';
 
-        if (entityType === 'artifact') {
+        if (entityCode === 'artifact') {
           setFormData(prev => ({
             ...prev,
             name: selectedFile.name, // Always auto-populate name from filename
             attachment_format: fileExtension,
             attachment_size_bytes: selectedFile.size
           }));
-        } else if (entityType === 'cost') {
+        } else if (entityCode === 'cost') {
           setFormData(prev => ({
             ...prev,
             name: !prev.name ? selectedFile.name.replace(/\.[^/.]+$/, '') : prev.name
           }));
-        } else if (entityType === 'revenue') {
+        } else if (entityCode === 'revenue') {
           setFormData(prev => ({
             ...prev,
             name: !prev.name ? selectedFile.name.replace(/\.[^/.]+$/, '') : prev.name
@@ -164,7 +164,7 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
     setSelectedFile(null);
     setUploadedObjectKey(null);
     // Clear auto-populated file fields
-    if (entityType === 'artifact') {
+    if (entityCode === 'artifact') {
       setFormData(prev => ({
         ...prev,
         name: '',
@@ -196,27 +196,27 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
 
       // Add attachment fields based on entity type
       if (uploadedObjectKey) {
-        if (entityType === 'artifact') {
+        if (entityCode === 'artifact') {
           dataToCreate.attachment_object_key = uploadedObjectKey;
           dataToCreate.attachment_object_bucket = 'cohuron-attachments-prod-957207443425';
           // attachment_format and attachment_size_bytes are already in formData from handleFileUpload
-        } else if (entityType === 'cost') {
+        } else if (entityCode === 'cost') {
           // Store full S3 URI for cost invoice attachment
           dataToCreate.invoice_attachment = `s3://cohuron-attachments-prod-957207443425/${uploadedObjectKey}`;
-        } else if (entityType === 'revenue') {
+        } else if (entityCode === 'revenue') {
           // Store full S3 URI for revenue receipt attachment
           dataToCreate.sales_receipt_attachment = `s3://cohuron-attachments-prod-957207443425/${uploadedObjectKey}`;
         }
       }
 
       // Type-safe API call using APIFactory
-      const api = APIFactory.getAPI(entityType);
+      const api = APIFactory.getAPI(entityCode);
       const created = await api.create(dataToCreate);
 
       const createdId = created.id || created.data?.id;
 
       // Handle assignees separately via linkage API (only for task entity)
-      if (entityType === 'task' && createdId && assigneeIds && assigneeIds.length > 0) {
+      if (entityCode === 'task' && createdId && assigneeIds && assigneeIds.length > 0) {
         await createTaskAssignees(createdId, assigneeIds);
       }
 
@@ -225,7 +225,7 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
         await createParentChildLinkage(
           parentContext.parentType,
           parentContext.parentId,
-          entityType,
+          entityCode,
           createdId
         );
       }
@@ -236,13 +236,13 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
         if (parentContext?.returnTo) {
           navigate(parentContext.returnTo);
         } else {
-          navigate(`/${entityType}/${createdId}`);
+          navigate(`/${entityCode}/${createdId}`);
         }
       } else {
-        navigate(`/${entityType}`);
+        navigate(`/${entityCode}`);
       }
     } catch (err) {
-      console.error(`Failed to create ${entityType}:`, err);
+      console.error(`Failed to create ${entityCode}:`, err);
       setError(err instanceof Error ? err.message : 'Failed to create entity');
     } finally {
       setLoading(false);
@@ -354,7 +354,7 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
     if (parentContext?.returnTo) {
       navigate(parentContext.returnTo);
     } else {
-      navigate(`/${entityType}`);
+      navigate(`/${entityCode}`);
     }
   };
 
@@ -362,7 +362,7 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
     return (
       <Layout>
         <div className="text-center py-12">
-          <p className="text-red-600">Entity configuration not found for: {entityType}</p>
+          <p className="text-red-600">Entity configuration not found for: {entityCode}</p>
         </div>
       </Layout>
     );
@@ -420,9 +420,9 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
         )}
 
         {/* File Upload Section (Artifacts, Cost, Revenue) */}
-        {(entityType === 'artifact' || entityType === 'cost' || entityType === 'revenue') && (
+        {(entityCode === 'artifact' || entityCode === 'cost' || entityCode === 'revenue') && (
           <DragDropFileUpload
-            entityType={entityType as 'artifact' | 'cost' | 'revenue'}
+            entityCode={entityCode as 'artifact' | 'cost' | 'revenue'}
             selectedFile={selectedFile}
             uploadedObjectKey={uploadedObjectKey}
             isUploading={isUploading}
@@ -430,7 +430,7 @@ export function EntityCreatePage({ entityType }: EntityCreatePageProps) {
             onFileRemove={handleRemoveFile}
             onFileUpload={handleFileUpload}
             uploadError={uploadErrors.default}
-            accept={entityType === 'cost' || entityType === 'revenue' ? '.pdf,.png,.jpg,.jpeg' : undefined}
+            accept={entityCode === 'cost' || entityCode === 'revenue' ? '.pdf,.png,.jpg,.jpeg' : undefined}
           />
         )}
 

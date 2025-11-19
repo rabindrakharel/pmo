@@ -11,14 +11,14 @@ interface ScopeOption {
 }
 
 interface ScopeFiltersProps {
-  entityType: string;
+  entityCode: string;
   selectedScopes: string[];
   onScopeChange: (scopes: string[]) => void;
   className?: string;
 }
 
 export function ScopeFilters({
-  entityType,
+  entityCode,
   selectedScopes,
   onScopeChange,
   className = '',
@@ -34,7 +34,7 @@ export function ScopeFilters({
       setLoading(true);
       try {
         const token = localStorage.getItem('auth_token');
-        const response = await fetch(`${API_BASE_URL}/api/v1/filters/scopes?entity_type=${entityType}`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/filters/scopes?entity_type=${entityCode}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -55,7 +55,7 @@ export function ScopeFilters({
     };
 
     fetchScopes();
-  }, [entityType]);
+  }, [entityCode]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -179,7 +179,7 @@ export function ScopeFilters({
                         {scope.scope_name}
                       </div>
                       <div className="text-xs text-dark-700">
-                        {scope.scope_type} • {scope.entity_count} {entityType}
+                        {scope.scope_type} • {scope.entity_count} {entityCode}
                         {scope.entity_count === 1 ? '' : 's'}
                       </div>
                     </div>

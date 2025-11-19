@@ -11,7 +11,7 @@ export interface EntityInstance {
 }
 
 interface UseEntityInstancePickerOptions {
-  entityType: string | null;
+  entityCode: string | null;
   enabled?: boolean;
   limit?: number;
 }
@@ -32,12 +32,12 @@ interface UseEntityInstancePickerReturn {
  *
  * @example
  * const { instances, filteredInstances, loading } = useEntityInstancePicker({
- *   entityType: 'project',
+ *   entityCode: 'project',
  *   enabled: true
  * });
  */
 export function useEntityInstancePicker({
-  entityType,
+  entityCode,
   enabled = true,
   limit = 100
 }: UseEntityInstancePickerOptions): UseEntityInstancePickerReturn {
@@ -58,7 +58,7 @@ export function useEntityInstancePicker({
 
   // Load instances when entity type changes
   const loadInstances = async () => {
-    if (!entityType || !enabled) {
+    if (!entityCode || !enabled) {
       setInstances([]);
       return;
     }
@@ -67,14 +67,14 @@ export function useEntityInstancePicker({
     setError(null);
 
     try {
-      const endpoint = getApiEndpoint(entityType);
+      const endpoint = getApiEndpoint(entityCode);
       const response = await fetch(
         `${apiUrl}/api/v1/${endpoint}?limit=${limit}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to load ${entityType} instances`);
+        throw new Error(`Failed to load ${entityCode} instances`);
       }
 
       const data = await response.json();
@@ -90,7 +90,7 @@ export function useEntityInstancePicker({
 
       setInstances(entities);
     } catch (err) {
-      console.error(`Error loading ${entityType} instances:`, err);
+      console.error(`Error loading ${entityCode} instances:`, err);
       setError(err instanceof Error ? err.message : 'Failed to load instances');
       setInstances([]);
     } finally {
@@ -101,7 +101,7 @@ export function useEntityInstancePicker({
   // Auto-load when entity type changes
   useEffect(() => {
     loadInstances();
-  }, [entityType, enabled]);
+  }, [entityCode, enabled]);
 
   // Filter instances based on search query
   const filteredInstances = useMemo(() => {

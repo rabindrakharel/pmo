@@ -310,7 +310,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
             END as person_email
           FROM app.entity_event_person_calendar epc
           LEFT JOIN app.employee emp ON epc.person_id = emp.id AND epc.person_entity_type = 'employee'
-          LEFT JOIN app.d_cust cust ON epc.person_id = cust.id AND epc.person_entity_type = 'customer'
+          LEFT JOIN app.cust cust ON epc.person_id = cust.id AND epc.person_entity_type = 'customer'
           WHERE epc.event_id = ANY(${eventIds}::uuid[])
             AND epc.active_flag = true
           ORDER BY epc.person_entity_type, epc.event_rsvp_status
@@ -775,7 +775,7 @@ export async function eventRoutes(fastify: FastifyInstance) {
           END as person_email
         FROM app.entity_event_person_calendar epc
         LEFT JOIN app.employee emp ON epc.person_entity_type = 'employee' AND epc.person_id = emp.id
-        LEFT JOIN app.d_cust cust ON epc.person_entity_type = 'customer' AND epc.person_id = cust.id
+        LEFT JOIN app.cust cust ON epc.person_entity_type = 'customer' AND epc.person_id = cust.id
         WHERE epc.event_id = ${id}::uuid AND epc.active_flag = true
         ORDER BY epc.event_rsvp_status, epc.person_entity_type
       `;

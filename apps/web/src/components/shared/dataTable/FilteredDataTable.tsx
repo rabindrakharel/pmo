@@ -14,7 +14,7 @@ import { TableSkeleton } from '../ui/TableSkeleton';
 import { API_CONFIG, API_ENDPOINTS } from '../../../lib/config/api';
 
 export interface FilteredDataTableProps {
-  entityType: string;
+  entityCode: string;
   parentType?: string;
   parentId?: string;
   onRowClick?: (record: any) => void;
@@ -38,7 +38,7 @@ export interface FilteredDataTableProps {
 }
 
 export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
-  entityType,
+  entityCode,
   parentType,
   parentId,
   onRowClick,
@@ -55,7 +55,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   allowAddRow = true
 }) => {
   const navigate = useNavigate();
-  const config = getEntityConfig(entityType);
+  const config = getEntityConfig(entityCode);
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -67,7 +67,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   const [isAddingRow, setIsAddingRow] = useState(false);
 
   // Fetch schema from API (independent of data)
-  const { schema, loading: schemaLoading, error: schemaError } = useEntitySchema(entityType);
+  const { schema, loading: schemaLoading, error: schemaError } = useEntitySchema(entityCode);
 
   // Check if this is a settings entity
   const isSettingsEntity = useMemo(() => {
@@ -95,7 +95,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         align: col.align,
         editable: col.editable,
         editType: col.editType as any,
-        loadOptionsFromSettings: col.dataSource?.type === 'settings',
+        loadDataLabels: col.dataSource?.type === 'settings',
 
         // Schema-driven formatting - use renderFieldDisplay for React elements (badges, etc.)
         render: (value: any) => renderFieldDisplay(value, col.format)
@@ -114,7 +114,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     hideAllColumns,
     isColumnVisible,
     resetToDefault
-  } = useColumnVisibility(entityType, configuredColumns, data);
+  } = useColumnVisibility(entityCode, configuredColumns, data);
 
   // Preload badge colors from settings tables
   useEffect(() => {
@@ -213,7 +213,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       }
 
       // For person-calendar, only show booked events (availability_flag = false)
-      if (entityType === 'person-calendar') {
+      if (entityCode === 'person-calendar') {
         queryParams += '&availability_flag=false';
       }
 
@@ -250,7 +250,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           setEditedData(transformFromApi({ ...record }));
         } else {
           // Navigate to edit page
-          navigate(`/${entityType}/${record.id}/edit`);
+          navigate(`/${entityCode}/${record.id}/edit`);
         }
         break;
       case 'delete':
@@ -304,13 +304,13 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
       if (isNewRow) {
         // POST - Create new entity
-        console.log(`Creating new ${entityType}:`, transformedData);
+        console.log(`Creating new ${entityCode}:`, transformedData);
 
         let createEndpoint = '';
         if (isSettingsEntity) {
           // Extract the datalabel from the apiEndpoint
           const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
-          const datalabel = datalabelMatch ? datalabelMatch[1] : entityType;
+          const datalabel = datalabelMatch ? datalabelMatch[1] : entityCode;
           createEndpoint = `/api/v1/setting/${datalabel}`;
         } else {
           createEndpoint = config.apiEndpoint;
@@ -325,11 +325,11 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         if (response.ok) {
           const result = await response.json();
           const newEntityId = result.id;
-          console.log(`✅ Created ${entityType}:`, result);
+          console.log(`✅ Created ${entityCode}:`, result);
 
           // STEP 2: Create parent-child linkage if in child context
           if (parentType && parentId && newEntityId) {
-            console.log(`🔗 Creating linkage: ${parentType}/${parentId} → ${entityType}/${newEntityId}`);
+            console.log(`🔗 Creating linkage: ${parentType}/${parentId} → ${entityCode}/${newEntityId}`);
 
             const linkageResponse = await fetch(`${API_BASE_URL}/api/v1/linkage`, {
               method: 'POST',
@@ -337,7 +337,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
               body: JSON.stringify({
                 parent_entity_type: parentType,
                 parent_entity_id: parentId,
-                child_entity_type: entityType,
+                child_entity_type: entityCode,
                 child_entity_id: newEntityId,
                 relationship_type: 'contains'
               })
@@ -350,14 +350,14 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
               // Verify linkage was created
               if (!linkageResult.data || !linkageResult.data.id) {
                 console.error('⚠️ Linkage response missing data!');
-                alert(`Warning: ${entityType} created but linkage may have failed. Please check the relationship manually.`);
+                alert(`Warning: ${entityCode} created but linkage may have failed. Please check the relationship manually.`);
               }
             } else {
               const errorText = await linkageResponse.text();
               console.error('❌ Failed to create linkage:', linkageResponse.statusText, errorText);
 
               // Alert user but don't fail - entity is created
-              alert(`Warning: ${entityType} created successfully, but failed to link to ${parentType}.\n\nYou may need to manually link this ${entityType} or contact support.\n\nError: ${linkageResponse.statusText}`);
+              alert(`Warning: ${entityCode} created successfully, but failed to link to ${parentType}.\n\nYou may need to manually link this ${entityCode} or contact support.\n\nError: ${linkageResponse.statusText}`);
             }
           }
 
@@ -370,17 +370,17 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           setIsAddingRow(false);
         } else {
           const errorText = await response.text();
-          console.error(`❌ Failed to create ${entityType}:`, response.statusText, errorText);
-          alert(`Failed to create ${entityType}: ${response.statusText}`);
+          console.error(`❌ Failed to create ${entityCode}:`, response.statusText, errorText);
+          alert(`Failed to create ${entityCode}: ${response.statusText}`);
         }
       } else {
         // PUT - Update existing entity
-        console.log(`Updating ${entityType}:`, transformedData);
+        console.log(`Updating ${entityCode}:`, transformedData);
 
         let updateEndpoint = '';
         if (isSettingsEntity) {
           const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
-          const datalabel = datalabelMatch ? datalabelMatch[1] : entityType;
+          const datalabel = datalabelMatch ? datalabelMatch[1] : entityCode;
           updateEndpoint = `/api/v1/setting/${datalabel}/${record.id}`;
         } else {
           updateEndpoint = `${config.apiEndpoint}/${record.id}`;
@@ -394,7 +394,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
         if (response.ok) {
           const result = await response.json();
-          console.log(`✅ Updated ${entityType}:`, result);
+          console.log(`✅ Updated ${entityCode}:`, result);
 
           // Reload data
           await fetchData();
@@ -446,7 +446,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       if (config.apiEndpoint.includes('/api/v1/setting?datalabel=')) {
         // Extract the datalabel from the apiEndpoint
         const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
-        const datalabel = datalabelMatch ? datalabelMatch[1] : entityType;
+        const datalabel = datalabelMatch ? datalabelMatch[1] : entityCode;
 
         // Settings API uses: DELETE /api/v1/setting/{datalabel}/{id}
         deleteEndpoint = `/api/v1/setting/${datalabel}/${record.id}`;
@@ -483,7 +483,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       onRowClick(record);
     } else {
       // Default navigation based on entity type
-      const entityPath = entityType === 'biz' ? '/biz' : `/${entityType}`;
+      const entityPath = entityCode === 'biz' ? '/biz' : `/${entityCode}`;
       const targetPath = `${entityPath}/${record.id}`;
       navigate(targetPath);
     }
@@ -567,7 +567,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
       // Extract datalabel from endpoint
       const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
-      const datalabel = datalabelMatch ? datalabelMatch[1] : entityType;
+      const datalabel = datalabelMatch ? datalabelMatch[1] : entityCode;
 
       const updateEndpoint = `/api/v1/setting/${datalabel}/${id}`;
 
@@ -612,7 +612,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
       // Extract datalabel from endpoint
       const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
-      const datalabel = datalabelMatch ? datalabelMatch[1] : entityType;
+      const datalabel = datalabelMatch ? datalabelMatch[1] : entityCode;
 
       const deleteEndpoint = `/api/v1/setting/${datalabel}/${id}`;
 
@@ -660,7 +660,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
       // Extract datalabel from endpoint
       const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
-      const datalabel = datalabelMatch ? datalabelMatch[1] : entityType;
+      const datalabel = datalabelMatch ? datalabelMatch[1] : entityCode;
 
       // CRITICAL: Update sequentially (not parallel) to avoid race conditions
       for (let newIndex = 0; newIndex < reorderedData.length; newIndex++) {
@@ -705,7 +705,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
       // Extract datalabel from endpoint
       const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
-      const datalabel = datalabelMatch ? datalabelMatch[1] : entityType;
+      const datalabel = datalabelMatch ? datalabelMatch[1] : entityCode;
 
       const createEndpoint = `/api/v1/setting/${datalabel}`;
 
@@ -769,7 +769,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         <div className="text-center">
           <div className="text-red-500 text-4xl mb-4">⚠️</div>
           <h3 className="text-sm font-normal text-dark-600 mb-2">Configuration Error</h3>
-          <p className="text-sm text-dark-700 mb-4">Entity configuration not found for: {entityType}</p>
+          <p className="text-sm text-dark-700 mb-4">Entity configuration not found for: {entityCode}</p>
         </div>
       </div>
     );
@@ -780,7 +780,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     return (
       <SchemaErrorFallback
         error={schemaError}
-        entityType={entityType}
+        entityCode={entityCode}
         onRetry={() => window.location.reload()}
       />
     );
@@ -804,7 +804,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
             selectedCount={selectedRows.length}
             onBulkShare={onBulkShare ? handleBulkShare : undefined}
             onBulkDelete={onBulkDelete ? handleBulkDelete : undefined}
-            entityType={entityType}
+            entityCode={entityCode}
           />
         )}
       </div>

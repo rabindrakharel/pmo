@@ -87,12 +87,12 @@ const RELATIONSHIP_MAP: Record<string, Record<string, RelationshipConfig>> = {
   }};
 
 // Helper functions
-function validateEntityType(entityType: string): boolean {
-  return Object.keys(ENTITY_TABLE_MAP).includes(entityType);
+function validateEntityType(entityCode: string): boolean {
+  return Object.keys(ENTITY_TABLE_MAP).includes(entityCode);
 }
 
-function getTableName(entityType: string): string {
-  return ENTITY_TABLE_MAP[entityType];
+function getTableName(entityCode: string): string {
+  return ENTITY_TABLE_MAP[entityCode];
 }
 
 function getRelationshipConfig(parentEntity: string, actionEntity: string): RelationshipConfig | null {

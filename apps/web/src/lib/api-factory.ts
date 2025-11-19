@@ -1,16 +1,16 @@
 /**
  * Type-Safe API Factory Pattern
  *
- * Eliminates unsafe dynamic API calls like `(api as any)[${entityType}Api]`
+ * Eliminates unsafe dynamic API calls like `(api as any)[${entityCode}Api]`
  * and provides compile-time type safety with runtime validation.
  *
  * @example
  * // Before (type-unsafe):
- * const apiModule = (api as any)[`${entityType}Api`];
+ * const apiModule = (api as any)[`${entityCode}Api`];
  * const response = await apiModule.list({ page: 1 });
  *
  * // After (type-safe):
- * const api = APIFactory.getAPI(entityType);
+ * const api = APIFactory.getAPI(entityCode);
  * const response = await api.list({ page: 1 });
  */
 
@@ -111,24 +111,24 @@ class APIFactoryClass {
   /**
    * Register an entity API in the factory
    *
-   * @param entityType - Entity type (e.g., 'project', 'task', 'wiki')
+   * @param entityCode - Entity type (e.g., 'project', 'task', 'wiki')
    * @param api - API implementation conforming to EntityAPI interface
    *
    * @example
    * APIFactory.register('project', projectApi);
    * APIFactory.register('task', taskApi);
    */
-  register(entityType: string, api: EntityAPI): void {
-    if (this.apis.has(entityType)) {
-      console.warn(`API for entity type "${entityType}" is already registered. Overwriting...`);
+  register(entityCode: string, api: EntityAPI): void {
+    if (this.apis.has(entityCode)) {
+      console.warn(`API for entity type "${entityCode}" is already registered. Overwriting...`);
     }
-    this.apis.set(entityType, api);
+    this.apis.set(entityCode, api);
   }
 
   /**
    * Get a registered API by entity type (type-safe)
    *
-   * @param entityType - Entity type (e.g., 'project', 'task', 'wiki')
+   * @param entityCode - Entity type (e.g., 'project', 'task', 'wiki')
    * @returns Type-safe EntityAPI instance
    * @throws Error if API not found for the given entity type
    *
@@ -136,11 +136,11 @@ class APIFactoryClass {
    * const api = APIFactory.getAPI('project');
    * const response = await api.list({ page: 1, pageSize: 100 });
    */
-  getAPI(entityType: string): EntityAPI {
-    const api = this.apis.get(entityType);
+  getAPI(entityCode: string): EntityAPI {
+    const api = this.apis.get(entityCode);
     if (!api) {
       throw new Error(
-        `API not found for entity type: "${entityType}". ` +
+        `API not found for entity type: "${entityCode}". ` +
         `Available types: ${Array.from(this.apis.keys()).join(', ')}`
       );
     }
@@ -150,11 +150,11 @@ class APIFactoryClass {
   /**
    * Check if an API is registered for a given entity type
    *
-   * @param entityType - Entity type to check
+   * @param entityCode - Entity type to check
    * @returns True if API is registered, false otherwise
    */
-  hasAPI(entityType: string): boolean {
-    return this.apis.has(entityType);
+  hasAPI(entityCode: string): boolean {
+    return this.apis.has(entityCode);
   }
 
   /**
@@ -169,10 +169,10 @@ class APIFactoryClass {
   /**
    * Unregister an API (useful for testing)
    *
-   * @param entityType - Entity type to unregister
+   * @param entityCode - Entity type to unregister
    */
-  unregister(entityType: string): void {
-    this.apis.delete(entityType);
+  unregister(entityCode: string): void {
+    this.apis.delete(entityCode);
   }
 
   /**
@@ -196,12 +196,12 @@ export const APIFactory = new APIFactoryClass();
  * Returns API if found, otherwise returns null instead of throwing.
  * Useful for optional API calls.
  *
- * @param entityType - Entity type
+ * @param entityCode - Entity type
  * @returns EntityAPI instance or null if not found
  */
-export function tryGetAPI(entityType: string): EntityAPI | null {
+export function tryGetAPI(entityCode: string): EntityAPI | null {
   try {
-    return APIFactory.getAPI(entityType);
+    return APIFactory.getAPI(entityCode);
   } catch {
     return null;
   }
