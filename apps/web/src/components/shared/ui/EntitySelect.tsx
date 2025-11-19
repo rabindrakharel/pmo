@@ -18,7 +18,7 @@ export interface EntitySelectProps {
  * Domain component for entity reference dropdowns
  * Used for all entity foreign key fields (_ID fields)
  *
- * Wraps base Select with automatic data fetching from entity instance-lookup API
+ * Wraps base Select with automatic data fetching from entity entity-instance-lookup API
  *
  * @example
  * <EntitySelect
@@ -41,7 +41,7 @@ export function EntitySelect({
   const { data: options = [], isLoading } = useQuery({
     queryKey: ['entity-lookup', entityCode],
     queryFn: async () => {
-      const response = await apiClient.get(`/api/v1/entity/${entityCode}/instance-lookup`, {
+      const response = await apiClient.get(`/api/v1/entity/${entityCode}/entity-instance-lookup`, {
         params: { active_only: true, limit: 500 }
       });
 

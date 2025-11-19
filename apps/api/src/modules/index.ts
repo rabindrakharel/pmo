@@ -60,7 +60,7 @@ import { entityRoutes } from './entity/routes.js';
 import { rbacRoutes } from './rbac/routes.js';
 import { linkageModule } from './linkage/index.js';
 import { sharedRoutes } from './shared/routes.js';
-import { entityOptionsRoutes } from './entity-options/routes.js';
+import { entityInstanceLookupRoutes } from './entity-instance-lookup/routes.js';
 
 // Hierarchy entity API modules
 import { officeHierarchyRoutes } from './office-hierarchy/routes.js';
@@ -100,8 +100,8 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   // Entity type metadata routes (d_entity - parent-child relationships, icons)
   await entityRoutes(fastify);
 
-  // Entity options routes (universal dropdown/selection options)
-  await entityOptionsRoutes(fastify);
+  // Entity instance lookup routes (universal dropdown/selection options)
+  await entityInstanceLookupRoutes(fastify);
 
   // RBAC permission checking routes
   await rbacRoutes(fastify);

@@ -2,14 +2,15 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import { getEntityInfrastructure, Permission } from '@/services/entity-infrastructure.service.js';
 
 /**
- * Universal Entity Options API
+ * Universal Entity Instance Lookup API
  *
  * Returns a list of {id, name} pairs for any entity type.
  * Used for populating dropdowns, autocomplete, and selection fields.
  *
- * Respects RBAC permissions - only returns entities the user has access to.
+ * Uses Entity Infrastructure Service for RBAC permission filtering.
  */
 
 // Map of entity codes to their database table names
@@ -31,16 +32,16 @@ const ENTITY_TABLE_MAP: Record<string, string> = {
   form: 'form_head',
 };
 
-export async function entityOptionsRoutes(fastify: FastifyInstance) {
+export async function entityInstanceLookupRoutes(fastify: FastifyInstance) {
   /**
-   * GET /api/v1/entity/:entityCode/instance-lookup
+   * GET /api/v1/entity/:entityCode/entity-instance-lookup
    *
    * Returns list of {id, name} for a given entity code
    * Filtered by RBAC permissions
    *
    * Used by EntitySelectDropdown and EntityMultiSelectTags for dropdown options
    */
-  fastify.get('/api/v1/entity/:entityCode/instance-lookup', {
+  fastify.get('/api/v1/entity/:entityCode/entity-instance-lookup', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -82,16 +83,16 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Build RBAC filter - user must have view permission (0)
-      const rbacCondition = sql`EXISTS (
-        SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-          AND rbac.entity_name = ${entityCode}
-          AND (rbac.entity_id = e.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 0
-      )`;
+      // Use Entity Infrastructure Service for RBAC filtering
+      const entityInfra = getEntityInfrastructure(db);
+
+      // Build RBAC filter using Entity Infrastructure Service
+      const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
+        userId,
+        entityCode,
+        Permission.VIEW,
+        'e'
+      );
 
       // Build conditions
       const conditions = [rbacCondition];
@@ -141,12 +142,14 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
   });
 
   /**
-   * POST /api/v1/entity/:entityCode/instance-lookup/bulk
+   * POST /api/v1/entity/:entityCode/entity-instance-lookup/bulk
    *
    * Get names for specific IDs (bulk lookup)
    * Useful for resolving IDs to names
+   *
+   * Uses Entity Infrastructure Service for RBAC permission filtering
    */
-  fastify.post('/api/v1/entity/:entityCode/instance-lookup/bulk', {
+  fastify.post('/api/v1/entity/:entityCode/entity-instance-lookup/bulk', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -188,13 +191,25 @@ export async function entityOptionsRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Get names for specific IDs
+      // Use Entity Infrastructure Service for RBAC filtering
+      const entityInfra = getEntityInfrastructure(db);
+
+      // Build RBAC filter using Entity Infrastructure Service
+      const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
+        userId,
+        entityCode,
+        Permission.VIEW,
+        'e'
+      );
+
+      // Get names for specific IDs with RBAC filtering
       const result = await db.execute(sql`
         SELECT
           e.id::text as id,
           e.name
         FROM app.${sql.identifier(tableName)} e
         WHERE e.id = ANY(${ids}::uuid[])
+          AND ${rbacCondition}
         ORDER BY e.name ASC
       `);
 

@@ -66,7 +66,7 @@ apiClient.interceptors.response.use((response) => {
     // Skip processing for specific endpoints that don't contain entity references
     const url = response.config.url;
     const skipPatterns = [
-      '/instance-lookup', // /api/v1/entity/*/instance-lookup (dropdown options)
+      '/entity-instance-lookup', // /api/v1/entity/*/entity-instance-lookup (dropdown options)
       '/auth/',           // Authentication endpoints
       '/setting',         // Settings/datalabel endpoints
       '/types',           // Entity type metadata
@@ -1077,7 +1077,7 @@ export const entityOptionsApi = {
    * Used for populating dropdowns and selection fields
    */
   async getOptions(entityCode: string, params?: { search?: string; limit?: number; active_only?: boolean }) {
-    const response = await apiClient.get(`/api/v1/entity/${entityCode}/instance-lookup`, { params });
+    const response = await apiClient.get(`/api/v1/entity/${entityCode}/entity-instance-lookup`, { params });
     return response.data;
   },
 
@@ -1085,7 +1085,7 @@ export const entityOptionsApi = {
    * Get names for specific entity IDs (bulk lookup)
    */
   async getBulkOptions(entityCode: string, ids: string[]) {
-    const response = await apiClient.post(`/api/v1/entity/${entityCode}/instance-lookup/bulk`, { ids });
+    const response = await apiClient.post(`/api/v1/entity/${entityCode}/entity-instance-lookup/bulk`, { ids });
     return response.data;
   },
 

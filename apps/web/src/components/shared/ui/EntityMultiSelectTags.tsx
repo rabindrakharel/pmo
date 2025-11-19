@@ -18,7 +18,7 @@ interface EntityMultiSelectTagsProps {
  * EntityMultiSelectTags - Multi-select with tags for _IDS fields
  *
  * Uses existing SearchableMultiSelect component
- * Loads options from /api/v1/entity/{entityCode}/instance-lookup
+ * Loads options from /api/v1/entity/{entityCode}/entity-instance-lookup
  * Returns both UUID and label on add
  *
  * Usage:
@@ -46,13 +46,13 @@ export const EntityMultiSelectTags: React.FC<EntityMultiSelectTagsProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load options from /api/v1/entity/{entityCode}/instance-lookup
+  // Load options from /api/v1/entity/{entityCode}/entity-instance-lookup
   useEffect(() => {
     const loadOptions = async () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await apiClient.get(`/api/v1/entity/${entityCode}/instance-lookup`, {
+        const response = await apiClient.get(`/api/v1/entity/${entityCode}/entity-instance-lookup`, {
           params: { active_only: true, limit: 500 }
         });
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, Outlet, useLocation } from 'react-router-dom';
 import { Edit2, Save, X, Palette, Download, Upload, CheckCircle, Copy, Check, Share2, Link as LinkIcon } from 'lucide-react';
 import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityFormContainer, FilePreview, DragDropFileUpload, MetadataField, MetadataRow, MetadataSeparator } from '../../components/shared';
@@ -134,52 +134,8 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
     return [overviewTab, ...filteredTabs];
   }, [tabs, entityCode, id, hasChildEntities]);
 
-  useEffect(() => {
-    if (id) {
-      loadData();
-    }
-  }, [id, entityCode]);
-
-  // Auto-edit mode when navigating from child entity creation
-  useEffect(() => {
-    const locationState = location.state as any;
-    if (locationState?.autoEdit && data && !loading) {
-      setIsEditing(true);
-      // Clear the state to prevent re-entering edit mode on subsequent navigations
-      window.history.replaceState({}, document.title);
-    }
-  }, [data, loading, location.state]);
-
-  // Register entity in navigation history when data is loaded
-  useEffect(() => {
-    if (data && id) {
-      pushEntity({
-        entityCode,
-        entityId: id,
-        entityName: data.name || data.title || 'Untitled',
-        timestamp: Date.now()
-      });
-    }
-  }, [data, id, entityCode, pushEntity]);
-
-  // Update entity name in navigation history when it changes
-  useEffect(() => {
-    if (data) {
-      const entityName = data.name || data.title || 'Untitled';
-      updateCurrentEntityName(entityName);
-    }
-  }, [data?.name, data?.title, updateCurrentEntityName]);
-
-  // Update current entity's active tab when viewing a child entity tab
-  // This ensures we return to the correct tab when going back
-  useEffect(() => {
-    if (currentChildEntity) {
-      updateCurrentEntityActiveTab(currentChildEntity);
-    }
-  }, [currentChildEntity, updateCurrentEntityActiveTab]);
-
-
-  const loadData = async () => {
+  // Load entity data - defined before useEffect to avoid TDZ error
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -224,7 +180,51 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, entityCode]);
+
+  useEffect(() => {
+    if (id) {
+      loadData();
+    }
+  }, [id, entityCode, loadData]);
+
+  // Auto-edit mode when navigating from child entity creation
+  useEffect(() => {
+    const locationState = location.state as any;
+    if (locationState?.autoEdit && data && !loading) {
+      setIsEditing(true);
+      // Clear the state to prevent re-entering edit mode on subsequent navigations
+      window.history.replaceState({}, document.title);
+    }
+  }, [data, loading, location.state]);
+
+  // Register entity in navigation history when data is loaded
+  useEffect(() => {
+    if (data && id) {
+      pushEntity({
+        entityCode,
+        entityId: id,
+        entityName: data.name || data.title || 'Untitled',
+        timestamp: Date.now()
+      });
+    }
+  }, [data, id, entityCode, pushEntity]);
+
+  // Update entity name in navigation history when it changes
+  useEffect(() => {
+    if (data) {
+      const entityName = data.name || data.title || 'Untitled';
+      updateCurrentEntityName(entityName);
+    }
+  }, [data?.name, data?.title, updateCurrentEntityName]);
+
+  // Update current entity's active tab when viewing a child entity tab
+  // This ensures we return to the correct tab when going back
+  useEffect(() => {
+    if (currentChildEntity) {
+      updateCurrentEntityActiveTab(currentChildEntity);
+    }
+  }, [currentChildEntity, updateCurrentEntityActiveTab]);
 
   const handleSave = async () => {
     try {
