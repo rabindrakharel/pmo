@@ -27,7 +27,7 @@
  *     - Parent-CREATE inheritance (if parent has CREATE, children gain CREATE)
  *
  * Usage Example:
- *   const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
+ *   const canView = await entityInfra.check_entity_rbac(
  *     db, userId, ENTITY_CODE, id, Permission.VIEW
  *   );
  *
@@ -107,21 +107,21 @@
  *
  * Example 1: List Tasks with RBAC
  *   1. User requests GET /api/v1/task
- *   2. unified_data_gate.rbac_gate.getWhereCondition() builds RBAC filter
- *   3. SQL query includes RBAC WHERE condition automatically
+ *   2. entityInfra.get_entity_rbac_where_condition() generates SQL WHERE condition
+ *   3. SQL query includes RBAC filtering via entity_rbac table
  *   4. Returns only tasks user can view
  *
  * Example 2: Create Task and Link to Project
  *   1. User requests POST /api/v1/task (with project_id in metadata)
- *   2. unified_data_gate.rbac_gate.check_entity_rbac(Permission.CREATE) validates
- *   3. Create task in d_task
+ *   2. entityInfra.check_entity_rbac(Permission.CREATE) validates
+ *   3. Create task in task table
  *   4. Frontend calls POST /api/v1/linkage to link task → project
  *   5. Frontend calls POST /api/v1/linkage to assign employee
  *
  * Example 3: Update Task Stage (Kanban)
  *   1. User drags task card to new column
  *   2. Frontend calls PATCH /api/v1/task/:id/status
- *   3. unified_data_gate.rbac_gate.check_entity_rbac(Permission.EDIT) validates
+ *   3. entityInfra.check_entity_rbac(Permission.EDIT) validates
  *   4. Update dl__task_stage with audit metadata
  *   5. Return updated task for optimistic UI
  *
@@ -1483,6 +1483,6 @@ export async function taskRoutes(fastify: FastifyInstance) {
   // Child Entity Endpoints (Auto-Generated from entity metadata)
   // ============================================================================
   // Creates: GET /api/v1/task/:id/{child} for each child in entity table.child_entity_codes
-  // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
+  // Uses Entity Infrastructure Service for RBAC + entity_instance_link for parent-child filtering
   await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }

@@ -742,7 +742,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
   // Child Entity Endpoints (Auto-Generated from entity metadata)
   // ============================================================================
   // Creates: GET /api/v1/office/:id/{child} for each child in entity table.child_entity_codes
-  // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
+  // Uses Entity Infrastructure Service for RBAC + entity_instance_link for parent-child filtering
   await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 
   // ========================================

@@ -30,8 +30,8 @@
  *     - Enables create-link-edit pattern (create child, link to parent)
  *
  * Usage Example:
- *   const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
- *     db, userId, ENTITY_CODE, id, Permission.VIEW
+ *   const canView = await entityInfra.check_entity_rbac(
+ *     userId, ENTITY_CODE, id, Permission.VIEW
  *   );
  *
  * 2. CREATE-LINK-EDIT PATTERN (Parent-Child Relationships)
@@ -54,7 +54,7 @@
  *   • Zero maintenance - add child to entity DDL, routes auto-generated
  *
  * No manual endpoint code needed - factory handles:
- *   • RBAC filtering (unified_data_gate)
+ *   • RBAC filtering (Entity Infrastructure Service)
  *   • Parent-child JOIN via entity_instance_link
  *   • Pagination, search, sorting
  *
@@ -120,8 +120,8 @@
  *
  * Example 1: List Projects with RBAC
  *   1. User requests GET /api/v1/project
- *   2. unified_data_gate.rbac_gate.getWhereCondition() filters to accessible IDs
- *   3. SQL query includes: WHERE e.id = ANY(accessible_ids)
+ *   2. entityInfra.get_entity_rbac_where_condition() generates SQL WHERE condition
+ *   3. SQL query includes RBAC filtering via entity_rbac table
  *   4. Returns only projects user can view
  *
  * Example 2: Create Project in Business Context
