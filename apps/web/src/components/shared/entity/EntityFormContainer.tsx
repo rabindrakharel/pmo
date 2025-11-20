@@ -545,34 +545,8 @@ export function EntityFormContainer({
         );
       }
       if (field.type === 'select') {
-        // ✅ PRIORITY 1: Backend-specified DAG component (explicit from backend)
+        // Backend-specified DAG component (explicit from backend)
         if (field.EntityFormContainer_viz_container === 'DAGVisualizer' && dagNodes.has(field.key)) {
-          // TWO DATA SOURCES for DAG visualization:
-          // 1. DAG structure (nodes, parent_ids, relationships) from setting_datalabel table
-          const nodes = dagNodes.get(field.key)!; // {id, node_name, parent_ids}[]
-
-          // 2. Current value (actual stage name) from entity table (e.g., project.dl__project_stage = "Execution")
-          // Find the matching node ID by stage name
-          const currentNode = nodes.find(n => n.node_name === value);
-
-          return (
-            <div className="space-y-3">
-              {/* Display actual stage value from entity table */}
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-dark-600">Current Stage:</span>
-                {renderFieldBadge(field.key, value || 'Not Set')}
-              </div>
-              {/* DAG visualization overlay from setting_datalabel */}
-              <DAGVisualizer
-                nodes={nodes}                      // DAG structure: {id, node_name, parent_ids}[]
-                currentNodeId={currentNode?.id}    // Current node ID matched from stage name
-              />
-            </div>
-          );
-        }
-
-        // FALLBACK: Auto-detect stage/funnel fields (backward compatibility)
-        if (isSequentialField && dagNodes.has(field.key)) {
           // TWO DATA SOURCES for DAG visualization:
           // 1. DAG structure (nodes, parent_ids, relationships) from setting_datalabel table
           const nodes = dagNodes.get(field.key)!; // {id, node_name, parent_ids}[]
@@ -754,18 +728,8 @@ export function EntityFormContainer({
           />
         );
       case 'jsonb':
-        // ✅ PRIORITY 1: Backend-specified component (overrides hardcoded checks)
+        // Backend-specified component (explicit from backend)
         if (field.EntityFormContainer_viz_container === 'MetadataTable') {
-          return (
-            <MetadataTable
-              value={value || {}}
-              onChange={(newValue) => handleFieldChange(field.key, newValue)}
-              isEditing={true}
-            />
-          );
-        }
-        // FALLBACK: Hardcoded check for backward compatibility
-        if (field.key === 'metadata') {
           return (
             <MetadataTable
               value={value || {}}
@@ -801,7 +765,7 @@ export function EntityFormContainer({
           />
         );
       case 'select': {
-        // ✅ PRIORITY 1: Backend-specified DAG component (explicit from backend)
+        // Backend-specified DAG component (explicit from backend)
         if (field.EntityFormContainer_viz_container === 'DAGVisualizer' && dagNodes.has(field.key)) {
           // TWO DATA SOURCES for interactive DAG visualization:
           // 1. DAG structure (nodes, parent_ids, relationships) from setting_datalabel table
@@ -816,43 +780,6 @@ export function EntityFormContainer({
               {/* Display actual stage value from entity table */}
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-dark-600">Current Stage:</span>
-                {renderFieldBadge(field.key, value || 'Not Set')}
-              </div>
-              <div className="text-xs text-dark-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
-                <strong>Click a node below</strong> to change the stage
-              </div>
-              {/* Interactive DAG visualization overlay from setting_datalabel */}
-              <DAGVisualizer
-                nodes={nodes}                      // DAG structure: {id, node_name, parent_ids}[]
-                currentNodeId={currentNode?.id}    // Current node ID matched from stage name
-                onNodeClick={(nodeId) => {
-                  // Update entity table with new stage name
-                  // Backend stores stage name (not ID) in entity.dl__xxx_stage
-                  const selectedNode = nodes.find(n => n.id === nodeId);
-                  if (selectedNode) {
-                    handleFieldChange(field.key, selectedNode.node_name); // Saves stage name to entity table
-                  }
-                }}
-              />
-            </div>
-          );
-        }
-
-        // FALLBACK: Auto-detect stage/funnel fields (backward compatibility)
-        if (isSequentialField && dagNodes.has(field.key)) {
-          // TWO DATA SOURCES for interactive DAG visualization:
-          // 1. DAG structure (nodes, parent_ids, relationships) from setting_datalabel table
-          const nodes = dagNodes.get(field.key)!; // {id, node_name, parent_ids}[]
-
-          // 2. Current value (actual stage name) from entity table (e.g., project.dl__project_stage = "Execution")
-          // Find the matching node ID by stage name
-          const currentNode = nodes.find(n => n.node_name === value);
-
-          return (
-            <div className="space-y-3">
-              {/* Display actual stage value from entity table */}
-              <div className="flex items-center gap-3 p-3 bg-dark-100 border border-dark-300 rounded-md">
-                <span className="text-sm font-semibold text-dark-600">Current Stage:</span>
                 {renderFieldBadge(field.key, value || 'Not Set')}
               </div>
               <div className="text-xs text-dark-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
