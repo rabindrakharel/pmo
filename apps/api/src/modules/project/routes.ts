@@ -198,6 +198,12 @@ const ProjectSchema = Type.Object({
   _IDS: Type.Optional(Type.Record(Type.String(), Type.Array(EntityReferenceSchema))),
 });
 
+// Response schema for metadata-driven endpoints
+const ProjectWithMetadataSchema = Type.Object({
+  data: ProjectSchema,
+  metadata: Type.Any()  // EntityMetadata from backend-formatter.service
+});
+
 const CreateProjectSchema = Type.Object({
   name: Type.Optional(Type.String({ minLength: 1 })),
   code: Type.Optional(Type.String({ minLength: 1 })),
@@ -480,7 +486,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         id: Type.String({ format: 'uuid' })
       }),
       response: {
-        200: ProjectSchema,
+        200: ProjectWithMetadataSchema,  // ✅ Fixed: Use metadata-driven schema
         401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),

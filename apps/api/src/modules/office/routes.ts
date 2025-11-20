@@ -92,6 +92,12 @@ const OfficeSchema = Type.Object({
   version: Type.Number(),
 });
 
+// Response schema for metadata-driven endpoints
+const OfficeWithMetadataSchema = Type.Object({
+  data: OfficeSchema,
+  metadata: Type.Any()  // EntityMetadata from backend-formatter.service
+});
+
 const CreateOfficeSchema = Type.Object({
   code: Type.String({ minLength: 1 }),
   name: Type.String({ minLength: 1 }),
@@ -232,7 +238,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
         id: Type.String({ format: 'uuid' }),
       }),
       response: {
-        200: OfficeSchema,
+        200: OfficeWithMetadataSchema,  // ✅ Fixed: Use metadata-driven schema
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),

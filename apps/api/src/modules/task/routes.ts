@@ -179,7 +179,14 @@ const TaskSchema = Type.Object({
   active_flag: Type.Boolean(),
   created_ts: Type.String(),
   updated_ts: Type.String(),
-  version: Type.Number()});
+  version: Type.Number()
+});
+
+// Response schema for metadata-driven endpoints
+const TaskWithMetadataSchema = Type.Object({
+  data: TaskSchema,
+  metadata: Type.Any()  // EntityMetadata from backend-formatter.service
+});
 
 // Task Records are deprecated - using single table approach from DDL
 
@@ -400,12 +407,16 @@ export async function taskRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        id: Type.String({ format: 'uuid' })}),
+        id: Type.String({ format: 'uuid' })
+      }),
       response: {
-        // Schema removed to allow flexible response based on actual database columns
+        200: TaskWithMetadataSchema,  // ✅ Fixed: Use metadata-driven schema
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })
+      }
+    },
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
 
     const userId = (request as any).user?.sub;
