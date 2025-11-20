@@ -483,31 +483,33 @@ export function renderViewModeFromMetadata(
       );
 
     case 'datalabels':
-      // Datalabel fields: Badge in table (EntityDataTable), Dropdown in form (EntityFormContainer)
-      // EntityDataTable uses this renderType → renders badge
-      // EntityFormContainer checks EntityFormContainer_viz_container first, then falls back to dropdown
+      // LEGACY: Old datalabel rendering (kept for backward compatibility)
       const badgeColor = metadata.colorMap?.[value] || metadata.color;
-      if (metadata.loadFromDataLabels && metadata.datalabelKey) {
+      if (metadata.datalabelKey) {
         return renderDataLabelBadge(value, metadata.datalabelKey, { color: badgeColor });
       }
       return renderBadge(value, badgeColor);
 
     case 'badge':
-      // Static badge (not from datalabels) - shows badge everywhere
+      // Datalabel lookup fields (dl__*) with badge rendering
+      // Used by: entityDataTable, entityDetailView, kanbanView, calendarView, gridView, hierarchyGraphView
+      if (metadata.datalabelKey) {
+        return renderDataLabelBadge(value, metadata.datalabelKey, { color: metadata.color });
+      }
+      // Static badge (not from datalabels)
       return renderBadge(value, metadata.color);
 
     case 'select':
-      // Datalabel field in table view - show as text/value (dropdown is for edit mode)
-      // Used by entityDataTable for dl__* fields
-      if (metadata.loadFromDataLabels && metadata.datalabelKey) {
+      // LEGACY: Old select rendering (kept for backward compatibility)
+      if (metadata.datalabelKey) {
         return renderDataLabelBadge(value, metadata.datalabelKey, { color: metadata.color });
       }
       return <span className="text-gray-700">{value}</span>;
 
     case 'dag':
-      // Datalabel field in DAG view - show as DAG node (for workflow visualization)
-      // Used by dagView for dl__* fields (e.g., dl__project_stage, dl__task_stage)
-      if (metadata.loadFromDataLabels && metadata.datalabelKey) {
+      // Datalabel lookup fields (dl__*) with DAG rendering
+      // Used by: dagView, entityFormContainer (for workflow visualization)
+      if (metadata.datalabelKey) {
         return renderDataLabelBadge(value, metadata.datalabelKey, { color: metadata.color });
       }
       return renderBadge(value, 'blue');

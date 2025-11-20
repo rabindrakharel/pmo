@@ -646,101 +646,93 @@ const PATTERN_RULES: Record<string, PatternRule> = {
   'dl__*': {
     entityDataTable: {
       dtype: 'str',
-      format: 'badge',
+      format: 'datalabel_lookup',
       internal: false,
       visible: true,
       filterable: true,
       sortable: true,
       editable: true,
-      viewType: 'select',      // ← Show as dropdown/select in table
+      viewType: 'badge',       // ← Show as badge in table
       editType: 'select',
       width: '140px',
-      align: 'left',
-      loadFromDataLabels: true
+      align: 'left'
     },
     entityFormContainer: {
       dtype: 'str',
-      format: 'badge',
+      format: 'datalabel_lookup',
       internal: false,
       visible: true,
       filterable: false,
       sortable: false,
       editable: true,
-      viewType: 'badge',       // ← Show as badge in forms
-      editType: 'select',
-      loadFromDataLabels: true
+      viewType: 'dag',         // ← Show as DAG in forms
+      editType: 'select'
     },
     entityDetailView: {
       dtype: 'str',
-      format: 'badge',
+      format: 'datalabel_lookup',
       internal: false,
       visible: true,
       filterable: false,
       sortable: false,
       editable: false,
       viewType: 'badge',       // ← Show as badge in detail view
-      editType: 'select',
-      loadFromDataLabels: true
+      editType: 'select'
     },
     kanbanView: {
       dtype: 'str',
-      format: 'badge',
+      format: 'datalabel_lookup',
       internal: false,
       visible: true,
       filterable: false,
       sortable: false,
       editable: false,
       viewType: 'badge',       // ← Show as badge on kanban cards
-      editType: 'select',
-      loadFromDataLabels: true
+      editType: 'select'
     },
     calendarView: {
       dtype: 'str',
-      format: 'badge',
+      format: 'datalabel_lookup',
       internal: false,
       visible: true,
       filterable: false,
       sortable: false,
       editable: false,
       viewType: 'badge',       // ← Show as badge on calendar events
-      editType: 'select',
-      loadFromDataLabels: true
+      editType: 'select'
     },
     gridView: {
       dtype: 'str',
-      format: 'badge',
+      format: 'datalabel_lookup',
       internal: false,
       visible: true,
       filterable: false,
       sortable: false,
       editable: false,
       viewType: 'badge',       // ← Show as badge in grid cards
-      editType: 'select',
-      loadFromDataLabels: true
+      editType: 'select'
     },
     dagView: {
       dtype: 'str',
-      format: 'badge',
+      format: 'datalabel_lookup',
       internal: false,
       visible: true,
       filterable: false,
       sortable: false,
       editable: false,
       viewType: 'dag',         // ← Show in DAG visualizer (workflow diagram)
-      editType: 'select',
-      loadFromDataLabels: true
+      editType: 'select'
     },
     hierarchyGraphView: {
       dtype: 'str',
-      format: 'badge',
+      format: 'datalabel_lookup',
       internal: false,
       visible: true,
       filterable: false,
       sortable: false,
       editable: false,
       viewType: 'badge',       // ← Show as badge in hierarchy graph
-      editType: 'select',
-      loadFromDataLabels: true
+      editType: 'select'
     }
   },
 

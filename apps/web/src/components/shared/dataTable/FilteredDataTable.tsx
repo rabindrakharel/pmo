@@ -115,7 +115,6 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           align: fieldMeta.align || 'left',
           editable: fieldMeta.editable ?? false,
           editType: fieldMeta.editType || fieldMeta.inputType as any,
-          loadDataLabels: fieldMeta.loadFromDataLabels ?? false,
           // ✅ CRITICAL: Attach backend metadata to column for EntityDataTable
           backendMetadata: {
             key: fieldName,
@@ -131,9 +130,8 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
             validation: fieldMeta.validation,
             width: fieldMeta.width || 'auto',
             align: fieldMeta.align || 'left',
-            loadFromDataLabels: fieldMeta.loadFromDataLabels ?? false,
             loadFromEntity: fieldMeta.loadFromEntity,
-            datalabelKey: fieldMeta.datalabelKey,
+            datalabelKey: fieldMeta.datalabelKey,  // ← Datalabel lookup key (for dl__* fields)
             endpoint: fieldMeta.endpoint,
             displayField: fieldMeta.displayField,
             index: 0
