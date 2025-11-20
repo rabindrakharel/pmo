@@ -52,7 +52,8 @@ The **PMO Platform** is an enterprise-grade project management and operations sy
 | Document | Purpose | When to Use | Key Topics |
 |----------|---------|-------------|------------|
 | **[Entity Infrastructure Service](./docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md)** | **⭐ Single source of truth** for all infrastructure operations | Implementing entity CRUD, RBAC checks, registry operations | RBAC permissions, Entity registry, Parent-child linking, Delete cascades |
-| **[Universal Formatter Service](./docs/services/UNIVERSAL_FORMATTER_SERVICE.md)** | **⭐ Single source of truth** for all formatting | Formatting display values, field rendering, API transforms | Currency/date formatting, Badge rendering, Field detection, Type conversion |
+| **[Backend Formatter Service](./docs/services/BACKEND_FORMATTER_SERVICE.md)** | **⭐ Backend metadata generation** - Single source of truth for field rendering | Adding new entities, understanding field metadata generation | 35+ pattern rules, Column naming conventions, Metadata caching, Backend-driven UI |
+| **[Frontend Formatter Service](./docs/services/FRONTEND_FORMATTER_SERVICE.md)** | **⭐ Pure metadata renderer** - Zero frontend logic, executes backend instructions | Building components that consume backend metadata | View/edit mode rendering, Metadata consumption, Component integration, Type guards |
 | **[Services Catalog](./docs/services/README.md)** | Index of all backend services | Finding service documentation | 10+ services (email, calendar, S3, messaging, etc.) |
 
 ### 🔌 API & Services
