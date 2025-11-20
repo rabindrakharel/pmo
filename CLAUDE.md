@@ -77,12 +77,15 @@ entity_rbac                   -- Person-based permissions (0-7: VIEW, COMMENT, E
 | Service | File | Documentation | Purpose |
 |---------|------|---------------|---------|
 | **Entity Infrastructure Service** | `services/entity-infrastructure.service.ts` | [ENTITY_INFRASTRUCTURE_SERVICE.md](docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md) | Centralized management of all 4 infrastructure tables (entity, entity_instance, entity_instance_link, entity_rbac) |
-| **Universal Formatter Service** | `lib/universalFormatterService.ts` | [UNIVERSAL_FORMATTER_SERVICE.md](docs/services/UNIVERSAL_FORMATTER_SERVICE.md) | Single source of truth for ALL formatting (currency, dates, badges, transforms) - Convention over Configuration |
+| **Backend Formatter Service** | `services/backend-formatter.service.ts` | [BACKEND_FORMATTER_SERVICE.md](docs/services/BACKEND_FORMATTER_SERVICE.md) | **Single source of truth** for field metadata generation - Backend generates complete metadata from column names (35+ patterns) |
+| **Frontend Formatter Service** | `lib/universalFormatterService.tsx` | [FRONTEND_FORMATTER_SERVICE.md](docs/services/FRONTEND_FORMATTER_SERVICE.md) | **Pure metadata renderer** - Consumes backend metadata and renders view/edit modes with zero pattern detection |
 | **Universal Filter Builder** | `lib/universal-filter-builder.ts` | [UNIVERSAL_FILTER_BUILDER.md](docs/services/UNIVERSAL_FILTER_BUILDER.md) | Zero-config query filtering with auto-type detection from column naming conventions |
 
 **Key Benefits**:
 - ✅ Zero boilerplate for standard CRUD operations
 - ✅ Consistent RBAC enforcement across all entities (via Entity Infrastructure Service)
+- ✅ **Backend-driven metadata** - Backend is single source of truth for all field rendering (via Backend Formatter Service)
+- ✅ **Pure frontend rendering** - Frontend executes backend instructions exactly (via Frontend Formatter Service)
 - ✅ Auto-detection of filter types from column naming (via Universal Filter Builder)
 - ✅ Convention over configuration (column names determine everything)
 - ✅ 80%+ code reduction across entity routes
@@ -227,62 +230,191 @@ fastify.get('/api/v1/project', async (request, reply) => {
 
 **Reference**: See `docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md` for complete architecture
 
-### 5a. Universal Formatter Service (Convention Over Configuration)
+### 5a. Backend Formatter Service (Metadata Generation - Server Side)
 
-**Purpose**: Single source of truth for ALL formatting across frontend and API transforms
+**Purpose**: Backend generates complete field metadata from database column names using 35+ pattern rules
 
-**Convention Over Configuration**: Column name automatically determines format type
+**Architecture**: **Backend is the single source of truth** for ALL field rendering decisions
+
 ```typescript
-import {
-  detectFieldFormat,    // Column name → complete format spec
-  formatFieldValue,     // Value → formatted string
-  renderFieldDisplay,   // Value → React element
-  transformForApi,      // Frontend → API format
-  renderSettingBadge,   // Settings → colored badge
-  getFieldCapability    // Determine editability
-} from '@/lib/universalFormatterService';
+// Backend route handler
+import { getEntityMetadata } from '@/services/backend-formatter.service.js';
 
-// Auto-detect format from column name
-const format = detectFieldFormat('budget_allocated_amt', 'numeric');
-// Returns: { type: 'currency', label: 'Budget Allocated', editType: 'number', align: 'right', ... }
+// LIST endpoint
+fastify.get('/api/v1/office', async (request, reply) => {
+  const offices = await db.execute(sql`SELECT * FROM app.office...`);
 
-const formatted = formatFieldValue(50000, 'currency');
-// Returns: "$50,000.00"
+  // Generate metadata from first row (or empty object)
+  const fieldMetadata = offices.length > 0
+    ? getEntityMetadata('office', offices[0])
+    : getEntityMetadata('office');
 
-const element = renderFieldDisplay(50000, { type: 'currency' });
-// Returns: <span>$50,000.00</span>
+  return {
+    data: offices,
+    metadata: fieldMetadata,  // ← Backend sends complete rendering instructions
+    total, limit, offset
+  };
+});
 ```
 
-**Naming Convention Rules** (Auto-Detection):
-| Pattern | Format | Display Example |
-|---------|--------|-----------------|
-| `*_amt`, `*_price`, `*_cost` | `currency` | `$50,000.00` |
-| `dl__*` | `badge` | 🟢 "In Progress" |
-| `*_ts`, `*_at` + timestamp | `relative-time` | "2 hours ago" |
-| `*_date` | `date` | "Jan 15, 2025" |
-| `timestamp` type | `datetime` | "Jan 15, 2025, 2:30 PM" |
-| `boolean` type | `boolean` | 🟢 "Active" |
-| `*_pct`, `*_rate` | `percentage` | "75.0%" |
-| `*_id` (uuid) | `reference` | Link to entity |
-| `tags` or `ARRAY` | `tags` | `tag1` `tag2` |
-| Default | `text` | Plain text |
+**Pattern Detection (35+ Rules)**:
+| Pattern | Generated Metadata | Example |
+|---------|-------------------|---------|
+| `*_amt`, `*_price`, `*_cost` | `renderType: 'currency'`, `inputType: 'currency'` | `$50,000.00` input |
+| `dl__*` | `renderType: 'badge'`, `loadFromDataLabels: true` | Badge with DAGVisualizer for stages |
+| `*_date` | `renderType: 'date'`, `inputType: 'date'` | Date picker |
+| `*_ts`, `*_at` | `renderType: 'timestamp'`, `inputType: 'datetime'` | DateTime picker |
+| `is_*`, `*_flag` | `renderType: 'boolean'`, `inputType: 'checkbox'` | Toggle checkbox |
+| `*__employee_id` | `renderType: 'reference'`, `loadFromEntity: 'employee'` | Dropdown with employees |
+| `metadata` (field) | `renderType: 'json'`, `component: 'MetadataTable'` | JSON table view |
 
-**6 Functional Areas (All in ONE Service)**:
-1. **Format Detection** - `detectFieldFormat()`, `generateFieldLabel()`, `getEditType()`
-2. **Value Formatting** - `formatCurrency()`, `formatRelativeTime()`, `formatFriendlyDate()`
-3. **React Rendering** - `renderFieldDisplay()`, `formatBooleanBadge()`, `formatTagsList()`
-4. **Badge Rendering** - `renderSettingBadge()` with color mapping
-5. **Data Transformation** - `transformForApi()`, `transformFromApi()`
-6. **Field Capability** - `getFieldCapability()` (editable vs readonly)
+**Backend Response Structure** (with composite fields):
+```json
+{
+  "data": [{
+    "id": "uuid",
+    "start_date": "2025-01-15",
+    "end_date": "2025-03-30",
+    "budget_allocated_amt": 50000
+  }],
+  "metadata": {
+    "entity": "project",
+    "fields": [
+      {
+        "key": "budget_allocated_amt",
+        "label": "Budget Allocated",
+        "renderType": "currency",
+        "inputType": "currency",
+        "format": { "symbol": "$", "decimals": 2 },
+        "visible": {
+          "EntityDataTable": true,
+          "EntityDetailView": true,
+          "EntityFormContainer": true,
+          "KanbanView": true,
+          "CalendarView": true
+        },
+        "editable": true,
+        "align": "right",
+        "width": "140px"
+      },
+      {
+        "key": "start_date",
+        "label": "Start Date",
+        "renderType": "date",
+        "inputType": "date",
+        "visible": {
+          "EntityDataTable": true,
+          "EntityDetailView": false,        // Hidden (composite shows)
+          "EntityFormContainer": true,      // Show for editing
+          "KanbanView": true,
+          "CalendarView": true
+        },
+        "editable": true
+      },
+      {
+        "key": "start_date_end_date_composite",
+        "label": "Project Progress",
+        "type": "composite",
+        "renderType": "progress-bar",
+        "component": "ProgressBar",
+        "composite": true,
+        "compositeConfig": {
+          "composedFrom": ["start_date", "end_date"],
+          "compositeType": "progress-bar",
+          "showPercentage": true,
+          "showDates": true,
+          "highlightOverdue": true
+        },
+        "visible": {
+          "EntityDataTable": false,         // Too complex
+          "EntityDetailView": true,          // ONLY here
+          "EntityFormContainer": false,      // Not editable
+          "KanbanView": false,
+          "CalendarView": false
+        },
+        "editable": false
+      }
+    ]
+  }
+}
+```
 
 **Benefits**:
-- ✅ **ONE import** for all formatting needs
-- ✅ **Zero configuration** - Add column to database, frontend auto-detects everything
-- ✅ **DRY principle** - Change format once, applies everywhere
-- ✅ **No API calls** for formatting (local service, except badge colors which are cached)
-- ✅ **Type-safe** with TypeScript
+- ✅ **Zero frontend configuration** - Add column to DB, backend generates metadata automatically
+- ✅ **Single source of truth** - Backend controls ALL rendering logic
+- ✅ **Object-based visibility** - Explicit per-component control (EntityDataTable, EntityDetailView, etc.)
+- ✅ **Composite field auto-detection** - Backend detects field pairs (start + end → progress bar)
+- ✅ **Cached metadata** - In-memory cache per entity (100x performance boost)
+- ✅ **35+ pattern rules** - Comprehensive coverage (financial, temporal, boolean, reference, structures, composites)
 
-**Reference**: See `docs/services/UNIVERSAL_FORMATTER_SERVICE.md` for complete documentation
+**Reference**: See `docs/services/BACKEND_FORMATTER_SERVICE.md` for complete documentation
+
+### 5b. Frontend Formatter Service (Metadata Consumption - Client Side)
+
+**Purpose**: Pure renderer that consumes backend metadata and renders React elements with ZERO pattern detection
+
+**Architecture**: **Frontend executes backend instructions exactly** - No logic, no decisions
+
+```typescript
+// Frontend component
+import {
+  renderViewModeFromMetadata,    // View mode (reads metadata.renderType)
+  renderEditModeFromMetadata,     // Edit mode (reads metadata.inputType)
+  hasBackendMetadata              // Type guard
+} from '@/lib/universalFormatterService';
+
+// EntityDataTable.tsx - Pure metadata-driven rendering
+const columns = useMemo(() => {
+  if (metadata?.fields) {
+    return metadata.fields
+      .filter(f => f.visible)
+      .map(fieldMeta => ({
+        key: fieldMeta.key,
+        title: fieldMeta.label,
+        width: fieldMeta.width,
+        align: fieldMeta.align,
+        // Backend tells frontend how to render
+        render: (value, record) => renderViewModeFromMetadata(value, fieldMeta, record)
+      }));
+  }
+  return [];
+}, [metadata]);
+```
+
+**View Mode Rendering**:
+```typescript
+// Backend says: renderType: 'currency'
+renderViewModeFromMetadata(50000, fieldMeta)
+// Returns: <span className="font-mono">$50,000.00</span>
+
+// Backend says: renderType: 'badge', loadFromDataLabels: true
+renderViewModeFromMetadata('planning', fieldMeta)
+// Returns: <Badge color="blue">Planning</Badge>
+```
+
+**Edit Mode Rendering**:
+```typescript
+// Backend says: inputType: 'currency'
+renderEditModeFromMetadata(50000, fieldMeta, onChange)
+// Returns: <input type="number" step="0.01" />
+
+// Backend says: inputType: 'select', loadFromDataLabels: true
+renderEditModeFromMetadata('planning', fieldMeta, onChange)
+// Returns: <select><option>Planning</option>...</select>
+```
+
+**Function Signatures**:
+- `renderViewModeFromMetadata(value, metadata, record?)` - Renders view mode based on `metadata.renderType`
+- `renderEditModeFromMetadata(value, metadata, onChange, options?)` - Renders edit mode based on `metadata.inputType`
+- `hasBackendMetadata(response)` - Type guard to check if response contains metadata
+
+**Benefits**:
+- ✅ **Zero frontend logic** - No pattern detection, no field type decisions
+- ✅ **Pure renderer** - Frontend is dumb, backend is smart
+- ✅ **Type-safe** - Full TypeScript support with backend metadata types
+- ✅ **11 render types**, **11 input types** - All driven by backend
+
+**Reference**: See `docs/services/FRONTEND_FORMATTER_SERVICE.md` for complete documentation
 
 ### 6. Component Matrix
 

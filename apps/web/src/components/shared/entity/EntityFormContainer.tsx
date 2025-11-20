@@ -136,7 +136,7 @@ export function EntityFormContainer({
         type: field.type as any, // FormField.type matches FieldDef.type
         required: generatedConfig.requiredFields.includes(field.key),
         readonly: !field.editable,
-        loadDataLabels: field.loadFromSettings,
+        loadDataLabels: field.loadFromDataLabels,
         loadOptionsFromEntity: field.loadFromEntity} as FieldDef));
     }
 

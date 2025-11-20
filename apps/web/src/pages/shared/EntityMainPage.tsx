@@ -10,7 +10,7 @@ import { HierarchyGraphView } from '../../components/hierarchy/HierarchyGraphVie
 import { useViewMode } from '../../lib/hooks/useViewMode';
 import { getEntityConfig, ViewMode } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
-import { APIFactory } from '../../lib/api';
+import { APIFactory, type EntityMetadata } from '../../lib/api';
 import { useSidebar } from '../../contexts/SidebarContext';
 
 /**
@@ -36,6 +36,7 @@ export function EntityMainPage({ entityCode, defaultView }: EntityMainPageProps)
   const config = getEntityConfig(entityCode);
   const [view, setView] = useViewMode(entityCode, defaultView);
   const [data, setData] = useState<any[]>([]);
+  const [metadata, setMetadata] = useState<EntityMetadata | null>(null);  // Backend metadata
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -73,6 +74,11 @@ export function EntityMainPage({ entityCode, defaultView }: EntityMainPageProps)
 
       const response = await api.list(params);
       const newData = response.data || [];
+
+      // Extract backend metadata (only on first load, not on append)
+      if (!append && response.metadata) {
+        setMetadata(response.metadata);
+      }
 
       // Append to existing data for pagination, or replace for initial load
       setData(append ? [...data, ...newData] : newData);
@@ -159,6 +165,7 @@ export function EntityMainPage({ entityCode, defaultView }: EntityMainPageProps)
       return (
         <FilteredDataTable
           entityCode={entityCode}
+          metadata={metadata}  // Pass backend metadata
           showActionButtons={false}
           showActionIcons={true}
           showEditIcon={true}

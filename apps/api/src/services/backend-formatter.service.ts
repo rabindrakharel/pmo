@@ -36,6 +36,34 @@ import type { InferSelectModel } from 'drizzle-orm';
 // TYPE DEFINITIONS
 // ============================================================================
 
+/**
+ * Component Visibility Control
+ * Explicit per-component visibility - backend tells each component what to show
+ */
+export interface ComponentVisibility {
+  EntityDataTable: boolean;        // Data table (list view)
+  EntityDetailView: boolean;        // Detail view (single entity)
+  EntityFormContainer: boolean;     // Create/edit forms
+  KanbanView: boolean;              // Kanban board
+  CalendarView: boolean;            // Calendar view
+  // Add new components here - TypeScript will error until all fields updated
+}
+
+/**
+ * Composite Field Configuration
+ * Defines fields derived from multiple source fields
+ */
+export interface CompositeFieldConfig {
+  composedFrom: string[];           // Source field keys
+  compositeType: 'progress-bar' | 'date-range' | 'address' | 'full-name' | 'calculated';
+  calculation?: string;             // Optional calculation formula
+  showPercentage?: boolean;
+  showDates?: boolean;
+  highlightOverdue?: boolean;
+  startField?: string;              // For date ranges
+  endField?: string;                // For date ranges
+}
+
 export interface FieldMetadata {
   // Identification
   key: string;
@@ -55,13 +83,17 @@ export interface FieldMetadata {
   inputType: InputType;
   editType?: EditType;
 
-  // Behavior
-  visible: boolean;
+  // Behavior - OBJECT-BASED VISIBILITY
+  visible: ComponentVisibility;     // ✅ NEW: Per-component visibility
   sortable: boolean;
   filterable: boolean;
   searchable: boolean;
   editable: boolean;
   required?: boolean;
+
+  // Composite Field Support
+  composite?: boolean;              // ✅ NEW: Is this a composite field?
+  compositeConfig?: CompositeFieldConfig;  // ✅ NEW: Composite field configuration
 
   // Layout
   align: 'left' | 'right' | 'center';
@@ -69,7 +101,7 @@ export interface FieldMetadata {
 
   // Options (for dropdowns/selects)
   endpoint?: string;
-  loadFromSettings?: boolean;
+  loadFromDataLabels?: boolean;
   loadFromEntity?: string;
   settingsDatalabel?: string;
   options?: StaticOption[];
@@ -93,7 +125,8 @@ export type FieldType =
 
 export type RenderType =
   | 'text' | 'badge' | 'currency' | 'percentage' | 'date' | 'timestamp'
-  | 'boolean' | 'json' | 'array' | 'dag' | 'link' | 'truncated';
+  | 'boolean' | 'json' | 'array' | 'dag' | 'link' | 'truncated'
+  | 'progress-bar' | 'date-range' | 'composite';  // ✅ NEW: Composite field rendering
 
 export type ViewType =
   | 'text' | 'badge' | 'tags' | 'link' | 'json-viewer';
@@ -111,7 +144,7 @@ export type EditType =
 export type ComponentType =
   | 'DAGVisualizer' | 'MetadataTable' | 'TagsInput'
   | 'DateRangeVisualizer' | 'FileUpload' | 'RichTextEditor'
-  | 'SearchableMultiSelect';
+  | 'SearchableMultiSelect' | 'ProgressBar';  // ✅ NEW: Progress bar for composite fields
 
 export type PatternType =
   | 'CURRENCY' | 'PERCENTAGE' | 'TIMESTAMP' | 'DATE' | 'BOOLEAN'
@@ -128,7 +161,7 @@ export interface FormatConfig {
   locale?: string;
   style?: 'short' | 'long' | 'relative' | 'datetime';
   timeZone?: string;
-  loadFromSettings?: boolean;
+  loadFromDataLabels?: boolean;
   colorMap?: Record<string, string>;
   trueLabel?: string;
   falseLabel?: string;
@@ -378,12 +411,12 @@ const PATTERN_RULES: Record<string, PatternRule> = {
     viewType: 'badge',
     inputType: 'select',
     editType: 'select',
-    format: { loadFromSettings: true },
+    format: { loadFromDataLabels: true },
     align: 'left',
     width: '140px',
     pattern: 'DATALABEL',
     category: 'standard',
-    loadFromSettings: true,
+    loadFromDataLabels: true,
     visible: true,
     sortable: true,
     filterable: true,
@@ -624,7 +657,7 @@ function detectEntityFromFieldName(fieldName: string): string | null {
  * Generate endpoint for field options
  */
 function generateEndpoint(metadata: Partial<FieldMetadata>, fieldKey: string): string | undefined {
-  if (metadata.loadFromSettings && fieldKey.startsWith('dl__')) {
+  if (metadata.loadFromDataLabels && fieldKey.startsWith('dl__')) {
     const datalabelName = fieldKey.substring(4); // Remove 'dl__'
     return `/api/v1/setting?datalabel=dl__${datalabelName}`;
   }
@@ -634,6 +667,49 @@ function generateEndpoint(metadata: Partial<FieldMetadata>, fieldKey: string): s
   }
 
   return undefined;
+}
+
+/**
+ * Create default ComponentVisibility object
+ * By default, all components can see all fields (opt-out model)
+ */
+function createDefaultVisibility(overrides?: Partial<ComponentVisibility>): ComponentVisibility {
+  return {
+    EntityDataTable: true,
+    EntityDetailView: true,
+    EntityFormContainer: true,
+    KanbanView: true,
+    CalendarView: true,
+    ...overrides
+  };
+}
+
+/**
+ * Create visibility for composite fields
+ * Composites typically only shown in detail view
+ */
+function createCompositeVisibility(): ComponentVisibility {
+  return {
+    EntityDataTable: false,        // Don't show in table (too complex)
+    EntityDetailView: true,         // Show in detail view (primary use case)
+    EntityFormContainer: false,     // Don't show in form (edit source fields instead)
+    KanbanView: false,              // Don't show in kanban
+    CalendarView: false             // Don't show in calendar
+  };
+}
+
+/**
+ * Create visibility for source fields of composite
+ * Hide from detail view (composite shows instead), but keep in other views
+ */
+function createSourceFieldVisibility(): ComponentVisibility {
+  return {
+    EntityDataTable: true,          // Show in table
+    EntityDetailView: false,        // Hide in detail (composite replaces)
+    EntityFormContainer: true,      // Show in form for editing
+    KanbanView: true,               // Show in kanban
+    CalendarView: true              // Show in calendar
+  };
 }
 
 /**
@@ -650,7 +726,7 @@ function generateFieldMetadata(fieldName: string, dataType?: string): FieldMetad
     renderType: 'text',
     viewType: 'text',
     inputType: 'text',
-    visible: true,
+    visible: createDefaultVisibility(),  // ✅ NEW: Object-based visibility
     sortable: true,
     filterable: true,
     searchable: false,
@@ -662,8 +738,11 @@ function generateFieldMetadata(fieldName: string, dataType?: string): FieldMetad
   // Apply pattern rules (first match wins)
   for (const [pattern, rules] of Object.entries(PATTERN_RULES)) {
     if (matchPattern(fieldName, pattern)) {
-      // Apply all rule properties
-      metadata = { ...metadata, ...rules };
+      // Filter out 'visible' from rules (we manage visibility separately now)
+      const { visible: _unusedVisible, ...rulesWithoutVisible } = rules as any;
+
+      // Apply all rule properties (except visible)
+      metadata = { ...metadata, ...rulesWithoutVisible };
 
       // Handle component function
       if (rules.componentFn) {
@@ -768,6 +847,121 @@ export function clearMetadataCache(entityCode?: string): void {
 // ============================================================================
 
 /**
+ * Detect composite field patterns from field names
+ * Returns array of composite field metadata
+ */
+function detectCompositeFields(fieldNames: string[]): FieldMetadata[] {
+  const compositeFields: FieldMetadata[] = [];
+  const fieldSet = new Set(fieldNames);
+
+  // Pattern 1: start_date + end_date → progress bar
+  if (fieldSet.has('start_date') && fieldSet.has('end_date')) {
+    compositeFields.push({
+      key: 'start_date_end_date_composite',
+      label: 'Progress',
+      type: 'composite' as any,
+      dataType: 'composite',
+      format: {
+        startField: 'start_date',
+        endField: 'end_date',
+        compositeType: 'progress-bar',
+        showPercentage: true,
+        showDates: true,
+        highlightOverdue: true
+      },
+      renderType: 'progress-bar',
+      viewType: 'text' as any,
+      component: 'ProgressBar',
+      inputType: 'readonly',
+      visible: createCompositeVisibility(),  // Only show in detail view
+      composite: true,
+      compositeConfig: {
+        composedFrom: ['start_date', 'end_date'],
+        compositeType: 'progress-bar',
+        startField: 'start_date',
+        endField: 'end_date',
+        showPercentage: true,
+        showDates: true,
+        highlightOverdue: true
+      },
+      sortable: false,
+      filterable: false,
+      searchable: false,
+      editable: false,
+      align: 'left',
+      width: '200px',
+      pattern: 'STANDARD',
+      category: 'composite'
+    });
+  }
+
+  // Pattern 2: from_ts + to_ts → date range
+  if (fieldSet.has('from_ts') && fieldSet.has('to_ts')) {
+    compositeFields.push({
+      key: 'from_ts_to_ts_composite',
+      label: 'Date Range',
+      type: 'composite' as any,
+      dataType: 'composite',
+      format: {
+        startField: 'from_ts',
+        endField: 'to_ts',
+        compositeType: 'date-range'
+      },
+      renderType: 'date-range',
+      viewType: 'text' as any,
+      component: 'DateRangeVisualizer',
+      inputType: 'readonly',
+      visible: createCompositeVisibility(),
+      composite: true,
+      compositeConfig: {
+        composedFrom: ['from_ts', 'to_ts'],
+        compositeType: 'date-range',
+        startField: 'from_ts',
+        endField: 'to_ts'
+      },
+      sortable: false,
+      filterable: false,
+      searchable: false,
+      editable: false,
+      align: 'left',
+      width: '200px',
+      pattern: 'STANDARD',
+      category: 'composite'
+    });
+  }
+
+  // TODO: Add more composite patterns:
+  // - first_name + last_name → full_name
+  // - street_address + city + state + zip_code → full_address
+  // - budget_allocated_amt + budget_spent_amt → budget_utilization
+
+  return compositeFields;
+}
+
+/**
+ * Update visibility for source fields that have composite counterparts
+ */
+function updateSourceFieldVisibility(fields: FieldMetadata[], compositeFields: FieldMetadata[]): void {
+  const compositeSourceFields = new Set<string>();
+
+  // Collect all source field names from composites
+  compositeFields.forEach(composite => {
+    if (composite.compositeConfig?.composedFrom) {
+      composite.compositeConfig.composedFrom.forEach(fieldName => {
+        compositeSourceFields.add(fieldName);
+      });
+    }
+  });
+
+  // Update visibility for source fields
+  fields.forEach(field => {
+    if (compositeSourceFields.has(field.key)) {
+      field.visible = createSourceFieldVisibility();  // Hide from detail view
+    }
+  });
+}
+
+/**
  * Generate metadata for an entity from sample data
  */
 export function generateEntityMetadata(
@@ -791,10 +985,19 @@ export function generateEntityMetadata(
     return generateFieldMetadata(fieldName, dataType);
   });
 
+  // Detect and generate composite fields
+  const compositeFields = detectCompositeFields(fieldNames);
+
+  // Update visibility for source fields (hide from detail view if composite exists)
+  updateSourceFieldVisibility(fields, compositeFields);
+
+  // Combine original fields + composite fields
+  const allFields = [...fields, ...compositeFields];
+
   return {
     ...config,
     entity: entityCode,
-    fields,
+    fields: allFields,
     generated_at: new Date().toISOString()
   } as EntityMetadata;
 }

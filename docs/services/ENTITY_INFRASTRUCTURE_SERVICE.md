@@ -4,6 +4,19 @@
 
 ---
 
+## ⚠️ Service Scope & Orthogonality
+
+**UNCHANGED by Metadata Architecture** - This service handles RBAC, linkage, and registry management. It is **completely orthogonal** to the Backend/Frontend Formatter Services which handle field rendering metadata.
+
+**What this service does:** RBAC checks, parent-child links, instance registry, permissions
+**What this service does NOT do:** Field formatting, metadata generation, rendering instructions
+
+**Related Services:**
+- [Backend Formatter Service](./BACKEND_FORMATTER_SERVICE.md) - Generates field metadata for rendering (separate concern)
+- [Frontend Formatter Service](./FRONTEND_FORMATTER_SERVICE.md) - Consumes metadata for rendering (separate concern)
+
+---
+
 ## 1. Semantics & Business Context
 
 ### Purpose
@@ -693,7 +706,33 @@ const entityInfra = getEntityInfrastructure(db);
 
 ---
 
-**Version**: 1.0.0
-**Updated**: 2025-11-19
+## 10. Related Services
+
+### Backend Formatter Service
+**File**: `docs/services/BACKEND_FORMATTER_SERVICE.md`
+
+Generates field metadata from column names (e.g., `budget_allocated_amt` → currency field). Completely separate concern from infrastructure management.
+
+**Relationship**: Entity Infrastructure Service handles WHO can access data, Backend Formatter Service handles HOW data is displayed.
+
+### Frontend Formatter Service
+**File**: `docs/services/FRONTEND_FORMATTER_SERVICE.md`
+
+Pure renderer that consumes backend metadata. Does not interact with Entity Infrastructure Service.
+
+**Relationship**: Infrastructure provides data access, Formatter provides data presentation.
+
+### Universal Filter Builder
+**File**: `apps/api/src/lib/universal-filter-builder.ts`
+
+Auto-generates SQL WHERE clauses from query parameters. Separate concern from RBAC filtering.
+
+**Relationship**: Infrastructure provides RBAC WHERE clauses, Filter Builder provides user filter WHERE clauses.
+
+---
+
+**Version**: 1.1.0
+**Updated**: 2025-01-20
 **Service File**: `apps/api/src/services/entity-infrastructure.service.ts` (1,410 lines)
 **Architecture**: Add-On Helper Pattern (Routes own queries, Service provides infrastructure)
+**Status**: UNCHANGED by metadata architecture (orthogonal concerns)

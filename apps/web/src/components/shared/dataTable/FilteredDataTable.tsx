@@ -12,9 +12,11 @@ import type { SchemaColumn } from '../../../lib/types/table';
 import { SchemaErrorFallback } from '../error/SchemaErrorBoundary';
 import { TableSkeleton } from '../ui/TableSkeleton';
 import { API_CONFIG, API_ENDPOINTS } from '../../../lib/config/api';
+import type { EntityMetadata } from '../../../lib/api';
 
 export interface FilteredDataTableProps {
   entityCode: string;
+  metadata?: EntityMetadata | null;  // Backend metadata from API
   parentType?: string;
   parentId?: string;
   onRowClick?: (record: any) => void;
@@ -39,6 +41,7 @@ export interface FilteredDataTableProps {
 
 export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   entityCode,
+  metadata: propsMetadata,  // Metadata from parent (EntityMainPage)
   parentType,
   parentId,
   onRowClick,
@@ -57,6 +60,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   const navigate = useNavigate();
   const config = getEntityConfig(entityCode);
   const [data, setData] = useState<any[]>([]);
+  const [metadata, setMetadata] = useState<EntityMetadata | null>(propsMetadata || null);  // Backend metadata
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -66,7 +70,14 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   const [editedData, setEditedData] = useState<any>({});
   const [isAddingRow, setIsAddingRow] = useState(false);
 
-  // Fetch schema from API (independent of data)
+  // Update metadata when prop changes
+  useEffect(() => {
+    if (propsMetadata) {
+      setMetadata(propsMetadata);
+    }
+  }, [propsMetadata]);
+
+  // DEPRECATED: Old schema hook - being phased out in favor of backend metadata
   const { schema, loading: schemaLoading, error: schemaError } = useEntitySchema(entityCode);
 
   // Check if this is a settings entity
@@ -74,16 +85,36 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     return config?.apiEndpoint?.includes('/api/v1/setting?datalabel=') || false;
   }, [config]);
 
-  // Get columns from schema or config
+  // ✨ METADATA-DRIVEN COLUMN GENERATION (Pure Backend-Driven)
   const configuredColumns: Column[] = useMemo(() => {
     if (!config) return [];
 
-    // Priority 1: Explicit config columns (for custom overrides)
+    // Priority 1: Backend Metadata (PURE METADATA-DRIVEN)
+    if (metadata?.fields) {
+      return metadata.fields
+        .filter(fieldMeta => fieldMeta.visible)
+        .map(fieldMeta => ({
+          key: fieldMeta.key,
+          title: fieldMeta.label,
+          visible: fieldMeta.visible,
+          sortable: fieldMeta.sortable,
+          filterable: fieldMeta.filterable,
+          width: fieldMeta.width,
+          align: fieldMeta.align,
+          editable: fieldMeta.editable,
+          editType: fieldMeta.editType as any,
+          loadDataLabels: fieldMeta.loadFromDataLabels,
+          // Metadata-driven rendering - backend tells frontend how to render
+          render: undefined  // Let EntityDataTable handle rendering via metadata
+        } as Column));
+    }
+
+    // Priority 2: Explicit config columns (for custom overrides)
     if (config.columns && config.columns.length > 0) {
       return config.columns as Column[];
     }
 
-    // Priority 2: API schema (default - database-driven, works with empty tables)
+    // Priority 3: API schema (LEGACY - fallback for non-metadata entities)
     if (schema && schema.columns) {
       return schema.columns.map((col: SchemaColumn) => ({
         key: col.key,
@@ -96,14 +127,13 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         editable: col.editable,
         editType: col.editType as any,
         loadDataLabels: col.dataSource?.type === 'settings',
-
-        // Schema-driven formatting - use renderFieldDisplay for React elements (badges, etc.)
+        // Schema-driven formatting (DEPRECATED)
         render: (value: any) => renderFieldDisplay(value, col.format)
       })) as Column[];
     }
 
     return [];
-  }, [config, schema]);
+  }, [metadata, config, schema]);
 
   // Use column visibility hook for dynamic column management
   const {
@@ -116,25 +146,43 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     resetToDefault
   } = useColumnVisibility(entityCode, configuredColumns, data);
 
-  // Preload badge colors from settings tables
+  // Preload badge colors from backend metadata or schema
   useEffect(() => {
     const preloadColors = async () => {
+      // Priority 1: Use backend metadata
+      if (metadata?.fields) {
+        const badgeFields = metadata.fields.filter(
+          f => f.loadFromDataLabels && f.settingsDatalabel
+        );
+
+        if (badgeFields.length === 0) return;
+
+        const uniqueDatalabels = Array.from(
+          new Set(badgeFields.map(f => f.settingsDatalabel!).filter(Boolean))
+        );
+
+        try {
+          await preloadSettingsColors(uniqueDatalabels);
+        } catch (err) {
+          console.error('Failed to preload badge colors:', err);
+        }
+        return;
+      }
+
+      // Priority 2: Fallback to schema (LEGACY)
       if (!schema?.columns) return;
 
-      // Find all badge-type columns with settingsDatalabel
       const badgeColumns = schema.columns.filter(
         col => col.format.type === 'badge' && col.format.settingsDatalabel
       );
 
       if (badgeColumns.length === 0) return;
 
-      // Extract unique datalabels
       const datalabels = badgeColumns
         .map(col => col.format.settingsDatalabel!)
         .filter((dl): dl is string => !!dl);
       const uniqueDatalabels = Array.from(new Set(datalabels));
 
-      // Preload all colors in parallel
       try {
         await preloadSettingsColors(uniqueDatalabels);
       } catch (err) {
@@ -143,7 +191,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     };
 
     preloadColors();
-  }, [schema]);
+  }, [metadata, schema]);
 
   // Use visible columns for rendering
   const columns: Column[] = visibleColumns;
@@ -226,6 +274,11 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         const result = await response.json();
         setData(result.data || result || []);
         setTotalRecords(result.total || result.length || 0);
+
+        // Extract backend metadata if available (only if not already provided via props)
+        if (!propsMetadata && result.metadata) {
+          setMetadata(result.metadata);
+        }
       } else {
         console.error('Failed to fetch data:', response.statusText);
         setData([]);
@@ -828,6 +881,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           /* Render regular EntityDataTable for regular entities */
           <EntityDataTable
             data={data}
+            metadata={metadata}  // Pass backend metadata
             columns={columns}
             loading={loading}
             pagination={pagination}

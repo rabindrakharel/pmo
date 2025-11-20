@@ -39,20 +39,19 @@ import {
   COLOR_MAP,
   getSettingColor,
   loadSettingsColors,
-  renderField
+  renderField,
+  renderViewModeFromMetadata
 } from '../../../lib/universalFormatterService';
+import type { BackendFieldMetadata, EntityMetadata } from '../../../lib/api';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 
 // ============================================================================
-// View Config Generator Integration
+// METADATA-DRIVEN RENDERING (Pure Backend-Driven)
 // ============================================================================
-import { generateDataTableConfig, type DataTableColumn } from '../../../lib/viewConfigGenerator';
-
-// ============================================================================
-// CELL RENDERING: 100% Universal System
-// ============================================================================
-// ALL field rendering (view + edit modes) now handled by renderField()
-// from universalFormatterService - single source of truth with zero duplication
+// ALL field rendering (view + edit modes) driven by backend metadata
+// - renderViewModeFromMetadata() for view mode (reads metadata.renderType)
+// - renderEditModeFromMetadata() for edit mode (reads metadata.inputType)
+// - Zero frontend pattern detection or configuration
 // ============================================================================
 
 /**
@@ -275,7 +274,8 @@ export interface RowAction<T = any> {
 
 export interface EntityDataTableProps<T = any> {
   data: T[];
-  columns?: Column<T>[];           // Now optional - can be auto-generated
+  metadata?: EntityMetadata | null;  // Backend metadata (REQUIRED for metadata-driven mode)
+  columns?: Column<T>[];             // Legacy explicit columns (fallback only)
   loading?: boolean;
   pagination?: {
     current: number;
@@ -336,11 +336,14 @@ export interface EntityDataTableProps<T = any> {
   // Inline row addition support
   allowAddRow?: boolean;
   onAddRow?: (newRecord: Partial<T>) => void;
-  // Note: Permission checking removed - handled at API level via RBAC joins
+  // DEPRECATED props (kept for backward compatibility, will be removed)
+  autoGenerateColumns?: boolean;  // DEPRECATED: Use metadata instead
+  dataTypes?: Record<string, string>;  // DEPRECATED: Use metadata instead
 }
 
 export function EntityDataTable<T = any>({
   data,
+  metadata,  // Backend metadata from API
   columns: initialColumns,
   loading = false,
   pagination,
@@ -372,50 +375,58 @@ export function EntityDataTable<T = any>({
   autoGenerateColumns = false,
   dataTypes}: EntityDataTableProps<T>) {
   // ============================================================================
-  // AUTO-GENERATION: Universal Field Detector Integration
+  // METADATA-DRIVEN COLUMN GENERATION (Pure Backend-Driven Architecture)
   // ============================================================================
-  // Auto-generate columns if not provided and autoGenerateColumns is true
-
-  // ✅ FIX: Extract field keys separately to prevent infinite loop
-  // Only recompute when actual field names change, not when data values/rows change
-  // Create stable string representation directly
-  const fieldKeysString = useMemo(() => {
-    if (!autoGenerateColumns || data.length === 0) return '';
-    return Object.keys(data[0]).sort().join(',');
-  }, [autoGenerateColumns, data.length, data.length > 0 ? JSON.stringify(Object.keys(data[0]).sort()) : '']);
+  // Backend sends complete field metadata → Frontend renders exactly as instructed
 
   const columns = useMemo(() => {
-    // If columns explicitly provided, use them (legacy field patterns)
+    // Priority 1: Backend Metadata (Pure metadata-driven - NO FALLBACK)
+    if (metadata?.fields) {
+      return metadata.fields
+        .filter(fieldMeta => {
+          // ✅ NEW: Object-based visibility control
+          if (typeof fieldMeta.visible === 'object' && fieldMeta.visible !== null) {
+            return fieldMeta.visible.EntityDataTable === true;
+          }
+          // Backward compatibility: treat boolean as visible everywhere
+          return fieldMeta.visible === true;
+        })
+        .map(fieldMeta => ({
+          key: fieldMeta.key,
+          title: fieldMeta.label,
+          visible: true,  // Already filtered above, so all are visible
+          sortable: fieldMeta.sortable,
+          filterable: fieldMeta.filterable,
+          searchable: fieldMeta.searchable,
+          width: fieldMeta.width,
+          align: fieldMeta.align,
+          editable: fieldMeta.editable,
+          editType: fieldMeta.editType,
+          loadDataLabels: fieldMeta.loadFromDataLabels,
+          loadFromEntity: fieldMeta.loadFromEntity,
+          // Pure metadata-driven rendering - backend tells frontend how to render
+          render: (value: any, record: any) => renderViewModeFromMetadata(value, fieldMeta, record)
+        } as Column<T>));
+    }
+
+    // Priority 2: Explicit columns (for custom overrides only)
     if (initialColumns && initialColumns.length > 0) {
       return initialColumns;
     }
 
-    // Auto-generate if enabled and data exists
-    if (autoGenerateColumns && fieldKeysString.length > 0) {
-      const fieldKeys = fieldKeysString.split(',');
-      const generatedConfig = generateDataTableConfig(fieldKeys, dataTypes);
-
-      // Convert DataTableColumn to Column<T> format
-      return generatedConfig.visibleColumns.map(col => ({
-        key: col.key,
-        title: col.title,
-        visible: col.visible,
-        sortable: col.sortable,
-        filterable: col.filterable,
-        searchable: col.searchable,
-        // Don't set render for fields with loadFromSettings - renderField() will handle badge rendering via hints
-        render: col.loadFromSettings ? undefined : col.render,
-        width: col.width,
-        align: col.align,
-        editable: col.editable,
-        editType: col.editType,
-        loadDataLabels: col.loadFromSettings,
-        loadFromEntity: col.loadFromEntity} as Column<T>));
+    // Priority 3: Legacy auto-generation (DEPRECATED - for backward compatibility only)
+    // ⚠️ This path should NOT be used for new entities - always provide metadata from backend
+    if (autoGenerateColumns && data.length > 0) {
+      console.warn(
+        '[EntityDataTable] Using deprecated autoGenerateColumns. ' +
+        'Update backend route to return metadata instead.'
+      );
+      // Fallback to empty columns - force migration to metadata
+      return [];
     }
 
-    // Fallback: empty columns
     return [];
-  }, [initialColumns, autoGenerateColumns, fieldKeysString, dataTypes]);
+  }, [metadata, initialColumns, autoGenerateColumns, data.length]);
 
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');

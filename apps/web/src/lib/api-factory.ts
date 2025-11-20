@@ -32,10 +32,91 @@ export interface ListParams {
 }
 
 /**
- * Standard paginated response format
+ * Component Visibility Control
+ * Explicit per-component visibility - backend tells each component what to show
+ */
+export interface ComponentVisibility {
+  EntityDataTable: boolean;        // Data table (list view)
+  EntityDetailView: boolean;        // Detail view (single entity)
+  EntityFormContainer: boolean;     // Create/edit forms
+  KanbanView: boolean;              // Kanban board
+  CalendarView: boolean;            // Calendar view
+}
+
+/**
+ * Composite Field Configuration
+ * Defines fields derived from multiple source fields
+ */
+export interface CompositeFieldConfig {
+  composedFrom: string[];           // Source field keys
+  compositeType: 'progress-bar' | 'date-range' | 'address' | 'full-name' | 'calculated';
+  calculation?: string;             // Optional calculation formula
+  showPercentage?: boolean;
+  showDates?: boolean;
+  highlightOverdue?: boolean;
+  startField?: string;              // For date ranges
+  endField?: string;                // For date ranges
+}
+
+/**
+ * Backend field metadata (matches backend-formatter.service.ts)
+ */
+export interface BackendFieldMetadata {
+  key: string;
+  label: string;
+  type: string;
+  dataType?: string;
+  format: Record<string, any>;
+  renderType: string;
+  viewType?: string;
+  component?: string;
+  inputType: string;
+  editType?: string;
+  visible: ComponentVisibility;      // ✅ NEW: Per-component visibility
+  composite?: boolean;               // ✅ NEW: Is this a composite field?
+  compositeConfig?: CompositeFieldConfig;  // ✅ NEW: Composite field configuration
+  sortable: boolean;
+  filterable: boolean;
+  searchable: boolean;
+  editable: boolean;
+  required?: boolean;
+  align: 'left' | 'right' | 'center';
+  width: string;
+  endpoint?: string;
+  loadFromDataLabels?: boolean;
+  loadFromEntity?: string;
+  settingsDatalabel?: string;
+  options?: Array<{ value: any; label: string; color?: string }>;
+  validation?: Record<string, any>;
+  help?: string;
+  placeholder?: string;
+  pattern?: string;
+  category?: string;
+}
+
+/**
+ * Entity metadata from backend
+ */
+export interface EntityMetadata {
+  entity: string;
+  label: string;
+  labelPlural: string;
+  icon?: string;
+  fields: BackendFieldMetadata[];
+  primaryKey: string;
+  displayField: string;
+  apiEndpoint: string;
+  supportedViews?: string[];
+  defaultView?: string;
+  generated_at: string;
+}
+
+/**
+ * Standard paginated response format (with backend metadata)
  */
 export interface PaginatedResponse<T> {
   data: T[];
+  metadata?: EntityMetadata;  // Backend-driven field metadata
   total: number;
   page?: number;
   limit?: number;
@@ -55,9 +136,9 @@ export interface EntityAPI {
   list(params?: ListParams): Promise<PaginatedResponse<any>>;
 
   /**
-   * Get a single entity by ID
+   * Get a single entity by ID (with backend metadata)
    */
-  get(id: string): Promise<any>;
+  get(id: string): Promise<{ data: any; metadata?: EntityMetadata }>;
 
   /**
    * Create a new entity

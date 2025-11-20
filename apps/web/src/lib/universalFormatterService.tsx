@@ -81,7 +81,7 @@ export interface UniversalFieldMetadata {
   editType?: EditType;                // Edit input type
   toApi: (value: any) => any;         // Transform for API submission
   toDisplay: (value: any) => any;     // Transform for display
-  loadFromSettings?: boolean;         // Load options from settings table
+  loadFromDataLabels?: boolean;       // Load options from settings table
   loadFromEntity?: string;            // Load options from entity (for FK)
   pattern: PatternType;               // Detection pattern matched
   category: CategoryType;             // Field category
@@ -651,7 +651,7 @@ export function detectField(
       component: isStageOrFunnel ? 'DAGVisualizer' : undefined,
       editable: true,
       editType: 'select',
-      loadFromSettings: true,
+      loadFromDataLabels: true,
       settingsDatalabel: fieldKey.replace(/^dl__/, ''),
       toApi: identityTransform,
       toDisplay: identityTransform,
@@ -1927,7 +1927,7 @@ export interface BackendFieldMetadata {
   align: 'left' | 'right' | 'center';
   width: string;
   endpoint?: string;
-  loadFromSettings?: boolean;
+  loadFromDataLabels?: boolean;
   loadFromEntity?: string;
   settingsDatalabel?: string;
   options?: Array<{ value: any; label: string; color?: string }>;
@@ -2028,9 +2028,9 @@ export function formatValueFromMetadata(
 }
 
 /**
- * Render field value as React element using backend-provided metadata
+ * Render field value as React element using backend-provided metadata (VIEW MODE)
  */
-export function renderFieldFromMetadata(
+export function renderViewModeFromMetadata(
   value: any,
   metadata: BackendFieldMetadata,
   record?: any
@@ -2063,7 +2063,7 @@ export function renderFieldFromMetadata(
 
     case 'badge':
       // For dl__* fields, render as badge (will get color from settings)
-      if (metadata.loadFromSettings && metadata.settingsDatalabel) {
+      if (metadata.loadFromDataLabels && metadata.settingsDatalabel) {
         return renderDataLabelBadge(value, metadata.settingsDatalabel);
       }
       return renderBadge(String(value), 'blue');
@@ -2125,6 +2125,210 @@ export function hasBackendMetadata(response: any): response is ApiResponseWithMe
          response.metadata?.fields !== undefined;
 }
 
+/**
+ * Render input field for editing using backend-provided metadata (EDIT MODE)
+ * This is the edit-mode counterpart to renderViewModeFromMetadata()
+ */
+export function renderEditModeFromMetadata(
+  value: any,
+  metadata: BackendFieldMetadata,
+  onChange: (value: any) => void,
+  options?: {
+    required?: boolean;
+    disabled?: boolean;
+    className?: string;
+  }
+): React.ReactNode {
+  const { required, disabled, className = '' } = options || {};
+
+  // Use backend-specified inputType to determine edit control
+  switch (metadata.inputType) {
+    case 'currency':
+    case 'number':
+      return (
+        <input
+          type="number"
+          step={metadata.inputType === 'currency' ? '0.01' : '1'}
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value ? parseFloat(e.target.value) : null)}
+          required={required}
+          disabled={disabled}
+          placeholder={metadata.placeholder}
+          className={`px-2 py-1 border rounded ${className}`}
+        />
+      );
+
+    case 'date':
+      return (
+        <input
+          type="date"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          required={required}
+          disabled={disabled}
+          className={`px-2 py-1 border rounded ${className}`}
+        />
+      );
+
+    case 'datetime':
+      return (
+        <input
+          type="datetime-local"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          required={required}
+          disabled={disabled}
+          className={`px-2 py-1 border rounded ${className}`}
+        />
+      );
+
+    case 'time':
+      return (
+        <input
+          type="time"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          required={required}
+          disabled={disabled}
+          className={`px-2 py-1 border rounded ${className}`}
+        />
+      );
+
+    case 'checkbox':
+      return (
+        <input
+          type="checkbox"
+          checked={Boolean(value)}
+          onChange={(e) => onChange(e.target.checked)}
+          disabled={disabled}
+          className={className}
+        />
+      );
+
+    case 'textarea':
+      return (
+        <textarea
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          required={required}
+          disabled={disabled}
+          placeholder={metadata.placeholder}
+          rows={3}
+          className={`px-2 py-1 border rounded w-full ${className}`}
+        />
+      );
+
+    case 'select':
+      // For settings dropdowns (dl__* fields)
+      if (metadata.loadFromDataLabels && metadata.settingsDatalabel) {
+        return (
+          <select
+            value={value ?? ''}
+            onChange={(e) => onChange(e.target.value)}
+            required={required}
+            disabled={disabled}
+            className={`px-2 py-1 border rounded ${className}`}
+          >
+            <option value="">Select...</option>
+            {metadata.options?.map(opt => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        );
+      }
+      // For static options
+      if (metadata.options) {
+        return (
+          <select
+            value={value ?? ''}
+            onChange={(e) => onChange(e.target.value)}
+            required={required}
+            disabled={disabled}
+            className={`px-2 py-1 border rounded ${className}`}
+          >
+            <option value="">Select...</option>
+            {metadata.options.map(opt => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        );
+      }
+      return (
+        <input
+          type="text"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          required={required}
+          disabled={disabled}
+          placeholder={metadata.placeholder}
+          className={`px-2 py-1 border rounded ${className}`}
+        />
+      );
+
+    case 'multiselect':
+      // For arrays/tags
+      if (Array.isArray(value)) {
+        return (
+          <input
+            type="text"
+            value={value.join(', ')}
+            onChange={(e) => onChange(e.target.value.split(',').map(v => v.trim()))}
+            placeholder={metadata.placeholder || "Comma-separated values"}
+            disabled={disabled}
+            className={`px-2 py-1 border rounded ${className}`}
+          />
+        );
+      }
+      return (
+        <input
+          type="text"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value.split(',').map(v => v.trim()))}
+          placeholder={metadata.placeholder || "Comma-separated values"}
+          disabled={disabled}
+          className={`px-2 py-1 border rounded ${className}`}
+        />
+      );
+
+    case 'tags':
+      return (
+        <input
+          type="text"
+          value={Array.isArray(value) ? value.join(', ') : value ?? ''}
+          onChange={(e) => onChange(e.target.value.split(',').map(v => v.trim()).filter(Boolean))}
+          placeholder={metadata.placeholder || "Comma-separated tags"}
+          disabled={disabled}
+          className={`px-2 py-1 border rounded ${className}`}
+        />
+      );
+
+    case 'readonly':
+      return (
+        <span className="px-2 py-1 text-gray-500">
+          {formatValueFromMetadata(value, metadata)}
+        </span>
+      );
+
+    case 'text':
+    default:
+      return (
+        <input
+          type="text"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          required={required}
+          disabled={disabled}
+          placeholder={metadata.placeholder}
+          className={`px-2 py-1 border rounded ${className}`}
+        />
+      );
+  }
+}
+
 // ============================================================================
 // EXPORTS
 // ============================================================================
@@ -2174,7 +2378,8 @@ export default {
   getFieldMetadataFromResponse,
   getAllFieldMetadataFromResponse,
   formatValueFromMetadata,
-  renderFieldFromMetadata,
+  renderViewModeFromMetadata,
+  renderEditModeFromMetadata,
   hasBackendMetadata,
 
   // Constants

@@ -296,17 +296,190 @@ Add to GitHub Actions:
 
 ---
 
+### ❌ **ANTI-PATTERN #5: Frontend Pattern Detection**
+
+**Example of What NOT to Do**:
+```typescript
+// ❌ WRONG - Frontend doing pattern detection
+function detectFieldType(fieldName: string) {
+  if (fieldName.endsWith('_amt')) return 'currency';
+  if (fieldName.startsWith('dl__')) return 'badge';
+  if (fieldName.endsWith('_date')) return 'date';
+  return 'text';
+}
+
+// Render based on frontend detection
+const renderField = (key, value) => {
+  const type = detectFieldType(key);  // ❌ Frontend making decisions!
+  if (type === 'currency') return <span>${formatCurrency(value)}</span>;
+  if (type === 'badge') return <Badge>{value}</Badge>;
+  return <span>{value}</span>;
+};
+```
+
+**Why This is Dangerous**:
+1. ⚠️ **Duplicate Logic** - Backend AND frontend both detecting field types
+2. ⚠️ **Inconsistency Risk** - Frontend and backend patterns can drift apart
+3. ⚠️ **No Single Source of Truth** - Two places making the same decision
+4. ⚠️ **Hard to Maintain** - Changes require updating both backend and frontend
+5. ⚠️ **No Centralized Control** - Can't change rendering without frontend deploy
+
+**Correct Approach (Metadata-Driven)**:
+```typescript
+// ✅ CORRECT - Frontend consumes backend metadata
+import { renderViewModeFromMetadata } from '@/lib/universalFormatterService';
+
+// Backend sends complete rendering instructions
+const response = await api.get('/api/v1/office');
+const { data, metadata } = response;
+
+// Frontend executes backend instructions exactly
+metadata.fields.map(fieldMeta => ({
+  key: fieldMeta.key,
+  title: fieldMeta.label,
+  render: (value, record) => renderViewModeFromMetadata(value, fieldMeta, record)
+}));
+```
+
+**Principle**:
+> **Backend generates metadata, frontend renders. Never duplicate pattern detection logic.**
+
+---
+
+### ❌ **ANTI-PATTERN #6: Hardcoded Field Rendering Logic**
+
+**Example of What NOT to Do**:
+```typescript
+// ❌ WRONG - Hardcoded field-specific rendering
+const renderCell = (key: string, value: any) => {
+  switch (key) {
+    case 'budget_allocated_amt':
+    case 'budget_spent_amt':
+    case 'total_cost':
+      return <span className="font-mono">${formatCurrency(value)}</span>;
+
+    case 'dl__project_stage':
+    case 'dl__task_priority':
+      return <Badge color="blue">{value}</Badge>;
+
+    case 'start_date':
+    case 'end_date':
+    case 'deadline_date':
+      return <span>{formatDate(value)}</span>;
+
+    default:
+      return <span>{value}</span>;
+  }
+};
+```
+
+**Why This is Dangerous**:
+1. ⚠️ **Breaks Scalability** - Every new field requires code changes
+2. ⚠️ **Violates DRY** - Field names already tell us the type (`_amt` → currency)
+3. ⚠️ **Maintenance Nightmare** - Switch statement grows infinitely
+4. ⚠️ **No Configuration** - Can't change rendering without code deploy
+
+**Correct Approach (Convention-Based + Metadata)**:
+```typescript
+// ✅ CORRECT - Convention-driven metadata from backend
+const response = await api.get('/api/v1/project');
+const fieldMeta = response.metadata.fields.find(f => f.key === 'budget_allocated_amt');
+
+// Backend tells us: renderType: 'currency', format: { symbol: '$', decimals: 2 }
+const rendered = renderViewModeFromMetadata(50000, fieldMeta);
+// Returns: <span className="font-mono">$50,000.00</span>
+
+// Add new field to database: "revenue_total_amt"
+// ✅ Backend auto-detects as currency (pattern: *_amt)
+// ✅ Frontend auto-renders with $ symbol
+// ✅ ZERO code changes needed!
+```
+
+**Principle**:
+> **Use convention-based metadata from backend, not hardcoded switch statements.**
+
+---
+
+### ❌ **ANTI-PATTERN #7: Frontend Component Selection Logic**
+
+**Example of What NOT to Do**:
+```typescript
+// ❌ WRONG - Frontend deciding which component to use
+const renderField = (key: string, value: any) => {
+  // Hardcoded component selection
+  if (key === 'metadata') {
+    return <MetadataTable data={value} />;
+  }
+  if (key === 'dl__project_stage' || key === 'dl__sales_funnel') {
+    return <DAGVisualizer value={value} />;
+  }
+  if (key.endsWith('_date') && key.includes('start') && data.end_date) {
+    return <DateRangeVisualizer start={value} end={data.end_date} />;
+  }
+  return <TextDisplay value={value} />;
+};
+```
+
+**Why This is Dangerous**:
+1. ⚠️ **Frontend Making Business Decisions** - Which component to use is business logic
+2. ⚠️ **Hard to Configure** - Can't change components without code deploy
+3. ⚠️ **Duplicates Backend Knowledge** - Backend already knows field semantics
+4. ⚠️ **Not Extensible** - Adding new components requires frontend changes
+
+**Correct Approach (Backend-Specified Components)**:
+```typescript
+// ✅ CORRECT - Backend tells frontend which component to use
+// Backend metadata:
+{
+  "key": "metadata",
+  "renderType": "json",
+  "component": "MetadataTable"  // ← Backend specifies component
+}
+
+{
+  "key": "dl__project_stage",
+  "renderType": "badge",
+  "component": "DAGVisualizer"  // ← Backend specifies component
+}
+
+// Frontend just follows instructions:
+const renderComponent = (fieldMeta: BackendFieldMetadata, value: any) => {
+  switch (fieldMeta.component) {
+    case 'MetadataTable':
+      return <MetadataTable data={value} />;
+    case 'DAGVisualizer':
+      return <DAGVisualizer value={value} />;
+    case 'DateRangeVisualizer':
+      return <DateRangeVisualizer {...fieldMeta.format} />;
+    default:
+      return renderViewModeFromMetadata(value, fieldMeta);
+  }
+};
+```
+
+**Principle**:
+> **Backend specifies components via metadata.component, frontend executes.**
+
+---
+
 ## Summary
 
 | Anti-Pattern | Detection | Prevention |
 |--------------|-----------|------------|
-| Hardcoded entity lists | `grep "new Set\(\["` | Use database queries |
-| Hardcoded field arrays | `grep "FIELDS = \["` | Use pattern matching |
-| String literal checks | `grep "=== 'project'"` | Use metadata queries |
-| Feature flags by name | `grep "includes(entity"` | Use entity.metadata |
+| #1: Hardcoded entity lists | `grep "new Set\(\[.*entity"` | Use database queries for child_entity_codes |
+| #2: Hardcoded field names | `grep "FIELDS = \["` | Use pattern matching (convention-based) |
+| #3: Hardcoded entity types | `grep "=== 'project'"` | Use entity metadata queries |
+| #4: Feature flags by name | `grep "includes(entity"` | Use entity.metadata column |
+| #5: Frontend pattern detection | `grep "detectField\|endsWith.*_amt"` in frontend | Use backend metadata (renderViewModeFromMetadata) |
+| #6: Hardcoded field rendering | `grep "switch.*key.*case.*'budget"` | Use backend metadata + convention |
+| #7: Frontend component selection | `grep "if.*key.*===.*'metadata'"` | Backend specifies via metadata.component |
 
-**Core Principle**:
-> **If it can be queried from the database, it should NEVER be hardcoded in the application.**
+**Core Principles**:
+> 1. **If it can be queried from the database, it should NEVER be hardcoded in the application.**
+>
+> 2. **Backend generates metadata, frontend renders. No pattern detection in frontend.**
+>
+> 3. **Convention over configuration. Column names determine behavior.**
 
 ---
 
