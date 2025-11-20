@@ -518,22 +518,15 @@ export function EntityDataTable<T = any>({
   const [scrollProgress, setScrollProgress] = useState(0);
 
   // ============================================================================
-  // CENTRALIZED CAPABILITY DETECTION - TRUE DRY SYSTEM
+  // BACKEND METADATA-DRIVEN OPTIONS LOADING
   // ============================================================================
-
-  // Auto-detect field capabilities based on naming conventions (Convention over Configuration)
-  const columnCapabilities = useMemo(() => {
-    const capabilities = new Map<string, FieldCapability>();
-    columns.forEach(col => {
-      capabilities.set(col.key, getFieldCapability(col.key, col.editType));
-    });
-    return capabilities;
-  }, [columns]);
+  // Uses backend metadata to determine which columns need datalabel options
+  // Zero frontend pattern detection - backend tells us via loadFromDataLabels flag
 
   // State for dynamically loaded setting options
   const [settingOptions, setSettingOptions] = useState<Map<string, SettingOption[]>>(new Map());
 
-  // Load setting options for columns that need them (auto-detected)
+  // Load setting options for columns that need them (backend metadata-driven)
   useEffect(() => {
     const loadAllSettingOptions = async () => {
       const optionsMap = new Map<string, SettingOption[]>();
@@ -545,18 +538,20 @@ export function EntityDataTable<T = any>({
         }
       });
 
-      // Find all columns that need dynamic settings using capability detection
+      // Find all columns that need dynamic settings using backend metadata
       const columnsNeedingSettings = columns.filter(col => {
-        const capability = columnCapabilities.get(col.key);
-        return capability?.loadDataLabels;
+        const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
+        // Check backend metadata first, fallback to column.loadDataLabels
+        return backendMeta?.loadFromDataLabels || col.loadDataLabels;
       });
 
       // Load options for each column
       await Promise.all(
         columnsNeedingSettings.map(async (col) => {
           try {
-            const capability = columnCapabilities.get(col.key)!;
-            const datalabel = capability.settingsDatalabel || col.key;
+            const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
+            // Get datalabel from backend metadata, fallback to extracting from column key
+            const datalabel = backendMeta?.settingsDatalabel || extractSettingsDatalabel(col.key);
             const options = await loadFieldOptions(datalabel);
             if (options.length > 0) {
               optionsMap.set(col.key, options);
@@ -573,19 +568,22 @@ export function EntityDataTable<T = any>({
     if (inlineEditable) {
       loadAllSettingOptions();
     }
-  }, [columns, inlineEditable, columnCapabilities]);
+  }, [columns, inlineEditable]);
 
   // Preload colors for all settings columns (for filter dropdowns and inline edit)
   useEffect(() => {
     const preloadColors = async () => {
-      // Find all columns with loadDataLabels
+      // Find all columns with loadDataLabels using backend metadata
       const settingsColumns = columns.filter(col => {
-        const capability = columnCapabilities.get(col.key);
-        return col.loadDataLabels || capability?.loadDataLabels;
+        const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
+        return backendMeta?.loadFromDataLabels || col.loadDataLabels;
       });
 
       // Extract datalabels and preload colors
-      const datalabels = settingsColumns.map(col => extractSettingsDatalabel(col.key));
+      const datalabels = settingsColumns.map(col => {
+        const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
+        return backendMeta?.settingsDatalabel || extractSettingsDatalabel(col.key);
+      });
       const uniqueDatalabels = Array.from(new Set(datalabels));
 
       // Preload all colors in parallel
@@ -599,7 +597,7 @@ export function EntityDataTable<T = any>({
     if (filterable || inlineEditable) {
       preloadColors();
     }
-  }, [columns, columnCapabilities, filterable, inlineEditable]);
+  }, [columns, filterable, inlineEditable]);
 
   // Helper to get row key
   const getRowKey = (record: T, index: number): string => {
@@ -1163,15 +1161,15 @@ export function EntityDataTable<T = any>({
                               option.toLowerCase().includes(filterSearchTerm.toLowerCase())
                             )
                             .map((option) => {
-                              // Check if this column has settings options loaded
+                              // Check if this column has settings options loaded using backend metadata
                               const selectedColumn = columns.find(col => col.key === selectedFilterColumn);
-                              const capability = columnCapabilities.get(selectedFilterColumn);
-                              const isSettingsField = selectedColumn?.loadDataLabels || capability?.loadDataLabels;
+                              const backendMeta = (selectedColumn as any)?.backendMetadata as BackendFieldMetadata | undefined;
+                              const isSettingsField = backendMeta?.loadFromDataLabels || selectedColumn?.loadDataLabels;
 
                               // If this is a settings field, look up the color from centralized cache
                               let colorCode: string | undefined;
                               if (isSettingsField) {
-                                const datalabel = extractSettingsDatalabel(selectedFilterColumn);
+                                const datalabel = backendMeta?.settingsDatalabel || extractSettingsDatalabel(selectedFilterColumn);
                                 colorCode = getSettingColor(datalabel, option);
                               }
 
@@ -1321,15 +1319,15 @@ export function EntityDataTable<T = any>({
                 <span className="text-xs text-dark-700 font-medium">Active filters:</span>
                 {Object.entries(dropdownFilters).map(([columnKey, values]) =>
                   values.map((value) => {
-                    // Check if this column is a settings field
+                    // Check if this column is a settings field using backend metadata
                     const column = columns.find(col => col.key === columnKey);
-                    const capability = columnCapabilities.get(columnKey);
-                    const isSettingsField = column?.loadDataLabels || capability?.loadDataLabels;
+                    const backendMeta = (column as any)?.backendMetadata as BackendFieldMetadata | undefined;
+                    const isSettingsField = backendMeta?.loadFromDataLabels || column?.loadDataLabels;
 
                     // If this is a settings field, look up the color from centralized cache
                     let colorCode: string | undefined;
                     if (isSettingsField) {
-                      const datalabel = extractSettingsDatalabel(columnKey);
+                      const datalabel = backendMeta?.settingsDatalabel || extractSettingsDatalabel(columnKey);
                       colorCode = getSettingColor(datalabel, value);
                     }
 
@@ -1545,14 +1543,14 @@ export function EntityDataTable<T = any>({
 
                       // Regular data columns
                       // ============================================================================
-                      // CENTRALIZED CAPABILITY-BASED RENDERING (TRUE DRY)
+                      // BACKEND METADATA-DRIVEN RENDERING (Zero Frontend Pattern Detection)
                       // ============================================================================
 
-                      // Get auto-detected capability for this field
-                      const capability = columnCapabilities.get(column.key);
-                      const fieldEditable = capability?.inlineEditable || false;
-                      const editType = capability?.editType || 'text';
-                      const isFileField = capability?.isFileUpload || false;
+                      // Get backend metadata for this field
+                      const backendMeta = (column as any).backendMetadata as BackendFieldMetadata | undefined;
+                      const fieldEditable = backendMeta?.editable ?? column.editable ?? false;
+                      const editType = backendMeta?.inputType ?? column.editType ?? 'text';
+                      const isFileField = editType === 'file';
 
                       // Get settings options if available
                       const hasSettingOptions = settingOptions.has(column.key);
@@ -1582,7 +1580,7 @@ export function EntityDataTable<T = any>({
                                 entityCode={onEdit ? 'artifact' : 'cost'}
                                 entityId={(record as any).id}
                                 fieldName={column.key}
-                                accept={capability?.acceptedFileTypes}
+                                accept={backendMeta?.accept}
                                 onUploadComplete={(fileUrl) => onInlineEdit?.(recordId, column.key, fileUrl)}
                                 disabled={false}
                               />
