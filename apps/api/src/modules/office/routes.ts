@@ -58,8 +58,8 @@ import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-r
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
-// ✨ Backend Formatter Service - backend-driven metadata generation
-import { getEntityMetadata } from '../../services/backend-formatter.service.js';
+// ✨ Backend Formatter Service v5 - component-aware metadata generation
+import { generateEntityResponse, extractDatalabelKeys, fetchDatalabels } from '../../services/backend-formatter-v5.service.js';
 
 // Schema based on actual d_office table structure (physical locations only)
 // NOTE: Hierarchy fields (parent_id, dl__office_hierarchy_level) are in d_office_hierarchy
@@ -144,6 +144,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
+        view: Type.Optional(Type.String()),  // Component-aware metadata filtering: 'entityDataTable,kanbanView'
       }),
       response: {
         200: Type.Object({
@@ -159,7 +160,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const {
       active_flag, search, office_type, city, province,
-      limit = 20, offset: queryOffset, page
+      limit = 20, offset: queryOffset, page, view
     } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
@@ -215,15 +216,24 @@ export async function officeRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      // ✨ Generate field metadata from first row (if available)
-      const fieldMetadata = offices.length > 0
-        ? getEntityMetadata(ENTITY_CODE, offices[0])
-        : getEntityMetadata(ENTITY_CODE);
+      // ✨ Generate component-aware metadata using backend-formatter-v5
+      // Parse requested components from view parameter (e.g., 'entityDataTable,kanbanView')
+      const requestedComponents = view
+        ? view.split(',').map((v: string) => v.trim())
+        : ['entityDataTable', 'entityFormContainer', 'kanbanView'];
 
-      return {
-        ...createPaginatedResponse(offices, total, limit, offset),
-        metadata: fieldMetadata
-      };
+      const response = generateEntityResponse(ENTITY_CODE, offices, {
+        components: requestedComponents,
+        total, limit, offset
+      });
+
+      // ✨ Extract and fetch datalabel definitions (for dl__* fields like dl__office_type)
+      const datalabelKeys = extractDatalabelKeys(response.metadata);
+      if (datalabelKeys.length > 0) {
+        response.datalabels = await fetchDatalabels(db, datalabelKeys);
+      }
+
+      return response;
     } catch (error) {
       fastify.log.error({ error, stack: (error as Error).stack }, 'Error fetching offices');
       return reply.status(500).send({ error: 'Internal server error' });
@@ -237,6 +247,9 @@ export async function officeRoutes(fastify: FastifyInstance) {
       params: Type.Object({
         id: Type.String({ format: 'uuid' }),
       }),
+      querystring: Type.Object({
+        view: Type.Optional(Type.String()),  // Component-aware metadata: 'entityDetailView,entityFormContainer'
+      }),
       response: {
         200: OfficeWithMetadataSchema,  // ✅ Fixed: Use metadata-driven schema
         403: Type.Object({ error: Type.String() }),
@@ -246,6 +259,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
+    const { view } = request.query as any;
 
     const userId = (request as any).user?.sub;
     if (!userId) {
@@ -282,6 +296,23 @@ export async function officeRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Office not found' });
       }
 
+      // ✨ Generate component-aware metadata using backend-formatter-v5
+      // For single entity GET, default to detailView and formContainer
+      const requestedComponents = view
+        ? view.split(',').map((v: string) => v.trim())
+        : ['entityDetailView', 'entityFormContainer'];
+
+      const response = generateEntityResponse(ENTITY_CODE, [office[0]], {
+        components: requestedComponents,
+        total: 1, limit: 1, offset: 0
+      });
+
+      // ✨ Extract and fetch datalabel definitions
+      const datalabelKeys = extractDatalabelKeys(response.metadata);
+      if (datalabelKeys.length > 0) {
+        response.datalabels = await fetchDatalabels(db, datalabelKeys);
+      }
+
       const userPermissions = {
         canSeePII: true,
         canSeeFinancial: true,
@@ -289,12 +320,10 @@ export async function officeRoutes(fastify: FastifyInstance) {
         canSeeSafetyInfo: true,
       };
 
-      // ✨ Generate field metadata from the actual row
-      const fieldMetadata = getEntityMetadata(ENTITY_CODE, office[0]);
-
       return {
         data: filterUniversalColumns(office[0], userPermissions),
-        metadata: fieldMetadata
+        metadata: response.metadata,
+        datalabels: response.datalabels
       };
     } catch (error) {
       fastify.log.error('Error fetching office:', error as any);
