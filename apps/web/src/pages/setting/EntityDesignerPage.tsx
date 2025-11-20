@@ -61,7 +61,7 @@ export function EntityDesignerPage() {
         const token = localStorage.getItem('auth_token');
         const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
-        const response = await fetch(`${apiBaseUrl}/api/v1/entity/type/${entityCode}`, {
+        const response = await fetch(`${apiBaseUrl}/api/v1/entity/codes/${entityCode}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',

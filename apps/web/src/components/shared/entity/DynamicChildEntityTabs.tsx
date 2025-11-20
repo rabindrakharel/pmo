@@ -118,7 +118,7 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
 
         // ✅ UNIFIED ENDPOINT: Fetch entity type metadata (includes enriched child entities)
         // Replaces: /api/v1/entity/child-tabs/${parentType}/${parentId}
-        const response = await fetch(`${API_BASE_URL}/api/v1/entity/type/${parentType}`, {
+        const response = await fetch(`${API_BASE_URL}/api/v1/entity/codes/${parentType}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',

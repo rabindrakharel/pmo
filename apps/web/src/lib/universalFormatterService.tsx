@@ -1,55 +1,54 @@
 /**
  * ============================================================================
- * UNIVERSAL FORMATTER SERVICE - CONSOLIDATED FIELD DETECTION & FORMATTING
+ * UNIVERSAL FORMATTER SERVICE - BACKEND-DRIVEN METADATA ARCHITECTURE
  * ============================================================================
  *
- * SINGLE SOURCE OF TRUTH for ALL field detection and formatting concerns.
- * Consolidates universalFieldDetector.ts + universalFormatterService.ts logic.
+ * **CRITICAL ARCHITECTURE PRINCIPLE:**
+ * Frontend MUST rely exclusively on backend-provided metadata.
+ * Frontend pattern detection functions are DEPRECATED.
  *
- * This service provides:
- * 1. Field metadata detection (detectField - column name → complete metadata)
- * 2. Value formatting (formatCurrency, formatDate, formatRelativeTime, etc.)
- * 3. Badge rendering (renderDataLabelBadge with database-driven colors)
- * 4. Field capability detection (editable vs readonly)
- * 5. Data transformation (API ↔ Frontend)
+ * ============================================================================
+ * ✅ RECOMMENDED USAGE (Backend-driven)
+ * ============================================================================
  *
- * PERFORMANCE OPTIMIZATIONS:
- * ✅ LRU cache for field titles (500 entries)
- * ✅ Cached Intl formatters (currency, date)
- * ✅ Set-based lookups for O(1) performance
- * ✅ Reusable formatter functions (no inline lambdas)
- * ✅ Early exits in pattern matching
- *
- * ARCHITECTURAL BENEFITS:
- * ✅ Single import for all field detection needs
- * ✅ Zero duplication - ONE pattern system
- * ✅ Convention over configuration (column name determines everything)
- * ✅ Type-safe with TypeScript
- * ✅ 100% reusable across all components
- *
- * USAGE:
  * ```typescript
- * import { detectField, formatFieldValue, renderFieldDisplay } from './universalFormatterService';
+ * import {
+ *   renderViewModeFromMetadata,     // View mode (uses backend metadata)
+ *   renderEditModeFromMetadata,     // Edit mode (uses backend metadata)
+ *   hasBackendMetadata,             // Type guard for metadata responses
+ *   formatValueFromMetadata         // Format using backend metadata
+ * } from './universalFormatterService';
  *
- * // 1. Detect complete field metadata from column name
- * const metadata = detectField('budget_allocated_amt', 'numeric');
- * // Returns: {
- * //   fieldName: 'Budget Allocated',
- * //   renderType: 'currency',
- * //   format: formatCurrency,
- * //   editable: true,
- * //   width: '120px',
- * //   ...
- * // }
+ * // 1. Check if response has backend metadata
+ * if (hasBackendMetadata(apiResponse)) {
+ *   const fieldMeta = apiResponse.metadata.fields.find(f => f.key === 'budget_allocated_amt');
  *
- * // 2. Format value for display
- * const formatted = formatFieldValue(50000, 'currency');
- * // Returns: "$50,000.00"
- *
- * // 3. Render field as React element
- * const element = renderFieldDisplay(50000, { type: 'currency' });
- * // Returns: <span>$50,000.00</span>
+ *   // 2. Render using backend metadata
+ *   const viewElement = renderViewModeFromMetadata(50000, fieldMeta);
+ *   const editElement = renderEditModeFromMetadata(50000, fieldMeta, onChange);
+ * }
  * ```
+ *
+ * ============================================================================
+ * ❌ DEPRECATED (Frontend pattern detection - DO NOT USE)
+ * ============================================================================
+ *
+ * The following functions use frontend pattern detection and are DEPRECATED:
+ * - detectField() - Use backend metadata instead
+ * - renderFieldView() - Use renderViewModeFromMetadata()
+ * - renderFieldEdit() - Use renderEditModeFromMetadata()
+ * - getFieldCapability() - Backend provides editable/visible flags
+ *
+ * ============================================================================
+ * ✅ STILL SUPPORTED (Pure formatters - no pattern detection)
+ * ============================================================================
+ *
+ * The following are pure utility functions and remain supported:
+ * - formatCurrency() - Pure currency formatter
+ * - formatRelativeTime() - Pure time formatter
+ * - formatFriendlyDate() - Pure date formatter
+ * - renderDataLabelBadge() - Pure badge renderer
+ * - transformForApi() - Data transformation
  */
 
 import React from 'react';
@@ -488,27 +487,20 @@ function getEntityNameFromFK(fieldKey: string): string | null {
 // ============================================================================
 
 /**
- * CORE FUNCTION: Detect complete field metadata from column name and data type
+ * @deprecated Frontend pattern detection is DEPRECATED. Use backend-provided metadata instead.
  *
- * This is the SINGLE SOURCE OF TRUTH for field detection.
- * Convention over configuration - column name + data type determine everything.
+ * **DO NOT USE THIS FUNCTION IN NEW CODE.**
+ *
+ * Use backend-provided metadata via `renderViewModeFromMetadata()` and `renderEditModeFromMetadata()`.
+ * The backend is the single source of truth for field metadata.
+ *
+ * @see renderViewModeFromMetadata - Renders field using backend metadata
+ * @see renderEditModeFromMetadata - Renders edit form using backend metadata
+ * @see hasBackendMetadata - Type guard for backend metadata responses
  *
  * @param fieldKey - Database column name (e.g., 'budget_allocated_amt')
  * @param dataType - PostgreSQL data type (e.g., 'numeric', 'varchar', 'boolean')
  * @returns Complete field metadata including formatters, transforms, UI config
- *
- * @example
- * detectField('budget_allocated_amt', 'numeric')
- * // Returns: {
- * //   fieldName: 'Budget Allocated',
- * //   renderType: 'currency',
- * //   format: formatCurrencyOptimized,
- * //   editable: true,
- * //   width: '120px',
- * //   align: 'right',
- * //   toApi: parseFloatTransform,
- * //   ...
- * // }
  */
 export function detectField(
   fieldKey: string,
@@ -1504,7 +1496,13 @@ export function transformFromApi(data: Record<string, any>): Record<string, any>
 // ============================================================================
 
 /**
- * Get field capability (editable vs readonly, edit type)
+ * @deprecated Frontend pattern detection is DEPRECATED. Use backend-provided metadata instead.
+ *
+ * **DO NOT USE THIS FUNCTION IN NEW CODE.**
+ *
+ * Backend metadata provides `editable` and `visible` flags directly.
+ *
+ * @see BackendFieldMetadata - Backend provides editable/visible flags
  */
 export function getFieldCapability(columnKey: string, dataType?: string): FieldCapability {
   // Rule 1: Readonly fields are NEVER editable
@@ -1616,8 +1614,13 @@ function getAcceptedFileTypes(fieldName: string): string {
 // ============================================================================
 
 /**
- * Render field in VIEW mode
- * Returns formatted React element for display
+ * @deprecated Frontend pattern detection is DEPRECATED. Use backend-provided metadata instead.
+ *
+ * **DO NOT USE THIS FUNCTION IN NEW CODE.**
+ *
+ * Use `renderViewModeFromMetadata()` with backend-provided metadata.
+ *
+ * @see renderViewModeFromMetadata - Renders field using backend metadata
  *
  * @param fieldKey - The field name (column key)
  * @param value - The value to render
@@ -1709,8 +1712,13 @@ export function renderFieldView(
 }
 
 /**
- * Render field in EDIT mode
- * Returns appropriate input component
+ * @deprecated Frontend pattern detection is DEPRECATED. Use backend-provided metadata instead.
+ *
+ * **DO NOT USE THIS FUNCTION IN NEW CODE.**
+ *
+ * Use `renderEditModeFromMetadata()` with backend-provided metadata.
+ *
+ * @see renderEditModeFromMetadata - Renders edit form using backend metadata
  */
 export interface RenderFieldEditOptions {
   fieldKey: string;
@@ -1722,6 +1730,9 @@ export interface RenderFieldEditOptions {
   inlineMode?: boolean;  // For DataTable inline editing (bordered inputs)
 }
 
+/**
+ * @deprecated Frontend pattern detection is DEPRECATED. Use `renderEditModeFromMetadata()` instead.
+ */
 export function renderFieldEdit({
   fieldKey,
   value,

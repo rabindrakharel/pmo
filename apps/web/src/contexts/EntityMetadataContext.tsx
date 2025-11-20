@@ -64,8 +64,8 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
 
         console.log('[EntityMetadataContext] Fetching entity metadata...');
 
-        // ✅ UNIFIED ENDPOINT: /api/v1/entity/type (no param = all entities)
-        const response = await fetch(`${API_BASE_URL}/api/v1/entity/type`, {
+        // ✅ UNIFIED ENDPOINT: /api/v1/entity/codes (no param = all entities)
+        const response = await fetch(`${API_BASE_URL}/api/v1/entity/codes`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
