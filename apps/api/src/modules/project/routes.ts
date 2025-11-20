@@ -203,7 +203,9 @@ const ProjectSchema = Type.Object({
 // Response schema for metadata-driven endpoints
 const ProjectWithMetadataSchema = Type.Object({
   data: ProjectSchema,
-  metadata: Type.Any()  // EntityMetadata from backend-formatter.service
+  metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+  datalabels: Type.Optional(Type.Array(Type.Any())),  // DatalabelData[] - options for dl__* fields
+  globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
 });
 
 const CreateProjectSchema = Type.Object({
@@ -257,6 +259,10 @@ export async function projectRoutes(fastify: FastifyInstance) {
       response: {
         200: Type.Object({
           data: Type.Array(ProjectSchema),
+          fields: Type.Array(Type.String()),
+          metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+          datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields
+          globalSettings: Type.Any(),  // GlobalSettings - currency, date, timestamp formatting
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number(),

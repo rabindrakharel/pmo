@@ -187,7 +187,9 @@ const TaskSchema = Type.Object({
 // Response schema for metadata-driven endpoints
 const TaskWithMetadataSchema = Type.Object({
   data: TaskSchema,
-  metadata: Type.Any()  // EntityMetadata from backend-formatter.service
+  metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+  datalabels: Type.Optional(Type.Array(Type.Any())),  // DatalabelData[] - options for dl__* fields
+  globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
 });
 
 // Task Records are deprecated - using single table approach from DDL
@@ -245,11 +247,18 @@ export async function taskRoutes(fastify: FastifyInstance) {
       response: {
         200: Type.Object({
           data: Type.Array(TaskSchema),
+          fields: Type.Array(Type.String()),
+          metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+          datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields
+          globalSettings: Type.Any(),  // GlobalSettings - currency, date, timestamp formatting
           total: Type.Number(),
           limit: Type.Number(),
-          offset: Type.Number()}),
+          offset: Type.Number()
+        }),
         403: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })
+      }
+    }, async (request, reply) => {
     const {
       project_id, assigned_to__employee_id, dl__task_stage, task_type, task_category,
       worksite_id, client_id, active, search, limit = 20, offset: queryOffset, page,
