@@ -12,7 +12,7 @@ import { FormDataTable, InteractiveForm, FormSubmissionEditor } from '../../comp
 import { EmailTemplateRenderer } from '../../components/entity/marketing';
 import { getEntityConfig } from '../../lib/entityConfig';
 import { APIFactory } from '../../lib/api';
-import { formatRelativeTime, formatFriendlyDate, transformForApi } from '../../lib/frontEndFormatterService';
+import { formatRelativeTime, formatFriendlyDate, transformForApi, type DatalabelData } from '../../lib/frontEndFormatterService';
 import { Button } from '../../components/shared/button/Button';
 import { useS3Upload } from '../../lib/hooks/useS3Upload';
 import { useSidebar } from '../../contexts/SidebarContext';
@@ -45,6 +45,7 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
 
   const [data, setData] = useState<any>(null);
   const [backendMetadata, setBackendMetadata] = useState<any>(null);  // Backend field metadata
+  const [datalabels, setDatalabels] = useState<DatalabelData[]>([]);  // ✅ Preloaded datalabel data
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -151,15 +152,21 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
       }
 
       // ✅ Extract backend metadata from API response (v4.0 architecture)
-      // Backend returns: { data: {...}, metadata: {...} }
+      // Backend returns: { data: {...}, metadata: {...}, datalabels: [...] }
       let responseData = response.data || response;
       let backendFieldMetadata = null;
+      let backendDatalabels: DatalabelData[] = [];
 
       // Check if response has backend metadata structure
       if (response && typeof response === 'object' && 'metadata' in response && 'data' in response) {
         // Backend metadata present
         backendFieldMetadata = response.metadata;
         responseData = response.data;
+
+        // ✅ Extract preloaded datalabel data for DAG visualization
+        if ('datalabels' in response && Array.isArray(response.datalabels)) {
+          backendDatalabels = response.datalabels;
+        }
       }
 
       // Special handling for form entity - parse schema if it's a string
@@ -190,6 +197,7 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
 
       setData(responseData);
       setBackendMetadata(backendFieldMetadata);  // Set backend metadata
+      setDatalabels(backendDatalabels);  // ✅ Set preloaded datalabel data
       setEditedData(responseData);
       // Preview URL will be fetched by useEffect
     } catch (err) {
@@ -968,6 +976,7 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
               <EntityFormContainer
                 config={config}
                 metadata={backendMetadata}  // ✅ Pass backend metadata (v4.0)
+                datalabels={datalabels}  // ✅ Pass preloaded datalabel data
                 data={isEditing ? editedData : data}
                 isEditing={isEditing}
                 onChange={handleFieldChange}

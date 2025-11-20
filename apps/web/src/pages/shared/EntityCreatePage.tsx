@@ -442,6 +442,7 @@ export function EntityCreatePage({ entityCode }: EntityCreatePageProps) {
         <EntityFormContainer
           config={config}
           metadata={backendMetadata}  // v4.0 architecture - currently uses config fallback
+          datalabels={[]}             // Empty - EntityFormContainer will use API fallback for DAG fields
           data={formData}
           isEditing={true}
           onChange={handleChange}
