@@ -496,6 +496,22 @@ export function renderViewModeFromMetadata(
       // Static badge (not from datalabels) - shows badge everywhere
       return renderBadge(value, metadata.color);
 
+    case 'select':
+      // Datalabel field in table view - show as text/value (dropdown is for edit mode)
+      // Used by entityDataTable for dl__* fields
+      if (metadata.loadFromDataLabels && metadata.datalabelKey) {
+        return renderDataLabelBadge(value, metadata.datalabelKey, { color: metadata.color });
+      }
+      return <span className="text-gray-700">{value}</span>;
+
+    case 'dag':
+      // Datalabel field in DAG view - show as DAG node (for workflow visualization)
+      // Used by dagView for dl__* fields (e.g., dl__project_stage, dl__task_stage)
+      if (metadata.loadFromDataLabels && metadata.datalabelKey) {
+        return renderDataLabelBadge(value, metadata.datalabelKey, { color: metadata.color });
+      }
+      return renderBadge(value, 'blue');
+
     case 'json':
       return (
         <pre className="text-xs bg-gray-50 p-2 rounded overflow-auto max-h-40">
@@ -518,6 +534,12 @@ export function renderViewModeFromMetadata(
       return <span>{String(value)}</span>;
 
     case 'reference':
+      return <span className="text-blue-600">{value}</span>;
+
+    case 'entity_lookup':
+      // Entity lookup field (e.g., office_id, manager__employee_id)
+      // For now, display the value as-is
+      // TODO: Implement entity name resolution from lookup endpoint
       return <span className="text-blue-600">{value}</span>;
 
     default:

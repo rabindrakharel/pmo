@@ -652,7 +652,7 @@ const PATTERN_RULES: Record<string, PatternRule> = {
       filterable: true,
       sortable: true,
       editable: true,
-      viewType: 'badge',
+      viewType: 'select',      // ← Show as dropdown/select in table
       editType: 'select',
       width: '140px',
       align: 'left',
@@ -666,7 +666,19 @@ const PATTERN_RULES: Record<string, PatternRule> = {
       filterable: false,
       sortable: false,
       editable: true,
-      viewType: 'badge',
+      viewType: 'badge',       // ← Show as badge in forms
+      editType: 'select',
+      loadFromDataLabels: true
+    },
+    entityDetailView: {
+      dtype: 'str',
+      format: 'badge',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'badge',       // ← Show as badge in detail view
       editType: 'select',
       loadFromDataLabels: true
     },
@@ -678,7 +690,55 @@ const PATTERN_RULES: Record<string, PatternRule> = {
       filterable: false,
       sortable: false,
       editable: false,
-      viewType: 'badge',
+      viewType: 'badge',       // ← Show as badge on kanban cards
+      editType: 'select',
+      loadFromDataLabels: true
+    },
+    calendarView: {
+      dtype: 'str',
+      format: 'badge',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'badge',       // ← Show as badge on calendar events
+      editType: 'select',
+      loadFromDataLabels: true
+    },
+    gridView: {
+      dtype: 'str',
+      format: 'badge',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'badge',       // ← Show as badge in grid cards
+      editType: 'select',
+      loadFromDataLabels: true
+    },
+    dagView: {
+      dtype: 'str',
+      format: 'badge',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'dag',         // ← Show in DAG visualizer (workflow diagram)
+      editType: 'select',
+      loadFromDataLabels: true
+    },
+    hierarchyGraphView: {
+      dtype: 'str',
+      format: 'badge',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'badge',       // ← Show as badge in hierarchy graph
       editType: 'select',
       loadFromDataLabels: true
     }
@@ -775,40 +835,48 @@ const PATTERN_RULES: Record<string, PatternRule> = {
   '*_id': {
     entityDataTable: {
       dtype: 'uuid',
-      format: 'reference',
+      format: 'entity_lookup',  // ← Changed from 'reference' to 'entity_lookup'
       internal: false,
       visible: true,
       filterable: true,
       sortable: true,
       editable: true,
-      viewType: 'text',
-      editType: 'select',
+      viewType: 'entity_lookup',
+      editType: 'entity_lookup',
       width: '150px',
       align: 'left',
-      searchable: true
+      searchable: true,
+      displayField: 'name',     // ← Show name in view mode
+      valueField: 'id'          // ← Store ID in database
+      // loadFromEntity and endpoint will be set dynamically in generateFieldMetadataForComponent()
     },
     entityFormContainer: {
       dtype: 'uuid',
-      format: 'reference',
+      format: 'entity_lookup',  // ← Changed from 'reference' to 'entity_lookup'
       internal: false,
       visible: true,
       filterable: false,
       sortable: false,
       editable: true,
-      viewType: 'text',
-      editType: 'select',
-      searchable: true
+      viewType: 'entity_lookup',
+      editType: 'entity_lookup',
+      searchable: true,
+      displayField: 'name',     // ← Show name in dropdown
+      valueField: 'id'          // ← Store ID when selected
+      // loadFromEntity and endpoint will be set dynamically in generateFieldMetadataForComponent()
     },
     kanbanView: {
       dtype: 'uuid',
-      format: 'reference',
+      format: 'entity_lookup',  // ← Changed from 'reference' to 'entity_lookup'
       internal: false,
       visible: false,
       filterable: false,
       sortable: false,
       editable: false,
-      viewType: 'text',
-      editType: 'select'
+      viewType: 'entity_lookup',
+      editType: 'entity_lookup',
+      displayField: 'name',
+      valueField: 'id'
     }
   },
 
@@ -965,10 +1033,23 @@ function findMatchingRule(fieldName: string): PatternRule | null {
  * Generate human-readable label from field name
  */
 function generateLabel(fieldName: string): string {
+  // Special handling for entity reference fields with prefix: {prefix}__{entity}_id
+  // Examples:
+  //   manager__employee_id → "Manager Employee"
+  //   sponsor__employee_id → "Sponsor Employee"
+  //   parent__project_id → "Parent Project"
+  const prefixedEntityMatch = fieldName.match(/^(.+?)__(\w+)_id$/);
+  if (prefixedEntityMatch) {
+    const prefix = prefixedEntityMatch[1];  // "manager", "sponsor", "parent"
+    const entity = prefixedEntityMatch[2];  // "employee", "project"
+    const prefixLabel = prefix.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    const entityLabel = entity.charAt(0).toUpperCase() + entity.slice(1);
+    return `${prefixLabel} ${entityLabel}`;  // "Manager Employee", "Sponsor Employee"
+  }
+
+  // Remove common suffixes and prefixes for clean labels
   let label = fieldName
     .replace(/^dl__/, '')
-    .replace(/^parent__/, 'Parent ')
-    .replace(/__employee_id(s)?$/, '')
     .replace(/_id$/, '')
     .replace(/_amt$/, '')
     .replace(/_date$/, '')
@@ -1059,13 +1140,17 @@ function generateFieldMetadataForComponent(
   // Clone the rule to avoid mutation
   componentRule = { ...componentRule };
 
-  // Auto-detect entity for *_id fields
-  if (fieldName.endsWith('_id') && !fieldName.includes('__')) {
+  // Auto-detect entity for ALL *_id fields (both simple and prefixed)
+  // Examples:
+  //   office_id → entity: office
+  //   manager__employee_id → entity: employee (extracted from after __)
+  if (fieldName.endsWith('_id') && fieldName !== 'id') {
     const entity = detectEntityFromFieldName(fieldName);
     if (entity) {
       componentRule.loadFromEntity = entity;
       componentRule.endpoint = `/api/v1/entity/${entity}/entity-instance-lookup`;
       componentRule.displayField = 'name';
+      componentRule.valueField = 'id';
     }
   }
 

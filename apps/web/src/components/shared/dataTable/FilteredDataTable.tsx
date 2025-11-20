@@ -120,7 +120,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           backendMetadata: {
             key: fieldName,
             label: fieldMeta.label || fieldName,
-            renderType: fieldMeta.format || fieldMeta.viewType || 'text',
+            renderType: fieldMeta.viewType || fieldMeta.format || 'text',  // ← viewType takes priority (component-specific)
             inputType: fieldMeta.editType || fieldMeta.inputType || 'text',
             format: fieldMeta,
             visible: fieldMeta.visible ?? true,
