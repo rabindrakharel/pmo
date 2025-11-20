@@ -38,146 +38,86 @@ import {
   getSettingColor,
   loadSettingsColors,
   renderViewModeFromMetadata,
+  renderEditModeFromMetadata,
   formatCurrency,
   formatRelativeTime,
-  formatFriendlyDate
+  formatFriendlyDate,
+  type BackendFieldMetadata
 } from '../../../lib/frontEndFormatterService';
-import type { BackendFieldMetadata, EntityMetadata } from '../../../lib/api';
+import type { EntityMetadata } from '../../../lib/api';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 
 // ============================================================================
-// TEMPORARY: Minimal compatibility types (deprecated function removal)
-// TODO: Migrate to backend metadata architecture
+// TEMPORARY: Inline metadata generation (until backend provides metadata)
+// TODO: Remove when backend sends complete metadata
 // ============================================================================
-interface FieldCapability {
-  inlineEditable: boolean;
-  editType: string;
-  isFileUpload: boolean;
-}
 
 /**
- * @deprecated Temporary inline replacement for getFieldCapability()
- * TODO: Migrate to backend metadata architecture - Backend provides editable flags
+ * Generate BackendFieldMetadata from column name (temporary)
+ * This will be replaced by backend-provided metadata
  */
-function getFieldCapability(columnKey: string, dataType?: string): FieldCapability {
-  const readonly = /^(id|.*_id|created.*|updated.*|deleted.*|.*_at|.*_ts|.*_count|.*_total)$/i.test(columnKey);
-  const isFileUpload = columnKey.includes('attachment') || columnKey.includes('file');
+function generateFieldMetadata(columnKey: string, inlineMode?: boolean): BackendFieldMetadata {
+  const readonly = /^(id|.*_id|created.*|updated.*|deleted.*|.*_at|.*_ts|.*_count|.*_total|version|from_ts|to_ts|active_flag)$/i.test(columnKey);
+
+  let renderType = 'text';
+  let inputType = 'text';
+  let align: 'left' | 'center' | 'right' = 'left';
+  let width = '';
+  let loadFromDataLabels = false;
+  let datalabelKey: string | undefined;
+
+  // Currency fields
+  if (columnKey.includes('_amt') || columnKey.includes('_price') || columnKey.includes('_cost')) {
+    renderType = 'currency';
+    inputType = 'number';
+    align = 'right';
+    width = '120px';
+  }
+  // Timestamp fields
+  else if (columnKey.endsWith('_ts') || columnKey.endsWith('_at')) {
+    renderType = 'timestamp';
+    inputType = 'datetime';
+    width = '140px';
+  }
+  // Date fields
+  else if (columnKey.endsWith('_date')) {
+    renderType = 'date';
+    inputType = 'date';
+    width = '110px';
+  }
+  // Boolean fields
+  else if (columnKey.startsWith('is_') || columnKey.endsWith('_flag')) {
+    renderType = 'boolean';
+    inputType = 'checkbox';
+    align = 'center';
+    width = '80px';
+  }
+  // Datalabel fields
+  else if (columnKey.startsWith('dl__')) {
+    renderType = 'badge';
+    inputType = 'select';
+    loadFromDataLabels = true;
+    datalabelKey = getSettingDatalabel(columnKey) || columnKey;
+  }
 
   return {
-    inlineEditable: !readonly,
-    editType: dataType || 'text',
-    isFileUpload
+    key: columnKey,
+    label: columnKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+    renderType,
+    inputType,
+    visible: {
+      EntityDataTable: true,
+      EntityDetailView: true,
+      EntityFormContainer: true,
+      KanbanView: true,
+      CalendarView: true
+    },
+    editable: !readonly,
+    align,
+    width,
+    loadFromDataLabels,
+    datalabelKey
   };
-}
-
-/**
- * @deprecated Temporary inline replacement for renderField()
- * TODO: Migrate to backend metadata architecture - Use renderViewModeFromMetadata/renderEditModeFromMetadata
- */
-interface RenderFieldOptions {
-  fieldKey: string;
-  value: any;
-  mode: 'view' | 'edit';
-  onChange?: (key: string, value: any) => void;
-  inlineMode?: boolean;
-  data?: any;
-  customRender?: (value: any, record: any) => React.ReactNode;
-  loadDataLabels?: boolean;
-}
-
-function renderField(options: RenderFieldOptions): React.ReactNode {
-  const { fieldKey, value, mode, onChange, inlineMode, data, customRender, loadDataLabels } = options;
-
-  // Custom render override
-  if (customRender && mode === 'view') {
-    return customRender(value, data);
-  }
-
-  // View mode
-  if (mode === 'view') {
-    // Badge for datalabel fields
-    if (loadDataLabels || fieldKey.startsWith('dl__')) {
-      return renderDataLabelBadge(value, getSettingDatalabel(fieldKey) || fieldKey);
-    }
-
-    // Currency
-    if (fieldKey.includes('_amt') || fieldKey.includes('_price') || fieldKey.includes('_cost')) {
-      return <span className="font-mono text-right">{formatCurrency(value)}</span>;
-    }
-
-    // Timestamps
-    if (fieldKey.endsWith('_ts') || fieldKey.endsWith('_at')) {
-      return <span title={formatFriendlyDate(value)}>{formatRelativeTime(value)}</span>;
-    }
-
-    // Dates
-    if (fieldKey.endsWith('_date')) {
-      return formatFriendlyDate(value);
-    }
-
-    // Boolean
-    if (fieldKey.startsWith('is_') || fieldKey.endsWith('_flag')) {
-      return value ? '✓' : '✗';
-    }
-
-    // Default
-    return value ?? '-';
-  }
-
-  // Edit mode
-  if (mode === 'edit' && onChange) {
-    const inputClass = inlineMode
-      ? 'w-full px-2 py-1 text-sm border border-dark-300 rounded focus:outline-none focus:ring-1 focus:ring-dark-500'
-      : 'w-full px-3 py-2 border-0 focus:outline-none focus:ring-0';
-
-    // Currency/number
-    if (fieldKey.includes('_amt') || fieldKey.includes('_price') || fieldKey.includes('_cost') || fieldKey.includes('_hours')) {
-      return (
-        <input
-          type="number"
-          step="0.01"
-          value={value ?? ''}
-          onChange={(e) => onChange(fieldKey, parseFloat(e.target.value) || null)}
-          className={inputClass}
-        />
-      );
-    }
-
-    // Date
-    if (fieldKey.endsWith('_date')) {
-      return (
-        <input
-          type="date"
-          value={value ?? ''}
-          onChange={(e) => onChange(fieldKey, e.target.value)}
-          className={inputClass}
-        />
-      );
-    }
-
-    // Boolean
-    if (fieldKey.startsWith('is_') || fieldKey.endsWith('_flag')) {
-      return (
-        <input
-          type="checkbox"
-          checked={value ?? false}
-          onChange={(e) => onChange(fieldKey, e.target.checked)}
-        />
-      );
-    }
-
-    // Text (default)
-    return (
-      <input
-        type="text"
-        value={value ?? ''}
-        onChange={(e) => onChange(fieldKey, e.target.value)}
-        className={inputClass}
-      />
-    );
-  }
-
-  return value ?? '-';
 }
 
 // ============================================================================
@@ -1724,21 +1664,24 @@ export function EntityDataTable<T = any>({
                                 onClick={(e) => e.stopPropagation()}
                               />
                             ) : (
-                              // ALL OTHER FIELDS - Universal renderer handles text, number, date, boolean, etc.
+                              // ALL OTHER FIELDS - Backend-driven renderer
                               <div onClick={(e) => e.stopPropagation()}>
-                                {renderField({
-                                  fieldKey: column.key,
-                                  value: editedData[column.key] ?? (record as any)[column.key],
-                                  mode: 'edit',
-                                  onChange: (key, val) => onInlineEdit?.(recordId, key, val),
-                                  inlineMode: true,
-                                  data: record
-                                })}
+                                {(() => {
+                                  const metadata = generateFieldMetadata(column.key, true);
+                                  return renderEditModeFromMetadata(
+                                    editedData[column.key] ?? (record as any)[column.key],
+                                    metadata,
+                                    (val) => onInlineEdit?.(recordId, column.key, val),
+                                    {
+                                      className: 'w-full px-2 py-1 text-sm border border-dark-300 rounded focus:outline-none focus:ring-1 focus:ring-dark-500'
+                                    }
+                                  );
+                                })()}
                               </div>
                             )
                           ) : (
                             // ============================================================================
-                            // VIEW MODE - Universal Field Renderer
+                            // VIEW MODE - Backend-Driven Renderer
                             // ============================================================================
                             <div
                               style={{
@@ -1755,14 +1698,20 @@ export function EntityDataTable<T = any>({
                                 cursor: 'inherit'
                               } as React.CSSProperties}
                             >
-                              {renderField({
-                                fieldKey: column.key,
-                                value: (record as any)[column.key],
-                                mode: 'view',
-                                customRender: column.render,
-                                data: record,
-                                loadDataLabels: column.loadDataLabels
-                              })}
+                              {(() => {
+                                // Custom render override
+                                if (column.render) {
+                                  return column.render((record as any)[column.key], record);
+                                }
+
+                                // Generate metadata and render
+                                const metadata = generateFieldMetadata(column.key);
+                                if (column.loadDataLabels) {
+                                  metadata.loadFromDataLabels = true;
+                                  metadata.datalabelKey = getSettingDatalabel(column.key) || column.key;
+                                }
+                                return renderViewModeFromMetadata((record as any)[column.key], metadata, record);
+                              })()}
                             </div>
                           )}
                         </td>

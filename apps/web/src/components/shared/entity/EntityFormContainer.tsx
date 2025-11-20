@@ -16,14 +16,7 @@ import { formatRelativeTime, formatFriendlyDate, formatCurrency } from '../../..
 // ============================================================================
 
 /**
- * @deprecated Inline replacement for isCurrencyField()
- */
-function isCurrencyField(fieldKey: string): boolean {
-  return fieldKey.includes('_amt') || fieldKey.includes('_price') || fieldKey.includes('_cost');
-}
-
-/**
- * @deprecated Inline replacement for generateFieldLabel()
+ * Generate field label from key (inline helper)
  */
 function generateFieldLabel(fieldKey: string): string {
   return fieldKey
@@ -33,29 +26,6 @@ function generateFieldLabel(fieldKey: string): string {
     .replace(/\bAmt\b/g, 'Amount')
     .replace(/\bTs\b/g, 'Timestamp')
     .replace(/\bDescr\b/g, 'Description');
-}
-
-/**
- * @deprecated Inline replacement for formatFieldValue()
- */
-function formatFieldValue(value: any, fieldType?: string): any {
-  if (value == null) return '-';
-
-  switch (fieldType) {
-    case 'currency':
-      return formatCurrency(value);
-    case 'date':
-      return formatFriendlyDate(value);
-    case 'timestamp':
-      return formatRelativeTime(value);
-    case 'boolean':
-      return value ? 'Yes' : 'No';
-    default:
-      if (typeof value === 'object') {
-        return JSON.stringify(value, null, 2);
-      }
-      return value;
-  }
 }
 
 /**
@@ -534,25 +504,29 @@ export function EntityFormContainer({
         const option = options.find((opt: any) => String(opt.value) === String(value));
         const rawValue = option?.label || value;
 
-        // ✅ Use frontEndFormatterService to format the value properly
+        // Format value based on field type
         let displayValue: string;
         const fieldFormat = detectField(field.key);
 
-        try {
-          // Try to format using the detected field type
-          displayValue = formatFieldValue(rawValue, fieldFormat.type);
-        } catch (e) {
-          // If formatting fails, handle object/array cases
-          if (typeof rawValue === 'object' && rawValue !== null) {
-            if (Array.isArray(rawValue)) {
-              displayValue = rawValue.join(', ');
-            } else {
-              // For objects, try to stringify meaningfully
-              displayValue = JSON.stringify(rawValue);
-            }
+        // Format using inline logic
+        if (rawValue == null) {
+          displayValue = '-';
+        } else if (fieldFormat.inputType === 'currency') {
+          displayValue = formatCurrency(rawValue);
+        } else if (fieldFormat.inputType === 'date') {
+          displayValue = formatFriendlyDate(rawValue);
+        } else if (fieldFormat.inputType === 'timestamp' || fieldFormat.inputType === 'datetime') {
+          displayValue = formatRelativeTime(rawValue);
+        } else if (fieldFormat.inputType === 'checkbox') {
+          displayValue = rawValue ? 'Yes' : 'No';
+        } else if (typeof rawValue === 'object') {
+          if (Array.isArray(rawValue)) {
+            displayValue = rawValue.join(', ');
           } else {
-            displayValue = String(rawValue || '-');
+            displayValue = JSON.stringify(rawValue);
           }
+        } else {
+          displayValue = String(rawValue);
         }
 
         if (!displayValue) return (
@@ -612,7 +586,7 @@ export function EntityFormContainer({
       }
       if (field.type === 'number') {
         // Auto-detect and format currency fields
-        if (isCurrencyField(field.key)) {
+        if (field.key.includes('_amt') || field.key.includes('_price') || field.key.includes('_cost')) {
           return (
             <span className="text-dark-600 font-medium text-base tracking-tight">
               {formatCurrency(value)}
@@ -820,24 +794,29 @@ export function EntityFormContainer({
           </span>
         );
       default:
-        // ✅ Use frontEndFormatterService for consistent formatting
+        // Format value for display
         let defaultDisplay: string;
         const fieldFormat = detectField(field.key);
 
-        try {
-          // Try to format using the detected field type
-          defaultDisplay = formatFieldValue(value, fieldFormat.type);
-        } catch (e) {
-          // If formatting fails or value is an object, stringify it
-          if (typeof value === 'object' && value !== null) {
-            if (Array.isArray(value)) {
-              defaultDisplay = value.join(', ');
-            } else {
-              defaultDisplay = JSON.stringify(value);
-            }
+        // Format using inline logic
+        if (value == null) {
+          defaultDisplay = '-';
+        } else if (fieldFormat.inputType === 'currency') {
+          defaultDisplay = formatCurrency(value);
+        } else if (fieldFormat.inputType === 'date') {
+          defaultDisplay = formatFriendlyDate(value);
+        } else if (fieldFormat.inputType === 'timestamp' || fieldFormat.inputType === 'datetime') {
+          defaultDisplay = formatRelativeTime(value);
+        } else if (fieldFormat.inputType === 'checkbox') {
+          defaultDisplay = value ? 'Yes' : 'No';
+        } else if (typeof value === 'object') {
+          if (Array.isArray(value)) {
+            defaultDisplay = value.join(', ');
           } else {
-            defaultDisplay = String(value || '-');
+            defaultDisplay = JSON.stringify(value);
           }
+        } else {
+          defaultDisplay = String(value);
         }
         return <span className="text-dark-600 text-base tracking-tight">{defaultDisplay}</span>;
     }
