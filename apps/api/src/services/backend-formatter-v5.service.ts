@@ -1190,7 +1190,8 @@ export function extractDatalabelKeys(metadata: EntityMetadata): string[] {
   for (const componentMetadata of Object.values(metadata)) {
     if (componentMetadata) {
       for (const fieldMeta of Object.values(componentMetadata)) {
-        if (fieldMeta.loadFromDataLabels && fieldMeta.datalabelKey) {
+        // Check if field is datalabel_lookup format and has datalabelKey
+        if (fieldMeta.format === 'datalabel_lookup' && fieldMeta.datalabelKey) {
           datalabelKeys.add(fieldMeta.datalabelKey);
         }
       }

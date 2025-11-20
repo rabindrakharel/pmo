@@ -154,7 +154,7 @@ import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../serv
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✨ Backend Formatter Service v5.0 - Component-aware metadata generation
 import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter-v5.service.js';
-// ✨ Datalabel Service - preload datalabel data for DAG visualization
+// ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
 import { fetchDatalabels } from '../../services/datalabel.service.js';
 
 const TaskSchema = Type.Object({

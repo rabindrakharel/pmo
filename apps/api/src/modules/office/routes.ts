@@ -59,7 +59,9 @@ import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../serv
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✨ Backend Formatter Service v5 - component-aware metadata generation
-import { generateEntityResponse, extractDatalabelKeys, fetchDatalabels } from '../../services/backend-formatter-v5.service.js';
+import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter-v5.service.js';
+// ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
+import { fetchDatalabels } from '../../services/datalabel.service.js';
 
 // Schema based on actual d_office table structure (physical locations only)
 // NOTE: Hierarchy fields (parent_id, dl__office_hierarchy_level) are in d_office_hierarchy
