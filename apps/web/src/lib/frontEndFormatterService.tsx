@@ -17,7 +17,7 @@
  *   renderEditModeFromMetadata,     // Edit mode (uses backend metadata)
  *   hasBackendMetadata,             // Type guard for metadata responses
  *   formatValueFromMetadata         // Format using backend metadata
- * } from './universalFormatterService';
+ * } from '../../../lib/frontEndFormatterService';
  *
  * // Check if response has backend metadata
  * if (hasBackendMetadata(apiResponse)) {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Calendar } from 'lucide-react';
-import { formatFriendlyDate } from '../../../lib/universalFormatterService';
+import { formatFriendlyDate } from '../../../lib/frontEndFormatterService';
 
 // Inline calculateDateRangeProgress (UI-specific utility)
 function calculateDateRangeProgress(

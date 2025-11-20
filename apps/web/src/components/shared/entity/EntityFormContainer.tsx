@@ -8,7 +8,7 @@ import { DAGVisualizer, type DAGNode } from '../../workflow/DAGVisualizer';
 import { renderEmployeeNames } from '../../../lib/entityConfig';
 import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
 import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
-import { formatRelativeTime, formatFriendlyDate, formatCurrency, isCurrencyField, generateFieldLabel, formatFieldValue, detectField } from '../../../lib/universalFormatterService';
+import { formatRelativeTime, formatFriendlyDate, formatCurrency, isCurrencyField, generateFieldLabel, formatFieldValue, detectField } from '../../../lib/frontEndFormatterService';
 import { MetadataTable } from './MetadataTable';
 import { QuoteItemsRenderer } from './QuoteItemsRenderer';
 import { getBadgeClass, textStyles } from '../../../lib/designSystem';
@@ -438,7 +438,7 @@ export function EntityFormContainer({
         const option = options.find((opt: any) => String(opt.value) === String(value));
         const rawValue = option?.label || value;
 
-        // ✅ Use universalFormatterService to format the value properly
+        // ✅ Use frontEndFormatterService to format the value properly
         let displayValue: string;
         const fieldFormat = detectField(field.key);
 
@@ -724,7 +724,7 @@ export function EntityFormContainer({
           </span>
         );
       default:
-        // ✅ Use universalFormatterService for consistent formatting
+        // ✅ Use frontEndFormatterService for consistent formatting
         let defaultDisplay: string;
         const fieldFormat = detectField(field.key);
 

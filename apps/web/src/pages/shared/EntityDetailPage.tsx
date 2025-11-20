@@ -12,7 +12,7 @@ import { FormDataTable, InteractiveForm, FormSubmissionEditor } from '../../comp
 import { EmailTemplateRenderer } from '../../components/entity/marketing';
 import { getEntityConfig } from '../../lib/entityConfig';
 import { APIFactory } from '../../lib/api';
-import { formatRelativeTime, formatFriendlyDate, transformForApi } from '../../lib/universalFormatterService';
+import { formatRelativeTime, formatFriendlyDate, transformForApi } from '../../../lib/frontEndFormatterService';
 import { Button } from '../../components/shared/button/Button';
 import { useS3Upload } from '../../lib/hooks/useS3Upload';
 import { useSidebar } from '../../contexts/SidebarContext';

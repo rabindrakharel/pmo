@@ -5,7 +5,7 @@ import type { Column, RowAction } from '../ui/EntityDataTable';
 import { useNavigate } from 'react-router-dom';
 import { ActionButtonsBar } from '../button/ActionButtonsBar';
 import { getEntityConfig, type EntityConfig } from '../../../lib/entityConfig';
-import { transformForApi, transformFromApi, formatFieldValue, renderFieldDisplay, preloadSettingsColors } from '../../../lib/universalFormatterService';
+import { transformForApi, transformFromApi, formatFieldValue, renderFieldDisplay, preloadSettingsColors } from '../../../lib/frontEndFormatterService';
 import { useColumnVisibility } from '../../../lib/hooks/useColumnVisibility';
 import { useEntitySchema } from '../../../lib/hooks/useEntitySchema';
 import type { SchemaColumn } from '../../../lib/types/table';

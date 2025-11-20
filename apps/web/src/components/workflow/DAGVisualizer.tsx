@@ -13,7 +13,7 @@ import type { ReactElement } from 'react';
 // TEMPORARY: Minimal compatibility (viewConfigGenerator.ts removed)
 // TODO: Migrate to backend metadata architecture
 // ============================================================================
-import { detectField } from '../../lib/universalFormatterService';
+import { detectField } from '../../../lib/frontEndFormatterService';
 import { loadFieldOptions } from '../../lib/settingsLoader';
 
 /**
