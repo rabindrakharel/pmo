@@ -13,10 +13,12 @@ import { SchemaErrorFallback } from '../error/SchemaErrorBoundary';
 import { TableSkeleton } from '../ui/TableSkeleton';
 import { API_CONFIG, API_ENDPOINTS } from '../../../lib/config/api';
 import type { EntityMetadata } from '../../../lib/api';
+import type { DatalabelData } from '../../../lib/frontEndFormatterService';
 
 export interface FilteredDataTableProps {
   entityCode: string;
   metadata?: EntityMetadata | null;  // Backend metadata from API
+  datalabels?: DatalabelData[];  // ✅ Preloaded datalabel data for DAG visualization
   parentType?: string;
   parentId?: string;
   onRowClick?: (record: any) => void;
@@ -42,6 +44,7 @@ export interface FilteredDataTableProps {
 export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   entityCode,
   metadata: propsMetadata,  // Metadata from parent (EntityMainPage)
+  datalabels: propsDatalabels,  // ✅ Preloaded datalabels from parent
   parentType,
   parentId,
   onRowClick,
@@ -61,6 +64,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   const config = getEntityConfig(entityCode);
   const [data, setData] = useState<any[]>([]);
   const [metadata, setMetadata] = useState<EntityMetadata | null>(propsMetadata || null);  // Backend metadata
+  const [datalabels, setDatalabels] = useState<DatalabelData[]>(propsDatalabels || []);  // ✅ Preloaded datalabels
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -76,6 +80,13 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       setMetadata(propsMetadata);
     }
   }, [propsMetadata]);
+
+  // Update datalabels when prop changes
+  useEffect(() => {
+    if (propsDatalabels) {
+      setDatalabels(propsDatalabels);
+    }
+  }, [propsDatalabels]);
 
   // DEPRECATED: Old schema hook - being phased out in favor of backend metadata
   const { schema, loading: schemaLoading, error: schemaError } = useEntitySchema(entityCode);
@@ -881,6 +892,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           <EntityDataTable
             data={data}
             metadata={metadata}  // Pass backend metadata
+            datalabels={datalabels}  // ✅ Pass preloaded datalabel data
             columns={columns}
             loading={loading}
             pagination={pagination}

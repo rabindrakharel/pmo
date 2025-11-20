@@ -159,8 +159,10 @@ import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-r
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
-// ✨ Backend Formatter Service - backend-driven metadata generation
-import { getEntityMetadata } from '../../services/backend-formatter.service.js';
+// ✨ Backend Formatter Service v5.0 - Component-aware metadata generation
+import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter-v5.service.js';
+// ✨ Datalabel Service - preload datalabel data for DAG visualization
+import { fetchDatalabels } from '../../services/datalabel.service.js';
 
 // Schema for entity reference resolution (_ID and _IDS fields)
 const EntityReferenceSchema = Type.Object({
@@ -250,6 +252,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         page: Type.Optional(Type.Number({ minimum: 1 })),
         parent_type: Type.Optional(Type.String()),
         parent_id: Type.Optional(Type.String({ format: 'uuid' })),
+        components: Type.Optional(Type.String()),  // 'entityDataTable,entityFormContainer,kanbanView'
       }),
       response: {
         200: Type.Object({
@@ -264,7 +267,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      search, limit = 20, offset: queryOffset, page, parent_type, parent_id
+      search, limit = 20, offset: queryOffset, page, parent_type, parent_id, components
     } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
@@ -370,15 +373,29 @@ export async function projectRoutes(fastify: FastifyInstance) {
         })
       );
 
-      // ✨ Generate field metadata from first row (if available)
-      const fieldMetadata = projectsWithReferences.length > 0
-        ? getEntityMetadata(ENTITY_CODE, projectsWithReferences[0])
-        : getEntityMetadata(ENTITY_CODE);
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
+      // Parse requested components (if specified)
+      // ═══════════════════════════════════════════════════════════════
+      const requestedComponents = components
+        ? components.split(',').map((c: string) => c.trim())
+        : ['entityDataTable', 'entityFormContainer', 'kanbanView'];
 
-      return {
-        ...createPaginatedResponse(projectsWithReferences, total, limit, offset),
-        metadata: fieldMetadata
-      };
+      // Generate response with metadata for requested components only
+      const response = generateEntityResponse(ENTITY_CODE, projectsWithReferences, {
+        components: requestedComponents,
+        total,
+        limit,
+        offset
+      });
+
+      // ✨ Extract datalabel keys and fetch datalabels
+      const datalabelKeys = extractDatalabelKeys(response.metadata);
+      if (datalabelKeys.length > 0) {
+        response.datalabels = await fetchDatalabels(db, datalabelKeys);
+      }
+
+      return response;
     } catch (error) {
       fastify.log.error('Error fetching projects:', error as any);
       console.error('Full error details:', error);
@@ -543,12 +560,27 @@ export async function projectRoutes(fastify: FastifyInstance) {
         _IDS
       };
 
-      // ✨ Generate field metadata from the actual row
-      const fieldMetadata = getEntityMetadata(ENTITY_CODE, projectData);
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
+      // Generate full metadata for detail view (all components)
+      // ═══════════════════════════════════════════════════════════════
+      const response = generateEntityResponse(ENTITY_CODE, [projectData], {
+        components: ['entityDataTable', 'entityFormContainer', 'kanbanView'],
+        total: 1,
+        limit: 1,
+        offset: 0
+      });
 
+      // ✨ Extract datalabel keys and fetch datalabels
+      const datalabelKeys = extractDatalabelKeys(response.metadata);
+      if (datalabelKeys.length > 0) {
+        response.datalabels = await fetchDatalabels(db, datalabelKeys);
+      }
+
+      // Return single item (not array)
       return reply.send({
-        data: projectData,
-        metadata: fieldMetadata
+        ...response,
+        data: response.data[0]  // Return object, not array
       });
     } catch (error) {
       fastify.log.error('Error fetching project:', error as any);

@@ -79,6 +79,14 @@ export interface CompositeFieldConfig {
 export interface BackendFieldMetadata {
   key: string;
   label: string;
+
+  /**
+   * Index in data array (1-based)
+   * Used for indexed data format where data is sent as arrays instead of objects
+   * Backend uses this to convert between object and array formats
+   */
+  index: number;
+
   renderType: string;
   inputType: string;
   format?: Record<string, any>;
@@ -109,6 +117,27 @@ export interface BackendFieldMetadata {
 }
 
 /**
+ * Datalabel option from backend
+ */
+export interface DatalabelOption {
+  id: number;
+  name: string;
+  descr?: string | null;
+  parent_id: number | null;
+  sort_order: number;
+  color_code: string;
+  active_flag: boolean;
+}
+
+/**
+ * Datalabel data container (for DAG visualization)
+ */
+export interface DatalabelData {
+  name: string;
+  options: DatalabelOption[];
+}
+
+/**
  * Entity metadata container (backend response)
  */
 export interface EntityMetadata {
@@ -117,11 +146,12 @@ export interface EntityMetadata {
 }
 
 /**
- * API response with metadata
+ * API response with metadata and datalabels
  */
 export interface ApiResponseWithMetadata {
   data: any;
   metadata: EntityMetadata;
+  datalabels?: DatalabelData[];  // ✅ NEW: Preloaded datalabel data
   total?: number;
   limit?: number;
   offset?: number;
@@ -452,13 +482,19 @@ export function renderViewModeFromMetadata(
         </span>
       );
 
-    case 'badge':
-      // Use backend-provided color map (value -> color mapping from datalabel endpoint)
+    case 'datalabels':
+      // Datalabel fields: Badge in table (EntityDataTable), Dropdown in form (EntityFormContainer)
+      // EntityDataTable uses this renderType → renders badge
+      // EntityFormContainer checks EntityFormContainer_viz_container first, then falls back to dropdown
       const badgeColor = metadata.colorMap?.[value] || metadata.color;
       if (metadata.loadFromDataLabels && metadata.datalabelKey) {
         return renderDataLabelBadge(value, metadata.datalabelKey, { color: badgeColor });
       }
       return renderBadge(value, badgeColor);
+
+    case 'badge':
+      // Static badge (not from datalabels) - shows badge everywhere
+      return renderBadge(value, metadata.color);
 
     case 'json':
       return (

@@ -8,7 +8,16 @@ import { DAGVisualizer, type DAGNode } from '../../workflow/DAGVisualizer';
 import { renderEmployeeNames } from '../../../lib/entityConfig';
 import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
 import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
-import { formatRelativeTime, formatFriendlyDate, formatCurrency } from '../../../lib/frontEndFormatterService';
+import {
+  formatRelativeTime,
+  formatFriendlyDate,
+  formatCurrency,
+  renderEditModeFromMetadata,
+  type BackendFieldMetadata,
+  type EntityMetadata,
+  type DatalabelData,
+  type DatalabelOption
+} from '../../../lib/frontEndFormatterService';
 
 // ============================================================================
 // TEMPORARY: Inline compatibility functions (deprecated function removal)
@@ -154,16 +163,37 @@ interface EntityFormContainerProps {
   mode?: 'create' | 'edit';
 
   // ============================================================================
-  // NEW: Auto-Generation Support (Universal Field Detector Integration)
+  // PRIORITY 1: Backend Metadata (v4.0 Architecture)
   // ============================================================================
   /**
-   * Auto-generate form fields from data using universal field detector
-   * When true and config is not provided, automatically detects field types
-   * and generates appropriate field configurations
+   * Backend-generated metadata (RECOMMENDED)
+   * When provided, uses backend metadata for all rendering decisions
+   * Zero frontend pattern detection
+   *
+   * @example
+   * <EntityFormContainer data={project} metadata={metadata} isEditing onChange={handleChange} />
+   */
+  metadata?: EntityMetadata;
+
+  /**
+   * Preloaded datalabel data for DAG visualization
+   * Eliminates N+1 API calls by providing datalabel options upfront
+   *
+   * @example
+   * <EntityFormContainer data={project} datalabels={datalabels} isEditing onChange={handleChange} />
+   */
+  datalabels?: DatalabelData[];
+
+  // ============================================================================
+  // FALLBACK: Auto-Generation Support (LEGACY - for non-integrated routes)
+  // ============================================================================
+  /**
+   * Auto-generate form fields from data using inline pattern detection
+   * ⚠️ DEPRECATED: Use metadata prop instead
+   * Only used when metadata is not provided
    *
    * @example
    * <EntityFormContainer data={project} autoGenerateFields isEditing onChange={handleChange} />
-   * // Automatically detects: budget_allocated_amt → currency, dl__project_stage → DAG, etc.
    */
   autoGenerateFields?: boolean;
 
@@ -188,7 +218,9 @@ export function EntityFormContainer({
   isEditing,
   onChange,
   mode = 'edit',
-  autoGenerateFields = false,
+  metadata,                     // PRIORITY 1: Backend metadata
+  datalabels = [],              // ✅ NEW: Preloaded datalabel data (eliminates N+1 API calls)
+  autoGenerateFields = false,   // FALLBACK: inline pattern detection
   dataTypes,
   requiredFields = []
 }: EntityFormContainerProps) {
@@ -214,22 +246,39 @@ export function EntityFormContainer({
   // ============================================================================
   // Convert FormField to FieldDef format for backward compatibility
 
-  // ✅ FIX: Extract field keys separately to prevent infinite loop
+  // ✅ FIX: Create stable field keys to prevent infinite loop
   // Only recompute when actual field names change, not when data values change
-  // Create stable string representation directly
-  const fieldKeysString = useMemo(() => {
-    return Object.keys(data).sort().join(',');
-  }, [JSON.stringify(Object.keys(data).sort())]); // Use stable stringified dependency
+  const fieldKeys = useMemo(() => {
+    return Object.keys(data).sort();
+  }, [Object.keys(data).length]); // Only depend on number of keys, not their values
 
   const fields = useMemo(() => {
-    // If config provided with fields, use them (backward compatibility)
+    // PRIORITY 1: Backend metadata (v4.0 architecture)
+    if (metadata?.fields) {
+      // Convert BackendFieldMetadata to FieldDef format
+      return metadata.fields
+        .filter(f => f.visible.EntityFormContainer === true)
+        .map(fieldMeta => ({
+          key: fieldMeta.key,
+          label: fieldMeta.label,
+          type: fieldMeta.inputType,
+          editable: fieldMeta.editable,
+          visible: true,
+          loadFromDataLabels: fieldMeta.loadFromDataLabels,
+          loadFromEntity: fieldMeta.loadFromEntity,
+          EntityFormContainer_viz_container: fieldMeta.EntityFormContainer_viz_container,  // ✅ PRESERVE: Backend-specified visualization component
+          toApi: (value: any) => value,
+          toDisplay: (value: any) => value
+        } as FieldDef));
+    }
+
+    // PRIORITY 2: Config fields (backward compatibility)
     if (config?.fields && config.fields.length > 0) {
       return config.fields;
     }
 
-    // Auto-generate if enabled and data exists
-    if (autoGenerateFields && fieldKeysString.length > 0) {
-      const fieldKeys = fieldKeysString.split(',');
+    // PRIORITY 3: Auto-generate if enabled and data exists (FALLBACK)
+    if (autoGenerateFields && fieldKeys.length > 0) {
       const generatedConfig = generateFormConfig(fieldKeys, {
         dataTypes,
         requiredFields
@@ -248,7 +297,7 @@ export function EntityFormContainer({
 
     // Fallback: empty fields
     return [];
-  }, [config, autoGenerateFields, fieldKeysString, dataTypes, requiredFields]);
+  }, [metadata, config, autoGenerateFields, fieldKeys.length, dataTypes, requiredFields]);
   const [settingOptions, setSettingOptions] = useState<Map<string, SettingOption[]>>(new Map());
   const [dagNodes, setDagNodes] = useState<Map<string, DAGNode[]>>(new Map());
 
@@ -286,6 +335,18 @@ export function EntityFormContainer({
     const result = lowerKey.startsWith('dl__') && (lowerKey.includes('stage') || lowerKey.includes('funnel'));
     console.log(`[EntityFormContainer] isStageField(${fieldKey}):`, result);
     return result;
+  };
+
+  /**
+   * Transform preloaded datalabel options to DAG nodes
+   * Converts DatalabelOption[] → DAGNode[] format
+   */
+  const transformDatalabelToDAGNodes = (options: DatalabelOption[]): DAGNode[] => {
+    return options.map(opt => ({
+      id: opt.id,
+      node_name: opt.name,
+      parent_ids: opt.parent_id !== null ? [opt.parent_id] : []
+    }));
   };
 
   // Helper function to load DAG structure from setting_datalabel table
@@ -368,12 +429,21 @@ export function EntityFormContainer({
 
             // Load DAG nodes for stage/funnel fields
             if (isStageField(field.key)) {
-              const nodes = await loadDagNodes(field.key);
-              console.log(`[EntityFormContainer] Loaded DAG nodes for ${field.key}:`, nodes);
-              if (nodes.length > 0) {
+              // ✅ PRIORITY 1: Use preloaded datalabels (NO API CALL)
+              const datalabel = datalabels.find(dl => dl.name === field.key);
+              if (datalabel && datalabel.options.length > 0) {
+                const nodes = transformDatalabelToDAGNodes(datalabel.options);
+                console.log(`[EntityFormContainer] Using preloaded datalabels for ${field.key}:`, nodes);
                 dagNodesMap.set(field.key, nodes);
               } else {
-                console.warn(`[EntityFormContainer] No DAG nodes loaded for ${field.key}`);
+                // ✅ PRIORITY 2: Fallback to API call (backward compatibility)
+                const nodes = await loadDagNodes(field.key);
+                console.log(`[EntityFormContainer] Loaded DAG nodes via API for ${field.key}:`, nodes);
+                if (nodes.length > 0) {
+                  dagNodesMap.set(field.key, nodes);
+                } else {
+                  console.warn(`[EntityFormContainer] No DAG nodes loaded for ${field.key}`);
+                }
               }
             }
           } catch (error) {
@@ -387,7 +457,7 @@ export function EntityFormContainer({
     };
 
     loadAllOptions();
-  }, [fields]);
+  }, [fields, datalabels]);  // ✅ Include datalabels in dependency array
 
   // Render field based on configuration
   const renderField = (field: FieldDef) => {
@@ -475,8 +545,8 @@ export function EntityFormContainer({
         );
       }
       if (field.type === 'select') {
-        // Use DAG visualizer for workflow stages/funnels
-        if (isSequentialField && dagNodes.has(field.key)) {
+        // Backend-specified DAG component (explicit from backend)
+        if (field.EntityFormContainer_viz_container === 'DAGVisualizer' && dagNodes.has(field.key)) {
           // TWO DATA SOURCES for DAG visualization:
           // 1. DAG structure (nodes, parent_ids, relationships) from setting_datalabel table
           const nodes = dagNodes.get(field.key)!; // {id, node_name, parent_ids}[]
@@ -658,8 +728,8 @@ export function EntityFormContainer({
           />
         );
       case 'jsonb':
-        // Special renderers for specific JSONB fields in edit mode
-        if (field.key === 'metadata') {
+        // Backend-specified component (explicit from backend)
+        if (field.EntityFormContainer_viz_container === 'MetadataTable') {
           return (
             <MetadataTable
               value={value || {}}
@@ -695,8 +765,8 @@ export function EntityFormContainer({
           />
         );
       case 'select': {
-        // Use DAG visualizer for workflow stages/funnels in edit mode
-        if (isSequentialField && dagNodes.has(field.key)) {
+        // Backend-specified DAG component (explicit from backend)
+        if (field.EntityFormContainer_viz_container === 'DAGVisualizer' && dagNodes.has(field.key)) {
           // TWO DATA SOURCES for interactive DAG visualization:
           // 1. DAG structure (nodes, parent_ids, relationships) from setting_datalabel table
           const nodes = dagNodes.get(field.key)!; // {id, node_name, parent_ids}[]
@@ -708,8 +778,8 @@ export function EntityFormContainer({
           return (
             <div className="space-y-3">
               {/* Display actual stage value from entity table */}
-              <div className="flex items-center gap-3 p-3 bg-dark-100 border border-dark-300 rounded-md">
-                <span className="text-sm font-semibold text-dark-600">Current Stage:</span>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-dark-600">Current Stage:</span>
                 {renderFieldBadge(field.key, value || 'Not Set')}
               </div>
               <div className="text-xs text-dark-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">

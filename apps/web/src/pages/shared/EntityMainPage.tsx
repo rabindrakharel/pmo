@@ -11,6 +11,7 @@ import { useViewMode } from '../../lib/hooks/useViewMode';
 import { getEntityConfig, ViewMode } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
 import { APIFactory, type EntityMetadata } from '../../lib/api';
+import { type DatalabelData } from '../../lib/frontEndFormatterService';
 import { useSidebar } from '../../contexts/SidebarContext';
 
 /**
@@ -37,6 +38,7 @@ export function EntityMainPage({ entityCode, defaultView }: EntityMainPageProps)
   const [view, setView] = useViewMode(entityCode, defaultView);
   const [data, setData] = useState<any[]>([]);
   const [metadata, setMetadata] = useState<EntityMetadata | null>(null);  // Backend metadata
+  const [datalabels, setDatalabels] = useState<DatalabelData[]>([]);  // ✅ Preloaded datalabel data
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -76,8 +78,14 @@ export function EntityMainPage({ entityCode, defaultView }: EntityMainPageProps)
       const newData = response.data || [];
 
       // Extract backend metadata (only on first load, not on append)
-      if (!append && response.metadata) {
-        setMetadata(response.metadata);
+      if (!append) {
+        if (response.metadata) {
+          setMetadata(response.metadata);
+        }
+        // ✅ Extract preloaded datalabel data for DAG visualization
+        if (response.datalabels) {
+          setDatalabels(response.datalabels);
+        }
       }
 
       // Append to existing data for pagination, or replace for initial load
@@ -166,6 +174,7 @@ export function EntityMainPage({ entityCode, defaultView }: EntityMainPageProps)
         <FilteredDataTable
           entityCode={entityCode}
           metadata={metadata}  // Pass backend metadata
+          datalabels={datalabels}  // ✅ Pass preloaded datalabel data
           showActionButtons={false}
           showActionIcons={true}
           showEditIcon={true}

@@ -38,11 +38,11 @@ EntityMainPage.tsx                   // List/grid/kanban views
 EntityDetailPage.tsx                  // Detail with child tabs
 EntityFormPage.tsx                    // Create/edit forms
 
-// Field detection (12 patterns):
-detectField('total_amt') → currency
-detectField('dl__project_stage') → DAG workflow
-detectField('is_active') → toggle
-detectField('employee_id') → entity reference
+// Backend metadata generation (35+ patterns):
+Backend detects 'total_amt' → renderType: 'currency', inputType: 'currency'
+Backend detects 'dl__project_stage' → renderType: 'badge', loadFromDataLabels: true
+Backend detects 'is_active' → renderType: 'boolean', inputType: 'checkbox'
+Backend detects 'employee_id' → renderType: 'reference', loadFromEntity: 'employee'
 ```
 
 ### 2. Data Model Architecture
@@ -67,8 +67,8 @@ entity_rbac                   -- Person-based permissions (0-7: VIEW, COMMENT, E
 **Default-Editable**: All fields editable unless explicitly readonly
 **Column Consistency**: Same columns regardless of navigation context
 **Settings-Driven**: All dropdowns from `/api/v1/entity/:entityCode/entity-instance-lookup`
-**Convention Over Configuration**: Column names determine field types, formatting, and behavior
-**Centralized Formatting**: `universalFormatterService.ts` handles all field transforms
+**Backend-Driven Metadata**: Backend generates field metadata, frontend renders exactly as instructed
+**Zero Frontend Pattern Detection**: `frontEndFormatterService.tsx` is pure renderer with zero logic
 
 ### 4. Core Services & Libraries
 
@@ -361,7 +361,7 @@ import {
   renderViewModeFromMetadata,    // View mode (reads metadata.renderType)
   renderEditModeFromMetadata,     // Edit mode (reads metadata.inputType)
   hasBackendMetadata              // Type guard
-} from '@/lib/universalFormatterService';
+} from '@/lib/frontEndFormatterService';
 
 // EntityDataTable.tsx - Pure metadata-driven rendering
 const columns = useMemo(() => {

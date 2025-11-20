@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { normalizeApiResponse, hasMetadata } from './indexed-data-utils';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -18,6 +19,18 @@ apiClient.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
+});
+
+// Automatically convert indexed data format to objects
+apiClient.interceptors.response.use((response) => {
+  // Only process responses with metadata (entity endpoints)
+  if (hasMetadata(response.data)) {
+    response.data = normalizeApiResponse(response.data);
+  }
+  return response;
+}, (error) => {
+  // Pass through errors unchanged
+  return Promise.reject(error);
 });
 
 export interface LoginRequest {

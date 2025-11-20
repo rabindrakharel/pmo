@@ -88,6 +88,10 @@ export function EntityCreatePage({ entityCode }: EntityCreatePageProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Backend metadata (v4.0 architecture) - currently unused in create mode
+  // Future: Can fetch entity type metadata from backend for consistent field rendering
+  const [backendMetadata, setBackendMetadata] = useState<any>(null);
+
   // File upload state (for artifacts)
   const { uploadToS3, uploadingFiles, errors: uploadErrors } = useS3Upload();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -437,6 +441,8 @@ export function EntityCreatePage({ entityCode }: EntityCreatePageProps) {
         {/* Form Container - Uses same component as EntityDetailPage */}
         <EntityFormContainer
           config={config}
+          metadata={backendMetadata}  // v4.0 architecture - currently uses config fallback
+          datalabels={[]}             // Empty - EntityFormContainer will use API fallback for DAG fields
           data={formData}
           isEditing={true}
           onChange={handleChange}
