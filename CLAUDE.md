@@ -76,9 +76,9 @@ entity_rbac                   -- Person-based permissions (0-7: VIEW, COMMENT, E
 
 | Service | File | Documentation | Purpose |
 |---------|------|---------------|---------|
-| **Entity Infrastructure Service** | `services/entity-infrastructure.service.ts` | [ENTITY_INFRASTRUCTURE_SERVICE.md](docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md) | Centralized management of all 4 infrastructure tables (entity, entity_instance, entity_instance_link, entity_rbac) |
-| **Backend Formatter Service** | `services/backend-formatter.service.ts` | [BACKEND_FORMATTER_SERVICE.md](docs/services/BACKEND_FORMATTER_SERVICE.md) | **Single source of truth** for field metadata generation - Backend generates complete metadata from column names (35+ patterns) |
-| **Frontend Formatter Service** | `lib/universalFormatterService.tsx` | [FRONTEND_FORMATTER_SERVICE.md](docs/services/FRONTEND_FORMATTER_SERVICE.md) | **Pure metadata renderer** - Consumes backend metadata and renders view/edit modes with zero pattern detection |
+| **Entity Infrastructure Service** | `services/entity-infrastructure.service.ts` | [entity-infrastructure.service.md](docs/services/entity-infrastructure.service.md) | Centralized management of all 4 infrastructure tables (entity, entity_instance, entity_instance_link, entity_rbac) |
+| **Backend Formatter Service** | `services/backend-formatter.service.ts` | [backend-formatter.service.md](docs/services/backend-formatter.service.md) | **Single source of truth** for field metadata generation - Backend generates complete metadata from column names (35+ patterns) |
+| **Frontend Formatter Service** | `lib/frontEndFormatterService.tsx` | [frontEndFormatterService.md](docs/services/frontEndFormatterService.md) | **Pure metadata renderer** - Consumes backend metadata and renders view/edit modes with zero pattern detection |
 | **Universal Filter Builder** | `lib/universal-filter-builder.ts` | [UNIVERSAL_FILTER_BUILDER.md](docs/services/UNIVERSAL_FILTER_BUILDER.md) | Zero-config query filtering with auto-type detection from column naming conventions |
 
 **Key Benefits**:
@@ -228,7 +228,7 @@ fastify.get('/api/v1/project', async (request, reply) => {
 - `get_entity_rbac_where_condition()` - Get SQL WHERE fragment for RBAC filtering
 - `delete_all_entity_infrastructure()` - Orchestrate complete entity deletion
 
-**Reference**: See `docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md` for complete architecture
+**Reference**: See `docs/services/entity-infrastructure.service.md` for complete architecture
 
 ### 5a. Backend Formatter Service (Metadata Generation - Server Side)
 
@@ -347,7 +347,7 @@ fastify.get('/api/v1/office', async (request, reply) => {
 - ✅ **Cached metadata** - In-memory cache per entity (100x performance boost)
 - ✅ **35+ pattern rules** - Comprehensive coverage (financial, temporal, boolean, reference, structures, composites)
 
-**Reference**: See `docs/services/BACKEND_FORMATTER_SERVICE.md` for complete documentation
+**Reference**: See `docs/services/backend-formatter.service.md` for complete documentation
 
 ### 5b. Frontend Formatter Service (Metadata Consumption - Client Side)
 
@@ -414,7 +414,7 @@ renderEditModeFromMetadata('planning', fieldMeta, onChange)
 - ✅ **Type-safe** - Full TypeScript support with backend metadata types
 - ✅ **11 render types**, **11 input types** - All driven by backend
 
-**Reference**: See `docs/services/FRONTEND_FORMATTER_SERVICE.md` for complete documentation
+**Reference**: See `docs/services/frontEndFormatterService.md` for complete documentation
 
 ### 6. Component Matrix
 
@@ -550,8 +550,8 @@ tags          → Array field
 ## Documentation Map
 
 ### Core Services
-- `docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md` - **Complete entity infrastructure service architecture**
-- `docs/services/UNIVERSAL_FORMATTER_SERVICE.md` - **Complete formatter service documentation**
+- `docs/services/entity-infrastructure.service.md` - **Complete entity infrastructure service architecture**
+- `docs/services/frontEndFormatterService.md` - **Complete formatter service documentation**
 
 ### Data Model
 - `docs/datamodel/README.md` - **Database schema (50+ tables, all DDL files)**
@@ -634,8 +634,8 @@ setting_datalabel_* tables → /api/v1/entity/:entityCode/entity-instance-lookup
   - **UPDATED**: 24 documentation files to reflect current architecture
   - **RESULT**: -4,965 lines removed, 100% standardization, zero competing systems
 - v3.3.0 (2025-01-17): Complete documentation revamp based on actual implementation
-  - Added `docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md` - Complete service documentation
-  - Added `docs/services/UNIVERSAL_FORMATTER_SERVICE.md` - Complete formatter documentation
+  - Added `docs/services/entity-infrastructure.service.md` - Complete service documentation
+  - Added `docs/services/frontEndFormatterService.md` - Complete formatter documentation
   - Revamped `docs/datamodel/README.md` - Database schema based on DDL files
   - Revamped `docs/api/entity_endpoint_design.md` - Actual patterns with architecture diagrams
 - v3.2.0 (2025-11-15): Added comprehensive API patterns, universal filter system, RBAC model details

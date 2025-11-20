@@ -487,7 +487,7 @@ INSERT INTO app.entity (
 ## Related Documentation
 
 - `docs/REDIS_CACHE_MIGRATION.md` - Redis caching architecture
-- `docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md` - Entity metadata service
+- `docs/services/entity-infrastructure.service.md` - Entity metadata service
 - `docs/api/entity_endpoint_design.md` - API patterns and design
 
 ---

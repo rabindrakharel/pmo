@@ -108,7 +108,7 @@ be super smart, and next generation expert and compare this approach with other 
   \
   understand current state: \
   /home/rabin/projects/pmo/docs/core_algorithm_design_pattern.md
-  /home/rabin/projects/pmo/docs/datatable.md 
+  /home/rabin/projects/pmo/docs/EntityDataTable.md 
 
 
 
@@ -116,7 +116,7 @@ be super smart, and next generation expert and compare this approach with other 
   template, You can refer to project/task and how it's done. \
   Design patterns strictly followed. \\
   don't read all of the docs below but grep search the content below and link the knowledge.
-  /home/rabin/projects/pmo/docs/datatable/datatable.md\
+  /home/rabin/projects/pmo/docs/datatable/EntityDataTable.md\
   /home/rabin/projects/pmo/docs/s3_service\
   /home/rabin/projects/pmo/docs/styling_patterns.md\
   /home/rabin/projects/pmo/docs/datamodel/datamodel.md\

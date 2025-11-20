@@ -8,7 +8,7 @@
 
 ## 1. Complete Field Metadata Structure
 
-Based on current `universalFormatterService.tsx` implementation:
+Based on current `frontEndFormatterService.tsx` implementation:
 
 ```typescript
 interface FieldMetadata {
@@ -65,7 +65,7 @@ interface FieldMetadata {
   category?: CategoryType;              // Field category
 }
 
-// === TYPES (from universalFormatterService.tsx) ===
+// === TYPES (from frontEndFormatterService.tsx) ===
 
 type FieldType =
   | 'text' | 'currency' | 'percentage' | 'date' | 'timestamp'
@@ -168,7 +168,7 @@ interface EntityMetadata {
 
 ## 2. Universal Component Library (Production)
 
-Based on current `universalFormatterService.tsx` and component files:
+Based on current `frontEndFormatterService.tsx` and component files:
 
 ### 2.1 RenderType → Component Mapping
 
@@ -176,13 +176,13 @@ Based on current `universalFormatterService.tsx` and component files:
 |------------|-------------------|-----------|-------|
 | `text` | Plain text renderer | Built-in | Standard text fields |
 | `badge` | `<Badge>` with color mapping | Built-in | dl__* fields, boolean flags |
-| `currency` | `formatCurrency()` → `"$50,000.00"` | `lib/universalFormatterService.tsx` | *_amt, *_price, *_cost |
-| `percentage` | `formatPercentage()` → `"75.0%"` | `lib/universalFormatterService.tsx` | *_pct, *_rate |
-| `date` | `formatFriendlyDate()` → `"Jan 15, 2025"` | `lib/universalFormatterService.tsx` | *_date fields |
-| `timestamp` | `formatRelativeTime()` → `"2 hours ago"` | `lib/universalFormatterService.tsx` | *_ts, created_ts, updated_ts |
-| `boolean` | `formatBooleanBadge()` | `lib/universalFormatterService.tsx` | active_flag, is_* fields |
+| `currency` | `formatCurrency()` → `"$50,000.00"` | `lib/frontEndFormatterService.tsx` | *_amt, *_price, *_cost |
+| `percentage` | `formatPercentage()` → `"75.0%"` | `lib/frontEndFormatterService.tsx` | *_pct, *_rate |
+| `date` | `formatFriendlyDate()` → `"Jan 15, 2025"` | `lib/frontEndFormatterService.tsx` | *_date fields |
+| `timestamp` | `formatRelativeTime()` → `"2 hours ago"` | `lib/frontEndFormatterService.tsx` | *_ts, created_ts, updated_ts |
+| `boolean` | `formatBooleanBadge()` | `lib/frontEndFormatterService.tsx` | active_flag, is_* fields |
 | `json` | `<MetadataTable>` | `components/shared/entity/MetadataTable.tsx` | metadata JSONB fields |
-| `array` | `formatTagsList()` → Tags display | `lib/universalFormatterService.tsx` | Array fields, *_ids |
+| `array` | `formatTagsList()` → Tags display | `lib/frontEndFormatterService.tsx` | Array fields, *_ids |
 | `dag` | `<DAGVisualizer>` | `components/workflow/DAGVisualizer.tsx` | dl__*_stage fields |
 | `link` | `<a>` element | Built-in | URL fields |
 | `truncated` | Truncated text with "..." | Built-in | Long text fields (descr) |

@@ -51,9 +51,9 @@ The **PMO Platform** is an enterprise-grade project management and operations sy
 
 | Document | Purpose | When to Use | Key Topics |
 |----------|---------|-------------|------------|
-| **[Entity Infrastructure Service](./docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md)** | **⭐ Single source of truth** for all infrastructure operations | Implementing entity CRUD, RBAC checks, registry operations | RBAC permissions, Entity registry, Parent-child linking, Delete cascades |
-| **[Backend Formatter Service](./docs/services/BACKEND_FORMATTER_SERVICE.md)** | **⭐ Backend metadata generation** - Single source of truth for field rendering | Adding new entities, understanding field metadata generation | 35+ pattern rules, Column naming conventions, Metadata caching, Backend-driven UI |
-| **[Frontend Formatter Service](./docs/services/FRONTEND_FORMATTER_SERVICE.md)** | **⭐ Pure metadata renderer** - Zero frontend logic, executes backend instructions | Building components that consume backend metadata | View/edit mode rendering, Metadata consumption, Component integration, Type guards |
+| **[Entity Infrastructure Service](./docs/services/entity-infrastructure.service.md)** | **⭐ Single source of truth** for all infrastructure operations | Implementing entity CRUD, RBAC checks, registry operations | RBAC permissions, Entity registry, Parent-child linking, Delete cascades |
+| **[Backend Formatter Service](./docs/services/backend-formatter.service.md)** | **⭐ Backend metadata generation** - Single source of truth for field rendering | Adding new entities, understanding field metadata generation | 35+ pattern rules, Column naming conventions, Metadata caching, Backend-driven UI |
+| **[Frontend Formatter Service](./docs/services/frontEndFormatterService.md)** | **⭐ Pure metadata renderer** - Zero frontend logic, executes backend instructions | Building components that consume backend metadata | View/edit mode rendering, Metadata consumption, Component integration, Type guards |
 | **[Services Catalog](./docs/services/README.md)** | Index of all backend services | Finding service documentation | 10+ services (email, calendar, S3, messaging, etc.) |
 
 ### 🔌 API & Services
@@ -67,9 +67,9 @@ The **PMO Platform** is an enterprise-grade project management and operations sy
 
 | Document | Purpose | When to Use | Key Topics |
 |----------|---------|-------------|------------|
-| **[Entity Data Table](./docs/ui_components/datatable.md)** | Universal CRUD table component | Building entity lists, inline editing, bulk operations | Column configuration, Pagination, Sorting, Filtering |
-| **[DAG Visualizer](./docs/ui_components/dag_vizualizer.md)** | Directed Acyclic Graph visualization | Workflow stages, project pipelines, sequential states | DAG rendering, Stage progression, Workflow visualization |
-| **[Kanban Board](./docs/ui_components/kanban.md)** | Task board implementation | Building kanban views, task management | Drag-drop, Column configuration, State transitions |
+| **[Entity Data Table](./docs/ui_components/EntityDataTable.md)** | Universal CRUD table component | Building entity lists, inline editing, bulk operations | Column configuration, Pagination, Sorting, Filtering |
+| **[DAG Visualizer](./docs/ui_components/DAGVisualizer.md)** | Directed Acyclic Graph visualization | Workflow stages, project pipelines, sequential states | DAG rendering, Stage progression, Workflow visualization |
+| **[Kanban Board](./docs/ui_components/KanbanBoard.md)** | Task board implementation | Building kanban views, task management | Drag-drop, Column configuration, State transitions |
 | **[Dynamic Forms](./docs/form/form.md)** | JSONB-based form builder | Creating custom forms, form workflows | Form schema, Multi-step wizards, Validation, Submissions |
 | **[Project & Task System](./docs/Project_Task.md)** | Project/task entity implementation | Managing projects, tasks, assignments | Entity structure, Parent-child relationships, Workflows |
 

@@ -12,8 +12,8 @@
 **What this service does NOT do:** Field formatting, metadata generation, rendering instructions
 
 **Related Services:**
-- [Backend Formatter Service](./BACKEND_FORMATTER_SERVICE.md) - Generates field metadata for rendering (separate concern)
-- [Frontend Formatter Service](./FRONTEND_FORMATTER_SERVICE.md) - Consumes metadata for rendering (separate concern)
+- [Backend Formatter Service](./backend-formatter.service.md) - Generates field metadata for rendering (separate concern)
+- [Frontend Formatter Service](./frontEndFormatterService.md) - Consumes metadata for rendering (separate concern)
 
 ---
 
@@ -709,14 +709,14 @@ const entityInfra = getEntityInfrastructure(db);
 ## 10. Related Services
 
 ### Backend Formatter Service
-**File**: `docs/services/BACKEND_FORMATTER_SERVICE.md`
+**File**: `docs/services/backend-formatter.service.md`
 
 Generates field metadata from column names (e.g., `budget_allocated_amt` → currency field). Completely separate concern from infrastructure management.
 
 **Relationship**: Entity Infrastructure Service handles WHO can access data, Backend Formatter Service handles HOW data is displayed.
 
 ### Frontend Formatter Service
-**File**: `docs/services/FRONTEND_FORMATTER_SERVICE.md`
+**File**: `docs/services/frontEndFormatterService.md`
 
 Pure renderer that consumes backend metadata. Does not interact with Entity Infrastructure Service.
 

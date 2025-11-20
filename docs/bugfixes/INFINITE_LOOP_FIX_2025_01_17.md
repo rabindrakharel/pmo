@@ -294,7 +294,7 @@ All components using auto-generation had the same `data` dependency issue:
 
 ### **Documentation Added**
 
-- ✅ `docs/ui_components/ENTITY_FORM_CONTAINER.md` - Complete architecture doc
+- ✅ `docs/ui_components/EntityFormContainer.md` - Complete architecture doc
 - ✅ `docs/bugfixes/INFINITE_LOOP_FIX_2025_01_17.md` - This file
 
 ### **No Changes Required**
@@ -398,8 +398,8 @@ Consider adding:
 - **Root Cause Identified**: EntityFormContainer.tsx:122 (data dependency)
 - **Fix Applied**: EntityFormContainer.tsx:96-129 (fieldKeysString)
 - **Related Docs**:
-  - [EntityFormContainer Architecture](../ui_components/ENTITY_FORM_CONTAINER.md)
-  - [Universal Formatter Service](../services/UNIVERSAL_FORMATTER_SERVICE.md)
+  - [EntityFormContainer Architecture](../ui_components/EntityFormContainer.md)
+  - [Universal Formatter Service](../services/frontEndFormatterService.md)
   - [React useMemo Best Practices](https://react.dev/reference/react/useMemo)
 
 ---

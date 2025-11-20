@@ -39,7 +39,7 @@ The Frontend Formatter Service is a **pure rendering engine** that transforms ba
 
 ### Service Location
 ```
-apps/web/src/lib/universalFormatterService.tsx (2,390 lines)
+apps/web/src/lib/frontEndFormatterService.tsx (2,390 lines)
 ```
 
 ### Core Imports

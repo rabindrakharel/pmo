@@ -506,7 +506,7 @@ const formFields = metadata.fields
 
 ### **2. Frontend Formatter Service**
 
-**File**: `apps/web/src/lib/universalFormatterService.tsx`
+**File**: `apps/web/src/lib/frontEndFormatterService.tsx`
 
 - `renderEditModeFromMetadata(value, metadata, onChange)` - Edit mode rendering
 - `renderViewModeFromMetadata(value, metadata, record)` - View mode rendering
@@ -565,6 +565,6 @@ GET /api/v1/project/:id
 **Maintainer**: PMO Platform Team
 
 **Related Docs**:
-- [Backend Formatter Service](../services/BACKEND_FORMATTER_SERVICE.md)
-- [Frontend Formatter Service](../services/FRONTEND_FORMATTER_SERVICE.md)
+- [Backend Formatter Service](../services/backend-formatter.service.md)
+- [Frontend Formatter Service](../services/frontEndFormatterService.md)
 - [Anti-Pattern Prevention](../ANTI_PATTERNS_PREVENTION.md)
