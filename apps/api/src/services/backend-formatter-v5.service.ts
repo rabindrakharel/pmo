@@ -29,7 +29,15 @@
 // TYPE DEFINITIONS
 // ============================================================================
 
-export type ComponentName = 'entityDataTable' | 'entityFormContainer' | 'kanbanView';
+export type ComponentName =
+  | 'entityDataTable'      // Table view for entity lists
+  | 'entityFormContainer'  // Create/edit forms
+  | 'entityDetailView'     // Detail view for single entities
+  | 'kanbanView'           // Kanban board view
+  | 'calendarView'         // Calendar view for events
+  | 'gridView'             // Grid/card view
+  | 'dagView'              // Workflow DAG visualizer
+  | 'hierarchyGraphView';  // Hierarchy graph view
 
 export interface FieldMetadataBase {
   dtype: 'str' | 'float' | 'int' | 'bool' | 'uuid' | 'date' | 'timestamp' | 'jsonb' | 'array[str]' | 'array[uuid]';
@@ -86,7 +94,12 @@ export interface ComponentMetadata {
 export interface EntityMetadata {
   entityDataTable?: ComponentMetadata;
   entityFormContainer?: ComponentMetadata;
+  entityDetailView?: ComponentMetadata;
   kanbanView?: ComponentMetadata;
+  calendarView?: ComponentMetadata;
+  gridView?: ComponentMetadata;
+  dagView?: ComponentMetadata;
+  hierarchyGraphView?: ComponentMetadata;
 }
 
 export interface DatalabelOption {
@@ -184,9 +197,17 @@ export const GLOBAL_SETTINGS: GlobalSettings = {
 // ============================================================================
 
 interface PatternRule {
+  // Required components - must be defined
   entityDataTable: Partial<FieldMetadataBase>;
   entityFormContainer: Partial<FieldMetadataBase>;
-  kanbanView: Partial<FieldMetadataBase>;
+
+  // Optional components - will inherit from defaults if not specified
+  entityDetailView?: Partial<FieldMetadataBase>;
+  kanbanView?: Partial<FieldMetadataBase>;
+  calendarView?: Partial<FieldMetadataBase>;
+  gridView?: Partial<FieldMetadataBase>;
+  dagView?: Partial<FieldMetadataBase>;
+  hierarchyGraphView?: Partial<FieldMetadataBase>;
 }
 
 const PATTERN_RULES: Record<string, PatternRule> = {
@@ -980,6 +1001,21 @@ function detectEntityFromFieldName(fieldName: string): string | null {
 }
 
 /**
+ * Component inheritance mapping
+ * Components inherit rules from their parent if not explicitly defined
+ */
+const COMPONENT_INHERITANCE: Record<ComponentName, ComponentName | null> = {
+  entityDataTable: null,           // Base component
+  entityFormContainer: null,       // Base component
+  entityDetailView: 'entityDataTable',     // Inherits from table (shows more fields)
+  kanbanView: 'entityDataTable',           // Inherits from table
+  calendarView: 'entityDataTable',         // Inherits from table
+  gridView: 'entityDataTable',             // Inherits from table
+  dagView: 'entityDataTable',              // Inherits from table
+  hierarchyGraphView: 'entityDataTable',   // Inherits from table
+};
+
+/**
  * Generate field metadata for a specific component
  */
 function generateFieldMetadataForComponent(
@@ -994,10 +1030,10 @@ function generateFieldMetadataForComponent(
       dtype: 'str',
       format: 'text',
       internal: false,
-      visible: component === 'entityDataTable',
-      filterable: component === 'entityDataTable',
-      sortable: component === 'entityDataTable',
-      editable: component !== 'kanbanView',
+      visible: component === 'entityDataTable' || component === 'entityDetailView' || component === 'gridView',
+      filterable: component === 'entityDataTable' || component === 'entityDetailView',
+      sortable: component === 'entityDataTable' || component === 'entityDetailView',
+      editable: component === 'entityFormContainer',
       viewType: 'text',
       editType: 'text',
       width: 'auto',
@@ -1005,7 +1041,23 @@ function generateFieldMetadataForComponent(
     };
   }
 
-  const componentRule = rule[component];
+  // Try to get component-specific rule, or inherit from parent component
+  let componentRule = rule[component];
+
+  if (!componentRule) {
+    const parentComponent = COMPONENT_INHERITANCE[component];
+    if (parentComponent) {
+      componentRule = rule[parentComponent];
+    }
+  }
+
+  // If still no rule (shouldn't happen), use entityDataTable as fallback
+  if (!componentRule) {
+    componentRule = rule.entityDataTable;
+  }
+
+  // Clone the rule to avoid mutation
+  componentRule = { ...componentRule };
 
   // Auto-detect entity for *_id fields
   if (fieldName.endsWith('_id') && !fieldName.includes('__')) {

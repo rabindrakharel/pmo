@@ -42,6 +42,9 @@ export interface ComponentVisibility {
   EntityFormContainer: boolean;     // Create/edit forms
   KanbanView: boolean;              // Kanban board
   CalendarView: boolean;            // Calendar view
+  GridView: boolean;                // Grid/card view
+  DAGView: boolean;                 // Workflow DAG visualizer
+  HierarchyGraphView: boolean;      // Hierarchy graph view
 }
 
 /**
