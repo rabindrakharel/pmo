@@ -3,12 +3,12 @@
  * UNIVERSAL FORMATTER SERVICE - BACKEND-DRIVEN METADATA ARCHITECTURE
  * ============================================================================
  *
- * **CRITICAL ARCHITECTURE PRINCIPLE:**
+ * **ARCHITECTURE PRINCIPLE:**
  * Frontend MUST rely exclusively on backend-provided metadata.
- * Frontend pattern detection functions are DEPRECATED.
+ * Zero frontend pattern detection.
  *
  * ============================================================================
- * ✅ RECOMMENDED USAGE (Backend-driven)
+ * ✅ BACKEND-DRIVEN RENDERING
  * ============================================================================
  *
  * ```typescript
@@ -19,1685 +19,446 @@
  *   formatValueFromMetadata         // Format using backend metadata
  * } from './universalFormatterService';
  *
- * // 1. Check if response has backend metadata
+ * // Check if response has backend metadata
  * if (hasBackendMetadata(apiResponse)) {
  *   const fieldMeta = apiResponse.metadata.fields.find(f => f.key === 'budget_allocated_amt');
  *
- *   // 2. Render using backend metadata
+ *   // Render using backend metadata
  *   const viewElement = renderViewModeFromMetadata(50000, fieldMeta);
  *   const editElement = renderEditModeFromMetadata(50000, fieldMeta, onChange);
  * }
  * ```
  *
  * ============================================================================
- * ❌ DEPRECATED (Frontend pattern detection - DO NOT USE)
+ * ✅ PURE FORMATTERS (No pattern detection)
  * ============================================================================
  *
- * The following functions use frontend pattern detection and are DEPRECATED:
- * - detectField() - Use backend metadata instead
- * - renderFieldView() - Use renderViewModeFromMetadata()
- * - renderFieldEdit() - Use renderEditModeFromMetadata()
- * - getFieldCapability() - Backend provides editable/visible flags
- *
- * ============================================================================
- * ✅ STILL SUPPORTED (Pure formatters - no pattern detection)
- * ============================================================================
- *
- * The following are pure utility functions and remain supported:
  * - formatCurrency() - Pure currency formatter
  * - formatRelativeTime() - Pure time formatter
  * - formatFriendlyDate() - Pure date formatter
  * - renderDataLabelBadge() - Pure badge renderer
  * - transformForApi() - Data transformation
+ * - transformFromApi() - Data transformation
  */
 
 import React from 'react';
 import { Copy, Check } from 'lucide-react';
 import { formatters } from './config/locale';
-import { DISPLAY_CONFIG } from './config/display';
 
 // ============================================================================
-// TYPES & INTERFACES (Consolidated from both files)
+// BACKEND METADATA TYPES
 // ============================================================================
 
 /**
- * Complete field metadata for tables, forms, and detail views
- * This is the primary type returned by detectField()
+ * Component visibility per view type (backend-provided)
  */
-export interface UniversalFieldMetadata {
-  fieldName: string;                  // Human-readable label
-  visible: boolean;                   // Show in table columns
-  sortable: boolean;                  // Can be sorted
-  filterable: boolean;                // Can be filtered
-  searchable: boolean;                // Included in text search
-  width: string;                      // Column width (e.g., '120px')
-  align: 'left' | 'center' | 'right'; // Text alignment
-  format: (value: any, record?: any) => string | React.ReactNode; // Display formatter
-  renderType: RenderType;             // Render type category
-  inputType: InputType;               // Input type for forms
-  component?: ComponentType;          // Special component (DAG, MetadataTable, etc.)
-  editable: boolean;                  // Can be edited
-  editType?: EditType;                // Edit input type
-  toApi: (value: any) => any;         // Transform for API submission
-  toDisplay: (value: any) => any;     // Transform for display
-  loadFromDataLabels?: boolean;       // Load options from settings table
-  loadFromEntity?: string;            // Load options from entity (for FK)
-  pattern: PatternType;               // Detection pattern matched
-  category: CategoryType;             // Field category
-  settingsDatalabel?: string;         // For dl__* fields
-}
-
-export type RenderType =
-  | 'text' | 'badge' | 'currency' | 'percentage' | 'date' | 'timestamp'
-  | 'boolean' | 'json' | 'array' | 'dag' | 'link' | 'truncated';
-
-export type InputType =
-  | 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time'
-  | 'select' | 'multiselect' | 'checkbox' | 'textarea' | 'richtext'
-  | 'tags' | 'jsonb' | 'file' | 'dag-select' | 'readonly';
-
-export type EditType =
-  | 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time'
-  | 'select' | 'multiselect' | 'checkbox' | 'textarea'
-  | 'tags' | 'jsonb' | 'datatable' | 'file' | 'dag-select';
-
-export type ComponentType =
-  | 'DAGVisualizer' | 'MetadataTable' | 'TagsInput'
-  | 'DateRangeVisualizer' | 'FileUpload' | 'RichTextEditor' | 'SearchableMultiSelect';
-
-export type PatternType =
-  | 'CURRENCY' | 'PERCENTAGE' | 'TIMESTAMP' | 'DATE' | 'BOOLEAN' | 'FOREIGN_KEY'
-  | 'COUNT' | 'DATALABEL' | 'STANDARD' | 'JSONB' | 'ARRAY' | 'SYSTEM' | 'UNKNOWN';
-
-export type CategoryType =
-  | 'identity' | 'financial' | 'temporal' | 'reference' | 'boolean'
-  | 'quantitative' | 'standard' | 'structured' | 'system' | 'content';
-
-/**
- * Legacy type for backwards compatibility
- * @deprecated Use UniversalFieldMetadata instead
- */
-export type FormatType =
-  | 'text' | 'currency' | 'number' | 'percentage'
-  | 'date' | 'datetime' | 'relative-time'
-  | 'badge' | 'tags' | 'reference' | 'boolean';
-
-/**
- * Field capability for edit mode detection
- */
-export interface FieldCapability {
-  inlineEditable: boolean;
-  editType: EditType;
-  loadDataLabels?: boolean;
-  settingsDatalabel?: string;
-  acceptedFileTypes?: string;
-  isFileUpload: boolean;
-}
-
-// ============================================================================
-// PERFORMANCE OPTIMIZATIONS - CACHED FORMATTERS
-// ============================================================================
-
-const CURRENCY_FORMATTER = new Intl.NumberFormat('en-CA', {
-  style: 'currency',
-  currency: 'CAD'
-});
-
-const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric'
-});
-
-// ============================================================================
-// PERFORMANCE OPTIMIZATIONS - LRU CACHE FOR FIELD TITLES
-// ============================================================================
-
-// LRU cache for field titles (500 max entries)
-const FIELD_TITLE_CACHE = new Map<string, string>();
-const MAX_CACHE_SIZE = 500;
-
-/**
- * Export cache clearing function for hot reload / testing
- */
-export function clearFieldTitleCache(): void {
-  FIELD_TITLE_CACHE.clear();
+export interface ComponentVisibility {
+  EntityDataTable: boolean;
+  EntityDetailView: boolean;
+  EntityFormContainer: boolean;
+  KanbanView: boolean;
+  CalendarView: boolean;
 }
 
 /**
- * Memoized field title generator with LRU eviction
+ * Composite field configuration (backend-provided)
  */
-function memoizedFieldTitle(fieldKey: string): string {
-  if (FIELD_TITLE_CACHE.has(fieldKey)) {
-    return FIELD_TITLE_CACHE.get(fieldKey)!;
-  }
-
-  const title = generateFieldTitleInternal(fieldKey);
-
-  // LRU eviction
-  if (FIELD_TITLE_CACHE.size >= MAX_CACHE_SIZE) {
-    const firstKey = FIELD_TITLE_CACHE.keys().next().value;
-    FIELD_TITLE_CACHE.delete(firstKey);
-  }
-
-  FIELD_TITLE_CACHE.set(fieldKey, title);
-  return title;
+export interface CompositeFieldConfig {
+  composedFrom: string[];
+  compositeType: 'progress-bar' | 'date-range' | 'address' | 'full-name' | 'calculated';
+  showPercentage?: boolean;
+  showDates?: boolean;
+  highlightOverdue?: boolean;
+  startField?: string;
+  endField?: string;
 }
 
 /**
- * Internal field title generator
+ * Complete field metadata from backend
  */
-function generateFieldTitleInternal(fieldKey: string): string {
-  // Handle datalabel fields: dl__project_stage → Project Stage (remove 'Dl' prefix)
-  let processedKey = fieldKey;
+export interface BackendFieldMetadata {
+  key: string;
+  label: string;
+  renderType: string;
+  inputType: string;
+  format?: Record<string, any>;
+  visible: ComponentVisibility;
+  editable: boolean;
+  required?: boolean;
+  placeholder?: string;
+  helpText?: string;
+  validation?: Record<string, any>;
+  width?: string;
+  align?: 'left' | 'center' | 'right';
+  sortable?: boolean;
+  filterable?: boolean;
 
-  if (fieldKey.startsWith('dl__')) {
-    processedKey = fieldKey.substring(4); // Remove 'dl__' prefix
-  }
+  // Backend-driven field loading
+  loadFromDataLabels?: boolean;
+  loadFromEntity?: string;
+  datalabelKey?: string;
 
-  // Map specific field names
-  if (processedKey === 'descr') {
-    return 'Description';
-  }
-
-  // Replace '_ts' with '_time' before processing
-  processedKey = processedKey.replace(/_ts$/g, '_time');
-
-  // Replace 'cust_' prefix with 'customer_' for proper formatting
-  processedKey = processedKey.replace(/^cust_/, 'customer_');
-
-  // Standard snake_case conversion
-  return processedKey
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
+  // Composite fields
+  composite?: boolean;
+  compositeConfig?: CompositeFieldConfig;
+  component?: string;
 }
 
-// Clear cache on module hot reload (Vite HMR)
-if (import.meta.hot) {
-  import.meta.hot.accept(() => {
-    clearFieldTitleCache();
-  });
+/**
+ * Entity metadata container (backend response)
+ */
+export interface EntityMetadata {
+  entity: string;
+  fields: BackendFieldMetadata[];
+}
+
+/**
+ * API response with metadata
+ */
+export interface ApiResponseWithMetadata {
+  data: any;
+  metadata: EntityMetadata;
+  total?: number;
+  limit?: number;
+  offset?: number;
 }
 
 // ============================================================================
-// KNOWN ENTITIES SET (O(1) lookups)
-// ============================================================================
-
-const KNOWN_ENTITIES = new Set([
-  'employee', 'project', 'task', 'client', 'customer', 'cust',
-  'office', 'business', 'biz', 'supplier', 'product', 'service',
-  'artifact', 'wiki', 'form', 'event', 'calendar', 'person'
-]);
-
-// ============================================================================
-// UNIFIED PATTERN DEFINITIONS (Merged from both files)
+// PURE FORMATTERS (No pattern detection)
 // ============================================================================
 
 /**
- * Consolidated pattern definitions with priority ordering
- * Patterns are checked in priority order (1 = highest)
+ * Format currency value (pure function)
  */
-const PATTERNS = {
-  system: {
-    regex: /^(id|version|from_ts|to_ts|active_flag|created_ts|updated_ts|created_at|updated_at)$/i,
-    priority: 1
-  },
-  currency: {
-    regex: /_(amt|amount|price|cost)$/i,
-    priority: 2
-  },
-  percentage: {
-    regex: /_(pct|percent|percentage)$/i,
-    priority: 3
-  },
-  timestamp: {
-    regex: /_(ts|at|timestamp)$/i,
-    priority: 4
-  },
-  date: {
-    regex: /_date$/i,
-    priority: 5
-  },
-  datalabel: {
-    regex: /^dl__/i,
-    priority: 6
-  },
-  boolean: {
-    regex: /^(is_|has_|can_|allow_|enable_).*|.*_flag$/i,
-    priority: 7
-  },
-  foreignKey: {
-    regex: /_ids?$/i,  // Matches both _id and _ids (UUID reference fields)
-    exclude: /^id$/i,
-    priority: 8
-  },
-  count: {
-    regex: /_(count|qty|quantity|hours|minutes|seconds|number)$/i,
-    priority: 9
-  },
-  standard: {
-    exact: new Set(['name', 'code', 'descr', 'description', 'title']), // Set instead of array
-    priority: 10
-  },
-  jsonb: {
-    names: new Set(['metadata', 'attr', 'attributes', 'config', 'settings', 'form_schema', 'workflow_graph']),
-    dataType: 'jsonb',
-    priority: 11
-  },
-  array: {
-    names: new Set([]),  // Empty - no specific array field names
-    dataType: '[]',
-    priority: 12
-  }
-};
+export function formatCurrency(
+  value: number | string | null | undefined,
+  currency: string = 'CAD'
+): string {
+  if (value === null || value === undefined || value === '') return '-';
+  const numericValue = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(numericValue)) return '-';
 
-/**
- * System fields that should be hidden from UI
- */
-const SYSTEM_FIELDS = new Set([
-  'id',
-  'created_ts',
-  'updated_ts',
-  'created_by',
-  'updated_by',
-  'from_ts',
-  'to_ts',
-  'active_flag',
-  'version'
-]);
-
-/**
- * Readonly fields that cannot be edited
- */
-const READONLY_FIELDS = new Set([
-  'id',
-  'created_ts',
-  'updated_ts',
-  'created_by',
-  'updated_by',
-  'from_ts',
-  'to_ts',
-  'parent_id',
-  'parent_type',
-  'parent_name',
-  'child_count',
-  'version'
-]);
-
-/**
- * Legacy field patterns for getFieldCapability() compatibility
- * @deprecated Use PATTERNS instead
- */
-const FIELD_PATTERNS = {
-  // Currency fields
-  currency: /_(amt|amount|price|cost)$|^(budget|revenue|expense)_/i,
-
-  // Percentage fields
-  percentage: /_(pct|percentage|rate)$/i,
-
-  // Settings/datalabel fields (dl__*)
-  settings: /^dl__/,
-
-  // Boolean fields
-  boolean: /_flag$|^is_|^has_|^can_/i,
-
-  // Date fields
-  date: /_date$/i,
-
-  // Timestamp fields
-  timestamp: /_(ts|at)$/i,
-
-  // Tag/array fields
-  tags: /^tags$|_tags$/i,
-
-  // Reference fields (*_id with uuid type)
-  reference: /_id$/,
-
-  // Number fields
-  number: /_(count|qty|quantity|level|order)$/i,
-
-  // Readonly patterns
-  readonly: /^(id|created_ts|updated_ts|created_by|updated_by|version|from_ts|to_ts|parent_id|parent_type|parent_name|child_count|total_|sum_|avg_|max_|min_)$/i,
-
-  // File upload fields
-  file: /^attachment$|attachment_object_key$|_file$|_document$/i
-};
-
-// ============================================================================
-// OPTIMIZED FORMATTERS (Reuse cached instances)
-// ============================================================================
-
-function formatCurrencyOptimized(value: any): string {
-  if (!value && value !== 0) return '-';
-  return CURRENCY_FORMATTER.format(value);
+  return formatters.currency(numericValue);
 }
 
-function formatPercentageOptimized(value: any): string {
-  if (!value && value !== 0) return '-';
-  return `${value}%`;
-}
-
-// Cache for relative time calculations (reduce Date object allocations)
-let lastNowTimestamp = 0;
-let cachedNow = 0;
-const NOW_CACHE_MS = 1000; // Cache for 1 second
-
-function formatRelativeTimeOptimized(value: string): string {
-  if (!value) return '-';
+/**
+ * Format relative time (pure function)
+ */
+export function formatRelativeTime(dateString: string | Date | null | undefined): string {
+  if (!dateString) return '-';
 
   try {
-    const timestamp = new Date(value).getTime();
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+    if (isNaN(date.getTime())) return '-';
 
-    // Use cached 'now' if less than 1 second old
-    const currentTime = Date.now();
-    if (currentTime - lastNowTimestamp > NOW_CACHE_MS) {
-      cachedNow = currentTime;
-      lastNowTimestamp = currentTime;
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffSec < 60) return 'just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHour < 24) return `${diffHour}h ago`;
+    if (diffDay < 7) return `${diffDay}d ago`;
+    if (diffDay < 30) return `${Math.floor(diffDay / 7)}w ago`;
+    if (diffDay < 365) return `${Math.floor(diffDay / 30)}mo ago`;
+    return `${Math.floor(diffDay / 365)}y ago`;
+  } catch (e) {
+    return '-';
+  }
+}
+
+/**
+ * Format friendly date (pure function)
+ */
+export function formatFriendlyDate(dateString: string | Date | null | undefined): string {
+  if (!dateString) return '-';
+  try {
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+    return date.toLocaleDateString('en-CA');
+  } catch (e) {
+    return '-';
+  }
+}
+
+// ============================================================================
+// BADGE COLORS (Constants)
+// ============================================================================
+
+export const COLOR_MAP: Record<string, string> = {
+  // Priority levels
+  critical: 'bg-red-100 text-red-700',
+  high: 'bg-orange-100 text-orange-700',
+  medium: 'bg-yellow-100 text-yellow-700',
+  low: 'bg-green-100 text-green-700',
+
+  // Status colors
+  active: 'bg-green-100 text-green-700',
+  inactive: 'bg-gray-100 text-gray-600',
+  pending: 'bg-yellow-100 text-yellow-700',
+  approved: 'bg-green-100 text-green-700',
+  rejected: 'bg-red-100 text-red-700',
+
+  // Boolean states
+  true: 'bg-green-100 text-green-700',
+  false: 'bg-gray-100 text-gray-600',
+  yes: 'bg-green-100 text-green-700',
+  no: 'bg-gray-100 text-gray-600',
+
+  // Default
+  default: 'bg-gray-100 text-gray-600'
+};
+
+/**
+ * Get badge color from settings (pure lookup)
+ */
+let settingsColorsCache: Map<string, Map<string, string>> | null = null;
+
+export function getSettingColor(datalabel: string, value: string | null | undefined): string | undefined {
+  if (!value || !settingsColorsCache) return undefined;
+  const datalabelColors = settingsColorsCache.get(datalabel);
+  return datalabelColors?.get(value.toLowerCase());
+}
+
+/**
+ * Load settings colors into cache
+ */
+export async function loadSettingsColors(datalabels: string[]): Promise<void> {
+  settingsColorsCache = new Map();
+  // Implementation would fetch from API
+  // For now, use COLOR_MAP as fallback
+}
+
+/**
+ * Render datalabel badge (pure renderer)
+ */
+export function renderDataLabelBadge(
+  value: string,
+  datalabel: string,
+  metadata?: { color?: string }
+): React.ReactElement {
+  const color = metadata?.color || getSettingColor(datalabel, value) || COLOR_MAP[value?.toLowerCase()] || COLOR_MAP.default;
+
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}>
+      {value}
+    </span>
+  );
+}
+
+/**
+ * Render generic badge (pure renderer)
+ */
+export function renderBadge(
+  value: string,
+  color?: string
+): React.ReactElement {
+  const badgeColor = color || COLOR_MAP[value?.toLowerCase()] || COLOR_MAP.default;
+
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeColor}`}>
+      {value}
+    </span>
+  );
+}
+
+// ============================================================================
+// DATA TRANSFORMERS (API <-> Frontend)
+// ============================================================================
+
+/**
+ * Transform data for API submission
+ */
+export function transformForApi(data: Record<string, any>, originalRecord?: Record<string, any>): Record<string, any> {
+  const transformed: Record<string, any> = {};
+
+  Object.keys(data).forEach(key => {
+    let value = data[key];
+
+    // Handle empty strings
+    if (value === '') {
+      value = null;
     }
 
-    const diffMs = cachedNow - timestamp;
-    const diffMins = Math.floor(diffMs / 60000);
+    // Handle arrays
+    if (Array.isArray(value)) {
+      transformed[key] = value;
+      return;
+    }
 
-    // Early exits for common cases
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+    // Handle dates
+    if (value instanceof Date) {
+      transformed[key] = value.toISOString();
+      return;
+    }
 
-    const diffHours = Math.floor(diffMs / 3600000);
-    if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+    transformed[key] = value;
+  });
 
-    const diffDays = Math.floor(diffMs / 86400000);
-    if (diffDays < 30) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
-
-    return formatFriendlyDateOptimized(value);
-  } catch {
-    return String(value);
-  }
+  return transformed;
 }
 
-function formatFriendlyDateOptimized(value: string): string {
-  if (!value) return '-';
-  try {
-    return DATE_FORMATTER.format(new Date(value));
-  } catch {
-    return String(value);
-  }
-}
-
-function formatBooleanOptimized(value: any): string {
-  return (value === null || value === undefined) ? '-' : (value ? '✓' : '✗');
-}
-
-function formatTruncatedOptimized(value: any, maxLength: number = 100): string {
-  if (!value) return '-';
-  const str = String(value);
-  return str.length > maxLength ? `${str.substring(0, maxLength)}...` : str;
-}
-
-function formatArrayOptimized(value: any[]): string {
-  return (Array.isArray(value) && value.length > 0) ? value.join(', ') : '-';
-}
-
-// ============================================================================
-// OPTIMIZED TRANSFORMERS (Reduce allocations)
-// ============================================================================
-
-function transformArrayToApi(value: any): string[] {
+/**
+ * Transform array field
+ */
+export function transformArrayField(value: any): any[] {
   if (Array.isArray(value)) return value;
   if (typeof value === 'string') {
-    return value.split(',').map(s => s.trim()).filter(Boolean);
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [value];
+    } catch {
+      return value.split(',').map(v => v.trim()).filter(Boolean);
+    }
   }
   return [];
 }
 
-function transformArrayToDisplay(value: any): string {
-  return Array.isArray(value) ? value.join(', ') : String(value || '');
-}
-
-function transformDateToApi(value: any): string {
-  if (!value) return '';
+/**
+ * Transform date field
+ */
+export function transformDateField(value: any): string | null {
+  if (!value) return null;
   if (value instanceof Date) return value.toISOString().split('T')[0];
-  if (typeof value === 'string') return value.split('T')[0];
-  return String(value);
-}
-
-// Reusable transformer functions (avoid inline lambda allocations)
-const identityTransform = (value: any) => value;
-const parseFloatTransform = (v: any) => parseFloat(v) || 0;
-const booleanTransform = (v: any) => Boolean(v);
-const stringTransform = (v: any) => v;
-
-// ============================================================================
-// ENTITY NAME EXTRACTION (Optimized with Set)
-// ============================================================================
-
-function getEntityNameFromFK(fieldKey: string): string | null {
-  if (!fieldKey.endsWith('_id')) return null;
-
-  const withoutId = fieldKey.slice(0, -3); // Faster than replace()
-  const parts = withoutId.split('_');
-  const lastPart = parts[parts.length - 1];
-
-  // O(1) lookup instead of O(n)
-  return KNOWN_ENTITIES.has(lastPart) ? lastPart : withoutId;
-}
-
-// ============================================================================
-// MAIN DETECTOR FUNCTION - SINGLE SOURCE OF TRUTH
-// ============================================================================
-
-/**
- * @deprecated Frontend pattern detection is DEPRECATED. Use backend-provided metadata instead.
- *
- * **DO NOT USE THIS FUNCTION IN NEW CODE.**
- *
- * Use backend-provided metadata via `renderViewModeFromMetadata()` and `renderEditModeFromMetadata()`.
- * The backend is the single source of truth for field metadata.
- *
- * @see renderViewModeFromMetadata - Renders field using backend metadata
- * @see renderEditModeFromMetadata - Renders edit form using backend metadata
- * @see hasBackendMetadata - Type guard for backend metadata responses
- *
- * @param fieldKey - Database column name (e.g., 'budget_allocated_amt')
- * @param dataType - PostgreSQL data type (e.g., 'numeric', 'varchar', 'boolean')
- * @returns Complete field metadata including formatters, transforms, UI config
- */
-export function detectField(
-  fieldKey: string,
-  dataType?: string
-): UniversalFieldMetadata {
-  const key = fieldKey.toLowerCase();
-
-  // Early pattern checks for common fields (optimize hot path)
-
-
-  // PATTERN 1: SYSTEM FIELDS
-  if (PATTERNS.system.regex.test(key)) {
-    const isId = key === 'id';
-    const isTimestamp = key.includes('_ts') || key.includes('_at');
-
-    return {
-      fieldName: memoizedFieldTitle(fieldKey),
-      visible: !isId,
-      sortable: true,
-      filterable: false,
-      searchable: false,
-      width: isId ? '300px' : '150px',
-      align: 'left',
-      format: isTimestamp ? formatRelativeTimeOptimized : stringTransform,
-      renderType: isTimestamp ? 'timestamp' : 'text',
-      inputType: 'readonly',
-      editable: false,
-      toApi: identityTransform,
-      toDisplay: identityTransform,
-      pattern: 'SYSTEM',
-      category: 'system'
-    };
+  if (typeof value === 'string') {
+    try {
+      const date = new Date(value);
+      return date.toISOString().split('T')[0];
+    } catch {
+      return null;
+    }
   }
-
-  // PATTERN 2: CURRENCY (hot path optimization)
-  if (PATTERNS.currency.regex.test(key)) {
-    return {
-      fieldName: memoizedFieldTitle(fieldKey),
-      visible: true,
-      sortable: true,
-      filterable: true,
-      searchable: false,
-      width: '120px',
-      align: 'right',
-      format: formatCurrencyOptimized,
-      renderType: 'currency',
-      inputType: 'currency',
-      editable: true,
-      editType: 'currency',
-      toApi: parseFloatTransform,
-      toDisplay: identityTransform,
-      pattern: 'CURRENCY',
-      category: 'financial'
-    };
-  }
-
-  // PATTERN 3: PERCENTAGE
-  if (PATTERNS.percentage.regex.test(key)) {
-    return {
-      fieldName: memoizedFieldTitle(fieldKey),
-      visible: true,
-      sortable: true,
-      filterable: true,
-      searchable: false,
-      width: '100px',
-      align: 'right',
-      format: formatPercentageOptimized,
-      renderType: 'percentage',
-      inputType: 'number',
-      editable: true,
-      editType: 'text',
-      toApi: parseFloatTransform,
-      toDisplay: identityTransform,
-      pattern: 'PERCENTAGE',
-      category: 'financial'
-    };
-  }
-
-  // PATTERN 4: TIMESTAMP
-  if (PATTERNS.timestamp.regex.test(key)) {
-    const isEditable = !key.includes('created') && !key.includes('updated');
-
-    return {
-      fieldName: memoizedFieldTitle(fieldKey),
-      visible: true,
-      sortable: true,
-      filterable: false,
-      searchable: false,
-      width: '150px',
-      align: 'left',
-      format: formatRelativeTimeOptimized,
-      renderType: 'timestamp',
-      inputType: 'datetime',
-      editable: isEditable,
-      editType: 'text',
-      toApi: identityTransform,
-      toDisplay: identityTransform,
-      pattern: 'TIMESTAMP',
-      category: 'temporal'
-    };
-  }
-
-  // PATTERN 5: DATE
-  if (PATTERNS.date.regex.test(key)) {
-    return {
-      fieldName: memoizedFieldTitle(fieldKey),
-      visible: true,
-      sortable: true,
-      filterable: true,
-      searchable: false,
-      width: '120px',
-      align: 'left',
-      format: formatFriendlyDateOptimized,
-      renderType: 'date',
-      inputType: 'date',
-      editable: true,
-      editType: 'text',
-      toApi: transformDateToApi,
-      toDisplay: identityTransform,
-      pattern: 'DATE',
-      category: 'temporal'
-    };
-  }
-
-  // PATTERN 6: DATALABEL
-  if (PATTERNS.datalabel.regex.test(key)) {
-    const isStageOrFunnel = key.includes('stage') || key.includes('funnel');
-
-    return {
-      fieldName: memoizedFieldTitle(fieldKey),
-      visible: true,
-      sortable: true,
-      filterable: true,
-      searchable: false,
-      width: '130px',
-      align: 'left',
-      format: stringTransform,
-      renderType: 'badge',
-      inputType: isStageOrFunnel ? 'dag-select' : 'select',
-      component: isStageOrFunnel ? 'DAGVisualizer' : undefined,
-      editable: true,
-      editType: 'select',
-      loadFromDataLabels: true,
-      settingsDatalabel: fieldKey.replace(/^dl__/, ''),
-      toApi: identityTransform,
-      toDisplay: identityTransform,
-      pattern: 'DATALABEL',
-      category: 'reference'
-    };
-  }
-
-  // PATTERN 7: BOOLEAN
-  if (PATTERNS.boolean.regex.test(key)) {
-    return {
-      fieldName: memoizedFieldTitle(fieldKey),
-      visible: true,
-      sortable: true,
-      filterable: true,
-      searchable: false,
-      width: '80px',
-      align: 'center',
-      format: formatBooleanOptimized,
-      renderType: 'boolean',
-      inputType: 'checkbox',
-      editable: true,
-      editType: 'checkbox',
-      toApi: booleanTransform,
-      toDisplay: identityTransform,
-      pattern: 'BOOLEAN',
-      category: 'boolean'
-    };
-  }
-
-  // PATTERN 8: FOREIGN KEY
-  if (PATTERNS.foreignKey.regex.test(key) && !PATTERNS.foreignKey.exclude.test(key)) {
-    const entityName = getEntityNameFromFK(fieldKey);
-
-    return {
-      fieldName: memoizedFieldTitle(fieldKey),
-      visible: false,
-      sortable: true,
-      filterable: true,
-      searchable: false,
-      width: '150px',
-      align: 'left',
-      format: stringTransform,
-      renderType: 'text',
-      inputType: 'select',
-      editable: true,
-      editType: 'select',
-      loadFromEntity: entityName || undefined,
-      toApi: identityTransform,
-      toDisplay: identityTransform,
-      pattern: 'FOREIGN_KEY',
-      category: 'reference'
-    };
-  }
-
-  // PATTERN 9: COUNT
-  if (PATTERNS.count.regex.test(key)) {
-    return {
-      fieldName: memoizedFieldTitle(fieldKey),
-      visible: true,
-      sortable: true,
-      filterable: true,
-      searchable: false,
-      width: '100px',
-      align: 'right',
-      format: stringTransform,
-      renderType: 'text',
-      inputType: 'number',
-      editable: true,
-      editType: 'number',
-      toApi: parseFloatTransform,
-      toDisplay: identityTransform,
-      pattern: 'COUNT',
-      category: 'quantitative'
-    };
-  }
-
-  // PATTERN 10: STANDARD (using Set for O(1) lookup)
-  if (PATTERNS.standard.exact.has(key)) {
-    const isName = key === 'name';
-
-    return {
-      fieldName: memoizedFieldTitle(fieldKey),
-      visible: true,
-      sortable: true,
-      filterable: true,
-      searchable: isName,
-      width: isName ? '200px' : '150px',
-      align: 'left',
-      format: stringTransform,
-      renderType: 'text',
-      inputType: isName ? 'text' : 'textarea',
-      editable: true,
-      editType: isName ? 'text' : 'textarea',
-      toApi: identityTransform,
-      toDisplay: identityTransform,
-      pattern: 'STANDARD',
-      category: 'standard'
-    };
-  }
-
-  // PATTERN 11: JSONB (using Set for O(1) lookup)
-  if (PATTERNS.jsonb.names.has(key) || dataType?.includes('jsonb')) {
-    // Hide metadata fields from table view (but keep in data for detail views)
-    const isMetadata = key.includes('metadata');
-
-    return {
-      fieldName: memoizedFieldTitle(fieldKey),
-      visible: !isMetadata,  // Hide metadata from tables, but keep in forms/detail views
-      sortable: false,
-      filterable: false,
-      searchable: false,
-      width: '150px',
-      align: 'left',
-      format: (v: any) => v ? 'JSON {...}' : '-',
-      renderType: 'json',
-      inputType: 'jsonb',
-      component: 'MetadataTable',
-      editable: true,
-      editType: 'datatable',
-      toApi: identityTransform,
-      toDisplay: identityTransform,
-      pattern: 'JSONB',
-      category: 'structured'
-    };
-  }
-
-  // PATTERN 12: ARRAY (using Set for O(1) lookup)
-  if (PATTERNS.array.names.has(key) || dataType?.includes('[]')) {
-    return {
-      fieldName: memoizedFieldTitle(fieldKey),
-      visible: true,
-      sortable: false,
-      filterable: false,
-      searchable: false,
-      width: '200px',
-      align: 'left',
-      format: formatArrayOptimized,
-      renderType: 'array',
-      inputType: 'text',
-      editable: true,
-      editType: 'text',
-      toApi: transformArrayToApi,
-      toDisplay: transformArrayToDisplay,
-      pattern: 'ARRAY',
-      category: 'structured'
-    };
-  }
-
-  // FALLBACK: UNKNOWN
-  return {
-    fieldName: memoizedFieldTitle(fieldKey),
-    visible: true,
-    sortable: true,
-    filterable: true,
-    searchable: true,
-    width: '150px',
-    align: 'left',
-    format: formatTruncatedOptimized,
-    renderType: 'truncated',
-    inputType: 'text',
-    editable: true,
-    editType: 'text',
-    toApi: identityTransform,
-    toDisplay: identityTransform,
-    pattern: 'UNKNOWN',
-    category: 'content'
-  };
+  return null;
 }
 
 /**
- * Batch detection with shared cache
+ * Transform data from API
  */
-export function detectFields(fieldKeys: string[], dataTypes?: Record<string, string>) {
-  return fieldKeys.map(key => detectField(key, dataTypes?.[key]));
-}
+export function transformFromApi(data: Record<string, any>): Record<string, any> {
+  const transformed: Record<string, any> = {};
 
-/**
- * Cache clearing utility (for testing or memory management)
- */
-export function clearFieldCache() {
-  FIELD_TITLE_CACHE.clear();
-  lastNowTimestamp = 0;
-  cachedNow = 0;
-}
+  Object.keys(data).forEach(key => {
+    let value = data[key];
 
-/**
- * Generate human-readable label from column name
- *
- * @example
- * generateFieldLabel('budget_allocated_amt') → 'Budget Allocated'
- * generateFieldLabel('dl__project_stage') → 'Project Stage'
- * generateFieldLabel('updated_ts') → 'Updated'
- */
-export function generateFieldLabel(columnName: string): string {
-  // Remove common prefixes/suffixes
-  let label = columnName
-    .replace(/^dl__/, '')          // Remove dl__ prefix
-    .replace(/_ts$/, '')           // Remove _ts suffix
-    .replace(/_amt$/, '')          // Remove _amt suffix
-    .replace(/_id$/, '')           // Remove _id suffix
-    .replace(/_flag$/, '')         // Remove _flag suffix
-    .replace(/_pct$/, '');         // Remove _pct suffix
+    // Handle null
+    if (value === null) {
+      transformed[key] = null;
+      return;
+    }
 
-  // Convert snake_case to Title Case
-  label = label
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+    // Handle dates
+    if (key.endsWith('_date') || key.endsWith('_ts')) {
+      transformed[key] = transformDateField(value);
+      return;
+    }
 
-  return label;
-}
+    transformed[key] = value;
+  });
 
-/**
- * Determine if field should be invisible by default
- */
-function isInvisibleField(columnName: string): boolean {
-  // Hide ID fields (used for joins/references)
-  if (columnName.endsWith('_id') && columnName !== 'id') {
-    return true;
-  }
-
-  // Hide metadata fields
-  if (columnName === 'metadata') {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Extract entity type from reference column name
- *
- * @example
- * extractEntityType('manager_employee_id') → 'employee'
- * extractEntityType('project_id') → 'project'
- */
-function extractEntityType(columnName: string): string | undefined {
-  const match = columnName.match(/^(.+?)_?(employee|project|task|business|office|customer|role|cust|event|calendar)_id$/);
-  if (match) {
-    const entityCode = match[2];
-    return entityCode === 'cust' ? 'customer' : entityCode;
-  }
-  return undefined;
-}
-
-/**
- * Get edit type from column name and data type
- */
-export function getEditType(columnName: string, dataType: string): EditType {
-  if (READONLY_FIELDS.has(columnName)) {
-    return 'readonly';
-  }
-
-  if (FIELD_PATTERNS.settings.test(columnName)) {
-    return 'select';
-  }
-
-  if (dataType === 'boolean' || FIELD_PATTERNS.boolean.test(columnName)) {
-    return 'boolean';
-  }
-
-  if (dataType === 'date' || FIELD_PATTERNS.date.test(columnName)) {
-    return 'date';
-  }
-
-  if (dataType.includes('timestamp') || FIELD_PATTERNS.timestamp.test(columnName)) {
-    return 'date';
-  }
-
-  if (['integer', 'bigint', 'numeric', 'decimal', 'double precision', 'real'].includes(dataType) ||
-      FIELD_PATTERNS.number.test(columnName)) {
-    return 'number';
-  }
-
-  if (dataType === 'ARRAY' || dataType.startsWith('_') || FIELD_PATTERNS.tags.test(columnName)) {
-    return 'tags';
-  }
-
-  if (FIELD_PATTERNS.file.test(columnName)) {
-    return 'file';
-  }
-
-  return 'text';
+  return transformed;
 }
 
 // ============================================================================
-// PART 2: VALUE FORMATTERS (Display Logic)
+// BACKEND METADATA HELPERS
 // ============================================================================
 
 /**
- * Format a value based on format type
- * Returns plain string or number (no React elements)
- *
- * @param value - Value to format
- * @param formatType - Format type (currency, date, etc.)
- * @returns Formatted string
+ * Type guard for API responses with metadata
  */
-export function formatFieldValue(value: any, formatType: FormatType): string {
-  // Handle null/undefined/empty
-  if (value === null || value === undefined || value === '') {
-    return '—';
-  }
+export function hasBackendMetadata(response: any): response is ApiResponseWithMetadata {
+  return response && typeof response === 'object' && 'metadata' in response && 'data' in response;
+}
 
-  switch (formatType) {
+/**
+ * Get field metadata from response
+ */
+export function getFieldMetadataFromResponse(
+  response: ApiResponseWithMetadata,
+  fieldKey: string
+): BackendFieldMetadata | undefined {
+  return response.metadata?.fields?.find(f => f.key === fieldKey);
+}
+
+/**
+ * Get all field metadata from response
+ */
+export function getAllFieldMetadataFromResponse(response: ApiResponseWithMetadata): BackendFieldMetadata[] {
+  return response.metadata?.fields || [];
+}
+
+/**
+ * Format value using backend metadata
+ */
+export function formatValueFromMetadata(
+  value: any,
+  metadata: BackendFieldMetadata
+): string {
+  if (value === null || value === undefined || value === '') return '-';
+
+  switch (metadata.renderType) {
     case 'currency':
-      return formatCurrency(value);
-
-    case 'number':
-      return formatters.number(value);
-
-    case 'percentage':
-      return formatters.percentage(value);
+      return formatCurrency(value, metadata.format?.currency);
 
     case 'date':
-      return formatters.date(value);
+      return formatFriendlyDate(value);
 
-    case 'datetime':
-      return formatters.datetime(value);
-
-    case 'relative-time':
+    case 'timestamp':
       return formatRelativeTime(value);
 
     case 'boolean':
       return value ? 'Yes' : 'No';
 
-    case 'tags':
-      if (Array.isArray(value)) {
-        return value.join(', ');
-      }
-      return String(value);
-
     case 'badge':
-    case 'reference':
-    case 'text':
-    default:
-      return String(value);
-  }
-}
-
-/**
- * Format currency value
- * Uses centralized locale formatter
- */
-export function formatCurrency(value: number | string | null | undefined, currency: string = 'CAD'): string {
-  if (value === null || value === undefined || value === '') return '—';
-
-  const numValue = typeof value === 'string' ? parseFloat(value) : value;
-  if (isNaN(numValue)) return '—';
-
-  return new Intl.NumberFormat('en-CA', {
-    style: 'currency',
-    currency
-  }).format(numValue);
-}
-
-/**
- * Format relative time (e.g., "2 hours ago")
- */
-export function formatRelativeTime(dateString: string | Date | null | undefined): string {
-  if (!dateString) return '—';
-
-  const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSeconds = Math.floor(diffMs / 1000);
-  const diffMinutes = Math.floor(diffSeconds / 60);
-  const diffHours = Math.floor(diffMinutes / 60);
-  const diffDays = Math.floor(diffHours / 24);
-  const diffMonths = Math.floor(diffDays / 30);
-  const diffYears = Math.floor(diffDays / 365);
-
-  if (diffSeconds < 10) return 'just now';
-  if (diffSeconds < 60) return `${diffSeconds} seconds ago`;
-  if (diffMinutes === 1) return '1 minute ago';
-  if (diffMinutes < 60) return `${diffMinutes} minutes ago`;
-  if (diffHours === 1) return '1 hour ago';
-  if (diffHours < 24) return `${diffHours} hours ago`;
-  if (diffDays === 1) return '1 day ago';
-  if (diffDays < 30) return `${diffDays} days ago`;
-  if (diffMonths === 1) return '1 month ago';
-  if (diffMonths < 12) return `${diffMonths} months ago`;
-  if (diffYears === 1) return '1 year ago';
-  return `${diffYears} years ago`;
-}
-
-/**
- * Format friendly date
- */
-export function formatFriendlyDate(dateString: string | Date | null | undefined): string {
-  if (!dateString) return '—';
-  const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-/**
- * Check if a field is a currency field
- */
-export function isCurrencyField(key: string): boolean {
-  return FIELD_PATTERNS.currency.test(key);
-}
-
-// ============================================================================
-// PART 3: BADGE RENDERING
-// ============================================================================
-
-/**
- * Color mapping: Database color_code → Tailwind CSS classes
- */
-export const COLOR_MAP: Record<string, string> = {
-  'blue': 'bg-dark-100 text-dark-600 border border-dark-400',
-  'purple': 'bg-purple-100 text-purple-800 border border-purple-200',
-  'green': 'bg-green-100 text-green-800 border border-green-200',
-  'red': 'bg-red-100 text-red-800 border border-red-200',
-  'yellow': 'bg-yellow-100 text-yellow-800 border border-yellow-200',
-  'orange': 'bg-orange-100 text-orange-800 border border-orange-200',
-  'gray': 'bg-dark-100 text-dark-600 border border-dark-300',
-  'cyan': 'bg-cyan-100 text-cyan-800 border border-cyan-200',
-  'pink': 'bg-pink-100 text-pink-800 border border-pink-200',
-  'amber': 'bg-amber-100 text-amber-800 border border-amber-200'
-};
-
-/**
- * Settings color cache
- * Stores mapping of datalabel → (value → color_code)
- */
-const settingsColorCache = new Map<string, Map<string, string>>();
-
-/**
- * Load colors for a settings datalabel from API
- */
-export async function loadSettingsColors(datalabel: string): Promise<void> {
-  if (settingsColorCache.has(datalabel)) {
-    return;
-  }
-
-  try {
-    const { getSettingDatalabel, loadSettingOptions } = await import('./settingsLoader');
-    const mappedDatalabel = getSettingDatalabel(datalabel) || datalabel;
-    const options = await loadSettingOptions(mappedDatalabel);
-
-    const colorMap = new Map<string, string>();
-    for (const option of options) {
-      const label = String(option.label);
-      const colorCode = option.metadata?.color_code;
-      if (colorCode) {
-        colorMap.set(label, colorCode);
-      }
-    }
-
-    settingsColorCache.set(datalabel, colorMap);
-  } catch (error) {
-    console.error(`Failed to load colors for ${datalabel}:`, error);
-    settingsColorCache.set(datalabel, new Map());
-  }
-}
-
-/**
- * Get color code for a settings value
- */
-export function getSettingColor(datalabel: string, value: string | null | undefined): string | undefined {
-  if (!value) return undefined;
-  const colorMap = settingsColorCache.get(datalabel);
-  return colorMap?.get(value);
-}
-
-/**
- * Preload colors for multiple datalabels
- */
-export async function preloadSettingsColors(datalabels: string[]): Promise<void> {
-  await Promise.all(datalabels.map(dl => loadSettingsColors(dl)));
-}
-
-/**
- * Render setting badge with database-driven colors
- */
-export function renderDataLabelBadge(
-  colorCodeOrValue: string | null | undefined,
-  labelOrOptions?: string | null | undefined | { datalabel: string },
-  size: 'xs' | 'sm' | 'md' = 'xs'
-): React.ReactElement {
-  let label: string | null | undefined;
-  let colorCode: string | undefined;
-
-  // Determine usage mode
-  if (typeof labelOrOptions === 'object' && labelOrOptions !== null && 'datalabel' in labelOrOptions) {
-    // MODE 2: Datalabel-based lookup
-    label = colorCodeOrValue;
-    const datalabel = labelOrOptions.datalabel;
-    if (label) {
-      colorCode = getSettingColor(datalabel, label);
-    }
-  } else {
-    // MODE 1: Direct color code
-    colorCode = colorCodeOrValue || undefined;
-    label = labelOrOptions as string | null | undefined;
-  }
-
-  // Handle null/undefined labels
-  if (!label) {
-    return React.createElement(
-      'span',
-      { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-dark-100 text-dark-600 border border-dark-300' },
-      '—'
-    );
-  }
-
-  // Get color class (fallback to gray if not found)
-  const colorClass = colorCode ? (COLOR_MAP[colorCode] || COLOR_MAP.gray) : COLOR_MAP.gray;
-
-  // Size classes
-  const sizeClasses = {
-    xs: 'px-2.5 py-0.5 text-xs',
-    sm: 'px-3 py-1 text-sm',
-    md: 'px-3.5 py-1.5 text-sm'
-  };
-
-  return React.createElement(
-    'span',
-    {
-      className: `inline-flex items-center rounded-full font-medium ${colorClass} ${sizeClasses[size]}`,
-      title: label
-    },
-    label
-  );
-}
-
-/**
- * Render plain badge without color lookup
- */
-export function renderBadge(
-  label: string | null | undefined,
-  variant: 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info' = 'default',
-  size: 'xs' | 'sm' | 'md' = 'xs'
-): React.ReactElement {
-  if (!label) {
-    return React.createElement(
-      'span',
-      { className: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-dark-100 text-dark-600 border border-dark-300' },
-      '—'
-    );
-  }
-
-  const variantClasses = {
-    default: 'bg-dark-100 text-dark-600 border border-dark-300',
-    primary: 'bg-dark-100 text-dark-600 border border-dark-400',
-    success: 'bg-green-100 text-green-800 border border-green-200',
-    warning: 'bg-yellow-100 text-yellow-800 border border-yellow-200',
-    danger: 'bg-red-100 text-red-800 border border-red-200',
-    info: 'bg-cyan-100 text-cyan-800 border border-cyan-200'
-  };
-
-  const sizeClasses = {
-    xs: 'px-2.5 py-0.5 text-xs',
-    sm: 'px-3 py-1 text-sm',
-    md: 'px-3.5 py-1.5 text-sm'
-  };
-
-  return React.createElement(
-    'span',
-    {
-      className: `inline-flex items-center rounded-full font-medium ${variantClasses[variant]} ${sizeClasses[size]}`,
-      title: label
-    },
-    label
-  );
-}
-
-// ============================================================================
-// PART 4: REACT ELEMENT RENDERING (Full Display with Components)
-// ============================================================================
-
-/**
- * Render field value as React element
- * Handles special cases like badges, tags, booleans with proper styling
- *
- * @param value - Value to render
- * @param format - Field format specification
- * @returns React element
- */
-export function renderFieldDisplay(value: any, format: { type: FormatType; settingsDatalabel?: string; entityCode?: string }): React.ReactNode {
-  // Handle null/undefined/empty
-  if (value === null || value === undefined || value === '') {
-    return React.createElement('span', { className: 'text-dark-600 italic' }, '—');
-  }
-
-  switch (format.type) {
-    case 'currency':
-      return React.createElement('span', null, formatCurrency(value));
-
-    case 'number':
-      return React.createElement('span', null, formatters.number(value));
-
-    case 'percentage':
-      return React.createElement('span', null, formatters.percentage(value));
-
-    case 'date':
-      return React.createElement('span', null, formatters.date(value));
-
-    case 'datetime':
-      return React.createElement('span', null, formatters.datetime(value));
-
-    case 'relative-time':
-      return React.createElement('span', null, formatRelativeTime(value));
-
-    case 'badge':
-      const datalabel = format.settingsDatalabel || '';
-      const colorCode = getSettingColor(datalabel, String(value));
-      return renderDataLabelBadge(colorCode, String(value));
-
-    case 'boolean':
-      return formatBooleanBadge(value);
-
-    case 'tags':
-      return formatTagsList(value);
-
-    case 'reference':
-      return formatReference(value, format.entityCode);
-
-    case 'text':
-    default:
-      return React.createElement('span', null, String(value));
-  }
-}
-
-/**
- * Format boolean as badge
- */
-function formatBooleanBadge(value: boolean, isActiveFlag: boolean = false): React.ReactNode {
-  if (isActiveFlag) {
-    const colorClass = value
-      ? 'bg-green-100 text-green-800'
-      : 'bg-gray-100 text-gray-600';
-    const label = value ? 'Active' : 'Inactive';
-
-    return React.createElement(
-      'span',
-      { className: `px-2 py-1 rounded-full text-xs font-medium ${colorClass}` },
-      label
-    );
-  }
-
-  return React.createElement('span', { className: 'text-dark-600' }, value ? 'Yes' : 'No');
-}
-
-/**
- * Format tags list
- */
-function formatTagsList(value: string[] | string): React.ReactNode {
-  let tags: string[];
-
-  if (typeof value === 'string') {
-    tags = value.split(',').map(t => t.trim()).filter(Boolean);
-  } else if (Array.isArray(value)) {
-    tags = value;
-  } else {
-    return React.createElement('span', null, String(value));
-  }
-
-  if (tags.length === 0) {
-    return React.createElement('span', { className: 'text-dark-600 italic' }, '—');
-  }
-
-  const maxDisplay = DISPLAY_CONFIG.MAX_TAGS_DISPLAY;
-  const displayTags = tags.slice(0, maxDisplay);
-  const remaining = tags.length - maxDisplay;
-
-  return React.createElement(
-    'span',
-    { className: 'inline-flex items-center gap-1 flex-wrap' },
-    ...displayTags.map((tag, i) =>
-      React.createElement(
-        'span',
-        { key: i, className: 'px-2 py-0.5 bg-dark-100 text-dark-600 rounded text-xs' },
-        tag
-      )
-    ),
-    remaining > 0 && React.createElement(
-      'span',
-      { className: 'text-xs text-dark-600' },
-      `+${remaining} more`
-    )
-  );
-}
-
-/**
- * Format reference link
- */
-function formatReference(value: any, entityCode?: string): React.ReactNode {
-  if (!value) {
-    return React.createElement('span', { className: 'text-dark-600 italic' }, '—');
-  }
-
-  const displayText = typeof value === 'object' && value.name
-    ? value.name
-    : String(value);
-
-  const id = typeof value === 'object' && value.id ? value.id : null;
-
-  if (entityCode && id) {
-    return React.createElement(
-      'a',
-      {
-        href: `/${entityCode}/${id}`,
-        className: 'text-dark-600 hover:text-dark-600 underline',
-        onClick: (e: React.MouseEvent) => e.stopPropagation()
-      },
-      displayText
-    );
-  }
-
-  return React.createElement('span', { className: 'text-dark-600' }, displayText);
-}
-
-// ============================================================================
-// PART 5: DATA TRANSFORMATION (API ↔ Frontend)
-// ============================================================================
-
-/**
- * Transform edited data before sending to API
- */
-export function transformForApi(data: Record<string, any>, originalRecord?: Record<string, any>): Record<string, any> {
-  const transformed: Record<string, any> = { ...data };
-
-  for (const [key, value] of Object.entries(transformed)) {
-    if (value === null || value === undefined) {
-      continue;
-    }
-
-    // Date field transformation
-    if (isDateField(key) && typeof value === 'string') {
-      transformed[key] = transformDateField(value);
-    }
-    // Array field transformation
-    else if (Array.isArray(originalRecord?.[key])) {
-      transformed[key] = transformArrayField(value);
-    }
-    // File upload field
-    else if (isFileField(key, value)) {
-      if (value instanceof File || value instanceof FileList) {
-        delete transformed[key];
-      }
-    }
-    // Empty string handling
-    else if (value === '') {
-      transformed[key] = null;
-    }
-  }
-
-
-  return transformed;
-}
-
-/**
- * Transform array field from string to array
- */
-export function transformArrayField(value: any): any[] {
-  if (Array.isArray(value)) {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    if (value.trim() === '') {
-      return [];
-    }
-    return value
-      .split(',')
-      .map(item => item.trim())
-      .filter(item => item !== '');
-  }
-
-  return [];
-}
-
-/**
- * Check if field is a date field
- */
-function isDateField(key: string): boolean {
-  return /_(date|ts)$|^date_/i.test(key);
-}
-
-/**
- * Transform date field to yyyy-MM-dd format
- */
-export function transformDateField(value: any): string | null {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
       return value;
-    }
 
-    const date = new Date(value);
-    if (isNaN(date.getTime())) {
-      return null;
-    }
-
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-
-    return `${year}-${month}-${day}`;
-  } catch (error) {
-    console.error('Error transforming date field:', error);
-    return null;
+    default:
+      return String(value);
   }
-}
-
-/**
- * Check if field is a file field
- */
-function isFileField(key: string, value: any): boolean {
-  const fileFieldPatterns = [
-    'file', 'attachment', 'document', 'upload', 'image', 'photo', 'avatar'
-  ];
-
-  const isFileKey = fileFieldPatterns.some(pattern =>
-    key.toLowerCase().includes(pattern)
-  );
-
-  const isFileValue = value instanceof File || value instanceof FileList;
-
-  return isFileKey || isFileValue;
-}
-
-/**
- * Transform display data from API for form editing
- */
-export function transformFromApi(data: Record<string, any>): Record<string, any> {
-  const transformed: Record<string, any> = { ...data };
-
-  for (const [key, value] of Object.entries(transformed)) {
-    if (value === null || value === undefined) {
-      continue;
-    }
-
-    // Arrays → comma-separated string
-    if (Array.isArray(value) && typeof value[0] === 'string') {
-      transformed[key] = value.join(', ');
-    }
-  }
-
-  return transformed;
 }
 
 // ============================================================================
-// PART 6: FIELD CAPABILITY DETECTION
+// BACKEND-DRIVEN RENDERERS (View & Edit Modes)
 // ============================================================================
 
 /**
- * @deprecated Frontend pattern detection is DEPRECATED. Use backend-provided metadata instead.
- *
- * **DO NOT USE THIS FUNCTION IN NEW CODE.**
- *
- * Backend metadata provides `editable` and `visible` flags directly.
- *
- * @see BackendFieldMetadata - Backend provides editable/visible flags
+ * Render field in VIEW mode using backend metadata
  */
-export function getFieldCapability(columnKey: string, dataType?: string): FieldCapability {
-  // Rule 1: Readonly fields are NEVER editable
-  if (FIELD_PATTERNS.readonly.test(columnKey)) {
-    return {
-      inlineEditable: false,
-      editType: 'readonly',
-      isFileUpload: false
-    };
-  }
-
-  // Rule 2: File fields are ALWAYS editable with drag-drop
-  if (FIELD_PATTERNS.file.test(columnKey)) {
-    return {
-      inlineEditable: true,
-      editType: 'file',
-      isFileUpload: true,
-      acceptedFileTypes: getAcceptedFileTypes(columnKey)
-    };
-  }
-
-  // Rule 3: Settings fields with dl__ prefix are ALWAYS editable as dropdowns
-  if (FIELD_PATTERNS.settings.test(columnKey)) {
-    return {
-      inlineEditable: true,
-      editType: 'select',
-      loadDataLabels: true,
-      settingsDatalabel: columnKey.replace('dl__', ''),
-      isFileUpload: false
-    };
-  }
-
-  // Rule 4: Number fields are editable as number inputs
-  if ((dataType && ['integer', 'bigint', 'numeric', 'decimal', 'double precision', 'real'].includes(dataType)) ||
-      FIELD_PATTERNS.number.test(columnKey)) {
-    return {
-      inlineEditable: true,
-      editType: 'number',
-      isFileUpload: false
-    };
-  }
-
-  // Rule 5: Date fields are editable as date inputs
-  if ((dataType && dataType === 'date') || FIELD_PATTERNS.date.test(columnKey)) {
-    return {
-      inlineEditable: true,
-      editType: 'date',
-      isFileUpload: false
-    };
-  }
-
-  // Rule 6: Boolean fields are editable as checkboxes
-  if ((dataType && dataType === 'boolean') || FIELD_PATTERNS.boolean.test(columnKey)) {
-    return {
-      inlineEditable: true,
-      editType: 'boolean',
-      isFileUpload: false
-    };
-  }
-
-  // Rule 7: Tags fields are editable as tag inputs
-  if ((dataType && (dataType === 'ARRAY' || dataType.startsWith('_'))) || FIELD_PATTERNS.tags.test(columnKey)) {
-    return {
-      inlineEditable: true,
-      editType: 'tags',
-      isFileUpload: false
-    };
-  }
-
-  // Rule 8: Special readonly columns
-  const isSpecialReadonly = /^(parent_id|parent_type|parent_name|child_count|total_|sum_|avg_|max_|min_)$/i.test(columnKey);
-  if (isSpecialReadonly) {
-    return {
-      inlineEditable: false,
-      editType: 'readonly',
-      isFileUpload: false
-    };
-  }
-
-  // Default: editable as text
-  return {
-    inlineEditable: true,
-    editType: 'text',
-    isFileUpload: false
-  };
-}
-
-/**
- * Get accepted file types based on field name
- */
-function getAcceptedFileTypes(fieldName: string): string {
-  if (/invoice/i.test(fieldName)) {
-    return 'application/pdf,image/png,image/jpeg';
-  }
-  if (/receipt/i.test(fieldName)) {
-    return 'application/pdf,image/png,image/jpeg';
-  }
-  if (/(image|photo|avatar)/i.test(fieldName)) {
-    return 'image/*';
-  }
-  if (/document/i.test(fieldName)) {
-    return 'application/pdf,.doc,.docx,.txt';
-  }
-  return '*';
-}
-
-// ============================================================================
-// REACT FIELD RENDERERS (View & Edit Modes)
-// ============================================================================
-
-/**
- * @deprecated Frontend pattern detection is DEPRECATED. Use backend-provided metadata instead.
- *
- * **DO NOT USE THIS FUNCTION IN NEW CODE.**
- *
- * Use `renderViewModeFromMetadata()` with backend-provided metadata.
- *
- * @see renderViewModeFromMetadata - Renders field using backend metadata
- *
- * @param fieldKey - The field name (column key)
- * @param value - The value to render
- * @param data - Full record data (optional)
- * @param loadDataLabels - Explicit flag to force badge rendering (overrides auto-detection)
- */
-export function renderFieldView(
-  fieldKey: string,
+export function renderViewModeFromMetadata(
   value: any,
-  data?: Record<string, any>,
-  loadDataLabels?: boolean
+  metadata: BackendFieldMetadata,
+  record?: Record<string, any>
 ): React.ReactElement {
-  // Empty value handling
+  // Handle empty values
   if (value === null || value === undefined || value === '') {
-    return <span className="text-dark-600 italic">—</span>;
+    return <span className="text-gray-400 italic">—</span>;
   }
 
-  // EXPLICIT HINT: If column explicitly says it loads from settings, render as badge
-  // This takes precedence over auto-detection to maintain backwards compatibility
-  if (loadDataLabels && typeof value === 'string') {
-    const datalabel = fieldKey.replace(/_name$/, '').replace(/_id$/, '');
-    const colorCode = getSettingColor(datalabel, value);
-    return renderDataLabelBadge(colorCode, value);
-  }
-
-  // AUTO-DETECTION: Fall back to convention-based detection
-  const fieldMeta = detectField(fieldKey, typeof value);
-
-  switch (fieldMeta.renderType) {
+  // Render based on backend-specified renderType
+  switch (metadata.renderType) {
     case 'currency':
-      return <span className="font-medium text-base tracking-tight">{formatCurrency(value)}</span>;
+      const formatted = formatCurrency(value, metadata.format?.currency);
+      return <span className="font-mono text-right">{formatted}</span>;
 
     case 'date':
-      return <span className="text-base tracking-tight">{formatFriendlyDate(value)}</span>;
+      return <span>{formatFriendlyDate(value)}</span>;
 
     case 'timestamp':
+      return <span className="text-sm text-gray-600">{formatRelativeTime(value)}</span>;
+
+    case 'boolean':
       return (
-        <span
-          className="text-base tracking-tight"
-          title={formatFriendlyDate(value)}
-        >
-          {formatRelativeTime(value)}
+        <span className={value ? 'text-green-600' : 'text-gray-400'}>
+          {value ? '✓' : '✗'}
         </span>
       );
 
     case 'badge':
-      const colorCode = fieldMeta.settingsDatalabel || fieldKey;
-      return renderDataLabelBadge(colorCode, String(value));
-
-    case 'boolean':
-      return (
-        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-          value ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-        }`}>
-          {value ? '✓ Yes' : '✗ No'}
-        </span>
-      );
-
-    case 'percentage':
-      return <span className="text-base tracking-tight">{value ? `${value}%` : '-'}</span>;
-
-    case 'array':
-      if (Array.isArray(value) && value.length > 0) {
-        return (
-          <div className="flex flex-wrap gap-1">
-            {value.map((item, idx) => (
-              <span
-                key={idx}
-                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700"
-              >
-                {item}
-              </span>
-            ))}
-          </div>
-        );
+      if (metadata.loadFromDataLabels && metadata.datalabelKey) {
+        return renderDataLabelBadge(value, metadata.datalabelKey);
       }
-      return <span className="text-gray-400">-</span>;
+      return renderBadge(value);
 
     case 'json':
       return (
@@ -1706,385 +467,12 @@ export function renderFieldView(
         </pre>
       );
 
-    default:
-      return <span className="text-base tracking-tight">{value || '-'}</span>;
-  }
-}
-
-/**
- * @deprecated Frontend pattern detection is DEPRECATED. Use backend-provided metadata instead.
- *
- * **DO NOT USE THIS FUNCTION IN NEW CODE.**
- *
- * Use `renderEditModeFromMetadata()` with backend-provided metadata.
- *
- * @see renderEditModeFromMetadata - Renders edit form using backend metadata
- */
-export interface RenderFieldEditOptions {
-  fieldKey: string;
-  value: any;
-  data?: Record<string, any>;
-  onChange: (fieldKey: string, value: any) => void;
-  required?: boolean;
-  disabled?: boolean;
-  inlineMode?: boolean;  // For DataTable inline editing (bordered inputs)
-}
-
-/**
- * @deprecated Frontend pattern detection is DEPRECATED. Use `renderEditModeFromMetadata()` instead.
- */
-export function renderFieldEdit({
-  fieldKey,
-  value,
-  data,
-  onChange,
-  required = false,
-  disabled = false,
-  inlineMode = false
-}: RenderFieldEditOptions): React.ReactElement {
-
-  const fieldMeta = detectField(fieldKey, typeof value);
-  const capability = getFieldCapability(fieldKey, typeof value);
-
-  // Check if this is a read-only field
-  if (!capability.inlineEditable || disabled) {
-    return renderFieldView(fieldKey, value, data);
-  }
-
-  // Styling: inline mode uses bordered inputs, form mode uses borderless
-  const baseClassName = inlineMode
-    ? "w-full px-2 py-1.5 border border-dark-400 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500/30 focus:border-slate-500 text-sm"
-    : "w-full border-0 focus:ring-0 focus:outline-none bg-transparent px-0 py-0.5 text-base tracking-tight";
-
-  switch (capability.editType) {
-    case 'number':
-    case 'currency':
-      return (
-        <input
-          type="number"
-          value={value || ''}
-          onChange={(e) => onChange(fieldKey, parseFloat(e.target.value) || 0)}
-          className={baseClassName}
-          required={required}
-          disabled={disabled}
-        />
-      );
-
-    case 'date':
-      return (
-        <input
-          type="date"
-          value={value ? new Date(value).toISOString().split('T')[0] : ''}
-          onChange={(e) => onChange(fieldKey, e.target.value)}
-          className={baseClassName}
-          required={required}
-          disabled={disabled}
-        />
-      );
-
-    case 'boolean':
-      return (
-        <input
-          type="checkbox"
-          checked={value || false}
-          onChange={(e) => onChange(fieldKey, e.target.checked)}
-          className={inlineMode ? "h-4 w-4 rounded border-dark-400" : "w-4 h-4"}
-          disabled={disabled}
-        />
-      );
-
-    case 'tags':
-      return (
-        <input
-          type="text"
-          value={Array.isArray(value) ? value.join(', ') : ''}
-          onChange={(e) => onChange(fieldKey, e.target.value.split(',').map(v => v.trim()).filter(Boolean))}
-          placeholder="Enter comma-separated values"
-          className={baseClassName}
-          disabled={disabled}
-        />
-      );
-
-    case 'textarea':
-      return (
-        <textarea
-          value={value || ''}
-          onChange={(e) => onChange(fieldKey, e.target.value)}
-          rows={4}
-          className={`${baseClassName} resize-none`}
-          required={required}
-          disabled={disabled}
-        />
-      );
-
-    case 'json':
-      return (
-        <textarea
-          value={value ? JSON.stringify(value, null, 2) : ''}
-          onChange={(e) => {
-            try {
-              onChange(fieldKey, JSON.parse(e.target.value));
-            } catch {
-              // Invalid JSON, don't update
-            }
-          }}
-          rows={6}
-          className={`${baseClassName} font-mono text-sm resize-none`}
-          disabled={disabled}
-        />
-      );
-
-    default:
-      return (
-        <input
-          type="text"
-          value={value || ''}
-          onChange={(e) => onChange(fieldKey, e.target.value)}
-          className={baseClassName}
-          required={required}
-          disabled={disabled}
-        />
-      );
-  }
-}
-
-/**
- * 🎯 MASTER API - Universal field renderer
- *
- * One function to render any field in any mode
- * Used by EntityDataTable, EntityFormContainer, etc.
- */
-export interface RenderFieldOptions {
-  fieldKey: string;
-  value: any;
-  mode: 'view' | 'edit';
-  data?: Record<string, any>;
-  onChange?: (fieldKey: string, value: any) => void;
-  required?: boolean;
-  disabled?: boolean;
-  inlineMode?: boolean;  // For DataTable inline editing
-  customRender?: (value: any, record: any, allData?: any[]) => React.ReactNode;  // Custom renderer override
-  // Column config hints (override auto-detection)
-  loadDataLabels?: boolean;  // Force badge rendering
-  editType?: EditType;  // Override detected edit type
-}
-
-export function renderField(options: RenderFieldOptions): React.ReactElement {
-  const { fieldKey, value, mode, data, onChange, required, disabled, inlineMode, customRender, loadDataLabels, editType } = options;
-
-  // Use custom render if provided (for view mode only)
-  if (customRender && mode === 'view') {
-    const rendered = customRender(value, data);
-    if (React.isValidElement(rendered)) {
-      return rendered as React.ReactElement;
-    }
-    return <span>{String(rendered)}</span>;
-  }
-
-  if (mode === 'view') {
-    return renderFieldView(fieldKey, value, data, loadDataLabels);
-  }
-
-  if (!onChange) {
-    throw new Error('onChange is required in edit mode');
-  }
-
-  return renderFieldEdit({ fieldKey, value, data, onChange, required, disabled, inlineMode });
-}
-
-
-/**
- * Get visible fields (excludes system fields, UUIDs, etc.)
- */
-export function getVisibleFields(
-  data: Record<string, any>,
-  mode: 'create' | 'edit' = 'edit'
-): string[] {
-  const excludedFields = mode === 'create'
-    ? ['id', 'created_ts', 'updated_ts']
-    : ['id', 'name', 'code', 'created_ts', 'updated_ts'];
-
-  return Object.keys(data).filter(key =>
-    !excludedFields.includes(key) &&
-    !key.endsWith('_id') &&
-    !key.endsWith('_ids')
-  );
-}
-
-// ============================================================================
-// BACKEND-DRIVEN METADATA FUNCTIONS
-// ============================================================================
-
-/**
- * Backend-provided field metadata structure (matches backend-formatter.service.ts)
- */
-export interface BackendFieldMetadata {
-  key: string;
-  label: string;
-  type: string;
-  dataType?: string;
-  format: Record<string, any>;
-  renderType: RenderType;
-  viewType?: string;
-  component?: ComponentType;
-  inputType: InputType;
-  editType?: EditType;
-  visible: boolean;
-  sortable: boolean;
-  filterable: boolean;
-  searchable: boolean;
-  editable: boolean;
-  required?: boolean;
-  align: 'left' | 'right' | 'center';
-  width: string;
-  endpoint?: string;
-  loadFromDataLabels?: boolean;
-  loadFromEntity?: string;
-  settingsDatalabel?: string;
-  options?: Array<{ value: any; label: string; color?: string }>;
-  validation?: Record<string, any>;
-  help?: string;
-  placeholder?: string;
-  pattern?: PatternType;
-  category?: CategoryType;
-}
-
-/**
- * API response structure with metadata
- */
-export interface ApiResponseWithMetadata {
-  data: any;
-  metadata?: {
-    entity: string;
-    label: string;
-    fields: BackendFieldMetadata[];
-    [key: string]: any;
-  };
-  total?: number;
-  limit?: number;
-  offset?: number;
-}
-
-/**
- * Extract field metadata from API response
- */
-export function getFieldMetadataFromResponse(
-  response: ApiResponseWithMetadata,
-  fieldKey: string
-): BackendFieldMetadata | undefined {
-  if (!response.metadata?.fields) {
-    return undefined;
-  }
-  return response.metadata.fields.find(f => f.key === fieldKey);
-}
-
-/**
- * Get all field metadata from API response
- */
-export function getAllFieldMetadataFromResponse(
-  response: ApiResponseWithMetadata
-): BackendFieldMetadata[] {
-  return response.metadata?.fields || [];
-}
-
-/**
- * Format value using backend-provided metadata
- */
-export function formatValueFromMetadata(
-  value: any,
-  metadata: BackendFieldMetadata
-): string {
-  if (value === null || value === undefined) {
-    return '';
-  }
-
-  // Use backend-specified renderType to determine formatting
-  switch (metadata.renderType) {
-    case 'currency':
-      return formatCurrency(value);
-
-    case 'percentage':
-      return `${Number(value).toFixed(metadata.format.decimals || 1)}%`;
-
-    case 'date':
-      return formatFriendlyDate(value);
-
-    case 'timestamp':
-      return metadata.format.style === 'relative'
-        ? formatRelativeTime(value)
-        : formatFriendlyDate(value);
-
-    case 'boolean':
-      return value ? (metadata.format.trueLabel || 'Yes') : (metadata.format.falseLabel || 'No');
-
-    case 'badge':
-      // For badges, return the value as-is (will be rendered as badge component)
-      return String(value);
-
-    case 'array':
-      return Array.isArray(value) ? value.join(', ') : String(value);
-
-    case 'truncated':
-      const str = String(value);
-      return str.length > 100 ? str.substring(0, 100) + '...' : str;
-
-    case 'json':
-      return typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
-
-    case 'link':
-    case 'text':
-    default:
-      return String(value);
-  }
-}
-
-/**
- * Render field value as React element using backend-provided metadata (VIEW MODE)
- */
-export function renderViewModeFromMetadata(
-  value: any,
-  metadata: BackendFieldMetadata,
-  record?: any
-): React.ReactNode {
-  if (value === null || value === undefined) {
-    return <span className="text-gray-400">—</span>;
-  }
-
-  // Use backend-specified renderType for rendering
-  switch (metadata.renderType) {
-    case 'currency':
-      return <span className="font-mono">{formatCurrency(value)}</span>;
-
-    case 'percentage':
-      return <span className="font-mono">{formatValueFromMetadata(value, metadata)}</span>;
-
-    case 'date':
-    case 'timestamp':
-      return <span className="text-sm">{formatValueFromMetadata(value, metadata)}</span>;
-
-    case 'boolean':
-      const boolValue = Boolean(value);
-      const color = boolValue
-        ? (metadata.format.trueColor || 'green')
-        : (metadata.format.falseColor || 'gray');
-      return renderBadge(
-        formatValueFromMetadata(value, metadata),
-        color
-      );
-
-    case 'badge':
-      // For dl__* fields, render as badge (will get color from settings)
-      if (metadata.loadFromDataLabels && metadata.settingsDatalabel) {
-        return renderDataLabelBadge(value, metadata.settingsDatalabel);
-      }
-      return renderBadge(String(value), 'blue');
-
     case 'array':
       if (Array.isArray(value)) {
         return (
           <div className="flex flex-wrap gap-1">
             {value.map((item, idx) => (
-              <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+              <span key={idx} className="px-2 py-0.5 bg-gray-100 rounded text-xs">
                 {String(item)}
               </span>
             ))}
@@ -2093,52 +481,16 @@ export function renderViewModeFromMetadata(
       }
       return <span>{String(value)}</span>;
 
-    case 'link':
-      return (
-        <a
-          href={String(value)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 hover:text-blue-800 underline"
-        >
-          {String(value)}
-        </a>
-      );
+    case 'reference':
+      return <span className="text-blue-600">{value}</span>;
 
-    case 'truncated':
-      const str = String(value);
-      return (
-        <span title={str}>
-          {str.length > 100 ? str.substring(0, 100) + '...' : str}
-        </span>
-      );
-
-    case 'json':
-      return (
-        <pre className="text-xs bg-gray-50 p-2 rounded max-w-xs overflow-auto">
-          {JSON.stringify(value, null, 2)}
-        </pre>
-      );
-
-    case 'text':
     default:
       return <span>{String(value)}</span>;
   }
 }
 
 /**
- * Check if API response contains backend metadata
- */
-export function hasBackendMetadata(response: any): response is ApiResponseWithMetadata {
-  return response &&
-         typeof response === 'object' &&
-         'metadata' in response &&
-         response.metadata?.fields !== undefined;
-}
-
-/**
- * Render input field for editing using backend-provided metadata (EDIT MODE)
- * This is the edit-mode counterpart to renderViewModeFromMetadata()
+ * Render field in EDIT mode using backend metadata
  */
 export function renderEditModeFromMetadata(
   value: any,
@@ -2149,10 +501,10 @@ export function renderEditModeFromMetadata(
     disabled?: boolean;
     className?: string;
   }
-): React.ReactNode {
+): React.ReactElement {
   const { required, disabled, className = '' } = options || {};
 
-  // Use backend-specified inputType to determine edit control
+  // Render based on backend-specified inputType
   switch (metadata.inputType) {
     case 'currency':
     case 'number':
@@ -2193,26 +545,14 @@ export function renderEditModeFromMetadata(
         />
       );
 
-    case 'time':
-      return (
-        <input
-          type="time"
-          value={value ?? ''}
-          onChange={(e) => onChange(e.target.value)}
-          required={required}
-          disabled={disabled}
-          className={`px-2 py-1 border rounded ${className}`}
-        />
-      );
-
     case 'checkbox':
       return (
         <input
           type="checkbox"
-          checked={Boolean(value)}
+          checked={!!value}
           onChange={(e) => onChange(e.target.checked)}
           disabled={disabled}
-          className={className}
+          className="h-4 w-4"
         />
       );
 
@@ -2224,104 +564,23 @@ export function renderEditModeFromMetadata(
           required={required}
           disabled={disabled}
           placeholder={metadata.placeholder}
-          rows={3}
-          className={`px-2 py-1 border rounded w-full ${className}`}
+          className={`px-2 py-1 border rounded ${className}`}
+          rows={4}
         />
       );
 
     case 'select':
-      // For settings dropdowns (dl__* fields)
-      if (metadata.loadFromDataLabels && metadata.settingsDatalabel) {
-        return (
-          <select
-            value={value ?? ''}
-            onChange={(e) => onChange(e.target.value)}
-            required={required}
-            disabled={disabled}
-            className={`px-2 py-1 border rounded ${className}`}
-          >
-            <option value="">Select...</option>
-            {metadata.options?.map(opt => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        );
-      }
-      // For static options
-      if (metadata.options) {
-        return (
-          <select
-            value={value ?? ''}
-            onChange={(e) => onChange(e.target.value)}
-            required={required}
-            disabled={disabled}
-            className={`px-2 py-1 border rounded ${className}`}
-          >
-            <option value="">Select...</option>
-            {metadata.options.map(opt => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        );
-      }
       return (
-        <input
-          type="text"
+        <select
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value)}
           required={required}
           disabled={disabled}
-          placeholder={metadata.placeholder}
           className={`px-2 py-1 border rounded ${className}`}
-        />
-      );
-
-    case 'multiselect':
-      // For arrays/tags
-      if (Array.isArray(value)) {
-        return (
-          <input
-            type="text"
-            value={value.join(', ')}
-            onChange={(e) => onChange(e.target.value.split(',').map(v => v.trim()))}
-            placeholder={metadata.placeholder || "Comma-separated values"}
-            disabled={disabled}
-            className={`px-2 py-1 border rounded ${className}`}
-          />
-        );
-      }
-      return (
-        <input
-          type="text"
-          value={value ?? ''}
-          onChange={(e) => onChange(e.target.value.split(',').map(v => v.trim()))}
-          placeholder={metadata.placeholder || "Comma-separated values"}
-          disabled={disabled}
-          className={`px-2 py-1 border rounded ${className}`}
-        />
-      );
-
-    case 'tags':
-      return (
-        <input
-          type="text"
-          value={Array.isArray(value) ? value.join(', ') : value ?? ''}
-          onChange={(e) => onChange(e.target.value.split(',').map(v => v.trim()).filter(Boolean))}
-          placeholder={metadata.placeholder || "Comma-separated tags"}
-          disabled={disabled}
-          className={`px-2 py-1 border rounded ${className}`}
-        />
-      );
-
-    case 'readonly':
-      return (
-        <span className="px-2 py-1 text-gray-500">
-          {formatValueFromMetadata(value, metadata)}
-        </span>
+        >
+          <option value="">Select...</option>
+          {/* Options would be loaded from backend via loadFromDataLabels or loadFromEntity */}
+        </select>
       );
 
     case 'text':
@@ -2341,57 +600,43 @@ export function renderEditModeFromMetadata(
 }
 
 // ============================================================================
+// CONSTANTS
+// ============================================================================
+
+export const SYSTEM_FIELDS = ['id', 'created_ts', 'updated_ts', 'created_by', 'updated_by', 'version'];
+export const READONLY_FIELDS = [...SYSTEM_FIELDS, 'deleted_flag', 'deleted_ts', 'deleted_by'];
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
 export default {
-  // Field detection (CONSOLIDATED)
-  detectField,
-  detectFields,
-  generateFieldLabel,
-  getEditType,
-  clearFieldCache,
-  clearFieldTitleCache,
-
-  // Value formatting
-  formatFieldValue,
+  // Pure formatters
   formatCurrency,
   formatRelativeTime,
   formatFriendlyDate,
-  isCurrencyField,
 
-  // Badge rendering
+  // Badge renderers
   renderDataLabelBadge,
   renderBadge,
-  loadSettingsColors,
   getSettingColor,
-  preloadSettingsColors,
+  loadSettingsColors,
 
-  // React element rendering
-  renderFieldDisplay,
-  renderField,
-  renderFieldView,
-  renderFieldEdit,
-
-  // Helper functions
-  getVisibleFields,
-
-  // Data transformation
+  // Data transformers
   transformForApi,
   transformFromApi,
   transformArrayField,
   transformDateField,
 
-  // Field capability
-  getFieldCapability,
-
-  // Backend metadata functions (NEW)
+  // Backend metadata helpers
+  hasBackendMetadata,
   getFieldMetadataFromResponse,
   getAllFieldMetadataFromResponse,
   formatValueFromMetadata,
+
+  // Backend-driven renderers
   renderViewModeFromMetadata,
   renderEditModeFromMetadata,
-  hasBackendMetadata,
 
   // Constants
   COLOR_MAP,
