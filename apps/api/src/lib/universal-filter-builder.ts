@@ -194,7 +194,8 @@ export function buildAutoFilters(
     'order_by',
     'order_dir',
     'parent_type',
-    'parent_id'
+    'parent_id',
+    'view'         // Component view type for metadata generation (backend-formatter service)
   ];
 
   // Handle search separately (multi-field OR condition)
