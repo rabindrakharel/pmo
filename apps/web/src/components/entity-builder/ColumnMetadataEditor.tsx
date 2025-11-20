@@ -1,6 +1,50 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, Check, X, MoveUp, MoveDown, Database, Info } from 'lucide-react';
-import { detectField } from '../../../lib/frontEndFormatterService';
+
+// ============================================================================
+// TEMPORARY: Inline compatibility function (deprecated function removal)
+// TODO: Migrate to backend metadata architecture
+// ============================================================================
+
+/**
+ * @deprecated Inline replacement for detectField()
+ */
+function detectField(columnName: string, dataType?: string): {
+  fieldName: string;
+  renderType: string;
+  inputType: string;
+  editable: boolean;
+  visible: boolean;
+} {
+  const readonly = /^(id|.*_id|created.*|updated.*|deleted.*|.*_at|.*_ts|version|from_ts|to_ts|active_flag)$/i.test(columnName);
+  let renderType = 'text';
+  let inputType = 'text';
+
+  if (columnName.includes('_amt') || columnName.includes('_price') || columnName.includes('_cost')) {
+    renderType = 'currency';
+    inputType = 'currency';
+  } else if (columnName.endsWith('_date')) {
+    renderType = 'date';
+    inputType = 'date';
+  } else if (columnName.endsWith('_ts') || columnName.endsWith('_at')) {
+    renderType = 'timestamp';
+    inputType = 'datetime';
+  } else if (columnName.startsWith('is_') || columnName.endsWith('_flag')) {
+    renderType = 'boolean';
+    inputType = 'checkbox';
+  } else if (columnName.startsWith('dl__')) {
+    renderType = 'badge';
+    inputType = 'select';
+  }
+
+  return {
+    fieldName: columnName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+    renderType,
+    inputType,
+    editable: !readonly,
+    visible: true
+  };
+}
 
 /**
  * Column metadata format from d_entity.column_metadata

@@ -37,34 +37,41 @@ import {
   COLOR_MAP,
   getSettingColor,
   loadSettingsColors,
-  renderField,
-  renderViewModeFromMetadata
+  renderViewModeFromMetadata,
+  renderEditModeFromMetadata,
+  formatCurrency,
+  formatRelativeTime,
+  formatFriendlyDate,
+  type BackendFieldMetadata
 } from '../../../lib/frontEndFormatterService';
-import type { BackendFieldMetadata, EntityMetadata } from '../../../lib/api';
+import type { EntityMetadata } from '../../../lib/api';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 
 // ============================================================================
-// TEMPORARY: Minimal compatibility types (deprecated function removal)
-// TODO: Migrate to backend metadata architecture
+// MINIMAL FALLBACK: When backend doesn't send metadata
+// Backend should ALWAYS send metadata via getEntityMetadata()
+// This fallback is only for non-integrated routes
 // ============================================================================
-interface FieldCapability {
-  inlineEditable: boolean;
-  editType: string;
-  isFileUpload: boolean;
-}
 
 /**
- * @deprecated Temporary inline replacement for getFieldCapability()
- * TODO: Migrate to backend metadata architecture - Backend provides editable flags
+ * Minimal fallback metadata - NO PATTERN DETECTION
+ * Backend is responsible for all pattern detection via backend-formatter.service
  */
-function getFieldCapability(columnKey: string, dataType?: string): FieldCapability {
-  const readonly = /^(id|.*_id|created.*|updated.*|deleted.*|.*_at|.*_ts|.*_count|.*_total)$/i.test(columnKey);
-  const isFileUpload = columnKey.includes('attachment') || columnKey.includes('file');
-
+function createFallbackMetadata(columnKey: string): BackendFieldMetadata {
   return {
-    inlineEditable: !readonly,
-    editType: dataType || 'text',
-    isFileUpload
+    key: columnKey,
+    label: columnKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+    renderType: 'text',
+    inputType: 'text',
+    visible: {
+      EntityDataTable: true,
+      EntityDetailView: true,
+      EntityFormContainer: true,
+      KanbanView: true,
+      CalendarView: true
+    },
+    editable: true,
+    align: 'left'
   };
 }
 
@@ -427,6 +434,8 @@ export function EntityDataTable<T = any>({
           editType: fieldMeta.editType,
           loadDataLabels: fieldMeta.loadFromDataLabels,
           loadFromEntity: fieldMeta.loadFromEntity,
+          // Store backend metadata for use in edit mode
+          backendMetadata: fieldMeta,
           // Pure metadata-driven rendering - backend tells frontend how to render
           render: (value: any, record: any) => renderViewModeFromMetadata(value, fieldMeta, record)
         } as Column<T>));
@@ -1612,21 +1621,25 @@ export function EntityDataTable<T = any>({
                                 onClick={(e) => e.stopPropagation()}
                               />
                             ) : (
-                              // ALL OTHER FIELDS - Universal renderer handles text, number, date, boolean, etc.
+                              // ALL OTHER FIELDS - Backend-driven renderer
                               <div onClick={(e) => e.stopPropagation()}>
-                                {renderField({
-                                  fieldKey: column.key,
-                                  value: editedData[column.key] ?? (record as any)[column.key],
-                                  mode: 'edit',
-                                  onChange: (key, val) => onInlineEdit?.(recordId, key, val),
-                                  inlineMode: true,
-                                  data: record
-                                })}
+                                {(() => {
+                                  // Use backend metadata from column (fallback only if not provided)
+                                  const metadata = (column as any).backendMetadata || createFallbackMetadata(column.key);
+                                  return renderEditModeFromMetadata(
+                                    editedData[column.key] ?? (record as any)[column.key],
+                                    metadata,
+                                    (val) => onInlineEdit?.(recordId, column.key, val),
+                                    {
+                                      className: 'w-full px-2 py-1 text-sm border border-dark-300 rounded focus:outline-none focus:ring-1 focus:ring-dark-500'
+                                    }
+                                  );
+                                })()}
                               </div>
                             )
                           ) : (
                             // ============================================================================
-                            // VIEW MODE - Universal Field Renderer
+                            // VIEW MODE - Backend-Driven Renderer
                             // ============================================================================
                             <div
                               style={{
@@ -1643,14 +1656,22 @@ export function EntityDataTable<T = any>({
                                 cursor: 'inherit'
                               } as React.CSSProperties}
                             >
-                              {renderField({
-                                fieldKey: column.key,
-                                value: (record as any)[column.key],
-                                mode: 'view',
-                                customRender: column.render,
-                                data: record,
-                                loadDataLabels: column.loadDataLabels
-                              })}
+                              {(() => {
+                                // Custom render override
+                                if (column.render) {
+                                  return column.render((record as any)[column.key], record);
+                                }
+
+                                // Use backend metadata from column (fallback only if not provided)
+                                const metadata = (column as any).backendMetadata || createFallbackMetadata(column.key);
+                                if (column.loadDataLabels && !metadata.loadFromDataLabels) {
+                                  // Backward compatibility: override if loadDataLabels set on column
+                                  metadata.loadFromDataLabels = true;
+                                  metadata.datalabelKey = getSettingDatalabel(column.key) || column.key;
+                                  metadata.renderType = 'badge';
+                                }
+                                return renderViewModeFromMetadata((record as any)[column.key], metadata, record);
+                              })()}
                             </div>
                           )}
                         </td>

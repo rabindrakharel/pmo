@@ -8,7 +8,73 @@ import { DAGVisualizer, type DAGNode } from '../../workflow/DAGVisualizer';
 import { renderEmployeeNames } from '../../../lib/entityConfig';
 import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
 import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
-import { formatRelativeTime, formatFriendlyDate, formatCurrency, isCurrencyField, generateFieldLabel, formatFieldValue, detectField } from '../../../lib/frontEndFormatterService';
+import { formatRelativeTime, formatFriendlyDate, formatCurrency } from '../../../lib/frontEndFormatterService';
+
+// ============================================================================
+// TEMPORARY: Inline compatibility functions (deprecated function removal)
+// TODO: Migrate to backend metadata architecture
+// ============================================================================
+
+/**
+ * Generate field label from key (inline helper)
+ */
+function generateFieldLabel(fieldKey: string): string {
+  return fieldKey
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .replace(/\bId\b/g, 'ID')
+    .replace(/\bAmt\b/g, 'Amount')
+    .replace(/\bTs\b/g, 'Timestamp')
+    .replace(/\bDescr\b/g, 'Description');
+}
+
+/**
+ * @deprecated Inline replacement for detectField()
+ */
+function detectField(fieldKey: string, dataType?: string): {
+  fieldName: string;
+  inputType: string;
+  editable: boolean;
+  visible: boolean;
+  loadFromDataLabels?: boolean;
+  loadFromEntity?: string;
+  toApi: (value: any) => any;
+  toDisplay: (value: any) => any;
+} {
+  const readonly = /^(id|.*_id|created.*|updated.*|deleted.*|.*_at|.*_ts|version|from_ts|to_ts|active_flag)$/i.test(fieldKey);
+  let inputType = 'text';
+  let loadFromDataLabels = false;
+  let loadFromEntity: string | undefined;
+
+  if (fieldKey.includes('_amt') || fieldKey.includes('_price') || fieldKey.includes('_cost')) {
+    inputType = 'currency';
+  } else if (fieldKey.endsWith('_date')) {
+    inputType = 'date';
+  } else if (fieldKey.endsWith('_ts') || fieldKey.endsWith('_at')) {
+    inputType = 'timestamp';
+  } else if (fieldKey.startsWith('is_') || fieldKey.endsWith('_flag')) {
+    inputType = 'checkbox';
+  } else if (fieldKey.startsWith('dl__')) {
+    inputType = 'select';
+    loadFromDataLabels = true;
+  } else if (fieldKey.match(/_(employee|project|task|customer|cust)_id$/)) {
+    inputType = 'select';
+    const match = fieldKey.match(/_(employee|project|task|customer|cust)_id$/);
+    loadFromEntity = match ? (match[1] === 'customer' ? 'cust' : match[1]) : undefined;
+  }
+
+  return {
+    fieldName: generateFieldLabel(fieldKey),
+    inputType,
+    editable: !readonly,
+    visible: true,
+    loadFromDataLabels,
+    loadFromEntity,
+    toApi: (value: any) => value,
+    toDisplay: (value: any) => value
+  };
+}
+
 import { MetadataTable } from './MetadataTable';
 import { QuoteItemsRenderer } from './QuoteItemsRenderer';
 import { getBadgeClass, textStyles } from '../../../lib/designSystem';
@@ -438,25 +504,29 @@ export function EntityFormContainer({
         const option = options.find((opt: any) => String(opt.value) === String(value));
         const rawValue = option?.label || value;
 
-        // ✅ Use frontEndFormatterService to format the value properly
+        // Format value based on field type
         let displayValue: string;
         const fieldFormat = detectField(field.key);
 
-        try {
-          // Try to format using the detected field type
-          displayValue = formatFieldValue(rawValue, fieldFormat.type);
-        } catch (e) {
-          // If formatting fails, handle object/array cases
-          if (typeof rawValue === 'object' && rawValue !== null) {
-            if (Array.isArray(rawValue)) {
-              displayValue = rawValue.join(', ');
-            } else {
-              // For objects, try to stringify meaningfully
-              displayValue = JSON.stringify(rawValue);
-            }
+        // Format using inline logic
+        if (rawValue == null) {
+          displayValue = '-';
+        } else if (fieldFormat.inputType === 'currency') {
+          displayValue = formatCurrency(rawValue);
+        } else if (fieldFormat.inputType === 'date') {
+          displayValue = formatFriendlyDate(rawValue);
+        } else if (fieldFormat.inputType === 'timestamp' || fieldFormat.inputType === 'datetime') {
+          displayValue = formatRelativeTime(rawValue);
+        } else if (fieldFormat.inputType === 'checkbox') {
+          displayValue = rawValue ? 'Yes' : 'No';
+        } else if (typeof rawValue === 'object') {
+          if (Array.isArray(rawValue)) {
+            displayValue = rawValue.join(', ');
           } else {
-            displayValue = String(rawValue || '-');
+            displayValue = JSON.stringify(rawValue);
           }
+        } else {
+          displayValue = String(rawValue);
         }
 
         if (!displayValue) return (
@@ -516,7 +586,7 @@ export function EntityFormContainer({
       }
       if (field.type === 'number') {
         // Auto-detect and format currency fields
-        if (isCurrencyField(field.key)) {
+        if (field.key.includes('_amt') || field.key.includes('_price') || field.key.includes('_cost')) {
           return (
             <span className="text-dark-600 font-medium text-base tracking-tight">
               {formatCurrency(value)}
@@ -724,24 +794,29 @@ export function EntityFormContainer({
           </span>
         );
       default:
-        // ✅ Use frontEndFormatterService for consistent formatting
+        // Format value for display
         let defaultDisplay: string;
         const fieldFormat = detectField(field.key);
 
-        try {
-          // Try to format using the detected field type
-          defaultDisplay = formatFieldValue(value, fieldFormat.type);
-        } catch (e) {
-          // If formatting fails or value is an object, stringify it
-          if (typeof value === 'object' && value !== null) {
-            if (Array.isArray(value)) {
-              defaultDisplay = value.join(', ');
-            } else {
-              defaultDisplay = JSON.stringify(value);
-            }
+        // Format using inline logic
+        if (value == null) {
+          defaultDisplay = '-';
+        } else if (fieldFormat.inputType === 'currency') {
+          defaultDisplay = formatCurrency(value);
+        } else if (fieldFormat.inputType === 'date') {
+          defaultDisplay = formatFriendlyDate(value);
+        } else if (fieldFormat.inputType === 'timestamp' || fieldFormat.inputType === 'datetime') {
+          defaultDisplay = formatRelativeTime(value);
+        } else if (fieldFormat.inputType === 'checkbox') {
+          defaultDisplay = value ? 'Yes' : 'No';
+        } else if (typeof value === 'object') {
+          if (Array.isArray(value)) {
+            defaultDisplay = value.join(', ');
           } else {
-            defaultDisplay = String(value || '-');
+            defaultDisplay = JSON.stringify(value);
           }
+        } else {
+          defaultDisplay = String(value);
         }
         return <span className="text-dark-600 text-base tracking-tight">{defaultDisplay}</span>;
     }
