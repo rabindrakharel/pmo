@@ -12,11 +12,11 @@ interface PermissionResult {
 }
 
 // Helper functions for RBAC API endpoints (frontend UI needs)
-// Uses unified_data_gate to determine permissions
+// Uses Entity Infrastructure Service to determine permissions
 async function getEmployeeEntityPermissions(employeeId: string, entityCode: string, entityId?: string): Promise<PermissionResult[]> {
   const targetEntityId = entityId || ALL_ENTITIES_ID;
 
-  // Test each permission level using unified_data_gate
+  // Test each permission level using Entity Infrastructure Service
   const permissions: string[] = [];
 
   // Test view
@@ -52,7 +52,7 @@ async function getEmployeeEntityPermissions(employeeId: string, entityCode: stri
 }
 
 async function getMainPageActionPermissions(employeeId: string, entityCode: string) {
-  // Test type-level permissions using unified_data_gate
+  // Test type-level permissions using Entity Infrastructure Service
   const canCreate = await entityInfra.check_entity_rbac(
     employeeId, entityCode, ALL_ENTITIES_ID, Permission.CREATE
   );
@@ -70,7 +70,7 @@ async function getMainPageActionPermissions(employeeId: string, entityCode: stri
   };
 }
 
-// Backward-compatible wrappers using unified_data_gate
+// Backward-compatible wrappers using Entity Infrastructure Service
 async function canAssignProjectToBusiness(userId: string, businessId: string): Promise<boolean> {
   return await entityInfra.check_entity_rbac(
     userId, 'business', businessId, Permission.EDIT

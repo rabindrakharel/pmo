@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * BUSINESS ROUTES MODULE - Universal Entity Pattern with Unified Data Gate
+ * BUSINESS ROUTES MODULE - Universal Entity Pattern with Entity Infrastructure Service
  * ============================================================================
  *
  * SEMANTICS & PURPOSE:
@@ -16,23 +16,21 @@
  * DESIGN PATTERNS & ARCHITECTURE
  * ============================================================================
  *
- * 1. UNIFIED DATA GATE PATTERN (Security & Filtering) ✅
- * ───────────────────────────────────────────────────────
- * All endpoints use centralized permission checking via unified-data-gate.ts:
+ * 1. ENTITY INFRASTRUCTURE SERVICE PATTERN (Security & Infrastructure) ✅
+ * ────────────────────────────────────────────────────────────────────────
+ * All endpoints use centralized infrastructure management via entity-infrastructure.service.ts:
  *
- *   • RBAC_GATE - Row-level security with role inheritance
- *     - Direct employee permissions
- *     - Role-based permissions (employee → role → permissions)
- *     - Parent-VIEW inheritance (if parent has VIEW, children gain VIEW)
- *     - Parent-CREATE inheritance (if parent has CREATE, children gain CREATE)
+ *   • check_entity_rbac() - Person-based permission checking
+ *     - Direct employee permissions (via entity_rbac table)
+ *     - Permission levels: 0=VIEW, 1=COMMENT, 3=EDIT, 4=SHARE, 5=DELETE, 6=CREATE, 7=OWNER
  *
- *   • PARENT_CHILD_FILTERING_GATE - Context-aware data filtering
- *     - Filters entities by parent relationship via entity_instance_link
+ *   • set_entity_instance_link() - Parent-child relationship management
+ *     - Links entities via entity_instance_link table
  *     - Enables create-link-edit pattern (create child, link to parent)
  *
  * Usage Example:
- *   const canView = await unified_data_gate.rbac_gate.check_entity_rbac(
- *     db, userId, ENTITY_CODE, id, Permission.VIEW
+ *   const canView = await entityInfra.check_entity_rbac(
+ *     userId, ENTITY_CODE, id, Permission.VIEW
  *   );
  *
  * 2. CREATE-LINK-EDIT PATTERN (Parent-Child Relationships)
@@ -93,22 +91,23 @@
  *
  * Example 1: List Businesses with RBAC
  *   1. User requests GET /api/v1/business
- *   2. unified_data_gate.rbac_gate.getWhereCondition() filters to accessible IDs
- *   3. SQL query includes: WHERE e.id = ANY(accessible_ids)
+ *   2. entityInfra.get_entity_rbac_where_condition() generates SQL WHERE condition
+ *   3. SQL query includes RBAC filtering via entity_rbac table
  *   4. Returns only businesses user can view
  *
  * Example 2: Create Business in Office Context
  *   1. User requests POST /api/v1/business?parent_type=office&parent_id={id}
- *   2. Check: Can user CREATE businesses? (type-level permission)
+ *   2. Check: Can user CREATE businesses? (type-level permission via entity_rbac)
  *   3. Check: Can user EDIT parent office? (required to link child)
- *   4. Create business in d_business
- *   5. Link to office in entity_instance_link
- *   6. Auto-grant DELETE permission to creator
+ *   4. Create business in business table
+ *   5. Register in entity_instance via entityInfra.set_entity_instance_registry()
+ *   6. Link to office via entityInfra.set_entity_instance_link()
+ *   7. Auto-grant OWNER permission via entityInfra.set_entity_rbac_owner()
  *
  * Example 3: Filter Businesses by Parent Office
  *   1. User requests GET /api/v1/business?parent_type=office&parent_id={id}
- *   2. RBAC gate filters to accessible business IDs
- *   3. Parent-child gate filters to businesses linked to specific office
+ *   2. RBAC filtering via entityInfra.get_entity_rbac_where_condition()
+ *   3. Parent-child filtering via SQL JOIN with entity_instance_link table
  *   4. Returns intersection: businesses user can see AND linked to office
  *
  * ============================================================================
@@ -118,8 +117,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
-// ✅ Centralized unified data gate - loosely coupled API
-// ✨ NEW: Entity Infrastructure Service - centralized infrastructure operations
+// ✨ Entity Infrastructure Service - centralized infrastructure operations
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
@@ -150,10 +148,12 @@ const BizSchema = Type.Object({
   version: Type.Number(),
 });
 
-// Response schema for metadata-driven endpoints
+// Response schema for metadata-driven endpoints (single entity)
 const BizWithMetadataSchema = Type.Object({
   data: BizSchema,
-  metadata: Type.Any()  // EntityMetadata from backend-formatter.service
+  metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+  datalabels: Type.Optional(Type.Array(Type.Any())),  // DatalabelData[] - options for dl__* fields
+  globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
 });
 
 const CreateBizSchema = Type.Object({
@@ -210,15 +210,19 @@ export async function businessRoutes(fastify: FastifyInstance) {
       response: {
         200: Type.Object({
           data: Type.Array(BizSchema),
+          fields: Type.Array(Type.String()),
+          metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+          datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields
+          globalSettings: Type.Any(),  // GlobalSettings - currency, date, timestamp formatting
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number(),
-          appliedFilters: Type.Object({
+          appliedFilters: Type.Optional(Type.Object({
             rbac: Type.Boolean(),
             parent: Type.Boolean(),
             search: Type.Boolean(),
             active: Type.Boolean()
-          })
+          }))
         }),
         403: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -276,26 +280,36 @@ export async function businessRoutes(fastify: FastifyInstance) {
       });
       conditions.push(...autoFilters);
 
-      // GATE 2: PARENT_CHILD_FILTERING - Apply parent context (OPTIONAL)
-      const parentJoin = parent_type && parent_id
-        ? unified_data_gate.parent_child_filtering_gate.getJoinClause(
-            ENTITY_CODE,
-            parent_type,
-            parent_id,
-            TABLE_ALIAS
-          )
-        : sql``;
+      // Build JOINs array
+      const joins: SQL[] = [];
+
+      // GATE 2: PARENT-CHILD FILTERING (OPTIONAL when parent context provided)
+      if (parent_type && parent_id) {
+        const parentJoin = sql`
+          INNER JOIN app.entity_instance_link eil
+            ON eil.child_entity_code = ${ENTITY_CODE}
+            AND eil.child_entity_instance_id = ${sql.raw(TABLE_ALIAS)}.id
+            AND eil.entity_code = ${parent_type}
+            AND eil.entity_instance_id = ${parent_id}
+        `;
+        joins.push(parentJoin);
+      }
 
       // Build WHERE clause
       const whereClause = conditions.length > 0
         ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
         : sql``;
 
+      // Build JOINs clause
+      const joinsClause = joins.length > 0
+        ? sql.join(joins, sql` `)
+        : sql``;
+
       // Count query
       const countQuery = sql`
         SELECT COUNT(DISTINCT ${sql.raw(TABLE_ALIAS)}.id) as total
         FROM app.${sql.raw(ENTITY_CODE)} ${sql.raw(TABLE_ALIAS)}
-        ${parentJoin}
+        ${joinsClause}
         ${whereClause}
       `;
 
@@ -303,7 +317,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       const dataQuery = sql`
         SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
         FROM app.${sql.raw(ENTITY_CODE)} ${sql.raw(TABLE_ALIAS)}
-        ${parentJoin}
+        ${joinsClause}
         ${whereClause}
         ORDER BY ${sql.raw(TABLE_ALIAS)}.created_ts DESC
         LIMIT ${limit}
@@ -837,6 +851,6 @@ export async function businessRoutes(fastify: FastifyInstance) {
   // Child Entity Endpoints (Auto-Generated from entity metadata)
   // ============================================================================
   // Creates: GET /api/v1/business/:id/{child} for each child in entity table.child_entity_codes
-  // Uses unified_data_gate for RBAC + parent_child_filtering_gate for context
+  // Uses Entity Infrastructure Service for RBAC + entity_instance_link for parent-child filtering
   await createChildEntityEndpointsFromMetadata(fastify, ENTITY_CODE);
 }
