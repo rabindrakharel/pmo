@@ -5,7 +5,7 @@ import type { Column, RowAction } from '../ui/EntityDataTable';
 import { useNavigate } from 'react-router-dom';
 import { ActionButtonsBar } from '../button/ActionButtonsBar';
 import { getEntityConfig, type EntityConfig } from '../../../lib/entityConfig';
-import { transformForApi, transformFromApi, formatFieldValue, renderFieldDisplay, preloadSettingsColors } from '../../../lib/frontEndFormatterService';
+import { transformForApi, transformFromApi, loadSettingsColors } from '../../../lib/frontEndFormatterService';
 import { useColumnVisibility } from '../../../lib/hooks/useColumnVisibility';
 import { useEntitySchema } from '../../../lib/hooks/useEntitySchema';
 import type { SchemaColumn } from '../../../lib/types/table';
@@ -126,9 +126,8 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         align: col.align,
         editable: col.editable,
         editType: col.editType as any,
-        loadDataLabels: col.dataSource?.type === 'settings',
-        // Schema-driven formatting (DEPRECATED)
-        render: (value: any) => renderFieldDisplay(value, col.format)
+        loadDataLabels: col.dataSource?.type === 'settings'
+        // EntityDataTable will handle rendering with its own fallback
       })) as Column[];
     }
 
@@ -162,9 +161,9 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         );
 
         try {
-          await preloadSettingsColors(uniqueDatalabels);
+          await loadSettingsColors(uniqueDatalabels);
         } catch (err) {
-          console.error('Failed to preload badge colors:', err);
+          console.error('Failed to load badge colors:', err);
         }
         return;
       }
@@ -184,9 +183,9 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       const uniqueDatalabels = Array.from(new Set(datalabels));
 
       try {
-        await preloadSettingsColors(uniqueDatalabels);
+        await loadSettingsColors(uniqueDatalabels);
       } catch (err) {
-        console.error('Failed to preload badge colors:', err);
+        console.error('Failed to load badge colors:', err);
       }
     };
 
