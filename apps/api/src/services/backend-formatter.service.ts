@@ -130,7 +130,7 @@ export type FieldType =
   | 'json' | 'url' | 'uuid';
 
 export type RenderType =
-  | 'text' | 'badge' | 'currency' | 'percentage' | 'date' | 'timestamp'
+  | 'text' | 'badge' | 'datalabels' | 'currency' | 'percentage' | 'date' | 'timestamp'
   | 'boolean' | 'json' | 'array' | 'dag' | 'link' | 'truncated'
   | 'progress-bar' | 'date-range' | 'composite';  // ✅ NEW: Composite field rendering
 
@@ -410,10 +410,10 @@ const PATTERN_RULES: Record<string, PatternRule> = {
     editable: true
   },
 
-  // === BADGE (Settings) ===
+  // === DATALABELS (Settings Dropdowns) ===
   'dl__*': {
     type: 'badge',
-    renderType: 'badge',
+    renderType: 'datalabels',  // ✅ EXPLICIT: Loads from datalabels, renders differently per context
     viewType: 'badge',
     inputType: 'select',
     editType: 'select',
@@ -428,8 +428,9 @@ const PATTERN_RULES: Record<string, PatternRule> = {
     filterable: true,
     editable: true,
     // ✅ EXPLICIT: Detect DAG component for stage/status/funnel fields
-    // EntityFormContainer uses component field (overrides renderType)
-    // EntityDataTable ignores component field (uses renderType only)
+    // Overrides renderType when present
+    // - stage/status/funnel → EntityFormContainer_viz_container: 'DAGVisualizer'
+    // - priority/category → No component (uses renderType: 'datalabels')
     componentFn: (fieldKey: string) => {
       const lowerKey = fieldKey.toLowerCase();
       if (lowerKey.includes('_stage') ||
@@ -437,7 +438,7 @@ const PATTERN_RULES: Record<string, PatternRule> = {
           lowerKey.includes('_funnel')) {
         return 'DAGVisualizer';
       }
-      return undefined;  // Other dl__ fields: no component, just badge
+      return undefined;  // Other dl__ fields: renderType 'datalabels' determines behavior
     }
   },
 

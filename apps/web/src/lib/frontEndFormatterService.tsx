@@ -474,13 +474,19 @@ export function renderViewModeFromMetadata(
         </span>
       );
 
-    case 'badge':
-      // Use backend-provided color map (value -> color mapping from datalabel endpoint)
+    case 'datalabels':
+      // Datalabel fields: Badge in table (EntityDataTable), Dropdown in form (EntityFormContainer)
+      // EntityDataTable uses this renderType → renders badge
+      // EntityFormContainer checks EntityFormContainer_viz_container first, then falls back to dropdown
       const badgeColor = metadata.colorMap?.[value] || metadata.color;
       if (metadata.loadFromDataLabels && metadata.datalabelKey) {
         return renderDataLabelBadge(value, metadata.datalabelKey, { color: badgeColor });
       }
       return renderBadge(value, badgeColor);
+
+    case 'badge':
+      // Static badge (not from datalabels) - shows badge everywhere
+      return renderBadge(value, metadata.color);
 
     case 'json':
       return (
