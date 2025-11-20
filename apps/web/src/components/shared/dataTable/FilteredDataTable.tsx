@@ -265,6 +265,9 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       // Build query params with parent filtering support
       let queryParams = `page=${currentPage}&limit=${pageSize}`;
 
+      // Add view parameter for component-aware metadata
+      queryParams += '&view=entityDataTable';
+
       // Add parent filtering via query params (create-link-edit pattern)
       if (parentType && parentId) {
         queryParams += `&parent_type=${parentType}&parent_id=${parentId}`;

@@ -120,13 +120,13 @@ export const authApi = {
   }};
 
 export const projectApi = {
-  async list(params?: { page?: number; pageSize?: number; search?: string; status?: string; priority?: string }) {
+  async list(params?: { page?: number; pageSize?: number; search?: string; status?: string; priority?: string; view?: string }) {
     const response = await apiClient.get('/api/v1/project', { params });
     return response.data;
   },
-  
-  async get(id: string) {
-    const response = await apiClient.get(`/api/v1/project/${id}`);
+
+  async get(id: string, params?: { view?: string }) {
+    const response = await apiClient.get(`/api/v1/project/${id}`, { params });
     return response.data;
   },
   
