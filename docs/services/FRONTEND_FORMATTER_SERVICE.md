@@ -282,12 +282,19 @@ if (hasBackendMetadata(response)) {
 ### 4.2 EntityDataTable Integration
 
 ```typescript
-// EntityDataTable.tsx - Metadata-driven column generation
+// EntityDataTable.tsx - Metadata-driven column generation with object-based visibility
 const columns = useMemo(() => {
   // Priority 1: Backend metadata (pure metadata-driven)
   if (metadata?.fields) {
     return metadata.fields
-      .filter(fieldMeta => fieldMeta.visible)
+      .filter(fieldMeta => {
+        // ✅ NEW: Object-based visibility control
+        if (typeof fieldMeta.visible === 'object' && fieldMeta.visible !== null) {
+          return fieldMeta.visible.EntityDataTable === true;
+        }
+        // Backward compatibility: treat boolean as visible everywhere
+        return fieldMeta.visible === true;
+      })
       .map(fieldMeta => ({
         key: fieldMeta.key,
         title: fieldMeta.label,
@@ -312,6 +319,31 @@ const columns = useMemo(() => {
 }, [metadata, initialColumns, autoGenerateColumns]);
 ```
 
+**Per-Component Visibility Filtering**:
+- **EntityDataTable**: Filters by `visible.EntityDataTable`
+- **EntityDetailView**: Filters by `visible.EntityDetailView`
+- **EntityFormContainer**: Filters by `visible.EntityFormContainer`
+- **KanbanView**: Filters by `visible.KanbanView`
+- **CalendarView**: Filters by `visible.CalendarView`
+
+**Example**:
+```typescript
+// Composite field metadata (from backend)
+{
+  key: "start_date_end_date_composite",
+  visible: {
+    EntityDataTable: false,       // Hidden in table
+    EntityDetailView: true,        // Shown in detail view
+    EntityFormContainer: false,    // Hidden in form
+    KanbanView: false,
+    CalendarView: false
+  }
+}
+
+// EntityDataTable filters this out (visible.EntityDataTable === false)
+// EntityDetailView includes this field (visible.EntityDetailView === true)
+```
+
 ---
 
 ## 5. Type Definitions
@@ -319,6 +351,27 @@ const columns = useMemo(() => {
 ### API Response Types
 
 ```typescript
+// Object-based visibility control (matches backend)
+interface ComponentVisibility {
+  EntityDataTable: boolean;        // Data table (list view)
+  EntityDetailView: boolean;        // Detail view (single entity)
+  EntityFormContainer: boolean;     // Create/edit forms
+  KanbanView: boolean;              // Kanban board
+  CalendarView: boolean;            // Calendar view
+}
+
+// Composite field configuration (matches backend)
+interface CompositeFieldConfig {
+  composedFrom: string[];           // Source field keys
+  compositeType: 'progress-bar' | 'date-range' | 'address' | 'full-name' | 'calculated';
+  calculation?: string;
+  showPercentage?: boolean;
+  showDates?: boolean;
+  highlightOverdue?: boolean;
+  startField?: string;
+  endField?: string;
+}
+
 // Matches backend types from api-factory.ts
 interface BackendFieldMetadata {
   key: string;
@@ -326,12 +379,14 @@ interface BackendFieldMetadata {
   type: string;
   dataType?: string;
   format: Record<string, any>;
-  renderType: string;         // View mode: currency, badge, date, etc.
+  renderType: string;         // View mode: currency, badge, date, progress-bar, etc.
   viewType?: string;
   component?: string;
   inputType: string;          // Edit mode: currency, select, date, etc.
   editType?: string;
-  visible: boolean;
+  visible: ComponentVisibility;  // ✅ Object-based per-component visibility
+  composite?: boolean;        // ✅ Is this a composite field?
+  compositeConfig?: CompositeFieldConfig;  // ✅ Composite configuration
   sortable: boolean;
   filterable: boolean;
   searchable: boolean;

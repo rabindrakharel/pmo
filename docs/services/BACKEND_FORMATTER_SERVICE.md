@@ -231,6 +231,116 @@ const metadataCache = new Map<string, EntityMetadata>();
 - Same metadata used for all rows in entity
 - 100x performance improvement on large lists
 
+### 3.5 Composite Field Auto-Detection
+
+**Purpose**: Automatically detect field pairs and create virtual composite fields for better UX.
+
+#### Detected Patterns
+
+**Pattern 1: Progress Bar** (`start_date` + `end_date`)
+```typescript
+// Backend detects both fields exist → creates composite
+{
+  key: "start_date_end_date_composite",
+  label: "Progress",
+  renderType: "progress-bar",
+  component: "ProgressBar",
+  composite: true,
+  compositeConfig: {
+    composedFrom: ["start_date", "end_date"],
+    compositeType: "progress-bar",
+    showPercentage: true,
+    showDates: true,
+    highlightOverdue: true
+  },
+  visible: {
+    EntityDataTable: false,       // Too complex for table
+    EntityDetailView: true,        // Perfect for detail view
+    EntityFormContainer: false,    // Edit source fields instead
+    KanbanView: false,
+    CalendarView: false
+  }
+}
+```
+
+**Pattern 2: Date Range** (`from_ts` + `to_ts`)
+```typescript
+{
+  key: "from_ts_to_ts_composite",
+  label: "Date Range",
+  renderType: "date-range",
+  component: "DateRangeVisualizer",
+  compositeConfig: {
+    composedFrom: ["from_ts", "to_ts"],
+    compositeType: "date-range"
+  },
+  visible: {
+    EntityDataTable: false,
+    EntityDetailView: true,
+    EntityFormContainer: false,
+    KanbanView: false,
+    CalendarView: false
+  }
+}
+```
+
+#### Source Field Visibility Update
+
+When composite field is created, source fields automatically get updated visibility:
+
+```typescript
+// start_date visibility becomes:
+{
+  EntityDataTable: true,          // Show in table
+  EntityDetailView: false,        // Hide (composite shows instead)
+  EntityFormContainer: true,      // Show in form for editing
+  KanbanView: true,
+  CalendarView: true
+}
+```
+
+#### Helper Functions
+
+```typescript
+// Create default visibility (all true)
+createDefaultVisibility()
+→ { EntityDataTable: true, EntityDetailView: true, ... }
+
+// Create composite visibility (only detail view)
+createCompositeVisibility()
+→ { EntityDataTable: false, EntityDetailView: true, EntityFormContainer: false, ... }
+
+// Create source field visibility (hide from detail)
+createSourceFieldVisibility()
+→ { EntityDataTable: true, EntityDetailView: false, EntityFormContainer: true, ... }
+
+// Detect composite fields from field names
+detectCompositeFields(fieldNames: string[])
+→ FieldMetadata[] (array of virtual composite fields)
+
+// Update source field visibility
+updateSourceFieldVisibility(fields, compositeFields)
+→ Modifies source fields to hide from detail view
+```
+
+#### Data Flow
+
+```
+1. generateEntityMetadata('project', sampleRow)
+         ↓
+2. Generate metadata for all regular fields
+   (start_date, end_date, budget_allocated_amt, ...)
+         ↓
+3. detectCompositeFields(['start_date', 'end_date', ...])
+   → Creates: start_date_end_date_composite
+         ↓
+4. updateSourceFieldVisibility(fields, compositeFields)
+   → start_date.visible.EntityDetailView = false
+   → end_date.visible.EntityDetailView = false
+         ↓
+5. Return { entity: 'project', fields: [...fields, ...compositeFields] }
+```
+
 ---
 
 ## 4. API Integration Pattern
@@ -287,10 +397,42 @@ fastify.get('/api/v1/office/:id', async (request, reply) => {
     label: "Office",
     labelPlural: "Offices",
     fields: [
-      { key: "id", label: "ID", renderType: "text", visible: false, ... },
-      { key: "code", label: "Code", renderType: "text", editable: true, ... },
-      { key: "name", label: "Name", renderType: "text", editable: true, ... },
-      { key: "budget_allocated_amt", label: "Budget Allocated", renderType: "currency", ... }
+      {
+        key: "id",
+        label: "ID",
+        renderType: "text",
+        visible: {
+          EntityDataTable: false,      // Hide system fields from table
+          EntityDetailView: true,
+          EntityFormContainer: false,
+          KanbanView: false,
+          CalendarView: false
+        },
+        ...
+      },
+      {
+        key: "code",
+        label: "Code",
+        renderType: "text",
+        editable: true,
+        visible: { EntityDataTable: true, EntityDetailView: true, EntityFormContainer: true, KanbanView: true, CalendarView: true },
+        ...
+      },
+      {
+        key: "name",
+        label: "Name",
+        renderType: "text",
+        editable: true,
+        visible: { EntityDataTable: true, EntityDetailView: true, EntityFormContainer: true, KanbanView: true, CalendarView: true },
+        ...
+      },
+      {
+        key: "budget_allocated_amt",
+        label: "Budget Allocated",
+        renderType: "currency",
+        visible: { EntityDataTable: true, EntityDetailView: true, EntityFormContainer: true, KanbanView: true, CalendarView: true },
+        ...
+      }
     ],
     primaryKey: "id",
     displayField: "name",
@@ -313,6 +455,39 @@ fastify.get('/api/v1/office/:id', async (request, reply) => {
 
 ## 5. Type Definitions
 
+### ComponentVisibility
+```typescript
+/**
+ * Object-based visibility control - Backend tells each component what to show
+ * Explicit per-component visibility ensures type-safety and clarity
+ */
+interface ComponentVisibility {
+  EntityDataTable: boolean;        // Data table (list view)
+  EntityDetailView: boolean;        // Detail view (single entity)
+  EntityFormContainer: boolean;     // Create/edit forms
+  KanbanView: boolean;              // Kanban board
+  CalendarView: boolean;            // Calendar view
+}
+```
+
+### CompositeFieldConfig
+```typescript
+/**
+ * Configuration for composite fields derived from multiple source fields
+ * Backend auto-detects field pairs and creates virtual composite fields
+ */
+interface CompositeFieldConfig {
+  composedFrom: string[];           // Source field keys (e.g., ['start_date', 'end_date'])
+  compositeType: 'progress-bar' | 'date-range' | 'address' | 'full-name' | 'calculated';
+  calculation?: string;             // Optional calculation formula
+  showPercentage?: boolean;         // Show percentage (progress bars)
+  showDates?: boolean;              // Show date labels (progress bars)
+  highlightOverdue?: boolean;       // Highlight overdue items (progress bars)
+  startField?: string;              // Start field name (date ranges)
+  endField?: string;                // End field name (date ranges)
+}
+```
+
 ### BackendFieldMetadata
 ```typescript
 interface BackendFieldMetadata {
@@ -327,10 +502,10 @@ interface BackendFieldMetadata {
   category?: CategoryType;        // Field category
 
   // Rendering (View Mode)
-  renderType: RenderType;         // How to display: currency, badge, date, etc.
+  renderType: RenderType;         // How to display: currency, badge, date, progress-bar, etc.
   viewType?: ViewType;            // View variant: badge, table, tags
-  component?: ComponentType;      // Special component: DAGVisualizer, MetadataTable
-  format: Record<string, any>;    // Format config: { symbol, decimals, style }
+  component?: ComponentType;      // Special component: DAGVisualizer, MetadataTable, ProgressBar
+  format: Record<string, any>;    // Format config: { symbol, decimals, style, compositeType }
 
   // Input (Edit Mode)
   inputType: InputType;           // Input control: select, currency, date, etc.
@@ -345,8 +520,12 @@ interface BackendFieldMetadata {
     color?: string;
   }>;
 
-  // Table Behavior
-  visible: boolean;               // Show in table
+  // Component Visibility (Object-Based) - ✅ NEW in v3.5+
+  visible: ComponentVisibility;   // Explicit per-component visibility control
+  composite?: boolean;            // Is this a composite field?
+  compositeConfig?: CompositeFieldConfig;  // Composite field configuration
+
+  // Behavior
   sortable: boolean;              // Allow sorting
   filterable: boolean;            // Allow filtering
   searchable: boolean;            // Include in search
