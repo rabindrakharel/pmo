@@ -37,8 +37,10 @@ import {
   COLOR_MAP,
   getSettingColor,
   loadSettingsColors,
-  renderField,
-  renderViewModeFromMetadata
+  renderViewModeFromMetadata,
+  formatCurrency,
+  formatRelativeTime,
+  formatFriendlyDate
 } from '../../../lib/frontEndFormatterService';
 import type { BackendFieldMetadata, EntityMetadata } from '../../../lib/api';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
@@ -66,6 +68,116 @@ function getFieldCapability(columnKey: string, dataType?: string): FieldCapabili
     editType: dataType || 'text',
     isFileUpload
   };
+}
+
+/**
+ * @deprecated Temporary inline replacement for renderField()
+ * TODO: Migrate to backend metadata architecture - Use renderViewModeFromMetadata/renderEditModeFromMetadata
+ */
+interface RenderFieldOptions {
+  fieldKey: string;
+  value: any;
+  mode: 'view' | 'edit';
+  onChange?: (key: string, value: any) => void;
+  inlineMode?: boolean;
+  data?: any;
+  customRender?: (value: any, record: any) => React.ReactNode;
+  loadDataLabels?: boolean;
+}
+
+function renderField(options: RenderFieldOptions): React.ReactNode {
+  const { fieldKey, value, mode, onChange, inlineMode, data, customRender, loadDataLabels } = options;
+
+  // Custom render override
+  if (customRender && mode === 'view') {
+    return customRender(value, data);
+  }
+
+  // View mode
+  if (mode === 'view') {
+    // Badge for datalabel fields
+    if (loadDataLabels || fieldKey.startsWith('dl__')) {
+      return renderDataLabelBadge(value, getSettingDatalabel(fieldKey) || fieldKey);
+    }
+
+    // Currency
+    if (fieldKey.includes('_amt') || fieldKey.includes('_price') || fieldKey.includes('_cost')) {
+      return <span className="font-mono text-right">{formatCurrency(value)}</span>;
+    }
+
+    // Timestamps
+    if (fieldKey.endsWith('_ts') || fieldKey.endsWith('_at')) {
+      return <span title={formatFriendlyDate(value)}>{formatRelativeTime(value)}</span>;
+    }
+
+    // Dates
+    if (fieldKey.endsWith('_date')) {
+      return formatFriendlyDate(value);
+    }
+
+    // Boolean
+    if (fieldKey.startsWith('is_') || fieldKey.endsWith('_flag')) {
+      return value ? '✓' : '✗';
+    }
+
+    // Default
+    return value ?? '-';
+  }
+
+  // Edit mode
+  if (mode === 'edit' && onChange) {
+    const inputClass = inlineMode
+      ? 'w-full px-2 py-1 text-sm border border-dark-300 rounded focus:outline-none focus:ring-1 focus:ring-dark-500'
+      : 'w-full px-3 py-2 border-0 focus:outline-none focus:ring-0';
+
+    // Currency/number
+    if (fieldKey.includes('_amt') || fieldKey.includes('_price') || fieldKey.includes('_cost') || fieldKey.includes('_hours')) {
+      return (
+        <input
+          type="number"
+          step="0.01"
+          value={value ?? ''}
+          onChange={(e) => onChange(fieldKey, parseFloat(e.target.value) || null)}
+          className={inputClass}
+        />
+      );
+    }
+
+    // Date
+    if (fieldKey.endsWith('_date')) {
+      return (
+        <input
+          type="date"
+          value={value ?? ''}
+          onChange={(e) => onChange(fieldKey, e.target.value)}
+          className={inputClass}
+        />
+      );
+    }
+
+    // Boolean
+    if (fieldKey.startsWith('is_') || fieldKey.endsWith('_flag')) {
+      return (
+        <input
+          type="checkbox"
+          checked={value ?? false}
+          onChange={(e) => onChange(fieldKey, e.target.checked)}
+        />
+      );
+    }
+
+    // Text (default)
+    return (
+      <input
+        type="text"
+        value={value ?? ''}
+        onChange={(e) => onChange(fieldKey, e.target.value)}
+        className={inputClass}
+      />
+    );
+  }
+
+  return value ?? '-';
 }
 
 // ============================================================================

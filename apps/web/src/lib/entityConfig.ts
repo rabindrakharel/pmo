@@ -230,7 +230,7 @@ export interface EntityConfig {
 // Helper Functions for Column Renderers
 // ============================================================================
 
-import { formatRelativeTime, formatFriendlyDate } from '../../../lib/frontEndFormatterService';
+import { formatRelativeTime, formatFriendlyDate } from './frontEndFormatterService';
 
 export const formatDate = (dateString?: string) => {
   if (!dateString) return '-';

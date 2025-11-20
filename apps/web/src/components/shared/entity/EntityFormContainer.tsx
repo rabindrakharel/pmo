@@ -8,7 +8,103 @@ import { DAGVisualizer, type DAGNode } from '../../workflow/DAGVisualizer';
 import { renderEmployeeNames } from '../../../lib/entityConfig';
 import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
 import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
-import { formatRelativeTime, formatFriendlyDate, formatCurrency, isCurrencyField, generateFieldLabel, formatFieldValue, detectField } from '../../../lib/frontEndFormatterService';
+import { formatRelativeTime, formatFriendlyDate, formatCurrency } from '../../../lib/frontEndFormatterService';
+
+// ============================================================================
+// TEMPORARY: Inline compatibility functions (deprecated function removal)
+// TODO: Migrate to backend metadata architecture
+// ============================================================================
+
+/**
+ * @deprecated Inline replacement for isCurrencyField()
+ */
+function isCurrencyField(fieldKey: string): boolean {
+  return fieldKey.includes('_amt') || fieldKey.includes('_price') || fieldKey.includes('_cost');
+}
+
+/**
+ * @deprecated Inline replacement for generateFieldLabel()
+ */
+function generateFieldLabel(fieldKey: string): string {
+  return fieldKey
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .replace(/\bId\b/g, 'ID')
+    .replace(/\bAmt\b/g, 'Amount')
+    .replace(/\bTs\b/g, 'Timestamp')
+    .replace(/\bDescr\b/g, 'Description');
+}
+
+/**
+ * @deprecated Inline replacement for formatFieldValue()
+ */
+function formatFieldValue(value: any, fieldType?: string): any {
+  if (value == null) return '-';
+
+  switch (fieldType) {
+    case 'currency':
+      return formatCurrency(value);
+    case 'date':
+      return formatFriendlyDate(value);
+    case 'timestamp':
+      return formatRelativeTime(value);
+    case 'boolean':
+      return value ? 'Yes' : 'No';
+    default:
+      if (typeof value === 'object') {
+        return JSON.stringify(value, null, 2);
+      }
+      return value;
+  }
+}
+
+/**
+ * @deprecated Inline replacement for detectField()
+ */
+function detectField(fieldKey: string, dataType?: string): {
+  fieldName: string;
+  inputType: string;
+  editable: boolean;
+  visible: boolean;
+  loadFromDataLabels?: boolean;
+  loadFromEntity?: string;
+  toApi: (value: any) => any;
+  toDisplay: (value: any) => any;
+} {
+  const readonly = /^(id|.*_id|created.*|updated.*|deleted.*|.*_at|.*_ts|version|from_ts|to_ts|active_flag)$/i.test(fieldKey);
+  let inputType = 'text';
+  let loadFromDataLabels = false;
+  let loadFromEntity: string | undefined;
+
+  if (fieldKey.includes('_amt') || fieldKey.includes('_price') || fieldKey.includes('_cost')) {
+    inputType = 'currency';
+  } else if (fieldKey.endsWith('_date')) {
+    inputType = 'date';
+  } else if (fieldKey.endsWith('_ts') || fieldKey.endsWith('_at')) {
+    inputType = 'timestamp';
+  } else if (fieldKey.startsWith('is_') || fieldKey.endsWith('_flag')) {
+    inputType = 'checkbox';
+  } else if (fieldKey.startsWith('dl__')) {
+    inputType = 'select';
+    loadFromDataLabels = true;
+  } else if (fieldKey.match(/_(employee|project|task|customer|cust)_id$/)) {
+    inputType = 'select';
+    const match = fieldKey.match(/_(employee|project|task|customer|cust)_id$/);
+    loadFromEntity = match ? (match[1] === 'customer' ? 'cust' : match[1]) : undefined;
+  }
+
+  return {
+    fieldName: generateFieldLabel(fieldKey),
+    inputType,
+    editable: !readonly,
+    visible: true,
+    loadFromDataLabels,
+    loadFromEntity,
+    toApi: (value: any) => value,
+    toDisplay: (value: any) => value
+  };
+}
+
 import { MetadataTable } from './MetadataTable';
 import { QuoteItemsRenderer } from './QuoteItemsRenderer';
 import { getBadgeClass, textStyles } from '../../../lib/designSystem';

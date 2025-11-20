@@ -5,8 +5,16 @@ import { MoreVertical } from 'lucide-react';
 // TEMPORARY: Minimal compatibility (viewConfigGenerator.ts removed)
 // TODO: Migrate to backend metadata architecture
 // ============================================================================
-import { detectField } from '../../../lib/frontEndFormatterService';
 import { loadFieldOptions } from '../../../lib/settingsLoader';
+
+/**
+ * @deprecated Inline replacement for detectField()
+ */
+function detectField(fieldKey: string, dataType?: string): { loadFromDataLabels?: boolean } {
+  return {
+    loadFromDataLabels: fieldKey.startsWith('dl__')
+  };
+}
 
 /**
  * @deprecated Temporary replacement for viewConfigGenerator.generateKanbanConfig()
