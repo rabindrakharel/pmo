@@ -48,63 +48,21 @@ import type { EntityMetadata } from '../../../lib/api';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 
 // ============================================================================
-// TEMPORARY: Inline metadata generation (until backend provides metadata)
-// TODO: Remove when backend sends complete metadata
+// MINIMAL FALLBACK: When backend doesn't send metadata
+// Backend should ALWAYS send metadata via getEntityMetadata()
+// This fallback is only for non-integrated routes
 // ============================================================================
 
 /**
- * Generate BackendFieldMetadata from column name (temporary)
- * This will be replaced by backend-provided metadata
+ * Minimal fallback metadata - NO PATTERN DETECTION
+ * Backend is responsible for all pattern detection via backend-formatter.service
  */
-function generateFieldMetadata(columnKey: string, inlineMode?: boolean): BackendFieldMetadata {
-  const readonly = /^(id|.*_id|created.*|updated.*|deleted.*|.*_at|.*_ts|.*_count|.*_total|version|from_ts|to_ts|active_flag)$/i.test(columnKey);
-
-  let renderType = 'text';
-  let inputType = 'text';
-  let align: 'left' | 'center' | 'right' = 'left';
-  let width = '';
-  let loadFromDataLabels = false;
-  let datalabelKey: string | undefined;
-
-  // Currency fields
-  if (columnKey.includes('_amt') || columnKey.includes('_price') || columnKey.includes('_cost')) {
-    renderType = 'currency';
-    inputType = 'number';
-    align = 'right';
-    width = '120px';
-  }
-  // Timestamp fields
-  else if (columnKey.endsWith('_ts') || columnKey.endsWith('_at')) {
-    renderType = 'timestamp';
-    inputType = 'datetime';
-    width = '140px';
-  }
-  // Date fields
-  else if (columnKey.endsWith('_date')) {
-    renderType = 'date';
-    inputType = 'date';
-    width = '110px';
-  }
-  // Boolean fields
-  else if (columnKey.startsWith('is_') || columnKey.endsWith('_flag')) {
-    renderType = 'boolean';
-    inputType = 'checkbox';
-    align = 'center';
-    width = '80px';
-  }
-  // Datalabel fields
-  else if (columnKey.startsWith('dl__')) {
-    renderType = 'badge';
-    inputType = 'select';
-    loadFromDataLabels = true;
-    datalabelKey = getSettingDatalabel(columnKey) || columnKey;
-  }
-
+function createFallbackMetadata(columnKey: string): BackendFieldMetadata {
   return {
     key: columnKey,
     label: columnKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-    renderType,
-    inputType,
+    renderType: 'text',
+    inputType: 'text',
     visible: {
       EntityDataTable: true,
       EntityDetailView: true,
@@ -112,11 +70,8 @@ function generateFieldMetadata(columnKey: string, inlineMode?: boolean): Backend
       KanbanView: true,
       CalendarView: true
     },
-    editable: !readonly,
-    align,
-    width,
-    loadFromDataLabels,
-    datalabelKey
+    editable: true,
+    align: 'left'
   };
 }
 
@@ -479,6 +434,8 @@ export function EntityDataTable<T = any>({
           editType: fieldMeta.editType,
           loadDataLabels: fieldMeta.loadFromDataLabels,
           loadFromEntity: fieldMeta.loadFromEntity,
+          // Store backend metadata for use in edit mode
+          backendMetadata: fieldMeta,
           // Pure metadata-driven rendering - backend tells frontend how to render
           render: (value: any, record: any) => renderViewModeFromMetadata(value, fieldMeta, record)
         } as Column<T>));
@@ -1667,7 +1624,8 @@ export function EntityDataTable<T = any>({
                               // ALL OTHER FIELDS - Backend-driven renderer
                               <div onClick={(e) => e.stopPropagation()}>
                                 {(() => {
-                                  const metadata = generateFieldMetadata(column.key, true);
+                                  // Use backend metadata from column (fallback only if not provided)
+                                  const metadata = (column as any).backendMetadata || createFallbackMetadata(column.key);
                                   return renderEditModeFromMetadata(
                                     editedData[column.key] ?? (record as any)[column.key],
                                     metadata,
@@ -1704,11 +1662,13 @@ export function EntityDataTable<T = any>({
                                   return column.render((record as any)[column.key], record);
                                 }
 
-                                // Generate metadata and render
-                                const metadata = generateFieldMetadata(column.key);
-                                if (column.loadDataLabels) {
+                                // Use backend metadata from column (fallback only if not provided)
+                                const metadata = (column as any).backendMetadata || createFallbackMetadata(column.key);
+                                if (column.loadDataLabels && !metadata.loadFromDataLabels) {
+                                  // Backward compatibility: override if loadDataLabels set on column
                                   metadata.loadFromDataLabels = true;
                                   metadata.datalabelKey = getSettingDatalabel(column.key) || column.key;
+                                  metadata.renderType = 'badge';
                                 }
                                 return renderViewModeFromMetadata((record as any)[column.key], metadata, record);
                               })()}
