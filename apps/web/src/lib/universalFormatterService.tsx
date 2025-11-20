@@ -98,6 +98,10 @@ export interface BackendFieldMetadata {
   loadFromEntity?: string;
   datalabelKey?: string;
 
+  // Badge colors (backend-provided)
+  color?: string;  // Tailwind color classes from backend (e.g., 'bg-red-100 text-red-700')
+  colorMap?: Record<string, string>;  // Value -> color mapping from datalabel endpoint
+
   // Composite fields
   composite?: boolean;
   compositeConfig?: CompositeFieldConfig;
@@ -184,62 +188,33 @@ export function formatFriendlyDate(dateString: string | Date | null | undefined)
 }
 
 // ============================================================================
-// BADGE COLORS (Constants)
+// BADGE RENDERING (Backend-Driven Colors)
 // ============================================================================
 
-export const COLOR_MAP: Record<string, string> = {
-  // Priority levels
-  critical: 'bg-red-100 text-red-700',
-  high: 'bg-orange-100 text-orange-700',
-  medium: 'bg-yellow-100 text-yellow-700',
-  low: 'bg-green-100 text-green-700',
-
-  // Status colors
-  active: 'bg-green-100 text-green-700',
-  inactive: 'bg-gray-100 text-gray-600',
-  pending: 'bg-yellow-100 text-yellow-700',
-  approved: 'bg-green-100 text-green-700',
-  rejected: 'bg-red-100 text-red-700',
-
-  // Boolean states
-  true: 'bg-green-100 text-green-700',
-  false: 'bg-gray-100 text-gray-600',
-  yes: 'bg-green-100 text-green-700',
-  no: 'bg-gray-100 text-gray-600',
-
-  // Default
+/**
+ * Minimal fallback colors (use backend-provided colors when available)
+ */
+const FALLBACK_COLORS: Record<string, string> = {
   default: 'bg-gray-100 text-gray-600'
 };
 
 /**
- * Get badge color from settings (pure lookup)
- */
-let settingsColorsCache: Map<string, Map<string, string>> | null = null;
-
-export function getSettingColor(datalabel: string, value: string | null | undefined): string | undefined {
-  if (!value || !settingsColorsCache) return undefined;
-  const datalabelColors = settingsColorsCache.get(datalabel);
-  return datalabelColors?.get(value.toLowerCase());
-}
-
-/**
- * Load settings colors into cache
- */
-export async function loadSettingsColors(datalabels: string[]): Promise<void> {
-  settingsColorsCache = new Map();
-  // Implementation would fetch from API
-  // For now, use COLOR_MAP as fallback
-}
-
-/**
- * Render datalabel badge (pure renderer)
+ * Render datalabel badge with backend-provided color
+ *
+ * **IMPORTANT:** Color should come from backend metadata.
+ * Backend provides color in field metadata or via datalabel API endpoint.
+ *
+ * @param value - Badge text
+ * @param datalabel - Datalabel key (unused if metadata provides color)
+ * @param metadata - Backend metadata containing color
  */
 export function renderDataLabelBadge(
   value: string,
   datalabel: string,
   metadata?: { color?: string }
 ): React.ReactElement {
-  const color = metadata?.color || getSettingColor(datalabel, value) || COLOR_MAP[value?.toLowerCase()] || COLOR_MAP.default;
+  // Use backend-provided color or fallback
+  const color = metadata?.color || FALLBACK_COLORS.default;
 
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}>
@@ -249,13 +224,16 @@ export function renderDataLabelBadge(
 }
 
 /**
- * Render generic badge (pure renderer)
+ * Render generic badge with backend-provided color
+ *
+ * @param value - Badge text
+ * @param color - Backend-provided Tailwind color classes
  */
 export function renderBadge(
   value: string,
   color?: string
 ): React.ReactElement {
-  const badgeColor = color || COLOR_MAP[value?.toLowerCase()] || COLOR_MAP.default;
+  const badgeColor = color || FALLBACK_COLORS.default;
 
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeColor}`}>
@@ -263,6 +241,26 @@ export function renderBadge(
     </span>
   );
 }
+
+/**
+ * @deprecated Legacy function - Backend should provide colors in metadata
+ * Get badge color from settings cache
+ */
+export function getSettingColor(datalabel: string, value: string | null | undefined): string | undefined {
+  // Return undefined - colors should come from backend metadata
+  return undefined;
+}
+
+/**
+ * @deprecated Legacy function - Backend should provide colors in metadata
+ * Load settings colors into cache
+ */
+export async function loadSettingsColors(datalabels: string[]): Promise<void> {
+  // No-op - colors should come from backend metadata
+}
+
+// Export minimal fallback for backward compatibility
+export const COLOR_MAP = FALLBACK_COLORS;
 
 // ============================================================================
 // DATA TRANSFORMERS (API <-> Frontend)
@@ -455,10 +453,12 @@ export function renderViewModeFromMetadata(
       );
 
     case 'badge':
+      // Use backend-provided color map (value -> color mapping from datalabel endpoint)
+      const badgeColor = metadata.colorMap?.[value] || metadata.color;
       if (metadata.loadFromDataLabels && metadata.datalabelKey) {
-        return renderDataLabelBadge(value, metadata.datalabelKey);
+        return renderDataLabelBadge(value, metadata.datalabelKey, { color: badgeColor });
       }
-      return renderBadge(value);
+      return renderBadge(value, badgeColor);
 
     case 'json':
       return (
