@@ -12,8 +12,41 @@
 
 import {
   loadSettingsColors,
-  COLOR_MAP
-} from '../../../lib/frontEndFormatterService';
+  COLOR_MAP,
+  renderBadge
+} from './frontEndFormatterService';
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Render a colored badge using the universal badge renderer
+ */
+function renderColorBadge(color: string, value: string) {
+  return renderBadge(value, color);
+}
+
+/**
+ * Extract settings datalabel from column key
+ * Examples: 'project_stage' -> 'project_stage', 'dl__task_priority' -> 'task_priority'
+ */
+function extractSettingsDatalabel(columnKey: string): string {
+  if (columnKey.startsWith('dl__')) {
+    return columnKey.substring(4); // Remove 'dl__' prefix
+  }
+  return columnKey;
+}
+
+/**
+ * Create a badge renderer function for a specific datalabel
+ */
+function createSettingBadgeRenderer(datalabel: string) {
+  return (value: any, record: any) => {
+    const color = record?.color_code || 'gray';
+    return renderBadge(value, color);
+  };
+}
 
 // ============================================================================
 // COLOR SYSTEM - Re-exports from centralized source
