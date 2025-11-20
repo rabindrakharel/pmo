@@ -1,623 +1,992 @@
 /**
  * ============================================================================
- * BACKEND FORMATTER SERVICE - Convention-Based Metadata Generation
+ * BACKEND FORMATTER SERVICE - Component-Aware Metadata Generation
  * ============================================================================
  *
  * PURPOSE:
- * Generate complete field metadata from database column names using
- * convention over configuration. Backend becomes the single source of truth
- * for all field formatting, rendering, and validation rules.
+ * Generate component-specific metadata from column names using pattern matching.
+ * Backend decides all field behavior based on naming conventions.
  *
- * RESPONSIBILITIES:
- * - Analyze column names and detect field types (currency, date, badge, etc.)
- * - Generate complete FieldMetadata for each column
- * - Apply pattern-based detection rules (35+ patterns)
- * - Cache metadata per entity (in-memory/Redis)
- * - Return structured metadata to frontend via API responses
- *
- * NOT RESPONSIBLE FOR:
- * - RBAC (handled by Entity Infrastructure Service)
- * - Data queries (handled by route modules)
- * - Actual rendering (handled by frontend formatter service)
+ * ARCHITECTURE:
+ * - Column name → Pattern match → Component-specific config
+ * - Separate metadata per component (EntityDataTable, EntityFormContainer, KanbanView)
+ * - Global settings for cross-cutting concerns (currency, date formats, etc.)
+ * - Datalabels extracted and fetched separately
  *
  * USAGE:
  * ```typescript
- * import { getEntityMetadata } from './services/backend-formatter.service';
+ * import { generateEntityResponse } from './backend-formatter.service';
  *
  * // In route handler
- * const metadata = await getEntityMetadata('project');
- * return reply.send({ data: projects, metadata });
+ * const response = generateEntityResponse('project', projects, {
+ *   components: ['entityDataTable', 'entityFormContainer']
+ * });
+ * return reply.send(response);
  * ```
  */
-
-import type { InferSelectModel } from 'drizzle-orm';
 
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
 
-/**
- * Component Visibility Control
- * Explicit per-component visibility - backend tells each component what to show
- */
-export interface ComponentVisibility {
-  EntityDataTable: boolean;        // Data table (list view)
-  EntityDetailView: boolean;        // Detail view (single entity)
-  EntityFormContainer: boolean;     // Create/edit forms
-  KanbanView: boolean;              // Kanban board
-  CalendarView: boolean;            // Calendar view
-  // Add new components here - TypeScript will error until all fields updated
-}
+export type ComponentName =
+  | 'entityDataTable'      // Table view for entity lists
+  | 'entityFormContainer'  // Create/edit forms
+  | 'entityDetailView'     // Detail view for single entities
+  | 'kanbanView'           // Kanban board view
+  | 'calendarView'         // Calendar view for events
+  | 'gridView'             // Grid/card view
+  | 'dagView'              // Workflow DAG visualizer
+  | 'hierarchyGraphView';  // Hierarchy graph view
 
-/**
- * Composite Field Configuration
- * Defines fields derived from multiple source fields
- */
-export interface CompositeFieldConfig {
-  composedFrom: string[];           // Source field keys
-  compositeType: 'progress-bar' | 'date-range' | 'address' | 'full-name' | 'calculated';
-  calculation?: string;             // Optional calculation formula
-  showPercentage?: boolean;
-  showDates?: boolean;
-  highlightOverdue?: boolean;
-  startField?: string;              // For date ranges
-  endField?: string;                // For date ranges
-}
-
-export interface FieldMetadata {
-  // Identification
-  key: string;
-  label: string;
-
-  /**
-   * Index in data array (1-based for human readability)
-   * Used for indexed data format where data is sent as arrays instead of objects
-   *
-   * Example:
-   * - index: 1 → data[0] (first element)
-   * - index: 2 → data[1] (second element)
-   * - index: 5 → data[4] (fifth element)
-   *
-   * Benefits:
-   * - 30% smaller payload (no repeated keys)
-   * - 29% faster JSON parsing
-   * - Better compression (gzip/brotli)
-   */
-  index: number;
-
-  // Type & Format
-  type: FieldType;
-  dataType?: string;
-  format: FormatConfig;
-
-  // Rendering (View Mode)
-  renderType: RenderType;
-  viewType: ViewType;
-
-  /**
-   * EntityFormContainer visualization container
-   * ONLY used by EntityFormContainer (EntityDataTable ignores this field)
-   * Overrides default rendering when specified
-   */
-  EntityFormContainer_viz_container?: ComponentType;
-
-  // Input (Edit Mode)
-  inputType: InputType;
-  editType?: EditType;
-
-  // Behavior - OBJECT-BASED VISIBILITY
-  visible: ComponentVisibility;     // ✅ NEW: Per-component visibility
-  sortable: boolean;
+export interface FieldMetadataBase {
+  dtype: 'str' | 'float' | 'int' | 'bool' | 'uuid' | 'date' | 'timestamp' | 'jsonb' | 'array[str]' | 'array[uuid]';
+  format: string;  // 'text', 'currency', 'date:YYYY-MM-DD', 'timestamp-relative', 'badge', etc.
+  internal: boolean;
+  visible: boolean;
   filterable: boolean;
-  searchable: boolean;
+  sortable: boolean;
   editable: boolean;
+  viewType: string;
+  editType: string;
+  width?: string;
+  align?: 'left' | 'center' | 'right';
+
+  // Optional fields
+  searchable?: boolean;
   required?: boolean;
-
-  // Composite Field Support
-  composite?: boolean;              // ✅ NEW: Is this a composite field?
-  compositeConfig?: CompositeFieldConfig;  // ✅ NEW: Composite field configuration
-
-  // Layout
-  align: 'left' | 'right' | 'center';
-  width: string;
-
-  // Options (for dropdowns/selects)
-  endpoint?: string;
-  loadFromDataLabels?: boolean;
-  loadFromEntity?: string;
-  settingsDatalabel?: string;
-  options?: StaticOption[];
-
-  // Validation
-  validation?: ValidationRules;
-
-  // Help
-  help?: string;
   placeholder?: string;
+  help?: string;
 
-  // Pattern Metadata
-  pattern?: PatternType;
-  category?: CategoryType;
-}
-
-export type FieldType =
-  | 'text' | 'currency' | 'percentage' | 'date' | 'timestamp'
-  | 'boolean' | 'reference' | 'array-reference' | 'badge'
-  | 'json' | 'url' | 'uuid';
-
-export type RenderType =
-  | 'text' | 'badge' | 'datalabels' | 'currency' | 'percentage' | 'date' | 'timestamp'
-  | 'boolean' | 'json' | 'array' | 'dag' | 'link' | 'truncated'
-  | 'progress-bar' | 'date-range' | 'composite';  // ✅ NEW: Composite field rendering
-
-export type ViewType =
-  | 'text' | 'badge' | 'tags' | 'link' | 'json-viewer';
-
-export type InputType =
-  | 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time'
-  | 'select' | 'multiselect' | 'checkbox' | 'textarea' | 'richtext'
-  | 'tags' | 'jsonb' | 'file' | 'dag-select' | 'readonly';
-
-export type EditType =
-  | 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time'
-  | 'select' | 'multiselect' | 'checkbox' | 'textarea'
-  | 'tags' | 'jsonb' | 'datatable' | 'file' | 'dag-select';
-
-export type ComponentType =
-  | 'DAGVisualizer' | 'MetadataTable' | 'TagsInput'
-  | 'DateRangeVisualizer' | 'FileUpload' | 'RichTextEditor'
-  | 'SearchableMultiSelect' | 'ProgressBar';  // ✅ NEW: Progress bar for composite fields
-
-export type PatternType =
-  | 'CURRENCY' | 'PERCENTAGE' | 'TIMESTAMP' | 'DATE' | 'BOOLEAN'
-  | 'FOREIGN_KEY' | 'COUNT' | 'DATALABEL' | 'STANDARD'
-  | 'JSONB' | 'ARRAY' | 'SYSTEM' | 'UNKNOWN';
-
-export type CategoryType =
-  | 'identity' | 'financial' | 'temporal' | 'reference' | 'boolean'
-  | 'quantitative' | 'standard' | 'structured' | 'system' | 'content';
-
-export interface FormatConfig {
-  symbol?: string;
+  // For currency
+  currencySymbol?: string;
   decimals?: number;
   locale?: string;
-  style?: 'short' | 'long' | 'relative' | 'datetime';
-  timeZone?: string;
-  loadFromDataLabels?: boolean;
-  colorMap?: Record<string, string>;
+
+  // For percentage
+  min?: number;
+  max?: number;
+
+  // For dates
+  dateFormat?: string;
+
+  // For timestamps
+  timestampFormat?: 'relative' | 'datetime' | 'date';
+
+  // For booleans
   trueLabel?: string;
   falseLabel?: string;
   trueColor?: string;
   falseColor?: string;
-  entity?: string;
+
+  // For references
+  loadFromEntity?: string;
+  loadFromDataLabels?: boolean;
+  endpoint?: string;
   displayField?: string;
+  datalabelKey?: string;
 }
 
-export interface StaticOption {
-  value: string | number | boolean;
-  label: string;
-  color?: string;
-  icon?: string;
-  order?: number;
-}
-
-export interface ValidationRules {
-  min?: number;
-  max?: number;
-  minLength?: number;
-  maxLength?: number;
-  pattern?: string;
-  custom?: string;
+export interface ComponentMetadata {
+  [fieldName: string]: FieldMetadataBase;
 }
 
 export interface EntityMetadata {
-  entity: string;
+  entityDataTable?: ComponentMetadata;
+  entityFormContainer?: ComponentMetadata;
+  entityDetailView?: ComponentMetadata;
+  kanbanView?: ComponentMetadata;
+  calendarView?: ComponentMetadata;
+  gridView?: ComponentMetadata;
+  dagView?: ComponentMetadata;
+  hierarchyGraphView?: ComponentMetadata;
+}
+
+export interface DatalabelOption {
+  id: number;
+  name: string;
+  descr?: string | null;
+  parent_id: number | null;
+  sort_order: number;
+  color_code: string;
+  active_flag: boolean;
+}
+
+export interface DatalabelData {
+  key: string;
   label: string;
-  labelPlural: string;
-  icon?: string;
-  fields: FieldMetadata[];
-  primaryKey: string;
-  displayField: string;
-  apiEndpoint: string;
-  supportedViews?: string[];
-  defaultView?: string;
-  generated_at: string;
+  options: DatalabelOption[];
+}
+
+export interface GlobalSettings {
+  currency: {
+    symbol: string;
+    decimals: number;
+    locale: string;
+    position: 'prefix' | 'suffix';
+    thousandsSeparator: string;
+    decimalSeparator: string;
+  };
+  date: {
+    style: 'short' | 'long' | 'medium' | 'full';
+    locale: string;
+    format?: string;
+  };
+  timestamp: {
+    style: 'datetime' | 'relative' | 'timestamp';
+    locale: string;
+    includeSeconds: boolean;
+  };
+  boolean: {
+    trueLabel: string;
+    falseLabel: string;
+    trueColor: string;
+    falseColor: string;
+    trueIcon?: string;
+    falseIcon?: string;
+  };
+}
+
+export interface EntityResponse {
+  data: any[];
+  fields: string[];
+  metadata: EntityMetadata;
+  datalabels: DatalabelData[];
+  globalSettings: GlobalSettings;
+  total: number;
+  limit: number;
+  offset: number;
+  format?: 'object' | 'indexed';
 }
 
 // ============================================================================
-// PATTERN DETECTION RULES
+// GLOBAL SETTINGS
 // ============================================================================
 
-interface PatternRule extends Partial<FieldMetadata> {
-  componentFn?: (fieldKey: string) => ComponentType | undefined;
+export const GLOBAL_SETTINGS: GlobalSettings = {
+  currency: {
+    symbol: '$',
+    decimals: 2,
+    locale: 'en-CA',
+    position: 'prefix',
+    thousandsSeparator: ',',
+    decimalSeparator: '.'
+  },
+  date: {
+    style: 'short',
+    locale: 'en-US',
+    format: 'MM/DD/YYYY'
+  },
+  timestamp: {
+    style: 'datetime',
+    locale: 'en-US',
+    includeSeconds: false
+  },
+  boolean: {
+    trueLabel: 'Yes',
+    falseLabel: 'No',
+    trueColor: 'green',
+    falseColor: 'gray',
+    trueIcon: 'check',
+    falseIcon: 'x'
+  }
+};
+
+// ============================================================================
+// PATTERN RULES - COMPONENT-SPECIFIC BEHAVIOR
+// ============================================================================
+
+interface PatternRule {
+  // Required components - must be defined
+  entityDataTable: Partial<FieldMetadataBase>;
+  entityFormContainer: Partial<FieldMetadataBase>;
+
+  // Optional components - will inherit from defaults if not specified
+  entityDetailView?: Partial<FieldMetadataBase>;
+  kanbanView?: Partial<FieldMetadataBase>;
+  calendarView?: Partial<FieldMetadataBase>;
+  gridView?: Partial<FieldMetadataBase>;
+  dagView?: Partial<FieldMetadataBase>;
+  hierarchyGraphView?: Partial<FieldMetadataBase>;
 }
 
 const PATTERN_RULES: Record<string, PatternRule> = {
-  // === CURRENCY ===
-  '*_amt': {
-    type: 'currency',
-    renderType: 'currency',
-    inputType: 'currency',
-    editType: 'number',
-    format: { symbol: '$', decimals: 2, locale: 'en-CA' },
-    align: 'right',
-    width: '140px',
-    pattern: 'CURRENCY',
-    category: 'financial',
-    visible: true,
-    sortable: true,
-    filterable: true,
-    searchable: false,
-    editable: true
-  },
-  '*_price': {
-    type: 'currency',
-    renderType: 'currency',
-    inputType: 'currency',
-    editType: 'number',
-    format: { symbol: '$', decimals: 2, locale: 'en-CA' },
-    align: 'right',
-    width: '120px',
-    pattern: 'CURRENCY',
-    category: 'financial',
-    visible: true,
-    sortable: true,
-    filterable: true,
-    editable: true
-  },
-  '*_cost': {
-    type: 'currency',
-    renderType: 'currency',
-    inputType: 'currency',
-    editType: 'number',
-    format: { symbol: '$', decimals: 2, locale: 'en-CA' },
-    align: 'right',
-    width: '120px',
-    pattern: 'CURRENCY',
-    category: 'financial',
-    visible: true,
-    sortable: true,
-    filterable: true,
-    editable: true
-  },
-
-  // === PERCENTAGE ===
-  '*_pct': {
-    type: 'percentage',
-    renderType: 'percentage',
-    inputType: 'number',
-    editType: 'number',
-    format: { decimals: 1 },
-    align: 'right',
-    width: '100px',
-    pattern: 'PERCENTAGE',
-    category: 'quantitative',
-    visible: true,
-    sortable: true,
-    editable: true
-  },
-  '*_rate': {
-    type: 'percentage',
-    renderType: 'percentage',
-    inputType: 'number',
-    editType: 'number',
-    format: { decimals: 1 },
-    align: 'right',
-    width: '100px',
-    pattern: 'PERCENTAGE',
-    category: 'quantitative',
-    visible: true,
-    sortable: true,
-    editable: true
-  },
-
-  // === DATE/TIME ===
-  '*_date': {
-    type: 'date',
-    renderType: 'date',
-    inputType: 'date',
-    editType: 'date',
-    format: { style: 'short', locale: 'en-US' },
-    align: 'left',
-    width: '120px',
-    pattern: 'DATE',
-    category: 'temporal',
-    visible: true,
-    sortable: true,
-    filterable: true,
-    editable: true
-  },
-  '*_ts': {
-    type: 'timestamp',
-    renderType: 'timestamp',
-    inputType: 'readonly',
-    format: { style: 'relative' },
-    align: 'left',
-    width: '120px',
-    pattern: 'TIMESTAMP',
-    category: 'temporal',
-    visible: false,
-    sortable: true,
-    editable: false
-  },
-  'created_ts': {
-    type: 'timestamp',
-    renderType: 'timestamp',
-    inputType: 'readonly',
-    format: { style: 'datetime', locale: 'en-US' },
-    align: 'left',
-    width: '160px',
-    pattern: 'TIMESTAMP',
-    category: 'temporal',
-    visible: true,
-    sortable: true,
-    editable: false
-  },
-  'updated_ts': {
-    type: 'timestamp',
-    renderType: 'timestamp',
-    inputType: 'readonly',
-    format: { style: 'datetime', locale: 'en-US' },
-    align: 'left',
-    width: '160px',
-    pattern: 'TIMESTAMP',
-    category: 'temporal',
-    visible: true,
-    sortable: true,
-    editable: false
-  },
-  'from_ts': {
-    type: 'timestamp',
-    renderType: 'timestamp',
-    inputType: 'readonly',
-    format: { style: 'relative' },
-    align: 'left',
-    width: '120px',
-    pattern: 'TIMESTAMP',
-    category: 'temporal',
-    visible: false,
-    sortable: true,
-    editable: false
-  },
-  'to_ts': {
-    type: 'timestamp',
-    renderType: 'timestamp',
-    inputType: 'readonly',
-    format: { style: 'relative' },
-    align: 'left',
-    width: '120px',
-    pattern: 'TIMESTAMP',
-    category: 'temporal',
-    visible: false,
-    sortable: true,
-    editable: false
-  },
-
-  // === BOOLEAN ===
-  '*_flag': {
-    type: 'boolean',
-    renderType: 'boolean',
-    viewType: 'badge',
-    inputType: 'checkbox',
-    editType: 'checkbox',
-    format: { trueLabel: 'Yes', falseLabel: 'No', trueColor: 'green', falseColor: 'gray' },
-    align: 'center',
-    width: '100px',
-    pattern: 'BOOLEAN',
-    category: 'boolean',
-    visible: true,
-    sortable: true,
-    filterable: true,
-    editable: true
-  },
-  'is_*': {
-    type: 'boolean',
-    renderType: 'boolean',
-    viewType: 'badge',
-    inputType: 'checkbox',
-    editType: 'checkbox',
-    format: { trueLabel: 'Yes', falseLabel: 'No', trueColor: 'green', falseColor: 'gray' },
-    align: 'center',
-    width: '100px',
-    pattern: 'BOOLEAN',
-    category: 'boolean',
-    visible: true,
-    sortable: true,
-    editable: true
-  },
-
-  // === DATALABELS (Settings Dropdowns) ===
-  'dl__*': {
-    type: 'badge',
-    renderType: 'datalabels',  // ✅ EXPLICIT: Loads from datalabels, renders differently per context
-    viewType: 'badge',
-    inputType: 'select',
-    editType: 'select',
-    format: { loadFromDataLabels: true },
-    align: 'left',
-    width: '140px',
-    pattern: 'DATALABEL',
-    category: 'standard',
-    loadFromDataLabels: true,
-    visible: true,
-    sortable: true,
-    filterable: true,
-    editable: true,
-    // ✅ EXPLICIT: Detect DAG component for stage/status/funnel fields
-    // Overrides renderType when present
-    // - stage/status/funnel → EntityFormContainer_viz_container: 'DAGVisualizer'
-    // - priority/category → No component (uses renderType: 'datalabels')
-    componentFn: (fieldKey: string) => {
-      const lowerKey = fieldKey.toLowerCase();
-      if (lowerKey.includes('_stage') ||
-          lowerKey.includes('_status') ||
-          lowerKey.includes('_funnel')) {
-        return 'DAGVisualizer';
-      }
-      return undefined;  // Other dl__ fields: renderType 'datalabels' determines behavior
+  // ========================================
+  // IDENTITY FIELDS
+  // ========================================
+  'id': {
+    entityDataTable: {
+      dtype: 'uuid',
+      format: 'text',
+      internal: true,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'text',
+      editType: 'readonly',
+      width: 'auto',
+      align: 'left',
+      help: 'Hidden but kept for row actions'
+    },
+    entityFormContainer: {
+      dtype: 'uuid',
+      format: 'text',
+      internal: true,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'text',
+      editType: 'readonly',
+      help: 'Read-only UUID field'
+    },
+    kanbanView: {
+      dtype: 'uuid',
+      format: 'text',
+      internal: true,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'text',
+      editType: 'readonly'
     }
   },
 
-  // === REFERENCE (Foreign Keys) ===
-  '*__employee_id': {
-    type: 'reference',
-    renderType: 'text',
-    inputType: 'select',
-    editType: 'select',
-    format: { entity: 'employee', displayField: 'name' },
-    align: 'left',
-    width: '150px',
-    pattern: 'FOREIGN_KEY',
-    category: 'reference',
-    loadFromEntity: 'employee',
-    visible: true,
-    sortable: true,
-    filterable: true,
-    editable: true
-  },
-  '*__employee_ids': {
-    type: 'array-reference',
-    renderType: 'array',
-    viewType: 'tags',
-    inputType: 'multiselect',
-    editType: 'multiselect',
-    component: 'SearchableMultiSelect',
-    format: { entity: 'employee', displayField: 'name' },
-    align: 'left',
-    width: 'auto',
-    pattern: 'ARRAY',
-    category: 'reference',
-    loadFromEntity: 'employee',
-    visible: true,
-    sortable: false,
-    filterable: false,
-    editable: true
-  },
-  '*_id': {
-    type: 'reference',
-    renderType: 'text',
-    inputType: 'select',
-    editType: 'select',
-    align: 'left',
-    width: '150px',
-    pattern: 'FOREIGN_KEY',
-    category: 'reference',
-    visible: true,
-    sortable: true,
-    filterable: true,
-    editable: true
-  },
-
-  // === URL ===
-  '*_url': {
-    type: 'url',
-    renderType: 'link',
-    viewType: 'link',
-    inputType: 'text',
-    editType: 'text',
-    align: 'left',
-    width: 'auto',
-    pattern: 'STANDARD',
-    category: 'reference',
-    visible: true,
-    sortable: false,
-    editable: true
-  },
-
-  // === JSON ===
-  'metadata': {
-    type: 'json',
-    renderType: 'json',
-    viewType: 'json-viewer',
-    inputType: 'jsonb',
-    editType: 'jsonb',
-    component: 'MetadataTable',
-    align: 'left',
-    width: 'auto',
-    pattern: 'JSONB',
-    category: 'structured',
-    visible: false,
-    sortable: false,
-    filterable: false,
-    editable: false
-  },
-
-  // === SYSTEM ===
-  'id': {
-    type: 'uuid',
-    renderType: 'text',
-    inputType: 'readonly',
-    align: 'left',
-    width: 'auto',
-    pattern: 'SYSTEM',
-    category: 'identity',
-    visible: false,
-    sortable: false,
-    filterable: false,
-    editable: false
-  },
-  'version': {
-    type: 'text',
-    renderType: 'text',
-    inputType: 'readonly',
-    align: 'right',
-    width: '80px',
-    pattern: 'SYSTEM',
-    category: 'system',
-    visible: false,
-    sortable: false,
-    editable: false
-  },
-
-  // === STANDARD ===
   'code': {
-    type: 'text',
-    renderType: 'text',
-    inputType: 'text',
-    editType: 'text',
-    align: 'left',
-    width: '120px',
-    pattern: 'STANDARD',
-    category: 'identity',
-    visible: true,
-    sortable: true,
-    filterable: true,
-    searchable: true,
-    editable: true,
-    required: true,
-    validation: { maxLength: 50 }
+    entityDataTable: {
+      dtype: 'str',
+      format: 'text',
+      internal: false,
+      visible: true,
+      filterable: true,
+      sortable: true,
+      editable: true,
+      viewType: 'text',
+      editType: 'text',
+      width: '140px',
+      align: 'left',
+      searchable: true,
+      required: true
+    },
+    entityFormContainer: {
+      dtype: 'str',
+      format: 'text',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: true,
+      viewType: 'text',
+      editType: 'text',
+      searchable: false,
+      required: true,
+      placeholder: 'Enter code...'
+    },
+    kanbanView: {
+      dtype: 'str',
+      format: 'text',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'text',
+      editType: 'text'
+    }
   },
+
   'name': {
-    type: 'text',
-    renderType: 'text',
-    inputType: 'text',
-    editType: 'text',
-    align: 'left',
-    width: 'auto',
-    pattern: 'STANDARD',
-    category: 'identity',
-    visible: true,
-    sortable: true,
-    filterable: true,
-    searchable: true,
-    editable: true,
-    required: true,
-    validation: { minLength: 3, maxLength: 200 }
+    entityDataTable: {
+      dtype: 'str',
+      format: 'text',
+      internal: false,
+      visible: true,
+      filterable: true,
+      sortable: true,
+      editable: true,
+      viewType: 'text',
+      editType: 'text',
+      width: '250px',
+      align: 'left',
+      searchable: true,
+      required: true
+    },
+    entityFormContainer: {
+      dtype: 'str',
+      format: 'text',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: true,
+      viewType: 'text',
+      editType: 'text',
+      required: true,
+      placeholder: 'Enter name...'
+    },
+    kanbanView: {
+      dtype: 'str',
+      format: 'text',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'text',
+      editType: 'text'
+    }
   },
+
   'descr': {
-    type: 'text',
-    renderType: 'truncated',
-    inputType: 'textarea',
-    editType: 'textarea',
-    align: 'left',
-    width: 'auto',
-    pattern: 'STANDARD',
-    category: 'content',
-    visible: true,
-    sortable: false,
-    filterable: false,
-    searchable: true,
-    editable: true
+    entityDataTable: {
+      dtype: 'str',
+      format: 'text',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'truncated',
+      editType: 'textarea',
+      searchable: true,
+      help: 'Hidden in table (too long)'
+    },
+    entityFormContainer: {
+      dtype: 'str',
+      format: 'text',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: true,
+      viewType: 'text',
+      editType: 'textarea',
+      placeholder: 'Enter description...'
+    },
+    kanbanView: {
+      dtype: 'str',
+      format: 'text',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'truncated',
+      editType: 'textarea'
+    }
+  },
+
+  // ========================================
+  // FINANCIAL FIELDS
+  // ========================================
+  '*_amt': {
+    entityDataTable: {
+      dtype: 'float',
+      format: 'currency',
+      internal: false,
+      visible: true,
+      filterable: true,
+      sortable: true,
+      editable: true,
+      viewType: 'currency',
+      editType: 'currency',
+      width: '140px',
+      align: 'right',
+      currencySymbol: '$',
+      decimals: 2,
+      locale: 'en-CA'
+    },
+    entityFormContainer: {
+      dtype: 'float',
+      format: 'currency',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: true,
+      viewType: 'currency',
+      editType: 'currency',
+      currencySymbol: '$',
+      decimals: 2,
+      placeholder: '0.00'
+    },
+    kanbanView: {
+      dtype: 'float',
+      format: 'currency',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'currency',
+      editType: 'currency'
+    }
+  },
+
+  '*_pct': {
+    entityDataTable: {
+      dtype: 'float',
+      format: 'percentage',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: true,
+      editable: true,
+      viewType: 'percentage',
+      editType: 'number',
+      width: '100px',
+      align: 'right',
+      decimals: 0,
+      min: 0,
+      max: 100
+    },
+    entityFormContainer: {
+      dtype: 'float',
+      format: 'percentage',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: true,
+      viewType: 'percentage',
+      editType: 'number',
+      decimals: 0,
+      min: 0,
+      max: 100,
+      placeholder: '0'
+    },
+    kanbanView: {
+      dtype: 'float',
+      format: 'percentage',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'percentage',
+      editType: 'number'
+    }
+  },
+
+  // ========================================
+  // TEMPORAL FIELDS
+  // ========================================
+  '*_date': {
+    entityDataTable: {
+      dtype: 'date',
+      format: 'date:YYYY-MM-DD',
+      internal: false,
+      visible: true,
+      filterable: true,
+      sortable: true,
+      editable: true,
+      viewType: 'date',
+      editType: 'date',
+      width: '120px',
+      align: 'left',
+      dateFormat: 'MM/DD/YYYY',
+      locale: 'en-US'
+    },
+    entityFormContainer: {
+      dtype: 'date',
+      format: 'date:YYYY-MM-DD',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: true,
+      viewType: 'date',
+      editType: 'date',
+      dateFormat: 'MM/DD/YYYY'
+    },
+    kanbanView: {
+      dtype: 'date',
+      format: 'date:YYYY-MM-DD',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'date',
+      editType: 'date'
+    }
+  },
+
+  'created_ts': {
+    entityDataTable: {
+      dtype: 'timestamp',
+      format: 'timestamp-relative',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: true,
+      editable: false,
+      viewType: 'timestamp',
+      editType: 'readonly',
+      width: '160px',
+      align: 'left',
+      timestampFormat: 'relative',
+      locale: 'en-US'
+    },
+    entityFormContainer: {
+      dtype: 'timestamp',
+      format: 'timestamp-relative',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'timestamp',
+      editType: 'readonly'
+    },
+    kanbanView: {
+      dtype: 'timestamp',
+      format: 'timestamp-relative',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'timestamp',
+      editType: 'readonly'
+    }
+  },
+
+  'updated_ts': {
+    entityDataTable: {
+      dtype: 'timestamp',
+      format: 'timestamp-absolute',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: true,
+      editable: false,
+      viewType: 'timestamp',
+      editType: 'readonly',
+      width: '160px',
+      align: 'left',
+      timestampFormat: 'datetime'
+    },
+    entityFormContainer: {
+      dtype: 'timestamp',
+      format: 'timestamp-absolute',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'timestamp',
+      editType: 'readonly'
+    },
+    kanbanView: {
+      dtype: 'timestamp',
+      format: 'timestamp-absolute',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'timestamp',
+      editType: 'readonly'
+    }
+  },
+
+  // ========================================
+  // BOOLEAN FIELDS
+  // ========================================
+  '*_flag': {
+    entityDataTable: {
+      dtype: 'bool',
+      format: 'boolean',
+      internal: false,
+      visible: true,
+      filterable: true,
+      sortable: true,
+      editable: true,
+      viewType: 'boolean',
+      editType: 'checkbox',
+      width: '80px',
+      align: 'center',
+      trueLabel: 'Yes',
+      falseLabel: 'No',
+      trueColor: 'green',
+      falseColor: 'gray'
+    },
+    entityFormContainer: {
+      dtype: 'bool',
+      format: 'boolean',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: true,
+      viewType: 'boolean',
+      editType: 'checkbox',
+      trueLabel: 'Yes',
+      falseLabel: 'No'
+    },
+    kanbanView: {
+      dtype: 'bool',
+      format: 'boolean',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'boolean',
+      editType: 'checkbox'
+    }
+  },
+
+  // ========================================
+  // DATALABEL FIELDS (SETTINGS DROPDOWNS)
+  // ========================================
+  'dl__*': {
+    entityDataTable: {
+      dtype: 'str',
+      format: 'datalabel_lookup',
+      internal: false,
+      visible: true,
+      filterable: true,
+      sortable: true,
+      editable: true,
+      viewType: 'badge',       // ← Show as badge in table
+      editType: 'select',
+      width: '140px',
+      align: 'left'
+    },
+    entityFormContainer: {
+      dtype: 'str',
+      format: 'datalabel_lookup',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: true,
+      viewType: 'dag',         // ← Show as DAG in forms
+      editType: 'select'
+    },
+    entityDetailView: {
+      dtype: 'str',
+      format: 'datalabel_lookup',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'badge',       // ← Show as badge in detail view
+      editType: 'select'
+    },
+    kanbanView: {
+      dtype: 'str',
+      format: 'datalabel_lookup',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'badge',       // ← Show as badge on kanban cards
+      editType: 'select'
+    },
+    calendarView: {
+      dtype: 'str',
+      format: 'datalabel_lookup',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'badge',       // ← Show as badge on calendar events
+      editType: 'select'
+    },
+    gridView: {
+      dtype: 'str',
+      format: 'datalabel_lookup',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'badge',       // ← Show as badge in grid cards
+      editType: 'select'
+    },
+    dagView: {
+      dtype: 'str',
+      format: 'datalabel_lookup',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'dag',         // ← Show in DAG visualizer (workflow diagram)
+      editType: 'select'
+    },
+    hierarchyGraphView: {
+      dtype: 'str',
+      format: 'datalabel_lookup',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'badge',       // ← Show as badge in hierarchy graph
+      editType: 'select'
+    }
+  },
+
+  // ========================================
+  // REFERENCE FIELDS (FOREIGN KEYS)
+  // ========================================
+  '*__employee_id': {
+    entityDataTable: {
+      dtype: 'uuid',
+      format: 'reference',
+      internal: false,
+      visible: true,
+      filterable: true,
+      sortable: true,
+      editable: true,
+      viewType: 'text',
+      editType: 'select',
+      width: '150px',
+      align: 'left',
+      loadFromEntity: 'employee',
+      endpoint: '/api/v1/entity/employee/entity-instance-lookup',
+      displayField: 'name',
+      searchable: true
+    },
+    entityFormContainer: {
+      dtype: 'uuid',
+      format: 'reference',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: true,
+      viewType: 'text',
+      editType: 'select',
+      loadFromEntity: 'employee',
+      endpoint: '/api/v1/entity/employee/entity-instance-lookup',
+      displayField: 'name',
+      searchable: true
+    },
+    kanbanView: {
+      dtype: 'uuid',
+      format: 'reference',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'text',
+      editType: 'select'
+    }
+  },
+
+  '*__employee_ids': {
+    entityDataTable: {
+      dtype: 'array[uuid]',
+      format: 'array',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'array',
+      editType: 'multiselect',
+      help: 'Array too complex for table'
+    },
+    entityFormContainer: {
+      dtype: 'array[uuid]',
+      format: 'array',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: true,
+      viewType: 'array',
+      editType: 'multiselect',
+      loadFromEntity: 'employee',
+      endpoint: '/api/v1/entity/employee/entity-instance-lookup'
+    },
+    kanbanView: {
+      dtype: 'array[uuid]',
+      format: 'array',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'array',
+      editType: 'multiselect'
+    }
+  },
+
+  '*_id': {
+    entityDataTable: {
+      dtype: 'uuid',
+      format: 'entity_lookup',  // ← Changed from 'reference' to 'entity_lookup'
+      internal: false,
+      visible: true,
+      filterable: true,
+      sortable: true,
+      editable: true,
+      viewType: 'entity_lookup',
+      editType: 'entity_lookup',
+      width: '150px',
+      align: 'left',
+      searchable: true,
+      displayField: 'name',     // ← Show name in view mode
+      valueField: 'id'          // ← Store ID in database
+      // loadFromEntity and endpoint will be set dynamically in generateFieldMetadataForComponent()
+    },
+    entityFormContainer: {
+      dtype: 'uuid',
+      format: 'entity_lookup',  // ← Changed from 'reference' to 'entity_lookup'
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: true,
+      viewType: 'entity_lookup',
+      editType: 'entity_lookup',
+      searchable: true,
+      displayField: 'name',     // ← Show name in dropdown
+      valueField: 'id'          // ← Store ID when selected
+      // loadFromEntity and endpoint will be set dynamically in generateFieldMetadataForComponent()
+    },
+    kanbanView: {
+      dtype: 'uuid',
+      format: 'entity_lookup',  // ← Changed from 'reference' to 'entity_lookup'
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'entity_lookup',
+      editType: 'entity_lookup',
+      displayField: 'name',
+      valueField: 'id'
+    }
+  },
+
+  // ========================================
+  // STRUCTURED DATA
+  // ========================================
+  'metadata': {
+    entityDataTable: {
+      dtype: 'jsonb',
+      format: 'json',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'json',
+      editType: 'jsonb',
+      help: 'Too complex for table'
+    },
+    entityFormContainer: {
+      dtype: 'jsonb',
+      format: 'json',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: true,
+      viewType: 'json',
+      editType: 'jsonb'
+    },
+    kanbanView: {
+      dtype: 'jsonb',
+      format: 'json',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'json',
+      editType: 'jsonb'
+    }
+  },
+
+  'tags': {
+    entityDataTable: {
+      dtype: 'array[str]',
+      format: 'array',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'array',
+      editType: 'tags',
+      help: 'Array, shown in detail/form'
+    },
+    entityFormContainer: {
+      dtype: 'array[str]',
+      format: 'array',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: true,
+      viewType: 'array',
+      editType: 'tags'
+    },
+    kanbanView: {
+      dtype: 'array[str]',
+      format: 'array',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'array',
+      editType: 'tags'
+    }
+  },
+
+  // ========================================
+  // SYSTEM FIELDS
+  // ========================================
+  'version': {
+    entityDataTable: {
+      dtype: 'int',
+      format: 'text',
+      internal: true,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'text',
+      editType: 'readonly',
+      help: 'System field'
+    },
+    entityFormContainer: {
+      dtype: 'int',
+      format: 'text',
+      internal: true,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'text',
+      editType: 'readonly'
+    },
+    kanbanView: {
+      dtype: 'int',
+      format: 'text',
+      internal: true,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'text',
+      editType: 'readonly'
+    }
   }
 };
 
@@ -634,30 +1003,55 @@ function matchPattern(fieldName: string, pattern: string): boolean {
 }
 
 /**
+ * Find matching pattern rule for field name
+ */
+function findMatchingRule(fieldName: string): PatternRule | null {
+  // Exact match first
+  if (PATTERN_RULES[fieldName]) {
+    return PATTERN_RULES[fieldName];
+  }
+
+  // Pattern match
+  for (const [pattern, rule] of Object.entries(PATTERN_RULES)) {
+    if (matchPattern(fieldName, pattern)) {
+      return rule;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Generate human-readable label from field name
  */
 function generateLabel(fieldName: string): string {
+  // Special handling for entity reference fields with prefix: {prefix}__{entity}_id
+  // Examples:
+  //   manager__employee_id → "Manager Employee"
+  //   sponsor__employee_id → "Sponsor Employee"
+  //   parent__project_id → "Parent Project"
+  const prefixedEntityMatch = fieldName.match(/^(.+?)__(\w+)_id$/);
+  if (prefixedEntityMatch) {
+    const prefix = prefixedEntityMatch[1];  // "manager", "sponsor", "parent"
+    const entity = prefixedEntityMatch[2];  // "employee", "project"
+    const prefixLabel = prefix.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    const entityLabel = entity.charAt(0).toUpperCase() + entity.slice(1);
+    return `${prefixLabel} ${entityLabel}`;  // "Manager Employee", "Sponsor Employee"
+  }
+
+  // Remove common suffixes and prefixes for clean labels
   let label = fieldName
-    // Remove common prefixes
     .replace(/^dl__/, '')
-    .replace(/^parent__/, 'Parent ')
-    // Remove common suffixes
-    .replace(/__employee_id(s)?$/, '')
     .replace(/_id$/, '')
     .replace(/_amt$/, '')
     .replace(/_date$/, '')
     .replace(/_ts$/, '')
     .replace(/_flag$/, '')
     .replace(/_url$/, '')
-    .replace(/_hours$/, '')
-    .replace(/_points$/, '')
-    .replace(/_pct$/, '')
-    .replace(/_rate$/, '');
+    .replace(/_pct$/, '');
 
-  // Special cases
   if (label === 'descr') label = 'description';
 
-  // Convert snake_case to Title Case
   return label
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -668,543 +1062,181 @@ function generateLabel(fieldName: string): string {
  * Detect entity name from reference field
  */
 function detectEntityFromFieldName(fieldName: string): string | null {
-  // Pattern 1: *__entity_id → entity
+  // Pattern: *__entity_id → entity
   const match1 = fieldName.match(/^.*__(\w+)_id$/);
   if (match1) return match1[1];
 
-  // Pattern 2: entity_id → entity
+  // Pattern: entity_id → entity
   const match2 = fieldName.match(/^(\w+)_id$/);
   if (match2 && match2[1] !== 'id') return match2[1];
-
-  // Pattern 3: parent__entity_id → entity
-  const match3 = fieldName.match(/^parent__(.+)_id$/);
-  if (match3) return match3[1];
 
   return null;
 }
 
 /**
- * Generate endpoint for field options
+ * Component inheritance mapping
+ * Components inherit rules from their parent if not explicitly defined
  */
-function generateEndpoint(metadata: Partial<FieldMetadata>, fieldKey: string): string | undefined {
-  if (metadata.loadFromDataLabels && fieldKey.startsWith('dl__')) {
-    const datalabelName = fieldKey.substring(4); // Remove 'dl__'
-    return `/api/v1/setting?datalabel=dl__${datalabelName}`;
-  }
-
-  if (metadata.loadFromEntity) {
-    return `/api/v1/entity/${metadata.loadFromEntity}/entity-instance-lookup`;
-  }
-
-  return undefined;
-}
-
-/**
- * Create default ComponentVisibility object
- * By default, all components can see all fields (opt-out model)
- */
-function createDefaultVisibility(overrides?: Partial<ComponentVisibility>): ComponentVisibility {
-  return {
-    EntityDataTable: true,
-    EntityDetailView: true,
-    EntityFormContainer: true,
-    KanbanView: true,
-    CalendarView: true,
-    ...overrides
-  };
-}
-
-/**
- * Create visibility for composite fields
- * Composites typically only shown in detail view
- */
-function createCompositeVisibility(): ComponentVisibility {
-  return {
-    EntityDataTable: false,        // Don't show in table (too complex)
-    EntityDetailView: true,         // Show in detail view (primary use case)
-    EntityFormContainer: false,     // Don't show in form (edit source fields instead)
-    KanbanView: false,              // Don't show in kanban
-    CalendarView: false             // Don't show in calendar
-  };
-}
-
-/**
- * Create visibility for source fields of composite
- * Hide from detail view (composite shows instead), but keep in other views
- */
-function createSourceFieldVisibility(): ComponentVisibility {
-  return {
-    EntityDataTable: true,          // Show in table
-    EntityDetailView: false,        // Hide in detail (composite replaces)
-    EntityFormContainer: true,      // Show in form for editing
-    KanbanView: true,               // Show in kanban
-    CalendarView: true              // Show in calendar
-  };
-}
-
-/**
- * Generate field metadata from column name
- */
-function generateFieldMetadata(fieldName: string, dataType?: string, index?: number): FieldMetadata {
-  // Default metadata
-  let metadata: FieldMetadata = {
-    key: fieldName,
-    label: generateLabel(fieldName),
-    index: index || 0,  // Will be set properly in generateEntityMetadata
-    type: 'text',
-    dataType,
-    format: {},
-    renderType: 'text',
-    viewType: 'text',
-    inputType: 'text',
-    visible: createDefaultVisibility(),  // ✅ NEW: Object-based visibility
-    sortable: true,
-    filterable: true,
-    searchable: false,
-    editable: true,
-    align: 'left',
-    width: 'auto'
-  };
-
-  // Apply pattern rules (first match wins)
-  for (const [pattern, rules] of Object.entries(PATTERN_RULES)) {
-    if (matchPattern(fieldName, pattern)) {
-      // Filter out 'visible' from rules (we manage visibility separately now)
-      const { visible: _unusedVisible, ...rulesWithoutVisible } = rules as any;
-
-      // Apply all rule properties (except visible)
-      metadata = { ...metadata, ...rulesWithoutVisible };
-
-      // Handle component function
-      if (rules.componentFn) {
-        metadata.EntityFormContainer_viz_container = rules.componentFn(fieldName);
-        delete (metadata as any).componentFn; // Remove function from metadata
-      }
-
-      // Auto-detect entity for *_id references
-      if (pattern === '*_id' && !fieldName.includes('__')) {
-        const detectedEntity = detectEntityFromFieldName(fieldName);
-        if (detectedEntity) {
-          metadata.format = { ...metadata.format, entity: detectedEntity, displayField: 'name' };
-          metadata.loadFromEntity = detectedEntity;
-        }
-      }
-
-      // Generate endpoint
-      metadata.endpoint = generateEndpoint(metadata, fieldName);
-
-      // Set settingsDatalabel for dl__* fields
-      if (pattern === 'dl__*') {
-        metadata.settingsDatalabel = fieldName;
-      }
-
-      break; // First match wins
-    }
-  }
-
-  return metadata;
-}
-
-// ============================================================================
-// ENTITY CONFIGURATION
-// ============================================================================
-
-const ENTITY_CONFIG: Record<string, Partial<EntityMetadata>> = {
-  office: {
-    entity: 'office',
-    label: 'Office',
-    labelPlural: 'Offices',
-    icon: 'building',
-    primaryKey: 'id',
-    displayField: 'name',
-    apiEndpoint: '/api/v1/office',
-    supportedViews: ['table', 'grid'],
-    defaultView: 'table'
-  },
-  business: {
-    entity: 'business',
-    label: 'Business',
-    labelPlural: 'Businesses',
-    icon: 'briefcase',
-    primaryKey: 'id',
-    displayField: 'name',
-    apiEndpoint: '/api/v1/business',
-    supportedViews: ['table', 'grid'],
-    defaultView: 'table'
-  },
-  project: {
-    entity: 'project',
-    label: 'Project',
-    labelPlural: 'Projects',
-    icon: 'folder',
-    primaryKey: 'id',
-    displayField: 'name',
-    apiEndpoint: '/api/v1/project',
-    supportedViews: ['table', 'kanban', 'grid'],
-    defaultView: 'table'
-  },
-  task: {
-    entity: 'task',
-    label: 'Task',
-    labelPlural: 'Tasks',
-    icon: 'check-square',
-    primaryKey: 'id',
-    displayField: 'name',
-    apiEndpoint: '/api/v1/task',
-    supportedViews: ['table', 'kanban', 'grid'],
-    defaultView: 'table'
-  }
+const COMPONENT_INHERITANCE: Record<ComponentName, ComponentName | null> = {
+  entityDataTable: null,           // Base component
+  entityFormContainer: null,       // Base component
+  entityDetailView: 'entityDataTable',     // Inherits from table (shows more fields)
+  kanbanView: 'entityDataTable',           // Inherits from table
+  calendarView: 'entityDataTable',         // Inherits from table
+  gridView: 'entityDataTable',             // Inherits from table
+  dagView: 'entityDataTable',              // Inherits from table
+  hierarchyGraphView: 'entityDataTable',   // Inherits from table
 };
 
-// ============================================================================
-// METADATA CACHE
-// ============================================================================
-
-const metadataCache = new Map<string, EntityMetadata>();
-
 /**
- * Clear metadata cache (call after schema changes)
+ * Generate field metadata for a specific component
  */
-export function clearMetadataCache(entityCode?: string): void {
-  if (entityCode) {
-    metadataCache.delete(entityCode);
-  } else {
-    metadataCache.clear();
-  }
-}
+function generateFieldMetadataForComponent(
+  fieldName: string,
+  component: ComponentName
+): FieldMetadataBase | null {
+  const rule = findMatchingRule(fieldName);
 
-// ============================================================================
-// PUBLIC API
-// ============================================================================
-
-/**
- * Detect composite field patterns from field names
- * Returns array of composite field metadata
- */
-function detectCompositeFields(fieldNames: string[]): FieldMetadata[] {
-  const compositeFields: FieldMetadata[] = [];
-  const fieldSet = new Set(fieldNames);
-
-  // Pattern 1: start_date + end_date → progress bar
-  if (fieldSet.has('start_date') && fieldSet.has('end_date')) {
-    compositeFields.push({
-      key: 'start_date_end_date_composite',
-      label: 'Progress',
-      type: 'composite' as any,
-      dataType: 'composite',
-      format: {
-        startField: 'start_date',
-        endField: 'end_date',
-        compositeType: 'progress-bar',
-        showPercentage: true,
-        showDates: true,
-        highlightOverdue: true
-      },
-      renderType: 'progress-bar',
-      viewType: 'text' as any,
-      component: 'ProgressBar',
-      inputType: 'readonly',
-      visible: createCompositeVisibility(),  // Only show in detail view
-      composite: true,
-      compositeConfig: {
-        composedFrom: ['start_date', 'end_date'],
-        compositeType: 'progress-bar',
-        startField: 'start_date',
-        endField: 'end_date',
-        showPercentage: true,
-        showDates: true,
-        highlightOverdue: true
-      },
-      sortable: false,
-      filterable: false,
-      searchable: false,
-      editable: false,
-      align: 'left',
-      width: '200px',
-      pattern: 'STANDARD',
-      category: 'composite'
-    });
+  if (!rule) {
+    // Default text field for unknown patterns
+    return {
+      dtype: 'str',
+      format: 'text',
+      internal: false,
+      visible: component === 'entityDataTable' || component === 'entityDetailView' || component === 'gridView',
+      filterable: component === 'entityDataTable' || component === 'entityDetailView',
+      sortable: component === 'entityDataTable' || component === 'entityDetailView',
+      editable: component === 'entityFormContainer',
+      viewType: 'text',
+      editType: 'text',
+      width: 'auto',
+      align: 'left'
+    };
   }
 
-  // Pattern 2: from_ts + to_ts → date range
-  if (fieldSet.has('from_ts') && fieldSet.has('to_ts')) {
-    compositeFields.push({
-      key: 'from_ts_to_ts_composite',
-      label: 'Date Range',
-      type: 'composite' as any,
-      dataType: 'composite',
-      format: {
-        startField: 'from_ts',
-        endField: 'to_ts',
-        compositeType: 'date-range'
-      },
-      renderType: 'date-range',
-      viewType: 'text' as any,
-      component: 'DateRangeVisualizer',
-      inputType: 'readonly',
-      visible: createCompositeVisibility(),
-      composite: true,
-      compositeConfig: {
-        composedFrom: ['from_ts', 'to_ts'],
-        compositeType: 'date-range',
-        startField: 'from_ts',
-        endField: 'to_ts'
-      },
-      sortable: false,
-      filterable: false,
-      searchable: false,
-      editable: false,
-      align: 'left',
-      width: '200px',
-      pattern: 'STANDARD',
-      category: 'composite'
-    });
-  }
+  // Try to get component-specific rule, or inherit from parent component
+  let componentRule = rule[component];
 
-  // TODO: Add more composite patterns:
-  // - first_name + last_name → full_name
-  // - street_address + city + state + zip_code → full_address
-  // - budget_allocated_amt + budget_spent_amt → budget_utilization
-
-  return compositeFields;
-}
-
-/**
- * Update visibility for source fields that have composite counterparts
- */
-function updateSourceFieldVisibility(fields: FieldMetadata[], compositeFields: FieldMetadata[]): void {
-  const compositeSourceFields = new Set<string>();
-
-  // Collect all source field names from composites
-  compositeFields.forEach(composite => {
-    if (composite.compositeConfig?.composedFrom) {
-      composite.compositeConfig.composedFrom.forEach(fieldName => {
-        compositeSourceFields.add(fieldName);
-      });
+  if (!componentRule) {
+    const parentComponent = COMPONENT_INHERITANCE[component];
+    if (parentComponent) {
+      componentRule = rule[parentComponent];
     }
-  });
+  }
 
-  // Update visibility for source fields
-  fields.forEach(field => {
-    if (compositeSourceFields.has(field.key)) {
-      field.visible = createSourceFieldVisibility();  // Hide from detail view
+  // If still no rule (shouldn't happen), use entityDataTable as fallback
+  if (!componentRule) {
+    componentRule = rule.entityDataTable;
+  }
+
+  // Clone the rule to avoid mutation
+  componentRule = { ...componentRule };
+
+  // Auto-detect entity for ALL *_id fields (both simple and prefixed)
+  // Examples:
+  //   office_id → entity: office
+  //   manager__employee_id → entity: employee (extracted from after __)
+  if (fieldName.endsWith('_id') && fieldName !== 'id') {
+    const entity = detectEntityFromFieldName(fieldName);
+    if (entity) {
+      componentRule.loadFromEntity = entity;
+      componentRule.endpoint = `/api/v1/entity/${entity}/entity-instance-lookup`;
+      componentRule.displayField = 'name';
+      componentRule.valueField = 'id';
     }
-  });
+  }
+
+  // Set datalabelKey for dl__* fields
+  if (fieldName.startsWith('dl__')) {
+    componentRule.datalabelKey = fieldName;
+  }
+
+  return componentRule as FieldMetadataBase;
 }
 
 /**
- * Generate metadata for an entity from sample data
+ * Generate metadata for all requested components
  */
-export function generateEntityMetadata(
-  entityCode: string,
-  sampleRow?: any
+export function generateMetadataForComponents(
+  fieldNames: string[],
+  requestedComponents: ComponentName[] = ['entityDataTable', 'entityFormContainer', 'kanbanView']
 ): EntityMetadata {
-  // Get entity config
-  const config = ENTITY_CONFIG[entityCode];
-  if (!config) {
-    throw new Error(`Unknown entity: ${entityCode}`);
-  }
+  const metadata: EntityMetadata = {};
 
-  // Get field names from sample row or use defaults
-  const fieldNames = sampleRow
-    ? Object.keys(sampleRow)
-    : ['id', 'code', 'name', 'descr', 'active_flag', 'created_ts', 'updated_ts', 'version'];
+  for (const component of requestedComponents) {
+    const componentMetadata: ComponentMetadata = {};
 
-  // Generate field metadata with indices (1-based)
-  const fields: FieldMetadata[] = fieldNames.map((fieldName, idx) => {
-    const dataType = sampleRow ? typeof sampleRow[fieldName] : undefined;
-    return generateFieldMetadata(fieldName, dataType, idx + 1);  // 1-based index
-  });
+    for (const fieldName of fieldNames) {
+      const fieldMeta = generateFieldMetadataForComponent(fieldName, component);
+      if (fieldMeta) {
+        // Add human-readable label
+        (fieldMeta as any).label = generateLabel(fieldName);
+        componentMetadata[fieldName] = fieldMeta;
+      }
+    }
 
-  // Detect and generate composite fields
-  const compositeFields = detectCompositeFields(fieldNames);
-
-  // Assign indices to composite fields (continue from last regular field index)
-  const lastIndex = fields.length;
-  compositeFields.forEach((field, idx) => {
-    field.index = lastIndex + idx + 1;
-  });
-
-  // Update visibility for source fields (hide from detail view if composite exists)
-  updateSourceFieldVisibility(fields, compositeFields);
-
-  // Combine original fields + composite fields
-  const allFields = [...fields, ...compositeFields];
-
-  return {
-    ...config,
-    entity: entityCode,
-    fields: allFields,
-    generated_at: new Date().toISOString()
-  } as EntityMetadata;
-}
-
-/**
- * Get entity metadata (cached)
- */
-export function getEntityMetadata(
-  entityCode: string,
-  sampleRow?: any
-): EntityMetadata {
-  // Check cache (only if no sample row provided)
-  if (!sampleRow && metadataCache.has(entityCode)) {
-    return metadataCache.get(entityCode)!;
-  }
-
-  // Generate fresh metadata
-  const metadata = generateEntityMetadata(entityCode, sampleRow);
-
-  // Cache it (only if no sample row)
-  if (!sampleRow) {
-    metadataCache.set(entityCode, metadata);
+    metadata[component] = componentMetadata;
   }
 
   return metadata;
 }
 
 /**
- * Get field metadata for a specific field
+ * Extract datalabel keys from metadata
  */
-export function getFieldMetadata(fieldName: string, dataType?: string): FieldMetadata {
-  return generateFieldMetadata(fieldName, dataType);
-}
+export function extractDatalabelKeys(metadata: EntityMetadata): string[] {
+  const datalabelKeys = new Set<string>();
 
-// ============================================================================
-// INDEXED DATA FORMAT CONVERSION
-// ============================================================================
-
-/**
- * Convert object data to indexed array format
- *
- * Example:
- * ```
- * objectToIndexedArray(
- *   {id: "uuid", code: "PROJ-001", name: "Kitchen Reno"},
- *   metadata.fields
- * )
- * // Returns: ["uuid", "PROJ-001", "Kitchen Reno"]
- * ```
- *
- * Benefits:
- * - 30% smaller payload (no repeated keys)
- * - 29% faster JSON parsing
- * - Better compression with gzip/brotli
- */
-export function objectToIndexedArray(
-  obj: Record<string, any>,
-  fields: FieldMetadata[]
-): any[] {
-  // Find max index to size array properly
-  const maxIndex = Math.max(...fields.map(f => f.index));
-  const result = new Array(maxIndex).fill(undefined);
-
-  // Map each field to its index position
-  fields.forEach(field => {
-    if (obj[field.key] !== undefined) {
-      result[field.index - 1] = obj[field.key];  // index is 1-based, array is 0-based
+  for (const componentMetadata of Object.values(metadata)) {
+    if (componentMetadata) {
+      for (const fieldMeta of Object.values(componentMetadata)) {
+        // Check if field is datalabel_lookup format and has datalabelKey
+        if (fieldMeta.format === 'datalabel_lookup' && fieldMeta.datalabelKey) {
+          datalabelKeys.add(fieldMeta.datalabelKey);
+        }
+      }
     }
-  });
-
-  return result;
-}
-
-/**
- * Convert indexed array back to object format
- *
- * Example:
- * ```
- * indexedArrayToObject(
- *   ["uuid", "PROJ-001", "Kitchen Reno"],
- *   metadata.fields
- * )
- * // Returns: {id: "uuid", code: "PROJ-001", name: "Kitchen Reno"}
- * ```
- */
-export function indexedArrayToObject(
-  data: any[],
-  fields: FieldMetadata[]
-): Record<string, any> {
-  const result: Record<string, any> = {};
-
-  fields.forEach(field => {
-    const value = data[field.index - 1];  // index is 1-based, array is 0-based
-    if (value !== undefined) {
-      result[field.key] = value;
-    }
-  });
-
-  return result;
-}
-
-/**
- * Convert array of objects to array of indexed arrays (batch conversion)
- *
- * Example:
- * ```
- * objectsToIndexedArrays(
- *   [{id: "1", code: "A"}, {id: "2", code: "B"}],
- *   metadata.fields
- * )
- * // Returns: [["1", "A"], ["2", "B"]]
- * ```
- */
-export function objectsToIndexedArrays(
-  objects: Record<string, any>[],
-  fields: FieldMetadata[]
-): any[][] {
-  return objects.map(obj => objectToIndexedArray(obj, fields));
-}
-
-/**
- * Convert array of indexed arrays back to array of objects (batch conversion)
- */
-export function indexedArraysToObjects(
-  arrays: any[][],
-  fields: FieldMetadata[]
-): Record<string, any>[] {
-  return arrays.map(arr => indexedArrayToObject(arr, fields));
-}
-
-/**
- * Convert API response to indexed format (if requested)
- *
- * Checks for ?format=indexed query parameter and converts data accordingly.
- * Maintains backwards compatibility - defaults to object format.
- *
- * Usage in route:
- * ```typescript
- * const response = {
- *   data: projects,
- *   metadata: fieldMetadata,
- *   total, limit, offset
- * };
- * return convertResponseToIndexedFormat(response, request.query);
- * ```
- */
-export function convertResponseToIndexedFormat(
-  response: {
-    data: Record<string, any> | Record<string, any>[];
-    metadata: EntityMetadata;
-    [key: string]: any;
-  },
-  queryParams: { format?: 'indexed' | 'object' } = {}
-): any {
-  // Default to object format (backwards compatible)
-  if (queryParams.format !== 'indexed') {
-    return response;
   }
 
-  // Convert single object or array of objects
-  const isSingleObject = !Array.isArray(response.data);
-  const dataArray = isSingleObject ? [response.data] : response.data;
+  return Array.from(datalabelKeys);
+}
 
-  // Convert to indexed arrays
-  const indexedData = objectsToIndexedArrays(dataArray, response.metadata.fields);
+/**
+ * Generate complete entity response
+ */
+export function generateEntityResponse(
+  entityCode: string,
+  data: any[],
+  options: {
+    components?: ComponentName[];
+    total?: number;
+    limit?: number;
+    offset?: number;
+    datalabels?: DatalabelData[];
+  } = {}
+): EntityResponse {
+  const {
+    components = ['entityDataTable', 'entityFormContainer', 'kanbanView'],
+    total = data.length,
+    limit = 20,
+    offset = 0,
+    datalabels = []
+  } = options;
 
-  // Return converted response
+  // Extract field names from first row
+  const fieldNames = data.length > 0 ? Object.keys(data[0]) : [];
+
+  // Generate metadata for requested components
+  const metadata = generateMetadataForComponents(fieldNames, components);
+
   return {
-    ...response,
-    data: isSingleObject ? indexedData[0] : indexedData,
-    format: 'indexed'  // Signal to frontend which format is being used
+    data,
+    fields: fieldNames,
+    metadata,
+    datalabels,
+    globalSettings: GLOBAL_SETTINGS,
+    total,
+    limit,
+    offset
   };
 }

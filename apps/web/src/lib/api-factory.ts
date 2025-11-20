@@ -28,6 +28,7 @@ export interface ListParams {
   offset?: number;
   search?: string;
   status?: string;
+  view?: string; // Component-aware metadata filtering (e.g., 'entityDataTable,kanbanView')
   [key: string]: any; // Allow entity-specific filters
 }
 
@@ -41,6 +42,9 @@ export interface ComponentVisibility {
   EntityFormContainer: boolean;     // Create/edit forms
   KanbanView: boolean;              // Kanban board
   CalendarView: boolean;            // Calendar view
+  GridView: boolean;                // Grid/card view
+  DAGView: boolean;                 // Workflow DAG visualizer
+  HierarchyGraphView: boolean;      // Hierarchy graph view
 }
 
 /**
@@ -138,7 +142,7 @@ export interface EntityAPI {
   /**
    * Get a single entity by ID (with backend metadata)
    */
-  get(id: string): Promise<{ data: any; metadata?: EntityMetadata }>;
+  get(id: string, params?: { view?: string }): Promise<{ data: any; metadata?: EntityMetadata }>;
 
   /**
    * Create a new entity

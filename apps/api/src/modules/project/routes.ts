@@ -159,9 +159,9 @@ import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-r
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
-// ✨ Backend Formatter Service v5.0 - Component-aware metadata generation
-import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter-v5.service.js';
-// ✨ Datalabel Service - preload datalabel data for DAG visualization
+// ✨ Backend Formatter Service - component-aware metadata generation
+import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter.service.js';
+// ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
 import { fetchDatalabels } from '../../services/datalabel.service.js';
 
 // Schema for entity reference resolution (_ID and _IDS fields)
@@ -252,7 +252,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         page: Type.Optional(Type.Number({ minimum: 1 })),
         parent_type: Type.Optional(Type.String()),
         parent_id: Type.Optional(Type.String({ format: 'uuid' })),
-        components: Type.Optional(Type.String()),  // 'entityDataTable,entityFormContainer,kanbanView'
+        view: Type.Optional(Type.String()),  // 'entityDataTable,kanbanView' or 'entityFormContainer'
       }),
       response: {
         200: Type.Object({
@@ -267,7 +267,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      search, limit = 20, offset: queryOffset, page, parent_type, parent_id, components
+      search, limit = 20, offset: queryOffset, page, parent_type, parent_id, view
     } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
@@ -375,10 +375,10 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       // ═══════════════════════════════════════════════════════════════
       // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
-      // Parse requested components (if specified)
+      // Parse requested view (convert view names to component names)
       // ═══════════════════════════════════════════════════════════════
-      const requestedComponents = components
-        ? components.split(',').map((c: string) => c.trim())
+      const requestedComponents = view
+        ? view.split(',').map((v: string) => v.trim())
         : ['entityDataTable', 'entityFormContainer', 'kanbanView'];
 
       // Generate response with metadata for requested components only
@@ -502,6 +502,9 @@ export async function projectRoutes(fastify: FastifyInstance) {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })
       }),
+      querystring: Type.Object({
+        view: Type.Optional(Type.String()),  // 'entityDetailView,entityFormContainer' or 'entityDataTable'
+      }),
       response: {
         200: ProjectWithMetadataSchema,  // ✅ Fixed: Use metadata-driven schema
         401: Type.Object({ error: Type.String() }),
@@ -513,6 +516,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const userId = (request as any).user?.sub;
     const { id } = request.params as { id: string };
+    const { view } = request.query as any;
 
     if (!userId) {
       return reply.status(401).send({ error: 'User not authenticated' });
@@ -562,10 +566,14 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
       // ═══════════════════════════════════════════════════════════════
       // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
-      // Generate full metadata for detail view (all components)
+      // Parse requested view (default to detail view components)
       // ═══════════════════════════════════════════════════════════════
+      const requestedComponents = view
+        ? view.split(',').map((v: string) => v.trim())
+        : ['entityDetailView', 'entityFormContainer'];
+
       const response = generateEntityResponse(ENTITY_CODE, [projectData], {
-        components: ['entityDataTable', 'entityFormContainer', 'kanbanView'],
+        components: requestedComponents,
         total: 1,
         limit: 1,
         offset: 0

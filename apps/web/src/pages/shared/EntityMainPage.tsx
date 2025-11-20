@@ -71,8 +71,19 @@ export function EntityMainPage({ entityCode, defaultView }: EntityMainPageProps)
       // Type-safe API call using APIFactory
       const api = APIFactory.getAPI(entityCode);
 
+      // Map view mode to component name for backend metadata filtering
+      const viewComponentMap: Record<ViewMode, string> = {
+        table: 'entityDataTable',
+        kanban: 'kanbanView',
+        grid: 'gridView',
+        calendar: 'calendarView',
+        dag: 'dagView',
+        hierarchy: 'hierarchyGraphView',
+      };
+      const componentView = viewComponentMap[view] || 'entityDataTable';
+
       // Use pageSize of 100 to align with API maximum limit
-      const params: any = { page, pageSize: 100 };
+      const params: any = { page, pageSize: 100, view: componentView };
 
       const response = await api.list(params);
       const newData = response.data || [];

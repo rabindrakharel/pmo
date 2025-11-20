@@ -100,24 +100,44 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   const configuredColumns: Column[] = useMemo(() => {
     if (!config) return [];
 
-    // Priority 1: Backend Metadata (PURE METADATA-DRIVEN)
-    if (metadata?.fields) {
-      return metadata.fields
-        .filter(fieldMeta => fieldMeta.visible)
-        .map(fieldMeta => ({
-          key: fieldMeta.key,
-          title: fieldMeta.label,
-          visible: fieldMeta.visible,
-          sortable: fieldMeta.sortable,
-          filterable: fieldMeta.filterable,
-          width: fieldMeta.width,
-          align: fieldMeta.align,
-          editable: fieldMeta.editable,
-          editType: fieldMeta.editType as any,
-          loadDataLabels: fieldMeta.loadFromDataLabels,
-          // Metadata-driven rendering - backend tells frontend how to render
-          render: undefined  // Let EntityDataTable handle rendering via metadata
-        } as Column));
+    // Priority 1: Backend Metadata V5 (COMPONENT-SPECIFIC METADATA)
+    // Backend v5 returns: { metadata: { entityDataTable: { fieldName: {...}, ... } } }
+    const tableMetadata = (metadata as any)?.entityDataTable;
+    if (tableMetadata) {
+      return Object.entries(tableMetadata)
+        .map(([fieldName, fieldMeta]: [string, any]) => ({
+          key: fieldName,
+          title: fieldMeta.label || fieldName,
+          visible: fieldMeta.visible ?? true,
+          sortable: fieldMeta.sortable ?? false,
+          filterable: fieldMeta.filterable ?? false,
+          width: fieldMeta.width || 'auto',
+          align: fieldMeta.align || 'left',
+          editable: fieldMeta.editable ?? false,
+          editType: fieldMeta.editType || fieldMeta.inputType as any,
+          // ✅ CRITICAL: Attach backend metadata to column for EntityDataTable
+          backendMetadata: {
+            key: fieldName,
+            label: fieldMeta.label || fieldName,
+            renderType: fieldMeta.viewType || fieldMeta.format || 'text',  // ← viewType takes priority (component-specific)
+            inputType: fieldMeta.editType || fieldMeta.inputType || 'text',
+            format: fieldMeta,
+            visible: fieldMeta.visible ?? true,
+            editable: fieldMeta.editable ?? false,
+            required: fieldMeta.required ?? false,
+            placeholder: fieldMeta.placeholder,
+            helpText: fieldMeta.help,
+            validation: fieldMeta.validation,
+            width: fieldMeta.width || 'auto',
+            align: fieldMeta.align || 'left',
+            loadFromEntity: fieldMeta.loadFromEntity,
+            datalabelKey: fieldMeta.datalabelKey,  // ← Datalabel lookup key (for dl__* fields)
+            endpoint: fieldMeta.endpoint,
+            displayField: fieldMeta.displayField,
+            index: 0
+          } as any
+        } as Column))
+        .filter(col => col.visible);
     }
 
     // Priority 2: Explicit config columns (for custom overrides)
@@ -264,6 +284,9 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
       // Build query params with parent filtering support
       let queryParams = `page=${currentPage}&limit=${pageSize}`;
+
+      // Add view parameter for component-aware metadata
+      queryParams += '&view=entityDataTable';
 
       // Add parent filtering via query params (create-link-edit pattern)
       if (parentType && parentId) {

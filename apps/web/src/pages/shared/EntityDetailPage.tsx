@@ -144,7 +144,8 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
 
       // Type-safe API call using APIFactory
       const api = APIFactory.getAPI(entityCode);
-      const response = await api.get(id!);
+      // Request metadata for detail view and form container
+      const response = await api.get(id!, { view: 'entityDetailView,entityFormContainer' });
 
       // Check if the request was aborted
       if (signal?.aborted) {
@@ -370,7 +371,7 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
       }
 
       // Refetch data to get updated assignee info
-      const updatedData = await api.get(id!);
+      const updatedData = await api.get(id!, { view: 'entityDetailView,entityFormContainer' });
       setData(updatedData);
       setEditedData(updatedData);
       setIsEditing(false);

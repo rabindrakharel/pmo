@@ -305,6 +305,7 @@ export interface RowAction<T = any> {
 export interface EntityDataTableProps<T = any> {
   data: T[];
   metadata?: EntityMetadata | null;  // Backend metadata (REQUIRED for metadata-driven mode)
+  datalabels?: any[];                // Datalabel options from API (for dropdowns and DAG viz)
   columns?: Column<T>[];             // Legacy explicit columns (fallback only)
   loading?: boolean;
   pagination?: {
@@ -374,6 +375,7 @@ export interface EntityDataTableProps<T = any> {
 export function EntityDataTable<T = any>({
   data,
   metadata,  // Backend metadata from API
+  datalabels,  // Datalabel options from API response
   columns: initialColumns,
   loading = false,
   pagination,

@@ -483,18 +483,36 @@ export function renderViewModeFromMetadata(
       );
 
     case 'datalabels':
-      // Datalabel fields: Badge in table (EntityDataTable), Dropdown in form (EntityFormContainer)
-      // EntityDataTable uses this renderType → renders badge
-      // EntityFormContainer checks EntityFormContainer_viz_container first, then falls back to dropdown
+      // LEGACY: Old datalabel rendering (kept for backward compatibility)
       const badgeColor = metadata.colorMap?.[value] || metadata.color;
-      if (metadata.loadFromDataLabels && metadata.datalabelKey) {
+      if (metadata.datalabelKey) {
         return renderDataLabelBadge(value, metadata.datalabelKey, { color: badgeColor });
       }
       return renderBadge(value, badgeColor);
 
     case 'badge':
-      // Static badge (not from datalabels) - shows badge everywhere
+      // Datalabel lookup fields (dl__*) with badge rendering
+      // Used by: entityDataTable, entityDetailView, kanbanView, calendarView, gridView, hierarchyGraphView
+      if (metadata.datalabelKey) {
+        return renderDataLabelBadge(value, metadata.datalabelKey, { color: metadata.color });
+      }
+      // Static badge (not from datalabels)
       return renderBadge(value, metadata.color);
+
+    case 'select':
+      // LEGACY: Old select rendering (kept for backward compatibility)
+      if (metadata.datalabelKey) {
+        return renderDataLabelBadge(value, metadata.datalabelKey, { color: metadata.color });
+      }
+      return <span className="text-gray-700">{value}</span>;
+
+    case 'dag':
+      // Datalabel lookup fields (dl__*) with DAG rendering
+      // Used by: dagView, entityFormContainer (for workflow visualization)
+      if (metadata.datalabelKey) {
+        return renderDataLabelBadge(value, metadata.datalabelKey, { color: metadata.color });
+      }
+      return renderBadge(value, 'blue');
 
     case 'json':
       return (
@@ -518,6 +536,12 @@ export function renderViewModeFromMetadata(
       return <span>{String(value)}</span>;
 
     case 'reference':
+      return <span className="text-blue-600">{value}</span>;
+
+    case 'entity_lookup':
+      // Entity lookup field (e.g., office_id, manager__employee_id)
+      // For now, display the value as-is
+      // TODO: Implement entity name resolution from lookup endpoint
       return <span className="text-blue-600">{value}</span>;
 
     default:
