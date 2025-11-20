@@ -79,6 +79,14 @@ export interface CompositeFieldConfig {
 export interface BackendFieldMetadata {
   key: string;
   label: string;
+
+  /**
+   * Index in data array (1-based)
+   * Used for indexed data format where data is sent as arrays instead of objects
+   * Backend uses this to convert between object and array formats
+   */
+  index: number;
+
   renderType: string;
   inputType: string;
   format?: Record<string, any>;
