@@ -180,6 +180,19 @@ export interface FieldDef {
    * Example: 'employee' → loads from GET /api/v1/entity/employee/options
    */
   loadOptionsFromEntity?: string;
+  /**
+   * Backend-specified component to use for rendering this field.
+   * When set, this OVERRIDES the default rendering logic based on field type.
+   *
+   * Used by EntityFormContainer only (EntityDataTable ignores this and uses renderType).
+   *
+   * Examples:
+   * - 'DAGVisualizer' → Render workflow visualization for stage/status/funnel fields
+   * - 'MetadataTable' → Render key-value table for JSONB metadata
+   *
+   * @see apps/api/src/services/backend-formatter.service.ts (componentFn)
+   */
+  component?: 'DAGVisualizer' | 'MetadataTable' | 'ProgressBar' | 'DateRangeVisualizer';
 }
 
 export interface EntityConfig {

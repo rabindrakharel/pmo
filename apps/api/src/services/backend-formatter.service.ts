@@ -421,11 +421,18 @@ const PATTERN_RULES: Record<string, PatternRule> = {
     sortable: true,
     filterable: true,
     editable: true,
-    // Detect DAG component for stage/funnel fields
-    componentFn: (fieldKey: string) =>
-      fieldKey.includes('_stage') || fieldKey.includes('_funnel')
-        ? 'DAGVisualizer'
-        : undefined
+    // ✅ EXPLICIT: Detect DAG component for stage/status/funnel fields
+    // EntityFormContainer uses component field (overrides renderType)
+    // EntityDataTable ignores component field (uses renderType only)
+    componentFn: (fieldKey: string) => {
+      const lowerKey = fieldKey.toLowerCase();
+      if (lowerKey.includes('_stage') ||
+          lowerKey.includes('_status') ||
+          lowerKey.includes('_funnel')) {
+        return 'DAGVisualizer';
+      }
+      return undefined;  // Other dl__ fields: no component, just badge
+    }
   },
 
   // === REFERENCE (Foreign Keys) ===
