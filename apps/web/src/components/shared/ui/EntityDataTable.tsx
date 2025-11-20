@@ -383,11 +383,18 @@ export function EntityDataTable<T = any>({
     // Priority 1: Backend Metadata (Pure metadata-driven - NO FALLBACK)
     if (metadata?.fields) {
       return metadata.fields
-        .filter(fieldMeta => fieldMeta.visible)
+        .filter(fieldMeta => {
+          // ✅ NEW: Object-based visibility control
+          if (typeof fieldMeta.visible === 'object' && fieldMeta.visible !== null) {
+            return fieldMeta.visible.EntityDataTable === true;
+          }
+          // Backward compatibility: treat boolean as visible everywhere
+          return fieldMeta.visible === true;
+        })
         .map(fieldMeta => ({
           key: fieldMeta.key,
           title: fieldMeta.label,
-          visible: fieldMeta.visible,
+          visible: true,  // Already filtered above, so all are visible
           sortable: fieldMeta.sortable,
           filterable: fieldMeta.filterable,
           searchable: fieldMeta.searchable,

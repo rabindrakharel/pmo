@@ -32,6 +32,33 @@ export interface ListParams {
 }
 
 /**
+ * Component Visibility Control
+ * Explicit per-component visibility - backend tells each component what to show
+ */
+export interface ComponentVisibility {
+  EntityDataTable: boolean;        // Data table (list view)
+  EntityDetailView: boolean;        // Detail view (single entity)
+  EntityFormContainer: boolean;     // Create/edit forms
+  KanbanView: boolean;              // Kanban board
+  CalendarView: boolean;            // Calendar view
+}
+
+/**
+ * Composite Field Configuration
+ * Defines fields derived from multiple source fields
+ */
+export interface CompositeFieldConfig {
+  composedFrom: string[];           // Source field keys
+  compositeType: 'progress-bar' | 'date-range' | 'address' | 'full-name' | 'calculated';
+  calculation?: string;             // Optional calculation formula
+  showPercentage?: boolean;
+  showDates?: boolean;
+  highlightOverdue?: boolean;
+  startField?: string;              // For date ranges
+  endField?: string;                // For date ranges
+}
+
+/**
  * Backend field metadata (matches backend-formatter.service.ts)
  */
 export interface BackendFieldMetadata {
@@ -45,7 +72,9 @@ export interface BackendFieldMetadata {
   component?: string;
   inputType: string;
   editType?: string;
-  visible: boolean;
+  visible: ComponentVisibility;      // ✅ NEW: Per-component visibility
+  composite?: boolean;               // ✅ NEW: Is this a composite field?
+  compositeConfig?: CompositeFieldConfig;  // ✅ NEW: Composite field configuration
   sortable: boolean;
   filterable: boolean;
   searchable: boolean;
