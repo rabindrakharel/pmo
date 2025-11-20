@@ -39,8 +39,10 @@ import {
   COLOR_MAP,
   getSettingColor,
   loadSettingsColors,
-  renderField
+  renderField,
+  renderFieldFromMetadata
 } from '../../../lib/universalFormatterService';
+import type { BackendFieldMetadata, EntityMetadata } from '../../../lib/api';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 
 // ============================================================================
@@ -275,7 +277,8 @@ export interface RowAction<T = any> {
 
 export interface EntityDataTableProps<T = any> {
   data: T[];
-  columns?: Column<T>[];           // Now optional - can be auto-generated
+  metadata?: EntityMetadata | null;  // Backend metadata (REQUIRED for metadata-driven mode)
+  columns?: Column<T>[];             // Legacy explicit columns (fallback only)
   loading?: boolean;
   pagination?: {
     current: number;
@@ -341,6 +344,7 @@ export interface EntityDataTableProps<T = any> {
 
 export function EntityDataTable<T = any>({
   data,
+  metadata,  // Backend metadata from API
   columns: initialColumns,
   loading = false,
   pagination,
@@ -372,30 +376,42 @@ export function EntityDataTable<T = any>({
   autoGenerateColumns = false,
   dataTypes}: EntityDataTableProps<T>) {
   // ============================================================================
-  // AUTO-GENERATION: Universal Field Detector Integration
+  // METADATA-DRIVEN COLUMN GENERATION (Pure Backend-Driven Architecture)
   // ============================================================================
-  // Auto-generate columns if not provided and autoGenerateColumns is true
-
-  // ✅ FIX: Extract field keys separately to prevent infinite loop
-  // Only recompute when actual field names change, not when data values/rows change
-  // Create stable string representation directly
-  const fieldKeysString = useMemo(() => {
-    if (!autoGenerateColumns || data.length === 0) return '';
-    return Object.keys(data[0]).sort().join(',');
-  }, [autoGenerateColumns, data.length, data.length > 0 ? JSON.stringify(Object.keys(data[0]).sort()) : '']);
+  // Backend sends complete field metadata → Frontend renders exactly as instructed
 
   const columns = useMemo(() => {
-    // If columns explicitly provided, use them (legacy field patterns)
+    // Priority 1: Backend Metadata (Pure metadata-driven - NO FALLBACK)
+    if (metadata?.fields) {
+      return metadata.fields
+        .filter(fieldMeta => fieldMeta.visible)
+        .map(fieldMeta => ({
+          key: fieldMeta.key,
+          title: fieldMeta.label,
+          visible: fieldMeta.visible,
+          sortable: fieldMeta.sortable,
+          filterable: fieldMeta.filterable,
+          searchable: fieldMeta.searchable,
+          width: fieldMeta.width,
+          align: fieldMeta.align,
+          editable: fieldMeta.editable,
+          editType: fieldMeta.editType,
+          loadDataLabels: fieldMeta.loadFromSettings,
+          loadFromEntity: fieldMeta.loadFromEntity,
+          // Pure metadata-driven rendering - backend tells frontend how to render
+          render: (value: any, record: any) => renderFieldFromMetadata(value, fieldMeta, record)
+        } as Column<T>));
+    }
+
+    // Priority 2: Explicit columns (for custom overrides only)
     if (initialColumns && initialColumns.length > 0) {
       return initialColumns;
     }
 
-    // Auto-generate if enabled and data exists
-    if (autoGenerateColumns && fieldKeysString.length > 0) {
-      const fieldKeys = fieldKeysString.split(',');
+    // Priority 3: Legacy auto-generation (deprecated)
+    if (autoGenerateColumns && data.length > 0) {
+      const fieldKeys = Object.keys(data[0]);
       const generatedConfig = generateDataTableConfig(fieldKeys, dataTypes);
-
-      // Convert DataTableColumn to Column<T> format
       return generatedConfig.visibleColumns.map(col => ({
         key: col.key,
         title: col.title,
@@ -403,19 +419,18 @@ export function EntityDataTable<T = any>({
         sortable: col.sortable,
         filterable: col.filterable,
         searchable: col.searchable,
-        // Don't set render for fields with loadFromSettings - renderField() will handle badge rendering via hints
         render: col.loadFromSettings ? undefined : col.render,
         width: col.width,
         align: col.align,
         editable: col.editable,
         editType: col.editType,
         loadDataLabels: col.loadFromSettings,
-        loadFromEntity: col.loadFromEntity} as Column<T>));
+        loadFromEntity: col.loadFromEntity
+      } as Column<T>));
     }
 
-    // Fallback: empty columns
     return [];
-  }, [initialColumns, autoGenerateColumns, fieldKeysString, dataTypes]);
+  }, [metadata, initialColumns, autoGenerateColumns, data.length, dataTypes]);
 
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
