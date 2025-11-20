@@ -187,8 +187,9 @@ const TaskSchema = Type.Object({
 // Response schema for metadata-driven endpoints
 const TaskWithMetadataSchema = Type.Object({
   data: TaskSchema,
+  fields: Type.Array(Type.String()),  // Field names list
   metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-  datalabels: Type.Optional(Type.Array(Type.Any())),  // DatalabelData[] - options for dl__* fields
+  datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields (not optional!)
   globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
 });
 
@@ -249,7 +250,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           data: Type.Array(TaskSchema),
           fields: Type.Array(Type.String()),
           metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-          datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields
+          datalabels: Type.Array(Type.Any()),  // DatalabelData[] - always an array (empty if no datalabels)
           globalSettings: Type.Any(),  // GlobalSettings - currency, date, timestamp formatting
           total: Type.Number(),
           limit: Type.Number(),
@@ -546,6 +547,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Return first item (single entity)
       return {
         data: response.data[0],
+        fields: response.fields,
         metadata: response.metadata,
         datalabels: response.datalabels,
         globalSettings: response.globalSettings

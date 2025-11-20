@@ -151,8 +151,9 @@ const BizSchema = Type.Object({
 // Response schema for metadata-driven endpoints (single entity)
 const BizWithMetadataSchema = Type.Object({
   data: BizSchema,
+  fields: Type.Array(Type.String()),  // Field names list
   metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-  datalabels: Type.Optional(Type.Array(Type.Any())),  // DatalabelData[] - options for dl__* fields
+  datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields (not optional!)
   globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
 });
 
@@ -212,7 +213,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
           data: Type.Array(BizSchema),
           fields: Type.Array(Type.String()),
           metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-          datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields
+          datalabels: Type.Array(Type.Any()),  // DatalabelData[] - always an array (empty if no datalabels)
           globalSettings: Type.Any(),  // GlobalSettings - currency, date, timestamp formatting
           total: Type.Number(),
           limit: Type.Number(),
@@ -544,6 +545,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       // Return first item (single entity)
       return reply.send({
         data: response.data[0],
+        fields: response.fields,
         metadata: response.metadata,
         datalabels: response.datalabels,
         globalSettings: response.globalSettings
