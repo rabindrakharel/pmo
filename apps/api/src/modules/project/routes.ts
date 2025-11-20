@@ -159,8 +159,8 @@ import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-r
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
-// ✨ Backend Formatter Service v5.0 - Component-aware metadata generation
-import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter-v5.service.js';
+// ✨ Backend Formatter Service - component-aware metadata generation
+import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter.service.js';
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
 import { fetchDatalabels } from '../../services/datalabel.service.js';
 

@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * BACKEND FORMATTER SERVICE v5.0 - Component-Aware Metadata Generation
+ * BACKEND FORMATTER SERVICE - Component-Aware Metadata Generation
  * ============================================================================
  *
  * PURPOSE:
@@ -15,7 +15,7 @@
  *
  * USAGE:
  * ```typescript
- * import { generateEntityResponse } from './backend-formatter-v5.service';
+ * import { generateEntityResponse } from './backend-formatter.service';
  *
  * // In route handler
  * const response = generateEntityResponse('project', projects, {
