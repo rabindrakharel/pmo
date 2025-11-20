@@ -123,8 +123,10 @@ import { sql, SQL } from 'drizzle-orm';
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
-// ✨ Backend Formatter Service - backend-driven metadata generation
-import { getEntityMetadata } from '../../services/backend-formatter.service.js';
+// ✨ Backend Formatter Service v5.0 - Component-aware metadata generation
+import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter-v5.service.js';
+// ✨ Datalabel Service - preload datalabel data for DAG visualization
+import { fetchDatalabels } from '../../services/datalabel.service.js';
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 // ✅ Child entity factory for parent-child relationships
@@ -151,7 +153,7 @@ const BizSchema = Type.Object({
 // Response schema for metadata-driven endpoints
 const BizWithMetadataSchema = Type.Object({
   data: BizSchema,
-  metadata: Type.Any()  // EntityMetadata from backend-formatter.service
+  metadata: Type.Any()  // EntityMetadata from backend-formatter-v5.service
 });
 
 const CreateBizSchema = Type.Object({
@@ -201,6 +203,9 @@ export async function businessRoutes(fastify: FastifyInstance) {
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
+
+        // Component-aware metadata
+        view: Type.Optional(Type.String()),  // 'entityDataTable,kanbanView' or 'entityFormContainer'
       }),
       response: {
         200: Type.Object({
@@ -233,7 +238,8 @@ export async function businessRoutes(fastify: FastifyInstance) {
       operational_status,
       limit: queryLimit,
       offset: queryOffset,
-      page
+      page,
+      view
     } = request.query as any;
 
     // Calculate pagination with defaults
@@ -312,24 +318,37 @@ export async function businessRoutes(fastify: FastifyInstance) {
 
       const total = Number(countResult[0]?.total || 0);
 
-      // ✨ Generate field metadata from first row (if available)
-      const fieldMetadata = dataResult.length > 0
-        ? getEntityMetadata(ENTITY_CODE, dataResult[0])
-        : getEntityMetadata(ENTITY_CODE);
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
+      // Parse requested view (convert view names to component names)
+      // ═══════════════════════════════════════════════════════════════
+      const requestedComponents = view
+        ? view.split(',').map((v: string) => v.trim())
+        : ['entityDataTable', 'entityFormContainer', 'kanbanView'];
 
-      return reply.send({
-        data: dataResult,
+      // Generate response with metadata for requested components only
+      const response = generateEntityResponse(ENTITY_CODE, dataResult, {
+        components: requestedComponents,
         total,
         limit,
-        offset,
-        appliedFilters: {
-          rbac: true,
-          parent: Boolean(parent_type && parent_id),
-          search: Boolean(search),
-          active: Boolean(active_flag)
-        },
-        metadata: fieldMetadata
+        offset
       });
+
+      // ✨ Extract datalabel keys and fetch datalabels
+      const datalabelKeys = extractDatalabelKeys(response.metadata);
+      if (datalabelKeys.length > 0) {
+        response.datalabels = await fetchDatalabels(db, datalabelKeys);
+      }
+
+      // Add applied filters for debugging
+      (response as any).appliedFilters = {
+        rbac: true,
+        parent: Boolean(parent_type && parent_id),
+        search: Boolean(search),
+        active: Boolean(active_flag)
+      };
+
+      return reply.send(response);
     } catch (error) {
       fastify.log.error('Error fetching business units:', error as any);
       console.error('Full error details:', error);
@@ -439,6 +458,9 @@ export async function businessRoutes(fastify: FastifyInstance) {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })
       }),
+      querystring: Type.Object({
+        view: Type.Optional(Type.String()),  // 'entityDetailView,entityFormContainer' or 'entityDataTable'
+      }),
       response: {
         200: BizWithMetadataSchema,  // ✅ Fixed: Use metadata-driven schema
         403: Type.Object({ error: Type.String() }),
@@ -449,6 +471,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const userId = (request as any).user?.sub;
     const { id } = request.params as { id: string };
+    const { view } = request.query as any;
 
     if (!userId) {
       return reply.status(401).send({ error: 'User not authenticated' });
@@ -483,12 +506,33 @@ export async function businessRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Business not found' });
       }
 
-      // ✨ Generate field metadata from the actual row
-      const fieldMetadata = getEntityMetadata(ENTITY_CODE, result[0]);
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
+      // Parse requested view (default to detail view components)
+      // ═══════════════════════════════════════════════════════════════
+      const requestedComponents = view
+        ? view.split(',').map((v: string) => v.trim())
+        : ['entityDetailView', 'entityFormContainer'];
 
+      const response = generateEntityResponse(ENTITY_CODE, [result[0]], {
+        components: requestedComponents,
+        total: 1,
+        limit: 1,
+        offset: 0
+      });
+
+      // ✨ Extract datalabel keys and fetch datalabels
+      const datalabelKeys = extractDatalabelKeys(response.metadata);
+      if (datalabelKeys.length > 0) {
+        response.datalabels = await fetchDatalabels(db, datalabelKeys);
+      }
+
+      // Return first item (single entity)
       return reply.send({
-        data: result[0],
-        metadata: fieldMetadata
+        data: response.data[0],
+        metadata: response.metadata,
+        datalabels: response.datalabels,
+        globalSettings: response.globalSettings
       });
     } catch (error) {
       fastify.log.error('Error fetching business:', error as any);
