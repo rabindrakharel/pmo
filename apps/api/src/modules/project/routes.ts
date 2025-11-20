@@ -161,6 +161,8 @@ import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../serv
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✨ Backend Formatter Service - backend-driven metadata generation
 import { getEntityMetadata } from '../../services/backend-formatter.service.js';
+// ✨ Datalabel Service - preload datalabel data for DAG visualization
+import { fetchDatalabels, extractDagDatalabels } from '../../services/datalabel.service.js';
 
 // Schema for entity reference resolution (_ID and _IDS fields)
 const EntityReferenceSchema = Type.Object({
@@ -375,9 +377,18 @@ export async function projectRoutes(fastify: FastifyInstance) {
         ? getEntityMetadata(ENTITY_CODE, projectsWithReferences[0])
         : getEntityMetadata(ENTITY_CODE);
 
+      // ✨ Preload datalabel data for DAG visualization (eliminates N+1 API calls)
+      const dagDatalabels = projectsWithReferences.length > 0
+        ? extractDagDatalabels(projectsWithReferences[0])
+        : [];
+      const datalabels = dagDatalabels.length > 0
+        ? await fetchDatalabels(db, dagDatalabels)
+        : [];
+
       return {
         ...createPaginatedResponse(projectsWithReferences, total, limit, offset),
-        metadata: fieldMetadata
+        metadata: fieldMetadata,
+        datalabels
       };
     } catch (error) {
       fastify.log.error('Error fetching projects:', error as any);
@@ -546,9 +557,16 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // ✨ Generate field metadata from the actual row
       const fieldMetadata = getEntityMetadata(ENTITY_CODE, projectData);
 
+      // ✨ Preload datalabel data for DAG visualization
+      const dagDatalabels = extractDagDatalabels(projectData);
+      const datalabels = dagDatalabels.length > 0
+        ? await fetchDatalabels(db, dagDatalabels)
+        : [];
+
       return reply.send({
         data: projectData,
-        metadata: fieldMetadata
+        metadata: fieldMetadata,
+        datalabels
       });
     } catch (error) {
       fastify.log.error('Error fetching project:', error as any);

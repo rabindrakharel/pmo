@@ -109,6 +109,27 @@ export interface BackendFieldMetadata {
 }
 
 /**
+ * Datalabel option from backend
+ */
+export interface DatalabelOption {
+  id: number;
+  name: string;
+  descr?: string | null;
+  parent_id: number | null;
+  sort_order: number;
+  color_code: string;
+  active_flag: boolean;
+}
+
+/**
+ * Datalabel data container (for DAG visualization)
+ */
+export interface DatalabelData {
+  name: string;
+  options: DatalabelOption[];
+}
+
+/**
  * Entity metadata container (backend response)
  */
 export interface EntityMetadata {
@@ -117,11 +138,12 @@ export interface EntityMetadata {
 }
 
 /**
- * API response with metadata
+ * API response with metadata and datalabels
  */
 export interface ApiResponseWithMetadata {
   data: any;
   metadata: EntityMetadata;
+  datalabels?: DatalabelData[];  // ✅ NEW: Preloaded datalabel data
   total?: number;
   limit?: number;
   offset?: number;
