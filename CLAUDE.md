@@ -268,12 +268,17 @@ fastify.get('/api/v1/office', async (request, reply) => {
 | `*__employee_id` | `renderType: 'reference'`, `loadFromEntity: 'employee'` | Dropdown with employees |
 | `metadata` (field) | `renderType: 'json'`, `component: 'MetadataTable'` | JSON table view |
 
-**Backend Response Structure**:
+**Backend Response Structure** (with composite fields):
 ```json
 {
-  "data": [{ "id": "uuid", "budget_allocated_amt": 50000 }],
+  "data": [{
+    "id": "uuid",
+    "start_date": "2025-01-15",
+    "end_date": "2025-03-30",
+    "budget_allocated_amt": 50000
+  }],
   "metadata": {
-    "entity": "office",
+    "entity": "project",
     "fields": [
       {
         "key": "budget_allocated_amt",
@@ -281,9 +286,53 @@ fastify.get('/api/v1/office', async (request, reply) => {
         "renderType": "currency",
         "inputType": "currency",
         "format": { "symbol": "$", "decimals": 2 },
+        "visible": {
+          "EntityDataTable": true,
+          "EntityDetailView": true,
+          "EntityFormContainer": true,
+          "KanbanView": true,
+          "CalendarView": true
+        },
         "editable": true,
         "align": "right",
         "width": "140px"
+      },
+      {
+        "key": "start_date",
+        "label": "Start Date",
+        "renderType": "date",
+        "inputType": "date",
+        "visible": {
+          "EntityDataTable": true,
+          "EntityDetailView": false,        // Hidden (composite shows)
+          "EntityFormContainer": true,      // Show for editing
+          "KanbanView": true,
+          "CalendarView": true
+        },
+        "editable": true
+      },
+      {
+        "key": "start_date_end_date_composite",
+        "label": "Project Progress",
+        "type": "composite",
+        "renderType": "progress-bar",
+        "component": "ProgressBar",
+        "composite": true,
+        "compositeConfig": {
+          "composedFrom": ["start_date", "end_date"],
+          "compositeType": "progress-bar",
+          "showPercentage": true,
+          "showDates": true,
+          "highlightOverdue": true
+        },
+        "visible": {
+          "EntityDataTable": false,         // Too complex
+          "EntityDetailView": true,          // ONLY here
+          "EntityFormContainer": false,      // Not editable
+          "KanbanView": false,
+          "CalendarView": false
+        },
+        "editable": false
       }
     ]
   }
@@ -293,8 +342,10 @@ fastify.get('/api/v1/office', async (request, reply) => {
 **Benefits**:
 - ✅ **Zero frontend configuration** - Add column to DB, backend generates metadata automatically
 - ✅ **Single source of truth** - Backend controls ALL rendering logic
+- ✅ **Object-based visibility** - Explicit per-component control (EntityDataTable, EntityDetailView, etc.)
+- ✅ **Composite field auto-detection** - Backend detects field pairs (start + end → progress bar)
 - ✅ **Cached metadata** - In-memory cache per entity (100x performance boost)
-- ✅ **35+ pattern rules** - Comprehensive coverage (financial, temporal, boolean, reference, structures)
+- ✅ **35+ pattern rules** - Comprehensive coverage (financial, temporal, boolean, reference, structures, composites)
 
 **Reference**: See `docs/services/BACKEND_FORMATTER_SERVICE.md` for complete documentation
 
