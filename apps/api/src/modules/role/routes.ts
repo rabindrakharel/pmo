@@ -8,6 +8,10 @@ import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js'
 import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✨ Backend Formatter Service - component-aware metadata generation
+import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter.service.js';
+// ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
+import { fetchDatalabels } from '../../services/datalabel.service.js';
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 // ✅ Child entity factory for parent-child relationships
@@ -53,6 +57,15 @@ const CreateRoleSchema = Type.Object({
 
 const UpdateRoleSchema = Type.Partial(CreateRoleSchema);
 
+// Response schema for metadata-driven endpoints (single entity)
+const RoleWithMetadataSchema = Type.Object({
+  data: RoleSchema,
+  fields: Type.Array(Type.String()),  // Field names list
+  metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+  datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields (not optional!)
+  globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
+});
+
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
@@ -74,6 +87,10 @@ export async function roleRoutes(fastify: FastifyInstance) {
       response: {
         200: Type.Object({
           data: Type.Array(RoleSchema),
+          fields: Type.Array(Type.String()),
+          metadata: Type.Any(),
+          datalabels: Type.Array(Type.Any()),
+          globalSettings: Type.Any(),
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number()}),
@@ -133,8 +150,20 @@ export async function roleRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      // Return data directly in snake_case format (no transformation needed)
-      return createPaginatedResponse(roles, total, limit, offset);
+      // ✨ Generate component-aware metadata using Backend Formatter Service
+      const response = generateEntityResponse(ENTITY_CODE, roles);
+
+      // ✅ Explicitly return all fields (Fastify strips fields not in schema)
+      return {
+        data: response.data,
+        fields: response.fields,
+        metadata: response.metadata,
+        datalabels: response.datalabels,
+        globalSettings: response.globalSettings,
+        total,
+        limit,
+        offset
+      };
     } catch (error) {
       fastify.log.error('Error fetching roles:');
       return reply.status(500).send({ error: 'Internal server error' });
@@ -148,7 +177,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })}),
       response: {
-        200: RoleSchema,
+        200: RoleWithMetadataSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
@@ -180,8 +209,17 @@ export async function roleRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Role not found' });
       }
 
-      // Return data directly in snake_case format (no transformation needed)
-      return role[0];
+      // ✨ Generate component-aware metadata using Backend Formatter Service
+      const response = generateEntityResponse(ENTITY_CODE, role);
+
+      // ✅ Explicitly return all fields (Fastify strips fields not in schema)
+      return {
+        data: response.data[0],
+        fields: response.fields,
+        metadata: response.metadata,
+        datalabels: response.datalabels,
+        globalSettings: response.globalSettings
+      };
     } catch (error) {
       fastify.log.error('Error fetching role:');
       return reply.status(500).send({ error: 'Internal server error' });

@@ -14,6 +14,10 @@ import { transformRequestBody } from '../../lib/data-transformers.js';
 import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✨ Backend Formatter Service - component-aware metadata generation
+import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter.service.js';
+// ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
+import { fetchDatalabels } from '../../services/datalabel.service.js';
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 // ✅ Child entity factory for parent-child relationships
@@ -101,6 +105,15 @@ const CreateCustSchema = Type.Object({
 
 const UpdateCustSchema = Type.Partial(CreateCustSchema);
 
+// Response schema for metadata-driven endpoints (single entity)
+const CustWithMetadataSchema = Type.Object({
+  data: CustSchema,
+  fields: Type.Array(Type.String()),  // Field names list
+  metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+  datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields (not optional!)
+  globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
+});
+
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
@@ -131,7 +144,19 @@ export async function custRoutes(fastify: FastifyInstance) {
         biz_id: Type.Optional(Type.String()),
         page: Type.Optional(Type.Number({ minimum: 1 })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        offset: Type.Optional(Type.Number({ minimum: 0 }))})}}, async (request, reply) => {
+        offset: Type.Optional(Type.Number({ minimum: 0 }))}),
+      response: {
+        200: Type.Object({
+          data: Type.Array(CustSchema),
+          fields: Type.Array(Type.String()),
+          metadata: Type.Any(),
+          datalabels: Type.Array(Type.Any()),
+          globalSettings: Type.Any(),
+          total: Type.Number(),
+          limit: Type.Number(),
+          offset: Type.Number()
+        })
+      }}}, async (request, reply) => {
     const { active, search, cust_type, biz_id, page, limit = 20, offset } = request.query as any;
 
     // Calculate offset from page if page is provided
@@ -184,7 +209,20 @@ export async function custRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${actualOffset}
       `);
 
-      return createPaginatedResponse(customers, total, limit, actualOffset);
+      // ✨ Generate component-aware metadata using Backend Formatter Service
+      const response = generateEntityResponse(ENTITY_CODE, customers);
+
+      // ✅ Explicitly return all fields (Fastify strips fields not in schema)
+      return {
+        data: response.data,
+        fields: response.fields,
+        metadata: response.metadata,
+        datalabels: response.datalabels,
+        globalSettings: response.globalSettings,
+        total,
+        limit,
+        offset: actualOffset
+      };
     } catch (error) {
       fastify.log.error('Error fetching customers:', error);
       console.error('CUST API ERROR:', error);
@@ -199,7 +237,7 @@ export async function custRoutes(fastify: FastifyInstance) {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })}),
       response: {
-        200: CustSchema,
+        200: CustWithMetadataSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
@@ -225,12 +263,17 @@ export async function custRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Customer not found' });
       }
 
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true};
+      // ✨ Generate component-aware metadata using Backend Formatter Service
+      const response = generateEntityResponse(ENTITY_CODE, customer);
 
-      return filterUniversalColumns(customer[0], userPermissions);
+      // ✅ Explicitly return all fields (Fastify strips fields not in schema)
+      return {
+        data: response.data[0],
+        fields: response.fields,
+        metadata: response.metadata,
+        datalabels: response.datalabels,
+        globalSettings: response.globalSettings
+      };
     } catch (error) {
       fastify.log.error('Error fetching customer:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

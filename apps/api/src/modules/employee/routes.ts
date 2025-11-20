@@ -8,11 +8,14 @@ import {
   filterUniversalColumns,
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
-// ✅ Centralized unified data gate - loosely coupled API
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
-import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✨ Backend Formatter Service - component-aware metadata generation
+import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter.service.js';
+// ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
+import { fetchDatalabels } from '../../services/datalabel.service.js';
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 // ✅ Child entity factory for parent-child relationships
@@ -75,6 +78,15 @@ const EmployeeSchema = Type.Object({
   remote_work_eligible: Type.Optional(Type.Boolean()),  // DDL name (not remote_eligible)
   time_zone: Type.Optional(Type.String()),
   preferred_language: Type.Optional(Type.String())});
+
+// Response schema for metadata-driven endpoints (single entity)
+const EmployeeWithMetadataSchema = Type.Object({
+  data: EmployeeSchema,
+  fields: Type.Array(Type.String()),  // Field names list
+  metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+  datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields (not optional!)
+  globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
+});
 
 // CREATE schema - accepts DDL columns + metadata JSONB
 const CreateEmployeeSchema = Type.Object({
@@ -204,7 +216,11 @@ export async function empRoutes(fastify: FastifyInstance) {
         page: Type.Optional(Type.Number({ minimum: 1 }))}),
       response: {
         200: Type.Object({
-          data: Type.Array(Type.Any()),
+          data: Type.Array(EmployeeSchema),
+          fields: Type.Array(Type.String()),
+          metadata: Type.Any(),
+          datalabels: Type.Array(Type.Any()),
+          globalSettings: Type.Any(),
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number()}),
@@ -336,8 +352,16 @@ export async function empRoutes(fastify: FastifyInstance) {
         metadata: emp.metadata || {}
       }));
 
+      // ✨ Generate component-aware metadata using Backend Formatter Service
+      const response = generateEntityResponse(ENTITY_CODE, filteredData);
+
+      // ✅ Explicitly return all fields (Fastify strips fields not in schema)
       return {
-        data: filteredData,
+        data: response.data,
+        fields: response.fields,
+        metadata: response.metadata,
+        datalabels: response.datalabels,
+        globalSettings: response.globalSettings,
         total,
         limit,
         offset};
@@ -355,7 +379,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })}),
       response: {
-        // Removed Type.Any() - let Fastify serialize naturally without schema validation
+        200: EmployeeWithMetadataSchema,
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
@@ -395,17 +419,17 @@ export async function empRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Employee not found' });
       }
 
-      const userPermissions = {
-        canSeePII: true,
-        canSeeFinancial: true,
-        canSeeSystemFields: true,
-        canSeeSafetyInfo: true};
+      // ✨ Generate component-aware metadata using Backend Formatter Service
+      const response = generateEntityResponse(ENTITY_CODE, employee);
 
-      const filtered = filterUniversalColumns(employee[0], userPermissions);
-      fastify.log.info(`Filtered data keys: ${Object.keys(filtered).join(', ')}`);
-      fastify.log.info(`Filtered data: ${JSON.stringify(filtered).substring(0, 200)}`);
-
-      return reply.send(filtered);
+      // ✅ Explicitly return all fields (Fastify strips fields not in schema)
+      return reply.send({
+        data: response.data[0],
+        fields: response.fields,
+        metadata: response.metadata,
+        datalabels: response.datalabels,
+        globalSettings: response.globalSettings
+      });
     } catch (error) {
       fastify.log.error('Error fetching employee:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

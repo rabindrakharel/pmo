@@ -13,6 +13,10 @@ import {
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✨ Backend Formatter Service - component-aware metadata generation
+import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter.service.js';
+// ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
+import { fetchDatalabels } from '../../services/datalabel.service.js';
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 // ✅ Child entity factory for parent-child relationships
@@ -103,6 +107,15 @@ const CreateWorksiteSchema = Type.Object({
 
 const UpdateWorksiteSchema = Type.Partial(CreateWorksiteSchema);
 
+// Response schema for metadata-driven endpoints (single entity)
+const WorksiteWithMetadataSchema = Type.Object({
+  data: WorksiteSchema,
+  fields: Type.Array(Type.String()),  // Field names list
+  metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+  datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields (not optional!)
+  globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
+});
+
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
@@ -130,6 +143,10 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
       response: {
         200: Type.Object({
           data: Type.Array(WorksiteSchema),
+          fields: Type.Array(Type.String()),
+          metadata: Type.Any(),
+          datalabels: Type.Array(Type.Any()),
+          globalSettings: Type.Any(),
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number(),
@@ -200,7 +217,20 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return createPaginatedResponse(worksites, total, limit, offset);
+      // ✨ Generate component-aware metadata using Backend Formatter Service
+      const response = generateEntityResponse(ENTITY_CODE, worksites);
+
+      // ✅ Explicitly return all fields (Fastify strips fields not in schema)
+      return {
+        data: response.data,
+        fields: response.fields,
+        metadata: response.metadata,
+        datalabels: response.datalabels,
+        globalSettings: response.globalSettings,
+        total,
+        limit,
+        offset
+      };
     } catch (error) {
       fastify.log.error({ error, stack: (error as Error).stack }, 'Error fetching worksites');
       return reply.status(500).send({ error: 'Internal server error' });
@@ -215,7 +245,7 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
         id: Type.String(),
       }),
       response: {
-        200: WorksiteSchema,
+        200: WorksiteWithMetadataSchema,
         404: Type.Object({ error: Type.String() }),
         401: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
@@ -243,7 +273,17 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Worksite not found' });
       }
 
-      return worksite[0];
+      // ✨ Generate component-aware metadata using Backend Formatter Service
+      const response = generateEntityResponse(ENTITY_CODE, worksite);
+
+      // ✅ Explicitly return all fields (Fastify strips fields not in schema)
+      return {
+        data: response.data[0],
+        fields: response.fields,
+        metadata: response.metadata,
+        datalabels: response.datalabels,
+        globalSettings: response.globalSettings
+      };
     } catch (error) {
       fastify.log.error('Error fetching worksite:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

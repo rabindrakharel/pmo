@@ -6,6 +6,10 @@ import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factor
 // ✅ Centralized unified data gate - loosely coupled API
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✨ Backend Formatter Service - component-aware metadata generation
+import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter.service.js';
+// ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
+import { fetchDatalabels } from '../../services/datalabel.service.js';
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
 import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
 
@@ -70,6 +74,15 @@ const CreateWikiSchema = Type.Object({
 
 const UpdateWikiSchema = Type.Partial(CreateWikiSchema);
 
+// Response schema for metadata-driven endpoints (single entity)
+const WikiWithMetadataSchema = Type.Object({
+  data: WikiSchema,
+  fields: Type.Array(Type.String()),  // Field names list
+  metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+  datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields (not optional!)
+  globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
+});
+
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
@@ -96,10 +109,13 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       response: {
         200: Type.Object({
           data: Type.Array(WikiSchema),
+          fields: Type.Array(Type.String()),
+          metadata: Type.Any(),
+          datalabels: Type.Array(Type.Any()),
+          globalSettings: Type.Any(),
           total: Type.Number(),
           limit: Type.Number(),
-          offset: Type.Optional(Type.Number()),
-          page: Type.Optional(Type.Number()),
+          offset: Type.Number(),
         })
       }
     }
@@ -196,14 +212,20 @@ export async function wikiRoutes(fastify: FastifyInstance) {
         metadata: row.metadata || {}
       }));
 
-      const response: any = { data: parsedRows, total, limit };
-      if (page) {
-        response.page = page;
-      } else {
-        response.offset = offset;
-      }
+      // ✨ Generate component-aware metadata using Backend Formatter Service
+      const metadataResponse = generateEntityResponse(ENTITY_CODE, parsedRows);
 
-      return response;
+      // ✅ Explicitly return all fields (Fastify strips fields not in schema)
+      return {
+        data: metadataResponse.data,
+        fields: metadataResponse.fields,
+        metadata: metadataResponse.metadata,
+        datalabels: metadataResponse.datalabels,
+        globalSettings: metadataResponse.globalSettings,
+        total,
+        limit,
+        offset
+      };
     } catch (e) {
       fastify.log.error('Error listing wiki: ' + String(e));
       return reply.status(500).send({ error: 'Internal server error' });
@@ -216,7 +238,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
     schema: {
       params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
       response: {
-        // Removed schema validation - let Fastify serialize naturally
+        200: WikiWithMetadataSchema,
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })
       }
@@ -306,7 +328,17 @@ export async function wikiRoutes(fastify: FastifyInstance) {
         content: wiki.content || null
       };
 
-      return parsedWiki;
+      // ✨ Generate component-aware metadata using Backend Formatter Service
+      const response = generateEntityResponse(ENTITY_CODE, [parsedWiki]);
+
+      // ✅ Explicitly return all fields (Fastify strips fields not in schema)
+      return {
+        data: response.data[0],
+        fields: response.fields,
+        metadata: response.metadata,
+        datalabels: response.datalabels,
+        globalSettings: response.globalSettings
+      };
     } catch (e) {
       fastify.log.error('Error get wiki: ' + String(e));
       return reply.status(500).send({ error: 'Internal server error' });
