@@ -8,7 +8,14 @@ import { DAGVisualizer, type DAGNode } from '../../workflow/DAGVisualizer';
 import { renderEmployeeNames } from '../../../lib/entityConfig';
 import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
 import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
-import { formatRelativeTime, formatFriendlyDate, formatCurrency } from '../../../lib/frontEndFormatterService';
+import {
+  formatRelativeTime,
+  formatFriendlyDate,
+  formatCurrency,
+  renderEditModeFromMetadata,
+  type BackendFieldMetadata,
+  type EntityMetadata
+} from '../../../lib/frontEndFormatterService';
 
 // ============================================================================
 // TEMPORARY: Inline compatibility functions (deprecated function removal)
@@ -154,16 +161,28 @@ interface EntityFormContainerProps {
   mode?: 'create' | 'edit';
 
   // ============================================================================
-  // NEW: Auto-Generation Support (Universal Field Detector Integration)
+  // PRIORITY 1: Backend Metadata (v4.0 Architecture)
   // ============================================================================
   /**
-   * Auto-generate form fields from data using universal field detector
-   * When true and config is not provided, automatically detects field types
-   * and generates appropriate field configurations
+   * Backend-generated metadata (RECOMMENDED)
+   * When provided, uses backend metadata for all rendering decisions
+   * Zero frontend pattern detection
+   *
+   * @example
+   * <EntityFormContainer data={project} metadata={metadata} isEditing onChange={handleChange} />
+   */
+  metadata?: EntityMetadata;
+
+  // ============================================================================
+  // FALLBACK: Auto-Generation Support (LEGACY - for non-integrated routes)
+  // ============================================================================
+  /**
+   * Auto-generate form fields from data using inline pattern detection
+   * ⚠️ DEPRECATED: Use metadata prop instead
+   * Only used when metadata is not provided
    *
    * @example
    * <EntityFormContainer data={project} autoGenerateFields isEditing onChange={handleChange} />
-   * // Automatically detects: budget_allocated_amt → currency, dl__project_stage → DAG, etc.
    */
   autoGenerateFields?: boolean;
 
@@ -188,7 +207,8 @@ export function EntityFormContainer({
   isEditing,
   onChange,
   mode = 'edit',
-  autoGenerateFields = false,
+  metadata,                     // PRIORITY 1: Backend metadata
+  autoGenerateFields = false,   // FALLBACK: inline pattern detection
   dataTypes,
   requiredFields = []
 }: EntityFormContainerProps) {
@@ -214,22 +234,38 @@ export function EntityFormContainer({
   // ============================================================================
   // Convert FormField to FieldDef format for backward compatibility
 
-  // ✅ FIX: Extract field keys separately to prevent infinite loop
+  // ✅ FIX: Create stable field keys to prevent infinite loop
   // Only recompute when actual field names change, not when data values change
-  // Create stable string representation directly
-  const fieldKeysString = useMemo(() => {
-    return Object.keys(data).sort().join(',');
-  }, [JSON.stringify(Object.keys(data).sort())]); // Use stable stringified dependency
+  const fieldKeys = useMemo(() => {
+    return Object.keys(data).sort();
+  }, [Object.keys(data).length]); // Only depend on number of keys, not their values
 
   const fields = useMemo(() => {
-    // If config provided with fields, use them (backward compatibility)
+    // PRIORITY 1: Backend metadata (v4.0 architecture)
+    if (metadata?.fields) {
+      // Convert BackendFieldMetadata to FieldDef format
+      return metadata.fields
+        .filter(f => f.visible.EntityFormContainer === true)
+        .map(fieldMeta => ({
+          key: fieldMeta.key,
+          label: fieldMeta.label,
+          type: fieldMeta.inputType,
+          editable: fieldMeta.editable,
+          visible: true,
+          loadFromDataLabels: fieldMeta.loadFromDataLabels,
+          loadFromEntity: fieldMeta.loadFromEntity,
+          toApi: (value: any) => value,
+          toDisplay: (value: any) => value
+        } as FieldDef));
+    }
+
+    // PRIORITY 2: Config fields (backward compatibility)
     if (config?.fields && config.fields.length > 0) {
       return config.fields;
     }
 
-    // Auto-generate if enabled and data exists
-    if (autoGenerateFields && fieldKeysString.length > 0) {
-      const fieldKeys = fieldKeysString.split(',');
+    // PRIORITY 3: Auto-generate if enabled and data exists (FALLBACK)
+    if (autoGenerateFields && fieldKeys.length > 0) {
       const generatedConfig = generateFormConfig(fieldKeys, {
         dataTypes,
         requiredFields
@@ -248,7 +284,7 @@ export function EntityFormContainer({
 
     // Fallback: empty fields
     return [];
-  }, [config, autoGenerateFields, fieldKeysString, dataTypes, requiredFields]);
+  }, [metadata, config, autoGenerateFields, fieldKeys.length, dataTypes, requiredFields]);
   const [settingOptions, setSettingOptions] = useState<Map<string, SettingOption[]>>(new Map());
   const [dagNodes, setDagNodes] = useState<Map<string, DAGNode[]>>(new Map());
 
