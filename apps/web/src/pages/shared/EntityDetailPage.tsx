@@ -44,6 +44,7 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
   const { pushEntity, updateCurrentEntityName, updateCurrentEntityActiveTab } = useNavigationHistory();
 
   const [data, setData] = useState<any>(null);
+  const [backendMetadata, setBackendMetadata] = useState<any>(null);  // Backend field metadata
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -149,7 +150,17 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
         return;
       }
 
+      // ✅ Extract backend metadata from API response (v4.0 architecture)
+      // Backend returns: { data: {...}, metadata: {...} }
       let responseData = response.data || response;
+      let backendFieldMetadata = null;
+
+      // Check if response has backend metadata structure
+      if (response && typeof response === 'object' && 'metadata' in response && 'data' in response) {
+        // Backend metadata present
+        backendFieldMetadata = response.metadata;
+        responseData = response.data;
+      }
 
       // Special handling for form entity - parse schema if it's a string
       if (entityCode === 'form' && responseData.form_schema && typeof responseData.form_schema === 'string') {
@@ -178,6 +189,7 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
       }
 
       setData(responseData);
+      setBackendMetadata(backendFieldMetadata);  // Set backend metadata
       setEditedData(responseData);
       // Preview URL will be fetched by useEffect
     } catch (err) {
@@ -955,11 +967,12 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
               {/* Metadata Block - EntityFormContainer */}
               <EntityFormContainer
                 config={config}
+                metadata={backendMetadata}  // ✅ Pass backend metadata (v4.0)
                 data={isEditing ? editedData : data}
                 isEditing={isEditing}
                 onChange={handleFieldChange}
                 mode="edit"
-                autoGenerateFields={true}
+                autoGenerateFields={true}   // Fallback for non-integrated routes
               />
 
               {/* Task Data Container - Only show for task entity */}
