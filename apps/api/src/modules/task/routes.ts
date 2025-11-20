@@ -152,8 +152,10 @@ import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-r
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
-// ✨ Backend Formatter Service - backend-driven metadata generation
-import { getEntityMetadata } from '../../services/backend-formatter.service.js';
+// ✨ Backend Formatter Service v5.0 - Component-aware metadata generation
+import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter-v5.service.js';
+// ✨ Datalabel Service - preload datalabel data for DAG visualization
+import { fetchDatalabels } from '../../services/datalabel.service.js';
 
 const TaskSchema = Type.Object({
   id: Type.String(),
@@ -237,7 +239,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
         parent_type: Type.Optional(Type.String()),
-        parent_id: Type.Optional(Type.String({ format: 'uuid' }))}),
+        parent_id: Type.Optional(Type.String({ format: 'uuid' })),
+        view: Type.Optional(Type.String())  // 'entityDataTable,kanbanView' or 'entityFormContainer'
+      }),
       response: {
         200: Type.Object({
           data: Type.Array(TaskSchema),
@@ -249,7 +253,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     const {
       project_id, assigned_to__employee_id, dl__task_stage, task_type, task_category,
       worksite_id, client_id, active, search, limit = 20, offset: queryOffset, page,
-      parent_type, parent_id
+      parent_type, parent_id, view
     } = request.query as any;
 
     // Support both page (new standard) and offset (legacy) - NO fallback to unlimited
@@ -382,19 +386,29 @@ export async function taskRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      // ✨ Generate field metadata from first row (if available)
-      const fieldMetadata = tasks.length > 0
-        ? getEntityMetadata(ENTITY_CODE, tasks[0])
-        : getEntityMetadata(ENTITY_CODE);
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
+      // Parse requested view (convert view names to component names)
+      // ═══════════════════════════════════════════════════════════════
+      const requestedComponents = view
+        ? view.split(',').map((v: string) => v.trim())
+        : ['entityDataTable', 'entityFormContainer', 'kanbanView'];
 
-      // Return all columns without filtering
-      return {
-        data: tasks,
+      // Generate response with metadata for requested components only
+      const response = generateEntityResponse(ENTITY_CODE, tasks, {
+        components: requestedComponents,
         total,
         limit,
-        offset,
-        metadata: fieldMetadata
-      };
+        offset
+      });
+
+      // ✨ Extract datalabel keys and fetch datalabels
+      const datalabelKeys = extractDatalabelKeys(response.metadata);
+      if (datalabelKeys.length > 0) {
+        response.datalabels = await fetchDatalabels(db, datalabelKeys);
+      }
+
+      return response;
     } catch (error) {
       fastify.log.error('Error fetching tasks:', error);
       console.error('Detailed task error:', error);
@@ -409,6 +423,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })
       }),
+      querystring: Type.Object({
+        view: Type.Optional(Type.String()),  // 'entityDetailView,entityFormContainer' or 'entityDataTable'
+      }),
       response: {
         200: TaskWithMetadataSchema,  // ✅ Fixed: Use metadata-driven schema
         403: Type.Object({ error: Type.String() }),
@@ -418,6 +435,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
+    const { view } = request.query as any;
 
     const userId = (request as any).user?.sub;
     if (!userId) {
@@ -495,12 +513,33 @@ export async function taskRoutes(fastify: FastifyInstance) {
         canSeeSafetyInfo: true
       };
 
-      // ✨ Generate field metadata from the actual row
-      const fieldMetadata = getEntityMetadata(ENTITY_CODE, task[0]);
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
+      // Parse requested view (default to detail view components)
+      // ═══════════════════════════════════════════════════════════════
+      const requestedComponents = view
+        ? view.split(',').map((v: string) => v.trim())
+        : ['entityDetailView', 'entityFormContainer'];
 
+      const response = generateEntityResponse(ENTITY_CODE, [filterUniversalColumns(task[0], userPermissions)], {
+        components: requestedComponents,
+        total: 1,
+        limit: 1,
+        offset: 0
+      });
+
+      // ✨ Extract datalabel keys and fetch datalabels
+      const datalabelKeys = extractDatalabelKeys(response.metadata);
+      if (datalabelKeys.length > 0) {
+        response.datalabels = await fetchDatalabels(db, datalabelKeys);
+      }
+
+      // Return first item (single entity)
       return {
-        data: filterUniversalColumns(task[0], userPermissions),
-        metadata: fieldMetadata
+        data: response.data[0],
+        metadata: response.metadata,
+        datalabels: response.datalabels,
+        globalSettings: response.globalSettings
       };
     } catch (error) {
       fastify.log.error('Error fetching task:', error as any);
