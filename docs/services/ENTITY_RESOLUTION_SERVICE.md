@@ -211,7 +211,7 @@ const ProjectSchema = Type.Object({
 
 ## Frontend Integration
 
-### Field Detection (universalFormatterService.tsx:522-540)
+### Field Detection (frontEndFormatterService.tsx:522-540)
 
 ```typescript
 // _ID and _IDS marked as invisible in tables (same pattern as 'id' field)
@@ -470,11 +470,11 @@ All components using `useQuery` need `QueryClientProvider` ancestor. Added in `A
 
 | Document | Section | Status |
 |----------|---------|--------|
-| `ENTITY_INFRASTRUCTURE_SERVICE.md` | resolve_entity_references | ✅ Complete - Structured `_ID`/`_IDS` output documented |
-| `UNIVERSAL_FORMATTER_SERVICE.md` | transformForApi | ✅ Complete - `_ID`/`_IDS` → UUID field flattening documented |
-| `UNIVERSAL_FORMATTER_SERVICE.md` | Metadata Field Handling | ✅ Complete - `_ID`/`_IDS` visible: false pattern documented |
+| `entity-infrastructure.service.md` | resolve_entity_references | ✅ Complete - Structured `_ID`/`_IDS` output documented |
+| `frontEndFormatterService.md` | transformForApi | ✅ Complete - `_ID`/`_IDS` → UUID field flattening documented |
+| `frontEndFormatterService.md` | Metadata Field Handling | ✅ Complete - `_ID`/`_IDS` visible: false pattern documented |
 | `entity_endpoint_design.md` | Response Schemas | ⚠️ Pending - Add EntityReferenceSchema pattern to all entity examples |
-| `COMPONENT_HIERARCHY.md` | EntityFormContainer | ⚠️ Pending - Document `_ID`/`_IDS` props structure |
+| `component-hierarchy.md` | EntityFormContainer | ⚠️ Pending - Document `_ID`/`_IDS` props structure |
 
 ---
 

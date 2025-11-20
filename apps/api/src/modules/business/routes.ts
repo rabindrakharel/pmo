@@ -148,6 +148,12 @@ const BizSchema = Type.Object({
   version: Type.Number(),
 });
 
+// Response schema for metadata-driven endpoints
+const BizWithMetadataSchema = Type.Object({
+  data: BizSchema,
+  metadata: Type.Any()  // EntityMetadata from backend-formatter.service
+});
+
 const CreateBizSchema = Type.Object({
   code: Type.String({ minLength: 1 }),
   name: Type.String({ minLength: 1 }),
@@ -434,7 +440,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
         id: Type.String({ format: 'uuid' })
       }),
       response: {
-        200: BizSchema,
+        200: BizWithMetadataSchema,  // ✅ Fixed: Use metadata-driven schema
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),

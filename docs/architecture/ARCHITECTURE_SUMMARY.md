@@ -55,7 +55,7 @@ This document explains the **complete architecture** for the backend-driven meta
                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │              FRONTEND (React)                                   │
-│  apps/web/src/lib/universalFormatterService.tsx                 │
+│  apps/web/src/lib/frontEndFormatterService.tsx                 │
 │                                                                 │
 │  ❌ PROBLEM: Frontend does ALL the work                        │
 │                                                                 │

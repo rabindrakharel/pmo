@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, Check, X, MoveUp, MoveDown, Database, Info } from 'lucide-react';
-import { detectField } from '../../lib/universalFormatterService';
+import { detectField } from '../../../lib/frontEndFormatterService';
 
 /**
  * Column metadata format from d_entity.column_metadata

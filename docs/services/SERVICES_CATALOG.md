@@ -13,8 +13,8 @@
 
 | Service | File | Documentation |
 |---------|------|---------------|
-| **Entity Infrastructure Service** | `services/entity-infrastructure.service.ts` | [ENTITY_INFRASTRUCTURE_SERVICE.md](./ENTITY_INFRASTRUCTURE_SERVICE.md) |
-| **Universal Formatter Service** | `lib/universalFormatterService.ts` | [UNIVERSAL_FORMATTER_SERVICE.md](./UNIVERSAL_FORMATTER_SERVICE.md) |
+| **Entity Infrastructure Service** | `services/entity-infrastructure.service.ts` | [entity-infrastructure.service.md](./entity-infrastructure.service.md) |
+| **Universal Formatter Service** | `lib/universalFormatterService.ts` | [frontEndFormatterService.md](./frontEndFormatterService.md) |
 | **Universal Filter Builder** | `lib/universal-filter-builder.ts` | [UNIVERSAL_FILTER_BUILDER.md](./UNIVERSAL_FILTER_BUILDER.md) |
 | **Linkage Service** | `services/linkage.service.ts` | [linkage-service.md](./linkage-service.md) *(legacy)* |
 | **S3 Attachment Service** | `lib/s3-attachments.ts` | [s3-attachment-service.md](./s3-attachment-service.md) |

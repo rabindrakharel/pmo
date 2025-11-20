@@ -15,7 +15,7 @@
 |---------------|---------------|----------|
 | **Complete platform overview** | Root: `/CLAUDE.md` | Main index with all features |
 | **Database schema & entities** | `datamodel/` | `README.md` (50+ tables, NO foreign keys) |
-| **Entity infrastructure & services** | `services/` | `ENTITY_INFRASTRUCTURE_SERVICE.md`, `UNIVERSAL_FORMATTER_SERVICE.md` ⭐ |
+| **Entity infrastructure & services** | `services/` | `entity-infrastructure.service.md`, `frontEndFormatterService.md` ⭐ |
 | **All API endpoints** | `api/` | `entity_endpoint_design.md`, `API_DEVELOPER_GUIDE.md` |
 | **How AI chat works** | `ai_chat/` | `AI_CHAT_SYSTEM.md` (text + voice) |
 | **How MCP server works** | `mcp/` | `MCP_ARCHITECTURE.md` |
@@ -24,23 +24,23 @@
 
 | What You're Building | Where to Look | Key File |
 |---------------------|---------------|----------|
-| **New entity type** | `services/`, `api/` | `ENTITY_INFRASTRUCTURE_SERVICE.md`, `entity_endpoint_design.md` ⭐ |
-| **New data table** | `ui_components/` | `datatable.md` (OOP composition) |
+| **New entity type** | `services/`, `api/` | `entity-infrastructure.service.md`, `entity_endpoint_design.md` ⭐ |
+| **New data table** | `ui_components/` | `EntityDataTable.md` (OOP composition) |
 | **New form** | `form/` | `form.md` (JSONB-based forms) |
 | **Calendar/scheduling feature** | `calendar/` | `CALENDAR_SYSTEM.md` (15-min slots) |
 | **Service workflow** | `service_appointment_task_work_orders/` | `SERVICE_WORKFLOW_ARCHITECTURE.md` ⭐ |
 | **Quote system** | `product_services_quotes/` | `TECHNICAL_REFERENCE.md` ⭐ |
-| **DAG/workflow visualization** | `ui_components/` | `dag_vizualizer.md` |
+| **DAG/workflow visualization** | `ui_components/` | `DAGVisualizer.md` |
 | **AI-powered feature** | `ai_chat/`, `mcp/` | AI chat and MCP folders |
 
 ### 🐛 "I need to debug..."
 
 | Problem Area | Where to Look | Key File |
 |--------------|---------------|----------|
-| **RBAC permissions** | `services/`, `datamodel/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` (d_entity_rbac) |
-| **Column consistency issues** | `services/` | `UNIVERSAL_FORMATTER_SERVICE.md` (field detection) |
+| **RBAC permissions** | `services/`, `datamodel/` | `entity-infrastructure.service.md` (d_entity_rbac) |
+| **Column consistency issues** | `services/` | `frontEndFormatterService.md` (field detection) |
 | **API not working** | `docs/` | `tools.md` (test scripts & troubleshooting) |
-| **Entity linkage broken** | `services/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` (d_entity_instance_link patterns) |
+| **Entity linkage broken** | `services/` | `entity-infrastructure.service.md` (d_entity_instance_link patterns) |
 | **Settings/dropdowns** | `settings/` | `settings.md` (20+ settings tables) |
 | **File uploads** | `services/` | `s3-attachment-service.md` |
 | **Styling issues** | `styling/` | `styling_patterns.md` |
@@ -76,8 +76,8 @@
 
 | Document | Purpose | When to Use | Key Topics |
 |----------|---------|-------------|------------|
-| [Entity Infrastructure Service](services/ENTITY_INFRASTRUCTURE_SERVICE.md) | Centralized RBAC and entity lifecycle management | Implementing entity CRUD, RBAC checks, registry operations | RBAC permissions, Entity registry, Parent-child linking, Infrastructure operations |
-| [Universal Formatter Service](services/UNIVERSAL_FORMATTER_SERVICE.md) | Single source of truth for all formatting | Formatting display values, field rendering, API transforms | Currency/date formatting, Badge rendering, Field detection, Type conversion |
+| [Entity Infrastructure Service](services/entity-infrastructure.service.md) | Centralized RBAC and entity lifecycle management | Implementing entity CRUD, RBAC checks, registry operations | RBAC permissions, Entity registry, Parent-child linking, Infrastructure operations |
+| [Universal Formatter Service](services/frontEndFormatterService.md) | Single source of truth for all formatting | Formatting display values, field rendering, API transforms | Currency/date formatting, Badge rendering, Field detection, Type conversion |
 | [Services Catalog](services/README.md) | Index of all backend services | Finding service documentation | 28+ services (linkage, email, calendar, S3, AI chat, etc.) |
 
 ### 🔌 API Architecture
@@ -90,9 +90,9 @@
 
 | Document | Purpose | When to Use | Key Topics |
 |----------|---------|-------------|------------|
-| [Entity Data Table](ui_components/datatable.md) | Universal CRUD table component | Building entity lists, inline editing, bulk operations | Column configuration, Pagination, Sorting, Filtering |
-| [DAG Visualizer](ui_components/dag_vizualizer.md) | Directed Acyclic Graph visualization | Workflow stages, project pipelines, sequential states | DAG rendering, Stage progression, Workflow visualization |
-| [Kanban Board](ui_components/kanban.md) | Task board implementation | Building kanban views, task management | Drag-drop, Column configuration, State transitions |
+| [Entity Data Table](ui_components/EntityDataTable.md) | Universal CRUD table component | Building entity lists, inline editing, bulk operations | Column configuration, Pagination, Sorting, Filtering |
+| [DAG Visualizer](ui_components/DAGVisualizer.md) | Directed Acyclic Graph visualization | Workflow stages, project pipelines, sequential states | DAG rendering, Stage progression, Workflow visualization |
+| [Kanban Board](ui_components/KanbanBoard.md) | Task board implementation | Building kanban views, task management | Drag-drop, Column configuration, State transitions |
 | [Dynamic Forms](form/form.md) | JSONB-based form builder | Creating custom forms, form workflows | Form schema, Multi-step wizards, Validation, Submissions |
 
 ---
@@ -138,7 +138,7 @@
 **When to use:** Building or modifying data tables, OOP composition patterns (LEGACY - Moved to ui_components/)
 
 **Files:**
-- Moved to `ui_components/datatable.md`
+- Moved to `ui_components/EntityDataTable.md`
 
 **Keywords:** datatable, OOP, composition, field-category, settings, auto-configuration, horizontal-scroll, scrollbar, pagination
 
@@ -393,11 +393,11 @@
 
 | Keywords | Location | Primary File |
 |----------|----------|--------------|
-| **entity infrastructure, RBAC, registry** | `services/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` ⭐ |
-| **formatting, field detection, currency, dates** | `services/` | `UNIVERSAL_FORMATTER_SERVICE.md` ⭐ |
-| **linkage, parent-child, d_entity_instance_link** | `services/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` |
+| **entity infrastructure, RBAC, registry** | `services/` | `entity-infrastructure.service.md` ⭐ |
+| **formatting, field detection, currency, dates** | `services/` | `frontEndFormatterService.md` ⭐ |
+| **linkage, parent-child, d_entity_instance_link** | `services/` | `entity-infrastructure.service.md` |
 | **database, schema, DDL, NO foreign keys** | `datamodel/` | `README.md` |
-| **RBAC, permissions, d_entity_rbac** | `services/` | `ENTITY_INFRASTRUCTURE_SERVICE.md` |
+| **RBAC, permissions, d_entity_rbac** | `services/` | `entity-infrastructure.service.md` |
 | **API, endpoints, routes, entity patterns** | `api/` | `entity_endpoint_design.md` ⭐ |
 | **AI chat, voice calling, MCP, GPT-4** | `ai_chat/` | `AI_CHAT_SYSTEM.md` ⭐ |
 | **MCP, Model Context Protocol, tools** | `mcp/` | `MCP_ARCHITECTURE.md` |
@@ -407,11 +407,11 @@
 | **forms, JSONB, schema, validation** | `form/` | `form.md` |
 | **file upload, S3, attachments** | `services/` | `s3-attachment-service.md` |
 | **settings, dropdowns, workflows** | `settings/` | `settings.md` |
-| **datatable, OOP, composition** | `ui_components/` | `datatable.md` |
-| **DAG, graph, visualization, workflow** | `ui_components/` | `dag_vizualizer.md` |
+| **datatable, OOP, composition** | `ui_components/` | `EntityDataTable.md` |
+| **DAG, graph, visualization, workflow** | `ui_components/` | `DAGVisualizer.md` |
 | **deployment, AWS, infrastructure** | `infra_docs/` | `INFRASTRUCTURE_DESIGN.md` |
 | **versioning, history, audit trail** | `versioning/` | `versioning_design.md` |
-| **kanban, task board, drag-drop** | `ui_components/` | `kanban.md` |
+| **kanban, task board, drag-drop** | `ui_components/` | `KanbanBoard.md` |
 | **wiki, collaborative editing** | `wiki/` | `wiki.md`, `COLLABORATIVE_WIKI_EDITING.md` |
 | **tools, scripts, db-import, test-api** | `docs/` | `tools.md` |
 | **mobile, React Native, mobile app** | `mobile/` | `MOBILE_APP_DESIGN.md` |
@@ -426,11 +426,11 @@
 **Complete Platform Understanding (3-4 hours):**
 ```
 1. /CLAUDE.md                                    (15 min) - Platform overview
-2. services/ENTITY_INFRASTRUCTURE_SERVICE.md     (45 min) - Core infrastructure ⭐
-3. services/UNIVERSAL_FORMATTER_SERVICE.md       (30 min) - Formatting & field detection ⭐
+2. services/entity-infrastructure.service.md     (45 min) - Core infrastructure ⭐
+3. services/frontEndFormatterService.md       (30 min) - Formatting & field detection ⭐
 4. datamodel/README.md                           (30 min) - Database schema
 5. api/entity_endpoint_design.md                 (60 min) - API patterns
-6. ui_components/datatable.md                    (30 min) - Table system
+6. ui_components/EntityDataTable.md                    (30 min) - Table system
 7. settings/settings.md                          (20 min) - Settings system
 8. ai_chat/AI_CHAT_SYSTEM.md                     (30 min) - AI features
 ```
@@ -439,10 +439,10 @@
 
 **Building New Entity (2 hours):**
 ```
-1. services/ENTITY_INFRASTRUCTURE_SERVICE.md - Infrastructure operations
+1. services/entity-infrastructure.service.md - Infrastructure operations
 2. datamodel/README.md - DDL patterns
 3. api/entity_endpoint_design.md - API route patterns
-4. ui_components/datatable.md - Table rendering
+4. ui_components/EntityDataTable.md - Table rendering
 ```
 
 **Building Service Workflow (2 hours):**
@@ -484,13 +484,13 @@
 
 **I need to...**
 
-✅ **Understand the platform** → `/CLAUDE.md` + `services/ENTITY_INFRASTRUCTURE_SERVICE.md`
+✅ **Understand the platform** → `/CLAUDE.md` + `services/entity-infrastructure.service.md`
 
-✅ **Add a new entity** → `services/ENTITY_INFRASTRUCTURE_SERVICE.md` + `api/entity_endpoint_design.md`
+✅ **Add a new entity** → `services/entity-infrastructure.service.md` + `api/entity_endpoint_design.md`
 
 ✅ **Work with database** → `datamodel/README.md`
 
-✅ **Format fields/values** → `services/UNIVERSAL_FORMATTER_SERVICE.md`
+✅ **Format fields/values** → `services/frontEndFormatterService.md`
 
 ✅ **Build a service workflow** → `service_appointment_task_work_orders/SERVICE_WORKFLOW_ARCHITECTURE.md`
 
@@ -498,7 +498,7 @@
 
 ✅ **Add AI features** → `ai_chat/AI_CHAT_SYSTEM.md` + `mcp/MCP_ARCHITECTURE.md`
 
-✅ **Debug RBAC** → `services/ENTITY_INFRASTRUCTURE_SERVICE.md` (RBAC section)
+✅ **Debug RBAC** → `services/entity-infrastructure.service.md` (RBAC section)
 
 ✅ **Deploy to AWS** → `infra_docs/INFRASTRUCTURE_DESIGN.md`
 

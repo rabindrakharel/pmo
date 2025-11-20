@@ -97,8 +97,8 @@
 
 Each service has dedicated documentation:
 
-- [ENTITY_INFRASTRUCTURE_SERVICE.md](./ENTITY_INFRASTRUCTURE_SERVICE.md) - Infrastructure tables management (CORE)
-- [UNIVERSAL_FORMATTER_SERVICE.md](./UNIVERSAL_FORMATTER_SERVICE.md) - Formatting service (CORE)
+- [entity-infrastructure.service.md](./entity-infrastructure.service.md) - Infrastructure tables management (CORE)
+- [frontEndFormatterService.md](./frontEndFormatterService.md) - Formatting service (CORE)
 - [UNIVERSAL_FILTER_BUILDER.md](./UNIVERSAL_FILTER_BUILDER.md) - Auto-filter builder (CORE)
 - [linkage-service.md](./linkage-service.md) - Entity relationship management (legacy)
 - [s3-attachment-service.md](./s3-attachment-service.md) - File storage operations

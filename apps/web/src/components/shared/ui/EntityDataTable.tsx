@@ -33,17 +33,40 @@ import {
   type SettingOption
 } from '../../../lib/settingsLoader';
 import {
-  getFieldCapability,
-  type FieldCapability,
   renderDataLabelBadge,
   COLOR_MAP,
   getSettingColor,
   loadSettingsColors,
   renderField,
   renderViewModeFromMetadata
-} from '../../../lib/universalFormatterService';
+} from '../../../lib/frontEndFormatterService';
 import type { BackendFieldMetadata, EntityMetadata } from '../../../lib/api';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
+
+// ============================================================================
+// TEMPORARY: Minimal compatibility types (deprecated function removal)
+// TODO: Migrate to backend metadata architecture
+// ============================================================================
+interface FieldCapability {
+  inlineEditable: boolean;
+  editType: string;
+  isFileUpload: boolean;
+}
+
+/**
+ * @deprecated Temporary inline replacement for getFieldCapability()
+ * TODO: Migrate to backend metadata architecture - Backend provides editable flags
+ */
+function getFieldCapability(columnKey: string, dataType?: string): FieldCapability {
+  const readonly = /^(id|.*_id|created.*|updated.*|deleted.*|.*_at|.*_ts|.*_count|.*_total)$/i.test(columnKey);
+  const isFileUpload = columnKey.includes('attachment') || columnKey.includes('file');
+
+  return {
+    inlineEditable: !readonly,
+    editType: dataType || 'text',
+    isFileUpload
+  };
+}
 
 // ============================================================================
 // METADATA-DRIVEN RENDERING (Pure Backend-Driven)
@@ -432,7 +455,7 @@ export function EntityDataTable<T = any>({
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
     // Only include columns that are explicitly marked as visible
-    // This respects the visible property from universalFormatterService
+    // This respects the visible property from frontEndFormatterService
     new Set(columns.filter(col => col.visible !== false).map(col => col.key))
   );
   const [showColumnSelector, setShowColumnSelector] = useState(false);

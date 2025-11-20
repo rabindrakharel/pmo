@@ -77,7 +77,7 @@ export function AddDatalabelModal({
     try {
       setEntitiesLoading(true);
       const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:4000/api/v1/entity/types', {
+      const response = await fetch('http://localhost:4000/api/v1/entity/codes', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

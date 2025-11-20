@@ -626,7 +626,7 @@ psql -f db/11_project.ddl
 ## Related Documentation
 
 - **DDL Files**: `db/*.ddl` (50+ files)
-- **Entity Infrastructure Service**: `/docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md`
+- **Entity Infrastructure Service**: `/docs/services/entity-infrastructure.service.md`
 - **Tools Documentation**: `/docs/tools.md`
 - **API Patterns**: `/docs/api/entity_endpoint_design.md`
 

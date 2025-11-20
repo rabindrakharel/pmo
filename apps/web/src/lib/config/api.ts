@@ -53,7 +53,7 @@ export const API_ENDPOINTS = {
     create: (entityCode: string) => `${API_CONFIG.BASE_URL}/api/v1/${entityCode}`,
     update: (entityCode: string, id: string) => `${API_CONFIG.BASE_URL}/api/v1/${entityCode}/${id}`,
     delete: (entityCode: string, id: string) => `${API_CONFIG.BASE_URL}/api/v1/${entityCode}/${id}`,
-    types: () => `${API_CONFIG.BASE_URL}/api/v1/entity/types`,
+    types: () => `${API_CONFIG.BASE_URL}/api/v1/entity/codes`,
     options: (entityCode: string) => `${API_CONFIG.BASE_URL}/api/v1/entity/${entityCode}/options`
   },
   auth: {

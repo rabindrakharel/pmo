@@ -410,7 +410,7 @@ async function warmCache() {
 - **Redis Documentation**: https://redis.io/docs/
 - **ioredis Documentation**: https://github.com/redis/ioredis
 - **Valkey Documentation**: https://valkey.io/
-- **Entity Infrastructure Service**: `docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md`
+- **Entity Infrastructure Service**: `docs/services/entity-infrastructure.service.md`
 
 ---
 

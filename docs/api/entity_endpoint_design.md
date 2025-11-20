@@ -774,8 +774,8 @@ const result = await db.execute(sql`SELECT * FROM d_project WHERE id = ${id}`);
 
 ## Related Documentation
 
-- **Entity Infrastructure Service**: `/docs/services/ENTITY_INFRASTRUCTURE_SERVICE.md`
-- **Universal Formatter Service**: `/docs/services/UNIVERSAL_FORMATTER_SERVICE.md`
+- **Entity Infrastructure Service**: `/docs/services/entity-infrastructure.service.md`
+- **Universal Formatter Service**: `/docs/services/frontEndFormatterService.md`
 - **Data Model**: `/docs/datamodel/README.md`
 
 ## Version History

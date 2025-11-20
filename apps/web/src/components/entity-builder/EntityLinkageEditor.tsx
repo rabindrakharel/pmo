@@ -41,7 +41,7 @@ export function EntityLinkageEditor({
         const token = localStorage.getItem('auth_token');
         const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
-        const response = await fetch(`${apiBaseUrl}/api/v1/entity/types`, {
+        const response = await fetch(`${apiBaseUrl}/api/v1/entity/codes`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',

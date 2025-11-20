@@ -178,7 +178,7 @@ export function LinkagePage() {
   const loadAllEntityTypes = async () => {
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE_URL}/api/v1/entity/types`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/entity/codes`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -194,7 +194,7 @@ export function LinkagePage() {
   const loadEntityTypeMetadata = async (entityCode: string) => {
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE_URL}/api/v1/entity/type/${entityCode}`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/entity/codes/${entityCode}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -242,7 +242,7 @@ export function LinkagePage() {
       const token = localStorage.getItem('auth_token');
 
       // Fetch current entity type data to get existing children
-      const getResponse = await fetch(`${API_BASE_URL}/api/v1/entity/type/${parentType}`, {
+      const getResponse = await fetch(`${API_BASE_URL}/api/v1/entity/codes/${parentType}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -292,7 +292,7 @@ export function LinkagePage() {
       const token = localStorage.getItem('auth_token');
 
       // Fetch current entity type data
-      const getResponse = await fetch(`${API_BASE_URL}/api/v1/entity/type/${parentType}`, {
+      const getResponse = await fetch(`${API_BASE_URL}/api/v1/entity/codes/${parentType}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -340,7 +340,7 @@ export function LinkagePage() {
       const token = localStorage.getItem('auth_token');
 
       // Fetch current entity type data
-      const getResponse = await fetch(`${API_BASE_URL}/api/v1/entity/type/${parentType}`, {
+      const getResponse = await fetch(`${API_BASE_URL}/api/v1/entity/codes/${parentType}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -388,7 +388,7 @@ export function LinkagePage() {
       const token = localStorage.getItem('auth_token');
 
       // Use the same entity type API to get child entities for consistency
-      const response = await fetch(`${API_BASE_URL}/api/v1/entity/type/${parentType}`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/entity/codes/${parentType}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 

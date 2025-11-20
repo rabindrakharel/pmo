@@ -637,9 +637,9 @@ WHERE entity_instance_id = 'your-uuid-here';
 
 ## Related Documentation
 
-- [Entity Infrastructure Service](../services/ENTITY_INFRASTRUCTURE_SERVICE.md) - Backend resolution architecture
+- [Entity Infrastructure Service](../services/entity-infrastructure.service.md) - Backend resolution architecture
 - [Entity Resolution Service](../services/ENTITY_RESOLUTION_SERVICE.md) - Resolution service details
-- [Universal Formatter Service](../services/UNIVERSAL_FORMATTER_SERVICE.md) - Frontend formatting patterns
+- [Universal Formatter Service](../services/frontEndFormatterService.md) - Frontend formatting patterns
 - [Entity Endpoint Design](../api/entity_endpoint_design.md) - API route patterns
 - [UUID Field Naming Convention Migration](../MIGRATION_UUID_FIELD_NAMING.md) - Migration guide
 

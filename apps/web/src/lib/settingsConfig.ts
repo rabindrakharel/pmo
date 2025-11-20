@@ -6,14 +6,14 @@
  * DRY approach: All settings entities share the same structure.
  * Instead of repeating 12 times, we define once and generate.
  *
- * V3.0 UPDATE: Now uses centralized badge rendering from universalFormatterService.ts
+ * V3.0 UPDATE: Now uses centralized badge rendering from frontEndFormatterService.ts
  * All badge rendering logic moved to single source of truth.
  */
 
 import {
   loadSettingsColors,
   COLOR_MAP
-} from './universalFormatterService';
+} from '../../../lib/frontEndFormatterService';
 
 // ============================================================================
 // COLOR SYSTEM - Re-exports from centralized source
@@ -41,7 +41,7 @@ export const COLOR_OPTIONS = [
 export { COLOR_MAP };
 
 // ============================================================================
-// BADGE RENDERING - Direct use of universalFormatterService
+// BADGE RENDERING - Direct use of frontEndFormatterService
 // ============================================================================
 // All badge rendering now done via renderDataLabelBadge() directly
 // Deprecated wrappers removed - use universal formatter service

@@ -490,7 +490,7 @@ watch -n 5 'docker exec pmo_redis redis-cli INFO stats | grep -E "keyspace_hits|
 
 - **[Redis Migration Guide](./redis_migration.md)** - Complete migration from in-memory to Redis
 - **[Child Entity Management](./child_entity_management.md)** - Cache invalidation for child entity updates
-- **[Entity Infrastructure Service](../services/ENTITY_INFRASTRUCTURE_SERVICE.md)** - Core caching service
+- **[Entity Infrastructure Service](../services/entity-infrastructure.service.md)** - Core caching service
 
 ---
 

@@ -2,10 +2,34 @@ import React, { useState, useMemo } from 'react';
 import { MoreVertical } from 'lucide-react';
 
 // ============================================================================
-// NEW: Universal Field Detector Integration
+// TEMPORARY: Minimal compatibility (viewConfigGenerator.ts removed)
+// TODO: Migrate to backend metadata architecture
 // ============================================================================
-import { generateKanbanConfig } from '../../../lib/viewConfigGenerator';
+import { detectField } from '../../../lib/frontEndFormatterService';
 import { loadFieldOptions } from '../../../lib/settingsLoader';
+
+/**
+ * @deprecated Temporary replacement for viewConfigGenerator.generateKanbanConfig()
+ * TODO: Migrate to backend metadata architecture
+ */
+function generateKanbanConfig(
+  fieldKeys: string[],
+  dataTypes?: Record<string, string>
+): { groupByField: string; loadColumnsFrom?: string } | null {
+  // Auto-detect: dl__*_stage > dl__*_status > status > *_status
+  const groupByField = fieldKeys.find(k =>
+    k.startsWith('dl__') && (k.includes('stage') || k.includes('status'))
+  ) || fieldKeys.find(k => k === 'status' || k.endsWith('_status'));
+
+  if (!groupByField) return null;
+
+  const meta = detectField(groupByField, dataTypes?.[groupByField]);
+
+  return {
+    groupByField,
+    loadColumnsFrom: meta.loadFromDataLabels ? 'settings' : undefined
+  };
+}
 
 export interface KanbanColumn {
   id: string;

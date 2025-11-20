@@ -64,21 +64,22 @@ export async function entityRoutes(fastify: FastifyInstance) {
   const entityInfra = getEntityInfrastructure(db);
 
   /**
-   * GET /api/v1/entity/type/:entity_type?
+   * GET /api/v1/entity/codes/:entity_code?
    * UNIFIED ENDPOINT - Serves both Settings page and DynamicChildEntityTabs
    *
-   * - With :entity_type → Returns single entity metadata (for tabs)
-   * - Without :entity_type → Returns all entity metadata (for settings)
+   * - With :entity_code → Returns single entity metadata (for tabs)
+   * - Without :entity_code → Returns all entity metadata (for settings)
    *
    * Replaces:
    * - GET /api/v1/entity/types (removed)
+   * - GET /api/v1/entity/type/:entity_type (removed)
    * - GET /api/v1/entity/child-tabs/:entity_type/:entity_id (removed)
    */
-  fastify.get('/api/v1/entity/type/:entity_type?', {
+  fastify.get('/api/v1/entity/codes/:entity_code?', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
-        entity_type: Type.Optional(Type.String())
+        entity_code: Type.Optional(Type.String())
       }),
       querystring: Type.Object({
         include_inactive: Type.Optional(Type.Boolean())
@@ -93,13 +94,13 @@ export async function entityRoutes(fastify: FastifyInstance) {
       }
     }
   }, async (request, reply) => {
-    const { entity_type } = request.params as { entity_type?: string };
+    const { entity_code } = request.params as { entity_code?: string };
     const { include_inactive } = request.query as { include_inactive?: boolean };
 
     // ═══════════════════════════════════════════════════════════════
-    // CASE 1: No entity_type → Return ALL entities (Settings page)
+    // CASE 1: No entity_code → Return ALL entities (Settings page)
     // ═══════════════════════════════════════════════════════════════
-    if (!entity_type) {
+    if (!entity_code) {
       try {
         const entities = await entityInfra.get_all_entity(include_inactive);
         const allActiveEntities = await entityInfra.get_all_entity(false);
@@ -143,9 +144,9 @@ export async function entityRoutes(fastify: FastifyInstance) {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // CASE 2: With entity_type → Return SINGLE entity (Tabs)
+    // CASE 2: With entity_code → Return SINGLE entity (Tabs)
     // ═══════════════════════════════════════════════════════════════
-    const normalizedEntityType = normalizeEntityType(entity_type);
+    const normalizedEntityType = normalizeEntityType(entity_code);
 
     try {
       // Use Entity Infrastructure Service to get entity metadata
@@ -153,7 +154,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
 
       if (!entity) {
         return reply.status(404).send({
-          error: `Entity type not found: ${entity_type}`
+          error: `Entity type not found: ${entity_code}`
         });
       }
 

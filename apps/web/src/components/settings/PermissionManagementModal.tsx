@@ -90,7 +90,7 @@ export function PermissionManagementModal({ isOpen, onClose, onSave }: Permissio
       }
 
       // Fetch entities
-      const entitiesRes = await fetch(`${apiBaseUrl}/api/v1/entity/types`, { headers });
+      const entitiesRes = await fetch(`${apiBaseUrl}/api/v1/entity/codes`, { headers });
       if (entitiesRes.ok) {
         const entitiesData = await entitiesRes.json();
         setEntities(entitiesData.entities || []);

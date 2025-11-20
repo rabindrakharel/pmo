@@ -211,8 +211,8 @@ export function SettingsOverviewPage() {
     try {
       setEntitiesLoading(true);
       const token = localStorage.getItem('auth_token');
-      // ✅ UNIFIED ENDPOINT: /api/v1/entity/type (no param = all entities)
-      const response = await fetch('http://localhost:4000/api/v1/entity/type?include_inactive=true', {
+      // ✅ UNIFIED ENDPOINT: /api/v1/entity/codes (no param = all entities)
+      const response = await fetch('http://localhost:4000/api/v1/entity/codes?include_inactive=true', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

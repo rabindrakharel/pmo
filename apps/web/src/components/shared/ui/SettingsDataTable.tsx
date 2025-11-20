@@ -35,7 +35,7 @@
 import React, { useState } from 'react';
 import { DataTableBase, ActionButtons, type BaseColumn } from './DataTableBase';
 import { ColoredDropdown, type ColoredDropdownOption } from './ColoredDropdown';
-import { renderDataLabelBadge } from '../../../lib/universalFormatterService';
+import { renderDataLabelBadge } from '../../../lib/frontEndFormatterService';
 import { COLOR_OPTIONS } from '../../../lib/settingsConfig';
 import { inputStyles, actionButtonStyles } from '../../../lib/designSystem';
 

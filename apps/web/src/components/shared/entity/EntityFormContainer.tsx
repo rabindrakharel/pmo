@@ -8,15 +8,55 @@ import { DAGVisualizer, type DAGNode } from '../../workflow/DAGVisualizer';
 import { renderEmployeeNames } from '../../../lib/entityConfig';
 import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
 import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
-import { formatRelativeTime, formatFriendlyDate, formatCurrency, isCurrencyField, generateFieldLabel, formatFieldValue, detectField } from '../../../lib/universalFormatterService';
+import { formatRelativeTime, formatFriendlyDate, formatCurrency, isCurrencyField, generateFieldLabel, formatFieldValue, detectField } from '../../../lib/frontEndFormatterService';
 import { MetadataTable } from './MetadataTable';
 import { QuoteItemsRenderer } from './QuoteItemsRenderer';
 import { getBadgeClass, textStyles } from '../../../lib/designSystem';
 
 // ============================================================================
-// NEW: Universal Field Detector Integration
+// TEMPORARY: Minimal compatibility types (viewConfigGenerator.ts removed)
+// TODO: Migrate to backend metadata architecture
 // ============================================================================
-import { generateFormConfig, type FormField } from '../../../lib/viewConfigGenerator';
+interface FormField {
+  key: string;
+  label: string;
+  type: string;
+  editable: boolean;
+  visible: boolean;
+  loadFromDataLabels?: boolean;
+  loadFromEntity?: string;
+  toApi: (value: any) => any;
+  toDisplay: (value: any) => any;
+}
+
+/**
+ * @deprecated Temporary replacement for viewConfigGenerator.generateFormConfig()
+ * TODO: Migrate to backend metadata architecture
+ */
+function generateFormConfig(
+  fieldKeys: string[],
+  options?: { dataTypes?: Record<string, string>; requiredFields?: string[] }
+): { editableFields: FormField[]; requiredFields: string[] } {
+  const editableFields = fieldKeys.map(key => {
+    const meta = detectField(key, options?.dataTypes?.[key]);
+    return {
+      key,
+      label: meta.fieldName,
+      type: meta.inputType,
+      editable: meta.editable,
+      visible: meta.visible,
+      loadFromDataLabels: meta.loadFromDataLabels,
+      loadFromEntity: meta.loadFromEntity,
+      toApi: meta.toApi,
+      toDisplay: meta.toDisplay
+    };
+  }).filter(f => f.editable);
+
+  return {
+    editableFields,
+    requiredFields: options?.requiredFields || []
+  };
+}
 
 /**
  * Helper function to render badge with color based on field type and value
@@ -398,7 +438,7 @@ export function EntityFormContainer({
         const option = options.find((opt: any) => String(opt.value) === String(value));
         const rawValue = option?.label || value;
 
-        // ✅ Use universalFormatterService to format the value properly
+        // ✅ Use frontEndFormatterService to format the value properly
         let displayValue: string;
         const fieldFormat = detectField(field.key);
 
@@ -684,7 +724,7 @@ export function EntityFormContainer({
           </span>
         );
       default:
-        // ✅ Use universalFormatterService for consistent formatting
+        // ✅ Use frontEndFormatterService for consistent formatting
         let defaultDisplay: string;
         const fieldFormat = detectField(field.key);
 
