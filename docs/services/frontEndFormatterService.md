@@ -2,11 +2,12 @@
 
 > **Pure renderer** - Consumes backend-provided metadata and renders exactly as instructed. Zero pattern detection, zero field type logic.
 
+**File**: `apps/web/src/lib/frontEndFormatterService.tsx` (646 lines)
+
 ---
 
-## 1. Semantics & Business Context
+## 1. Purpose
 
-### Purpose
 The Frontend Formatter Service is a **pure rendering engine** that transforms backend metadata into React elements. It has **ZERO** business logic for determining field types, formats, or behavior—all intelligence lives in the backend.
 
 ### Design Philosophy: Pure Renderer Pattern
@@ -29,627 +30,543 @@ The Frontend Formatter Service is a **pure rendering engine** that transforms ba
 
 ---
 
-## 2. Tooling & Framework Architecture
+## 2. Core Functions
 
-### Stack
-- **Language**: TypeScript + React 19
-- **Styling**: Tailwind CSS v4
-- **Pattern**: Functional components, pure functions
-- **State**: Stateless (all state managed by parent components)
+### View Mode Rendering
 
-### Service Location
-```
-apps/web/src/lib/frontEndFormatterService.tsx (2,390 lines)
-```
-
-### Core Imports
 ```typescript
-// Backend metadata consumption (NEW - metadata-driven)
-import {
-  renderViewModeFromMetadata,      // View mode rendering
-  renderEditModeFromMetadata,       // Edit mode rendering
-  getFieldMetadataFromResponse,  // Extract field metadata
-  hasBackendMetadata             // Type guard
-} from '@/lib/universalFormatterService';
+import { renderViewModeFromMetadata } from '@/lib/frontEndFormatterService';
 
-// Legacy functions (for backward compatibility with non-metadata entities)
-import {
-  detectField,                   // Pattern detection (DEPRECATED)
-  renderField,                   // Old rendering (DEPRECATED)
-  formatFieldValue               // String formatting (still used)
-} from '@/lib/universalFormatterService';
+// Backend metadata drives rendering
+renderViewModeFromMetadata(value, metadata, record?)
+// Returns: React element based on metadata.renderType
+```
+
+**Render Types Supported** (11 types):
+- `'text'` - Plain text
+- `'currency'` - Formatted currency ($50,000.00)
+- `'percentage'` - Percentage with decimals (75.5%)
+- `'date'` - Friendly date (Jan 15, 2025)
+- `'timestamp'` - Relative time (2 hours ago)
+- `'boolean'` - Badge with true/false labels
+- `'badge'` - Colored badge (from datalabels or direct)
+- `'array'` - Array of badges
+- `'link'` - Clickable hyperlink
+- `'json'` - JSON viewer
+- `'reference'` - Entity reference (displays name)
+
+### Edit Mode Rendering
+
+```typescript
+import { renderEditModeFromMetadata } from '@/lib/frontEndFormatterService';
+
+// Backend metadata drives edit control
+renderEditModeFromMetadata(value, metadata, onChange, options?)
+// Returns: Form control based on metadata.inputType
+```
+
+**Input Types Supported** (11 types):
+- `'text'` - Text input
+- `'textarea'` - Multi-line text
+- `'number'` - Numeric input
+- `'currency'` - Currency input (step=0.01)
+- `'date'` - Date picker
+- `'datetime'` - DateTime picker
+- `'checkbox'` - Boolean toggle
+- `'select'` - Dropdown (with datalabel options)
+- `'multiselect'` - Multi-select dropdown
+- `'file'` - File upload
+- `'reference'` - Entity reference dropdown
+
+---
+
+## 3. Backend-Driven Data Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. BACKEND API                                                  │
+│    const fieldMetadata = getEntityMetadata('project', record);  │
+│    return { data: [...], metadata: fieldMetadata };             │
+└─────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 2. API RESPONSE WITH METADATA                                   │
+│    {                                                            │
+│      data: [{ budget_allocated_amt: 50000 }],                   │
+│      metadata: {                                                │
+│        entity: "project",                                       │
+│        fields: [{                                               │
+│          key: "budget_allocated_amt",                           │
+│          renderType: "currency",                                │
+│          inputType: "currency",                                 │
+│          format: { symbol: "$", decimals: 2 }                   │
+│        }]                                                       │
+│      }                                                          │
+│    }                                                            │
+└─────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 3. FRONTEND - EntityDataTable                                  │
+│    import { renderViewModeFromMetadata } from '@/lib/frontEndFormatterService';
+│                                                                 │
+│    const columns = metadata.fields.map(fieldMeta => ({         │
+│      key: fieldMeta.key,                                        │
+│      render: (value, record) =>                                 │
+│        renderViewModeFromMetadata(value, fieldMeta, record)     │
+│    }));                                                         │
+└─────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 4. RENDERED OUTPUT                                              │
+│    VIEW MODE: <span className="font-mono">$50,000.00</span>    │
+│    EDIT MODE: <input type="number" step="0.01" />              │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Architecture & System Design
+## 4. Component Integration
 
-### 3.1 Metadata Consumption Flow
-
-```
-Backend API Response
-        │
-        ├─ { data: [...], metadata: { fields: [...] } }
-        │
-        ▼
-┌──────────────────────────────────┐
-│  hasBackendMetadata(response)    │
-│  Type guard: check for metadata  │
-└──────────────────────────────────┘
-        │
-        ├─ TRUE → Metadata-driven mode
-        │
-        ▼
-┌──────────────────────────────────┐
-│  getFieldMetadataFromResponse()  │
-│  Extract metadata for field      │
-└──────────────────────────────────┘
-        │
-        ▼
-┌──────────────────────────────────┐
-│  VIEW MODE                       │
-│  renderViewModeFromMetadata()       │
-│  • renderType: currency → $XX    │
-│  • renderType: badge → 🟢 badge  │
-│  • renderType: date → friendly   │
-└──────────────────────────────────┘
-        │
-        ▼
-┌──────────────────────────────────┐
-│  EDIT MODE                       │
-│  renderEditModeFromMetadata()       │
-│  • inputType: currency → input#  │
-│  • inputType: select → dropdown  │
-│  • inputType: date → date picker │
-└──────────────────────────────────┘
-        │
-        ▼
-    React Element
-```
-
-### 3.2 Component Integration Pattern
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    EntityMainPage                           │
-│  • Fetches data from API                                    │
-│  • Stores metadata in state                                 │
-│  • Passes metadata down                                     │
-└─────────────────────────────────────────────────────────────┘
-                          │
-                          │ metadata prop
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  FilteredDataTable                          │
-│  • Receives metadata from parent                            │
-│  • Forwards to EntityDataTable                              │
-└─────────────────────────────────────────────────────────────┘
-                          │
-                          │ metadata prop
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  EntityDataTable                            │
-│  • Generates columns from metadata.fields                   │
-│  • Each column uses renderViewModeFromMetadata()               │
-└─────────────────────────────────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│        For each field in each row:                          │
-│                                                              │
-│  const fieldMeta = metadata.fields.find(f => f.key === key) │
-│                                                              │
-│  VIEW:  renderViewModeFromMetadata(value, fieldMeta, record)  │
-│  EDIT:  renderEditModeFromMetadata(value, fieldMeta, onChange)│
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 3.3 Render Type Mappings (View Mode)
-
-#### renderViewModeFromMetadata() Switch Logic
+### EntityDataTable Integration
 
 ```typescript
-switch (metadata.renderType) {
-  case 'currency':
-    return <span className="font-mono">${formatCurrency(value)}</span>;
+// apps/web/src/components/shared/ui/EntityDataTable.tsx
+import {
+  renderViewModeFromMetadata,
+  renderEditModeFromMetadata
+} from '@/lib/frontEndFormatterService';
 
-  case 'percentage':
-    return <span className="font-mono">{value.toFixed(1)}%</span>;
-
-  case 'date':
-  case 'timestamp':
-    return <span className="text-sm">{formatFriendlyDate(value)}</span>;
-
-  case 'boolean':
-    return renderBadge(
-      value ? metadata.format.trueLabel : metadata.format.falseLabel,
-      value ? metadata.format.trueColor : metadata.format.falseColor
-    );
-
-  case 'badge':
-    // Settings-driven badge (dl__* fields)
-    if (metadata.loadFromDataLabels && metadata.settingsDatalabel) {
-      return renderDataLabelBadge(value, metadata.settingsDatalabel);
-    }
-    return renderBadge(String(value), 'blue');
-
-  case 'array':
-    if (Array.isArray(value)) {
-      return (
-        <div className="flex flex-wrap gap-1">
-          {value.map((item, idx) => (
-            <span key={idx} className="badge">{String(item)}</span>
-          ))}
-        </div>
-      );
-    }
-
-  case 'link':
-    return <a href={value} target="_blank">{value}</a>;
-
-  case 'json':
-    return <pre className="json-viewer">{JSON.stringify(value, null, 2)}</pre>;
-
-  case 'text':
-  default:
-    return <span>{String(value)}</span>;
-}
-```
-
-### 3.4 Input Type Mappings (Edit Mode)
-
-#### renderEditModeFromMetadata() Switch Logic
-
-```typescript
-switch (metadata.inputType) {
-  case 'currency':
-  case 'number':
-    return (
-      <input
-        type="number"
-        step={metadata.inputType === 'currency' ? '0.01' : '1'}
-        value={value ?? ''}
-        onChange={(e) => onChange(parseFloat(e.target.value) || null)}
-      />
-    );
-
-  case 'date':
-    return <input type="date" value={value} onChange={(e) => onChange(e.target.value)} />;
-
-  case 'datetime':
-    return <input type="datetime-local" value={value} onChange={(e) => onChange(e.target.value)} />;
-
-  case 'checkbox':
-    return <input type="checkbox" checked={Boolean(value)} onChange={(e) => onChange(e.target.checked)} />;
-
-  case 'textarea':
-    return <textarea rows={3} value={value} onChange={(e) => onChange(e.target.value)} />;
-
-  case 'select':
-    // Settings dropdown (dl__* fields)
-    if (metadata.loadFromDataLabels && metadata.options) {
-      return (
-        <select value={value} onChange={(e) => onChange(e.target.value)}>
-          <option value="">Select...</option>
-          {metadata.options.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-      );
-    }
-
-  case 'multiselect':
-  case 'tags':
-    return (
-      <input
-        type="text"
-        value={Array.isArray(value) ? value.join(', ') : value}
-        onChange={(e) => onChange(e.target.value.split(',').map(v => v.trim()))}
-        placeholder="Comma-separated values"
-      />
-    );
-
-  case 'readonly':
-    return <span className="text-gray-500">{formatValueFromMetadata(value, metadata)}</span>;
-
-  case 'text':
-  default:
-    return <input type="text" value={value} onChange={(e) => onChange(e.target.value)} />;
-}
-```
-
----
-
-## 4. API Response Handling
-
-### 4.1 Type Guard Pattern
-
-```typescript
-// In component
-const response = await api.get('/api/v1/office');
-
-if (hasBackendMetadata(response)) {
-  // Metadata-driven mode (NEW)
-  const fieldMeta = getFieldMetadataFromResponse(response, 'budget_allocated_amt');
-  const rendered = renderViewModeFromMetadata(50000, fieldMeta);
-} else {
-  // Legacy mode (fallback for non-metadata entities)
-  const fieldMeta = detectField('budget_allocated_amt', 'numeric');
-  const rendered = renderField({ fieldKey: 'budget_allocated_amt', value: 50000 });
-}
-```
-
-### 4.2 EntityDataTable Integration
-
-```typescript
-// EntityDataTable.tsx - Metadata-driven column generation with object-based visibility
+// Priority 1: Backend Metadata (PURE METADATA-DRIVEN)
 const columns = useMemo(() => {
-  // Priority 1: Backend metadata (pure metadata-driven)
   if (metadata?.fields) {
     return metadata.fields
-      .filter(fieldMeta => {
-        // ✅ NEW: Object-based visibility control
-        if (typeof fieldMeta.visible === 'object' && fieldMeta.visible !== null) {
-          return fieldMeta.visible.EntityDataTable === true;
-        }
-        // Backward compatibility: treat boolean as visible everywhere
-        return fieldMeta.visible === true;
-      })
+      .filter(f => f.visible.EntityDataTable === true)
       .map(fieldMeta => ({
         key: fieldMeta.key,
         title: fieldMeta.label,
-        width: fieldMeta.width,
-        align: fieldMeta.align,
-        sortable: fieldMeta.sortable,
-        editable: fieldMeta.editable,
-        // Pure metadata-driven rendering
-        render: (value, record) => renderViewModeFromMetadata(value, fieldMeta, record)
+        backendMetadata: fieldMeta,  // Store for rendering
+        // Backend tells frontend how to render
+        render: (value, record) =>
+          renderViewModeFromMetadata(value, fieldMeta, record)
       }));
   }
-
-  // Priority 2: Explicit columns (legacy overrides)
-  if (initialColumns) return initialColumns;
-
-  // Priority 3: Auto-generation (deprecated)
-  if (autoGenerateColumns) {
-    // Old pattern detection (DEPRECATED)
-  }
-
   return [];
-}, [metadata, initialColumns, autoGenerateColumns]);
+}, [metadata]);
+
+// Edit mode uses same metadata
+const handleEdit = (value, onChange) => {
+  const backendMeta = column.backendMetadata;
+  return renderEditModeFromMetadata(value, backendMeta, onChange);
+};
 ```
 
-**Per-Component Visibility Filtering**:
-- **EntityDataTable**: Filters by `visible.EntityDataTable`
-- **EntityDetailView**: Filters by `visible.EntityDetailView`
-- **EntityFormContainer**: Filters by `visible.EntityFormContainer`
-- **KanbanView**: Filters by `visible.KanbanView`
-- **CalendarView**: Filters by `visible.CalendarView`
+### FilteredDataTable Integration
 
-**Example**:
 ```typescript
-// Composite field metadata (from backend)
+// apps/web/src/components/shared/dataTable/FilteredDataTable.tsx
+import {
+  transformForApi,
+  transformFromApi,
+  loadSettingsColors
+} from '@/lib/frontEndFormatterService';
+
+// Only imports transform utilities - NO pattern detection
+// Delegates rendering to EntityDataTable/SettingsDataTable
+```
+
+---
+
+## 5. Helper Functions
+
+### Data Transformation
+
+```typescript
+// Transform frontend data for API submission
+transformForApi(data: Record<string, any>, originalRecord?: Record<string, any>)
+// • Converts comma-separated strings → arrays
+// • Validates and formats dates
+// • Handles null/undefined values
+
+// Transform API data for frontend display
+transformFromApi(data: Record<string, any>)
+// • Converts arrays → comma-separated strings (for editing)
+// • Formats dates for form inputs
+```
+
+### Value Formatting
+
+```typescript
+// Format currency values
+formatCurrency(value: number, currency = 'CAD'): string
+// Example: 50000 → "$50,000.00"
+
+// Format relative timestamps
+formatRelativeTime(dateString: string | Date): string
+// Example: "2025-01-17T10:00:00Z" → "2 hours ago"
+
+// Format friendly dates
+formatFriendlyDate(dateString: string | Date): string
+// Example: "2025-01-17" → "Jan 17, 2025"
+```
+
+### Badge Rendering
+
+```typescript
+// Render colored badge (generic)
+renderBadge(value: string, color?: string): React.Element
+// Example: renderBadge("Active", "green") → <Badge color="green">Active</Badge>
+
+// Render datalabel badge (settings-driven)
+renderDataLabelBadge(value: string, datalabel: string, metadata?: BackendFieldMetadata)
+// Example: renderDataLabelBadge("planning", "project_stage")
+// → Fetches color from settings cache → <Badge color="blue">Planning</Badge>
+```
+
+### Settings Color Management
+
+```typescript
+// Load colors for datalabel badges
+loadSettingsColors(datalabels: string[]): Promise<void>
+// • Fetches settings from /api/v1/entity/:entityCode/entity-instance-lookup
+// • Caches color mappings in memory
+// • Used by EntityDataTable for preloading badge colors
+
+// Get cached color for datalabel value
+getSettingColor(datalabel: string, value: string): string | undefined
+// Example: getSettingColor("project_stage", "planning") → "blue"
+```
+
+---
+
+## 6. Backend Metadata Interface
+
+### BackendFieldMetadata Structure
+
+```typescript
+interface BackendFieldMetadata {
+  key: string;                    // Field key (column name)
+  label: string;                  // Display label
+  renderType: RenderType;         // View mode type
+  inputType: InputType;           // Edit mode type
+  format?: {                      // Optional format config
+    symbol?: string;              // Currency symbol
+    decimals?: number;            // Decimal places
+    trueLabel?: string;           // Boolean true label
+    falseLabel?: string;          // Boolean false label
+    trueColor?: string;           // Boolean true color
+    falseColor?: string;          // Boolean false color
+  };
+  visible: ComponentVisibility;   // Per-component visibility
+  editable: boolean;              // Can edit in inline mode
+  sortable?: boolean;             // Sortable column
+  filterable?: boolean;           // Filterable column
+  align?: 'left' | 'center' | 'right';
+  width?: string;
+  loadFromDataLabels?: boolean;   // Load options from datalabel
+  settingsDatalabel?: string;     // Datalabel name
+  loadFromEntity?: string;        // Load from entity lookup
+  accept?: string;                // File upload accept types
+  colorMap?: Record<string, string>; // Color mappings
+}
+```
+
+### ComponentVisibility Object
+
+```typescript
+interface ComponentVisibility {
+  EntityDataTable: boolean;       // Show in data table
+  EntityDetailView: boolean;      // Show in detail view
+  EntityFormContainer: boolean;   // Show in form
+  KanbanView: boolean;            // Show in kanban
+  CalendarView: boolean;          // Show in calendar
+}
+```
+
+---
+
+## 7. Render Type Examples
+
+### Currency
+
+```typescript
+// Backend metadata
+{ renderType: 'currency', format: { symbol: '$', decimals: 2 } }
+
+// Rendered output
+<span className="font-mono text-right">$50,000.00</span>
+```
+
+### Badge (Datalabel-Driven)
+
+```typescript
+// Backend metadata
 {
-  key: "start_date_end_date_composite",
-  visible: {
-    EntityDataTable: false,       // Hidden in table
-    EntityDetailView: true,        // Shown in detail view
-    EntityFormContainer: false,    // Hidden in form
-    KanbanView: false,
-    CalendarView: false
+  renderType: 'badge',
+  loadFromDataLabels: true,
+  settingsDatalabel: 'project_stage',
+  colorMap: { "planning": "blue", "execution": "yellow" }
+}
+
+// Rendered output (color from backend)
+<Badge color="blue">Planning</Badge>
+```
+
+### Date
+
+```typescript
+// Backend metadata
+{ renderType: 'date' }
+
+// Rendered output
+<span className="text-sm text-gray-600">Jan 17, 2025</span>
+```
+
+### Boolean
+
+```typescript
+// Backend metadata
+{
+  renderType: 'boolean',
+  format: {
+    trueLabel: 'Active',
+    falseLabel: 'Inactive',
+    trueColor: 'green',
+    falseColor: 'red'
   }
 }
 
-// EntityDataTable filters this out (visible.EntityDataTable === false)
-// EntityDetailView includes this field (visible.EntityDetailView === true)
+// Rendered output
+<Badge color="green">Active</Badge>
+```
+
+### Array
+
+```typescript
+// Backend metadata
+{ renderType: 'array' }
+
+// Rendered output
+<div className="flex flex-wrap gap-1">
+  <Badge>Tag1</Badge>
+  <Badge>Tag2</Badge>
+</div>
 ```
 
 ---
 
-## 5. Type Definitions
+## 8. Input Type Examples
 
-### API Response Types
+### Currency Input
 
 ```typescript
-// Object-based visibility control (matches backend)
-interface ComponentVisibility {
-  EntityDataTable: boolean;        // Data table (list view)
-  EntityDetailView: boolean;        // Detail view (single entity)
-  EntityFormContainer: boolean;     // Create/edit forms
-  KanbanView: boolean;              // Kanban board
-  CalendarView: boolean;            // Calendar view
+// Backend metadata
+{ inputType: 'currency', format: { symbol: '$', decimals: 2 } }
+
+// Rendered edit control
+<input
+  type="number"
+  step="0.01"
+  value={value}
+  onChange={onChange}
+  className="..."
+/>
+```
+
+### Select (Datalabel Options)
+
+```typescript
+// Backend metadata
+{
+  inputType: 'select',
+  loadFromDataLabels: true,
+  settingsDatalabel: 'project_stage'
 }
 
-// Composite field configuration (matches backend)
-interface CompositeFieldConfig {
-  composedFrom: string[];           // Source field keys
-  compositeType: 'progress-bar' | 'date-range' | 'address' | 'full-name' | 'calculated';
-  calculation?: string;
-  showPercentage?: boolean;
-  showDates?: boolean;
-  highlightOverdue?: boolean;
-  startField?: string;
-  endField?: string;
-}
+// Rendered edit control (options loaded from datalabel)
+<ColoredDropdown
+  value={value}
+  options={settingsOptions}  // From loadFieldOptions()
+  onChange={onChange}
+/>
+```
 
-// Matches backend types from api-factory.ts
-interface BackendFieldMetadata {
-  key: string;
-  label: string;
-  type: string;
-  dataType?: string;
-  format: Record<string, any>;
-  renderType: string;         // View mode: currency, badge, date, progress-bar, etc.
-  viewType?: string;
-  component?: string;
-  inputType: string;          // Edit mode: currency, select, date, etc.
-  editType?: string;
-  visible: ComponentVisibility;  // ✅ Object-based per-component visibility
-  composite?: boolean;        // ✅ Is this a composite field?
-  compositeConfig?: CompositeFieldConfig;  // ✅ Composite configuration
-  sortable: boolean;
-  filterable: boolean;
-  searchable: boolean;
-  editable: boolean;
-  required?: boolean;
-  align: 'left' | 'right' | 'center';
-  width: string;
-  endpoint?: string;
-  loadFromDataLabels?: boolean;
-  loadFromEntity?: string;
-  settingsDatalabel?: string;
-  options?: Array<{ value: any; label: string; color?: string }>;
-  validation?: Record<string, any>;
-  help?: string;
-  placeholder?: string;
-  pattern?: string;
-  category?: string;
-}
+### Date Picker
 
-interface EntityMetadata {
-  entity: string;
-  label: string;
-  labelPlural: string;
-  icon?: string;
-  fields: BackendFieldMetadata[];
-  primaryKey: string;
-  displayField: string;
-  apiEndpoint: string;
-  supportedViews?: string[];
-  defaultView?: string;
-  generated_at: string;
-}
+```typescript
+// Backend metadata
+{ inputType: 'date' }
 
-interface ApiResponseWithMetadata {
-  data: any;
-  metadata?: EntityMetadata;
-  total?: number;
-  limit?: number;
-  offset?: number;
-}
+// Rendered edit control
+<input
+  type="date"
+  value={value}
+  onChange={onChange}
+  className="..."
+/>
+```
+
+### Checkbox
+
+```typescript
+// Backend metadata
+{ inputType: 'checkbox' }
+
+// Rendered edit control
+<input
+  type="checkbox"
+  checked={!!value}
+  onChange={onChange}
+  className="..."
+/>
 ```
 
 ---
 
-## 6. Function Reference
+## 9. Type Guards & Utilities
 
-### Metadata Consumption Functions (NEW)
-
-#### `getFieldMetadataFromResponse(response, fieldKey)`
-Extract specific field metadata from API response.
-
-**Returns:** `BackendFieldMetadata | undefined`
-
-#### `getAllFieldMetadataFromResponse(response)`
-Get all field metadata as array.
-
-**Returns:** `BackendFieldMetadata[]`
-
-#### `hasBackendMetadata(response)`
-Type guard to check if response contains metadata.
-
-**Returns:** `boolean`
-
-### Rendering Functions (NEW - Metadata-Driven)
-
-#### `renderViewModeFromMetadata(value, metadata, record?)`
-Render field value as React element using backend metadata (view mode).
-
-**Parameters:**
-- `value` - Field value to render
-- `metadata` - BackendFieldMetadata from API
-- `record?` - Optional full record object
-
-**Returns:** `React.ReactNode`
-
-**Render Types:** currency, percentage, date, timestamp, boolean, badge, array, link, json, text
-
-#### `renderEditModeFromMetadata(value, metadata, onChange, options?)`
-Render input control for editing using backend metadata (edit mode).
-
-**Parameters:**
-- `value` - Current field value
-- `metadata` - BackendFieldMetadata from API
-- `onChange` - Callback function: `(newValue: any) => void`
-- `options?` - Optional: `{ required, disabled, className }`
-
-**Returns:** `React.ReactNode`
-
-**Input Types:** currency, number, date, datetime, time, checkbox, textarea, select, multiselect, tags, readonly, text
-
-### Value Formatting Functions
-
-#### `formatValueFromMetadata(value, metadata)`
-Format value as string using backend metadata (for display/export).
-
-**Returns:** `string`
-
-### Legacy Functions (DEPRECATED)
-
-These functions are **deprecated** and should only be used for entities that haven't been migrated to metadata-driven architecture:
-
-- `detectField()` - Pattern detection (OLD)
-- `renderField()` - Old rendering (OLD)
-- `renderFieldDisplay()` - Old display (OLD)
-- `renderFieldView()` - Old view mode (OLD)
-- `renderFieldEdit()` - Old edit mode (OLD)
-
-**Migration Path:** Update backend routes to return metadata, then replace legacy calls with metadata-driven functions.
-
----
-
-## 7. Critical Considerations for Developers
-
-### Adding New Render/Input Types
-
-**DO NOT add to frontend** - Add to backend formatter service instead.
-
-**Example (WRONG):**
-```typescript
-// ❌ Do not add cases to renderViewModeFromMetadata()
-case 'new-type':  // NO!
-```
-
-**Example (CORRECT):**
-```typescript
-// ✅ Add to backend-formatter.service.ts PATTERN_RULES
-'*_score': {
-  renderType: 'badge',  // Uses existing render type
-  inputType: 'number',  // Uses existing input type
-  format: { min: 0, max: 100, color: 'gradient' }
-}
-// Frontend automatically supports it
-```
-
-### Component Integration Checklist
-
-**When building new components:**
-1. ✅ Accept `metadata` prop from parent
-2. ✅ Use `hasBackendMetadata()` type guard
-3. ✅ Call `renderViewModeFromMetadata()` for view mode
-4. ✅ Call `renderEditModeFromMetadata()` for edit mode
-5. ✅ Never call `detectField()` or old functions
-
-### Testing Metadata-Driven Rendering
+### Check for Backend Metadata
 
 ```typescript
-// Test view mode
-const mockMetadata: BackendFieldMetadata = {
-  key: 'budget_allocated_amt',
-  renderType: 'currency',
-  format: { symbol: '$', decimals: 2 },
-  // ... other required fields
-};
+import { hasBackendMetadata } from '@/lib/frontEndFormatterService';
 
-const rendered = renderViewModeFromMetadata(50000, mockMetadata);
-// Expect: <span className="font-mono">$50,000.00</span>
-
-// Test edit mode
-const handleChange = jest.fn();
-const input = renderEditModeFromMetadata(50000, mockMetadata, handleChange);
-// Expect: <input type="number" step="0.01" value={50000} ... />
-```
-
-### Performance Considerations
-
-- **Metadata is immutable** - Safe to cache at component level
-- **Memoize columns** - Use `useMemo()` for column generation
-- **Avoid inline functions** - `renderViewModeFromMetadata` is already optimized
-- **Settings badges** - Pre-load colors with `preloadSettingsColors()`
-
-### Common Integration Patterns
-
-**Pattern 1: Table Rendering**
-```typescript
-// Generate columns from metadata
-const columns = metadata.fields
-  .filter(f => f.visible)
-  .map(fieldMeta => ({
-    key: fieldMeta.key,
-    title: fieldMeta.label,
-    render: (value, record) => renderViewModeFromMetadata(value, fieldMeta, record)
-  }));
-```
-
-**Pattern 2: Form Generation**
-```typescript
-// Generate form inputs from metadata
-{metadata.fields
-  .filter(f => f.editable)
-  .map(fieldMeta => (
-    <div key={fieldMeta.key}>
-      <label>{fieldMeta.label}</label>
-      {renderEditModeFromMetadata(
-        formData[fieldMeta.key],
-        fieldMeta,
-        (newValue) => setFormData({ ...formData, [fieldMeta.key]: newValue })
-      )}
-    </div>
-  ))
+// Type guard to check if response includes metadata
+if (hasBackendMetadata(response)) {
+  // response.metadata is available
+  const fieldMeta = response.metadata.fields.find(f => f.key === 'budget_allocated_amt');
 }
 ```
 
-**Pattern 3: Detail View**
+### Extract Field Metadata
+
 ```typescript
-// Render key-value pairs
-{metadata.fields
-  .filter(f => f.visible)
-  .map(fieldMeta => (
-    <div key={fieldMeta.key} className="detail-row">
-      <dt>{fieldMeta.label}</dt>
-      <dd>{renderViewModeFromMetadata(data[fieldMeta.key], fieldMeta, data)}</dd>
-    </div>
-  ))
-}
-```
+import { getFieldMetadataFromResponse } from '@/lib/frontEndFormatterService';
 
----
-
-## 8. Migration from Legacy Pattern Detection
-
-### Before (Legacy - Pattern Detection)
-```typescript
-// ❌ OLD: Frontend detects field types
-const fieldMeta = detectField('budget_allocated_amt', 'numeric');
-const rendered = renderField({
-  fieldKey: 'budget_allocated_amt',
-  value: 50000,
-  mode: 'view'
-});
-```
-
-### After (Metadata-Driven)
-```typescript
-// ✅ NEW: Backend provides metadata, frontend renders
+// Extract metadata for specific field
 const fieldMeta = getFieldMetadataFromResponse(response, 'budget_allocated_amt');
-const rendered = renderViewModeFromMetadata(50000, fieldMeta);
+if (fieldMeta) {
+  const rendered = renderViewModeFromMetadata(value, fieldMeta);
+}
 ```
 
-### Migration Checklist
+### Get All Field Metadata
 
-**Backend (Required):**
-1. ✅ Add `getEntityMetadata()` call in route handler
-2. ✅ Return `{ data, metadata }` in response
-3. ✅ Test API returns metadata
+```typescript
+import { getAllFieldMetadataFromResponse } from '@/lib/frontEndFormatterService';
 
-**Frontend (Required):**
-1. ✅ Accept `metadata` prop in component
-2. ✅ Replace `detectField()` with `getFieldMetadataFromResponse()`
-3. ✅ Replace `renderField()` with `renderViewModeFromMetadata()`
-4. ✅ Replace edit mode with `renderEditModeFromMetadata()`
-5. ✅ Test rendering matches original
-
-**Frontend (Optional):**
-1. ⚪ Remove unused `detectField` imports (after full migration)
-2. ⚪ Remove `autoGenerateColumns` prop (after full migration)
-3. ⚪ Remove `dataTypes` prop (after full migration)
+// Extract all field metadata
+const allFields = getAllFieldMetadataFromResponse(response);
+// Returns: BackendFieldMetadata[]
+```
 
 ---
 
-## 9. Related Services
+## 10. Critical Implementation Rules
 
-**Backend Formatter Service** - Generates metadata from database schema (single source of truth)
+### ✅ DO - Current Patterns
 
-**Entity Infrastructure Service** - Handles RBAC, linkage, registry (separate concern, UNCHANGED)
+```typescript
+// ✅ Import from frontEndFormatterService (current name)
+import { renderViewModeFromMetadata } from '@/lib/frontEndFormatterService';
 
-**Entity Config** - Legacy field configurations (being phased out in favor of metadata)
+// ✅ Use backend metadata for all rendering
+const backendMeta = column.backendMetadata as BackendFieldMetadata;
+return renderViewModeFromMetadata(value, backendMeta, record);
+
+// ✅ Check metadata before rendering
+if (metadata?.fields) {
+  // Use backend metadata
+}
+
+// ✅ Store backend metadata in columns
+backendMetadata: fieldMeta
+
+// ✅ Use helper functions for specific formatting
+formatCurrency(value);
+formatFriendlyDate(date);
+```
+
+### ❌ DON'T - Deprecated Patterns
+
+```typescript
+// ❌ DON'T import from universalFormatterService (old name)
+import { ... } from '@/lib/universalFormatterService';  // ❌ RENAMED
+
+// ❌ DON'T use deprecated pattern detection functions (PURGED)
+detectField(columnKey);                                  // ❌ REMOVED
+renderField({ fieldKey, value });                        // ❌ REMOVED
+renderFieldView(value);                                  // ❌ REMOVED
+renderFieldEdit(value);                                  // ❌ REMOVED
+formatFieldValue(value);                                 // ❌ REMOVED
+getFieldCapability(columnKey);                           // ❌ REMOVED
+
+// ❌ DON'T detect field types in frontend (backend's job)
+if (columnKey.includes('_amt')) { ... }                  // ❌ WRONG
+
+// ❌ DON'T hardcode field type decisions
+const isEditable = columnKey !== 'id';                   // ❌ WRONG (use metadata.editable)
+```
+
+---
+
+## 11. Performance Optimizations
+
+1. **5-Minute Settings Cache** - `settingsCache` prevents redundant API calls
+2. **Color Cache** - `settingsColorCache` for O(1) color lookups
+3. **Parallel Preloading** - All datalabel colors load simultaneously
+4. **Pure Functions** - Memoizable, predictable rendering
+5. **Conditional Loading** - Only load options when needed
+
+---
+
+## 12. Integration Status
+
+### Integrated Components (Use Backend Metadata)
+
+✅ **EntityDataTable** - Full backend metadata integration
+✅ **EntityDetailView** - Uses renderViewModeFromMetadata
+✅ **EntityFormContainer** - Uses renderEditModeFromMetadata
+✅ **FilteredDataTable** - Passes metadata to EntityDataTable
+
+### Components Without Pattern Detection
+
+✅ **SettingsDataTable** - Only uses renderDataLabelBadge
+✅ **ColoredDropdown** - Pure component, no pattern detection
+✅ **DAGVisualizer** - No pattern detection
+
+---
+
+## 13. Key Files
+
+| File | Purpose |
+|------|---------|
+| `apps/web/src/lib/frontEndFormatterService.tsx` | Main service (646 lines) |
+| `apps/web/src/components/shared/ui/EntityDataTable.tsx` | Primary consumer |
+| `apps/web/src/components/shared/dataTable/FilteredDataTable.tsx` | Wrapper |
+| `apps/api/src/services/backend-formatter.service.ts` | Metadata generator |
+
+---
+
+## Summary
+
+**Architecture**: Pure Backend-Driven Renderer
+
+```
+Backend: Generate metadata (getEntityMetadata)
+         ↓
+API: Return { data, metadata }
+         ↓
+Frontend: Consume metadata
+         ↓
+Renderer: renderViewModeFromMetadata / renderEditModeFromMetadata
+         ↓
+React: Render exactly as instructed
+```
+
+**Key Principles:**
+- ✅ Zero pattern detection in frontend
+- ✅ Backend metadata is single source of truth
+- ✅ Pure rendering functions (metadata in, React element out)
+- ✅ Type-safe with BackendFieldMetadata interface
+
+**Status:** ✅ Production Ready - v4.0 Backend Metadata Architecture
+**Last Updated:** 2025-11-20 - All deprecated functions purged
