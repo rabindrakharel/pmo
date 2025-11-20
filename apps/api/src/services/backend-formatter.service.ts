@@ -77,7 +77,13 @@ export interface FieldMetadata {
   // Rendering (View Mode)
   renderType: RenderType;
   viewType: ViewType;
-  component?: ComponentType;
+
+  /**
+   * EntityFormContainer visualization container
+   * ONLY used by EntityFormContainer (EntityDataTable ignores this field)
+   * Overrides default rendering when specified
+   */
+  EntityFormContainer_viz_container?: ComponentType;
 
   // Input (Edit Mode)
   inputType: InputType;
@@ -753,7 +759,7 @@ function generateFieldMetadata(fieldName: string, dataType?: string): FieldMetad
 
       // Handle component function
       if (rules.componentFn) {
-        metadata.component = rules.componentFn(fieldName);
+        metadata.EntityFormContainer_viz_container = rules.componentFn(fieldName);
         delete (metadata as any).componentFn; // Remove function from metadata
       }
 

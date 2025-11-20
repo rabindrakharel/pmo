@@ -266,7 +266,7 @@ export function EntityFormContainer({
           visible: true,
           loadFromDataLabels: fieldMeta.loadFromDataLabels,
           loadFromEntity: fieldMeta.loadFromEntity,
-          component: fieldMeta.component,  // ✅ PRESERVE: Backend-specified component
+          EntityFormContainer_viz_container: fieldMeta.EntityFormContainer_viz_container,  // ✅ PRESERVE: Backend-specified visualization component
           toApi: (value: any) => value,
           toDisplay: (value: any) => value
         } as FieldDef));
@@ -546,7 +546,7 @@ export function EntityFormContainer({
       }
       if (field.type === 'select') {
         // ✅ PRIORITY 1: Backend-specified DAG component (explicit from backend)
-        if (field.component === 'DAGVisualizer' && dagNodes.has(field.key)) {
+        if (field.EntityFormContainer_viz_container === 'DAGVisualizer' && dagNodes.has(field.key)) {
           // TWO DATA SOURCES for DAG visualization:
           // 1. DAG structure (nodes, parent_ids, relationships) from setting_datalabel table
           const nodes = dagNodes.get(field.key)!; // {id, node_name, parent_ids}[]
@@ -755,7 +755,7 @@ export function EntityFormContainer({
         );
       case 'jsonb':
         // ✅ PRIORITY 1: Backend-specified component (overrides hardcoded checks)
-        if (field.component === 'MetadataTable') {
+        if (field.EntityFormContainer_viz_container === 'MetadataTable') {
           return (
             <MetadataTable
               value={value || {}}
@@ -802,7 +802,7 @@ export function EntityFormContainer({
         );
       case 'select': {
         // ✅ PRIORITY 1: Backend-specified DAG component (explicit from backend)
-        if (field.component === 'DAGVisualizer' && dagNodes.has(field.key)) {
+        if (field.EntityFormContainer_viz_container === 'DAGVisualizer' && dagNodes.has(field.key)) {
           // TWO DATA SOURCES for interactive DAG visualization:
           // 1. DAG structure (nodes, parent_ids, relationships) from setting_datalabel table
           const nodes = dagNodes.get(field.key)!; // {id, node_name, parent_ids}[]

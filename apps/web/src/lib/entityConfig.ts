@@ -181,18 +181,23 @@ export interface FieldDef {
    */
   loadOptionsFromEntity?: string;
   /**
-   * Backend-specified component to use for rendering this field.
+   * EntityFormContainer visualization container
+   *
+   * ONLY used by EntityFormContainer (EntityDataTable IGNORES this field completely).
    * When set, this OVERRIDES the default rendering logic based on field type.
    *
-   * Used by EntityFormContainer only (EntityDataTable ignores this and uses renderType).
+   * The explicit naming makes the architecture crystal clear:
+   * - EntityDataTable → Always uses renderType (badge, currency, date, etc.)
+   * - EntityFormContainer → Uses this field when present (DAGVisualizer, MetadataTable, etc.)
    *
    * Examples:
    * - 'DAGVisualizer' → Render workflow visualization for stage/status/funnel fields
-   * - 'MetadataTable' → Render key-value table for JSONB metadata
+   * - 'MetadataTable' → Render key-value table for JSONB metadata field
+   * - 'ProgressBar' → Render composite progress bar for date ranges
    *
    * @see apps/api/src/services/backend-formatter.service.ts (componentFn)
    */
-  component?: 'DAGVisualizer' | 'MetadataTable' | 'ProgressBar' | 'DateRangeVisualizer';
+  EntityFormContainer_viz_container?: 'DAGVisualizer' | 'MetadataTable' | 'ProgressBar' | 'DateRangeVisualizer';
 }
 
 export interface EntityConfig {
