@@ -10,10 +10,32 @@ import { useState, useEffect, useMemo } from 'react';
 import type { ReactElement } from 'react';
 
 // ============================================================================
-// NEW: Universal Field Detector Integration
+// TEMPORARY: Minimal compatibility (viewConfigGenerator.ts removed)
+// TODO: Migrate to backend metadata architecture
 // ============================================================================
-import { generateDAGConfig } from '../../lib/viewConfigGenerator';
+import { detectField } from '../../lib/universalFormatterService';
 import { loadFieldOptions } from '../../lib/settingsLoader';
+
+/**
+ * @deprecated Temporary replacement for viewConfigGenerator.generateDAGConfig()
+ * TODO: Migrate to backend metadata architecture
+ */
+function generateDAGConfig(
+  fieldKeys: string[],
+  dataTypes?: Record<string, string>
+): { stageField: string; datalabel: string } | null {
+  // Auto-detect: dl__*_stage or dl__*_funnel
+  const stageField = fieldKeys.find(k =>
+    k.startsWith('dl__') && (k.includes('stage') || k.includes('funnel'))
+  );
+
+  if (!stageField) return null;
+
+  return {
+    stageField,
+    datalabel: stageField
+  };
+}
 
 export interface DAGNode {
   id: number;           // DAG state index (workflow node position)

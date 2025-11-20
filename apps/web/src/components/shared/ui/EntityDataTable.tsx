@@ -33,8 +33,6 @@ import {
   type SettingOption
 } from '../../../lib/settingsLoader';
 import {
-  getFieldCapability,
-  type FieldCapability,
   renderDataLabelBadge,
   COLOR_MAP,
   getSettingColor,
@@ -44,6 +42,31 @@ import {
 } from '../../../lib/universalFormatterService';
 import type { BackendFieldMetadata, EntityMetadata } from '../../../lib/api';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
+
+// ============================================================================
+// TEMPORARY: Minimal compatibility types (deprecated function removal)
+// TODO: Migrate to backend metadata architecture
+// ============================================================================
+interface FieldCapability {
+  inlineEditable: boolean;
+  editType: string;
+  isFileUpload: boolean;
+}
+
+/**
+ * @deprecated Temporary inline replacement for getFieldCapability()
+ * TODO: Migrate to backend metadata architecture - Backend provides editable flags
+ */
+function getFieldCapability(columnKey: string, dataType?: string): FieldCapability {
+  const readonly = /^(id|.*_id|created.*|updated.*|deleted.*|.*_at|.*_ts|.*_count|.*_total)$/i.test(columnKey);
+  const isFileUpload = columnKey.includes('attachment') || columnKey.includes('file');
+
+  return {
+    inlineEditable: !readonly,
+    editType: dataType || 'text',
+    isFileUpload
+  };
+}
 
 // ============================================================================
 // METADATA-DRIVEN RENDERING (Pure Backend-Driven)

@@ -14,9 +14,49 @@ import { QuoteItemsRenderer } from './QuoteItemsRenderer';
 import { getBadgeClass, textStyles } from '../../../lib/designSystem';
 
 // ============================================================================
-// NEW: Universal Field Detector Integration
+// TEMPORARY: Minimal compatibility types (viewConfigGenerator.ts removed)
+// TODO: Migrate to backend metadata architecture
 // ============================================================================
-import { generateFormConfig, type FormField } from '../../../lib/viewConfigGenerator';
+interface FormField {
+  key: string;
+  label: string;
+  type: string;
+  editable: boolean;
+  visible: boolean;
+  loadFromDataLabels?: boolean;
+  loadFromEntity?: string;
+  toApi: (value: any) => any;
+  toDisplay: (value: any) => any;
+}
+
+/**
+ * @deprecated Temporary replacement for viewConfigGenerator.generateFormConfig()
+ * TODO: Migrate to backend metadata architecture
+ */
+function generateFormConfig(
+  fieldKeys: string[],
+  options?: { dataTypes?: Record<string, string>; requiredFields?: string[] }
+): { editableFields: FormField[]; requiredFields: string[] } {
+  const editableFields = fieldKeys.map(key => {
+    const meta = detectField(key, options?.dataTypes?.[key]);
+    return {
+      key,
+      label: meta.fieldName,
+      type: meta.inputType,
+      editable: meta.editable,
+      visible: meta.visible,
+      loadFromDataLabels: meta.loadFromDataLabels,
+      loadFromEntity: meta.loadFromEntity,
+      toApi: meta.toApi,
+      toDisplay: meta.toDisplay
+    };
+  }).filter(f => f.editable);
+
+  return {
+    editableFields,
+    requiredFields: options?.requiredFields || []
+  };
+}
 
 /**
  * Helper function to render badge with color based on field type and value
