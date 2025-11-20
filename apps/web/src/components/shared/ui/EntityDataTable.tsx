@@ -46,15 +46,12 @@ import type { BackendFieldMetadata, EntityMetadata } from '../../../lib/api';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 
 // ============================================================================
-// View Config Generator Integration
+// METADATA-DRIVEN RENDERING (Pure Backend-Driven)
 // ============================================================================
-import { generateDataTableConfig, type DataTableColumn } from '../../../lib/viewConfigGenerator';
-
-// ============================================================================
-// CELL RENDERING: 100% Universal System
-// ============================================================================
-// ALL field rendering (view + edit modes) now handled by renderField()
-// from universalFormatterService - single source of truth with zero duplication
+// ALL field rendering (view + edit modes) driven by backend metadata
+// - renderFieldFromMetadata() for view mode (reads metadata.renderType)
+// - renderInputFromMetadata() for edit mode (reads metadata.inputType)
+// - Zero frontend pattern detection or configuration
 // ============================================================================
 
 /**
@@ -339,7 +336,9 @@ export interface EntityDataTableProps<T = any> {
   // Inline row addition support
   allowAddRow?: boolean;
   onAddRow?: (newRecord: Partial<T>) => void;
-  // Note: Permission checking removed - handled at API level via RBAC joins
+  // DEPRECATED props (kept for backward compatibility, will be removed)
+  autoGenerateColumns?: boolean;  // DEPRECATED: Use metadata instead
+  dataTypes?: Record<string, string>;  // DEPRECATED: Use metadata instead
 }
 
 export function EntityDataTable<T = any>({
@@ -408,29 +407,19 @@ export function EntityDataTable<T = any>({
       return initialColumns;
     }
 
-    // Priority 3: Legacy auto-generation (deprecated)
+    // Priority 3: Legacy auto-generation (DEPRECATED - for backward compatibility only)
+    // ⚠️ This path should NOT be used for new entities - always provide metadata from backend
     if (autoGenerateColumns && data.length > 0) {
-      const fieldKeys = Object.keys(data[0]);
-      const generatedConfig = generateDataTableConfig(fieldKeys, dataTypes);
-      return generatedConfig.visibleColumns.map(col => ({
-        key: col.key,
-        title: col.title,
-        visible: col.visible,
-        sortable: col.sortable,
-        filterable: col.filterable,
-        searchable: col.searchable,
-        render: col.loadFromSettings ? undefined : col.render,
-        width: col.width,
-        align: col.align,
-        editable: col.editable,
-        editType: col.editType,
-        loadDataLabels: col.loadFromSettings,
-        loadFromEntity: col.loadFromEntity
-      } as Column<T>));
+      console.warn(
+        '[EntityDataTable] Using deprecated autoGenerateColumns. ' +
+        'Update backend route to return metadata instead.'
+      );
+      // Fallback to empty columns - force migration to metadata
+      return [];
     }
 
     return [];
-  }, [metadata, initialColumns, autoGenerateColumns, data.length, dataTypes]);
+  }, [metadata, initialColumns, autoGenerateColumns, data.length]);
 
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
