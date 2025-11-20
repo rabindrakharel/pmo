@@ -1092,6 +1092,8 @@ export function generateMetadataForComponents(
     for (const fieldName of fieldNames) {
       const fieldMeta = generateFieldMetadataForComponent(fieldName, component);
       if (fieldMeta) {
+        // Add human-readable label
+        (fieldMeta as any).label = generateLabel(fieldName);
         componentMetadata[fieldName] = fieldMeta;
       }
     }
