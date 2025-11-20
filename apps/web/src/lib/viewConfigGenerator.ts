@@ -52,7 +52,7 @@ export interface DataTableColumn {
              'jsonb' | 'datatable' | 'file' | 'dag-select';
 
   // Options
-  loadFromSettings?: boolean;
+  loadFromDataLabels?: boolean;
   loadFromEntity?: string;
 }
 
@@ -116,7 +116,7 @@ export function generateDataTableConfig(
       render: meta.format,
       editable: meta.editable,
       editType: meta.editType,
-      loadFromSettings: meta.loadFromSettings,
+      loadFromDataLabels: meta.loadFromDataLabels,
       loadFromEntity: meta.loadFromEntity
     };
 
@@ -191,7 +191,7 @@ export interface FormField {
   visible: boolean;
 
   // Options
-  loadFromSettings?: boolean;
+  loadFromDataLabels?: boolean;
   loadFromEntity?: string;
 
   // Transformers
@@ -240,7 +240,7 @@ export function generateFormConfig(
       required: required.includes(key),
       editable: meta.editable,
       visible: meta.pattern !== 'SYSTEM' || key === 'id', // Show id but not other system fields
-      loadFromSettings: meta.loadFromSettings,
+      loadFromDataLabels: meta.loadFromDataLabels,
       loadFromEntity: meta.loadFromEntity,
       toApi: meta.toApi,
       toDisplay: meta.toDisplay
@@ -336,7 +336,7 @@ export function generateKanbanConfig(
   return {
     groupByField,
     groupByFieldLabel: groupByMeta.fieldName,
-    loadColumnsFrom: groupByMeta.loadFromSettings ? 'settings' : undefined,
+    loadColumnsFrom: groupByMeta.loadFromDataLabels ? 'settings' : undefined,
     cardFields,
     cardTitleField,
     allowDragDrop: groupByMeta.editable,

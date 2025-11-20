@@ -40,7 +40,7 @@ import {
   getSettingColor,
   loadSettingsColors,
   renderField,
-  renderFieldFromMetadata
+  renderViewModeFromMetadata
 } from '../../../lib/universalFormatterService';
 import type { BackendFieldMetadata, EntityMetadata } from '../../../lib/api';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
@@ -49,8 +49,8 @@ import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 // METADATA-DRIVEN RENDERING (Pure Backend-Driven)
 // ============================================================================
 // ALL field rendering (view + edit modes) driven by backend metadata
-// - renderFieldFromMetadata() for view mode (reads metadata.renderType)
-// - renderInputFromMetadata() for edit mode (reads metadata.inputType)
+// - renderViewModeFromMetadata() for view mode (reads metadata.renderType)
+// - renderEditModeFromMetadata() for edit mode (reads metadata.inputType)
 // - Zero frontend pattern detection or configuration
 // ============================================================================
 
@@ -395,10 +395,10 @@ export function EntityDataTable<T = any>({
           align: fieldMeta.align,
           editable: fieldMeta.editable,
           editType: fieldMeta.editType,
-          loadDataLabels: fieldMeta.loadFromSettings,
+          loadDataLabels: fieldMeta.loadFromDataLabels,
           loadFromEntity: fieldMeta.loadFromEntity,
           // Pure metadata-driven rendering - backend tells frontend how to render
-          render: (value: any, record: any) => renderFieldFromMetadata(value, fieldMeta, record)
+          render: (value: any, record: any) => renderViewModeFromMetadata(value, fieldMeta, record)
         } as Column<T>));
     }
 

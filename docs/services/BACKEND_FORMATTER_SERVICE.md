@@ -160,7 +160,7 @@ Database Column Name
 'dl__*' → badge (settings-driven)
   renderType: 'badge'
   inputType: 'select'
-  loadFromSettings: true
+  loadFromDataLabels: true
   settingsDatalabel: extracted from field name
   component: 'DAGVisualizer' (if *_stage or *_funnel)
 ```
@@ -336,7 +336,7 @@ interface BackendFieldMetadata {
   inputType: InputType;           // Input control: select, currency, date, etc.
   editType?: EditType;            // Edit type variant
   endpoint?: string;              // API endpoint for options
-  loadFromSettings?: boolean;     // Load from settings table
+  loadFromDataLabels?: boolean;   // Load from settings table
   loadFromEntity?: string;        // Load from entity (for references)
   settingsDatalabel?: string;     // Settings datalabel key
   options?: Array<{               // Static options

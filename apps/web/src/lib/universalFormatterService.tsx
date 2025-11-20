@@ -81,7 +81,7 @@ export interface UniversalFieldMetadata {
   editType?: EditType;                // Edit input type
   toApi: (value: any) => any;         // Transform for API submission
   toDisplay: (value: any) => any;     // Transform for display
-  loadFromSettings?: boolean;         // Load options from settings table
+  loadFromDataLabels?: boolean;       // Load options from settings table
   loadFromEntity?: string;            // Load options from entity (for FK)
   pattern: PatternType;               // Detection pattern matched
   category: CategoryType;             // Field category
@@ -651,7 +651,7 @@ export function detectField(
       component: isStageOrFunnel ? 'DAGVisualizer' : undefined,
       editable: true,
       editType: 'select',
-      loadFromSettings: true,
+      loadFromDataLabels: true,
       settingsDatalabel: fieldKey.replace(/^dl__/, ''),
       toApi: identityTransform,
       toDisplay: identityTransform,
@@ -1927,7 +1927,7 @@ export interface BackendFieldMetadata {
   align: 'left' | 'right' | 'center';
   width: string;
   endpoint?: string;
-  loadFromSettings?: boolean;
+  loadFromDataLabels?: boolean;
   loadFromEntity?: string;
   settingsDatalabel?: string;
   options?: Array<{ value: any; label: string; color?: string }>;
@@ -2028,9 +2028,9 @@ export function formatValueFromMetadata(
 }
 
 /**
- * Render field value as React element using backend-provided metadata
+ * Render field value as React element using backend-provided metadata (VIEW MODE)
  */
-export function renderFieldFromMetadata(
+export function renderViewModeFromMetadata(
   value: any,
   metadata: BackendFieldMetadata,
   record?: any
@@ -2063,7 +2063,7 @@ export function renderFieldFromMetadata(
 
     case 'badge':
       // For dl__* fields, render as badge (will get color from settings)
-      if (metadata.loadFromSettings && metadata.settingsDatalabel) {
+      if (metadata.loadFromDataLabels && metadata.settingsDatalabel) {
         return renderDataLabelBadge(value, metadata.settingsDatalabel);
       }
       return renderBadge(String(value), 'blue');
@@ -2126,10 +2126,10 @@ export function hasBackendMetadata(response: any): response is ApiResponseWithMe
 }
 
 /**
- * Render input field for editing using backend-provided metadata
- * This is the edit-mode counterpart to renderFieldFromMetadata()
+ * Render input field for editing using backend-provided metadata (EDIT MODE)
+ * This is the edit-mode counterpart to renderViewModeFromMetadata()
  */
-export function renderInputFromMetadata(
+export function renderEditModeFromMetadata(
   value: any,
   metadata: BackendFieldMetadata,
   onChange: (value: any) => void,
@@ -2220,7 +2220,7 @@ export function renderInputFromMetadata(
 
     case 'select':
       // For settings dropdowns (dl__* fields)
-      if (metadata.loadFromSettings && metadata.settingsDatalabel) {
+      if (metadata.loadFromDataLabels && metadata.settingsDatalabel) {
         return (
           <select
             value={value ?? ''}
@@ -2378,8 +2378,8 @@ export default {
   getFieldMetadataFromResponse,
   getAllFieldMetadataFromResponse,
   formatValueFromMetadata,
-  renderFieldFromMetadata,
-  renderInputFromMetadata,
+  renderViewModeFromMetadata,
+  renderEditModeFromMetadata,
   hasBackendMetadata,
 
   // Constants

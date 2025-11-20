@@ -103,7 +103,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           align: fieldMeta.align,
           editable: fieldMeta.editable,
           editType: fieldMeta.editType as any,
-          loadDataLabels: fieldMeta.loadFromSettings,
+          loadDataLabels: fieldMeta.loadFromDataLabels,
           // Metadata-driven rendering - backend tells frontend how to render
           render: undefined  // Let EntityDataTable handle rendering via metadata
         } as Column));
@@ -152,7 +152,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       // Priority 1: Use backend metadata
       if (metadata?.fields) {
         const badgeFields = metadata.fields.filter(
-          f => f.loadFromSettings && f.settingsDatalabel
+          f => f.loadFromDataLabels && f.settingsDatalabel
         );
 
         if (badgeFields.length === 0) return;

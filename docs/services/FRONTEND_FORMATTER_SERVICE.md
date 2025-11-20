@@ -46,8 +46,8 @@ apps/web/src/lib/universalFormatterService.tsx (2,390 lines)
 ```typescript
 // Backend metadata consumption (NEW - metadata-driven)
 import {
-  renderFieldFromMetadata,      // View mode rendering
-  renderInputFromMetadata,       // Edit mode rendering
+  renderViewModeFromMetadata,      // View mode rendering
+  renderEditModeFromMetadata,       // Edit mode rendering
   getFieldMetadataFromResponse,  // Extract field metadata
   hasBackendMetadata             // Type guard
 } from '@/lib/universalFormatterService';
@@ -88,7 +88,7 @@ Backend API Response
         ▼
 ┌──────────────────────────────────┐
 │  VIEW MODE                       │
-│  renderFieldFromMetadata()       │
+│  renderViewModeFromMetadata()       │
 │  • renderType: currency → $XX    │
 │  • renderType: badge → 🟢 badge  │
 │  • renderType: date → friendly   │
@@ -97,7 +97,7 @@ Backend API Response
         ▼
 ┌──────────────────────────────────┐
 │  EDIT MODE                       │
-│  renderInputFromMetadata()       │
+│  renderEditModeFromMetadata()       │
 │  • inputType: currency → input#  │
 │  • inputType: select → dropdown  │
 │  • inputType: date → date picker │
@@ -130,7 +130,7 @@ Backend API Response
 ┌─────────────────────────────────────────────────────────────┐
 │                  EntityDataTable                            │
 │  • Generates columns from metadata.fields                   │
-│  • Each column uses renderFieldFromMetadata()               │
+│  • Each column uses renderViewModeFromMetadata()               │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ▼
@@ -139,14 +139,14 @@ Backend API Response
 │                                                              │
 │  const fieldMeta = metadata.fields.find(f => f.key === key) │
 │                                                              │
-│  VIEW:  renderFieldFromMetadata(value, fieldMeta, record)  │
-│  EDIT:  renderInputFromMetadata(value, fieldMeta, onChange)│
+│  VIEW:  renderViewModeFromMetadata(value, fieldMeta, record)  │
+│  EDIT:  renderEditModeFromMetadata(value, fieldMeta, onChange)│
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### 3.3 Render Type Mappings (View Mode)
 
-#### renderFieldFromMetadata() Switch Logic
+#### renderViewModeFromMetadata() Switch Logic
 
 ```typescript
 switch (metadata.renderType) {
@@ -168,7 +168,7 @@ switch (metadata.renderType) {
 
   case 'badge':
     // Settings-driven badge (dl__* fields)
-    if (metadata.loadFromSettings && metadata.settingsDatalabel) {
+    if (metadata.loadFromDataLabels && metadata.settingsDatalabel) {
       return renderDataLabelBadge(value, metadata.settingsDatalabel);
     }
     return renderBadge(String(value), 'blue');
@@ -198,7 +198,7 @@ switch (metadata.renderType) {
 
 ### 3.4 Input Type Mappings (Edit Mode)
 
-#### renderInputFromMetadata() Switch Logic
+#### renderEditModeFromMetadata() Switch Logic
 
 ```typescript
 switch (metadata.inputType) {
@@ -227,7 +227,7 @@ switch (metadata.inputType) {
 
   case 'select':
     // Settings dropdown (dl__* fields)
-    if (metadata.loadFromSettings && metadata.options) {
+    if (metadata.loadFromDataLabels && metadata.options) {
       return (
         <select value={value} onChange={(e) => onChange(e.target.value)}>
           <option value="">Select...</option>
@@ -271,7 +271,7 @@ const response = await api.get('/api/v1/office');
 if (hasBackendMetadata(response)) {
   // Metadata-driven mode (NEW)
   const fieldMeta = getFieldMetadataFromResponse(response, 'budget_allocated_amt');
-  const rendered = renderFieldFromMetadata(50000, fieldMeta);
+  const rendered = renderViewModeFromMetadata(50000, fieldMeta);
 } else {
   // Legacy mode (fallback for non-metadata entities)
   const fieldMeta = detectField('budget_allocated_amt', 'numeric');
@@ -296,7 +296,7 @@ const columns = useMemo(() => {
         sortable: fieldMeta.sortable,
         editable: fieldMeta.editable,
         // Pure metadata-driven rendering
-        render: (value, record) => renderFieldFromMetadata(value, fieldMeta, record)
+        render: (value, record) => renderViewModeFromMetadata(value, fieldMeta, record)
       }));
   }
 
@@ -340,7 +340,7 @@ interface BackendFieldMetadata {
   align: 'left' | 'right' | 'center';
   width: string;
   endpoint?: string;
-  loadFromSettings?: boolean;
+  loadFromDataLabels?: boolean;
   loadFromEntity?: string;
   settingsDatalabel?: string;
   options?: Array<{ value: any; label: string; color?: string }>;
@@ -397,7 +397,7 @@ Type guard to check if response contains metadata.
 
 ### Rendering Functions (NEW - Metadata-Driven)
 
-#### `renderFieldFromMetadata(value, metadata, record?)`
+#### `renderViewModeFromMetadata(value, metadata, record?)`
 Render field value as React element using backend metadata (view mode).
 
 **Parameters:**
@@ -409,7 +409,7 @@ Render field value as React element using backend metadata (view mode).
 
 **Render Types:** currency, percentage, date, timestamp, boolean, badge, array, link, json, text
 
-#### `renderInputFromMetadata(value, metadata, onChange, options?)`
+#### `renderEditModeFromMetadata(value, metadata, onChange, options?)`
 Render input control for editing using backend metadata (edit mode).
 
 **Parameters:**
@@ -451,7 +451,7 @@ These functions are **deprecated** and should only be used for entities that hav
 
 **Example (WRONG):**
 ```typescript
-// ❌ Do not add cases to renderFieldFromMetadata()
+// ❌ Do not add cases to renderViewModeFromMetadata()
 case 'new-type':  // NO!
 ```
 
@@ -471,8 +471,8 @@ case 'new-type':  // NO!
 **When building new components:**
 1. ✅ Accept `metadata` prop from parent
 2. ✅ Use `hasBackendMetadata()` type guard
-3. ✅ Call `renderFieldFromMetadata()` for view mode
-4. ✅ Call `renderInputFromMetadata()` for edit mode
+3. ✅ Call `renderViewModeFromMetadata()` for view mode
+4. ✅ Call `renderEditModeFromMetadata()` for edit mode
 5. ✅ Never call `detectField()` or old functions
 
 ### Testing Metadata-Driven Rendering
@@ -486,12 +486,12 @@ const mockMetadata: BackendFieldMetadata = {
   // ... other required fields
 };
 
-const rendered = renderFieldFromMetadata(50000, mockMetadata);
+const rendered = renderViewModeFromMetadata(50000, mockMetadata);
 // Expect: <span className="font-mono">$50,000.00</span>
 
 // Test edit mode
 const handleChange = jest.fn();
-const input = renderInputFromMetadata(50000, mockMetadata, handleChange);
+const input = renderEditModeFromMetadata(50000, mockMetadata, handleChange);
 // Expect: <input type="number" step="0.01" value={50000} ... />
 ```
 
@@ -499,7 +499,7 @@ const input = renderInputFromMetadata(50000, mockMetadata, handleChange);
 
 - **Metadata is immutable** - Safe to cache at component level
 - **Memoize columns** - Use `useMemo()` for column generation
-- **Avoid inline functions** - `renderFieldFromMetadata` is already optimized
+- **Avoid inline functions** - `renderViewModeFromMetadata` is already optimized
 - **Settings badges** - Pre-load colors with `preloadSettingsColors()`
 
 ### Common Integration Patterns
@@ -512,7 +512,7 @@ const columns = metadata.fields
   .map(fieldMeta => ({
     key: fieldMeta.key,
     title: fieldMeta.label,
-    render: (value, record) => renderFieldFromMetadata(value, fieldMeta, record)
+    render: (value, record) => renderViewModeFromMetadata(value, fieldMeta, record)
   }));
 ```
 
@@ -524,7 +524,7 @@ const columns = metadata.fields
   .map(fieldMeta => (
     <div key={fieldMeta.key}>
       <label>{fieldMeta.label}</label>
-      {renderInputFromMetadata(
+      {renderEditModeFromMetadata(
         formData[fieldMeta.key],
         fieldMeta,
         (newValue) => setFormData({ ...formData, [fieldMeta.key]: newValue })
@@ -542,7 +542,7 @@ const columns = metadata.fields
   .map(fieldMeta => (
     <div key={fieldMeta.key} className="detail-row">
       <dt>{fieldMeta.label}</dt>
-      <dd>{renderFieldFromMetadata(data[fieldMeta.key], fieldMeta, data)}</dd>
+      <dd>{renderViewModeFromMetadata(data[fieldMeta.key], fieldMeta, data)}</dd>
     </div>
   ))
 }
@@ -567,7 +567,7 @@ const rendered = renderField({
 ```typescript
 // ✅ NEW: Backend provides metadata, frontend renders
 const fieldMeta = getFieldMetadataFromResponse(response, 'budget_allocated_amt');
-const rendered = renderFieldFromMetadata(50000, fieldMeta);
+const rendered = renderViewModeFromMetadata(50000, fieldMeta);
 ```
 
 ### Migration Checklist
@@ -580,8 +580,8 @@ const rendered = renderFieldFromMetadata(50000, fieldMeta);
 **Frontend (Required):**
 1. ✅ Accept `metadata` prop in component
 2. ✅ Replace `detectField()` with `getFieldMetadataFromResponse()`
-3. ✅ Replace `renderField()` with `renderFieldFromMetadata()`
-4. ✅ Replace edit mode with `renderInputFromMetadata()`
+3. ✅ Replace `renderField()` with `renderViewModeFromMetadata()`
+4. ✅ Replace edit mode with `renderEditModeFromMetadata()`
 5. ✅ Test rendering matches original
 
 **Frontend (Optional):**

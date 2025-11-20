@@ -69,7 +69,7 @@ export interface FieldMetadata {
 
   // Options (for dropdowns/selects)
   endpoint?: string;
-  loadFromSettings?: boolean;
+  loadFromDataLabels?: boolean;
   loadFromEntity?: string;
   settingsDatalabel?: string;
   options?: StaticOption[];
@@ -128,7 +128,7 @@ export interface FormatConfig {
   locale?: string;
   style?: 'short' | 'long' | 'relative' | 'datetime';
   timeZone?: string;
-  loadFromSettings?: boolean;
+  loadFromDataLabels?: boolean;
   colorMap?: Record<string, string>;
   trueLabel?: string;
   falseLabel?: string;
@@ -378,12 +378,12 @@ const PATTERN_RULES: Record<string, PatternRule> = {
     viewType: 'badge',
     inputType: 'select',
     editType: 'select',
-    format: { loadFromSettings: true },
+    format: { loadFromDataLabels: true },
     align: 'left',
     width: '140px',
     pattern: 'DATALABEL',
     category: 'standard',
-    loadFromSettings: true,
+    loadFromDataLabels: true,
     visible: true,
     sortable: true,
     filterable: true,
@@ -624,7 +624,7 @@ function detectEntityFromFieldName(fieldName: string): string | null {
  * Generate endpoint for field options
  */
 function generateEndpoint(metadata: Partial<FieldMetadata>, fieldKey: string): string | undefined {
-  if (metadata.loadFromSettings && fieldKey.startsWith('dl__')) {
+  if (metadata.loadFromDataLabels && fieldKey.startsWith('dl__')) {
     const datalabelName = fieldKey.substring(4); // Remove 'dl__'
     return `/api/v1/setting?datalabel=dl__${datalabelName}`;
   }

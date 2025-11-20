@@ -54,7 +54,7 @@ export interface BackendFieldMetadata {
   align: 'left' | 'right' | 'center';
   width: string;
   endpoint?: string;
-  loadFromSettings?: boolean;
+  loadFromDataLabels?: boolean;
   loadFromEntity?: string;
   settingsDatalabel?: string;
   options?: Array<{ value: any; label: string; color?: string }>;
