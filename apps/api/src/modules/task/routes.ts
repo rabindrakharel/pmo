@@ -138,7 +138,7 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
@@ -256,10 +256,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
           limit: Type.Number(),
           offset: Type.Number()
         }),
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })
       }
-    }, async (request, reply) => {
+    }
+  }, async (request, reply) => {
     const {
       project_id, assigned_to__employee_id, dl__task_stage, task_type, task_category,
       worksite_id, client_id, active, search, limit = 20, offset: queryOffset, page,
@@ -438,6 +440,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       }),
       response: {
         200: TaskWithMetadataSchema,  // ✅ Fixed: Use metadata-driven schema
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })
@@ -564,10 +567,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
     schema: {
       body: CreateTaskSchema,
       response: {
-        // Removed schema validation - let Fastify serialize naturally
+        201: Type.Any(),  // Success response with created task
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         400: Type.Object({ error: Type.String() }),
-        500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async (request, reply) => {
     const data = request.body as any;
 
     const userId = (request as any).user?.sub;
@@ -1427,9 +1434,16 @@ export async function taskRoutes(fastify: FastifyInstance) {
             id: Type.String(),
             name: Type.String(),
             email: Type.Optional(Type.String()),
-            linkage_id: Type.String()}))}),
+            linkage_id: Type.String()
+          }))
+        }),
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
-        404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
+      }
+    }
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const userId = (request as any).user?.sub;
 

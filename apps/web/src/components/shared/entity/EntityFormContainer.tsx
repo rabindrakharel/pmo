@@ -678,6 +678,19 @@ export function EntityFormContainer({
           </span>
         );
       }
+      // Handle objects that aren't explicitly typed as 'json'
+      if (typeof value === 'object' && value !== null) {
+        // Check if it's an empty object
+        if (Object.keys(value).length === 0) {
+          return <span className="text-dark-600 text-base tracking-tight">-</span>;
+        }
+        // For non-empty objects, stringify them
+        return (
+          <pre className="font-mono bg-dark-100 p-2 rounded overflow-auto max-h-40 text-sm text-dark-700">
+            {JSON.stringify(value, null, 2)}
+          </pre>
+        );
+      }
       return (
         <span className="text-dark-600 text-base tracking-tight">
           {value || '-'}
