@@ -12,6 +12,8 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { resolveSharedUrl } from '../../lib/shared-url-factory.js';
+import { db } from '@/db/index.js';
+import { getEntityInfrastructure, Permission } from '../../services/entity-infrastructure.service.js';
 
 export async function sharedRoutes(fastify: FastifyInstance) {
   /**
@@ -111,21 +113,11 @@ export async function sharedRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Check RBAC permissions
-    const { db } = await import('@/db/index.js');
-    const { sql } = await import('drizzle-orm');
+    // Check RBAC permissions using centralized service
+    const entityInfra = getEntityInfrastructure(db);
+    const canEdit = await entityInfra.check_entity_rbac(userId, entityCode, id, Permission.EDIT);
 
-    const hasPermission = await db.execute(sql`
-      SELECT 1 FROM app.entity_rbac rbac
-      WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-        AND rbac.entity_name = ${entityCode}
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND rbac.permission >= 1  -- Edit permission
-    `);
-
-    if (hasPermission.length === 0) {
+    if (!canEdit) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
 

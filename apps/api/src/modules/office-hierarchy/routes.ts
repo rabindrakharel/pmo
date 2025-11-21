@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '../../db/index.js';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import {
   getUniversalColumnMetadata,
   filterUniversalColumns,
@@ -9,6 +9,7 @@ import {
   createPaginatedResponse
 } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+import { getEntityInfrastructure, Permission } from '../../services/entity-infrastructure.service.js';
 
 // Office Hierarchy Schema (4-level: Corporate → Region → District → Office)
 const OfficeHierarchySchema = Type.Object({
@@ -81,22 +82,18 @@ export async function officeHierarchyRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // RBAC filtering
-      const baseConditions = [
-        sql`(
-          EXISTS (
-            SELECT 1 FROM app.entity_rbac rbac
-            WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}::uuid
-              AND rbac.entity_name = 'office_hierarchy'
-              AND (rbac.entity_id = oh.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-              AND rbac.active_flag = true
-              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND rbac.permission >= 0
-          )
-        )`
-      ];
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC filtering
+      // ═══════════════════════════════════════════════════════════════
+      const entityInfra = getEntityInfrastructure(db);
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(
+        userId,
+        'office_hierarchy',
+        Permission.VIEW,
+        'oh'
+      );
 
-      const conditions = [...baseConditions];
+      const conditions: SQL[] = [rbacWhereClause];
 
       if (active_flag !== undefined) {
         conditions.push(sql`oh.active_flag = ${active_flag}`);
@@ -176,6 +173,21 @@ export async function officeHierarchyRoutes(fastify: FastifyInstance) {
     }
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+      // ═══════════════════════════════════════════════════════════════
+      const entityInfra = getEntityInfrastructure(db);
+      const canView = await entityInfra.check_entity_rbac(
+        userId,
+        'office_hierarchy',
+        id,
+        Permission.VIEW
+      );
+
+      if (!canView) {
+        return reply.status(403).send({ error: 'Access denied' });
+      }
+
       const results = await db.execute(sql`
         SELECT
           oh.id, oh.code, oh.name, oh."descr", oh.metadata,
@@ -188,15 +200,6 @@ export async function officeHierarchyRoutes(fastify: FastifyInstance) {
         LEFT JOIN app.employee emp ON oh.manager__employee_id = emp.id
         LEFT JOIN app.d_office_hierarchy parent ON oh.parent_id = parent.id
         WHERE oh.id = ${id}::uuid
-          AND EXISTS (
-            SELECT 1 FROM app.entity_rbac rbac
-            WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}::uuid
-              AND rbac.entity_name = 'office_hierarchy'
-              AND (rbac.entity_id = oh.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-              AND rbac.active_flag = true
-              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND rbac.permission >= 0
-          )
       `);
 
       if (results.length === 0) {
