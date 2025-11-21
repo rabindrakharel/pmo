@@ -5,7 +5,7 @@
  *
  * Shows exact entity detail page content in a slide-over panel
  * - Slides in from right side
- * - Renders the full EntityDetailPage in an iframe
+ * - Renders the full EntitySpecificInstancePage in an iframe
  * - Can be closed with X button, ESC key, or by clicking outside
  * - Smooth animations
  */

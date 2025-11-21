@@ -61,8 +61,8 @@ pages/
 **After (Universal Architecture):**
 ```
 pages/shared/
-├── EntityMainPage.tsx                   # 280 lines - works for ALL entities
-├── EntityDetailPage.tsx                 # 527 lines - works for ALL entities
+├── EntityListOfInstancesPage.tsx                   # 280 lines - works for ALL entities
+├── EntitySpecificInstancePage.tsx                 # 527 lines - works for ALL entities
 ├── EntityCreatePage.tsx                 # 150 lines - works for ALL entities
 └── EntityChildListPage.tsx              # 281 lines - works for ALL child tabs
 ```
@@ -84,8 +84,8 @@ pages/shared/
 apps/web/src/
 ├── pages/
 │   ├── shared/                          # 4 Universal Components
-│   │   ├── EntityMainPage.tsx           # List page (table/kanban/grid views)
-│   │   ├── EntityDetailPage.tsx         # Detail page with tabs
+│   │   ├── EntityListOfInstancesPage.tsx           # List page (table/kanban/grid views)
+│   │   ├── EntitySpecificInstancePage.tsx         # Detail page with tabs
 │   │   ├── EntityCreatePage.tsx         # Create page with dynamic form
 │   │   └── EntityChildListPage.tsx      # Child entity list (filtered)
 │   ├── form/                            # Form-specific pages
@@ -328,9 +328,9 @@ export function getEntityIcon(entityType: string): LucideIcon {
 
 ## Universal Page Components
 
-### 1. EntityMainPage (List View)
+### 1. EntityListOfInstancesPage (List View)
 
-**File:** `apps/web/src/pages/shared/EntityMainPage.tsx` (280 lines)
+**File:** `apps/web/src/pages/shared/EntityListOfInstancesPage.tsx` (280 lines)
 
 **Purpose:** Universal list page for ALL entities
 
@@ -345,16 +345,16 @@ export function getEntityIcon(entityType: string): LucideIcon {
 
 ```typescript
 // App.tsx - Same component, different entity types
-<Route path="/project" element={<EntityMainPage entityType="project" />} />
-<Route path="/task" element={<EntityMainPage entityType="task" />} />
-<Route path="/client" element={<EntityMainPage entityType="client" />} />
+<Route path="/project" element={<EntityListOfInstancesPage entityType="project" />} />
+<Route path="/task" element={<EntityListOfInstancesPage entityType="task" />} />
+<Route path="/client" element={<EntityListOfInstancesPage entityType="client" />} />
 // ... 24+ entities, same component!
 ```
 
 **Data Flow:**
 
 ```typescript
-export function EntityMainPage({ entityType }: { entityType: string }) {
+export function EntityListOfInstancesPage({ entityType }: { entityType: string }) {
   const config = getEntityConfig(entityType);  // Get configuration
   const [view, setView] = useViewMode(entityType);  // Persist view preference
 
@@ -382,9 +382,9 @@ export function EntityMainPage({ entityType }: { entityType: string }) {
 }
 ```
 
-### 2. EntityDetailPage (Detail View)
+### 2. EntitySpecificInstancePage (Detail View)
 
-**File:** `apps/web/src/pages/shared/EntityDetailPage.tsx` (527 lines)
+**File:** `apps/web/src/pages/shared/EntitySpecificInstancePage.tsx` (527 lines)
 
 **Purpose:** Universal detail page with dynamic tabs
 
@@ -398,7 +398,7 @@ export function EntityMainPage({ entityType }: { entityType: string }) {
 **Routing:**
 
 ```typescript
-<Route path="/project/:id" element={<EntityDetailPage entityType="project" />}>
+<Route path="/project/:id" element={<EntitySpecificInstancePage entityType="project" />}>
   <Route path="task" element={<EntityChildListPage childType="task" />} />
   <Route path="wiki" element={<EntityChildListPage childType="wiki" />} />
   <Route path="artifact" element={<EntityChildListPage childType="artifact" />} />
@@ -408,7 +408,7 @@ export function EntityMainPage({ entityType }: { entityType: string }) {
 **Data Flow:**
 
 ```typescript
-export function EntityDetailPage({ entityType }: { entityType: string }) {
+export function EntitySpecificInstancePage({ entityType }: { entityType: string }) {
   const { id } = useParams();
   const config = getEntityConfig(entityType);
 
@@ -518,7 +518,7 @@ const generateEntityRoutes = () => {
       <Fragment key={entityType}>
         {/* List route */}
         <Route path={`/${entityType}`}
-               element={<EntityMainPage entityType={entityType} />} />
+               element={<EntityListOfInstancesPage entityType={entityType} />} />
 
         {/* Create route */}
         <Route path={`/${entityType}/new`}
@@ -526,7 +526,7 @@ const generateEntityRoutes = () => {
 
         {/* Detail + child routes */}
         <Route path={`/${entityType}/:id`}
-               element={<EntityDetailPage entityType={entityType} />}>
+               element={<EntitySpecificInstancePage entityType={entityType} />}>
           {config.childEntities?.map(childType => (
             <Route key={childType}
                    path={childType}
@@ -552,14 +552,14 @@ const generateEntityRoutes = () => {
 ### URL Structure
 
 ```
-/project                           → EntityMainPage (project list)
+/project                           → EntityListOfInstancesPage (project list)
 /project/new                       → EntityCreatePage (create project)
-/project/:id                       → EntityDetailPage (project detail)
+/project/:id                       → EntitySpecificInstancePage (project detail)
 /project/:id/task                  → EntityChildListPage (project tasks)
 /project/:id/wiki                  → EntityChildListPage (project wiki)
 
-/task                              → EntityMainPage (task list)
-/task/:id                          → EntityDetailPage (task detail)
+/task                              → EntityListOfInstancesPage (task list)
+/task/:id                          → EntitySpecificInstancePage (task detail)
 /task/:id/form                     → EntityChildListPage (task forms)
 ```
 
@@ -908,8 +908,8 @@ pnpm tsc --noEmit
 | `lib/api-factory.ts` | Type-safe API registry | 174 |
 | `lib/api.ts` | API client implementations | 649 |
 | `lib/settingsLoader.ts` | Dynamic settings loader | 270 |
-| `pages/shared/EntityMainPage.tsx` | Universal list page | 280 |
-| `pages/shared/EntityDetailPage.tsx` | Universal detail page | 527 |
+| `pages/shared/EntityListOfInstancesPage.tsx` | Universal list page | 280 |
+| `pages/shared/EntitySpecificInstancePage.tsx` | Universal detail page | 527 |
 | `pages/setting/SettingsPage.tsx` | Universal settings page | 92 |
 | `App.tsx` | Route definitions | 300+ |
 

@@ -58,13 +58,13 @@
 --      ORDER BY c.dl__customer_tier DESC, c.name ASC
 --      LIMIT $1 OFFSET $2
 --    • RBAC: User sees ONLY customers they have view access to
---    • Frontend: Renders in EntityMainPage with table view + advanced filtering
+--    • Frontend: Renders in EntityListOfInstancesPage with table view + advanced filtering
 --
 -- 5. GET SINGLE CUSTOMER
 --    • Endpoint: GET /api/v1/cust/{id}
 --    • Database: SELECT * FROM d_cust WHERE id=$1 AND active_flag=true
 --    • RBAC: Checks entity_rbac for view permission
---    • Frontend: EntityDetailPage renders fields + tabs for projects/tasks/forms
+--    • Frontend: EntitySpecificInstancePage renders fields + tabs for projects/tasks/forms
 --
 -- 6. GET CUSTOMER PROJECTS
 --    • Endpoint: GET /api/v1/cust/{id}/project?project_stage=Execution&limit=20

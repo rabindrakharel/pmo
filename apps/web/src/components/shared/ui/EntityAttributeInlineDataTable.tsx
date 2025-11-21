@@ -28,8 +28,8 @@
  * - No assumptions about data schema
  *
  * Used by:
- * - EntityDetailPage for metadata field
- * - EntityDetailPage for quote_items field
+ * - EntitySpecificInstancePage for metadata field
+ * - EntitySpecificInstancePage for quote_items field
  * - Any other entity with JSONB array attributes
  *
  * Different from EntityDataTable and SettingsDataTable:

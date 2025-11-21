@@ -4,8 +4,8 @@
  * These pages work with any entity type and are used across the entire application.
  */
 
-export { EntityMainPage } from './EntityMainPage';
-export { EntityDetailPage } from './EntityDetailPage';
+export { EntityListOfInstancesPage } from './EntityListOfInstancesPage';
+export { EntitySpecificInstancePage } from './EntitySpecificInstancePage';
 export { EntityChildListPage } from './EntityChildListPage';
 export { EntityCreatePage } from './EntityCreatePage';
 export { SharedURLEntityPage } from './SharedURLEntityPage';

@@ -19,7 +19,7 @@ interface WikiContentRendererProps {
 /**
  * WikiContentRenderer
  *
- * Renders wiki page content in the EntityDetailPage.
+ * Renders wiki page content in the EntitySpecificInstancePage.
  * Matches the WikiDesigner preview panel styling exactly.
  */
 export function WikiContentRenderer({ data, onEdit }: WikiContentRendererProps) {

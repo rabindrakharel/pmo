@@ -22,23 +22,23 @@ import { useEntityEditStore } from '../../stores/useEntityEditStore';
 import { useKeyboardShortcuts, useShortcutHints } from '../../lib/hooks/useKeyboardShortcuts';
 
 /**
- * Universal EntityDetailPage
+ * Universal EntitySpecificInstancePage
  *
  * A single, reusable component that renders the detail page for ANY entity.
  * Integrates with DynamicChildEntityTabs for child entity navigation.
  *
  * Usage via routing:
- * - /project/:id -> EntityDetailPage with entityCode="project"
- * - /task/:id -> EntityDetailPage with entityCode="task"
- * - /wiki/:id -> EntityDetailPage with entityCode="wiki"
+ * - /project/:id -> EntitySpecificInstancePage with entityCode="project"
+ * - /task/:id -> EntitySpecificInstancePage with entityCode="task"
+ * - /wiki/:id -> EntitySpecificInstancePage with entityCode="wiki"
  * etc.
  */
 
-interface EntityDetailPageProps {
+interface EntitySpecificInstancePageProps {
   entityCode: string;
 }
 
-export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
+export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstancePageProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -1095,13 +1095,13 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
  * Usage Examples:
  *
  * In routes:
- * <Route path="/project/:id" element={<EntityDetailPage entityCode="project" />}>
+ * <Route path="/project/:id" element={<EntitySpecificInstancePage entityCode="project" />}>
  *   <Route path="task" element={<EntityChildListPage entityCode="task" />} />
  *   <Route path="wiki" element={<EntityChildListPage entityCode="wiki" />} />
  *   <Route path="artifact" element={<EntityChildListPage entityCode="artifact" />} />
  * </Route>
  *
- * <Route path="/task/:id" element={<EntityDetailPage entityCode="task" />} />
- * <Route path="/wiki/:id" element={<EntityDetailPage entityCode="wiki" />} />
- * <Route path="/artifact/:id" element={<EntityDetailPage entityCode="artifact" />} />
+ * <Route path="/task/:id" element={<EntitySpecificInstancePage entityCode="task" />} />
+ * <Route path="/wiki/:id" element={<EntitySpecificInstancePage entityCode="wiki" />} />
+ * <Route path="/artifact/:id" element={<EntitySpecificInstancePage entityCode="artifact" />} />
  */
