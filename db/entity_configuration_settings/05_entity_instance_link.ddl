@@ -107,17 +107,8 @@ WHERE w.primary_entity_id IS NOT NULL
   AND w.primary_entity_code IS NOT NULL
   AND w.active_flag = true;
 
--- Parent → Form relationships (using primary_entity_code and primary_entity_id)
--- Note: This SELECT populates from forms that have parent linkage set
-INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
-SELECT f.primary_entity_code, f.primary_entity_id, 'form', f.id, 'uses'
-FROM app.form_head f
-WHERE f.primary_entity_id IS NOT NULL
-  AND f.primary_entity_code IS NOT NULL
-  AND f.active_flag = true;
-
--- Explicit Task → Form relationships (backup in case SELECT above doesn't run first)
--- These are the forms curated for specific tasks
+-- Task → Form relationships (explicit linkages, no FK columns on form_head)
+-- Forms are linked to parent tasks via entity_instance_link only
 INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
 VALUES
   -- Landscaping Service Request Form → Fall Campaign Marketing Strategy task

@@ -49,10 +49,6 @@ CREATE TABLE app.form_head (
     -- Form Type
     form_type varchar(50) DEFAULT 'multi_step',
 
-    -- Parent entity linkage (for entity_instance_link population)
-    primary_entity_code varchar(50),  -- Parent entity type (project, task, etc.)
-    primary_entity_id uuid,           -- Parent entity instance ID
-
     -- Multi-Step Form Schema (JSONB)
     -- Structure: {"steps": [{"id":"step-1","name":"step_1","title":"Info","fields":[{...}]}]}
     form_schema jsonb DEFAULT '{"steps": []}'::jsonb,
@@ -73,7 +69,7 @@ CREATE TABLE app.form_head (
 -- DATA CURATION:
 -- =====================================================
 
--- Landscaping Form (linked to Fall Campaign Marketing Strategy task)
+-- Landscaping Form (linked to Fall Campaign Marketing Strategy task via entity_instance_link)
 INSERT INTO app.form_head (
     id,
     code,
@@ -81,8 +77,6 @@ INSERT INTO app.form_head (
     descr,
     internal_url,
     shared_url,
-    primary_entity_code,
-    primary_entity_id,
     form_type,
     form_schema,
     version,
@@ -94,8 +88,6 @@ INSERT INTO app.form_head (
     'Customer intake form for landscaping service requests - captures property details, service preferences, and scheduling',
     '/form/ee8a6cfd-9d31-4705-b8f3-ad2d5589802c',
     '/form/aB3xK9mZ',
-    'task',
-    'b1111111-1111-1111-1111-111111111111',  -- Fall Campaign Marketing Strategy task
     'multi_step',
     '{
         "steps": [
@@ -133,13 +125,11 @@ INSERT INTO app.form_head (
     descr = EXCLUDED.descr,
     internal_url = EXCLUDED.internal_url,
     shared_url = EXCLUDED.shared_url,
-    primary_entity_code = EXCLUDED.primary_entity_code,
-    primary_entity_id = EXCLUDED.primary_entity_id,
     form_type = EXCLUDED.form_type,
     form_schema = EXCLUDED.form_schema,
     updated_ts = now();
 
--- PMO Vendor Evaluation Form (linked to PMO Software Vendor Evaluation task)
+-- PMO Vendor Evaluation Form (linked to PMO Software Vendor Evaluation task via entity_instance_link)
 INSERT INTO app.form_head (
     id,
     code,
@@ -147,8 +137,6 @@ INSERT INTO app.form_head (
     descr,
     internal_url,
     shared_url,
-    primary_entity_code,
-    primary_entity_id,
     form_type,
     form_schema,
     version,
@@ -160,8 +148,6 @@ INSERT INTO app.form_head (
     'Standardized evaluation form for scoring PMO software vendors on functionality, integration, cost, and implementation',
     '/form/ff8a7dfe-0e42-5816-c9g4-be3e6690913d',
     '/form/cD4yL2nR',
-    'task',
-    'a2222222-2222-2222-2222-222222222222',  -- PMO Software Vendor Evaluation task
     'multi_step',
     '{
         "steps": [
@@ -197,7 +183,7 @@ INSERT INTO app.form_head (
     true
 );
 
--- Customer Service Feedback Form (linked to Customer Service Process Optimization task)
+-- Customer Service Feedback Form (linked to Customer Service Process Optimization task via entity_instance_link)
 INSERT INTO app.form_head (
     id,
     code,
@@ -205,8 +191,6 @@ INSERT INTO app.form_head (
     descr,
     internal_url,
     shared_url,
-    primary_entity_code,
-    primary_entity_id,
     form_type,
     form_schema,
     version,
@@ -218,8 +202,6 @@ INSERT INTO app.form_head (
     'Post-service feedback form to measure customer satisfaction and identify improvement areas',
     '/form/11111111-aaaa-bbbb-cccc-dddddddddddd',
     '/form/eF5zM3pQ',
-    'task',
-    'e1111111-1111-1111-1111-111111111111',  -- Customer Service Process Optimization task
     'multi_step',
     '{
         "steps": [
@@ -254,7 +236,7 @@ INSERT INTO app.form_head (
     true
 );
 
--- HVAC Site Assessment Form (linked to Smart HVAC Market Research task)
+-- HVAC Site Assessment Form (linked to Smart HVAC Market Research task via entity_instance_link)
 INSERT INTO app.form_head (
     id,
     code,
@@ -262,8 +244,6 @@ INSERT INTO app.form_head (
     descr,
     internal_url,
     shared_url,
-    primary_entity_code,
-    primary_entity_id,
     form_type,
     form_schema,
     version,
@@ -275,8 +255,6 @@ INSERT INTO app.form_head (
     'On-site assessment form for evaluating HVAC system requirements and modernization opportunities',
     '/form/22222222-aaaa-bbbb-cccc-dddddddddddd',
     '/form/gH6aN4rS',
-    'task',
-    'c1111111-1111-1111-1111-111111111111',  -- Smart HVAC Market Research task
     'multi_step',
     '{
         "steps": [
