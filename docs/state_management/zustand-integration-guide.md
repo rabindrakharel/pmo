@@ -523,7 +523,7 @@ The field-level change tracking provides:
 interface CacheStore {
   // Shared caches (10 min TTL, invalidate on settings exit)
   sharedCaches: {
-    entityTypes: CacheEntry;        // Sidebar data
+    entityCodes: CacheEntry;        // Sidebar data
     datalabels: Map<string, any>;   // Dropdown options
     globalSettings: CacheEntry;      // App config
   };
@@ -555,13 +555,13 @@ interface CacheStore {
 ### Usage in Components
 
 ```typescript
-// Sidebar Component - Uses cached entity types
+// Sidebar Component - Uses cached entity codes
 const Sidebar = () => {
-  const entityTypes = useCachedEntityTypes(); // 10-min cache
+  const entityCodes = useCachedEntityCodes(); // 10-min cache
 
   return (
     <nav>
-      {entityTypes.map(entity => (
+      {entityCodes.map(entity => (
         <Link to={`/${entity.type}`}>
           <Icon name={entity.icon} />
           {entity.label}
@@ -1107,12 +1107,12 @@ This section provides detailed execution traces showing exactly when and how dat
 │ // useEffect detects settings exit:                                         │
 │ if (enteredSettings && !path.startsWith('/settings')) {                     │
 │   // Invalidate ALL shared caches (10-min TTL group)                        │
-│   queryClient.invalidateQueries({ queryKey: ['entity-types'] });            │
+│   queryClient.invalidateQueries({ queryKey: ['entity-codes'] });            │
 │   queryClient.invalidateQueries({ queryKey: ['datalabels'] });              │
 │   queryClient.invalidateQueries({ queryKey: ['global-settings'] });         │
 │                                                                             │
 │   // Clear Zustand metadata cache                                           │
-│   metadataCache.clearEntityTypes();                                         │
+│   metadataCache.clearEntityCodes();                                         │
 │                                                                             │
 │   setEnteredSettings(false);                                                │
 │ }                                                                           │
@@ -1134,7 +1134,7 @@ This section provides detailed execution traces showing exactly when and how dat
 
 | Hook | Triggered By | Cache Key Structure | TTL |
 |------|--------------|---------------------|-----|
-| `useEntityTypes` | App mount, sidebar render | `['entity-types']` | 10 min |
+| `useEntityCodes` | App mount, sidebar render | `['entity-codes']` | 10 min |
 | `useEntityList` | Page mount (list view) | `['entity-list', entityCode, params]` | 2 min |
 | `useEntityDetail` | Page mount (detail view) | `['entity-detail', entityCode, id]` | 5 min |
 | `useDatalabels` | Form mount (needs dropdowns) | `['datalabels', entityCode]` | 10 min |

@@ -9,9 +9,9 @@ export type { UseColumnVisibilityReturn } from './useColumnVisibility';
 
 // Entity Query Hooks (React Query + Zustand integration)
 export {
-  useEntityList,
-  useEntityDetail,
-  useEntityTypes,
+  useEntityInstanceList,
+  useEntityInstance,
+  useEntityCodes,
   useEntityMutation,
   useDatalabels,
   useCacheInvalidation,
@@ -21,9 +21,9 @@ export {
 } from './useEntityQuery';
 
 export type {
-  EntityListParams,
-  EntityListResult,
-  EntityDetailResult,
+  EntityInstanceListParams,
+  EntityInstanceListResult,
+  EntityInstanceResult,
 } from './useEntityQuery';
 
 // Keyboard Shortcuts Hook

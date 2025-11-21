@@ -13,7 +13,7 @@ import { getEntityIcon } from '../../lib/entityIcons';
 import { APIFactory, type EntityMetadata } from '../../lib/api';
 import { type DatalabelData } from '../../lib/frontEndFormatterService';
 import { useSidebar } from '../../contexts/SidebarContext';
-import { useEntityList, useEntityMutation, usePrefetch } from '../../lib/hooks';
+import { useEntityInstanceList, useEntityMutation, usePrefetch } from '../../lib/hooks';
 
 /**
  * Universal EntityMainPage
@@ -77,7 +77,7 @@ export function EntityMainPage({ entityCode, defaultView }: EntityMainPageProps)
     isLoading: loading,
     error: queryError,
     refetch,
-  } = useEntityList(entityCode, queryParams, {
+  } = useEntityInstanceList(entityCode, queryParams, {
     // Only fetch for non-table views, table uses FilteredDataTable's own fetching
     enabled: view !== 'table' && !!config,
   });

@@ -37,13 +37,13 @@ export const CACHE_TTL = {
 
 /** Query key factories for consistent cache keys */
 export const queryKeys = {
-  entityTypes: () => ['entity-types'] as const,
+  entityCodes: () => ['entity-codes'] as const,
   entityMetadata: (entityCode: string) => ['entity-metadata', entityCode] as const,
   datalabels: (entityCode: string) => ['datalabels', entityCode] as const,
-  entityList: (entityCode: string, params?: Record<string, any>) =>
-    ['entity-list', entityCode, params] as const,
-  entityDetail: (entityCode: string, id: string) =>
-    ['entity-detail', entityCode, id] as const,
+  entityInstanceList: (entityCode: string, params?: Record<string, any>) =>
+    ['entity-instance-list', entityCode, params] as const,
+  entityInstance: (entityCode: string, id: string) =>
+    ['entity-instance', entityCode, id] as const,
   globalSettings: () => ['global-settings'] as const,
 };
 
@@ -51,7 +51,7 @@ export const queryKeys = {
 // Types
 // ============================================================================
 
-export interface EntityListParams {
+export interface EntityInstanceListParams {
   page?: number;
   pageSize?: number;
   limit?: number;
@@ -61,7 +61,7 @@ export interface EntityListParams {
   [key: string]: any;
 }
 
-export interface EntityListResult<T = any> {
+export interface EntityInstanceListResult<T = any> {
   data: T[];
   metadata: EntityMetadata | null;
   datalabels: DatalabelData[];
@@ -71,14 +71,14 @@ export interface EntityListResult<T = any> {
   hasMore: boolean;
 }
 
-export interface EntityDetailResult<T = any> {
+export interface EntityInstanceResult<T = any> {
   data: T;
   metadata: EntityMetadata | null;
   datalabels: DatalabelData[];
 }
 
 // ============================================================================
-// useEntityList - Fetch entity list with caching
+// useEntityInstanceList - Fetch entity list with caching
 // ============================================================================
 
 /**
@@ -91,12 +91,12 @@ export interface EntityDetailResult<T = any> {
  * - Integration with Zustand metadata cache
  *
  * @example
- * const { data, isLoading, refetch } = useEntityList('project', { page: 1, pageSize: 100 });
+ * const { data, isLoading, refetch } = useEntityInstanceList('project', { page: 1, pageSize: 100 });
  */
-export function useEntityList<T = any>(
+export function useEntityInstanceList<T = any>(
   entityCode: string,
-  params: EntityListParams = {},
-  options?: Omit<UseQueryOptions<EntityListResult<T>>, 'queryKey' | 'queryFn'>
+  params: EntityInstanceListParams = {},
+  options?: Omit<UseQueryOptions<EntityInstanceListResult<T>>, 'queryKey' | 'queryFn'>
 ) {
   const metadataCache = useMetadataCacheStore();
 
@@ -118,17 +118,17 @@ export function useEntityList<T = any>(
   }), [params]);
 
   const queryKey = useMemo(
-    () => queryKeys.entityList(entityCode, normalizedParams),
+    () => queryKeys.entityInstanceList(entityCode, normalizedParams),
     [entityCode, normalizedParams]
   );
 
-  return useQuery<EntityListResult<T>>({
+  return useQuery<EntityInstanceListResult<T>>({
     queryKey,
     queryFn: async () => {
       const api = APIFactory.getAPI(entityCode);
       const response = await api.list(normalizedParams);
 
-      const result: EntityListResult<T> = {
+      const result: EntityInstanceListResult<T> = {
         data: response.data || [],
         metadata: response.metadata || null,
         datalabels: response.datalabels || [],
@@ -160,7 +160,7 @@ export function useEntityList<T = any>(
 }
 
 // ============================================================================
-// useEntityDetail - Fetch single entity with caching
+// useEntityInstance - Fetch single entity with caching
 // ============================================================================
 
 /**
@@ -173,21 +173,21 @@ export function useEntityList<T = any>(
  * - Optimistic update support
  *
  * @example
- * const { data, isLoading, refetch } = useEntityDetail('project', 'uuid-123');
+ * const { data, isLoading, refetch } = useEntityInstance('project', 'uuid-123');
  */
-export function useEntityDetail<T = any>(
+export function useEntityInstance<T = any>(
   entityCode: string,
   id: string | undefined,
-  options?: Omit<UseQueryOptions<EntityDetailResult<T>>, 'queryKey' | 'queryFn'>
+  options?: Omit<UseQueryOptions<EntityInstanceResult<T>>, 'queryKey' | 'queryFn'>
 ) {
   const metadataCache = useMetadataCacheStore();
 
   const queryKey = useMemo(
-    () => id ? queryKeys.entityDetail(entityCode, id) : ['entity-detail', entityCode, 'undefined'],
+    () => id ? queryKeys.entityInstance(entityCode, id) : ['entity-instance', entityCode, 'undefined'],
     [entityCode, id]
   );
 
-  return useQuery<EntityDetailResult<T>>({
+  return useQuery<EntityInstanceResult<T>>({
     queryKey,
     queryFn: async () => {
       if (!id) {
@@ -244,10 +244,10 @@ export function useEntityDetail<T = any>(
 }
 
 // ============================================================================
-// useEntityTypes - Fetch entity types for sidebar navigation
+// useEntityCodes - Fetch entity codes for sidebar navigation
 // ============================================================================
 
-interface EntityType {
+interface EntityCodeData {
   code: string;
   label: string;
   label_plural: string;
@@ -258,7 +258,7 @@ interface EntityType {
 }
 
 /**
- * Hook for fetching entity types with long-term caching
+ * Hook for fetching entity codes with long-term caching
  *
  * Features:
  * - 10-minute TTL for sidebar navigation stability
@@ -266,15 +266,15 @@ interface EntityType {
  * - Automatic transformation to Map format
  *
  * @example
- * const { entityTypes, isLoading, refetch } = useEntityTypes();
+ * const { entityCodes, isLoading, refetch } = useEntityCodes();
  */
-export function useEntityTypes(
-  options?: Omit<UseQueryOptions<Map<string, EntityType>>, 'queryKey' | 'queryFn'>
+export function useEntityCodes(
+  options?: Omit<UseQueryOptions<Map<string, EntityCodeData>>, 'queryKey' | 'queryFn'>
 ) {
   const metadataCache = useMetadataCacheStore();
 
-  return useQuery<Map<string, EntityType>>({
-    queryKey: queryKeys.entityTypes(),
+  return useQuery<Map<string, EntityCodeData>>({
+    queryKey: queryKeys.entityCodes(),
     queryFn: async () => {
       const token = localStorage.getItem('auth_token');
       if (!token) {
@@ -294,13 +294,13 @@ export function useEntityTypes(
       const entities = Array.isArray(data) ? data : data.data || [];
 
       // Transform to Map
-      const entityMap = new Map<string, EntityType>();
-      entities.forEach((entity: EntityType) => {
+      const entityMap = new Map<string, EntityCodeData>();
+      entities.forEach((entity: EntityCodeData) => {
         entityMap.set(entity.code, entity);
       });
 
       // Cache in Zustand store
-      metadataCache.setEntityTypes(Array.from(entityMap.values()));
+      metadataCache.setEntityCodes(Array.from(entityMap.values()));
 
       return entityMap;
     },
@@ -337,15 +337,15 @@ export function useEntityMutation(entityCode: string) {
     },
     onMutate: async ({ id, data }) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.entityDetail(entityCode, id) });
+      await queryClient.cancelQueries({ queryKey: queryKeys.entityInstance(entityCode, id) });
 
       // Snapshot previous value
-      const previousData = queryClient.getQueryData(queryKeys.entityDetail(entityCode, id));
+      const previousData = queryClient.getQueryData(queryKeys.entityInstance(entityCode, id));
 
       // Optimistically update cache
       queryClient.setQueryData(
-        queryKeys.entityDetail(entityCode, id),
-        (old: EntityDetailResult | undefined) => old ? {
+        queryKeys.entityInstance(entityCode, id),
+        (old: EntityInstanceResult | undefined) => old ? {
           ...old,
           data: { ...old.data, ...data },
         } : old
@@ -356,13 +356,13 @@ export function useEntityMutation(entityCode: string) {
     onError: (_error, { id }, context) => {
       // Rollback on error
       if (context?.previousData) {
-        queryClient.setQueryData(queryKeys.entityDetail(entityCode, id), context.previousData);
+        queryClient.setQueryData(queryKeys.entityInstance(entityCode, id), context.previousData);
       }
     },
     onSettled: (_data, _error, { id }) => {
       // Invalidate queries to refetch fresh data
-      queryClient.invalidateQueries({ queryKey: queryKeys.entityDetail(entityCode, id) });
-      queryClient.invalidateQueries({ queryKey: ['entity-list', entityCode] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.entityInstance(entityCode, id) });
+      queryClient.invalidateQueries({ queryKey: ['entity-instance-list', entityCode] });
     },
   });
 
@@ -373,7 +373,7 @@ export function useEntityMutation(entityCode: string) {
     },
     onSettled: () => {
       // Invalidate list queries after delete
-      queryClient.invalidateQueries({ queryKey: ['entity-list', entityCode] });
+      queryClient.invalidateQueries({ queryKey: ['entity-instance-list', entityCode] });
     },
   });
 
@@ -384,7 +384,7 @@ export function useEntityMutation(entityCode: string) {
     },
     onSettled: () => {
       // Invalidate list queries after create
-      queryClient.invalidateQueries({ queryKey: ['entity-list', entityCode] });
+      queryClient.invalidateQueries({ queryKey: ['entity-instance-list', entityCode] });
     },
   });
 
@@ -476,9 +476,9 @@ export function useCacheInvalidation() {
 
   const invalidateEntity = useCallback((entityCode: string, id?: string) => {
     if (id) {
-      queryClient.invalidateQueries({ queryKey: queryKeys.entityDetail(entityCode, id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.entityInstance(entityCode, id) });
     }
-    queryClient.invalidateQueries({ queryKey: ['entity-list', entityCode] });
+    queryClient.invalidateQueries({ queryKey: ['entity-instance-list', entityCode] });
     metadataCache.invalidateEntity(entityCode);
   }, [queryClient, metadataCache]);
 
@@ -487,14 +487,14 @@ export function useCacheInvalidation() {
     metadataCache.clearCache();
   }, [queryClient, metadataCache]);
 
-  const invalidateEntityTypes = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.entityTypes() });
+  const invalidateEntityCodes = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.entityCodes() });
   }, [queryClient]);
 
   return {
     invalidateEntity,
     invalidateAll,
-    invalidateEntityTypes,
+    invalidateEntityCodes,
   };
 }
 
@@ -510,7 +510,7 @@ export function usePrefetch() {
 
   const prefetchEntity = useCallback(async (entityCode: string, id: string) => {
     await queryClient.prefetchQuery({
-      queryKey: queryKeys.entityDetail(entityCode, id),
+      queryKey: queryKeys.entityInstance(entityCode, id),
       queryFn: async () => {
         const api = APIFactory.getAPI(entityCode);
         const response = await api.get(id, { view: 'entityDetailView,entityFormContainer' });
@@ -524,9 +524,9 @@ export function usePrefetch() {
     });
   }, [queryClient]);
 
-  const prefetchList = useCallback(async (entityCode: string, params?: EntityListParams) => {
+  const prefetchList = useCallback(async (entityCode: string, params?: EntityInstanceListParams) => {
     await queryClient.prefetchQuery({
-      queryKey: queryKeys.entityList(entityCode, params),
+      queryKey: queryKeys.entityInstanceList(entityCode, params),
       queryFn: async () => {
         const api = APIFactory.getAPI(entityCode);
         const response = await api.list(params);

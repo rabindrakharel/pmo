@@ -17,7 +17,7 @@ import { Button } from '../../components/shared/button/Button';
 import { useS3Upload } from '../../lib/hooks/useS3Upload';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../contexts/NavigationHistoryContext';
-import { useEntityDetail, useEntityMutation, useCacheInvalidation } from '../../lib/hooks';
+import { useEntityInstance, useEntityMutation, useCacheInvalidation } from '../../lib/hooks';
 import { useEntityEditStore } from '../../stores/useEntityEditStore';
 import { useKeyboardShortcuts, useShortcutHints } from '../../lib/hooks/useKeyboardShortcuts';
 
@@ -59,7 +59,7 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
     isLoading: loading,
     error: queryError,
     refetch,
-  } = useEntityDetail(entityCode, id);
+  } = useEntityInstance(entityCode, id);
 
   // Extract data from React Query result
   const data = queryResult?.data || null;

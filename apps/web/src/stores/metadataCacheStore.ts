@@ -40,7 +40,7 @@ interface MetadataCacheState {
   // ========================================================================
   globalSettings: CacheEntry | null;
   userPermissions: CacheEntry | null;
-  entityTypes: CacheEntry | null; // List of all entity types
+  entityCodes: CacheEntry | null; // List of all entity types
 
   // ========================================================================
   // Tier 2: Navigation Cache (Persists while on same entity)
@@ -144,7 +144,7 @@ export const useMetadataCacheStore = create<MetadataCacheState & MetadataCacheAc
           // ========================================================================
           globalSettings: null,
           userPermissions: null,
-          entityTypes: null,
+          entityCodes: null,
           entityMetadata: new Map(),
           currentEntityType: null,
           datalabels: new Map(),
@@ -173,7 +173,7 @@ export const useMetadataCacheStore = create<MetadataCacheState & MetadataCacheAc
           setEntityTypes: (types: any[]) => {
             console.log('[Cache] Storing entity types');
             set({
-              entityTypes: {
+              entityCodes: {
                 data: types,
                 timestamp: Date.now(),
                 tier: 'session',
@@ -251,11 +251,11 @@ export const useMetadataCacheStore = create<MetadataCacheState & MetadataCacheAc
           },
 
           getEntityTypes: () => {
-            const { entityTypes } = get();
-            if (!entityTypes || get().isExpired(entityTypes)) {
+            const { entityCodes } = get();
+            if (!entityCodes || get().isExpired(entityCodes)) {
               return null;
             }
-            return entityTypes.data;
+            return entityCodes.data;
           },
 
           getEntityMetadata: (entityType: string) => {
@@ -443,7 +443,7 @@ export const useMetadataCacheStore = create<MetadataCacheState & MetadataCacheAc
             set({
               globalSettings: null,
               userPermissions: null,
-              entityTypes: null,
+              entityCodes: null,
               entityMetadata: new Map(),
               currentEntityType: null,
               datalabels: new Map(),
@@ -523,7 +523,7 @@ export const useMetadataCacheStore = create<MetadataCacheState & MetadataCacheAc
           partialize: (state) => ({
             // Only persist certain data
             globalSettings: state.globalSettings,
-            entityTypes: state.entityTypes,
+            entityCodes: state.entityCodes,
             datalabels: state.datalabels,
             cacheVersion: state.cacheVersion,
           }),
