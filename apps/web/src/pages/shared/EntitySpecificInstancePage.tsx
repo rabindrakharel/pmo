@@ -72,24 +72,23 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   const { invalidateEntity } = useCacheInvalidation();
 
   // Zustand edit store for field-level tracking
-  const editStore = useEntityEditStore();
-  const {
-    isEditing,
-    currentData: editedData,
-    isSaving,
-    saveError,
-    dirtyFields,
-    startEdit,
-    updateField,
-    updateMultipleFields,
-    saveChanges: storesSaveChanges,
-    cancelEdit,
-    hasChanges,
-    undo,
-    redo,
-    canUndo,
-    canRedo,
-  } = editStore;
+  // Use individual selectors to prevent unnecessary re-renders
+  const isEditing = useEntityEditStore(state => state.isEditing);
+  const editedData = useEntityEditStore(state => state.currentData);
+  const isSaving = useEntityEditStore(state => state.isSaving);
+  const saveError = useEntityEditStore(state => state.saveError);
+  const dirtyFields = useEntityEditStore(state => state.dirtyFields);
+  // Actions are stable references, can be selected together
+  const startEdit = useEntityEditStore(state => state.startEdit);
+  const updateField = useEntityEditStore(state => state.updateField);
+  const updateMultipleFields = useEntityEditStore(state => state.updateMultipleFields);
+  const storesSaveChanges = useEntityEditStore(state => state.saveChanges);
+  const cancelEdit = useEntityEditStore(state => state.cancelEdit);
+  const hasChanges = useEntityEditStore(state => state.hasChanges);
+  const undo = useEntityEditStore(state => state.undo);
+  const redo = useEntityEditStore(state => state.redo);
+  const canUndo = useEntityEditStore(state => state.canUndo);
+  const canRedo = useEntityEditStore(state => state.canRedo);
 
   // Local UI state
   const [formDataRefreshKey, setFormDataRefreshKey] = useState(0);
@@ -456,20 +455,25 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // Use refs for debouncing field updates (Zustand store handles state)
   const updateTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  const handleFieldChange = useCallback((fieldName: string, value: any) => {
+  const handleFieldChange = useCallback((fieldName: string, value: any, inputType?: string) => {
     // Clear any pending update
     if (updateTimeoutRef.current) {
       clearTimeout(updateTimeoutRef.current);
     }
 
-    // For immediate-feedback fields (select, checkbox), update immediately
-    const immediateFields = ['select', 'checkbox', 'boolean', 'date'];
-    // Most fields benefit from debouncing to reduce re-renders during typing
+    // For immediate-feedback fields (select, checkbox, boolean, date), update immediately
+    const immediateInputTypes = ['select', 'checkbox', 'boolean', 'date', 'radio', 'toggle'];
+    const isImmediate = inputType && immediateInputTypes.includes(inputType);
 
-    // Debounce text field updates
-    updateTimeoutRef.current = setTimeout(() => {
+    if (isImmediate) {
+      // Update immediately for non-text fields
       updateField(fieldName, value);
-    }, 150); // 150ms debounce for typing
+    } else {
+      // Debounce text field updates (1 second)
+      updateTimeoutRef.current = setTimeout(() => {
+        updateField(fieldName, value);
+      }, 1000);
+    }
   }, [updateField]);
 
   const handleTabClick = (tabPath: string) => {

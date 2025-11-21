@@ -97,7 +97,8 @@ export function DynamicChildEntityTabs({
 export function useDynamicChildEntityTabs(parentType: string, parentId: string) {
   const [tabs, setTabs] = React.useState<HeaderTab[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const entityCodeStore = useEntityCodeMetadataStore();
+  // Use stable selector functions instead of the entire store to prevent re-renders
+  const getEntityByCode = useEntityCodeMetadataStore(state => state.getEntityByCode);
 
   React.useEffect(() => {
     const fetchChildTabs = async () => {
@@ -121,14 +122,14 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
 
         // ✅ CHECK ZUSTAND CACHE FIRST (30-minute TTL)
         // This eliminates duplicate API calls when navigating between entity details
-        const cachedEntity = entityCodeStore.getEntityByCode(parentType);
+        const cachedEntity = getEntityByCode(parentType);
         if (cachedEntity && cachedEntity.child_entity_codes) {
           console.log(`%c[DynamicChildEntityTabs] Cache HIT for ${parentType}`, 'color: #51cf66; font-weight: bold');
 
           // Build enriched child_entities from cached entity codes
           const enrichedChildEntities = cachedEntity.child_entity_codes
             .map((childCode: string) => {
-              const childEntity = entityCodeStore.getEntityByCode(childCode);
+              const childEntity = getEntityByCode(childCode);
               if (childEntity) {
                 return {
                   entity: childEntity.code,
@@ -201,7 +202,7 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
     if (parentId) {
       fetchChildTabs();
     }
-  }, [parentType, parentId, entityCodeStore]);
+  }, [parentType, parentId, getEntityByCode]);
 
   return { tabs, loading };
 }
