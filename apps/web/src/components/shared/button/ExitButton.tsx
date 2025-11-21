@@ -40,7 +40,7 @@ export function ExitButton({
       } else {
         // Fallback: Navigate to list page with collapsed sidebar
         navigate(`/${entityCode}`);
-        // Sidebar will be collapsed by EntityMainPage's useEffect
+        // Sidebar will be collapsed by EntityListOfInstancesPage's useEffect
       }
     }
   };

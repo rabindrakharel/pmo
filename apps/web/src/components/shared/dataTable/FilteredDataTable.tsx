@@ -43,7 +43,7 @@ export interface FilteredDataTableProps {
 
 export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   entityCode,
-  metadata: propsMetadata,  // Metadata from parent (EntityMainPage)
+  metadata: propsMetadata,  // Metadata from parent (EntityListOfInstancesPage)
   datalabels: propsDatalabels,  // ✅ Preloaded datalabels from parent
   parentType,
   parentId,

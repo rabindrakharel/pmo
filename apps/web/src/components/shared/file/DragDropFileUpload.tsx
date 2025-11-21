@@ -25,7 +25,7 @@ interface DragDropFileUploadProps {
  * - Upload progress indicator
  * - Context-aware labels
  *
- * Used in EntityCreatePage and EntityDetailPage for artifact, cost, and revenue uploads.
+ * Used in EntityCreatePage and EntitySpecificInstancePage for artifact, cost, and revenue uploads.
  */
 export function DragDropFileUpload({
   entityCode,

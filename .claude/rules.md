@@ -250,7 +250,7 @@ DDL Schema → API Module → Entity Config → UI Component → Layout
 **3. Frontend Component Hierarchy:**
 ```
 <Layout>                          ← Wrapper with sidebar/header
-  └─ <EntityMainPage>            ← List view (table/kanban/grid)
+  └─ <EntityListOfInstancesPage>            ← List view (table/kanban/grid)
        └─ <FilteredDataTable>    ← Reusable table component
             └─ <DataTable>       ← Base table with sorting/filtering
 ```
@@ -259,8 +259,8 @@ DDL Schema → API Module → Entity Config → UI Component → Layout
 
 **Layout & Structure:**
 - `Layout` - Main app wrapper (sidebar + header + content)
-- `EntityMainPage` - Entity list pages (reuse for all entities)
-- `EntityDetailPage` - Entity detail with tabs (reuse for all entities)
+- `EntityListOfInstancesPage` - Entity list pages (reuse for all entities)
+- `EntitySpecificInstancePage` - Entity detail with tabs (reuse for all entities)
 - `EntityChildListPage` - Filtered child entity lists
 
 **Data Display:**
@@ -278,13 +278,13 @@ DDL Schema → API Module → Entity Config → UI Component → Layout
 
 ### 🎨 Official PMO Platform Design System
 
-**MANDATORY: All new pages and components MUST follow these exact patterns from EntityMainPage, EntityDetailPage, and DynamicChildEntityTabs.**
+**MANDATORY: All new pages and components MUST follow these exact patterns from EntityListOfInstancesPage, EntitySpecificInstancePage, and DynamicChildEntityTabs.**
 
 ---
 
 #### **Layout & Container Patterns**
 
-**Page Container (from EntityMainPage.tsx:227-264):**
+**Page Container (from EntityListOfInstancesPage.tsx:227-264):**
 ```tsx
 <Layout>
   <div className="h-full flex flex-col space-y-4 w-[97%] max-w-[1536px] mx-auto">
@@ -308,7 +308,7 @@ DDL Schema → API Module → Entity Config → UI Component → Layout
 </Layout>
 ```
 
-**Detail Page Container (from EntityDetailPage.tsx:219-382):**
+**Detail Page Container (from EntitySpecificInstancePage.tsx:219-382):**
 ```tsx
 <Layout>
   <div className="w-[97%] max-w-[1536px] mx-auto space-y-6">
@@ -352,7 +352,7 @@ DDL Schema → API Module → Entity Config → UI Component → Layout
 
 #### **Typography System**
 
-**From EntityMainPage and EntityDetailPage - Use EXACTLY these classes:**
+**From EntityListOfInstancesPage and EntitySpecificInstancePage - Use EXACTLY these classes:**
 
 ```tsx
 // Page Title (Main pages)
@@ -394,7 +394,7 @@ DDL Schema → API Module → Entity Config → UI Component → Layout
 
 #### **Button Patterns**
 
-**From EntityMainPage.tsx:249-256 and EntityDetailPage.tsx:251-271:**
+**From EntityListOfInstancesPage.tsx:249-256 and EntitySpecificInstancePage.tsx:251-271:**
 
 ```tsx
 // Primary Action Button (Create, Save)
@@ -528,7 +528,7 @@ hover:border-gray-400  /* Input/button border hover */
 
 #### **Card & Panel Patterns**
 
-**From FilteredDataTable and EntityDetailPage:**
+**From FilteredDataTable and EntitySpecificInstancePage:**
 
 ```tsx
 // Standard White Card with Shadow

@@ -165,7 +165,7 @@ export function DevelopersPage() {
         },
         {
           title: 'Universal Pages',
-          description: 'EntityMainPage, EntityDetailPage, EntityCreatePage patterns'
+          description: 'EntityListOfInstancesPage, EntitySpecificInstancePage, EntityCreatePage patterns'
         },
         {
           title: 'Component Library',

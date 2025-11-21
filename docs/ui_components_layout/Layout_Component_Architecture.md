@@ -3,8 +3,78 @@
 > **React 19, TypeScript, Backend-Driven Metadata, Zero Pattern Detection**
 > Universal page system with 3 pages handling 27+ entity types dynamically
 
-**Version:** 4.0 (Backend Metadata Architecture)
-**Last Updated:** 2025-11-20
+**Version:** 4.1.0 | **Last Updated:** 2025-11-21
+
+---
+
+## Semantics
+
+The PMO frontend uses a **three-layer component architecture** (Base → Domain → Application) with universal pages that render any entity type using backend-driven metadata. No entity-specific pages or components exist.
+
+**Core Principle:** Base = UI only. Domain = Data-aware. Application = Business logic. Backend metadata drives all rendering.
+
+## System Design Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      THREE-LAYER COMPONENT HIERARCHY                     │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │                    APPLICATION LAYER                             │    │
+│  │  EntityDataTable, EntityFormContainer, FilteredDataTable        │    │
+│  │  KanbanBoard, CalendarView, GridView                            │    │
+│  │  (Business logic, state management, API integration)            │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                              │ composes                                 │
+│                              ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │                      DOMAIN LAYER                                │    │
+│  │  EntitySelect, EntityMultiSelect, DataLabelSelect               │    │
+│  │  EntitySelectDropdown, EntityMultiSelectTags                    │    │
+│  │  (Data-aware components with useQuery hooks)                    │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                              │ wraps                                    │
+│                              ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │                       BASE LAYER                                 │    │
+│  │  Select, MultiSelect, SearchableMultiSelect, ColoredDropdown    │    │
+│  │  (Generic, reusable, no business logic, props-driven)           │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Component Layer Summary
+
+### Base Layer (No Data Dependencies)
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| Select | `ui/Select.tsx` | Single dropdown (static options) |
+| SearchableMultiSelect | `ui/SearchableMultiSelect.tsx` | Multi-select with tags |
+| ColoredDropdown | `ui/ColoredDropdown.tsx` | Dropdown with colored badges |
+
+### Domain Layer (Data-Aware)
+
+| Component | File | Purpose | API |
+|-----------|------|---------|-----|
+| EntitySelect | `ui/EntitySelect.tsx` | Entity reference picker | `/entity/{code}/entity-instance-lookup` |
+| EntityMultiSelect | `ui/EntityMultiSelect.tsx` | Multiple entity refs | `/entity/{code}/entity-instance-lookup` |
+| DataLabelSelect | `ui/DataLabelSelect.tsx` | Settings dropdown | `/setting?datalabel={name}` |
+
+### Application Layer (Business Logic)
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| EntityDataTable | `ui/EntityDataTable.tsx` | Universal data table |
+| EntityFormContainer | `entity/EntityFormContainer.tsx` | Universal form |
+| FilteredDataTable | `dataTable/FilteredDataTable.tsx` | Routes to correct table |
+| KanbanBoard | `ui/KanbanBoard.tsx` | Kanban view |
+| CalendarView | `ui/CalendarView.tsx` | Calendar view |
+| GridView | `ui/GridView.tsx` | Card grid view |
 
 ---
 

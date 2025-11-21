@@ -5,21 +5,21 @@ Implement Row Click Navigation to Entity Detail Page for Settings Configuration 
 
   The PMO application uses a universal entity system with two main page types:
 
-  1. EntityMainPage - Lists entities in table/kanban/grid views
-  2. EntityDetailPage - Shows individual entity details with dynamic tabs for child entities
+  1. EntityListOfInstancesPage - Lists entities in table/kanban/grid views
+  2. EntitySpecificInstancePage - Shows individual entity details with dynamic tabs for child entities
 
   Current Behavior (Working Reference)
 
   When clicking a row in main entity tables (e.g., /project, /task, /biz):
-  - Navigation happens via: EntityMainPage.tsx:67-69
+  - Navigation happens via: EntityListOfInstancesPage.tsx:67-69
   const handleRowClick = (item: any) => {
     navigate(`/${entityType}/${item.id}`);
   };
   - Route structure in App.tsx:
-  /project → EntityMainPage (list)
-  /project/:id → EntityDetailPage (detail with tabs)
+  /project → EntityListOfInstancesPage (list)
+  /project/:id → EntitySpecificInstancePage (detail with tabs)
   /project/:id/task → EntityChildListPage (filtered child list)
-  - EntityDetailPage features (EntityDetailPage.tsx:1-527):
+  - EntitySpecificInstancePage features (EntitySpecificInstancePage.tsx:1-527):
     - Dynamic tab system using DynamicChildEntityTabs component
     - Overview tab showing entity fields in Notion-style layout
     - Child entity tabs (e.g., "Tasks", "Wiki", "Artifacts") with filtered data
@@ -71,21 +71,21 @@ Implement Row Click Navigation to Entity Detail Page for Settings Configuration 
     - /setting/projectStatus/uuid-123
     - /setting/taskStage/uuid-456
 
-  2. Create EntityDetailPage-Compatible Routes
+  2. Create EntitySpecificInstancePage-Compatible Routes
 
   Add routes in App.tsx (similar to line 176-220):
   {/* Setting Configuration Detail Routes */}
   <Route path="/setting/projectStatus/:id" element={
     <ProtectedRoute>
-      <EntityDetailPage entityType="projectStatus" />
+      <EntitySpecificInstancePage entityType="projectStatus" />
     </ProtectedRoute>
   } />
   <Route path="/setting/projectStage/:id" element={...} />
   {/* ...repeat for all 9 setting entities... */}
 
-  3. Reuse EntityDetailPage Component
+  3. Reuse EntitySpecificInstancePage Component
 
-  The existing EntityDetailPage component should work because:
+  The existing EntitySpecificInstancePage component should work because:
   - ✅ It loads data dynamically: const apiModule = (api as any)[${entityType}Api]
   - ✅ It renders fields from config.fields (lines 473-487)
   - ✅ It handles edit mode (inline editing)
@@ -103,7 +103,7 @@ Implement Row Click Navigation to Entity Detail Page for Settings Configuration 
     // ...existing methods...
   };
 
-  Create pseudo-API modules (if needed) to match EntityDetailPage's pattern:
+  Create pseudo-API modules (if needed) to match EntitySpecificInstancePage's pattern:
   export const projectStatusApi = {
     async get(id: string) {
       return settingApi.getItem('project-status', id);
@@ -155,7 +155,7 @@ Implement Row Click Navigation to Entity Detail Page for Settings Configuration 
   2. User clicks "Project Status" → navigates to /setting/projectStatus
   3. Page shows table with rows (e.g., "Active", "On Hold", "Cancelled")
   4. User clicks row "Active" → navigates to /setting/projectStatus/uuid-123
-  5. Page shows EntityDetailPage with:
+  5. Page shows EntitySpecificInstancePage with:
     - Header: "Active" with back button
     - Fields in Notion-style layout: Level ID, Status Name, Description, Sort Order
     - Edit button (enables inline editing)
@@ -165,7 +165,7 @@ Implement Row Click Navigation to Entity Detail Page for Settings Configuration 
 
   Design Consistency
 
-  Must match existing EntityDetailPage styling:
+  Must match existing EntitySpecificInstancePage styling:
   - Back button: <ArrowLeft /> with hover effect
   - Header: Small font title with entity type + ID subtitle
   - Fields: 2-column grid (160px label width) with hover background
@@ -177,7 +177,7 @@ Implement Row Click Navigation to Entity Detail Page for Settings Configuration 
   1. ✅ App.tsx - Add 9 new routes for setting detail pages
   2. ✅ FilteredDataTable.tsx - Update handleRowClick for setting entities
   3. ✅ api.ts - Ensure individual item getters exist (or add pseudo-API modules)
-  4. ⚠️ No changes needed to EntityDetailPage.tsx (should work as-is)
+  4. ⚠️ No changes needed to EntitySpecificInstancePage.tsx (should work as-is)
   5. ⚠️ No changes needed to setting page files (keep current table-only layout)
 
   Backend API Requirements

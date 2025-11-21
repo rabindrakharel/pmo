@@ -46,8 +46,8 @@ pages/
 
 ```
 pages/shared/
-├── EntityMainPage.tsx         # Universal list page for all entities
-├── EntityDetailPage.tsx       # Universal detail page for all entities
+├── EntityListOfInstancesPage.tsx         # Universal list page for all entities
+├── EntitySpecificInstancePage.tsx       # Universal detail page for all entities
 ├── EntityChildListPage.tsx    # Universal child entity list
 ├── EntityCreatePage.tsx       # Universal creation form
 └── index.ts
@@ -55,7 +55,7 @@ pages/shared/
 
 **Usage:**
 ```typescript
-import { EntityMainPage, EntityDetailPage } from './pages/shared';
+import { EntityListOfInstancesPage, EntitySpecificInstancePage } from './pages/shared';
 import { FormBuilderPage, FormEditPage } from './pages/form';
 import { WikiEditorPage } from './pages/wiki';
 import { SettingsPage, DataLabelPage, DataLinkagePage } from './pages/setting';
@@ -185,7 +185,7 @@ import { TaskDataContainer } from '../../components/entity/task';
 ```typescript
 import { FormBuilderPage } from './pages/FormBuilderPage';
 import { WikiEditorPage } from './pages/WikiEditorPage';
-import { EntityMainPage } from './pages/EntityMainPage';
+import { EntityListOfInstancesPage } from './pages/EntityListOfInstancesPage';
 import { Layout } from './components/layout/Layout';
 import { DynamicChildEntityTabs } from './components/common/DynamicChildEntityTabs';
 import { FormDataTable } from './components/forms/FormDataTable';
@@ -196,7 +196,7 @@ import { FormDataTable } from './components/forms/FormDataTable';
 // Cleaner, grouped imports
 import { FormBuilderPage, FormEditPage } from './pages/form';
 import { WikiEditorPage, WikiViewPage } from './pages/wiki';
-import { EntityMainPage, EntityDetailPage } from './pages/shared';
+import { EntityListOfInstancesPage, EntitySpecificInstancePage } from './pages/shared';
 import { Layout, DynamicChildEntityTabs } from '../../components/shared';
 import { FormDataTable, InteractiveForm } from '../../components/entity/form';
 ```
@@ -250,7 +250,7 @@ import { InvoiceListPage } from './pages/invoice';
 
 <Route path="/invoice" element={<InvoiceListPage />} />
 <Route path="/invoice/new" element={<EntityCreatePage entityType="invoice" />} />
-<Route path="/invoice/:id" element={<EntityDetailPage entityType="invoice" />} />
+<Route path="/invoice/:id" element={<EntitySpecificInstancePage entityType="invoice" />} />
 ```
 
 ---

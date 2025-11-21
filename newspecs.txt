@@ -231,10 +231,10 @@ Flow diagram:
   URL: /project/84215ccb-313d-48f8-9c37-4398f28c0b1f/task
 
   App.tsx (Line 152-157)
-  ├─ Route path="/project/:id" → EntityDetailPage (parentType="project")
+  ├─ Route path="/project/:id" → EntitySpecificInstancePage (parentType="project")
   │   └─ Route path="task" → EntityChildListPage (parentType="project", childType="task")
   │
-  EntityDetailPage.tsx
+  EntitySpecificInstancePage.tsx
   ├─ useParams() → id = "84215ccb-313d-48f8-9c37-4398f28c0b1f"
   ├─ props: { entityType: "project" }
   ├─ Renders tabs at top
@@ -253,10 +253,10 @@ Flow diagram:
   Step-by-step breakdown:
 
   1. App.tsx:152-157 - Routing configuration
-  <Route path="/project/:id" element={<EntityDetailPage entityType="project" />}>
+  <Route path="/project/:id" element={<EntitySpecificInstancePage entityType="project" />}>
     <Route path="task" element={<EntityChildListPage parentType="project" childType="task" />} />
   </Route>
-  2. EntityDetailPage receives:
+  2. EntitySpecificInstancePage receives:
     - entityType="project" as a prop (from route element)
     - id from URL params via useParams()
     - Renders <Outlet /> at line 376 which is where child routes render

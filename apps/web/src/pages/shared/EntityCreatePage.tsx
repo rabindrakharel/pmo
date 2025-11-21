@@ -14,12 +14,12 @@ import { useSidebar } from '../../contexts/SidebarContext';
  *
  * Universal "new" entity creation page that uses EntityFormContainer
  * to render all fields from entityConfig, matching the look and feel
- * of EntityDetailPage.
+ * of EntitySpecificInstancePage.
  *
  * Features:
  * - Dynamically renders all fields based on entityConfig
  * - Loads dropdown options from settings tables
- * - Consistent styling with EntityDetailPage
+ * - Consistent styling with EntitySpecificInstancePage
  * - Handles form submission and navigation
  */
 
@@ -438,7 +438,7 @@ export function EntityCreatePage({ entityCode }: EntityCreatePageProps) {
           />
         )}
 
-        {/* Form Container - Uses same component as EntityDetailPage */}
+        {/* Form Container - Uses same component as EntitySpecificInstancePage */}
         <EntityFormContainer
           config={config}
           metadata={backendMetadata}  // v4.0 architecture - currently uses config fallback

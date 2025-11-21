@@ -8,8 +8,8 @@ import { APIFactory } from '../../../lib/api';
  * EntityEditModal
  *
  * A reusable modal that displays the entity edit form for any entity type.
- * Uses the same EntityFormContainer as EntityDetailPage for consistency.
- * Matches EntityDetailPage styling exactly for consistency.
+ * Uses the same EntityFormContainer as EntitySpecificInstancePage for consistency.
+ * Matches EntitySpecificInstancePage styling exactly for consistency.
  *
  * Usage:
  * <EntityEditModal
@@ -84,7 +84,7 @@ export function EntityEditModal({
       setSaving(true);
       setError(null);
 
-      // Normalize date fields to YYYY-MM-DD format for API validation (matching EntityDetailPage)
+      // Normalize date fields to YYYY-MM-DD format for API validation (matching EntitySpecificInstancePage)
       const normalizedData = { ...editedData };
 
       // Find all date fields from config and normalize them
@@ -154,7 +154,7 @@ export function EntityEditModal({
           style={{ maxWidth: '1165px' }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header - Matches EntityDetailPage header styling */}
+          {/* Header - Matches EntitySpecificInstancePage header styling */}
           <div className="sticky top-0 z-10 bg-dark-100 border-b border-dark-300 px-6 py-4 flex items-center justify-between">
             <div>
               <h2 className="text-sm font-normal text-dark-700">
@@ -170,7 +170,7 @@ export function EntityEditModal({
               </h2>
             </div>
 
-            {/* Action Buttons - Matches EntityDetailPage button styling exactly */}
+            {/* Action Buttons - Matches EntitySpecificInstancePage button styling exactly */}
             <div className="flex items-center space-x-2">
               <button
                 onClick={handleCancel}
@@ -191,7 +191,7 @@ export function EntityEditModal({
             </div>
           </div>
 
-          {/* Content - Matches EntityDetailPage content area */}
+          {/* Content - Matches EntitySpecificInstancePage content area */}
           <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 80px)' }}>
             {error && (
               <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">

@@ -469,7 +469,7 @@ The field-level change tracking provides:
 
 ---
 
-## Part 2: Intelligent Data Caching with 7 Specialized Stores
+## Part 2: Intelligent Data Caching with 9 Specialized Stores
 
 ### Backend to Frontend Integration
 
@@ -502,7 +502,7 @@ Every entity endpoint returns a comprehensive response:
 
 ### Store Architecture Overview
 
-The PMO platform uses **7 specialized Zustand stores** organized by cache lifecycle:
+The PMO platform uses **9 specialized Zustand stores** organized by cache lifecycle:
 
 | Store | Purpose | Example Content | TTL | Storage |
 |-------|---------|-----------------|-----|---------|
@@ -510,9 +510,11 @@ The PMO platform uses **7 specialized Zustand stores** organized by cache lifecy
 | **`datalabelMetadataStore`** | Dropdown options for `dl__*` fields | `{dl__project_stage: [{id:1, name:"Planning"}]}` | 30 min | SessionStorage |
 | **`entityCodeMetadataStore`** | Sidebar navigation | `[{code:"project", label:"Projects", icon:"folder"}]` | 30 min | SessionStorage |
 | **`entityComponentMetadataStore`** | Field metadata per component | `{budget_amt: {type:"currency", editable:true}}` | 30 min | SessionStorage |
-| **`EntitySpecificInstanceDataStore`** | Single entity detail | Complete project record | URL-bound + 5 min | Memory |
-| **`EntityListOfInstancesDataStore`** | Table/list data | 20 project records | URL-bound + 5 min | Memory |
+| **`EntitySpecificInstanceDataStore`** | Single entity detail | Complete project record | URL-bound + 5 min | SessionStorage |
+| **`EntityListOfInstancesDataStore`** | Table/list data | 20 project records | URL-bound + 5 min | SessionStorage |
 | **`useEntityEditStore`** | Edit state, dirty tracking | `{dirtyFields: Set(['budget'])}` | No TTL | Memory |
+| **`useEntityStore`** | Monolithic entity state | `{entities: {...}, selected: {...}}` | No TTL | Memory |
+| **`uiStateStore`** | UI preferences | `{sidebarCollapsed: false, viewMode: 'table'}` | No TTL | Memory |
 
 ### Session-Level Stores (30 min TTL, fetched on login)
 
@@ -1187,7 +1189,7 @@ This section provides detailed execution traces showing exactly when and how dat
 
 ## Complete Integration
 
-The combination of **7 specialized Zustand stores** and **React Query** provides:
+The combination of **9 specialized Zustand stores** and **React Query** provides:
 
 1. **Minimal API Traffic**: Session-level caches (30 min) for metadata, URL-bound (5 min) for data
 2. **Instant Navigation**: Cached sidebar, datalabels, and component metadata
@@ -1200,23 +1202,25 @@ The combination of **7 specialized Zustand stores** and **React Query** provides
 ### Store Quick Reference
 
 ```
-SESSION-LEVEL (30 min TTL, refresh on login):
+SESSION-LEVEL (30 min TTL, SessionStorage, refresh on login):
 ├── globalSettingsMetadataStore     → App formatting config
 ├── datalabelMetadataStore          → Dropdown options (dl__*)
 └── entityCodeMetadataStore         → Sidebar navigation
 
-URL-BOUND (5 min TTL, invalidate on URL change):
+URL-BOUND (5 min TTL, SessionStorage, invalidate on URL change):
 ├── entityComponentMetadataStore    → Field metadata per component
-├── EntityListOfInstancesDataStore     → List data (/entity?params)
-└── EntitySpecificInstanceDataStore         → Single entity + optimistic updates
+├── EntityListOfInstancesDataStore  → List data (/entity?params)
+└── EntitySpecificInstanceDataStore → Single entity + optimistic updates
 
-OTHER (no TTL):
-└── useEntityEditStore              → Edit state, dirty tracking, undo/redo
+OTHER (Memory, no TTL):
+├── useEntityEditStore              → Edit state, dirty tracking, undo/redo
+├── useEntityStore                  → Monolithic entity state (alternative)
+└── uiStateStore                    → UI preferences (sidebar, view modes)
 ```
 
 This architecture scales from simple CRUD to complex enterprise applications while maintaining excellent performance and user experience.
 
 ---
 
-*Last Updated: 2025-01-21*
-*Version: 3.0.0* - Updated to 7-store architecture with URL-bound caching
+*Last Updated: 2025-11-21*
+*Version: 4.0.0* - Updated to 9-store architecture with SessionStorage

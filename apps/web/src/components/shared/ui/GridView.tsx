@@ -15,7 +15,7 @@ export interface GridItem<T = any> {
 }
 
 export interface GridViewProps<T = any> {
-  // New simplified API (for EntityMainPage/EntityChildListPage)
+  // New simplified API (for EntityListOfInstancesPage/EntityChildListPage)
   items?: any[];
   columns?: number;
   emptyMessage?: string;

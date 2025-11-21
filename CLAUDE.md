@@ -34,8 +34,8 @@ apps/api/src/modules/[entity]/       // API module
 apps/web/src/lib/entityConfig.ts     // Frontend config
 
 // Universal pages handle everything:
-EntityMainPage.tsx                   // List/grid/kanban views
-EntityDetailPage.tsx                  // Detail with child tabs
+EntityListOfInstancesPage.tsx                   // List/grid/kanban views
+EntitySpecificInstancePage.tsx                  // Detail with child tabs
 EntityFormPage.tsx                    // Create/edit forms
 
 // Backend metadata generation (35+ patterns):

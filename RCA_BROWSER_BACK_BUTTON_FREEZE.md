@@ -32,7 +32,7 @@
 - Vite HMR working correctly
 
 ### Step 2: Code Analysis
-**File**: `apps/web/src/pages/shared/EntityDetailPage.tsx`
+**File**: `apps/web/src/pages/shared/EntitySpecificInstancePage.tsx`
 
 **Critical Finding** (Lines 137-141):
 ```typescript
@@ -111,7 +111,7 @@ Each re-render creates:
 
 ✅ **Confirmed**: `loadData` is NOT in `useCallback`
 ```bash
-$ grep -rn "useCallback.*loadData" EntityDetailPage.tsx
+$ grep -rn "useCallback.*loadData" EntitySpecificInstancePage.tsx
 # (no output - function not wrapped)
 ```
 
@@ -129,7 +129,7 @@ $ grep -rn "useCallback.*loadData" EntityDetailPage.tsx
 
 - ✅ User: "Settings back button works"
 - ✅ User: "Project back button freezes"
-- ✅ RCA: EntityDetailPage used for projects, not for settings pages
+- ✅ RCA: EntitySpecificInstancePage used for projects, not for settings pages
 
 ---
 
@@ -137,7 +137,7 @@ $ grep -rn "useCallback.*loadData" EntityDetailPage.tsx
 
 ### **Solution Option 1: Wrap loadData in useCallback (RECOMMENDED)**
 
-**File**: `apps/web/src/pages/shared/EntityDetailPage.tsx`
+**File**: `apps/web/src/pages/shared/EntitySpecificInstancePage.tsx`
 
 **Change**: Line 182
 ```typescript
@@ -265,7 +265,7 @@ export function useEntityData(entityCode: string, id: string | undefined) {
 }
 ```
 
-**Update EntityDetailPage**:
+**Update EntitySpecificInstancePage**:
 ```typescript
 const { data, loading, error, refetch } = useEntityData(entityCode, id);
 ```
@@ -304,8 +304,8 @@ const { data, loading, error, refetch } = useEntityData(entityCode, id);
 **Risk**: Medium
 
 1. Create `useEntityData` custom hook
-2. Refactor EntityDetailPage to use hook
-3. Apply to EntityMainPage and other entity pages
+2. Refactor EntitySpecificInstancePage to use hook
+3. Apply to EntityListOfInstancesPage and other entity pages
 4. Add unit tests for hook
 5. Document pattern in development guide
 
@@ -390,7 +390,7 @@ it('should not re-create loadData unnecessarily', () => {
 ## 10. References
 
 **Files Modified**:
-- `apps/web/src/pages/shared/EntityDetailPage.tsx` (Lines 137-227)
+- `apps/web/src/pages/shared/EntitySpecificInstancePage.tsx` (Lines 137-227)
 
 **Documentation**:
 - [React Rules of Hooks](https://react.dev/reference/rules/rules-of-hooks)

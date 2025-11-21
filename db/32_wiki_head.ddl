@@ -65,7 +65,7 @@
 --      ORDER BY w.published_ts DESC, w.name ASC
 --      LIMIT $1 OFFSET $2
 --    • RBAC: User sees ONLY wiki pages they have view access to
---    • Frontend: Renders in EntityMainPage with table view + search
+--    • Frontend: Renders in EntityListOfInstancesPage with table view + search
 --
 -- 7. GET SINGLE WIKI PAGE (WITH CONTENT)
 --    • Endpoint: GET /api/v1/wiki/{id}

@@ -143,12 +143,12 @@ function renderFieldBadge(fieldKey: string, value: string): React.ReactNode {
  * EntityFormContainer
  *
  * A reusable form container component that renders form fields based on entityConfig.
- * Used by both EntityDetailPage (edit mode) and EntityCreatePage (create mode).
+ * Used by both EntitySpecificInstancePage (edit mode) and EntityCreatePage (create mode).
  *
  * Features:
  * - Dynamically loads dropdown options from settings tables
  * - Supports all field types from entityConfig
- * - Consistent styling matching EntityDetailPage
+ * - Consistent styling matching EntitySpecificInstancePage
  * - Handles field validation
  */
 

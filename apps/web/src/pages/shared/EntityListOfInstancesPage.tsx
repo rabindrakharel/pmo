@@ -16,24 +16,24 @@ import { useSidebar } from '../../contexts/SidebarContext';
 import { useEntityInstanceList, useEntityMutation, usePrefetch } from '../../lib/hooks';
 
 /**
- * Universal EntityMainPage
+ * Universal EntityListOfInstancesPage
  *
  * A single, reusable component that renders the main listing page for ANY entity.
  * Supports table, kanban, and grid views based on entity configuration.
  *
  * Usage via routing:
- * - /project -> EntityMainPage with entityCode="project"
- * - /task -> EntityMainPage with entityCode="task"
- * - /wiki -> EntityMainPage with entityCode="wiki"
+ * - /project -> EntityListOfInstancesPage with entityCode="project"
+ * - /task -> EntityListOfInstancesPage with entityCode="task"
+ * - /wiki -> EntityListOfInstancesPage with entityCode="wiki"
  * etc.
  */
 
-interface EntityMainPageProps {
+interface EntityListOfInstancesPageProps {
   entityCode: string;
   defaultView?: ViewMode;
 }
 
-export function EntityMainPage({ entityCode, defaultView }: EntityMainPageProps) {
+export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityListOfInstancesPageProps) {
   const navigate = useNavigate();
   const config = getEntityConfig(entityCode);
   const [view, setView] = useViewMode(entityCode, defaultView);
@@ -411,13 +411,13 @@ export function EntityMainPage({ entityCode, defaultView }: EntityMainPageProps)
  * Usage Examples:
  *
  * In routes:
- * <Route path="/project" element={<EntityMainPage entityCode="project" />} />
- * <Route path="/task" element={<EntityMainPage entityCode="task" />} />
- * <Route path="/wiki" element={<EntityMainPage entityCode="wiki" />} />
- * <Route path="/artifact" element={<EntityMainPage entityCode="artifact" />} />
- * <Route path="/form" element={<EntityMainPage entityCode="form" />} />
- * <Route path="/business" element={<EntityMainPage entityCode="business" />} />
- * <Route path="/office" element={<EntityMainPage entityCode="office" />} />
- * <Route path="/employee" element={<EntityMainPage entityCode="employee" />} />
- * <Route path="/role" element={<EntityMainPage entityCode="role" />} />
+ * <Route path="/project" element={<EntityListOfInstancesPage entityCode="project" />} />
+ * <Route path="/task" element={<EntityListOfInstancesPage entityCode="task" />} />
+ * <Route path="/wiki" element={<EntityListOfInstancesPage entityCode="wiki" />} />
+ * <Route path="/artifact" element={<EntityListOfInstancesPage entityCode="artifact" />} />
+ * <Route path="/form" element={<EntityListOfInstancesPage entityCode="form" />} />
+ * <Route path="/business" element={<EntityListOfInstancesPage entityCode="business" />} />
+ * <Route path="/office" element={<EntityListOfInstancesPage entityCode="office" />} />
+ * <Route path="/employee" element={<EntityListOfInstancesPage entityCode="employee" />} />
+ * <Route path="/role" element={<EntityListOfInstancesPage entityCode="role" />} />
  */

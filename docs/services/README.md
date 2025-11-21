@@ -1,134 +1,235 @@
-# PMO Platform Services Documentation
+# Services Documentation Index
 
-> Complete catalog of reusable services across the platform
-
-**Total Services**: 30 services organized by domain (3 CORE + 27 specialized)
+**Version:** 4.0.0 | **Last Updated:** 2025-11-21
 
 ---
 
-## Service Categories
+## Semantics
 
-### 1. Core Infrastructure Services
+The PMO platform services are organized into **Core Infrastructure** (3 services) and **Specialized** categories. Core services handle entity management, metadata generation, and formatting. Specialized services handle domain-specific functionality.
 
-| Service | File | Purpose |
-|---------|------|---------|
-| **Entity Infrastructure Service** | `services/entity-infrastructure.service.ts` | Centralized management of 4 infrastructure tables (entity, entity_instance, entity_instance_link, entity_rbac) |
-| **Universal Formatter Service** | `lib/universalFormatterService.ts` | Single source of truth for ALL formatting (currency, dates, badges, transforms) |
-| **Universal Filter Builder** | `lib/universal-filter-builder.ts` | Zero-config query filtering with auto-type detection |
-| **Linkage Service** | `services/linkage.service.ts` | Parent-child entity relationship management (legacy, use Entity Infrastructure Service) |
-| **S3 Attachment Service** | `lib/s3-attachments.ts` | File upload/download with presigned URLs |
-
-### 2. Email & Messaging Services
-
-| Service | File | Purpose |
-|---------|------|---------|
-| **Email Service** | `modules/email/email.service.ts` | AWS SES email sending |
-| **Messaging Service** | `modules/person-calendar/messaging.service.ts` | Calendar event notifications |
-| **Delivery Service** | `modules/message-data/delivery.service.ts` | Message delivery orchestration |
-
-### 3. Person Calendar Services
-
-| Service | File | Purpose |
-|---------|------|---------|
-| **Person Calendar Service** | `modules/person-calendar/person-calendar.service.ts` | Calendar operations and event management |
-
-### 4. AI Chat Services (Core)
-
-| Service | File | Purpose |
-|---------|------|---------|
-| **Greeting Service** | `modules/chat/greeting.service.ts` | User greeting and context initialization |
-| **Conversation Service** | `modules/chat/conversation.service.ts` | Chat history and message management |
-| **Functions Service** | `modules/chat/functions.service.ts` | LLM function calling definitions |
-| **MCP Adapter Service** | `modules/chat/mcp-adapter.service.ts` | Model Context Protocol adapter |
-| **OpenAI Service** | `modules/chat/openai.service.ts` | OpenAI API integration |
-| **Voice LangGraph Service** | `modules/chat/voice-langraph.service.ts` | Voice interaction orchestration |
-
-### 5. AI Orchestrator Services
-
-| Service | File | Purpose |
-|---------|------|---------|
-| **Agent Orchestrator Service** | `orchestrator/agents/agent-orchestrator.service.ts` | Multi-agent coordination |
-| **Unified Goal Agent Service** | `orchestrator/agents/unified-goal-agent.service.ts` | Goal-driven AI agent |
-| **Data Extraction Agent Service** | `orchestrator/agents/data-extraction-agent.service.ts` | Entity extraction from conversations |
-| **Agent Context Service** | `orchestrator/agents/agent-context.service.ts` | Agent context management |
-| **Context Initializer Service** | `orchestrator/agents/context-initializer.service.ts` | Initialize agent context |
-| **DAG Loader Service** | `orchestrator/agents/dag-loader.service.ts` | Workflow graph loading |
-
-### 6. AI Orchestrator Support Services
-
-| Service | File | Purpose |
-|---------|------|---------|
-| **State Manager Service** | `orchestrator/state/state-manager.service.ts` | Conversation state persistence |
-| **Session Memory Queue Service** | `orchestrator/services/session-memory-queue.service.ts` | In-memory session queue |
-| **Session Request Queue Service** | `orchestrator/services/session-request-queue.service.ts` | Request queuing |
-| **Session Memory Data Service** | `orchestrator/services/session-memory-data.service.ts` | Session data management |
-| **Agent Logger Service** | `orchestrator/services/agent-logger.service.ts` | Agent activity logging |
-| **LLM Logger Service** | `orchestrator/services/llm-logger.service.ts` | LLM interaction logging |
-| **OpenAI Service (Orchestrator)** | `orchestrator/services/openai.service.ts` | Orchestrator-specific OpenAI client |
-| **Config Loader Service** | `orchestrator/config/config-loader.service.ts` | Agent configuration loading |
-| **Voice Orchestrator Service** | `orchestrator/voice-orchestrator.service.ts` | Voice workflow coordination |
-| **Tool Enrichment Engine Service** | `orchestrator/lib/tool-enrichment-engine.service.ts` | Tool metadata enrichment |
+**Core Principle:** Core services are mandatory for entity CRUD. Specialized services are domain-specific add-ons.
 
 ---
 
-## Quick Reference
+## System Design Diagram
 
-### By Usage Pattern
-
-**Entity CRUD Operations**:
-- Linkage Service (parent-child relationships)
-- S3 Attachment Service (file attachments)
-
-**Communication**:
-- Email Service (transactional emails)
-- Messaging Service (calendar notifications)
-- Delivery Service (message orchestration)
-
-**Calendar & Events**:
-- Person Calendar Service (event management)
-- Messaging Service (event notifications)
-
-**AI & Chat**:
-- All Chat Services + Orchestrator Services (AI-powered assistance)
-
----
-
-## Documentation Files
-
-Each service has dedicated documentation:
-
-- [entity-infrastructure.service.md](./entity-infrastructure.service.md) - Infrastructure tables management (CORE)
-- [frontEndFormatterService.md](./frontEndFormatterService.md) - Formatting service (CORE)
-- [UNIVERSAL_FILTER_BUILDER.md](./UNIVERSAL_FILTER_BUILDER.md) - Auto-filter builder (CORE)
-- [linkage-service.md](./linkage-service.md) - Entity relationship management (legacy)
-- [s3-attachment-service.md](./s3-attachment-service.md) - File storage operations
-- [email-service.md](./email-service.md) - Email sending
-- [messaging-service.md](./messaging-service.md) - Calendar notifications
-- [delivery-service.md](./delivery-service.md) - Message delivery
-- [person-calendar-service.md](./person-calendar-service.md) - Calendar operations
-- [greeting-service.md](./greeting-service.md) - Chat greeting
-- [conversation-service.md](./conversation-service.md) - Chat history
-- [functions-service.md](./functions-service.md) - LLM functions
-- [mcp-adapter-service.md](./mcp-adapter-service.md) - MCP protocol
-- [openai-service.md](./openai-service.md) - OpenAI integration
-- [voice-langraph-service.md](./voice-langraph-service.md) - Voice orchestration
-- [agent-orchestrator-service.md](./agent-orchestrator-service.md) - Agent coordination
-- [unified-goal-agent-service.md](./unified-goal-agent-service.md) - Goal agent
-- [data-extraction-agent-service.md](./data-extraction-agent-service.md) - Entity extraction
-- [agent-context-service.md](./agent-context-service.md) - Agent context
-- [context-initializer-service.md](./context-initializer-service.md) - Context init
-- [dag-loader-service.md](./dag-loader-service.md) - Workflow loading
-- [state-manager-service.md](./state-manager-service.md) - State persistence
-- [session-memory-queue-service.md](./session-memory-queue-service.md) - Session queue
-- [session-request-queue-service.md](./session-request-queue-service.md) - Request queue
-- [session-memory-data-service.md](./session-memory-data-service.md) - Session data
-- [agent-logger-service.md](./agent-logger-service.md) - Agent logging
-- [llm-logger-service.md](./llm-logger-service.md) - LLM logging
-- [orchestrator-openai-service.md](./orchestrator-openai-service.md) - Orchestrator OpenAI
-- [config-loader-service.md](./config-loader-service.md) - Config loading
-- [voice-orchestrator-service.md](./voice-orchestrator-service.md) - Voice coordination
-- [tool-enrichment-engine-service.md](./tool-enrichment-engine-service.md) - Tool enrichment
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         SERVICE ARCHITECTURE                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │                    CORE INFRASTRUCTURE (3)                       │    │
+│  │  Entity Infrastructure  →  Backend Formatter  →  Frontend        │    │
+│  │  (RBAC, Linkage)           (Metadata Gen)        Formatter       │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                              │                                          │
+│                              ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │                    SPECIALIZED SERVICES                          │    │
+│  │                                                                  │    │
+│  │  Communication:  Email, Messaging, Delivery                     │    │
+│  │  Calendar:       Person Calendar                                │    │
+│  │  Storage:        S3 Attachment                                  │    │
+│  │  AI/Chat:        Conversation, Functions, Orchestrator          │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-**Version**: 1.0.0 | **Last Updated**: 2025-11-16
+## Service Index
+
+### Core Infrastructure Services
+
+| Service | File | Documentation | Purpose |
+|---------|------|---------------|---------|
+| **Entity Infrastructure** | `services/entity-infrastructure.service.ts` | [entity-infrastructure.service.md](./entity-infrastructure.service.md) | RBAC, entity registry, linkage, permissions |
+| **Backend Formatter** | `services/backend-formatter.service.ts` | [backend-formatter.service.md](./backend-formatter.service.md) | Metadata generation (35+ patterns) |
+| **Frontend Formatter** | `lib/frontEndFormatterService.tsx` | [frontEndFormatterService.md](./frontEndFormatterService.md) | Pure rendering from metadata |
+
+### Storage & Communication Services
+
+| Service | File | Documentation | Purpose |
+|---------|------|---------------|---------|
+| **S3 Attachment** | `lib/s3-attachments.ts` | [s3-attachment-service.md](./s3-attachment-service.md) | File upload/download with presigned URLs |
+| **Person Calendar** | `modules/person-calendar/person-calendar.service.ts` | [person-calendar-service.md](./person-calendar-service.md) | Calendar and event management |
+
+### AI & Orchestration Services
+
+| Service | File | Documentation | Purpose |
+|---------|------|---------------|---------|
+| **Unified Goal Agent** | `orchestrator/agents/unified-goal-agent.service.ts` | [unified-goal-agent-service.md](./unified-goal-agent-service.md) | Goal-driven AI agent execution |
+
+---
+
+## Data Flow Diagram
+
+```
+Entity CRUD Flow (Uses Core Services)
+─────────────────────────────────────
+
+Request                         Core Services                    Database
+───────                         ─────────────                    ────────
+
+POST /api/v1/project    →      Entity Infrastructure:
+                               1. check_entity_rbac()      →    entity_rbac
+                               2. set_entity_instance_     →    entity_instance
+                                  registry()
+                               3. set_entity_rbac_owner()  →    entity_rbac
+                               4. set_entity_instance_     →    entity_instance_link
+                                  link() (if parent)
+
+GET /api/v1/project     →      Entity Infrastructure:
+                               get_entity_rbac_where_      →    SELECT with RBAC
+                                 condition()
+
+                               Backend Formatter:
+                               getEntityMetadata()         →    Returns metadata
+
+Response to Frontend    →      Frontend Formatter:
+                               renderViewModeFromMetadata()     Renders UI
+```
+
+---
+
+## Architecture Overview
+
+### Core Services Usage Pattern
+
+Every entity route uses Core Infrastructure Service:
+
+```typescript
+// Standard imports for all entity routes
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID }
+  from '@/services/entity-infrastructure.service.js';
+import { getEntityMetadata }
+  from '@/services/backend-formatter.service.js';
+
+const entityInfra = getEntityInfrastructure(db);
+
+// CREATE pattern (6 steps)
+// 1. RBAC check for CREATE permission
+// 2. RBAC check for parent EDIT (if linking)
+// 3. INSERT into primary table
+// 4. Register in entity_instance
+// 5. Grant OWNER permission
+// 6. Link to parent (if provided)
+
+// LIST pattern (2 steps)
+// 1. Get RBAC WHERE condition
+// 2. Execute query with RBAC filter
+
+// UPDATE pattern (3 steps)
+// 1. RBAC check for EDIT permission
+// 2. UPDATE primary table
+// 3. Sync entity_instance if name/code changed
+```
+
+### Service Responsibilities
+
+| Service | Manages | Does NOT Manage |
+|---------|---------|-----------------|
+| Entity Infrastructure | 4 infrastructure tables | Primary entity tables |
+| Backend Formatter | Field metadata generation | Database queries |
+| Frontend Formatter | React rendering | Data fetching |
+| S3 Attachment | File storage | Database records |
+| Person Calendar | Events, schedules | RBAC permissions |
+
+---
+
+## Critical Considerations
+
+### Service Dependencies
+
+```
+Entity Routes
+    │
+    ├── Entity Infrastructure Service (REQUIRED)
+    │   └── Manages: entity, entity_instance, entity_instance_link, entity_rbac
+    │
+    ├── Backend Formatter Service (REQUIRED for metadata)
+    │   └── Generates: field metadata from column patterns
+    │
+    └── Specialized Services (OPTIONAL per domain)
+        ├── S3 Attachment (for file uploads)
+        ├── Person Calendar (for scheduling)
+        └── AI Services (for chat features)
+```
+
+### Core Service Rules
+
+| Rule | Description |
+|------|-------------|
+| Routes own queries | Core services don't build primary table queries |
+| Service provides helpers | RBAC conditions, registry updates, link management |
+| No bypassing RBAC | All access must go through `check_entity_rbac()` |
+| Registry sync required | Name/code changes must update `entity_instance` |
+
+### Anti-Patterns
+
+| Anti-Pattern | Correct Approach |
+|--------------|------------------|
+| Custom RBAC SQL in routes | Use `check_entity_rbac()` |
+| Skipping entity_instance | Always register on CREATE |
+| Direct foreign keys | Use `entity_instance_link` |
+| Manual metadata building | Use `getEntityMetadata()` |
+
+---
+
+## Documentation Status
+
+### Fully Documented
+
+- Entity Infrastructure Service
+- Backend Formatter Service
+- Frontend Formatter Service
+- S3 Attachment Service
+- Person Calendar Service
+- Unified Goal Agent Service
+
+### Pending Documentation
+
+- Email Service
+- Messaging Service
+- Delivery Service
+- Conversation Service
+- Functions Service
+- Agent Orchestrator Service
+- State Manager Service
+
+---
+
+## File Locations
+
+```
+apps/api/src/
+├── services/
+│   ├── entity-infrastructure.service.ts   (Core)
+│   ├── backend-formatter.service.ts       (Core)
+│   └── datalabel.service.ts
+│
+├── lib/
+│   ├── s3-attachments.ts
+│   ├── universal-filter-builder.ts
+│   └── entity-delete-route-factory.ts
+│
+├── modules/
+│   ├── email/email.service.ts
+│   ├── person-calendar/person-calendar.service.ts
+│   └── chat/
+│       ├── conversation.service.ts
+│       └── functions.service.ts
+│
+└── orchestrator/
+    └── agents/unified-goal-agent.service.ts
+
+apps/web/src/lib/
+└── frontEndFormatterService.tsx           (Core - Frontend)
+```
+
+---
+
+**Status:** Production Ready

@@ -61,7 +61,7 @@ import { LinkagePage } from './pages/LinkagePage';
 import { RBACOverviewPage } from './pages/RBACOverviewPage';
 
 // Shared/Universal Components
-import { EntityMainPage, EntityDetailPage, EntityChildListPage, EntityCreatePage, SharedURLEntityPage } from './pages/shared';
+import { EntityListOfInstancesPage, EntitySpecificInstancePage, EntityChildListPage, EntityCreatePage, SharedURLEntityPage } from './pages/shared';
 
 // Entity Configuration
 import { entityConfigs } from './lib/entityConfig';
@@ -123,7 +123,7 @@ function AppRoutes() {
           {/* List Route */}
           <Route
             path={`/${entityCode}`}
-            element={<ProtectedRoute><EntityMainPage entityCode={entityCode} /></ProtectedRoute>}
+            element={<ProtectedRoute><EntityListOfInstancesPage entityCode={entityCode} /></ProtectedRoute>}
           />
 
           {/* Create Route */}
@@ -135,7 +135,7 @@ function AppRoutes() {
           {/* Detail Route with Child Entity Routes */}
           <Route
             path={`/${entityCode}/:id`}
-            element={<ProtectedRoute><EntityDetailPage entityCode={entityCode} /></ProtectedRoute>}
+            element={<ProtectedRoute><EntitySpecificInstancePage entityCode={entityCode} /></ProtectedRoute>}
           >
             {/* Wildcard route for any child entity type */}
             <Route
@@ -184,20 +184,20 @@ function AppRoutes() {
       {generateEntityRoutes()}
 
       {/* Special Routes - Calendar (defaults to calendar view) */}
-      <Route path="/calendar" element={<ProtectedRoute><EntityMainPage entityCode="event" defaultView="calendar" /></ProtectedRoute>} />
+      <Route path="/calendar" element={<ProtectedRoute><EntityListOfInstancesPage entityCode="event" defaultView="calendar" /></ProtectedRoute>} />
       <Route path="/calendar/new" element={<ProtectedRoute><EntityCreatePage entityCode="event" /></ProtectedRoute>} />
-      <Route path="/calendar/:id" element={<ProtectedRoute><EntityDetailPage entityCode="event" /></ProtectedRoute>} />
+      <Route path="/calendar/:id" element={<ProtectedRoute><EntitySpecificInstancePage entityCode="event" /></ProtectedRoute>} />
 
       {/* Special Routes - Wiki (custom create/edit pages) */}
-      <Route path="/wiki" element={<ProtectedRoute><EntityMainPage entityCode="wiki" /></ProtectedRoute>} />
+      <Route path="/wiki" element={<ProtectedRoute><EntityListOfInstancesPage entityCode="wiki" /></ProtectedRoute>} />
       <Route path="/wiki/new" element={<ProtectedRoute><WikiEditorPage /></ProtectedRoute>} />
-      <Route path="/wiki/:id" element={<ProtectedRoute><EntityDetailPage entityCode="wiki" /></ProtectedRoute>} />
+      <Route path="/wiki/:id" element={<ProtectedRoute><EntitySpecificInstancePage entityCode="wiki" /></ProtectedRoute>} />
       <Route path="/wiki/:id/edit" element={<ProtectedRoute><WikiEditorPage /></ProtectedRoute>} />
 
       {/* Special Routes - Form (custom builder/editor pages) */}
-      <Route path="/form" element={<ProtectedRoute><EntityMainPage entityCode="form" /></ProtectedRoute>} />
+      <Route path="/form" element={<ProtectedRoute><EntityListOfInstancesPage entityCode="form" /></ProtectedRoute>} />
       <Route path="/form/new" element={<ProtectedRoute><FormBuilderPage /></ProtectedRoute>} />
-      <Route path="/form/:id" element={<ProtectedRoute><EntityDetailPage entityCode="form" /></ProtectedRoute>}>
+      <Route path="/form/:id" element={<ProtectedRoute><EntitySpecificInstancePage entityCode="form" /></ProtectedRoute>}>
         <Route path="form-data" element={<div />} />
         <Route path="edit-submission" element={<div />} />
       </Route>
@@ -205,12 +205,12 @@ function AppRoutes() {
       <Route path="/form/:formId/data/:submissionId" element={<ProtectedRoute><FormDataPreviewPage /></ProtectedRoute>} />
 
       {/* Special Routes - Artifact (uses EntityCreatePage with file upload) */}
-      <Route path="/artifact" element={<ProtectedRoute><EntityMainPage entityCode="artifact" /></ProtectedRoute>} />
+      <Route path="/artifact" element={<ProtectedRoute><EntityListOfInstancesPage entityCode="artifact" /></ProtectedRoute>} />
       <Route path="/artifact/new" element={<ProtectedRoute><EntityCreatePage entityCode="artifact" /></ProtectedRoute>} />
-      <Route path="/artifact/:id" element={<ProtectedRoute><EntityDetailPage entityCode="artifact" /></ProtectedRoute>} />
+      <Route path="/artifact/:id" element={<ProtectedRoute><EntitySpecificInstancePage entityCode="artifact" /></ProtectedRoute>} />
 
       {/* Special Routes - Workflow (custom detail page with graph visualization) */}
-      <Route path="/workflow" element={<ProtectedRoute><EntityMainPage entityCode="workflow" /></ProtectedRoute>} />
+      <Route path="/workflow" element={<ProtectedRoute><EntityListOfInstancesPage entityCode="workflow" /></ProtectedRoute>} />
       <Route path="/workflow/:instance_id" element={<ProtectedRoute><WorkflowDetailPage /></ProtectedRoute>} />
 
       {/* Special Routes - Marketing (email designer) */}
