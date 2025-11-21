@@ -27,7 +27,8 @@ CREATE TABLE app.project (
     descr text,
     metadata jsonb DEFAULT '{}'::jsonb,
 
-    -- Project relationships to parent entity are managed via entity_id_map so no FK needed
+    -- Project relationships (stored as UUID references, linked via entity_instance_link)
+    business_id uuid,  -- Business unit that owns this project
 
     -- Project fields
     dl__project_stage text, -- References app.setting_datalabel (datalabel_name='project__stage')
@@ -59,9 +60,10 @@ COMMENT ON TABLE app.project IS 'Project entities with budget tracking, schedule
 -- =====================================================
 
 -- Sample project data for James Miller as CEO/Project Sponsor
--- Strategic Corporate Project
+-- Strategic Corporate Project (owned by Corporate Services Team)
 INSERT INTO app.project (
     id, code, name, descr, metadata,
+    business_id,
     dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
     planned_start_date, planned_end_date, actual_start_date,
@@ -71,7 +73,8 @@ INSERT INTO app.project (
     'DT-2024-001',
     'Digital Transformation Initiative 2024',
     'Comprehensive digital transformation project to modernize operations, implement new PMO systems, and enhance customer service capabilities across all business units. CEO-sponsored strategic initiative.',
-    '{"project_type": "strategic", "priority": "high", "complexity": "high", "risk_level": "medium", "customer_impact": "high", "business_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "office_id": "11111111-1111-1111-1111-111111111111"}'::jsonb,
+    '{"project_type": "strategic", "priority": "high", "complexity": "high", "risk_level": "medium", "customer_impact": "high"}'::jsonb,
+    'b6666666-6666-6666-6666-666666666666',  -- Corporate Services Team
     'In Progress',
     750000.00, 285000.00,
     '2024-01-15', '2024-12-31', '2024-01-20',
@@ -80,9 +83,10 @@ INSERT INTO app.project (
     ARRAY['8260b1b0-5efc-4611-ad33-ee76c0cf7f13']::uuid[]
 );
 
--- Landscaping Service Project
+-- Landscaping Service Project (owned by Landscaping Team Alpha)
 INSERT INTO app.project (
     id, code, name, descr, metadata,
+    business_id,
     dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
     planned_start_date, planned_end_date, actual_start_date,
@@ -92,7 +96,8 @@ INSERT INTO app.project (
     'FLC-2024-001',
     'Fall 2024 Landscaping Campaign',
     'Seasonal landscaping campaign targeting residential and commercial properties for fall cleanup, winterization, and spring preparation services. Focus on customer retention and service expansion.',
-    '{"project_type": "operational", "priority": "high", "complexity": "medium", "risk_level": "low", "seasonal": true, "business_id": "dddddddd-dddd-dddd-dddd-dddddddddddd", "office_id": "44444444-4444-4444-4444-444444444444"}'::jsonb,
+    '{"project_type": "operational", "priority": "high", "complexity": "medium", "risk_level": "low", "seasonal": true}'::jsonb,
+    'b1111111-1111-1111-1111-111111111111',  -- Landscaping Team Alpha
     'Planning',
     150000.00, 45000.00,
     '2024-09-01', '2024-11-30', '2024-09-05',
@@ -101,9 +106,10 @@ INSERT INTO app.project (
     ARRAY['8260b1b0-5efc-4611-ad33-ee76c0cf7f13']::uuid[]
 );
 
--- HVAC Modernization Project
+-- HVAC Modernization Project (owned by HVAC Installation Team)
 INSERT INTO app.project (
     id, code, name, descr, metadata,
+    business_id,
     dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
     planned_start_date, planned_end_date, actual_start_date,
@@ -113,7 +119,8 @@ INSERT INTO app.project (
     'HVAC-MOD-001',
     'HVAC Equipment and Service Modernization',
     'Comprehensive modernization of HVAC service offerings including smart systems integration, energy efficiency solutions, and preventive maintenance programs for commercial clients.',
-    '{"project_type": "operational", "priority": "medium", "complexity": "high", "risk_level": "medium", "innovation": true, "business_id": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee", "office_id": "44444444-4444-4444-4444-444444444444"}'::jsonb,
+    '{"project_type": "operational", "priority": "medium", "complexity": "high", "risk_level": "medium", "innovation": true}'::jsonb,
+    'b3333333-3333-3333-3333-333333333333',  -- HVAC Installation Team
     'Initiation',
     300000.00, 75000.00,
     '2024-10-01', '2025-03-31', NULL,
@@ -122,9 +129,10 @@ INSERT INTO app.project (
     ARRAY['8260b1b0-5efc-4611-ad33-ee76c0cf7f13']::uuid[]
 );
 
--- Corporate Office Expansion
+-- Corporate Office Expansion (owned by Corporate Services Team)
 INSERT INTO app.project (
     id, code, name, descr, metadata,
+    business_id,
     dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
     planned_start_date, planned_end_date, actual_start_date,
@@ -134,7 +142,8 @@ INSERT INTO app.project (
     'COE-2024-001',
     'Corporate Office Expansion Project',
     'Physical expansion of corporate headquarters to accommodate growing team, enhance collaborative spaces, and implement modern office technologies. Strategic investment in company culture and efficiency.',
-    '{"project_type": "infrastructure", "priority": "medium", "complexity": "medium", "risk_level": "low", "internal": true, "business_id": "cccccccc-cccc-cccc-cccc-cccccccccccc", "office_id": "11111111-1111-1111-1111-111111111111"}'::jsonb,
+    '{"project_type": "infrastructure", "priority": "medium", "complexity": "medium", "risk_level": "low", "internal": true}'::jsonb,
+    'b6666666-6666-6666-6666-666666666666',  -- Corporate Services Team
     'Planning',
     500000.00, 125000.00,
     '2024-11-01', '2025-04-30', NULL,
@@ -143,9 +152,10 @@ INSERT INTO app.project (
     ARRAY['8260b1b0-5efc-4611-ad33-ee76c0cf7f13']::uuid[]
 );
 
--- Customer Service Excellence Initiative
+-- Customer Service Excellence Initiative (owned by Property Maintenance Team)
 INSERT INTO app.project (
     id, code, name, descr, metadata,
+    business_id,
     dl__project_stage,
     budget_allocated_amt, budget_spent_amt,
     planned_start_date, planned_end_date, actual_start_date,
@@ -155,7 +165,8 @@ INSERT INTO app.project (
     'CSE-2024-001',
     'Customer Service Excellence Initiative',
     'Comprehensive program to enhance customer satisfaction through improved service delivery, response times, communication protocols, and feedback management across all service departments.',
-    '{"project_type": "service_improvement", "priority": "high", "complexity": "medium", "risk_level": "low", "customer_facing": true, "business_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", "office_id": "22222222-2222-2222-2222-222222222222"}'::jsonb,
+    '{"project_type": "service_improvement", "priority": "high", "complexity": "medium", "risk_level": "low", "customer_facing": true}'::jsonb,
+    'b5555555-5555-5555-5555-555555555555',  -- Property Maintenance Team
     'Execution',
     200000.00, 80000.00,
     '2024-08-01', '2024-12-15', '2024-08-05',
