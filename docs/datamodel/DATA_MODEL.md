@@ -1,14 +1,14 @@
 # PMO Platform Data Model
 
-**Version:** 3.0.0 | **Schema:** `app` | **Tables:** 50+ | **DDL Files:** 50
+**Version:** 4.0.0 | **Schema:** `app` | **Tables:** 50+ | **DDL Files:** 50 | **Last Updated:** 2025-11-21
 
 ---
 
 ## Semantics
 
-The PMO Platform uses a PostgreSQL schema with Roman numeral prefixed DDL files for deterministic import ordering. The data model follows a **no foreign keys** architecture where all relationships are managed via `entity_instance_link`.
+The PMO Platform uses a PostgreSQL schema with Roman numeral prefixed DDL files for deterministic import ordering. The data model follows a **no foreign keys** architecture where all relationships are managed via `entity_instance_link`. This enables polymorphic relationships between any entity types.
 
-**Core Principle:** No FK constraints. All relationships via linkage table. Soft deletes only.
+**Core Principle:** No FK constraints. All relationships via linkage table. Soft deletes only. Optimistic locking via version column.
 
 ---
 

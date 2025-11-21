@@ -104,11 +104,14 @@ Result: "e.id IN ('uuid-1', 'uuid-2', ...)"
 |-------|------|-------|----------|-------------|
 | 0 | VIEW | 0 | - | Read access to entity data |
 | 1 | COMMENT | 1 | VIEW | Add comments on entities |
+| 2 | - | 2 | - | *Reserved (unused)* |
 | 3 | EDIT | 3 | COMMENT, VIEW | Modify entity data |
 | 4 | SHARE | 4 | EDIT, COMMENT, VIEW | Share entity with others |
 | 5 | DELETE | 5 | SHARE, EDIT, COMMENT, VIEW | Soft delete entity |
 | 6 | CREATE | 6 | All lower | Create new entities (type-level only) |
 | 7 | OWNER | 7 | All | Full control including permission management |
+
+**Note:** Permission level 2 is intentionally unused to allow future expansion.
 
 ### Permission Sources
 
