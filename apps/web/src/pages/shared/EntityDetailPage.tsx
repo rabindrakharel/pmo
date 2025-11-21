@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams, Outlet, useLocation } from 'react-router-dom';
-import { Edit2, Save, X, Palette, Download, Upload, CheckCircle, Copy, Check, Share2, Link as LinkIcon } from 'lucide-react';
+import { Edit2, Save, X, Palette, Download, Upload, CheckCircle, Copy, Check, Share2, Link as LinkIcon, Undo2, Redo2 } from 'lucide-react';
 import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityFormContainer, FilePreview, DragDropFileUpload, MetadataField, MetadataRow, MetadataSeparator } from '../../components/shared';
 import { ExitButton } from '../../components/shared/button/ExitButton';
 import { ShareModal } from '../../components/shared/modal';
@@ -17,6 +17,9 @@ import { Button } from '../../components/shared/button/Button';
 import { useS3Upload } from '../../lib/hooks/useS3Upload';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../contexts/NavigationHistoryContext';
+import { useEntityDetail, useEntityMutation, useCacheInvalidation } from '../../lib/hooks';
+import { useEntityEditStore } from '../../stores/useEntityEditStore';
+import { useKeyboardShortcuts, useShortcutHints } from '../../lib/hooks/useKeyboardShortcuts';
 
 /**
  * Universal EntityDetailPage
@@ -43,17 +46,58 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
   const { hideSidebar } = useSidebar();
   const { pushEntity, updateCurrentEntityName, updateCurrentEntityActiveTab } = useNavigationHistory();
 
-  const [data, setData] = useState<any>(null);
-  const [backendMetadata, setBackendMetadata] = useState<any>(null);  // Backend field metadata
-  const [datalabels, setDatalabels] = useState<DatalabelData[]>([]);  // ✅ Preloaded datalabel data
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedData, setEditedData] = useState<any>({});
+  // ============================================================================
+  // ZUSTAND + REACT QUERY INTEGRATION
+  // ============================================================================
+  // Use React Query for data fetching with automatic caching (5 min TTL)
+  // Use Zustand edit store for field-level change tracking with undo/redo
+  // Keyboard shortcuts integrated for save/undo/redo
+  // ============================================================================
+
+  const {
+    data: queryResult,
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useEntityDetail(entityCode, id);
+
+  // Extract data from React Query result
+  const data = queryResult?.data || null;
+  const backendMetadata = queryResult?.metadata || null;
+  const datalabels = queryResult?.datalabels || [];
+  const error = queryError?.message || null;
+
+  // Entity mutation for updates
+  const { updateEntity, isUpdating } = useEntityMutation(entityCode);
+  const { invalidateEntity } = useCacheInvalidation();
+
+  // Zustand edit store for field-level tracking
+  const editStore = useEntityEditStore();
+  const {
+    isEditing,
+    currentData: editedData,
+    isSaving,
+    saveError,
+    dirtyFields,
+    startEdit,
+    updateField,
+    saveChanges: storesSaveChanges,
+    cancelEdit,
+    hasChanges,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = editStore;
+
+  // Local UI state
   const [formDataRefreshKey, setFormDataRefreshKey] = useState(0);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isGeneratingShareUrl, setIsGeneratingShareUrl] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Keyboard shortcut hints
+  const { shortcuts } = useShortcutHints();
 
   // Hide sidebar when entering entity detail page
   useEffect(() => {
@@ -64,9 +108,42 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
   const linkageModal = useLinkageModal({
     onLinkageChange: () => {
       // Refetch entity data and child tabs when linkage changes
-      loadData();
+      refetch();
+      invalidateEntity(entityCode, id);
     }
   });
+
+  // ============================================================================
+  // KEYBOARD SHORTCUTS (Ctrl+Z, Ctrl+Shift+Z, Ctrl+S, Escape)
+  // ============================================================================
+  const handleCustomSave = useCallback(async () => {
+    if (!hasChanges()) return;
+    const success = await storesSaveChanges();
+    if (success) {
+      // Invalidate cache to refetch fresh data
+      invalidateEntity(entityCode, id);
+      refetch();
+    }
+  }, [hasChanges, storesSaveChanges, invalidateEntity, entityCode, id, refetch]);
+
+  const handleCustomCancel = useCallback(() => {
+    cancelEdit();
+  }, [cancelEdit]);
+
+  useKeyboardShortcuts({
+    enableUndo: true,
+    enableRedo: true,
+    enableSave: true,
+    enableEscape: true,
+    onSave: handleCustomSave,
+    onCancel: handleCustomCancel,
+    activeWhenEditing: true,
+  });
+
+  // Legacy loadData function - now just refetches via React Query
+  const loadData = useCallback(async () => {
+    refetch();
+  }, [refetch]);
 
   // File upload state (for artifact edit/new version)
   const { uploadToS3, uploadingFiles, errors: uploadErrors } = useS3Upload();
@@ -136,117 +213,20 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
     return [overviewTab, ...filteredTabs];
   }, [tabs, entityCode, id, hasChildEntities]);
 
-  // Load entity data - defined before useEffect to avoid TDZ error
-  const loadData = useCallback(async (signal?: AbortSignal) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Type-safe API call using APIFactory
-      const api = APIFactory.getAPI(entityCode);
-      // Request metadata for detail view and form container
-      const response = await api.get(id!, { view: 'entityDetailView,entityFormContainer' });
-
-      // Check if the request was aborted
-      if (signal?.aborted) {
-        return;
-      }
-
-      // ✅ Extract backend metadata from API response (v4.0 architecture)
-      // Backend returns: { data: {...}, metadata: {...}, datalabels: [...] }
-      let responseData = response.data || response;
-      let backendFieldMetadata = null;
-      let backendDatalabels: DatalabelData[] = [];
-
-      // Check if response has backend metadata structure
-      if (response && typeof response === 'object' && 'metadata' in response && 'data' in response) {
-        // Backend metadata present
-        backendFieldMetadata = response.metadata;
-        responseData = response.data;
-
-        // ✅ Extract preloaded datalabel data for DAG visualization
-        if ('datalabels' in response && Array.isArray(response.datalabels)) {
-          backendDatalabels = response.datalabels;
-        }
-      }
-
-      // Special handling for form entity - parse schema if it's a string
-      if (entityCode === 'form' && responseData.form_schema && typeof responseData.form_schema === 'string') {
-        try {
-          responseData = {
-            ...responseData,
-            form_schema: JSON.parse(responseData.form_schema)
-          };
-        } catch (e) {
-          console.error('Failed to parse form schema:', e);
-        }
-      }
-
-      // Parse metadata (or attr alias) if it's a string
-      const metadataField = responseData.metadata || responseData.attr;
-      if (metadataField && typeof metadataField === 'string') {
-        try {
-          const parsed = JSON.parse(metadataField);
-          responseData.metadata = parsed;
-          responseData.attr = parsed;
-        } catch (e) {
-          console.error('Failed to parse metadata:', e);
-          responseData.metadata = {};
-          responseData.attr = {};
-        }
-      }
-
-      setData(responseData);
-      setBackendMetadata(backendFieldMetadata);  // Set backend metadata
-      setDatalabels(backendDatalabels);  // ✅ Set preloaded datalabel data
-      setEditedData(responseData);
-      // Preview URL will be fetched by useEffect
-    } catch (err) {
-      console.error(`Failed to load ${entityCode}:`, err);
-      setError(err instanceof Error ? err.message : 'Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  }, [id, entityCode]);
-
-  // Use a ref to track if data is currently being loaded to prevent double fetching
-  const isLoadingRef = React.useRef(false);
-
-  useEffect(() => {
-    const abortController = new AbortController();
-
-    const fetchData = async () => {
-      if (id && !isLoadingRef.current) {
-        isLoadingRef.current = true;
-        try {
-          await loadData(abortController.signal);
-        } finally {
-          if (!abortController.signal.aborted) {
-            isLoadingRef.current = false;
-          }
-        }
-      }
-    };
-
-    fetchData();
-
-    return () => {
-      abortController.abort();
-      isLoadingRef.current = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, entityCode]); // loadData excluded to prevent circular dependency
+  // NOTE: Data fetching is now handled by useEntityDetail hook via React Query
+  // The loadData function above is just a wrapper around refetch() for legacy compatibility
 
   // Auto-edit mode when navigating from child entity creation
   useEffect(() => {
     const locationState = location.state as any;
-    if (locationState?.autoEdit && data && !loading) {
-      setIsEditing(true);
+    if (locationState?.autoEdit && data && !loading && !isEditing) {
+      // Start edit mode using Zustand store
+      startEdit(entityCode, id!, data);
       // Clear the state to prevent re-entering edit mode on subsequent navigations
       window.history.replaceState({}, document.title);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, location.state]); // data removed from deps - we only care if it exists, not its contents
+  }, [loading, location.state, data]); // data added to ensure we have data before starting edit
 
   // Register entity in navigation history when data is loaded
   // Use a ref to track if we've already pushed this entity to prevent duplicates
@@ -299,6 +279,13 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentChildEntity]); // updateCurrentEntityActiveTab removed from deps
 
+  // ============================================================================
+  // ZUSTAND STORE SAVE HANDLER
+  // ============================================================================
+  // Uses Zustand edit store for save with automatic cache invalidation
+  // Special handling preserved for artifact versioning and task assignees
+  // ============================================================================
+
   const handleSave = async () => {
     try {
       // Special handling for artifact with new file upload (create new version)
@@ -319,12 +306,11 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
             fileSize: selectedFile.size,
             attachment_format: fileExtension,
             attachment_size_bytes: selectedFile.size,
-            attachment_object_key: uploadedObjectKey, // Send the already-uploaded object key
-            descr: editedData.descr || data.descr,
-            // Include any updated metadata fields from editedData
-            visibility: editedData.visibility,
-            security_classification: editedData.security_classification,
-            artifact_type: editedData.artifact_type
+            attachment_object_key: uploadedObjectKey,
+            descr: editedData?.descr || data?.descr,
+            visibility: editedData?.visibility,
+            security_classification: editedData?.security_classification,
+            artifact_type: editedData?.artifact_type
           })
         });
 
@@ -343,85 +329,26 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
       // Special handling for cost/revenue with new file upload (replace attachment)
       if ((entityCode === 'cost' || entityCode === 'revenue') && uploadedObjectKey) {
         const attachmentField = entityCode === 'cost' ? 'invoice_attachment' : 'sales_receipt_attachment';
-        editedData[attachmentField] = `s3://cohuron-attachments-prod-957207443425/${uploadedObjectKey}`;
-
-        // Reset file upload state after adding to edited data
+        updateField(attachmentField, `s3://cohuron-attachments-prod-957207443425/${uploadedObjectKey}`);
         setSelectedFile(null);
         setUploadedObjectKey(null);
       }
 
-      // Normal update flow for all other entities (and artifacts without file upload)
-      // Use centralized transformForApi function (same as inline table edit)
-      // This handles: date normalization, empty strings → null, arrays, etc.
-      const normalizedData = transformForApi(editedData, data);
+      // Use Zustand store to save changes
+      // The store handles: field-level change tracking, PATCH optimization
+      const success = await storesSaveChanges();
 
-      // Extract assignee_employee_ids if present (for task entity)
-      const assigneeIds = normalizedData.assignee_employee_ids;
-      const dataToUpdate = { ...normalizedData };
-      delete dataToUpdate.assignee_employee_ids;
-      delete dataToUpdate.assignee_employee_names; // Remove computed field
-
-      // Type-safe API call using APIFactory
-      const api = APIFactory.getAPI(entityCode);
-      const updateResponse = await api.update(id!, dataToUpdate);
-
-      // Handle assignees separately via linkage API (only for task entity)
-      if (entityCode === 'task' && assigneeIds !== undefined) {
-        await updateTaskAssignees(id!, assigneeIds);
-      }
-
-      // ✅ OPTIMIZED: Check if PATCH returns just data or full response
-      let updatedData = data; // Start with current data as fallback
-
-      if (updateResponse) {
-        // If PATCH returns data, use it
-        if (updateResponse.data) {
-          // Full response structure (for backward compatibility)
-          updatedData = updateResponse.data;
-        } else if (updateResponse.id) {
-          // Just the updated entity data (optimized response)
-          updatedData = updateResponse;
+      if (success) {
+        // Handle task assignees separately (special case)
+        if (entityCode === 'task' && editedData?.assignee_employee_ids !== undefined) {
+          const assigneeIds = editedData.assignee_employee_ids;
+          await updateTaskAssignees(id!, assigneeIds);
         }
 
-        // Special handling for form entity - parse schema if it's a string
-        if (entityCode === 'form' && updatedData.form_schema && typeof updatedData.form_schema === 'string') {
-          try {
-            updatedData = {
-              ...updatedData,
-              form_schema: JSON.parse(updatedData.form_schema)
-            };
-          } catch (e) {
-            console.error('Failed to parse form schema:', e);
-          }
-        }
-
-        // Parse metadata (or attr alias) if it's a string
-        const metadataField = updatedData.metadata || updatedData.attr;
-        if (metadataField && typeof metadataField === 'string') {
-          try {
-            const parsed = JSON.parse(metadataField);
-            updatedData.metadata = parsed;
-            updatedData.attr = parsed;
-          } catch (e) {
-            console.error('Failed to parse metadata:', e);
-            updatedData.metadata = {};
-            updatedData.attr = {};
-          }
-        }
+        // Invalidate cache and refetch to ensure fresh data
+        invalidateEntity(entityCode, id);
+        refetch();
       }
-
-      // For task entity with assignees, we need to refetch to get updated assignee names
-      if (entityCode === 'task' && assigneeIds !== undefined) {
-        const response = await api.get(id!, { view: 'entityDetailView' });
-        updatedData = response.data || response;
-      }
-
-      // ✅ OPTIMIZED: Reuse existing metadata and datalabels (they don't change on update)
-      setData(updatedData);
-      // Keep existing backendMetadata and datalabels - no need to update them
-      setEditedData(updatedData);
-      setIsEditing(false);
-      // Optionally show success toast
     } catch (err) {
       console.error(`Failed to update ${entityCode}:`, err);
       alert(err instanceof Error ? err.message : 'Failed to update');
@@ -514,37 +441,35 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
     }
   };
 
-  const handleCancel = () => {
-    setEditedData(data);
-    setIsEditing(false);
-  };
+  // ============================================================================
+  // ZUSTAND STORE INTEGRATION FOR EDITING
+  // ============================================================================
+  // handleCancel and handleFieldChange now use the Zustand edit store
+  // This enables field-level change tracking, undo/redo, and optimistic updates
+  // ============================================================================
 
-  // Use refs to avoid re-renders on every field change
-  const editedDataRef = React.useRef<any>({});
+  const handleCancel = useCallback(() => {
+    cancelEdit();
+  }, [cancelEdit]);
+
+  // Use refs for debouncing field updates (Zustand store handles state)
   const updateTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  // Sync editedData when entering edit mode
-  React.useEffect(() => {
-    if (isEditing && data) {
-      editedDataRef.current = { ...data };
-      setEditedData({ ...data });
-    }
-  }, [data, isEditing]);
-
-  const handleFieldChange = React.useCallback((fieldName: string, value: any) => {
-    // Update the ref immediately (no re-render)
-    editedDataRef.current = { ...editedDataRef.current, [fieldName]: value };
-
+  const handleFieldChange = useCallback((fieldName: string, value: any) => {
     // Clear any pending update
     if (updateTimeoutRef.current) {
       clearTimeout(updateTimeoutRef.current);
     }
 
-    // Debounce the state update to reduce re-renders
+    // For immediate-feedback fields (select, checkbox), update immediately
+    const immediateFields = ['select', 'checkbox', 'boolean', 'date'];
+    // Most fields benefit from debouncing to reduce re-renders during typing
+
+    // Debounce text field updates
     updateTimeoutRef.current = setTimeout(() => {
-      setEditedData({ ...editedDataRef.current });
-    }, 300); // 300ms debounce for typing
-  }, []);
+      updateField(fieldName, value);
+    }, 150); // 150ms debounce for typing
+  }, [updateField]);
 
   const handleTabClick = (tabPath: string) => {
     if (tabPath === 'overview') {
@@ -903,30 +828,73 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
                     } else if (entityCode === 'marketing') {
                       navigate(`/marketing/${id}/design`);
                     } else {
-                      setIsEditing(true);
+                      // Start edit mode using Zustand store
+                      startEdit(entityCode, id!, data);
                     }
                   }}
                   className="p-2 hover:bg-gray-50 rounded-md transition-colors"
-                  title="Edit"
+                  title={`Edit (${shortcuts.save} to save)`}
                 >
                   <Edit2 className="h-4 w-4 text-gray-600 stroke-[1.5]" />
                 </button>
               </>
             ) : (
               <>
+                {/* Undo button */}
+                <button
+                  onClick={undo}
+                  disabled={!canUndo()}
+                  className={`p-2 rounded-md transition-colors ${
+                    canUndo()
+                      ? 'text-gray-600 hover:bg-gray-50'
+                      : 'text-gray-300 cursor-not-allowed'
+                  }`}
+                  title={`Undo (${shortcuts.undo})`}
+                >
+                  <Undo2 className="h-4 w-4 stroke-[1.5]" />
+                </button>
+
+                {/* Redo button */}
+                <button
+                  onClick={redo}
+                  disabled={!canRedo()}
+                  className={`p-2 rounded-md transition-colors ${
+                    canRedo()
+                      ? 'text-gray-600 hover:bg-gray-50'
+                      : 'text-gray-300 cursor-not-allowed'
+                  }`}
+                  title={`Redo (${shortcuts.redo})`}
+                >
+                  <Redo2 className="h-4 w-4 stroke-[1.5]" />
+                </button>
+
+                <div className="w-px h-4 bg-gray-200 mx-1" />
+
+                {/* Cancel button */}
                 <button
                   onClick={handleCancel}
                   className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                  title="Cancel"
+                  title={`Cancel (${shortcuts.cancel})`}
                 >
                   <X className="h-4 w-4 stroke-[1.5]" />
                 </button>
+
+                {/* Save button */}
                 <button
                   onClick={handleSave}
-                  className="p-2 bg-gray-900 hover:bg-gray-800 text-white rounded-md transition-colors"
-                  title="Save"
+                  disabled={isSaving || !hasChanges()}
+                  className={`p-2 rounded-md transition-colors ${
+                    hasChanges()
+                      ? 'bg-gray-900 hover:bg-gray-800 text-white'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
+                  title={`Save (${shortcuts.save})`}
                 >
-                  <Save className="h-4 w-4 stroke-[1.5]" />
+                  {isSaving ? (
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                  ) : (
+                    <Save className="h-4 w-4 stroke-[1.5]" />
+                  )}
                 </button>
               </>
             )}

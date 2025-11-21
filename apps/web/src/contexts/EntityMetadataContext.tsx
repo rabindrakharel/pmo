@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import { getIconComponent } from '../lib/iconMapping';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from './AuthContext';
+import { useMetadataCacheStore } from '../stores/metadataCacheStore';
 
 interface EntityMetadata {
   code: string;
@@ -40,10 +41,18 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
   const [loading, setLoading] = useState(true);
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
 
+  // ============================================================================
+  // ZUSTAND CACHE INTEGRATION
+  // ============================================================================
+  // Entity types are cached in Zustand store with 10-minute TTL
+  // This provides cross-component cache sharing and persistence
+  // ============================================================================
+  const metadataCache = useMetadataCacheStore();
+
   useEffect(() => {
     const fetchEntityMetadata = async () => {
       try {
-        // ✅ FIX: Wait for auth validation to complete before fetching
+        // Wait for auth validation to complete before fetching
         if (isAuthLoading) {
           console.log('[EntityMetadataContext] Waiting for auth validation...');
           return;
@@ -62,9 +71,30 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
           return;
         }
 
-        console.log('[EntityMetadataContext] Fetching entity metadata...');
+        // Check Zustand cache first (10-minute TTL)
+        const cachedTypes = metadataCache.getEntityTypes();
+        if (cachedTypes && cachedTypes.length > 0) {
+          console.log('[EntityMetadataContext] Using cached entity types from Zustand store');
+          const entityMap = new Map<string, EntityMetadata>();
+          cachedTypes.forEach((entity: any) => {
+            entityMap.set(entity.code, {
+              code: entity.code,
+              name: entity.name,
+              ui_label: entity.ui_label,
+              ui_icon: entity.ui_icon,
+              icon: getIconComponent(entity.ui_icon),
+              display_order: entity.display_order,
+              active_flag: entity.active_flag,
+            });
+          });
+          setEntities(entityMap);
+          setLoading(false);
+          return;
+        }
 
-        // ✅ UNIFIED ENDPOINT: /api/v1/entity/codes (no param = all entities)
+        console.log('[EntityMetadataContext] Fetching entity metadata from API...');
+
+        // Fetch from API if cache miss
         const response = await fetch(`${API_BASE_URL}/api/v1/entity/codes`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -82,14 +112,17 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
               name: entity.name,
               ui_label: entity.ui_label,
               ui_icon: entity.ui_icon,
-              icon: getIconComponent(entity.ui_icon), // Resolve icon component
+              icon: getIconComponent(entity.ui_icon),
               display_order: entity.display_order,
               active_flag: entity.active_flag,
             });
           });
 
+          // Cache in Zustand store (10-minute TTL)
+          metadataCache.setEntityTypes(data);
+
           setEntities(entityMap);
-          console.log(`[EntityMetadataContext] ✅ Loaded ${entityMap.size} entity types`);
+          console.log(`[EntityMetadataContext] Loaded ${entityMap.size} entity types from API`);
         } else {
           console.error('[EntityMetadataContext] Failed to fetch entity types:', response.status);
         }
@@ -101,7 +134,7 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
     };
 
     fetchEntityMetadata();
-  }, [isAuthenticated, isAuthLoading]); // ✅ FIX: Re-fetch when auth state changes
+  }, [isAuthenticated, isAuthLoading]); // Re-fetch when auth state changes
 
   const getEntityMetadata = (entityCode: string): EntityMetadata | undefined => {
     return entities.get(entityCode);
