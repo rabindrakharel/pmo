@@ -44,7 +44,7 @@ import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-r
 import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 // ✅ Centralized unified data gate - loosely coupled API
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
-import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✨ Backend Formatter Service - component-aware metadata generation
@@ -82,6 +82,15 @@ const CreateFormSchema = Type.Object({
 
 const UpdateFormSchema = Type.Partial(CreateFormSchema);
 
+// Response schema for metadata-driven endpoints
+const FormWithMetadataSchema = Type.Object({
+  data: FormSchema,
+  fields: Type.Array(Type.String()),  // Field names list
+  metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+  datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields
+  globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
+});
+
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
@@ -104,10 +113,15 @@ export async function formRoutes(fastify: FastifyInstance) {
         search: Type.Optional(Type.String()),
         page: Type.Optional(Type.Number({ minimum: 1 })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
-        show_all_versions: Type.Optional(Type.Boolean())}),
+        show_all_versions: Type.Optional(Type.Boolean()),
+        view: Type.Optional(Type.String())}),  // 'entityDataTable,kanbanView' or 'entityFormContainer'
       response: {
         200: Type.Object({
           data: Type.Array(FormSchema),
+          fields: Type.Array(Type.String()),
+          metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+          datalabels: Type.Array(Type.Any()),  // DatalabelData[] - always an array (empty if no datalabels)
+          globalSettings: Type.Any(),  // GlobalSettings - currency, date, timestamp formatting
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number()}),
@@ -124,7 +138,8 @@ export async function formRoutes(fastify: FastifyInstance) {
         search,
         page = 1,
         limit = 20,
-        show_all_versions = false} = request.query as any;
+        show_all_versions = false,
+        view} = request.query as any;
 
       const offset = (page - 1) * limit;
 
@@ -201,7 +216,27 @@ export async function formRoutes(fastify: FastifyInstance) {
           LIMIT ${limit} OFFSET ${offset}
         `);
 
-        return createPaginatedResponse(forms, total, limit, offset);
+        // ═══════════════════════════════════════════════════════════════
+        // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
+        // ═══════════════════════════════════════════════════════════════
+        const requestedComponents = view
+          ? view.split(',').map((v: string) => v.trim())
+          : ['entityDataTable', 'entityFormContainer', 'kanbanView'];
+
+        const response = generateEntityResponse(ENTITY_CODE, forms, {
+          components: requestedComponents,
+          total,
+          limit,
+          offset
+        });
+
+        // ✨ Extract datalabel keys and fetch datalabels
+        const datalabelKeys = extractDatalabelKeys(response.metadata);
+        if (datalabelKeys.length > 0) {
+          response.datalabels = await fetchDatalabels(db, datalabelKeys);
+        }
+
+        return response;
       } else {
         // Show only latest version (highest version per code group)
         // Use DISTINCT ON to get one row per code with max version
@@ -238,7 +273,27 @@ export async function formRoutes(fastify: FastifyInstance) {
           LIMIT ${limit} OFFSET ${offset}
         `);
 
-        return createPaginatedResponse(forms, total, limit, offset);
+        // ═══════════════════════════════════════════════════════════════
+        // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
+        // ═══════════════════════════════════════════════════════════════
+        const requestedComponents = view
+          ? view.split(',').map((v: string) => v.trim())
+          : ['entityDataTable', 'entityFormContainer', 'kanbanView'];
+
+        const response = generateEntityResponse(ENTITY_CODE, forms, {
+          components: requestedComponents,
+          total,
+          limit,
+          offset
+        });
+
+        // ✨ Extract datalabel keys and fetch datalabels
+        const datalabelKeys = extractDatalabelKeys(response.metadata);
+        if (datalabelKeys.length > 0) {
+          response.datalabels = await fetchDatalabels(db, datalabelKeys);
+        }
+
+        return response;
       }
     } catch (error) {
       fastify.log.error('Error fetching forms: ' + String(error));
@@ -266,6 +321,20 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       const { id } = request.params as { id: string };
 
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+      // ═══════════════════════════════════════════════════════════════
+      const canView = await entityInfra.check_entity_rbac(
+        userId,
+        ENTITY_CODE,
+        id,
+        Permission.VIEW
+      );
+
+      if (!canView) {
+        return reply.status(403).send({ error: 'No permission to view this form' });
+      }
+
       const forms = await db.execute(sql`
         SELECT
           f.id,
@@ -284,22 +353,11 @@ export async function formRoutes(fastify: FastifyInstance) {
           f.version
         FROM app.form_head f
         WHERE f.id = ${id}
-          AND (
-            EXISTS (
-              SELECT 1 FROM app.entity_rbac rbac
-              WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-                AND rbac.entity_name = 'form'
-                AND (rbac.entity_id = f.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-                AND rbac.active_flag = true
-                AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-                AND rbac.permission >= 0
-            )
-          )
         ORDER BY f.version DESC
       `);
 
       if (forms.length === 0) {
-        return reply.status(404).send({ error: 'Form not found or access denied' });
+        return reply.status(404).send({ error: 'Form not found' });
       }
 
       const latestVersion = Math.max(...forms.map((f: any) => f.version));
@@ -319,8 +377,11 @@ export async function formRoutes(fastify: FastifyInstance) {
     schema: {
       params: Type.Object({
         id: Type.String()}),
+      querystring: Type.Object({
+        view: Type.Optional(Type.String()),  // 'entityDetailView,entityFormContainer' or 'entityDataTable'
+      }),
       response: {
-        200: FormSchema,
+        200: FormWithMetadataSchema,  // ✅ Use metadata-driven schema
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     try {
@@ -330,6 +391,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       }
 
       const { id } = request.params as { id: string };
+      const { view } = request.query as any;
 
       // ═══════════════════════════════════════════════════════════════
       // ✅ CENTRALIZED UNIFIED DATA GATE - RBAC gate check
@@ -370,7 +432,37 @@ export async function formRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Form not found' });
       }
 
-      return forms[0];
+      const form = forms[0];
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
+      // Parse requested view (default to detail view components)
+      // ═══════════════════════════════════════════════════════════════
+      const requestedComponents = view
+        ? view.split(',').map((v: string) => v.trim())
+        : ['entityDetailView', 'entityFormContainer'];
+
+      const response = generateEntityResponse(ENTITY_CODE, [form], {
+        components: requestedComponents,
+        total: 1,
+        limit: 1,
+        offset: 0
+      });
+
+      // ✨ Extract datalabel keys and fetch datalabels
+      const datalabelKeys = extractDatalabelKeys(response.metadata);
+      if (datalabelKeys.length > 0) {
+        response.datalabels = await fetchDatalabels(db, datalabelKeys);
+      }
+
+      // Return single item (not array)
+      return reply.send({
+        data: response.data[0],  // Single object, not array
+        fields: response.fields,
+        metadata: response.metadata,
+        datalabels: response.datalabels,
+        globalSettings: response.globalSettings
+      });
     } catch (error) {
       fastify.log.error('Error fetching form: ' + String(error));
       return reply.status(500).send({ error: 'Internal server error' });
@@ -790,21 +882,19 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       fastify.log.info(`GET /form/${id}/data/${submissionId} - User: ${userId}`);
 
-      // Check view permission on form
-      const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}::uuid
-          AND rbac.entity_name = 'form'
-          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 0
-        LIMIT 1
-      `);
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+      // ═══════════════════════════════════════════════════════════════
+      const canView = await entityInfra.check_entity_rbac(
+        userId,
+        ENTITY_CODE,
+        id,
+        Permission.VIEW
+      );
 
-      fastify.log.info(`Permission check returned ${hasPermission.length} results`);
+      fastify.log.info(`Permission check returned ${canView}`);
 
-      if (hasPermission.length === 0) {
+      if (!canView) {
         fastify.log.warn(`No permission for user ${userId} to view form ${id}`);
         return reply.status(403).send({ error: 'No permission to view this form' });
       }
@@ -895,19 +985,17 @@ export async function formRoutes(fastify: FastifyInstance) {
       const { page = 1, limit = 20, status } = request.query as any;
       const offset = (page - 1) * limit;
 
-      // Check view permission on form
-      const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-          AND rbac.entity_name = 'form'
-          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 0
-        LIMIT 1
-      `);
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+      // ═══════════════════════════════════════════════════════════════
+      const canView = await entityInfra.check_entity_rbac(
+        userId,
+        ENTITY_CODE,
+        id,
+        Permission.VIEW
+      );
 
-      if (hasPermission.length === 0) {
+      if (!canView) {
         return reply.status(403).send({ error: 'No permission to view this form' });
       }
 
@@ -986,19 +1074,17 @@ export async function formRoutes(fastify: FastifyInstance) {
       const { id, submissionId } = request.params as { id: string; submissionId: string };
       const data = request.body as any;
 
-      // Check edit permission on form (permission 1)
-      const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-          AND rbac.entity_name = 'form'
-          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 1
-        LIMIT 1
-      `);
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC check for EDIT permission
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await entityInfra.check_entity_rbac(
+        userId,
+        ENTITY_CODE,
+        id,
+        Permission.EDIT
+      );
 
-      if (hasPermission.length === 0) {
+      if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to edit this form submission' });
       }
 
@@ -1059,19 +1145,17 @@ export async function formRoutes(fastify: FastifyInstance) {
       const { id } = request.params as { id: string };
       const data = request.body as any;
 
-      // Check view permission on form
-      const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-          AND rbac.entity_name = 'form'
-          AND (rbac.entity_id = ${id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 0
-        LIMIT 1
-      `);
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC check for VIEW permission
+      // ═══════════════════════════════════════════════════════════════
+      const canView = await entityInfra.check_entity_rbac(
+        userId,
+        ENTITY_CODE,
+        id,
+        Permission.VIEW
+      );
 
-      if (hasPermission.length === 0) {
+      if (!canView) {
         return reply.status(403).send({ error: 'No permission to submit this form' });
       }
 

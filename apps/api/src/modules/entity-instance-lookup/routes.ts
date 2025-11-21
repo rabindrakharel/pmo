@@ -277,20 +277,19 @@ export async function entityInstanceLookupRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // First, verify user has access to the parent entity
-      const parentAccessCheck = await db.execute(sql`
-        SELECT 1
-        FROM app.entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-          AND rbac.entity_name = ${parentCode}
-          AND (rbac.entity_id = ${parentId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 0
-        LIMIT 1
-      `);
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC check for parent entity
+      // ═══════════════════════════════════════════════════════════════
+      const entityInfra = getEntityInfrastructure(db);
 
-      if (parentAccessCheck.length === 0) {
+      const canViewParent = await entityInfra.check_entity_rbac(
+        userId,
+        parentCode,
+        parentId,
+        Permission.VIEW
+      );
+
+      if (!canViewParent) {
         return reply.status(403).send({
           error: 'Access denied to parent entity'
         });
@@ -322,16 +321,15 @@ export async function entityInstanceLookupRoutes(fastify: FastifyInstance) {
           continue;
         }
 
-        // Build RBAC filter for child entities
-        const rbacCondition = sql`EXISTS (
-          SELECT 1 FROM app.entity_rbac rbac
-          WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-            AND rbac.entity_name = ${childCode}
-            AND (rbac.entity_id = e.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-            AND rbac.active_flag = true
-            AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-            AND rbac.permission >= 0
-        )`;
+        // ═══════════════════════════════════════════════════════════════
+        // ✅ ENTITY INFRASTRUCTURE SERVICE - RBAC filter for child entities
+        // ═══════════════════════════════════════════════════════════════
+        const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
+          userId,
+          childCode,
+          Permission.VIEW,
+          'e'
+        );
 
         // Build conditions
         const conditions = [rbacCondition];

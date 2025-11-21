@@ -1179,18 +1179,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const { taskId } = request.params as { taskId: string };
       const employeeId = (request as any).user?.sub;
 
-      // Direct RBAC check for task access
-      const taskAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${employeeId}
-          AND rbac.entity_name = 'task'
-          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 0
-      `);
+      // RBAC check for task access using centralized service
+      const canView = await entityInfra.check_entity_rbac(employeeId, ENTITY_CODE, taskId, Permission.VIEW);
 
-      if (taskAccess.length === 0) {
+      if (!canView) {
         return reply.status(404).send({ error: 'Task not found or access denied' });
       }
 
@@ -1265,18 +1257,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const { content, content_type = 'case_note', mentions = [], attachments = [] } = request.body as any;
       const employeeId = (request as any).user?.sub;
 
-      // Direct RBAC check for task edit access
-      const taskEditAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${employeeId}
-          AND rbac.entity_name = 'task'
-          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 1
-      `);
+      // RBAC check for task edit access using centralized service
+      const canEdit = await entityInfra.check_entity_rbac(employeeId, ENTITY_CODE, taskId, Permission.EDIT);
 
-      if (taskEditAccess.length === 0) {
+      if (!canEdit) {
         return reply.status(404).send({ error: 'Task not found or access denied' });
       }
 
@@ -1346,18 +1330,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const { taskId } = request.params as { taskId: string };
       const employeeId = (request as any).user?.sub;
 
-      // Direct RBAC check for task access
-      const taskAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${employeeId}
-          AND rbac.entity_name = 'task'
-          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 0
-      `);
+      // RBAC check for task access using centralized service
+      const canView = await entityInfra.check_entity_rbac(employeeId, ENTITY_CODE, taskId, Permission.VIEW);
 
-      if (taskAccess.length === 0) {
+      if (!canView) {
         return reply.status(404).send({ error: 'Task not found or access denied' });
       }
 
@@ -1451,17 +1427,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Check RBAC permission to view task
-    const taskAccess = await db.execute(sql`
-      SELECT 1 FROM app.entity_rbac rbac
-      WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-        AND rbac.entity_name = 'task'
-        AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-        AND rbac.active_flag = true
-        AND rbac.permission >= 0
-    `);
+    // Check RBAC permission to view task using centralized service
+    const canViewTask = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
 
-    if (taskAccess.length === 0) {
+    if (!canViewTask) {
       return reply.status(403).send({ error: 'Insufficient permissions to view this task' });
     }
 
