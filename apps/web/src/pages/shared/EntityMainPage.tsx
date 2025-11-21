@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, ArrowLeft } from 'lucide-react';
 import { Layout, FilteredDataTable, ViewSwitcher } from '../../components/shared';
@@ -13,6 +13,7 @@ import { getEntityIcon } from '../../lib/entityIcons';
 import { APIFactory, type EntityMetadata } from '../../lib/api';
 import { type DatalabelData } from '../../lib/frontEndFormatterService';
 import { useSidebar } from '../../contexts/SidebarContext';
+import { useEntityInstanceList, useEntityMutation, usePrefetch } from '../../lib/hooks';
 
 /**
  * Universal EntityMainPage
@@ -36,15 +37,10 @@ export function EntityMainPage({ entityCode, defaultView }: EntityMainPageProps)
   const navigate = useNavigate();
   const config = getEntityConfig(entityCode);
   const [view, setView] = useViewMode(entityCode, defaultView);
-  const [data, setData] = useState<any[]>([]);
-  const [metadata, setMetadata] = useState<EntityMetadata | null>(null);  // Backend metadata
-  const [datalabels, setDatalabels] = useState<DatalabelData[]>([]);  // ✅ Preloaded datalabel data
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
+  const [appendedData, setAppendedData] = useState<any[]>([]); // For pagination append
   const { collapseSidebar } = useSidebar();
+  const { prefetchEntity } = usePrefetch();
 
   // Check if this is a settings entity
   const isSettingsEntity = useMemo(() => {
@@ -56,117 +52,131 @@ export function EntityMainPage({ entityCode, defaultView }: EntityMainPageProps)
     collapseSidebar();
   }, []);
 
-  // Fetch data for kanban and grid views
+  // Reset appended data when view or entity changes
   useEffect(() => {
-    if (view !== 'table' && config) {
-      loadData();
-    }
+    setAppendedData([]);
+    setCurrentPage(1);
   }, [view, entityCode]);
 
-  const loadData = async (page: number = 1, append: boolean = false) => {
-    try {
-      setLoading(true);
-      setError(null);
+  // ============================================================================
+  // ZUSTAND + REACT QUERY INTEGRATION
+  // ============================================================================
+  // Use React Query for data fetching with automatic caching
+  // Data is cached for 2 minutes (CACHE_TTL.ENTITY_LIST)
+  // Metadata and datalabels are cached in Zustand store for cross-component reuse
+  // ============================================================================
 
-      // Type-safe API call using APIFactory
-      const api = APIFactory.getAPI(entityCode);
+  const queryParams = useMemo(() => ({
+    page: currentPage,
+    pageSize: 100,
+    view: view,
+  }), [currentPage, view]);
 
-      // Map view mode to component name for backend metadata filtering
-      const viewComponentMap: Record<ViewMode, string> = {
-        table: 'entityDataTable',
-        kanban: 'kanbanView',
-        grid: 'gridView',
-        calendar: 'calendarView',
-        dag: 'dagView',
-        hierarchy: 'hierarchyGraphView',
-      };
-      const componentView = viewComponentMap[view] || 'entityDataTable';
+  const {
+    data: queryResult,
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useEntityInstanceList(entityCode, queryParams, {
+    // Only fetch for non-table views, table uses FilteredDataTable's own fetching
+    enabled: view !== 'table' && !!config,
+  });
 
-      // Use pageSize of 100 to align with API maximum limit
-      const params: any = { page, pageSize: 100, view: componentView };
-
-      const response = await api.list(params);
-      const newData = response.data || [];
-
-      // Extract backend metadata (only on first load, not on append)
-      if (!append) {
-        if (response.metadata) {
-          setMetadata(response.metadata);
-        }
-        // ✅ Extract preloaded datalabel data for DAG visualization
-        if (response.datalabels) {
-          setDatalabels(response.datalabels);
-        }
-      }
-
-      // Append to existing data for pagination, or replace for initial load
-      setData(append ? [...data, ...newData] : newData);
-      setTotalRecords(response.total || 0);
-      setCurrentPage(page);
-      setHasMore(newData.length === 100); // If we got 100 records, there might be more
-    } catch (err) {
-      console.error(`Failed to load ${entityCode}:`, err);
-      setError(err instanceof Error ? err.message : 'Failed to load data');
-      if (!append) {
-        setData([]);
-      }
-    } finally {
-      setLoading(false);
+  // Extract data from React Query result
+  const data = useMemo(() => {
+    if (!queryResult) return appendedData;
+    // For pagination, combine appended data with new data
+    if (currentPage > 1 && appendedData.length > 0) {
+      return [...appendedData, ...queryResult.data];
     }
-  };
+    return queryResult.data;
+  }, [queryResult, appendedData, currentPage]);
 
-  const handleRowClick = (item: any) => {
+  const metadata = queryResult?.metadata || null;
+  const datalabels = queryResult?.datalabels || [];
+  const totalRecords = queryResult?.total || 0;
+  const hasMore = queryResult?.hasMore || false;
+  const error = queryError?.message || null;
+
+  // Entity mutation for updates (kanban card moves, etc.)
+  const { updateEntity, isUpdating } = useEntityMutation(entityCode);
+
+  // Legacy loadData function for compatibility (now just triggers refetch)
+  const loadData = useCallback(async (page: number = 1, append: boolean = false) => {
+    if (append && page > 1) {
+      // Store current data for appending
+      setAppendedData(data);
+      setCurrentPage(page);
+    } else {
+      setCurrentPage(page);
+      setAppendedData([]);
+    }
+    // React Query will automatically refetch due to queryParams change
+  }, [data]);
+
+  const handleRowClick = useCallback((item: any) => {
     // Use custom detail page ID field if specified, otherwise default to 'id'
     const idField = config.detailPageIdField || 'id';
     const id = item[idField];
     navigate(`/${entityCode}/${id}`);
-  };
+  }, [config, entityCode, navigate]);
 
-  const handleCreateClick = () => {
+  // Prefetch entity data on hover for faster navigation
+  const handleRowHover = useCallback((item: any) => {
+    const idField = config.detailPageIdField || 'id';
+    const id = item[idField];
+    // Prefetch entity detail data in background
+    prefetchEntity(entityCode, id);
+  }, [config, entityCode, prefetchEntity]);
+
+  const handleCreateClick = useCallback(() => {
     navigate(`/${entityCode}/new`);
-  };
+  }, [entityCode, navigate]);
 
-  const handleLoadMore = () => {
+  const handleLoadMore = useCallback(() => {
     loadData(currentPage + 1, true);
-  };
+  }, [currentPage, loadData]);
 
-  const handleBulkShare = (selectedItems: any[]) => {
+  const handleBulkShare = useCallback((selectedItems: any[]) => {
     console.log(`Bulk share ${entityCode}:`, selectedItems.map(i => i.id));
     alert(`Sharing ${selectedItems.length} ${config?.displayName || entityCode}${selectedItems.length !== 1 ? 's' : ''}`);
-  };
+  }, [config, entityCode]);
 
-  const handleBulkDelete = async (selectedItems: any[]) => {
+  const handleBulkDelete = useCallback(async (selectedItems: any[]) => {
     if (window.confirm(`Are you sure you want to delete ${selectedItems.length} ${config?.displayName || entityCode}${selectedItems.length !== 1 ? 's' : ''}?`)) {
       console.log(`Bulk delete ${entityCode}:`, selectedItems.map(i => i.id));
       alert(`Deleted ${selectedItems.length} ${config?.displayName || entityCode}${selectedItems.length !== 1 ? 's' : ''}`);
 
-      // Reload data after delete
+      // Refetch data after delete
       if (view !== 'table') {
-        loadData();
+        refetch();
       }
     }
-  };
+  }, [config, entityCode, view, refetch]);
 
-  const handleCardMove = async (itemId: string, fromColumn: string, toColumn: string) => {
+  // ============================================================================
+  // OPTIMISTIC UPDATES WITH ZUSTAND MUTATION
+  // ============================================================================
+  // Kanban card moves use optimistic updates via useEntityMutation
+  // On error, React Query automatically refetches to restore correct state
+  // ============================================================================
+
+  const handleCardMove = useCallback(async (itemId: string, fromColumn: string, toColumn: string) => {
     if (!config?.kanban) return;
 
     console.log(`Moving ${entityCode} ${itemId} from ${fromColumn} to ${toColumn}`);
 
-    // Optimistic update
-    setData(prev => prev.map(item =>
-      item.id === itemId ? { ...item, [config.kanban!.groupByField]: toColumn } : item
-    ));
-
-    // Type-safe API call to update
     try {
-      const api = APIFactory.getAPI(entityCode);
-      await api.update(itemId, { [config.kanban.groupByField]: toColumn });
+      // Use mutation hook with automatic optimistic update and error rollback
+      await updateEntity({
+        id: itemId,
+        data: { [config.kanban.groupByField]: toColumn }
+      });
     } catch (err) {
       console.error(`Failed to update ${entityCode}:`, err);
-      // Revert optimistic update on error
-      loadData();
+      // React Query will automatically refetch on error
     }
-  };
+  }, [config, entityCode, updateEntity]);
 
   if (!config) {
     return (
@@ -211,7 +221,7 @@ export function EntityMainPage({ entityCode, defaultView }: EntityMainPageProps)
         <div className="text-center py-12">
           <p className="text-red-600">{error}</p>
           <button
-            onClick={loadData}
+            onClick={() => refetch()}
             className="mt-4 px-4 py-2 bg-dark-700 text-white rounded-md hover:bg-dark-800"
           >
             Retry

@@ -648,21 +648,20 @@ export function useEntityData(entityType: string, options: UseEntityDataOptions)
 }
 ```
 
-#### useEntityDetail
+#### useEntityInstance
 
-**Purpose**: Fetch single entity record
+**Purpose**: Fetch single entity instance record
 
-**Location**: `apps/web/src/lib/hooks/useEntityDetail.ts`
+**Location**: `apps/web/src/lib/hooks/useEntityQuery.ts`
 
 **Usage**:
 ```typescript
 const {
-  record,
-  metadata,
-  loading,
+  data,
+  isLoading,
   error,
   refetch
-} = useEntityDetail(entityType, entityId);
+} = useEntityInstance(entityCode, entityId);
 ```
 
 ### 5.2 Form Hooks
