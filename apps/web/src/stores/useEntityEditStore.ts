@@ -13,7 +13,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { getChangedFields, preparePatchData } from '../lib/changeDetection';
-import { api } from '../lib/api';
+import { apiClient } from '../lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 
 // ============================================================================
@@ -235,7 +235,7 @@ export const useEntityEditStore = create<EditState & EditActions>()(
             console.log(`[EntityEditStore] Saving ${Object.keys(changes).length} changed fields:`, changes);
 
             // Send PATCH request with only changed fields
-            const response = await api.put(
+            const response = await apiClient.patch(
               `/api/v1/${state.entityType}/${state.entityId}`,
               changes
             );

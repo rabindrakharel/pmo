@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useMe
 import { getIconComponent } from '../lib/iconMapping';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from './AuthContext';
-import { useMetadataCacheStore } from '../stores/metadataCacheStore';
+import { useEntityCodeMetadataStore } from '../stores/entityCodeMetadataStore';
 
 interface EntityMetadata {
   code: string;
@@ -44,10 +44,10 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
   // ============================================================================
   // ZUSTAND CACHE INTEGRATION
   // ============================================================================
-  // Entity types are cached in Zustand store with 10-minute TTL
+  // Entity types are cached in entityCodeMetadataStore with 30-minute TTL
   // This provides cross-component cache sharing and persistence
   // ============================================================================
-  const metadataCache = useMetadataCacheStore();
+  const entityCodeStore = useEntityCodeMetadataStore();
 
   useEffect(() => {
     const fetchEntityMetadata = async () => {
@@ -71,19 +71,19 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
           return;
         }
 
-        // Check Zustand cache first (10-minute TTL)
-        const cachedTypes = metadataCache.getEntityTypes();
+        // Check Zustand cache first (30-minute TTL)
+        const cachedTypes = entityCodeStore.getEntityCodes();
         if (cachedTypes && cachedTypes.length > 0) {
-          console.log('[EntityMetadataContext] Using cached entity types from Zustand store');
+          console.log('[EntityMetadataContext] Using cached entity types from entityCodeMetadataStore');
           const entityMap = new Map<string, EntityMetadata>();
           cachedTypes.forEach((entity: any) => {
             entityMap.set(entity.code, {
               code: entity.code,
               name: entity.name,
-              ui_label: entity.ui_label,
-              ui_icon: entity.ui_icon,
-              icon: getIconComponent(entity.ui_icon),
-              display_order: entity.display_order,
+              ui_label: entity.label,
+              ui_icon: entity.icon,
+              icon: getIconComponent(entity.icon),
+              display_order: entity.display_order || 0,
               active_flag: entity.active_flag,
             });
           });
@@ -110,16 +110,16 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
             entityMap.set(entity.code, {
               code: entity.code,
               name: entity.name,
-              ui_label: entity.ui_label,
-              ui_icon: entity.ui_icon,
-              icon: getIconComponent(entity.ui_icon),
-              display_order: entity.display_order,
+              ui_label: entity.ui_label || entity.label,
+              ui_icon: entity.ui_icon || entity.icon,
+              icon: getIconComponent(entity.ui_icon || entity.icon),
+              display_order: entity.display_order || 0,
               active_flag: entity.active_flag,
             });
           });
 
-          // Cache in Zustand store (10-minute TTL)
-          metadataCache.setEntityTypes(data);
+          // Cache in entityCodeMetadataStore (30-minute TTL)
+          entityCodeStore.setEntityCodes(data);
 
           setEntities(entityMap);
           console.log(`[EntityMetadataContext] Loaded ${entityMap.size} entity types from API`);

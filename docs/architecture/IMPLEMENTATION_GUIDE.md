@@ -930,74 +930,105 @@ export default async function (fastify: FastifyInstance) {
 # Start API server
 ./tools/start-all.sh
 
-# Test metadata endpoint (you can create this)
-curl -X GET http://localhost:4000/api/v1/project?limit=1 \
+# Test with auth (use test-api.sh or get JWT first)
+./tools/test-api.sh GET "/api/v1/project?limit=1&view=entityDataTable,entityFormContainer"
+
+# Or manually:
+curl -X GET "http://localhost:4000/api/v1/project?limit=1&view=entityDataTable" \
   -H "Authorization: Bearer YOUR_JWT" \
-  | jq '.metadata'
+  | jq '.'
 ```
 
-**Expected Response**:
+**Expected Response** (see `docs/services/backend-formatter.service.md` for full documentation):
+
 ```json
 {
-  "entity": "project",
-  "fields": [
+  "data": [
     {
-      "key": "budget_allocated_amt",
-      "type": "currency",
-      "label": "Budget Allocated",
-      "format": { "symbol": "$", "decimals": 2 },
-      "editType": "number",
-      "viewType": "text",
-      "widget": {
-        "type": "progress-bar",
-        "config": {
-          "maxField": "budget_allocated_amt",
-          "currentField": "budget_spent_amt",
-          "showPercentage": true,
-          "color": "orange"
-        }
-      },
-      "editable": true,
-      "sortable": true,
-      "visible": true,
-      "align": "right"
-    },
-    {
-      "key": "dl__project_stage",
-      "type": "badge",
-      "label": "Project Stage",
-      "format": { "loadFromSettings": true },
-      "editType": "select",
-      "viewType": "badge",
-      "widget": null,
-      "optionsEndpoint": "/api/v1/entity/project_stage/entity-instance-lookup",
-      "editable": true,
-      "sortable": true,
-      "visible": true
-    },
-    {
-      "key": "planned_start_date",
-      "type": "date",
-      "label": "Planned Start",
-      "format": { "style": "short" },
-      "editType": "date",
-      "viewType": "text",
-      "widget": {
-        "type": "date-range-progress",
-        "config": {
-          "startField": "planned_start_date",
-          "endField": "planned_end_date",
-          "showPercentage": true
-        }
-      },
-      "editable": true,
-      "sortable": true,
-      "visible": true
+      "id": "50192aab-000a-17c5-6904-1065b04a0a0b",
+      "code": "CSE-2024-001",
+      "name": "Customer Service Excellence Initiative",
+      "dl__project_stage": "Execution",
+      "budget_allocated_amt": 200000,
+      "manager__employee_id": "8260b1b0-5efc-4611-ad33-ee76c0cf7f13",
+      "_ID": { "manager": { "entity_code": "employee", "manager": "James Miller" } }
     }
   ],
-  "generated_at": "2025-01-19T12:00:00.000Z"
+  "fields": ["id", "code", "name", "dl__project_stage", "budget_allocated_amt", "..."],
+  "metadata": {
+    "entityDataTable": {
+      "budget_allocated_amt": {
+        "dtype": "float",
+        "format": "currency",
+        "viewType": "currency",
+        "editType": "currency",
+        "currencySymbol": "$",
+        "decimals": 2,
+        "locale": "en-CA",
+        "visible": true,
+        "editable": true,
+        "filterable": true,
+        "sortable": true,
+        "align": "right",
+        "width": "140px",
+        "label": "Budget Allocated"
+      },
+      "dl__project_stage": {
+        "dtype": "str",
+        "format": "datalabel_lookup",
+        "viewType": "badge",
+        "editType": "select",
+        "datalabelKey": "dl__project_stage",
+        "visible": true,
+        "editable": true,
+        "label": "Project Stage"
+      },
+      "manager__employee_id": {
+        "dtype": "uuid",
+        "format": "reference",
+        "viewType": "text",
+        "editType": "select",
+        "loadFromEntity": "employee",
+        "endpoint": "/api/v1/entity/employee/entity-instance-lookup",
+        "displayField": "name",
+        "valueField": "id",
+        "visible": true,
+        "editable": true,
+        "label": "Manager Employee Name"
+      }
+    }
+  },
+  "datalabels": [
+    {
+      "name": "dl__project_stage",
+      "options": [
+        { "id": 0, "name": "Initiation", "parent_id": null, "color_code": "blue" },
+        { "id": 1, "name": "Planning", "parent_id": 0, "color_code": "purple" },
+        { "id": 2, "name": "Execution", "parent_id": 1, "color_code": "yellow" }
+      ]
+    }
+  ],
+  "globalSettings": {
+    "currency": { "symbol": "$", "decimals": 2, "locale": "en-CA" },
+    "date": { "format": "MM/DD/YYYY", "locale": "en-US" },
+    "boolean": { "trueLabel": "Yes", "falseLabel": "No" }
+  },
+  "total": 5,
+  "limit": 1,
+  "offset": 0
 }
 ```
+
+**Key Response Properties:**
+
+| Property | Description |
+|----------|-------------|
+| `data` | Entity instances with resolved references (`_ID`, `_IDS`) |
+| `fields` | Ordered field names from database |
+| `metadata` | **Component-keyed** field metadata (e.g., `entityDataTable`, `entityFormContainer`) |
+| `datalabels` | Dropdown options for `dl__*` fields with DAG structure (`parent_id`) |
+| `globalSettings` | Global formatting config (currency, date, timestamp, boolean) |
+| `total`, `limit`, `offset` | Pagination info |
 
 ---
 
@@ -1005,28 +1036,40 @@ curl -X GET http://localhost:4000/api/v1/project?limit=1 \
 
 ### What We Built
 
-1. **Backend Formatter Service**: Convention-based metadata generator
-   - Pattern matching (35+ rules)
-   - Widget detection (3 cross-field patterns)
-   - Caching layer
+1. **Backend Formatter Service** (`apps/api/src/services/backend-formatter.service.ts`)
+   - Pattern matching (35+ rules) for automatic field type detection
+   - Component-aware metadata generation (`entityDataTable`, `entityFormContainer`, etc.)
+   - Datalabel extraction and fetching for `dl__*` fields
+   - Global settings for consistent formatting
 
-2. **Route Integration**: Metadata envelope in responses
-   - No changes to Entity Infrastructure Service
-   - No changes to query logic
-   - Just add metadata to response
+2. **Route Integration**: All entity routes use the standard response pattern
+   - `generateEntityResponse()` creates complete response with metadata
+   - `extractDatalabelKeys()` identifies dropdown fields
+   - `fetchDatalabels()` loads dropdown options with DAG structure
+   - Entity Infrastructure Service handles RBAC and relationships
 
-3. **Field Metadata Structure**: Complete field schema
-   - Type, format, editType, viewType
-   - Widget configuration
-   - Options endpoints for dropdowns
+3. **Response Structure**: Component-keyed field metadata
+   - `data` - Entity instances with resolved references (`_ID`, `_IDS`)
+   - `fields` - Ordered field names from database
+   - `metadata` - Component-specific field configurations
+   - `datalabels` - Dropdown options with parent-child structure
+   - `globalSettings` - Currency, date, timestamp, boolean formatting
+
+### Documentation References
+
+| Document | Description |
+|----------|-------------|
+| `docs/services/backend-formatter.service.md` | Complete API response documentation |
+| `docs/services/entity-infrastructure.service.md` | RBAC and infrastructure operations |
+| `docs/services/frontEndFormatterService.md` | Frontend rendering documentation |
 
 ### Next: Frontend Implementation
 
-See `FRONTEND_IMPLEMENTATION_GUIDE.md` for:
-- Frontend formatter service (renderer only)
-- Component updates (EntityDataTable, EntityFormContainer)
-- Widget components (DateRangeProgress, ProgressBar)
-- Testing & migration
+See `docs/services/frontEndFormatterService.md` for:
+- Frontend formatter service (pure renderer - no pattern detection)
+- Component updates (EntityDataTable, EntityFormContainer, EntityDetailView)
+- Metadata-driven rendering (`renderViewModeFromMetadata`, `renderEditModeFromMetadata`)
+- Integration with React Query caching
 
 ---
 

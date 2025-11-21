@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import { GLOBAL_SETTINGS } from '../../services/backend-formatter.service.js';
 
 // Simplified setting item schema for data table display
 const SettingItemSchema = Type.Object({
@@ -539,6 +540,122 @@ export async function settingRoutes(fastify: FastifyInstance) {
       };
     } catch (error) {
       fastify.log.error('Error reordering settings:', error as any);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ============================================================================
+  // GLOBAL SETTINGS ENDPOINT
+  // Returns global formatting settings (currency, date, timestamp, boolean)
+  // Used by frontend for consistent formatting across all components
+  // Cache: Session-level TTL (rarely changes)
+  // ============================================================================
+  fastify.get('/api/v1/settings/global', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      response: {
+        200: Type.Object({
+          currency: Type.Object({
+            symbol: Type.String(),
+            decimals: Type.Number(),
+            locale: Type.String(),
+            position: Type.String(),
+            thousandsSeparator: Type.String(),
+            decimalSeparator: Type.String(),
+          }),
+          date: Type.Object({
+            style: Type.String(),
+            locale: Type.String(),
+            format: Type.String(),
+          }),
+          timestamp: Type.Object({
+            style: Type.String(),
+            locale: Type.String(),
+            includeSeconds: Type.Boolean(),
+          }),
+          boolean: Type.Object({
+            trueLabel: Type.String(),
+            falseLabel: Type.String(),
+            trueColor: Type.String(),
+            falseColor: Type.String(),
+            trueIcon: Type.String(),
+            falseIcon: Type.String(),
+          }),
+        }),
+      },
+    },
+  }, async (_request, _reply) => {
+    // Return the centralized GLOBAL_SETTINGS from backend-formatter.service
+    return GLOBAL_SETTINGS;
+  });
+
+  // ============================================================================
+  // ALL DATALABELS ENDPOINT (Entity Response Format)
+  // Returns all datalabels in the same format as entity API responses
+  // Used by frontend to pre-fetch all dropdown options at session start
+  // Cache: Session-level TTL (changes infrequently)
+  // ============================================================================
+  fastify.get('/api/v1/settings/datalabels/all', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      response: {
+        200: Type.Object({
+          data: Type.Array(Type.Object({
+            name: Type.String(),
+            label: Type.String(),
+            icon: Type.Union([Type.String(), Type.Null()]),
+            options: Type.Array(Type.Object({
+              id: Type.Number(),
+              name: Type.String(),
+              descr: Type.Optional(Type.String()),
+              parent_id: Type.Union([Type.Number(), Type.Null()]),
+              sort_order: Type.Number(),
+              color_code: Type.Optional(Type.String()),
+              active_flag: Type.Optional(Type.Boolean()),
+            })),
+          })),
+          total: Type.Number(),
+        }),
+      },
+    },
+  }, async (_request, reply) => {
+    try {
+      // Fetch all datalabels with their metadata
+      const results = await db.execute(sql`
+        SELECT
+          datalabel_name,
+          ui_label,
+          ui_icon,
+          metadata
+        FROM app.setting_datalabel
+        ORDER BY datalabel_name
+      `);
+
+      // Transform to entity response format
+      const datalabels = results.map((row: any) => {
+        const metadata = row.metadata || [];
+        return {
+          name: row.datalabel_name,
+          label: row.ui_label,
+          icon: row.ui_icon,
+          options: metadata.map((item: any, index: number) => ({
+            id: item.id ?? index,
+            name: item.name,
+            descr: item.descr || '',
+            parent_id: item.parent_id ?? null,
+            sort_order: item.sort_order ?? index,
+            color_code: item.color_code || null,
+            active_flag: item.active_flag !== false,
+          })),
+        };
+      });
+
+      return {
+        data: datalabels,
+        total: datalabels.length,
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching all datalabels:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

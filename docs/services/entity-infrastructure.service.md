@@ -193,6 +193,54 @@ const query = sql`
 | `GET /api/v1/{entity}` | get_entity_rbac_where_condition |
 | `GET /api/v1/{parent}/:id/{child}` | get_entity_rbac_where_condition (for both parent and child) |
 
+### Integration with Backend Formatter Service
+
+The Entity Infrastructure Service works alongside the **Backend Formatter Service** to generate API responses:
+
+1. **Entity Infrastructure Service** - Handles RBAC, instance registry, and relationships
+2. **Backend Formatter Service** - Generates metadata and formats response
+
+**Complete API Response Pattern:**
+
+```typescript
+// In route handler
+const rbacCondition = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, 'e');
+const entities = await db.execute(sql`SELECT * FROM app.d_project e WHERE ${rbacCondition}`);
+
+// Generate formatted response with metadata
+const response = generateEntityResponse(ENTITY_CODE, entities, {
+  components: ['entityDataTable', 'entityFormContainer'],
+  total, limit, offset
+});
+
+// Fetch datalabels for dropdown fields
+const datalabelKeys = extractDatalabelKeys(response.metadata);
+if (datalabelKeys.length > 0) {
+  response.datalabels = await fetchDatalabels(db, datalabelKeys);
+}
+
+return response;
+```
+
+**Response Structure:**
+```json
+{
+  "data": [...],           // Entity instances
+  "fields": [...],         // Field names list
+  "metadata": {            // Component-keyed field metadata
+    "entityDataTable": { ... },
+    "entityFormContainer": { ... }
+  },
+  "datalabels": [...],     // Dropdown options for dl__* fields
+  "globalSettings": {...}, // Global formatting (currency, date, etc.)
+  "total": 100,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+> **See:** `docs/services/backend-formatter.service.md` for complete API response documentation
+
 ---
 
 ## User Interaction Flow
