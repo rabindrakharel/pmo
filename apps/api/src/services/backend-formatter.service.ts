@@ -1025,24 +1025,39 @@ function findMatchingRule(fieldName: string): PatternRule | null {
  * Generate human-readable label from field name
  */
 function generateLabel(fieldName: string): string {
+  // Special case: field named just "id" stays as "Id"
+  if (fieldName === 'id') {
+    return 'Id';
+  }
+
   // Special handling for entity reference fields with prefix: {prefix}__{entity}_id
   // Examples:
-  //   manager__employee_id → "Manager Employee"
-  //   sponsor__employee_id → "Sponsor Employee"
-  //   parent__project_id → "Parent Project"
+  //   manager__employee_id → "Manager Employee Name"
+  //   sponsor__employee_id → "Sponsor Employee Name"
+  //   parent__project_id → "Parent Project Name"
   const prefixedEntityMatch = fieldName.match(/^(.+?)__(\w+)_id$/);
   if (prefixedEntityMatch) {
     const prefix = prefixedEntityMatch[1];  // "manager", "sponsor", "parent"
     const entity = prefixedEntityMatch[2];  // "employee", "project"
     const prefixLabel = prefix.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     const entityLabel = entity.charAt(0).toUpperCase() + entity.slice(1);
-    return `${prefixLabel} ${entityLabel}`;  // "Manager Employee", "Sponsor Employee"
+    return `${prefixLabel} ${entityLabel} Name`;  // "Manager Employee Name", "Sponsor Employee Name"
+  }
+
+  // Simple entity reference fields: entity_id → "Entity Name"
+  // Examples:
+  //   office_id → "Office Name"
+  //   business_id → "Business Name"
+  const simpleEntityMatch = fieldName.match(/^(\w+)_id$/);
+  if (simpleEntityMatch) {
+    const entity = simpleEntityMatch[1];
+    const entityLabel = entity.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    return `${entityLabel} Name`;  // "Office Name", "Business Name"
   }
 
   // Remove common suffixes and prefixes for clean labels
   let label = fieldName
     .replace(/^dl__/, '')
-    .replace(/_id$/, '')
     .replace(/_amt$/, '')
     .replace(/_date$/, '')
     .replace(/_ts$/, '')

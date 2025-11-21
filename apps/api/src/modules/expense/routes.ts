@@ -33,6 +33,10 @@ import { sql, SQL } from 'drizzle-orm';
 // ✅ Centralized unified data gate - loosely coupled API
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+// ✨ Backend Formatter Service - component-aware metadata generation
+import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter.service.js';
+// ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
+import { fetchDatalabels } from '../../services/datalabel.service.js';
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
@@ -134,6 +138,15 @@ const CreateExpenseSchema = Type.Object({
 
 const UpdateExpenseSchema = Type.Partial(CreateExpenseSchema);
 
+// Response schema for metadata-driven endpoints (single entity)
+const ExpenseWithMetadataSchema = Type.Object({
+  data: ExpenseSchema,
+  fields: Type.Array(Type.String()),
+  metadata: Type.Any(),
+  datalabels: Type.Array(Type.Any()),
+  globalSettings: Type.Any()
+});
+
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
@@ -176,6 +189,10 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       response: {
         200: Type.Object({
           data: Type.Array(ExpenseSchema),
+          fields: Type.Array(Type.String()),
+          metadata: Type.Any(),
+          datalabels: Type.Array(Type.Any()),
+          globalSettings: Type.Any(),
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number()
@@ -257,8 +274,16 @@ export async function expenseRoutes(fastify: FastifyInstance) {
 
       const total = Number(countResult[0]?.total || 0);
 
+      // ✨ Generate component-aware metadata using Backend Formatter Service
+      const response = generateEntityResponse(ENTITY_CODE, dataResult);
+
+      // ✅ Explicitly return all fields (Fastify strips fields not in schema)
       return reply.send({
-        data: dataResult,
+        data: response.data,
+        fields: response.fields,
+        metadata: response.metadata,
+        datalabels: response.datalabels,
+        globalSettings: response.globalSettings,
         total,
         limit,
         offset
@@ -281,7 +306,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
         id: Type.String()
       }),
       response: {
-        200: ExpenseSchema,
+        200: ExpenseWithMetadataSchema,
         404: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })
@@ -323,7 +348,17 @@ export async function expenseRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Expense not found' });
       }
 
-      return reply.send(result[0]);
+      // ✨ Generate component-aware metadata using Backend Formatter Service
+      const response = generateEntityResponse(ENTITY_CODE, result);
+
+      // ✅ Explicitly return all fields (Fastify strips fields not in schema)
+      return reply.send({
+        data: response.data[0],
+        fields: response.fields,
+        metadata: response.metadata,
+        datalabels: response.datalabels,
+        globalSettings: response.globalSettings
+      });
     } catch (error) {
       fastify.log.error('Error fetching expense:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
