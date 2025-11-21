@@ -53,7 +53,7 @@ import { generateEntityResponse, extractDatalabelKeys } from '../../services/bac
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
 import { fetchDatalabels } from '../../services/datalabel.service.js';
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
-import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 
 // Artifact schemas aligned with actual app.artifact columns
 const ArtifactSchema = Type.Object({
@@ -121,6 +121,15 @@ const CreateArtifactSchema = Type.Object({
 
 const UpdateArtifactSchema = Type.Partial(CreateArtifactSchema);
 
+// Response schema for metadata-driven endpoints
+const ArtifactWithMetadataSchema = Type.Object({
+  data: ArtifactSchema,
+  fields: Type.Array(Type.String()),  // Field names list
+  metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+  datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields
+  globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
+});
+
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
@@ -145,14 +154,19 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
         artifact_type: Type.Optional(Type.String()),
-        active: Type.Optional(Type.Boolean())}),
+        active: Type.Optional(Type.Boolean()),
+        view: Type.Optional(Type.String())}),  // 'entityDataTable,kanbanView' or 'entityFormContainer'
       response: {
         200: Type.Object({
           data: Type.Array(ArtifactSchema),
+          fields: Type.Array(Type.String()),
+          metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+          datalabels: Type.Array(Type.Any()),  // DatalabelData[] - always an array (empty if no datalabels)
+          globalSettings: Type.Any(),  // GlobalSettings - currency, date, timestamp formatting
           total: Type.Integer(),
           limit: Type.Integer(),
           offset: Type.Integer()})}}}, async (request, reply) => {
-    const { limit = 20, offset: queryOffset, page, artifact_type, active_flag = true } = request.query as any;
+    const { limit = 20, offset: queryOffset, page, artifact_type, active_flag = true, view } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
     try {
@@ -221,7 +235,31 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return createPaginatedResponse(rows, total, limit, offset);
+      const artifacts = rows;
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
+      // Parse requested view (convert view names to component names)
+      // ═══════════════════════════════════════════════════════════════
+      const requestedComponents = view
+        ? view.split(',').map((v: string) => v.trim())
+        : ['entityDataTable', 'entityFormContainer', 'kanbanView'];
+
+      // Generate response with metadata for requested components only
+      const response = generateEntityResponse(ENTITY_CODE, artifacts, {
+        components: requestedComponents,
+        total,
+        limit,
+        offset
+      });
+
+      // ✨ Extract datalabel keys and fetch datalabels
+      const datalabelKeys = extractDatalabelKeys(response.metadata);
+      if (datalabelKeys.length > 0) {
+        response.datalabels = await fetchDatalabels(db, datalabelKeys);
+      }
+
+      return response;
     } catch (error) {
       fastify.log.error('Error listing artifacts:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -235,13 +273,17 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       tags: ['artifact'],
       summary: 'Get artifact by ID',
       params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
+      querystring: Type.Object({
+        view: Type.Optional(Type.String()),  // 'entityDetailView,entityFormContainer' or 'entityDataTable'
+      }),
       response: {
-        200: ArtifactSchema,
+        200: ArtifactWithMetadataSchema,  // ✅ Use metadata-driven schema
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })
       }}}, async (request, reply) => {
     const { id } = request.params as any;
+    const { view } = request.query as any;
     const userId = (request as any).user?.sub;
 
     if (!userId) {
@@ -278,7 +320,38 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       `);
 
       if (!result.length) return reply.status(404).send({ error: 'Artifact not found' });
-      return result[0];
+
+      const artifact = result[0];
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
+      // Parse requested view (default to detail view components)
+      // ═══════════════════════════════════════════════════════════════
+      const requestedComponents = view
+        ? view.split(',').map((v: string) => v.trim())
+        : ['entityDetailView', 'entityFormContainer'];
+
+      const response = generateEntityResponse(ENTITY_CODE, [artifact], {
+        components: requestedComponents,
+        total: 1,
+        limit: 1,
+        offset: 0
+      });
+
+      // ✨ Extract datalabel keys and fetch datalabels
+      const datalabelKeys = extractDatalabelKeys(response.metadata);
+      if (datalabelKeys.length > 0) {
+        response.datalabels = await fetchDatalabels(db, datalabelKeys);
+      }
+
+      // Return single item (not array)
+      return reply.send({
+        data: response.data[0],  // Single object, not array
+        fields: response.fields,
+        metadata: response.metadata,
+        datalabels: response.datalabels,
+        globalSettings: response.globalSettings
+      });
     } catch (error) {
       fastify.log.error('Error getting artifact:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

@@ -124,6 +124,15 @@ const CreateRevenueSchema = Type.Object({
 
 const UpdateRevenueSchema = Type.Partial(CreateRevenueSchema);
 
+// Response schema for metadata-driven endpoints
+const RevenueWithMetadataSchema = Type.Object({
+  data: RevenueSchema,
+  fields: Type.Array(Type.String()),  // Field names list
+  metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+  datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields
+  globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
+});
+
 // ============================================================================
 // Module-level constants (DRY - used across all endpoints)
 // ============================================================================
@@ -162,10 +171,15 @@ export async function revenueRoutes(fastify: FastifyInstance) {
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
+        view: Type.Optional(Type.String()),  // 'entityDataTable,kanbanView' or 'entityFormContainer'
       }),
       response: {
         200: Type.Object({
           data: Type.Array(RevenueSchema),
+          fields: Type.Array(Type.String()),
+          metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+          datalabels: Type.Array(Type.Any()),  // DatalabelData[] - always an array (empty if no datalabels)
+          globalSettings: Type.Any(),  // GlobalSettings - currency, date, timestamp formatting
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number()
@@ -183,7 +197,8 @@ export async function revenueRoutes(fastify: FastifyInstance) {
     const {
       limit: queryLimit,
       offset: queryOffset,
-      page
+      page,
+      view
     } = request.query as any;
 
     // Calculate pagination with defaults
@@ -246,13 +261,31 @@ export async function revenueRoutes(fastify: FastifyInstance) {
       ]);
 
       const total = Number(countResult[0]?.total || 0);
+      const revenues = dataResult;
 
-      return reply.send({
-        data: dataResult,
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
+      // Parse requested view (convert view names to component names)
+      // ═══════════════════════════════════════════════════════════════
+      const requestedComponents = view
+        ? view.split(',').map((v: string) => v.trim())
+        : ['entityDataTable', 'entityFormContainer', 'kanbanView'];
+
+      // Generate response with metadata for requested components only
+      const response = generateEntityResponse(ENTITY_CODE, revenues, {
+        components: requestedComponents,
         total,
         limit,
         offset
       });
+
+      // ✨ Extract datalabel keys and fetch datalabels
+      const datalabelKeys = extractDatalabelKeys(response.metadata);
+      if (datalabelKeys.length > 0) {
+        response.datalabels = await fetchDatalabels(db, datalabelKeys);
+      }
+
+      return response;
     } catch (error) {
       fastify.log.error('Error fetching revenue:', error as any);
       console.error('Full error details:', error);
@@ -270,8 +303,11 @@ export async function revenueRoutes(fastify: FastifyInstance) {
       params: Type.Object({
         id: Type.String()
       }),
+      querystring: Type.Object({
+        view: Type.Optional(Type.String()),  // 'entityDetailView,entityFormContainer' or 'entityDataTable'
+      }),
       response: {
-        200: RevenueSchema,
+        200: RevenueWithMetadataSchema,  // ✅ Use metadata-driven schema
         404: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })
@@ -279,6 +315,7 @@ export async function revenueRoutes(fastify: FastifyInstance) {
     }
   }, async (request, reply) => {
     const { id } = request.params as any;
+    const { view } = request.query as any;
     const userId = (request as any).user?.sub;
 
     if (!userId) {
@@ -313,7 +350,37 @@ export async function revenueRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Revenue not found' });
       }
 
-      return reply.send(result[0]);
+      const revenue = result[0];
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
+      // Parse requested view (default to detail view components)
+      // ═══════════════════════════════════════════════════════════════
+      const requestedComponents = view
+        ? view.split(',').map((v: string) => v.trim())
+        : ['entityDetailView', 'entityFormContainer'];
+
+      const response = generateEntityResponse(ENTITY_CODE, [revenue], {
+        components: requestedComponents,
+        total: 1,
+        limit: 1,
+        offset: 0
+      });
+
+      // ✨ Extract datalabel keys and fetch datalabels
+      const datalabelKeys = extractDatalabelKeys(response.metadata);
+      if (datalabelKeys.length > 0) {
+        response.datalabels = await fetchDatalabels(db, datalabelKeys);
+      }
+
+      // Return single item (not array)
+      return reply.send({
+        data: response.data[0],  // Single object, not array
+        fields: response.fields,
+        metadata: response.metadata,
+        datalabels: response.datalabels,
+        globalSettings: response.globalSettings
+      });
     } catch (error) {
       fastify.log.error('Error fetching revenue:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
