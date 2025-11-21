@@ -223,7 +223,8 @@
       "Bash(/tmp/test-office-api.sh)",
       "Bash(/tmp/api-flow-demo.sh)",
       "Bash(/tmp/test-partial-update.sh:*)",
-      "Bash(/tmp/test-full-patch.sh)"
+      "Bash(/tmp/test-full-patch.sh)",
+      "Bash(/tmp/test-project-api.sh)"
     ],
     "deny": [],
     "ask": [],
