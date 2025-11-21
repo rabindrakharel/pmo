@@ -214,7 +214,7 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
     return [overviewTab, ...filteredTabs];
   }, [tabs, entityCode, id, hasChildEntities]);
 
-  // NOTE: Data fetching is now handled by useEntityDetail hook via React Query
+  // NOTE: Data fetching is now handled by useEntityInstance hook via React Query
   // The loadData function above is just a wrapper around refetch() for legacy compatibility
 
   // Auto-edit mode when navigating from child entity creation
