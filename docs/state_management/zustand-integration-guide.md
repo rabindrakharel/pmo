@@ -651,7 +651,7 @@ This section provides detailed execution traces showing exactly when and how dat
 
 ### Hook Execution: How Hooks Get Parameters and When They Run
 
-#### `useEntityDetail` - Complete Execution Trace
+#### `useEntityInstance` - Complete Execution Trace
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -681,20 +681,20 @@ This section provides detailed execution traces showing exactly when and how dat
 │   // entityCode = 'project'                                                 │
 │   // id = '550e8400-e29b-41d4-a716-446655440000'                            │
 │                                                                             │
-│   const { data, isLoading } = useEntityDetail(entityCode, id);              │
+│   const { data, isLoading } = useEntityInstance(entityCode, id);              │
 │   // ↓ Hook is called with extracted parameters                             │
 │ }                                                                           │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ STEP 4: useEntityDetail Hook Initializes                                    │
+│ STEP 4: useEntityInstance Hook Initializes                                    │
 │                                                                             │
 │ // useEntityQuery.ts                                                        │
-│ export function useEntityDetail(entityCode: string, id: string) {           │
+│ export function useEntityInstance(entityCode: string, id: string) {           │
 │   // Generate cache key from parameters                                     │
-│   const queryKey = queryKeys.entityDetail(entityCode, id);                  │
-│   // → ['entity-detail', 'project', '550e8400-...']                         │
+│   const queryKey = queryKeys.entityInstance(entityCode, id);                  │
+│   // → ['entity-instance', 'project', '550e8400-...']                         │
 │                                                                             │
 │   return useQuery({                                                         │
 │     queryKey,                                                               │
@@ -709,7 +709,7 @@ This section provides detailed execution traces showing exactly when and how dat
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ STEP 5: React Query Cache Check                                             │
 │                                                                             │
-│ Query Key: ['entity-detail', 'project', '550e8400-...']                     │
+│ Query Key: ['entity-instance', 'project', '550e8400-...']                     │
 │                                                                             │
 │ IF CACHE HIT (data exists && not stale):                                    │
 │ ├─→ Return cached data immediately                                          │
@@ -743,7 +743,7 @@ This section provides detailed execution traces showing exactly when and how dat
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ STEP 7: Response Stored in Cache                                            │
 │                                                                             │
-│ Cache Key: ['entity-detail', 'project', '550e8400-...']                     │
+│ Cache Key: ['entity-instance', 'project', '550e8400-...']                     │
 │ Cache TTL: 5 minutes (CACHE_TTL.ENTITY_DETAIL)                              │
 │                                                                             │
 │ Cached Data: {                                                              │
@@ -758,7 +758,7 @@ This section provides detailed execution traces showing exactly when and how dat
 │ STEP 8: Component Re-renders with Data                                      │
 │                                                                             │
 │ function EntityDetailPage() {                                               │
-│   const { data, isLoading } = useEntityDetail(entityCode, id);              │
+│   const { data, isLoading } = useEntityInstance(entityCode, id);              │
 │   // isLoading = false                                                      │
 │   // data = { data: {...}, metadata: {...}, datalabels: [...] }             │
 │                                                                             │
@@ -773,7 +773,7 @@ This section provides detailed execution traces showing exactly when and how dat
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### `useEntityList` - Complete Execution Trace
+#### `useEntityInstanceList` - Complete Execution Trace
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -796,17 +796,17 @@ This section provides detailed execution traces showing exactly when and how dat
 │     // ... other filters                                                    │
 │   };                                                                        │
 │                                                                             │
-│   const { data, isLoading } = useEntityList(entityCode, queryParams);       │
+│   const { data, isLoading } = useEntityInstanceList(entityCode, queryParams);       │
 │ }                                                                           │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ STEP 3: useEntityList Hook Initializes                                      │
+│ STEP 3: useEntityInstanceList Hook Initializes                                      │
 │                                                                             │
-│ export function useEntityList(entityCode, params) {                         │
-│   const queryKey = queryKeys.entityList(entityCode, params);                │
-│   // → ['entity-list', 'office', { limit: 50, offset: 0 }]                  │
+│ export function useEntityInstanceList(entityCode, params) {                         │
+│   const queryKey = queryKeys.entityInstanceList(entityCode, params);                │
+│   // → ['entity-instance-list', 'office', { limit: 50, offset: 0 }]                  │
 │                                                                             │
 │   return useQuery({                                                         │
 │     queryKey,                                                               │
@@ -821,9 +821,9 @@ This section provides detailed execution traces showing exactly when and how dat
 │ STEP 4: Cache Key Includes Params (Pagination-Aware)                        │
 │                                                                             │
 │ Different cache entries for different params:                               │
-│ • ['entity-list', 'office', {limit:50, offset:0}]   → Page 1                │
-│ • ['entity-list', 'office', {limit:50, offset:50}]  → Page 2                │
-│ • ['entity-list', 'office', {search:'Toronto'}]     → Filtered              │
+│ • ['entity-instance-list', 'office', {limit:50, offset:0}]   → Page 1                │
+│ • ['entity-instance-list', 'office', {limit:50, offset:50}]  → Page 2                │
+│ • ['entity-instance-list', 'office', {search:'Toronto'}]     → Filtered              │
 │                                                                             │
 │ Cache behavior:                                                             │
 │ • Each param combination has its own cache entry                            │
@@ -837,7 +837,7 @@ This section provides detailed execution traces showing exactly when and how dat
 │                                                                             │
 │ GET /api/v1/office?limit=50&offset=0&view=entityDataTable                   │
 │                                                                             │
-│ Response cached with key ['entity-list', 'office', {...params}]             │
+│ Response cached with key ['entity-instance-list', 'office', {...params}]             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -939,7 +939,7 @@ This section provides detailed execution traces showing exactly when and how dat
 │ STEP 5: Optimistic Update Applied                                           │
 │                                                                             │
 │ // Before API call, React Query cache is updated:                           │
-│ queryClient.setQueryData(['entity-detail', 'office', 'uuid-123'], old => ({ │
+│ queryClient.setQueryData(['entity-instance', 'office', 'uuid-123'], old => ({ │
 │   ...old,                                                                   │
 │   data: { ...old.data, budget_allocated_amt: 75000 }                        │
 │ }));                                                                        │
@@ -992,12 +992,12 @@ This section provides detailed execution traces showing exactly when and how dat
 │                                                                             │
 │ // After PATCH returns 200:                                                 │
 │ queryClient.invalidateQueries({                                             │
-│   queryKey: ['entity-detail', 'office', 'uuid-123']                         │
+│   queryKey: ['entity-instance', 'office', 'uuid-123']                         │
 │ });                                                                         │
 │                                                                             │
 │ // Also invalidate list cache (row may have changed)                        │
 │ queryClient.invalidateQueries({                                             │
-│   queryKey: ['entity-list', 'office'],                                      │
+│   queryKey: ['entity-instance-list', 'office'],                                      │
 │   exact: false  // Matches all office list queries (any params)             │
 │ });                                                                         │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -1007,10 +1007,10 @@ This section provides detailed execution traces showing exactly when and how dat
 │ STEP 2: User Clicks "Back" → Navigates to /office                           │
 │                                                                             │
 │ EntityMainPage mounts with:                                                 │
-│ const { data } = useEntityList('office', { limit: 50 });                    │
+│ const { data } = useEntityInstanceList('office', { limit: 50 });                    │
 │                                                                             │
 │ Cache Status:                                                               │
-│ • Key ['entity-list', 'office', {...}] was invalidated                      │
+│ • Key ['entity-instance-list', 'office', {...}] was invalidated                      │
 │ • isStale = true                                                            │
 │ • React Query triggers background refetch                                   │
 │                                                                             │
@@ -1037,7 +1037,7 @@ This section provides detailed execution traces showing exactly when and how dat
 │ // usePrefetch hook                                                         │
 │ prefetchDetail: (entityCode, id) => {                                       │
 │   queryClient.prefetchQuery({                                               │
-│     queryKey: ['entity-detail', entityCode, id],                            │
+│     queryKey: ['entity-instance', entityCode, id],                            │
 │     queryFn: () => fetchEntityDetail(entityCode, id),                       │
 │     staleTime: CACHE_TTL.ENTITY_DETAIL                                      │
 │   });                                                                       │
@@ -1061,7 +1061,7 @@ This section provides detailed execution traces showing exactly when and how dat
 │ STEP 3: User Clicks Row → Navigates to /office/uuid-456                     │
 │                                                                             │
 │ EntityDetailPage mounts:                                                    │
-│ const { data, isLoading } = useEntityDetail('office', 'uuid-456');          │
+│ const { data, isLoading } = useEntityInstance('office', 'uuid-456');          │
 │                                                                             │
 │ Cache Status:                                                               │
 │ • Data already in cache from prefetch!                                      │
@@ -1135,8 +1135,8 @@ This section provides detailed execution traces showing exactly when and how dat
 | Hook | Triggered By | Cache Key Structure | TTL |
 |------|--------------|---------------------|-----|
 | `useEntityCodes` | App mount, sidebar render | `['entity-codes']` | 10 min |
-| `useEntityList` | Page mount (list view) | `['entity-list', entityCode, params]` | 2 min |
-| `useEntityDetail` | Page mount (detail view) | `['entity-detail', entityCode, id]` | 5 min |
+| `useEntityInstanceList` | Page mount (list view) | `['entity-instance-list', entityCode, params]` | 2 min |
+| `useEntityInstance` | Page mount (detail view) | `['entity-instance', entityCode, id]` | 5 min |
 | `useDatalabels` | Form mount (needs dropdowns) | `['datalabels', entityCode]` | 10 min |
 | `useEntityMutation` | Save button click | N/A (invalidates related) | - |
 | `usePrefetch` | Row hover (optional) | Pre-populates detail cache | 5 min |
