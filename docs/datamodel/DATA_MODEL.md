@@ -64,10 +64,10 @@ Entity Relationship Flow (No Foreign Keys)
 d_project                entity_instance_link              d_task
 ─────────                ────────────────────              ──────
 
-id: uuid-1          →    parent_entity_type: 'project'    ←    id: uuid-2
-name: "Website"          parent_entity_id: uuid-1               name: "Design"
-                         child_entity_type: 'task'
-                         child_entity_id: uuid-2
+id: uuid-1          →    entity_code: 'project'           ←    id: uuid-2
+name: "Website"          entity_instance_id: uuid-1            name: "Design"
+                         child_entity_code: 'task'
+                         child_entity_instance_id: uuid-2
 
 
 RBAC Permission Flow
@@ -191,7 +191,7 @@ PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app
 |-------|---------|-------------|
 | `entity` | Entity type metadata | code, name, icon, child_entity_codes |
 | `entity_instance` | Instance registry | entity_code, entity_id, entity_instance_name |
-| `entity_instance_link` | Relationships | parent_entity_type, parent_entity_id, child_entity_type, child_entity_id |
+| `entity_instance_link` | Relationships | entity_code, entity_instance_id, child_entity_code, child_entity_instance_id |
 | `entity_rbac` | Permissions | employee_id, entity_type, entity_id, permission[] |
 
 ### Permission Array
