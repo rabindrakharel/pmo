@@ -1,3 +1,18 @@
+
+Signed in, went to his page: http://localhost:5173/welcome, Clicked on office button in sidebar, went to page http://localhost:5173/office, clicked on first record in data table, 
+http://localhost:5173/office/f3f1d494-a334-49cc-aa23-540f8b59da5f
+
+Check the below logs if you see any issues. \
+\docs/services/backend-formatter.service.md
+docs/services/entity-infrastructure.service.md\
+
+Find issuse if any! and list the issues only, don't fix but list the issue and propose solution. Don't fix. Where else might we have such issue? Write them. 
+
+
+
+
+
+
 You are a Staff-level Advanced Software Engineer and Solutions Architect.
 Your task is to produce crisp, concise, technically coherent documentation describing the final state of a system’s architecture, patterns, flows, and relationships.
 

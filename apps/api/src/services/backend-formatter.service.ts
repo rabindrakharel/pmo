@@ -1114,11 +1114,16 @@ function generateFieldMetadataForComponent(
 
   if (!rule) {
     // Default text field for unknown patterns
+    // Unknown fields should be visible and editable in forms (entityFormContainer)
+    // and visible (read-only) in detail/table views
     return {
       dtype: 'str',
       format: 'text',
       internal: false,
-      visible: component === 'entityDataTable' || component === 'entityDetailView' || component === 'gridView',
+      visible: component === 'entityDataTable' ||
+               component === 'entityDetailView' ||
+               component === 'entityFormContainer' ||  // ✅ FIX: Make visible in forms
+               component === 'gridView',
       filterable: component === 'entityDataTable' || component === 'entityDetailView',
       sortable: component === 'entityDataTable' || component === 'entityDetailView',
       editable: component === 'entityFormContainer',

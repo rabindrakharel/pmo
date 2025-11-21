@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { getIconComponent } from '../../../lib/iconMapping';
+import { useEntityCodeMetadataStore } from '../../../stores/entityCodeMetadataStore';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -92,9 +93,11 @@ export function DynamicChildEntityTabs({
 }
 
 // Hook for generating tabs from centralized entity metadata API
+// Uses Zustand cache (entityCodeMetadataStore) to avoid duplicate API calls
 export function useDynamicChildEntityTabs(parentType: string, parentId: string) {
   const [tabs, setTabs] = React.useState<HeaderTab[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const entityCodeStore = useEntityCodeMetadataStore();
 
   React.useEffect(() => {
     const fetchChildTabs = async () => {
@@ -116,8 +119,41 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
           return;
         }
 
-        // ✅ UNIFIED ENDPOINT: Fetch entity type metadata (includes enriched child entities)
-        // Replaces: /api/v1/entity/child-tabs/${parentType}/${parentId}
+        // ✅ CHECK ZUSTAND CACHE FIRST (30-minute TTL)
+        // This eliminates duplicate API calls when navigating between entity details
+        const cachedEntity = entityCodeStore.getEntityByCode(parentType);
+        if (cachedEntity && cachedEntity.child_entity_codes) {
+          console.log(`%c[DynamicChildEntityTabs] Cache HIT for ${parentType}`, 'color: #51cf66; font-weight: bold');
+
+          // Build enriched child_entities from cached entity codes
+          const enrichedChildEntities = cachedEntity.child_entity_codes
+            .map((childCode: string) => {
+              const childEntity = entityCodeStore.getEntityByCode(childCode);
+              if (childEntity) {
+                return {
+                  entity: childEntity.code,
+                  ui_label: childEntity.label || childEntity.name,
+                  ui_icon: childEntity.icon,
+                  order: 999
+                };
+              }
+              return null;
+            })
+            .filter(Boolean);
+
+          // Build data object with enriched child_entities
+          const enrichedData = {
+            ...cachedEntity,
+            ui_icon: cachedEntity.icon,
+            child_entities: enrichedChildEntities
+          };
+
+          buildTabsFromData(enrichedData, parentType, parentId, setTabs, setLoading);
+          return;
+        }
+
+        // ✅ CACHE MISS: Fetch from API
+        console.log(`%c[DynamicChildEntityTabs] Cache MISS for ${parentType}, fetching from API`, 'color: #fcc419');
         const response = await fetch(`${API_BASE_URL}/api/v1/entity/codes/${parentType}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -127,42 +163,7 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
 
         if (response.ok) {
           const data = await response.json();
-
-          // If no child entities defined, show overview only
-          if (!data.child_entities || data.child_entities.length === 0) {
-            setTabs([
-              {
-                id: 'overview',
-                label: 'Overview',
-                path: `/${parentType}/${parentId}`,
-                icon: getIconComponent(data.ui_icon),
-              }
-            ]);
-            setLoading(false);
-            return;
-          }
-
-          // Convert API data to tab format - child_entities are already ordered
-          // IMPORTANT: Use ui_icon from child_entities (from entity table)
-          const generatedTabs: HeaderTab[] = data.child_entities.map((tab: any) => ({
-            id: tab.entity,
-            label: tab.ui_label,
-            icon: getIconComponent(tab.ui_icon), // ✅ Uses API-provided icon from entity.ui_icon
-            path: `/${parentType}/${parentId}/${tab.entity}`,
-            disabled: false,
-            order: tab.order || 999
-          }));
-
-          // Add overview tab at the beginning with parent icon from API
-          setTabs([
-            {
-              id: 'overview',
-              label: 'Overview',
-              path: `/${parentType}/${parentId}`,
-              icon: getIconComponent(data.ui_icon), // ✅ Uses parent icon from API
-            },
-            ...generatedTabs
-          ]);
+          buildTabsFromData(data, parentType, parentId, setTabs, setLoading);
         } else {
           // Fallback: show overview only if API call fails
           console.warn(`API call failed with status ${response.status}: ${response.statusText}, showing overview only`);
@@ -180,6 +181,7 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
               icon: getIconComponent(null),
             }
           ]);
+          setLoading(false);
         }
       } catch (error) {
         // Fallback: show overview only if API call fails
@@ -192,7 +194,6 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
             icon: getIconComponent(null),
           }
         ]);
-      } finally {
         setLoading(false);
       }
     };
@@ -200,7 +201,53 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
     if (parentId) {
       fetchChildTabs();
     }
-  }, [parentType, parentId]);
+  }, [parentType, parentId, entityCodeStore]);
 
   return { tabs, loading };
+}
+
+// Helper function to build tabs from entity data (cached or fetched)
+function buildTabsFromData(
+  data: any,
+  parentType: string,
+  parentId: string,
+  setTabs: React.Dispatch<React.SetStateAction<HeaderTab[]>>,
+  setLoading: React.Dispatch<React.SetStateAction<boolean>>
+) {
+  // If no child entities defined, show overview only
+  if (!data.child_entities || data.child_entities.length === 0) {
+    setTabs([
+      {
+        id: 'overview',
+        label: 'Overview',
+        path: `/${parentType}/${parentId}`,
+        icon: getIconComponent(data.ui_icon || data.icon),
+      }
+    ]);
+    setLoading(false);
+    return;
+  }
+
+  // Convert API data to tab format - child_entities are already ordered
+  // IMPORTANT: Use ui_icon from child_entities (from entity table)
+  const generatedTabs: HeaderTab[] = data.child_entities.map((tab: any) => ({
+    id: tab.entity,
+    label: tab.ui_label,
+    icon: getIconComponent(tab.ui_icon), // ✅ Uses API-provided icon from entity.ui_icon
+    path: `/${parentType}/${parentId}/${tab.entity}`,
+    disabled: false,
+    order: tab.order || 999
+  }));
+
+  // Add overview tab at the beginning with parent icon from API
+  setTabs([
+    {
+      id: 'overview',
+      label: 'Overview',
+      path: `/${parentType}/${parentId}`,
+      icon: getIconComponent(data.ui_icon || data.icon), // ✅ Uses parent icon from API
+    },
+    ...generatedTabs
+  ]);
+  setLoading(false);
 }
