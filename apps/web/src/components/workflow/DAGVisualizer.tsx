@@ -1,218 +1,74 @@
 /**
  * DAGVisualizer - Reusable DAG graph visualization component
  *
- * NEW ARCHITECTURE: Auto-detects stage/funnel fields and loads DAG structure
- * Can work in two modes:
- * 1. Legacy: Pass nodes array directly
- * 2. Auto: Pass data record, auto-detects stage field and loads DAG
+ * FIXED: Component now receives all data via props
+ * - No API calls
+ * - No data fetching
+ * - Pure presentation component
+ * - Parent components provide nodes from preloaded data
  */
-import { useState, useEffect, useMemo } from 'react';
 import type { ReactElement } from 'react';
 
-// ============================================================================
-// TEMPORARY: Minimal compatibility (viewConfigGenerator.ts removed)
-// TODO: Migrate to backend metadata architecture
-// ============================================================================
-import { loadFieldOptions } from '../../lib/settingsLoader';
-
-/**
- * @deprecated Temporary replacement for viewConfigGenerator.generateDAGConfig()
- * TODO: Migrate to backend metadata architecture
- */
-function generateDAGConfig(
-  fieldKeys: string[],
-  dataTypes?: Record<string, string>
-): { stageField: string; datalabel: string } | null {
-  // Auto-detect: dl__*_stage or dl__*_funnel
-  const stageField = fieldKeys.find(k =>
-    k.startsWith('dl__') && (k.includes('stage') || k.includes('funnel'))
-  );
-
-  if (!stageField) return null;
-
-  return {
-    stageField,
-    datalabel: stageField
-  };
-}
-
 export interface DAGNode {
-  id: number;           // DAG state index (workflow node position)
-  node_name: string;    // Entity type name (displayed in node)
-  internal_id?: string; // Actual entity_id (UUID) - optional if entity not created yet
-  parent_ids: number[]; // Parent DAG state indexes
+  id: number;
+  node_name: string;
+  parent_ids: number[];
 }
 
 interface NodePosition {
-  id: number;
   x: number;
   y: number;
   layer: number;
 }
 
 interface DAGVisualizerProps {
-  // ============================================================================
-  // NEW ARCHITECTURE: Auto-Generation (Universal Field Detector)
-  // ============================================================================
   /**
-   * Data record containing stage/funnel field
-   * When provided, auto-detects stage field and loads DAG structure
-   * @example
-   * <DAGVisualizer data={project} />
-   * // Auto-detects: dl__project_stage, loads DAG from settings
+   * DAG nodes to display - REQUIRED
+   * Must be provided by parent component from preloaded data
+   * No API calls should be made by this component
    */
-  data?: Record<string, any>;
+  nodes: DAGNode[];
 
   /**
-   * Optional: Explicitly specify stage field (overrides auto-detection)
-   * @example
-   * stageField="dl__project_stage"
+   * Current node ID (the active stage)
    */
-  stageField?: string;
-
-  /**
-   * Optional data types for auto-generation
-   */
-  dataTypes?: Record<string, string>;
-
-  // Legacy props (kept for backward compatibility with existing code)
-  nodes?: DAGNode[];
   currentNodeId?: number;
+
+  /**
+   * Callback when a node is clicked
+   */
   onNodeClick?: (nodeId: number) => void;
 }
 
 export function DAGVisualizer({
-  data,
-  stageField: explicitStageField,
-  dataTypes,
-  nodes: legacyNodes,
-  currentNodeId: legacyCurrentNodeId,
+  nodes,
+  currentNodeId,
   onNodeClick
 }: DAGVisualizerProps) {
   // ============================================================================
-  // NEW ARCHITECTURE: Auto-Generation
+  // FIXED: Use props directly, no API calls
   // ============================================================================
-  const [autoNodes, setAutoNodes] = useState<DAGNode[]>([]);
-  const [autoCurrentNodeId, setAutoCurrentNodeId] = useState<number | undefined>();
-  const [isGenerating, setIsGenerating] = useState(false);
+  // DAGVisualizer should NEVER make API calls
+  // All data comes from props passed by parent components
+  // The backend already includes datalabel data in the response
 
-  // Auto-detect stage field using universal field detector
-  // ✅ FIX: Extract field keys separately to prevent infinite loop
-  // Create stable string representation directly
-  const fieldKeysString = useMemo(() => {
-    if (!data) return '';
-    return Object.keys(data).sort().join(',');
-  }, [data ? Object.keys(data).length : 0, ...(data ? Object.keys(data).sort() : [])]);
-
-  const detectedConfig = useMemo(() => {
-    if (!fieldKeysString) return null;
-
-    const fieldKeys = fieldKeysString.split(',');
-    return generateDAGConfig(fieldKeys, dataTypes);
-  }, [fieldKeysString, dataTypes]);
-
-  // Load DAG structure from settings
-  useEffect(() => {
-    const loadDAGStructure = async () => {
-      if (!data) {
-        setAutoNodes([]);
-        setAutoCurrentNodeId(undefined);
-        return;
-      }
-
-      setIsGenerating(true);
-      try {
-        // Use explicit stageField if provided, otherwise use detected field
-        const stageFieldKey = explicitStageField || detectedConfig?.stageField;
-
-        if (!stageFieldKey) {
-          console.warn('[DAGVisualizer] No stage field found');
-          setAutoNodes([]);
-          setAutoCurrentNodeId(undefined);
-          return;
-        }
-
-        // Extract datalabel from field name (e.g., dl__project_stage → dl__project_stage)
-        const datalabel = detectedConfig?.datalabel || stageFieldKey;
-
-        // Load DAG structure from settings
-        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
-        const token = localStorage.getItem('auth_token');
-        const headers: HeadersInit = { 'Content-Type': 'application/json' };
-        if (token) headers.Authorization = `Bearer ${token}`;
-
-        const response = await fetch(`${API_BASE_URL}/api/v1/setting?datalabel=${datalabel}&raw=true`, { headers });
-        if (!response.ok) {
-          console.error('[DAGVisualizer] Failed to load DAG structure');
-          setAutoNodes([]);
-          setAutoCurrentNodeId(undefined);
-          return;
-        }
-
-        const result = await response.json();
-
-        if (result.data && Array.isArray(result.data)) {
-          const dagNodes: DAGNode[] = result.data.map((item: any) => {
-            let parentIds: number[] = [];
-            if (Array.isArray(item.parent_ids)) {
-              parentIds = item.parent_ids;
-            } else if (item.parent_id !== null && item.parent_id !== undefined) {
-              parentIds = [item.parent_id];
-            }
-
-            return {
-              id: item.id,
-              node_name: item.name,
-              parent_ids: parentIds
-            };
-          });
-
-          setAutoNodes(dagNodes);
-
-          // Set current node based on data value
-          const currentStageValue = data[stageFieldKey];
-          if (currentStageValue) {
-            // Find node by name or id
-            const currentNode = dagNodes.find(n =>
-              n.node_name === currentStageValue || n.id === currentStageValue
-            );
-            setAutoCurrentNodeId(currentNode?.id);
-          }
-        } else {
-          setAutoNodes([]);
-          setAutoCurrentNodeId(undefined);
-        }
-      } catch (error) {
-        console.error('[DAGVisualizer] Error loading DAG structure:', error);
-        setAutoNodes([]);
-        setAutoCurrentNodeId(undefined);
-      } finally {
-        setIsGenerating(false);
-      }
-    };
-
-    loadDAGStructure();
-  }, [data, detectedConfig, explicitStageField]);
-
-  // Use auto-generated or legacy nodes
-  const visibleNodes = legacyNodes || autoNodes;
-  const currentNodeId = legacyCurrentNodeId !== undefined ? legacyCurrentNodeId : autoCurrentNodeId;
-
-  if (isGenerating) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-dark-600">Loading workflow...</p>
-      </div>
-    );
+  // Validate required props
+  if (!nodes || nodes.length === 0) {
+    console.warn('[DAGVisualizer] No nodes provided via props');
+    return null;
   }
+
+  // Use the nodes and currentNodeId directly from props
+  const visibleNodes = nodes;
+  const visibleCurrentNodeId = currentNodeId;
 
   // Find all ancestor nodes of the current node (completed nodes)
   const findCompletedNodes = (): Set<number> => {
     const completed = new Set<number>();
-    if (currentNodeId === undefined) return completed;
+    if (visibleCurrentNodeId === undefined) return completed;
 
     const visited = new Set<number>();
-    const queue: number[] = [currentNodeId];
+    const queue: number[] = [visibleCurrentNodeId];
 
     // BFS to find all ancestors
     while (queue.length > 0) {
@@ -235,98 +91,66 @@ export function DAGVisualizer({
 
   const completedNodes = findCompletedNodes();
 
-  // Compute child_ids from parent_ids
-  const computeChildren = (): Map<number, number[]> => {
+  // Calculate node positions
+  const calculateNodePositions = (): Map<number, NodePosition> => {
+    const positions = new Map<number, NodePosition>();
+    const nodesByLayer = new Map<number, DAGNode[]>();
+    const nodeLayers = new Map<number, number>();
+
+    // Build adjacency list for children
     const childrenMap = new Map<number, number[]>();
-
-    // Initialize empty arrays for all nodes
-    visibleNodes.forEach(node => {
-      childrenMap.set(node.id, []);
-    });
-
-    // Build children from parent relationships
     visibleNodes.forEach(node => {
       node.parent_ids.forEach(parentId => {
-        const children = childrenMap.get(parentId) || [];
-        children.push(node.id);
-        childrenMap.set(parentId, children);
+        if (!childrenMap.has(parentId)) {
+          childrenMap.set(parentId, []);
+        }
+        childrenMap.get(parentId)!.push(node.id);
       });
     });
 
-    return childrenMap;
-  };
+    // Find root nodes (nodes with no parents)
+    const rootNodes = visibleNodes.filter(node => node.parent_ids.length === 0);
 
-  const childrenMap = computeChildren();
+    // Assign layers using BFS
+    const queue: { node: DAGNode; layer: number }[] = rootNodes.map(node => ({ node, layer: 0 }));
+    const visited = new Set<number>();
 
-  // Calculate node layers using topological sort
-  const calculateLayers = (): Map<number, number> => {
-    const layers = new Map<number, number>();
-    const inDegree = new Map<number, number>();
-
-    // Initialize in-degrees
-    visibleNodes.forEach(node => {
-      inDegree.set(node.id, node.parent_ids.length);
-    });
-
-    // Start with nodes that have no parents (layer 0)
-    const queue: number[] = [];
-    visibleNodes.forEach(node => {
-      if (inDegree.get(node.id) === 0) {
-        layers.set(node.id, 0);
-        queue.push(node.id);
-      }
-    });
-
-    // Process nodes level by level
     while (queue.length > 0) {
-      const nodeId = queue.shift()!;
-      const currentLayer = layers.get(nodeId)!;
-      const children = childrenMap.get(nodeId) || [];
+      const { node, layer } = queue.shift()!;
 
-      // Update children
+      if (visited.has(node.id)) continue;
+      visited.add(node.id);
+
+      nodeLayers.set(node.id, layer);
+
+      // Add to layer grouping
+      if (!nodesByLayer.has(layer)) {
+        nodesByLayer.set(layer, []);
+      }
+      nodesByLayer.get(layer)!.push(node);
+
+      // Process children
+      const children = childrenMap.get(node.id) || [];
       children.forEach(childId => {
-        const newDegree = (inDegree.get(childId) || 0) - 1;
-        inDegree.set(childId, newDegree);
-
-        // Update layer to be max of all parent layers + 1
-        const currentChildLayer = layers.get(childId) || 0;
-        layers.set(childId, Math.max(currentChildLayer, currentLayer + 1));
-
-        if (newDegree === 0) {
-          queue.push(childId);
+        const childNode = visibleNodes.find(n => n.id === childId);
+        if (childNode && !visited.has(childId)) {
+          queue.push({ node: childNode, layer: layer + 1 });
         }
       });
     }
 
-    return layers;
-  };
+    // Calculate positions
+    const layerWidth = 160;
+    const nodeHeight = 80;
 
-  // Calculate node positions
-  const calculatePositions = (): NodePosition[] => {
-    const layers = calculateLayers();
-    const nodesByLayer = new Map<number, number[]>();
+    nodesByLayer.forEach((layerNodes, layer) => {
+      const totalHeight = layerNodes.length * nodeHeight;
+      const startY = (400 - totalHeight) / 2; // Center vertically in 400px height
 
-    // Group nodes by layer
-    layers.forEach((layer, nodeId) => {
-      if (!nodesByLayer.has(layer)) {
-        nodesByLayer.set(layer, []);
-      }
-      nodesByLayer.get(layer)!.push(nodeId);
-    });
-
-    const positions: NodePosition[] = [];
-    const nodeWidth = 140;
-    const nodeHeight = 38;
-    const horizontalSpacing = 80;
-    const verticalSpacing = 18;
-
-    // Position nodes
-    nodesByLayer.forEach((nodeIds, layer) => {
-      nodeIds.forEach((nodeId, indexInLayer) => {
-        positions.push({
-          id: nodeId,
-          x: layer * (nodeWidth + horizontalSpacing),
-          y: indexInLayer * (nodeHeight + verticalSpacing),
+      layerNodes.forEach((node, index) => {
+        positions.set(node.id, {
+          x: layer * layerWidth + 50,
+          y: startY + index * nodeHeight,
           layer
         });
       });
@@ -335,51 +159,39 @@ export function DAGVisualizer({
     return positions;
   };
 
-  const positions = calculatePositions();
-  const positionMap = new Map(positions.map(p => [p.id, p]));
+  const positionMap = calculateNodePositions();
 
-  // Calculate SVG dimensions
-  const maxX = Math.max(...positions.map(p => p.x)) + 180;
-  const maxY = Math.max(...positions.map(p => p.y)) + 50;
-
-  // Render edges
-  const renderEdges = () => {
-    const edges: ReactElement[] = [];
+  // Render connections between nodes
+  const renderConnections = () => {
+    const connections: ReactElement[] = [];
 
     visibleNodes.forEach(node => {
-      const fromPos = positionMap.get(node.id);
-      if (!fromPos) return;
+      const nodePos = positionMap.get(node.id);
+      if (!nodePos) return;
 
-      const children = childrenMap.get(node.id) || [];
+      node.parent_ids.forEach(parentId => {
+        const parentPos = positionMap.get(parentId);
+        if (!parentPos) return;
 
-      children.forEach(childId => {
-        const toPos = positionMap.get(childId);
-        if (!toPos) return;
+        const key = `${parentId}-${node.id}`;
+        const isActive = completedNodes.has(parentId) && (completedNodes.has(node.id) || node.id === visibleCurrentNodeId);
 
-        // Calculate edge path
-        const fromX = fromPos.x + 70; // Center of node (140/2)
-        const fromY = fromPos.y + 19; // Center of node (38/2)
-        const toX = toPos.x;
-        const toY = toPos.y + 19;
-
-        // Use cubic bezier for smooth curves
-        const midX = (fromX + toX) / 2;
-        const path = `M ${fromX} ${fromY} C ${midX} ${fromY}, ${midX} ${toY}, ${toX} ${toY}`;
-
-        edges.push(
-          <path
-            key={`edge-${node.id}-${childId}`}
-            d={path}
-            stroke="#E9E9E7"
-            strokeWidth={1}
-            fill="none"
-            markerEnd="url(#arrowhead)"
+        connections.push(
+          <line
+            key={key}
+            x1={parentPos.x + 100} // Right side of parent
+            y1={parentPos.y + 25}  // Middle of parent
+            x2={nodePos.x}         // Left side of child
+            y2={nodePos.y + 25}    // Middle of child
+            stroke={isActive ? '#3B82F6' : '#E5E7EB'}
+            strokeWidth={isActive ? 2 : 1}
+            strokeDasharray={isActive ? '' : '5,5'}
           />
         );
       });
     });
 
-    return edges;
+    return connections;
   };
 
   // Render nodes
@@ -388,123 +200,64 @@ export function DAGVisualizer({
       const pos = positionMap.get(node.id);
       if (!pos) return null;
 
-      const isCurrent = currentNodeId !== undefined && node.id === currentNodeId;
+      const isCurrent = visibleCurrentNodeId !== undefined && node.id === visibleCurrentNodeId;
       const isCompleted = completedNodes.has(node.id);
 
       // Get node_name with fallback
       const nodeName = node.node_name || 'Unknown';
 
-      // Truncate long labels
-      const maxLength = 18;
-      const displayText = nodeName.length > maxLength
-        ? nodeName.substring(0, maxLength - 2) + '...'
-        : nodeName;
-
       return (
-        <g key={node.id} transform={`translate(${pos.x}, ${pos.y})`}>
-          {/* Node oval/pill shape */}
+        <g
+          key={node.id}
+          transform={`translate(${pos.x}, ${pos.y})`}
+          className={onNodeClick ? 'cursor-pointer' : ''}
+          onClick={() => onNodeClick?.(node.id)}
+        >
           <rect
-            x={0.5}
-            y={0.5}
-            width={139}
-            height={37}
-            rx={18.5}
-            ry={18.5}
-            fill="#FFFFFF"
-            stroke="#E9E9E7"
-            strokeWidth={1}
-            strokeLinejoin="round"
-            shapeRendering="geometricPrecision"
-            className="cursor-pointer transition-all hover:shadow-sm hover:stroke-dark-700"
-            onClick={() => onNodeClick?.(node.id)}
+            width={100}
+            height={50}
+            rx={6}
+            className={
+              isCurrent
+                ? 'fill-blue-500'
+                : isCompleted
+                  ? 'fill-green-100 stroke-green-500'
+                  : 'fill-white stroke-gray-300'
+            }
+            strokeWidth={isCurrent ? 2 : 1}
           />
-
-          {/* Checkmark for completed nodes */}
-          {isCompleted && (
-            <g transform="translate(115, 5)">
-              <circle cx="8" cy="8" r="8" fill="#787774" />
-              <path
-                d="M 5 8 L 7 10 L 11 6"
-                stroke="#FFFFFF"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-            </g>
-          )}
-
-          {/* Twinkling green dot for current node */}
-          {isCurrent && (
-            <g transform="translate(115, 5)">
-              {/* Outer glow effect */}
-              <circle cx="8" cy="8" r="10" fill="#10b981" opacity="0.3">
-                <animate
-                  attributeName="r"
-                  values="10;14;10"
-                  dur="1.2s"
-                  repeatCount="indefinite"
-                />
-                <animate
-                  attributeName="opacity"
-                  values="0.3;0;0.3"
-                  dur="1.2s"
-                  repeatCount="indefinite"
-                />
-              </circle>
-              {/* Main dot with opacity animation */}
-              <circle cx="8" cy="8" r="6" fill="#10b981">
-                <animate
-                  attributeName="opacity"
-                  values="1;0.4;1"
-                  dur="1.2s"
-                  repeatCount="indefinite"
-                />
-              </circle>
-              {/* Center dot */}
-              <circle cx="8" cy="8" r="3" fill="#FFFFFF" />
-            </g>
-          )}
-
-          {/* Display node_name */}
           <text
-            x={70}
-            y={25}
+            x={50}
+            y={30}
             textAnchor="middle"
-            fontSize={13}
-            fontWeight="500"
-            fill={isCurrent ? '#37352F' : '#787774'}
+            className={
+              isCurrent
+                ? 'fill-white text-sm font-medium'
+                : 'fill-gray-700 text-sm'
+            }
           >
-            {displayText}
+            {nodeName}
           </text>
         </g>
       );
     });
   };
 
+  // Calculate SVG dimensions
+  const maxX = Math.max(...Array.from(positionMap.values()).map(p => p.x)) + 150;
+  const maxY = Math.max(...Array.from(positionMap.values()).map(p => p.y)) + 100;
+  const svgHeight = Math.max(400, maxY);
+  const svgWidth = Math.max(600, maxX);
+
   return (
-    <div className="w-full overflow-x-auto bg-dark-100 rounded-md p-4">
-      <svg width={maxX} height={maxY} className="min-w-full">
-        {/* Define arrow marker */}
-        <defs>
-          <marker
-            id="arrowhead"
-            markerWidth="8"
-            markerHeight="8"
-            refX="7"
-            refY="2.5"
-            orient="auto"
-            markerUnits="strokeWidth"
-          >
-            <path d="M0,0 L0,5 L7,2.5 z" fill="#E9E9E7" />
-          </marker>
-        </defs>
-
-        {/* Render edges first (background) */}
-        <g>{renderEdges()}</g>
-
-        {/* Render nodes on top */}
-        <g>{renderNodes()}</g>
+    <div className="w-full h-full overflow-auto p-4 bg-gray-50 rounded-lg">
+      <svg
+        width={svgWidth}
+        height={svgHeight}
+        className="min-h-[400px]"
+      >
+        {renderConnections()}
+        {renderNodes()}
       </svg>
     </div>
   );

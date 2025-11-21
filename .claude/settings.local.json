@@ -213,7 +213,13 @@
       "Bash(npm run dev:web:*)",
       "Bash(/tmp/test-edit-error.sh)",
       "Bash(/home/rabin/projects/pmo/tools/logs-web.sh:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(/tmp/project_response.json)",
+      "Bash(sed:*)",
+      "Bash(npm run build:web:*)",
+      "Bash(pnpm build:*)",
+      "Bash(/tmp/verify-dag-fix.sh)",
+      "Bash(mv:*)"
     ],
     "deny": [],
     "ask": [],

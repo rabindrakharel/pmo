@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { EntityConfig, FieldDef } from '../../../lib/entityConfig';
 import {
   loadFieldOptions,
@@ -329,13 +329,11 @@ export function EntityFormContainer({
 
   // Helper to determine if a field should use DAG visualization
   // All dl__% fields that are stage or funnel fields use DAG visualization
-  const isStageField = (fieldKey: string): boolean => {
+  const isStageField = useCallback((fieldKey: string): boolean => {
     const lowerKey = fieldKey.toLowerCase();
     // Check if field starts with dl__ (datalabel prefix) and contains stage or funnel
-    const result = lowerKey.startsWith('dl__') && (lowerKey.includes('stage') || lowerKey.includes('funnel'));
-    console.log(`[EntityFormContainer] isStageField(${fieldKey}):`, result);
-    return result;
-  };
+    return lowerKey.startsWith('dl__') && (lowerKey.includes('stage') || lowerKey.includes('funnel'));
+  }, []);
 
   /**
    * Transform preloaded datalabel options to DAG nodes
@@ -349,61 +347,13 @@ export function EntityFormContainer({
     }));
   };
 
-  // Helper function to load DAG structure from setting_datalabel table
-  // Note: This loads the DAG STRUCTURE ONLY (nodes, parent_ids, relationships)
-  // The actual current value comes from the entity table (e.g., project.dl__project_stage)
-  const loadDagNodes = async (fieldKey: string): Promise<DAGNode[]> => {
-    try {
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
-      const token = localStorage.getItem('auth_token');
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
-
-      // Consistent structure: field keys already use dl__ prefix (e.g., dl__project_stage, dl__task_stage)
-      // If field doesn't have dl__ prefix, add it (legacy support)
-      const datalabel = fieldKey.startsWith('dl__') ? fieldKey : `dl__${fieldKey}`;
-
-      // Fetch DAG structure from setting_datalabel table via settings API
-      // raw=true returns full metadata array with parent_ids, entity_name, terminal_flag, etc.
-      // Source: /home/rabin/projects/pmo/db/setting_datalabel.ddl
-      const response = await fetch(`${API_BASE_URL}/api/v1/setting?datalabel=${datalabel}&raw=true`, { headers });
-      if (!response.ok) return [];
-
-      const result = await response.json();
-
-      // Backend returns: {id, name, descr, parent_ids, entity_name, terminal_flag, color_code}
-      // Transform to DAGNode format: {id, node_name, parent_ids} only
-      // Note: API should return parent_ids as array already from settings table
-      if (result.data && Array.isArray(result.data)) {
-        return result.data.map((item: any) => {
-          // Handle both parent_ids (array) and parent_id (singular) for backward compatibility
-          let parentIds: number[] = [];
-          if (Array.isArray(item.parent_ids)) {
-            parentIds = item.parent_ids;
-          } else if (item.parent_id !== null && item.parent_id !== undefined) {
-            parentIds = [item.parent_id];
-          }
-
-          console.log(`[loadDagNodes] Transforming node ${item.id} (${item.name}):`, {
-            raw_parent_ids: item.parent_ids,
-            raw_parent_id: item.parent_id,
-            transformed_parent_ids: parentIds
-          });
-
-          return {
-            id: item.id,              // Stage ID (e.g., 0, 1, 2)
-            node_name: item.name,     // Stage name (e.g., "Initiation", "Planning")
-            parent_ids: parentIds     // Parent IDs array
-          };
-        }) as DAGNode[];
-      }
-
-      return [];
-    } catch (error) {
-      console.error(`Failed to load DAG nodes for ${fieldKey}:`, error);
-      return [];
-    }
-  };
+  // ============================================================================
+  // NO API CALLS FOR DATALABELS - EVER!
+  // ============================================================================
+  // All datalabel data MUST come from backend response
+  // The backend includes datalabels in the initial entity response
+  // This ensures single source of truth and prevents infinite loops
+  // ============================================================================
 
   // Load setting options on mount
   useEffect(() => {
@@ -429,22 +379,14 @@ export function EntityFormContainer({
 
             // Load DAG nodes for stage/funnel fields
             if (isStageField(field.key)) {
-              // ✅ PRIORITY 1: Use preloaded datalabels (NO API CALL)
+              // ✅ Use preloaded datalabels from backend (NO API CALLS EVER)
               const datalabel = datalabels.find(dl => dl.name === field.key);
               if (datalabel && datalabel.options.length > 0) {
                 const nodes = transformDatalabelToDAGNodes(datalabel.options);
-                console.log(`[EntityFormContainer] Using preloaded datalabels for ${field.key}:`, nodes);
                 dagNodesMap.set(field.key, nodes);
-              } else {
-                // ✅ PRIORITY 2: Fallback to API call (backward compatibility)
-                const nodes = await loadDagNodes(field.key);
-                console.log(`[EntityFormContainer] Loaded DAG nodes via API for ${field.key}:`, nodes);
-                if (nodes.length > 0) {
-                  dagNodesMap.set(field.key, nodes);
-                } else {
-                  console.warn(`[EntityFormContainer] No DAG nodes loaded for ${field.key}`);
-                }
               }
+              // NO FALLBACK - Backend must provide all datalabel data
+              // If field not found in datalabels, it means no DAG visualization needed
             }
           } catch (error) {
             console.error(`Failed to load settings options for ${field.key}:`, error);
@@ -457,7 +399,7 @@ export function EntityFormContainer({
     };
 
     loadAllOptions();
-  }, [fields, datalabels]);  // ✅ Include datalabels in dependency array
+  }, [fields, datalabels, isStageField]);  // ✅ Stable dependencies - NO API calls for datalabels
 
   // Render field based on configuration
   const renderField = (field: FieldDef) => {
@@ -473,18 +415,6 @@ export function EntityFormContainer({
       && isStageField(field.key)
       && options.length > 0;
 
-    // Debug logging for funnel fields
-    if (field.key.includes('funnel')) {
-      console.log(`[EntityFormContainer] Field ${field.key}:`, {
-        type: field.type,
-        hasSettingOptions,
-        isStageField: isStageField(field.key),
-        optionsLength: options.length,
-        isSequentialField,
-        hasDagNodes: dagNodes.has(field.key),
-        dagNodesCount: dagNodes.get(field.key)?.length || 0
-      });
-    }
 
     if (!isEditing) {
       // Display mode
