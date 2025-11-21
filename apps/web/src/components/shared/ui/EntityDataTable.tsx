@@ -524,60 +524,56 @@ export function EntityDataTable<T = any>({
   // Uses backend metadata to determine which columns need datalabel options
   // Zero frontend pattern detection - backend tells us via loadFromDataLabels flag
 
-  // State for dynamically loaded setting options
-  const [settingOptions, setSettingOptions] = useState<Map<string, SettingOption[]>>(new Map());
+  // ✅ FIX: Use useMemo for derived state instead of useState+useEffect
+  // Compute setting options from columns and datalabels
+  const settingOptions = useMemo(() => {
+    const optionsMap = new Map<string, SettingOption[]>();
 
-  // Load setting options for columns that need them (backend metadata-driven)
-  useEffect(() => {
-    const loadAllSettingOptions = () => {
-      const optionsMap = new Map<string, SettingOption[]>();
-
-      // First, add static options from column definitions
-      columns.forEach(col => {
-        if (col.options && col.options.length > 0) {
-          optionsMap.set(col.key, col.options);
-        }
-      });
-
-      // Find all columns that need dynamic settings using backend metadata
-      const columnsNeedingSettings = columns.filter(col => {
-        const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
-        // Check backend metadata first, fallback to column.loadDataLabels
-        return backendMeta?.loadFromDataLabels || col.loadDataLabels;
-      });
-
-      // Use preloaded datalabels from props (NO API CALLS)
-      columnsNeedingSettings.forEach((col) => {
-        const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
-        // Get datalabel key from backend metadata or column key
-        const datalabelKey = backendMeta?.datalabelKey || col.key;
-
-        // Find matching datalabel from preloaded data
-        const datalabel = datalabels?.find((dl: any) => dl.name === datalabelKey);
-
-        if (datalabel && datalabel.options.length > 0) {
-          // Transform datalabel options to SettingOption format
-          const options: SettingOption[] = datalabel.options.map((opt: any) => ({
-            value: opt.name,  // Use name as value for datalabels
-            label: opt.name,
-            colorClass: opt.color_code,
-            metadata: {
-              id: opt.id,
-              descr: opt.descr,
-              sort_order: opt.sort_order,
-              active_flag: opt.active_flag
-            }
-          }));
-          optionsMap.set(col.key, options);
-        }
-      });
-
-      setSettingOptions(optionsMap);
-    };
-
-    if (inlineEditable) {
-      loadAllSettingOptions();
+    if (!inlineEditable) {
+      return optionsMap;
     }
+
+    // First, add static options from column definitions
+    columns.forEach(col => {
+      if (col.options && col.options.length > 0) {
+        optionsMap.set(col.key, col.options);
+      }
+    });
+
+    // Find all columns that need dynamic settings using backend metadata
+    const columnsNeedingSettings = columns.filter(col => {
+      const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
+      // Check backend metadata first, fallback to column.loadDataLabels
+      return backendMeta?.loadFromDataLabels || col.loadDataLabels;
+    });
+
+    // Use preloaded datalabels from props (NO API CALLS)
+    columnsNeedingSettings.forEach((col) => {
+      const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
+      // Get datalabel key from backend metadata or column key
+      const datalabelKey = backendMeta?.datalabelKey || col.key;
+
+      // Find matching datalabel from preloaded data
+      const datalabel = datalabels?.find((dl: any) => dl.name === datalabelKey);
+
+      if (datalabel && datalabel.options.length > 0) {
+        // Transform datalabel options to SettingOption format
+        const options: SettingOption[] = datalabel.options.map((opt: any) => ({
+          value: opt.name,  // Use name as value for datalabels
+          label: opt.name,
+          colorClass: opt.color_code,
+          metadata: {
+            id: opt.id,
+            descr: opt.descr,
+            sort_order: opt.sort_order,
+            active_flag: opt.active_flag
+          }
+        }));
+        optionsMap.set(col.key, options);
+      }
+    });
+
+    return optionsMap;
   }, [columns, inlineEditable, datalabels]);
 
   // Preload colors for all settings columns (for filter dropdowns and inline edit)

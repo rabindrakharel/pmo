@@ -247,7 +247,7 @@ export function EntityFormContainer({
   // Only recompute when actual field names change, not when data values change
   const fieldKeys = useMemo(() => {
     return Object.keys(data).sort();
-  }, [Object.keys(data).length]); // Only depend on number of keys, not their values
+  }, [data]); // Depend on data object itself - React will compare it by reference
 
   const fields = useMemo(() => {
     // PRIORITY 1: Backend metadata (v4.0 architecture)
@@ -294,9 +294,7 @@ export function EntityFormContainer({
 
     // Fallback: empty fields
     return [];
-  }, [metadata, config, autoGenerateFields, fieldKeys.length, dataTypes, requiredFields]);
-  const [settingOptions, setSettingOptions] = useState<Map<string, SettingOption[]>>(new Map());
-  const [dagNodes, setDagNodes] = useState<Map<string, DAGNode[]>>(new Map());
+  }, [metadata, config, autoGenerateFields, fieldKeys, dataTypes, requiredFields]);
 
   // ✅ FIX: Debounced onChange handler to prevent excessive updates
   const handleFieldChange = React.useCallback((fieldKey: string, value: any) => {
@@ -345,61 +343,56 @@ export function EntityFormContainer({
   };
 
   // ============================================================================
-  // NO API CALLS FOR DATALABELS - EVER!
+  // DERIVED STATE: Compute settingOptions and dagNodes with useMemo
   // ============================================================================
-  // All datalabel data MUST come from backend response
-  // The backend includes datalabels in the initial entity response
-  // This ensures single source of truth and prevents infinite loops
+  // No useState + useEffect for derived data to prevent render loops
+  // Recomputed only when fields or datalabels actually change
   // ============================================================================
 
-  // Load setting options on mount
-  useEffect(() => {
-    const loadAllOptions = async () => {
-      if (!fields || fields.length === 0) return;
+  const { settingOptions, dagNodes } = useMemo(() => {
+    const settingsMap = new Map<string, SettingOption[]>();
+    const dagNodesMap = new Map<string, DAGNode[]>();
 
-      const settingsMap = new Map<string, SettingOption[]>();
-      const dagNodesMap = new Map<string, DAGNode[]>();
+    if (!fields || fields.length === 0 || !datalabels) {
+      return { settingOptions: settingsMap, dagNodes: dagNodesMap };
+    }
 
-      // Process all fields that need settings from preloaded datalabels
-      const fieldsNeedingSettings = fields.filter(
-        field => field.loadDataLabels && (field.type === 'select' || field.type === 'multiselect')
-      );
+    // Process all fields that need settings from preloaded datalabels
+    const fieldsNeedingSettings = fields.filter(
+      field => field.loadDataLabels && (field.type === 'select' || field.type === 'multiselect')
+    );
 
-      // Use preloaded datalabels from backend (NO API CALLS)
-      fieldsNeedingSettings.forEach((field) => {
-        // Find matching datalabel from preloaded data
-        const datalabel = datalabels.find(dl => dl.name === field.key);
+    // Use preloaded datalabels from backend (NO API CALLS)
+    fieldsNeedingSettings.forEach((field) => {
+      // Find matching datalabel from preloaded data
+      const datalabel = datalabels.find(dl => dl.name === field.key);
 
-        if (datalabel && datalabel.options.length > 0) {
-          // Transform datalabel options to SettingOption format for select/multiselect
-          const options: SettingOption[] = datalabel.options.map(opt => ({
-            value: opt.name,  // Use name as value for datalabels
-            label: opt.name,
-            colorClass: opt.color_code,
-            metadata: {
-              id: opt.id,
-              descr: opt.descr,
-              sort_order: opt.sort_order,
-              active_flag: opt.active_flag
-            }
-          }));
-          settingsMap.set(field.key, options);
-
-          // Load DAG nodes for stage/funnel fields
-          if (isStageField(field.key)) {
-            const nodes = transformDatalabelToDAGNodes(datalabel.options);
-            dagNodesMap.set(field.key, nodes);
+      if (datalabel && datalabel.options.length > 0) {
+        // Transform datalabel options to SettingOption format for select/multiselect
+        const options: SettingOption[] = datalabel.options.map(opt => ({
+          value: opt.name,  // Use name as value for datalabels
+          label: opt.name,
+          colorClass: opt.color_code,
+          metadata: {
+            id: opt.id,
+            descr: opt.descr,
+            sort_order: opt.sort_order,
+            active_flag: opt.active_flag
           }
+        }));
+        settingsMap.set(field.key, options);
+
+        // Load DAG nodes for stage/funnel fields
+        if (isStageField(field.key)) {
+          const nodes = transformDatalabelToDAGNodes(datalabel.options);
+          dagNodesMap.set(field.key, nodes);
         }
-        // NO FALLBACK - If field not found in datalabels, no options available
-      });
+      }
+      // NO FALLBACK - If field not found in datalabels, no options available
+    });
 
-      setSettingOptions(settingsMap);
-      setDagNodes(dagNodesMap);
-    };
-
-    loadAllOptions();
-  }, [fields, datalabels, isStageField]);  // ✅ Stable dependencies - NO API calls for datalabels
+    return { settingOptions: settingsMap, dagNodes: dagNodesMap };
+  }, [fields, datalabels, isStageField]);  // ✅ Stable dependencies with memoized data
 
   // Render field based on configuration
   const renderField = (field: FieldDef) => {
@@ -790,7 +783,7 @@ export function EntityFormContainer({
           <input
             type="date"
             value={value ? new Date(value).toISOString().split('T')[0] : ''}
-            onChange={(e) => handleFieldChange(field.key, e.target.value || null)}
+            onChange={(e) => handleFieldChange(field.key, e.target.value === '' ? null : e.target.value)}
             className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-dark-600 cursor-pointer hover:text-dark-700 text-base tracking-tight"
             disabled={field.disabled || field.readonly}
             required={field.required && mode === 'create'}

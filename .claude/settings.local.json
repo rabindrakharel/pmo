@@ -219,7 +219,11 @@
       "Bash(npm run build:web:*)",
       "Bash(pnpm build:*)",
       "Bash(/tmp/verify-dag-fix.sh)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(/tmp/test-office-api.sh)",
+      "Bash(/tmp/api-flow-demo.sh)",
+      "Bash(/tmp/test-partial-update.sh:*)",
+      "Bash(/tmp/test-full-patch.sh)"
     ],
     "deny": [],
     "ask": [],

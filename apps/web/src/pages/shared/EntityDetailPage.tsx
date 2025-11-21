@@ -363,16 +363,62 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
 
       // Type-safe API call using APIFactory
       const api = APIFactory.getAPI(entityCode);
-      await api.update(id!, dataToUpdate);
+      const updateResponse = await api.update(id!, dataToUpdate);
 
       // Handle assignees separately via linkage API (only for task entity)
       if (entityCode === 'task' && assigneeIds !== undefined) {
         await updateTaskAssignees(id!, assigneeIds);
       }
 
-      // Refetch data to get updated assignee info
-      const updatedData = await api.get(id!, { view: 'entityDetailView,entityFormContainer' });
+      // ✅ OPTIMIZED: Check if PATCH returns just data or full response
+      let updatedData = data; // Start with current data as fallback
+
+      if (updateResponse) {
+        // If PATCH returns data, use it
+        if (updateResponse.data) {
+          // Full response structure (for backward compatibility)
+          updatedData = updateResponse.data;
+        } else if (updateResponse.id) {
+          // Just the updated entity data (optimized response)
+          updatedData = updateResponse;
+        }
+
+        // Special handling for form entity - parse schema if it's a string
+        if (entityCode === 'form' && updatedData.form_schema && typeof updatedData.form_schema === 'string') {
+          try {
+            updatedData = {
+              ...updatedData,
+              form_schema: JSON.parse(updatedData.form_schema)
+            };
+          } catch (e) {
+            console.error('Failed to parse form schema:', e);
+          }
+        }
+
+        // Parse metadata (or attr alias) if it's a string
+        const metadataField = updatedData.metadata || updatedData.attr;
+        if (metadataField && typeof metadataField === 'string') {
+          try {
+            const parsed = JSON.parse(metadataField);
+            updatedData.metadata = parsed;
+            updatedData.attr = parsed;
+          } catch (e) {
+            console.error('Failed to parse metadata:', e);
+            updatedData.metadata = {};
+            updatedData.attr = {};
+          }
+        }
+      }
+
+      // For task entity with assignees, we need to refetch to get updated assignee names
+      if (entityCode === 'task' && assigneeIds !== undefined) {
+        const response = await api.get(id!, { view: 'entityDetailView' });
+        updatedData = response.data || response;
+      }
+
+      // ✅ OPTIMIZED: Reuse existing metadata and datalabels (they don't change on update)
       setData(updatedData);
+      // Keep existing backendMetadata and datalabels - no need to update them
       setEditedData(updatedData);
       setIsEditing(false);
       // Optionally show success toast
