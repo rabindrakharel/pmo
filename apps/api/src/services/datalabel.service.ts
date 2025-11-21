@@ -35,6 +35,7 @@ export interface DatalabelData {
 
 /**
  * Fetch datalabel options for given datalabel names
+ * Data is stored in app.setting_datalabel table with metadata as JSONB
  */
 export async function fetchDatalabels(
   db: DrizzleDB,
@@ -45,49 +46,52 @@ export async function fetchDatalabels(
   }
 
   try {
-    const query = sql`
+    // Build WHERE clause for multiple datalabel names
+    const conditions = datalabelNames.map(name => `datalabel_name = '${name}'`).join(' OR ');
+
+    // Query the setting_datalabel table which stores options in metadata JSONB
+    const query = sql.raw(`
       SELECT
-        datalabel,
-        id,
-        name,
-        descr,
-        parent_id,
-        sort_order,
-        color_code,
-        active_flag
+        datalabel_name,
+        entity_code,
+        ui_label,
+        ui_icon,
+        metadata
       FROM app.setting_datalabel
-      WHERE datalabel = ANY(${datalabelNames}::text[])
-        AND active_flag = true
-      ORDER BY datalabel, sort_order
-    `;
+      WHERE ${conditions}
+    `);
 
     const rows = await db.execute(query);
 
-    // Group by datalabel
-    const datalabelMap = new Map<string, DatalabelOption[]>();
+    // Transform results to expected format
+    const result: DatalabelData[] = [];
 
     for (const row of rows as any[]) {
-      const datalabelName = row.datalabel;
-      if (!datalabelMap.has(datalabelName)) {
-        datalabelMap.set(datalabelName, []);
-      }
+      const datalabelName = row.datalabel_name;
+      const metadata = row.metadata;
 
-      datalabelMap.get(datalabelName)!.push({
-        id: row.id,
-        name: row.name,
-        descr: row.descr,
-        parent_id: row.parent_id,
-        sort_order: row.sort_order,
-        color_code: row.color_code,
-        active_flag: row.active_flag
-      });
+      // metadata contains an array of options
+      if (metadata && Array.isArray(metadata)) {
+        const options: DatalabelOption[] = metadata.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          descr: item.descr || '',
+          parent_id: Array.isArray(item.parent_ids) && item.parent_ids.length > 0
+            ? item.parent_ids[0]  // Take first parent for backward compatibility
+            : null,
+          sort_order: item.sort_order || item.id,  // Use id as sort order if not specified
+          color_code: item.color_code || '',
+          active_flag: item.active_flag !== false  // Default to true if not specified
+        }));
+
+        result.push({
+          name: datalabelName,
+          options
+        });
+      }
     }
 
-    // Convert to array format
-    return Array.from(datalabelMap.entries()).map(([name, options]) => ({
-      name,
-      options
-    }));
+    return result;
   } catch (error) {
     console.error('[fetchDatalabels] Error:', error);
     return [];

@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { EntityConfig, FieldDef } from '../../../lib/entityConfig';
-import {
-  loadFieldOptions,
-  type SettingOption
-} from '../../../lib/settingsLoader';
+import type { SettingOption } from '../../../lib/settingsLoader';
 import { DAGVisualizer, type DAGNode } from '../../workflow/DAGVisualizer';
 import { renderEmployeeNames } from '../../../lib/entityConfig';
 import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
@@ -363,36 +360,39 @@ export function EntityFormContainer({
       const settingsMap = new Map<string, SettingOption[]>();
       const dagNodesMap = new Map<string, DAGNode[]>();
 
-      // Find all fields that need dynamic settings
+      // Process all fields that need settings from preloaded datalabels
       const fieldsNeedingSettings = fields.filter(
         field => field.loadDataLabels && (field.type === 'select' || field.type === 'multiselect')
       );
 
-      // Load settings options
-      await Promise.all(
-        fieldsNeedingSettings.map(async (field) => {
-          try {
-            const options = await loadFieldOptions(field.key);
-            if (options.length > 0) {
-              settingsMap.set(field.key, options);
-            }
+      // Use preloaded datalabels from backend (NO API CALLS)
+      fieldsNeedingSettings.forEach((field) => {
+        // Find matching datalabel from preloaded data
+        const datalabel = datalabels.find(dl => dl.name === field.key);
 
-            // Load DAG nodes for stage/funnel fields
-            if (isStageField(field.key)) {
-              // ✅ Use preloaded datalabels from backend (NO API CALLS EVER)
-              const datalabel = datalabels.find(dl => dl.name === field.key);
-              if (datalabel && datalabel.options.length > 0) {
-                const nodes = transformDatalabelToDAGNodes(datalabel.options);
-                dagNodesMap.set(field.key, nodes);
-              }
-              // NO FALLBACK - Backend must provide all datalabel data
-              // If field not found in datalabels, it means no DAG visualization needed
+        if (datalabel && datalabel.options.length > 0) {
+          // Transform datalabel options to SettingOption format for select/multiselect
+          const options: SettingOption[] = datalabel.options.map(opt => ({
+            value: opt.name,  // Use name as value for datalabels
+            label: opt.name,
+            colorClass: opt.color_code,
+            metadata: {
+              id: opt.id,
+              descr: opt.descr,
+              sort_order: opt.sort_order,
+              active_flag: opt.active_flag
             }
-          } catch (error) {
-            console.error(`Failed to load settings options for ${field.key}:`, error);
+          }));
+          settingsMap.set(field.key, options);
+
+          // Load DAG nodes for stage/funnel fields
+          if (isStageField(field.key)) {
+            const nodes = transformDatalabelToDAGNodes(datalabel.options);
+            dagNodesMap.set(field.key, nodes);
           }
-        })
-      );
+        }
+        // NO FALLBACK - If field not found in datalabels, no options available
+      });
 
       setSettingOptions(settingsMap);
       setDagNodes(dagNodesMap);

@@ -28,7 +28,6 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronUp, Search, Filter, Columns, ChevronLeft, ChevronRight, Edit, Share, Trash2, X, Plus, Check } from 'lucide-react';
 import {
-  loadFieldOptions,
   getSettingDatalabel,
   type SettingOption
 } from '../../../lib/settingsLoader';
@@ -530,7 +529,7 @@ export function EntityDataTable<T = any>({
 
   // Load setting options for columns that need them (backend metadata-driven)
   useEffect(() => {
-    const loadAllSettingOptions = async () => {
+    const loadAllSettingOptions = () => {
       const optionsMap = new Map<string, SettingOption[]>();
 
       // First, add static options from column definitions
@@ -547,22 +546,31 @@ export function EntityDataTable<T = any>({
         return backendMeta?.loadFromDataLabels || col.loadDataLabels;
       });
 
-      // Load options for each column
-      await Promise.all(
-        columnsNeedingSettings.map(async (col) => {
-          try {
-            const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
-            // Get datalabel from backend metadata, fallback to extracting from column key
-            const datalabel = backendMeta?.settingsDatalabel || extractSettingsDatalabel(col.key);
-            const options = await loadFieldOptions(datalabel);
-            if (options.length > 0) {
-              optionsMap.set(col.key, options);
+      // Use preloaded datalabels from props (NO API CALLS)
+      columnsNeedingSettings.forEach((col) => {
+        const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
+        // Get datalabel key from backend metadata or column key
+        const datalabelKey = backendMeta?.datalabelKey || col.key;
+
+        // Find matching datalabel from preloaded data
+        const datalabel = datalabels?.find((dl: any) => dl.name === datalabelKey);
+
+        if (datalabel && datalabel.options.length > 0) {
+          // Transform datalabel options to SettingOption format
+          const options: SettingOption[] = datalabel.options.map((opt: any) => ({
+            value: opt.name,  // Use name as value for datalabels
+            label: opt.name,
+            colorClass: opt.color_code,
+            metadata: {
+              id: opt.id,
+              descr: opt.descr,
+              sort_order: opt.sort_order,
+              active_flag: opt.active_flag
             }
-          } catch (error) {
-            console.error(`Failed to load options for ${col.key}:`, error);
-          }
-        })
-      );
+          }));
+          optionsMap.set(col.key, options);
+        }
+      });
 
       setSettingOptions(optionsMap);
     };
@@ -570,7 +578,7 @@ export function EntityDataTable<T = any>({
     if (inlineEditable) {
       loadAllSettingOptions();
     }
-  }, [columns, inlineEditable]);
+  }, [columns, inlineEditable, datalabels]);
 
   // Preload colors for all settings columns (for filter dropdowns and inline edit)
   useEffect(() => {
