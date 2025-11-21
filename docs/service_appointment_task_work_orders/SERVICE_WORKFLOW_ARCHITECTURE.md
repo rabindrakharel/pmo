@@ -249,12 +249,12 @@ Benefit: Instant availability checks, no complex calendar math
 
 | Business Entity | Database Table | API Endpoint | Frontend View |
 |----------------|----------------|--------------|---------------|
-| Customer | `d_client` | `/api/v1/cust` | `/cust` (EntityMainPage) |
-| Service Request | `d_task` | `/api/v1/task` | `/task` (EntityMainPage) |
-| Technician | `d_employee` | `/api/v1/employee` | `/employee` (EntityMainPage) |
-| Appointment | `d_event` | `/api/v1/event` | `/event` (EntityMainPage) |
+| Customer | `d_client` | `/api/v1/cust` | `/cust` (EntityListOfInstancesPage) |
+| Service Request | `d_task` | `/api/v1/task` | `/task` (EntityListOfInstancesPage) |
+| Technician | `d_employee` | `/api/v1/employee` | `/employee` (EntityListOfInstancesPage) |
+| Appointment | `d_event` | `/api/v1/event` | `/event` (EntityListOfInstancesPage) |
 | Calendar Slot | `d_entity_person_calendar` | `/api/v1/person-calendar` | `/person_calendar` (CalendarView) |
-| Service Catalog | `d_service` | `/api/v1/service` | `/service` (EntityMainPage) |
+| Service Catalog | `d_service` | `/api/v1/service` | `/service` (EntityListOfInstancesPage) |
 | Chat History | `f_interaction` | `/api/v1/interaction` | N/A (backend only) |
 
 ### 3.2 API Workflow Sequence

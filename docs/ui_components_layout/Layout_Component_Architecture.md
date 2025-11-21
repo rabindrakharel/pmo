@@ -19,13 +19,13 @@ The PMO platform uses a **universal page architecture** where 3 main pages handl
 │                     UNIVERSAL PAGE SYSTEM                       │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  EntityMainPage.tsx        → Handles ALL entity list views     │
+│  EntityListOfInstancesPage.tsx        → Handles ALL entity list views     │
 │    ├── /project             (projects list)                    │
 │    ├── /task                (tasks list)                       │
 │    ├── /employee            (employees list)                   │
 │    └── ... 27+ entities                                        │
 │                                                                 │
-│  EntityDetailPage.tsx      → Handles ALL entity detail views   │
+│  EntitySpecificInstancePage.tsx      → Handles ALL entity detail views   │
 │    ├── /project/:id         (project detail + child tabs)     │
 │    ├── /task/:id            (task detail + child tabs)        │
 │    ├── /employee/:id        (employee detail + child tabs)    │
@@ -46,11 +46,11 @@ The PMO platform uses a **universal page architecture** where 3 main pages handl
 
 ## 2. Page Architecture
 
-### 2.1 EntityMainPage.tsx
+### 2.1 EntityListOfInstancesPage.tsx
 
 **Purpose**: List/grid/kanban views for any entity type
 
-**Location**: `apps/web/src/pages/shared/EntityMainPage.tsx`
+**Location**: `apps/web/src/pages/shared/EntityListOfInstancesPage.tsx`
 
 **Responsibilities**:
 1. Fetch entity data from API (`GET /api/v1/{entity}`)
@@ -74,7 +74,7 @@ const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'calendar'>('table
 ```
 1. URL: /project
    ↓
-2. EntityMainPage extracts entityType from route
+2. EntityListOfInstancesPage extracts entityType from route
    ↓
 3. Fetch: GET /api/v1/project
    ↓
@@ -88,11 +88,11 @@ const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'calendar'>('table
 **Key Props**:
 - None (reads from route params)
 
-### 2.2 EntityDetailPage.tsx
+### 2.2 EntitySpecificInstancePage.tsx
 
 **Purpose**: Detail view with child entity tabs for any entity type
 
-**Location**: `apps/web/src/pages/shared/EntityDetailPage.tsx`
+**Location**: `apps/web/src/pages/shared/EntitySpecificInstancePage.tsx`
 
 **Responsibilities**:
 1. Fetch single entity record (`GET /api/v1/{entity}/{id}`)
@@ -131,7 +131,7 @@ child_entity_codes: ['task', 'artifact', 'wiki', 'cost']
 ```
 1. URL: /project/abc123
    ↓
-2. EntityDetailPage extracts entityType + id
+2. EntitySpecificInstancePage extracts entityType + id
    ↓
 3. Fetch: GET /api/v1/project/abc123
    ↓
@@ -231,7 +231,7 @@ const [saving, setSaving] = useState(false);
 ┌────────────────────────────────────────────────────────────────┐
 │                        PAGE LEVEL                              │
 ├────────────────────────────────────────────────────────────────┤
-│  EntityMainPage / EntityDetailPage / EntityFormPage           │
+│  EntityListOfInstancesPage / EntitySpecificInstancePage / EntityFormPage           │
 │    ├── Breadcrumbs                                            │
 │    ├── ActionButtons (Create, Edit, Delete)                  │
 │    └── Content Container                                      │
@@ -530,7 +530,7 @@ if (isAuthenticated) { ... }
 
 **Page State Pattern**:
 ```typescript
-// EntityMainPage.tsx
+// EntityListOfInstancesPage.tsx
 const [data, setData] = useState<any[]>([]);
 const [metadata, setMetadata] = useState<EntityMetadata | null>(null);
 const [loading, setLoading] = useState(true);
@@ -836,15 +836,15 @@ const handleEdit = useCallback((id: string) => {
 **Code Splitting**:
 ```typescript
 // React.lazy for route-level splitting
-const EntityMainPage = lazy(() => import('./pages/shared/EntityMainPage'));
-const EntityDetailPage = lazy(() => import('./pages/shared/EntityDetailPage'));
+const EntityListOfInstancesPage = lazy(() => import('./pages/shared/EntityListOfInstancesPage'));
+const EntitySpecificInstancePage = lazy(() => import('./pages/shared/EntitySpecificInstancePage'));
 const EntityFormPage = lazy(() => import('./pages/shared/EntityFormPage'));
 
 // Routes
 <Suspense fallback={<PageSkeleton />}>
   <Routes>
-    <Route path="/:entityType" element={<EntityMainPage />} />
-    <Route path="/:entityType/:id" element={<EntityDetailPage />} />
+    <Route path="/:entityType" element={<EntityListOfInstancesPage />} />
+    <Route path="/:entityType/:id" element={<EntitySpecificInstancePage />} />
     <Route path="/:entityType/:id/edit" element={<EntityFormPage />} />
   </Routes>
 </Suspense>
@@ -993,8 +993,8 @@ test('renders table with backend metadata', () => {
 
 **Page Test Example**:
 ```typescript
-test('EntityMainPage loads and displays data', async () => {
-  render(<EntityMainPage />, { wrapper: RouterWrapper });
+test('EntityListOfInstancesPage loads and displays data', async () => {
+  render(<EntityListOfInstancesPage />, { wrapper: RouterWrapper });
 
   // Wait for loading to finish
   await waitFor(() => {
@@ -1013,7 +1013,7 @@ test('EntityMainPage loads and displays data', async () => {
 **Architecture**: Universal Pages + Backend Metadata + Zero Frontend Pattern Detection
 
 **Key Components**:
-- **3 Universal Pages**: EntityMainPage, EntityDetailPage, EntityFormPage
+- **3 Universal Pages**: EntityListOfInstancesPage, EntitySpecificInstancePage, EntityFormPage
 - **2 Data Tables**: EntityDataTable (backend metadata), SettingsDataTable (datalabels)
 - **1 Form Container**: EntityFormContainer (backend metadata)
 - **Dynamic Child Tabs**: DynamicChildEntityTabs (entity.child_entity_codes)

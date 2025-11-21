@@ -38,8 +38,8 @@ This document traces the complete data flow from API response through all fronte
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                  LAYER 2: EntityMainPage                         │
-│  File: apps/web/src/pages/shared/EntityMainPage.tsx             │
+│                  LAYER 2: EntityListOfInstancesPage                         │
+│  File: apps/web/src/pages/shared/EntityListOfInstancesPage.tsx             │
 └────────────────────────┬────────────────────────────────────────┘
                          │
                          ├─ const response = await api.list(params)
@@ -230,9 +230,9 @@ return response;
 
 ---
 
-## 4. Layer 2: EntityMainPage (State Management)
+## 4. Layer 2: EntityListOfInstancesPage (State Management)
 
-### File: `apps/web/src/pages/shared/EntityMainPage.tsx`
+### File: `apps/web/src/pages/shared/EntityListOfInstancesPage.tsx`
 
 **Step 1: Declare State**
 
@@ -310,7 +310,7 @@ if (!append) {
 
 ```typescript
 // Lines 46-47
-metadata: propsMetadata,  // Metadata from parent (EntityMainPage)
+metadata: propsMetadata,  // Metadata from parent (EntityListOfInstancesPage)
 datalabels: propsDatalabels,  // ✅ Preloaded datalabels from parent
 ```
 
@@ -602,7 +602,7 @@ export function renderDataLabelBadge(
 
 ```typescript
 // User visits: /office
-// EntityMainPage mounts
+// EntityListOfInstancesPage mounts
 // Calls: GET /api/v1/office?page=1&pageSize=100&view=entityDataTable
 ```
 
@@ -627,7 +627,7 @@ return response;
 ### Frontend Processing
 
 ```typescript
-// EntityMainPage
+// EntityListOfInstancesPage
 const response = await api.list({ page: 1, pageSize: 100, view: 'entityDataTable' });
 setMetadata(response.metadata);       // Store metadata
 setDatalabels(response.datalabels);   // Store datalabels
@@ -741,7 +741,7 @@ case 'dag':
    - ✅ `response.metadata.entityDataTable` exists for table view
    - ✅ `response.datalabels` contains datalabel options
 
-2. **EntityMainPage State**
+2. **EntityListOfInstancesPage State**
    - ✅ `setMetadata(response.metadata)` stores metadata in state
    - ✅ `setDatalabels(response.datalabels)` stores datalabels in state
 
@@ -806,7 +806,7 @@ const datalabels = await fetchDatalabels(db, ['dl__office_type']);
   datalabels: [{ name: 'dl__office_type', options: [...] }]
 }
 
-// STEP 4: EntityMainPage stores in state
+// STEP 4: EntityListOfInstancesPage stores in state
 setMetadata(response.metadata);
 setDatalabels(response.datalabels);
 

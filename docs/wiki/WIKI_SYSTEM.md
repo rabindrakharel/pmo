@@ -85,9 +85,9 @@ The Wiki system is PMO platform's **knowledge management solution** providing:
 ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
 ┃                                                                 ┃
 ┃  PAGES (React Router v6)                                        ┃
-┃  ├─ /wiki                  → EntityMainPage (list)            ┃
+┃  ├─ /wiki                  → EntityListOfInstancesPage (list)            ┃
 ┃  ├─ /wiki/new              → WikiEditorPage (create)          ┃
-┃  ├─ /wiki/:id              → EntityDetailPage (view)          ┃
+┃  ├─ /wiki/:id              → EntitySpecificInstancePage (view)          ┃
 ┃  ├─ /wiki/:id/edit         → WikiEditorPage (collab edit)     ┃
 ┃  └─ /wiki/shared/:code     → SharedURLEntityPage (public)     ┃
 ┃                                                                 ┃

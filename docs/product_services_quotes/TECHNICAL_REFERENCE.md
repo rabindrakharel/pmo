@@ -19,7 +19,7 @@ d_product (15 records) ──┼──> fact_quote.quote_items[] (6 quotes) ─�
 - **No foreign keys** - Intentional for flexibility; relationships tracked via JSONB and `entity_instance_link`
 - **JSONB for line items** - Per-line discounts/taxes stored in `quote_items[]` array
 - **DRY field generation** - Convention-based type detection (suffixes: `_amt`, `_pct`, `_date`, `dl__*`)
-- **Universal components** - 3 pages handle all entities: `EntityMainPage`, `EntityDetailPage`, `EntityCreatePage`
+- **Universal components** - 3 pages handle all entities: `EntityListOfInstancesPage`, `EntitySpecificInstancePage`, `EntityCreatePage`
 - **Entity instance registry** - All instances registered in `d_entity_instance_registry` for child-tabs and navigation
 
 ---
@@ -163,7 +163,7 @@ active_flag, created_ts, updated_ts
 
 ### Component Hierarchy
 ```
-EntityDetailPage
+EntitySpecificInstancePage
   └── EntityFormContainer
         ├── QuoteItemsRenderer (for quote_items field)
         │     └── EntityAttributeInlineDataTable (generic JSONB table)
@@ -759,7 +759,7 @@ Frontend Config:
   /apps/web/src/App.tsx              ← Routes (add new entities here)
 
 Frontend Components:
-  /apps/web/src/pages/shared/EntityDetailPage.tsx
+  /apps/web/src/pages/shared/EntitySpecificInstancePage.tsx
   /apps/web/src/components/shared/entity/EntityFormContainer.tsx  ← Field rendering logic
   /apps/web/src/components/shared/entity/QuoteItemsRenderer.tsx   ← Quote-specific table
   /apps/web/src/components/shared/ui/EntityAttributeInlineDataTable.tsx ← Generic JSONB table

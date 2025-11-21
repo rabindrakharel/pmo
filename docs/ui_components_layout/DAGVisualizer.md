@@ -257,7 +257,7 @@ Stage Update Flow
 | Component | Integration |
 |-----------|-------------|
 | EntityFormContainer | Renders DAG for stage fields |
-| EntityDetailPage | Shows workflow progress |
+| EntitySpecificInstancePage | Shows workflow progress |
 | KanbanView | Uses same stage data for columns |
 
 ### Anti-Patterns

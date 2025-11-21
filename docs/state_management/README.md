@@ -196,7 +196,7 @@ function EntityFormContainer({ onChange }) {
 ### Example 1: List → Detail Navigation
 
 ```typescript
-// 1. EntityMainPage fetches list with metadata
+// 1. EntityListOfInstancesPage fetches list with metadata
 const ProjectListPage = () => {
   const { data: response } = useQuery(['projects'],
     () => fetch('/api/v1/project').then(r => r.json())
@@ -214,7 +214,7 @@ const ProjectListPage = () => {
   );
 };
 
-// 2. EntityDetailPage fetches single item with children
+// 2. EntitySpecificInstancePage fetches single item with children
 const ProjectDetailPage = ({ id }) => {
   const { data: project } = useQuery(['project', id],
     () => fetch(`/api/v1/project/${id}`).then(r => r.json())
@@ -513,23 +513,28 @@ The PMO platform uses **7 specialized Zustand stores** organized by cache lifecy
 
 ### Session-Level Stores (30 min TTL)
 
-These stores persist in `sessionStorage` and rarely change during a session:
+These stores persist in `sessionStorage` and are **refreshed only on login**:
 
 | Store | Purpose | Cache Key Format | Data Format |
 |-------|---------|------------------|-------------|
 | **`globalSettingsMetadataStore`** | Currency, date, timestamp, boolean formatting | Single object | `{ currency: {...}, date: {...}, timestamp: {...}, boolean: {...} }` |
 | **`datalabelMetadataStore`** | Dropdown options for `dl__*` fields | `dl__project_stage`, `dl__task_priority` | `Record<string, DatalabelOption[]>` |
 | **`entityCodeMetadataStore`** | Entity types for sidebar navigation | Single array + Map | `EntityCodeData[]` with O(1) lookup via `dataMap` |
-| **`entityComponentMetadataStore`** | Field metadata per entity + component | `project:entityDataTable`, `task:entityFormContainer` | `Record<string, FieldMetadata>` |
 
-### Short-Lived Stores (5 min TTL + URL-bound)
+**Session Cache Rules:**
+- Fetched once on **login**
+- Cached for entire session (30 min TTL)
+- Refreshed on next login
+
+### URL-Bound Stores (5 min TTL + URL invalidation)
 
 These stores are **bound to the current URL** and invalidate when the user navigates away:
 
 | Store | Purpose | Cache Key Format | Data Format | Invalidation |
 |-------|---------|------------------|-------------|--------------|
-| **`entityInstanceDataStore`** | Single entity instance for optimistic updates | URL path: `/project/uuid-123` | `EntityInstance` + `isDirty` flag | URL exit + 5 min TTL |
-| **`entityInstanceListDataStore`** | List/table data with pagination | URL path: `/project?page=1&limit=20` | `{ data: [], total, page, pageSize, hasMore }` | URL exit + 5 min TTL |
+| **`entityComponentMetadataStore`** | Field metadata per entity + component | `project:entityDataTable` | `Record<string, FieldMetadata>` | URL exit + 5 min TTL |
+| **`EntityListOfInstancesDataStore`** | List/table data with pagination | URL path: `/project?page=1&limit=20` | `{ data: [], total, page, pageSize, hasMore }` | URL exit + 5 min TTL |
+| **`EntitySpecificInstanceDataStore`** | Single entity instance for optimistic updates | URL path: `/project/uuid-123` | `EntityInstance` + `isDirty` flag | URL exit + 5 min TTL |
 
 **URL-Bound Cache Rules:**
 1. **Fetch on URL entry**: Data fetched only when user navigates to that URL route
@@ -548,34 +553,40 @@ These stores are **bound to the current URL** and invalidate when the user navig
 ```
 apps/web/src/stores/
 ├── index.ts                        # Barrel exports for all stores
-├── globalSettingsMetadataStore.ts  # 30 min TTL - App settings
-├── datalabelMetadataStore.ts       # 30 min TTL - Dropdown options
-├── entityCodeMetadataStore.ts      # 30 min TTL - Sidebar navigation
-├── entityComponentMetadataStore.ts # 30 min TTL - Field metadata
-├── entityInstanceDataStore.ts      # 5 min TTL - Single entity (URL-bound)
-├── entityInstanceListDataStore.ts  # 5 min TTL - Entity lists (URL-bound)
-└── useEntityEditStore.ts           # Edit state management
+│
+│  SESSION-LEVEL (30 min TTL, refresh on login):
+├── globalSettingsMetadataStore.ts  # App formatting settings
+├── datalabelMetadataStore.ts       # Dropdown options
+├── entityCodeMetadataStore.ts      # Sidebar navigation
+│
+│  URL-BOUND (5 min TTL, invalidate on URL change):
+├── entityComponentMetadataStore.ts # Field metadata per component
+├── EntityListOfInstancesDataStore.ts  # List/table data
+├── EntitySpecificInstanceDataStore.ts      # Single entity + optimistic updates
+│
+│  OTHER:
+└── useEntityEditStore.ts           # Edit state, dirty tracking, undo/redo
 ```
 
 ## Caching Strategy
 
 ### Cache Categories Summary
 
-#### Stores with Dedicated Endpoints (fetched independently)
+#### Session-Level Stores (fetched on login)
 
 | Store | Endpoint | Purpose | TTL | Invalidation |
 |-------|----------|---------|-----|--------------|
-| `globalSettingsMetadataStore` | `GET /api/v1/settings/global` | App formatting config | 30 min | Exit `/settings/*` |
-| `datalabelMetadataStore` | `GET /api/v1/settings/datalabels/all` | Dropdown options | 30 min | Exit `/settings/*` |
-| `entityCodeMetadataStore` | `GET /api/v1/entity/types` | Sidebar navigation | 30 min | Exit `/settings/*` |
+| `globalSettingsMetadataStore` | `GET /api/v1/settings/global` | App formatting config | 30 min | On login |
+| `datalabelMetadataStore` | `GET /api/v1/settings/datalabels/all` | Dropdown options | 30 min | On login |
+| `entityCodeMetadataStore` | `GET /api/v1/entity/codes` | Sidebar navigation | 30 min | On login |
 
-#### Stores Populated from Entity Endpoint Responses (no dedicated endpoint)
+#### URL-Bound Stores (invalidate on URL change)
 
 | Store | Populated By | Purpose | TTL | Invalidation |
 |-------|--------------|---------|-----|--------------|
-| `entityComponentMetadataStore` | Entity list/detail API responses | Field definitions per component | 30 min | When parent entity data refreshes |
-| `entityInstanceListDataStore` | `GET /api/v1/{entity}` | Table/list data | URL-bound + 5 min | URL exit |
-| `entityInstanceDataStore` | `GET /api/v1/{entity}/{id}` | Single entity detail | URL-bound + 5 min | URL exit |
+| `entityComponentMetadataStore` | Entity API responses (`metadata`) | Field definitions per component | 5 min | URL exit |
+| `EntityListOfInstancesDataStore` | `GET /api/v1/{entity}` | Table/list data | 5 min | URL exit |
+| `EntitySpecificInstanceDataStore` | `GET /api/v1/{entity}/{id}` | Single entity detail + optimistic updates | 5 min | URL exit |
 
 **Key Point**: `entityComponentMetadataStore` has NO dedicated endpoint. It is always populated as a side-effect when entity endpoints return data. The metadata is generated by the backend based on the SQL query columns, so it cannot be fetched separately.
 
@@ -583,39 +594,39 @@ apps/web/src/stores/
 
 ```
 Login (09:00)
-    ├─ Fetch & cache entity codes (30 min TTL)
-    ├─ Fetch & cache global settings (30 min TTL)
-    ├─ Fetch & cache all datalabels (30 min TTL)
+    ├─ Fetch & cache entity codes (30 min TTL, session)
+    ├─ Fetch & cache global settings (30 min TTL, session)
+    ├─ Fetch & cache all datalabels (30 min TTL, session)
     └─ Sidebar populated from entityCodeMetadataStore
 
 Navigate to /office (09:01)
-    ├─ Use cached entity codes ✓
-    ├─ Use cached datalabels ✓
-    ├─ Fetch office list → entityInstanceListDataStore (URL-bound)
-    └─ Fetch office metadata → entityComponentMetadataStore (30 min)
+    ├─ Use cached session stores ✓ (entity codes, datalabels, settings)
+    ├─ Fetch office list → EntityListOfInstancesDataStore (URL-bound)
+    └─ Fetch office metadata → entityComponentMetadataStore (URL-bound)
 
 Click office row → /office/123 (09:02)
     ├─ INVALIDATE office list cache (left /office URL)
-    ├─ Keep component metadata (still valid)
-    ├─ Fetch office/123 → entityInstanceDataStore (URL-bound)
-    └─ Reuse datalabels from cache ✓
+    ├─ INVALIDATE office component metadata (left /office URL)
+    ├─ Fetch office/123 → EntitySpecificInstanceDataStore (URL-bound)
+    ├─ Fetch office/123 metadata → entityComponentMetadataStore (URL-bound)
+    └─ Reuse session stores ✓
 
 Edit & Save (09:03)
     ├─ Track changed fields in useEntityEditStore
-    ├─ Mark instance as isDirty in entityInstanceDataStore
+    ├─ Mark instance as isDirty in EntitySpecificInstanceDataStore
     ├─ PATCH { budget_amt: 75000 }  // Only changed field!
     └─ Clear isDirty flag, refresh cache
 
 Navigate to /project (09:04)
-    ├─ INVALIDATE office/123 instance cache (left URL)
-    ├─ Keep all 30-min caches ✓
-    └─ Fetch project list → entityInstanceListDataStore (URL-bound)
+    ├─ INVALIDATE office/123 URL-bound caches (left URL)
+    ├─ Use session stores ✓ (entity codes, datalabels, settings)
+    └─ Fetch project list + metadata → URL-bound stores
 
 User stays on /project for 6 minutes (09:10)
-    └─ Project list auto-invalidates after 5 min TTL → refetch
+    └─ URL-bound stores auto-invalidate after 5 min TTL → refetch
 
-Exit /settings (09:30)
-    └─ INVALIDATE all 30-min caches → refetch everything
+Next Login (next day)
+    └─ All session stores refreshed on login
 ```
 
 ### Performance Impact

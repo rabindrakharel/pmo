@@ -4,6 +4,26 @@
 
 The PMO platform implements a **unidirectional data flow** pattern with intelligent caching layers. Data flows from the backend API through Zustand cache stores to route components and finally to presentation components. This architecture ensures predictable state updates, eliminates data synchronization issues, and optimizes performance through strategic caching.
 
+## Backend Services Overview
+
+Two core backend services work together to generate API responses:
+
+| Service | File | Responsibilities | Documentation |
+|---------|------|------------------|---------------|
+| **Entity Infrastructure Service** | `entity-infrastructure.service.ts` | RBAC checks, instance registry, parent-child links | [entity-infrastructure.service.md](../services/entity-infrastructure.service.md) |
+| **Backend Formatter Service** | `backend-formatter.service.ts` | Metadata generation (35+ patterns), datalabel fetching | [backend-formatter.service.md](../services/backend-formatter.service.md) |
+
+### API Response → Store Mapping
+
+Every entity endpoint response contains multiple data types that populate different stores:
+
+| API Response Property | Frontend Store | Notes |
+|-----------------------|----------------|-------|
+| `data` | `EntityListOfInstancesDataStore` / `EntitySpecificInstanceDataStore` | URL-bound, 5 min TTL |
+| `metadata` | `entityComponentMetadataStore` | **No dedicated endpoint** - piggybacks on entity response |
+| `datalabels` | `datalabelMetadataStore` | Also has dedicated endpoint |
+| `globalSettings` | `globalSettingsMetadataStore` | Also has dedicated endpoint |
+
 ## Data Flow Diagram with Caching Layer
 
 ```
@@ -16,9 +36,13 @@ The PMO platform implements a **unidirectional data flow** pattern with intellig
                      ▼
 ┌────────────────────────────────────────────────────────────────────┐
 │                      Fastify API Backend                           │
-│  • Entity Infrastructure Service (RBAC, relationships)             │
-│  • Backend Formatter Service (metadata generation)                 │
-│  • Includes datalabels, metadata in responses                     │
+│  Entity Infrastructure Service    Backend Formatter Service        │
+│  ┌────────────────────────┐      ┌────────────────────────┐       │
+│  │ • RBAC permission check│      │ • Metadata generation  │       │
+│  │ • Instance registry    │      │ • Pattern detection    │       │
+│  │ • Link management      │      │ • Datalabel fetching   │       │
+│  └────────────────────────┘      └────────────────────────┘       │
+│  Response: { data, fields, metadata, datalabels, globalSettings } │
 └────────────────────┬───────────────────────────────────────────────┘
                      │ HTTP/JSON
                      ▼
@@ -30,8 +54,8 @@ The PMO platform implements a **unidirectional data flow** pattern with intellig
 │  • entityCodeMetadataStore - Sidebar navigation                    │
 │  • entityComponentMetadataStore - Field metadata per component     │
 │  SHORT-LIVED (5 min TTL + URL-bound):                              │
-│  • entityInstanceDataStore - Single entity (URL: /entity/:id)      │
-│  • entityInstanceListDataStore - List data (URL: /entity?params)   │
+│  • EntitySpecificInstanceDataStore - Single entity (URL: /entity/:id)      │
+│  • EntityListOfInstancesDataStore - List data (URL: /entity?params)   │
 │  OTHER:                                                            │
 │  • useEntityEditStore - Edit state, dirty tracking, undo/redo      │
 └────────────────────┬───────────────────────────────────────────────┘
@@ -39,7 +63,7 @@ The PMO platform implements a **unidirectional data flow** pattern with intellig
                      ▼
 ┌────────────────────────────────────────────────────────────────────┐
 │                     Route Components (Pages)                       │
-│  • EntityMainPage, EntityDetailPage, EntityFormPage               │
+│  • EntityListOfInstancesPage, EntitySpecificInstancePage, EntityFormPage               │
 │  • Check cache before fetching                                    │
 │  • Distributes cached data to children                            │
 └────────────────────┬───────────────────────────────────────────────┘
@@ -65,44 +89,52 @@ The PMO platform implements a **unidirectional data flow** pattern with intellig
 
 ### Cache Categories & Lifecycle
 
-#### Stores with Dedicated Endpoints
+#### Session-Level Stores (fetched on login)
 
 | Store | Endpoint | Purpose | TTL | Invalidation | Storage |
 |-------|----------|---------|-----|--------------|---------|
-| `entityCodeMetadataStore` | `GET /api/v1/entity/types` | Sidebar navigation | 30 min | Exit `/settings/*` | SessionStorage |
-| `datalabelMetadataStore` | `GET /api/v1/settings/datalabels/all` | Dropdown options | 30 min | Exit `/settings/*` | SessionStorage |
-| `globalSettingsMetadataStore` | `GET /api/v1/settings/global` | App formatting config | 30 min | Exit `/settings/*` | SessionStorage |
+| `entityCodeMetadataStore` | `GET /api/v1/entity/codes` | Sidebar navigation | 30 min | On login | SessionStorage |
+| `datalabelMetadataStore` | `GET /api/v1/settings/datalabels/all` | Dropdown options | 30 min | On login | SessionStorage |
+| `globalSettingsMetadataStore` | `GET /api/v1/settings/global` | App formatting config | 30 min | On login | SessionStorage |
 
-#### Stores Populated from Entity Endpoint Responses (no dedicated endpoint)
+#### URL-Bound Stores (invalidate on URL change)
 
 | Store | Populated By | Purpose | TTL | Invalidation | Storage |
 |-------|--------------|---------|-----|--------------|---------|
-| `entityComponentMetadataStore` | Entity API responses | Field definitions | 30 min | When entity data refreshes | SessionStorage |
-| `entityInstanceListDataStore` | `GET /api/v1/{entity}` | Table data | URL-bound + 5 min | URL exit, CRUD ops | Memory |
-| `entityInstanceDataStore` | `GET /api/v1/{entity}/{id}` | Detail views | URL-bound + 5 min | URL exit, after PATCH | Memory |
+| `entityComponentMetadataStore` | Entity API responses (`metadata`) | Field definitions | 5 min | URL exit | Memory |
+| `EntityListOfInstancesDataStore` | `GET /api/v1/{entity}` | Table data | 5 min | URL exit | Memory |
+| `EntitySpecificInstanceDataStore` | `GET /api/v1/{entity}/{id}` | Detail views + optimistic updates | 5 min | URL exit | Memory |
 
 **Important**: `entityComponentMetadataStore` is populated as a side-effect of entity endpoint responses. The metadata is generated by backend based on SQL query columns and cannot be fetched independently.
 
 ### URL-Bound Cache Behavior
 
-Short-lived caches (`entityInstanceDataStore`, `entityInstanceListDataStore`) follow URL-bound rules:
+URL-bound caches (`entityComponentMetadataStore`, `EntitySpecificInstanceDataStore`, `EntityListOfInstancesDataStore`) follow these rules:
 
 1. **Fetch on URL entry**: Data only fetched when user navigates to that URL route
 2. **Invalidate on URL exit**: Cache cleared immediately when navigating away
 3. **5 min TTL fallback**: Also invalidates after 5 minutes if user stays on same page
 4. **Optimistic updates**: Changes tracked with `isDirty` flag until backend sync
 
+### Session-Level Cache Behavior
+
+Session-level caches (`globalSettingsMetadataStore`, `datalabelMetadataStore`, `entityCodeMetadataStore`) follow these rules:
+
+1. **Fetch on login**: Data fetched once when user logs in
+2. **Cached for session**: Remains cached for entire session (30 min TTL)
+3. **Refreshed on next login**: Fresh data fetched on each new login
+
 ### Cache Flow Example
 
 ```
-09:00  Login → Fetch & cache entity codes, settings, datalabels (30 min TTL)
-09:01  Navigate to /office → Fetch office list (URL-bound) + component metadata (30 min)
-09:02  Click row → /office/123 → INVALIDATE list (left URL), fetch detail (URL-bound)
+09:00  Login → Fetch & cache session stores (entity codes, settings, datalabels)
+09:01  Navigate to /office → Fetch office list + metadata (URL-bound)
+09:02  Click row → /office/123 → INVALIDATE URL-bound caches, fetch detail + metadata
 09:03  Edit & Save → PATCH only changed fields, update instanceDataStore
-09:04  Back to /office → INVALIDATE detail (left URL), refetch list (metadata cached ✓)
-09:07  Navigate to /task → INVALIDATE office list, fetch task data
+09:04  Back to /office → INVALIDATE detail URL caches, refetch list + metadata
+09:07  Navigate to /task → INVALIDATE office URL caches, fetch task data + metadata
 09:10  Stay on /task → 5 min TTL expires → background refetch
-09:30  Exit /settings → INVALIDATE all 30-min session caches → refetch everything
+Next login → All session stores refreshed
 ```
 
 ## Detailed Component Flow
@@ -141,7 +173,7 @@ function BusinessPage() {
   */
 
   return (
-    <EntityMainPage
+    <EntityListOfInstancesPage
       entityType="business"
       data={response?.data}
       metadata={response?.metadata}
@@ -150,11 +182,11 @@ function BusinessPage() {
   );
 }
 
-// STEP 2: EntityMainPage renders table
+// STEP 2: EntityListOfInstancesPage renders table
 // ========================================
-// Location: apps/web/src/pages/entity/EntityMainPage.tsx
+// Location: apps/web/src/pages/entity/EntityListOfInstancesPage.tsx
 
-function EntityMainPage({ entityType, data, metadata, datalabels }) {
+function EntityListOfInstancesPage({ entityType, data, metadata, datalabels }) {
   const navigate = useNavigate();
 
   const handleRowClick = (item: any) => {
@@ -203,7 +235,7 @@ function BusinessDetailPage({ id }) {
   */
 
   return (
-    <EntityDetailPage
+    <EntitySpecificInstancePage
       entityType="business"
       data={response?.data}
       metadata={response?.metadata}
@@ -212,11 +244,11 @@ function BusinessDetailPage({ id }) {
   );
 }
 
-// STEP 4: EntityDetailPage renders details and tabs
+// STEP 4: EntitySpecificInstancePage renders details and tabs
 // ========================================
-// Location: apps/web/src/pages/entity/EntityDetailPage.tsx
+// Location: apps/web/src/pages/entity/EntitySpecificInstancePage.tsx
 
-function EntityDetailPage({ entityType, data, metadata, datalabels }) {
+function EntitySpecificInstancePage({ entityType, data, metadata, datalabels }) {
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -787,7 +819,7 @@ interface EntityComponentMetadataStore {
 #### Short-Lived Stores (5 min TTL + URL-bound)
 
 ```typescript
-// 5. entityInstanceDataStore - Single entity (URL: /entity/:id)
+// 5. EntitySpecificInstanceDataStore - Single entity (URL: /entity/:id)
 interface EntityInstanceDataStore {
   instances: Record<string, CacheEntry>;  // key: 'project:uuid-123'
   setInstance: (entityCode: string, instanceId: string, data: EntityInstance) => void;
@@ -795,7 +827,7 @@ interface EntityInstanceDataStore {
   isDirty: (entityCode: string, instanceId: string) => boolean;  // Optimistic update tracking
 }
 
-// 6. entityInstanceListDataStore - List data (URL: /entity?params)
+// 6. EntityListOfInstancesDataStore - List data (URL: /entity?params)
 interface EntityInstanceListDataStore {
   lists: Record<string, CacheEntry>;  // key: 'project:page=1&limit=20'
   setList: (entityCode: string, queryHash: string, data: ListData) => void;
@@ -824,24 +856,24 @@ interface EntityEditStore {
 navigateToEntity('office') → {
   1. Check URL change (previous URL vs current URL)
   2. If URL changed → INVALIDATE previous entity's URL-bound caches
-  3. Check entityInstanceListDataStore for cached list
+  3. Check EntityListOfInstancesDataStore for cached list
   4. If expired (>5 min) or not found → Fetch fresh data
-  5. Store in entityInstanceListDataStore with URL as key
+  5. Store in EntityListOfInstancesDataStore with URL as key
 }
 
 // Navigation to /office/123 (detail view)
 navigateToEntityDetail('office', '123') → {
-  1. INVALIDATE entityInstanceListDataStore (left /office URL)
-  2. Check entityInstanceDataStore for cached instance
+  1. INVALIDATE EntityListOfInstancesDataStore (left /office URL)
+  2. Check EntitySpecificInstanceDataStore for cached instance
   3. If expired (>5 min) or not found → Fetch fresh data
-  4. Store in entityInstanceDataStore with 'office:123' as key
+  4. Store in EntitySpecificInstanceDataStore with 'office:123' as key
 }
 
 // Navigation away from /office/123 to /project
 navigateToEntity('project') → {
-  1. INVALIDATE entityInstanceDataStore (left /office/123 URL)
+  1. INVALIDATE EntitySpecificInstanceDataStore (left /office/123 URL)
   2. Keep all 30-min session caches ✓
-  3. Fetch project list → entityInstanceListDataStore
+  3. Fetch project list → EntityListOfInstancesDataStore
 }
 
 // Exit from /settings

@@ -342,4 +342,70 @@ DELETE Entity Flow
 
 ---
 
+## Frontend Integration
+
+### End-to-End Data Flow
+
+The Entity Infrastructure Service works with Backend Formatter Service to generate API responses that populate frontend Zustand stores:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           BACKEND                                        │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Entity Infrastructure Service        Backend Formatter Service          │
+│  ┌─────────────────────────┐         ┌─────────────────────────┐        │
+│  │ • RBAC checks           │         │ • Metadata generation   │        │
+│  │ • Instance registry     │         │ • Pattern detection     │        │
+│  │ • Link management       │         │ • Datalabel fetching    │        │
+│  └───────────┬─────────────┘         └───────────┬─────────────┘        │
+│              │                                   │                       │
+│              └───────────────┬───────────────────┘                       │
+│                              v                                           │
+│                    ┌─────────────────────┐                               │
+│                    │   API Response      │                               │
+│                    │ { data, metadata,   │                               │
+│                    │   datalabels, ... } │                               │
+│                    └──────────┬──────────┘                               │
+└───────────────────────────────│──────────────────────────────────────────┘
+                                │
+                                v
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           FRONTEND                                       │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │                    Zustand Stores (7 total)                      │    │
+│  ├─────────────────────────────────────────────────────────────────┤    │
+│  │  SESSION-LEVEL (30 min TTL, refresh on login):                   │    │
+│  │  • globalSettingsMetadataStore  ← globalSettings                 │    │
+│  │  • datalabelMetadataStore       ← datalabels                     │    │
+│  │  • entityCodeMetadataStore      ← /api/v1/entity/codes           │    │
+│  ├─────────────────────────────────────────────────────────────────┤    │
+│  │  URL-BOUND (5 min TTL, invalidate on URL change):                │    │
+│  │  • entityComponentMetadataStore ← metadata (from entity response)│    │
+│  │  • EntityListOfInstancesDataStore  ← data (list)                    │    │
+│  │  • EntitySpecificInstanceDataStore      ← data (single) + optimistic     │    │
+│  ├─────────────────────────────────────────────────────────────────┤    │
+│  │  OTHER:                                                          │    │
+│  │  • useEntityEditStore           ← edit state, dirty tracking     │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Store Responsibilities
+
+| Backend Service | Data Produced | Frontend Store | Cache Type |
+|-----------------|---------------|----------------|------------|
+| Entity Infrastructure | RBAC-filtered entities | `EntityListOfInstancesDataStore`, `EntitySpecificInstanceDataStore` | URL-bound (5 min) |
+| Backend Formatter | Field metadata | `entityComponentMetadataStore` | URL-bound (5 min) |
+| Backend Formatter | Datalabel options | `datalabelMetadataStore` | Session (30 min, login) |
+| Backend Formatter | Global settings | `globalSettingsMetadataStore` | Session (30 min, login) |
+| `/api/v1/entity/codes` | Entity codes | `entityCodeMetadataStore` | Session (30 min, login) |
+
+> **See:** `docs/state_management/zustand-integration-guide.md` for complete frontend store documentation
+
+---
+
 **Last Updated:** 2025-11-21 | **Status:** Production Ready

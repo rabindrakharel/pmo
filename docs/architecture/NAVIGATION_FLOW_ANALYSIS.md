@@ -18,9 +18,9 @@ Users navigate from entity list (DataTable) to detail view for deep inspection a
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                    USER: List View (EntityMainPage)               │
+│                    USER: List View (EntityListOfInstancesPage)               │
 │  URL: /office                                                    │
-│  Component: EntityMainPage                                       │
+│  Component: EntityListOfInstancesPage                                       │
 └────────────────────┬─────────────────────────────────────────────┘
                      │
                      ├─ Mount: useEffect()
@@ -91,9 +91,9 @@ Users navigate from entity list (DataTable) to detail view for deep inspection a
                      │
                      ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                 USER: Detail View (EntityDetailPage)              │
+│                 USER: Detail View (EntitySpecificInstancePage)              │
 │  URL: /office/{id}                                               │
-│  Component: EntityDetailPage                                     │
+│  Component: EntitySpecificInstancePage                                     │
 └────────────────────┬─────────────────────────────────────────────┘
                      │
                      ├─ Mount: useEffect()
@@ -133,7 +133,7 @@ Users navigate from entity list (DataTable) to detail view for deep inspection a
 **❌ Problem 1: Full Re-fetch on Navigation**
 - User clicks row in table
 - Router navigates to `/office/{id}`
-- EntityDetailPage mounts and **fetches data again**
+- EntitySpecificInstancePage mounts and **fetches data again**
 - Data was already available in list view!
 
 **❌ Problem 2: Metadata Re-generation**
@@ -161,7 +161,7 @@ Users navigate from entity list (DataTable) to detail view for deep inspection a
 ### 3.1 Current Plumbing (Verified Tight)
 
 ```
-EntityMainPage
+EntityListOfInstancesPage
    │
    ├─ State: metadata, datalabels
    │
@@ -198,7 +198,7 @@ frontEndFormatterService
 ### 3.2 Action Button Plumbing
 
 ```
-EntityDetailPage
+EntitySpecificInstancePage
    │
    ├─ Actions: [Edit, Delete, Share, Link]
    │
@@ -225,7 +225,7 @@ EntityFormContainer
 **Pattern: Optimistic Navigation with Cache**
 
 ```typescript
-// EntityMainPage - Store clicked row in context/zustand
+// EntityListOfInstancesPage - Store clicked row in context/zustand
 const handleRowClick = (record) => {
   // Cache row data + metadata for fast detail page render
   entityCache.set(record.id, {
@@ -238,7 +238,7 @@ const handleRowClick = (record) => {
   navigate(`/office/${record.id}`);
 };
 
-// EntityDetailPage - Use cached data immediately
+// EntitySpecificInstancePage - Use cached data immediately
 useEffect(() => {
   const cached = entityCache.get(id);
 
@@ -270,7 +270,7 @@ useEffect(() => {
 **Pattern: Request Multiple Components in List View**
 
 ```typescript
-// EntityMainPage - Request metadata for future needs
+// EntityListOfInstancesPage - Request metadata for future needs
 const params = {
   view: 'entityDataTable,entityDetailView,entityFormContainer',
   page, pageSize: 100
@@ -302,14 +302,14 @@ const DatalabelContext = createContext({
   getDatalabel: (key) => {...}
 });
 
-// EntityMainPage
+// EntityListOfInstancesPage
 useEffect(() => {
   if (response.datalabels) {
     addDatalabels(response.datalabels);  // Cache globally
   }
 }, [response]);
 
-// EntityDetailPage
+// EntitySpecificInstancePage
 const officeTypeDatalabel = getDatalabel('dl__office_type');
 // Use cached datalabel (no re-fetch)
 ```
@@ -324,7 +324,7 @@ const officeTypeDatalabel = getDatalabel('dl__office_type');
 **Pattern: Prop Drilling for Form Metadata**
 
 ```typescript
-// EntityDetailPage
+// EntitySpecificInstancePage
 const response = await api.get(id, {
   view: 'entityDetailView,entityFormContainer'
 });
@@ -437,8 +437,8 @@ USER SAVES
 
 ### Phase 1: Quick Wins (1-2 days)
 - [ ] Implement global datalabel cache (DatalabelContext)
-- [ ] Add row-level caching to EntityMainPage
-- [ ] Update EntityDetailPage to use cached data
+- [ ] Add row-level caching to EntityListOfInstancesPage
+- [ ] Update EntitySpecificInstancePage to use cached data
 
 ### Phase 2: Metadata Optimization (2-3 days)
 - [ ] Pre-fetch multi-component metadata in list view

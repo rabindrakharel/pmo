@@ -44,7 +44,7 @@ The UI Component Entity Data Flow describes how data moves from the backend API 
 │         ┌────────────────────┼────────────────────┐                     │
 │         v                    v                    v                     │
 │  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐              │
-│  │EntityMainPage│     │EntityDetail │     │EntityForm   │              │
+│  │EntityListOfInstancesPage│     │EntitySpecificInstance │     │EntityForm   │              │
 │  │   Page      │     │   Page      │     │   Page      │              │
 │  └─────────────┘     └─────────────┘     └─────────────┘              │
 │         │                    │                    │                     │
@@ -83,8 +83,8 @@ Step-by-Step Data Flow
 
 2. PAGE COMPONENT
    │
-   ├── EntityMainPage (list view)
-   ├── EntityDetailPage (single view)
+   ├── EntityListOfInstancesPage (list view)
+   ├── EntitySpecificInstancePage (single view)
    └── EntityFormPage (create/edit)
 
 3. API REQUEST
@@ -132,8 +132,8 @@ Step-by-Step Data Flow
 
 | Component | Route | Purpose |
 |-----------|-------|---------|
-| EntityMainPage | `/:entityCode` | List view with table/kanban/calendar |
-| EntityDetailPage | `/:entityCode/:id` | Single entity detail with child tabs |
+| EntityListOfInstancesPage | `/:entityCode` | List view with table/kanban/calendar |
+| EntitySpecificInstancePage | `/:entityCode/:id` | Single entity detail with child tabs |
 | EntityFormPage | `/:entityCode/new`, `/:entityCode/:id/edit` | Create/edit forms |
 
 ### Data Components
@@ -217,7 +217,7 @@ View Mode Flow
 User navigates to /project
         │
         v
-EntityMainPage loads
+EntityListOfInstancesPage loads
         │
         v
 useQuery fetches GET /api/v1/project?view=entityDataTable

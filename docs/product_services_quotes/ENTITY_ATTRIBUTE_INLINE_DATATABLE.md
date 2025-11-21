@@ -22,7 +22,7 @@ EntityAttributeInlineDataTable is a **universal, reusable component** for render
 **Don't use for:**
 - ❌ Full entity tables (use EntityDataTable)
 - ❌ Settings management (use SettingsDataTable)
-- ❌ Paginated entity lists (use EntityMainPage)
+- ❌ Paginated entity lists (use EntityListOfInstancesPage)
 
 ---
 

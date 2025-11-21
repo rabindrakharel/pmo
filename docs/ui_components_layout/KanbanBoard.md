@@ -160,7 +160,7 @@ VALUES (
 ### Component Usage
 
 ```typescript
-// In EntityMainPage
+// In EntityListOfInstancesPage
 <KanbanView
   config={config}
   data={tasks}

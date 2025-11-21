@@ -158,8 +158,8 @@ Artifact → RBAC (via entity_rbac)
 │                    PRESENTATION LAYER                        │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │ React 19 + TypeScript                                │   │
-│  │ - EntityMainPage (list view)                         │   │
-│  │ - EntityDetailPage (detail view with tabs)          │   │
+│  │ - EntityListOfInstancesPage (list view)                         │   │
+│  │ - EntitySpecificInstancePage (detail view with tabs)          │   │
 │  │ - ArtifactUploadModal (file upload)                 │   │
 │  │ - ArtifactPreviewModal (document viewer)            │   │
 │  └──────────────────────────────────────────────────────┘   │
@@ -234,8 +234,8 @@ Frontend (React)
     │   └─ childEntities: []
     │
     ├─ Universal Pages
-    │   ├─ EntityMainPage (list)
-    │   ├─ EntityDetailPage (detail)
+    │   ├─ EntityListOfInstancesPage (list)
+    │   ├─ EntitySpecificInstancePage (detail)
     │   └─ EntityFormPage (create/edit)
     │
     └─ Custom Components
@@ -794,14 +794,14 @@ artifact: {
 
 **Universal Pages:**
 
-1. **EntityMainPage** (`/artifact`)
+1. **EntityListOfInstancesPage** (`/artifact`)
    - Lists all artifacts in table view
    - Pagination, sorting, filtering
    - Search bar
    - "Add Artifact" button
    - Row actions: View, Download, Delete
 
-2. **EntityDetailPage** (`/artifact/:id`)
+2. **EntitySpecificInstancePage** (`/artifact/:id`)
    - Artifact metadata display
    - File preview (if supported)
    - Version history
@@ -886,7 +886,7 @@ artifact: {
    ↓
 3. User clicks "View" on an artifact
    ↓
-4. EntityDetailPage opens (/artifact/{id})
+4. EntitySpecificInstancePage opens (/artifact/{id})
    ↓
 5. Artifact metadata displayed
    ↓

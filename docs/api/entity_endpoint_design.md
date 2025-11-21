@@ -13,7 +13,7 @@ All entity routes (business, project, task, employee, etc.) follow **identical p
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                      Frontend (React)                        │
-│  EntityMainPage → API Call → /api/v1/project                │
+│  EntityListOfInstancesPage → API Call → /api/v1/project                │
 └────────────────────────┬─────────────────────────────────────┘
                          │
 ┌────────────────────────▼─────────────────────────────────────┐

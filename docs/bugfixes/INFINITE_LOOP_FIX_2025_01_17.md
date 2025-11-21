@@ -86,7 +86,7 @@ const fields = useMemo(() => {
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ EntityDetailPage renders                                     │
+│ EntitySpecificInstancePage renders                                     │
 │ data = { id: "...", name: "Task", project_id: "..." }      │
 └────────────────────┬────────────────────────────────────────┘
                      │
@@ -123,7 +123,7 @@ const fields = useMemo(() => {
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ EntityDetailPage re-renders                                  │
+│ EntitySpecificInstancePage re-renders                                  │
 │ data = NEW OBJECT { id: "...", name: "Task", ... }         │
 │ (same content, different reference)                         │
 └────────────────────┬────────────────────────────────────────┘
@@ -301,7 +301,7 @@ All components using auto-generation had the same `data` dependency issue:
 
 - ✅ `apps/web/src/lib/universalFormatterService.ts` - Working correctly
 - ✅ `apps/web/src/lib/viewConfigGenerator.ts` - Working correctly
-- ✅ `apps/web/src/pages/shared/EntityDetailPage.tsx` - No changes needed
+- ✅ `apps/web/src/pages/shared/EntitySpecificInstancePage.tsx` - No changes needed
 
 ---
 
