@@ -75,6 +75,7 @@ interface MetadataCacheActions {
   // Setters (with automatic tier assignment)
   // ========================================================================
   setGlobalSettings: (data: any) => void;
+  setEntityTypes: (types: any[]) => void;
   setEntityMetadata: (entityType: string, metadata: any) => void;
   setDatalabels: (datalabelName: string, data: any) => void;
   setEntityInstances: (entityType: string, instances: any) => void;
@@ -84,6 +85,7 @@ interface MetadataCacheActions {
   // Getters (with automatic expiration check)
   // ========================================================================
   getGlobalSettings: () => any | null;
+  getEntityTypes: () => any[] | null;
   getEntityMetadata: (entityType: string) => any | null;
   getDatalabels: (datalabelName: string) => any | null;
   getEntityInstances: (entityType: string) => any | null;
@@ -97,6 +99,7 @@ interface MetadataCacheActions {
   invalidateDatalabel: (datalabelName: string) => void;
   cleanupExpired: () => void;
   clearNavigationCache: () => void;
+  clearCache: () => void;
   clearAll: () => void;
 
   // ========================================================================
@@ -167,6 +170,18 @@ export const useMetadataCacheStore = create<MetadataCacheState & MetadataCacheAc
             });
           },
 
+          setEntityTypes: (types: any[]) => {
+            console.log('[Cache] Storing entity types');
+            set({
+              entityTypes: {
+                data: types,
+                timestamp: Date.now(),
+                tier: 'session',
+                ttl: CACHE_TTL.SESSION,
+              }
+            });
+          },
+
           setEntityMetadata: (entityType: string, metadata: any) => {
             console.log(`[Cache] Storing metadata for ${entityType}`);
             const { entityMetadata } = get();
@@ -233,6 +248,14 @@ export const useMetadataCacheStore = create<MetadataCacheState & MetadataCacheAc
               return null;
             }
             return globalSettings.data;
+          },
+
+          getEntityTypes: () => {
+            const { entityTypes } = get();
+            if (!entityTypes || get().isExpired(entityTypes)) {
+              return null;
+            }
+            return entityTypes.data;
           },
 
           getEntityMetadata: (entityType: string) => {
@@ -408,6 +431,11 @@ export const useMetadataCacheStore = create<MetadataCacheState & MetadataCacheAc
             newMetadata.delete(currentEntityType);
 
             set({ entityMetadata: newMetadata });
+          },
+
+          clearCache: () => {
+            console.log('[Cache] Clearing all caches (alias for clearAll)');
+            get().clearAll();
           },
 
           clearAll: () => {

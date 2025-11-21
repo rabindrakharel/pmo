@@ -81,6 +81,7 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
     dirtyFields,
     startEdit,
     updateField,
+    updateMultipleFields,
     saveChanges: storesSaveChanges,
     cancelEdit,
     hasChanges,
@@ -537,11 +538,11 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
         setUploadedObjectKey(objectKey);
         // Auto-populate file metadata immediately for the new version
         const fileExtension = selectedFile.name.split('.').pop() || 'unknown';
-        setEditedData(prev => ({
-          ...prev,
+        // Use Zustand store for field updates
+        updateMultipleFields({
           attachment_format: fileExtension,
           attachment_size_bytes: selectedFile.size
-        }));
+        });
       }
     } catch (error) {
       console.error('Upload failed:', error);
@@ -554,12 +555,11 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
   const handleRemoveFile = () => {
     setSelectedFile(null);
     setUploadedObjectKey(null);
-    // Restore original file metadata from current version
-    setEditedData(prev => ({
-      ...prev,
-      attachment_format: data.attachment_format || '',
-      attachment_size_bytes: data.attachment_size_bytes || 0
-    }));
+    // Restore original file metadata from current version using Zustand store
+    updateMultipleFields({
+      attachment_format: data?.attachment_format || '',
+      attachment_size_bytes: data?.attachment_size_bytes || 0
+    });
   };
 
   const handleCopy = async (text: string, fieldName: string) => {
@@ -595,9 +595,11 @@ export function EntityDetailPage({ entityCode }: EntityDetailPageProps) {
       const result = await response.json();
       const shareUrl = result.sharedUrl || result.shared_url;
 
-      // Update local state
-      setData({ ...data, shared_url: shareUrl });
-      setEditedData({ ...editedData, shared_url: shareUrl });
+      // Update Zustand store with new share URL
+      updateField('shared_url', shareUrl);
+
+      // Invalidate cache to ensure fresh data on next load
+      invalidateEntity(entityCode, id);
 
       // Copy to clipboard
       await navigator.clipboard.writeText(`${window.location.origin}${shareUrl}`);
