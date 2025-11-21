@@ -397,10 +397,10 @@ The infrastructure tables have been simplified to use **hard deletes only**:
 
 - **Service Implementation**: `apps/api/src/services/entity-infrastructure.service.ts`
 
-- **Route Examples**:
-  - `apps/api/src/modules/business/routes.ts` - Complete implementation
-  - `apps/api/src/modules/project/routes.ts` - Complete implementation
-  - `apps/api/src/modules/task/routes.ts` - Complete implementation
+- **Route Migration Status**:
+  - ⚠️ Routes currently use legacy `unified-data-gate.ts` (needs migration)
+  - ⚠️ Routes reference old table names (`d_entity_rbac`, `d_entity_instance_link`)
+  - ✅ Entity Infrastructure Service is ready with correct schema
 
 ## Anti-Patterns (Avoid)
 
@@ -424,7 +424,19 @@ await db.execute(sql`INSERT INTO app.entity_rbac ...`);
 
 ## Migration from Legacy Patterns
 
-If you find routes NOT using Entity Infrastructure Service:
+**CURRENT STATE**: Routes still use legacy `unified-data-gate.ts` with OLD schema:
+- OLD tables: `d_entity_rbac`, `d_entity_instance_link` (don't exist)
+- OLD columns: `person_entity_name`, `parent_entity_type`, `active_flag`
+- NEW tables: `entity_rbac`, `entity_instance_link` (actual schema)
+- NEW columns: `person_code`, `entity_code`, no `active_flag`
+
+**Files requiring migration** (30+ routes):
+- `apps/api/src/lib/unified-data-gate.ts` - Legacy RBAC (TO BE DELETED)
+- `apps/api/src/lib/child-entity-route-factory.ts` - Legacy factories (TO BE DELETED)
+- `apps/api/src/lib/entity-delete-route-factory.ts` - Legacy delete (TO BE DELETED)
+- All route modules that import from above
+
+**Migration steps for each route**:
 
 1. **Add service initialization**: `const entityInfra = getEntityInfrastructure(db);`
 2. **Replace RBAC queries** with `check_entity_rbac()`, `get_entity_rbac_where_condition()`
@@ -434,11 +446,11 @@ If you find routes NOT using Entity Infrastructure Service:
 
 ## Version History
 
-- **v2.0.0** (2025-01-18) - Updated for new data model
-  - Table renames: `d_entity_instance_registry` → `entity_instance`, etc.
+- **v2.0.0** (2025-01-18) - Documentation updated for new data model
+  - Service uses NEW schema: `entity`, `entity_instance`, `entity_instance_link`, `entity_rbac`
   - Hard delete only for infrastructure tables (no `active_flag`)
-  - Updated permission hierarchy (0-7 with COMMENT and CONTRIBUTE)
-  - Parent-CREATE inheritance now grants SHARE (permission 4) instead of CREATE
-- **v1.0.0** (2025-01-17) - Initial implementation (1108 lines)
+  - Permission hierarchy: 0-7 (VIEW, COMMENT, EDIT, SHARE, DELETE, CREATE, OWNER)
+  - **NOTE**: Routes NOT yet migrated - still use legacy `unified-data-gate.ts`
+- **v1.0.0** (2025-01-17) - Initial service implementation (1108 lines)
   - Pattern: Add-On Helper Service (routes own queries)
-  - Coverage: 100% of entity routes (business, project, task, and 42+ others)
+  - Status: Service ready, route migration pending
