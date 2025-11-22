@@ -90,7 +90,7 @@ Action: EDIT              employee_id: emp-uuid
 
 | Range | Purpose | Example |
 |-------|---------|---------|
-| I-II | Schema & Settings | `I_schemaCreate.ddl`, `II_datalabel.ddl` |
+| 01-03 | Schema & Settings | `01_schemaCreate.ddl`, `03_datalabel.ddl` |
 | III-IX | People & Organization | `d_employee`, `d_office`, `d_business` |
 | X-XIV | Products & Projects | `d_product`, `d_project`, `d_task` |
 | XV-XXV | Content & Workflow | `d_artifact`, `d_form_head`, `d_wiki` |
