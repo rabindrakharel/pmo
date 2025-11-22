@@ -592,7 +592,7 @@ export async function empRoutes(fastify: FastifyInstance) {
         entity_code: ENTITY_CODE,
         entity_id: employeeId,
         entity_name: newEmployee.name,
-        entity_code: newEmployee.code
+        instance_code: newEmployee.code
       });
 
       // ═══════════════════════════════════════════════════════════════
@@ -744,7 +744,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       if (data.name !== undefined || data.code !== undefined) {
         await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
-          entity_code: data.code
+          instance_code: data.code
         });
       }
 
@@ -883,7 +883,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       if (data.name !== undefined || data.code !== undefined) {
         await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
-          entity_code: data.code
+          instance_code: data.code
         });
       }
 

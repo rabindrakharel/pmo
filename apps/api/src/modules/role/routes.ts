@@ -312,7 +312,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
         entity_code: ENTITY_CODE,
         entity_id: roleId,
         entity_name: newRole.name,
-        entity_code: newRole.role_code || null
+        instance_code: newRole.role_code || null
       });
 
       // ═══════════════════════════════════════════════════════════════
@@ -470,7 +470,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       if (data.name !== undefined || data.roleType !== undefined) {
         await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
-          entity_code: data.roleType
+          instance_code: data.roleType
         });
       }
 
@@ -611,7 +611,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       if (data.name !== undefined || data.roleType !== undefined) {
         await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
-          entity_code: data.roleType
+          instance_code: data.roleType
         });
       }
 

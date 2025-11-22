@@ -796,7 +796,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       if (updates.name !== undefined || updates.code !== undefined) {
         await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: updates.name,
-          entity_code: updates.code
+          instance_code: updates.code
         });
       }
 
@@ -894,7 +894,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       if (updates.name !== undefined || updates.code !== undefined) {
         await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: updates.name,
-          entity_code: updates.code
+          instance_code: updates.code
         });
       }
 

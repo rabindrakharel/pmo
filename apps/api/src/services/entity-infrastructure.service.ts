@@ -324,25 +324,25 @@ export class EntityInfrastructureService {
    * Upserts if exists (updates metadata, reactivates if deactivated)
    *
    * @example
-   * await entityInfra.registerInstance({
+   * await entityInfra.set_entity_instance_registry({
    *   entity_code: 'project',
    *   entity_id: projectId,
    *   entity_name: 'Kitchen Renovation',
-   *   entity_code: 'PROJ-001'
+   *   instance_code: 'PROJ-001'
    * });
    */
   async set_entity_instance_registry(params: {
     entity_code: string;
     entity_id: string;
     entity_name: string;
-    entity_code?: string | null;
+    instance_code?: string | null;
   }): Promise<EntityInstance> {
-    const { entity_code, entity_id, entity_name, entity_code } = params;
+    const { entity_code, entity_id, entity_name, instance_code } = params;
 
     const result = await this.db.execute(sql`
       INSERT INTO app.entity_instance
       (entity_code, entity_instance_id, entity_instance_name, code)
-      VALUES (${entity_code}, ${entity_id}, ${entity_name}, ${entity_code || null})
+      VALUES (${entity_code}, ${entity_id}, ${entity_name}, ${instance_code || null})
       RETURNING *
     `);
 
@@ -356,7 +356,7 @@ export class EntityInfrastructureService {
   async update_entity_instance_registry(
     entity_code: string,
     entity_id: string,
-    updates: { entity_name?: string; entity_code?: string | null }
+    updates: { entity_name?: string; instance_code?: string | null }
   ): Promise<EntityInstance | null> {
     const setClauses: string[] = [];
     const params: any[] = [];
@@ -365,9 +365,9 @@ export class EntityInfrastructureService {
       setClauses.push('entity_instance_name');
       params.push(updates.entity_name);
     }
-    if (updates.entity_code !== undefined) {
+    if (updates.instance_code !== undefined) {
       setClauses.push('code');
-      params.push(updates.entity_code);
+      params.push(updates.instance_code);
     }
 
     if (setClauses.length === 0) return null;

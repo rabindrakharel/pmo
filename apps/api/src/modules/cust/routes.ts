@@ -11,7 +11,7 @@ import {
 import { transformRequestBody } from '../../lib/data-transformers.js';
 // ✅ Centralized unified data gate - loosely coupled API
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
-import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✨ Backend Formatter Service - component-aware metadata generation
@@ -475,7 +475,7 @@ export async function custRoutes(fastify: FastifyInstance) {
         entity_code: ENTITY_CODE,
         entity_id: custId,
         entity_name: newCustomer.name,
-        entity_code: newCustomer.code
+        instance_code: newCustomer.code
       });
 
       // ═══════════════════════════════════════════════════════════════
@@ -623,7 +623,7 @@ export async function custRoutes(fastify: FastifyInstance) {
       if (data.name !== undefined || data.code !== undefined) {
         await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
-          entity_code: data.code
+          instance_code: data.code
         });
       }
 
@@ -753,7 +753,7 @@ export async function custRoutes(fastify: FastifyInstance) {
       if (data.name !== undefined || data.code !== undefined) {
         await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
-          entity_code: data.code
+          instance_code: data.code
         });
       }
 
