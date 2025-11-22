@@ -10,7 +10,7 @@ import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter.service.js';
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
-import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 
 const WikiSchema = Type.Object({
   id: Type.String(),
