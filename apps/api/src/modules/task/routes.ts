@@ -144,7 +144,7 @@ import {
   filterUniversalColumns,
   getColumnsByMetadata
 } from '../../lib/universal-schema-metadata.js';
-import { universalEntityDelete, createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 // ✅ Child entity factory for parent-child relationships
 import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
 // ✅ Centralized unified data gate - loosely coupled API
@@ -413,10 +413,6 @@ export async function taskRoutes(fastify: FastifyInstance) {
         offset
       });
 
-      // ✨ Extract datalabel keys and fetch datalabels
-      if (datalabelKeys.length > 0) {
-      }
-
       return response;
     } catch (error) {
       fastify.log.error('Error fetching tasks:', error);
@@ -538,10 +534,6 @@ export async function taskRoutes(fastify: FastifyInstance) {
         offset: 0
       });
 
-      // ✨ Extract datalabel keys and fetch datalabels
-      if (datalabelKeys.length > 0) {
-      }
-
       // Return first item (single entity)
       return {
         data: response.data[0],
@@ -591,43 +583,26 @@ export async function taskRoutes(fastify: FastifyInstance) {
     if (!data.code) data.code = `TASK-${Date.now()}`;
 
     try {
-      // Create task using actual DDL structure (matches 19_d_task.ddl)
-      const result = await db.execute(sql`
-        INSERT INTO app.task (
-          code, name, descr, metadata,
-          dl__task_stage, dl__task_priority,
-          estimated_hours, actual_hours, story_points,
-          active_flag
-        )
-        VALUES (
-          ${data.code || `TASK-${Date.now()}`},
-          ${data.name || 'Untitled Task'},
-          ${data.descr || null},
-          ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
-          ${data.dl__task_stage || null},
-          ${data.dl__task_priority || 'medium'},
-          ${data.estimated_hours || null},
-          ${data.actual_hours || 0},
-          ${data.story_points || null},
-          true
-        )
-        RETURNING *
-      `);
-
-      if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to create task' });
-      }
-
-      const newTask = result[0] as any;
-
       // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance in registry
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - TRANSACTIONAL CREATE
+      // All 4 steps (INSERT + registry + RBAC + linkage) in ONE transaction
       // ═══════════════════════════════════════════════════════════════
-      await entityInfra.set_entity_instance_registry({
-        entity_type: ENTITY_CODE,
-        entity_id: newTask.id,
-        entity_name: newTask.name,
-        entity_code: newTask.code
+      const result = await entityInfra.create_entity({
+        entity_code: ENTITY_CODE,
+        creator_id: userId,
+        primary_table: 'app.task',
+        primary_data: {
+          code: data.code || `TASK-${Date.now()}`,
+          name: data.name || 'Untitled Task',
+          descr: data.descr || null,
+          metadata: data.metadata ? JSON.stringify(data.metadata) : '{}',
+          dl__task_stage: data.dl__task_stage || null,
+          dl__task_priority: data.dl__task_priority || 'medium',
+          estimated_hours: data.estimated_hours || null,
+          actual_hours: data.actual_hours || 0,
+          story_points: data.story_points || null,
+          active_flag: true
+        }
       });
 
       // NOTE: Assignees should be managed separately via the Linkage API
@@ -639,7 +614,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         canSeeSystemFields: true,
         canSeeSafetyInfo: true};
 
-      return reply.status(201).send(filterUniversalColumns(newTask, userPermissions));
+      return reply.status(201).send(filterUniversalColumns(result.entity, userPermissions));
     } catch (error) {
       fastify.log.error('Error creating task:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -732,7 +707,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       if (data.name !== undefined || data.code !== undefined) {
         await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
-          entity_code: data.code
+          instance_code: data.code
         });
       }
 
@@ -839,7 +814,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       if (data.name !== undefined || data.code !== undefined) {
         await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
-          entity_code: data.code
+          instance_code: data.code
         });
       }
 

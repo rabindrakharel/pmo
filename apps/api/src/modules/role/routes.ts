@@ -5,7 +5,7 @@ import { eq, and, isNull, desc, asc, sql, SQL } from 'drizzle-orm';
 import { createPaginatedResponse } from '../../lib/universal-schema-metadata.js';
 // ✅ Centralized unified data gate - loosely coupled API
 // ✨ Entity Infrastructure Service - centralized infrastructure operations
-import { getEntityInfrastructure } from '../../services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✨ Backend Formatter Service - component-aware metadata generation
@@ -309,10 +309,10 @@ export async function roleRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance in registry
       // ═══════════════════════════════════════════════════════════════
       await entityInfra.set_entity_instance_registry({
-        entity_type: ENTITY_CODE,
+        entity_code: ENTITY_CODE,
         entity_id: roleId,
         entity_name: newRole.name,
-        entity_code: newRole.role_code || null
+        instance_code: newRole.role_code || null
       });
 
       // ═══════════════════════════════════════════════════════════════
@@ -325,9 +325,9 @@ export async function roleRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       if (parent_type && parent_id) {
         await entityInfra.set_entity_instance_link({
-          parent_entity_type: parent_type,
+          parent_entity_code: parent_type,
           parent_entity_id: parent_id,
-          child_entity_type: ENTITY_CODE,
+          child_entity_code: ENTITY_CODE,
           child_entity_id: roleId,
           relationship_type: 'contains'
         });
@@ -470,7 +470,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       if (data.name !== undefined || data.roleType !== undefined) {
         await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
-          entity_code: data.roleType
+          instance_code: data.roleType
         });
       }
 
@@ -611,7 +611,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       if (data.name !== undefined || data.roleType !== undefined) {
         await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
-          entity_code: data.roleType
+          instance_code: data.roleType
         });
       }
 

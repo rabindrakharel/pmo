@@ -40,7 +40,8 @@
  */
 
 import { sql, SQL } from 'drizzle-orm';
-import type { DB } from '@/db/index.js';
+import type { Database } from '@/db/index.js';
+import { client } from '@/db/index.js';
 import { getRedisClient } from '@/lib/redis.js';
 import type Redis from 'ioredis';
 
@@ -87,12 +88,12 @@ export interface DeleteEntityOptions {
   cascade_delete_children?: boolean;  // Delete child entities recursively
   remove_rbac_entries?: boolean;      // Remove permission entries
   skip_rbac_check?: boolean;          // Skip permission validation
-  primary_table_callback?: (db: DB, entity_id: string) => Promise<void>;
+  primary_table_callback?: (db: Database, entity_id: string) => Promise<void>;
 }
 
 export interface DeleteEntityResult {
   success: boolean;
-  entity_type: string;
+  entity_code: string;
   entity_id: string;
   registry_deactivated: boolean;
   linkages_deactivated: number;
@@ -142,12 +143,12 @@ export const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111';
 // ============================================================================
 
 export class EntityInfrastructureService {
-  private db: DB;
+  private db: Database;
   private redis: Redis;
   private CACHE_TTL = 300; // 5 minutes in seconds (Redis uses seconds for TTL)
   private CACHE_PREFIX = 'entity:metadata:'; // Redis key prefix
 
-  constructor(db: DB) {
+  constructor(db: Database) {
     this.db = db;
     this.redis = getRedisClient();
   }
@@ -158,18 +159,18 @@ export class EntityInfrastructureService {
 
   /**
    * Get entity type metadata from entity table
-   * @param entity_type Entity type code (e.g., 'project', 'task')
+   * @param entity_code Entity type code (e.g., 'project', 'task')
    * @param include_inactive Include inactive entity types
    * @returns Entity metadata or null if not found
    */
   async get_entity(
-    entity_type: string,
+    entity_code: string,
     include_inactive = false
   ): Promise<Entity | null> {
     // Check Redis cache (only for active entities)
     if (!include_inactive) {
       try {
-        const cacheKey = `${this.CACHE_PREFIX}${entity_type}`;
+        const cacheKey = `${this.CACHE_PREFIX}${entity_code}`;
         const cached = await this.redis.get(cacheKey);
 
         if (cached) {
@@ -177,7 +178,7 @@ export class EntityInfrastructureService {
           return JSON.parse(cached) as Entity;
         }
       } catch (error) {
-        console.warn(`Redis cache read error for entity ${entity_type}:`, error);
+        console.warn(`Redis cache read error for entity ${entity_code}:`, error);
         // Continue to DB query on cache error
       }
     }
@@ -186,37 +187,38 @@ export class EntityInfrastructureService {
     const result = await this.db.execute(sql`
       SELECT code, name, ui_label, ui_icon, child_entity_codes, display_order, active_flag, created_ts, updated_ts
       FROM app.entity
-      WHERE code = ${entity_type}
+      WHERE code = ${entity_code}
         ${include_inactive ? sql`` : sql`AND active_flag = true`}
     `);
 
     if (result.length === 0) return null;
 
+    const row = result[0] as Record<string, any>;
     const metadata: Entity = {
-      code: result[0].code,
-      name: result[0].name,
-      ui_label: result[0].ui_label,
-      ui_icon: result[0].ui_icon,
-      child_entity_codes: typeof result[0].child_entity_codes === 'string'
-        ? JSON.parse(result[0].child_entity_codes)
-        : (result[0].child_entity_codes || []),
-      display_order: result[0].display_order,
-      active_flag: result[0].active_flag,
-      created_ts: result[0].created_ts,
-      updated_ts: result[0].updated_ts,
+      code: row.code as string,
+      name: row.name as string,
+      ui_label: row.ui_label as string,
+      ui_icon: row.ui_icon as string,
+      child_entity_codes: typeof row.child_entity_codes === 'string'
+        ? JSON.parse(row.child_entity_codes)
+        : (row.child_entity_codes || []),
+      display_order: row.display_order as number,
+      active_flag: row.active_flag as boolean,
+      created_ts: row.created_ts as string,
+      updated_ts: row.updated_ts as string,
     };
 
     // Store in Redis cache (only if active)
     if (!include_inactive && metadata.active_flag) {
       try {
-        const cacheKey = `${this.CACHE_PREFIX}${entity_type}`;
+        const cacheKey = `${this.CACHE_PREFIX}${entity_code}`;
         await this.redis.setex(
           cacheKey,
           this.CACHE_TTL,
           JSON.stringify(metadata)
         );
       } catch (error) {
-        console.warn(`Redis cache write error for entity ${entity_type}:`, error);
+        console.warn(`Redis cache write error for entity ${entity_code}:`, error);
         // Continue without caching on error
       }
     }
@@ -231,13 +233,13 @@ export class EntityInfrastructureService {
    * This ensures all API instances get fresh data on next request,
    * since Redis is shared across all instances.
    */
-  async invalidate_entity_cache(entity_type: string): Promise<void> {
+  async invalidate_entity_cache(entity_code: string): Promise<void> {
     try {
-      const cacheKey = `${this.CACHE_PREFIX}${entity_type}`;
+      const cacheKey = `${this.CACHE_PREFIX}${entity_code}`;
       await this.redis.del(cacheKey);
-      console.log(`🗑️  Cache invalidated for entity: ${entity_type}`);
+      console.log(`🗑️  Cache invalidated for entity: ${entity_code}`);
     } catch (error) {
-      console.error(`Redis cache invalidation error for entity ${entity_type}:`, error);
+      console.error(`Redis cache invalidation error for entity ${entity_code}:`, error);
       // Non-critical error - don't throw
     }
   }
@@ -272,46 +274,49 @@ export class EntityInfrastructureService {
       ORDER BY display_order ASC, name ASC
     `);
 
-    return result.map(row => ({
-      code: row.code,
-      name: row.name,
-      ui_label: row.ui_label,
-      ui_icon: row.ui_icon,
-      child_entity_codes: typeof row.child_entity_codes === 'string'
-        ? JSON.parse(row.child_entity_codes)
-        : (row.child_entity_codes || []),
-      display_order: row.display_order,
-      active_flag: row.active_flag,
-      created_ts: row.created_ts,
-      updated_ts: row.updated_ts,
-    }));
+    return result.map(r => {
+      const row = r as Record<string, any>;
+      return {
+        code: row.code as string,
+        name: row.name as string,
+        ui_label: row.ui_label as string,
+        ui_icon: row.ui_icon as string,
+        child_entity_codes: typeof row.child_entity_codes === 'string'
+          ? JSON.parse(row.child_entity_codes)
+          : (row.child_entity_codes || []),
+        display_order: row.display_order as number,
+        active_flag: row.active_flag as boolean,
+        created_ts: row.created_ts as string,
+        updated_ts: row.updated_ts as string,
+      };
+    });
   }
 
   /**
    * Get parent entity types for a given child entity type
    * Finds all entities that have the specified entity type in their child_entity_codes array
    *
-   * @param child_entity_type The child entity type to find parents for
+   * @param child_entity_code The child entity type to find parents for
    * @returns Array of parent entity type codes (sorted alphabetically)
    *
    * @example
    * // Find all entities that can have 'task' as a child
-   * const parents = await entityInfra.get_parent_entity_types('task');
+   * const parents = await entityInfra.get_parent_entity_codes('task');
    * // Returns: ['project', 'worksite']
    */
-  async get_parent_entity_types(child_entity_type: string): Promise<string[]> {
+  async get_parent_entity_codes(child_entity_code: string): Promise<string[]> {
     const result = await this.db.execute(sql`
       SELECT code
       FROM app.entity
       WHERE active_flag = true
         AND (
-          child_entity_codes @> ${JSON.stringify([child_entity_type])}::jsonb
-          OR child_entity_codes @> ${JSON.stringify([{ entity: child_entity_type }])}::jsonb
+          child_entity_codes @> ${JSON.stringify([child_entity_code])}::jsonb
+          OR child_entity_codes @> ${JSON.stringify([{ entity: child_entity_code }])}::jsonb
         )
       ORDER BY code ASC
     `);
 
-    return result.map(row => row.code);
+    return result.map(row => (row as Record<string, any>).code as string);
   }
 
   // ==========================================================================
@@ -323,29 +328,29 @@ export class EntityInfrastructureService {
    * Upserts if exists (updates metadata, reactivates if deactivated)
    *
    * @example
-   * await entityInfra.registerInstance({
-   *   entity_type: 'project',
+   * await entityInfra.set_entity_instance_registry({
+   *   entity_code: 'project',
    *   entity_id: projectId,
    *   entity_name: 'Kitchen Renovation',
-   *   entity_code: 'PROJ-001'
+   *   instance_code: 'PROJ-001'
    * });
    */
   async set_entity_instance_registry(params: {
-    entity_type: string;
+    entity_code: string;
     entity_id: string;
     entity_name: string;
-    entity_code?: string | null;
+    instance_code?: string | null;
   }): Promise<EntityInstance> {
-    const { entity_type, entity_id, entity_name, entity_code } = params;
+    const { entity_code, entity_id, entity_name, instance_code } = params;
 
     const result = await this.db.execute(sql`
       INSERT INTO app.entity_instance
       (entity_code, entity_instance_id, entity_instance_name, code)
-      VALUES (${entity_type}, ${entity_id}, ${entity_name}, ${entity_code || null})
+      VALUES (${entity_code}, ${entity_id}, ${entity_name}, ${instance_code || null})
       RETURNING *
     `);
 
-    return result[0] as EntityInstance;
+    return result[0] as unknown as EntityInstance;
   }
 
   /**
@@ -353,9 +358,9 @@ export class EntityInfrastructureService {
    * Called when entity name or code changes
    */
   async update_entity_instance_registry(
-    entity_type: string,
+    entity_code: string,
     entity_id: string,
-    updates: { entity_name?: string; entity_code?: string | null }
+    updates: { entity_name?: string; instance_code?: string | null }
   ): Promise<EntityInstance | null> {
     const setClauses: string[] = [];
     const params: any[] = [];
@@ -364,9 +369,9 @@ export class EntityInfrastructureService {
       setClauses.push('entity_instance_name');
       params.push(updates.entity_name);
     }
-    if (updates.entity_code !== undefined) {
+    if (updates.instance_code !== undefined) {
       setClauses.push('code');
-      params.push(updates.entity_code);
+      params.push(updates.instance_code);
     }
 
     if (setClauses.length === 0) return null;
@@ -377,20 +382,20 @@ export class EntityInfrastructureService {
     const result = await this.db.execute(sql.raw(`
       UPDATE app.entity_instance
       SET ${setExpressions}, updated_ts = now()
-      WHERE entity_code = '${entity_type}' AND entity_instance_id = '${entity_id}'
+      WHERE entity_code = '${entity_code}' AND entity_instance_id = '${entity_id}'
       RETURNING *
     `));
 
-    return result.length > 0 ? (result[0] as EntityInstance) : null;
+    return result.length > 0 ? (result[0] as unknown as EntityInstance) : null;
   }
 
   /**
    * Delete instance from registry (hard delete - no active_flag in entity_instance anymore)
    */
-  async delete_entity_instance_registry(entity_type: string, entity_id: string): Promise<void> {
+  async delete_entity_instance_registry(entity_code: string, entity_id: string): Promise<void> {
     await this.db.execute(sql`
       DELETE FROM app.entity_instance
-      WHERE entity_code = ${entity_type} AND entity_instance_id = ${entity_id}
+      WHERE entity_code = ${entity_code} AND entity_instance_id = ${entity_id}
     `);
   }
 
@@ -398,13 +403,13 @@ export class EntityInfrastructureService {
    * Validate instance exists in registry
    */
   async validate_entity_instance_registry(
-    entity_type: string,
+    entity_code: string,
     entity_id: string
   ): Promise<boolean> {
     const result = await this.db.execute(sql`
       SELECT EXISTS(
         SELECT 1 FROM app.entity_instance
-        WHERE entity_code = ${entity_type} AND entity_instance_id = ${entity_id}
+        WHERE entity_code = ${entity_code} AND entity_instance_id = ${entity_id}
       ) AS exists
     `);
 
@@ -542,8 +547,9 @@ export class EntityInfrastructureService {
       `);
 
       resolvedNames[entityCode] = {};
-      for (const row of result) {
-        resolvedNames[entityCode][row.entity_instance_id] = row.entity_instance_name;
+      for (const r of result) {
+        const row = r as Record<string, any>;
+        resolvedNames[entityCode][row.entity_instance_id as string] = row.entity_instance_name as string;
       }
     }
 
@@ -632,30 +638,30 @@ export class EntityInfrastructureService {
    *
    * @example
    * await entityInfra.createLinkage({
-   *   parent_entity_type: 'business',
+   *   parent_entity_code: 'business',
    *   parent_entity_id: businessId,
-   *   child_entity_type: 'project',
+   *   child_entity_code: 'project',
    *   child_entity_id: projectId
    * });
    */
   async set_entity_instance_link(params: {
-    parent_entity_type: string;
+    parent_entity_code: string;
     parent_entity_id: string;
-    child_entity_type: string;
+    child_entity_code: string;
     child_entity_id: string;
     relationship_type?: string;
   }): Promise<EntityLink> {
     const {
-      parent_entity_type,
+      parent_entity_code,
       parent_entity_id,
-      child_entity_type,
+      child_entity_code,
       child_entity_id,
       relationship_type = 'contains'
     } = params;
 
     // Validate both entities exist (optional - can be skipped for performance)
-    // const parentExists = await this.validateInstanceExists(parent_entity_type, parent_entity_id);
-    // const childExists = await this.validateInstanceExists(child_entity_type, child_entity_id);
+    // const parentExists = await this.validateInstanceExists(parent_entity_code, parent_entity_id);
+    // const childExists = await this.validateInstanceExists(child_entity_code, child_entity_id);
     // if (!parentExists || !childExists) {
     //   throw new Error(`Entity not in registry: parent=${parentExists}, child=${childExists}`);
     // }
@@ -663,11 +669,11 @@ export class EntityInfrastructureService {
     const result = await this.db.execute(sql`
       INSERT INTO app.entity_instance_link
       (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
-      VALUES (${parent_entity_type}, ${parent_entity_id}, ${child_entity_type}, ${child_entity_id}, ${relationship_type})
+      VALUES (${parent_entity_code}, ${parent_entity_id}, ${child_entity_code}, ${child_entity_id}, ${relationship_type})
       RETURNING *
     `);
 
-    return result[0] as EntityLink;
+    return result[0] as unknown as EntityLink;
   }
 
   /**
@@ -685,19 +691,19 @@ export class EntityInfrastructureService {
    * Used for parent-child filtering in routes
    */
   async get_entity_instance_link_children(
-    parent_entity_type: string,
+    parent_entity_code: string,
     parent_entity_id: string,
-    child_entity_type: string
+    child_entity_code: string
   ): Promise<string[]> {
     const result = await this.db.execute(sql`
       SELECT child_entity_instance_id
       FROM app.entity_instance_link
-      WHERE entity_code = ${parent_entity_type}
+      WHERE entity_code = ${parent_entity_code}
         AND entity_instance_id = ${parent_entity_id}
-        AND child_entity_code = ${child_entity_type}
+        AND child_entity_code = ${child_entity_code}
     `);
 
-    return result.map(row => row.child_entity_instance_id);
+    return result.map(row => (row as Record<string, any>).child_entity_instance_id as string);
   }
 
   /**
@@ -709,28 +715,28 @@ export class EntityInfrastructureService {
       WHERE id = ${linkage_id}
     `);
 
-    return result.length > 0 ? (result[0] as EntityLink) : null;
+    return result.length > 0 ? (result[0] as unknown as EntityLink) : null;
   }
 
   /**
    * Get all linkages with optional filters
    */
   async get_all_entity_instance_links(filters?: {
-    parent_entity_type?: string;
+    parent_entity_code?: string;
     parent_entity_id?: string;
-    child_entity_type?: string;
+    child_entity_code?: string;
     child_entity_id?: string;
   }): Promise<EntityLink[]> {
     let conditions = sql`1=1`;
 
-    if (filters?.parent_entity_type) {
-      conditions = sql`${conditions} AND entity_code = ${filters.parent_entity_type}`;
+    if (filters?.parent_entity_code) {
+      conditions = sql`${conditions} AND entity_code = ${filters.parent_entity_code}`;
     }
     if (filters?.parent_entity_id) {
       conditions = sql`${conditions} AND entity_instance_id = ${filters.parent_entity_id}`;
     }
-    if (filters?.child_entity_type) {
-      conditions = sql`${conditions} AND child_entity_code = ${filters.child_entity_type}`;
+    if (filters?.child_entity_code) {
+      conditions = sql`${conditions} AND child_entity_code = ${filters.child_entity_code}`;
     }
     if (filters?.child_entity_id) {
       conditions = sql`${conditions} AND child_entity_instance_id = ${filters.child_entity_id}`;
@@ -742,7 +748,7 @@ export class EntityInfrastructureService {
       ORDER BY created_ts DESC
     `);
 
-    return result as EntityLink[];
+    return result as unknown as EntityLink[];
   }
 
   /**
@@ -759,7 +765,7 @@ export class EntityInfrastructureService {
       RETURNING *
     `);
 
-    return result.length > 0 ? (result[0] as EntityLink) : null;
+    return result.length > 0 ? (result[0] as unknown as EntityLink) : null;
   }
 
   /**
@@ -775,10 +781,10 @@ export class EntityInfrastructureService {
    * return reply.send({ tabs });
    */
   async get_dynamic_child_entity_tabs(
-    entity_type: string
+    entity_code: string
   ): Promise<Array<{ entity: string; label: string; icon?: string }>> {
     // Get parent entity metadata (includes child_entity_codes)
-    const entityMetadata = await this.get_entity(entity_type);
+    const entityMetadata = await this.get_entity(entity_code);
 
     if (!entityMetadata || !entityMetadata.child_entity_codes) {
       return [];
@@ -798,12 +804,14 @@ export class EntityInfrastructureService {
     `);
 
     // Build result array with entity metadata
-    return childMetadata.map((child, index) => ({
-      entity: child.code,
-      label: child.ui_label || child.code,
-      icon: child.ui_icon,
-      order: index + 1
-    }));
+    return childMetadata.map((c, index) => {
+      const child = c as Record<string, any>;
+      return {
+        entity: child.code as string,
+        label: (child.ui_label || child.code) as string,
+        icon: child.ui_icon as string | undefined,
+      };
+    });
   }
 
   // ==========================================================================
@@ -826,12 +834,12 @@ export class EntityInfrastructureService {
    */
   async check_entity_rbac(
     user_id: string,
-    entity_type: string,
+    entity_code: string,
     entity_id: string,
     required_permission: Permission
   ): Promise<boolean> {
     // Get maximum permission level user has on this entity
-    const maxPermission = await this.getMaxPermissionLevel(user_id, entity_type, entity_id);
+    const maxPermission = await this.getMaxPermissionLevel(user_id, entity_code, entity_id);
 
     // Check if user's max permission meets or exceeds required permission
     return maxPermission >= required_permission;
@@ -850,7 +858,7 @@ export class EntityInfrastructureService {
    */
   private async getMaxPermissionLevel(
     user_id: string,
-    entity_type: string,
+    entity_code: string,
     entity_id: string
   ): Promise<number> {
     const result = await this.db.execute(sql`
@@ -864,7 +872,7 @@ export class EntityInfrastructureService {
         FROM app.entity_rbac
         WHERE person_code = 'employee'
           AND person_id = ${user_id}::uuid
-          AND entity_code = ${entity_type}
+          AND entity_code = ${entity_code}
           AND (entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid OR entity_instance_id = ${entity_id}::uuid)
           AND (expires_ts IS NULL OR expires_ts > NOW())
       ),
@@ -882,7 +890,7 @@ export class EntityInfrastructureService {
           AND eim.child_entity_code = 'employee'
           AND eim.child_entity_instance_id = ${user_id}::uuid
         WHERE rbac.person_code = 'role'
-          AND rbac.entity_code = ${entity_type}
+          AND rbac.entity_code = ${entity_code}
           AND (rbac.entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid OR rbac.entity_instance_id = ${entity_id}::uuid)
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
       ),
@@ -896,10 +904,10 @@ export class EntityInfrastructureService {
         FROM app.entity d
         WHERE EXISTS (
           SELECT 1 FROM jsonb_array_elements_text(d.child_entity_codes) AS child
-          WHERE child = ${entity_type}
+          WHERE child = ${entity_code}
           UNION
           SELECT 1 FROM jsonb_array_elements(d.child_entity_codes) AS child_obj
-          WHERE child_obj->>'entity' = ${entity_type}
+          WHERE child_obj->>'entity' = ${entity_code}
         )
       ),
 
@@ -993,14 +1001,14 @@ export class EntityInfrastructureService {
    */
   async set_entity_rbac(
     user_id: string,
-    entity_type: string,
+    entity_code: string,
     entity_id: string,
     permission_level: Permission
   ): Promise<any> {
     const result = await this.db.execute(sql`
       INSERT INTO app.entity_rbac
       (person_code, person_id, entity_code, entity_instance_id, permission)
-      VALUES ('employee', ${user_id}, ${entity_type}, ${entity_id}, ${permission_level})
+      VALUES ('employee', ${user_id}, ${entity_code}, ${entity_id}, ${permission_level})
       RETURNING *
     `);
 
@@ -1013,10 +1021,10 @@ export class EntityInfrastructureService {
    */
   async set_entity_rbac_owner(
     user_id: string,
-    entity_type: string,
+    entity_code: string,
     entity_id: string
   ): Promise<any> {
-    return this.set_entity_rbac(user_id, entity_type, entity_id, Permission.OWNER);
+    return this.set_entity_rbac(user_id, entity_code, entity_id, Permission.OWNER);
   }
 
   /**
@@ -1024,13 +1032,13 @@ export class EntityInfrastructureService {
    */
   async delete_entity_rbac(
     user_id: string,
-    entity_type: string,
+    entity_code: string,
     entity_id: string
   ): Promise<void> {
     await this.db.execute(sql`
       DELETE FROM app.entity_rbac
       WHERE person_id = ${user_id}
-        AND entity_code = ${entity_type}
+        AND entity_code = ${entity_code}
         AND entity_instance_id = ${entity_id}
     `);
   }
@@ -1051,11 +1059,11 @@ export class EntityInfrastructureService {
    */
   async get_entity_rbac_where_condition(
     user_id: string,
-    entity_type: string,
+    entity_code: string,
     required_permission: Permission,
     table_alias: string = 'e'
   ): Promise<SQL> {
-    const accessibleIds = await this.getAccessibleEntityIds(user_id, entity_type, required_permission);
+    const accessibleIds = await this.getAccessibleEntityIds(user_id, entity_code, required_permission);
 
     // No access at all - return FALSE condition
     if (accessibleIds.length === 0) {
@@ -1083,13 +1091,13 @@ export class EntityInfrastructureService {
    */
   private async getAccessibleEntityIds(
     user_id: string,
-    entity_type: string,
+    entity_code: string,
     required_permission: Permission
   ): Promise<string[]> {
     // First check if user has type-level permission
     const typeLevelPermission = await this.getMaxPermissionLevel(
       user_id,
-      entity_type,
+      entity_code,
       ALL_ENTITIES_ID
     );
 
@@ -1109,10 +1117,10 @@ export class EntityInfrastructureService {
         FROM app.entity d
         WHERE EXISTS (
           SELECT 1 FROM jsonb_array_elements_text(d.child_entity_codes) AS child
-          WHERE child = ${entity_type}
+          WHERE child = ${entity_code}
           UNION
           SELECT 1 FROM jsonb_array_elements(d.child_entity_codes) AS child_obj
-          WHERE child_obj->>'entity' = ${entity_type}
+          WHERE child_obj->>'entity' = ${entity_code}
         )
       ),
 
@@ -1124,7 +1132,7 @@ export class EntityInfrastructureService {
         FROM app.entity_rbac
         WHERE person_code = 'employee'
           AND person_id = ${user_id}::uuid
-          AND entity_code = ${entity_type}
+          AND entity_code = ${entity_code}
           AND entity_instance_id != '11111111-1111-1111-1111-111111111111'::uuid
           AND (expires_ts IS NULL OR expires_ts > NOW())
       ),
@@ -1141,7 +1149,7 @@ export class EntityInfrastructureService {
           AND eim.child_entity_code = 'employee'
           AND eim.child_entity_instance_id = ${user_id}::uuid
         WHERE rbac.person_code = 'role'
-          AND rbac.entity_code = ${entity_type}
+          AND rbac.entity_code = ${entity_code}
           AND rbac.entity_instance_id != '11111111-1111-1111-1111-111111111111'::uuid
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
       ),
@@ -1182,7 +1190,7 @@ export class EntityInfrastructureService {
         INNER JOIN app.entity_instance_link eim
           ON eim.entity_code = pw.entity_code
           AND eim.entity_instance_id = pw.parent_id
-          AND eim.child_entity_code = ${entity_type}
+          AND eim.child_entity_code = ${entity_code}
       ),
 
       -- ---------------------------------------------------------------------------
@@ -1221,7 +1229,7 @@ export class EntityInfrastructureService {
         INNER JOIN app.entity_instance_link eim
           ON eim.entity_code = pc.entity_code
           AND eim.entity_instance_id = pc.parent_id
-          AND eim.child_entity_code = ${entity_type}
+          AND eim.child_entity_code = ${entity_code}
       ),
 
       -- ---------------------------------------------------------------------------
@@ -1246,7 +1254,7 @@ export class EntityInfrastructureService {
       WHERE max_permission >= ${required_permission}
     `);
 
-    return result.map(row => row.entity_instance_id);
+    return result.map(row => (row as Record<string, any>).entity_instance_id as string);
   }
 
   // ==========================================================================
@@ -1254,36 +1262,13 @@ export class EntityInfrastructureService {
   // ==========================================================================
 
   /**
-   * Unified entity delete operation
+   * @deprecated Use delete_entity() instead for full transactional safety.
    *
-   * Orchestrates deletion across all infrastructure tables:
-   * 1. Check DELETE permission
-   * 2. Optionally cascade delete children
-   * 3. Hard delete from entity_instance (no active_flag, always DELETE FROM)
-   * 4. Hard delete linkages from entity_instance_link (no active_flag, always DELETE FROM)
-   * 5. Optionally remove RBAC entries
-   * 6. Optionally delete from primary table via callback
-   *
-   * NOTE: entity_instance and entity_instance_link are always hard-deleted (no active_flag columns).
-   * The hard_delete parameter only affects the primary_table_callback behavior.
-   *
-   * @example
-   * // Delete entity infrastructure
-   * await entityInfra.deleteEntity('project', projectId, {
-   *   user_id: userId
-   * });
-   *
-   * // Delete with cascade and primary table cleanup
-   * await entityInfra.deleteEntity('project', projectId, {
-   *   user_id: userId,
-   *   cascade_delete_children: true,
-   *   primary_table_callback: async (db, id) => {
-   *     await db.delete(project).where(eq(project.id, id));
-   *   }
-   * });
+   * This method makes multiple separate DB calls (not atomic).
+   * Use delete_entity() which wraps all operations in ONE transaction.
    */
   async delete_all_entity_infrastructure(
-    entity_type: string,
+    entity_code: string,
     entity_id: string,
     options: DeleteEntityOptions
   ): Promise<DeleteEntityResult> {
@@ -1306,14 +1291,14 @@ export class EntityInfrastructureService {
     if (!skip_rbac_check) {
       const canDelete = await this.check_entity_rbac(
         user_id,
-        entity_type,
+        entity_code,
         entity_id,
         Permission.DELETE
       );
 
       if (!canDelete) {
         throw new Error(
-          `User ${user_id} lacks DELETE permission on ${entity_type}/${entity_id}`
+          `User ${user_id} lacks DELETE permission on ${entity_code}/${entity_id}`
         );
       }
     }
@@ -1322,13 +1307,14 @@ export class EntityInfrastructureService {
     if (cascade_delete_children) {
       const childLinkages = await this.db.execute(sql`
         SELECT * FROM app.entity_instance_link
-        WHERE entity_code = ${entity_type}
+        WHERE entity_code = ${entity_code}
           AND entity_instance_id = ${entity_id}
       `);
 
-      for (const linkage of childLinkages) {
+      for (const l of childLinkages) {
+        const linkage = l as Record<string, any>;
         try {
-          await this.delete_all_entity_infrastructure(linkage.child_entity_code, linkage.child_entity_instance_id, {
+          await this.delete_all_entity_infrastructure(linkage.child_entity_code as string, linkage.child_entity_instance_id as string, {
             user_id,
             hard_delete,
             cascade_delete_children: true,
@@ -1345,7 +1331,7 @@ export class EntityInfrastructureService {
     // Step 3: Delete from entity_instance (hard delete - no active_flag anymore)
     await this.db.execute(sql`
       DELETE FROM app.entity_instance
-      WHERE entity_code = ${entity_type} AND entity_instance_id = ${entity_id}
+      WHERE entity_code = ${entity_code} AND entity_instance_id = ${entity_id}
     `);
     registry_deactivated = true;
 
@@ -1353,20 +1339,20 @@ export class EntityInfrastructureService {
     const linkageResult = await this.db.execute(sql`
       DELETE FROM app.entity_instance_link
       WHERE (
-        (entity_code = ${entity_type} AND entity_instance_id = ${entity_id})
+        (entity_code = ${entity_code} AND entity_instance_id = ${entity_id})
         OR
-        (child_entity_code = ${entity_type} AND child_entity_instance_id = ${entity_id})
+        (child_entity_code = ${entity_code} AND child_entity_instance_id = ${entity_id})
       )
     `);
-    linkages_deactivated = linkageResult.rowCount || 0;
+    linkages_deactivated = (linkageResult as any).count || linkageResult.length || 0;
 
     // Step 5: Remove RBAC entries (optional)
     if (remove_rbac_entries) {
       const rbacResult = await this.db.execute(sql`
         DELETE FROM app.entity_rbac
-        WHERE entity_code = ${entity_type} AND entity_instance_id = ${entity_id}
+        WHERE entity_code = ${entity_code} AND entity_instance_id = ${entity_id}
       `);
-      rbac_entries_removed = rbacResult.rowCount || 0;
+      rbac_entries_removed = (rbacResult as any).count || rbacResult.length || 0;
     }
 
     // Step 6: Delete from primary table (via callback)
@@ -1377,7 +1363,7 @@ export class EntityInfrastructureService {
 
     return {
       success: true,
-      entity_type,
+      entity_code,
       entity_id,
       registry_deactivated,
       linkages_deactivated,
@@ -1385,6 +1371,292 @@ export class EntityInfrastructureService {
       primary_table_deleted,
       children_deleted: cascade_delete_children ? children_deleted : undefined
     };
+  }
+
+  // ==========================================================================
+  // SECTION 6: TRANSACTIONAL CREATE HELPER
+  // ==========================================================================
+
+  /**
+   * Create entity with ALL infrastructure in a SINGLE TRANSACTION
+   *
+   * Pass the table name and data object - both INSERTs execute in one transaction.
+   * If ANY step fails, ALL changes roll back - no orphan records.
+   *
+   * @example
+   * const result = await entityInfra.create_entity({
+   *   entity_code: 'project',
+   *   creator_id: userId,
+   *   parent_entity_code: parent_code,
+   *   parent_entity_id: parent_id,
+   *   primary_table: 'app.project',
+   *   primary_data: { name, code, descr, budget_allocated_amt }
+   * });
+   * // Returns: { entity: insertedRow, entity_instance, rbac_granted, link_created }
+   */
+  async create_entity<T extends Record<string, any> = Record<string, any>>(params: {
+    entity_code: string;
+    creator_id: string;
+    parent_entity_code?: string;
+    parent_entity_id?: string;
+    relationship_type?: string;
+    primary_table: string;
+    primary_data: T;
+    name_field?: string;  // defaults to 'name'
+    code_field?: string;  // defaults to 'code'
+  }): Promise<{
+    entity: T & { id: string };
+    entity_instance: EntityInstance;
+    rbac_granted: boolean;
+    link_created: boolean;
+    link?: EntityLink;
+  }> {
+    const {
+      entity_code,
+      creator_id,
+      parent_entity_code,
+      parent_entity_id,
+      relationship_type = 'contains',
+      primary_table,
+      primary_data,
+      name_field = 'name',
+      code_field = 'code'
+    } = params;
+
+    // Build column names and values from data object
+    const columns = Object.keys(primary_data);
+    const values = Object.values(primary_data);
+
+    // Use raw postgres client for transaction support
+    return await client.begin(async (tx) => {
+      // Step 3: INSERT into primary table
+      const columnsStr = columns.join(', ');
+      const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
+
+      const primaryResult = await tx.unsafe(
+        `INSERT INTO ${primary_table} (${columnsStr}) VALUES (${placeholders}) RETURNING *`,
+        values
+      );
+      const entity = primaryResult[0] as unknown as T & { id: string };
+
+      const entity_id = entity.id;
+      const entity_name = String((entity as any)[name_field] || '');
+      const instance_code = (entity as any)[code_field] || null;
+
+      // Step 4: Register in entity_instance
+      const registryResult = await tx`
+        INSERT INTO app.entity_instance
+        (entity_code, entity_instance_id, entity_instance_name, code)
+        VALUES (${entity_code}, ${entity_id}, ${entity_name}, ${instance_code})
+        RETURNING *
+      `;
+      const entity_instance = registryResult[0] as EntityInstance;
+
+      // Step 5: Grant OWNER permission to creator
+      await tx`
+        INSERT INTO app.entity_rbac
+        (person_code, person_id, entity_code, entity_instance_id, permission)
+        VALUES ('employee', ${creator_id}::uuid, ${entity_code}, ${entity_id}::uuid, ${Permission.OWNER})
+        ON CONFLICT (person_code, person_id, entity_code, entity_instance_id)
+        DO UPDATE SET permission = GREATEST(app.entity_rbac.permission, EXCLUDED.permission)
+      `;
+
+      // Step 6: Link to parent (if provided)
+      let link: EntityLink | undefined;
+      if (parent_entity_code && parent_entity_id) {
+        const linkResult = await tx`
+          INSERT INTO app.entity_instance_link
+          (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
+          VALUES (${parent_entity_code}, ${parent_entity_id}, ${entity_code}, ${entity_id}, ${relationship_type})
+          RETURNING *
+        `;
+        link = linkResult[0] as EntityLink;
+      }
+
+      return {
+        entity,
+        entity_instance,
+        rbac_granted: true,
+        link_created: Boolean(link),
+        link
+      };
+    });
+  }
+
+  // ==========================================================================
+  // SECTION 7: TRANSACTIONAL UPDATE HELPER
+  // ==========================================================================
+
+  /**
+   * Update entity with registry sync in a SINGLE TRANSACTION
+   *
+   * Both UPDATE and registry sync execute in one transaction.
+   * If ANY step fails, ALL changes roll back.
+   *
+   * @example
+   * const result = await entityInfra.update_entity({
+   *   entity_code: 'project',
+   *   entity_id: projectId,
+   *   primary_table: 'app.project',
+   *   primary_updates: { name: 'New Name', budget_allocated_amt: 50000 }
+   * });
+   * // Returns: { entity: updatedRow, registry_synced: boolean }
+   */
+  async update_entity<T extends Record<string, any> = Record<string, any>>(params: {
+    entity_code: string;
+    entity_id: string;
+    primary_table: string;
+    primary_updates: Partial<T>;
+    name_field?: string;  // defaults to 'name'
+    code_field?: string;  // defaults to 'code'
+  }): Promise<{
+    entity: T & { id: string };
+    registry_synced: boolean;
+  }> {
+    const {
+      entity_code,
+      entity_id,
+      primary_table,
+      primary_updates,
+      name_field = 'name',
+      code_field = 'code'
+    } = params;
+
+    // Build SET clause
+    const entries = Object.entries(primary_updates).filter(([_, v]) => v !== undefined);
+    if (entries.length === 0) {
+      throw new Error('No fields to update');
+    }
+
+    // Use raw postgres client for transaction support
+    return await client.begin(async (tx) => {
+      // Step 1: UPDATE primary table
+      const setClause = entries.map(([col], i) => `"${col}" = $${i + 1}`).join(', ');
+      const values = entries.map(([_, v]) => v);
+
+      const primaryResult = await tx.unsafe(
+        `UPDATE ${primary_table} SET ${setClause}, updated_ts = now() WHERE id = $${entries.length + 1} RETURNING *`,
+        [...values, entity_id]
+      );
+
+      if (!primaryResult[0]) {
+        throw new Error(`Entity not found: ${entity_code}/${entity_id}`);
+      }
+
+      const entity = primaryResult[0] as unknown as T & { id: string };
+
+      // Step 2: Sync registry if name or code changed
+      let registry_synced = false;
+      const nameChanged = name_field in primary_updates;
+      const codeChanged = code_field in primary_updates;
+
+      if (nameChanged || codeChanged) {
+        const entity_name = nameChanged ? String((entity as any)[name_field] || '') : undefined;
+        const instance_code = codeChanged ? (entity as any)[code_field] || null : undefined;
+
+        await tx`
+          UPDATE app.entity_instance
+          SET
+            entity_instance_name = COALESCE(${entity_name}, entity_instance_name),
+            code = COALESCE(${instance_code}, code),
+            updated_ts = now()
+          WHERE entity_code = ${entity_code} AND entity_instance_id = ${entity_id}
+        `;
+        registry_synced = true;
+      }
+
+      return { entity, registry_synced };
+    });
+  }
+
+  // ==========================================================================
+  // SECTION 8: TRANSACTIONAL DELETE HELPER
+  // ==========================================================================
+
+  /**
+   * Delete entity with ALL infrastructure cleanup in a SINGLE TRANSACTION
+   *
+   * All deletes execute in one transaction.
+   * If ANY step fails, ALL changes roll back - no orphan records.
+   *
+   * @example
+   * const result = await entityInfra.delete_entity({
+   *   entity_code: 'project',
+   *   entity_id: projectId,
+   *   user_id: userId,
+   *   primary_table: 'app.project',
+   *   hard_delete: false  // soft delete by setting active_flag = false
+   * });
+   */
+  async delete_entity(params: {
+    entity_code: string;
+    entity_id: string;
+    user_id: string;
+    primary_table: string;
+    hard_delete?: boolean;  // true = DELETE, false = SET active_flag = false
+    skip_rbac_check?: boolean;
+  }): Promise<{
+    success: boolean;
+    entity_deleted: boolean;
+    registry_deleted: boolean;
+    linkages_deleted: number;
+    rbac_entries_deleted: number;
+  }> {
+    const {
+      entity_code,
+      entity_id,
+      user_id,
+      primary_table,
+      hard_delete = false,
+      skip_rbac_check = false
+    } = params;
+
+    // Step 0: RBAC check (before transaction)
+    if (!skip_rbac_check) {
+      const canDelete = await this.check_entity_rbac(user_id, entity_code, entity_id, Permission.DELETE);
+      if (!canDelete) {
+        throw new Error(`User ${user_id} lacks DELETE permission on ${entity_code}/${entity_id}`);
+      }
+    }
+
+    // Use raw postgres client for transaction support
+    return await client.begin(async (tx) => {
+      // Step 1: Delete/deactivate from primary table
+      if (hard_delete) {
+        await tx.unsafe(`DELETE FROM ${primary_table} WHERE id = $1`, [entity_id]);
+      } else {
+        await tx.unsafe(`UPDATE ${primary_table} SET active_flag = false, updated_ts = now() WHERE id = $1`, [entity_id]);
+      }
+
+      // Step 2: Delete from entity_instance (always hard delete - no active_flag)
+      await tx`
+        DELETE FROM app.entity_instance
+        WHERE entity_code = ${entity_code} AND entity_instance_id = ${entity_id}
+      `;
+
+      // Step 3: Delete from entity_instance_link (as parent or child)
+      const linkageResult = await tx`
+        DELETE FROM app.entity_instance_link
+        WHERE (entity_code = ${entity_code} AND entity_instance_id = ${entity_id})
+           OR (child_entity_code = ${entity_code} AND child_entity_instance_id = ${entity_id})
+      `;
+      const linkages_deleted = linkageResult.count || 0;
+
+      // Step 4: Delete from entity_rbac
+      const rbacResult = await tx`
+        DELETE FROM app.entity_rbac
+        WHERE entity_code = ${entity_code} AND entity_instance_id = ${entity_id}
+      `;
+      const rbac_entries_deleted = rbacResult.count || 0;
+
+      return {
+        success: true,
+        entity_deleted: true,
+        registry_deleted: true,
+        linkages_deleted: Number(linkages_deleted),
+        rbac_entries_deleted: Number(rbac_entries_deleted)
+      };
+    });
   }
 }
 
@@ -1401,7 +1673,7 @@ let serviceInstance: EntityInfrastructureService | null = null;
  * const entityInfra = getEntityInfrastructure(db);
  * await entityInfra.registerInstance({...});
  */
-export function getEntityInfrastructure(db: DB): EntityInfrastructureService {
+export function getEntityInfrastructure(db: Database): EntityInfrastructureService {
   if (!serviceInstance) {
     serviceInstance = new EntityInfrastructureService(db);
   }

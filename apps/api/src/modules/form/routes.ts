@@ -229,10 +229,6 @@ export async function formRoutes(fastify: FastifyInstance) {
           offset
         });
 
-        // ✨ Extract datalabel keys and fetch datalabels
-        if (datalabelKeys.length > 0) {
-        }
-
         return response;
       } else {
         // Show only latest version (highest version per code group)
@@ -283,10 +279,6 @@ export async function formRoutes(fastify: FastifyInstance) {
           limit,
           offset
         });
-
-        // ✨ Extract datalabel keys and fetch datalabels
-        if (datalabelKeys.length > 0) {
-        }
 
         return response;
       }
@@ -443,10 +435,6 @@ export async function formRoutes(fastify: FastifyInstance) {
         limit: 1,
         offset: 0
       });
-
-      // ✨ Extract datalabel keys and fetch datalabels
-      if (datalabelKeys.length > 0) {
-      }
 
       // Return single item (not array)
       return reply.send({

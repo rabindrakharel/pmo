@@ -8,10 +8,15 @@
  * Backend decides all field behavior based on naming conventions.
  *
  * ARCHITECTURE:
- * - Column name → Pattern match → Component-specific config
+ * - Column name → Explicit config check → Pattern match fallback → Component-specific config
  * - Separate metadata per component (EntityDataTable, EntityFormContainer, KanbanView)
  * - Global settings for cross-cutting concerns (currency, date formats, etc.)
  * - Datalabels extracted and fetched separately
+ *
+ * EXPLICIT CONFIG (v5.0):
+ * - Fields can be explicitly configured in config/entity-field-config.ts
+ * - Explicit config takes PRECEDENCE over pattern detection
+ * - Use for non-standard naming or special formatting requirements
  *
  * USAGE:
  * ```typescript
@@ -24,6 +29,8 @@
  * return reply.send(response);
  * ```
  */
+
+import { getFieldConfig, hasExplicitConfig, type FieldConfig } from '../config/entity-field-config.js';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -1104,12 +1111,90 @@ const COMPONENT_INHERITANCE: Record<ComponentName, ComponentName | null> = {
 };
 
 /**
+ * Convert explicit field config to FieldMetadataBase
+ */
+function convertExplicitConfigToMetadata(
+  config: FieldConfig,
+  component: ComponentName,
+  fieldName: string
+): FieldMetadataBase {
+  // Map renderType to dtype and format
+  const renderTypeMap: Record<string, { dtype: string; format: string }> = {
+    'currency': { dtype: 'float', format: 'currency' },
+    'date': { dtype: 'date', format: 'date' },
+    'timestamp': { dtype: 'datetime', format: 'timestamp' },
+    'boolean': { dtype: 'bool', format: 'boolean' },
+    'badge': { dtype: 'str', format: 'datalabel_lookup' },
+    'reference': { dtype: 'uuid', format: 'entity_lookup' },
+    'json': { dtype: 'json', format: 'json' },
+    'progress-bar': { dtype: 'composite', format: 'progress_bar' },
+    'percentage': { dtype: 'float', format: 'percentage' },
+    'number': { dtype: 'int', format: 'number' },
+    'text': { dtype: 'str', format: 'text' },
+  };
+
+  const typeInfo = renderTypeMap[config.renderType || 'text'] || { dtype: 'str', format: 'text' };
+
+  // Determine visibility for this component
+  const visibilityMap: Record<ComponentName, boolean> = {
+    entityDataTable: config.visible?.EntityDataTable ?? true,
+    entityDetailView: config.visible?.EntityDetailView ?? true,
+    entityFormContainer: config.visible?.EntityFormContainer ?? true,
+    kanbanView: config.visible?.KanbanView ?? true,
+    calendarView: config.visible?.CalendarView ?? true,
+    gridView: config.visible?.EntityDataTable ?? true,
+    dagView: config.visible?.EntityDetailView ?? true,
+    hierarchyGraphView: config.visible?.EntityDetailView ?? true,
+  };
+
+  return {
+    dtype: typeInfo.dtype,
+    format: typeInfo.format,
+    internal: false,
+    visible: visibilityMap[component] ?? true,
+    filterable: component === 'entityDataTable' || component === 'entityDetailView',
+    sortable: component === 'entityDataTable' || component === 'entityDetailView',
+    editable: config.editable ?? (component === 'entityFormContainer'),
+    viewType: config.renderType || 'text',
+    editType: config.inputType || 'text',
+    width: config.width || 'auto',
+    align: config.align || 'left',
+    // Additional properties from explicit config
+    ...(config.loadFromDataLabels && { loadFromDataLabels: true, datalabelKey: fieldName }),
+    ...(config.loadFromEntity && {
+      loadFromEntity: config.loadFromEntity,
+      endpoint: `/api/v1/entity/${config.loadFromEntity}/entity-instance-lookup`,
+      displayField: 'name',
+      valueField: 'id',
+    }),
+    ...(config.format && { formatConfig: config.format }),
+    ...(config.label && { label: config.label }),
+  };
+}
+
+/**
  * Generate field metadata for a specific component
+ *
+ * Priority order:
+ * 1. Explicit config from entity-field-config.ts (highest priority)
+ * 2. Pattern detection rules (fallback)
+ * 3. Default text field (lowest priority)
  */
 function generateFieldMetadataForComponent(
   fieldName: string,
-  component: ComponentName
+  component: ComponentName,
+  entityCode?: string
 ): FieldMetadataBase | null {
+  // STEP 1: Check explicit config FIRST (prevents silent failures on non-standard names)
+  if (entityCode) {
+    const explicitConfig = getFieldConfig(entityCode, fieldName);
+    if (explicitConfig) {
+      // Convert explicit config to FieldMetadataBase
+      return convertExplicitConfigToMetadata(explicitConfig, component, fieldName);
+    }
+  }
+
+  // STEP 2: Fall back to pattern detection
   const rule = findMatchingRule(fieldName);
 
   if (!rule) {
@@ -1176,10 +1261,15 @@ function generateFieldMetadataForComponent(
 
 /**
  * Generate metadata for all requested components
+ *
+ * @param fieldNames - List of field names from the entity data
+ * @param requestedComponents - Components to generate metadata for
+ * @param entityCode - Entity type code (for explicit config lookup)
  */
 export function generateMetadataForComponents(
   fieldNames: string[],
-  requestedComponents: ComponentName[] = ['entityDataTable', 'entityFormContainer', 'kanbanView']
+  requestedComponents: ComponentName[] = ['entityDataTable', 'entityFormContainer', 'kanbanView'],
+  entityCode?: string
 ): EntityMetadata {
   const metadata: EntityMetadata = {};
 
@@ -1187,10 +1277,12 @@ export function generateMetadataForComponents(
     const componentMetadata: ComponentMetadata = {};
 
     for (const fieldName of fieldNames) {
-      const fieldMeta = generateFieldMetadataForComponent(fieldName, component);
+      const fieldMeta = generateFieldMetadataForComponent(fieldName, component, entityCode);
       if (fieldMeta) {
-        // Add human-readable label
-        (fieldMeta as any).label = generateLabel(fieldName);
+        // Add human-readable label (explicit config label takes precedence)
+        if (!(fieldMeta as any).label) {
+          (fieldMeta as any).label = generateLabel(fieldName);
+        }
         componentMetadata[fieldName] = fieldMeta;
       }
     }
@@ -1246,8 +1338,8 @@ export function generateEntityResponse(
   // Extract field names from first row
   const fieldNames = data.length > 0 ? Object.keys(data[0]) : [];
 
-  // Generate metadata for requested components
-  const metadata = generateMetadataForComponents(fieldNames, components);
+  // Generate metadata for requested components (pass entityCode for explicit config lookup)
+  const metadata = generateMetadataForComponents(fieldNames, components, entityCode);
 
   return {
     data,

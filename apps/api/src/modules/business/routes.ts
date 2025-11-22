@@ -348,10 +348,6 @@ export async function businessRoutes(fastify: FastifyInstance) {
         offset
       });
 
-      // ✨ Extract datalabel keys and fetch datalabels
-      if (datalabelKeys.length > 0) {
-      }
-
       // Add applied filters for debugging
       (response as any).appliedFilters = {
         rbac: true,
@@ -533,10 +529,6 @@ export async function businessRoutes(fastify: FastifyInstance) {
         offset: 0
       });
 
-      // ✨ Extract datalabel keys and fetch datalabels
-      if (datalabelKeys.length > 0) {
-      }
-
       // Return first item (single entity)
       return reply.send({
         data: response.data[0],
@@ -603,60 +595,28 @@ export async function businessRoutes(fastify: FastifyInstance) {
       }
 
       // ═══════════════════════════════════════════════════════════════
-      // ✅ ROUTE OWNS: CREATE business unit in primary table
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - TRANSACTIONAL CREATE
+      // All 4 steps (INSERT + registry + RBAC + linkage) in ONE transaction
       // ═══════════════════════════════════════════════════════════════
-      const newBiz = await db.execute(sql`
-        INSERT INTO app.business (
-          code, name, "descr", metadata,
-          office_id, current_headcount, operational_status,
-          active_flag, created_ts, updated_ts
-        ) VALUES (
-          ${bizData.code},
-          ${bizData.name},
-          ${bizData.descr || null},
-          ${bizData.metadata || null},
-          ${bizData.office_id || null},
-          ${bizData.current_headcount || null},
-          ${bizData.operational_status || null},
-          ${bizData.active_flag !== undefined ? bizData.active_flag : true},
-          now(),
-          now()
-        )
-        RETURNING *
-      `);
-
-      const newBizData = newBiz[0] as any;
-      const bizId = newBizData.id as string;
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance
-      // ═══════════════════════════════════════════════════════════════
-      await entityInfra.set_entity_instance_registry({
-        entity_type: ENTITY_CODE,
-        entity_id: bizId,
-        entity_name: bizData.name,
-        entity_code: bizData.code
+      const result = await entityInfra.create_entity({
+        entity_code: ENTITY_CODE,
+        creator_id: userId,
+        parent_entity_code: parent_type,
+        parent_entity_id: parent_id,
+        primary_table: 'app.business',
+        primary_data: {
+          code: bizData.code,
+          name: bizData.name,
+          descr: bizData.descr || null,
+          metadata: bizData.metadata || null,
+          office_id: bizData.office_id || null,
+          current_headcount: bizData.current_headcount || null,
+          operational_status: bizData.operational_status || null,
+          active_flag: bizData.active_flag !== undefined ? bizData.active_flag : true
+        }
       });
 
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - Grant ownership to creator
-      // ═══════════════════════════════════════════════════════════════
-      await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, bizId);
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - Link to parent (if provided)
-      // ═══════════════════════════════════════════════════════════════
-      if (parent_type && parent_id) {
-        await entityInfra.set_entity_instance_link({
-          parent_entity_type: parent_type,
-          parent_entity_id: parent_id,
-          child_entity_type: ENTITY_CODE,
-          child_entity_id: bizId,
-          relationship_type: 'contains'
-        });
-      }
-
-      return reply.status(201).send(newBizData);
+      return reply.status(201).send(result.entity);
     } catch (error) {
       fastify.log.error('Error creating business:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });
@@ -739,7 +699,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       if (updates.name !== undefined || updates.code !== undefined) {
         await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: updates.name,
-          entity_code: updates.code
+          instance_code: updates.code
         });
       }
 
@@ -828,7 +788,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       if (updates.name !== undefined || updates.code !== undefined) {
         await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: updates.name,
-          entity_code: updates.code
+          instance_code: updates.code
         });
       }
 

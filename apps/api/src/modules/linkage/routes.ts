@@ -85,23 +85,21 @@ export async function linkageRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const { parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, active_flag } = request.query as {
+      const { parent_entity_type, parent_entity_id, child_entity_type, child_entity_id } = request.query as {
         parent_entity_type?: string;
         parent_entity_id?: string;
         child_entity_type?: string;
         child_entity_id?: string;
-        active_flag?: boolean;
       };
 
       // ═══════════════════════════════════════════════════════════════
       // ✅ ENTITY INFRASTRUCTURE SERVICE - Get all linkages with filters
       // ═══════════════════════════════════════════════════════════════
       const linkages = await entityInfra.get_all_entity_instance_links({
-        parent_entity_type,
+        parent_entity_code: parent_entity_type,  // API uses _type, service uses _code
         parent_entity_id,
-        child_entity_type,
-        child_entity_id,
-        active_flag
+        child_entity_code: child_entity_type,    // API uses _type, service uses _code
+        child_entity_id
       });
 
       return reply.send({
@@ -197,9 +195,9 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       // Idempotent - handles duplicates & reactivation automatically
       // ═══════════════════════════════════════════════════════════════
       const linkage = await entityInfra.set_entity_instance_link({
-        parent_entity_type,
+        parent_entity_code: parent_entity_type,
         parent_entity_id,
-        child_entity_type,
+        child_entity_code: child_entity_type,
         child_entity_id,
         relationship_type
       });
@@ -248,10 +246,7 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       // ✅ ENTITY INFRASTRUCTURE SERVICE - Update linkage
       // ═══════════════════════════════════════════════════════════════
-      const updatedLinkage = await entityInfra.update_entity_instance_link(id, {
-        relationship_type,
-        active_flag
-      });
+      const updatedLinkage = await entityInfra.update_entity_instance_link(id, relationship_type);
 
       if (!updatedLinkage) {
         return reply.status(404).send({
@@ -316,14 +311,14 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const hasParentPermission = await entityInfra.check_entity_rbac(
         employee_id,
-        linkage.parent_entity_type as string,
-        linkage.parent_entity_id as string,
+        linkage.entity_code as string,           // Parent entity code
+        linkage.entity_instance_id as string,    // Parent entity instance ID
         Permission.DELETE
       );
       const hasChildPermission = await entityInfra.check_entity_rbac(
         employee_id,
-        linkage.child_entity_type as string,
-        linkage.child_entity_id as string,
+        linkage.child_entity_code as string,
+        linkage.child_entity_instance_id as string,  // Child entity instance ID
         Permission.DELETE
       );
 
@@ -335,16 +330,9 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       }
 
       // ═══════════════════════════════════════════════════════════════
-      // ✅ ENTITY INFRASTRUCTURE SERVICE - Delete linkage (soft delete)
+      // ✅ ENTITY INFRASTRUCTURE SERVICE - Delete linkage (hard delete)
       // ═══════════════════════════════════════════════════════════════
-      const result = await entityInfra.delete_entity_instance_link(id);
-
-      if (!result) {
-        return reply.status(404).send({
-          success: false,
-          error: 'Linkage not found'
-        });
-      }
+      await entityInfra.delete_entity_instance_link(id);
 
       return reply.send({
         success: true,
@@ -368,7 +356,7 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       // ✅ ENTITY INFRASTRUCTURE SERVICE - Get parent entity types
       // Finds all entities that have this entity_type in their child_entity_codes
       // ═══════════════════════════════════════════════════════════════
-      const parents = await entityInfra.get_parent_entity_types(entity_type);
+      const parents = await entityInfra.get_parent_entity_codes(entity_type);
 
       return reply.send({
         success: true,
@@ -444,8 +432,8 @@ export async function linkageRoutes(fastify: FastifyInstance) {
         childEntities.forEach((childCode) => {
           typeLinkages.push({
             id: `${parentType}-${childCode}`,
-            parent_entity_type: parentType,
-            child_entity_type: childCode,
+            parent_entity_code: parentType,
+            child_entity_code: childCode,
             active_flag: true,
             from_ts: new Date().toISOString(),
             created_ts: new Date().toISOString(),
@@ -457,9 +445,7 @@ export async function linkageRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       // ✅ ENTITY INFRASTRUCTURE SERVICE - Get all instance linkages
       // ═══════════════════════════════════════════════════════════════
-      const instanceLinkages = await entityInfra.get_all_entity_instance_links({
-        active_flag: true
-      });
+      const instanceLinkages = await entityInfra.get_all_entity_instance_links({});
 
       // Group by parent entity type
       const grouped: Record<string, any> = {};

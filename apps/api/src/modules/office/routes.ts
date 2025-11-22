@@ -235,10 +235,6 @@ export async function officeRoutes(fastify: FastifyInstance) {
         total, limit, offset
       });
 
-      // ✨ Extract and fetch datalabel definitions (for dl__* fields like dl__office_type)
-      if (datalabelKeys.length > 0) {
-      }
-
       return response;
     } catch (error) {
       fastify.log.error({ error, stack: (error as Error).stack }, 'Error fetching offices');
@@ -312,10 +308,6 @@ export async function officeRoutes(fastify: FastifyInstance) {
         components: requestedComponents,
         total: 1, limit: 1, offset: 0
       });
-
-      // ✨ Extract and fetch datalabel definitions
-      if (datalabelKeys.length > 0) {
-      }
 
       const userPermissions = {
         canSeePII: true,
@@ -473,10 +465,10 @@ export async function officeRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance in registry
       // ═══════════════════════════════════════════════════════════════
       await entityInfra.set_entity_instance_registry({
-        entity_type: ENTITY_CODE,
+        entity_code: ENTITY_CODE,
         entity_id: officeId,
         entity_name: newOffice.name,
-        entity_code: newOffice.code
+        instance_code: newOffice.code
       });
 
       // ═══════════════════════════════════════════════════════════════
@@ -489,9 +481,9 @@ export async function officeRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       if (parent_type && parent_id) {
         await entityInfra.set_entity_instance_link({
-          parent_entity_type: parent_type,
+          parent_entity_code: parent_type,
           parent_entity_id: parent_id,
-          child_entity_type: ENTITY_CODE,
+          child_entity_code: ENTITY_CODE,
           child_entity_id: officeId,
           relationship_type: 'contains'
         });
@@ -602,7 +594,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       if (data.name !== undefined || data.code !== undefined) {
         await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
-          entity_code: data.code
+          instance_code: data.code
         });
       }
 
@@ -714,7 +706,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       if (data.name !== undefined || data.code !== undefined) {
         await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
           entity_name: data.name,
-          entity_code: data.code
+          instance_code: data.code
         });
       }
 
