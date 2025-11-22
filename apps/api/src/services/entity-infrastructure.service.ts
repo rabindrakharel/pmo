@@ -193,18 +193,19 @@ export class EntityInfrastructureService {
 
     if (result.length === 0) return null;
 
+    const row = result[0] as Record<string, any>;
     const metadata: Entity = {
-      code: result[0].code,
-      name: result[0].name,
-      ui_label: result[0].ui_label,
-      ui_icon: result[0].ui_icon,
-      child_entity_codes: typeof result[0].child_entity_codes === 'string'
-        ? JSON.parse(result[0].child_entity_codes)
-        : (result[0].child_entity_codes || []),
-      display_order: result[0].display_order,
-      active_flag: result[0].active_flag,
-      created_ts: result[0].created_ts,
-      updated_ts: result[0].updated_ts,
+      code: row.code as string,
+      name: row.name as string,
+      ui_label: row.ui_label as string,
+      ui_icon: row.ui_icon as string,
+      child_entity_codes: typeof row.child_entity_codes === 'string'
+        ? JSON.parse(row.child_entity_codes)
+        : (row.child_entity_codes || []),
+      display_order: row.display_order as number,
+      active_flag: row.active_flag as boolean,
+      created_ts: row.created_ts as string,
+      updated_ts: row.updated_ts as string,
     };
 
     // Store in Redis cache (only if active)
@@ -273,19 +274,22 @@ export class EntityInfrastructureService {
       ORDER BY display_order ASC, name ASC
     `);
 
-    return result.map(row => ({
-      code: row.code,
-      name: row.name,
-      ui_label: row.ui_label,
-      ui_icon: row.ui_icon,
-      child_entity_codes: typeof row.child_entity_codes === 'string'
-        ? JSON.parse(row.child_entity_codes)
-        : (row.child_entity_codes || []),
-      display_order: row.display_order,
-      active_flag: row.active_flag,
-      created_ts: row.created_ts,
-      updated_ts: row.updated_ts,
-    }));
+    return result.map(r => {
+      const row = r as Record<string, any>;
+      return {
+        code: row.code as string,
+        name: row.name as string,
+        ui_label: row.ui_label as string,
+        ui_icon: row.ui_icon as string,
+        child_entity_codes: typeof row.child_entity_codes === 'string'
+          ? JSON.parse(row.child_entity_codes)
+          : (row.child_entity_codes || []),
+        display_order: row.display_order as number,
+        active_flag: row.active_flag as boolean,
+        created_ts: row.created_ts as string,
+        updated_ts: row.updated_ts as string,
+      };
+    });
   }
 
   /**
@@ -312,7 +316,7 @@ export class EntityInfrastructureService {
       ORDER BY code ASC
     `);
 
-    return result.map(row => row.code);
+    return result.map(row => (row as Record<string, any>).code as string);
   }
 
   // ==========================================================================
@@ -346,7 +350,7 @@ export class EntityInfrastructureService {
       RETURNING *
     `);
 
-    return result[0] as EntityInstance;
+    return result[0] as unknown as EntityInstance;
   }
 
   /**
@@ -382,7 +386,7 @@ export class EntityInfrastructureService {
       RETURNING *
     `));
 
-    return result.length > 0 ? (result[0] as EntityInstance) : null;
+    return result.length > 0 ? (result[0] as unknown as EntityInstance) : null;
   }
 
   /**
@@ -543,8 +547,9 @@ export class EntityInfrastructureService {
       `);
 
       resolvedNames[entityCode] = {};
-      for (const row of result) {
-        resolvedNames[entityCode][row.entity_instance_id] = row.entity_instance_name;
+      for (const r of result) {
+        const row = r as Record<string, any>;
+        resolvedNames[entityCode][row.entity_instance_id as string] = row.entity_instance_name as string;
       }
     }
 
@@ -668,7 +673,7 @@ export class EntityInfrastructureService {
       RETURNING *
     `);
 
-    return result[0] as EntityLink;
+    return result[0] as unknown as EntityLink;
   }
 
   /**
@@ -698,7 +703,7 @@ export class EntityInfrastructureService {
         AND child_entity_code = ${child_entity_code}
     `);
 
-    return result.map(row => row.child_entity_instance_id);
+    return result.map(row => (row as Record<string, any>).child_entity_instance_id as string);
   }
 
   /**
@@ -710,7 +715,7 @@ export class EntityInfrastructureService {
       WHERE id = ${linkage_id}
     `);
 
-    return result.length > 0 ? (result[0] as EntityLink) : null;
+    return result.length > 0 ? (result[0] as unknown as EntityLink) : null;
   }
 
   /**
@@ -743,7 +748,7 @@ export class EntityInfrastructureService {
       ORDER BY created_ts DESC
     `);
 
-    return result as EntityLink[];
+    return result as unknown as EntityLink[];
   }
 
   /**
@@ -760,7 +765,7 @@ export class EntityInfrastructureService {
       RETURNING *
     `);
 
-    return result.length > 0 ? (result[0] as EntityLink) : null;
+    return result.length > 0 ? (result[0] as unknown as EntityLink) : null;
   }
 
   /**
@@ -799,12 +804,14 @@ export class EntityInfrastructureService {
     `);
 
     // Build result array with entity metadata
-    return childMetadata.map((child, index) => ({
-      entity: child.code,
-      label: child.ui_label || child.code,
-      icon: child.ui_icon,
-      order: index + 1
-    }));
+    return childMetadata.map((c, index) => {
+      const child = c as Record<string, any>;
+      return {
+        entity: child.code as string,
+        label: (child.ui_label || child.code) as string,
+        icon: child.ui_icon as string | undefined,
+      };
+    });
   }
 
   // ==========================================================================
@@ -1247,7 +1254,7 @@ export class EntityInfrastructureService {
       WHERE max_permission >= ${required_permission}
     `);
 
-    return result.map(row => row.entity_instance_id);
+    return result.map(row => (row as Record<string, any>).entity_instance_id as string);
   }
 
   // ==========================================================================
@@ -1304,9 +1311,10 @@ export class EntityInfrastructureService {
           AND entity_instance_id = ${entity_id}
       `);
 
-      for (const linkage of childLinkages) {
+      for (const l of childLinkages) {
+        const linkage = l as Record<string, any>;
         try {
-          await this.delete_all_entity_infrastructure(linkage.child_entity_code, linkage.child_entity_instance_id, {
+          await this.delete_all_entity_infrastructure(linkage.child_entity_code as string, linkage.child_entity_instance_id as string, {
             user_id,
             hard_delete,
             cascade_delete_children: true,
@@ -1336,7 +1344,7 @@ export class EntityInfrastructureService {
         (child_entity_code = ${entity_code} AND child_entity_instance_id = ${entity_id})
       )
     `);
-    linkages_deactivated = linkageResult.rowCount || 0;
+    linkages_deactivated = (linkageResult as any).count || linkageResult.length || 0;
 
     // Step 5: Remove RBAC entries (optional)
     if (remove_rbac_entries) {
@@ -1344,7 +1352,7 @@ export class EntityInfrastructureService {
         DELETE FROM app.entity_rbac
         WHERE entity_code = ${entity_code} AND entity_instance_id = ${entity_id}
       `);
-      rbac_entries_removed = rbacResult.rowCount || 0;
+      rbac_entries_removed = (rbacResult as any).count || rbacResult.length || 0;
     }
 
     // Step 6: Delete from primary table (via callback)
