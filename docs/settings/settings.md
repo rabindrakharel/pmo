@@ -16,7 +16,7 @@
 | Component | Route | API | Purpose |
 |-----------|-------|-----|---------|
 | **Settings Overview** | `/setting/overview` | `GET /api/v1/setting/categories` | List all datalabels |
-| **Settings Detail** | `/setting/:category` | `GET /api/v1/setting?datalabel=dl__*` | Manage datalabel items |
+| **Settings Detail** | `/setting/:category` | `GET /api/v1/datalabel?name=dl__*` | Manage datalabel items |
 | **Add Datalabel Modal** | Modal component | `POST /api/v1/setting/category` | Create new datalabel |
 
 **Key Concepts:** Unified table (`datalabel`) • JSONB metadata • `dl__` prefix • Position-based IDs
@@ -79,7 +79,7 @@ Settings Overview (/setting/overview)
 | Method | Endpoint | Request Body | Response |
 |--------|----------|--------------|----------|
 | **GET** | `/api/v1/setting/categories` | - | `[{datalabel_name, ui_label, ui_icon, item_count}]` |
-| **GET** | `/api/v1/setting?datalabel=dl__*` | - | `{data: [{id, name, descr, parent_id, color_code}], datalabel}` |
+| **GET** | `/api/v1/datalabel?name=dl__*` | - | `{data: [{id, name, descr, parent_id, color_code}], datalabel}` |
 | **POST** | `/api/v1/setting/category` | `{entity_code, label_name, ui_label, ui_icon}` | `{success, data: {datalabel_name}}` |
 | **POST** | `/api/v1/setting/:datalabel` | `{name, descr, color_code, parent_id?}` | `{success, data: {id, ...}}` |
 | **PUT** | `/api/v1/setting/:datalabel/:id` | `{name?, descr?, color_code?, parent_id?}` | `{success, data: {...}}` |
@@ -169,7 +169,7 @@ const Icon = getIconComponent('YourIcon');
 ```typescript
 // Database: dl__product_category
 // URL: /setting/productCategory (camelCase)
-// API: /api/v1/setting?datalabel=dl__product_category (with prefix)
+// API: /api/v1/datalabel?name=dl__product_category (with prefix)
 
 function toCamelCase(datalabel: string): string {
   const parts = datalabel.replace(/^dl__/, '').split('_');
@@ -258,7 +258,7 @@ curl -X POST http://localhost:4000/api/v1/setting/category \
   -d '{"entity_code":"test","label_name":"status","ui_label":"Test Status","ui_icon":"Tag"}'
 
 # 2. Verify empty metadata
-curl "http://localhost:4000/api/v1/setting?datalabel=dl__test_status" \
+curl "http://localhost:4000/api/v1/datalabel?name=dl__test_status" \
   -H "Authorization: Bearer $TOKEN"
 # Expected: { data: [], datalabel: "dl__test_status" }
 

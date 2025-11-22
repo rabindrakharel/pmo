@@ -27,7 +27,7 @@ The Kanban system provides a standardized, settings-driven board view for any en
 │                              v                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
 │  │                    useKanbanColumns Hook                         │    │
-│  │  GET /api/v1/setting?datalabel=dl__task_stage                   │    │
+│  │  GET /api/v1/datalabel?name=dl__task_stage                   │    │
 │  │  → Returns stage definitions with colors and positions          │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                              │                                          │
@@ -216,7 +216,7 @@ View Kanban Flow
    │
 3. useKanbanColumns hook:
    ├── Extracts metaTable from config.kanban
-   ├── Fetches GET /api/v1/setting?datalabel={metaTable}
+   ├── Fetches GET /api/v1/datalabel?name={metaTable}
    └── Maps response to column format
    │
 4. KanbanBoard renders:

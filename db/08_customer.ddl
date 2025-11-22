@@ -137,13 +137,13 @@
 -- • cust_type: Sector classification ('residential', 'commercial', 'municipal', 'industrial')
 -- • cust_status: Account status ('active', 'inactive', 'prospect', 'former')
 -- • dl__customer_opportunity_funnel: Sales pipeline stage (Lead, Qualified, Proposal, Closed Won)
---   - Loaded from app.datalabel table (datalabel_name='opportunity__funnel_stage') via GET /api/v1/setting?category=opportunity__funnel_stage
+--   - Loaded from app.datalabel table (datalabel_name='opportunity__funnel_stage') via GET /api/v1/datalabel?name=opportunity__funnel_stage
 -- • dl__customer_tier: Service tier ('Bronze', 'Silver', 'Gold', 'Platinum')
---   - Loaded from app.datalabel table (datalabel_name='customer__tier') via GET /api/v1/setting?category=customer__tier
+--   - Loaded from app.datalabel table (datalabel_name='customer__tier') via GET /api/v1/datalabel?name=customer__tier
 -- • dl__customer_industry_sector: Industry classification (Residential, Commercial, Industrial, Government)
---   - Loaded from app.datalabel table (datalabel_name='industry__sector') via GET /api/v1/setting?category=industry__sector
+--   - Loaded from app.datalabel table (datalabel_name='industry__sector') via GET /api/v1/datalabel?name=industry__sector
 -- • dl__customer_acquisition_channel: How client was acquired (Referral, Organic Search, Direct, Partnership)
---   - Loaded from app.datalabel table (datalabel_name='acquisition__channel') via GET /api/v1/setting?category=acquisition__channel
+--   - Loaded from app.datalabel table (datalabel_name='acquisition__channel') via GET /api/v1/datalabel?name=acquisition__channel
 -- • primary_contact_name, primary_email, primary_phone: Main contact details
 -- • metadata: JSONB field storing lifetime_value, annual_contract_value, service_categories, payment_terms
 --

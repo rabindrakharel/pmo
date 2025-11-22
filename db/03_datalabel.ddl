@@ -25,7 +25,7 @@
 -- • Other: dl__industry_sector, dl__acquisition_channel
 --
 -- API INTEGRATION:
--- • GET /api/v1/setting?category=dl__task_stage
+-- • GET /api/v1/datalabel?name=dl__task_stage
 -- • Frontend: loadOptionsFromSettings('dl__task_stage')
 -- • Auto-populated dropdowns, badge rendering with color_code
 --

@@ -299,7 +299,7 @@ export function getEntityIcon(entityType: string): LucideIcon {
 }
 
 // 2. Settings loader maps field to category
-'project_stage' → 'projectStage' → '/api/v1/setting?category=projectStage'
+'project_stage' → 'projectStage' → '/api/v1/datalabel?name=projectStage'
 
 // 3. API returns setting data
 [

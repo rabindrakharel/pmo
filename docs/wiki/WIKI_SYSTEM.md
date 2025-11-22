@@ -120,7 +120,7 @@ The Wiki system is PMO platform's **knowledge management solution** providing:
 ┃  ├─ PUT    /api/v1/wiki/:id             → Update page          ┃
 ┃  ├─ DELETE /api/v1/wiki/:id             → Soft delete          ┃
 ┃  ├─ GET    /api/v1/wiki/:id/children    → Get hierarchy        ┃
-┃  └─ GET    /api/v1/setting?category=wiki_publication_status    ┃
+┃  └─ GET    /api/v1/datalabel?name=wiki_publication_status    ┃
 ┃                                                                 ┃
 ┃  WEBSOCKET ENDPOINTS (Real-Time Sync)                           ┃
 ┃  ├─ WS     /api/v1/collab/wiki/:id      → Y.js sync            ┃

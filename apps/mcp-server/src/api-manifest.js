@@ -1279,17 +1279,17 @@ export const API_MANIFEST = [
         requiresAuth: true,
         category: 'Financial'
     },
-    // ==================== SETTINGS ====================
+    // ==================== DATALABEL ====================
     {
-        name: 'setting_list',
+        name: 'datalabel_list',
         method: 'GET',
-        path: '/api/v1/setting',
-        description: 'Get service catalog and other settings. Use datalabel=dl__service_category to fetch available service types.',
+        path: '/api/v1/datalabel',
+        description: 'Get datalabel options (dropdowns, stages, statuses). Use name=dl__service_category to fetch available service types.',
         requiresAuth: true,
-        category: 'Settings',
+        category: 'Datalabel',
         parameters: {
             query: {
-                datalabel: 'Service catalog identifier. Use "dl__service_category" to get list of available services (internet_support, mobile_support, billing_support, etc.)'
+                name: 'Datalabel name. Use "dl__service_category" to get list of available services (internet_support, mobile_support, billing_support, etc.)'
             }
         }
     },

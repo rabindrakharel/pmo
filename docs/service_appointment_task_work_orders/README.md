@@ -152,7 +152,7 @@ The Service Appointment & Task Management System enables customers to request se
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| `GET` | `/api/v1/setting?datalabel=dl__service_category` | Get service categories |
+| `GET` | `/api/v1/datalabel?name=dl__service_category` | Get service categories |
 | `GET` | `/api/v1/service?service_category=HVAC` | Search services by category |
 
 ### Employee Matching

@@ -166,7 +166,7 @@ CREATE TABLE app.d_task (
 **API Flow**:
 ```
 1. Load Stage Structure (DAG topology)
-   GET /api/v1/setting?datalabel=dl__task_stage&raw=true
+   GET /api/v1/datalabel?name=dl__task_stage&raw=true
 
    Response: {
      "data": [
@@ -192,7 +192,7 @@ EntityFormContainer.tsx (lines 126-178)
   ↓
   loadDagNodes("dl__task_stage")
   ↓
-  Fetches: GET /api/v1/setting?datalabel=dl__task_stage&raw=true
+  Fetches: GET /api/v1/datalabel?name=dl__task_stage&raw=true
   ↓
   Transforms to DAGNode[] with robust parent_ids handling:
   {
@@ -365,7 +365,7 @@ const isStageField = (fieldKey: string): boolean => {
 const loadDagNodes = async (fieldKey: string): Promise<DAGNode[]> => {
   const datalabel = fieldKey.startsWith('dl__') ? fieldKey : `dl__${fieldKey}`;
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/setting?datalabel=${datalabel}&raw=true`
+    `${API_BASE_URL}/api/v1/datalabel?name=${datalabel}&raw=true`
   );
   const result = await response.json();
 
@@ -655,7 +655,7 @@ const verticalSpacing = 18;
 **Settings API** (`apps/api/src/modules/setting/routes.ts:70-78`):
 ```typescript
 // Always use raw=true for DAG visualization
-GET /api/v1/setting?datalabel=dl__task_stage&raw=true
+GET /api/v1/datalabel?name=dl__task_stage&raw=true
 
 // Returns: {data: [{id, name, parent_ids, ...}], datalabel: "..."}
 // Without raw=true: Returns flattened structure without parent_ids
@@ -720,7 +720,7 @@ useEffect(() => {
 **Data Verification**:
 ```bash
 # Check settings have parent_ids arrays:
-./tools/test-api.sh GET "/api/v1/setting?datalabel=dl__task_stage&raw=true"
+./tools/test-api.sh GET "/api/v1/datalabel?name=dl__task_stage&raw=true"
 # Verify: "parent_ids": [] or "parent_ids": [0]
 
 # Check entity current stage:

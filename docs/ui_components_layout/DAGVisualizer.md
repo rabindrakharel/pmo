@@ -28,7 +28,7 @@ The DAG (Directed Acyclic Graph) Visualizer provides a visual representation of 
 │                              v                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
 │  │                    Settings API                                  │    │
-│  │  GET /api/v1/setting?datalabel=dl__project_stage                │    │
+│  │  GET /api/v1/datalabel?name=dl__project_stage                │    │
 │  │  Returns: [ { name, color_code, position }, ... ]               │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                              │                                          │

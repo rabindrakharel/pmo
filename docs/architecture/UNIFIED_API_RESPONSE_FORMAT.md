@@ -616,7 +616,7 @@ const DETECTION_PATTERNS = {
         "width": "140px",
         "loadFromSettings": true,
         "settingsDatalabel": "dl__project_stage",
-        "endpoint": "/api/v1/setting?datalabel=dl__project_stage",
+        "endpoint": "/api/v1/datalabel?name=dl__project_stage",
         "options": [
           { "value": "Planning", "label": "Planning", "color": "gray", "order": 1 },
           { "value": "Initiation", "label": "Initiation", "color": "blue", "order": 2 },

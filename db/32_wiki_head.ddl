@@ -95,7 +95,7 @@
 -- KEY BUSINESS FIELDS:
 -- • wiki_type: Page classification ('page', 'template', 'workflow', 'guide', 'policy')
 -- • publication_status: Workflow state ('draft', 'published', 'archived', 'deprecated')
---   - Loaded from app.datalabel via /api/v1/setting?category=wiki_publication_status
+--   - Loaded from app.datalabel via /api/v1/datalabel?name=wiki_publication_status
 -- • page_path: Hierarchical path (/projects/methodology/agile) for URL routing
 -- • parent__wiki_id: Hierarchical relationship (NULL for root pages, UUID for child pages)
 -- • visibility: Access level ('public', 'internal', 'restricted', 'private')

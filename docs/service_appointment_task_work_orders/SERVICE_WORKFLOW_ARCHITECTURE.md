@@ -187,7 +187,7 @@ Tables:
   - datalabel_task_priority (emergency, urgent, normal, scheduled)
   - datalabel_customer_tier (premium, standard, basic)
 
-API: GET /api/v1/setting?datalabel=dl__service_category
+API: GET /api/v1/datalabel?name=dl__service_category
 Benefit: Business users can modify categories without code changes
 ```
 
@@ -650,7 +650,7 @@ datalabel_customer_tier        → Customer segments
 
 **API Integration:**
 ```
-Frontend: GET /api/v1/setting?datalabel=dl__service_category
+Frontend: GET /api/v1/datalabel?name=dl__service_category
 Backend: SELECT id, name, descr FROM app.datalabel_service_category WHERE active_flag = true
 Response: { data: [{ id: "0", name: "HVAC", descr: "..." }, ...] }
 
@@ -1044,7 +1044,7 @@ AI:   [System: Create TWO tasks, find specialists for each]
 **Health Checks:**
 ```
 ✓ GET /health → Check database connectivity, Redis, external services
-✓ GET /api/v1/setting?datalabel=dl__service_category → Verify settings loaded
+✓ GET /api/v1/datalabel?name=dl__service_category → Verify settings loaded
 ✓ GET /api/v1/employee?active=true → Confirm employees available
 ```
 

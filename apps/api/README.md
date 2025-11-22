@@ -103,7 +103,7 @@ apps/api/src/
 - `GET /api/v1/schema/columns/:table` - Get table columns
 
 **setting** - Settings/configuration API (NEW - replaces meta)
-- `GET /api/v1/setting?category=<name>` - Get settings by category
+- `GET /api/v1/datalabel?name=<name>` - Get settings by category
 - 16 settings categories: `projectStage`, `taskStage`, `customerTier`, etc.
 
 **meta** - Legacy metadata API (DEPRECATED - use setting instead)
