@@ -46,17 +46,6 @@ import { getRedisClient } from '@/lib/redis.js';
 import type Redis from 'ioredis';
 
 // ============================================================================
-// TRANSACTIONAL CREATE RESULT TYPE
-// ============================================================================
-
-export interface RegisterCreatedEntityResult {
-  entity_instance: EntityInstance;
-  rbac_granted: boolean;
-  link_created: boolean;
-  link?: EntityLink;
-}
-
-// ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
 
@@ -1266,33 +1255,10 @@ export class EntityInfrastructureService {
   // ==========================================================================
 
   /**
-   * Unified entity delete operation
+   * @deprecated Use delete_entity() instead for full transactional safety.
    *
-   * Orchestrates deletion across all infrastructure tables:
-   * 1. Check DELETE permission
-   * 2. Optionally cascade delete children
-   * 3. Hard delete from entity_instance (no active_flag, always DELETE FROM)
-   * 4. Hard delete linkages from entity_instance_link (no active_flag, always DELETE FROM)
-   * 5. Optionally remove RBAC entries
-   * 6. Optionally delete from primary table via callback
-   *
-   * NOTE: entity_instance and entity_instance_link are always hard-deleted (no active_flag columns).
-   * The hard_delete parameter only affects the primary_table_callback behavior.
-   *
-   * @example
-   * // Delete entity infrastructure
-   * await entityInfra.deleteEntity('project', projectId, {
-   *   user_id: userId
-   * });
-   *
-   * // Delete with cascade and primary table cleanup
-   * await entityInfra.deleteEntity('project', projectId, {
-   *   user_id: userId,
-   *   cascade_delete_children: true,
-   *   primary_table_callback: async (db, id) => {
-   *     await db.delete(project).where(eq(project.id, id));
-   *   }
-   * });
+   * This method makes multiple separate DB calls (not atomic).
+   * Use delete_entity() which wraps all operations in ONE transaction.
    */
   async delete_all_entity_infrastructure(
     entity_type: string,
@@ -1681,71 +1647,6 @@ export class EntityInfrastructureService {
         registry_deleted: true,
         linkages_deleted: Number(linkages_deleted),
         rbac_entries_deleted: Number(rbac_entries_deleted)
-      };
-    });
-  }
-
-  /**
-   * @deprecated Use create_entity() instead for full transactional safety.
-   */
-  async register_created_entity(params: {
-    entity_type: string;
-    entity_id: string;
-    entity_name: string;
-    entity_code?: string | null;
-    creator_id: string;
-    parent_entity_type?: string;
-    parent_entity_id?: string;
-    relationship_type?: string;
-  }): Promise<RegisterCreatedEntityResult> {
-    const {
-      entity_type,
-      entity_id,
-      entity_name,
-      entity_code,
-      creator_id,
-      parent_entity_type,
-      parent_entity_id,
-      relationship_type = 'contains'
-    } = params;
-
-    // Use raw postgres client for transaction support
-    return await client.begin(async (tx) => {
-      // Step 4: Register in entity_instance
-      const registryResult = await tx`
-        INSERT INTO app.entity_instance
-        (entity_code, entity_instance_id, entity_instance_name, code)
-        VALUES (${entity_type}, ${entity_id}, ${entity_name}, ${entity_code || null})
-        RETURNING *
-      `;
-      const entity_instance = registryResult[0] as EntityInstance;
-
-      // Step 5: Grant OWNER permission to creator
-      await tx`
-        INSERT INTO app.entity_rbac
-        (person_code, person_id, entity_code, entity_instance_id, permission)
-        VALUES ('employee', ${creator_id}::uuid, ${entity_type}, ${entity_id}::uuid, ${Permission.OWNER})
-        ON CONFLICT (person_code, person_id, entity_code, entity_instance_id)
-        DO UPDATE SET permission = GREATEST(app.entity_rbac.permission, EXCLUDED.permission)
-      `;
-
-      // Step 6: Link to parent (if provided)
-      let link: EntityLink | undefined;
-      if (parent_entity_type && parent_entity_id) {
-        const linkResult = await tx`
-          INSERT INTO app.entity_instance_link
-          (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
-          VALUES (${parent_entity_type}, ${parent_entity_id}, ${entity_type}, ${entity_id}, ${relationship_type})
-          RETURNING *
-        `;
-        link = linkResult[0] as EntityLink;
-      }
-
-      return {
-        entity_instance,
-        rbac_granted: true,
-        link_created: Boolean(link),
-        link
       };
     });
   }
