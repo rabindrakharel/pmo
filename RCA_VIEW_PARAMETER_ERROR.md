@@ -152,7 +152,6 @@ After implementing the fix:
 3. **Component Tests**: Verify metadata generation works for all view types:
    - entityDataTable
    - entityFormContainer
-   - entityDetailView
    - kanbanView
    - calendarView
    - gridView

@@ -120,7 +120,7 @@ export function OfficeDetailPage() {
   const { data: response, isLoading } = useQuery({
     queryKey: ['office', id],
     queryFn: async () => {
-      const res = await fetch(`/api/v1/office/${id}?view=entityDetailView,entityFormContainer`);
+      const res = await fetch(`/api/v1/office/${id}?view=entityFormContainer`);
       return res.json();
     },
     staleTime: 5 * 60 * 1000 // 5 minutes
@@ -771,8 +771,8 @@ This section provides detailed execution traces showing exactly when and how dat
 │                                                                             │
 │ // fetchEntityDetail function                                               │
 │ async function fetchEntityDetail(entityCode, id) {                          │
-│   const url = `/api/v1/${entityCode}/${id}?view=entityDetailView`;          │
-│   // → GET /api/v1/project/550e8400-...?view=entityDetailView               │
+│   const url = `/api/v1/${entityCode}/${id}?view=entityFormContainer`;       │
+│   // → GET /api/v1/project/550e8400-...?view=entityFormContainer            │
 │                                                                             │
 │   const response = await fetch(url, {                                       │
 │     headers: { Authorization: `Bearer ${token}` }                           │
@@ -1094,7 +1094,7 @@ This section provides detailed execution traces showing exactly when and how dat
 │ • User sees no loading indicator (still on list page)                       │
 │ • Data loads into cache silently                                            │
 │                                                                             │
-│ GET /api/v1/office/uuid-456?view=entityDetailView                           │
+│ GET /api/v1/office/uuid-456?view=entityFormContainer                        │
 │ → Response stored in cache                                                  │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │

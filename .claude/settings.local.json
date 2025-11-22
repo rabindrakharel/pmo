@@ -227,7 +227,8 @@
       "Bash(/tmp/test-project-api.sh)",
       "Bash(git -C /home/rabin/projects/pmo diff apps/api/src/services/backend-formatter.service.ts)",
       "Bash(git -C /home/rabin/projects/pmo diff apps/web/src/components/shared/entity/DynamicChildEntityTabs.tsx)",
-      "Bash(git -C /home/rabin/projects/pmo diff docs/instructionToLLM.md)"
+      "Bash(git -C /home/rabin/projects/pmo diff docs/instructionToLLM.md)",
+      "Bash(do sed -i \"s/, extractDatalabelKeys//g\" \"$file\")"
     ],
     "deny": [],
     "ask": [],

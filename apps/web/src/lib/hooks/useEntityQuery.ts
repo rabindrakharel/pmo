@@ -80,20 +80,19 @@ export interface EntityInstanceListParams {
 export interface EntityInstanceListResult<T = any> {
   data: T[];
   metadata: EntityMetadata | null;
-  datalabels: DatalabelData[];
   total: number;
   page: number;
   pageSize: number;
   hasMore: boolean;
 }
+// Note: datalabels and globalSettings are fetched via dedicated endpoints
 
 export interface EntityInstanceResult<T = any> {
   data: T;
   metadata: EntityMetadata | null;
-  datalabels: DatalabelData[];
   fields?: string[];  // Field names list from backend
-  globalSettings?: any;  // Global formatting settings (currency, date, timestamp)
 }
+// Note: datalabels fetched via useDatalabels hook, globalSettings via useGlobalSettings hook
 
 // ============================================================================
 // useEntityInstanceList - Fetch entity list with caching
@@ -117,8 +116,6 @@ export function useEntityInstanceList<T = any>(
   options?: Omit<UseQueryOptions<EntityInstanceListResult<T>>, 'queryKey' | 'queryFn'>
 ) {
   // Specialized Zustand stores
-  const globalSettingsStore = useGlobalSettingsMetadataStore();
-  const datalabelStore = useDatalabelMetadataStore();
   const componentMetadataStore = useEntityComponentMetadataStore();
   const listDataStore = useEntityInstanceListDataStore();
   const queryClient = useQueryClient();
@@ -159,10 +156,10 @@ export function useEntityInstanceList<T = any>(
       const api = APIFactory.getAPI(entityCode);
       const response = await api.list(normalizedParams);
 
+      // Note: datalabels and globalSettings are fetched via dedicated endpoints
       const result: EntityInstanceListResult<T> = {
         data: response.data || [],
         metadata: response.metadata || null,
-        datalabels: response.datalabels || [],
         total: response.total || 0,
         page: normalizedParams.page,
         pageSize: normalizedParams.pageSize,
@@ -172,8 +169,6 @@ export function useEntityInstanceList<T = any>(
       console.log(`%c[API FETCH] ✅ Received ${result.data.length} items for ${entityCode}`, 'color: #ff6b6b', {
         total: result.total,
         hasMetadata: !!result.metadata,
-        hasGlobalSettings: !!response.globalSettings,
-        datalabelCount: result.datalabels?.length || 0,
       });
 
       // Cache list data in entityInstanceListDataStore (5 min TTL)
@@ -189,18 +184,6 @@ export function useEntityInstanceList<T = any>(
       if (result.metadata) {
         const componentName = normalizedParams.view || 'entityDataTable';
         componentMetadataStore.setComponentMetadata(entityCode, componentName, result.metadata);
-      }
-
-      // Cache globalSettings in globalSettingsMetadataStore (30 min TTL)
-      if (response.globalSettings) {
-        globalSettingsStore.setGlobalSettings(response.globalSettings);
-      }
-
-      // Cache datalabels in datalabelMetadataStore (30 min TTL)
-      if (result.datalabels?.length > 0) {
-        result.datalabels.forEach(dl => {
-          datalabelStore.setDatalabel(dl.name, dl.options);
-        });
       }
 
       return result;
@@ -257,8 +240,6 @@ export function useEntityInstance<T = any>(
   options?: Omit<UseQueryOptions<EntityInstanceResult<T>>, 'queryKey' | 'queryFn'>
 ) {
   // Specialized Zustand stores
-  const globalSettingsStore = useGlobalSettingsMetadataStore();
-  const datalabelStore = useDatalabelMetadataStore();
   const instanceDataStore = useEntityInstanceDataStore();
   const queryClient = useQueryClient();
 
@@ -281,29 +262,19 @@ export function useEntityInstance<T = any>(
       const api = APIFactory.getAPI(entityCode);
       const response = await api.get(id, { view: 'entityFormContainer' });
 
-      // Extract data, metadata, fields, globalSettings from response
+      // Extract data, metadata, fields from response
+      // Note: datalabels and globalSettings are fetched via dedicated endpoints
       let data = response.data || response;
       let metadata = null;
-      let datalabels: DatalabelData[] = [];
       let fields: string[] | undefined;
-      let globalSettings: any | undefined;
 
       // Check if response has backend metadata structure
       if (response && typeof response === 'object' && 'metadata' in response && 'data' in response) {
         metadata = response.metadata;
         data = response.data;
 
-        if ('datalabels' in response && Array.isArray(response.datalabels)) {
-          datalabels = response.datalabels;
-        }
-
-        // Preserve fields and globalSettings from backend response
         if ('fields' in response && Array.isArray(response.fields)) {
           fields = response.fields;
-        }
-
-        if ('globalSettings' in response) {
-          globalSettings = response.globalSettings;
         }
       }
 
@@ -319,27 +290,13 @@ export function useEntityInstance<T = any>(
       console.log(`%c[API FETCH] ✅ Received entity ${entityCode}/${id}`, 'color: #ff6b6b', {
         hasMetadata: !!metadata,
         hasFields: !!fields,
-        hasGlobalSettings: !!globalSettings,
-        datalabelCount: datalabels.length,
         dataKeys: Object.keys(data),
       });
 
       // Cache instance data in entityInstanceDataStore (5 min TTL)
       instanceDataStore.setInstance(entityCode, id, data);
 
-      // Cache globalSettings in globalSettingsMetadataStore (30 min TTL)
-      if (globalSettings) {
-        globalSettingsStore.setGlobalSettings(globalSettings);
-      }
-
-      // Cache datalabels in datalabelMetadataStore (30 min TTL)
-      if (datalabels.length > 0) {
-        datalabels.forEach(dl => {
-          datalabelStore.setDatalabel(dl.name, dl.options);
-        });
-      }
-
-      return { data, metadata, datalabels, fields, globalSettings };
+      return { data, metadata, fields };
     },
     enabled: !!id,
     staleTime: CACHE_TTL.ENTITY_DETAIL,
@@ -364,8 +321,6 @@ export function useEntityInstance<T = any>(
           dataUpdatedAt: cacheState?.dataUpdatedAt ? new Date(cacheState.dataUpdatedAt).toLocaleTimeString() : 'N/A',
           hasMetadata: !!query.data.metadata,
           hasFields: !!query.data.fields,
-          hasGlobalSettings: !!query.data.globalSettings,
-          datalabelCount: query.data.datalabels?.length || 0,
         }
       );
     }

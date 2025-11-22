@@ -102,8 +102,7 @@ Users navigate from entity list (DataTable) to detail view for deep inspection a
          ┌───────────────────────────┐
          │ API Call (RE-FETCH!)      │
          │ GET /api/v1/office/{id}   │
-         │ ?view=entityDetailView,   │
-         │       entityFormContainer │
+         │ ?view=entityFormContainer │
          └───────────┬───────────────┘
                      │
                      ▼
@@ -112,11 +111,11 @@ Users navigate from entity list (DataTable) to detail view for deep inspection a
          │ {                         │
          │   data: {...},            │
          │   metadata: {             │
-         │     entityDetailView:{},  │
          │     entityFormContainer:{}│
-         │   },                      │
-         │   datalabels: [...]       │
+         │   }                       │
          │ }                         │
+         │ (datalabels via dedicated │
+         │  endpoint, cached 30min)  │
          └───────────┬───────────────┘
                      │
                      ▼
@@ -138,12 +137,13 @@ Users navigate from entity list (DataTable) to detail view for deep inspection a
 
 **❌ Problem 2: Metadata Re-generation**
 - Backend re-generates metadata for same entity
-- `entityDetailView` and `entityFormContainer` metadata could have been pre-fetched
+- `entityFormContainer` metadata could have been pre-fetched
 - Unnecessary compute cost
 
-**❌ Problem 3: Datalabel Re-query**
-- Same datalabels fetched twice (once for table, once for detail)
-- Could cache datalabels in context/state
+**✅ Problem 3: Datalabel Caching (RESOLVED)**
+- Datalabels now fetched via dedicated endpoint (`GET /api/v1/datalabel?name=<name>`)
+- 30-minute session-level caching via `datalabelMetadataStore`
+- Frontend uses `useDatalabels()` hook for automatic cache management
 
 **❌ Problem 4: No Loading State Optimization**
 - User sees spinner on detail page
@@ -246,18 +246,19 @@ useEffect(() => {
     // Show cached data immediately (no spinner!)
     setData(cached.data);
     setMetadata(cached.metadata);
-    setDatalabels(cached.datalabels);
     setIsHydrated(false);
   }
 
   // Fetch fresh data with detail-specific metadata in background
   fetchDetail(id).then(response => {
     setData(response.data);
-    setMetadata(response.metadata);  // Get entityDetailView metadata
-    setDatalabels(response.datalabels);
+    setMetadata(response.metadata);  // Get entityFormContainer metadata
     setIsHydrated(true);
   });
 }, [id]);
+
+// Datalabels fetched via dedicated hook (30-min session cache)
+const { options: stageOptions } = useDatalabels('dl__project_stage');
 ```
 
 **Benefits:**
@@ -272,7 +273,7 @@ useEffect(() => {
 ```typescript
 // EntityListOfInstancesPage - Request metadata for future needs
 const params = {
-  view: 'entityDataTable,entityDetailView,entityFormContainer',
+  view: 'entityDataTable,entityFormContainer',
   page, pageSize: 100
 };
 
@@ -280,7 +281,6 @@ const response = await api.list(params);
 
 // Store all metadata segments
 setTableMetadata(response.metadata.entityDataTable);
-setDetailMetadata(response.metadata.entityDetailView);
 setFormMetadata(response.metadata.entityFormContainer);
 ```
 
@@ -326,7 +326,7 @@ const officeTypeDatalabel = getDatalabel('dl__office_type');
 ```typescript
 // EntitySpecificInstancePage
 const response = await api.get(id, {
-  view: 'entityDetailView,entityFormContainer'
+  view: 'entityFormContainer'
 });
 
 // Pass form metadata to modal
@@ -361,8 +361,8 @@ const EditModal = ({ data, metadata, datalabels, onSave }) => {
 
 ```typescript
 // Allow users to control what metadata is fetched
-URL: /office/{id}?view=detail  → entityDetailView only
 URL: /office/{id}?view=form    → entityFormContainer only
+URL: /office/{id}?view=table   → entityDataTable only
 URL: /office/{id}?view=all     → all components
 
 // Smart default based on intent
@@ -385,7 +385,7 @@ navigate(`/office/${id}?view=detail,form`);  // Most common
 
 LIST VIEW
    │
-   ├─ Fetch: ?view=entityDataTable,entityDetailView,entityFormContainer
+   ├─ Fetch: ?view=entityDataTable,entityFormContainer
    ├─ Cache: datalabels globally
    ├─ Store: all metadata segments
    │

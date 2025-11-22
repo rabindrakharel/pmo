@@ -15,14 +15,14 @@ Two core backend services work together to generate API responses:
 
 ### API Response → Store Mapping
 
-Every entity endpoint response contains multiple data types that populate different stores:
+Entity endpoints return only data and metadata. Datalabels and globalSettings have dedicated endpoints:
 
-| API Response Property | Frontend Store | Notes |
-|-----------------------|----------------|-------|
-| `data` | `EntityListOfInstancesDataStore` / `EntitySpecificInstanceDataStore` | URL-bound, 5 min TTL |
-| `metadata` | `entityComponentMetadataStore` | **No dedicated endpoint** - piggybacks on entity response |
-| `datalabels` | `datalabelMetadataStore` | Also has dedicated endpoint |
-| `globalSettings` | `globalSettingsMetadataStore` | Also has dedicated endpoint |
+| Data Source | Endpoint | Frontend Store | Notes |
+|-------------|----------|----------------|-------|
+| `data` | `GET /api/v1/{entity}` | `EntityListOfInstancesDataStore` / `EntitySpecificInstanceDataStore` | URL-bound, 5 min TTL |
+| `metadata` | `GET /api/v1/{entity}?view=...` | `entityComponentMetadataStore` | Piggybacks on entity response |
+| `datalabels` | `GET /api/v1/datalabel?name=<name>` | `datalabelMetadataStore` | **Dedicated endpoint** (30 min TTL) |
+| `globalSettings` | `GET /api/v1/settings/global` | `globalSettingsMetadataStore` | **Dedicated endpoint** (30 min TTL) |
 
 ## Data Flow Diagram with Caching Layer
 
@@ -40,9 +40,10 @@ Every entity endpoint response contains multiple data types that populate differ
 │  ┌────────────────────────┐      ┌────────────────────────┐       │
 │  │ • RBAC permission check│      │ • Metadata generation  │       │
 │  │ • Instance registry    │      │ • Pattern detection    │       │
-│  │ • Link management      │      │ • Datalabel fetching   │       │
-│  └────────────────────────┘      └────────────────────────┘       │
-│  Response: { data, fields, metadata, datalabels, globalSettings } │
+│  │ • Link management      │      └────────────────────────┘       │
+│  └────────────────────────┘                                        │
+│  Entity Response: { data, fields, metadata }                       │
+│  Dedicated Endpoints: /api/v1/settings/global, /api/v1/datalabel   │
 └────────────────────┬───────────────────────────────────────────────┘
                      │ HTTP/JSON
                      ▼
@@ -129,7 +130,9 @@ Session-level caches (`globalSettingsMetadataStore`, `datalabelMetadataStore`, `
 ### Cache Flow Example
 
 ```
-09:00  Login → Fetch & cache session stores (entity codes, settings, datalabels)
+09:00  Login → Fetch & cache session stores (entity codes via /api/v1/entity/codes)
+              → Fetch globalSettings via /api/v1/settings/global (30-min cache)
+              → Datalabels fetched on-demand via /api/v1/datalabel?name=<name>
 09:01  Navigate to /office → Fetch office list + metadata (URL-bound)
 09:02  Click row → /office/123 → INVALIDATE URL-bound caches, fetch detail + metadata
 09:03  Edit & Save → PATCH only changed fields, update instanceDataStore
@@ -153,10 +156,14 @@ function BusinessPage() {
   const { data: response, isLoading } = useQuery(
     ['businesses', filters, page],
     async () => {
-      const res = await fetch('/api/v1/business?include=metadata,datalabels');
+      const res = await fetch('/api/v1/business?view=entityDataTable');
       return res.json();
     }
   );
+
+  // Datalabels fetched via dedicated hook (30-min session cache)
+  // Note: useDatalabels() automatically caches to datalabelMetadataStore
+  const { options: stageOptions } = useDatalabels('dl__business_stage');
 
   /* Response structure:
   {
@@ -165,13 +172,11 @@ function BusinessPage() {
       entity: 'business',
       fields: BackendFieldMetadata[]
     },
-    datalabels: [
-      { name: 'dl__business_stage', options: DatalabelOption[] }
-    ],
     total: number,
     limit: number,
     offset: number
   }
+  // Note: datalabels NOT in entity response - fetched via useDatalabels() hook
   */
 
   return (
@@ -179,7 +184,6 @@ function BusinessPage() {
       entityType="business"
       data={response?.data}
       metadata={response?.metadata}
-      datalabels={response?.datalabels}
     />
   );
 }
@@ -188,8 +192,11 @@ function BusinessPage() {
 // ========================================
 // Location: apps/web/src/pages/entity/EntityListOfInstancesPage.tsx
 
-function EntityListOfInstancesPage({ entityType, data, metadata, datalabels }) {
+function EntityListOfInstancesPage({ entityType, data, metadata }) {
   const navigate = useNavigate();
+
+  // Datalabels fetched via useDatalabels() hook per field (cached 30 min)
+  // Components like EntityDataTable use useDatalabels() internally
 
   const handleRowClick = (item: any) => {
     // Navigate to detail view
@@ -200,7 +207,7 @@ function EntityListOfInstancesPage({ entityType, data, metadata, datalabels }) {
     <EntityDataTable
       data={data}
       columns={generateColumnsFromMetadata(metadata)}
-      datalabels={datalabels}  // Pass preloaded datalabels
+      // Note: datalabels fetched internally via useDatalabels() hook
       onRowClick={handleRowClick}
       inlineEditable={true}
     />
@@ -216,12 +223,12 @@ function BusinessDetailPage({ id }) {
   const { data: response } = useQuery(
     ['business', id],
     async () => {
-      const res = await fetch(`/api/v1/business/${id}?include=all`);
+      const res = await fetch(`/api/v1/business/${id}?view=entityFormContainer`);
       return res.json();
     }
   );
 
-  /* Enhanced response includes:
+  /* Response structure:
   {
     data: {
       ...businessFields,
@@ -231,9 +238,9 @@ function BusinessDetailPage({ id }) {
       }
     },
     metadata: BackendMetadata,
-    datalabels: DatalabelData[],
     permissions: Permission[]
   }
+  // Note: datalabels NOT in response - fetched via useDatalabels() hook
   */
 
   return (
@@ -241,7 +248,6 @@ function BusinessDetailPage({ id }) {
       entityType="business"
       data={response?.data}
       metadata={response?.metadata}
-      datalabels={response?.datalabels}
     />
   );
 }
@@ -250,7 +256,8 @@ function BusinessDetailPage({ id }) {
 // ========================================
 // Location: apps/web/src/pages/entity/EntitySpecificInstancePage.tsx
 
-function EntitySpecificInstancePage({ entityType, data, metadata, datalabels }) {
+function EntitySpecificInstancePage({ entityType, data, metadata }) {
+  // Datalabels fetched via useDatalabels() hook (30-min cache)
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -268,7 +275,7 @@ function EntitySpecificInstancePage({ entityType, data, metadata, datalabels }) 
           <EntityFormContainer
             data={data}
             metadata={metadata}
-            datalabels={datalabels}  // Preloaded, no API calls
+            // Datalabels fetched internally via useDatalabels() hook (30-min cache)
             isEditing={isEditing}
             onChange={handleFieldChange}
           />
@@ -278,7 +285,7 @@ function EntitySpecificInstancePage({ entityType, data, metadata, datalabels }) 
           <EntityDataTable
             data={data._children.projects}
             metadata={metadata.children.project}
-            datalabels={datalabels}  // Reuse parent datalabels
+            // Datalabels fetched internally via useDatalabels() hook
           />
         </Tab>
       </Tabs>
@@ -320,14 +327,12 @@ fastify.get('/api/v1/business/:id', async (request, reply) => {
   }
   */
 
-  // Include datalabels for dropdown fields
-  const datalabelKeys = extractDatalabelKeys(metadata);
-  const datalabels = await fetchDatalabels(db, datalabelKeys);
+  // Note: datalabels NOT included in response (v3.4+)
+  // Frontend fetches via GET /api/v1/datalabel?name=<name> and caches 30 min
 
   return {
     data: business,
-    metadata,
-    datalabels
+    metadata
   };
 });
 
@@ -335,7 +340,7 @@ fastify.get('/api/v1/business/:id', async (request, reply) => {
 // ========================================
 // Location: apps/web/src/components/shared/entity/EntityFormContainer.tsx
 
-function EntityFormContainer({ data, metadata, datalabels }) {
+function EntityFormContainer({ data, metadata }) {
   // Convert backend metadata to form fields
   const fields = useMemo(() => {
     if (!metadata?.fields) return [];
@@ -351,27 +356,28 @@ function EntityFormContainer({ data, metadata, datalabels }) {
       }));
   }, [metadata]);
 
-  // Build options for select fields
+  // Fetch datalabels via dedicated hook (30-min session cache)
+  // Each field that needs options calls useDatalabels() hook
+  const datalabelFields = fields.filter(f => f.loadFromDataLabels);
+
+  // Build options for select fields using useDatalabels() hook
   const { settingOptions, dagNodes } = useMemo(() => {
     const options = new Map();
     const nodes = new Map();
 
-    fields.forEach(field => {
-      if (field.loadFromDataLabels) {
-        const datalabel = datalabels.find(
-          dl => dl.name === field.datalabelKey
-        );
-        if (datalabel) {
-          options.set(field.key, datalabel.options);
-          if (isStageField(field.key)) {
-            nodes.set(field.key, transformToDAGNodes(datalabel.options));
-          }
+    datalabelFields.forEach(field => {
+      // useDatalabels() is called per field with caching
+      const { options: datalabelOptions } = useDatalabels(field.datalabelKey);
+      if (datalabelOptions) {
+        options.set(field.key, datalabelOptions);
+        if (isStageField(field.key)) {
+          nodes.set(field.key, transformToDAGNodes(datalabelOptions));
         }
       }
     });
 
     return { settingOptions: options, dagNodes: nodes };
-  }, [fields, datalabels]);
+  }, [datalabelFields]);
 
   // Render fields
   return (
@@ -448,10 +454,10 @@ fastify.get('/api/v1/project/:id', async (request, reply) => {
     };
   }
 
+  // Note: datalabels NOT included in response (v3.4+)
   return {
     data: project,
-    childEntityCodes: entityInfo.child_entity_codes,
-    datalabels: await fetchDatalabels(db, extractKeys(project))
+    childEntityCodes: entityInfo.child_entity_codes
   };
 });
 
@@ -463,8 +469,8 @@ function DynamicChildEntityTabs({
   parentType,
   parentId,
   parentData,
-  childEntityCodes,
-  parentDatalabels  // Reuse parent's datalabels
+  childEntityCodes
+  // Note: datalabels now fetched via useDatalabels() hook (30-min cache)
 }) {
   // Generate tabs from child entity codes
   const tabs = useMemo(() => {
@@ -498,7 +504,7 @@ function DynamicChildEntityTabs({
         <Tab key={tab.key} value={tab.key}>
           <EntityDataTable
             data={childData[tab.key] || []}
-            datalabels={parentDatalabels}  // Reuse parent datalabels
+            // Datalabels fetched internally via useDatalabels() hook (30-min cache)
             entityType={tab.key}
             parentContext={{ type: parentType, id: parentId }}
           />
@@ -727,8 +733,7 @@ function useDataFlowLogger(componentName, props) {
     console.group(`📊 ${componentName} Data Flow`);
     console.log('Props received:', props);
     console.log('Has metadata:', !!props.metadata);
-    console.log('Has datalabels:', !!props.datalabels);
-    console.log('Datalabel count:', props.datalabels?.length || 0);
+    // Note: datalabels now fetched via useDatalabels() hook (30-min cache)
     console.groupEnd();
   }, [componentName, props]);
 }
@@ -927,7 +932,9 @@ Which store type?
 ### Benefits
 
 - **70% Reduction in API Calls**: Session-level caches (30 min) for metadata
-- **Instant Navigation**: Cached sidebar, datalabels, and component metadata
+- **Instant Navigation**: Cached sidebar and component metadata
+- **Dedicated Datalabel Endpoint**: `GET /api/v1/datalabel?name=<name>` with 30-min session cache
+- **Dedicated GlobalSettings Endpoint**: `GET /api/v1/settings/global` with 30-min session cache
 - **Fresh Data Guarantee**: URL-bound caches ensure current data on navigation
 - **Smart Invalidation**: Settings exit triggers full session cache refresh
 - **Memory Efficient**: Automatic cleanup on URL navigation

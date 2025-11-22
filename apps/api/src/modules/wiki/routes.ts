@@ -7,7 +7,7 @@ import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factor
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✨ Backend Formatter Service - component-aware metadata generation
-import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter.service.js';
+import { generateEntityResponse } from '../../services/backend-formatter.service.js';
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';

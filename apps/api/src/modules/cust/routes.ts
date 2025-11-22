@@ -15,7 +15,7 @@ import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../serv
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✨ Backend Formatter Service - component-aware metadata generation
-import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter.service.js';
+import { generateEntityResponse } from '../../services/backend-formatter.service.js';
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';

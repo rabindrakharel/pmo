@@ -137,9 +137,8 @@ The `view` query parameter controls which components receive metadata:
 | Parameter Value | Components Included |
 |-----------------|---------------------|
 | `entityDataTable` | Table columns, sorting, filtering |
-| `entityFormContainer` | Form fields, validation |
+| `entityFormContainer` | Form fields, validation (also used for detail view) |
 | `kanbanView` | Card fields, grouping |
-| `entityDetailView` | Detail page fields |
 | `calendarView` | Calendar event fields |
 
 ---
@@ -252,24 +251,6 @@ The API returns a comprehensive response with component-aware metadata:
       }
     }
   },
-  "datalabels": [
-    {
-      "name": "dl__project_stage",
-      "options": [
-        { "id": 0, "name": "Initiation", "parent_id": null, "color_code": "blue", "sort_order": 0 },
-        { "id": 1, "name": "Planning", "parent_id": 0, "color_code": "purple", "sort_order": 1 },
-        { "id": 2, "name": "Execution", "parent_id": 1, "color_code": "yellow", "sort_order": 2 },
-        { "id": 3, "name": "Monitoring", "parent_id": 2, "color_code": "orange", "sort_order": 3 },
-        { "id": 4, "name": "Closure", "parent_id": 3, "color_code": "green", "sort_order": 4 }
-      ]
-    }
-  ],
-  "globalSettings": {
-    "currency": { "symbol": "$", "decimals": 2, "locale": "en-CA", "position": "prefix" },
-    "date": { "format": "MM/DD/YYYY", "locale": "en-US", "style": "short" },
-    "timestamp": { "style": "datetime", "locale": "en-US", "includeSeconds": false },
-    "boolean": { "trueLabel": "Yes", "falseLabel": "No", "trueColor": "green", "falseColor": "gray" }
-  },
   "total": 5,
   "limit": 20,
   "offset": 0
@@ -283,11 +264,25 @@ The API returns a comprehensive response with component-aware metadata:
 | `data` | `Array` | Entity instances with resolved references (`_ID`, `_IDS`) |
 | `fields` | `string[]` | Ordered list of field names from database |
 | `metadata` | `Object` | Component-keyed field metadata (see below) |
-| `datalabels` | `Array` | Dropdown options for `dl__*` fields with DAG structure |
-| `globalSettings` | `Object` | Global formatting config (currency, date, timestamp, boolean) |
 | `total` | `number` | Total record count (for pagination) |
 | `limit` | `number` | Page size |
 | `offset` | `number` | Page offset |
+
+### Datalabels and Global Settings (Dedicated Endpoints)
+
+**Note:** Datalabels and global settings are NOT included in entity responses. They are fetched from dedicated endpoints for better caching and separation of concerns:
+
+| Data | Endpoint | Frontend Hook | Cache TTL |
+|------|----------|---------------|-----------|
+| **Global Settings** | `GET /api/v1/settings/global` | `useGlobalSettings()` | 30 min (session) |
+| **Single Datalabel** | `GET /api/v1/datalabel?name=<name>` | `useDatalabels(fieldKey)` | 30 min (session) |
+| **All Datalabels** | `GET /api/v1/settings/datalabels/all` | `useAllDatalabels()` | 30 min (session) |
+
+**Architecture Benefits:**
+- Reduced payload size for entity responses
+- Single source of truth (dedicated endpoints)
+- Session-level caching via Zustand stores (`globalSettingsMetadataStore`, `datalabelMetadataStore`)
+- Avoids redundant data in every entity request
 
 ### Metadata Structure
 
@@ -296,8 +291,7 @@ Metadata is **component-keyed** - each component gets its own field configuratio
 ```typescript
 metadata: {
   entityDataTable: { [fieldKey]: FieldMetadata },     // Table view
-  entityFormContainer: { [fieldKey]: FieldMetadata }, // Form view
-  entityDetailView: { [fieldKey]: FieldMetadata },    // Detail view
+  entityFormContainer: { [fieldKey]: FieldMetadata }, // Form view (also used for detail view)
   kanbanView: { [fieldKey]: FieldMetadata }           // Kanban view
 }
 ```

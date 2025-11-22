@@ -156,13 +156,15 @@ export interface EntityResponse {
   data: any[];
   fields: string[];
   metadata: EntityMetadata;
-  datalabels: DatalabelData[];
-  globalSettings: GlobalSettings;
   total: number;
   limit: number;
   offset: number;
   format?: 'object' | 'indexed';
 }
+// Note: datalabels and globalSettings are fetched via dedicated endpoints:
+// - GET /api/v1/settings/global (globalSettings)
+// - GET /api/v1/datalabel?name=<name> (individual datalabel)
+// - GET /api/v1/settings/datalabels/all (all datalabels)
 
 // ============================================================================
 // GLOBAL SETTINGS
@@ -1307,15 +1309,13 @@ export function generateEntityResponse(
     total?: number;
     limit?: number;
     offset?: number;
-    datalabels?: DatalabelData[];
   } = {}
 ): EntityResponse {
   const {
     components = ['entityDataTable', 'entityFormContainer', 'kanbanView'],
     total = data.length,
     limit = 20,
-    offset = 0,
-    datalabels = []
+    offset = 0
   } = options;
 
   // Extract field names from first row
@@ -1324,12 +1324,13 @@ export function generateEntityResponse(
   // Generate metadata for requested components (pass entityCode for explicit config lookup)
   const metadata = generateMetadataForComponents(fieldNames, components, entityCode);
 
+  // Note: datalabels and globalSettings removed - frontend fetches via dedicated endpoints:
+  // - GET /api/v1/settings/global
+  // - GET /api/v1/datalabel?name=<name>
   return {
     data,
     fields: fieldNames,
     metadata,
-    datalabels,
-    globalSettings: GLOBAL_SETTINGS,
     total,
     limit,
     offset
