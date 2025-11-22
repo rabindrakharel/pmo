@@ -492,7 +492,7 @@ export function renderViewModeFromMetadata(
 
     case 'badge':
       // Datalabel lookup fields (dl__*) with badge rendering
-      // Used by: entityDataTable, entityDetailView, kanbanView, calendarView, gridView, hierarchyGraphView
+      // Used by: entityDataTable, entityFormContainer, kanbanView, calendarView, gridView, hierarchyGraphView
       if (metadata.datalabelKey) {
         return renderDataLabelBadge(value, metadata.datalabelKey, { color: metadata.color });
       }

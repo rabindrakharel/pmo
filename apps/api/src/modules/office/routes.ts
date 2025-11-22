@@ -250,7 +250,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
         id: Type.String({ format: 'uuid' }),
       }),
       querystring: Type.Object({
-        view: Type.Optional(Type.String()),  // Component-aware metadata: 'entityDetailView,entityFormContainer'
+        view: Type.Optional(Type.String()),  // Component-aware metadata: 'entityFormContainer'
       }),
       response: {
         200: OfficeWithMetadataSchema,  // ✅ Fixed: Use metadata-driven schema
@@ -299,10 +299,10 @@ export async function officeRoutes(fastify: FastifyInstance) {
       }
 
       // ✨ Generate component-aware metadata using backend-formatter
-      // For single entity GET, default to detailView and formContainer
+      // For single entity GET, default to formContainer
       const requestedComponents = view
         ? view.split(',').map((v: string) => v.trim())
-        : ['entityDetailView', 'entityFormContainer'];
+        : ['entityFormContainer'];
 
       const response = generateEntityResponse(ENTITY_CODE, [office[0]], {
         components: requestedComponents,

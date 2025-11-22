@@ -429,7 +429,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         id: Type.String({ format: 'uuid' })
       }),
       querystring: Type.Object({
-        view: Type.Optional(Type.String()),  // 'entityDetailView,entityFormContainer' or 'entityDataTable'
+        view: Type.Optional(Type.String()),  // 'entityFormContainer' or 'entityDataTable'
       }),
       response: {
         200: TaskWithMetadataSchema,  // ✅ Fixed: Use metadata-driven schema
@@ -521,11 +521,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
       // ═══════════════════════════════════════════════════════════════
       // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
-      // Parse requested view (default to detail view components)
+      // Parse requested view (default to formContainer)
       // ═══════════════════════════════════════════════════════════════
       const requestedComponents = view
         ? view.split(',').map((v: string) => v.trim())
-        : ['entityDetailView', 'entityFormContainer'];
+        : ['entityFormContainer'];
 
       const response = generateEntityResponse(ENTITY_CODE, [filterUniversalColumns(task[0], userPermissions)], {
         components: requestedComponents,

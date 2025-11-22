@@ -60,7 +60,6 @@ export interface FieldMetadata {
 export type ComponentName =
   | 'entityDataTable'
   | 'entityFormContainer'
-  | 'entityDetailView'
   | 'kanbanView'
   | 'calendarView'
   | 'gridView'

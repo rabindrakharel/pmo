@@ -259,7 +259,6 @@ export function useEntityInstance<T = any>(
   // Specialized Zustand stores
   const globalSettingsStore = useGlobalSettingsMetadataStore();
   const datalabelStore = useDatalabelMetadataStore();
-  const componentMetadataStore = useEntityComponentMetadataStore();
   const instanceDataStore = useEntityInstanceDataStore();
   const queryClient = useQueryClient();
 
@@ -280,7 +279,7 @@ export function useEntityInstance<T = any>(
       });
 
       const api = APIFactory.getAPI(entityCode);
-      const response = await api.get(id, { view: 'entityDetailView,entityFormContainer' });
+      const response = await api.get(id, { view: 'entityFormContainer' });
 
       // Extract data, metadata, fields, globalSettings from response
       let data = response.data || response;
@@ -327,13 +326,6 @@ export function useEntityInstance<T = any>(
 
       // Cache instance data in entityInstanceDataStore (5 min TTL)
       instanceDataStore.setInstance(entityCode, id, data);
-
-      // Cache component metadata in entityComponentMetadataStore (30 min TTL)
-      // Store for both entityDetailView and entityFormContainer
-      if (metadata) {
-        componentMetadataStore.setComponentMetadata(entityCode, 'entityDetailView', metadata);
-        componentMetadataStore.setComponentMetadata(entityCode, 'entityFormContainer', metadata);
-      }
 
       // Cache globalSettings in globalSettingsMetadataStore (30 min TTL)
       if (globalSettings) {
@@ -1133,7 +1125,7 @@ export function usePrefetch() {
       queryKey: queryKeys.entityInstance(entityCode, id),
       queryFn: async () => {
         const api = APIFactory.getAPI(entityCode);
-        const response = await api.get(id, { view: 'entityDetailView,entityFormContainer' });
+        const response = await api.get(id, { view: 'entityFormContainer' });
         return {
           data: response.data || response,
           metadata: response.metadata || null,

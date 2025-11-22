@@ -129,7 +129,7 @@ export const useEntityStore = create<EntityState & EntityActions>()(
 
           try {
             const response = await api.get(
-              `/api/v1/${entityType}/${entityId}?view=entityDetailView,entityFormContainer`
+              `/api/v1/${entityType}/${entityId}?view=entityFormContainer`
             );
 
             const entity = response.data || response;

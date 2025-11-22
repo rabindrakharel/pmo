@@ -38,8 +38,7 @@ import { getFieldConfig, hasExplicitConfig, type FieldConfig } from '../config/e
 
 export type ComponentName =
   | 'entityDataTable'      // Table view for entity lists
-  | 'entityFormContainer'  // Create/edit forms
-  | 'entityDetailView'     // Detail view for single entities
+  | 'entityFormContainer'  // Create/edit forms (also used for detail view)
   | 'kanbanView'           // Kanban board view
   | 'calendarView'         // Calendar view for events
   | 'gridView'             // Grid/card view
@@ -101,7 +100,6 @@ export interface ComponentMetadata {
 export interface EntityMetadata {
   entityDataTable?: ComponentMetadata;
   entityFormContainer?: ComponentMetadata;
-  entityDetailView?: ComponentMetadata;
   kanbanView?: ComponentMetadata;
   calendarView?: ComponentMetadata;
   gridView?: ComponentMetadata;
@@ -209,7 +207,6 @@ interface PatternRule {
   entityFormContainer: Partial<FieldMetadataBase>;
 
   // Optional components - will inherit from defaults if not specified
-  entityDetailView?: Partial<FieldMetadataBase>;
   kanbanView?: Partial<FieldMetadataBase>;
   calendarView?: Partial<FieldMetadataBase>;
   gridView?: Partial<FieldMetadataBase>;
@@ -675,17 +672,6 @@ const PATTERN_RULES: Record<string, PatternRule> = {
       viewType: 'dag',         // ← Show as DAG in forms
       editType: 'select'
     },
-    entityDetailView: {
-      dtype: 'str',
-      format: 'datalabel_lookup',
-      internal: false,
-      visible: true,
-      filterable: false,
-      sortable: false,
-      editable: false,
-      viewType: 'badge',       // ← Show as badge in detail view
-      editType: 'select'
-    },
     kanbanView: {
       dtype: 'str',
       format: 'datalabel_lookup',
@@ -1101,8 +1087,7 @@ function detectEntityFromFieldName(fieldName: string): string | null {
  */
 const COMPONENT_INHERITANCE: Record<ComponentName, ComponentName | null> = {
   entityDataTable: null,           // Base component
-  entityFormContainer: null,       // Base component
-  entityDetailView: 'entityDataTable',     // Inherits from table (shows more fields)
+  entityFormContainer: null,       // Base component (also used for detail view)
   kanbanView: 'entityDataTable',           // Inherits from table
   calendarView: 'entityDataTable',         // Inherits from table
   gridView: 'entityDataTable',             // Inherits from table
@@ -1138,13 +1123,12 @@ function convertExplicitConfigToMetadata(
   // Determine visibility for this component
   const visibilityMap: Record<ComponentName, boolean> = {
     entityDataTable: config.visible?.EntityDataTable ?? true,
-    entityDetailView: config.visible?.EntityDetailView ?? true,
     entityFormContainer: config.visible?.EntityFormContainer ?? true,
     kanbanView: config.visible?.KanbanView ?? true,
     calendarView: config.visible?.CalendarView ?? true,
     gridView: config.visible?.EntityDataTable ?? true,
-    dagView: config.visible?.EntityDetailView ?? true,
-    hierarchyGraphView: config.visible?.EntityDetailView ?? true,
+    dagView: config.visible?.EntityFormContainer ?? true,
+    hierarchyGraphView: config.visible?.EntityFormContainer ?? true,
   };
 
   return {
@@ -1152,8 +1136,8 @@ function convertExplicitConfigToMetadata(
     format: typeInfo.format,
     internal: false,
     visible: visibilityMap[component] ?? true,
-    filterable: component === 'entityDataTable' || component === 'entityDetailView',
-    sortable: component === 'entityDataTable' || component === 'entityDetailView',
+    filterable: component === 'entityDataTable',
+    sortable: component === 'entityDataTable',
     editable: config.editable ?? (component === 'entityFormContainer'),
     viewType: config.renderType || 'text',
     editType: config.inputType || 'text',
@@ -1200,17 +1184,16 @@ function generateFieldMetadataForComponent(
   if (!rule) {
     // Default text field for unknown patterns
     // Unknown fields should be visible and editable in forms (entityFormContainer)
-    // and visible (read-only) in detail/table views
+    // and visible (read-only) in table views
     return {
       dtype: 'str',
       format: 'text',
       internal: false,
       visible: component === 'entityDataTable' ||
-               component === 'entityDetailView' ||
-               component === 'entityFormContainer' ||  // ✅ FIX: Make visible in forms
+               component === 'entityFormContainer' ||
                component === 'gridView',
-      filterable: component === 'entityDataTable' || component === 'entityDetailView',
-      sortable: component === 'entityDataTable' || component === 'entityDetailView',
+      filterable: component === 'entityDataTable',
+      sortable: component === 'entityDataTable',
       editable: component === 'entityFormContainer',
       viewType: 'text',
       editType: 'text',

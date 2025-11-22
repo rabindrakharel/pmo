@@ -7,11 +7,7 @@ import { ActionButtonsBar } from '../button/ActionButtonsBar';
 import { getEntityConfig, type EntityConfig } from '../../../lib/entityConfig';
 import { transformForApi, transformFromApi, loadSettingsColors } from '../../../lib/frontEndFormatterService';
 import { useColumnVisibility } from '../../../lib/hooks/useColumnVisibility';
-import { useEntitySchema } from '../../../lib/hooks/useEntitySchema';
-import type { SchemaColumn } from '../../../lib/types/table';
-import { SchemaErrorFallback } from '../error/SchemaErrorBoundary';
-import { TableSkeleton } from '../ui/TableSkeleton';
-import { API_CONFIG, API_ENDPOINTS } from '../../../lib/config/api';
+import { API_CONFIG } from '../../../lib/config/api';
 import type { EntityMetadata } from '../../../lib/api';
 import type { DatalabelData } from '../../../lib/frontEndFormatterService';
 
@@ -88,9 +84,6 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     }
   }, [propsDatalabels]);
 
-  // DEPRECATED: Old schema hook - being phased out in favor of backend metadata
-  const { schema, loading: schemaLoading, error: schemaError } = useEntitySchema(entityCode);
-
   // Check if this is a settings entity
   const isSettingsEntity = useMemo(() => {
     return config?.apiEndpoint?.includes('/api/v1/datalabel?name=') || false;
@@ -145,25 +138,8 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       return config.columns as Column[];
     }
 
-    // Priority 3: API schema (LEGACY - fallback for non-metadata entities)
-    if (schema && schema.columns) {
-      return schema.columns.map((col: SchemaColumn) => ({
-        key: col.key,
-        title: col.title,
-        visible: col.visible,
-        sortable: col.sortable,
-        filterable: col.filterable,
-        width: col.width,
-        align: col.align,
-        editable: col.editable,
-        editType: col.editType as any,
-        loadDataLabels: col.dataSource?.type === 'settings'
-        // EntityDataTable will handle rendering with its own fallback
-      })) as Column[];
-    }
-
     return [];
-  }, [metadata, config, schema]);
+  }, [metadata, config]);
 
   // Use column visibility hook for dynamic column management
   const {
@@ -176,42 +152,20 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     resetToDefault
   } = useColumnVisibility(entityCode, configuredColumns, data);
 
-  // Preload badge colors from backend metadata or schema
+  // Preload badge colors from backend metadata
   useEffect(() => {
     const preloadColors = async () => {
-      // Priority 1: Use backend metadata
-      if (metadata?.fields) {
-        const badgeFields = metadata.fields.filter(
-          f => f.loadFromDataLabels && f.settingsDatalabel
-        );
+      if (!metadata?.fields) return;
 
-        if (badgeFields.length === 0) return;
-
-        const uniqueDatalabels = Array.from(
-          new Set(badgeFields.map(f => f.settingsDatalabel!).filter(Boolean))
-        );
-
-        try {
-          await loadSettingsColors(uniqueDatalabels);
-        } catch (err) {
-          console.error('Failed to load badge colors:', err);
-        }
-        return;
-      }
-
-      // Priority 2: Fallback to schema (LEGACY)
-      if (!schema?.columns) return;
-
-      const badgeColumns = schema.columns.filter(
-        col => col.format.type === 'badge' && col.format.settingsDatalabel
+      const badgeFields = metadata.fields.filter(
+        f => f.loadFromDataLabels && f.settingsDatalabel
       );
 
-      if (badgeColumns.length === 0) return;
+      if (badgeFields.length === 0) return;
 
-      const datalabels = badgeColumns
-        .map(col => col.format.settingsDatalabel!)
-        .filter((dl): dl is string => !!dl);
-      const uniqueDatalabels = Array.from(new Set(datalabels));
+      const uniqueDatalabels = Array.from(
+        new Set(badgeFields.map(f => f.settingsDatalabel!).filter(Boolean))
+      );
 
       try {
         await loadSettingsColors(uniqueDatalabels);
@@ -221,7 +175,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
     };
 
     preloadColors();
-  }, [metadata, schema]);
+  }, [metadata]);
 
   // Use visible columns for rendering
   const columns: Column[] = visibleColumns;
@@ -859,22 +813,6 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         </div>
       </div>
     );
-  }
-
-  // Show error state
-  if (schemaError) {
-    return (
-      <SchemaErrorFallback
-        error={schemaError}
-        entityCode={entityCode}
-        onRetry={() => window.location.reload()}
-      />
-    );
-  }
-
-  // Show loading skeleton while schema is loading
-  if (schemaLoading && !schema) {
-    return <TableSkeleton rows={5} columns={6} />;
   }
 
   return (
