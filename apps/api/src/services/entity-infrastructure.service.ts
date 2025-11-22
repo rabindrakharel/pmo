@@ -1406,49 +1406,32 @@ export class EntityInfrastructureService {
   /**
    * Create entity with ALL infrastructure in a SINGLE TRANSACTION
    *
-   * This method wraps the ENTIRE CREATE flow (Steps 3-6) in one atomic transaction:
-   *   Step 3: INSERT into primary table (via callback)
-   *   Step 4: Register in entity_instance
-   *   Step 5: Grant OWNER permission to creator
-   *   Step 6: Link to parent (if provided)
-   *
-   * If ANY step fails, ALL changes are rolled back - no orphan records.
+   * Pass the table name and data object - both INSERTs execute in one transaction.
+   * If ANY step fails, ALL changes roll back - no orphan records.
    *
    * @example
-   * const result = await entityInfra.create_entity_with_infrastructure({
+   * const result = await entityInfra.create_entity({
    *   entity_type: 'project',
    *   creator_id: userId,
    *   parent_entity_type: parent_type,
    *   parent_entity_id: parent_id,
-   *   insert_callback: async (tx) => {
-   *     const rows = await tx`
-   *       INSERT INTO app.d_project (name, code, descr)
-   *       VALUES (${name}, ${code}, ${descr})
-   *       RETURNING *
-   *     `;
-   *     return {
-   *       entity_id: rows[0].id,
-   *       entity_name: rows[0].name,
-   *       entity_code: rows[0].code,
-   *       entity_data: rows[0]
-   *     };
-   *   }
+   *   primary_table: 'app.d_project',
+   *   primary_data: { name, code, descr, budget_allocated_amt }
    * });
+   * // Returns: { entity: insertedRow, entity_instance, rbac_granted, link_created }
    */
-  async create_entity_with_infrastructure<T = any>(params: {
+  async create_entity<T extends Record<string, any> = Record<string, any>>(params: {
     entity_type: string;
     creator_id: string;
     parent_entity_type?: string;
     parent_entity_id?: string;
     relationship_type?: string;
-    insert_callback: (tx: any) => Promise<{
-      entity_id: string;
-      entity_name: string;
-      entity_code?: string | null;
-      entity_data: T;
-    }>;
+    primary_table: string;
+    primary_data: T;
+    name_field?: string;  // defaults to 'name'
+    code_field?: string;  // defaults to 'code'
   }): Promise<{
-    entity_data: T;
+    entity: T & { id: string };
     entity_instance: EntityInstance;
     rbac_granted: boolean;
     link_created: boolean;
@@ -1460,20 +1443,37 @@ export class EntityInfrastructureService {
       parent_entity_type,
       parent_entity_id,
       relationship_type = 'contains',
-      insert_callback
+      primary_table,
+      primary_data,
+      name_field = 'name',
+      code_field = 'code'
     } = params;
+
+    // Build column names and values from data object
+    const columns = Object.keys(primary_data);
+    const values = Object.values(primary_data);
 
     // Use raw postgres client for transaction support
     return await client.begin(async (tx) => {
-      // Step 3: INSERT into primary table (via callback)
-      const insertResult = await insert_callback(tx);
-      const { entity_id, entity_name, entity_code, entity_data } = insertResult;
+      // Step 3: INSERT into primary table
+      const columnsStr = columns.join(', ');
+      const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
+
+      const primaryResult = await tx.unsafe(
+        `INSERT INTO ${primary_table} (${columnsStr}) VALUES (${placeholders}) RETURNING *`,
+        values
+      );
+      const entity = primaryResult[0] as T & { id: string };
+
+      const entity_id = entity.id;
+      const entity_name = String((entity as any)[name_field] || '');
+      const entity_code = (entity as any)[code_field] || null;
 
       // Step 4: Register in entity_instance
       const registryResult = await tx`
         INSERT INTO app.entity_instance
         (entity_code, entity_instance_id, entity_instance_name, code)
-        VALUES (${entity_type}, ${entity_id}, ${entity_name}, ${entity_code || null})
+        VALUES (${entity_type}, ${entity_id}, ${entity_name}, ${entity_code})
         RETURNING *
       `;
       const entity_instance = registryResult[0] as EntityInstance;
@@ -1500,7 +1500,7 @@ export class EntityInfrastructureService {
       }
 
       return {
-        entity_data,
+        entity,
         entity_instance,
         rbac_granted: true,
         link_created: Boolean(link),
@@ -1510,10 +1510,7 @@ export class EntityInfrastructureService {
   }
 
   /**
-   * @deprecated Use create_entity_with_infrastructure() instead for full transactional safety.
-   *
-   * Register a newly created entity in a SINGLE TRANSACTION
-   * NOTE: This only wraps Steps 4-6 - the primary INSERT is NOT included.
+   * @deprecated Use create_entity() instead for full transactional safety.
    */
   async register_created_entity(params: {
     entity_type: string;
