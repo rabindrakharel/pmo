@@ -235,10 +235,6 @@ export async function officeRoutes(fastify: FastifyInstance) {
         total, limit, offset
       });
 
-      // ✨ Extract and fetch datalabel definitions (for dl__* fields like dl__office_type)
-      if (datalabelKeys.length > 0) {
-      }
-
       return response;
     } catch (error) {
       fastify.log.error({ error, stack: (error as Error).stack }, 'Error fetching offices');
@@ -312,10 +308,6 @@ export async function officeRoutes(fastify: FastifyInstance) {
         components: requestedComponents,
         total: 1, limit: 1, offset: 0
       });
-
-      // ✨ Extract and fetch datalabel definitions
-      if (datalabelKeys.length > 0) {
-      }
 
       const userPermissions = {
         canSeePII: true,

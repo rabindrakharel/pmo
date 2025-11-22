@@ -395,10 +395,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
         offset
       });
 
-      // ✨ Extract datalabel keys and fetch datalabels
-      if (datalabelKeys.length > 0) {
-      }
-
       return response;
     } catch (error) {
       fastify.log.error('Error fetching projects:', error as any);
@@ -582,10 +578,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
         limit: 1,
         offset: 0
       });
-
-      // ✨ Extract datalabel keys and fetch datalabels
-      if (datalabelKeys.length > 0) {
-      }
 
       // Return single item (not array)
       return reply.send({

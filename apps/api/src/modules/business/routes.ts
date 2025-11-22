@@ -348,10 +348,6 @@ export async function businessRoutes(fastify: FastifyInstance) {
         offset
       });
 
-      // ✨ Extract datalabel keys and fetch datalabels
-      if (datalabelKeys.length > 0) {
-      }
-
       // Add applied filters for debugging
       (response as any).appliedFilters = {
         rbac: true,
@@ -532,10 +528,6 @@ export async function businessRoutes(fastify: FastifyInstance) {
         limit: 1,
         offset: 0
       });
-
-      // ✨ Extract datalabel keys and fetch datalabels
-      if (datalabelKeys.length > 0) {
-      }
 
       // Return first item (single entity)
       return reply.send({
