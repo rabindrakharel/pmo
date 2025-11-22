@@ -135,23 +135,32 @@ export function createEntityDeleteEndpoint(
     }
 
     try {
-      // Use Entity Infrastructure Service for unified delete
-      const result = await entityInfra.delete_all_entity_infrastructure(
-        entityCode,
-        id,
-        {
-          user_id: userId,
-          cascade_delete_children: options?.cascade_delete_children || false,
-          remove_rbac_entries: options?.remove_rbac_entries || false,
-          skip_rbac_check: options?.skip_rbac_check || false,
-          primary_table_callback: options?.primary_table_callback
-        }
-      );
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - TRANSACTIONAL DELETE
+      // All deletes (primary + registry + linkages + RBAC) in ONE transaction
+      // ═══════════════════════════════════════════════════════════════
+      const tableName = `app.${getEntityTable(entityCode)}`;
+      const result = await entityInfra.delete_entity({
+        entity_code: entityCode,
+        entity_id: id,
+        user_id: userId,
+        primary_table: tableName,
+        hard_delete: false,  // Soft delete by default
+        skip_rbac_check: options?.skip_rbac_check || false
+      });
 
       fastify.log.info(`Deleted ${entityCode} ${id}:`, result);
 
       // Return detailed result (useful for debugging)
-      return reply.status(200).send(result);
+      return reply.status(200).send({
+        success: result.success,
+        entity_type: entityCode,
+        entity_id: id,
+        registry_deactivated: result.registry_deleted,
+        linkages_deactivated: result.linkages_deleted,
+        rbac_entries_removed: result.rbac_entries_deleted,
+        primary_table_deleted: result.entity_deleted
+      });
     } catch (error: any) {
       // Check for permission error
       if (error.message?.includes('lacks DELETE permission')) {

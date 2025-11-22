@@ -1509,6 +1509,182 @@ export class EntityInfrastructureService {
     });
   }
 
+  // ==========================================================================
+  // SECTION 7: TRANSACTIONAL UPDATE HELPER
+  // ==========================================================================
+
+  /**
+   * Update entity with registry sync in a SINGLE TRANSACTION
+   *
+   * Both UPDATE and registry sync execute in one transaction.
+   * If ANY step fails, ALL changes roll back.
+   *
+   * @example
+   * const result = await entityInfra.update_entity({
+   *   entity_code: 'project',
+   *   entity_id: projectId,
+   *   primary_table: 'app.project',
+   *   primary_updates: { name: 'New Name', budget_allocated_amt: 50000 }
+   * });
+   * // Returns: { entity: updatedRow, registry_synced: boolean }
+   */
+  async update_entity<T extends Record<string, any> = Record<string, any>>(params: {
+    entity_code: string;
+    entity_id: string;
+    primary_table: string;
+    primary_updates: Partial<T>;
+    name_field?: string;  // defaults to 'name'
+    code_field?: string;  // defaults to 'code'
+  }): Promise<{
+    entity: T & { id: string };
+    registry_synced: boolean;
+  }> {
+    const {
+      entity_code,
+      entity_id,
+      primary_table,
+      primary_updates,
+      name_field = 'name',
+      code_field = 'code'
+    } = params;
+
+    // Build SET clause
+    const entries = Object.entries(primary_updates).filter(([_, v]) => v !== undefined);
+    if (entries.length === 0) {
+      throw new Error('No fields to update');
+    }
+
+    // Use raw postgres client for transaction support
+    return await client.begin(async (tx) => {
+      // Step 1: UPDATE primary table
+      const setClause = entries.map(([col], i) => `"${col}" = $${i + 1}`).join(', ');
+      const values = entries.map(([_, v]) => v);
+
+      const primaryResult = await tx.unsafe(
+        `UPDATE ${primary_table} SET ${setClause}, updated_ts = now() WHERE id = $${entries.length + 1} RETURNING *`,
+        [...values, entity_id]
+      );
+
+      if (!primaryResult[0]) {
+        throw new Error(`Entity not found: ${entity_code}/${entity_id}`);
+      }
+
+      const entity = primaryResult[0] as unknown as T & { id: string };
+
+      // Step 2: Sync registry if name or code changed
+      let registry_synced = false;
+      const nameChanged = name_field in primary_updates;
+      const codeChanged = code_field in primary_updates;
+
+      if (nameChanged || codeChanged) {
+        const entity_name = nameChanged ? String((entity as any)[name_field] || '') : undefined;
+        const instance_code = codeChanged ? (entity as any)[code_field] || null : undefined;
+
+        await tx`
+          UPDATE app.entity_instance
+          SET
+            entity_instance_name = COALESCE(${entity_name}, entity_instance_name),
+            code = COALESCE(${instance_code}, code),
+            updated_ts = now()
+          WHERE entity_code = ${entity_code} AND entity_instance_id = ${entity_id}
+        `;
+        registry_synced = true;
+      }
+
+      return { entity, registry_synced };
+    });
+  }
+
+  // ==========================================================================
+  // SECTION 8: TRANSACTIONAL DELETE HELPER
+  // ==========================================================================
+
+  /**
+   * Delete entity with ALL infrastructure cleanup in a SINGLE TRANSACTION
+   *
+   * All deletes execute in one transaction.
+   * If ANY step fails, ALL changes roll back - no orphan records.
+   *
+   * @example
+   * const result = await entityInfra.delete_entity({
+   *   entity_code: 'project',
+   *   entity_id: projectId,
+   *   user_id: userId,
+   *   primary_table: 'app.project',
+   *   hard_delete: false  // soft delete by setting active_flag = false
+   * });
+   */
+  async delete_entity(params: {
+    entity_code: string;
+    entity_id: string;
+    user_id: string;
+    primary_table: string;
+    hard_delete?: boolean;  // true = DELETE, false = SET active_flag = false
+    skip_rbac_check?: boolean;
+  }): Promise<{
+    success: boolean;
+    entity_deleted: boolean;
+    registry_deleted: boolean;
+    linkages_deleted: number;
+    rbac_entries_deleted: number;
+  }> {
+    const {
+      entity_code,
+      entity_id,
+      user_id,
+      primary_table,
+      hard_delete = false,
+      skip_rbac_check = false
+    } = params;
+
+    // Step 0: RBAC check (before transaction)
+    if (!skip_rbac_check) {
+      const canDelete = await this.check_entity_rbac(user_id, entity_code, entity_id, Permission.DELETE);
+      if (!canDelete) {
+        throw new Error(`User ${user_id} lacks DELETE permission on ${entity_code}/${entity_id}`);
+      }
+    }
+
+    // Use raw postgres client for transaction support
+    return await client.begin(async (tx) => {
+      // Step 1: Delete/deactivate from primary table
+      if (hard_delete) {
+        await tx.unsafe(`DELETE FROM ${primary_table} WHERE id = $1`, [entity_id]);
+      } else {
+        await tx.unsafe(`UPDATE ${primary_table} SET active_flag = false, updated_ts = now() WHERE id = $1`, [entity_id]);
+      }
+
+      // Step 2: Delete from entity_instance (always hard delete - no active_flag)
+      await tx`
+        DELETE FROM app.entity_instance
+        WHERE entity_code = ${entity_code} AND entity_instance_id = ${entity_id}
+      `;
+
+      // Step 3: Delete from entity_instance_link (as parent or child)
+      const linkageResult = await tx`
+        DELETE FROM app.entity_instance_link
+        WHERE (entity_code = ${entity_code} AND entity_instance_id = ${entity_id})
+           OR (child_entity_code = ${entity_code} AND child_entity_instance_id = ${entity_id})
+      `;
+      const linkages_deleted = linkageResult.count || 0;
+
+      // Step 4: Delete from entity_rbac
+      const rbacResult = await tx`
+        DELETE FROM app.entity_rbac
+        WHERE entity_code = ${entity_code} AND entity_instance_id = ${entity_id}
+      `;
+      const rbac_entries_deleted = rbacResult.count || 0;
+
+      return {
+        success: true,
+        entity_deleted: true,
+        registry_deleted: true,
+        linkages_deleted: Number(linkages_deleted),
+        rbac_entries_deleted: Number(rbac_entries_deleted)
+      };
+    });
+  }
+
   /**
    * @deprecated Use create_entity() instead for full transactional safety.
    */
