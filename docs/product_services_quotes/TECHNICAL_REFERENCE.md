@@ -363,12 +363,12 @@ interface EntityAttributeInlineDataTableProps {
 **Schema:**
 ```sql
 id (PK, auto-generated UUID)
-entity_type   -- 'service', 'product', 'quote', 'work_order', etc.
+entity_code   -- 'service', 'product', 'quote', 'work_order', etc.
 entity_id     -- UUID of the entity instance
 entity_name   -- Display name (for search/navigation)
 entity_code   -- Business code (for search/references)
 created_ts, updated_ts
-UNIQUE (entity_type, entity_id)
+UNIQUE (entity_code, entity_id)
 ```
 
 **Records by Type:**
@@ -385,9 +385,9 @@ work_order:   6
 -- This file runs AFTER d_entity_instance_registry table is created
 -- It backfills all existing records from the 4 entity tables
 
-INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+INSERT INTO app.d_entity_instance_registry (entity_code, entity_id, entity_name, entity_code)
 SELECT 'quote', id, name, code FROM app.fact_quote
-ON CONFLICT (entity_type, entity_id) DO UPDATE
+ON CONFLICT (entity_code, entity_id) DO UPDATE
 SET entity_name = EXCLUDED.entity_name, entity_code = EXCLUDED.entity_code, updated_ts = NOW();
 
 -- Similar for service, product, work_order
@@ -489,9 +489,9 @@ GET    /api/v1/quote/:id/work_order  // Get work orders for this quote
 ```typescript
 // After creating quote in fact_quote table:
 await db.execute(sql`
-  INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+  INSERT INTO app.d_entity_instance_registry (entity_code, entity_id, entity_name, entity_code)
   VALUES ('quote', ${newQuote.id}::uuid, ${newQuote.name}, ${newQuote.code})
-  ON CONFLICT (entity_type, entity_id) DO UPDATE
+  ON CONFLICT (entity_code, entity_id) DO UPDATE
   SET entity_name = EXCLUDED.entity_name, entity_code = EXCLUDED.entity_code, updated_ts = NOW()
 `);
 ```
@@ -502,7 +502,7 @@ await db.execute(sql`
 
 ### Child Entity Endpoint
 
-**Universal Endpoint:** `/api/v1/entity/child-tabs/:entity_type/:entity_id`
+**Universal Endpoint:** `/api/v1/entity/child-tabs/:entity_code/:entity_id`
 
 **Purpose:** Fetch child entity tabs for any parent entity
 
@@ -511,7 +511,7 @@ await db.execute(sql`
 **Response:**
 ```json
 {
-  "parent_entity_type": "quote",
+  "parent_entity_code": "quote",
   "parent_entity_id": "341540d1-d150-463e-ac9e-30a995b93a8c",
   "tabs": [
     {
@@ -544,7 +544,7 @@ await db.execute(sql`
 ./tools/db-import.sh
 
 # Verify entity instance registry
-psql -c "SELECT entity_type, COUNT(*) FROM app.d_entity_instance_registry GROUP BY entity_type;"
+psql -c "SELECT entity_code, COUNT(*) FROM app.d_entity_instance_registry GROUP BY entity_code;"
 # Expected: service (15), product (15), quote (6), work_order (6)
 
 # Verify quote structure

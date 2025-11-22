@@ -68,10 +68,10 @@ POST /api/v1/task       →    1. INSERT INTO d_task    →   d_task row
 &parent_id=uuid-1               registry()
                              3. set_entity_instance_   →   entity_instance_link row
                                 link({
-                                  parent_entity_type: 'project',
-                                  parent_entity_id: uuid-1,
-                                  child_entity_type: 'task',
-                                  child_entity_id: uuid-2
+                                  entity_code: 'project',
+                                  entity_instance_id: uuid-1,
+                                  child_entity_code: 'task',
+                                  child_entity_instance_id: uuid-2
                                 })
 
 
@@ -146,10 +146,10 @@ DELETE /api/v1/project  →    delete_all_entity_       →   1. Hard delete lin
 // On CREATE with parent - link to parent
 if (parent_code && parent_id) {
   await entityInfra.set_entity_instance_link({
-    parent_entity_type: parent_code,
-    parent_entity_id: parent_id,
-    child_entity_type: ENTITY_CODE,
-    child_entity_id: newEntity.id,
+    entity_code: parent_code,              // Parent entity TYPE code
+    entity_instance_id: parent_id,         // Parent entity UUID
+    child_entity_code: ENTITY_CODE,        // Child entity TYPE code
+    child_entity_instance_id: newEntity.id, // Child entity UUID
     relationship_type: 'contains'
   });
 }

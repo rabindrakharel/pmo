@@ -57,7 +57,7 @@ The Identity & Access Control Domain is the platform's foundational infrastructu
 │  ┌───────────────────────┐                                            │
 │  │ d_entity_instance_registry  │ (Entity INSTANCE Registry)                 │
 │  │                       │                                             │
-│  │ • entity_type: 'project'                                           │
+│  │ • entity_code: 'project'                                           │
 │  │ • entity_id: uuid                                                  │
 │  │ • entity_name: 'HVAC Installation'                                 │
 │  │ • entity_code: 'PROJ-2025-001'                                     │
@@ -75,9 +75,9 @@ The Identity & Access Control Domain is the platform's foundational infrastructu
 │  ┌───────────────────────┐                                            │
 │  │  d_entity_instance_link      │ (Parent-Child INSTANCE Relationships)      │
 │  │                       │                                             │
-│  │ • parent_entity_type: 'project'                                    │
+│  │ • parent_entity_code: 'project'                                    │
 │  │ • parent_entity_id: uuid                                           │
-│  │ • child_entity_type: 'task'                                        │
+│  │ • child_entity_code: 'task'                                        │
 │  │ • child_entity_id: uuid                                            │
 │  │ • relationship_type: 'contains'                                    │
 │  │                       │                                             │
@@ -154,7 +154,7 @@ The Identity & Access Control Domain is the platform's foundational infrastructu
 1. **d_entity → d_entity_instance_registry**: One-to-many
    - Entity TYPE defines metadata (once per type: 'project', 'task')
    - Entity instances registered for each created entity
-   - Type code matches instance entity_type field
+   - Type code matches instance entity_code field
 
 2. **d_entity_instance_registry → d_entity_instance_link**: One-to-many (both as parent and child)
    - Each instance can be parent to many children
@@ -383,7 +383,7 @@ When entity created, instance auto-registered:
 ```sql
 -- Trigger on d_project INSERT
 INSERT INTO d_entity_instance_registry (
-    entity_type,
+    entity_code,
     entity_id,
     entity_name,
     entity_code,
@@ -421,22 +421,22 @@ Filter child entities by parent:
 SELECT t.*
 FROM d_task t
 JOIN d_entity_instance_link m
-  ON m.child_entity_type = 'task'
+  ON m.child_entity_code = 'task'
   AND m.child_entity_id = t.id::text
-WHERE m.parent_entity_type = 'project'
+WHERE m.parent_entity_code = 'project'
   AND m.parent_entity_id = $project_id
   AND m.active_flag = true
   AND t.active_flag = true;
 
 -- Count children for tab badges
 SELECT
-    child_entity_type,
+    child_entity_code,
     COUNT(*) as count
 FROM d_entity_instance_link
-WHERE parent_entity_type = 'project'
+WHERE parent_entity_code = 'project'
   AND parent_entity_id = $project_id
   AND active_flag = true
-GROUP BY child_entity_type;
+GROUP BY child_entity_code;
 ```
 
 ### Global Search Pattern
@@ -446,7 +446,7 @@ Search across all entity types:
 ```sql
 -- Full-text search across entities
 SELECT
-    entity_type,
+    entity_code,
     entity_id,
     entity_name,
     entity_code,
@@ -457,7 +457,7 @@ SELECT
 FROM d_entity_instance_registry
 WHERE active_flag = true
   AND to_tsvector('english', entity_name) @@ plainto_tsquery('english', $search_query)
-  AND entity_type = ANY($entity_types)  -- Filter by type if specified
+  AND entity_code = ANY($entity_codes)  -- Filter by type if specified
 ORDER BY rank DESC
 LIMIT 50;
 
@@ -512,12 +512,12 @@ LIMIT 50;
 7. System creates Task #789
 8. System registers task instance:
    ```sql
-   INSERT INTO d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+   INSERT INTO d_entity_instance_registry (entity_code, entity_id, entity_name, entity_code)
    VALUES ('task', 'task-789-uuid', 'Install AC Unit', 'TASK-2025-00789');
    ```
 9. System creates parent-child link:
    ```sql
-   INSERT INTO d_entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id, relationship_type)
+   INSERT INTO d_entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id, relationship_type)
    VALUES ('project', 'proj-450-uuid', 'task', 'task-789-uuid', 'contains');
    ```
 10. System grants creator OWNER permissions on task:
@@ -552,7 +552,7 @@ LIMIT 50;
    - 1 Wiki: "HVAC Installation Guide"
 4. For each result, system checks RBAC permissions:
    ```sql
-   WHERE empid = $user_id AND entity = $result_entity_type
+   WHERE empid = $user_id AND entity = $result_entity_code
      AND (entity_id = 'all' OR entity_id = $result_entity_id)
      AND 0 = ANY(permission)  -- View
    ```
@@ -591,22 +591,22 @@ CREATE TABLE app.d_entity (
 -- Entity INSTANCE registry
 CREATE TABLE app.d_entity_instance_registry (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_type varchar(50) NOT NULL,               -- 'project', 'task'
+    entity_code varchar(50) NOT NULL,               -- 'project', 'task'
     entity_id uuid NOT NULL,                        -- UUID from source table
     entity_name varchar(255),
     entity_code varchar(100),
     active_flag boolean DEFAULT true,
     created_ts timestamptz DEFAULT now(),
     updated_ts timestamptz DEFAULT now(),
-    UNIQUE(entity_type, entity_id)
+    UNIQUE(entity_code, entity_id)
 );
 
 -- Parent-child INSTANCE relationships
 CREATE TABLE app.d_entity_instance_link (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    parent_entity_type varchar(20) NOT NULL,
+    parent_entity_code varchar(20) NOT NULL,
     parent_entity_id text NOT NULL,
-    child_entity_type varchar(20) NOT NULL,
+    child_entity_code varchar(20) NOT NULL,
     child_entity_id text NOT NULL,
     relationship_type varchar(50) DEFAULT 'contains',
     from_ts timestamptz NOT NULL DEFAULT now(),
@@ -678,13 +678,13 @@ GET    /api/v1/search                   # Search across entities
 
 ```sql
 -- Entity instance indexes
-CREATE INDEX idx_entity_instance_type ON app.d_entity_instance_registry(entity_type);
+CREATE INDEX idx_entity_instance_type ON app.d_entity_instance_registry(entity_code);
 CREATE INDEX idx_entity_instance_name ON app.d_entity_instance_registry USING GIN(to_tsvector('english', entity_name));
-CREATE UNIQUE INDEX idx_entity_instance_unique ON app.d_entity_instance_registry(entity_type, entity_id);
+CREATE UNIQUE INDEX idx_entity_instance_unique ON app.d_entity_instance_registry(entity_code, entity_id);
 
 -- Entity map indexes
-CREATE INDEX idx_entity_map_parent ON app.d_entity_instance_link(parent_entity_type, parent_entity_id);
-CREATE INDEX idx_entity_map_child ON app.d_entity_instance_link(child_entity_type, child_entity_id);
+CREATE INDEX idx_entity_map_parent ON app.d_entity_instance_link(parent_entity_code, parent_entity_id);
+CREATE INDEX idx_entity_map_child ON app.d_entity_instance_link(child_entity_code, child_entity_id);
 
 -- RBAC indexes
 CREATE INDEX idx_rbac_empid ON app.d_entity_rbac(empid);

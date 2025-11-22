@@ -1,6 +1,6 @@
-# PMO Enterprise Platform - Technical Reference
+# PMO Enterprise Platform - LLM Technical Reference
 
-> Production-ready Canadian home services management system with DRY architecture, unified RBAC, and config-driven entity system
+> Production-ready Canadian home services management system with transactional CRUD, unified RBAC, and config-driven entity system
 
 ## Platform Specifications
 
@@ -8,8 +8,9 @@
 - **Database**: PostgreSQL 14+ with 50 tables (46 DDL files)
 - **Backend**: Fastify v5, TypeScript ESM, JWT, 45 API modules
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4
+- **State Management**: Zustand stores + TanStack Query
 - **Infrastructure**: AWS EC2/S3/Lambda, Terraform, Docker
-- **Version**: 3.1.0 (Entity System v4.0 ready)
+- **Version**: 5.0.0 (Transactional CRUD Pattern)
 
 ## Critical Operations
 
@@ -23,111 +24,51 @@
 
 **Test Credentials**: `james.miller@huronhome.ca` / `password123`
 
-## Core Architecture Patterns
+---
 
-### 1. Universal Entity System (Zero-Config v4.0)
+## 1. Entity Infrastructure Service (Transactional CRUD)
 
-```typescript
-// Entity definition requires only:
-db/[entity].ddl                    // Database table
-apps/api/src/modules/[entity]/       // API module
-apps/web/src/lib/entityConfig.ts     // Frontend config
+**Location**: `apps/api/src/services/entity-infrastructure.service.ts`
 
-// Universal pages handle everything:
-EntityListOfInstancesPage.tsx                   // List/grid/kanban views
-EntitySpecificInstancePage.tsx                  // Detail with child tabs
-EntityFormPage.tsx                    // Create/edit forms
+**Purpose**: Centralized management of 4 infrastructure tables with **transactional CRUD operations**. All multi-step operations wrapped in database transactions for atomicity.
 
-// Backend metadata generation (35+ patterns):
-Backend detects 'total_amt' → renderType: 'currency', inputType: 'currency'
-Backend detects 'dl__project_stage' → renderType: 'badge', loadFromDataLabels: true
-Backend detects 'is_active' → renderType: 'boolean', inputType: 'checkbox'
-Backend detects 'employee_id' → renderType: 'reference', loadFromEntity: 'employee'
-```
-
-### 2. Data Model Architecture
+### 4 Infrastructure Tables
 
 ```sql
--- Core tables (d_ prefix)
-d_project, d_task, d_employee, d_client, d_office, d_business
-
--- Settings tables (datalabel_ prefix)
-datalabel_project_stage, datalabel_task_priority
-
--- Infrastructure tables
-entity                        -- Entity metadata (icons, labels, child_entity_codes)
-entity_instance               -- Entity instance registry (entity_instance_name, code)
-entity_instance_link          -- Parent-child relationships (NO foreign keys, hard delete only)
-entity_rbac                   -- Person-based permissions (0-7: VIEW, COMMENT, EDIT, SHARE, DELETE, CREATE, OWNER)
+entity                   -- Entity type metadata (icons, labels, child_entity_codes)
+entity_instance          -- Instance registry (entity_instance_name, code cache)
+entity_instance_link     -- Parent-child relationships (hard delete only)
+entity_rbac              -- Permissions (0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER)
 ```
 
-### 3. Key Design Patterns
+### Transactional Methods (Primary API)
 
-**Inline Create-Then-Link**: Child entities auto-link to parent via `entity_instance_link`
-**Default-Editable**: All fields editable unless explicitly readonly
-**Column Consistency**: Same columns regardless of navigation context
-**Settings-Driven**: All dropdowns from `/api/v1/entity/:entityCode/entity-instance-lookup`
-**Backend-Driven Metadata**: Backend generates field metadata, frontend renders exactly as instructed
-**Zero Frontend Pattern Detection**: `frontEndFormatterService.tsx` is pure renderer with zero logic
+| Method | Purpose | Operations in Transaction |
+|--------|---------|---------------------------|
+| `create_entity()` | Create entity with all infrastructure | INSERT primary + registry + RBAC + link |
+| `update_entity()` | Update entity with registry sync | UPDATE primary + registry sync |
+| `delete_entity()` | Delete entity with cleanup | DELETE/deactivate + registry + links + RBAC |
 
-### 4. Core Services & Libraries
+### CREATE Pattern (Transactional)
 
-**Purpose**: Eliminate boilerplate and enforce consistency across all entity routes
-
-| Service | File | Documentation | Purpose |
-|---------|------|---------------|---------|
-| **Entity Infrastructure Service** | `services/entity-infrastructure.service.ts` | [entity-infrastructure.service.md](docs/services/entity-infrastructure.service.md) | Centralized management of all 4 infrastructure tables (entity, entity_instance, entity_instance_link, entity_rbac) |
-| **Backend Formatter Service** | `services/backend-formatter.service.ts` | [backend-formatter.service.md](docs/services/backend-formatter.service.md) | **Single source of truth** for field metadata generation - Backend generates complete metadata from column names (35+ patterns) |
-| **Frontend Formatter Service** | `lib/frontEndFormatterService.tsx` | [frontEndFormatterService.md](docs/services/frontEndFormatterService.md) | **Pure metadata renderer** - Consumes backend metadata and renders view/edit modes with zero pattern detection |
-| **Universal Filter Builder** | `lib/universal-filter-builder.ts` | [UNIVERSAL_FILTER_BUILDER.md](docs/services/UNIVERSAL_FILTER_BUILDER.md) | Zero-config query filtering with auto-type detection from column naming conventions |
-
-**Key Benefits**:
-- ✅ Zero boilerplate for standard CRUD operations
-- ✅ Consistent RBAC enforcement across all entities (via Entity Infrastructure Service)
-- ✅ **Backend-driven metadata** - Backend is single source of truth for all field rendering (via Backend Formatter Service)
-- ✅ **Pure frontend rendering** - Frontend executes backend instructions exactly (via Frontend Formatter Service)
-- ✅ Auto-detection of filter types from column naming (via Universal Filter Builder)
-- ✅ Convention over configuration (column names determine everything)
-- ✅ 80%+ code reduction across entity routes
-
-### 5. Entity Infrastructure Service (Add-On Pattern)
-
-**Purpose**: Centralized management of 4 infrastructure tables while routes maintain 100% ownership of their primary table queries
-
-**Add-On Helper Pattern** - The service does NOT control route queries:
-- ✅ Routes OWN their SELECT/UPDATE/INSERT/DELETE queries completely
-- ✅ Service provides infrastructure add-on helpers only
-- ✅ Routes build custom queries with JOINs, filters, aggregations
-- ❌ Service does NOT build queries for routes
-- ❌ Service does NOT dictate query structure
-
-**4 Infrastructure Tables Managed**:
-```sql
-entity                        -- Entity type metadata (icons, labels, child_entity_codes)
-entity_instance               -- Instance registry (entity_instance_name, code cache)
-entity_instance_link          -- Parent-child relationships (hard delete only, no active_flag)
-entity_rbac                   -- Permissions (0=VIEW, 1=COMMENT, 3=EDIT, 4=SHARE, 5=DELETE, 6=CREATE, 7=OWNER)
-```
-
-**Usage Pattern in Routes**:
 ```typescript
-import { getEntityInfrastructure, Permission } from '@/services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '@/services/entity-infrastructure.service.js';
 
 const ENTITY_CODE = 'project';
 const entityInfra = getEntityInfrastructure(db);
 
-// 6-STEP CREATE PATTERN
 fastify.post('/api/v1/project', async (request, reply) => {
-  const { parent_code, parent_id } = request.query;
   const userId = request.user.sub;
+  const { parent_code, parent_id } = request.query;
+  const data = request.body;
 
-  // STEP 1: RBAC CHECK 1 - Can user CREATE this entity type?
+  // Step 1: RBAC Check - Can user CREATE?
   const canCreate = await entityInfra.check_entity_rbac(
     userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE
   );
   if (!canCreate) return reply.status(403).send({ error: 'Forbidden' });
 
-  // STEP 2: RBAC CHECK 2 - If linking to parent, can user EDIT parent?
+  // Step 2: RBAC Check - Can user EDIT parent? (if linking)
   if (parent_code && parent_id) {
     const canEditParent = await entityInfra.check_entity_rbac(
       userId, parent_code, parent_id, Permission.EDIT
@@ -135,148 +76,308 @@ fastify.post('/api/v1/project', async (request, reply) => {
     if (!canEditParent) return reply.status(403).send({ error: 'Forbidden' });
   }
 
-  // STEP 3: ✅ ROUTE OWNS INSERT into primary table
-  const result = await db.execute(sql`INSERT INTO app.d_project ...`);
-  const project = result[0];
-
-  // STEP 4: Register in entity_instance
-  await entityInfra.set_entity_instance_registry({
-    entity_type: ENTITY_CODE,
-    entity_id: project.id,
-    entity_name: project.name,
-    entity_code: project.code
+  // Step 3: Transactional CREATE (all 4 ops in ONE transaction)
+  const result = await entityInfra.create_entity({
+    entity_code: ENTITY_CODE,
+    creator_id: userId,
+    parent_entity_code: parent_code,
+    parent_entity_id: parent_id,
+    primary_table: 'app.project',
+    primary_data: {
+      code: data.code,
+      name: data.name,
+      descr: data.descr,
+      budget_allocated_amt: data.budget_allocated_amt
+    }
   });
 
-  // STEP 5: Grant OWNER permission to creator
-  await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, project.id);
-
-  // STEP 6: Link to parent (if provided)
-  if (parent_code && parent_id) {
-    await entityInfra.set_entity_instance_link({
-      parent_entity_type: parent_code,
-      parent_entity_id: parent_id,
-      child_entity_type: ENTITY_CODE,
-      child_entity_id: project.id,
-      relationship_type: 'contains'
-    });
-  }
-
-  return reply.status(201).send(project);
+  return reply.status(201).send(result.entity);
 });
+```
 
-// 3-STEP UPDATE PATTERN
+### UPDATE Pattern (Transactional)
+
+```typescript
 fastify.patch('/api/v1/project/:id', async (request, reply) => {
-  const { id } = request.params;
-  const data = request.body;
   const userId = request.user.sub;
+  const { id } = request.params;
+  const updates = request.body;
 
-  // STEP 1: RBAC check - Can user EDIT this entity?
+  // Step 1: RBAC Check - Can user EDIT?
   const canEdit = await entityInfra.check_entity_rbac(
     userId, ENTITY_CODE, id, Permission.EDIT
   );
   if (!canEdit) return reply.status(403).send({ error: 'Forbidden' });
 
-  // STEP 2: ✅ ROUTE OWNS UPDATE query
-  const result = await db.execute(sql`UPDATE app.d_project ...`);
+  // Step 2: Transactional UPDATE (UPDATE + registry sync in ONE transaction)
+  const result = await entityInfra.update_entity({
+    entity_code: ENTITY_CODE,
+    entity_id: id,
+    primary_table: 'app.project',
+    primary_updates: updates
+  });
 
-  // STEP 3: Sync registry if name/code changed
-  if (data.name !== undefined || data.code !== undefined) {
-    await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
-      entity_name: data.name,
-      entity_code: data.code
-    });
-  }
-
-  return reply.send(result[0]);
-});
-
-// ✅ ROUTE STILL OWNS LIST queries completely
-fastify.get('/api/v1/project', async (request, reply) => {
-  // Service just provides RBAC WHERE condition helper
-  const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
-    userId, ENTITY_CODE, Permission.VIEW, 'e'
-  );
-
-  // ✅ ROUTE builds its own query structure (full control)
-  const query = sql`
-    SELECT
-      e.*,
-      b.name as business_name,
-      COUNT(t.id) as task_count
-    FROM app.d_project e
-    LEFT JOIN app.d_business b ON e.business_id = b.id
-    LEFT JOIN app.d_task t ON t.project_id = e.id
-    WHERE ${rbacCondition}
-      AND e.active_flag = true
-      AND e.budget_allocated_amt > 10000
-    GROUP BY e.id, b.name
-    ORDER BY e.created_ts DESC
-    LIMIT ${limit} OFFSET ${offset}
-  `;
-
-  const projects = await db.execute(query);
-  return reply.send({ data: projects });
+  return reply.send(result.entity);
 });
 ```
 
-**Key Service Methods**:
-- `check_entity_rbac()` - Check if user has permission on entity
-- `set_entity_instance_registry()` - Register instance in global registry
-- `update_entity_instance_registry()` - Sync registry when name/code changes
-- `set_entity_rbac_owner()` - Grant OWNER permission (automatic on create)
-- `set_entity_instance_link()` - Create parent-child linkage (idempotent)
-- `get_entity_rbac_where_condition()` - Get SQL WHERE fragment for RBAC filtering
-- `delete_all_entity_infrastructure()` - Orchestrate complete entity deletion
-
-**Reference**: See `docs/services/entity-infrastructure.service.md` for complete architecture
-
-### 5a. Backend Formatter Service (Metadata Generation - Server Side)
-
-**Purpose**: Backend generates complete field metadata from database column names using 35+ pattern rules
-
-**Architecture**: **Backend is the single source of truth** for ALL field rendering decisions
+### DELETE Pattern (Transactional)
 
 ```typescript
-// Backend route handler
+// Using factory (recommended)
+createEntityDeleteEndpoint(fastify, 'project');
+
+// Or manual:
+fastify.delete('/api/v1/project/:id', async (request, reply) => {
+  const result = await entityInfra.delete_entity({
+    entity_code: ENTITY_CODE,
+    entity_id: id,
+    user_id: userId,
+    primary_table: 'app.project',
+    hard_delete: false  // soft delete
+  });
+  return reply.send(result);
+});
+```
+
+### Helper Methods (for routes not using transactional pattern)
+
+```typescript
+// Register entity in registry
+async set_entity_instance_registry(params: {
+  entity_code: string;           // Entity TYPE code, e.g., 'project'
+  entity_id: string;             // Entity instance UUID
+  entity_name: string;           // Display name for lookups
+  instance_code?: string | null; // Record code, e.g., 'PROJ-001'
+}): Promise<EntityInstance>
+
+// Update registry when name/code changes
+async update_entity_instance_registry(
+  entity_code: string,           // Entity TYPE code
+  entity_id: string,             // Entity instance UUID
+  updates: {
+    entity_name?: string;        // New display name
+    instance_code?: string | null; // New record code
+  }
+): Promise<EntityInstance | null>
+
+// Create parent-child linkage
+async set_entity_instance_link(params: {
+  entity_code: string;              // Parent entity TYPE code
+  entity_instance_id: string;       // Parent entity UUID
+  child_entity_code: string;        // Child entity TYPE code
+  child_entity_instance_id: string; // Child entity UUID
+  relationship_type?: string;       // Default: 'contains'
+}): Promise<EntityLink>
+```
+
+### Naming Convention (Critical)
+
+| Parameter | Meaning | Example |
+|-----------|---------|---------|
+| `entity_code` | Entity TYPE code | `'project'`, `'task'`, `'employee'` |
+| `entity_id` | Entity instance UUID | `'uuid-here'` |
+| `instance_code` | Record/business code | `'PROJ-001'`, `'TASK-042'` |
+| `entity_name` | Display name | `'Kitchen Renovation'` |
+
+---
+
+## 2. RBAC Pattern (Person-Based Permissions)
+
+### Permission Hierarchy
+
+```typescript
+export enum Permission {
+  VIEW   = 0,  // Read-only access
+  EDIT   = 1,  // Modify entity (implies VIEW)
+  SHARE  = 2,  // Share with others (implies EDIT, VIEW)
+  DELETE = 3,  // Soft delete (implies SHARE, EDIT, VIEW)
+  CREATE = 4,  // Create new (type-level only)
+  OWNER  = 5   // Full control (implies ALL)
+}
+
+// Type-level permission constant
+export const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111';
+```
+
+### Permission Resolution (4 Sources)
+
+```
+1. Direct Employee Permissions    → entity_rbac WHERE person_code='employee'
+2. Role-Based Permissions         → entity_rbac WHERE person_code='role'
+3. Parent-VIEW Inheritance        → If parent has VIEW, child gains VIEW
+4. Parent-CREATE Inheritance      → If parent has CREATE, child gains CREATE
+
+Result: MAX permission level from all 4 sources
+```
+
+### RBAC Check Methods
+
+```typescript
+// Check specific permission
+const canEdit = await entityInfra.check_entity_rbac(
+  userId,           // Person UUID
+  'project',        // Entity type code
+  projectId,        // Entity instance ID (or ALL_ENTITIES_ID for type-level)
+  Permission.EDIT   // Required permission
+);
+
+// Get SQL WHERE clause for filtering
+const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
+  userId,           // Person UUID
+  'project',        // Entity type code
+  Permission.VIEW,  // Required permission
+  'e'               // Table alias
+);
+
+// Use in query
+const projects = await db.execute(sql`
+  SELECT e.* FROM app.project e
+  WHERE ${rbacCondition} AND e.active_flag = true
+`);
+```
+
+---
+
+## 3. API Design Pattern
+
+### Standard Endpoints
+
+```typescript
+GET    /api/v1/{entity}              // List with pagination + RBAC
+GET    /api/v1/{entity}/{id}         // Get single (VIEW check)
+POST   /api/v1/{entity}              // Create (CREATE check + optional parent link)
+PATCH  /api/v1/{entity}/{id}         // Update (EDIT check)
+DELETE /api/v1/{entity}/{id}         // Soft delete (DELETE check)
+GET    /api/v1/{parent}/{id}/{child} // Filtered children (factory-generated)
+```
+
+### Required Imports (Standard Block)
+
+```typescript
+import type { FastifyInstance } from 'fastify';
+import { Type } from '@sinclair/typebox';
+import { db } from '@/db/index.js';
+import { sql } from 'drizzle-orm';
+
+// Entity Infrastructure Service
+import {
+  getEntityInfrastructure,
+  Permission,
+  ALL_ENTITIES_ID
+} from '@/services/entity-infrastructure.service.js';
+
+// Universal Auto-Filter Builder
+import { buildAutoFilters } from '@/lib/universal-filter-builder.js';
+
+// Factory Functions
+import { createEntityDeleteEndpoint } from '@/lib/entity-delete-route-factory.js';
+import { createChildEntityEndpointsFromMetadata } from '@/lib/child-entity-route-factory.js';
+```
+
+### Module Constants (DRY Principle)
+
+```typescript
+const ENTITY_CODE = 'project';  // Used in RBAC, queries, messages
+const TABLE_ALIAS = 'e';        // Consistent SQL alias
+```
+
+### LIST Pattern with Auto-Filters
+
+```typescript
+fastify.get('/api/v1/project', async (request, reply) => {
+  const { limit = 20, offset = 0 } = request.query;
+  const userId = request.user.sub;
+
+  const conditions: SQL[] = [];
+
+  // RBAC filtering
+  const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
+    userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
+  );
+  conditions.push(rbacCondition);
+
+  // Active records only
+  conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = true`);
+
+  // Auto-filters from query params
+  const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query, {
+    searchFields: ['name', 'descr', 'code']
+  });
+  conditions.push(...autoFilters);
+
+  // Route owns query structure
+  const projects = await db.execute(sql`
+    SELECT e.*, b.name as business_name
+    FROM app.project e
+    LEFT JOIN app.business b ON e.business_id = b.id
+    WHERE ${sql.join(conditions, sql` AND `)}
+    ORDER BY e.created_ts DESC
+    LIMIT ${limit} OFFSET ${offset}
+  `);
+
+  return reply.send({ data: projects, total, limit, offset });
+});
+```
+
+### Auto-Filter Detection
+
+| Query Param | Detection | SQL Generated |
+|-------------|-----------|---------------|
+| `?dl__project_stage=planning` | Settings dropdown | `e.dl__project_stage = 'planning'` |
+| `?manager_employee_id=uuid` | UUID reference | `e.manager_employee_id = 'uuid'::uuid` |
+| `?budget_allocated_amt=50000` | Currency | `e.budget_allocated_amt = 50000` |
+| `?active_flag=true` | Boolean | `e.active_flag = true` |
+| `?search=kitchen` | Multi-field | `(e.name ILIKE '%kitchen%' OR ...)` |
+
+---
+
+## 4. Backend Formatter Service (Metadata Generation)
+
+**Location**: `apps/api/src/services/backend-formatter.service.ts`
+
+**Purpose**: Generate complete field metadata from database column names using 35+ pattern rules. **Backend is single source of truth** for all field rendering.
+
+### Pattern Detection Rules
+
+| Pattern | renderType | inputType | Example |
+|---------|------------|-----------|---------|
+| `*_amt`, `*_price`, `*_cost` | `currency` | `currency` | Budget field |
+| `dl__*` | `badge` | `select` | Status dropdown |
+| `*_date` | `date` | `date` | Date picker |
+| `*_ts`, `*_at` | `timestamp` | `datetime` | DateTime picker |
+| `is_*`, `*_flag` | `boolean` | `checkbox` | Toggle |
+| `*__employee_id` | `reference` | `select` | Entity dropdown |
+| `metadata` | `json` | `json` | JSON editor |
+| `*_pct` | `percentage` | `number` | Percentage |
+| `tags` | `array` | `tags` | Tag input |
+
+### Usage in Routes
+
+```typescript
 import { getEntityMetadata } from '@/services/backend-formatter.service.js';
 
-// LIST endpoint
-fastify.get('/api/v1/office', async (request, reply) => {
-  const offices = await db.execute(sql`SELECT * FROM app.office...`);
+fastify.get('/api/v1/project', async (request, reply) => {
+  const projects = await db.execute(sql`SELECT * FROM app.project...`);
 
-  // Generate metadata from first row (or empty object)
-  const fieldMetadata = offices.length > 0
-    ? getEntityMetadata('office', offices[0])
-    : getEntityMetadata('office');
+  // Generate metadata from first row
+  const fieldMetadata = projects.length > 0
+    ? getEntityMetadata('project', projects[0])
+    : getEntityMetadata('project');
 
   return {
-    data: offices,
-    metadata: fieldMetadata,  // ← Backend sends complete rendering instructions
+    data: projects,
+    metadata: fieldMetadata,  // Frontend uses this to render
     total, limit, offset
   };
 });
 ```
 
-**Pattern Detection (35+ Rules)**:
-| Pattern | Generated Metadata | Example |
-|---------|-------------------|---------|
-| `*_amt`, `*_price`, `*_cost` | `renderType: 'currency'`, `inputType: 'currency'` | `$50,000.00` input |
-| `dl__*` | `renderType: 'badge'`, `loadFromDataLabels: true` | Badge with DAGVisualizer for stages |
-| `*_date` | `renderType: 'date'`, `inputType: 'date'` | Date picker |
-| `*_ts`, `*_at` | `renderType: 'timestamp'`, `inputType: 'datetime'` | DateTime picker |
-| `is_*`, `*_flag` | `renderType: 'boolean'`, `inputType: 'checkbox'` | Toggle checkbox |
-| `*__employee_id` | `renderType: 'reference'`, `loadFromEntity: 'employee'` | Dropdown with employees |
-| `metadata` (field) | `renderType: 'json'`, `component: 'MetadataTable'` | JSON table view |
+### Response Structure
 
-**Backend Response Structure** (with composite fields):
 ```json
 {
-  "data": [{
-    "id": "uuid",
-    "start_date": "2025-01-15",
-    "end_date": "2025-03-30",
-    "budget_allocated_amt": 50000
-  }],
+  "data": [{ "id": "uuid", "budget_allocated_amt": 50000 }],
   "metadata": {
     "entity": "project",
     "fields": [
@@ -289,354 +390,271 @@ fastify.get('/api/v1/office', async (request, reply) => {
         "visible": {
           "EntityDataTable": true,
           "EntityDetailView": true,
-          "EntityFormContainer": true,
-          "KanbanView": true,
-          "CalendarView": true
+          "EntityFormContainer": true
         },
         "editable": true,
-        "align": "right",
-        "width": "140px"
-      },
-      {
-        "key": "start_date",
-        "label": "Start Date",
-        "renderType": "date",
-        "inputType": "date",
-        "visible": {
-          "EntityDataTable": true,
-          "EntityDetailView": false,        // Hidden (composite shows)
-          "EntityFormContainer": true,      // Show for editing
-          "KanbanView": true,
-          "CalendarView": true
-        },
-        "editable": true
-      },
-      {
-        "key": "start_date_end_date_composite",
-        "label": "Project Progress",
-        "type": "composite",
-        "renderType": "progress-bar",
-        "component": "ProgressBar",
-        "composite": true,
-        "compositeConfig": {
-          "composedFrom": ["start_date", "end_date"],
-          "compositeType": "progress-bar",
-          "showPercentage": true,
-          "showDates": true,
-          "highlightOverdue": true
-        },
-        "visible": {
-          "EntityDataTable": false,         // Too complex
-          "EntityDetailView": true,          // ONLY here
-          "EntityFormContainer": false,      // Not editable
-          "KanbanView": false,
-          "CalendarView": false
-        },
-        "editable": false
+        "align": "right"
       }
     ]
   }
 }
 ```
 
-**Benefits**:
-- ✅ **Zero frontend configuration** - Add column to DB, backend generates metadata automatically
-- ✅ **Single source of truth** - Backend controls ALL rendering logic
-- ✅ **Object-based visibility** - Explicit per-component control (EntityDataTable, EntityDetailView, etc.)
-- ✅ **Composite field auto-detection** - Backend detects field pairs (start + end → progress bar)
-- ✅ **Cached metadata** - In-memory cache per entity (100x performance boost)
-- ✅ **35+ pattern rules** - Comprehensive coverage (financial, temporal, boolean, reference, structures, composites)
+---
 
-**Reference**: See `docs/services/backend-formatter.service.md` for complete documentation
+## 5. State Management (Frontend)
 
-### 5b. Frontend Formatter Service (Metadata Consumption - Client Side)
+### Architecture
 
-**Purpose**: Pure renderer that consumes backend metadata and renders React elements with ZERO pattern detection
-
-**Architecture**: **Frontend executes backend instructions exactly** - No logic, no decisions
-
-```typescript
-// Frontend component
-import {
-  renderViewModeFromMetadata,    // View mode (reads metadata.renderType)
-  renderEditModeFromMetadata,     // Edit mode (reads metadata.inputType)
-  hasBackendMetadata              // Type guard
-} from '@/lib/frontEndFormatterService';
-
-// EntityDataTable.tsx - Pure metadata-driven rendering
-const columns = useMemo(() => {
-  if (metadata?.fields) {
-    return metadata.fields
-      .filter(f => f.visible)
-      .map(fieldMeta => ({
-        key: fieldMeta.key,
-        title: fieldMeta.label,
-        width: fieldMeta.width,
-        align: fieldMeta.align,
-        // Backend tells frontend how to render
-        render: (value, record) => renderViewModeFromMetadata(value, fieldMeta, record)
-      }));
-  }
-  return [];
-}, [metadata]);
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    State Architecture                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌─────────────────┐     ┌─────────────────┐               │
+│  │  Zustand Stores │     │  TanStack Query │               │
+│  │  (Client State) │     │  (Server State) │               │
+│  └────────┬────────┘     └────────┬────────┘               │
+│           │                       │                          │
+│  • UI State (modals, tabs)       • Entity data cache         │
+│  • Form state                    • Automatic refetch         │
+│  • Selection state               • Optimistic updates        │
+│  • Filters/pagination            • Background sync           │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**View Mode Rendering**:
+### Zustand Stores
+
 ```typescript
-// Backend says: renderType: 'currency'
+// apps/web/src/stores/
+
+// Entity selection store
+const useEntityStore = create<EntityStore>((set) => ({
+  selectedEntity: null,
+  setSelectedEntity: (entity) => set({ selectedEntity: entity }),
+  filters: {},
+  setFilters: (filters) => set({ filters }),
+}));
+
+// UI state store
+const useUIStore = create<UIStore>((set) => ({
+  sidebarOpen: true,
+  activeModal: null,
+  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+  openModal: (modal) => set({ activeModal: modal }),
+  closeModal: () => set({ activeModal: null }),
+}));
+```
+
+### TanStack Query Patterns
+
+```typescript
+// Entity list query
+const { data, isLoading, refetch } = useQuery({
+  queryKey: ['entities', entityCode, filters],
+  queryFn: () => api.get(`/api/v1/${entityCode}`, { params: filters }),
+  staleTime: 30000,  // 30s cache
+});
+
+// Entity mutation with optimistic update
+const mutation = useMutation({
+  mutationFn: (data) => api.patch(`/api/v1/${entityCode}/${id}`, data),
+  onMutate: async (newData) => {
+    await queryClient.cancelQueries(['entities', entityCode]);
+    const previous = queryClient.getQueryData(['entities', entityCode]);
+    queryClient.setQueryData(['entities', entityCode], (old) => ({
+      ...old,
+      data: old.data.map(e => e.id === id ? { ...e, ...newData } : e)
+    }));
+    return { previous };
+  },
+  onError: (err, newData, context) => {
+    queryClient.setQueryData(['entities', entityCode], context.previous);
+  },
+  onSettled: () => {
+    queryClient.invalidateQueries(['entities', entityCode]);
+  },
+});
+```
+
+---
+
+## 6. Component Architecture
+
+### Universal Page Pattern
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    3 Universal Pages                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  EntityListOfInstancesPage.tsx                               │
+│  ├── EntityDataTable (list/grid view)                       │
+│  ├── KanbanBoard (kanban view)                              │
+│  └── CalendarView (calendar view)                           │
+│                                                              │
+│  EntitySpecificInstancePage.tsx                              │
+│  ├── EntityDetailView (header + fields)                     │
+│  └── DynamicChildEntityTabs (child entities)                │
+│                                                              │
+│  EntityFormPage.tsx                                          │
+│  └── EntityFormContainer (auto-generated form)              │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Component Matrix
+
+| Use Case | Component | Data Source |
+|----------|-----------|-------------|
+| Entity lists | `EntityDataTable` | API + metadata |
+| Entity details | `EntityDetailView` | API + metadata |
+| Forms | `EntityFormContainer` | API + metadata |
+| Workflows | `DAGVisualizer` | `dl__*_stage` fields |
+| Child tabs | `DynamicChildEntityTabs` | `entity.child_entity_codes` |
+| Kanban | `KanbanBoard` | Status field grouping |
+| Calendar | `CalendarView` | Date field events |
+| Settings | `SettingsDataTable` | `datalabel_*` tables |
+
+### Frontend Formatter Service (Pure Renderer)
+
+**Location**: `apps/web/src/lib/frontEndFormatterService.tsx`
+
+**Purpose**: Consume backend metadata and render React elements with **ZERO pattern detection**. Frontend is dumb, backend is smart.
+
+```typescript
+import {
+  renderViewModeFromMetadata,
+  renderEditModeFromMetadata,
+} from '@/lib/frontEndFormatterService';
+
+// View mode - backend says renderType: 'currency'
 renderViewModeFromMetadata(50000, fieldMeta)
 // Returns: <span className="font-mono">$50,000.00</span>
 
-// Backend says: renderType: 'badge', loadFromDataLabels: true
-renderViewModeFromMetadata('planning', fieldMeta)
-// Returns: <Badge color="blue">Planning</Badge>
-```
-
-**Edit Mode Rendering**:
-```typescript
-// Backend says: inputType: 'currency'
+// Edit mode - backend says inputType: 'currency'
 renderEditModeFromMetadata(50000, fieldMeta, onChange)
 // Returns: <input type="number" step="0.01" />
-
-// Backend says: inputType: 'select', loadFromDataLabels: true
-renderEditModeFromMetadata('planning', fieldMeta, onChange)
-// Returns: <select><option>Planning</option>...</select>
 ```
 
-**Function Signatures**:
-- `renderViewModeFromMetadata(value, metadata, record?)` - Renders view mode based on `metadata.renderType`
-- `renderEditModeFromMetadata(value, metadata, onChange, options?)` - Renders edit mode based on `metadata.inputType`
-- `hasBackendMetadata(response)` - Type guard to check if response contains metadata
-
-**Benefits**:
-- ✅ **Zero frontend logic** - No pattern detection, no field type decisions
-- ✅ **Pure renderer** - Frontend is dumb, backend is smart
-- ✅ **Type-safe** - Full TypeScript support with backend metadata types
-- ✅ **11 render types**, **11 input types** - All driven by backend
-
-**Reference**: See `docs/services/frontEndFormatterService.md` for complete documentation
-
-### 6. Component Matrix
-
-| Use Case | Component | Configuration |
-|----------|-----------|---------------|
-| Entity CRUD | `EntityDataTable` | `inlineEdit: true` |
-| Settings | `SettingsDataTable` | Reorderable, badges |
-| Forms | `EntityFormContainer` | Auto-detects 15+ field types |
-| Workflows | `DAGVisualizer` | `dl__*_stage` fields |
-| Child tabs | `DynamicChildEntityTabs` | From `entity` |
-| Kanban | `KanbanBoard` | Status columns |
-| Calendar | `CalendarView` | Event scheduling |
-
-### 7. API Standards & Universal Patterns
-
-**Reference**: `docs/api/entity_endpoint_design.md` - Complete API architecture guide
-
-#### 5 Universal API Patterns (ALL entity routes follow these):
-
-1. **ENTITY INFRASTRUCTURE SERVICE** - Centralized RBAC + parent-child filtering
-2. **CREATE-LINK-EDIT** - Simplified parent-child relationships
-3. **FACTORY PATTERN** - Auto-generated child/delete endpoints
-4. **MODULE CONSTANTS** - DRY principle (ENTITY_CODE, TABLE_ALIAS)
-5. **AUTO-FILTER SYSTEM** - Zero-config query filtering
-
-#### Standard Endpoints
+### EntityConfig
 
 ```typescript
-// Entity endpoints
-GET    /api/v1/{entity}              // List with pagination + RBAC
-GET    /api/v1/{entity}/{id}         // Get single (instance VIEW check)
-POST   /api/v1/{entity}              // Create (type-level CREATE check)
-PATCH  /api/v1/{entity}/{id}         // Update (instance EDIT check)
-DELETE /api/v1/{entity}/{id}         // Soft delete (factory-generated)
-
-// Child entity filtering (factory-generated)
-GET    /api/v1/{parent}/{id}/{child} // Filtered children with RBAC
-
-// Options/metadata
-GET    /api/v1/entity/types                         // All entity metadata
-GET    /api/v1/entity/{entityCode}/entity-instance-lookup // Entity instance lookup
+// apps/web/src/lib/entityConfig.ts
+export const entityConfig: Record<string, EntityConfigEntry> = {
+  project: {
+    label: 'Project',
+    labelPlural: 'Projects',
+    icon: 'folder',
+    columns: ['name', 'code', 'dl__project_stage', 'budget_allocated_amt'],
+    defaultSort: { field: 'created_ts', order: 'desc' },
+    searchFields: ['name', 'code', 'descr'],
+  },
+  // ... other entities
+};
 ```
 
-#### Required Imports (Standard Block)
+---
 
-```typescript
-import type { FastifyInstance } from 'fastify';
-import { Type } from '@sinclair/typebox';
-import { db } from '@/db/index.js';
+## 7. Data Model Architecture
 
-// Universal libraries
-import {
-  getUniversalColumnMetadata,
-  filterUniversalColumns,
-  createPaginatedResponse
-} from '../../lib/universal-schema-metadata.js';
-import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
+### Table Prefixes
 
-// Entity Infrastructure Service - Single source of truth for all infrastructure operations
-import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
-
-// Factory functions (thin wrappers around Entity Infrastructure Service)
-import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
-import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-route-factory.js';
+```sql
+d_*           -- Core entity tables (d_project, d_task, d_employee)
+datalabel_*   -- Settings/lookup tables (datalabel_project_stage)
+entity*       -- Infrastructure tables (entity, entity_instance, entity_rbac)
 ```
-
-#### RBAC Permission Model (Person-Based)
-
-```typescript
-// Permission hierarchy (automatic inheritance)
-Permission.OWNER  = 5  // Full control (implies all below)
-Permission.CREATE = 4  // Create new entities (type-level only)
-Permission.DELETE = 3  // Soft delete (implies Share/Edit/View)
-Permission.SHARE  = 2  // Share with others (implies Edit/View)
-Permission.EDIT   = 1  // Modify entity (implies View)
-Permission.VIEW   = 0  // Read-only access
-
-// Type-level permissions (applies to all entities of type)
-ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111'
-
-// Permission checks
-entityInfra.check_entity_rbac(db, userId, entityType, entityId, Permission.EDIT)
-entityInfra.get_entity_rbac_where_condition(userId, entityType, Permission.VIEW, tableAlias)
-```
-
-#### Universal Auto-Filter System
-
-```typescript
-// Zero-config filtering - auto-detects types from column names
-const autoFilters = buildAutoFilters(TABLE_ALIAS, request.query);
-conditions.push(...autoFilters);
-
-// Auto-detection patterns:
-// ?dl__project_stage=planning    → Settings dropdown
-// ?manager_employee_id=uuid      → UUID reference (auto-cast)
-// ?budget_allocated_amt=50000    → Currency (numeric)
-// ?start_date=2025-01-01         → Date field
-// ?active_flag=true              → Boolean (auto-cast)
-// ?search=kitchen                → Multi-field search
-```
-
-## Implementation Checklist
-
-### Adding New Entity
-
-1. **Database**: Create `db/[entity].ddl` with standard fields (id, code, name, descr, metadata, active_flag, from_ts, to_ts)
-2. **Metadata**: Add to `entity` table (entity_type, label, icon, child_entities)
-3. **API Module**: Create `apps/api/src/modules/[entity]/routes.ts`
-   - Use standard import block (see API Standards section above)
-   - Define module constants: `ENTITY_CODE`, `TABLE_ALIAS`
-   - Implement LIST (with RBAC filtering), GET, CREATE (with linkage), PATCH
-   - Add factory calls: `createEntityDeleteEndpoint()`, `createChildEntityEndpointsFromMetadata()`
-   - Use `buildAutoFilters()` for zero-config query filtering
-4. **Frontend**: Update `apps/web/src/lib/entityConfig.ts` with columns and settings
-5. **Import Schema**: Run `./tools/db-import.sh`
-6. **Test**: `./tools/test-api.sh GET /api/v1/[entity]`
-
-**Reference Template**: `apps/api/src/modules/project/routes.ts` (complete implementation example)
 
 ### Field Naming Conventions
 
 ```
 *_amt         → Currency field
-*_date/*_ts   → Date/timestamp
-dl__*         → Settings dropdown
+*_date        → Date field
+*_ts          → Timestamp field
+dl__*         → Settings dropdown (links to datalabel_*)
 is_*          → Boolean toggle
-*_id          → Entity reference
+*_flag        → Boolean flag
+*__entity_id  → Entity reference (e.g., manager__employee_id)
 tags          → Array field
+metadata      → JSON field
 *_pct         → Percentage
-*_json        → JSON field
 ```
 
-## Documentation Map
+### Standard Entity Fields
 
-### Core Services
-- `docs/services/entity-infrastructure.service.md` - **Complete entity infrastructure service architecture**
-- `docs/services/frontEndFormatterService.md` - **Complete formatter service documentation**
-
-### Data Model
-- `docs/datamodel/README.md` - **Database schema (50+ tables, all DDL files)**
-- `docs/settings/settings.md` - Settings architecture
-
-### API Implementation
-- `docs/api/entity_endpoint_design.md` - **API patterns, route implementation guide, data flow**
-
-### Operational
-- `docs/tools.md` - Operation scripts
-- `docs/S3_ATTACHMENT_SERVICE_COMPLETE_GUIDE.md` - File uploads
-
-### Features
-- `docs/PERSON_CALENDAR_SYSTEM.md` - Event booking system
-- `docs/component_Kanban_System.md` - Kanban implementation
-- `docs/form/form.md` - Dynamic forms
-- `docs/ai_chat/AI_CHAT_SYSTEM.md` - AI chat v6.0
-
-## Anti-Patterns (Avoid)
-
-❌ Creating entity-specific pages/components
-❌ Hardcoding dropdown options or entity metadata
-❌ Adding foreign keys (use entity_instance_link)
-❌ Manual field formatting (use centralized transforms)
-❌ Direct S3 uploads (use presigned URLs)
-❌ Skipping db-import.sh after DDL changes
-
-## Quick Reference
-
-### Entity Flow
+```sql
+CREATE TABLE app.d_entity (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code VARCHAR(50) UNIQUE,           -- Business code (PROJ-001)
+  name VARCHAR(255) NOT NULL,        -- Display name
+  descr TEXT,                        -- Description
+  metadata JSONB DEFAULT '{}',       -- Extensible JSON
+  active_flag BOOLEAN DEFAULT true,  -- Soft delete
+  from_ts TIMESTAMP DEFAULT now(),   -- Valid from
+  to_ts TIMESTAMP,                   -- Valid until
+  created_ts TIMESTAMP DEFAULT now(),
+  updated_ts TIMESTAMP DEFAULT now(),
+  version INTEGER DEFAULT 1
+);
 ```
-User Action → Universal Page → EntityConfig → API Call → Service Layer → Database
-                     ↓                            ↓
-              Field Detection              RBAC Check
-              (12 patterns)               (entity_rbac)
-```
-
-### Data Relationships
-```
-entity (metadata) → defines → Entity Types
-                                      ↓
-                              d_{entity} tables
-                                      ↓
-                              entity_instance_link (linkages)
-                                      ↓
-                              entity_rbac (permissions)
-```
-
-### Settings Integration
-```
-datalabel_* tables → /api/v1/entity/:entityCode/entity-instance-lookup → EntityFormContainer
-                                                                                          ↓
-                                                                                  Auto-renders dropdowns
-```
-
-## Performance Optimizations
-
-- Universal Field Detector: 83% faster than v3.x
-- Cached entity metadata from entity
-- Optimistic updates with refetch
-- Lazy-loaded child entity tabs
-- Virtualized long lists
-
-## Deployment
-
-**Local**: http://localhost:5173 (web), http://localhost:4000 (API)
-**Production**: http://100.26.224.246:5173 (web), http://100.26.224.246:4000 (API)
 
 ---
 
-**Version**: 3.4.0 | **Updated**: 2025-11-18 | **Entity System**: v4.0 active
+## Quick Reference
+
+### Adding New Entity
+
+1. **Database**: Create `db/[entity].ddl`
+2. **Entity Metadata**: Add to `entity` table
+3. **API Module**: Create `apps/api/src/modules/[entity]/routes.ts`
+   - Use transactional `create_entity()`, `update_entity()`, `delete_entity()`
+4. **Frontend**: Add to `apps/web/src/lib/entityConfig.ts`
+5. **Import**: Run `./tools/db-import.sh`
+6. **Test**: `./tools/test-api.sh GET /api/v1/[entity]`
+
+### Anti-Patterns (Avoid)
+
+- Creating entity-specific pages/components
+- Hardcoding dropdown options
+- Adding foreign keys (use entity_instance_link)
+- Manual field formatting (use backend metadata)
+- Non-transactional CREATE/UPDATE/DELETE
+- Using `entity_code` for instance code (use `instance_code`)
+
+### Flow Diagrams
+
+```
+CREATE Flow (Transactional)
+───────────────────────────
+Request → RBAC Check (CREATE) → RBAC Check (EDIT parent) → TRANSACTION {
+  INSERT primary table
+  INSERT entity_instance
+  INSERT entity_rbac (OWNER)
+  INSERT entity_instance_link (if parent)
+} → Response
+
+DELETE Flow (Transactional)
+───────────────────────────
+Request → RBAC Check (DELETE) → TRANSACTION {
+  UPDATE/DELETE primary table
+  DELETE entity_instance
+  DELETE entity_instance_link (as parent & child)
+  DELETE entity_rbac
+} → Response
+```
+
+---
+
+**Version**: 5.0.0 | **Updated**: 2025-11-22 | **Pattern**: Transactional CRUD
 
 **Recent Updates**:
-- v3.4.0 (2025-11-18): **Major Architecture Cleanup** - 100% Entity Infrastructure Service adherence
-  - **PURGED**: `unified-data-gate.ts` (33,690 bytes) - Completely replaced by Entity Infrastructure Service
-  - **PURGED**: 10 obsolete files (linkage.service.ts, schema-driven-routes.ts, configTransformer.ts, etc.)
-  - **REFACTORED**: `entity-delete-route-factory.ts` - Now thin wrapper around Entity Infrastructure Service
-  - **RENAMED**: `ENTITY_TYPE` → `ENTITY_CODE` across entire codebase (matches data model)
-  - **FIXED**: All infrastructure table names (`d_entity` → `entity`, `d_entity_instance_link` → `entity_instance_link`)
-  - **UPDATED**: 24 documentation files to reflect current architecture
-  - **RESULT**: -4,965 lines removed, 100% standardization, zero competing systems
-- v3.3.0 (2025-01-17): Complete documentation revamp based on actual implementation
-  - Added `docs/services/entity-infrastructure.service.md` - Complete service documentation
-  - Added `docs/services/frontEndFormatterService.md` - Complete formatter documentation
-  - Revamped `docs/datamodel/README.md` - Database schema based on DDL files
-  - Revamped `docs/api/entity_endpoint_design.md` - Actual patterns with architecture diagrams
-- v3.2.0 (2025-11-15): Added comprehensive API patterns, universal filter system, RBAC model details
-- 2
+- v5.0.0 (2025-11-22): **Transactional CRUD Pattern**
+  - Added `create_entity()`, `update_entity()`, `delete_entity()` transactional methods
+  - Parameter naming: `entity_code` = TYPE, `instance_code` = record code
+  - Deprecated `delete_all_entity_infrastructure()` - use `delete_entity()`
+  - Removed `register_created_entity()` - use `create_entity()`
+  - Updated 43 documentation files with correct naming
+- v4.0.0 (2025-11-21): Entity Infrastructure Service standardization
+- v3.4.0 (2025-11-18): Architecture cleanup, removed unified-data-gate.ts

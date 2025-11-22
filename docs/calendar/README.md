@@ -56,11 +56,11 @@ DATABASE stores IDs → API returns IDs + Names → UI shows Names
 ### Event Action Entity
 Every event must answer: **"What is this event about?"**
 
-- Service Appointment → `event_action_entity_type='service'`
-- Project Meeting → `event_action_entity_type='project'`
-- Task Discussion → `event_action_entity_type='task'`
-- Quote Review → `event_action_entity_type='quote'`
-- Product Demo → `event_action_entity_type='product'`
+- Service Appointment → `event_action_entity_code='service'`
+- Project Meeting → `event_action_entity_code='project'`
+- Task Discussion → `event_action_entity_code='task'`
+- Quote Review → `event_action_entity_code='quote'`
+- Product Demo → `event_action_entity_code='product'`
 
 ---
 
@@ -128,7 +128,7 @@ These are kept for historical reference but should not be used for current devel
 # Create test event
 ./tools/test-api.sh POST /api/v1/event '{
   "name": "Test Event",
-  "event_action_entity_type": "project",
+  "event_action_entity_code": "project",
   "event_action_entity_id": "uuid",
   "organizer_employee_id": "uuid",
   "event_type": "onsite",

@@ -94,12 +94,12 @@ if (HIERARCHICAL_ENTITIES.includes(entityType)) {
 ```typescript
 // ✅ CORRECT - Check metadata from entity table
 const result = await db.execute(sql`
-  SELECT entity_type_category
+  SELECT entity_code_category
   FROM app.entity
   WHERE code = ${entityType}
 `);
 
-const isHierarchical = result[0]?.entity_type_category === 'hierarchical';
+const isHierarchical = result[0]?.entity_code_category === 'hierarchical';
 ```
 
 **Principle**:

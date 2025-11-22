@@ -842,7 +842,7 @@ interface Event {
 ```typescript
 interface CalendarSlot {
   id: string;
-  person_entity_type: 'employee' | 'customer';
+  person_entity_code: 'employee' | 'customer';
   person_entity_id: string;
   from_ts: string;              // ISO 8601 timestamp
   to_ts: string;                // ISO 8601 timestamp

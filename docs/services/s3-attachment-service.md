@@ -40,7 +40,7 @@ Provides secure S3 operations for file attachments using AWS SDK v3 with presign
 
 **S3 Key Pattern**:
 ```
-tenant_id/entity_type/entity_id/attachment_id_hash.extension
+tenant_id/entity_code/entity_id/attachment_id_hash.extension
 ```
 
 **Example**:
@@ -51,7 +51,7 @@ demo/task/xyz-789-uuid/ghi012_screenshot.png
 
 **Components**:
 - `tenant_id` - Organization isolation (default: "demo")
-- `entity_type` - Entity classification (project, task, artifact, etc.)
+- `entity_code` - Entity classification (project, task, artifact, etc.)
 - `entity_id` - Specific entity UUID
 - `attachment_id_hash` - Unique file identifier (crypto hash)
 - `extension` - Original file extension

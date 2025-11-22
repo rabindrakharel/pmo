@@ -402,9 +402,9 @@ CREATE TABLE app.d_entity_event_person_calendar (
 -- Entity Linkages (d_entity_instance_link)
 CREATE TABLE app.d_entity_instance_link (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    parent_entity_type VARCHAR(50),  -- 'CUSTOMER'
+    parent_entity_code VARCHAR(50),  -- 'CUSTOMER'
     parent_entity_id UUID,            -- uuid-A
-    child_entity_type VARCHAR(50),    -- 'TASK'
+    child_entity_code VARCHAR(50),    -- 'TASK'
     child_entity_id UUID,             -- uuid-B
     created_ts TIMESTAMPTZ DEFAULT NOW()
 );
@@ -412,7 +412,7 @@ CREATE TABLE app.d_entity_instance_link (
 -- RBAC Permissions (d_entity_rbac)
 CREATE TABLE app.d_entity_rbac (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_type VARCHAR(50),
+    entity_code VARCHAR(50),
     entity_id UUID,
     permission_user_id UUID,  -- Agent UUID
     permission JSONB,  -- [0:view, 1:edit, 2:share, 3:delete, 4:create, 5:ownership]
@@ -1760,9 +1760,9 @@ This section provides complete API endpoint examples for testing and integrating
 ```bash
 # Create linkage in d_entity_instance_link
 ./tools/test-api.sh POST /api/v1/entity-linkage '{
-  "parent_entity_type": "CUSTOMER",
+  "parent_entity_code": "CUSTOMER",
   "parent_entity_id": "8260b1b0-5efc-4611-ad33-ee76c0cf7f13",
-  "child_entity_type": "TASK",
+  "child_entity_code": "TASK",
   "child_entity_id": "task-uuid-1"
 }'
 ```
@@ -2129,17 +2129,17 @@ echo "   ✅ Calendar event created: $EVENT_ID"
 echo ""
 echo "4️⃣ Creating entity linkages..."
 ./tools/test-api.sh POST /api/v1/entity-linkage '{
-  "parent_entity_type": "CUSTOMER",
+  "parent_entity_code": "CUSTOMER",
   "parent_entity_id": "'$CUSTOMER_ID'",
-  "child_entity_type": "TASK",
+  "child_entity_code": "TASK",
   "child_entity_id": "'$TASK_ID'"
 }' > /dev/null
 echo "   ✅ Customer ↔ Task linked"
 
 ./tools/test-api.sh POST /api/v1/entity-linkage '{
-  "parent_entity_type": "TASK",
+  "parent_entity_code": "TASK",
   "parent_entity_id": "'$TASK_ID'",
-  "child_entity_type": "CALENDAR",
+  "child_entity_code": "CALENDAR",
   "child_entity_id": "'$EVENT_ID'"
 }' > /dev/null
 echo "   ✅ Task ↔ Calendar linked"
@@ -2379,7 +2379,7 @@ VALUES
 );
 
 -- Grant full platform permissions
-INSERT INTO app.d_entity_rbac (entity_type, entity_id, permission_user_id, permission)
+INSERT INTO app.d_entity_rbac (entity_code, entity_id, permission_user_id, permission)
 VALUES
 ('ALL', 'all', '8260b1b0-5efc-4611-ad33-ee76c0cf7f13',
  '{"0": true, "1": true, "2": true, "3": true, "4": true, "5": true}'::jsonb);

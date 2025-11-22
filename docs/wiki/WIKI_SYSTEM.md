@@ -436,7 +436,7 @@ CREATE TABLE app.d_wiki (
     summary text,
 
     -- Entity relationships (via entity_id_map)
-    primary_entity_type varchar(50),             -- project, task, business, office
+    primary_entity_code varchar(50),             -- project, task, business, office
     primary_entity_id uuid,
 
     -- Temporal fields (SCD Type 1 - In-place updates)
@@ -454,7 +454,7 @@ WHERE active_flag = true;
 
 CREATE INDEX idx_wiki_parent ON d_wiki(parent_wiki_id, sort_order);
 
-CREATE INDEX idx_wiki_entity ON d_wiki(primary_entity_type, primary_entity_id, active_flag);
+CREATE INDEX idx_wiki_entity ON d_wiki(primary_entity_code, primary_entity_id, active_flag);
 
 -- Full-text search
 CREATE INDEX idx_wiki_search ON d_wiki

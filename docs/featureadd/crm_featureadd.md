@@ -208,7 +208,7 @@ Deals Pipeline:
          user_id: deal.owner_employee_id,
          type: 'deal_stale',
          message: `Deal "${deal.name}" has been in ${deal.stage} for ${staleDays}+ days`,
-         entity_type: 'deal',
+         entity_code: 'deal',
          entity_id: deal.id
        });
      }
@@ -614,7 +614,7 @@ Monday.com is the **#1 Work OS** with 186,000+ customers and $900M ARR. It excel
         SELECT estimated_hours, actual_hours
         FROM app.d_task t
         INNER JOIN app.entity_linkage el ON el.child_task_id = t.id
-        WHERE el.child_entity_type = 'employee'
+        WHERE el.child_entity_code = 'employee'
           AND el.child_entity_id = $1
           AND t.start_date <= $2
           AND t.end_date >= $2
@@ -645,7 +645,7 @@ Monday.com is the **#1 Work OS** with 186,000+ customers and $900M ARR. It excel
     ```sql
     CREATE TABLE app.comment (
       id uuid PRIMARY KEY,
-      entity_type varchar(20) NOT NULL,
+      entity_code varchar(20) NOT NULL,
       entity_id uuid NOT NULL,
       parent_comment_id uuid,  -- For threaded replies
       author_employee_id uuid NOT NULL,
@@ -658,7 +658,7 @@ Monday.com is the **#1 Work OS** with 186,000+ customers and $900M ARR. It excel
       deleted_flag boolean DEFAULT false
     );
 
-    CREATE INDEX idx_comment_entity ON app.comment(entity_type, entity_id) WHERE deleted_flag = false;
+    CREATE INDEX idx_comment_entity ON app.comment(entity_code, entity_id) WHERE deleted_flag = false;
     ```
     - UI: `CommentThread.tsx` component
     - Features:
@@ -681,7 +681,7 @@ Monday.com is the **#1 Work OS** with 186,000+ customers and $900M ARR. It excel
       id uuid PRIMARY KEY,
       activity_type varchar(50),  -- created, updated, deleted, commented, uploaded, assigned
       actor_employee_id uuid NOT NULL,
-      entity_type varchar(20),
+      entity_code varchar(20),
       entity_id uuid,
       description text,  -- "moved deal from Proposal to Closed Won"
       metadata jsonb DEFAULT '{}'::jsonb,  -- {field: "stage", old_value: "Proposal", new_value: "Closed Won"}
@@ -689,7 +689,7 @@ Monday.com is the **#1 Work OS** with 186,000+ customers and $900M ARR. It excel
     );
 
     CREATE INDEX idx_activity_ts ON app.activity_feed(created_ts DESC);
-    CREATE INDEX idx_activity_entity ON app.activity_feed(entity_type, entity_id);
+    CREATE INDEX idx_activity_entity ON app.activity_feed(entity_code, entity_id);
     ```
     - UI: `ActivityFeed.tsx` with infinite scroll
 
@@ -739,7 +739,7 @@ Monday.com is the **#1 Work OS** with 186,000+ customers and $900M ARR. It excel
     CREATE TABLE app.automation_rule (
       id uuid PRIMARY KEY,
       name varchar(200),
-      entity_type varchar(20),  -- project, task, deal, client
+      entity_code varchar(20),  -- project, task, deal, client
       trigger_type varchar(50),  -- created, updated, deleted, scheduled
       trigger_conditions jsonb,  -- {field: "stage", operator: "equals", value: "Done"}
       actions jsonb,  -- [{type: "notify", params: {user_id: "...", message: "..."}}, {type: "create_task", params: {...}}]
@@ -890,11 +890,11 @@ Notion is the **#1 all-in-one workspace** with 30M+ users. It excels at **knowle
     CREATE TABLE app.user_favorite (
       id uuid PRIMARY KEY,
       employee_id uuid NOT NULL,
-      entity_type varchar(20),
+      entity_code varchar(20),
       entity_id uuid,
       sort_order integer,
       created_ts timestamptz DEFAULT now(),
-      UNIQUE(employee_id, entity_type, entity_id)
+      UNIQUE(employee_id, entity_code, entity_id)
     );
     ```
 
@@ -1164,7 +1164,7 @@ CDPs like **Segment**, **Twilio Engage**, and **Adobe Experience Platform** unif
     ```sql
     CREATE TABLE app.computed_attribute (
       id uuid PRIMARY KEY,
-      entity_type varchar(20),  -- contact, account, deal
+      entity_code varchar(20),  -- contact, account, deal
       attribute_name varchar(100),
       calculation_logic jsonb,  -- {type: "sum", field: "deal_amount", filter: {stage: "Closed Won"}}
       refresh_frequency varchar(20),  -- realtime, hourly, daily
@@ -1211,7 +1211,7 @@ CDPs like **Segment**, **Twilio Engage**, and **Adobe Experience Platform** unif
     CREATE TABLE app.ab_test (
       id uuid PRIMARY KEY,
       name varchar(200),
-      entity_type varchar(20),  -- email, page, component
+      entity_code varchar(20),  -- email, page, component
       variants jsonb,  -- [{name: "A", content: "...", weight: 50}, {name: "B", content: "...", weight: 50}]
       status varchar(20),  -- Draft, Running, Completed
       start_date date,

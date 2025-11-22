@@ -228,7 +228,7 @@ The Automation & Workflow Domain provides sophisticated workflow orchestration c
 [
   {"type": "update_field", "field": "status", "value": "in_progress"},
   {"type": "send_notification", "template": "task_assigned", "recipients": ["empid-123"]},
-  {"type": "create_entity", "entity_type": "task", "fields": {"name": "Follow up", "priority": "high"}},
+  {"type": "create_entity", "entity_code": "task", "fields": {"name": "Follow up", "priority": "high"}},
   {"type": "send_email", "template": "welcome_email", "to": "{{customer.email}}"},
   {"type": "call_webhook", "url": "https://api.external.com/notify", "method": "POST"},
   {"type": "run_script", "script_id": "custom-script-123"}
@@ -452,7 +452,7 @@ When trigger event occurs:
 ```
 1. Event detected (e.g., project created)
 2. Query workflow_automation for matching rules:
-   WHERE trigger_entity_type = 'project'
+   WHERE trigger_entity_code = 'project'
      AND trigger_action_type = 'create'
      AND (trigger_scope = 'all' OR trigger_entity_id = $project_id)
      AND active_flag = true
@@ -523,7 +523,7 @@ When workflow instance progresses:
 3. System triggers workflow automation check:
    ```sql
    SELECT * FROM d_workflow_automation
-   WHERE trigger_entity_type = 'project'
+   WHERE trigger_entity_code = 'project'
      AND trigger_action_type = 'create'
      AND active_flag = true
    ORDER BY execution_order;
@@ -651,11 +651,11 @@ When workflow instance progresses:
 CREATE TABLE app.d_workflow_automation (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workflow_name TEXT NOT NULL,
-    trigger_entity_type TEXT NOT NULL,             -- 'project', 'task'
+    trigger_entity_code TEXT NOT NULL,             -- 'project', 'task'
     trigger_action_type TEXT NOT NULL,             -- 'create', 'update', 'status_change'
     trigger_scope TEXT DEFAULT 'all',              -- 'all' or 'specific'
     trigger_conditions JSONB DEFAULT '{}',         -- Additional filter conditions
-    action_entity_type TEXT NOT NULL,              -- Entity to act upon
+    action_entity_code TEXT NOT NULL,              -- Entity to act upon
     actions JSONB NOT NULL,                        -- Array of actions
     execution_order INTEGER DEFAULT 0,
     max_executions INTEGER DEFAULT -1,
@@ -783,7 +783,7 @@ GET    /api/v1/orchestrator/session/:id/logs  # Get agent logs
 ### Indexing Strategy
 
 ```sql
-CREATE INDEX idx_workflow_auto_trigger ON app.d_workflow_automation(trigger_entity_type, trigger_action_type);
+CREATE INDEX idx_workflow_auto_trigger ON app.d_workflow_automation(trigger_entity_code, trigger_action_type);
 CREATE INDEX idx_workflow_data_head ON app.d_industry_workflow_graph_data(workflow_head_id);
 CREATE INDEX idx_workflow_events_data ON app.f_industry_workflow_events(workflow_data_id);
 CREATE INDEX idx_orchestrator_session_status ON app.orchestrator_session(session_status);

@@ -694,11 +694,11 @@ Messages can be linked to other entities via `entity_instance_link`:
 
 ```sql
 -- Link message to project
-INSERT INTO app.entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
+INSERT INTO app.entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id)
 VALUES ('project', 'project-uuid', 'message', 'message-uuid');
 
 -- Link message to customer
-INSERT INTO app.entity_instance_link (parent_entity_type, parent_entity_id, child_entity_type, child_entity_id)
+INSERT INTO app.entity_instance_link (parent_entity_code, parent_entity_id, child_entity_code, child_entity_id)
 VALUES ('customer', 'customer-uuid', 'message', 'message-uuid');
 ```
 

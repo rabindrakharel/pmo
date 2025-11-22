@@ -354,9 +354,9 @@ except PMOAPIError as e:
 3. Link Task to Project
    POST /entity-linkage
    Body: {
-     "parent_entity_type": "project",
+     "parent_entity_code": "project",
      "parent_entity_id": "{project_id}",
-     "child_entity_type": "task",
+     "child_entity_code": "task",
      "child_entity_id": "{task_id}"
    }
 ```

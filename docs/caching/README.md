@@ -37,7 +37,7 @@ Each cache entry stores complete entity metadata from the `entity` table:
 ```json
 {
   "code": "project",
-  "entity_type": "project",
+  "entity_code": "project",
   "label": "Project",
   "label_plural": "Projects",
   "icon": "FolderKanban",
@@ -87,23 +87,23 @@ Each cache entry stores complete entity metadata from the `entity` table:
 ```typescript
 // apps/api/src/services/entity-infrastructure.service.ts
 
-async get_entity(entity_type: string): Promise<Entity | null> {
-  const cacheKey = `entity:metadata:${entity_type}`;
+async get_entity(entity_code: string): Promise<Entity | null> {
+  const cacheKey = `entity:metadata:${entity_code}`;
 
   // Try cache first
   const cached = await this.redis.get(cacheKey);
   if (cached) {
-    console.log(`✅ Cache hit for entity: ${entity_type}`);
+    console.log(`✅ Cache hit for entity: ${entity_code}`);
     return JSON.parse(cached);
   }
 
   // Cache miss - query database
-  console.log(`❌ Cache miss for entity: ${entity_type}`);
-  const metadata = await this.queryDatabase(entity_type);
+  console.log(`❌ Cache miss for entity: ${entity_code}`);
+  const metadata = await this.queryDatabase(entity_code);
 
   // Populate cache
   await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(metadata));
-  console.log(`💾 Cache populated for entity: ${entity_type}`);
+  console.log(`💾 Cache populated for entity: ${entity_code}`);
 
   return metadata;
 }
@@ -463,7 +463,7 @@ return reply.send(result);
 ### 3. **Handle Cache Failures Gracefully**
 
 ```typescript
-async get_entity(entity_type: string): Promise<Entity | null> {
+async get_entity(entity_code: string): Promise<Entity | null> {
   try {
     // Try cache first
     const cached = await this.redis.get(cacheKey);
@@ -473,7 +473,7 @@ async get_entity(entity_type: string): Promise<Entity | null> {
   }
 
   // Always fall back to database
-  return await this.queryDatabase(entity_type);
+  return await this.queryDatabase(entity_code);
 }
 ```
 

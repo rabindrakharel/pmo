@@ -184,7 +184,7 @@ Executes user requests by combining LLM reasoning with function calling to perfo
 4. LLM Planner decides to call `search_entities` function:
    ```json
    {
-     "entity_type": "project",
+     "entity_code": "project",
      "filters": {
        "active_flag": true,
        "business_id": "abc-uuid",

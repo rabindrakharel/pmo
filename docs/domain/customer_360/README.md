@@ -152,9 +152,9 @@ All Customer 360 entities can be **parents** to entities in other domains:
 Linkage via `d_entity_instance_link` table:
 ```sql
 SELECT * FROM d_entity_instance_link
-WHERE parent_entity_type = 'cust'
+WHERE parent_entity_code = 'cust'
   AND parent_entity_instance_id = 12345
-  AND child_entity_type = 'project';
+  AND child_entity_code = 'project';
 ```
 
 ### Settings-Driven Dropdowns
@@ -286,7 +286,7 @@ Customer 360 entities are the **identity foundation** for RBAC:
 -- Permission check example
 SELECT has_permission(
     employee_id := 42,
-    entity_type := 'project',
+    entity_code := 'project',
     entity_instance_id := 100,
     required_permission := 'edit' -- 2
 );

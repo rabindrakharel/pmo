@@ -280,15 +280,15 @@ fastify.get('/api/v1/project', async (request, reply) => {
 
 ```typescript
 async create_entity<T>(params: {
-  entity_code: string;           // e.g., 'project'
+  entity_code: string;           // Entity TYPE code, e.g., 'project', 'task'
   creator_id: string;            // User UUID
-  parent_entity_code?: string;   // Parent type (if linking)
-  parent_entity_id?: string;     // Parent UUID (if linking)
+  parent_entity_code?: string;   // Parent entity TYPE code (if linking)
+  parent_entity_id?: string;     // Parent entity UUID (if linking)
   relationship_type?: string;    // Default: 'contains'
   primary_table: string;         // e.g., 'app.project'
   primary_data: T;               // Data to insert
-  name_field?: string;           // Default: 'name'
-  code_field?: string;           // Default: 'code'
+  name_field?: string;           // Default: 'name' - field for entity_instance_name
+  code_field?: string;           // Default: 'code' - field for instance_code
 }): Promise<{
   entity: T & { id: string };
   entity_instance: EntityInstance;
@@ -302,12 +302,12 @@ async create_entity<T>(params: {
 
 ```typescript
 async update_entity<T>(params: {
-  entity_code: string;           // e.g., 'project'
-  entity_id: string;             // Entity UUID
+  entity_code: string;           // Entity TYPE code, e.g., 'project'
+  entity_id: string;             // Entity instance UUID
   primary_table: string;         // e.g., 'app.project'
   primary_updates: Partial<T>;   // Fields to update
-  name_field?: string;           // Default: 'name'
-  code_field?: string;           // Default: 'code'
+  name_field?: string;           // Default: 'name' - syncs entity_instance_name
+  code_field?: string;           // Default: 'code' - syncs instance_code
 }): Promise<{
   entity: T & { id: string };
   registry_synced: boolean;
@@ -318,8 +318,8 @@ async update_entity<T>(params: {
 
 ```typescript
 async delete_entity(params: {
-  entity_code: string;           // e.g., 'project'
-  entity_id: string;             // Entity UUID
+  entity_code: string;           // Entity TYPE code, e.g., 'project'
+  entity_id: string;             // Entity instance UUID
   user_id: string;               // User UUID (for RBAC check)
   primary_table: string;         // e.g., 'app.project'
   hard_delete?: boolean;         // Default: false (soft delete)
@@ -331,6 +331,37 @@ async delete_entity(params: {
   linkages_deleted: number;
   rbac_entries_deleted: number;
 }>
+```
+
+### Helper Methods (for edge cases)
+
+```typescript
+// Register entity in global registry
+async set_entity_instance_registry(params: {
+  entity_code: string;           // Entity TYPE code, e.g., 'project'
+  entity_id: string;             // Entity instance UUID
+  entity_name: string;           // Display name for lookups
+  instance_code?: string | null; // Record code, e.g., 'PROJ-001'
+}): Promise<EntityInstance>
+
+// Update registry when name/code changes
+async update_entity_instance_registry(
+  entity_code: string,           // Entity TYPE code
+  entity_id: string,             // Entity instance UUID
+  updates: {
+    entity_name?: string;        // New display name
+    instance_code?: string | null; // New record code
+  }
+): Promise<EntityInstance | null>
+
+// Create parent-child linkage
+async set_entity_instance_link(params: {
+  entity_code: string;              // Parent entity TYPE code
+  entity_instance_id: string;       // Parent entity UUID
+  child_entity_code: string;        // Child entity TYPE code
+  child_entity_instance_id: string; // Child entity UUID
+  relationship_type?: string;       // Default: 'contains'
+}): Promise<EntityLink>
 ```
 
 ---

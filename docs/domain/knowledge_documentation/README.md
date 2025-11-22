@@ -93,7 +93,7 @@ The Knowledge & Documentation Domain provides comprehensive knowledge management
 │  │  Report → Business (financial reports)                         │  │
 │  │                                                                 │  │
 │  │  Linkage via:                                                  │  │
-│  │  • entity_type (e.g., 'project')                               │  │
+│  │  • entity_code (e.g., 'project')                               │  │
 │  │  • entity_id (UUID of parent entity)                           │  │
 │  │  • d_entity_instance_link (polymorphic parent-child)                  │  │
 │  └────────────────────────────────────────────────────────────────┘  │
@@ -146,7 +146,7 @@ The Knowledge & Documentation Domain provides comprehensive knowledge management
    - Tree structure navigation
 
 6. **Polymorphic Parent Linking**:
-   - All entities support `entity_type` + `entity_id` pattern
+   - All entities support `entity_code` + `entity_id` pattern
    - Wiki linked to Project (project documentation)
    - Artifact linked to Task (task attachments)
    - Form linked to Customer (customer intake forms)
@@ -461,7 +461,7 @@ Form submissions stored as JSONB:
    - artifact_number: ART-2025-00789
    - name: "Project Plan"
    - dl__artifact_type: "Document"
-   - entity_type: "project"
+   - entity_code: "project"
    - entity_id: <Project #450 UUID>
    - security_classification: "Internal Use Only"
    - latest_version_flag: true
@@ -562,7 +562,7 @@ CREATE TABLE app.d_artifact (
     attachment_object_bucket text,                  -- S3 bucket
     attachment_object_key text,                     -- S3 key
     attachment text,                                -- Full S3 URI
-    entity_type text,                               -- project, task, etc.
+    entity_code text,                               -- project, task, etc.
     entity_id uuid,                                 -- Parent entity ID
     dl__artifact_security_classification text,      -- Public, Confidential
     latest_version_flag boolean DEFAULT true,
@@ -689,7 +689,7 @@ CREATE INDEX idx_wiki_type ON app.d_wiki(dl__wiki_type);
 
 -- Artifact indexes
 CREATE INDEX idx_artifact_type ON app.d_artifact(dl__artifact_type);
-CREATE INDEX idx_artifact_entity ON app.d_artifact(entity_type, entity_id);
+CREATE INDEX idx_artifact_entity ON app.d_artifact(entity_code, entity_id);
 CREATE INDEX idx_artifact_security ON app.d_artifact(dl__artifact_security_classification);
 
 -- Form indexes

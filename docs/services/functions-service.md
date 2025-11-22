@@ -147,7 +147,7 @@ create_project:
 2. LLM calls `search_entities`:
    ```json
    {
-     "entity_type": "project",
+     "entity_code": "project",
      "filters": {
        "business_id": "abc-corp-uuid",
        "active_flag": true

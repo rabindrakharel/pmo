@@ -76,7 +76,7 @@ RBAC Permission Flow
 User Request              entity_rbac                      Access Result
 ────────────              ───────────                      ─────────────
 
-User: emp-uuid       →    entity_type: 'project'      →   permission[1] = 1
+User: emp-uuid       →    entity_code: 'project'      →   permission[1] = 1
 Entity: project           entity_id: uuid-1                EDIT allowed
 Action: EDIT              employee_id: emp-uuid
                          permission: [1,1,0,0,0,0]
@@ -192,7 +192,7 @@ PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app
 | `entity` | Entity type metadata | code, name, icon, child_entity_codes |
 | `entity_instance` | Instance registry | entity_code, entity_id, entity_instance_name |
 | `entity_instance_link` | Relationships | entity_code, entity_instance_id, child_entity_code, child_entity_instance_id |
-| `entity_rbac` | Permissions | employee_id, entity_type, entity_id, permission[] |
+| `entity_rbac` | Permissions | employee_id, entity_code, entity_id, permission[] |
 
 ### Permission Array
 
@@ -226,11 +226,11 @@ Create Entity with Linkage
    │   { entity_code: 'task', entity_id: task-uuid, entity_instance_name: 'Task Name' }
    │
    ├── INSERT INTO app.entity_rbac (...)
-   │   { entity_type: 'task', entity_id: task-uuid, employee_id: creator-uuid, permission: [1,1,1,1,0,1] }
+   │   { entity_code: 'task', entity_id: task-uuid, employee_id: creator-uuid, permission: [1,1,1,1,0,1] }
    │
    └── INSERT INTO app.entity_instance_link (...)
-       { parent_entity_type: 'project', parent_entity_id: project-uuid,
-         child_entity_type: 'task', child_entity_id: task-uuid }
+       { parent_entity_code: 'project', parent_entity_id: project-uuid,
+         child_entity_code: 'task', child_entity_id: task-uuid }
 
 
 Query with RBAC
@@ -244,7 +244,7 @@ Query with RBAC
    WHERE p.active_flag = true
      AND EXISTS (
        SELECT 1 FROM app.entity_rbac r
-       WHERE r.entity_type = 'project'
+       WHERE r.entity_code = 'project'
          AND (r.entity_id = p.id::text OR r.entity_id = 'all')
          AND r.employee_id = {user-uuid}
          AND r.permission[0] = 1  -- VIEW permission
