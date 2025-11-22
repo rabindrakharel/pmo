@@ -228,7 +228,9 @@
       "Bash(git -C /home/rabin/projects/pmo diff apps/api/src/services/backend-formatter.service.ts)",
       "Bash(git -C /home/rabin/projects/pmo diff apps/web/src/components/shared/entity/DynamicChildEntityTabs.tsx)",
       "Bash(git -C /home/rabin/projects/pmo diff docs/instructionToLLM.md)",
-      "Bash(do sed -i \"s/, extractDatalabelKeys//g\" \"$file\")"
+      "Bash(do sed -i \"s/, extractDatalabelKeys//g\" \"$file\")",
+      "Bash(source ~/.nvm/nvm.sh)",
+      "Bash(nvm use:*)"
     ],
     "deny": [],
     "ask": [],

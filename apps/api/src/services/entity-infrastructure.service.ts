@@ -109,23 +109,24 @@ export interface DeleteEntityResult {
 /**
  * Permission levels enum (0-7 numeric hierarchy)
  *
- * Hierarchy (automatic inheritance):
- * OWNER [7] >= CREATE [6] >= DELETE [5] >= SHARE [4] >= EDIT/CONTRIBUTE [3] >= COMMENT [1] >= VIEW [0]
+ * Hierarchy (automatic inheritance - higher level implies all lower):
+ * OWNER [7] >= CREATE [6] >= DELETE [5] >= SHARE [4] >= EDIT [3] >= CONTRIBUTE [2] >= COMMENT [1] >= VIEW [0]
  *
  * Levels:
  * - VIEW (0): Read access to entity data
  * - COMMENT (1): Add comments on entities (INHERITS View)
- * - EDIT/CONTRIBUTE (3): Modify entity or submit data (INHERITS Comment + View)
+ * - CONTRIBUTE (2): Insert data in forms, collaborate on wiki (INHERITS Comment + View)
+ * - EDIT (3): Modify entity fields, descriptions, details (INHERITS Contribute + Comment + View)
  * - SHARE (4): Share entity with others (INHERITS Edit + Contribute + Comment + View)
- * - DELETE (5): Soft delete entity (INHERITS Share + Edit + Comment + View)
+ * - DELETE (5): Soft delete entity (INHERITS Share + Edit + Contribute + Comment + View)
  * - CREATE (6): Create new entities - type-level only (INHERITS all lower)
  * - OWNER (7): Full control including permission management (INHERITS ALL)
  */
 export enum Permission {
   VIEW = 0,
   COMMENT = 1,
+  CONTRIBUTE = 2,
   EDIT = 3,
-  CONTRIBUTE = 3,  // Alias for EDIT
   SHARE = 4,
   DELETE = 5,
   CREATE = 6,

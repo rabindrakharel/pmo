@@ -11,6 +11,11 @@ import { API_CONFIG } from '../../../lib/config/api';
 import type { EntityMetadata } from '../../../lib/api';
 import type { DatalabelData } from '../../../lib/frontEndFormatterService';
 
+// ============================================================================
+// DEBUG: Render counter for tracking re-renders
+// ============================================================================
+let filteredDataTableRenderCount = 0;
+
 export interface FilteredDataTableProps {
   entityCode: string;
   metadata?: EntityMetadata | null;  // Backend metadata from API
@@ -56,6 +61,15 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   showActionIcons = true,
   allowAddRow = true
 }) => {
+  // DEBUG: Track renders
+  filteredDataTableRenderCount++;
+  const renderIdRef = React.useRef(filteredDataTableRenderCount);
+  console.log(
+    `%c[RENDER #${renderIdRef.current}] 🖼️ FilteredDataTable: ${entityCode}`,
+    'color: #69db7c; font-weight: bold',
+    { entityCode, parentType, parentId, hasMetadata: !!propsMetadata, timestamp: new Date().toLocaleTimeString() }
+  );
+
   const navigate = useNavigate();
   const config = getEntityConfig(entityCode);
   const [data, setData] = useState<any[]>([]);
@@ -220,6 +234,12 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
   const fetchData = async () => {
     if (!config) return;
 
+    console.log(
+      `%c[API FETCH] 📡 FilteredDataTable.fetchData: ${entityCode}`,
+      'color: #ff6b6b; font-weight: bold',
+      { entityCode, currentPage, pageSize, parentType, parentId }
+    );
+
     setLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
@@ -259,6 +279,11 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
       if (response.ok) {
         const result = await response.json();
+        console.log(
+          `%c[API FETCH] ✅ FilteredDataTable received ${(result.data || result || []).length} items`,
+          'color: #ff6b6b',
+          { entityCode, total: result.total, hasMetadata: !!result.metadata }
+        );
         setData(result.data || result || []);
         setTotalRecords(result.total || result.length || 0);
 
@@ -267,7 +292,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
           setMetadata(result.metadata);
         }
       } else {
-        console.error('Failed to fetch data:', response.statusText);
+        console.error('%c[API FETCH] ❌ FilteredDataTable failed:', 'color: #ff6b6b', response.statusText);
         setData([]);
         setTotalRecords(0);
       }

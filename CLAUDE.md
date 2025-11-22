@@ -647,6 +647,44 @@ Request → RBAC Check (DELETE) → TRANSACTION {
 
 ---
 
+## 8. Documentation Index (LLM Reference)
+
+### Core Documentation Files
+
+| Document | Path | Purpose |
+|----------|------|---------|
+| **RBAC_INFRASTRUCTURE.md** | `docs/rbac/` | RBAC tables, permissions, patterns |
+| **entity-infrastructure.service.md** | `docs/services/` | Entity infrastructure service API |
+| **STATE_MANAGEMENT.md** | `docs/state_management/` | Zustand + React Query architecture |
+| **PAGE_ARCHITECTURE.md** | `docs/pages/` | Page components and routing |
+| **backend-formatter.service.md** | `docs/services/` | Backend metadata generation |
+
+### 1. RBAC_INFRASTRUCTURE.md
+
+Unified RBAC documentation covering all 4 infrastructure tables (entity, entity_instance, entity_instance_link, entity_rbac). Used by API routes for permission checking and by LLMs when implementing RBAC features.
+
+**Keywords:** `RBAC`, `permissions`, `entity_rbac`, `entity_instance_link`, `entity_instance`, `Permission enum`, `VIEW`, `COMMENT`, `CONTRIBUTE`, `EDIT`, `SHARE`, `DELETE`, `CREATE`, `OWNER`, `ALL_ENTITIES_ID`, `check_entity_rbac`, `set_entity_rbac_owner`, `get_entity_rbac_where_condition`, `hard delete`, `soft delete`, `person-based RBAC`, `role-based permissions`
+
+### 2. entity-infrastructure.service.md
+
+Core service documentation for centralized entity infrastructure management. Used by all entity route handlers for registry operations, linkage, and RBAC enforcement.
+
+**Keywords:** `EntityInfrastructureService`, `set_entity_instance_registry`, `update_entity_instance_registry`, `delete_entity_instance_registry`, `set_entity_instance_link`, `get_entity_instance_link_children`, `delete_entity_instance_link`, `Permission levels 0-7`, `parent_entity_code`, `child_entity_code`, `idempotent`, `transactional methods`, `create_entity`, `update_entity`, `delete_entity`
+
+### 3. STATE_MANAGEMENT.md
+
+Zustand + React Query hybrid architecture for client-side state management and caching. Used by frontend components for data fetching, caching, and edit state tracking.
+
+**Keywords:** `Zustand`, `React Query`, `9 stores`, `session-level cache`, `URL-bound cache`, `30 min TTL`, `5 min TTL`, `globalSettingsMetadataStore`, `datalabelMetadataStore`, `entityCodeMetadataStore`, `EntityListOfInstancesDataStore`, `EntitySpecificInstanceDataStore`, `entityComponentMetadataStore`, `editStateStore`, `dirtyFields`, `optimistic updates`, `cache invalidation`, `field-level tracking`, `minimal PATCH`, `prefetching`
+
+### 4. PAGE_ARCHITECTURE.md
+
+Comprehensive page and component architecture documentation. Used by LLMs when implementing new pages, understanding navigation flow, or modifying existing components.
+
+**Keywords:** `EntityListOfInstancesPage`, `EntitySpecificInstancePage`, `EntityCreatePage`, `EntityChildListPage`, `SettingsOverviewPage`, `SettingDetailPage`, `WikiViewPage`, `WikiEditorPage`, `FormBuilderPage`, `FilteredDataTable`, `EntityFormContainer`, `SettingsDataTable`, `WikiDesigner`, `DynamicChildEntityTabs`, `Layout`, `ViewSwitcher`, `KanbanView`, `GridView`, `CalendarView`, `FilePreview`, `DragDropFileUpload`, `InteractiveForm`, `entityConfig.ts`, `universal pages`, `config-driven`, `Create-Link-Redirect`, `parent context`, `child entity tabs`, `datalabel URL conversion`, `position-based IDs`, `block editor`, `Notion-style`
+
+---
+
 **Version**: 5.0.0 | **Updated**: 2025-11-22 | **Pattern**: Transactional CRUD
 
 **Recent Updates**:

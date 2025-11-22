@@ -1,12 +1,58 @@
+Login page → Login
+Sidebar → Click "Office"
+EntityListOfInstancesPage (Office list with data table) → EntityDataTable component
+Click first row → Navigate to specific office
+EntitySpecificInstancePage (Office detail) → EntityFormContainer component
+Click Edit → Edit mode
 
 Signed in, went to his page: http://localhost:5173/welcome, Clicked on office button in sidebar, went to page http://localhost:5173/office, clicked on first record in data table, 
 http://localhost:5173/office/f3f1d494-a334-49cc-aa23-540f8b59da5f
 
-Check the below logs if you see any issues. \
+Navigation Flow Logging Summary
+1. Sidebar → Office List (EntityListOfInstancesPage)
+[RENDER #1] 🖼️ EntityListOfInstancesPage: office
+2. Office List Data Table (FilteredDataTable)
+[RENDER #1] 🖼️ FilteredDataTable: office
+[API FETCH] 📡 FilteredDataTable.fetchData: office
+[API FETCH] ✅ FilteredDataTable received X items
+3. Click Row → Navigate to Detail (EntitySpecificInstancePage)
+[NAVIGATION] 🚀 Row clicked - navigating to detail page
+[RENDER #1] 🖼️ EntitySpecificInstancePage: office/{id}
+[API FETCH] 📡 useEntityInstance: office/{id}
+[CACHE HIT/MISS] 💾 useEntityInstance: office/{id}
+4. Detail Page Form (EntityFormContainer)
+[RENDER #1] 🖼️ EntityFormContainer {isEditing: false, hasEntityFormContainerMetadata: true}
+[FIELDS] 📋 EntityFormContainer fields computed from BACKEND METADATA {fieldCount: 22}
+5. Click Edit Button
+[EDIT MODE] ✏️ Starting edit mode
+[RENDER #2] 🖼️ EntityFormContainer {isEditing: true}
+6. Typing in Form Fields
+[FIELD CHANGE] ✍️ EntityFormContainer.handleFieldChange {fieldKey: 'descr', valueType: 'string'}
+[FIELD CHANGE] ⏱️ Debounced update for descr (300ms)
+7. Save Changes
+[SAVE] 💾 handleSave called {dirtyFields: ['descr']}
+Color Legend
+Color	Meaning
+🔴 Red #ff6b6b	API Fetch
+🟢 Green #51cf66	Cache HIT / Backend metadata used
+🟡 Yellow #fcc419	Cache MISS / Config fallback
+🔵 Blue #748ffc	EntityListOfInstancesPage render
+🟣 Purple #da77f2	EntitySpecificInstancePage render
+🟢 Green #69db7c	FilteredDataTable render
+🟡 Gold #ffd43b	EntityFormContainer render
+🔵 Cyan #74c0fc	Field change events
+
+
+
+Check the below logs for above interaction, and spot any any issues. \
+Find issuse if any! and list the issues only, don't fix but list the issue and propose solution. Don't fix. Where else might we have such issue? Write them. 
+
+Reference documents: 
 \docs/services/backend-formatter.service.md
 docs/services/entity-infrastructure.service.md\
 
-Find issuse if any! and list the issues only, don't fix but list the issue and propose solution. Don't fix. Where else might we have such issue? Write them. 
+
+
 
 
 

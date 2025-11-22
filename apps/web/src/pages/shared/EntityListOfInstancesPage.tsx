@@ -33,7 +33,21 @@ interface EntityListOfInstancesPageProps {
   defaultView?: ViewMode;
 }
 
+// ============================================================================
+// DEBUG: Render counter for tracking re-renders
+// ============================================================================
+let entityListRenderCount = 0;
+
 export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityListOfInstancesPageProps) {
+  // DEBUG: Track renders
+  entityListRenderCount++;
+  const renderIdRef = React.useRef(entityListRenderCount);
+  console.log(
+    `%c[RENDER #${renderIdRef.current}] 🖼️ EntityListOfInstancesPage: ${entityCode}`,
+    'color: #748ffc; font-weight: bold',
+    { entityCode, defaultView, timestamp: new Date().toLocaleTimeString() }
+  );
+
   const navigate = useNavigate();
   const config = getEntityConfig(entityCode);
   const [view, setView] = useViewMode(entityCode, defaultView);
@@ -118,6 +132,11 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     // Use custom detail page ID field if specified, otherwise default to 'id'
     const idField = config.detailPageIdField || 'id';
     const id = item[idField];
+    console.log(
+      `%c[NAVIGATION] 🚀 Row clicked - navigating to detail page`,
+      'color: #f783ac; font-weight: bold',
+      { entityCode, id, itemName: item.name || item.code, from: 'EntityListOfInstancesPage' }
+    );
     navigate(`/${entityCode}/${id}`);
   }, [config, entityCode, navigate]);
 

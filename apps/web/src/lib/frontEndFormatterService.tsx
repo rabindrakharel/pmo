@@ -44,6 +44,7 @@
 import React from 'react';
 import { Copy, Check } from 'lucide-react';
 import { formatters } from './config/locale';
+import { DebouncedInput, DebouncedTextarea } from '../components/shared/ui/DebouncedInput';
 
 // ============================================================================
 // BACKEND METADATA TYPES
@@ -569,11 +570,13 @@ export function renderEditModeFromMetadata(
     case 'currency':
     case 'number':
       return (
-        <input
+        <DebouncedInput
           type="number"
           step={metadata.inputType === 'currency' ? '0.01' : '1'}
           value={value ?? ''}
-          onChange={(e) => onChange(e.target.value ? parseFloat(e.target.value) : null)}
+          onChange={(val) => onChange(val ? parseFloat(val) : null)}
+          debounceMs={300}
+          onBlurCommit={true}
           required={required}
           disabled={disabled}
           placeholder={metadata.placeholder}
@@ -618,9 +621,11 @@ export function renderEditModeFromMetadata(
 
     case 'textarea':
       return (
-        <textarea
+        <DebouncedTextarea
           value={value ?? ''}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(val) => onChange(val)}
+          debounceMs={300}
+          onBlurCommit={true}
           required={required}
           disabled={disabled}
           placeholder={metadata.placeholder}
@@ -646,10 +651,12 @@ export function renderEditModeFromMetadata(
     case 'text':
     default:
       return (
-        <input
+        <DebouncedInput
           type="text"
           value={value ?? ''}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(val) => onChange(val)}
+          debounceMs={300}
+          onBlurCommit={true}
           required={required}
           disabled={disabled}
           placeholder={metadata.placeholder}

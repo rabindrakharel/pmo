@@ -111,19 +111,21 @@ User Request ──> Route Handler ──> RBAC Check (DELETE permission)
 |-------|---------|------------|
 | `entity` | Entity type metadata | code, name, icon, child_entity_codes |
 | `entity_instance` | Instance registry | entity_code, entity_instance_id, entity_instance_name, code |
-| `entity_instance_link` | Parent-child relationships | entity_code, entity_instance_id, child_entity_code, child_entity_instance_id |
+| `entity_instance_link` | Parent-child relationships | entity_code (parent), entity_instance_id (parent), child_entity_code, child_entity_instance_id |
 | `entity_rbac` | Permissions | person_id, entity_code, entity_instance_id, permission |
 
 ### Permission Levels
 
-| Level | Name | Value | Inherits |
-|-------|------|-------|----------|
-| 0 | VIEW | Read-only access | - |
-| 1 | EDIT | Modify entity | VIEW |
-| 2 | SHARE | Share with others | EDIT, VIEW |
-| 3 | DELETE | Soft delete | SHARE, EDIT, VIEW |
-| 4 | CREATE | Create new (type-level) | - |
-| 5 | OWNER | Full control | All |
+| Level | Name | Description | Inherits |
+|-------|------|-------------|----------|
+| 0 | VIEW | Read access to entity data | - |
+| 1 | COMMENT | Add comments on entities | VIEW |
+| 2 | CONTRIBUTE | Insert data in forms, collaborate on wiki | COMMENT, VIEW |
+| 3 | EDIT | Modify entity fields, descriptions, details | CONTRIBUTE, COMMENT, VIEW |
+| 4 | SHARE | Share entity with others | EDIT, CONTRIBUTE, COMMENT, VIEW |
+| 5 | DELETE | Soft delete entity | SHARE, EDIT, CONTRIBUTE, COMMENT, VIEW |
+| 6 | CREATE | Create new entities (type-level only) | All lower |
+| 7 | OWNER | Full control including permission management | All |
 
 ### Transactional Methods (Primary API)
 
@@ -356,10 +358,10 @@ async update_entity_instance_registry(
 
 // Create parent-child linkage
 async set_entity_instance_link(params: {
-  entity_code: string;              // Parent entity TYPE code
-  entity_instance_id: string;       // Parent entity UUID
+  parent_entity_code: string;       // Parent entity TYPE code
+  parent_entity_id: string;         // Parent entity UUID
   child_entity_code: string;        // Child entity TYPE code
-  child_entity_instance_id: string; // Child entity UUID
+  child_entity_id: string;          // Child entity UUID
   relationship_type?: string;       // Default: 'contains'
 }): Promise<EntityLink>
 ```
@@ -414,11 +416,13 @@ async set_entity_instance_link(params: {
 |----------|-------|---------|
 | `ALL_ENTITIES_ID` | `'11111111-1111-1111-1111-111111111111'` | Type-level permissions |
 | `Permission.VIEW` | 0 | Read access |
-| `Permission.EDIT` | 1 | Modify access |
-| `Permission.SHARE` | 2 | Share access |
-| `Permission.DELETE` | 3 | Delete access |
-| `Permission.CREATE` | 4 | Create access (type-level only) |
-| `Permission.OWNER` | 5 | Full control |
+| `Permission.COMMENT` | 1 | Add comments |
+| `Permission.CONTRIBUTE` | 2 | Insert data, collaborate |
+| `Permission.EDIT` | 3 | Modify entity |
+| `Permission.SHARE` | 4 | Share access |
+| `Permission.DELETE` | 5 | Delete access |
+| `Permission.CREATE` | 6 | Create access (type-level only) |
+| `Permission.OWNER` | 7 | Full control |
 
 ### Migration from Old Pattern
 

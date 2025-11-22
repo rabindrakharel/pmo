@@ -5,6 +5,7 @@ import { DAGVisualizer, type DAGNode } from '../../workflow/DAGVisualizer';
 import { renderEmployeeNames } from '../../../lib/entityConfig';
 import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
 import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
+import { DebouncedInput, DebouncedTextarea } from '../ui/DebouncedInput';
 import {
   formatRelativeTime,
   formatFriendlyDate,
@@ -152,6 +153,11 @@ function renderFieldBadge(fieldKey: string, value: string): React.ReactNode {
  * - Handles field validation
  */
 
+// ============================================================================
+// DEBUG: Render counter for tracking re-renders
+// ============================================================================
+let entityFormContainerRenderCount = 0;
+
 interface EntityFormContainerProps {
   config?: EntityConfig;              // Now optional - can be auto-generated
   data: Record<string, any>;
@@ -209,45 +215,58 @@ interface EntityFormContainerProps {
   requiredFields?: string[];
 }
 
-export function EntityFormContainer({
+// ✅ FIX: Stable default values to prevent new array references on every render
+// These MUST be defined outside the component to maintain referential stability
+const EMPTY_ARRAY: string[] = [];
+const EMPTY_DATALABELS: DatalabelData[] = [];
+
+// ✅ FIX: Wrap with React.memo to prevent re-renders when props haven't changed
+function EntityFormContainerInner({
   config,
   data,
   isEditing,
   onChange,
   mode = 'edit',
   metadata,                     // PRIORITY 1: Backend metadata
-  datalabels = [],              // ✅ NEW: Preloaded datalabel data (eliminates N+1 API calls)
+  datalabels = EMPTY_DATALABELS,  // ✅ Stable default reference
   autoGenerateFields = false,   // FALLBACK: inline pattern detection
   dataTypes,
-  requiredFields = []
+  requiredFields = EMPTY_ARRAY  // ✅ Stable default reference
 }: EntityFormContainerProps) {
-  // ✅ FIX: Add internal debouncing to prevent excessive parent updates
-  const localDataRef = React.useRef<Record<string, any>>({});
-  const updateTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  // DEBUG: Track renders
+  entityFormContainerRenderCount++;
+  const renderIdRef = React.useRef(entityFormContainerRenderCount);
+  console.log(
+    `%c[RENDER #${renderIdRef.current}] 🖼️ EntityFormContainer`,
+    'color: #ffd43b; font-weight: bold',
+    {
+      isEditing,
+      mode,
+      hasMetadata: !!metadata,
+      hasEntityFormContainerMetadata: !!metadata?.entityFormContainer,
+      dataKeys: Object.keys(data || {}),
+      datalabelsCount: datalabels?.length || 0,
+      timestamp: new Date().toLocaleTimeString()
+    }
+  );
 
-  // Sync local data when data prop changes
-  React.useEffect(() => {
-    localDataRef.current = { ...data };
-  }, [data]);
-
-  // Cleanup timeout on unmount
-  React.useEffect(() => {
-    return () => {
-      if (updateTimeoutRef.current) {
-        clearTimeout(updateTimeoutRef.current);
-      }
-    };
-  }, []);
+  // ============================================================================
+  // NOTE: Text input debouncing is handled by DebouncedInput/DebouncedTextarea
+  // components (industry-standard React pattern). No local state needed here.
+  // ============================================================================
   // ============================================================================
   // AUTO-GENERATION: Universal Field Detector Integration
   // ============================================================================
   // Convert FormField to FieldDef format for backward compatibility
 
-  // ✅ FIX: Create stable field keys to prevent infinite loop
-  // Only recompute when actual field names change, not when data values change
+  // ✅ FIX: Create stable field keys - only recompute when actual keys change
+  // Using joined string comparison instead of object reference to prevent
+  // recalculation when only values change (e.g., during typing)
+  const dataKeysString = Object.keys(data || {}).sort().join(',');
   const fieldKeys = useMemo(() => {
-    return Object.keys(data).sort();
-  }, [data]); // Depend on data object itself - React will compare it by reference
+    return Object.keys(data || {}).sort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataKeysString]); // Compare by key string, not by data reference
 
   const fields = useMemo(() => {
     // PRIORITY 1: Backend metadata (v4.0 architecture - component-aware format)
@@ -255,7 +274,7 @@ export function EntityFormContainer({
     const componentMetadata = metadata?.entityFormContainer;
     if (componentMetadata && typeof componentMetadata === 'object') {
       // Convert object format to array of FieldDef
-      return Object.entries(componentMetadata)
+      const result = Object.entries(componentMetadata)
         .filter(([_, fieldMeta]: [string, any]) => fieldMeta.visible !== false)
         .map(([fieldKey, fieldMeta]: [string, any]) => ({
           key: fieldKey,
@@ -269,15 +288,31 @@ export function EntityFormContainer({
           toApi: (value: any) => value,
           toDisplay: (value: any) => value
         } as FieldDef));
+      console.log(
+        `%c[FIELDS] 📋 EntityFormContainer fields computed from BACKEND METADATA`,
+        'color: #51cf66; font-weight: bold',
+        { fieldCount: result.length, fieldKeys: result.map(f => f.key) }
+      );
+      return result;
     }
 
     // PRIORITY 2: Config fields (backward compatibility)
     if (config?.fields && config.fields.length > 0) {
+      console.log(
+        `%c[FIELDS] 📋 EntityFormContainer fields from CONFIG`,
+        'color: #fcc419; font-weight: bold',
+        { fieldCount: config.fields.length }
+      );
       return config.fields;
     }
 
     // PRIORITY 3: Auto-generate if enabled and data exists (FALLBACK)
     if (autoGenerateFields && fieldKeys.length > 0) {
+      console.log(
+        `%c[FIELDS] ⚠️ EntityFormContainer fields AUTO-GENERATED (SLOW PATH)`,
+        'color: #ff6b6b; font-weight: bold',
+        { fieldKeysCount: fieldKeys.length }
+      );
       const generatedConfig = generateFormConfig(fieldKeys, {
         dataTypes,
         requiredFields
@@ -298,31 +333,16 @@ export function EntityFormContainer({
     return [];
   }, [metadata, config, autoGenerateFields, fieldKeys, dataTypes, requiredFields]);
 
-  // ✅ FIX: Debounced onChange handler to prevent excessive updates
+  // Simple onChange handler - debouncing is handled by DebouncedInput/DebouncedTextarea
+  // This is the industry-standard pattern: input components manage their own debouncing
   const handleFieldChange = React.useCallback((fieldKey: string, value: any) => {
-    // Update local ref immediately (no re-render)
-    localDataRef.current = { ...localDataRef.current, [fieldKey]: value };
-
-    // Clear any pending update
-    if (updateTimeoutRef.current) {
-      clearTimeout(updateTimeoutRef.current);
-    }
-
-    // For certain field types that should update immediately (like selects, checkboxes)
-    const immediateUpdateTypes = ['select', 'multiselect', 'checkbox', 'boolean', 'date'];
-    const field = fields.find(f => f.key === fieldKey);
-    const shouldUpdateImmediately = field && immediateUpdateTypes.includes(field.type);
-
-    if (shouldUpdateImmediately) {
-      // Update immediately for select/checkbox type fields
-      onChange(fieldKey, value);
-    } else {
-      // Debounce text input fields
-      updateTimeoutRef.current = setTimeout(() => {
-        onChange(fieldKey, value);
-      }, 300); // 300ms debounce for typing
-    }
-  }, [fields, onChange]);
+    console.log(
+      `%c[FIELD CHANGE] ✍️ EntityFormContainer.handleFieldChange`,
+      'color: #74c0fc',
+      { fieldKey, valueType: typeof value, valuePreview: typeof value === 'string' ? value.substring(0, 50) : value }
+    );
+    onChange(fieldKey, value);
+  }, [onChange]);
 
   // Helper to determine if a field should use DAG visualization
   // All dl__% fields that are stage or funnel fields use DAG visualization
@@ -624,15 +644,18 @@ export function EntityFormContainer({
     }
 
     // Edit mode
+    // Using DebouncedInput/DebouncedTextarea for text inputs (industry-standard pattern)
+    // Each input manages its own local state for instant feedback, then debounces parent updates
     switch (field.type) {
       case 'text':
       case 'email':
       case 'number':
         return (
-          <input
+          <DebouncedInput
             type={field.type}
-            value={value || ''}
-            onChange={(e) => handleFieldChange(field.key, e.target.value)}
+            value={data[field.key] ?? ''}
+            onChange={(value) => handleFieldChange(field.key, value)}
+            debounceMs={300}
             className={`w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-base tracking-tight ${
               field.readonly ? 'cursor-not-allowed text-dark-600' : 'text-dark-600 placeholder:text-dark-600/60 hover:placeholder:text-dark-700/80'
             }`}
@@ -644,9 +667,9 @@ export function EntityFormContainer({
       case 'textarea':
       case 'richtext':
         return (
-          <textarea
-            value={value || ''}
-            onChange={(e) => handleFieldChange(field.key, e.target.value)}
+          <DebouncedTextarea
+            value={data[field.key] ?? ''}
+            onChange={(value) => handleFieldChange(field.key, value)}
             rows={field.type === 'richtext' ? 6 : 4}
             className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 resize-none text-dark-600 placeholder:text-dark-600/60 hover:placeholder:text-dark-700/80 text-base tracking-tight leading-relaxed"
             placeholder={field.placeholder}
@@ -654,17 +677,20 @@ export function EntityFormContainer({
             required={field.required && mode === 'create'}
           />
         );
-      case 'array':
+      case 'array': {
+        const arrayValue = data[field.key];
         return (
-          <input
+          <DebouncedInput
             type="text"
-            value={Array.isArray(value) ? value.join(', ') : ''}
-            onChange={(e) => handleFieldChange(field.key, e.target.value.split(',').map(v => v.trim()).filter(Boolean))}
+            value={Array.isArray(arrayValue) ? arrayValue.join(', ') : (arrayValue || '')}
+            onChange={(value) => handleFieldChange(field.key, value.split(',').map(v => v.trim()).filter(Boolean))}
+            debounceMs={300}
             placeholder={field.placeholder || "Enter comma-separated values"}
             className="w-full border-0 focus:ring-0 focus:outline-none transition-all duration-300 bg-transparent px-0 py-0.5 text-dark-600 placeholder:text-dark-600/60 hover:placeholder:text-dark-700/80 text-base tracking-tight"
             disabled={field.disabled || field.readonly}
           />
         );
+      }
       case 'jsonb':
         // Backend-specified component (explicit from backend)
         if (field.EntityFormContainer_viz_container === 'MetadataTable') {
@@ -909,3 +935,44 @@ export function EntityFormContainer({
     </div>
   );
 }
+
+// ✅ FIX: Custom comparison for React.memo
+// Prevents re-renders when only `data` values change (not keys) during editing
+// The component uses local state for text inputs, so data changes shouldn't trigger re-renders
+function arePropsEqual(
+  prevProps: EntityFormContainerProps,
+  nextProps: EntityFormContainerProps
+): boolean {
+  // If editing state changes, must re-render
+  if (prevProps.isEditing !== nextProps.isEditing) return false;
+  if (prevProps.mode !== nextProps.mode) return false;
+
+  // If metadata changes (structure), must re-render
+  if (prevProps.metadata !== nextProps.metadata) return false;
+
+  // If config changes, must re-render
+  if (prevProps.config !== nextProps.config) return false;
+
+  // If datalabels change, must re-render
+  if (prevProps.datalabels !== nextProps.datalabels) return false;
+
+  // For data: only re-render if KEYS change, not values
+  // (values are handled by local state during editing)
+  const prevKeys = Object.keys(prevProps.data || {}).sort().join(',');
+  const nextKeys = Object.keys(nextProps.data || {}).sort().join(',');
+  if (prevKeys !== nextKeys) return false;
+
+  // If NOT editing, also check if values changed (need to show updated data)
+  if (!nextProps.isEditing) {
+    if (prevProps.data !== nextProps.data) return false;
+  }
+
+  // onChange function reference changes are OK (we capture it in useCallback)
+  // Other props are primitives or stable references
+
+  return true;
+}
+
+// Export memoized component with custom comparison
+// This prevents re-renders during typing while maintaining proper updates
+export const EntityFormContainer = React.memo(EntityFormContainerInner, arePropsEqual);

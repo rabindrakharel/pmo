@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, Outlet, useLocation } from 'react-router-dom';
-import { Edit2, Save, X, Palette, Download, Upload, CheckCircle, Copy, Check, Share2, Link as LinkIcon, Undo2, Redo2 } from 'lucide-react';
+import { Edit2, Save, X, Palette, Download, Share2, Link as LinkIcon, Undo2, Redo2 } from 'lucide-react';
 import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityFormContainer, FilePreview, DragDropFileUpload, MetadataField, MetadataRow, MetadataSeparator } from '../../components/shared';
 import { ExitButton } from '../../components/shared/button/ExitButton';
 import { ShareModal } from '../../components/shared/modal';
@@ -11,14 +11,14 @@ import { TaskDataContainer } from '../../components/entity/task';
 import { FormDataTable, InteractiveForm, FormSubmissionEditor } from '../../components/entity/form';
 import { EmailTemplateRenderer } from '../../components/entity/marketing';
 import { getEntityConfig } from '../../lib/entityConfig';
-import { APIFactory } from '../../lib/api';
-import { formatRelativeTime, formatFriendlyDate, transformForApi, type DatalabelData } from '../../lib/frontEndFormatterService';
+import { formatRelativeTime, formatFriendlyDate } from '../../lib/frontEndFormatterService';
 import { Button } from '../../components/shared/button/Button';
 import { useS3Upload } from '../../lib/hooks/useS3Upload';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../contexts/NavigationHistoryContext';
 import { useEntityInstance, useEntityMutation, useCacheInvalidation } from '../../lib/hooks';
 import { useEntityEditStore } from '../../stores/useEntityEditStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useKeyboardShortcuts, useShortcutHints } from '../../lib/hooks/useKeyboardShortcuts';
 
 /**
@@ -38,8 +38,23 @@ interface EntitySpecificInstancePageProps {
   entityCode: string;
 }
 
+// ============================================================================
+// DEBUG: Render counter for tracking re-renders
+// ============================================================================
+let entityDetailRenderCount = 0;
+
 export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstancePageProps) {
   const { id } = useParams<{ id: string }>();
+
+  // DEBUG: Track renders
+  entityDetailRenderCount++;
+  const renderIdRef = React.useRef(entityDetailRenderCount);
+  console.log(
+    `%c[RENDER #${renderIdRef.current}] 🖼️ EntitySpecificInstancePage: ${entityCode}/${id}`,
+    'color: #da77f2; font-weight: bold',
+    { entityCode, id, timestamp: new Date().toLocaleTimeString() }
+  );
+
   const navigate = useNavigate();
   const location = useLocation();
   const config = getEntityConfig(entityCode);
@@ -72,23 +87,41 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   const { invalidateEntity } = useCacheInvalidation();
 
   // Zustand edit store for field-level tracking
-  // Use individual selectors to prevent unnecessary re-renders
-  const isEditing = useEntityEditStore(state => state.isEditing);
-  const editedData = useEntityEditStore(state => state.currentData);
-  const isSaving = useEntityEditStore(state => state.isSaving);
-  const saveError = useEntityEditStore(state => state.saveError);
-  const dirtyFields = useEntityEditStore(state => state.dirtyFields);
-  // Actions are stable references, can be selected together
-  const startEdit = useEntityEditStore(state => state.startEdit);
-  const updateField = useEntityEditStore(state => state.updateField);
-  const updateMultipleFields = useEntityEditStore(state => state.updateMultipleFields);
-  const storesSaveChanges = useEntityEditStore(state => state.saveChanges);
-  const cancelEdit = useEntityEditStore(state => state.cancelEdit);
-  const hasChanges = useEntityEditStore(state => state.hasChanges);
-  const undo = useEntityEditStore(state => state.undo);
-  const redo = useEntityEditStore(state => state.redo);
-  const canUndo = useEntityEditStore(state => state.canUndo);
-  const canRedo = useEntityEditStore(state => state.canRedo);
+  // ✅ FIX: Use useShallow to combine selectors and prevent excessive re-renders
+  // This reduces re-renders from 16+ to ~3 by batching state selections
+  const {
+    isEditing,
+    currentData: editedData,
+    isSaving,
+    saveError,
+    dirtyFields,
+    startEdit,
+    updateField,
+    updateMultipleFields,
+    saveChanges: storesSaveChanges,
+    cancelEdit,
+    hasChanges,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useEntityEditStore(useShallow(state => ({
+    isEditing: state.isEditing,
+    currentData: state.currentData,
+    isSaving: state.isSaving,
+    saveError: state.saveError,
+    dirtyFields: state.dirtyFields,
+    startEdit: state.startEdit,
+    updateField: state.updateField,
+    updateMultipleFields: state.updateMultipleFields,
+    saveChanges: state.saveChanges,
+    cancelEdit: state.cancelEdit,
+    hasChanges: state.hasChanges,
+    undo: state.undo,
+    redo: state.redo,
+    canUndo: state.canUndo,
+    canRedo: state.canRedo,
+  })));
 
   // Local UI state
   const [formDataRefreshKey, setFormDataRefreshKey] = useState(0);
@@ -287,6 +320,11 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // ============================================================================
 
   const handleSave = async () => {
+    console.log(
+      `%c[SAVE] 💾 handleSave called`,
+      'color: #20c997; font-weight: bold',
+      { entityCode, id, dirtyFields: Array.from(dirtyFields || []), editedData, timestamp: new Date().toLocaleTimeString() }
+    );
     try {
       // Special handling for artifact with new file upload (create new version)
       if (entityCode === 'artifact' && uploadedObjectKey && selectedFile) {
@@ -835,6 +873,11 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                       navigate(`/marketing/${id}/design`);
                     } else {
                       // Start edit mode using Zustand store
+                      console.log(
+                        `%c[EDIT MODE] ✏️ Starting edit mode`,
+                        'color: #ffa94d; font-weight: bold',
+                        { entityCode, id, dataKeys: Object.keys(data || {}), timestamp: new Date().toLocaleTimeString() }
+                      );
                       startEdit(entityCode, id!, data);
                     }
                   }}
