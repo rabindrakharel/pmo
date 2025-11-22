@@ -661,7 +661,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Check for unique project code if provided
+      // Check for unique project code if provided (pre-transaction validation)
       if (data.code) {
         const existingProject = await db.execute(sql`
           SELECT id FROM app.project WHERE code = ${data.code} AND active_flag = true
@@ -671,71 +671,38 @@ export async function projectRoutes(fastify: FastifyInstance) {
         }
       }
 
-      const result = await db.execute(sql`
-        INSERT INTO app.project (
-          code, name, descr, metadata,
-          dl__project_stage,
-          budget_allocated_amt, budget_spent_amt,
-          planned_start_date, planned_end_date, actual_start_date, actual_end_date,
-          manager__employee_id, sponsor__employee_id, stakeholder__employee_ids,
-          active_flag
-        )
-        VALUES (
-          ${data.code || `PROJ-${Date.now()}`},
-          ${data.name || 'Untitled Project'},
-          ${data.descr || null},
-          ${data.metadata ? JSON.stringify(data.metadata) : '{}'}::jsonb,
-          ${data.dl__project_stage || null},
-          ${data.budget_allocated || data.budget_allocated_amt || null},
-          ${data.budget_spent || data.budget_spent_amt || 0},
-          ${data.planned_start_date || null},
-          ${data.planned_end_date || null},
-          ${data.actual_start_date || null},
-          ${data.actual_end_date || null},
-          ${data.manager__employee_id || null},
-          ${data.sponsor__employee_id || null},
-          ${data.stakeholder__employee_ids && data.stakeholder__employee_ids.length > 0 ? `{${data.stakeholder__employee_ids.join(',')}}` : '{}'}::uuid[],
-          ${data.active_flag !== false}
-        )
-        RETURNING *
-      `);
-
-      if (result.length === 0) {
-        return reply.status(500).send({ error: 'Failed to create project' });
-      }
-
-      const newProject = result[0] as any;
-      const projectId = newProject.id;
-
       // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance in registry
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - TRANSACTIONAL CREATE
+      // All 4 steps (INSERT + registry + RBAC + linkage) in ONE transaction
       // ═══════════════════════════════════════════════════════════════
-      await entityInfra.set_entity_instance_registry({
-        entity_type: ENTITY_CODE,
-        entity_id: projectId,
-        entity_name: newProject.name,
-        entity_code: newProject.code
+      const result = await entityInfra.create_entity({
+        entity_code: ENTITY_CODE,
+        creator_id: userId,
+        parent_entity_code: parent_type,
+        parent_entity_id: parent_id,
+        primary_table: 'app.project',
+        primary_data: {
+          code: data.code || `PROJ-${Date.now()}`,
+          name: data.name || 'Untitled Project',
+          descr: data.descr || null,
+          metadata: data.metadata ? JSON.stringify(data.metadata) : '{}',
+          dl__project_stage: data.dl__project_stage || null,
+          budget_allocated_amt: data.budget_allocated || data.budget_allocated_amt || null,
+          budget_spent_amt: data.budget_spent || data.budget_spent_amt || 0,
+          planned_start_date: data.planned_start_date || null,
+          planned_end_date: data.planned_end_date || null,
+          actual_start_date: data.actual_start_date || null,
+          actual_end_date: data.actual_end_date || null,
+          manager__employee_id: data.manager__employee_id || null,
+          sponsor__employee_id: data.sponsor__employee_id || null,
+          stakeholder__employee_ids: data.stakeholder__employee_ids && data.stakeholder__employee_ids.length > 0
+            ? `{${data.stakeholder__employee_ids.join(',')}}`
+            : '{}',
+          active_flag: data.active_flag !== false
+        }
       });
 
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - Grant ownership to creator
-      // ═══════════════════════════════════════════════════════════════
-      await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, projectId);
-
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ ENTITY INFRASTRUCTURE SERVICE - Link to parent (if provided)
-      // ═══════════════════════════════════════════════════════════════
-      if (parent_type && parent_id) {
-        await entityInfra.set_entity_instance_link({
-          parent_entity_type: parent_type,
-          parent_entity_id: parent_id,
-          child_entity_type: ENTITY_CODE,
-          child_entity_id: projectId,
-          relationship_type: 'contains'
-        });
-      }
-
-      return reply.status(201).send(newProject);
+      return reply.status(201).send(result.entity);
     } catch (error) {
       fastify.log.error('Error creating project:', error as any);
       return reply.status(500).send({ error: 'Internal server error' });

@@ -40,7 +40,7 @@
  */
 
 import { sql, SQL } from 'drizzle-orm';
-import type { DB } from '@/db/index.js';
+import type { Database } from '@/db/index.js';
 import { client } from '@/db/index.js';
 import { getRedisClient } from '@/lib/redis.js';
 import type Redis from 'ioredis';
@@ -99,7 +99,7 @@ export interface DeleteEntityOptions {
   cascade_delete_children?: boolean;  // Delete child entities recursively
   remove_rbac_entries?: boolean;      // Remove permission entries
   skip_rbac_check?: boolean;          // Skip permission validation
-  primary_table_callback?: (db: DB, entity_id: string) => Promise<void>;
+  primary_table_callback?: (db: Database, entity_id: string) => Promise<void>;
 }
 
 export interface DeleteEntityResult {
@@ -154,12 +154,12 @@ export const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111';
 // ============================================================================
 
 export class EntityInfrastructureService {
-  private db: DB;
+  private db: Database;
   private redis: Redis;
   private CACHE_TTL = 300; // 5 minutes in seconds (Redis uses seconds for TTL)
   private CACHE_PREFIX = 'entity:metadata:'; // Redis key prefix
 
-  constructor(db: DB) {
+  constructor(db: Database) {
     this.db = db;
     this.redis = getRedisClient();
   }
@@ -1411,19 +1411,19 @@ export class EntityInfrastructureService {
    *
    * @example
    * const result = await entityInfra.create_entity({
-   *   entity_type: 'project',
+   *   entity_code: 'project',
    *   creator_id: userId,
-   *   parent_entity_type: parent_type,
+   *   parent_entity_code: parent_code,
    *   parent_entity_id: parent_id,
-   *   primary_table: 'app.d_project',
+   *   primary_table: 'app.project',
    *   primary_data: { name, code, descr, budget_allocated_amt }
    * });
    * // Returns: { entity: insertedRow, entity_instance, rbac_granted, link_created }
    */
   async create_entity<T extends Record<string, any> = Record<string, any>>(params: {
-    entity_type: string;
+    entity_code: string;
     creator_id: string;
-    parent_entity_type?: string;
+    parent_entity_code?: string;
     parent_entity_id?: string;
     relationship_type?: string;
     primary_table: string;
@@ -1438,9 +1438,9 @@ export class EntityInfrastructureService {
     link?: EntityLink;
   }> {
     const {
-      entity_type,
+      entity_code,
       creator_id,
-      parent_entity_type,
+      parent_entity_code,
       parent_entity_id,
       relationship_type = 'contains',
       primary_table,
@@ -1463,17 +1463,17 @@ export class EntityInfrastructureService {
         `INSERT INTO ${primary_table} (${columnsStr}) VALUES (${placeholders}) RETURNING *`,
         values
       );
-      const entity = primaryResult[0] as T & { id: string };
+      const entity = primaryResult[0] as unknown as T & { id: string };
 
       const entity_id = entity.id;
       const entity_name = String((entity as any)[name_field] || '');
-      const entity_code = (entity as any)[code_field] || null;
+      const instance_code = (entity as any)[code_field] || null;
 
       // Step 4: Register in entity_instance
       const registryResult = await tx`
         INSERT INTO app.entity_instance
         (entity_code, entity_instance_id, entity_instance_name, code)
-        VALUES (${entity_type}, ${entity_id}, ${entity_name}, ${entity_code})
+        VALUES (${entity_code}, ${entity_id}, ${entity_name}, ${instance_code})
         RETURNING *
       `;
       const entity_instance = registryResult[0] as EntityInstance;
@@ -1482,18 +1482,18 @@ export class EntityInfrastructureService {
       await tx`
         INSERT INTO app.entity_rbac
         (person_code, person_id, entity_code, entity_instance_id, permission)
-        VALUES ('employee', ${creator_id}::uuid, ${entity_type}, ${entity_id}::uuid, ${Permission.OWNER})
+        VALUES ('employee', ${creator_id}::uuid, ${entity_code}, ${entity_id}::uuid, ${Permission.OWNER})
         ON CONFLICT (person_code, person_id, entity_code, entity_instance_id)
         DO UPDATE SET permission = GREATEST(app.entity_rbac.permission, EXCLUDED.permission)
       `;
 
       // Step 6: Link to parent (if provided)
       let link: EntityLink | undefined;
-      if (parent_entity_type && parent_entity_id) {
+      if (parent_entity_code && parent_entity_id) {
         const linkResult = await tx`
           INSERT INTO app.entity_instance_link
           (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
-          VALUES (${parent_entity_type}, ${parent_entity_id}, ${entity_type}, ${entity_id}, ${relationship_type})
+          VALUES (${parent_entity_code}, ${parent_entity_id}, ${entity_code}, ${entity_id}, ${relationship_type})
           RETURNING *
         `;
         link = linkResult[0] as EntityLink;
@@ -1588,7 +1588,7 @@ let serviceInstance: EntityInfrastructureService | null = null;
  * const entityInfra = getEntityInfrastructure(db);
  * await entityInfra.registerInstance({...});
  */
-export function getEntityInfrastructure(db: DB): EntityInfrastructureService {
+export function getEntityInfrastructure(db: Database): EntityInfrastructureService {
   if (!serviceInstance) {
     serviceInstance = new EntityInfrastructureService(db);
   }
