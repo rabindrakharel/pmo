@@ -111,8 +111,6 @@ const WorksiteWithMetadataSchema = Type.Object({
   data: WorksiteSchema,
   fields: Type.Array(Type.String()),  // Field names list
   metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-  datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields (not optional!)
-  globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
 });
 
 // ============================================================================
@@ -144,8 +142,6 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
           data: Type.Array(WorksiteSchema),
           fields: Type.Array(Type.String()),
           metadata: Type.Any(),
-          datalabels: Type.Array(Type.Any()),
-          globalSettings: Type.Any(),
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number(),
@@ -224,8 +220,6 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
         data: response.data,
         fields: response.fields,
         metadata: response.metadata,
-        datalabels: response.datalabels,
-        globalSettings: response.globalSettings,
         total,
         limit,
         offset
@@ -280,8 +274,6 @@ export async function worksiteRoutes(fastify: FastifyInstance) {
         data: response.data[0],
         fields: response.fields,
         metadata: response.metadata,
-        datalabels: response.datalabels,
-        globalSettings: response.globalSettings
       };
     } catch (error) {
       fastify.log.error('Error fetching worksite:', error as any);

@@ -204,8 +204,6 @@ const ProjectWithMetadataSchema = Type.Object({
   data: ProjectSchema,
   fields: Type.Array(Type.String()),  // Field names list
   metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-  datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields (not optional!)
-  globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
 });
 
 const CreateProjectSchema = Type.Object({
@@ -261,8 +259,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
           data: Type.Array(ProjectSchema),
           fields: Type.Array(Type.String()),
           metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-          datalabels: Type.Array(Type.Any()),  // DatalabelData[] - always an array (empty if no datalabels)
-          globalSettings: Type.Any(),  // GlobalSettings - currency, date, timestamp formatting
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number(),
@@ -584,8 +580,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
         data: response.data[0],  // Single object, not array
         fields: response.fields,
         metadata: response.metadata,
-        datalabels: response.datalabels,
-        globalSettings: response.globalSettings
       });
     } catch (error) {
       fastify.log.error('Error fetching project:', error as any);

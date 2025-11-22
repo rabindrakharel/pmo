@@ -86,8 +86,6 @@ const FormWithMetadataSchema = Type.Object({
   data: FormSchema,
   fields: Type.Array(Type.String()),  // Field names list
   metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-  datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields
-  globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
 });
 
 // ============================================================================
@@ -119,8 +117,6 @@ export async function formRoutes(fastify: FastifyInstance) {
           data: Type.Array(FormSchema),
           fields: Type.Array(Type.String()),
           metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-          datalabels: Type.Array(Type.Any()),  // DatalabelData[] - always an array (empty if no datalabels)
-          globalSettings: Type.Any(),  // GlobalSettings - currency, date, timestamp formatting
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number()}),
@@ -441,8 +437,6 @@ export async function formRoutes(fastify: FastifyInstance) {
         data: response.data[0],  // Single object, not array
         fields: response.fields,
         metadata: response.metadata,
-        datalabels: response.datalabels,
-        globalSettings: response.globalSettings
       });
     } catch (error) {
       fastify.log.error('Error fetching form: ' + String(error));

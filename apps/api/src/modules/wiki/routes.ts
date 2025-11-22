@@ -78,8 +78,6 @@ const WikiWithMetadataSchema = Type.Object({
   data: WikiSchema,
   fields: Type.Array(Type.String()),  // Field names list
   metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-  datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields (not optional!)
-  globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
 });
 
 // ============================================================================
@@ -110,8 +108,6 @@ export async function wikiRoutes(fastify: FastifyInstance) {
           data: Type.Array(WikiSchema),
           fields: Type.Array(Type.String()),
           metadata: Type.Any(),
-          datalabels: Type.Array(Type.Any()),
-          globalSettings: Type.Any(),
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number(),
@@ -219,8 +215,6 @@ export async function wikiRoutes(fastify: FastifyInstance) {
         data: metadataResponse.data,
         fields: metadataResponse.fields,
         metadata: metadataResponse.metadata,
-        datalabels: metadataResponse.datalabels,
-        globalSettings: metadataResponse.globalSettings,
         total,
         limit,
         offset
@@ -335,8 +329,6 @@ export async function wikiRoutes(fastify: FastifyInstance) {
         data: response.data[0],
         fields: response.fields,
         metadata: response.metadata,
-        datalabels: response.datalabels,
-        globalSettings: response.globalSettings
       };
     } catch (e) {
       fastify.log.error('Error get wiki: ' + String(e));

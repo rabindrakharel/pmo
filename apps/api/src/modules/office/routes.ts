@@ -94,12 +94,11 @@ const OfficeSchema = Type.Object({
 });
 
 // Response schema for metadata-driven endpoints (single entity)
+// Note: datalabels and globalSettings are fetched via dedicated endpoints
 const OfficeWithMetadataSchema = Type.Object({
   data: OfficeSchema,
   fields: Type.Array(Type.String()),  // Field names list
   metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-  datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields (not optional!)
-  globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
 });
 
 const CreateOfficeSchema = Type.Object({
@@ -155,8 +154,6 @@ export async function officeRoutes(fastify: FastifyInstance) {
           data: Type.Array(OfficeSchema),
           fields: Type.Array(Type.String()),
           metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-          datalabels: Type.Array(Type.Any()),  // DatalabelData[] - always an array (empty if no datalabels)
-          globalSettings: Type.Any(),  // GlobalSettings - currency, date, timestamp formatting
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number(),
@@ -320,8 +317,6 @@ export async function officeRoutes(fastify: FastifyInstance) {
         data: filterUniversalColumns(office[0], userPermissions),
         fields: response.fields,
         metadata: response.metadata,
-        datalabels: response.datalabels,
-        globalSettings: response.globalSettings
       };
     } catch (error) {
       fastify.log.error('Error fetching office:', error as any);

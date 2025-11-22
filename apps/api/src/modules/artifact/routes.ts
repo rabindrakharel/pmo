@@ -125,8 +125,6 @@ const ArtifactWithMetadataSchema = Type.Object({
   data: ArtifactSchema,
   fields: Type.Array(Type.String()),  // Field names list
   metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-  datalabels: Type.Array(Type.Any()),  // DatalabelData[] - options for dl__* fields
-  globalSettings: Type.Any()  // GlobalSettings - currency, date, timestamp formatting
 });
 
 // ============================================================================
@@ -160,8 +158,6 @@ export async function artifactRoutes(fastify: FastifyInstance) {
           data: Type.Array(ArtifactSchema),
           fields: Type.Array(Type.String()),
           metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-          datalabels: Type.Array(Type.Any()),  // DatalabelData[] - always an array (empty if no datalabels)
-          globalSettings: Type.Any(),  // GlobalSettings - currency, date, timestamp formatting
           total: Type.Integer(),
           limit: Type.Integer(),
           offset: Type.Integer()})}}}, async (request, reply) => {
@@ -336,8 +332,6 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         data: response.data[0],  // Single object, not array
         fields: response.fields,
         metadata: response.metadata,
-        datalabels: response.datalabels,
-        globalSettings: response.globalSettings
       });
     } catch (error) {
       fastify.log.error('Error getting artifact:', error as any);

@@ -142,8 +142,6 @@ const ExpenseWithMetadataSchema = Type.Object({
   data: ExpenseSchema,
   fields: Type.Array(Type.String()),
   metadata: Type.Any(),
-  datalabels: Type.Array(Type.Any()),
-  globalSettings: Type.Any()
 });
 
 // ============================================================================
@@ -190,8 +188,6 @@ export async function expenseRoutes(fastify: FastifyInstance) {
           data: Type.Array(ExpenseSchema),
           fields: Type.Array(Type.String()),
           metadata: Type.Any(),
-          datalabels: Type.Array(Type.Any()),
-          globalSettings: Type.Any(),
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number()
@@ -281,8 +277,6 @@ export async function expenseRoutes(fastify: FastifyInstance) {
         data: response.data,
         fields: response.fields,
         metadata: response.metadata,
-        datalabels: response.datalabels,
-        globalSettings: response.globalSettings,
         total,
         limit,
         offset
@@ -355,8 +349,6 @@ export async function expenseRoutes(fastify: FastifyInstance) {
         data: response.data[0],
         fields: response.fields,
         metadata: response.metadata,
-        datalabels: response.datalabels,
-        globalSettings: response.globalSettings
       });
     } catch (error) {
       fastify.log.error('Error fetching expense:', error as any);
