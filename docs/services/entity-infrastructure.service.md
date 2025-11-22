@@ -1,14 +1,14 @@
 # Entity Infrastructure Service
 
-**Version:** 4.0.0 | **Location:** `apps/api/src/services/entity-infrastructure.service.ts`
+**Version:** 5.0.0 | **Location:** `apps/api/src/services/entity-infrastructure.service.ts`
 
 ---
 
 ## Semantics
 
-The Entity Infrastructure Service provides centralized management of the 4 infrastructure tables that support all entities. It follows an **Add-On Helper Pattern** where routes maintain 100% ownership of their primary table queries while the service handles infrastructure operations.
+The Entity Infrastructure Service provides **transactional CRUD operations** and centralized management of the 4 infrastructure tables that support all entities. All multi-step operations are wrapped in database transactions to ensure atomicity.
 
-**Core Principle:** Routes OWN their queries. Service provides infrastructure add-ons only.
+**Core Principle:** All infrastructure operations (CREATE, UPDATE, DELETE) execute in a single transaction. If ANY step fails, ALL changes roll back.
 
 ---
 
@@ -17,7 +17,7 @@ The Entity Infrastructure Service provides centralized management of the 4 infra
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                    ENTITY INFRASTRUCTURE SERVICE                         │
-│                     (Add-On Helper Pattern)                              │
+│                     (Transactional CRUD Pattern)                         │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
@@ -30,10 +30,11 @@ The Entity Infrastructure Service provides centralized management of the 4 infra
 │         │                │                 │                │            │
 │         v                v                 v                v            │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    Service Methods                               │    │
-│  │  check_entity_rbac() │ set_entity_instance_registry()           │    │
-│  │  set_entity_rbac_owner() │ set_entity_instance_link()           │    │
-│  │  get_entity_rbac_where_condition() │ delete_all_infrastructure()│    │
+│  │               Transactional Service Methods                      │    │
+│  │  ┌───────────────┐ ┌───────────────┐ ┌───────────────┐          │    │
+│  │  │ create_entity │ │ update_entity │ │ delete_entity │          │    │
+│  │  │ (4 ops in 1)  │ │ (2 ops in 1)  │ │ (4 ops in 1)  │          │    │
+│  │  └───────────────┘ └───────────────┘ └───────────────┘          │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                              │                                          │
 └──────────────────────────────│──────────────────────────────────────────┘
@@ -41,11 +42,12 @@ The Entity Infrastructure Service provides centralized management of the 4 infra
                                v
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                         ROUTE HANDLERS                                   │
-│              (Own Their Primary Table Queries)                           │
+│              (Call Transactional Methods)                                │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  Route builds custom queries: SELECT, INSERT, UPDATE, DELETE            │
-│  Route adds RBAC filtering via service helper                           │
-│  Route calls service for infrastructure operations                      │
+│  POST   → create_entity()   (INSERT + registry + RBAC + link)           │
+│  PATCH  → update_entity()   (UPDATE + registry sync)                    │
+│  DELETE → delete_entity()   (DELETE + registry + links + RBAC)          │
+│  GET    → check_entity_rbac() + get_entity_rbac_where_condition()       │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -54,37 +56,49 @@ The Entity Infrastructure Service provides centralized management of the 4 infra
 ## Data Flow Diagram
 
 ```
-CREATE Operation Flow
-─────────────────────
+CREATE Operation Flow (Transactional)
+─────────────────────────────────────
 
 User Request ──> Route Handler ──> RBAC Check (CREATE permission)
                       │
                       v
-              INSERT into d_{entity}  ← Route OWNS this query
+              RBAC Check (EDIT parent if linking)
                       │
                       v
-              set_entity_instance_registry()  ← Service helper
-                      │
-                      v
-              set_entity_rbac_owner()  ← Service helper
-                      │
-                      v
-              set_entity_instance_link() (if parent)  ← Service helper
+              ┌─────────────────────────────────────┐
+              │     create_entity() TRANSACTION     │
+              │  ┌─────────────────────────────┐   │
+              │  │ 1. INSERT into primary table │   │
+              │  │ 2. INSERT into entity_instance│   │
+              │  │ 3. INSERT OWNER permission   │   │
+              │  │ 4. INSERT link (if parent)   │   │
+              │  └─────────────────────────────┘   │
+              │  If ANY fails → ROLLBACK ALL       │
+              └─────────────────────────────────────┘
                       │
                       v
               Return created entity
 
 
-LIST Operation Flow
-───────────────────
+DELETE Operation Flow (Transactional)
+─────────────────────────────────────
 
-User Request ──> Route Handler ──> get_entity_rbac_where_condition()
+User Request ──> Route Handler ──> RBAC Check (DELETE permission)
                       │
                       v
-              SELECT with RBAC WHERE  ← Route OWNS this query
+              ┌─────────────────────────────────────┐
+              │     delete_entity() TRANSACTION     │
+              │  ┌─────────────────────────────┐   │
+              │  │ 1. DELETE/deactivate primary │   │
+              │  │ 2. DELETE from entity_instance│  │
+              │  │ 3. DELETE from entity_links  │   │
+              │  │ 4. DELETE from entity_rbac   │   │
+              │  └─────────────────────────────┘   │
+              │  If ANY fails → ROLLBACK ALL       │
+              └─────────────────────────────────────┘
                       │
                       v
-              Return filtered results
+              Return success result
 ```
 
 ---
@@ -96,9 +110,9 @@ User Request ──> Route Handler ──> get_entity_rbac_where_condition()
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
 | `entity` | Entity type metadata | code, name, icon, child_entity_codes |
-| `entity_instance` | Instance registry | entity_code, entity_id, entity_instance_name |
-| `entity_instance_link` | Parent-child relationships | parent_entity_type, parent_entity_id, child_entity_type, child_entity_id |
-| `entity_rbac` | Permissions | employee_id, entity_type, entity_id, permission |
+| `entity_instance` | Instance registry | entity_code, entity_instance_id, entity_instance_name, code |
+| `entity_instance_link` | Parent-child relationships | entity_code, entity_instance_id, child_entity_code, child_entity_instance_id |
+| `entity_rbac` | Permissions | person_id, entity_code, entity_instance_id, permission |
 
 ### Permission Levels
 
@@ -111,17 +125,22 @@ User Request ──> Route Handler ──> get_entity_rbac_where_condition()
 | 4 | CREATE | Create new (type-level) | - |
 | 5 | OWNER | Full control | All |
 
-### Service Methods
+### Transactional Methods (Primary API)
 
-| Method | Purpose | Returns |
-|--------|---------|---------|
-| `check_entity_rbac()` | Check if user has permission | boolean |
-| `set_entity_instance_registry()` | Register instance in global registry | void |
-| `update_entity_instance_registry()` | Sync registry when name/code changes | void |
-| `set_entity_rbac_owner()` | Grant OWNER permission to creator | void |
-| `set_entity_instance_link()` | Create parent-child linkage (idempotent) | void |
-| `get_entity_rbac_where_condition()` | Get SQL WHERE fragment for RBAC filtering | SQL fragment |
-| `delete_all_entity_infrastructure()` | Orchestrate complete entity deletion | void |
+| Method | Purpose | Operations in Transaction |
+|--------|---------|---------------------------|
+| `create_entity()` | Create entity with all infrastructure | INSERT primary + registry + RBAC + link |
+| `update_entity()` | Update entity with registry sync | UPDATE primary + registry sync |
+| `delete_entity()` | Delete entity with cleanup | DELETE/deactivate + registry + links + RBAC |
+
+### Helper Methods (For Edge Cases)
+
+| Method | Purpose | Use Case |
+|--------|---------|----------|
+| `check_entity_rbac()` | Check permission | All operations |
+| `get_entity_rbac_where_condition()` | RBAC SQL fragment | LIST queries |
+| `set_entity_instance_link()` | Manual linkage | Linkage API |
+| `get_dynamic_child_entity_tabs()` | Get child tabs | Detail pages |
 
 ---
 
@@ -136,38 +155,182 @@ const ENTITY_CODE = 'project';
 const entityInfra = getEntityInfrastructure(db);
 ```
 
-### 6-Step CREATE Pattern
+### CREATE Pattern (Transactional)
 
-| Step | Action | Service Method |
-|------|--------|----------------|
-| 1 | RBAC Check - Can user CREATE? | `check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE)` |
-| 2 | RBAC Check - Can user EDIT parent? | `check_entity_rbac(userId, parent_code, parent_id, Permission.EDIT)` |
-| 3 | INSERT into primary table | Route owns this query |
-| 4 | Register in entity_instance | `set_entity_instance_registry()` |
-| 5 | Grant OWNER to creator | `set_entity_rbac_owner()` |
-| 6 | Link to parent | `set_entity_instance_link()` |
+```typescript
+fastify.post('/api/v1/project', async (request, reply) => {
+  const userId = request.user.sub;
+  const { parent_code, parent_id } = request.query;
+  const data = request.body;
 
-### 3-Step UPDATE Pattern
+  // Step 1: RBAC Check - Can user CREATE?
+  const canCreate = await entityInfra.check_entity_rbac(
+    userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE
+  );
+  if (!canCreate) return reply.status(403).send({ error: 'Forbidden' });
 
-| Step | Action | Service Method |
-|------|--------|----------------|
-| 1 | RBAC Check - Can user EDIT? | `check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT)` |
-| 2 | UPDATE primary table | Route owns this query |
-| 3 | Sync registry if name/code changed | `update_entity_instance_registry()` |
+  // Step 2: RBAC Check - Can user EDIT parent? (if linking)
+  if (parent_code && parent_id) {
+    const canEditParent = await entityInfra.check_entity_rbac(
+      userId, parent_code, parent_id, Permission.EDIT
+    );
+    if (!canEditParent) return reply.status(403).send({ error: 'Forbidden' });
+  }
+
+  // Step 3: Transactional CREATE (all 4 ops in ONE transaction)
+  const result = await entityInfra.create_entity({
+    entity_code: ENTITY_CODE,
+    creator_id: userId,
+    parent_entity_code: parent_code,
+    parent_entity_id: parent_id,
+    primary_table: 'app.project',
+    primary_data: {
+      code: data.code,
+      name: data.name,
+      descr: data.descr,
+      budget_allocated_amt: data.budget_allocated_amt
+    }
+  });
+
+  return reply.status(201).send(result.entity);
+});
+```
+
+### UPDATE Pattern (Transactional)
+
+```typescript
+fastify.patch('/api/v1/project/:id', async (request, reply) => {
+  const userId = request.user.sub;
+  const { id } = request.params;
+  const updates = request.body;
+
+  // Step 1: RBAC Check - Can user EDIT?
+  const canEdit = await entityInfra.check_entity_rbac(
+    userId, ENTITY_CODE, id, Permission.EDIT
+  );
+  if (!canEdit) return reply.status(403).send({ error: 'Forbidden' });
+
+  // Step 2: Transactional UPDATE (UPDATE + registry sync in ONE transaction)
+  const result = await entityInfra.update_entity({
+    entity_code: ENTITY_CODE,
+    entity_id: id,
+    primary_table: 'app.project',
+    primary_updates: updates
+  });
+
+  return reply.send(result.entity);
+});
+```
+
+### DELETE Pattern (Transactional)
+
+```typescript
+// Using entity-delete-route-factory (recommended)
+createEntityDeleteEndpoint(fastify, 'project');
+
+// Or manual implementation:
+fastify.delete('/api/v1/project/:id', async (request, reply) => {
+  const userId = request.user.sub;
+  const { id } = request.params;
+
+  // Transactional DELETE (all 4 ops in ONE transaction)
+  const result = await entityInfra.delete_entity({
+    entity_code: ENTITY_CODE,
+    entity_id: id,
+    user_id: userId,
+    primary_table: 'app.project',
+    hard_delete: false  // soft delete (active_flag = false)
+  });
+
+  return reply.send(result);
+});
+```
 
 ### LIST with RBAC Pattern
 
 ```typescript
-const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
-  userId, ENTITY_CODE, Permission.VIEW, 'e'
-);
+fastify.get('/api/v1/project', async (request, reply) => {
+  const userId = request.user.sub;
 
-const query = sql`
-  SELECT e.* FROM app.d_project e
-  WHERE ${rbacCondition}
-    AND e.active_flag = true
-  ORDER BY e.created_ts DESC
-`;
+  // Get RBAC WHERE condition
+  const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
+    userId, ENTITY_CODE, Permission.VIEW, 'e'
+  );
+
+  // Route owns the query structure
+  const projects = await db.execute(sql`
+    SELECT e.*, b.name as business_name
+    FROM app.project e
+    LEFT JOIN app.business b ON e.business_id = b.id
+    WHERE ${rbacCondition}
+      AND e.active_flag = true
+    ORDER BY e.created_ts DESC
+    LIMIT ${limit} OFFSET ${offset}
+  `);
+
+  return reply.send({ data: projects });
+});
+```
+
+---
+
+## Method Signatures
+
+### create_entity()
+
+```typescript
+async create_entity<T>(params: {
+  entity_code: string;           // e.g., 'project'
+  creator_id: string;            // User UUID
+  parent_entity_code?: string;   // Parent type (if linking)
+  parent_entity_id?: string;     // Parent UUID (if linking)
+  relationship_type?: string;    // Default: 'contains'
+  primary_table: string;         // e.g., 'app.project'
+  primary_data: T;               // Data to insert
+  name_field?: string;           // Default: 'name'
+  code_field?: string;           // Default: 'code'
+}): Promise<{
+  entity: T & { id: string };
+  entity_instance: EntityInstance;
+  rbac_granted: boolean;
+  link_created: boolean;
+  link?: EntityLink;
+}>
+```
+
+### update_entity()
+
+```typescript
+async update_entity<T>(params: {
+  entity_code: string;           // e.g., 'project'
+  entity_id: string;             // Entity UUID
+  primary_table: string;         // e.g., 'app.project'
+  primary_updates: Partial<T>;   // Fields to update
+  name_field?: string;           // Default: 'name'
+  code_field?: string;           // Default: 'code'
+}): Promise<{
+  entity: T & { id: string };
+  registry_synced: boolean;
+}>
+```
+
+### delete_entity()
+
+```typescript
+async delete_entity(params: {
+  entity_code: string;           // e.g., 'project'
+  entity_id: string;             // Entity UUID
+  user_id: string;               // User UUID (for RBAC check)
+  primary_table: string;         // e.g., 'app.project'
+  hard_delete?: boolean;         // Default: false (soft delete)
+  skip_rbac_check?: boolean;     // Default: false
+}): Promise<{
+  success: boolean;
+  entity_deleted: boolean;
+  registry_deleted: boolean;
+  linkages_deleted: number;
+  rbac_entries_deleted: number;
+}>
 ```
 
 ---
@@ -178,123 +341,20 @@ const query = sql`
 
 | Primary Table | entity_instance | entity_instance_link | entity_rbac |
 |---------------|-----------------|----------------------|-------------|
-| d_project | Registered on create | Links to office, business | Permissions per user |
-| d_task | Registered on create | Links to project | Permissions per user |
-| d_employee | Registered on create | Links to office, role | Permissions per user |
-| d_artifact | Registered on create | Links to project, task | Permissions per user |
+| project | Registered on create | Links to office, business | Permissions per user |
+| task | Registered on create | Links to project | Permissions per user |
+| employee | Registered on create | Links to office, role | Permissions per user |
+| artifact | Registered on create | Links to project, task | Permissions per user |
 
 ### API Endpoints Using Service
 
-| Endpoint | Service Methods Used |
-|----------|----------------------|
-| `POST /api/v1/{entity}` | check_entity_rbac, set_entity_instance_registry, set_entity_rbac_owner, set_entity_instance_link |
-| `PATCH /api/v1/{entity}/:id` | check_entity_rbac, update_entity_instance_registry |
-| `DELETE /api/v1/{entity}/:id` | check_entity_rbac, delete_all_entity_infrastructure |
-| `GET /api/v1/{entity}` | get_entity_rbac_where_condition |
-| `GET /api/v1/{parent}/:id/{child}` | get_entity_rbac_where_condition (for both parent and child) |
-
-### Integration with Backend Formatter Service
-
-The Entity Infrastructure Service works alongside the **Backend Formatter Service** to generate API responses:
-
-1. **Entity Infrastructure Service** - Handles RBAC, instance registry, and relationships
-2. **Backend Formatter Service** - Generates metadata and formats response
-
-**Complete API Response Pattern:**
-
-```typescript
-// In route handler
-const rbacCondition = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, 'e');
-const entities = await db.execute(sql`SELECT * FROM app.d_project e WHERE ${rbacCondition}`);
-
-// Generate formatted response with metadata
-const response = generateEntityResponse(ENTITY_CODE, entities, {
-  components: ['entityDataTable', 'entityFormContainer'],
-  total, limit, offset
-});
-
-// Fetch datalabels for dropdown fields
-const datalabelKeys = extractDatalabelKeys(response.metadata);
-if (datalabelKeys.length > 0) {
-  response.datalabels = await fetchDatalabels(db, datalabelKeys);
-}
-
-return response;
-```
-
-**Response Structure:**
-```json
-{
-  "data": [...],           // Entity instances
-  "fields": [...],         // Field names list
-  "metadata": {            // Component-keyed field metadata
-    "entityDataTable": { ... },
-    "entityFormContainer": { ... }
-  },
-  "datalabels": [...],     // Dropdown options for dl__* fields
-  "globalSettings": {...}, // Global formatting (currency, date, etc.)
-  "total": 100,
-  "limit": 20,
-  "offset": 0
-}
-```
-
-> **See:** `docs/services/backend-formatter.service.md` for complete API response documentation
-
----
-
-## User Interaction Flow
-
-```
-CREATE Entity Flow
-──────────────────
-
-1. User clicks "Create Project" button
-   │
-2. Frontend sends POST /api/v1/project
-   │
-3. Route Handler:
-   ├── Step 1: check_entity_rbac(userId, 'project', ALL_ENTITIES_ID, CREATE)
-   │   └── If false → 403 Forbidden
-   │
-   ├── Step 2: If parent_code provided:
-   │   └── check_entity_rbac(userId, parent_code, parent_id, EDIT)
-   │       └── If false → 403 Forbidden
-   │
-   ├── Step 3: INSERT INTO app.d_project (route owns query)
-   │
-   ├── Step 4: set_entity_instance_registry()
-   │   └── Registers in entity_instance table
-   │
-   ├── Step 5: set_entity_rbac_owner(userId, 'project', project.id)
-   │   └── Creator gets OWNER permission
-   │
-   └── Step 6: If parent provided:
-       └── set_entity_instance_link()
-           └── Creates parent-child relationship
-   │
-4. Return 201 Created with project data
-
-
-DELETE Entity Flow
-──────────────────
-
-1. User clicks "Delete" button
-   │
-2. Frontend sends DELETE /api/v1/project/:id
-   │
-3. Route Handler (via factory):
-   ├── check_entity_rbac(userId, 'project', id, DELETE)
-   │   └── If false → 403 Forbidden
-   │
-   └── delete_all_entity_infrastructure('project', id)
-       ├── Soft delete d_project (active_flag = false)
-       ├── Remove from entity_instance
-       ├── Remove entity_instance_links (as parent and child)
-       └── Remove entity_rbac entries
-   │
-4. Return 200 OK
-```
+| Endpoint | Service Method |
+|----------|----------------|
+| `POST /api/v1/{entity}` | `create_entity()` |
+| `PATCH /api/v1/{entity}/:id` | `update_entity()` |
+| `DELETE /api/v1/{entity}/:id` | `delete_entity()` |
+| `GET /api/v1/{entity}` | `get_entity_rbac_where_condition()` |
+| `GET /api/v1/{parent}/:id/{child}` | `get_entity_rbac_where_condition()` |
 
 ---
 
@@ -302,31 +362,20 @@ DELETE Entity Flow
 
 ### Design Principles
 
-1. **Add-On Pattern** - Service enhances routes, doesn't control them
-2. **Route Ownership** - Routes own all primary table queries
-3. **Idempotent Operations** - set_entity_instance_link is idempotent
+1. **Transactional Safety** - All multi-step operations in one transaction
+2. **No Orphan Records** - If any step fails, all changes roll back
+3. **Consistent Naming** - `entity_code` matches data model column names
 4. **No Foreign Keys** - All relationships via entity_instance_link
 5. **Hard Delete Links** - entity_instance_link uses hard delete (no active_flag)
 
-### What Routes Own vs Service Provides
+### Naming Convention
 
-| Routes Own | Service Provides |
-|------------|------------------|
-| SELECT queries with JOINs, filters | RBAC WHERE conditions |
-| INSERT with business columns | Instance registry operations |
-| UPDATE with business logic | Linkage operations |
-| Custom aggregations | Permission grants |
-| Response formatting | Infrastructure cleanup |
-
-### Anti-Patterns
-
-| Anti-Pattern | Correct Approach |
-|--------------|------------------|
-| Service builds route queries | Routes build their own queries |
-| Service dictates query structure | Service provides helpers only |
-| Foreign keys between entities | Use entity_instance_link |
-| Direct entity_rbac manipulation | Use service methods |
-| Skipping instance registry | Always register new entities |
+| Parameter | Meaning | Example |
+|-----------|---------|---------|
+| `entity_code` | Entity TYPE code | 'project', 'task', 'employee' |
+| `entity_id` | Entity instance UUID | 'uuid-here' |
+| `parent_entity_code` | Parent entity TYPE | 'business', 'office' |
+| `child_entity_code` | Child entity TYPE | 'task', 'artifact' |
 
 ### Special Constants
 
@@ -340,72 +389,14 @@ DELETE Entity Flow
 | `Permission.CREATE` | 4 | Create access (type-level only) |
 | `Permission.OWNER` | 5 | Full control |
 
----
+### Migration from Old Pattern
 
-## Frontend Integration
-
-### End-to-End Data Flow
-
-The Entity Infrastructure Service works with Backend Formatter Service to generate API responses that populate frontend Zustand stores:
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           BACKEND                                        │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  Entity Infrastructure Service        Backend Formatter Service          │
-│  ┌─────────────────────────┐         ┌─────────────────────────┐        │
-│  │ • RBAC checks           │         │ • Metadata generation   │        │
-│  │ • Instance registry     │         │ • Pattern detection     │        │
-│  │ • Link management       │         │ • Datalabel fetching    │        │
-│  └───────────┬─────────────┘         └───────────┬─────────────┘        │
-│              │                                   │                       │
-│              └───────────────┬───────────────────┘                       │
-│                              v                                           │
-│                    ┌─────────────────────┐                               │
-│                    │   API Response      │                               │
-│                    │ { data, metadata,   │                               │
-│                    │   datalabels, ... } │                               │
-│                    └──────────┬──────────┘                               │
-└───────────────────────────────│──────────────────────────────────────────┘
-                                │
-                                v
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           FRONTEND                                       │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    Zustand Stores (7 total)                      │    │
-│  ├─────────────────────────────────────────────────────────────────┤    │
-│  │  SESSION-LEVEL (30 min TTL, refresh on login):                   │    │
-│  │  • globalSettingsMetadataStore  ← globalSettings                 │    │
-│  │  • datalabelMetadataStore       ← datalabels                     │    │
-│  │  • entityCodeMetadataStore      ← /api/v1/entity/codes           │    │
-│  ├─────────────────────────────────────────────────────────────────┤    │
-│  │  URL-BOUND (5 min TTL, invalidate on URL change):                │    │
-│  │  • entityComponentMetadataStore ← metadata (from entity response)│    │
-│  │  • EntityListOfInstancesDataStore  ← data (list)                    │    │
-│  │  • EntitySpecificInstanceDataStore      ← data (single) + optimistic     │    │
-│  ├─────────────────────────────────────────────────────────────────┤    │
-│  │  OTHER:                                                          │    │
-│  │  • useEntityEditStore           ← edit state, dirty tracking     │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### Store Responsibilities
-
-| Backend Service | Data Produced | Frontend Store | Cache Type |
-|-----------------|---------------|----------------|------------|
-| Entity Infrastructure | RBAC-filtered entities | `EntityListOfInstancesDataStore`, `EntitySpecificInstanceDataStore` | URL-bound (5 min) |
-| Backend Formatter | Field metadata | `entityComponentMetadataStore` | URL-bound (5 min) |
-| Backend Formatter | Datalabel options | `datalabelMetadataStore` | Session (30 min, login) |
-| Backend Formatter | Global settings | `globalSettingsMetadataStore` | Session (30 min, login) |
-| `/api/v1/entity/codes` | Entity codes | `entityCodeMetadataStore` | Session (30 min, login) |
-
-> **See:** `docs/state_management/zustand-integration-guide.md` for complete frontend store documentation
+| Old Pattern | New Pattern |
+|-------------|-------------|
+| Direct INSERT + set_entity_instance_registry() + set_entity_rbac_owner() + set_entity_instance_link() | `create_entity()` |
+| Direct UPDATE + update_entity_instance_registry() | `update_entity()` |
+| delete_all_entity_infrastructure() | `delete_entity()` |
 
 ---
 
-**Last Updated:** 2025-11-21 | **Status:** Production Ready
+**Last Updated:** 2025-11-22 | **Status:** Production Ready

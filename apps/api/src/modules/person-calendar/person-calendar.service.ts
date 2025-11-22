@@ -276,9 +276,9 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
     // Link event → customer
     if (customerId) {
       entityLinks.push({
-        parent_entity_type: 'event',
+        parent_entity_code: 'event',
         parent_entity_id: eventId,
-        child_entity_type: 'customer',
+        child_entity_code: 'customer',
         child_entity_id: customerId
       });
     }
@@ -286,9 +286,9 @@ export async function createPersonCalendar(request: CreatePersonCalendarRequest)
     // Link event → project (if applicable)
     if (projectId) {
       entityLinks.push({
-        parent_entity_type: 'event',
+        parent_entity_code: 'event',
         parent_entity_id: eventId,
-        child_entity_type: 'project',
+        child_entity_code: 'project',
         child_entity_id: projectId
       });
     }

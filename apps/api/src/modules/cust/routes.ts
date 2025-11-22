@@ -472,7 +472,7 @@ export async function custRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Register instance in registry
       // ═══════════════════════════════════════════════════════════════
       await entityInfra.set_entity_instance_registry({
-        entity_type: ENTITY_CODE,
+        entity_code: ENTITY_CODE,
         entity_id: custId,
         entity_name: newCustomer.name,
         entity_code: newCustomer.code
@@ -488,9 +488,9 @@ export async function custRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       if (parent_type && parent_id) {
         await entityInfra.set_entity_instance_link({
-          parent_entity_type: parent_type,
+          parent_entity_code: parent_type,
           parent_entity_id: parent_id,
-          child_entity_type: ENTITY_CODE,
+          child_entity_code: ENTITY_CODE,
           child_entity_id: custId,
           relationship_type: 'contains'
         });

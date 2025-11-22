@@ -444,8 +444,8 @@ export async function linkageRoutes(fastify: FastifyInstance) {
         childEntities.forEach((childCode) => {
           typeLinkages.push({
             id: `${parentType}-${childCode}`,
-            parent_entity_type: parentType,
-            child_entity_type: childCode,
+            parent_entity_code: parentType,
+            child_entity_code: childCode,
             active_flag: true,
             from_ts: new Date().toISOString(),
             created_ts: new Date().toISOString(),
