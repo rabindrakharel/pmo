@@ -99,7 +99,7 @@
 --    • Endpoint: PUT /api/v1/cust/{id}
 --    • Body: {opportunity_funnel_stage_name: "Qualified"}
 --    • Database: UPDATE SET opportunity_funnel_stage_name=$1, updated_ts=now(), version=version+1 WHERE id=$2
---    • Business Rule: dl__customer_opportunity_funnel loads from app.setting_datalabel (datalabel_name='opportunity__funnel_stage')
+--    • Business Rule: dl__customer_opportunity_funnel loads from app.datalabel (datalabel_name='opportunity__funnel_stage')
 --
 -- 9. APP USER SIGNUP (New User Registration)
 --    • Endpoint: POST /api/v1/auth/customer/signup
@@ -137,13 +137,13 @@
 -- • cust_type: Sector classification ('residential', 'commercial', 'municipal', 'industrial')
 -- • cust_status: Account status ('active', 'inactive', 'prospect', 'former')
 -- • dl__customer_opportunity_funnel: Sales pipeline stage (Lead, Qualified, Proposal, Closed Won)
---   - Loaded from app.setting_datalabel table (datalabel_name='opportunity__funnel_stage') via GET /api/v1/setting?category=opportunity__funnel_stage
+--   - Loaded from app.datalabel table (datalabel_name='opportunity__funnel_stage') via GET /api/v1/datalabel?name=opportunity__funnel_stage
 -- • dl__customer_tier: Service tier ('Bronze', 'Silver', 'Gold', 'Platinum')
---   - Loaded from app.setting_datalabel table (datalabel_name='customer__tier') via GET /api/v1/setting?category=customer__tier
+--   - Loaded from app.datalabel table (datalabel_name='customer__tier') via GET /api/v1/datalabel?name=customer__tier
 -- • dl__customer_industry_sector: Industry classification (Residential, Commercial, Industrial, Government)
---   - Loaded from app.setting_datalabel table (datalabel_name='industry__sector') via GET /api/v1/setting?category=industry__sector
+--   - Loaded from app.datalabel table (datalabel_name='industry__sector') via GET /api/v1/datalabel?name=industry__sector
 -- • dl__customer_acquisition_channel: How client was acquired (Referral, Organic Search, Direct, Partnership)
---   - Loaded from app.setting_datalabel table (datalabel_name='acquisition__channel') via GET /api/v1/setting?category=acquisition__channel
+--   - Loaded from app.datalabel table (datalabel_name='acquisition__channel') via GET /api/v1/datalabel?name=acquisition__channel
 -- • primary_contact_name, primary_email, primary_phone: Main contact details
 -- • metadata: JSONB field storing lifetime_value, annual_contract_value, service_categories, payment_terms
 --
@@ -198,10 +198,10 @@ CREATE TABLE app.cust (
   business_number text,
 
   -- Sales and Marketing
-  dl__customer_opportunity_funnel text,  -- References app.setting_datalabel (datalabel_name='dl__customer_opportunity_funnel')
-  dl__customer_industry_sector text,     -- References app.setting_datalabel (datalabel_name='dl__customer_industry_sector')
-  dl__customer_acquisition_channel text, -- References app.setting_datalabel (datalabel_name='dl__customer_acquisition_channel')
-  dl__customer_tier text,                -- References app.setting_datalabel (datalabel_name='dl__customer_tier')
+  dl__customer_opportunity_funnel text,  -- References app.datalabel (datalabel_name='dl__customer_opportunity_funnel')
+  dl__customer_industry_sector text,     -- References app.datalabel (datalabel_name='dl__customer_industry_sector')
+  dl__customer_acquisition_channel text, -- References app.datalabel (datalabel_name='dl__customer_acquisition_channel')
+  dl__customer_tier text,                -- References app.datalabel (datalabel_name='dl__customer_tier')
 
 
   -- Contact information

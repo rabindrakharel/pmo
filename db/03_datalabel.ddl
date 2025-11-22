@@ -1,5 +1,5 @@
 -- ============================================================================
--- UNIFIED SETTING DATA LABEL TABLE
+-- UNIFIED DATA LABEL TABLE
 -- ============================================================================
 --
 -- SEMANTICS:
@@ -25,12 +25,12 @@
 -- • Other: dl__industry_sector, dl__acquisition_channel
 --
 -- API INTEGRATION:
--- • GET /api/v1/setting?category=dl__task_stage
+-- • GET /api/v1/datalabel?name=dl__task_stage
 -- • Frontend: loadOptionsFromSettings('dl__task_stage')
 -- • Auto-populated dropdowns, badge rendering with color_code
 --
 
-CREATE TABLE app.setting_datalabel (
+CREATE TABLE app.datalabel (
     datalabel_name VARCHAR(100),
     entity_code VARCHAR(50), -- Entity type extracted from datalabel_name (e.g., 'task', 'project', 'employee')
     ui_label VARCHAR(100),
@@ -47,7 +47,7 @@ CREATE TABLE app.setting_datalabel (
 -- ============================================================================
 
 -- Task Labels
-INSERT INTO app.setting_datalabel (datalabel_name, entity_code, ui_label, ui_icon, metadata) VALUES
+INSERT INTO app.datalabel (datalabel_name, entity_code, ui_label, ui_icon, metadata) VALUES
 ('dl__task_stage', 'task', 'Task Stages', 'Target', '[
   {"id": 0, "name": "Backlog", "descr": "Tasks in backlog, not yet started", "parent_ids": [], "entity_name": "task", "terminal_flag": false, "color_code": "gray"},
   {"id": 1, "name": "Planning", "descr": "Tasks in planning phase", "parent_ids": [0], "entity_name": "task", "terminal_flag": false, "color_code": "purple"},
@@ -608,10 +608,10 @@ INSERT INTO app.setting_datalabel (datalabel_name, entity_code, ui_label, ui_ico
   {"id": 9819, "name": "9819 - Other Expenses", "descr": "Miscellaneous business expenses", "parent_ids": [], "color_code": "gray"}
 ]'::jsonb);
 
-COMMENT ON TABLE app.setting_datalabel IS 'Unified data label table for all entity labels (stages, statuses, priorities, etc.)';
-COMMENT ON COLUMN app.setting_datalabel.datalabel_name IS 'Format: dl__{entity}_{labelname} (e.g., dl__task_stage, dl__project_stage) - matches database column names exactly';
-COMMENT ON COLUMN app.setting_datalabel.entity_code IS 'Entity type code extracted from datalabel_name (e.g., task, project, employee) - enables efficient querying by entity type';
-COMMENT ON COLUMN app.setting_datalabel.ui_label IS 'UI display label for settings page (e.g., "Project Stages", "Task Priorities")';
-COMMENT ON COLUMN app.setting_datalabel.ui_icon IS 'Lucide icon name for UI display (e.g., "GitBranch", "Target", "TrendingUp")';
-COMMENT ON COLUMN app.setting_datalabel.metadata IS 'JSONB array of label definitions: [{id, name, descr, parent_id, color_code}, ...]';
-COMMENT ON COLUMN app.setting_datalabel.updated_ts IS 'Last modification timestamp';
+COMMENT ON TABLE app.datalabel IS 'Unified data label table for all entity labels (stages, statuses, priorities, etc.)';
+COMMENT ON COLUMN app.datalabel.datalabel_name IS 'Format: dl__{entity}_{labelname} (e.g., dl__task_stage, dl__project_stage) - matches database column names exactly';
+COMMENT ON COLUMN app.datalabel.entity_code IS 'Entity type code extracted from datalabel_name (e.g., task, project, employee) - enables efficient querying by entity type';
+COMMENT ON COLUMN app.datalabel.ui_label IS 'UI display label for settings page (e.g., "Project Stages", "Task Priorities")';
+COMMENT ON COLUMN app.datalabel.ui_icon IS 'Lucide icon name for UI display (e.g., "GitBranch", "Target", "TrendingUp")';
+COMMENT ON COLUMN app.datalabel.metadata IS 'JSONB array of label definitions: [{id, name, descr, parent_id, color_code}, ...]';
+COMMENT ON COLUMN app.datalabel.updated_ts IS 'Last modification timestamp';

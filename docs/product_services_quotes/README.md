@@ -115,7 +115,7 @@ Scheduled (0) → Dispatched (1) → In Progress (2) → On Hold (3) → Complet
 │    • d_entity_instance_registry (Global entity registry)             │
 │                                                                  │
 │  Settings:                                                       │
-│    • setting_datalabel (dl__quote_stage, dl__work_order_status)│
+│    • datalabel (dl__quote_stage, dl__work_order_status)│
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -284,7 +284,7 @@ CREATE TABLE app.fact_quote (
     descr text,
 
     -- Workflow
-    dl__quote_stage text,  -- References setting_datalabel
+    dl__quote_stage text,  -- References datalabel
 
     -- CRITICAL: Line items stored as JSONB (NO linker tables)
     quote_items jsonb DEFAULT '[]'::jsonb,
@@ -796,7 +796,7 @@ execute_sql "$DB_PATH/fact_work_order.ddl" "Work order fact table (service deliv
 
 ### 5. Settings Configuration
 
-**File:** `db/setting_datalabel.ddl`
+**File:** `db/datalabel.ddl`
 
 **Added:**
 
@@ -1149,7 +1149,7 @@ createChildEntityEndpoint(fastify, 'quote', 'work_order', 'fact_work_order');
 
 **Order:**
 ```
-1. setting_datalabel (defines dl__quote_stage, dl__work_order_status)
+1. datalabel (defines dl__quote_stage, dl__work_order_status)
 2. d_service (dimension)
 3. d_product (dimension)
 4. fact_quote (references services/products via JSONB)

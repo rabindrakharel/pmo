@@ -107,13 +107,19 @@ WHERE w.primary_entity_id IS NOT NULL
   AND w.primary_entity_code IS NOT NULL
   AND w.active_flag = true;
 
--- Parent → Form relationships (using primary_entity_code and primary_entity_id)
+-- Task → Form relationships (explicit linkages, no FK columns on form_head)
+-- Forms are linked to parent tasks via entity_instance_link only
 INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
-SELECT f.primary_entity_code, f.primary_entity_id, 'form', f.id, 'uses'
-FROM app.form_head f
-WHERE f.primary_entity_id IS NOT NULL
-  AND f.primary_entity_code IS NOT NULL
-  AND f.active_flag = true;
+VALUES
+  -- Landscaping Service Request Form → Fall Campaign Marketing Strategy task
+  ('task', 'b1111111-1111-1111-1111-111111111111', 'form', 'ee8a6cfd-9d31-4705-b8f3-ad2d5589802c', 'uses'),
+  -- PMO Vendor Evaluation Scorecard → PMO Software Vendor Evaluation task
+  ('task', 'a2222222-2222-2222-2222-222222222222', 'form', 'ff8a7dfe-0e42-5816-c9g4-be3e6690913d', 'uses'),
+  -- Customer Service Feedback Survey → Customer Service Process Optimization task
+  ('task', 'e1111111-1111-1111-1111-111111111111', 'form', '11111111-aaaa-bbbb-cccc-dddddddddddd', 'uses'),
+  -- HVAC Site Assessment Checklist → Smart HVAC Market Research task
+  ('task', 'c1111111-1111-1111-1111-111111111111', 'form', '22222222-aaaa-bbbb-cccc-dddddddddddd', 'uses')
+ON CONFLICT DO NOTHING;
 
 -- Task → Employee relationships (Task Assignees)
 -- All tasks assigned to James Miller

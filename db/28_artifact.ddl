@@ -35,14 +35,14 @@ CREATE TABLE app.artifact (
 
     -- Artifact-specific fields
     attachment_id uuid, -- Link to app.attachment (no FK for loose coupling)
-    dl__artifact_type text, -- References app.setting_datalabel (datalabel_name='dl__artifact_type')
+    dl__artifact_type text, -- References app.datalabel (datalabel_name='dl__artifact_type')
     attachment_format text,
     attachment_size_bytes bigint,
     attachment_object_bucket text,
     attachment_object_key text,
     attachment text,
     visibility text,
-    dl__artifact_security_classification text, -- References app.setting_datalabel (datalabel_name='dl__artifact_security_classification')
+    dl__artifact_security_classification text, -- References app.datalabel (datalabel_name='dl__artifact_security_classification')
     latest_version_flag boolean DEFAULT true
 );
 

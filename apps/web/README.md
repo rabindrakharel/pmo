@@ -197,7 +197,7 @@ export const entityConfigs: Record<string, EntityConfig> = {
       {
         key: 'project_stage',
         title: 'Stage',
-        loadOptionsFromSettings: true,  // Auto-loads from app.setting_datalabel table
+        loadOptionsFromSettings: true,  // Auto-loads from app.datalabel table
         inlineEditable: true,            // Enable inline editing
         render: (value, record) => renderBadge(record.project_stage_name, colorMap)
       }
@@ -299,7 +299,7 @@ export function getEntityIcon(entityType: string): LucideIcon {
 }
 
 // 2. Settings loader maps field to category
-'project_stage' → 'projectStage' → '/api/v1/setting?category=projectStage'
+'project_stage' → 'projectStage' → '/api/v1/datalabel?name=projectStage'
 
 // 3. API returns setting data
 [

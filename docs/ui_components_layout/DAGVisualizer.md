@@ -28,7 +28,7 @@ The DAG (Directed Acyclic Graph) Visualizer provides a visual representation of 
 │                              v                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
 │  │                    Settings API                                  │    │
-│  │  GET /api/v1/setting?datalabel=dl__project_stage                │    │
+│  │  GET /api/v1/datalabel?name=dl__project_stage                │    │
 │  │  Returns: [ { name, color_code, position }, ... ]               │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                              │                                          │
@@ -58,7 +58,7 @@ Stage Data Flow
 Database Column                Settings Table                DAG Visualizer
 ───────────────                ──────────────                ──────────────
 
-dl__project_stage     →        setting_datalabel     →       Visual Progress
+dl__project_stage     →        datalabel     →       Visual Progress
   = "execution"                 datalabel_name:               Path
                                 'dl__project_stage'
                                                               ●──●──●──○──○
@@ -120,7 +120,7 @@ dl__project_stage     →        setting_datalabel     →       Visual Progress
 
 ```sql
 -- Settings table entry
-INSERT INTO app.setting_datalabel (
+INSERT INTO app.datalabel (
   datalabel_name, ui_label, metadata
 ) VALUES (
   'dl__project_stage',
@@ -238,7 +238,7 @@ Stage Update Flow
 ### Design Principles
 
 1. **Convention-Based** - `dl__*_stage` pattern triggers DAG
-2. **Settings-Driven** - Stages from `setting_datalabel` table
+2. **Settings-Driven** - Stages from `datalabel` table
 3. **Zero Config** - No frontend configuration needed
 4. **Color Consistency** - Colors from database, not hardcoded
 

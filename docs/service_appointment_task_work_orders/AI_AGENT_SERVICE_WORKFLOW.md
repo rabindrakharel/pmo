@@ -75,7 +75,7 @@ Customer Chat → AI Agent → Customer Lookup → Problem Understanding
 | **Task Service** | Create and manage service tasks | `/api/v1/task` |
 | **Employee Matcher** | Find qualified available employees | `/api/v1/employee`, `/api/v1/employee/:id/availability` |
 | **Event Service** | Create events and book calendar slots | `/api/v1/event`, `/api/v1/calendar` |
-| **Service Catalog** | Available services and categories | `/api/v1/service`, `/api/v1/setting?datalabel=dl__service_category` |
+| **Service Catalog** | Available services and categories | `/api/v1/service`, `/api/v1/datalabel?name=dl__service_category` |
 
 ---
 
@@ -189,7 +189,7 @@ The AI agent uses conversational AI to extract key information:
 
 **API Endpoint:**
 ```http
-GET /api/v1/setting?datalabel=dl__service_category
+GET /api/v1/datalabel?name=dl__service_category
 Authorization: Bearer <token>
 ```
 
@@ -684,7 +684,7 @@ Content-Type: application/json
 
 #### 5. Get Service Categories
 ```http
-GET /api/v1/setting?datalabel=dl__service_category
+GET /api/v1/datalabel?name=dl__service_category
 Authorization: Bearer <token>
 ```
 

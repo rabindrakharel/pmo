@@ -103,7 +103,7 @@ apps/api/src/
 - `GET /api/v1/schema/columns/:table` - Get table columns
 
 **setting** - Settings/configuration API (NEW - replaces meta)
-- `GET /api/v1/setting?category=<name>` - Get settings by category
+- `GET /api/v1/datalabel?name=<name>` - Get settings by category
 - 16 settings categories: `projectStage`, `taskStage`, `customerTier`, etc.
 
 **meta** - Legacy metadata API (DEPRECATED - use setting instead)
@@ -301,7 +301,7 @@ export const db = drizzle(pool);
 ### Database Schema
 
 **Total:** 39 DDL files
-- **16 Setting Tables** (`setting_datalabel_*`)
+- **16 Setting Tables** (`datalabel_*`)
 - **13 Core Entity Tables** (`d_*`)
 - **3 Relationship Tables** (`d_entity_instance_link`, `d_entity_rbac`, `rel_emp_role`)
 - **7 Additional Tables** (`d_entity`, `d_form_data`, etc.)

@@ -69,9 +69,10 @@ CREATE TABLE app.form_head (
 -- DATA CURATION:
 -- =====================================================
 
--- Landscaping Form
+-- Landscaping Form (linked to Fall Campaign Marketing Strategy task via entity_instance_link)
 INSERT INTO app.form_head (
     id,
+    code,
     name,
     descr,
     internal_url,
@@ -82,8 +83,9 @@ INSERT INTO app.form_head (
     active_flag
 ) VALUES (
     'ee8a6cfd-9d31-4705-b8f3-ad2d5589802c',
-    'Landscapingform',
-    'Landscapping form',
+    'FORM-LAND-001',
+    'Landscaping Service Request Form',
+    'Customer intake form for landscaping service requests - captures property details, service preferences, and scheduling',
     '/form/ee8a6cfd-9d31-4705-b8f3-ad2d5589802c',
     '/form/aB3xK9mZ',
     'multi_step',
@@ -92,42 +94,25 @@ INSERT INTO app.form_head (
             {
                 "id": "step-1",
                 "name": "step_1",
-                "title": "General Information",
-                "description": "",
+                "title": "Customer Information",
+                "description": "Basic contact and property details",
                 "fields": [
-                    {
-                        "name": "text_1760648879230",
-                        "label": "Text Input",
-                        "type": "text",
-                        "required": false
-                    },
-                    {
-                        "name": "email_1760648881366",
-                        "label": "Email",
-                        "type": "email",
-                        "required": false
-                    }
+                    {"name": "customer_name", "label": "Customer Name", "type": "text", "required": true},
+                    {"name": "email", "label": "Email Address", "type": "email", "required": true},
+                    {"name": "phone", "label": "Phone Number", "type": "text", "required": false},
+                    {"name": "property_address", "label": "Property Address", "type": "textarea", "required": true}
                 ]
             },
             {
-                "id": "step-1760648883781",
+                "id": "step-2",
                 "name": "step_2",
-                "title": "Step 2",
-                "description": "",
+                "title": "Service Details",
+                "description": "Landscaping service preferences",
                 "fields": [
-                    {
-                        "name": "datatable_1760648887217",
-                        "label": "Data Table",
-                        "type": "datatable",
-                        "required": false,
-                        "dataTableName": "table_1760648887217",
-                        "dataTableColumns": [
-                            {"name": "col1", "label": "Columnaa"},
-                            {"name": "col2", "label": "COLB"},
-                            {"name": "col3", "label": "COLC"}
-                        ],
-                        "dataTableDefaultRows": 1
-                    }
+                    {"name": "service_type", "label": "Service Type", "type": "select", "required": true, "options": ["Fall Cleanup", "Winterization", "Spring Prep", "Full Season"]},
+                    {"name": "property_size", "label": "Property Size (sq ft)", "type": "number", "required": false},
+                    {"name": "preferred_date", "label": "Preferred Service Date", "type": "date", "required": false},
+                    {"name": "special_requests", "label": "Special Requests", "type": "textarea", "required": false}
                 ]
             }
         ],
@@ -143,3 +128,164 @@ INSERT INTO app.form_head (
     form_type = EXCLUDED.form_type,
     form_schema = EXCLUDED.form_schema,
     updated_ts = now();
+
+-- PMO Vendor Evaluation Form (linked to PMO Software Vendor Evaluation task via entity_instance_link)
+INSERT INTO app.form_head (
+    id,
+    code,
+    name,
+    descr,
+    internal_url,
+    shared_url,
+    form_type,
+    form_schema,
+    version,
+    active_flag
+) VALUES (
+    'ff8a7dfe-0e42-5816-c9g4-be3e6690913d',
+    'FORM-PMO-001',
+    'PMO Vendor Evaluation Scorecard',
+    'Standardized evaluation form for scoring PMO software vendors on functionality, integration, cost, and implementation',
+    '/form/ff8a7dfe-0e42-5816-c9g4-be3e6690913d',
+    '/form/cD4yL2nR',
+    'multi_step',
+    '{
+        "steps": [
+            {
+                "id": "step-1",
+                "name": "step_1",
+                "title": "Vendor Information",
+                "description": "Basic vendor details",
+                "fields": [
+                    {"name": "vendor_name", "label": "Vendor Name", "type": "text", "required": true},
+                    {"name": "product_name", "label": "Product Name", "type": "text", "required": true},
+                    {"name": "evaluator", "label": "Evaluator Name", "type": "text", "required": true},
+                    {"name": "eval_date", "label": "Evaluation Date", "type": "date", "required": true}
+                ]
+            },
+            {
+                "id": "step-2",
+                "name": "step_2",
+                "title": "Scoring",
+                "description": "Score each criteria (1-10)",
+                "fields": [
+                    {"name": "functionality_score", "label": "Functionality Score (1-10)", "type": "number", "required": true},
+                    {"name": "integration_score", "label": "Integration Score (1-10)", "type": "number", "required": true},
+                    {"name": "cost_score", "label": "Cost Score (1-10)", "type": "number", "required": true},
+                    {"name": "implementation_score", "label": "Implementation Score (1-10)", "type": "number", "required": true},
+                    {"name": "recommendation", "label": "Recommendation", "type": "select", "options": ["Strongly Recommend", "Recommend", "Neutral", "Not Recommended"]}
+                ]
+            }
+        ],
+        "currentStepIndex": 0
+    }'::jsonb,
+    1,
+    true
+);
+
+-- Customer Service Feedback Form (linked to Customer Service Process Optimization task via entity_instance_link)
+INSERT INTO app.form_head (
+    id,
+    code,
+    name,
+    descr,
+    internal_url,
+    shared_url,
+    form_type,
+    form_schema,
+    version,
+    active_flag
+) VALUES (
+    '11111111-aaaa-bbbb-cccc-dddddddddddd',
+    'FORM-CSE-001',
+    'Customer Service Feedback Survey',
+    'Post-service feedback form to measure customer satisfaction and identify improvement areas',
+    '/form/11111111-aaaa-bbbb-cccc-dddddddddddd',
+    '/form/eF5zM3pQ',
+    'multi_step',
+    '{
+        "steps": [
+            {
+                "id": "step-1",
+                "name": "step_1",
+                "title": "Service Information",
+                "description": "Details about the service received",
+                "fields": [
+                    {"name": "service_date", "label": "Service Date", "type": "date", "required": true},
+                    {"name": "service_type", "label": "Service Type", "type": "select", "options": ["HVAC", "Landscaping", "Property Maintenance", "Other"]},
+                    {"name": "technician_name", "label": "Technician Name", "type": "text", "required": false}
+                ]
+            },
+            {
+                "id": "step-2",
+                "name": "step_2",
+                "title": "Satisfaction Rating",
+                "description": "Rate your experience",
+                "fields": [
+                    {"name": "overall_satisfaction", "label": "Overall Satisfaction (1-5)", "type": "number", "required": true},
+                    {"name": "response_time_rating", "label": "Response Time Rating (1-5)", "type": "number", "required": true},
+                    {"name": "quality_rating", "label": "Service Quality Rating (1-5)", "type": "number", "required": true},
+                    {"name": "would_recommend", "label": "Would Recommend", "type": "select", "options": ["Yes", "No", "Maybe"]},
+                    {"name": "comments", "label": "Additional Comments", "type": "textarea", "required": false}
+                ]
+            }
+        ],
+        "currentStepIndex": 0
+    }'::jsonb,
+    1,
+    true
+);
+
+-- HVAC Site Assessment Form (linked to Smart HVAC Market Research task via entity_instance_link)
+INSERT INTO app.form_head (
+    id,
+    code,
+    name,
+    descr,
+    internal_url,
+    shared_url,
+    form_type,
+    form_schema,
+    version,
+    active_flag
+) VALUES (
+    '22222222-aaaa-bbbb-cccc-dddddddddddd',
+    'FORM-HVAC-001',
+    'HVAC Site Assessment Checklist',
+    'On-site assessment form for evaluating HVAC system requirements and modernization opportunities',
+    '/form/22222222-aaaa-bbbb-cccc-dddddddddddd',
+    '/form/gH6aN4rS',
+    'multi_step',
+    '{
+        "steps": [
+            {
+                "id": "step-1",
+                "name": "step_1",
+                "title": "Site Information",
+                "description": "Basic site and building details",
+                "fields": [
+                    {"name": "site_address", "label": "Site Address", "type": "textarea", "required": true},
+                    {"name": "building_type", "label": "Building Type", "type": "select", "options": ["Residential", "Commercial", "Industrial"]},
+                    {"name": "building_size", "label": "Building Size (sq ft)", "type": "number", "required": true},
+                    {"name": "year_built", "label": "Year Built", "type": "number", "required": false}
+                ]
+            },
+            {
+                "id": "step-2",
+                "name": "step_2",
+                "title": "Current System",
+                "description": "Existing HVAC system details",
+                "fields": [
+                    {"name": "current_system_type", "label": "Current System Type", "type": "text", "required": true},
+                    {"name": "system_age", "label": "System Age (years)", "type": "number", "required": false},
+                    {"name": "smart_thermostat", "label": "Has Smart Thermostat", "type": "select", "options": ["Yes", "No"]},
+                    {"name": "modernization_interest", "label": "Modernization Interest Level", "type": "select", "options": ["High", "Medium", "Low"]},
+                    {"name": "notes", "label": "Assessment Notes", "type": "textarea", "required": false}
+                ]
+            }
+        ],
+        "currentStepIndex": 0
+    }'::jsonb,
+    1,
+    true
+);

@@ -6,7 +6,7 @@
 
 ## Semantics
 
-The Kanban system provides a standardized, settings-driven board view for any entity with kanban configuration. All columns are loaded from the unified settings table (`setting_datalabel`) with **no hardcoded fallbacks**.
+The Kanban system provides a standardized, settings-driven board view for any entity with kanban configuration. All columns are loaded from the unified settings table (`datalabel`) with **no hardcoded fallbacks**.
 
 **Core Principle:** Settings-driven columns. DRY architecture. No fallbacks - fail explicitly if misconfigured.
 
@@ -27,7 +27,7 @@ The Kanban system provides a standardized, settings-driven board view for any en
 │                              v                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
 │  │                    useKanbanColumns Hook                         │    │
-│  │  GET /api/v1/setting?datalabel=dl__task_stage                   │    │
+│  │  GET /api/v1/datalabel?name=dl__task_stage                   │    │
 │  │  → Returns stage definitions with colors and positions          │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                              │                                          │
@@ -140,8 +140,8 @@ entityConfigs.task = {
 ### Database Setup
 
 ```sql
--- setting_datalabel table
-INSERT INTO app.setting_datalabel (datalabel_name, ui_label, metadata)
+-- datalabel table
+INSERT INTO app.datalabel (datalabel_name, ui_label, metadata)
 VALUES (
   'dl__task_stage',
   'Task Stage',
@@ -216,7 +216,7 @@ View Kanban Flow
    │
 3. useKanbanColumns hook:
    ├── Extracts metaTable from config.kanban
-   ├── Fetches GET /api/v1/setting?datalabel={metaTable}
+   ├── Fetches GET /api/v1/datalabel?name={metaTable}
    └── Maps response to column format
    │
 4. KanbanBoard renders:
@@ -271,7 +271,7 @@ Settings Change Flow
 
 ### Design Principles
 
-1. **Settings-Driven** - All columns from `setting_datalabel`
+1. **Settings-Driven** - All columns from `datalabel`
 2. **No Fallbacks** - Fail explicitly if settings missing
 3. **DRY** - Single implementation for all entity kanbans
 4. **Consistent Naming** - `dl__` prefix everywhere

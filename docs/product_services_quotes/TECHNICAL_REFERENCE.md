@@ -284,7 +284,7 @@ export const FIELD_TO_SETTING_MAP: Record<string, string> = {
 **How It Works:**
 1. Field generator detects `dl__` prefix → sets `loadOptionsFromSettings: true`
 2. Settings loader maps field key → datalabel → API endpoint
-3. Calls: `GET /api/v1/setting?datalabel=dl__quote_stage`
+3. Calls: `GET /api/v1/datalabel?name=dl__quote_stage`
 4. Returns options with colors for dropdown rendering
 
 ---

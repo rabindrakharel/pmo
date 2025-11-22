@@ -155,7 +155,7 @@ Deals Pipeline:
      client_id uuid NOT NULL,  -- Link to d_client
      amount decimal(15,2),
      probability integer CHECK (probability BETWEEN 0 AND 100),
-     stage varchar(50),  -- setting_datalabel_deal_stage
+     stage varchar(50),  -- datalabel_deal_stage
      expected_close_date date,
      actual_close_date date,
      owner_employee_id uuid,

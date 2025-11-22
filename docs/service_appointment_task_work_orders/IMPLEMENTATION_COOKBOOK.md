@@ -265,7 +265,7 @@ export class ServiceAPIClient {
 
   async getCategories() {
     const response = await fetch(
-      `${this.baseUrl}/api/v1/setting?datalabel=dl__service_category`,
+      `${this.baseUrl}/api/v1/datalabel?name=dl__service_category`,
       {
         headers: {
           'Authorization': `Bearer ${this.authToken}`,
@@ -1079,7 +1079,7 @@ echo ""
 
 # Step 2: Get service categories
 echo "2. Fetching service categories..."
-CATEGORIES=$(curl -s -X GET "$API_URL/api/v1/setting?datalabel=dl__service_category" \
+CATEGORIES=$(curl -s -X GET "$API_URL/api/v1/datalabel?name=dl__service_category" \
   -H "Authorization: Bearer $TOKEN")
 
 echo "$CATEGORIES" | jq '.data[] | {id, name}'
@@ -1172,7 +1172,7 @@ curl -X POST http://localhost:4000/api/v1/auth/login \
 TOKEN="your-jwt-token-here"
 
 # 2. Get service categories
-curl -X GET "http://localhost:4000/api/v1/setting?datalabel=dl__service_category" \
+curl -X GET "http://localhost:4000/api/v1/datalabel?name=dl__service_category" \
   -H "Authorization: Bearer $TOKEN" | jq '.'
 
 # 3. Find HVAC employees

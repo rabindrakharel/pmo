@@ -215,7 +215,7 @@ export function createSettingsEntityConfig(definition: SettingDefinition) {
     name: definition.key,
     displayName: definition.displayName,
     pluralName: definition.pluralName,
-    apiEndpoint: `/api/v1/setting?datalabel=${definition.datalabel}`,
+    apiEndpoint: `/api/v1/datalabel?name=${definition.datalabel}`,
     columns: createSettingsColumns(),
     fields: createSettingsFields(),
     supportedViews: definition.supportedViews || ['table'],
@@ -245,7 +245,7 @@ export function getSettingByDatalabel(datalabel: string): SettingDefinition | un
  * Get API endpoint for a datalabel
  */
 export function getSettingEndpoint(datalabel: string): string {
-  return `/api/v1/setting?datalabel=${datalabel}`;
+  return `/api/v1/datalabel?name=${datalabel}`;
 }
 
 /**

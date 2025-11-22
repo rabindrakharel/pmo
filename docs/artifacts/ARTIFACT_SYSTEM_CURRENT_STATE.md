@@ -483,7 +483,7 @@ INSERT INTO app.entity_instance (
 
 ### 4.4 Artifact Types & Security Levels
 
-**Artifact Types** (from `setting_datalabel` table):
+**Artifact Types** (from `datalabel` table):
 
 | Value | Label | Use Case |
 |-------|-------|----------|

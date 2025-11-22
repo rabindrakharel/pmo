@@ -31,7 +31,7 @@ Home services companies face customer acquisition friction: customers must creat
 
 **Skills-Based Employee Matching**
 - Employees carry `skills_service_categories` array field
-- Service categories sourced from `setting_datalabel_service_category` table
+- Service categories sourced from `datalabel_service_category` table
 - Matching algorithm: find employees with required skill AND calendar availability
 - Examples: `["HVAC"]` (specialist), `["HVAC", "Plumbing", "Electrical"]` (generalist)
 
@@ -43,7 +43,7 @@ Home services companies face customer acquisition friction: customers must creat
 
 ### 1.3 Service Categories (Settings-Driven)
 
-All service taxonomies reference `setting_datalabel_service_category`:
+All service taxonomies reference `datalabel_service_category`:
 - **HVAC**: Heating, ventilation, air conditioning (furnaces, AC units, thermostats)
 - **Plumbing**: Pipes, drains, fixtures, water heaters
 - **Electrical**: Wiring, outlets, panels, lighting
@@ -183,11 +183,11 @@ Benefit: Flexible relationships, progressive data enrichment
 ```
 Principle: Reference data via settings tables, not hardcoded enums
 Tables:
-  - setting_datalabel_service_category (HVAC, Plumbing, Electrical, ...)
-  - setting_datalabel_task_priority (emergency, urgent, normal, scheduled)
-  - setting_datalabel_customer_tier (premium, standard, basic)
+  - datalabel_service_category (HVAC, Plumbing, Electrical, ...)
+  - datalabel_task_priority (emergency, urgent, normal, scheduled)
+  - datalabel_customer_tier (premium, standard, basic)
 
-API: GET /api/v1/setting?datalabel=dl__service_category
+API: GET /api/v1/datalabel?name=dl__service_category
 Benefit: Business users can modify categories without code changes
 ```
 
@@ -643,15 +643,15 @@ person_calendar: {
 
 **Settings Tables:**
 ```
-setting_datalabel_service_category     → Service types (HVAC, Plumbing, ...)
-setting_datalabel_task_priority        → Urgency levels
-setting_datalabel_customer_tier        → Customer segments
+datalabel_service_category     → Service types (HVAC, Plumbing, ...)
+datalabel_task_priority        → Urgency levels
+datalabel_customer_tier        → Customer segments
 ```
 
 **API Integration:**
 ```
-Frontend: GET /api/v1/setting?datalabel=dl__service_category
-Backend: SELECT id, name, descr FROM app.setting_datalabel_service_category WHERE active_flag = true
+Frontend: GET /api/v1/datalabel?name=dl__service_category
+Backend: SELECT id, name, descr FROM app.datalabel_service_category WHERE active_flag = true
 Response: { data: [{ id: "0", name: "HVAC", descr: "..." }, ...] }
 
 Usage in Forms:
@@ -1044,7 +1044,7 @@ AI:   [System: Create TWO tasks, find specialists for each]
 **Health Checks:**
 ```
 ✓ GET /health → Check database connectivity, Redis, external services
-✓ GET /api/v1/setting?datalabel=dl__service_category → Verify settings loaded
+✓ GET /api/v1/datalabel?name=dl__service_category → Verify settings loaded
 ✓ GET /api/v1/employee?active=true → Confirm employees available
 ```
 

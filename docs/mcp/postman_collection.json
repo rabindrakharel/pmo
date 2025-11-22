@@ -635,7 +635,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/setting?category=task_stage",
+              "raw": "{{baseUrl}}/api/v1/datalabel?name=task_stage",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "setting"],
               "query": [

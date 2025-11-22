@@ -104,7 +104,7 @@ export function EntityConfigurationModal({
         }
 
         // Fetch all available data labels for this entity
-        const dataLabelsResponse = await fetch(`${apiBaseUrl}/api/v1/setting/datalabels`, {
+        const dataLabelsResponse = await fetch(`${apiBaseUrl}/api/v1/datalabel/all`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -147,7 +147,7 @@ export function EntityConfigurationModal({
         const token = localStorage.getItem('auth_token');
         const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
-        const response = await fetch(`${apiBaseUrl}/api/v1/setting?datalabel=${activeDataLabel}`, {
+        const response = await fetch(`${apiBaseUrl}/api/v1/datalabel?name=${activeDataLabel}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -442,23 +442,20 @@ export function EntityConfigurationModal({
                               const token = localStorage.getItem('auth_token');
                               const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
-                              const response = await fetch(`${apiBaseUrl}/api/v1/setting/${id}`, {
+                              const response = await fetch(`${apiBaseUrl}/api/v1/datalabel/${activeDataLabel}/item/${id}`, {
                                 method: 'PUT',
                                 headers: {
                                   'Authorization': `Bearer ${token}`,
                                   'Content-Type': 'application/json',
                                 },
-                                body: JSON.stringify({
-                                  ...updates,
-                                  datalabel: activeDataLabel
-                                }),
+                                body: JSON.stringify(updates),
                               });
 
                               if (!response.ok) {
                                 console.error('Failed to update setting:', response.statusText);
                                 // Revert the optimistic update on error
                                 const fetchDatalabelData = async () => {
-                                  const res = await fetch(`${apiBaseUrl}/api/v1/setting?datalabel=${activeDataLabel}`, {
+                                  const res = await fetch(`${apiBaseUrl}/api/v1/datalabel?name=${activeDataLabel}`, {
                                     headers: {
                                       'Authorization': `Bearer ${token}`,
                                       'Content-Type': 'application/json',
@@ -481,23 +478,20 @@ export function EntityConfigurationModal({
                               const token = localStorage.getItem('auth_token');
                               const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
-                              const response = await fetch(`${apiBaseUrl}/api/v1/setting`, {
+                              const response = await fetch(`${apiBaseUrl}/api/v1/datalabel/${activeDataLabel}/item`, {
                                 method: 'POST',
                                 headers: {
                                   'Authorization': `Bearer ${token}`,
                                   'Content-Type': 'application/json',
                                 },
-                                body: JSON.stringify({
-                                  ...newRecord,
-                                  datalabel: activeDataLabel
-                                }),
+                                body: JSON.stringify(newRecord),
                               });
 
                               if (response.ok) {
                                 const result = await response.json();
                                 // Refresh the data to get the new record with ID
                                 const fetchDatalabelData = async () => {
-                                  const res = await fetch(`${apiBaseUrl}/api/v1/setting?datalabel=${activeDataLabel}`, {
+                                  const res = await fetch(`${apiBaseUrl}/api/v1/datalabel?name=${activeDataLabel}`, {
                                     headers: {
                                       'Authorization': `Bearer ${token}`,
                                       'Content-Type': 'application/json',
@@ -526,7 +520,7 @@ export function EntityConfigurationModal({
                               const token = localStorage.getItem('auth_token');
                               const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
-                              const response = await fetch(`${apiBaseUrl}/api/v1/setting/${id}`, {
+                              const response = await fetch(`${apiBaseUrl}/api/v1/datalabel/${activeDataLabel}/item/${id}`, {
                                 method: 'DELETE',
                                 headers: {
                                   'Authorization': `Bearer ${token}`,

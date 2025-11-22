@@ -95,7 +95,7 @@ CREATE TABLE app.office_hierarchy (
 
     -- Hierarchy fields
     parent__office_hierarchy_id uuid, -- Self-referential for hierarchy (NULL for Corporate level)
-    dl__office_hierarchy_level text, -- References app.setting_datalabel (datalabel_name='dl__office_hierarchy_level')
+    dl__office_hierarchy_level text, -- References app.datalabel (datalabel_name='dl__office_hierarchy_level')
 
     -- Organizational fields
     manager__employee_id uuid, -- Manager of this hierarchy node

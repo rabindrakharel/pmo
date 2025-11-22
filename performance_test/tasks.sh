@@ -51,10 +51,10 @@ DECLARE
     -- Project codes for task naming
     project_codes text[] := ARRAY['DT', 'FLC', 'HVAC', 'COE', 'CSE'];
 
-    -- Task stages (from setting_datalabel_task_stage)
+    -- Task stages (from datalabel_task_stage)
     task_stages text[] := ARRAY['Backlog', 'Planning', 'In Progress', 'In Review', 'Blocked', 'Completed', 'Cancelled'];
 
-    -- Priority levels (from setting_datalabel_task_priority)
+    -- Priority levels (from datalabel_task_priority)
     priorities text[] := ARRAY['low', 'medium', 'high', 'critical', 'urgent'];
 
     -- James Miller's employee ID

@@ -4,6 +4,7 @@ import { authRoutes } from './auth/routes.js';
 import { schemaRoutes } from './schema/routes.js';
 import { metaRoutes } from './meta/routes.js';
 import { settingRoutes } from './setting/routes.js';
+import { datalabelRoutes } from './datalabel/routes.js';
 
 // Entity-based API modules
 import { empRoutes } from './employee/routes.js';
@@ -88,8 +89,11 @@ export async function registerAllRoutes(fastify: FastifyInstance): Promise<void>
   // Metadata routes (legacy - deprecated)
   await metaRoutes(fastify);
 
-  // Setting routes (new)
+  // Setting routes (global settings only)
   await settingRoutes(fastify);
+
+  // Datalabel routes (unified data labels for dropdowns)
+  await datalabelRoutes(fastify);
 
   // Hierarchical metadata routes
   await hierarchyRoutes(fastify);

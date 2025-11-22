@@ -204,8 +204,8 @@ quote: {
 
 **Settings table structure:**
 ```sql
--- app.setting_datalabel
-INSERT INTO app.setting_datalabel (category, name, icon, data_label) VALUES
+-- app.datalabel
+INSERT INTO app.datalabel (category, name, icon, data_label) VALUES
 ('dl__quote_stage', 'Quote Stages', 'FileText', '[
   {"id": 0, "name": "Draft", "color_code": "gray"},
   {"id": 1, "name": "Sent", "color_code": "blue"},

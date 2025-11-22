@@ -129,7 +129,7 @@ Marker: Arrowhead at end (url(#arrowhead))
 **Database Schema**:
 ```sql
 -- Unified settings table stores all stage definitions
-CREATE TABLE app.setting_datalabel (
+CREATE TABLE app.datalabel (
     datalabel_name VARCHAR(100) PRIMARY KEY,  -- e.g., 'dl__task_stage'
     ui_label VARCHAR(100) NOT NULL,
     ui_icon VARCHAR(50),
@@ -166,7 +166,7 @@ CREATE TABLE app.d_task (
 **API Flow**:
 ```
 1. Load Stage Structure (DAG topology)
-   GET /api/v1/setting?datalabel=dl__task_stage&raw=true
+   GET /api/v1/datalabel?name=dl__task_stage&raw=true
 
    Response: {
      "data": [
@@ -192,7 +192,7 @@ EntityFormContainer.tsx (lines 126-178)
   ↓
   loadDagNodes("dl__task_stage")
   ↓
-  Fetches: GET /api/v1/setting?datalabel=dl__task_stage&raw=true
+  Fetches: GET /api/v1/datalabel?name=dl__task_stage&raw=true
   ↓
   Transforms to DAGNode[] with robust parent_ids handling:
   {
@@ -301,7 +301,7 @@ WorkflowDetailPage.tsx
 
 ## 4. Entity Relationships
 
-**Database Changes (setting_datalabel.ddl)**:
+**Database Changes (datalabel.ddl)**:
 
 All 18 settings categories now use consistent `parent_ids` array format:
 
@@ -365,7 +365,7 @@ const isStageField = (fieldKey: string): boolean => {
 const loadDagNodes = async (fieldKey: string): Promise<DAGNode[]> => {
   const datalabel = fieldKey.startsWith('dl__') ? fieldKey : `dl__${fieldKey}`;
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/setting?datalabel=${datalabel}&raw=true`
+    `${API_BASE_URL}/api/v1/datalabel?name=${datalabel}&raw=true`
   );
   const result = await response.json();
 
@@ -545,8 +545,8 @@ User Action                          System Response
 **Migration Script** (if needed):
 ```bash
 # Fix inconsistent parent_id → parent_ids in DDL:
-sed -i 's/"parent_id": null/"parent_ids": []/g' db/setting_datalabel.ddl
-sed -i 's/"parent_id": \([0-9][0-9]*\)/"parent_ids": [\1]/g' db/setting_datalabel.ddl
+sed -i 's/"parent_id": null/"parent_ids": []/g' db/datalabel.ddl
+sed -i 's/"parent_id": \([0-9][0-9]*\)/"parent_ids": [\1]/g' db/datalabel.ddl
 
 # Reimport database:
 ./tools/db-import.sh
@@ -655,7 +655,7 @@ const verticalSpacing = 18;
 **Settings API** (`apps/api/src/modules/setting/routes.ts:70-78`):
 ```typescript
 // Always use raw=true for DAG visualization
-GET /api/v1/setting?datalabel=dl__task_stage&raw=true
+GET /api/v1/datalabel?name=dl__task_stage&raw=true
 
 // Returns: {data: [{id, name, parent_ids, ...}], datalabel: "..."}
 // Without raw=true: Returns flattened structure without parent_ids
@@ -720,7 +720,7 @@ useEffect(() => {
 **Data Verification**:
 ```bash
 # Check settings have parent_ids arrays:
-./tools/test-api.sh GET "/api/v1/setting?datalabel=dl__task_stage&raw=true"
+./tools/test-api.sh GET "/api/v1/datalabel?name=dl__task_stage&raw=true"
 # Verify: "parent_ids": [] or "parent_ids": [0]
 
 # Check entity current stage:

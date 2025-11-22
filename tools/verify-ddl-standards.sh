@@ -180,7 +180,7 @@ echo ""
 check_ddl_file "$DB_PATH/I_schemaCreate.ddl"
 
 # Foundation
-check_ddl_file "$DB_PATH/II_setting_datalabel.ddl"
+check_ddl_file "$DB_PATH/II_datalabel.ddl"
 
 # Core Personnel
 check_ddl_file "$DB_PATH/III_d_employee.ddl"

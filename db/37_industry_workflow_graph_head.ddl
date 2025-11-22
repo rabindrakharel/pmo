@@ -18,7 +18,7 @@
 -- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • Referenced by: d_industry_workflow_graph_data (workflow instances)
 -- • Referenced by: f_industry_workflow_events (event tracking)
--- • Semantic link to: setting_datalabel (industry_sector values)
+-- • Semantic link to: datalabel (industry_sector values)
 --
 -- WORKFLOW_GRAPH STRUCTURE (JSONB):
 -- Array of state nodes defining the business process:

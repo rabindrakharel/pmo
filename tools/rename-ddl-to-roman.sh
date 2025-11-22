@@ -27,7 +27,7 @@ echo -e "${YELLOW}1/48: Schema Setup${NC}"
 [ -f "0_schemaCreate.ddl" ] && mv "0_schemaCreate.ddl" "I_schemaCreate.ddl" && echo -e "${GREEN}   ✅ I_schemaCreate.ddl${NC}"
 
 echo -e "${YELLOW}2/48: Foundation${NC}"
-[ -f "setting_datalabel.ddl" ] && mv "setting_datalabel.ddl" "II_setting_datalabel.ddl" && echo -e "${GREEN}   ✅ II_setting_datalabel.ddl${NC}"
+[ -f "datalabel.ddl" ] && mv "datalabel.ddl" "II_datalabel.ddl" && echo -e "${GREEN}   ✅ II_datalabel.ddl${NC}"
 
 echo -e "${YELLOW}3/48: Core Personnel${NC}"
 [ -f "11_d_employee.ddl" ] && mv "11_d_employee.ddl" "III_d_employee.ddl" && echo -e "${GREEN}   ✅ III_d_employee.ddl${NC}"

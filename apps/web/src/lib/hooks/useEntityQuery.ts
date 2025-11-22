@@ -20,7 +20,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect, useRef } from 'react';
 import { APIFactory, type EntityMetadata, type PaginatedResponse } from '../api';
 import { useEntityEditStore } from '../../stores/useEntityEditStore';
 import type { DatalabelData } from '../frontEndFormatterService';
@@ -211,22 +211,26 @@ export function useEntityInstanceList<T = any>(
     ...options,
   });
 
-  // Log cache status on each render
-  const cacheState = queryClient.getQueryState(queryKey);
-  if (query.data && !query.isFetching) {
-    const isFromCache = cacheState && cacheState.dataUpdateCount > 0 && !query.isRefetching;
-    console.log(
-      `%c[CACHE ${isFromCache ? 'HIT' : 'MISS'}] 💾 useEntityInstanceList: ${entityCode}`,
-      `color: ${isFromCache ? '#51cf66' : '#fcc419'}; font-weight: bold`,
-      {
-        source: isFromCache ? 'React Query Cache' : 'Fresh API Response',
-        itemCount: query.data.data.length,
-        total: query.data.total,
-        staleTime: `${CACHE_TTL.ENTITY_LIST / 1000}s`,
-        dataUpdatedAt: cacheState?.dataUpdatedAt ? new Date(cacheState.dataUpdatedAt).toLocaleTimeString() : 'N/A',
-      }
-    );
-  }
+  // Log cache status only when data changes (not on every render)
+  const prevDataRef = useRef<EntityInstanceListResult<T> | undefined>(undefined);
+  useEffect(() => {
+    if (query.data && query.data !== prevDataRef.current) {
+      prevDataRef.current = query.data;
+      const cacheState = queryClient.getQueryState(queryKey);
+      const isFromCache = cacheState && cacheState.dataUpdateCount > 1 && !query.isRefetching;
+      console.log(
+        `%c[CACHE ${isFromCache ? 'HIT' : 'MISS'}] 💾 useEntityInstanceList: ${entityCode}`,
+        `color: ${isFromCache ? '#51cf66' : '#fcc419'}; font-weight: bold`,
+        {
+          source: isFromCache ? 'React Query Cache' : 'Fresh API Response',
+          itemCount: query.data.data.length,
+          total: query.data.total,
+          staleTime: `${CACHE_TTL.ENTITY_LIST / 1000}s`,
+          dataUpdatedAt: cacheState?.dataUpdatedAt ? new Date(cacheState.dataUpdatedAt).toLocaleTimeString() : 'N/A',
+        }
+      );
+    }
+  }, [query.data, query.isRefetching, queryClient, queryKey, entityCode]);
 
   return query;
 }
@@ -352,25 +356,28 @@ export function useEntityInstance<T = any>(
     ...options,
   });
 
-  // Log cache status on each render
-  const cacheState = queryClient.getQueryState(queryKey);
-  if (query.data && !query.isFetching && id) {
-    const isFromCache = cacheState && cacheState.dataUpdateCount > 0 && !query.isRefetching;
-    console.log(
-      `%c[CACHE ${isFromCache ? 'HIT' : 'MISS'}] 💾 useEntityInstance: ${entityCode}/${id}`,
-      `color: ${isFromCache ? '#51cf66' : '#fcc419'}; font-weight: bold`,
-      {
-        source: isFromCache ? 'React Query Cache' : 'Fresh API Response',
-        staleTime: `${CACHE_TTL.ENTITY_DETAIL / 1000}s`,
-        dataUpdatedAt: cacheState?.dataUpdatedAt ? new Date(cacheState.dataUpdatedAt).toLocaleTimeString() : 'N/A',
-        hasMetadata: !!query.data.metadata,
-        hasFields: !!query.data.fields,
-        hasGlobalSettings: !!query.data.globalSettings,
-        datalabelCount: query.data.datalabels?.length || 0,
-        data: query.data.data,
-      }
-    );
-  }
+  // Log cache status only when data changes (not on every render)
+  const prevInstanceDataRef = useRef<EntityInstanceResult<T> | undefined>(undefined);
+  useEffect(() => {
+    if (query.data && id && query.data !== prevInstanceDataRef.current) {
+      prevInstanceDataRef.current = query.data;
+      const cacheState = queryClient.getQueryState(queryKey);
+      const isFromCache = cacheState && cacheState.dataUpdateCount > 1 && !query.isRefetching;
+      console.log(
+        `%c[CACHE ${isFromCache ? 'HIT' : 'MISS'}] 💾 useEntityInstance: ${entityCode}/${id}`,
+        `color: ${isFromCache ? '#51cf66' : '#fcc419'}; font-weight: bold`,
+        {
+          source: isFromCache ? 'React Query Cache' : 'Fresh API Response',
+          staleTime: `${CACHE_TTL.ENTITY_DETAIL / 1000}s`,
+          dataUpdatedAt: cacheState?.dataUpdatedAt ? new Date(cacheState.dataUpdatedAt).toLocaleTimeString() : 'N/A',
+          hasMetadata: !!query.data.metadata,
+          hasFields: !!query.data.fields,
+          hasGlobalSettings: !!query.data.globalSettings,
+          datalabelCount: query.data.datalabels?.length || 0,
+        }
+      );
+    }
+  }, [query.data, query.isRefetching, queryClient, queryKey, entityCode, id]);
 
   return query;
 }
@@ -445,21 +452,25 @@ export function useEntityCodes(
     ...options,
   });
 
-  // Log cache status
-  const cacheState = queryClient.getQueryState(queryKey);
-  if (query.data && !query.isFetching) {
-    const isFromCache = cacheState && cacheState.dataUpdateCount > 0 && !query.isRefetching;
-    console.log(
-      `%c[CACHE ${isFromCache ? 'HIT' : 'MISS'}] 💾 useEntityCodes`,
-      `color: ${isFromCache ? '#51cf66' : '#fcc419'}; font-weight: bold`,
-      {
-        source: isFromCache ? 'React Query Cache' : 'Fresh API Response',
-        entityCount: query.data.size,
-        staleTime: `${CACHE_TTL.ENTITY_TYPES / 1000}s`,
-        dataUpdatedAt: cacheState?.dataUpdatedAt ? new Date(cacheState.dataUpdatedAt).toLocaleTimeString() : 'N/A',
-      }
-    );
-  }
+  // Log cache status only when data changes (not on every render)
+  const prevEntityCodesRef = useRef<Map<string, import('../../stores/entityCodeMetadataStore').EntityCodeData> | undefined>(undefined);
+  useEffect(() => {
+    if (query.data && query.data !== prevEntityCodesRef.current) {
+      prevEntityCodesRef.current = query.data;
+      const cacheState = queryClient.getQueryState(queryKey);
+      const isFromCache = cacheState && cacheState.dataUpdateCount > 1 && !query.isRefetching;
+      console.log(
+        `%c[CACHE ${isFromCache ? 'HIT' : 'MISS'}] 💾 useEntityCodes`,
+        `color: ${isFromCache ? '#51cf66' : '#fcc419'}; font-weight: bold`,
+        {
+          source: isFromCache ? 'React Query Cache' : 'Fresh API Response',
+          entityCount: query.data.size,
+          staleTime: `${CACHE_TTL.ENTITY_TYPES / 1000}s`,
+          dataUpdatedAt: cacheState?.dataUpdatedAt ? new Date(cacheState.dataUpdatedAt).toLocaleTimeString() : 'N/A',
+        }
+      );
+    }
+  }, [query.data, query.isRefetching, queryClient, queryKey]);
 
   return query;
 }
@@ -598,7 +609,7 @@ export function useDatalabels(
       }
 
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-      const response = await fetch(`${apiUrl}/api/v1/setting?datalabel=${fieldKey}`, {
+      const response = await fetch(`${apiUrl}/api/v1/datalabel?name=${fieldKey}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -627,20 +638,24 @@ export function useDatalabels(
     ...options,
   });
 
-  // Log React Query cache status
-  const cacheState = queryClient.getQueryState(queryKey);
-  if (query.data && !query.isFetching && fieldKey) {
-    const isFromCache = cacheState && cacheState.dataUpdateCount > 0 && !query.isRefetching;
-    console.log(
-      `%c[CACHE ${isFromCache ? 'HIT' : 'MISS'}] 💾 useDatalabels: ${fieldKey}`,
-      `color: ${isFromCache ? '#51cf66' : '#fcc419'}; font-weight: bold`,
-      {
-        source: isFromCache ? 'React Query Cache' : 'Fresh API Response',
-        optionCount: query.data.length,
-        staleTime: `${CACHE_TTL.DATALABELS / 1000}s`,
-      }
-    );
-  }
+  // Log React Query cache status only when data changes (not on every render)
+  const prevDatalabelsRef = useRef<DatalabelData['options'] | undefined>(undefined);
+  useEffect(() => {
+    if (query.data && fieldKey && query.data !== prevDatalabelsRef.current) {
+      prevDatalabelsRef.current = query.data;
+      const cacheState = queryClient.getQueryState(queryKey);
+      const isFromCache = cacheState && cacheState.dataUpdateCount > 1 && !query.isRefetching;
+      console.log(
+        `%c[CACHE ${isFromCache ? 'HIT' : 'MISS'}] 💾 useDatalabels: ${fieldKey}`,
+        `color: ${isFromCache ? '#51cf66' : '#fcc419'}; font-weight: bold`,
+        {
+          source: isFromCache ? 'React Query Cache' : 'Fresh API Response',
+          optionCount: query.data.length,
+          staleTime: `${CACHE_TTL.DATALABELS / 1000}s`,
+        }
+      );
+    }
+  }, [query.data, query.isRefetching, queryClient, queryKey, fieldKey]);
 
   return query;
 }
@@ -741,19 +756,23 @@ export function useGlobalSettings() {
     refetchOnWindowFocus: false,
   });
 
-  // Log cache status
-  const cacheState = queryClient.getQueryState(queryKey);
-  if (query.data && !query.isFetching) {
-    const isFromCache = cacheState && cacheState.dataUpdateCount > 0 && !query.isRefetching;
-    console.log(
-      `%c[CACHE ${isFromCache ? 'HIT' : 'MISS'}] 💾 useGlobalSettings`,
-      `color: ${isFromCache ? '#51cf66' : '#fcc419'}; font-weight: bold`,
-      {
-        source: isFromCache ? 'React Query Cache' : 'Fresh API Response',
-        staleTime: `${CACHE_TTL.GLOBAL_SETTINGS / 1000}s`,
-      }
-    );
-  }
+  // Log cache status only when data changes (not on every render)
+  const prevGlobalSettingsRef = useRef<any>(undefined);
+  useEffect(() => {
+    if (query.data && query.data !== prevGlobalSettingsRef.current) {
+      prevGlobalSettingsRef.current = query.data;
+      const cacheState = queryClient.getQueryState(queryKey);
+      const isFromCache = cacheState && cacheState.dataUpdateCount > 1 && !query.isRefetching;
+      console.log(
+        `%c[CACHE ${isFromCache ? 'HIT' : 'MISS'}] 💾 useGlobalSettings`,
+        `color: ${isFromCache ? '#51cf66' : '#fcc419'}; font-weight: bold`,
+        {
+          source: isFromCache ? 'React Query Cache' : 'Fresh API Response',
+          staleTime: `${CACHE_TTL.GLOBAL_SETTINGS / 1000}s`,
+        }
+      );
+    }
+  }, [query.data, query.isRefetching, queryClient, queryKey]);
 
   return query;
 }
@@ -818,20 +837,24 @@ export function useAllDatalabels() {
     refetchOnWindowFocus: false,
   });
 
-  // Log cache status
-  const cacheState = queryClient.getQueryState(queryKey);
-  if (query.data && !query.isFetching) {
-    const isFromCache = cacheState && cacheState.dataUpdateCount > 0 && !query.isRefetching;
-    console.log(
-      `%c[CACHE ${isFromCache ? 'HIT' : 'MISS'}] 💾 useAllDatalabels`,
-      `color: ${isFromCache ? '#51cf66' : '#fcc419'}; font-weight: bold`,
-      {
-        source: isFromCache ? 'React Query Cache' : 'Fresh API Response',
-        total: query.data.total,
-        staleTime: `${CACHE_TTL.DATALABELS / 1000}s`,
-      }
-    );
-  }
+  // Log cache status only when data changes (not on every render)
+  const prevAllDatalabelsRef = useRef<any>(undefined);
+  useEffect(() => {
+    if (query.data && query.data !== prevAllDatalabelsRef.current) {
+      prevAllDatalabelsRef.current = query.data;
+      const cacheState = queryClient.getQueryState(queryKey);
+      const isFromCache = cacheState && cacheState.dataUpdateCount > 1 && !query.isRefetching;
+      console.log(
+        `%c[CACHE ${isFromCache ? 'HIT' : 'MISS'}] 💾 useAllDatalabels`,
+        `color: ${isFromCache ? '#51cf66' : '#fcc419'}; font-weight: bold`,
+        {
+          source: isFromCache ? 'React Query Cache' : 'Fresh API Response',
+          total: query.data.total,
+          staleTime: `${CACHE_TTL.DATALABELS / 1000}s`,
+        }
+      );
+    }
+  }, [query.data, query.isRefetching, queryClient, queryKey]);
 
   return query;
 }

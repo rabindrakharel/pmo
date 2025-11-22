@@ -83,7 +83,7 @@ CREATE TABLE app.business_hierarchy (
 
     -- Hierarchy fields
     parent__business_hierarchy_id uuid, -- Self-referential for hierarchy (NULL for Corporate level)
-    dl__business_hierarchy_level text, -- References app.setting_datalabel (datalabel_name='dl__business_hierarchy_level')
+    dl__business_hierarchy_level text, -- References app.datalabel (datalabel_name='dl__business_hierarchy_level')
 
     -- Organizational fields
     manager__employee_id uuid, -- Manager of this hierarchy node
@@ -146,9 +146,10 @@ FROM app.business_hierarchy WHERE code = 'BIZ-HIE-CSD';
 
 -- Landscaping operational teams
 INSERT INTO app.business (
-    code, name, descr,
+    id, code, name, descr,
     office_id, current_headcount, operational_status
 ) VALUES (
+    'b1111111-1111-1111-1111-111111111111',
     'BIZ-LAND-ALPHA',
     'Landscaping Team Alpha',
     'Primary landscaping team operating in London area, specializing in residential property design and maintenance',
@@ -156,9 +157,10 @@ INSERT INTO app.business (
 );
 
 INSERT INTO app.business (
-    code, name, descr,
+    id, code, name, descr,
     office_id, current_headcount, operational_status
 ) VALUES (
+    'b2222222-2222-2222-2222-222222222222',
     'BIZ-LAND-BETA',
     'Landscaping Team Beta',
     'Commercial landscaping team operating in GTA, focusing on large-scale commercial property maintenance',
@@ -167,9 +169,10 @@ INSERT INTO app.business (
 
 -- HVAC operational teams
 INSERT INTO app.business (
-    code, name, descr,
+    id, code, name, descr,
     office_id, current_headcount, operational_status
 ) VALUES (
+    'b3333333-3333-3333-3333-333333333333',
     'BIZ-HVAC-ALPHA',
     'HVAC Installation Team',
     'Specialized team for new HVAC system installations in residential and light commercial properties',
@@ -177,9 +180,10 @@ INSERT INTO app.business (
 );
 
 INSERT INTO app.business (
-    code, name, descr,
+    id, code, name, descr,
     office_id, current_headcount, operational_status
 ) VALUES (
+    'b4444444-4444-4444-4444-444444444444',
     'BIZ-HVAC-BETA',
     'HVAC Maintenance Team',
     'Service team specializing in HVAC maintenance, repairs, and emergency response across all service areas',
@@ -188,13 +192,26 @@ INSERT INTO app.business (
 
 -- Property Maintenance operational teams
 INSERT INTO app.business (
-    code, name, descr,
+    id, code, name, descr,
     office_id, current_headcount, operational_status
 ) VALUES (
+    'b5555555-5555-5555-5555-555555555555',
     'BIZ-PROP-ALPHA',
     'Property Maintenance Team',
     'General property maintenance team handling repairs, preventive maintenance, and facility management',
     '22222222-2222-2222-2222-222222222222', 7, 'Active'
+);
+
+-- Corporate Services team
+INSERT INTO app.business (
+    id, code, name, descr,
+    office_id, current_headcount, operational_status
+) VALUES (
+    'b6666666-6666-6666-6666-666666666666',
+    'BIZ-CORP-SERVICES',
+    'Corporate Services Team',
+    'Central corporate services team handling strategic initiatives, IT, and administrative functions',
+    '11111111-1111-1111-1111-111111111111', 15, 'Active'
 );
 
 COMMENT ON TABLE app.business IS 'Operational business units (team-level) executing day-to-day work and projects';

@@ -42,7 +42,7 @@
 -- • References: d_service, app.product (via quote_items JSONB, no FK)
 --
 -- DATALABEL INTEGRATION:
--- • dl__quote_stage: setting_datalabel WHERE datalabel_name='dl__quote_stage'
+-- • dl__quote_stage: datalabel WHERE datalabel_name='dl__quote_stage'
 -- • Frontend renders: Colored badges, stage progression, workflow actions
 --
 -- =====================================================
@@ -61,7 +61,7 @@ CREATE TABLE app.quote (
     version integer DEFAULT 1,
 
     -- Quote-specific fields
-    dl__quote_stage text, -- References app.setting_datalabel (datalabel_name='dl__quote_stage')
+    dl__quote_stage text, -- References app.datalabel (datalabel_name='dl__quote_stage')
 
     -- Line items: services and products
     quote_items jsonb DEFAULT '[]'::jsonb, -- Array of line items (services and products)

@@ -37,8 +37,8 @@ export function DataLabelSelect({
   const { data: options = [], isLoading } = useQuery({
     queryKey: ['datalabel', datalabel],
     queryFn: async () => {
-      const response = await apiClient.get('/api/v1/setting', {
-        params: { datalabel }
+      const response = await apiClient.get('/api/v1/datalabel', {
+        params: { name: datalabel }
       });
 
       // Transform settings data to SelectOption format

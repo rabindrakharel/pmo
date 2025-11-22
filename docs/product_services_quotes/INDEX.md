@@ -184,7 +184,7 @@ cd apps/api && pnpm dev           # Start API dev server
 ├── d_product.ddl              # Product catalog table
 ├── fact_quote.ddl             # Quote fact table (JSONB line items)
 ├── fact_work_order.ddl        # Work order fact table
-├── setting_datalabel.ddl      # Workflow states (updated)
+├── datalabel.ddl      # Workflow states (updated)
 ├── 33_entity_instance_link.ddl    # Relationships (updated)
 └── 34_d_entity_rbac.ddl # Permissions (updated)
 ```

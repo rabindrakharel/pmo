@@ -42,7 +42,7 @@ export function DataLabelsSelector({
 
   const fetchDataLabels = async () => {
     try {
-      const response = await apiClient.get('/api/v1/setting/datalabels');
+      const response = await apiClient.get('/api/v1/datalabel/all');
 
       // Filter to only show data labels that match the entity code
       // e.g., for entity "workflow_automation", only show "dl__workflow_automation_*"

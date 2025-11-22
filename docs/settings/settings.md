@@ -16,10 +16,10 @@
 | Component | Route | API | Purpose |
 |-----------|-------|-----|---------|
 | **Settings Overview** | `/setting/overview` | `GET /api/v1/setting/categories` | List all datalabels |
-| **Settings Detail** | `/setting/:category` | `GET /api/v1/setting?datalabel=dl__*` | Manage datalabel items |
+| **Settings Detail** | `/setting/:category` | `GET /api/v1/datalabel?name=dl__*` | Manage datalabel items |
 | **Add Datalabel Modal** | Modal component | `POST /api/v1/setting/category` | Create new datalabel |
 
-**Key Concepts:** Unified table (`setting_datalabel`) • JSONB metadata • `dl__` prefix • Position-based IDs
+**Key Concepts:** Unified table (`datalabel`) • JSONB metadata • `dl__` prefix • Position-based IDs
 
 ---
 
@@ -28,7 +28,7 @@
 ### Database Schema
 
 ```sql
-CREATE TABLE app.setting_datalabel (
+CREATE TABLE app.datalabel (
     datalabel_name VARCHAR(100) PRIMARY KEY,  -- dl__{entity}_{label}
     ui_label VARCHAR(100) NOT NULL,
     ui_icon VARCHAR(50),
@@ -79,7 +79,7 @@ Settings Overview (/setting/overview)
 | Method | Endpoint | Request Body | Response |
 |--------|----------|--------------|----------|
 | **GET** | `/api/v1/setting/categories` | - | `[{datalabel_name, ui_label, ui_icon, item_count}]` |
-| **GET** | `/api/v1/setting?datalabel=dl__*` | - | `{data: [{id, name, descr, parent_id, color_code}], datalabel}` |
+| **GET** | `/api/v1/datalabel?name=dl__*` | - | `{data: [{id, name, descr, parent_id, color_code}], datalabel}` |
 | **POST** | `/api/v1/setting/category` | `{entity_code, label_name, ui_label, ui_icon}` | `{success, data: {datalabel_name}}` |
 | **POST** | `/api/v1/setting/:datalabel` | `{name, descr, color_code, parent_id?}` | `{success, data: {id, ...}}` |
 | **PUT** | `/api/v1/setting/:datalabel/:id` | `{name?, descr?, color_code?, parent_id?}` | `{success, data: {...}}` |
@@ -169,7 +169,7 @@ const Icon = getIconComponent('YourIcon');
 ```typescript
 // Database: dl__product_category
 // URL: /setting/productCategory (camelCase)
-// API: /api/v1/setting?datalabel=dl__product_category (with prefix)
+// API: /api/v1/datalabel?name=dl__product_category (with prefix)
 
 function toCamelCase(datalabel: string): string {
   const parts = datalabel.replace(/^dl__/, '').split('_');
@@ -181,7 +181,7 @@ function toCamelCase(datalabel: string): string {
 
 ```typescript
 // ✅ Correct: Return [] for new datalabels
-const exists = await db.execute(sql`SELECT datalabel_name FROM setting_datalabel WHERE ...`);
+const exists = await db.execute(sql`SELECT datalabel_name FROM datalabel WHERE ...`);
 if (exists.length === 0) return 404;  // Datalabel doesn't exist
 
 const items = await db.execute(sql`...jsonb_array_elements...`);
@@ -227,7 +227,7 @@ await updateItem(id, {...});  // WRONG - ID 2 may not exist!
 
 | Pattern | Implementation | Benefit |
 |---------|---------------|---------|
-| **SSOT** | One table (`setting_datalabel`) replaces 17+ tables | No migrations for new datalabels |
+| **SSOT** | One table (`datalabel`) replaces 17+ tables | No migrations for new datalabels |
 | **Entity Validation** | Only entities from `d_entity` can have datalabels | Prevents orphaned datalabels |
 | **Auto-Navigation** | Redirect to data table after creation | Zero extra clicks |
 | **Empty Metadata** | Return `[]` for new datalabels, not 404 | Consistent API behavior |
@@ -258,7 +258,7 @@ curl -X POST http://localhost:4000/api/v1/setting/category \
   -d '{"entity_code":"test","label_name":"status","ui_label":"Test Status","ui_icon":"Tag"}'
 
 # 2. Verify empty metadata
-curl "http://localhost:4000/api/v1/setting?datalabel=dl__test_status" \
+curl "http://localhost:4000/api/v1/datalabel?name=dl__test_status" \
   -H "Authorization: Bearer $TOKEN"
 # Expected: { data: [], datalabel: "dl__test_status" }
 
@@ -328,7 +328,7 @@ curl -X DELETE http://localhost:4000/api/v1/setting/dl__test_status/0 \
 - UI metadata (label, icon, display order)
 - Child entity relationships (JSONB array)
 
-**setting_datalabel table** stores:
+**datalabel table** stores:
 - Datalabel name (`dl__{entity}_{label}`)
 - UI metadata (label, icon)
 - Label items (JSONB array with metadata)

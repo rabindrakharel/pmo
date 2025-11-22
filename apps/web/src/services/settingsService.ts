@@ -3,8 +3,10 @@
  * SETTINGS SERVICE - DRY approach for all datalabel operations
  * ============================================================================
  *
- * Purpose: Centralized service for managing settings/datalabel data
+ * Purpose: Centralized service for managing datalabel data
  * Ensures consistent handling of metadata updates across all datalabels
+ *
+ * API Endpoints: /api/v1/datalabel/*
  *
  * Key Principle: Always work with COMPLETE metadata payload
  * - Fetch entire metadata array
@@ -55,24 +57,24 @@ export async function fetchDatalabelComplete(datalabel: string): Promise<Setting
 
     // First, get the metadata items
     const itemsResponse = await fetch(
-      `${API_BASE_URL}/api/v1/setting?datalabel=${datalabel}`,
+      `${API_BASE_URL}/api/v1/datalabel?name=${datalabel}`,
       { headers }
     );
 
     if (!itemsResponse.ok) {
-      throw new Error(`Failed to fetch settings: ${itemsResponse.statusText}`);
+      throw new Error(`Failed to fetch datalabel: ${itemsResponse.statusText}`);
     }
 
     const itemsResult = await itemsResponse.json();
 
     // Then, get the category info (ui_label, ui_icon, etc.)
     const categoriesResponse = await fetch(
-      `${API_BASE_URL}/api/v1/setting/categories`,
+      `${API_BASE_URL}/api/v1/datalabel/types`,
       { headers }
     );
 
     if (!categoriesResponse.ok) {
-      throw new Error(`Failed to fetch categories: ${categoriesResponse.statusText}`);
+      throw new Error(`Failed to fetch datalabel types: ${categoriesResponse.statusText}`);
     }
 
     const categoriesResult = await categoriesResponse.json();
@@ -84,7 +86,7 @@ export async function fetchDatalabelComplete(datalabel: string): Promise<Setting
     );
 
     if (!category) {
-      throw new Error(`Category not found for datalabel: ${datalabel}`);
+      throw new Error(`Datalabel type not found: ${datalabel}`);
     }
 
     return {
@@ -111,9 +113,9 @@ export async function updateSettingItem(
   try {
     const headers = getAuthHeaders();
 
-    // Use the existing PUT endpoint which handles the recomposition internally
+    // Use the PUT endpoint which handles the recomposition internally
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/setting/${datalabel}/${itemId}`,
+      `${API_BASE_URL}/api/v1/datalabel/${datalabel}/item/${itemId}`,
       {
         method: 'PUT',
         headers,
@@ -122,13 +124,13 @@ export async function updateSettingItem(
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to update setting: ${response.statusText}`);
+      throw new Error(`Failed to update datalabel item: ${response.statusText}`);
     }
 
     // Fetch the complete updated datalabel
     return await fetchDatalabelComplete(datalabel);
   } catch (error) {
-    console.error('Error updating setting item:', error);
+    console.error('Error updating datalabel item:', error);
     throw error;
   }
 }
@@ -154,7 +156,7 @@ export async function updateSettingItemMultiple(
 
     // Send all updates in one request
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/setting/${datalabel}/${itemId}`,
+      `${API_BASE_URL}/api/v1/datalabel/${datalabel}/item/${itemId}`,
       {
         method: 'PUT',
         headers,
@@ -163,13 +165,13 @@ export async function updateSettingItemMultiple(
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to update setting: ${response.statusText}`);
+      throw new Error(`Failed to update datalabel item: ${response.statusText}`);
     }
 
     // Fetch the complete updated datalabel
     return await fetchDatalabelComplete(datalabel);
   } catch (error) {
-    console.error('Error updating setting item:', error);
+    console.error('Error updating datalabel item:', error);
     throw error;
   }
 }
@@ -182,48 +184,48 @@ export async function fetchSettingItems(datalabel: string): Promise<SettingItem[
     const headers = getAuthHeaders();
 
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/setting?datalabel=${datalabel}`,
+      `${API_BASE_URL}/api/v1/datalabel?name=${datalabel}`,
       { headers }
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch settings: ${response.statusText}`);
+      throw new Error(`Failed to fetch datalabel: ${response.statusText}`);
     }
 
     const result = await response.json();
     return result.data || [];
   } catch (error) {
-    console.error('Error fetching setting items:', error);
+    console.error('Error fetching datalabel items:', error);
     return [];
   }
 }
 
 /**
- * Get all available datalabel categories
+ * Get all available datalabel types (categories)
  */
 export async function fetchAllCategories() {
   try {
     const headers = getAuthHeaders();
 
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/setting/categories`,
+      `${API_BASE_URL}/api/v1/datalabel/types`,
       { headers }
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch categories: ${response.statusText}`);
+      throw new Error(`Failed to fetch datalabel types: ${response.statusText}`);
     }
 
     const result = await response.json();
     return result.data || [];
   } catch (error) {
-    console.error('Error fetching categories:', error);
+    console.error('Error fetching datalabel types:', error);
     return [];
   }
 }
 
 /**
- * Create a new setting item in metadata array
+ * Create a new item in datalabel metadata array
  */
 export async function createSettingItem(
   datalabel: string,
@@ -233,7 +235,7 @@ export async function createSettingItem(
     const headers = getAuthHeaders();
 
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/setting/${datalabel}`,
+      `${API_BASE_URL}/api/v1/datalabel/${datalabel}/item`,
       {
         method: 'POST',
         headers,
@@ -242,19 +244,19 @@ export async function createSettingItem(
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to create setting: ${response.statusText}`);
+      throw new Error(`Failed to create datalabel item: ${response.statusText}`);
     }
 
     const result = await response.json();
     return result.data;
   } catch (error) {
-    console.error('Error creating setting item:', error);
+    console.error('Error creating datalabel item:', error);
     throw error;
   }
 }
 
 /**
- * Delete a setting item from metadata array
+ * Delete a datalabel item from metadata array
  */
 export async function deleteSettingItem(
   datalabel: string,
@@ -264,7 +266,7 @@ export async function deleteSettingItem(
     const headers = getAuthHeaders();
 
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/setting/${datalabel}/${itemId}`,
+      `${API_BASE_URL}/api/v1/datalabel/${datalabel}/item/${itemId}`,
       {
         method: 'DELETE',
         headers,
@@ -272,18 +274,18 @@ export async function deleteSettingItem(
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to delete setting: ${response.statusText}`);
+      throw new Error(`Failed to delete datalabel item: ${response.statusText}`);
     }
 
     return true;
   } catch (error) {
-    console.error('Error deleting setting item:', error);
+    console.error('Error deleting datalabel item:', error);
     throw error;
   }
 }
 
 /**
- * Reorder settings items
+ * Reorder datalabel items
  * Accepts array of items in the new desired order
  */
 export async function reorderSettingItems(
@@ -300,7 +302,7 @@ export async function reorderSettingItems(
     }));
 
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/setting/${datalabel}/reorder`,
+      `${API_BASE_URL}/api/v1/datalabel/${datalabel}/reorder`,
       {
         method: 'PUT',
         headers,
@@ -309,12 +311,12 @@ export async function reorderSettingItems(
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to reorder settings: ${response.statusText}`);
+      throw new Error(`Failed to reorder datalabel items: ${response.statusText}`);
     }
 
     return true;
   } catch (error) {
-    console.error('Error reordering setting items:', error);
+    console.error('Error reordering datalabel items:', error);
     throw error;
   }
 }

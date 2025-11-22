@@ -162,7 +162,6 @@ import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✨ Backend Formatter Service - component-aware metadata generation
 import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter.service.js';
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
-import { fetchDatalabels } from '../../services/datalabel.service.js';
 
 // Schema for entity reference resolution (_ID and _IDS fields)
 const EntityReferenceSchema = Type.Object({
@@ -397,9 +396,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       });
 
       // ✨ Extract datalabel keys and fetch datalabels
-      const datalabelKeys = extractDatalabelKeys(response.metadata);
       if (datalabelKeys.length > 0) {
-        response.datalabels = await fetchDatalabels(db, datalabelKeys);
       }
 
       return response;
@@ -587,9 +584,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       });
 
       // ✨ Extract datalabel keys and fetch datalabels
-      const datalabelKeys = extractDatalabelKeys(response.metadata);
       if (datalabelKeys.length > 0) {
-        response.datalabels = await fetchDatalabels(db, datalabelKeys);
       }
 
       // Return single item (not array)
