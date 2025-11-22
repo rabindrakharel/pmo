@@ -272,7 +272,7 @@ CREATE TABLE app.d_industry_workflow_graph_data (
    }
 
 4. Entity Details (on node click)
-   GET /api/v1/{entity_type}/{entity_id}
+   GET /api/v1/{entity_code}/{entity_id}
    Response: Full entity record
 ```
 

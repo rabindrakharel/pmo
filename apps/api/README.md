@@ -265,8 +265,8 @@ FROM app.d_task t
 INNER JOIN app.d_entity_instance_link eim
   ON eim.child_entity_id = t.id::text
 WHERE eim.parent_entity_id = :projectId
-  AND eim.parent_entity_type = 'project'
-  AND eim.child_entity_type = 'task'
+  AND eim.parent_entity_code = 'project'
+  AND eim.child_entity_code = 'task'
   AND eim.active_flag = true
   AND t.active_flag = true
 ORDER BY t.created_ts DESC;
@@ -491,7 +491,7 @@ GET /api/v1/rbac/check?entity=project&entity_id=all&permission=4
 
 - All RBAC checks use indexed columns
 - `d_entity_rbac` has composite index on `(empid, entity, entity_id)`
-- `d_entity_instance_link` has composite index on `(parent_entity_id, child_entity_type)`
+- `d_entity_instance_link` has composite index on `(parent_entity_id, child_entity_code)`
 
 ### Rate Limiting
 

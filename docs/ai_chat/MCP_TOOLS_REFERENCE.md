@@ -1224,7 +1224,7 @@ Fix roof holes`,
 **Parameters:**
 ```typescript
 {
-  entity_type: string; // 'task' | 'project' | 'customer'
+  entity_code: string; // 'task' | 'project' | 'customer'
 }
 ```
 
@@ -1233,7 +1233,7 @@ Fix roof holes`,
 {
   "function": "entity_options",
   "arguments": {
-    "entity_type": "task"
+    "entity_code": "task"
   }
 }
 ```

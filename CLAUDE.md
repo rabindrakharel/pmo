@@ -141,7 +141,7 @@ fastify.post('/api/v1/project', async (request, reply) => {
 
   // STEP 4: Register in entity_instance
   await entityInfra.set_entity_instance_registry({
-    entity_type: ENTITY_CODE,
+    entity_code: ENTITY_CODE,
     entity_id: project.id,
     entity_name: project.name,
     entity_code: project.code
@@ -153,9 +153,9 @@ fastify.post('/api/v1/project', async (request, reply) => {
   // STEP 6: Link to parent (if provided)
   if (parent_code && parent_id) {
     await entityInfra.set_entity_instance_link({
-      parent_entity_type: parent_code,
+      parent_entity_code: parent_code,
       parent_entity_id: parent_id,
-      child_entity_type: ENTITY_CODE,
+      child_entity_code: ENTITY_CODE,
       child_entity_id: project.id,
       relationship_type: 'contains'
     });
@@ -521,7 +521,7 @@ conditions.push(...autoFilters);
 ### Adding New Entity
 
 1. **Database**: Create `db/[entity].ddl` with standard fields (id, code, name, descr, metadata, active_flag, from_ts, to_ts)
-2. **Metadata**: Add to `entity` table (entity_type, label, icon, child_entities)
+2. **Metadata**: Add to `entity` table (entity_code, label, icon, child_entities)
 3. **API Module**: Create `apps/api/src/modules/[entity]/routes.ts`
    - Use standard import block (see API Standards section above)
    - Define module constants: `ENTITY_CODE`, `TABLE_ALIAS`

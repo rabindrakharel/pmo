@@ -202,7 +202,7 @@ Artifact → RBAC (via entity_rbac)
 │  │ Indexes:                                             │   │
 │  │ - Primary key (id)                                   │   │
 │  │ - Unique constraint (code)                          │   │
-│  │ - Composite (entity_type, entity_id)                │   │
+│  │ - Composite (entity_code, entity_id)                │   │
 │  │ - Composite (artifact_type, active_flag)            │   │
 │  └──────────────────────────────────────────────────────┘   │
 │                              │                               │
@@ -315,7 +315,7 @@ CREATE TABLE app.d_artifact (
     attachment_object_bucket text,                  -- S3 bucket name
     attachment_object_key text,                     -- S3 object key
     attachment text,                                -- Full S3 URL
-    entity_type text,                               -- Parent entity type (project, task, etc.)
+    entity_code text,                               -- Parent entity type (project, task, etc.)
     entity_id uuid,                                 -- Parent entity ID
     visibility text,                                -- public, internal, restricted, private
     dl__artifact_security_classification text,      -- General, Confidential, Restricted
@@ -336,7 +336,7 @@ CREATE TABLE app.d_artifact (
 | `attachment_object_bucket` | text | S3 bucket | `pmo-attachments` |
 | `attachment_object_key` | text | S3 path | `artifacts/{id}/file.docx` |
 | `attachment` | text | Full S3 URL | `s3://pmo-attachments/artifacts/{id}/file.docx` |
-| `entity_type` | text | Parent entity | `project`, `task`, `form` |
+| `entity_code` | text | Parent entity | `project`, `task`, `form` |
 | `entity_id` | uuid | Parent ID | `84215ccb-313d-48f8-9c37-4398f28c0b1f` |
 | `visibility` | text | Access level | `public`, `internal`, `restricted`, `private` |
 | `dl__artifact_security_classification` | text | Security level | `General`, `Confidential`, `Restricted` |
@@ -352,7 +352,7 @@ CREATE UNIQUE INDEX idx_artifact_pk ON app.d_artifact(id);
 CREATE UNIQUE INDEX idx_artifact_code ON app.d_artifact(code) WHERE active_flag = true;
 
 -- Entity relationship index
-CREATE INDEX idx_artifact_entity ON app.d_artifact(entity_type, entity_id) WHERE active_flag = true;
+CREATE INDEX idx_artifact_entity ON app.d_artifact(entity_code, entity_id) WHERE active_flag = true;
 
 -- Type filtering index
 CREATE INDEX idx_artifact_type ON app.d_artifact(dl__artifact_type, active_flag);
@@ -423,9 +423,9 @@ Artifacts are linked to parent entities using the universal linkage pattern:
 ```sql
 -- Example: Link artifact to project
 INSERT INTO app.entity_instance_link (
-    parent_entity_type,
+    parent_entity_code,
     parent_entity_id,
-    child_entity_type,
+    child_entity_code,
     child_entity_id,
     relationship_type
 ) VALUES (
@@ -440,9 +440,9 @@ INSERT INTO app.entity_instance_link (
 SELECT a.*
 FROM app.d_artifact a
 JOIN app.entity_instance_link m
-    ON m.child_entity_type = 'artifact'
+    ON m.child_entity_code = 'artifact'
     AND m.child_entity_id::text = a.id::text
-WHERE m.parent_entity_type = 'project'
+WHERE m.parent_entity_code = 'project'
   AND m.parent_entity_id::text = 'project-uuid'
   AND a.active_flag = true;
 ```
@@ -452,7 +452,7 @@ WHERE m.parent_entity_type = 'project'
 ```sql
 -- Example: Grant view permission to artifact
 INSERT INTO app.entity_rbac (
-    entity_type,
+    entity_code,
     entity_id,
     emp_id,
     permission
@@ -469,7 +469,7 @@ INSERT INTO app.entity_rbac (
 ```sql
 -- Automatically registered on artifact creation
 INSERT INTO app.entity_instance (
-    entity_type,
+    entity_code,
     entity_id,
     entity_name,
     entity_code
@@ -573,7 +573,7 @@ Authorization: Bearer {jwt_token}
       "attachment_object_bucket": "pmo-attachments",
       "attachment_object_key": "artifacts/33a33333-3333-3333-3333-333333333333/file.docx",
       "attachment": "s3://pmo-attachments/artifacts/33a33333-3333-3333-3333-333333333333/file.docx",
-      "entity_type": "project",
+      "entity_code": "project",
       "entity_id": "84215ccb-313d-48f8-9c37-4398f28c0b1f",
       "visibility": "internal",
       "dl__artifact_security_classification": "Confidential",
@@ -607,7 +607,7 @@ Content-Type: application/json
   "dl__artifact_type": "Template",
   "attachment_format": "pdf",
   "attachment_size_bytes": 125000,
-  "entity_type": "project",
+  "entity_code": "project",
   "entity_id": "project-uuid-here",
   "visibility": "internal",
   "dl__artifact_security_classification": "General",
@@ -629,7 +629,7 @@ Content-Type: application/json
   "dl__artifact_type": "Template",
   "attachment_format": "pdf",
   "attachment_size_bytes": 125000,
-  "entity_type": "project",
+  "entity_code": "project",
   "entity_id": "project-uuid-here",
   "visibility": "internal",
   "dl__artifact_security_classification": "General",
@@ -709,7 +709,7 @@ Authorization: Bearer {jwt_token}
 
 **Filtering:**
 - `artifact_type` (string) - Filter by type (Document, Template, Video, etc.)
-- `entity_type` (string) - Filter by parent entity type
+- `entity_code` (string) - Filter by parent entity type
 - `entity_id` (uuid) - Filter by parent entity ID
 - `visibility` (string) - Filter by visibility level
 - `security_classification` (string) - Filter by security level
@@ -782,7 +782,7 @@ artifact: {
     { key: 'artifact_type', label: 'Type', type: 'select', loadOptionsFromSettings: true },
     { key: 'visibility', label: 'Visibility', type: 'select', options: ['public', 'internal', 'restricted', 'private'] },
     { key: 'security_classification', label: 'Security', type: 'select', loadOptionsFromSettings: true },
-    { key: 'entity_type', label: 'Parent Entity Type', type: 'text' },
+    { key: 'entity_code', label: 'Parent Entity Type', type: 'text' },
     { key: 'entity_id', label: 'Parent Entity ID', type: 'text' }
   ],
 
@@ -1124,7 +1124,7 @@ async function enforceVisibility(
 ```sql
 -- Log artifact access
 INSERT INTO app.audit_log (
-    entity_type,
+    entity_code,
     entity_id,
     action_type,
     user_id,
@@ -1571,9 +1571,9 @@ GROUP BY dl__artifact_security_classification, visibility;
 SELECT a.*
 FROM app.d_artifact a
 JOIN app.entity_instance_link m
-    ON m.child_entity_type = 'artifact'
+    ON m.child_entity_code = 'artifact'
     AND m.child_entity_id = a.id::text
-WHERE m.parent_entity_type = 'project'
+WHERE m.parent_entity_code = 'project'
   AND m.parent_entity_id = 'project-uuid'
   AND a.active_flag = true;
 

@@ -260,10 +260,10 @@ fastify.post('/api/v1/project', {
   // STEP 4: Register in entity_instance
   // ═══════════════════════════════════════════════════════════════
   await entityInfra.set_entity_instance_registry({
-    entity_type: ENTITY_CODE,
+    entity_code: ENTITY_CODE,      // Entity TYPE code
     entity_id: project.id,
     entity_name: project.name,
-    entity_code: project.code
+    instance_code: project.code    // Record code (e.g., 'PROJ-001')
   });
 
   // ═══════════════════════════════════════════════════════════════
@@ -276,10 +276,10 @@ fastify.post('/api/v1/project', {
   // ═══════════════════════════════════════════════════════════════
   if (parent_code && parent_id) {
     await entityInfra.set_entity_instance_link({
-      parent_entity_type: parent_code,
-      parent_entity_id: parent_id,
-      child_entity_type: ENTITY_CODE,
-      child_entity_id: project.id,
+      entity_code: parent_code,              // Parent entity TYPE code
+      entity_instance_id: parent_id,         // Parent entity UUID
+      child_entity_code: ENTITY_CODE,        // Child entity TYPE code
+      child_entity_instance_id: project.id,  // Child entity UUID
       relationship_type: 'contains'
     });
   }
@@ -365,7 +365,7 @@ fastify.patch('/api/v1/project/:id', {
   if (updates.name !== undefined || updates.code !== undefined) {
     await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
       entity_name: updates.name,
-      entity_code: updates.code
+      instance_code: updates.code  // Record code (e.g., 'PROJ-001')
     });
   }
 

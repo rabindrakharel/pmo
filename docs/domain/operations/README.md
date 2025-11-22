@@ -179,7 +179,7 @@ Tasks can be children of:
 - Offices (internal office tasks)
 - Events (event prep tasks)
 
-All via `d_entity_instance_link` with `parent_entity_type` polymorphism.
+All via `d_entity_instance_link` with `parent_entity_code` polymorphism.
 
 ## Use Cases
 
@@ -335,7 +335,7 @@ Projects and Tasks integrate with **Automation & Workflow** domain:
 ```sql
 -- Trigger workflow on project stage change
 INSERT INTO f_industry_workflow_events (
-    entity_type,
+    entity_code,
     entity_instance_id,
     event_type,
     event_payload

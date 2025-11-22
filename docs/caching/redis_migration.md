@@ -43,17 +43,17 @@ export async function isRedisHealthy(): Promise<boolean>
 private metadataCache: Map<string, { data: Entity; expiry: number }> = new Map();
 private CACHE_TTL = 5 * 60 * 1000; // milliseconds
 
-async get_entity(entity_type: string): Promise<Entity | null> {
-  const cached = this.metadataCache.get(entity_type);
+async get_entity(entity_code: string): Promise<Entity | null> {
+  const cached = this.metadataCache.get(entity_code);
   if (cached && cached.expiry > Date.now()) {
     return cached.data;  // Cache hit
   }
   // Query database...
-  this.metadataCache.set(entity_type, { data, expiry: Date.now() + TTL });
+  this.metadataCache.set(entity_code, { data, expiry: Date.now() + TTL });
 }
 
-invalidate_entity_cache(entity_type: string): void {
-  this.metadataCache.delete(entity_type);
+invalidate_entity_cache(entity_code: string): void {
+  this.metadataCache.delete(entity_code);
 }
 ```
 
@@ -63,8 +63,8 @@ private redis: Redis;
 private CACHE_TTL = 300; // seconds
 private CACHE_PREFIX = 'entity:metadata:';
 
-async get_entity(entity_type: string): Promise<Entity | null> {
-  const cached = await this.redis.get(`${this.CACHE_PREFIX}${entity_type}`);
+async get_entity(entity_code: string): Promise<Entity | null> {
+  const cached = await this.redis.get(`${this.CACHE_PREFIX}${entity_code}`);
   if (cached) {
     return JSON.parse(cached);  // Cache hit
   }
@@ -72,8 +72,8 @@ async get_entity(entity_type: string): Promise<Entity | null> {
   await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(data));
 }
 
-async invalidate_entity_cache(entity_type: string): Promise<void> {
-  await this.redis.del(`${this.CACHE_PREFIX}${entity_type}`);
+async invalidate_entity_cache(entity_code: string): Promise<void> {
+  await this.redis.del(`${this.CACHE_PREFIX}${entity_code}`);
 }
 ```
 

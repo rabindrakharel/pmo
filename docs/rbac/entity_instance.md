@@ -61,10 +61,10 @@ Route Handler                Service Method                  Database
 
 POST /api/v1/project    →    set_entity_instance_registry()  →  INSERT INTO
 {name: "Kitchen Reno"}       {                                   entity_instance
-                               entity_type: 'project',
+                               entity_code: 'project',
                                entity_id: uuid,
                                entity_name: 'Kitchen Reno',
-                               entity_code: 'PROJ-001'
+                               instance_code: 'PROJ-001'
                              }
 
 
@@ -130,17 +130,17 @@ PRIMARY KEY (entity_code, entity_instance_id)
 ```typescript
 // On CREATE - register the instance
 await entityInfra.set_entity_instance_registry({
-  entity_type: ENTITY_CODE,
+  entity_code: ENTITY_CODE,          // Entity TYPE code
   entity_id: newProject.id,
   entity_name: newProject.name,
-  entity_code: newProject.code
+  instance_code: newProject.code     // Record code (e.g., 'PROJ-001')
 });
 
 // On UPDATE - sync if name/code changed
 if (data.name || data.code) {
   await entityInfra.update_entity_instance_registry(ENTITY_CODE, id, {
     entity_name: data.name,
-    entity_code: data.code
+    instance_code: data.code         // Record code (e.g., 'PROJ-001')
   });
 }
 ```

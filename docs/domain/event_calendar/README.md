@@ -46,7 +46,7 @@ The Event & Calendar Domain provides comprehensive event and appointment managem
 │  │ • organizer_emp_id    │ WHO organized                               │
 │  │                       │                                             │
 │  │ Action Entity:        │ WHAT                                        │
-│  │ • event_action_entity_type                                         │
+│  │ • event_action_entity_code                                         │
 │  │ • event_action_entity_id                                           │
 │  │                       │                                             │
 │  │ Examples:             │                                             │
@@ -99,7 +99,7 @@ The Event & Calendar Domain provides comprehensive event and appointment managem
 │  │ Domain                │                                             │
 │  │                       │                                             │
 │  │ • event_id            │                                             │
-│  │ • person_entity_type  │ ('employee', 'cust')                        │
+│  │ • person_entity_code  │ ('employee', 'cust')                        │
 │  │ • person_entity_id    │                                             │
 │  │ • event_rsvp_status   │ ('accepted', 'declined', 'tentative')       │
 │  │ • reminder_sent_flag  │                                             │
@@ -115,7 +115,7 @@ The Event & Calendar Domain provides comprehensive event and appointment managem
 │  │ from Service Delivery │                                             │
 │  │ Domain                │                                             │
 │  │                       │                                             │
-│  │ • person_entity_type  │                                             │
+│  │ • person_entity_code  │                                             │
 │  │ • person_entity_id    │                                             │
 │  │ • available_from_ts   │                                             │
 │  │ • available_to_ts     │                                             │
@@ -169,31 +169,31 @@ The Event & Calendar Domain provides comprehensive event and appointment managem
 
 Events are categorized by their action entity type:
 
-**Service Appointment** (`event_action_entity_type = 'service'`):
+**Service Appointment** (`event_action_entity_code = 'service'`):
 - Customer self-schedules HVAC consultation
 - Technician assigned via organizer_employee_id
 - Customer location in event_addr
 - Example: "HVAC Maintenance - 123 Main St"
 
-**Project Meeting** (`event_action_entity_type = 'project'`):
+**Project Meeting** (`event_action_entity_code = 'project'`):
 - Project manager schedules milestone review
 - Team members invited as attendees
 - Office or remote venue
 - Example: "Project Kickoff - HVAC Installation Store #45"
 
-**Task Discussion** (`event_action_entity_type = 'task'`):
+**Task Discussion** (`event_action_entity_code = 'task'`):
 - Team lead schedules task planning session
 - Assigned employees attend
 - Quick sync or detailed planning
 - Example: "Task Planning - Equipment Procurement"
 
-**Quote Review** (`event_action_entity_type = 'quote'`):
+**Quote Review** (`event_action_entity_code = 'quote'`):
 - Sales rep schedules quote walkthrough with customer
 - Customer and approvers attend
 - Virtual or on-site
 - Example: "Quote Review - $12,500 HVAC Project"
 
-**Product Demo** (`event_action_entity_type = 'product'`):
+**Product Demo** (`event_action_entity_code = 'product'`):
 - Sales schedules product demonstration
 - Potential customers attend
 - Showroom or virtual
@@ -296,14 +296,14 @@ Events support recurrence via metadata:
    - from_ts = "2025-01-15 14:00:00"
    - to_ts = "2025-01-15 15:00:00"
    - timezone = "America/Toronto"
-   - event_action_entity_type = "service"
+   - event_action_entity_code = "service"
    - event_action_entity_id = <service_uuid>
    - organizer_employee_id = <technician_uuid>
    - venue_type = "customer_site"
    - event_addr = "123 Main St, London, ON"
 3. System creates attendee links:
    - INSERT INTO d_entity_event_person_calendar
-     (event_id, person_entity_type, person_entity_id, event_rsvp_status)
+     (event_id, person_entity_code, person_entity_id, event_rsvp_status)
      VALUES (<event_id>, 'employee', <tech_uuid>, 'accepted');
    - INSERT INTO d_entity_event_person_calendar
      VALUES (<event_id>, 'cust', <customer_uuid>, 'pending');
@@ -325,7 +325,7 @@ SELECT COUNT(*) AS conflicts
 FROM d_entity_event_person_calendar epc
 JOIN d_event e ON e.id = epc.event_id
 WHERE epc.person_entity_id = $person_id
-  AND epc.person_entity_type = $person_type
+  AND epc.person_entity_code = $person_type
   AND e.active_flag = true
   AND (
     -- Proposed event overlaps existing event
@@ -342,7 +342,7 @@ WHERE epc.person_entity_id = $person_id
 -- Find all events for a service (appointments)
 SELECT e.*
 FROM d_event e
-WHERE e.event_action_entity_type = 'service'
+WHERE e.event_action_entity_code = 'service'
   AND e.event_action_entity_id = $service_id
   AND e.active_flag = true
 ORDER BY e.from_ts;
@@ -359,7 +359,7 @@ SELECT e.*, epc.event_rsvp_status
 FROM d_event e
 JOIN d_entity_event_person_calendar epc ON epc.event_id = e.id
 WHERE epc.person_entity_id = $person_id
-  AND epc.person_entity_type = 'employee'
+  AND epc.person_entity_code = 'employee'
   AND e.active_flag = true
 ORDER BY e.from_ts;
 
@@ -384,7 +384,7 @@ ORDER BY e.from_ts;
 4. System queries technician calendars for availability
 5. Customer selects: "Jan 15, 2025 @ 2:00 PM"
 6. System creates Event:
-   - event_action_entity_type: "service"
+   - event_action_entity_code: "service"
    - event_action_entity_id: <HVAC service UUID>
    - from_ts: "2025-01-15 14:00:00"
    - to_ts: "2025-01-15 15:00:00"
@@ -423,7 +423,7 @@ ORDER BY e.from_ts;
    - 4 available, 1 has conflict (shows warning)
 5. PM proceeds anyway
 6. System creates Event:
-   - event_action_entity_type: "project"
+   - event_action_entity_code: "project"
    - event_action_entity_id: <Project #450 UUID>
    - from_ts: "2025-01-12 10:00:00"
    - to_ts: "2025-01-12 11:00:00"
@@ -460,7 +460,7 @@ ORDER BY e.from_ts;
    - Time: 3:00 PM - 4:00 PM
    - Venue: Virtual (Microsoft Teams)
 6. System creates Event:
-   - event_action_entity_type: "quote"
+   - event_action_entity_code: "quote"
    - event_action_entity_id: <Quote UUID>
    - from_ts: "2025-01-18 15:00:00"
    - to_ts: "2025-01-18 16:00:00"
@@ -499,7 +499,7 @@ CREATE TABLE app.d_event (
     timezone varchar(50) DEFAULT 'America/Toronto',
 
     -- Action Entity (WHAT)
-    event_action_entity_type text,                  -- 'service', 'project', 'task', 'quote'
+    event_action_entity_code text,                  -- 'service', 'project', 'task', 'quote'
     event_action_entity_id uuid,                    -- UUID of action entity
 
     -- Organizer (WHO)
@@ -525,7 +525,7 @@ CREATE TABLE app.d_event (
 CREATE TABLE app.d_entity_event_person_calendar (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id uuid NOT NULL,                         -- FK to d_event
-    person_entity_type text NOT NULL,               -- 'employee', 'cust', 'client'
+    person_entity_code text NOT NULL,               -- 'employee', 'cust', 'client'
     person_entity_id uuid NOT NULL,                 -- UUID of person
     event_rsvp_status text DEFAULT 'pending',       -- 'accepted', 'declined', 'tentative', 'pending'
     reminder_sent_flag boolean DEFAULT false,
@@ -537,7 +537,7 @@ CREATE TABLE app.d_entity_event_person_calendar (
 -- NOTE: This table is in Service Delivery domain but used here
 CREATE TABLE app.d_entity_person_calendar (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    person_entity_type text NOT NULL,
+    person_entity_code text NOT NULL,
     person_entity_id uuid NOT NULL,
     available_from_ts timestamptz NOT NULL,
     available_to_ts timestamptz NOT NULL,
@@ -602,17 +602,17 @@ GET    /api/v1/event/attendee/:id        # Events person is attending
 ```sql
 -- Event indexes
 CREATE INDEX idx_event_from_ts ON app.d_event(from_ts);
-CREATE INDEX idx_event_action_entity ON app.d_event(event_action_entity_type, event_action_entity_id);
+CREATE INDEX idx_event_action_entity ON app.d_event(event_action_entity_code, event_action_entity_id);
 CREATE INDEX idx_event_organizer ON app.d_event(organizer_employee_id);
 CREATE INDEX idx_event_venue ON app.d_event(venue_type);
 
 -- Event Person Calendar indexes
 CREATE INDEX idx_event_person_event ON app.d_entity_event_person_calendar(event_id);
-CREATE INDEX idx_event_person_person ON app.d_entity_event_person_calendar(person_entity_type, person_entity_id);
+CREATE INDEX idx_event_person_person ON app.d_entity_event_person_calendar(person_entity_code, person_entity_id);
 CREATE INDEX idx_event_person_rsvp ON app.d_entity_event_person_calendar(event_rsvp_status);
 
 -- Person Calendar indexes
-CREATE INDEX idx_person_cal_person ON app.d_entity_person_calendar(person_entity_type, person_entity_id);
+CREATE INDEX idx_person_cal_person ON app.d_entity_person_calendar(person_entity_code, person_entity_id);
 CREATE INDEX idx_person_cal_time ON app.d_entity_person_calendar(available_from_ts, available_to_ts);
 ```
 

@@ -18,7 +18,7 @@ The PMO platform uses a flexible parent-child entity relationship system where e
 ```sql
 CREATE TABLE app.entity (
   code VARCHAR(255) PRIMARY KEY,
-  entity_type VARCHAR(255),
+  entity_code VARCHAR(255),
   label VARCHAR(255),
   icon VARCHAR(255),
   child_entity_codes JSONB DEFAULT '[]'::jsonb,  -- Array of child entity codes
@@ -430,7 +430,7 @@ docker exec pmo_redis redis-cli TTL "entity:metadata:project"
 ```sql
 INSERT INTO app.entity (
   code,
-  entity_type,
+  entity_code,
   label,
   label_plural,
   icon,
@@ -452,7 +452,7 @@ INSERT INTO app.entity (
 ```sql
 INSERT INTO app.entity (
   code,
-  entity_type,
+  entity_code,
   label,
   label_plural,
   icon,

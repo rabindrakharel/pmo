@@ -1717,10 +1717,10 @@ Goal 3 (LOOKUP_RECORDS): 7 tools (customer CRUD + session memory), integration a
   parameters: {
     type: 'object',
     properties: {
-      entity_type: { type: 'string', description: 'Entity type (e.g., "task", "project")' },
+      entity_code: { type: 'string', description: 'Entity type (e.g., "task", "project")' },
       field_name: { type: 'string', description: 'Field name (e.g., "status", "priority")' }
     },
-    required: ['entity_type', 'field_name']
+    required: ['entity_code', 'field_name']
   }
 }
 ```

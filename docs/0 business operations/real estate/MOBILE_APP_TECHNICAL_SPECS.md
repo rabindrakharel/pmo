@@ -1186,7 +1186,7 @@ export const initializeDatabase = () => {
     tx.executeSql(`
       CREATE TABLE IF NOT EXISTS sync_queue (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        entity_type TEXT NOT NULL,
+        entity_code TEXT NOT NULL,
         entity_id TEXT NOT NULL,
         operation TEXT NOT NULL,
         payload TEXT,
@@ -1270,15 +1270,15 @@ class SyncService {
 
     switch (item.operation) {
       case 'CREATE':
-        await this.createEntity(item.entity_type, payload);
+        await this.createEntity(item.entity_code, payload);
         break;
 
       case 'UPDATE':
-        await this.updateEntity(item.entity_type, item.entity_id, payload);
+        await this.updateEntity(item.entity_code, item.entity_id, payload);
         break;
 
       case 'DELETE':
-        await this.delete_all_entity_infrastructure(item.entity_type, item.entity_id);
+        await this.delete_all_entity_infrastructure(item.entity_code, item.entity_id);
         break;
     }
   }
@@ -1378,7 +1378,7 @@ class SyncService {
     await new Promise((resolve, reject) => {
       db.transaction((tx) => {
         tx.executeSql(
-          'INSERT INTO sync_queue (entity_type, entity_id, operation, payload, timestamp) VALUES (?, ?, ?, ?, ?)',
+          'INSERT INTO sync_queue (entity_code, entity_id, operation, payload, timestamp) VALUES (?, ?, ?, ?, ?)',
           [entityType, entityId, operation, JSON.stringify(payload), Date.now()],
           () => resolve(true),
           (_, error) => reject(error)

@@ -144,9 +144,9 @@ nano db/33_d_entity_instance_link.ddl
 **Create new entity:**
 ```bash
 ./tools/test-api.sh POST /api/v1/linkage '{
-  "parent_entity_type": "project",
+  "parent_entity_code": "project",
   "parent_entity_id": "uuid-here",
-  "child_entity_type": "task",
+  "child_entity_code": "task",
   "child_entity_id": "uuid-here"
 }'
 ```

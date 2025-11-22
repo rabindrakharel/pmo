@@ -41,7 +41,7 @@ The PMO Calendar & Event Management System enables scheduling, tracking, and man
 **Definition**: A scheduled occurrence at a specific time involving people, related to a business entity.
 
 **Business Purpose**: Events are the primary mechanism for coordinating activities across the organization. Every event answers three critical questions:
-1. **WHAT** is the event about? → `event_action_entity_type` + `event_action_entity_id`, complete event metadata is d_event table
+1. **WHAT** is the event about? → `event_action_entity_code` + `event_action_entity_id`, complete event metadata is d_event table
 2. **WHO** organized it? → `organizer_employee_id`
 3. **WHO** is involved? → `d_entity_event_person_calendar` (attendees)
 
@@ -107,7 +107,7 @@ The PMO Calendar & Event Management System enables scheduling, tracking, and man
 │ • descr                              │    │
 │                                      │    │
 │ ACTION ENTITY (what it's about):     │    │
-│ • event_action_entity_type           │    │
+│ • event_action_entity_code           │    │
 │   ('service','product','project',    │    │
 │    'task','quote')                   │    │
 │ • event_action_entity_id (UUID)      │    │
@@ -143,7 +143,7 @@ The PMO Calendar & Event Management System enables scheduling, tracking, and man
 │                                             │
 │ • id (PK)                                   │
 │ • event_id (FK → d_event)                   │
-│ • person_entity_type (employee/customer)    │
+│ • person_entity_code (employee/customer)    │
 │ • person_entity_id (FK → employee/customer) │
 │ • event_rsvp_status (pending/accepted/...)  │
 │ • from_ts                                   │
@@ -192,7 +192,7 @@ The PMO Calendar & Event Management System enables scheduling, tracking, and man
 │   d_person_calendar                │
 │                                    │
 │ • id (PK)                          │
-│ • person_entity_type (employee)    │
+│ • person_entity_code (employee)    │
 │ • person_entity_id (FK)            │
 │ • from_ts                          │
 │ • to_ts                            │
@@ -229,7 +229,7 @@ The PMO Calendar & Event Management System enables scheduling, tracking, and man
    - Mandatory: Cannot be NULL
 
 2. **Event → Action Entity**: Polymorphic via type discriminator
-   - `event_action_entity_type` determines which table to join
+   - `event_action_entity_code` determines which table to join
    - `event_action_entity_id` is the foreign key
    - Example: type='service', id='uuid' → `d_service.id`
 
@@ -257,7 +257,7 @@ CREATE TABLE app.d_event (
   descr text,
 
   -- Action Entity (what the event is about)
-  event_action_entity_type varchar(100) NOT NULL,
+  event_action_entity_code varchar(100) NOT NULL,
     -- Values: 'service', 'product', 'project', 'task', 'quote'
   event_action_entity_id uuid NOT NULL,
 
@@ -290,8 +290,8 @@ CREATE TABLE app.d_event (
   version integer DEFAULT 1,
 
   -- Constraints
-  CONSTRAINT chk_event_action_entity_type
-    CHECK (event_action_entity_type IN ('service', 'product', 'project', 'task', 'quote'))
+  CONSTRAINT chk_event_action_entity_code
+    CHECK (event_action_entity_code IN ('service', 'product', 'project', 'task', 'quote'))
 );
 ```
 
@@ -309,7 +309,7 @@ CREATE TABLE app.d_entity_event_person_calendar (
     -- FK to d_event.id
 
   -- Person Reference (Polymorphic)
-  person_entity_type varchar(50) NOT NULL,
+  person_entity_code varchar(50) NOT NULL,
     -- Values: 'employee', 'customer', 'client'
   person_entity_id uuid NOT NULL,
     -- FK to d_employee.id OR d_customer.id
@@ -342,7 +342,7 @@ CREATE TABLE app.d_person_calendar (
   name varchar(200) NOT NULL,
 
   -- Person Reference
-  person_entity_type varchar(50) NOT NULL,
+  person_entity_code varchar(50) NOT NULL,
     -- Values: 'employee'
   person_entity_id uuid NOT NULL,
     -- FK to d_employee.id
@@ -372,17 +372,17 @@ CREATE TABLE app.d_person_calendar (
 ```sql
 -- Event indexes
 CREATE INDEX idx_event_organizer ON app.d_event(organizer_employee_id);
-CREATE INDEX idx_event_action_entity ON app.d_event(event_action_entity_type, event_action_entity_id);
+CREATE INDEX idx_event_action_entity ON app.d_event(event_action_entity_code, event_action_entity_id);
 CREATE INDEX idx_event_time ON app.d_event(from_ts, to_ts);
 CREATE INDEX idx_event_active ON app.d_event(active_flag);
 
 -- Event-Person calendar indexes
 CREATE INDEX idx_event_person_event ON app.d_entity_event_person_calendar(event_id);
-CREATE INDEX idx_event_person_person ON app.d_entity_event_person_calendar(person_entity_type, person_entity_id);
+CREATE INDEX idx_event_person_person ON app.d_entity_event_person_calendar(person_entity_code, person_entity_id);
 CREATE INDEX idx_event_person_rsvp ON app.d_entity_event_person_calendar(event_rsvp_status);
 
 -- Person calendar indexes
-CREATE INDEX idx_person_cal_person ON app.d_person_calendar(person_entity_type, person_entity_id);
+CREATE INDEX idx_person_cal_person ON app.d_person_calendar(person_entity_code, person_entity_id);
 CREATE INDEX idx_person_cal_time ON app.d_person_calendar(from_ts, to_ts);
 CREATE INDEX idx_person_cal_avail ON app.d_person_calendar(availability_flag);
 ```
@@ -414,7 +414,7 @@ CREATE INDEX idx_person_cal_avail ON app.d_person_calendar(availability_flag);
       "name": "HVAC System Consultation",
       "descr": "Initial consultation...",
 
-      "event_action_entity_type": "service",
+      "event_action_entity_code": "service",
       "event_action_entity_id": "uuid",
       "organizer_employee_id": "uuid",
       "venue_type": "customer_site",
@@ -474,7 +474,7 @@ CREATE INDEX idx_person_cal_avail ON app.d_person_calendar(availability_flag);
 
       "attendees": [
         {
-          "person_entity_type": "employee",
+          "person_entity_code": "employee",
           "person_entity_id": "uuid",
           "person_name": "Jane Doe",
           "person_email": "jane@...",
@@ -507,7 +507,7 @@ CREATE INDEX idx_person_cal_avail ON app.d_person_calendar(availability_flag);
   "attendees": [
     {
       "id": "uuid",
-      "person_entity_type": "employee",
+      "person_entity_code": "employee",
       "person_entity_id": "uuid",
       "event_rsvp_status": "accepted",
       "from_ts": "...",
@@ -517,7 +517,7 @@ CREATE INDEX idx_person_cal_avail ON app.d_person_calendar(availability_flag);
 
   "linked_entities": [
     {
-      "child_entity_type": "service",
+      "child_entity_code": "service",
       "child_entity_id": "uuid",
       "relationship_type": "event_action"
     }
@@ -535,7 +535,7 @@ CREATE INDEX idx_person_cal_avail ON app.d_person_calendar(availability_flag);
   "name": "HVAC System Consultation",
   "descr": "Initial consultation...",
 
-  "event_action_entity_type": "service",
+  "event_action_entity_code": "service",
   "event_action_entity_id": "uuid",
   "organizer_employee_id": "uuid",
 
@@ -551,7 +551,7 @@ CREATE INDEX idx_person_cal_avail ON app.d_person_calendar(availability_flag);
 
   "attendees": [
     {
-      "person_entity_type": "employee",
+      "person_entity_code": "employee",
       "person_entity_id": "uuid",
       "event_rsvp_status": "accepted"
     }
@@ -654,7 +654,7 @@ interface EventFormData {
   descr?: string;
 
   // IDs submitted to API
-  event_action_entity_type: 'service' | 'product' | 'project' | 'task' | 'quote';
+  event_action_entity_code: 'service' | 'product' | 'project' | 'task' | 'quote';
   event_action_entity_id: string;  // UUID
   organizer_employee_id: string;   // UUID
 
@@ -669,7 +669,7 @@ interface EventFormData {
   timezone: string;
 
   attendees: Array<{
-    person_entity_type: 'employee' | 'customer';
+    person_entity_code: 'employee' | 'customer';
     person_entity_id: string;  // UUID
     event_rsvp_status: 'pending' | 'accepted' | 'declined';
   }>;
@@ -729,7 +729,7 @@ interface EventFormData {
    ├─ Transform state to API format:
    │  {
    │    "name": "HVAC Consultation",
-   │    "event_action_entity_type": "service",
+   │    "event_action_entity_code": "service",
    │    "event_action_entity_id": "93106ffb...",  ← UUID
    │    "organizer_employee_id": "8260b1b0...",   ← UUID
    │    "from_ts": "2025-11-14T14:00:00Z",
@@ -749,7 +749,7 @@ interface EventFormData {
    │
    ├─ INSERT INTO app.d_event
    │  (id, code, name, descr,
-   │   event_action_entity_type,
+   │   event_action_entity_code,
    │   event_action_entity_id,
    │   organizer_employee_id,
    │   event_type, venue_type,
@@ -767,13 +767,13 @@ interface EventFormData {
    │  -- Grant Owner [5] permission to creator
    │
    ├─ INSERT INTO app.d_entity_event_person_calendar
-   │  (event_id, person_entity_type, person_entity_id, event_rsvp_status, ...)
+   │  (event_id, person_entity_code, person_entity_id, event_rsvp_status, ...)
    │  VALUES (new_event_id, 'employee', organizer_id, 'accepted', ...)
    │  -- Add organizer as accepted attendee
    │
    ├─ FOR EACH additional attendee:
    │  INSERT INTO app.d_entity_event_person_calendar
-   │  (event_id, person_entity_type, person_entity_id, event_rsvp_status, ...)
+   │  (event_id, person_entity_code, person_entity_id, event_rsvp_status, ...)
    │  VALUES (new_event_id, attendee_type, attendee_id, 'pending', ...)
    │
    └─ COMMIT TRANSACTION
@@ -880,7 +880,7 @@ GET /api/v1/person-calendar?person_type=employee&availability_flag=true&from_ts=
 // 2. Customer submits booking
 POST /api/v1/event
 {
-  "event_action_entity_type": "service",
+  "event_action_entity_code": "service",
   "event_action_entity_id": "hvac_service_id",
   "organizer_employee_id": "assigned_tech_id",  // System assigns
   "event_type": "onsite",
@@ -888,12 +888,12 @@ POST /api/v1/event
   "to_ts": "...",
   "attendees": [
     {
-      "person_entity_type": "customer",
+      "person_entity_code": "customer",
       "person_entity_id": "customer_id",
       "event_rsvp_status": "accepted"
     },
     {
-      "person_entity_type": "employee",
+      "person_entity_code": "employee",
       "person_entity_id": "assigned_tech_id",
       "event_rsvp_status": "accepted"
     }
@@ -919,7 +919,7 @@ POST /api/v1/event
 // 1. Button on project page passes context
 navigate('/calendar/create', {
   state: {
-    event_action_entity_type: 'project',
+    event_action_entity_code: 'project',
     event_action_entity_id: project.id
   }
 });
@@ -927,7 +927,7 @@ navigate('/calendar/create', {
 // 2. Modal pre-fills form
 <CalendarEventModal
   initialData={{
-    event_action_entity_type: 'project',
+    event_action_entity_code: 'project',
     event_action_entity_id: project.id,
     organizer_employee_id: currentUser.id
   }}
@@ -936,12 +936,12 @@ navigate('/calendar/create', {
 // 3. PM adds attendees and submits
 POST /api/v1/event
 {
-  "event_action_entity_type": "project",
+  "event_action_entity_code": "project",
   "event_action_entity_id": "project_uuid",
   "organizer_employee_id": "pm_uuid",
   "attendees": [
-    { "person_entity_type": "employee", "person_entity_id": "dev1_uuid", ... },
-    { "person_entity_type": "employee", "person_entity_id": "dev2_uuid", ... }
+    { "person_entity_code": "employee", "person_entity_id": "dev1_uuid", ... },
+    { "person_entity_code": "employee", "person_entity_id": "dev2_uuid", ... }
   ]
 }
 
@@ -972,7 +972,7 @@ const handleScheduleQuoteReview = async () => {
   );
 
   openModal({
-    event_action_entity_type: 'quote',
+    event_action_entity_code: 'quote',
     event_action_entity_id: quote.id,
     organizer_employee_id: currentUser.id,
     event_type: 'virtual',
@@ -984,14 +984,14 @@ const handleScheduleQuoteReview = async () => {
 // 3. Rep creates event
 POST /api/v1/event
 {
-  "event_action_entity_type": "quote",
+  "event_action_entity_code": "quote",
   "event_action_entity_id": "quote_uuid",
   "organizer_employee_id": "sales_rep_uuid",
   "event_type": "virtual",
   "event_platform_provider_name": "zoom",
   "event_addr": "https://zoom.us/j/meeting-123",
   "attendees": [
-    { "person_entity_type": "customer", "person_entity_id": "customer_uuid", ... }
+    { "person_entity_code": "customer", "person_entity_id": "customer_uuid", ... }
   ]
 }
 
@@ -1020,7 +1020,7 @@ WHERE
   OR EXISTS (
     SELECT 1 FROM entity_event_person_calendar epc
     WHERE epc.event_id = e.id
-      AND epc.person_entity_type = 'employee'
+      AND epc.person_entity_code = 'employee'
       AND epc.person_entity_id = '{employee_id}'
   )
 
@@ -1050,7 +1050,7 @@ events.map(event => (
 POST /api/v1/event/check-conflicts
 {
   "attendees": [
-    { "person_entity_id": "employee1_id", "person_entity_type": "employee" }
+    { "person_entity_id": "employee1_id", "person_entity_code": "employee" }
   ],
   "from_ts": "2025-11-14T14:00:00Z",
   "to_ts": "2025-11-14T16:00:00Z"
@@ -1155,7 +1155,7 @@ interface EventValidation {
     minLength: 3,
     maxLength: 200
   },
-  event_action_entity_type: {
+  event_action_entity_code: {
     required: true,
     enum: ['service', 'product', 'project', 'task', 'quote']
   },
@@ -1200,7 +1200,7 @@ WHERE organizer_employee_id = '...'
 
 -- Good: Uses composite index on event_action_entity
 SELECT * FROM d_event
-WHERE event_action_entity_type = 'service'
+WHERE event_action_entity_code = 'service'
   AND event_action_entity_id = '...'
   AND active_flag = true;
 

@@ -396,8 +396,8 @@ employee_get: GET /api/v1/employee/:id
 ```typescript
 // Get entity relationships
 linkage_list: GET /api/v1/linkage
-  - Filters: parent_entity_type, parent_entity_id,
-             child_entity_type, child_entity_id
+  - Filters: parent_entity_code, parent_entity_id,
+             child_entity_code, child_entity_id
 ```
 
 ### Tool Selection Strategy

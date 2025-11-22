@@ -37,7 +37,7 @@ Home services companies face customer acquisition friction: customers must creat
 
 **15-Minute Calendar Granularity**
 - `d_entity_person_calendar` stores slots in 15-minute increments
-- Slot structure: `{ from_ts, to_ts, person_entity_type, person_entity_id, availability_flag, event_id }`
+- Slot structure: `{ from_ts, to_ts, person_entity_code, person_entity_id, availability_flag, event_id }`
 - Booking: flip `availability_flag` from `true` to `false`, attach `event_id`
 - Prevents double-booking through immediate slot reservation
 
@@ -381,7 +381,7 @@ Response:
 
 **Calendar View → Backend API:**
 ```
-Frontend: GET /api/v1/person-calendar?person_entity_type=employee&person_entity_id=<uuid>
+Frontend: GET /api/v1/person-calendar?person_entity_code=employee&person_entity_id=<uuid>
 Response:
   {
     data: [
@@ -467,7 +467,7 @@ Selection: Filtered by skills_service_categories, checked for availability
 
 **Employee → Calendar Slots (1:N)**
 ```
-Linkage: CalendarSlot.person_entity_id → Employee.id (when person_entity_type='employee')
+Linkage: CalendarSlot.person_entity_id → Employee.id (when person_entity_code='employee')
 Cardinality: One employee has many 15-minute slots (pre-generated)
 Booking: Event.id attached to slots, availability_flag flipped to false
 Query: "Find all available slots for employee X between time Y and Z"
@@ -1107,7 +1107,7 @@ Event (d_event)
   └─ event_metadata { task_id, customer_id, employee_id, service_category }
 
 Calendar Slot (d_entity_person_calendar)
-  ├─ person_entity_type, person_entity_id
+  ├─ person_entity_code, person_entity_id
   ├─ from_ts, to_ts (15-minute increments)
   └─ availability_flag, event_id
 ```

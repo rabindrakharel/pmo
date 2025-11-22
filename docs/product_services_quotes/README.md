@@ -513,9 +513,9 @@ export async function serviceRoutes(fastify: FastifyInstance) {
 
     // Register in global entity registry
     await db.execute(sql`
-      INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+      INSERT INTO app.d_entity_instance_registry (entity_code, entity_id, entity_name, entity_code)
       VALUES ('service', ${newService.id}::uuid, ${newService.name}, ${newService.code})
-      ON CONFLICT (entity_type, entity_id) DO UPDATE
+      ON CONFLICT (entity_code, entity_id) DO UPDATE
       SET entity_name = EXCLUDED.entity_name, entity_code = EXCLUDED.entity_code
     `);
 
@@ -546,8 +546,8 @@ export async function serviceRoutes(fastify: FastifyInstance) {
 └──────┬──────┘
        │
        │ (via entity_instance_link)
-       │ parent_entity_type='task'
-       │ child_entity_type='quote'
+       │ parent_entity_code='task'
+       │ child_entity_code='quote'
        ├─────────────────┐
        ▼                 ▼
 ┌─────────────┐   ┌─────────────┐
@@ -574,8 +574,8 @@ export async function serviceRoutes(fastify: FastifyInstance) {
 ```sql
 -- Stored in: app.entity_instance_link
 INSERT INTO app.entity_instance_link (
-  parent_entity_type, parent_entity_id,
-  child_entity_type, child_entity_id,
+  parent_entity_code, parent_entity_id,
+  child_entity_code, child_entity_id,
   relationship_type
 ) VALUES (
   'task', 'a2222222-2222-2222-2222-222222222222',
@@ -587,8 +587,8 @@ INSERT INTO app.entity_instance_link (
 **2. Task → Work Order (Parent-Child)**
 ```sql
 INSERT INTO app.entity_instance_link (
-  parent_entity_type, parent_entity_id,
-  child_entity_type, child_entity_id,
+  parent_entity_code, parent_entity_id,
+  child_entity_code, child_entity_id,
   relationship_type
 ) VALUES (
   'task', 'a2222222-2222-2222-2222-222222222222',
@@ -948,8 +948,8 @@ execute_sql "$DB_PATH/fact_work_order.ddl" "Work order fact table (service deliv
 
    → Creates work order
    → Links to task via entity_instance_link:
-     parent_entity_type='task'
-     child_entity_type='work_order'
+     parent_entity_code='task'
+     child_entity_code='work_order'
    ```
 
 4. **Track Work Progress**
@@ -1056,9 +1056,9 @@ WHERE EXISTS (
 **MANDATORY** after every CREATE or UPDATE:
 
 ```sql
-INSERT INTO app.d_entity_instance_registry (entity_type, entity_id, entity_name, entity_code)
+INSERT INTO app.d_entity_instance_registry (entity_code, entity_id, entity_name, entity_code)
 VALUES ('service', $newService.id::uuid, $newService.name, $newService.code)
-ON CONFLICT (entity_type, entity_id) DO UPDATE
+ON CONFLICT (entity_code, entity_id) DO UPDATE
 SET entity_name = EXCLUDED.entity_name,
     entity_code = EXCLUDED.entity_code,
     updated_ts = NOW()

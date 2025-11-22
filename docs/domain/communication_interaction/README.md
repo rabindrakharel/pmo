@@ -94,8 +94,8 @@ The Communication & Interaction Domain manages all customer-facing communication
 │  │        Polymorphic Person Entity References (JSONB)          │  │
 │  │                                                               │  │
 │  │  interaction_person_entities: [                              │  │
-│  │    {"person_entity_type": "customer", "person_entity_id": ...}│ │
-│  │    {"person_entity_type": "employee", "person_entity_id": ...}│ │
+│  │    {"person_entity_code": "customer", "person_entity_id": ...}│ │
+│  │    {"person_entity_code": "employee", "person_entity_id": ...}│ │
 │  │  ]                                                            │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 │                                                                      │
@@ -404,17 +404,17 @@ Interactions support multiple participant types via JSONB:
 {
   "interaction_person_entities": [
     {
-      "person_entity_type": "customer",
+      "person_entity_code": "customer",
       "person_entity_id": "uuid-customer-123",
       "role": "caller"
     },
     {
-      "person_entity_type": "employee",
+      "person_entity_code": "employee",
       "person_entity_id": "uuid-employee-456",
       "role": "agent"
     },
     {
-      "person_entity_type": "employee",
+      "person_entity_code": "employee",
       "person_entity_id": "uuid-employee-789",
       "role": "supervisor"
     }
@@ -478,8 +478,8 @@ Allows flexible participant tracking without rigid foreign keys.
    - channel: "phone"
    - interaction_ts: 2025-01-10 14:30:00
    - interaction_person_entities: [
-       {"person_entity_type": "customer", "person_entity_id": "...", "role": "caller"},
-       {"person_entity_type": "employee", "person_entity_id": "...", "role": "agent"}
+       {"person_entity_code": "customer", "person_entity_id": "...", "role": "caller"},
+       {"person_entity_code": "employee", "person_entity_id": "...", "role": "agent"}
      ]
 5. Agent answers call, discusses issue (furnace not heating)
 6. Call recorded to S3: s3://pmo-interactions/2025/01/INT-2025-00567-call.mp3

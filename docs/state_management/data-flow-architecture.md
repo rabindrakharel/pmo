@@ -437,7 +437,7 @@ fastify.get('/api/v1/project/:id', async (request, reply) => {
   const entityInfo = await db.query(`
     SELECT child_entity_codes
     FROM app.entity
-    WHERE entity_type = 'project'
+    WHERE entity_code = 'project'
   `);
 
   // Fetch children if requested

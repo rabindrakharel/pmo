@@ -578,12 +578,12 @@ paths:
             schema:
               type: object
               required:
-                - parent_entity_type
+                - parent_entity_code
                 - parent_entity_id
-                - child_entity_type
+                - child_entity_code
                 - child_entity_id
               properties:
-                parent_entity_type:
+                parent_entity_code:
                   type: string
                   description: Parent entity type
                   example: "project"
@@ -592,7 +592,7 @@ paths:
                   format: uuid
                   description: Parent entity UUID
                   example: "proj-uuid-123"
-                child_entity_type:
+                child_entity_code:
                   type: string
                   description: Child entity type
                   example: "task"
