@@ -15,7 +15,6 @@ import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✨ Backend Formatter Service - component-aware metadata generation
 import { generateEntityResponse, extractDatalabelKeys } from '../../services/backend-formatter.service.js';
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
-import { fetchDatalabels } from '../../services/datalabel.service.js';
 // ✅ Delete factory for cascading soft deletes
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
 // ✅ Child entity factory for parent-child relationships
