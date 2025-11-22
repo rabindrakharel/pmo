@@ -51,8 +51,8 @@ Backend detects 'employee_id' → renderType: 'reference', loadFromEntity: 'empl
 -- Core tables (d_ prefix)
 d_project, d_task, d_employee, d_client, d_office, d_business
 
--- Settings tables (setting_datalabel_ prefix)
-setting_datalabel_project_stage, setting_datalabel_task_priority
+-- Settings tables (datalabel_ prefix)
+datalabel_project_stage, datalabel_task_priority
 
 -- Infrastructure tables
 entity                        -- Entity metadata (icons, labels, child_entity_codes)
@@ -602,7 +602,7 @@ entity (metadata) → defines → Entity Types
 
 ### Settings Integration
 ```
-setting_datalabel_* tables → /api/v1/entity/:entityCode/entity-instance-lookup → EntityFormContainer
+datalabel_* tables → /api/v1/entity/:entityCode/entity-instance-lookup → EntityFormContainer
                                                                                           ↓
                                                                                   Auto-renders dropdowns
 ```

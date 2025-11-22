@@ -471,7 +471,7 @@ export function EntityFormContainer({
         // Backend-specified DAG component (explicit from backend)
         if (field.EntityFormContainer_viz_container === 'DAGVisualizer' && dagNodes.has(field.key)) {
           // TWO DATA SOURCES for DAG visualization:
-          // 1. DAG structure (nodes, parent_ids, relationships) from setting_datalabel table
+          // 1. DAG structure (nodes, parent_ids, relationships) from datalabel table
           const nodes = dagNodes.get(field.key)!; // {id, node_name, parent_ids}[]
 
           // 2. Current value (actual stage name) from entity table (e.g., project.dl__project_stage = "Execution")
@@ -485,7 +485,7 @@ export function EntityFormContainer({
                 <span className="text-sm font-medium text-dark-600">Current Stage:</span>
                 {renderFieldBadge(field.key, value || 'Not Set')}
               </div>
-              {/* DAG visualization overlay from setting_datalabel */}
+              {/* DAG visualization overlay from datalabel */}
               <DAGVisualizer
                 nodes={nodes}                      // DAG structure: {id, node_name, parent_ids}[]
                 currentNodeId={currentNode?.id}    // Current node ID matched from stage name
@@ -704,7 +704,7 @@ export function EntityFormContainer({
         // Backend-specified DAG component (explicit from backend)
         if (field.EntityFormContainer_viz_container === 'DAGVisualizer' && dagNodes.has(field.key)) {
           // TWO DATA SOURCES for interactive DAG visualization:
-          // 1. DAG structure (nodes, parent_ids, relationships) from setting_datalabel table
+          // 1. DAG structure (nodes, parent_ids, relationships) from datalabel table
           const nodes = dagNodes.get(field.key)!; // {id, node_name, parent_ids}[]
 
           // 2. Current value (actual stage name) from entity table (e.g., project.dl__project_stage = "Execution")
@@ -721,7 +721,7 @@ export function EntityFormContainer({
               <div className="text-xs text-dark-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
                 <strong>Click a node below</strong> to change the stage
               </div>
-              {/* Interactive DAG visualization overlay from setting_datalabel */}
+              {/* Interactive DAG visualization overlay from datalabel */}
               <DAGVisualizer
                 nodes={nodes}                      // DAG structure: {id, node_name, parent_ids}[]
                 currentNodeId={currentNode?.id}    // Current node ID matched from stage name

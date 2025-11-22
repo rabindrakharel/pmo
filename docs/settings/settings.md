@@ -19,7 +19,7 @@
 | **Settings Detail** | `/setting/:category` | `GET /api/v1/setting?datalabel=dl__*` | Manage datalabel items |
 | **Add Datalabel Modal** | Modal component | `POST /api/v1/setting/category` | Create new datalabel |
 
-**Key Concepts:** Unified table (`setting_datalabel`) • JSONB metadata • `dl__` prefix • Position-based IDs
+**Key Concepts:** Unified table (`datalabel`) • JSONB metadata • `dl__` prefix • Position-based IDs
 
 ---
 
@@ -28,7 +28,7 @@
 ### Database Schema
 
 ```sql
-CREATE TABLE app.setting_datalabel (
+CREATE TABLE app.datalabel (
     datalabel_name VARCHAR(100) PRIMARY KEY,  -- dl__{entity}_{label}
     ui_label VARCHAR(100) NOT NULL,
     ui_icon VARCHAR(50),
@@ -181,7 +181,7 @@ function toCamelCase(datalabel: string): string {
 
 ```typescript
 // ✅ Correct: Return [] for new datalabels
-const exists = await db.execute(sql`SELECT datalabel_name FROM setting_datalabel WHERE ...`);
+const exists = await db.execute(sql`SELECT datalabel_name FROM datalabel WHERE ...`);
 if (exists.length === 0) return 404;  // Datalabel doesn't exist
 
 const items = await db.execute(sql`...jsonb_array_elements...`);
@@ -227,7 +227,7 @@ await updateItem(id, {...});  // WRONG - ID 2 may not exist!
 
 | Pattern | Implementation | Benefit |
 |---------|---------------|---------|
-| **SSOT** | One table (`setting_datalabel`) replaces 17+ tables | No migrations for new datalabels |
+| **SSOT** | One table (`datalabel`) replaces 17+ tables | No migrations for new datalabels |
 | **Entity Validation** | Only entities from `d_entity` can have datalabels | Prevents orphaned datalabels |
 | **Auto-Navigation** | Redirect to data table after creation | Zero extra clicks |
 | **Empty Metadata** | Return `[]` for new datalabels, not 404 | Consistent API behavior |
@@ -328,7 +328,7 @@ curl -X DELETE http://localhost:4000/api/v1/setting/dl__test_status/0 \
 - UI metadata (label, icon, display order)
 - Child entity relationships (JSONB array)
 
-**setting_datalabel table** stores:
+**datalabel table** stores:
 - Datalabel name (`dl__{entity}_{label}`)
 - UI metadata (label, icon)
 - Label items (JSONB array with metadata)

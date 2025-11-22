@@ -301,7 +301,7 @@ export const db = drizzle(pool);
 ### Database Schema
 
 **Total:** 39 DDL files
-- **16 Setting Tables** (`setting_datalabel_*`)
+- **16 Setting Tables** (`datalabel_*`)
 - **13 Core Entity Tables** (`d_*`)
 - **3 Relationship Tables** (`d_entity_instance_link`, `d_entity_rbac`, `rel_emp_role`)
 - **7 Additional Tables** (`d_entity`, `d_form_data`, etc.)

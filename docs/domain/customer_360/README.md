@@ -166,7 +166,7 @@ Customer 360 entities use settings for dropdown fields:
 - `dl__office_type`: Branch, District HQ, Regional HQ, Corporate HQ
 - `dl__business_type`: Division, Subsidiary, Joint Venture
 
-All settings managed in `setting_datalabel` table with entity prefix (e.g., `cust__status`).
+All settings managed in `datalabel` table with entity prefix (e.g., `cust__status`).
 
 ## Use Cases
 

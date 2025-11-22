@@ -156,7 +156,7 @@ validate_all_ddls() {
 
     # Infrastructure files (db/ root 03-04)
     local infrastructure_files=(
-        "03_setting_datalabel.ddl"
+        "03_datalabel.ddl"
         "04_logging.ddl"
         "04a_person.ddl"
         "04b_attachment.ddl"
@@ -272,7 +272,7 @@ import_ddls() {
 
     # ===== INFRASTRUCTURE (03-04) =====
     print_status $CYAN "  🔧 Infrastructure (4 files)..."
-    execute_sql "$DB_PATH/03_setting_datalabel.ddl" "03: Unified data label settings"
+    execute_sql "$DB_PATH/03_datalabel.ddl" "03: Unified data label settings"
     execute_sql "$DB_PATH/04_logging.ddl" "04: Central audit logging"
     execute_sql "$DB_PATH/04a_person.ddl" "04a: Person entities"
     execute_sql "$DB_PATH/04b_attachment.ddl" "04b: Attachment entities"
@@ -380,7 +380,7 @@ validate_schema() {
     local entity_registry_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_entity_instance_registry;" 2>/dev/null | xargs || echo "0")
     local entity_link_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_entity_instance_link;" 2>/dev/null | xargs || echo "0")
     local rbac_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_entity_rbac;" 2>/dev/null | xargs || echo "0")
-    local datalabel_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.setting_datalabel;" 2>/dev/null | xargs || echo "0")
+    local datalabel_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.datalabel;" 2>/dev/null | xargs || echo "0")
 
     print_status $CYAN "   Offices: $office_count | Businesses: $business_count | Projects: $project_count"
     print_status $CYAN "   Tasks: $task_count | Employees: $employee_count"

@@ -60,7 +60,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
 
       // First check if the datalabel exists in the table
       const checkExists = await db.execute(sql`
-        SELECT datalabel_name FROM app.setting_datalabel
+        SELECT datalabel_name FROM app.datalabel
         WHERE datalabel_name = ${datalabelName}
       `);
 
@@ -71,7 +71,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
       // If raw=true, return the metadata array as-is (for DAG visualization)
       if (raw) {
         const rawResults = await db.execute(sql`
-          SELECT metadata FROM app.setting_datalabel
+          SELECT metadata FROM app.datalabel
           WHERE datalabel_name = ${datalabelName}
         `);
 
@@ -93,7 +93,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
           END as parent_id,
           elem.value->>'color_code' as color_code,
           elem.ordinality - 1 as position
-        FROM app.setting_datalabel,
+        FROM app.datalabel,
           jsonb_array_elements(metadata) WITH ORDINALITY as elem
         WHERE datalabel_name = '${datalabelName}'
         ORDER BY elem.ordinality
@@ -130,7 +130,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
           ui_label,
           ui_icon,
           jsonb_array_length(metadata) as item_count
-        FROM app.setting_datalabel
+        FROM app.datalabel
         ORDER BY datalabel_name
       `);
 
@@ -161,7 +161,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
           ui_label,
           ui_icon,
           metadata
-        FROM app.setting_datalabel
+        FROM app.datalabel
         ORDER BY datalabel_name
       `);
 
@@ -203,7 +203,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
 
       // Check if datalabel already exists
       const existing = await db.execute(sql`
-        SELECT datalabel_name FROM app.setting_datalabel
+        SELECT datalabel_name FROM app.datalabel
         WHERE datalabel_name = ${datalabelName}
       `);
 
@@ -213,7 +213,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
 
       // Create new datalabel with empty metadata array
       await db.execute(sql`
-        INSERT INTO app.setting_datalabel (datalabel_name, ui_label, ui_icon, metadata)
+        INSERT INTO app.datalabel (datalabel_name, ui_label, ui_icon, metadata)
         VALUES (${datalabelName}, ${ui_label}, ${ui_icon || null}, '[]'::jsonb)
       `);
 
@@ -263,7 +263,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
 
       // Get current metadata
       const current = await db.execute(sql`
-        SELECT metadata FROM app.setting_datalabel
+        SELECT metadata FROM app.datalabel
         WHERE datalabel_name = ${datalabelName}
       `);
 
@@ -293,7 +293,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
       // Update the database
       const metadataJson = JSON.stringify(metadata);
       await db.execute(sql`
-        UPDATE app.setting_datalabel
+        UPDATE app.datalabel
         SET metadata = ${sql.raw(`'${metadataJson.replace(/'/g, "''")}'`)}::jsonb
         WHERE datalabel_name = ${datalabelName}
       `);
@@ -349,7 +349,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
 
       // Get current metadata
       const current = await db.execute(sql`
-        SELECT metadata FROM app.setting_datalabel
+        SELECT metadata FROM app.datalabel
         WHERE datalabel_name = ${datalabelName}
       `);
 
@@ -374,7 +374,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
       // Update the database - use sql.raw to properly insert JSON
       const metadataJson = JSON.stringify(metadata);
       await db.execute(sql`
-        UPDATE app.setting_datalabel
+        UPDATE app.datalabel
         SET metadata = ${sql.raw(`'${metadataJson.replace(/'/g, "''")}'`)}::jsonb
         WHERE datalabel_name = ${datalabelName}
       `);
@@ -422,7 +422,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
 
       // Get current metadata
       const current = await db.execute(sql`
-        SELECT metadata FROM app.setting_datalabel
+        SELECT metadata FROM app.datalabel
         WHERE datalabel_name = ${datalabelName}
       `);
 
@@ -450,7 +450,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
       // Update the database
       const metadataJson = JSON.stringify(metadata);
       await db.execute(sql`
-        UPDATE app.setting_datalabel
+        UPDATE app.datalabel
         SET metadata = ${sql.raw(`'${metadataJson.replace(/'/g, "''")}'`)}::jsonb
         WHERE datalabel_name = ${datalabelName}
       `);
@@ -497,7 +497,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
 
       // Get current metadata
       const current = await db.execute(sql`
-        SELECT metadata FROM app.setting_datalabel
+        SELECT metadata FROM app.datalabel
         WHERE datalabel_name = ${datalabelName}
       `);
 
@@ -529,7 +529,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
       // Update the database
       const metadataJson = JSON.stringify(reorderedMetadata);
       await db.execute(sql`
-        UPDATE app.setting_datalabel
+        UPDATE app.datalabel
         SET metadata = ${sql.raw(`'${metadataJson.replace(/'/g, "''")}'`)}::jsonb
         WHERE datalabel_name = ${datalabelName}
       `);
@@ -627,7 +627,7 @@ export async function settingRoutes(fastify: FastifyInstance) {
           ui_label,
           ui_icon,
           metadata
-        FROM app.setting_datalabel
+        FROM app.datalabel
         ORDER BY datalabel_name
       `);
 

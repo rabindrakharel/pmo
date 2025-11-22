@@ -266,7 +266,7 @@
 **Files:**
 - `settings.md` - Settings system (16 settings tables, sequential states, dropdown integration)
 
-**Keywords:** settings, dropdowns, workflows, stages, datalabel, setting_datalabel_*
+**Keywords:** settings, dropdowns, workflows, stages, datalabel, datalabel_*
 
 ---
 

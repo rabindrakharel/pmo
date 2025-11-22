@@ -450,22 +450,22 @@ app (schema)
 │   └── d_reports         # Report definitions
 │
 ├── Settings (16 tables)
-│   ├── setting_datalabel_office_level
-│   ├── setting_datalabel_business_level
-│   ├── setting_datalabel_project_stage
-│   ├── setting_datalabel_task_stage
-│   ├── setting_datalabel_position_level
-│   ├── setting_datalabel_opportunity_funnel_stage
-│   ├── setting_datalabel_industry_sector
-│   ├── setting_datalabel_acquisition_channel
-│   ├── setting_datalabel_customer_tier
-│   ├── setting_datalabel_client_level
-│   ├── setting_datalabel_client_status
-│   ├── setting_datalabel_task_priority
-│   ├── setting_datalabel_task_update_type
-│   ├── setting_datalabel_wiki_publication_status
-│   ├── setting_datalabel_form_approval_status
-│   └── setting_datalabel_form_submission_status
+│   ├── datalabel_office_level
+│   ├── datalabel_business_level
+│   ├── datalabel_project_stage
+│   ├── datalabel_task_stage
+│   ├── datalabel_position_level
+│   ├── datalabel_opportunity_funnel_stage
+│   ├── datalabel_industry_sector
+│   ├── datalabel_acquisition_channel
+│   ├── datalabel_customer_tier
+│   ├── datalabel_client_level
+│   ├── datalabel_client_status
+│   ├── datalabel_task_priority
+│   ├── datalabel_task_update_type
+│   ├── datalabel_wiki_publication_status
+│   ├── datalabel_form_approval_status
+│   └── datalabel_form_submission_status
 │
 ├── Relationships (3 tables)
 │   ├── entity_instance_link           # Parent-child entity relationships

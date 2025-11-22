@@ -36,8 +36,8 @@ CREATE TABLE app.task (
     -- Task-specific fields
     internal_url text,
     shared_url text,
-    dl__task_stage text, -- References app.setting_datalabel (datalabel_name='task__stage')
-    dl__task_priority text, -- References app.setting_datalabel (datalabel_name='task__priority')
+    dl__task_stage text, -- References app.datalabel (datalabel_name='task__stage')
+    dl__task_priority text, -- References app.datalabel (datalabel_name='task__priority')
     estimated_hours numeric(10,2),
     actual_hours numeric(10,2),
     story_points integer

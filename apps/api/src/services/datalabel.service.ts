@@ -35,7 +35,7 @@ export interface DatalabelData {
 
 /**
  * Fetch datalabel options for given datalabel names
- * Data is stored in app.setting_datalabel table with metadata as JSONB
+ * Data is stored in app.datalabel table with metadata as JSONB
  */
 export async function fetchDatalabels(
   db: DrizzleDB,
@@ -49,7 +49,7 @@ export async function fetchDatalabels(
     // Build WHERE clause for multiple datalabel names
     const conditions = datalabelNames.map(name => `datalabel_name = '${name}'`).join(' OR ');
 
-    // Query the setting_datalabel table which stores options in metadata JSONB
+    // Query the datalabel table which stores options in metadata JSONB
     const query = sql.raw(`
       SELECT
         datalabel_name,
@@ -57,7 +57,7 @@ export async function fetchDatalabels(
         ui_label,
         ui_icon,
         metadata
-      FROM app.setting_datalabel
+      FROM app.datalabel
       WHERE ${conditions}
     `);
 

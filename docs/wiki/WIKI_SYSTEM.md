@@ -148,7 +148,7 @@ The Wiki system is PMO platform's **knowledge management solution** providing:
 ┃  ├─ d_wiki                  → Page metadata + content (JSONB)  ┃
 ┃  ├─ entity_instance_link         → Entity relationships             ┃
 ┃  ├─ entity_rbac      → Access permissions               ┃
-┃  └─ setting_datalabel       → Publication status values        ┃
+┃  └─ datalabel       → Publication status values        ┃
 ┃                                                                 ┃
 ┃  INDEXES                                                        ┃
 ┃  ├─ idx_wiki_published      → Fast published page lookup       ┃

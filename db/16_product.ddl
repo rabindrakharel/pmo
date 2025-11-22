@@ -50,7 +50,7 @@ CREATE TABLE app.product (
     sku text, -- Stock Keeping Unit identifier
     upc text, -- Universal Product Code / barcode
     product_category text, -- May reference hierarchy Sub-Class or Class
-    dl__product_brand text, -- Brand label (references app.setting_datalabel: datalabel_name='product__brand')
+    dl__product_brand text, -- Brand label (references app.datalabel: datalabel_name='product__brand')
     item_level text, -- Item classification level
     tran_level text, -- Transaction tracking level
     unit_of_measure text DEFAULT 'each', -- each, box, linear_foot, square_foot, gallon, etc.
@@ -98,7 +98,7 @@ CREATE TABLE app.product_hierarchy (
 
     -- Hierarchy fields
     parent__product_hierarchy_id uuid, -- Self-referential for hierarchy (NULL for Division level)
-    dl__product_hierarchy_level text, -- References app.setting_datalabel (datalabel_name='dl__product_hierarchy_level')
+    dl__product_hierarchy_level text, -- References app.datalabel (datalabel_name='dl__product_hierarchy_level')
 
     from_ts timestamptz DEFAULT now(),
     to_ts timestamptz,

@@ -210,7 +210,7 @@ Products track brand via settings-driven `dl__product_brand` field:
 - **Landscaping**: Rain Bird, TurfMaster, Nature's Way
 - **General**: Sherwin Williams, Benjamin Moore, YellaWood, DalTile
 
-All brands managed in `setting_datalabel` table with entity prefix `product__brand`.
+All brands managed in `datalabel` table with entity prefix `product__brand`.
 
 ### Inventory Snapshot Model
 

@@ -139,7 +139,7 @@ tools/
 ./tools/run_query.sh "SELECT p.name, e.first_name FROM app.d_project p JOIN app.d_employee e ON p.owner_id = e.id;"
 
 # Check settings data
-./tools/run_query.sh "SELECT * FROM app.setting_datalabel_project_stage ORDER BY sort_order;"
+./tools/run_query.sh "SELECT * FROM app.datalabel_project_stage ORDER BY sort_order;"
 ```
 
 **When to use:**
@@ -192,7 +192,7 @@ tools/
 ./tools/db-import.sh
 
 # 2. Verify schema changes
-./tools/run_query.sh "\d app.setting_datalabel_project_stage"
+./tools/run_query.sh "\d app.datalabel_project_stage"
 
 # 3. Restart API server
 ./tools/restart-api.sh

@@ -129,7 +129,7 @@ Marker: Arrowhead at end (url(#arrowhead))
 **Database Schema**:
 ```sql
 -- Unified settings table stores all stage definitions
-CREATE TABLE app.setting_datalabel (
+CREATE TABLE app.datalabel (
     datalabel_name VARCHAR(100) PRIMARY KEY,  -- e.g., 'dl__task_stage'
     ui_label VARCHAR(100) NOT NULL,
     ui_icon VARCHAR(50),
@@ -301,7 +301,7 @@ WorkflowDetailPage.tsx
 
 ## 4. Entity Relationships
 
-**Database Changes (setting_datalabel.ddl)**:
+**Database Changes (datalabel.ddl)**:
 
 All 18 settings categories now use consistent `parent_ids` array format:
 
@@ -545,8 +545,8 @@ User Action                          System Response
 **Migration Script** (if needed):
 ```bash
 # Fix inconsistent parent_id → parent_ids in DDL:
-sed -i 's/"parent_id": null/"parent_ids": []/g' db/setting_datalabel.ddl
-sed -i 's/"parent_id": \([0-9][0-9]*\)/"parent_ids": [\1]/g' db/setting_datalabel.ddl
+sed -i 's/"parent_id": null/"parent_ids": []/g' db/datalabel.ddl
+sed -i 's/"parent_id": \([0-9][0-9]*\)/"parent_ids": [\1]/g' db/datalabel.ddl
 
 # Reimport database:
 ./tools/db-import.sh

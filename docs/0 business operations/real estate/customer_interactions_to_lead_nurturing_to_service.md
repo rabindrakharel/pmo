@@ -1392,7 +1392,7 @@ export const realEstateEntities: EntityConfig[] = [
 -- Reference: docs/settings/settings.md
 
 -- Customer Tiers
-INSERT INTO app.setting_datalabel (datalabel, name, display_order, active_flag)
+INSERT INTO app.datalabel (datalabel, name, display_order, active_flag)
 VALUES
 ('customer_tier', 'LEAD', 1, TRUE),
 ('customer_tier', 'PROSPECT', 2, TRUE),
@@ -1401,7 +1401,7 @@ VALUES
 ('customer_tier', 'INACTIVE', 5, TRUE);
 
 -- Acquisition Channels
-INSERT INTO app.setting_datalabel (datalabel, name, display_order, active_flag)
+INSERT INTO app.datalabel (datalabel, name, display_order, active_flag)
 VALUES
 ('acquisition_channel', 'PHONE', 1, TRUE),
 ('acquisition_channel', 'WEB', 2, TRUE),
@@ -1410,7 +1410,7 @@ VALUES
 ('acquisition_channel', 'SOCIAL_MEDIA', 5, TRUE);
 
 -- Task Types (Real Estate Specific)
-INSERT INTO app.setting_datalabel (datalabel, name, display_order, active_flag)
+INSERT INTO app.datalabel (datalabel, name, display_order, active_flag)
 VALUES
 ('task_type', 'PROPERTY_VIEWING', 1, TRUE),
 ('task_type', 'HOME_INSPECTION', 2, TRUE),
@@ -1419,7 +1419,7 @@ VALUES
 ('task_type', 'FOLLOW_UP_CALL', 5, TRUE);
 
 -- Event Types
-INSERT INTO app.setting_datalabel (datalabel, name, display_order, active_flag)
+INSERT INTO app.datalabel (datalabel, name, display_order, active_flag)
 VALUES
 ('event_type', 'PROPERTY_VIEWING', 1, TRUE),
 ('event_type', 'HOME_INSPECTION', 2, TRUE),
@@ -2326,7 +2326,7 @@ PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app -c "\dt app.*" | grep -
 # Create settings data file
 cat > /tmp/real-estate-settings.sql << 'EOF'
 -- Customer Tiers
-INSERT INTO app.setting_datalabel (datalabel, name, display_order, active_flag)
+INSERT INTO app.datalabel (datalabel, name, display_order, active_flag)
 VALUES
 ('customer_tier', 'LEAD', 1, TRUE),
 ('customer_tier', 'PROSPECT', 2, TRUE),
@@ -2334,7 +2334,7 @@ VALUES
 ('customer_tier', 'VIP', 4, TRUE);
 
 -- Acquisition Channels
-INSERT INTO app.setting_datalabel (datalabel, name, display_order, active_flag)
+INSERT INTO app.datalabel (datalabel, name, display_order, active_flag)
 VALUES
 ('acquisition_channel', 'PHONE', 1, TRUE),
 ('acquisition_channel', 'WEB', 2, TRUE),
@@ -2342,7 +2342,7 @@ VALUES
 ('acquisition_channel', 'WALK_IN', 4, TRUE);
 
 -- Task Types (Real Estate Specific)
-INSERT INTO app.setting_datalabel (datalabel, name, display_order, active_flag)
+INSERT INTO app.datalabel (datalabel, name, display_order, active_flag)
 VALUES
 ('task_type', 'PROPERTY_VIEWING', 1, TRUE),
 ('task_type', 'HOME_INSPECTION', 2, TRUE),
@@ -2350,7 +2350,7 @@ VALUES
 ('task_type', 'FOLLOW_UP_CALL', 4, TRUE);
 
 -- Event Types
-INSERT INTO app.setting_datalabel (datalabel, name, display_order, active_flag)
+INSERT INTO app.datalabel (datalabel, name, display_order, active_flag)
 VALUES
 ('event_type', 'PROPERTY_VIEWING', 1, TRUE),
 ('event_type', 'HOME_INSPECTION', 2, TRUE),

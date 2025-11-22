@@ -60,7 +60,7 @@ CREATE TABLE app.worksite (
   water_available_flag boolean DEFAULT false,
 
   -- Safety and compliance
-  dl__worksite_safety_rating text, -- References app.setting_datalabel (datalabel_name='dl__worksite_safety_rating')
+  dl__worksite_safety_rating text, -- References app.datalabel (datalabel_name='dl__worksite_safety_rating')
   safety_last_inspection_date date,
   environmental_permits jsonb DEFAULT '[]'::jsonb,
 

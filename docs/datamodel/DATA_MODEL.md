@@ -47,7 +47,7 @@ The PMO Platform uses a PostgreSQL schema with Roman numeral prefixed DDL files 
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
 │  │                    SETTINGS TABLE                                │    │
-│  │  setting_datalabel (all dropdowns/workflows)                    │    │
+│  │  datalabel (all dropdowns/workflows)                    │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -90,7 +90,7 @@ Action: EDIT              employee_id: emp-uuid
 
 | Range | Purpose | Example |
 |-------|---------|---------|
-| I-II | Schema & Settings | `I_schemaCreate.ddl`, `II_setting_datalabel.ddl` |
+| I-II | Schema & Settings | `I_schemaCreate.ddl`, `II_datalabel.ddl` |
 | III-IX | People & Organization | `d_employee`, `d_office`, `d_business` |
 | X-XIV | Products & Projects | `d_product`, `d_project`, `d_task` |
 | XV-XXV | Content & Workflow | `d_artifact`, `d_form_head`, `d_wiki` |
@@ -112,7 +112,7 @@ Action: EDIT              employee_id: emp-uuid
 | `entity` | Infrastructure | Entity type metadata |
 | `entity_instance_link` | Infrastructure | Parent-child relationships |
 | `entity_rbac` | Infrastructure | Permissions |
-| `setting_datalabel` | Settings | Dropdowns/workflows |
+| `datalabel` | Settings | Dropdowns/workflows |
 | `f_order` | Fact | Orders |
 | `f_invoice` | Fact | Invoices |
 

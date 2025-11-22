@@ -58,7 +58,7 @@ CREATE TABLE app.employee (
   country varchar(100) DEFAULT 'Canada',
 
   -- Employment details
-  dl__employee_employment_type text, -- References app.setting_datalabel (datalabel_name='dl__employee_employment_type')
+  dl__employee_employment_type text, -- References app.datalabel (datalabel_name='dl__employee_employment_type')
   department varchar(100),
   title varchar(200),
   hire_date date,
@@ -79,8 +79,8 @@ CREATE TABLE app.employee (
   -- Compliance and tracking
   sin varchar(20), -- Social Insurance Number (Canada)
   birth_date date,
-  dl__employee_citizenship_status text, -- References app.setting_datalabel (datalabel_name='dl__employee_citizenship_status')
-  dl__employee_security_clearance text, -- References app.setting_datalabel (datalabel_name='dl__employee_security_clearance')
+  dl__employee_citizenship_status text, -- References app.datalabel (datalabel_name='dl__employee_citizenship_status')
+  dl__employee_security_clearance text, -- References app.datalabel (datalabel_name='dl__employee_security_clearance')
 
   -- Work preferences and attributes
   remote_work_eligible_flag boolean DEFAULT false,

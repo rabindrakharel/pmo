@@ -22,7 +22,7 @@
 -- • Uses: service, product (tracked in metadata or via line items)
 --
 -- DATALABEL INTEGRATION:
--- • dl__work_order_status: setting_datalabel WHERE datalabel_name='dl__work_order_status'
+-- • dl__work_order_status: datalabel WHERE datalabel_name='dl__work_order_status'
 -- • Frontend renders: Colored badges, status progression, scheduling interface
 --
 -- =====================================================
@@ -41,7 +41,7 @@ CREATE TABLE app.work_order (
     version integer DEFAULT 1,
 
     -- Work order specific fields
-    dl__work_order_status text, -- References app.setting_datalabel (datalabel_name='dl__work_order_status')
+    dl__work_order_status text, -- References app.datalabel (datalabel_name='dl__work_order_status')
 
     -- Scheduling and assignment
     scheduled_date date, -- Scheduled work date

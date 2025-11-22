@@ -30,7 +30,7 @@ CREATE TABLE app.project (
     -- Project relationships to parent entity are managed via entity_id_map so no FK needed
 
     -- Project fields
-    dl__project_stage text, -- References app.setting_datalabel (datalabel_name='project__stage')
+    dl__project_stage text, -- References app.datalabel (datalabel_name='project__stage')
     budget_allocated_amt decimal(15,2),
     budget_spent_amt decimal(15,2) DEFAULT 0,
     planned_start_date date,

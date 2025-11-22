@@ -45,7 +45,7 @@ export interface FilterConfig {
  * Auto-detect filter type from column naming conventions
  *
  * Conventions:
- * - dl__* → Settings dropdown from setting_datalabel_* tables
+ * - dl__* → Settings dropdown from datalabel table
  * - *_id → UUID reference to another entity
  * - *_amt → Currency amount (decimal)
  * - *_date, *_ts → Date/timestamp
