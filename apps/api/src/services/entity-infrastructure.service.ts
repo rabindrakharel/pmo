@@ -41,8 +41,20 @@
 
 import { sql, SQL } from 'drizzle-orm';
 import type { DB } from '@/db/index.js';
+import { client } from '@/db/index.js';
 import { getRedisClient } from '@/lib/redis.js';
 import type Redis from 'ioredis';
+
+// ============================================================================
+// TRANSACTIONAL CREATE RESULT TYPE
+// ============================================================================
+
+export interface RegisterCreatedEntityResult {
+  entity_instance: EntityInstance;
+  rbac_granted: boolean;
+  link_created: boolean;
+  link?: EntityLink;
+}
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -1385,6 +1397,94 @@ export class EntityInfrastructureService {
       primary_table_deleted,
       children_deleted: cascade_delete_children ? children_deleted : undefined
     };
+  }
+
+  // ==========================================================================
+  // SECTION 6: TRANSACTIONAL CREATE HELPER
+  // ==========================================================================
+
+  /**
+   * Register a newly created entity in a SINGLE TRANSACTION
+   *
+   * This method wraps Steps 4-6 of the CREATE flow in one atomic transaction:
+   *   Step 4: Register in entity_instance
+   *   Step 5: Grant OWNER permission to creator
+   *   Step 6: Link to parent (if provided)
+   *
+   * If ANY step fails, ALL changes are rolled back - no orphan records.
+   *
+   * @example
+   * // After INSERT into primary table succeeds:
+   * const result = await entityInfra.register_created_entity({
+   *   entity_type: 'project',
+   *   entity_id: newProject.id,
+   *   entity_name: newProject.name,
+   *   entity_code: newProject.code,
+   *   creator_id: userId,
+   *   parent_entity_type: parent_type,  // optional
+   *   parent_entity_id: parent_id       // optional
+   * });
+   */
+  async register_created_entity(params: {
+    entity_type: string;
+    entity_id: string;
+    entity_name: string;
+    entity_code?: string | null;
+    creator_id: string;
+    parent_entity_type?: string;
+    parent_entity_id?: string;
+    relationship_type?: string;
+  }): Promise<RegisterCreatedEntityResult> {
+    const {
+      entity_type,
+      entity_id,
+      entity_name,
+      entity_code,
+      creator_id,
+      parent_entity_type,
+      parent_entity_id,
+      relationship_type = 'contains'
+    } = params;
+
+    // Use raw postgres client for transaction support
+    return await client.begin(async (tx) => {
+      // Step 4: Register in entity_instance
+      const registryResult = await tx`
+        INSERT INTO app.entity_instance
+        (entity_code, entity_instance_id, entity_instance_name, code)
+        VALUES (${entity_type}, ${entity_id}, ${entity_name}, ${entity_code || null})
+        RETURNING *
+      `;
+      const entity_instance = registryResult[0] as EntityInstance;
+
+      // Step 5: Grant OWNER permission to creator
+      await tx`
+        INSERT INTO app.entity_rbac
+        (person_code, person_id, entity_code, entity_instance_id, permission)
+        VALUES ('employee', ${creator_id}::uuid, ${entity_type}, ${entity_id}::uuid, ${Permission.OWNER})
+        ON CONFLICT (person_code, person_id, entity_code, entity_instance_id)
+        DO UPDATE SET permission = GREATEST(app.entity_rbac.permission, EXCLUDED.permission)
+      `;
+
+      // Step 6: Link to parent (if provided)
+      let link: EntityLink | undefined;
+      if (parent_entity_type && parent_entity_id) {
+        const linkResult = await tx`
+          INSERT INTO app.entity_instance_link
+          (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
+          VALUES (${parent_entity_type}, ${parent_entity_id}, ${entity_type}, ${entity_id}, ${relationship_type})
+          RETURNING *
+        `;
+        link = linkResult[0] as EntityLink;
+      }
+
+      return {
+        entity_instance,
+        rbac_granted: true,
+        link_created: Boolean(link),
+        link
+      };
+    });
   }
 }
 

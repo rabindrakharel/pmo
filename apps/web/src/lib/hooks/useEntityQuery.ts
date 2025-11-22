@@ -494,6 +494,26 @@ export function useEntityMutation(entityCode: string) {
   const queryClient = useQueryClient();
   const editStore = useEntityEditStore();
 
+  // Zustand stores for comprehensive invalidation
+  const componentMetadataStore = useEntityComponentMetadataStore();
+  const instanceDataStore = useEntityInstanceDataStore();
+  const listDataStore = useEntityInstanceListDataStore();
+
+  // Helper to invalidate all caches for this entity (React Query + Zustand)
+  const invalidateAllCaches = (id?: string) => {
+    // React Query invalidation
+    if (id) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.entityInstance(entityCode, id) });
+      instanceDataStore.invalidate(entityCode, id);
+    }
+    queryClient.invalidateQueries({ queryKey: ['entity-instance-list', entityCode] });
+
+    // Zustand store invalidation - ensures no stale data
+    componentMetadataStore.invalidateEntity(entityCode);
+    listDataStore.invalidate(entityCode);
+    instanceDataStore.invalidateEntity(entityCode);
+  };
+
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Record<string, any> }) => {
       const api = APIFactory.getAPI(entityCode);
@@ -524,9 +544,8 @@ export function useEntityMutation(entityCode: string) {
       }
     },
     onSettled: (_data, _error, { id }) => {
-      // Invalidate queries to refetch fresh data
-      queryClient.invalidateQueries({ queryKey: queryKeys.entityInstance(entityCode, id) });
-      queryClient.invalidateQueries({ queryKey: ['entity-instance-list', entityCode] });
+      // Invalidate ALL caches (React Query + Zustand) to refetch fresh data
+      invalidateAllCaches(id);
     },
   });
 
@@ -535,9 +554,9 @@ export function useEntityMutation(entityCode: string) {
       const api = APIFactory.getAPI(entityCode);
       return api.delete(id);
     },
-    onSettled: () => {
-      // Invalidate list queries after delete
-      queryClient.invalidateQueries({ queryKey: ['entity-instance-list', entityCode] });
+    onSettled: (_data, _error, id) => {
+      // Invalidate ALL caches after delete
+      invalidateAllCaches(id);
     },
   });
 
@@ -547,8 +566,8 @@ export function useEntityMutation(entityCode: string) {
       return api.create(data);
     },
     onSettled: () => {
-      // Invalidate list queries after create
-      queryClient.invalidateQueries({ queryKey: ['entity-instance-list', entityCode] });
+      // Invalidate ALL caches after create
+      invalidateAllCaches();
     },
   });
 
@@ -658,6 +677,167 @@ export function useDatalabels(
   }, [query.data, query.isRefetching, queryClient, queryKey, fieldKey]);
 
   return query;
+}
+
+// ============================================================================
+// useDatalabelMutation - Mutate datalabel with proper cache invalidation
+// ============================================================================
+
+/**
+ * Hook for datalabel mutations with automatic cache invalidation
+ *
+ * Ensures both React Query and Zustand caches are invalidated on mutation.
+ * This prevents stale datalabel data (like outdated dropdown options).
+ *
+ * @example
+ * const { addItem, updateItem, deleteItem, reorderItems } = useDatalabelMutation('dl__project_stage');
+ */
+export function useDatalabelMutation(datalabelName: string) {
+  const queryClient = useQueryClient();
+  const datalabelStore = useDatalabelMetadataStore();
+
+  // Helper to invalidate all datalabel caches
+  const invalidateDatalabelCache = () => {
+    // Invalidate React Query cache for this specific datalabel
+    queryClient.invalidateQueries({ queryKey: queryKeys.datalabels(datalabelName) });
+    // Invalidate all datalabels query (used by some components)
+    queryClient.invalidateQueries({ queryKey: ['settings', 'datalabels', 'all'] });
+    // Invalidate Zustand store
+    datalabelStore.invalidate(datalabelName);
+
+    console.log(`%c[DatalabelMutation] Cache invalidated: ${datalabelName}`, 'color: #ff6b6b');
+  };
+
+  const addItemMutation = useMutation({
+    mutationFn: async (item: { name: string; descr?: string; color_code?: string; parent_id?: number }) => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/datalabel/${datalabelName}/item`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify(item),
+      });
+      if (!response.ok) throw new Error('Failed to add item');
+      return response.json();
+    },
+    onSettled: invalidateDatalabelCache,
+  });
+
+  const updateItemMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: { name?: string; descr?: string; color_code?: string; parent_id?: number } }) => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/datalabel/${datalabelName}/item/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to update item');
+      return response.json();
+    },
+    onSettled: invalidateDatalabelCache,
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/datalabel/${datalabelName}/item/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+      if (!response.ok) throw new Error('Failed to delete item');
+      return response.json();
+    },
+    onSettled: invalidateDatalabelCache,
+  });
+
+  const reorderItemsMutation = useMutation({
+    mutationFn: async (orderedIds: number[]) => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/datalabel/${datalabelName}/reorder`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ item_ids: orderedIds }),
+      });
+      if (!response.ok) throw new Error('Failed to reorder items');
+      return response.json();
+    },
+    onSettled: invalidateDatalabelCache,
+  });
+
+  return {
+    addItem: addItemMutation.mutateAsync,
+    updateItem: updateItemMutation.mutateAsync,
+    deleteItem: deleteItemMutation.mutateAsync,
+    reorderItems: reorderItemsMutation.mutateAsync,
+    isAdding: addItemMutation.isPending,
+    isUpdating: updateItemMutation.isPending,
+    isDeleting: deleteItemMutation.isPending,
+    isReordering: reorderItemsMutation.isPending,
+    invalidateCache: invalidateDatalabelCache,
+  };
+}
+
+// ============================================================================
+// useEntityLookup - Fetch entity options for reference dropdowns
+// ============================================================================
+
+/**
+ * Hook for fetching entity lookup options with proper caching
+ *
+ * Used by EntitySelect and other reference dropdowns.
+ * Uses React Query for fetching with 5-min TTL.
+ *
+ * @example
+ * const { options, isLoading } = useEntityLookup('employee');
+ */
+export function useEntityLookup(entityCode: string) {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['entity-lookup', entityCode],
+    queryFn: async () => {
+      console.log(`%c[API FETCH] 🔄 Fetching entity-instance-lookup: ${entityCode}`, 'color: #ff6b6b');
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/entity/${entityCode}/entity-instance-lookup?active_only=true&limit=500`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch entity lookup: ${entityCode}`);
+      }
+
+      const data = await response.json();
+      const options = data.data || data || [];
+
+      console.log(`%c[API FETCH] ✅ Received entity-instance-lookup ${entityCode}`, 'color: #51cf66', {
+        optionCount: options.length,
+      });
+
+      return options;
+    },
+    staleTime: CACHE_TTL.ENTITY_DETAIL,  // 5 minutes
+    gcTime: CACHE_TTL.ENTITY_DETAIL * 2,
+    refetchOnWindowFocus: false,
+    enabled: !!entityCode,
+  });
+
+  return {
+    options: query.data || [],
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch,
+  };
 }
 
 // ============================================================================

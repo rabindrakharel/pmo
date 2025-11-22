@@ -1,6 +1,5 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api';
+import React, { useMemo } from 'react';
+import { useEntityLookup } from '@/lib/hooks/useEntityQuery';
 import { Select } from './Select';
 
 export interface EntitySelectProps {
@@ -18,7 +17,9 @@ export interface EntitySelectProps {
  * Domain component for entity reference dropdowns
  * Used for all entity foreign key fields (_ID fields)
  *
- * Wraps base Select with automatic data fetching from entity entity-instance-lookup API
+ * Uses the centralized useEntityLookup hook which:
+ * - Fetches via React Query with 5-min TTL
+ * - Proper cache invalidation via React Query
  *
  * @example
  * <EntitySelect
@@ -37,23 +38,17 @@ export function EntitySelect({
   placeholder,
   className = ''
 }: EntitySelectProps) {
+  // Use centralized hook for consistent caching
+  const { options: rawOptions, isLoading } = useEntityLookup(entityCode);
 
-  const { data: options = [], isLoading } = useQuery({
-    queryKey: ['entity-lookup', entityCode],
-    queryFn: async () => {
-      const response = await apiClient.get(`/api/v1/entity/${entityCode}/entity-instance-lookup`, {
-        params: { active_only: true, limit: 500 }
-      });
-
-      // Transform entity data to SelectOption format
-      return response.data.data.map((item: any) => ({
-        value: item.id,
-        label: item.name
-      }));
-    },
-    staleTime: 2 * 60 * 1000, // Cache for 2 minutes
-    enabled: !!entityCode
-  });
+  // Transform to SelectOption format
+  const options = useMemo(() =>
+    rawOptions.map((item: any) => ({
+      value: item.id,
+      label: item.name
+    })),
+    [rawOptions]
+  );
 
   if (isLoading) {
     return <span className="text-gray-400 text-sm">Loading...</span>;

@@ -1,6 +1,5 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api';
+import React, { useMemo } from 'react';
+import { useDatalabels } from '@/lib/hooks/useEntityQuery';
 import { Select } from './Select';
 
 export interface DataLabelSelectProps {
@@ -16,7 +15,10 @@ export interface DataLabelSelectProps {
  * Domain component for datalabel/settings dropdowns
  * Used for all dl__* fields (stages, priorities, statuses, etc.)
  *
- * Wraps base Select with automatic data fetching from settings API
+ * Uses the centralized useDatalabels hook which:
+ * - Fetches via React Query with 30-min TTL
+ * - Caches in Zustand datalabelMetadataStore
+ * - Proper cache invalidation on mutations
  *
  * @example
  * <DataLabelSelect
@@ -33,23 +35,17 @@ export function DataLabelSelect({
   required = false,
   className = ''
 }: DataLabelSelectProps) {
+  // Use centralized hook that syncs with Zustand store
+  const { data: rawOptions = [], isLoading } = useDatalabels(datalabel);
 
-  const { data: options = [], isLoading } = useQuery({
-    queryKey: ['datalabel', datalabel],
-    queryFn: async () => {
-      const response = await apiClient.get('/api/v1/datalabel', {
-        params: { name: datalabel }
-      });
-
-      // Transform settings data to SelectOption format
-      return response.data.data.map((item: any) => ({
-        value: item.name,
-        label: item.name
-      }));
-    },
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    enabled: !!datalabel
-  });
+  // Transform to SelectOption format
+  const options = useMemo(() =>
+    rawOptions.map((item: any) => ({
+      value: item.name,
+      label: item.name
+    })),
+    [rawOptions]
+  );
 
   if (isLoading) {
     return <span className="text-gray-400 text-sm">Loading...</span>;
