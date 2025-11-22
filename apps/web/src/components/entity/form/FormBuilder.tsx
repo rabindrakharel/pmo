@@ -1900,7 +1900,7 @@ export function SortableFieldCard({ field, selected, onSelect, onChange, onRemov
       setLoadingDatalabels(true);
       try {
         const token = localStorage.getItem('auth_token');
-        const response = await fetch('http://localhost:4000/api/v1/setting/categories', {
+        const response = await fetch('http://localhost:4000/api/v1/datalabel/types', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'

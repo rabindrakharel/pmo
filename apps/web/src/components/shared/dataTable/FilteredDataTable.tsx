@@ -93,7 +93,7 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
   // Check if this is a settings entity
   const isSettingsEntity = useMemo(() => {
-    return config?.apiEndpoint?.includes('/api/v1/setting?datalabel=') || false;
+    return config?.apiEndpoint?.includes('/api/v1/datalabel?name=') || false;
   }, [config]);
 
   // ✨ METADATA-DRIVEN COLUMN GENERATION (Pure Backend-Driven)
@@ -395,9 +395,9 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
         let createEndpoint = '';
         if (isSettingsEntity) {
           // Extract the datalabel from the apiEndpoint
-          const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
+          const datalabelMatch = config.apiEndpoint.match(/name=([^&]+)/);
           const datalabel = datalabelMatch ? datalabelMatch[1] : entityCode;
-          createEndpoint = `/api/v1/setting/${datalabel}`;
+          createEndpoint = `/api/v1/datalabel/${datalabel}/item`;
         } else {
           createEndpoint = config.apiEndpoint;
         }
@@ -465,9 +465,9 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
 
         let updateEndpoint = '';
         if (isSettingsEntity) {
-          const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
+          const datalabelMatch = config.apiEndpoint.match(/name=([^&]+)/);
           const datalabel = datalabelMatch ? datalabelMatch[1] : entityCode;
-          updateEndpoint = `/api/v1/setting/${datalabel}/${record.id}`;
+          updateEndpoint = `/api/v1/datalabel/${datalabel}/item/${record.id}`;
         } else {
           updateEndpoint = `${config.apiEndpoint}/${record.id}`;
         }
@@ -529,13 +529,13 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       let deleteEndpoint = '';
 
       // Check if this is a settings entity with datalabel query parameter
-      if (config.apiEndpoint.includes('/api/v1/setting?datalabel=')) {
+      if (config.apiEndpoint.includes('/api/v1/datalabel?name=')) {
         // Extract the datalabel from the apiEndpoint
-        const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
+        const datalabelMatch = config.apiEndpoint.match(/name=([^&]+)/);
         const datalabel = datalabelMatch ? datalabelMatch[1] : entityCode;
 
-        // Settings API uses: DELETE /api/v1/setting/{datalabel}/{id}
-        deleteEndpoint = `/api/v1/setting/${datalabel}/${record.id}`;
+        // Datalabel API uses: DELETE /api/v1/datalabel/{datalabel}/item/{id}
+        deleteEndpoint = `/api/v1/datalabel/${datalabel}/item/${record.id}`;
       } else {
         // Regular entities use: DELETE /api/v1/{entity}/{id}
         deleteEndpoint = `${config.apiEndpoint}/${record.id}`;
@@ -652,10 +652,10 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       }
 
       // Extract datalabel from endpoint
-      const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
+      const datalabelMatch = config.apiEndpoint.match(/name=([^&]+)/);
       const datalabel = datalabelMatch ? datalabelMatch[1] : entityCode;
 
-      const updateEndpoint = `/api/v1/setting/${datalabel}/${id}`;
+      const updateEndpoint = `/api/v1/datalabel/${datalabel}/item/${id}`;
 
       const response = await fetch(`${API_CONFIG.BASE_URL}${updateEndpoint}`, {
         method: 'PUT',
@@ -697,10 +697,10 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       }
 
       // Extract datalabel from endpoint
-      const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
+      const datalabelMatch = config.apiEndpoint.match(/name=([^&]+)/);
       const datalabel = datalabelMatch ? datalabelMatch[1] : entityCode;
 
-      const deleteEndpoint = `/api/v1/setting/${datalabel}/${id}`;
+      const deleteEndpoint = `/api/v1/datalabel/${datalabel}/item/${id}`;
 
       const response = await fetch(`${API_CONFIG.BASE_URL}${deleteEndpoint}`, {
         method: 'DELETE',
@@ -745,13 +745,13 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       }
 
       // Extract datalabel from endpoint
-      const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
+      const datalabelMatch = config.apiEndpoint.match(/name=([^&]+)/);
       const datalabel = datalabelMatch ? datalabelMatch[1] : entityCode;
 
       // CRITICAL: Update sequentially (not parallel) to avoid race conditions
       for (let newIndex = 0; newIndex < reorderedData.length; newIndex++) {
         const item = reorderedData[newIndex];
-        const updateEndpoint = `/api/v1/setting/${datalabel}/${newIndex}`;
+        const updateEndpoint = `/api/v1/datalabel/${datalabel}/item/${newIndex}`;
 
         const response = await fetch(`${API_CONFIG.BASE_URL}${updateEndpoint}`, {
           method: 'PUT',
@@ -790,10 +790,10 @@ export const FilteredDataTable: React.FC<FilteredDataTableProps> = ({
       }
 
       // Extract datalabel from endpoint
-      const datalabelMatch = config.apiEndpoint.match(/datalabel=([^&]+)/);
+      const datalabelMatch = config.apiEndpoint.match(/name=([^&]+)/);
       const datalabel = datalabelMatch ? datalabelMatch[1] : entityCode;
 
-      const createEndpoint = `/api/v1/setting/${datalabel}`;
+      const createEndpoint = `/api/v1/datalabel/${datalabel}/item`;
 
       const response = await fetch(`${API_CONFIG.BASE_URL}${createEndpoint}`, {
         method: 'POST',

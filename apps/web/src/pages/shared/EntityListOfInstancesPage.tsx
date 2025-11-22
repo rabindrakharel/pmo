@@ -44,7 +44,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
 
   // Check if this is a settings entity
   const isSettingsEntity = useMemo(() => {
-    return config?.apiEndpoint?.includes('/api/v1/setting?datalabel=') || false;
+    return config?.apiEndpoint?.includes('/api/v1/datalabel?name=') || false;
   }, [config]);
 
   // Collapse sidebar when entering entity main page

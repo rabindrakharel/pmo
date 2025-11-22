@@ -30,7 +30,7 @@ export default function DataLabelsVisualizationPage() {
 
   const fetchDataLabels = async () => {
     try {
-      const response = await apiClient.get('/api/v1/setting/datalabels');
+      const response = await apiClient.get('/api/v1/datalabel/all');
       setDataLabels(response.data);
     } catch (error) {
       console.error('Failed to fetch data labels:', error);

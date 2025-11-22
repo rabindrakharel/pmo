@@ -220,27 +220,29 @@ export const taskApi = {
 
 export const settingApi = {
   async get(datalabel: 'task_stage' | 'project_status' | 'project_stage' | 'biz_level' | 'org_level' | 'hr_level' | 'client_level' | 'position_level') {
-    const response = await apiClient.get(`/api/v1/setting?datalabel=${datalabel}`);
+    const response = await apiClient.get(`/api/v1/datalabel?name=${datalabel}`);
     return response.data;
   },
 
   async getItem(datalabel: string, id: string) {
-    const response = await apiClient.get(`/api/v1/setting/${datalabel}/${id}`);
-    return response.data;
+    const response = await apiClient.get(`/api/v1/datalabel?name=${datalabel}`);
+    // Find item by id from the returned data
+    const items = response.data?.data || [];
+    return items.find((item: any) => String(item.id) === String(id));
   },
 
   async create(datalabel: string, data: any) {
-    const response = await apiClient.post(`/api/v1/setting/${datalabel}`, data);
+    const response = await apiClient.post(`/api/v1/datalabel/${datalabel}/item`, data);
     return response.data;
   },
 
   async update(datalabel: string, id: string, data: any) {
-    const response = await apiClient.put(`/api/v1/setting/${datalabel}/${id}`, data);
+    const response = await apiClient.put(`/api/v1/datalabel/${datalabel}/item/${id}`, data);
     return response.data;
   },
 
   async delete(datalabel: string, id: string) {
-    const response = await apiClient.delete(`/api/v1/setting/${datalabel}/${id}`);
+    const response = await apiClient.delete(`/api/v1/datalabel/${datalabel}/item/${id}`);
     return response.data;
   }};
 

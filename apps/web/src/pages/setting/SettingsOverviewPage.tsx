@@ -131,7 +131,7 @@ export function SettingsOverviewPage() {
     try {
       setLoading(true);
       const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:4000/api/v1/setting/categories', {
+      const response = await fetch('http://localhost:4000/api/v1/datalabel/types', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -240,7 +240,7 @@ export function SettingsOverviewPage() {
     ui_icon?: string;
   }) => {
     const token = localStorage.getItem('auth_token');
-    const response = await fetch('http://localhost:4000/api/v1/setting/category', {
+    const response = await fetch('http://localhost:4000/api/v1/datalabel', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

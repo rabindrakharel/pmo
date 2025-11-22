@@ -609,7 +609,7 @@ export function useDatalabels(
       }
 
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-      const response = await fetch(`${apiUrl}/api/v1/setting?datalabel=${fieldKey}`, {
+      const response = await fetch(`${apiUrl}/api/v1/datalabel?name=${fieldKey}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

@@ -134,12 +134,12 @@ export function getSettingDatalabel(fieldKey: string): string | null {
 }
 
 /**
- * Generate API endpoint for a setting datalabel
- * Format: /api/v1/setting?datalabel={datalabel}
+ * Generate API endpoint for a datalabel
+ * Format: /api/v1/datalabel?name={datalabel}
  * All datalabel names use dl__entity_attribute format (e.g., dl__task_stage)
  */
 export function getSettingEndpoint(datalabel: string): string {
-  return `/api/v1/setting?datalabel=${datalabel}`;
+  return `/api/v1/datalabel?name=${datalabel}`;
 }
 
 /**
