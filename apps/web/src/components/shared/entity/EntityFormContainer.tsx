@@ -250,20 +250,22 @@ export function EntityFormContainer({
   }, [data]); // Depend on data object itself - React will compare it by reference
 
   const fields = useMemo(() => {
-    // PRIORITY 1: Backend metadata (v4.0 architecture)
-    if (metadata?.fields) {
-      // Convert BackendFieldMetadata to FieldDef format
-      return metadata.fields
-        .filter(f => f.visible.EntityFormContainer === true)
-        .map(fieldMeta => ({
-          key: fieldMeta.key,
-          label: fieldMeta.label,
-          type: fieldMeta.inputType,
-          editable: fieldMeta.editable,
+    // PRIORITY 1: Backend metadata (v4.0 architecture - component-aware format)
+    // Backend returns: metadata.entityFormContainer = { field_name: { visible, editable, ... }, ... }
+    const componentMetadata = metadata?.entityFormContainer;
+    if (componentMetadata && typeof componentMetadata === 'object') {
+      // Convert object format to array of FieldDef
+      return Object.entries(componentMetadata)
+        .filter(([_, fieldMeta]: [string, any]) => fieldMeta.visible !== false)
+        .map(([fieldKey, fieldMeta]: [string, any]) => ({
+          key: fieldKey,
+          label: fieldMeta.label || generateFieldLabel(fieldKey),
+          type: fieldMeta.editType || fieldMeta.inputType || 'text',
+          editable: fieldMeta.editable !== false,
           visible: true,
-          loadFromDataLabels: fieldMeta.loadFromDataLabels,
+          loadDataLabels: fieldMeta.datalabelKey ? true : false,
           loadFromEntity: fieldMeta.loadFromEntity,
-          EntityFormContainer_viz_container: fieldMeta.EntityFormContainer_viz_container,  // ✅ PRESERVE: Backend-specified visualization component
+          EntityFormContainer_viz_container: fieldMeta.EntityFormContainer_viz_container,
           toApi: (value: any) => value,
           toDisplay: (value: any) => value
         } as FieldDef));

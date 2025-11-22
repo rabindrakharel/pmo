@@ -62,9 +62,9 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   } = useEntityInstance(entityCode, id);
 
   // Extract data from React Query result
+  // Note: datalabels are fetched via dedicated useDatalabels() hook, not from entity response
   const data = queryResult?.data || null;
   const backendMetadata = queryResult?.metadata || null;
-  const datalabels = queryResult?.datalabels || [];
   const error = queryError?.message || null;
 
   // Entity mutation for updates
@@ -997,7 +997,6 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
               <EntityFormContainer
                 config={config}
                 metadata={backendMetadata}  // ✅ Pass backend metadata (v4.0)
-                datalabels={datalabels}  // ✅ Pass preloaded datalabel data
                 data={isEditing ? editedData : data}
                 isEditing={isEditing}
                 onChange={handleFieldChange}
