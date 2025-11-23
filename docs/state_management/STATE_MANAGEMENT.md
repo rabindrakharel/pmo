@@ -1,6 +1,6 @@
 # State Management Architecture
 
-**Version:** 6.2.0 | **Location:** `apps/web/src/stores/` | **Last Updated:** 2025-11-23
+**Version:** 6.2.1 | **Location:** `apps/web/src/stores/` | **Last Updated:** 2025-11-23
 
 ---
 
@@ -32,7 +32,7 @@ The PMO platform uses a **hybrid state management architecture** combining:
 | **Zustand** | Metadata caching + UI state | 5 specialized stores |
 | **React Context** | Auth & global providers | Cross-cutting concerns |
 
-### Design Principles (v6.2.0)
+### Design Principles (v6.2.1)
 
 1. **Single Source of Truth**: React Query is sole data cache (no dual caching)
 2. **Separation of Concerns**: Server data (React Query) vs. metadata/UI state (Zustand)
@@ -48,7 +48,7 @@ The PMO platform uses a **hybrid state management architecture** combining:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                    STATE MANAGEMENT ARCHITECTURE (v6.2.0)                            │
+│                    STATE MANAGEMENT ARCHITECTURE (v6.2.1)                            │
 ├─────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                      │
 │  ┌─────────────────────────────────────────────────────────────────────────────┐    │
@@ -1082,7 +1082,7 @@ const canUndo = undoStackLength > 0;
 | **Navigation away** | React Query handles via queryKey |
 | **Logout** | Clear all stores |
 
-### 11.3 Cache TTL Constants (v6.2.0 - Industry Standard)
+### 11.3 Cache TTL Constants (v6.2.1 - Industry Standard)
 
 ```typescript
 export const CACHE_TTL = {
@@ -1207,6 +1207,12 @@ The PMO state management architecture follows industry best practices:
 ---
 
 **Version History:**
+- v6.2.1 (2025-11-23): **Documentation Accuracy Update**
+  - Verified all 5 stores are correctly documented and exported from `stores/index.ts`
+  - Confirmed normalized cache (`lib/cache/normalizedCache.ts`) and GC (`lib/cache/garbageCollection.ts`) implementations
+  - Verified TTL constants match implementation in `useEntityQuery.ts`
+  - Noted legacy `entityStore.ts` exists but is not exported (deprecated)
+- v6.2.0 (2025-11-23): Added normalized cache documentation and GC lifecycle details
 - v6.1.0 (2025-11-23): **Eliminated Dual Cache** - React Query is sole data cache
   - Removed `entityInstanceDataStore` and `entityInstanceListDataStore`
   - Updated TTL to industry standard (1h reference, 15m metadata, 30s lists, 10s details)
