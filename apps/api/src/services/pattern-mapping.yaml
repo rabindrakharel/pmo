@@ -1,0 +1,342 @@
+# Pattern Mapping - Maps field name patterns to business field types
+# Pattern matching: exact=true for literal match, exact=false for wildcard (*)
+# Order matters: first match wins. More specific patterns should come before generic ones.
+# Version: 2.0.0
+
+# ============================================================================
+# IDENTITY & CORE FIELDS
+# ============================================================================
+patterns:
+  - { pattern: "id", exact: true, fieldBusinessType: uuid }
+  - { pattern: "code", exact: true, fieldBusinessType: code }
+  - { pattern: "name", exact: true, fieldBusinessType: name }
+  - { pattern: "descr", exact: true, fieldBusinessType: description }
+  - { pattern: "description", exact: true, fieldBusinessType: description }
+  - { pattern: "title", exact: true, fieldBusinessType: title }
+  - { pattern: "subject", exact: true, fieldBusinessType: subject }
+  - { pattern: "summary", exact: true, fieldBusinessType: summary }
+
+# ============================================================================
+# PERSON NAME FIELDS
+# ============================================================================
+  - { pattern: "first_name", exact: true, fieldBusinessType: first_name }
+  - { pattern: "last_name", exact: true, fieldBusinessType: last_name }
+  - { pattern: "full_name", exact: true, fieldBusinessType: full_name }
+  - { pattern: "fname", exact: true, fieldBusinessType: first_name }
+  - { pattern: "lname", exact: true, fieldBusinessType: last_name }
+  - { pattern: "*_first_name", exact: false, fieldBusinessType: first_name }
+  - { pattern: "*_last_name", exact: false, fieldBusinessType: last_name }
+  - { pattern: "*_full_name", exact: false, fieldBusinessType: full_name }
+  - { pattern: "*_name", exact: false, fieldBusinessType: name }
+
+# ============================================================================
+# CONTACT FIELDS
+# ============================================================================
+  - { pattern: "email", exact: true, fieldBusinessType: email }
+  - { pattern: "primary_email", exact: true, fieldBusinessType: email }
+  - { pattern: "secondary_email", exact: true, fieldBusinessType: email }
+  - { pattern: "*_email", exact: false, fieldBusinessType: email }
+
+  - { pattern: "phone", exact: true, fieldBusinessType: phone }
+  - { pattern: "mobile", exact: true, fieldBusinessType: phone }
+  - { pattern: "fax", exact: true, fieldBusinessType: phone }
+  - { pattern: "primary_phone", exact: true, fieldBusinessType: phone }
+  - { pattern: "secondary_phone", exact: true, fieldBusinessType: phone }
+  - { pattern: "*_phone", exact: false, fieldBusinessType: phone }
+  - { pattern: "*_mobile", exact: false, fieldBusinessType: phone }
+  - { pattern: "*_fax", exact: false, fieldBusinessType: phone }
+
+  - { pattern: "website", exact: true, fieldBusinessType: url }
+  - { pattern: "*_url", exact: false, fieldBusinessType: url }
+
+# ============================================================================
+# ADDRESS FIELDS
+# ============================================================================
+  - { pattern: "address", exact: true, fieldBusinessType: address }
+  - { pattern: "addr", exact: true, fieldBusinessType: address }
+  - { pattern: "primary_address", exact: true, fieldBusinessType: address }
+  - { pattern: "*_address", exact: false, fieldBusinessType: address }
+  - { pattern: "*_addr", exact: false, fieldBusinessType: address }
+
+  - { pattern: "address_line1", exact: true, fieldBusinessType: address_line }
+  - { pattern: "address_line2", exact: true, fieldBusinessType: address_line }
+  - { pattern: "addr_line1", exact: true, fieldBusinessType: address_line }
+  - { pattern: "addr_line2", exact: true, fieldBusinessType: address_line }
+  - { pattern: "*_address_line1", exact: false, fieldBusinessType: address_line }
+  - { pattern: "*_address_line2", exact: false, fieldBusinessType: address_line }
+
+  - { pattern: "street", exact: true, fieldBusinessType: street }
+  - { pattern: "*_street", exact: false, fieldBusinessType: street }
+
+  - { pattern: "city", exact: true, fieldBusinessType: city }
+  - { pattern: "*_city", exact: false, fieldBusinessType: city }
+
+  - { pattern: "state", exact: true, fieldBusinessType: state }
+  - { pattern: "province", exact: true, fieldBusinessType: province }
+  - { pattern: "*_province", exact: false, fieldBusinessType: province }
+
+  - { pattern: "country", exact: true, fieldBusinessType: country }
+  - { pattern: "*_country", exact: false, fieldBusinessType: country }
+
+  - { pattern: "postal_code", exact: true, fieldBusinessType: postal_code }
+  - { pattern: "zipcode", exact: true, fieldBusinessType: postal_code }
+  - { pattern: "zip_code", exact: true, fieldBusinessType: postal_code }
+  - { pattern: "*_postal_code", exact: false, fieldBusinessType: postal_code }
+
+# ============================================================================
+# CURRENCY FIELDS (CAD default)
+# ============================================================================
+  - { pattern: "*_amt", exact: false, fieldBusinessType: currency }
+  - { pattern: "*_amount", exact: false, fieldBusinessType: currency }
+  - { pattern: "*_price", exact: false, fieldBusinessType: currency }
+  - { pattern: "*_cost", exact: false, fieldBusinessType: currency }
+  - { pattern: "*_charge", exact: false, fieldBusinessType: currency }
+  - { pattern: "*_total", exact: false, fieldBusinessType: currency }
+  - { pattern: "*_subtotal", exact: false, fieldBusinessType: currency }
+  - { pattern: "*_cad", exact: false, fieldBusinessType: currency }
+  - { pattern: "*_cents", exact: false, fieldBusinessType: currency_cents }
+  - { pattern: "credit_limit_amt", exact: true, fieldBusinessType: currency }
+  - { pattern: "discount_amt", exact: true, fieldBusinessType: currency }
+  - { pattern: "budget_*", exact: false, fieldBusinessType: currency }
+
+# ============================================================================
+# PERCENTAGE FIELDS
+# ============================================================================
+  - { pattern: "*_pct", exact: false, fieldBusinessType: percentage }
+  - { pattern: "*_percent", exact: false, fieldBusinessType: percentage }
+  - { pattern: "*_rate", exact: false, fieldBusinessType: percentage }
+  - { pattern: "margin_percent", exact: true, fieldBusinessType: percentage }
+  - { pattern: "discount_percent", exact: true, fieldBusinessType: percentage }
+  - { pattern: "tax_rate", exact: true, fieldBusinessType: percentage }
+
+# ============================================================================
+# DATE FIELDS
+# ============================================================================
+  - { pattern: "*_date", exact: false, fieldBusinessType: date }
+  - { pattern: "birth_date", exact: true, fieldBusinessType: date }
+  - { pattern: "hire_date", exact: true, fieldBusinessType: date }
+  - { pattern: "due_date", exact: true, fieldBusinessType: date }
+
+# ============================================================================
+# TIMESTAMP FIELDS
+# ============================================================================
+  - { pattern: "created_ts", exact: true, fieldBusinessType: timestamp_readonly }
+  - { pattern: "updated_ts", exact: true, fieldBusinessType: timestamp_readonly }
+  - { pattern: "created_at", exact: true, fieldBusinessType: timestamp_readonly }
+  - { pattern: "updated_at", exact: true, fieldBusinessType: timestamp_readonly }
+  - { pattern: "deleted_ts", exact: true, fieldBusinessType: timestamp_readonly }
+  - { pattern: "archived_ts", exact: true, fieldBusinessType: timestamp_readonly }
+
+  - { pattern: "from_ts", exact: true, fieldBusinessType: timestamp }
+  - { pattern: "to_ts", exact: true, fieldBusinessType: timestamp }
+  - { pattern: "*_ts", exact: false, fieldBusinessType: timestamp }
+  - { pattern: "*_at", exact: false, fieldBusinessType: timestamp }
+  - { pattern: "*_datetime", exact: false, fieldBusinessType: timestamp }
+
+# ============================================================================
+# TIME FIELDS
+# ============================================================================
+  - { pattern: "*_time", exact: false, fieldBusinessType: time }
+  - { pattern: "scheduled_start_time", exact: true, fieldBusinessType: time }
+  - { pattern: "scheduled_end_time", exact: true, fieldBusinessType: time }
+
+# ============================================================================
+# DURATION FIELDS
+# ============================================================================
+  - { pattern: "duration", exact: true, fieldBusinessType: duration }
+  - { pattern: "*_duration", exact: false, fieldBusinessType: duration }
+  - { pattern: "*_minutes", exact: false, fieldBusinessType: duration_minutes }
+  - { pattern: "*_hours", exact: false, fieldBusinessType: duration_hours }
+  - { pattern: "*_seconds", exact: false, fieldBusinessType: duration_seconds }
+  - { pattern: "*_ms", exact: false, fieldBusinessType: duration_ms }
+
+# ============================================================================
+# BOOLEAN FLAGS
+# ============================================================================
+  - { pattern: "active_flag", exact: true, fieldBusinessType: status_flag }
+  - { pattern: "*_flag", exact: false, fieldBusinessType: boolean }
+  - { pattern: "is_*", exact: false, fieldBusinessType: boolean }
+
+# ============================================================================
+# DATALABEL FIELDS (Settings Dropdowns)
+# ============================================================================
+  - { pattern: "dl__*", exact: false, fieldBusinessType: datalabel }
+
+# ============================================================================
+# ENTITY REFERENCE FIELDS
+# ============================================================================
+  # Prefixed references (manager__employee_id, sponsor__client_id)
+  - { pattern: "*__*_id", exact: false, fieldBusinessType: entityInstance_Id }
+  - { pattern: "*__*_ids", exact: false, fieldBusinessType: entityInstance_Ids }
+
+  # Simple references (office_id, business_id)
+  - { pattern: "*_id", exact: false, fieldBusinessType: entityInstance_Id }
+  - { pattern: "*_ids", exact: false, fieldBusinessType: entityInstance_Ids }
+
+# ============================================================================
+# QUANTITY & COUNT FIELDS
+# ============================================================================
+  - { pattern: "qty", exact: true, fieldBusinessType: quantity }
+  - { pattern: "*_qty", exact: false, fieldBusinessType: quantity }
+  - { pattern: "*_count", exact: false, fieldBusinessType: count }
+  - { pattern: "*_num", exact: false, fieldBusinessType: number }
+  - { pattern: "sort_order", exact: true, fieldBusinessType: sort_order }
+  - { pattern: "display_order", exact: true, fieldBusinessType: sort_order }
+  - { pattern: "execution_order", exact: true, fieldBusinessType: sort_order }
+
+# ============================================================================
+# MEASUREMENT FIELDS
+# ============================================================================
+  - { pattern: "*_sqft", exact: false, fieldBusinessType: area_sqft }
+  - { pattern: "*_m3", exact: false, fieldBusinessType: volume_m3 }
+  - { pattern: "*_cm", exact: false, fieldBusinessType: dimension_cm }
+  - { pattern: "*_kg", exact: false, fieldBusinessType: weight_kg }
+  - { pattern: "*_bytes", exact: false, fieldBusinessType: file_size }
+  - { pattern: "square_footage", exact: true, fieldBusinessType: area_sqft }
+  - { pattern: "capacity_*", exact: false, fieldBusinessType: capacity }
+
+# ============================================================================
+# RATING & SCORE FIELDS
+# ============================================================================
+  - { pattern: "rating", exact: true, fieldBusinessType: rating }
+  - { pattern: "*_rating", exact: false, fieldBusinessType: rating }
+  - { pattern: "*_score", exact: false, fieldBusinessType: score }
+  - { pattern: "story_points", exact: true, fieldBusinessType: score }
+
+# ============================================================================
+# COORDINATES
+# ============================================================================
+  - { pattern: "lat", exact: true, fieldBusinessType: latitude }
+  - { pattern: "latitude", exact: true, fieldBusinessType: latitude }
+  - { pattern: "lng", exact: true, fieldBusinessType: longitude }
+  - { pattern: "lon", exact: true, fieldBusinessType: longitude }
+  - { pattern: "longitude", exact: true, fieldBusinessType: longitude }
+  - { pattern: "geo_coordinates", exact: true, fieldBusinessType: geolocation }
+
+# ============================================================================
+# TEXT CONTENT FIELDS
+# ============================================================================
+  - { pattern: "notes", exact: true, fieldBusinessType: notes }
+  - { pattern: "*_notes", exact: false, fieldBusinessType: notes }
+  - { pattern: "instructions", exact: true, fieldBusinessType: instructions }
+  - { pattern: "*_instructions", exact: false, fieldBusinessType: instructions }
+  - { pattern: "content", exact: true, fieldBusinessType: rich_text }
+  - { pattern: "content_*", exact: false, fieldBusinessType: rich_text }
+  - { pattern: "*_text", exact: false, fieldBusinessType: text_long }
+  - { pattern: "*_summary", exact: false, fieldBusinessType: summary }
+
+# ============================================================================
+# JSON & STRUCTURED DATA
+# ============================================================================
+  - { pattern: "metadata", exact: true, fieldBusinessType: json }
+  - { pattern: "*_metadata", exact: false, fieldBusinessType: json }
+  - { pattern: "*_schema", exact: false, fieldBusinessType: json_schema }
+  - { pattern: "*_data", exact: false, fieldBusinessType: json }
+  - { pattern: "*_graph", exact: false, fieldBusinessType: json }
+  - { pattern: "*_snapshot", exact: false, fieldBusinessType: json }
+  - { pattern: "*_context", exact: false, fieldBusinessType: json }
+
+  - { pattern: "tags", exact: true, fieldBusinessType: tags }
+  - { pattern: "keywords", exact: true, fieldBusinessType: tags }
+  - { pattern: "*_tags", exact: false, fieldBusinessType: tags }
+
+# ============================================================================
+# FILE & MEDIA FIELDS
+# ============================================================================
+  - { pattern: "attachment", exact: true, fieldBusinessType: file }
+  - { pattern: "*_attachment", exact: false, fieldBusinessType: file }
+
+  - { pattern: "*_image_url", exact: false, fieldBusinessType: image }
+  - { pattern: "*_photo_url", exact: false, fieldBusinessType: image }
+  - { pattern: "*_photo", exact: false, fieldBusinessType: image }
+  - { pattern: "avatar_url", exact: true, fieldBusinessType: avatar }
+  - { pattern: "*_avatar", exact: false, fieldBusinessType: avatar }
+
+  - { pattern: "signature_*", exact: false, fieldBusinessType: signature }
+  - { pattern: "*_signature", exact: false, fieldBusinessType: signature }
+
+  - { pattern: "*_video_url", exact: false, fieldBusinessType: video }
+
+# ============================================================================
+# S3/STORAGE FIELDS
+# ============================================================================
+  - { pattern: "s3_bucket", exact: true, fieldBusinessType: s3_bucket }
+  - { pattern: "s3_key", exact: true, fieldBusinessType: s3_key }
+  - { pattern: "s3_url", exact: true, fieldBusinessType: s3_url }
+  - { pattern: "s3_region", exact: true, fieldBusinessType: s3_region }
+  - { pattern: "*_object_bucket", exact: false, fieldBusinessType: s3_bucket }
+  - { pattern: "*_object_key", exact: false, fieldBusinessType: s3_key }
+  - { pattern: "file_hash", exact: true, fieldBusinessType: hash }
+  - { pattern: "*_hash", exact: false, fieldBusinessType: hash }
+  - { pattern: "mime_type", exact: true, fieldBusinessType: mime_type }
+  - { pattern: "*_mime_type", exact: false, fieldBusinessType: mime_type }
+  - { pattern: "file_extension", exact: true, fieldBusinessType: file_extension }
+
+# ============================================================================
+# BARCODE & SCANNING FIELDS
+# ============================================================================
+  - { pattern: "barcode", exact: true, fieldBusinessType: barcode }
+  - { pattern: "*_barcode", exact: false, fieldBusinessType: barcode }
+  - { pattern: "sku", exact: true, fieldBusinessType: sku }
+  - { pattern: "upc", exact: true, fieldBusinessType: upc }
+
+# ============================================================================
+# COLOR FIELDS
+# ============================================================================
+  - { pattern: "color", exact: true, fieldBusinessType: color }
+  - { pattern: "*_color", exact: false, fieldBusinessType: color }
+  - { pattern: "color_code", exact: true, fieldBusinessType: color }
+
+# ============================================================================
+# STATUS & STATE FIELDS
+# ============================================================================
+  - { pattern: "status", exact: true, fieldBusinessType: status }
+  - { pattern: "*_status", exact: false, fieldBusinessType: status }
+  - { pattern: "*_state", exact: false, fieldBusinessType: state_workflow }
+  - { pattern: "stage", exact: true, fieldBusinessType: stage }
+  - { pattern: "*_stage", exact: false, fieldBusinessType: stage }
+
+# ============================================================================
+# CATEGORY & TYPE FIELDS
+# ============================================================================
+  - { pattern: "type", exact: true, fieldBusinessType: type }
+  - { pattern: "*_type", exact: false, fieldBusinessType: type }
+  - { pattern: "category", exact: true, fieldBusinessType: category }
+  - { pattern: "*_category", exact: false, fieldBusinessType: category }
+
+# ============================================================================
+# IDENTIFICATION NUMBERS
+# ============================================================================
+  - { pattern: "sin", exact: true, fieldBusinessType: sensitive_id }
+  - { pattern: "tax_id", exact: true, fieldBusinessType: tax_id }
+  - { pattern: "gst_hst_number", exact: true, fieldBusinessType: tax_id }
+  - { pattern: "*_number", exact: false, fieldBusinessType: reference_number }
+  - { pattern: "invoice_number", exact: true, fieldBusinessType: invoice_number }
+  - { pattern: "order_number", exact: true, fieldBusinessType: order_number }
+  - { pattern: "po_number", exact: true, fieldBusinessType: po_number }
+  - { pattern: "tracking_number", exact: true, fieldBusinessType: tracking_number }
+
+# ============================================================================
+# AUTHENTICATION & SECURITY
+# ============================================================================
+  - { pattern: "username", exact: true, fieldBusinessType: username }
+  - { pattern: "password_hash", exact: true, fieldBusinessType: password_hash }
+  - { pattern: "*_token", exact: false, fieldBusinessType: token }
+  - { pattern: "ip", exact: true, fieldBusinessType: ip_address }
+  - { pattern: "*_ip", exact: false, fieldBusinessType: ip_address }
+  - { pattern: "user_agent", exact: true, fieldBusinessType: user_agent }
+
+# ============================================================================
+# UI FIELDS
+# ============================================================================
+  - { pattern: "ui_icon", exact: true, fieldBusinessType: icon }
+  - { pattern: "ui_label", exact: true, fieldBusinessType: label }
+
+# ============================================================================
+# SYSTEM/VERSION FIELDS
+# ============================================================================
+  - { pattern: "version", exact: true, fieldBusinessType: version }
+  - { pattern: "*_version", exact: false, fieldBusinessType: version }
+
+# Default fallback
+defaultFieldBusinessType: text

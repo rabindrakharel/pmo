@@ -539,8 +539,8 @@ export function renderViewModeFromMetadata(
     case 'reference':
       return <span className="text-blue-600">{value}</span>;
 
-    case 'entity_lookup':
-      // Entity lookup field (e.g., office_id, manager__employee_id)
+    case 'entityInstance_Id':
+      // Entity instance ID field (e.g., office_id, manager__employee_id)
       // For now, display the value as-is
       // TODO: Implement entity name resolution from lookup endpoint
       return <span className="text-blue-600">{value}</span>;

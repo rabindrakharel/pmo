@@ -8,10 +8,15 @@
  * Backend decides all field behavior based on naming conventions.
  *
  * ARCHITECTURE:
- * - Column name → Explicit config check → Pattern match fallback → Component-specific config
+ * - Column name → Explicit config check → Pattern match → YAML mappings → Component-specific config
  * - Separate metadata per component (EntityDataTable, EntityFormContainer, KanbanView)
  * - Global settings for cross-cutting concerns (currency, date formats, etc.)
  * - Datalabels extracted and fetched separately
+ *
+ * YAML MAPPING FILES (v6.0):
+ * - pattern-mapping.yaml: Maps field name patterns to fieldBusinessType
+ * - view-type-mapping.yaml: Maps fieldBusinessType to VIEW rendering config
+ * - edit-type-mapping.yaml: Maps fieldBusinessType to EDIT/INPUT config
  *
  * EXPLICIT CONFIG (v5.0):
  * - Fields can be explicitly configured in config/entity-field-config.ts
@@ -30,7 +35,15 @@
  * ```
  */
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import yaml from 'js-yaml';
 import { getFieldConfig, hasExplicitConfig, type FieldConfig } from '../config/entity-field-config.js';
+
+// Get current directory for YAML file paths
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -85,11 +98,12 @@ export interface FieldMetadataBase {
   trueColor?: string;
   falseColor?: string;
 
-  // For references
+  // For references / entity lookups
   loadFromEntity?: string;
   loadFromDataLabels?: boolean;
   endpoint?: string;
   displayField?: string;
+  valueField?: string;
   datalabelKey?: string;
 }
 
@@ -185,7 +199,7 @@ export const GLOBAL_SETTINGS: GlobalSettings = {
     format: 'MM/DD/YYYY'
   },
   timestamp: {
-    style: 'datetime',
+    style: 'relative',      // Default: "5 minutes ago", "2 hours ago"
     locale: 'en-US',
     includeSeconds: false
   },
@@ -200,7 +214,263 @@ export const GLOBAL_SETTINGS: GlobalSettings = {
 };
 
 // ============================================================================
-// PATTERN RULES - COMPONENT-SPECIFIC BEHAVIOR
+// YAML MAPPING LOADER
+// ============================================================================
+
+interface PatternMappingEntry {
+  pattern: string;
+  exact: boolean;
+  fieldBusinessType: string;
+}
+
+interface PatternMappingYaml {
+  patterns: PatternMappingEntry[];
+  defaultFieldBusinessType: string;
+}
+
+interface ViewTypeMappingYaml {
+  defaults: Record<string, any>;
+  fieldBusinessTypes: Record<string, {
+    dtype: string;
+    inherit?: string;
+    entityDataTable?: Record<string, any>;
+    entityFormContainer?: Record<string, any>;
+    kanbanView?: Record<string, any>;
+    gridView?: Record<string, any>;
+    calendarView?: Record<string, any>;
+    dagView?: Record<string, any>;
+    hierarchyGraphView?: Record<string, any>;
+  }>;
+}
+
+interface EditTypeMappingYaml {
+  defaults: Record<string, any>;
+  fieldBusinessTypes: Record<string, {
+    dtype: string;
+    inherit?: string;
+    editable?: boolean;
+    loadFromDataLabels?: boolean;
+    loadFromEntity?: boolean;
+    entityDataTable?: Record<string, any>;
+    entityFormContainer?: Record<string, any>;
+    kanbanView?: Record<string, any>;
+    gridView?: Record<string, any>;
+    calendarView?: Record<string, any>;
+    dagView?: Record<string, any>;
+    hierarchyGraphView?: Record<string, any>;
+  }>;
+  formFieldTypeMapping: Record<string, string>;
+}
+
+// Load YAML mapping files (cached)
+let _patternMapping: PatternMappingYaml | null = null;
+let _viewTypeMapping: ViewTypeMappingYaml | null = null;
+let _editTypeMapping: EditTypeMappingYaml | null = null;
+
+function loadPatternMapping(): PatternMappingYaml {
+  if (!_patternMapping) {
+    const filePath = join(__dirname, 'pattern-mapping.yaml');
+    const content = readFileSync(filePath, 'utf-8');
+    _patternMapping = yaml.load(content) as PatternMappingYaml;
+  }
+  return _patternMapping;
+}
+
+function loadViewTypeMapping(): ViewTypeMappingYaml {
+  if (!_viewTypeMapping) {
+    const filePath = join(__dirname, 'view-type-mapping.yaml');
+    const content = readFileSync(filePath, 'utf-8');
+    _viewTypeMapping = yaml.load(content) as ViewTypeMappingYaml;
+  }
+  return _viewTypeMapping;
+}
+
+function loadEditTypeMapping(): EditTypeMappingYaml {
+  if (!_editTypeMapping) {
+    const filePath = join(__dirname, 'edit-type-mapping.yaml');
+    const content = readFileSync(filePath, 'utf-8');
+    _editTypeMapping = yaml.load(content) as EditTypeMappingYaml;
+  }
+  return _editTypeMapping;
+}
+
+/**
+ * Match field name against pattern (supports * wildcard at start or end)
+ */
+function matchYamlPattern(fieldName: string, pattern: string, exact: boolean): boolean {
+  if (exact) {
+    return fieldName === pattern;
+  }
+
+  // Convert YAML pattern to regex
+  // *_amt → .*_amt$
+  // dl__* → ^dl__.*
+  // *__*_id → .*__.*_id$
+  const regexPattern = pattern
+    .replace(/\*/g, '.*');
+
+  return new RegExp(`^${regexPattern}$`).test(fieldName);
+}
+
+/**
+ * Get fieldBusinessType from field name using pattern-mapping.yaml
+ */
+function getFieldBusinessType(fieldName: string): string {
+  const patternMapping = loadPatternMapping();
+
+  for (const entry of patternMapping.patterns) {
+    if (matchYamlPattern(fieldName, entry.pattern, entry.exact)) {
+      return entry.fieldBusinessType;
+    }
+  }
+
+  return patternMapping.defaultFieldBusinessType;
+}
+
+/**
+ * Resolve inheritance for a fieldBusinessType in the mapping
+ */
+function resolveInheritance(
+  businessType: string,
+  mapping: Record<string, any>,
+  visited = new Set<string>()
+): Record<string, any> | null {
+  if (visited.has(businessType)) {
+    // Circular reference protection
+    return null;
+  }
+  visited.add(businessType);
+
+  const typeConfig = mapping[businessType];
+  if (!typeConfig) {
+    return null;
+  }
+
+  if (typeConfig.inherit) {
+    const parentConfig = resolveInheritance(typeConfig.inherit, mapping, visited);
+    if (parentConfig) {
+      // Deep merge parent with current
+      return deepMerge(parentConfig, typeConfig);
+    }
+  }
+
+  return typeConfig;
+}
+
+/**
+ * Deep merge two objects
+ */
+function deepMerge(target: any, source: any): any {
+  const result = { ...target };
+
+  for (const key of Object.keys(source)) {
+    if (key === 'inherit') continue; // Skip inherit key
+
+    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      result[key] = deepMerge(target[key] || {}, source[key]);
+    } else {
+      result[key] = source[key];
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Get VIEW metadata for a fieldBusinessType and component from YAML
+ */
+function getViewMetadataFromYaml(
+  fieldBusinessType: string,
+  component: ComponentName
+): Partial<FieldMetadataBase> | null {
+  const viewMapping = loadViewTypeMapping();
+  const resolved = resolveInheritance(fieldBusinessType, viewMapping.fieldBusinessTypes);
+
+  if (!resolved) {
+    return null;
+  }
+
+  const componentConfig = resolved[component];
+  if (!componentConfig) {
+    return null;
+  }
+
+  // Build base metadata
+  const metadata: Partial<FieldMetadataBase> = {
+    dtype: resolved.dtype as FieldMetadataBase['dtype'],
+    visible: componentConfig.visible ?? true,
+    sortable: componentConfig.sortable ?? false,
+    filterable: componentConfig.filterable ?? false,
+    width: componentConfig.width,
+    align: componentConfig.align,
+    viewType: fieldBusinessType,
+  };
+
+  // Copy format settings
+  if (componentConfig.format) {
+    Object.assign(metadata, componentConfig.format);
+  }
+
+  return metadata;
+}
+
+/**
+ * Get EDIT metadata for a fieldBusinessType and component from YAML
+ */
+function getEditMetadataFromYaml(
+  fieldBusinessType: string,
+  component: ComponentName
+): Partial<FieldMetadataBase> | null {
+  const editMapping = loadEditTypeMapping();
+  const resolved = resolveInheritance(fieldBusinessType, editMapping.fieldBusinessTypes);
+
+  if (!resolved) {
+    return null;
+  }
+
+  const componentConfig = resolved[component];
+
+  // Build base metadata
+  const metadata: Partial<FieldMetadataBase> = {
+    dtype: resolved.dtype as FieldMetadataBase['dtype'],
+    editable: resolved.editable ?? true,
+    editType: fieldBusinessType,
+  };
+
+  // Handle special flags
+  if (resolved.loadFromDataLabels) {
+    metadata.loadFromDataLabels = true;
+  }
+  if (resolved.loadFromEntity) {
+    metadata.loadFromEntity = String(resolved.loadFromEntity);
+  }
+
+  // Copy component-specific config
+  if (componentConfig) {
+    if (componentConfig.inputType) {
+      metadata.editType = componentConfig.inputType;
+    }
+    if (componentConfig.validation) {
+      if (componentConfig.validation.required !== undefined) {
+        metadata.required = componentConfig.validation.required;
+      }
+      if (componentConfig.validation.min !== undefined) {
+        metadata.min = componentConfig.validation.min;
+      }
+      if (componentConfig.validation.max !== undefined) {
+        metadata.max = componentConfig.validation.max;
+      }
+    }
+    if (componentConfig.format) {
+      Object.assign(metadata, componentConfig.format);
+    }
+  }
+
+  return metadata;
+}
+
+// ============================================================================
+// PATTERN RULES - COMPONENT-SPECIFIC BEHAVIOR (Legacy fallback)
 // ============================================================================
 
 interface PatternRule {
@@ -529,9 +799,9 @@ const PATTERN_RULES: Record<string, PatternRule> = {
       filterable: false,
       sortable: true,
       editable: false,
-      viewType: 'timestamp',
-      editType: 'readonly',
-      width: '160px',
+      viewType: 'relative-time',   // Shows "5 minutes ago", "2 hours ago"
+      editType: 'readonly',        // System field - not editable
+      width: '140px',
       align: 'left',
       timestampFormat: 'relative',
       locale: 'en-US'
@@ -540,12 +810,13 @@ const PATTERN_RULES: Record<string, PatternRule> = {
       dtype: 'timestamp',
       format: 'timestamp-relative',
       internal: false,
-      visible: false,
+      visible: true,
       filterable: false,
       sortable: false,
       editable: false,
-      viewType: 'timestamp',
-      editType: 'readonly'
+      viewType: 'relative-time',   // Shows "5 minutes ago", "2 hours ago"
+      editType: 'readonly',        // System field - not editable
+      timestampFormat: 'relative'
     },
     kanbanView: {
       dtype: 'timestamp',
@@ -555,7 +826,7 @@ const PATTERN_RULES: Record<string, PatternRule> = {
       filterable: false,
       sortable: false,
       editable: false,
-      viewType: 'timestamp',
+      viewType: 'relative-time',
       editType: 'readonly'
     }
   },
@@ -563,39 +834,82 @@ const PATTERN_RULES: Record<string, PatternRule> = {
   'updated_ts': {
     entityDataTable: {
       dtype: 'timestamp',
-      format: 'timestamp-absolute',
+      format: 'timestamp-relative',
       internal: false,
-      visible: false,
+      visible: true,
       filterable: false,
       sortable: true,
       editable: false,
-      viewType: 'timestamp',
-      editType: 'readonly',
-      width: '160px',
+      viewType: 'relative-time',   // Shows "5 minutes ago", "2 hours ago"
+      editType: 'readonly',        // System field - not editable
+      width: '140px',
       align: 'left',
-      timestampFormat: 'datetime'
+      timestampFormat: 'relative'
     },
     entityFormContainer: {
       dtype: 'timestamp',
-      format: 'timestamp-absolute',
+      format: 'timestamp-relative',
       internal: false,
-      visible: false,
+      visible: true,
       filterable: false,
       sortable: false,
       editable: false,
-      viewType: 'timestamp',
-      editType: 'readonly'
+      viewType: 'relative-time',   // Shows "5 minutes ago", "2 hours ago"
+      editType: 'readonly',        // System field - not editable
+      timestampFormat: 'relative'
     },
     kanbanView: {
       dtype: 'timestamp',
-      format: 'timestamp-absolute',
+      format: 'timestamp-relative',
       internal: false,
       visible: false,
       filterable: false,
       sortable: false,
       editable: false,
-      viewType: 'timestamp',
+      viewType: 'relative-time',
       editType: 'readonly'
+    }
+  },
+
+  // Generic timestamp fields (from_ts, to_ts, custom *_ts fields)
+  // These are editable with datetime picker
+  '*_ts': {
+    entityDataTable: {
+      dtype: 'timestamp',
+      format: 'timestamp-relative',
+      internal: false,
+      visible: true,
+      filterable: true,
+      sortable: true,
+      editable: true,
+      viewType: 'relative-time',   // Shows "5 minutes ago", "2 hours ago"
+      editType: 'datetime',        // Calendar with time picker
+      width: '140px',
+      align: 'left',
+      timestampFormat: 'relative'
+    },
+    entityFormContainer: {
+      dtype: 'timestamp',
+      format: 'timestamp-relative',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: true,
+      viewType: 'relative-time',   // Shows "5 minutes ago", "2 hours ago"
+      editType: 'datetime',        // Calendar with time picker
+      timestampFormat: 'relative'
+    },
+    kanbanView: {
+      dtype: 'timestamp',
+      format: 'timestamp-relative',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'relative-time',
+      editType: 'datetime'
     }
   },
 
@@ -734,53 +1048,61 @@ const PATTERN_RULES: Record<string, PatternRule> = {
   // ========================================
   // REFERENCE FIELDS (FOREIGN KEYS)
   // ========================================
-  '*__employee_id': {
+  // Prefixed entity references: {prefix}__{entity}_id
+  // Examples: manager__employee_id, sponsor__client_id, parent__project_id
+  // Entity is auto-detected from field name, loadFromEntity/endpoint set dynamically
+  '*__*_id': {
     entityDataTable: {
       dtype: 'uuid',
-      format: 'reference',
+      format: 'entityInstance_Id',
       internal: false,
       visible: true,
       filterable: true,
       sortable: true,
       editable: true,
-      viewType: 'text',
-      editType: 'select',
+      viewType: 'entityInstance_Id',
+      editType: 'entityInstance_Id',
       width: '150px',
       align: 'left',
-      loadFromEntity: 'employee',
-      endpoint: '/api/v1/entity/employee/entity-instance-lookup',
       displayField: 'name',
+      valueField: 'id',
       searchable: true
+      // loadFromEntity and endpoint set dynamically in generateFieldMetadataForComponent()
     },
     entityFormContainer: {
       dtype: 'uuid',
-      format: 'reference',
+      format: 'entityInstance_Id',
       internal: false,
       visible: true,
       filterable: false,
       sortable: false,
       editable: true,
-      viewType: 'text',
-      editType: 'select',
-      loadFromEntity: 'employee',
-      endpoint: '/api/v1/entity/employee/entity-instance-lookup',
+      viewType: 'entityInstance_Id',
+      editType: 'entityInstance_Id',
       displayField: 'name',
+      valueField: 'id',
       searchable: true
+      // loadFromEntity and endpoint set dynamically in generateFieldMetadataForComponent()
     },
     kanbanView: {
       dtype: 'uuid',
-      format: 'reference',
+      format: 'entityInstance_Id',
       internal: false,
       visible: true,
       filterable: false,
       sortable: false,
       editable: false,
-      viewType: 'text',
-      editType: 'select'
+      viewType: 'entityInstance_Id',
+      editType: 'entityInstance_Id',
+      displayField: 'name',
+      valueField: 'id'
     }
   },
 
-  '*__employee_ids': {
+  // Prefixed entity reference arrays: {prefix}__{entity}_ids
+  // Examples: assigned__employee_ids, team__employee_ids
+  // Entity is auto-detected from field name
+  '*__*_ids': {
     entityDataTable: {
       dtype: 'array[uuid]',
       format: 'array',
@@ -792,6 +1114,7 @@ const PATTERN_RULES: Record<string, PatternRule> = {
       viewType: 'array',
       editType: 'multiselect',
       help: 'Array too complex for table'
+      // loadFromEntity and endpoint set dynamically
     },
     entityFormContainer: {
       dtype: 'array[uuid]',
@@ -803,8 +1126,9 @@ const PATTERN_RULES: Record<string, PatternRule> = {
       editable: true,
       viewType: 'array',
       editType: 'multiselect',
-      loadFromEntity: 'employee',
-      endpoint: '/api/v1/entity/employee/entity-instance-lookup'
+      displayField: 'name',
+      valueField: 'id'
+      // loadFromEntity and endpoint set dynamically
     },
     kanbanView: {
       dtype: 'array[uuid]',
@@ -819,51 +1143,98 @@ const PATTERN_RULES: Record<string, PatternRule> = {
     }
   },
 
+  // Simple entity references: {entity}_id
+  // Examples: office_id, business_id, project_id
+  // Entity is auto-detected from field name
   '*_id': {
     entityDataTable: {
       dtype: 'uuid',
-      format: 'entity_lookup',  // ← Changed from 'reference' to 'entity_lookup'
+      format: 'entityInstance_Id',
       internal: false,
       visible: true,
       filterable: true,
       sortable: true,
       editable: true,
-      viewType: 'entity_lookup',
-      editType: 'entity_lookup',
+      viewType: 'entityInstance_Id',
+      editType: 'entityInstance_Id',
       width: '150px',
       align: 'left',
       searchable: true,
-      displayField: 'name',     // ← Show name in view mode
-      valueField: 'id'          // ← Store ID in database
-      // loadFromEntity and endpoint will be set dynamically in generateFieldMetadataForComponent()
+      displayField: 'name',
+      valueField: 'id'
+      // loadFromEntity and endpoint set dynamically in generateFieldMetadataForComponent()
     },
     entityFormContainer: {
       dtype: 'uuid',
-      format: 'entity_lookup',  // ← Changed from 'reference' to 'entity_lookup'
+      format: 'entityInstance_Id',
       internal: false,
       visible: true,
       filterable: false,
       sortable: false,
       editable: true,
-      viewType: 'entity_lookup',
-      editType: 'entity_lookup',
+      viewType: 'entityInstance_Id',
+      editType: 'entityInstance_Id',
       searchable: true,
-      displayField: 'name',     // ← Show name in dropdown
-      valueField: 'id'          // ← Store ID when selected
-      // loadFromEntity and endpoint will be set dynamically in generateFieldMetadataForComponent()
+      displayField: 'name',
+      valueField: 'id'
+      // loadFromEntity and endpoint set dynamically in generateFieldMetadataForComponent()
     },
     kanbanView: {
       dtype: 'uuid',
-      format: 'entity_lookup',  // ← Changed from 'reference' to 'entity_lookup'
+      format: 'entityInstance_Id',
       internal: false,
       visible: false,
       filterable: false,
       sortable: false,
       editable: false,
-      viewType: 'entity_lookup',
-      editType: 'entity_lookup',
+      viewType: 'entityInstance_Id',
+      editType: 'entityInstance_Id',
       displayField: 'name',
       valueField: 'id'
+    }
+  },
+
+  // Simple entity reference arrays: {entity}_ids
+  // Examples: employee_ids, project_ids, client_ids
+  // Entity is auto-detected from field name
+  '*_ids': {
+    entityDataTable: {
+      dtype: 'array[uuid]',
+      format: 'array',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'array',
+      editType: 'multiselect',
+      help: 'Array too complex for table'
+      // loadFromEntity and endpoint set dynamically
+    },
+    entityFormContainer: {
+      dtype: 'array[uuid]',
+      format: 'array',
+      internal: false,
+      visible: true,
+      filterable: false,
+      sortable: false,
+      editable: true,
+      viewType: 'array',
+      editType: 'multiselect',
+      displayField: 'name',
+      valueField: 'id'
+      // loadFromEntity and endpoint set dynamically
+    },
+    kanbanView: {
+      dtype: 'array[uuid]',
+      format: 'array',
+      internal: false,
+      visible: false,
+      filterable: false,
+      sortable: false,
+      editable: false,
+      viewType: 'array',
+      editType: 'multiselect'
     }
   },
 
@@ -1070,15 +1441,28 @@ function generateLabel(fieldName: string): string {
 
 /**
  * Detect entity name from reference field
+ * Supports both singular (_id) and plural (_ids) patterns
  */
 function detectEntityFromFieldName(fieldName: string): string | null {
-  // Pattern: *__entity_id → entity
+  // Pattern: *__entity_id → entity (prefixed singular)
+  // Examples: manager__employee_id → employee, sponsor__client_id → client
   const match1 = fieldName.match(/^.*__(\w+)_id$/);
   if (match1) return match1[1];
 
-  // Pattern: entity_id → entity
+  // Pattern: *__entity_ids → entity (prefixed plural/array)
+  // Examples: assigned__employee_ids → employee, team__client_ids → client
+  const match1b = fieldName.match(/^.*__(\w+)_ids$/);
+  if (match1b) return match1b[1];
+
+  // Pattern: entity_id → entity (simple singular)
+  // Examples: office_id → office, business_id → business
   const match2 = fieldName.match(/^(\w+)_id$/);
   if (match2 && match2[1] !== 'id') return match2[1];
+
+  // Pattern: entity_ids → entity (simple plural/array)
+  // Examples: employee_ids → employee, project_ids → project
+  const match2b = fieldName.match(/^(\w+)_ids$/);
+  if (match2b) return match2b[1];
 
   return null;
 }
@@ -1106,21 +1490,25 @@ function convertExplicitConfigToMetadata(
   fieldName: string
 ): FieldMetadataBase {
   // Map renderType to dtype and format
-  const renderTypeMap: Record<string, { dtype: string; format: string }> = {
+  type DType = FieldMetadataBase['dtype'];
+  const renderTypeMap: Record<string, { dtype: DType; format: string }> = {
     'currency': { dtype: 'float', format: 'currency' },
     'date': { dtype: 'date', format: 'date' },
-    'timestamp': { dtype: 'datetime', format: 'timestamp' },
+    'timestamp': { dtype: 'timestamp', format: 'timestamp' },
     'boolean': { dtype: 'bool', format: 'boolean' },
     'badge': { dtype: 'str', format: 'datalabel_lookup' },
-    'reference': { dtype: 'uuid', format: 'entity_lookup' },
-    'json': { dtype: 'json', format: 'json' },
-    'progress-bar': { dtype: 'composite', format: 'progress_bar' },
+    'reference': { dtype: 'uuid', format: 'entityInstance_Id' },
+    'entityInstance_Id': { dtype: 'uuid', format: 'entityInstance_Id' },
+    'json': { dtype: 'jsonb', format: 'json' },
+    'progress-bar': { dtype: 'float', format: 'progress_bar' },
     'percentage': { dtype: 'float', format: 'percentage' },
     'number': { dtype: 'int', format: 'number' },
     'text': { dtype: 'str', format: 'text' },
+    'array': { dtype: 'array[str]', format: 'array' },
+    'multiselect': { dtype: 'array[uuid]', format: 'array' },
   };
 
-  const typeInfo = renderTypeMap[config.renderType || 'text'] || { dtype: 'str', format: 'text' };
+  const typeInfo = renderTypeMap[config.renderType || 'text'] || { dtype: 'str' as DType, format: 'text' };
 
   // Determine visibility for this component
   const visibilityMap: Record<ComponentName, boolean> = {
@@ -1163,8 +1551,9 @@ function convertExplicitConfigToMetadata(
  *
  * Priority order:
  * 1. Explicit config from entity-field-config.ts (highest priority)
- * 2. Pattern detection rules (fallback)
- * 3. Default text field (lowest priority)
+ * 2. YAML mapping files (new preferred method)
+ * 3. Legacy pattern detection rules (fallback)
+ * 4. Default text field (lowest priority)
  */
 function generateFieldMetadataForComponent(
   fieldName: string,
@@ -1180,13 +1569,64 @@ function generateFieldMetadataForComponent(
     }
   }
 
-  // STEP 2: Fall back to pattern detection
+  // STEP 2: Try YAML mappings (new preferred method)
+  const fieldBusinessType = getFieldBusinessType(fieldName);
+  const viewMeta = getViewMetadataFromYaml(fieldBusinessType, component);
+  const editMeta = getEditMetadataFromYaml(fieldBusinessType, component);
+
+  if (viewMeta || editMeta) {
+    // Merge VIEW and EDIT metadata from YAML
+    const yamlMetadata: FieldMetadataBase = {
+      dtype: (viewMeta?.dtype || editMeta?.dtype || 'str') as FieldMetadataBase['dtype'],
+      format: fieldBusinessType,
+      internal: false,
+      visible: viewMeta?.visible ?? true,
+      filterable: viewMeta?.filterable ?? (component === 'entityDataTable'),
+      sortable: viewMeta?.sortable ?? (component === 'entityDataTable'),
+      editable: editMeta?.editable ?? (component === 'entityFormContainer'),
+      viewType: viewMeta?.viewType || fieldBusinessType,
+      editType: editMeta?.editType || fieldBusinessType,
+      width: viewMeta?.width,
+      align: viewMeta?.align,
+    };
+
+    // Copy additional properties from viewMeta
+    if (viewMeta) {
+      const { dtype, visible, filterable, sortable, width, align, viewType, ...viewExtras } = viewMeta;
+      Object.assign(yamlMetadata, viewExtras);
+    }
+
+    // Copy additional properties from editMeta
+    if (editMeta) {
+      const { dtype, editable, editType, ...editExtras } = editMeta;
+      Object.assign(yamlMetadata, editExtras);
+    }
+
+    // Auto-detect entity for ALL *_id and *_ids fields
+    if ((fieldName.endsWith('_id') || fieldName.endsWith('_ids')) && fieldName !== 'id') {
+      const entity = detectEntityFromFieldName(fieldName);
+      if (entity) {
+        yamlMetadata.loadFromEntity = entity;
+        yamlMetadata.endpoint = `/api/v1/entity/${entity}/entity-instance-lookup`;
+        yamlMetadata.displayField = 'name';
+        yamlMetadata.valueField = 'id';
+      }
+    }
+
+    // Set datalabelKey for dl__* fields
+    if (fieldName.startsWith('dl__')) {
+      yamlMetadata.datalabelKey = fieldName;
+      yamlMetadata.loadFromDataLabels = true;
+    }
+
+    return yamlMetadata;
+  }
+
+  // STEP 3: Fall back to legacy pattern detection
   const rule = findMatchingRule(fieldName);
 
   if (!rule) {
     // Default text field for unknown patterns
-    // Unknown fields should be visible and editable in forms (entityFormContainer)
-    // and visible (read-only) in table views
     return {
       dtype: 'str',
       format: 'text',
@@ -1222,11 +1662,8 @@ function generateFieldMetadataForComponent(
   // Clone the rule to avoid mutation
   componentRule = { ...componentRule };
 
-  // Auto-detect entity for ALL *_id fields (both simple and prefixed)
-  // Examples:
-  //   office_id → entity: office
-  //   manager__employee_id → entity: employee (extracted from after __)
-  if (fieldName.endsWith('_id') && fieldName !== 'id') {
+  // Auto-detect entity for ALL *_id and *_ids fields (both simple and prefixed)
+  if ((fieldName.endsWith('_id') || fieldName.endsWith('_ids')) && fieldName !== 'id') {
     const entity = detectEntityFromFieldName(fieldName);
     if (entity) {
       componentRule.loadFromEntity = entity;
@@ -1286,7 +1723,7 @@ export function extractDatalabelKeys(metadata: EntityMetadata): string[] {
 
   for (const componentMetadata of Object.values(metadata)) {
     if (componentMetadata) {
-      for (const fieldMeta of Object.values(componentMetadata)) {
+      for (const fieldMeta of Object.values(componentMetadata) as FieldMetadataBase[]) {
         // Check if field is datalabel_lookup format and has datalabelKey
         if (fieldMeta.format === 'datalabel_lookup' && fieldMeta.datalabelKey) {
           datalabelKeys.add(fieldMeta.datalabelKey);

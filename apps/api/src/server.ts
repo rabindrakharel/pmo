@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
+import compress from '@fastify/compress';
 import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
@@ -36,21 +37,28 @@ await fastify.register(cors, {
   origin: (origin, cb) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return cb(null, true);
-    
+
     // Allow localhost development origins
     if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
       return cb(null, true);
     }
-    
+
     // Allow configured origins
     const allowedOrigins = [config.WEB_ORIGIN, config.API_ORIGIN];
     if (allowedOrigins.includes(origin)) {
       return cb(null, true);
     }
-    
+
     return cb(new Error("Not allowed by CORS"), false);
   },
   credentials: true});
+
+// Response compression (gzip/deflate) - ~70-85% payload reduction
+await fastify.register(compress, {
+  global: true,              // Compress all responses
+  threshold: 1024,           // Only compress responses > 1KB
+  encodings: ['gzip', 'deflate'],  // gzip preferred, deflate fallback
+});
 
 // Rate limiting
 await fastify.register(rateLimit, {

@@ -1,0 +1,719 @@
+# View Type Mapping - Maps fieldBusinessType to component-specific VIEW rendering
+# Uses YAML anchors (&) and aliases (*) to reduce duplication
+# Version: 2.0.0
+
+# ============================================================================
+# COMPONENT DEFAULTS (inherited unless overridden)
+# ============================================================================
+defaults:
+  table: &table_default
+    visible: true
+    sortable: true
+    filterable: true
+    width: auto
+    align: left
+
+  form: &form_default
+    visible: true
+
+  card: &card_default
+    visible: false
+
+  hidden: &hidden
+    visible: false
+
+# ============================================================================
+# FIELD BUSINESS TYPE DEFINITIONS
+# ============================================================================
+fieldBusinessTypes:
+
+  # --------------------------------------------------------------------------
+  # IDENTITY & CORE
+  # --------------------------------------------------------------------------
+  uuid:
+    dtype: uuid
+    entityDataTable: { <<: *hidden }
+    entityFormContainer: { visible: true, component: ReadonlyField, format: { monospace: true, truncate: 8 } }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  code:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: CodeCell, width: "140px" }
+    entityFormContainer: { <<: *form_default, component: CodeField, format: { monospace: true } }
+    kanbanView: { visible: true, component: CodeBadge }
+    gridView: { visible: true, component: CodeText }
+
+  name:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: NameCell, width: "250px", searchable: true, format: { bold: true, linkToDetail: true } }
+    entityFormContainer: { <<: *form_default, component: NameField, format: { size: lg } }
+    kanbanView: { visible: true, component: CardTitle, format: { truncate: 50 } }
+    gridView: { visible: true, component: CardTitle }
+    calendarView: { visible: true, component: EventTitle }
+
+  title:
+    dtype: str
+    inherit: name
+
+  subject:
+    dtype: str
+    inherit: name
+
+  description:
+    dtype: str
+    entityDataTable: { <<: *hidden, component: TruncatedCell }
+    entityFormContainer: { <<: *form_default, component: TextBlock }
+    kanbanView: { visible: true, component: CardDescription, format: { truncate: 80 } }
+    gridView: { visible: true, component: CardDescription }
+
+  summary:
+    dtype: str
+    inherit: description
+
+  # --------------------------------------------------------------------------
+  # PERSON NAME FIELDS
+  # --------------------------------------------------------------------------
+  first_name:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: TextCell, width: "120px" }
+    entityFormContainer: { <<: *form_default, component: TextField }
+    kanbanView: *hidden
+    gridView: { visible: true, component: TextSpan }
+
+  last_name:
+    dtype: str
+    inherit: first_name
+
+  full_name:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: TextCell, width: "180px" }
+    entityFormContainer: { <<: *form_default, component: TextField }
+    kanbanView: { visible: true, component: CardSubtitle }
+    gridView: { visible: true, component: TextSpan }
+
+  # --------------------------------------------------------------------------
+  # CONTACT FIELDS
+  # --------------------------------------------------------------------------
+  email:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: EmailCell, width: "200px", format: { linkable: true, icon: mail } }
+    entityFormContainer: { <<: *form_default, component: EmailField, format: { linkable: true } }
+    kanbanView: *hidden
+    gridView: { visible: true, component: EmailLink }
+
+  phone:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: PhoneCell, width: "140px", format: { linkable: true, countryCode: CA } }
+    entityFormContainer: { <<: *form_default, component: PhoneField, format: { countryCode: CA } }
+    kanbanView: *hidden
+    gridView: { visible: true, component: PhoneLink }
+
+  url:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: UrlCell, width: "200px", format: { truncate: true, showIcon: true } }
+    entityFormContainer: { <<: *form_default, component: UrlField }
+    kanbanView: *hidden
+    gridView: { visible: true, component: UrlLink }
+
+  # --------------------------------------------------------------------------
+  # ADDRESS FIELDS
+  # --------------------------------------------------------------------------
+  address:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: AddressCell, width: "250px", format: { singleLine: true } }
+    entityFormContainer: { <<: *form_default, component: AddressBlock }
+    kanbanView: *hidden
+    gridView: { visible: true, component: AddressCompact }
+
+  address_line:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: TextCell, width: "200px" }
+    entityFormContainer: { <<: *form_default, component: TextField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  street:
+    dtype: str
+    inherit: address_line
+
+  city:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: TextCell, width: "120px" }
+    entityFormContainer: { <<: *form_default, component: CityField }
+    kanbanView: *hidden
+    gridView: { visible: true, component: TextSpan }
+
+  state:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: TextCell, width: "100px" }
+    entityFormContainer: { <<: *form_default, component: StateField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  province:
+    dtype: str
+    inherit: state
+
+  country:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: CountryCell, width: "120px", format: { showFlag: true } }
+    entityFormContainer: { <<: *form_default, component: CountryField, format: { showFlag: true } }
+    kanbanView: *hidden
+    gridView: { visible: true, component: CountryFlag }
+
+  postal_code:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: TextCell, width: "100px", format: { monospace: true } }
+    entityFormContainer: { <<: *form_default, component: PostalCodeField, format: { country: CA } }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  # --------------------------------------------------------------------------
+  # CURRENCY FIELDS
+  # --------------------------------------------------------------------------
+  currency:
+    dtype: float
+    entityDataTable: { <<: *table_default, component: CurrencyCell, width: "140px", align: right, format: { symbol: "$", decimals: 2, locale: en-CA } }
+    entityFormContainer: { <<: *form_default, component: CurrencyField, format: { symbol: "$", decimals: 2 } }
+    kanbanView: { visible: true, component: CurrencyBadge, format: { compact: true } }
+    gridView: { visible: true, component: CurrencyText }
+
+  currency_cents:
+    dtype: int
+    entityDataTable: { <<: *table_default, component: CurrencyCentsCell, width: "120px", align: right, format: { symbol: "$", locale: en-CA } }
+    entityFormContainer: { <<: *form_default, component: CurrencyCentsField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  # --------------------------------------------------------------------------
+  # PERCENTAGE FIELDS
+  # --------------------------------------------------------------------------
+  percentage:
+    dtype: float
+    entityDataTable: { <<: *table_default, component: PercentageCell, width: "100px", align: right, format: { decimals: 0 } }
+    entityFormContainer: { <<: *form_default, component: PercentageField, format: { showBar: true } }
+    kanbanView: { visible: true, component: ProgressBar }
+    gridView: { visible: true, component: ProgressBar }
+
+  # --------------------------------------------------------------------------
+  # DATE & TIME FIELDS
+  # --------------------------------------------------------------------------
+  date:
+    dtype: date
+    entityDataTable: { <<: *table_default, component: DateCell, width: "120px", format: { style: short, locale: en-CA } }
+    entityFormContainer: { <<: *form_default, component: DateField, format: { style: medium } }
+    kanbanView: { visible: true, component: DateBadge }
+    gridView: { visible: true, component: DateText }
+    calendarView: { visible: true, component: EventDate }
+
+  timestamp:
+    dtype: timestamp
+    entityDataTable: { <<: *table_default, component: TimestampCell, width: "160px", format: { style: datetime } }
+    entityFormContainer: { <<: *form_default, component: TimestampField }
+    kanbanView: *hidden
+    gridView: *hidden
+    calendarView: { visible: true, component: EventTime }
+
+  timestamp_readonly:
+    dtype: timestamp
+    entityDataTable: { <<: *table_default, component: RelativeTimeCell, width: "140px", filterable: false, format: { style: relative } }
+    entityFormContainer: { <<: *form_default, component: RelativeTimeField, format: { showAbsolute: true } }
+    kanbanView: { visible: true, component: RelativeTimeBadge }
+    gridView: { visible: true, component: RelativeTimeText }
+
+  time:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: TimeCell, width: "100px" }
+    entityFormContainer: { <<: *form_default, component: TimeField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  # --------------------------------------------------------------------------
+  # DURATION FIELDS
+  # --------------------------------------------------------------------------
+  duration:
+    dtype: int
+    entityDataTable: { <<: *table_default, component: DurationCell, width: "100px", format: { unit: minutes } }
+    entityFormContainer: { <<: *form_default, component: DurationField, format: { unit: minutes } }
+    kanbanView: { visible: true, component: DurationBadge }
+    gridView: { visible: true, component: DurationText }
+    calendarView: { visible: true, component: EventDuration }
+
+  duration_minutes:
+    dtype: int
+    inherit: duration
+
+  duration_hours:
+    dtype: float
+    entityDataTable: { <<: *table_default, component: DurationCell, width: "100px", format: { unit: hours } }
+    entityFormContainer: { <<: *form_default, component: DurationField, format: { unit: hours } }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  duration_seconds:
+    dtype: int
+    entityDataTable: { <<: *table_default, component: DurationCell, width: "100px", format: { unit: seconds } }
+    entityFormContainer: { <<: *form_default, component: DurationField, format: { unit: seconds } }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  duration_ms:
+    dtype: int
+    entityDataTable: { <<: *table_default, component: DurationCell, width: "100px", format: { unit: ms } }
+    entityFormContainer: { <<: *form_default, component: DurationField, format: { unit: ms } }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  # --------------------------------------------------------------------------
+  # BOOLEAN FIELDS
+  # --------------------------------------------------------------------------
+  boolean:
+    dtype: bool
+    entityDataTable: { <<: *table_default, component: BooleanCell, width: "80px", align: center, format: { trueLabel: "Yes", falseLabel: "No", trueColor: green, falseColor: gray } }
+    entityFormContainer: { <<: *form_default, component: BooleanField }
+    kanbanView: { visible: true, component: BooleanIcon }
+    gridView: { visible: true, component: BooleanIcon }
+
+  status_flag:
+    dtype: bool
+    entityDataTable: { <<: *table_default, component: StatusCell, width: "100px", align: center, format: { trueLabel: Active, falseLabel: Inactive, trueColor: green, falseColor: red } }
+    entityFormContainer: { <<: *form_default, component: StatusBadge }
+    kanbanView: { visible: true, component: StatusDot }
+    gridView: { visible: true, component: StatusBadge }
+
+  # --------------------------------------------------------------------------
+  # DATALABEL & ENTITY REFERENCE FIELDS
+  # --------------------------------------------------------------------------
+  datalabel:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: BadgeCell, width: "140px", format: { colorFromData: true } }
+    entityFormContainer: { <<: *form_default, component: DatalabelDAG, format: { showHierarchy: true } }
+    kanbanView: { visible: true, component: Badge }
+    gridView: { visible: true, component: Badge }
+    calendarView: { visible: true, component: EventBadge }
+    dagView: { visible: true, component: DAGNode }
+
+  entityInstance_Id:
+    dtype: uuid
+    entityDataTable: { <<: *table_default, component: EntityLookupCell, width: "150px", format: { displayField: name, linkToEntity: true } }
+    entityFormContainer: { <<: *form_default, component: EntityLookupField, format: { displayField: name } }
+    kanbanView: { visible: true, component: EntityBadge }
+    gridView: { visible: true, component: EntityLink }
+
+  entityInstance_Ids:
+    dtype: array[uuid]
+    entityDataTable: { <<: *hidden, component: EntityArrayCell, format: { maxDisplay: 3 } }
+    entityFormContainer: { <<: *form_default, component: EntityArrayField, format: { displayField: name } }
+    kanbanView: { visible: true, component: AvatarStack, format: { max: 3 } }
+    gridView: { visible: true, component: EntityChips }
+
+  # --------------------------------------------------------------------------
+  # QUANTITY & NUMBER FIELDS
+  # --------------------------------------------------------------------------
+  quantity:
+    dtype: int
+    entityDataTable: { <<: *table_default, component: NumberCell, width: "100px", align: right }
+    entityFormContainer: { <<: *form_default, component: NumberField }
+    kanbanView: *hidden
+    gridView: { visible: true, component: NumberText }
+
+  count:
+    dtype: int
+    inherit: quantity
+
+  number:
+    dtype: int
+    inherit: quantity
+
+  sort_order:
+    dtype: int
+    entityDataTable: { <<: *table_default, component: NumberCell, width: "80px", align: center }
+    entityFormContainer: { <<: *form_default, component: NumberField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  # --------------------------------------------------------------------------
+  # MEASUREMENT FIELDS
+  # --------------------------------------------------------------------------
+  area_sqft:
+    dtype: float
+    entityDataTable: { <<: *table_default, component: MeasurementCell, width: "120px", align: right, format: { unit: "sq ft" } }
+    entityFormContainer: { <<: *form_default, component: MeasurementField, format: { unit: "sq ft" } }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  volume_m3:
+    dtype: float
+    entityDataTable: { <<: *table_default, component: MeasurementCell, width: "120px", align: right, format: { unit: "m³" } }
+    entityFormContainer: { <<: *form_default, component: MeasurementField, format: { unit: "m³" } }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  dimension_cm:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: MeasurementCell, width: "120px", format: { unit: "cm" } }
+    entityFormContainer: { <<: *form_default, component: MeasurementField, format: { unit: "cm" } }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  weight_kg:
+    dtype: float
+    entityDataTable: { <<: *table_default, component: WeightCell, width: "100px", align: right, format: { unit: kg } }
+    entityFormContainer: { <<: *form_default, component: WeightField, format: { unit: kg } }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  file_size:
+    dtype: int
+    entityDataTable: { <<: *table_default, component: FileSizeCell, width: "100px", align: right }
+    entityFormContainer: { <<: *form_default, component: FileSizeField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  capacity:
+    dtype: int
+    inherit: quantity
+
+  # --------------------------------------------------------------------------
+  # RATING & SCORE FIELDS
+  # --------------------------------------------------------------------------
+  rating:
+    dtype: float
+    entityDataTable: { <<: *table_default, component: RatingCell, width: "120px", format: { max: 5 } }
+    entityFormContainer: { <<: *form_default, component: RatingStars, format: { max: 5 } }
+    kanbanView: { visible: true, component: RatingCompact }
+    gridView: { visible: true, component: RatingStars }
+
+  score:
+    dtype: float
+    entityDataTable: { <<: *table_default, component: ScoreCell, width: "100px", align: right }
+    entityFormContainer: { <<: *form_default, component: ScoreField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  # --------------------------------------------------------------------------
+  # COORDINATES & GEOLOCATION
+  # --------------------------------------------------------------------------
+  latitude:
+    dtype: float
+    entityDataTable: { <<: *table_default, component: CoordinateCell, width: "120px", format: { precision: 6 } }
+    entityFormContainer: { <<: *form_default, component: CoordinateField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  longitude:
+    dtype: float
+    inherit: latitude
+
+  geolocation:
+    dtype: str
+    entityDataTable: { <<: *hidden }
+    entityFormContainer: { <<: *form_default, component: GeolocationField, format: { showMap: true } }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  # --------------------------------------------------------------------------
+  # TEXT CONTENT FIELDS
+  # --------------------------------------------------------------------------
+  notes:
+    dtype: str
+    entityDataTable: { <<: *hidden, component: TruncatedCell }
+    entityFormContainer: { <<: *form_default, component: TextareaField, format: { rows: 4 } }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  instructions:
+    dtype: str
+    inherit: notes
+
+  text_long:
+    dtype: str
+    inherit: notes
+
+  rich_text:
+    dtype: str
+    entityDataTable: { <<: *hidden, component: RichTextPreview }
+    entityFormContainer: { <<: *form_default, component: RichTextViewer }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  # --------------------------------------------------------------------------
+  # JSON & STRUCTURED DATA
+  # --------------------------------------------------------------------------
+  json:
+    dtype: jsonb
+    entityDataTable: { <<: *hidden, component: JsonPreviewCell }
+    entityFormContainer: { <<: *form_default, component: JsonViewer, format: { collapsed: true } }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  json_schema:
+    dtype: jsonb
+    inherit: json
+
+  tags:
+    dtype: array[str]
+    entityDataTable: { <<: *hidden, component: TagsCell, format: { maxDisplay: 3 } }
+    entityFormContainer: { <<: *form_default, component: TagsList }
+    kanbanView: { visible: true, component: TagsCompact, format: { max: 2 } }
+    gridView: { visible: true, component: TagsWrap }
+
+  # --------------------------------------------------------------------------
+  # FILE & MEDIA FIELDS
+  # --------------------------------------------------------------------------
+  file:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: FileCell, width: "150px" }
+    entityFormContainer: { <<: *form_default, component: FileField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  image:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: ImageCell, width: "80px", format: { size: thumbnail } }
+    entityFormContainer: { <<: *form_default, component: ImageField, format: { preview: true } }
+    kanbanView: { visible: true, component: CardImage }
+    gridView: { visible: true, component: CardImage }
+
+  avatar:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: AvatarCell, width: "60px", align: center, format: { size: sm } }
+    entityFormContainer: { <<: *form_default, component: AvatarField, format: { size: lg } }
+    kanbanView: { visible: true, component: Avatar, format: { size: sm } }
+    gridView: { visible: true, component: Avatar, format: { size: md } }
+
+  signature:
+    dtype: str
+    entityDataTable: { <<: *hidden }
+    entityFormContainer: { <<: *form_default, component: SignatureField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  video:
+    dtype: str
+    entityDataTable: { <<: *hidden }
+    entityFormContainer: { <<: *form_default, component: VideoField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  # --------------------------------------------------------------------------
+  # S3/STORAGE FIELDS
+  # --------------------------------------------------------------------------
+  s3_bucket:
+    dtype: str
+    entityDataTable: { <<: *hidden }
+    entityFormContainer: { <<: *form_default, component: ReadonlyField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  s3_key:
+    dtype: str
+    inherit: s3_bucket
+
+  s3_url:
+    dtype: str
+    inherit: url
+
+  s3_region:
+    dtype: str
+    inherit: s3_bucket
+
+  hash:
+    dtype: str
+    entityDataTable: { <<: *hidden }
+    entityFormContainer: { <<: *form_default, component: ReadonlyField, format: { monospace: true } }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  mime_type:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: TextCell, width: "120px" }
+    entityFormContainer: { <<: *form_default, component: ReadonlyField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  file_extension:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: TextCell, width: "80px" }
+    entityFormContainer: { <<: *form_default, component: ReadonlyField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  # --------------------------------------------------------------------------
+  # BARCODE & SCANNING
+  # --------------------------------------------------------------------------
+  barcode:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: BarcodeCell, width: "150px", format: { type: code128 } }
+    entityFormContainer: { <<: *form_default, component: BarcodeField }
+    kanbanView: *hidden
+    gridView: { visible: true, component: BarcodeImage }
+
+  sku:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: CodeCell, width: "120px" }
+    entityFormContainer: { <<: *form_default, component: TextField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  upc:
+    dtype: str
+    inherit: sku
+
+  # --------------------------------------------------------------------------
+  # COLOR
+  # --------------------------------------------------------------------------
+  color:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: ColorCell, width: "100px", format: { showHex: true } }
+    entityFormContainer: { <<: *form_default, component: ColorSwatch }
+    kanbanView: { visible: true, component: ColorDot }
+    gridView: { visible: true, component: ColorDot }
+
+  # --------------------------------------------------------------------------
+  # STATUS & STATE FIELDS
+  # --------------------------------------------------------------------------
+  status:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: StatusBadgeCell, width: "120px" }
+    entityFormContainer: { <<: *form_default, component: StatusField }
+    kanbanView: { visible: true, component: StatusBadge }
+    gridView: { visible: true, component: StatusBadge }
+
+  state_workflow:
+    dtype: str
+    inherit: status
+
+  stage:
+    dtype: str
+    inherit: datalabel
+
+  # --------------------------------------------------------------------------
+  # CATEGORY & TYPE FIELDS
+  # --------------------------------------------------------------------------
+  type:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: TextCell, width: "120px" }
+    entityFormContainer: { <<: *form_default, component: TextField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  category:
+    dtype: str
+    inherit: type
+
+  # --------------------------------------------------------------------------
+  # IDENTIFICATION NUMBERS
+  # --------------------------------------------------------------------------
+  sensitive_id:
+    dtype: str
+    entityDataTable: { <<: *hidden }
+    entityFormContainer: { <<: *form_default, component: MaskedField, format: { mask: "***-***-***" } }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  tax_id:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: TextCell, width: "140px" }
+    entityFormContainer: { <<: *form_default, component: TextField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  reference_number:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: CodeCell, width: "140px" }
+    entityFormContainer: { <<: *form_default, component: TextField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  invoice_number:
+    dtype: str
+    inherit: reference_number
+
+  order_number:
+    dtype: str
+    inherit: reference_number
+
+  po_number:
+    dtype: str
+    inherit: reference_number
+
+  tracking_number:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: TrackingCell, width: "160px", format: { linkable: true } }
+    entityFormContainer: { <<: *form_default, component: TextField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  # --------------------------------------------------------------------------
+  # AUTHENTICATION & SECURITY
+  # --------------------------------------------------------------------------
+  username:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: TextCell, width: "140px" }
+    entityFormContainer: { <<: *form_default, component: TextField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  password_hash:
+    dtype: str
+    entityDataTable: { <<: *hidden }
+    entityFormContainer: { <<: *hidden }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  token:
+    dtype: str
+    entityDataTable: { <<: *hidden }
+    entityFormContainer: { <<: *form_default, component: ReadonlyField, format: { monospace: true } }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  ip_address:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: TextCell, width: "140px", format: { monospace: true } }
+    entityFormContainer: { <<: *form_default, component: ReadonlyField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  user_agent:
+    dtype: str
+    entityDataTable: { <<: *hidden }
+    entityFormContainer: { <<: *form_default, component: ReadonlyField }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  # --------------------------------------------------------------------------
+  # UI FIELDS
+  # --------------------------------------------------------------------------
+  icon:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: IconCell, width: "80px", align: center }
+    entityFormContainer: { <<: *form_default, component: IconPicker }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  label:
+    dtype: str
+    inherit: name
+
+  # --------------------------------------------------------------------------
+  # SYSTEM FIELDS
+  # --------------------------------------------------------------------------
+  version:
+    dtype: int
+    entityDataTable: { <<: *hidden }
+    entityFormContainer: { <<: *form_default, component: VersionBadge, format: { prefix: v } }
+    kanbanView: *hidden
+    gridView: *hidden
+
+  # --------------------------------------------------------------------------
+  # DEFAULT TEXT
+  # --------------------------------------------------------------------------
+  text:
+    dtype: str
+    entityDataTable: { <<: *table_default, component: TextCell }
+    entityFormContainer: { <<: *form_default, component: TextField }
+    kanbanView: { visible: true, component: TextSpan }
+    gridView: { visible: true, component: TextSpan }
