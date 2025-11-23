@@ -83,11 +83,6 @@ export const CACHE_TTL = {
   // Short stale time for actively edited records
   ENTITY_DETAIL_STALE: 10 * 1000,    // 10 seconds - mark as stale
   ENTITY_DETAIL_CACHE: 2 * 60 * 1000, // 2 minutes - keep for navigation
-
-  // Legacy aliases (for backward compatibility during migration)
-  SESSION: 60 * 60 * 1000,           // 1 hour
-  ENTITY_LIST: 30 * 1000,            // 30 seconds (stale time)
-  ENTITY_DETAIL: 10 * 1000,          // 10 seconds (stale time)
 } as const;
 
 /** Query key factories for consistent cache keys */
@@ -257,7 +252,7 @@ export function useEntityInstanceList<T = any>(
           source: isFromCache ? 'React Query Cache' : 'Fresh API Response',
           itemCount: query.data.data.length,
           total: query.data.total,
-          staleTime: `${CACHE_TTL.ENTITY_LIST / 1000}s`,
+          staleTime: `${CACHE_TTL.ENTITY_LIST_STALE / 1000}s`,
           dataUpdatedAt: cacheState?.dataUpdatedAt ? new Date(cacheState.dataUpdatedAt).toLocaleTimeString() : 'N/A',
         }
       );
@@ -275,10 +270,10 @@ export function useEntityInstanceList<T = any>(
  * Hook for fetching single entity details with React Query
  *
  * Features:
- * - Automatic caching with configurable TTL (5 min for details)
- * - Metadata and datalabels extraction
- * - Integration with specialized Zustand stores
- * - Optimistic update support via entityInstanceDataStore
+ * - Automatic caching (10s stale, 2m cache) with stale-while-revalidate
+ * - Metadata extraction with backend field definitions
+ * - Integration with normalized cache for cross-view consistency
+ * - Optimistic update support via normalized cache
  *
  * @example
  * const { data, isLoading, refetch } = useEntityInstance('project', 'uuid-123');
@@ -368,7 +363,7 @@ export function useEntityInstance<T = any>(
         `color: ${isFromCache ? '#51cf66' : '#fcc419'}; font-weight: bold`,
         {
           source: isFromCache ? 'React Query Cache' : 'Fresh API Response',
-          staleTime: `${CACHE_TTL.ENTITY_DETAIL / 1000}s`,
+          staleTime: `${CACHE_TTL.ENTITY_DETAIL_STALE / 1000}s`,
           dataUpdatedAt: cacheState?.dataUpdatedAt ? new Date(cacheState.dataUpdatedAt).toLocaleTimeString() : 'N/A',
           hasMetadata: !!query.data.metadata,
           hasFields: !!query.data.fields,
@@ -718,6 +713,7 @@ export function useDatalabels(
  */
 export function useDatalabelMutation(datalabelName: string) {
   const queryClient = useQueryClient();
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
   // ✅ INDUSTRY STANDARD: No store subscription - use getState() in callbacks
 
   // Helper to invalidate all datalabel caches
@@ -734,11 +730,11 @@ export function useDatalabelMutation(datalabelName: string) {
 
   const addItemMutation = useMutation({
     mutationFn: async (item: { name: string; descr?: string; color_code?: string; parent_id?: number }) => {
-      const response = await fetch(`${API_BASE_URL}/api/v1/datalabel/${datalabelName}/item`, {
+      const response = await fetch(`${apiUrl}/api/v1/datalabel/${datalabelName}/item`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         },
         body: JSON.stringify(item),
       });
@@ -750,11 +746,11 @@ export function useDatalabelMutation(datalabelName: string) {
 
   const updateItemMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: { name?: string; descr?: string; color_code?: string; parent_id?: number } }) => {
-      const response = await fetch(`${API_BASE_URL}/api/v1/datalabel/${datalabelName}/item/${id}`, {
+      const response = await fetch(`${apiUrl}/api/v1/datalabel/${datalabelName}/item/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         },
         body: JSON.stringify(data),
       });
@@ -766,10 +762,10 @@ export function useDatalabelMutation(datalabelName: string) {
 
   const deleteItemMutation = useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`${API_BASE_URL}/api/v1/datalabel/${datalabelName}/item/${id}`, {
+      const response = await fetch(`${apiUrl}/api/v1/datalabel/${datalabelName}/item/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         },
       });
       if (!response.ok) throw new Error('Failed to delete item');
@@ -780,11 +776,11 @@ export function useDatalabelMutation(datalabelName: string) {
 
   const reorderItemsMutation = useMutation({
     mutationFn: async (orderedIds: number[]) => {
-      const response = await fetch(`${API_BASE_URL}/api/v1/datalabel/${datalabelName}/reorder`, {
+      const response = await fetch(`${apiUrl}/api/v1/datalabel/${datalabelName}/reorder`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         },
         body: JSON.stringify({ item_ids: orderedIds }),
       });
@@ -822,6 +818,7 @@ export function useDatalabelMutation(datalabelName: string) {
  */
 export function useEntityLookup(entityCode: string) {
   const queryClient = useQueryClient();
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
   const query = useQuery({
     queryKey: ['entity-lookup', entityCode],
@@ -829,10 +826,10 @@ export function useEntityLookup(entityCode: string) {
       console.log(`%c[API FETCH] 🔄 Fetching entity-instance-lookup: ${entityCode}`, 'color: #ff6b6b');
 
       const response = await fetch(
-        `${API_BASE_URL}/api/v1/entity/${entityCode}/entity-instance-lookup?active_only=true&limit=500`,
+        `${apiUrl}/api/v1/entity/${entityCode}/entity-instance-lookup?active_only=true&limit=500`,
         {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
           },
         }
       );
@@ -850,8 +847,8 @@ export function useEntityLookup(entityCode: string) {
 
       return options;
     },
-    staleTime: CACHE_TTL.ENTITY_DETAIL,  // 5 minutes
-    gcTime: CACHE_TTL.ENTITY_DETAIL * 2,
+    staleTime: CACHE_TTL.ENTITY_METADATA,  // 15 minutes - dropdown data
+    gcTime: CACHE_TTL.ENTITY_METADATA * 2,
     refetchOnWindowFocus: false,
     enabled: !!entityCode,
   });
@@ -1095,12 +1092,11 @@ export function useCacheInvalidation() {
     // Invalidate all React Query cache (sole data cache)
     queryClient.invalidateQueries();
 
-    // Clear metadata Zustand stores only - use getState() for imperative access
+    // Clear metadata Zustand stores - use getState() for imperative access
     useGlobalSettingsMetadataStore.getState().clear();
     useDatalabelMetadataStore.getState().clear();
     useEntityComponentMetadataStore.getState().clear();
     useEntityCodeMetadataStore.getState().clear();
-    // v6.0.0: entityInstanceDataStore and entityInstanceListDataStore removed
   }, [queryClient]);
 
   const invalidateEntityCodes = useCallback(() => {
@@ -1154,7 +1150,7 @@ export function usePrefetch() {
           datalabels: response.datalabels || [],
         };
       },
-      staleTime: CACHE_TTL.ENTITY_DETAIL,
+      staleTime: CACHE_TTL.ENTITY_DETAIL_STALE,
     });
   }, [queryClient]);
 
@@ -1174,7 +1170,7 @@ export function usePrefetch() {
           hasMore: (response.data?.length || 0) === (params?.pageSize || 100),
         };
       },
-      staleTime: CACHE_TTL.ENTITY_LIST,
+      staleTime: CACHE_TTL.ENTITY_LIST_STALE,
     });
   }, [queryClient]);
 

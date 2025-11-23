@@ -1,6 +1,6 @@
 # State Management Architecture
 
-**Version:** 6.2.0 | **Location:** `apps/web/src/stores/` | **Last Updated:** 2025-11-23
+**Version:** 6.2.2 | **Location:** `apps/web/src/stores/` | **Last Updated:** 2025-11-23
 
 ---
 
@@ -32,7 +32,7 @@ The PMO platform uses a **hybrid state management architecture** combining:
 | **Zustand** | Metadata caching + UI state | 5 specialized stores |
 | **React Context** | Auth & global providers | Cross-cutting concerns |
 
-### Design Principles (v6.2.0)
+### Design Principles (v6.2.2)
 
 1. **Single Source of Truth**: React Query is sole data cache (no dual caching)
 2. **Separation of Concerns**: Server data (React Query) vs. metadata/UI state (Zustand)
@@ -48,7 +48,7 @@ The PMO platform uses a **hybrid state management architecture** combining:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                    STATE MANAGEMENT ARCHITECTURE (v6.2.0)                            │
+│                    STATE MANAGEMENT ARCHITECTURE (v6.2.2)                            │
 ├─────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                      │
 │  ┌─────────────────────────────────────────────────────────────────────────────┐    │
@@ -1082,7 +1082,7 @@ const canUndo = undoStackLength > 0;
 | **Navigation away** | React Query handles via queryKey |
 | **Logout** | Clear all stores |
 
-### 11.3 Cache TTL Constants (v6.2.0 - Industry Standard)
+### 11.3 Cache TTL Constants (v6.2.2 - Industry Standard)
 
 ```typescript
 export const CACHE_TTL = {
@@ -1117,7 +1117,7 @@ export const CACHE_TTL = {
 | `#51cf66` (Green) | Cache HIT | `[CACHE HIT] 💾 useEntityInstance` |
 | `#fcc419` (Yellow) | Cache MISS | `[CACHE MISS] 💾 useEntityInstanceList` |
 | `#be4bdb` (Purple) | Store Update | `[EntityCodeStore] Storing 23 entity types` |
-| `#4dabf7` (Cyan) | Store Cache | `[InstanceDataStore] Storing: office:uuid` |
+| `#4dabf7` (Cyan) | Normalized Cache | `[NormalizedCache] Stored 50 project entities` |
 | `#f783ac` (Pink) | Navigation | `[NAVIGATION] 🚀 Row clicked` |
 
 ### 12.2 Render Counter Pattern
@@ -1207,6 +1207,17 @@ The PMO state management architecture follows industry best practices:
 ---
 
 **Version History:**
+- v6.2.2 (2025-11-23): **Code Cleanup**
+  - Deleted deprecated `entityStore.ts` (14KB, not used)
+  - Fixed `API_BASE_URL` undefined bug in `useDatalabelMutation` and `useEntityLookup`
+  - Fixed inconsistent token key (`token` → `auth_token`)
+  - Removed legacy TTL aliases (`SESSION`, `ENTITY_LIST`, `ENTITY_DETAIL`)
+  - Updated `useEntityLookup` to use `ENTITY_METADATA` TTL (15min for dropdown data)
+- v6.2.1 (2025-11-23): **Documentation Accuracy Update**
+  - Verified all 5 stores are correctly documented and exported from `stores/index.ts`
+  - Confirmed normalized cache (`lib/cache/normalizedCache.ts`) and GC (`lib/cache/garbageCollection.ts`) implementations
+  - Verified TTL constants match implementation in `useEntityQuery.ts`
+- v6.2.0 (2025-11-23): Added normalized cache documentation and GC lifecycle details
 - v6.1.0 (2025-11-23): **Eliminated Dual Cache** - React Query is sole data cache
   - Removed `entityInstanceDataStore` and `entityInstanceListDataStore`
   - Updated TTL to industry standard (1h reference, 15m metadata, 30s lists, 10s details)
