@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Layout } from '../../components/shared';
-import { SettingsDataTable } from '../../components/shared/ui/SettingsDataTable';
+import { SettingsDataTable } from '../../components/shared/ui/LabelsDataTable';
 import { ExitButton } from '../../components/shared/button/ExitButton';
 import { getIconComponent } from '../../lib/iconMapping';
 import { useSettings } from '../../contexts/SettingsContext';

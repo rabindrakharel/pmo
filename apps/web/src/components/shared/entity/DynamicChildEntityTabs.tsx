@@ -97,10 +97,18 @@ export function DynamicChildEntityTabs({
 export function useDynamicChildEntityTabs(parentType: string, parentId: string) {
   const [tabs, setTabs] = React.useState<HeaderTab[]>([]);
   const [loading, setLoading] = React.useState(true);
-  // Use stable selector functions instead of the entire store to prevent re-renders
-  const getEntityByCode = useEntityCodeMetadataStore(state => state.getEntityByCode);
+
+  // ✅ INDUSTRY STANDARD: Get store method once and use ref to avoid dependency changes
+  // Store methods are stable but selector creates new reference - use ref pattern
+  const getEntityByCodeRef = React.useRef(useEntityCodeMetadataStore.getState().getEntityByCode);
 
   React.useEffect(() => {
+    // Update ref if store method changes (unlikely but safe)
+    getEntityByCodeRef.current = useEntityCodeMetadataStore.getState().getEntityByCode;
+  }, []);
+
+  React.useEffect(() => {
+    const getEntityByCode = getEntityByCodeRef.current;
     const fetchChildTabs = async () => {
       try {
         setLoading(true);
@@ -202,7 +210,7 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
     if (parentId) {
       fetchChildTabs();
     }
-  }, [parentType, parentId, getEntityByCode]);
+  }, [parentType, parentId]); // getEntityByCode accessed via ref - no dependency needed
 
   return { tabs, loading };
 }

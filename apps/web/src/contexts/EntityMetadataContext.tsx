@@ -46,8 +46,8 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
   // ============================================================================
   // Entity types are cached in entityCodeMetadataStore with 30-minute TTL
   // This provides cross-component cache sharing and persistence
+  // ✅ INDUSTRY STANDARD: Use getState() to avoid store subscription re-renders
   // ============================================================================
-  const entityCodeStore = useEntityCodeMetadataStore();
 
   useEffect(() => {
     const fetchEntityMetadata = async () => {
@@ -71,8 +71,8 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
           return;
         }
 
-        // Check Zustand cache first (30-minute TTL)
-        const cachedTypes = entityCodeStore.getEntityCodes();
+        // Check Zustand cache first (30-minute TTL) - use getState() to avoid subscription
+        const cachedTypes = useEntityCodeMetadataStore.getState().getEntityCodes();
         if (cachedTypes && cachedTypes.length > 0) {
           console.log('[EntityMetadataContext] Using cached entity types from entityCodeMetadataStore');
           const entityMap = new Map<string, EntityMetadata>();
@@ -118,8 +118,8 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
             });
           });
 
-          // Cache in entityCodeMetadataStore (30-minute TTL)
-          entityCodeStore.setEntityCodes(data);
+          // Cache in entityCodeMetadataStore (30-minute TTL) - use getState() inside callback
+          useEntityCodeMetadataStore.getState().setEntityCodes(data);
 
           setEntities(entityMap);
           console.log(`[EntityMetadataContext] Loaded ${entityMap.size} entity types from API`);

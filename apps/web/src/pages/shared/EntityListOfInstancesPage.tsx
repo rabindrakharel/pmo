@@ -1,19 +1,20 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Plus, ArrowLeft } from 'lucide-react';
-import { Layout, FilteredDataTable, ViewSwitcher } from '../../components/shared';
+import { useNavigate } from 'react-router-dom';
+import { Plus, ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import { Layout, ViewSwitcher, EntityDataTable } from '../../components/shared';
 import { KanbanView } from '../../components/shared/ui/KanbanView';
 import { GridView } from '../../components/shared/ui/GridView';
 import { CalendarView } from '../../components/shared/ui/CalendarView';
 import { DAGVisualizer } from '../../components/workflow/DAGVisualizer';
 import { HierarchyGraphView } from '../../components/hierarchy/HierarchyGraphView';
 import { useViewMode } from '../../lib/hooks/useViewMode';
-import { getEntityConfig, ViewMode } from '../../lib/entityConfig';
+import { getEntityConfig, type ViewMode } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
-import { APIFactory, type EntityMetadata } from '../../lib/api';
-import { type DatalabelData } from '../../lib/frontEndFormatterService';
+import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
 import { useSidebar } from '../../contexts/SidebarContext';
-import { useEntityInstanceList, useEntityMutation, usePrefetch } from '../../lib/hooks';
+import { useEntityInstanceList, useEntityMutation } from '../../lib/hooks';
+import { API_CONFIG } from '../../lib/config/api';
+import type { RowAction } from '../../components/shared/ui/EntityDataTable';
 
 /**
  * Universal EntityListOfInstancesPage
@@ -54,7 +55,6 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   const [currentPage, setCurrentPage] = useState(1);
   const [appendedData, setAppendedData] = useState<any[]>([]); // For pagination append
   const { collapseSidebar } = useSidebar();
-  const { prefetchEntity } = usePrefetch();
 
   // Check if this is a settings entity
   const isSettingsEntity = useMemo(() => {
@@ -92,12 +92,20 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     error: queryError,
     refetch,
   } = useEntityInstanceList(entityCode, queryParams, {
-    // Only fetch for non-table views, table uses FilteredDataTable's own fetching
-    enabled: view !== 'table' && !!config,
+    // Fetch for ALL views including table (no more FilteredDataTable wrapper)
+    enabled: !!config,
   });
 
+  // ============================================================================
+  // INLINE EDIT STATE MANAGEMENT
+  // ============================================================================
+  const [editingRow, setEditingRow] = useState<string | null>(null);
+  const [editedData, setEditedData] = useState<any>({});
+  const [isAddingRow, setIsAddingRow] = useState(false);
+  const [localData, setLocalData] = useState<any[]>([]);
+
   // Extract data from React Query result
-  const data = useMemo(() => {
+  const queryData = useMemo(() => {
     if (!queryResult) return appendedData;
     // For pagination, combine appended data with new data
     if (currentPage > 1 && appendedData.length > 0) {
@@ -106,14 +114,35 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     return queryResult.data;
   }, [queryResult, appendedData, currentPage]);
 
+  // Use localData for inline editing, otherwise use query data
+  const data = localData.length > 0 ? localData : queryData;
+
+  // Sync localData with queryData when query updates
+  useEffect(() => {
+    if (queryData && queryData.length > 0) {
+      setLocalData(queryData);
+    }
+  }, [queryData]);
+
   const metadata = queryResult?.metadata || null;
-  const datalabels = queryResult?.datalabels || [];
   const totalRecords = queryResult?.total || 0;
   const hasMore = queryResult?.hasMore || false;
   const error = queryError?.message || null;
 
+  // Pagination for EntityDataTable
+  const pagination = useMemo(() => ({
+    current: currentPage,
+    pageSize: 100,
+    total: totalRecords,
+    showSizeChanger: true,
+    pageSizeOptions: [20, 50, 100],
+    onChange: (page: number, _pageSize: number) => {
+      setCurrentPage(page);
+    }
+  }), [currentPage, totalRecords]);
+
   // Entity mutation for updates (kanban card moves, etc.)
-  const { updateEntity, isUpdating } = useEntityMutation(entityCode);
+  const { updateEntity } = useEntityMutation(entityCode);
 
   // Legacy loadData function for compatibility (now just triggers refetch)
   const loadData = useCallback(async (page: number = 1, append: boolean = false) => {
@@ -129,6 +158,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   }, [data]);
 
   const handleRowClick = useCallback((item: any) => {
+    if (!config) return;
     // Use custom detail page ID field if specified, otherwise default to 'id'
     const idField = config.detailPageIdField || 'id';
     const id = item[idField];
@@ -140,14 +170,6 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     navigate(`/${entityCode}/${id}`);
   }, [config, entityCode, navigate]);
 
-  // Prefetch entity data on hover for faster navigation
-  const handleRowHover = useCallback((item: any) => {
-    const idField = config.detailPageIdField || 'id';
-    const id = item[idField];
-    // Prefetch entity detail data in background
-    prefetchEntity(entityCode, id);
-  }, [config, entityCode, prefetchEntity]);
-
   const handleCreateClick = useCallback(() => {
     navigate(`/${entityCode}/new`);
   }, [entityCode, navigate]);
@@ -155,23 +177,6 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   const handleLoadMore = useCallback(() => {
     loadData(currentPage + 1, true);
   }, [currentPage, loadData]);
-
-  const handleBulkShare = useCallback((selectedItems: any[]) => {
-    console.log(`Bulk share ${entityCode}:`, selectedItems.map(i => i.id));
-    alert(`Sharing ${selectedItems.length} ${config?.displayName || entityCode}${selectedItems.length !== 1 ? 's' : ''}`);
-  }, [config, entityCode]);
-
-  const handleBulkDelete = useCallback(async (selectedItems: any[]) => {
-    if (window.confirm(`Are you sure you want to delete ${selectedItems.length} ${config?.displayName || entityCode}${selectedItems.length !== 1 ? 's' : ''}?`)) {
-      console.log(`Bulk delete ${entityCode}:`, selectedItems.map(i => i.id));
-      alert(`Deleted ${selectedItems.length} ${config?.displayName || entityCode}${selectedItems.length !== 1 ? 's' : ''}`);
-
-      // Refetch data after delete
-      if (view !== 'table') {
-        refetch();
-      }
-    }
-  }, [config, entityCode, view, refetch]);
 
   // ============================================================================
   // OPTIMISTIC UPDATES WITH ZUSTAND MUTATION
@@ -197,6 +202,156 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     }
   }, [config, entityCode, updateEntity]);
 
+  // ============================================================================
+  // INLINE EDIT HANDLERS (Migrated from FilteredDataTable)
+  // ============================================================================
+
+  const handleInlineEdit = useCallback((_rowId: string, field: string, value: any) => {
+    setEditedData((prev: any) => ({
+      ...prev,
+      [field]: value
+    }));
+  }, []);
+
+  const handleSaveInlineEdit = useCallback(async (record: any) => {
+    if (!config) return;
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const isNewRow = isAddingRow || record.id?.toString().startsWith('temp_') || record._isNew;
+      const transformedData = transformForApi(editedData, record);
+
+      // Remove temporary fields
+      delete transformedData._isNew;
+      if (isNewRow) {
+        delete transformedData.id;
+      }
+
+      let response;
+      if (isNewRow) {
+        // POST - Create new entity
+        console.log(`Creating new ${entityCode}:`, transformedData);
+        response = await fetch(`${API_CONFIG.BASE_URL}${config.apiEndpoint}`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(transformedData)
+        });
+
+        if (response.ok) {
+          console.log(`✅ Created ${entityCode}`);
+          await refetch();
+          setEditingRow(null);
+          setEditedData({});
+          setIsAddingRow(false);
+        } else {
+          const errorText = await response.text();
+          console.error(`❌ Failed to create ${entityCode}:`, response.statusText, errorText);
+          alert(`Failed to create ${entityCode}: ${response.statusText}`);
+        }
+      } else {
+        // PATCH - Update existing entity
+        console.log(`Updating ${entityCode}:`, transformedData);
+        response = await fetch(`${API_CONFIG.BASE_URL}${config.apiEndpoint}/${record.id}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify(transformedData)
+        });
+
+        if (response.ok) {
+          console.log(`✅ Updated ${entityCode}`);
+          await refetch();
+          setEditingRow(null);
+          setEditedData({});
+          setIsAddingRow(false);
+        } else {
+          const errorText = await response.text();
+          console.error(`Failed to update record:`, response.statusText, errorText);
+          alert(`Failed to update record: ${response.statusText}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving record:', error);
+      alert('An error occurred while saving. Please try again.');
+    }
+  }, [config, entityCode, editedData, isAddingRow, refetch]);
+
+  const handleCancelInlineEdit = useCallback(() => {
+    if (isAddingRow && editingRow) {
+      setLocalData(prev => prev.filter(row => row.id !== editingRow));
+      setIsAddingRow(false);
+    }
+    setEditingRow(null);
+    setEditedData({});
+  }, [isAddingRow, editingRow]);
+
+  const handleAddRow = useCallback((newRow: any) => {
+    setLocalData(prev => [...prev, newRow]);
+    setEditingRow(newRow.id);
+    setEditedData(newRow);
+    setIsAddingRow(true);
+  }, []);
+
+  const handleDelete = useCallback(async (record: any) => {
+    if (!config) return;
+    if (!window.confirm('Are you sure you want to delete this record?')) return;
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = {};
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}${config.apiEndpoint}/${record.id}`, {
+        method: 'DELETE',
+        headers
+      });
+
+      if (response.ok) {
+        console.log('✅ Record deleted successfully');
+        await refetch();
+      } else {
+        const errorText = await response.text();
+        console.error('Failed to delete record:', response.statusText, errorText);
+        alert(`Failed to delete record: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error deleting record:', error);
+      alert('An error occurred while deleting. Please try again.');
+    }
+  }, [config, refetch]);
+
+  // Row actions for EntityDataTable
+  const rowActions: RowAction[] = useMemo(() => {
+    const actions: RowAction[] = [];
+
+    actions.push({
+      key: 'edit',
+      label: 'Edit',
+      icon: <Edit className="h-4 w-4" />,
+      variant: 'default',
+      onClick: (record) => {
+        setEditingRow(record.id);
+        setEditedData(transformFromApi({ ...record }));
+      }
+    });
+
+    actions.push({
+      key: 'delete',
+      label: 'Delete',
+      icon: <Trash2 className="h-4 w-4" />,
+      variant: 'danger',
+      onClick: handleDelete
+    });
+
+    return actions;
+  }, [handleDelete]);
+
   if (!config) {
     return (
       <Layout>
@@ -208,21 +363,36 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   }
 
   const renderContent = () => {
-    // TABLE VIEW (uses FilteredDataTable)
+    // TABLE VIEW (uses EntityDataTable directly - no FilteredDataTable wrapper)
     if (view === 'table') {
+      if (loading) {
+        return (
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700" />
+          </div>
+        );
+      }
+
       return (
-        <FilteredDataTable
-          entityCode={entityCode}
-          metadata={metadata}  // Pass backend metadata
-          datalabels={datalabels}  // ✅ Pass preloaded datalabel data
-          showActionButtons={false}
-          showActionIcons={true}
-          showEditIcon={true}
-          inlineEditable={true}
-          allowAddRow={true}
-          onBulkShare={handleBulkShare}
-          onBulkDelete={handleBulkDelete}
+        <EntityDataTable
+          data={data}
+          metadata={metadata}
+          loading={loading}
+          pagination={pagination}
           onRowClick={handleRowClick}
+          searchable={true}
+          filterable={true}
+          columnSelection={true}
+          rowActions={rowActions}
+          selectable={true}
+          inlineEditable={true}
+          editingRow={editingRow}
+          editedData={editedData}
+          onInlineEdit={handleInlineEdit}
+          onSaveInlineEdit={handleSaveInlineEdit}
+          onCancelInlineEdit={handleCancelInlineEdit}
+          allowAddRow={true}
+          onAddRow={handleAddRow}
         />
       );
     }

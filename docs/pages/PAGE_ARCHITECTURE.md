@@ -52,8 +52,8 @@ The PMO platform uses **3 universal pages** to handle 27+ entity types dynamical
 EntityListOfInstancesPage
 ├── Layout                         // App shell with sidebar
 ├── ViewSwitcher                   // Toggle between view modes
-├── FilteredDataTable              // Table view (default)
-│   ├── useEntityInstanceList()    // React Query hook
+├── useEntityInstanceList()        // React Query hook (data fetching)
+├── EntityDataTable                // Table view (default)
 │   ├── Pagination                 // Server-side pagination
 │   └── InlineEdit                 // Direct cell editing
 ├── KanbanView                     // Kanban board
@@ -128,7 +128,7 @@ useKeyboardShortcuts({
 
 **Tab System:**
 1. Overview tab (always first) → Shows `EntityFormContainer`
-2. Child tabs from `child_entity_codes` → Shows `EntityChildListPage` via `<Outlet />`
+2. Child tabs from `child_entity_codes` → Shows `EntityDataTable` directly (inline rendering)
 3. Special tabs for form entity (`Form Data`, `Edit Submission`)
 
 ---
@@ -161,37 +161,6 @@ interface ParentContext {
 
 // After create → Link to parent via linkage API
 await createParentChildLinkage(parentType, parentId, entityCode, createdId);
-```
-
----
-
-### 1.4 EntityChildListPage
-
-**Route:** `/:entityCode/:id/:childType` (e.g., `/project/uuid/task`)
-
-**Purpose:** Filtered child entity list within parent context (rendered via `<Outlet />`)
-
-**Component Architecture:**
-```
-EntityChildListPage
-├── ViewSwitcher
-├── FilteredDataTable              // With parentType/parentId filters
-│   └── API: GET /api/v1/{parent}/{id}/{child}
-├── KanbanView
-├── GridView
-└── Create Button → Create-Link-Redirect workflow
-```
-
-**Create-Link-Redirect Pattern:**
-```typescript
-// 1. Create minimal entity
-POST /api/v1/{childType} → { name: 'Untitled', code: 'AUTO-123' }
-
-// 2. Link to parent
-POST /api/v1/linkage → { parent_entity_type, parent_entity_id, child_entity_type, child_entity_id }
-
-// 3. Redirect to edit page
-navigate(`/${childType}/${newId}`, { state: { autoEdit: true } });
 ```
 
 ---
@@ -234,7 +203,7 @@ SettingsOverviewPage
 │   ├── Roles Management card → /role
 │   ├── Employee-Role Assignment card
 │   ├── Permission Management card
-│   ├── FilteredDataTable (rbac entity)
+│   ├── EntityDataTable (rbac entity)
 │   └── RBAC Architecture Overview
 ├── Modals
 │   ├── AddDatalabelModal          // Create new datalabel type
@@ -269,7 +238,7 @@ PUT /api/v1/entity/:code/children → { child_entity_codes: [...], mode: 'append
 | **Entity Mapping** | Configuration cards | Navigate to linkage page |
 | **Secrets Vault** | Feature list (placeholder) | Credential management |
 | **Integrations** | Feature list (placeholder) | External service connections |
-| **Access Control** | RBAC cards + FilteredDataTable | Role/permission management |
+| **Access Control** | RBAC cards + EntityDataTable | Role/permission management |
 
 ---
 
@@ -287,7 +256,7 @@ SettingDetailPage
 │   ├── ExitButton → exitSettingsMode()
 │   ├── Icon (from datalabel config)
 │   └── Title (from ui_label)
-└── SettingsDataTable
+└── LabelsDataTable
     ├── Columns: ID, Name, Description, Parent ID, Color
     ├── Inline editing
     ├── Color picker
@@ -328,12 +297,11 @@ await deleteSettingItem(datalabel, id);
 await reorderSettingItems(datalabel, reorderedData);
 ```
 
-**SettingsDataTable Props:**
+**LabelsDataTable Props:**
 ```typescript
-<SettingsDataTable
-  data={data}                      // Array of SettingItem
+<LabelsDataTable
+  data={data}                      // Array of LabelRecord
   onRowUpdate={handleRowUpdate}    // Save entire row
-  onInlineEdit={handleInlineEdit}  // Single field update
   onAddRow={handleAddRow}          // Add new row
   onDeleteRow={handleDeleteRow}    // Delete row
   onReorder={handleReorder}        // Drag-to-reorder
@@ -535,7 +503,7 @@ InteractiveForm
 ```
 FormDataPreviewPage
 ├── Layout
-├── FilteredDataTable              // Submissions list
+├── EntityDataTable                // Submissions list
 │   ├── Columns from form_schema
 │   ├── Submission timestamp
 │   ├── Submitter info
@@ -620,20 +588,23 @@ Every page wraps content in `<Layout>`:
 - User menu
 - Responsive container
 
-### 6.2 FilteredDataTable Component
+### 6.2 EntityDataTable Component
 
-Primary data display component:
+Primary data display component (used directly by pages):
 ```typescript
-<FilteredDataTable
-  entityCode={entityCode}         // Required
-  metadata={backendMetadata}      // From API response
-  parentType={parentType}         // For child filtering
-  parentId={parentId}             // For child filtering
+<EntityDataTable
+  data={data}                     // Entity records from API
+  metadata={backendMetadata}      // Field metadata from API response
+  loading={isLoading}             // Loading state
+  pagination={pagination}         // { page, pageSize, total }
   inlineEditable={true}           // Enable cell editing
   allowAddRow={true}              // Show add row button
   onRowClick={handleRowClick}     // Navigation handler
-  onBulkShare={handleBulkShare}   // Bulk action
-  onBulkDelete={handleBulkDelete} // Bulk action
+  editingRow={editingRow}         // Currently editing row ID
+  editedData={editedData}         // Edited field values
+  onInlineEdit={handleInlineEdit} // Field change handler
+  onSaveInlineEdit={handleSave}   // Save handler
+  onCancelInlineEdit={handleCancel} // Cancel handler
 />
 ```
 
@@ -660,9 +631,8 @@ Universal form renderer:
 // App.tsx route structure
 <Route path="/:entityCode" element={<EntityListOfInstancesPage />} />
 <Route path="/:entityCode/new" element={<EntityCreatePage />} />
-<Route path="/:entityCode/:id" element={<EntitySpecificInstancePage />}>
-  <Route path=":childType" element={<EntityChildListPage />} />
-</Route>
+<Route path="/:entityCode/:id/*" element={<EntitySpecificInstancePage />} />
+// Note: Child tabs handled inline via URL parsing, not nested routes
 
 // Settings routes
 <Route path="/setting/overview" element={<SettingsOverviewPage />} />
@@ -708,7 +678,7 @@ User clicks sidebar → EntityListOfInstancesPage (/:entityCode)
        │
        ├── [Row Click] → EntitySpecificInstancePage (/:entityCode/:id)
        │                        │
-       │                        ├── [Tab Click] → EntityChildListPage (via Outlet)
+       │                        ├── [Tab Click] → EntityDataTable (inline, same page)
        │                        │                        │
        │                        │                        └── [Create] → Create-Link-Redirect
        │                        │
@@ -723,16 +693,15 @@ User clicks sidebar → EntityListOfInstancesPage (/:entityCode)
 
 | Page | Primary Components | View Modes |
 |------|-------------------|------------|
-| EntityListOfInstancesPage | FilteredDataTable, KanbanView, GridView, CalendarView | table, kanban, grid, calendar, graph |
-| EntitySpecificInstancePage | EntityFormContainer, DynamicChildEntityTabs, FilePreview | - |
+| EntityListOfInstancesPage | EntityDataTable, KanbanView, GridView, CalendarView | table, kanban, grid, calendar, graph |
+| EntitySpecificInstancePage | EntityFormContainer, DynamicChildEntityTabs, EntityDataTable (child tabs) | - |
 | EntityCreatePage | EntityFormContainer, DragDropFileUpload | - |
-| EntityChildListPage | FilteredDataTable, KanbanView, GridView | table, kanban, grid |
-| SettingsOverviewPage | Entity table, FilteredDataTable (rbac), Modals | 5 tabs |
-| SettingDetailPage | SettingsDataTable (drag-to-reorder) | - |
+| SettingsOverviewPage | Entity table, EntityDataTable (rbac), Modals | 5 tabs |
+| SettingDetailPage | LabelsDataTable (drag-to-reorder) | - |
 | WikiViewPage | Cover, Article, Action buttons | - |
 | WikiEditorPage | WikiDesigner (block editor), ShareModal, LinkageModal | - |
 | FormBuilderPage | FormBuilder, Toolbar, Canvas, Properties Panel | - |
-| FormDataPreviewPage | FilteredDataTable, FormSubmissionEditor | - |
+| FormDataPreviewPage | EntityDataTable, FormSubmissionEditor | - |
 
 ---
 

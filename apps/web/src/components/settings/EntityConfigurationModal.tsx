@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, AlertCircle, Database, Eye, Tag } from 'lucide-react';
 import { ColumnMetadataEditor, ColumnMetadata } from '../entity-builder/ColumnMetadataEditor';
 import { IconDisplaySettings } from '../entity-builder/IconDisplaySettings';
-import { SettingsDataTable } from '../shared/ui/SettingsDataTable';
+import { SettingsDataTable } from '../shared/ui/LabelsDataTable';
 
 interface EntityConfigurationModalProps {
   isOpen: boolean;

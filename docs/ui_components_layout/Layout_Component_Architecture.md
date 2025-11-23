@@ -3,7 +3,7 @@
 > **React 19, TypeScript, Backend-Driven Metadata, Zero Pattern Detection**
 > Universal page system with 3 pages handling 27+ entity types dynamically
 
-**Version:** 4.3.0 | **Last Updated:** 2025-11-22
+**Version:** 5.0.0 | **Last Updated:** 2025-11-22
 
 ---
 
@@ -22,7 +22,7 @@ The PMO frontend uses a **three-layer component architecture** (Base → Domain 
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
 │  │                    APPLICATION LAYER                             │    │
-│  │  EntityDataTable, EntityFormContainer, FilteredDataTable        │    │
+│  │  EntityDataTable, EntityFormContainer, LabelsDataTable          │    │
 │  │  KanbanView, CalendarView, GridView, DAGVisualizer              │    │
 │  │  HierarchyGraphView, DynamicChildEntityTabs                     │    │
 │  │  (Business logic, state management, API integration)            │    │
@@ -72,7 +72,7 @@ The PMO frontend uses a **three-layer component architecture** (Base → Domain 
 |-----------|------|---------|
 | EntityDataTable | `ui/EntityDataTable.tsx` | Universal data table (backend metadata-driven) |
 | EntityFormContainer | `entity/EntityFormContainer.tsx` | Universal form (backend metadata-driven) |
-| FilteredDataTable | `dataTable/FilteredDataTable.tsx` | Routing wrapper + own data fetching |
+| LabelsDataTable | `ui/LabelsDataTable.tsx` | Labels/datalabel table (fixed schema) |
 | KanbanView | `ui/KanbanView.tsx` | Kanban board with drag-drop |
 | CalendarView | `ui/CalendarView.tsx` | Calendar event view |
 | GridView | `ui/GridView.tsx` | Card grid view |
@@ -127,9 +127,9 @@ The PMO platform uses a **universal page architecture** where 3 main pages handl
 **Location**: `apps/web/src/pages/shared/EntityListOfInstancesPage.tsx`
 
 **Responsibilities**:
-1. Fetch entity data via `useEntityInstanceList` hook (non-table views)
+1. Fetch entity data via `useEntityInstanceList` hook
 2. Receive backend metadata and datalabels in API response
-3. Pass metadata to view components (FilteredDataTable, KanbanView, etc.)
+3. Pass metadata to view components (EntityDataTable, KanbanView, etc.)
 4. Handle view mode switching (table/kanban/grid/calendar/graph)
 5. Handle pagination with "Load More" pattern
 6. Handle entity creation navigation
@@ -151,7 +151,7 @@ const {
   error: queryError,
   refetch,
 } = useEntityInstanceList(entityCode, queryParams, {
-  enabled: view !== 'table' && !!config,  // Table uses FilteredDataTable's own fetching
+  enabled: !!config,  // All views use this hook for data fetching
 });
 
 // Extract data from React Query result
@@ -171,16 +171,15 @@ const [currentPage, setCurrentPage] = useState(1);
    ↓
 2. EntityListOfInstancesPage receives entityCode as prop
    ↓
-3. For TABLE view: FilteredDataTable handles its own data fetching
-   For OTHER views: useEntityInstanceList(entityCode, queryParams) triggers React Query
+3. useEntityInstanceList(entityCode, queryParams) triggers React Query
    ↓
-4. React Query: GET /api/v1/project?page=1&pageSize=100&view=kanban
+4. React Query: GET /api/v1/project?page=1&pageSize=100&view=table
    ↓
 5. Backend returns: { data: [...], fields: [...], metadata: {...}, datalabels: [...], total, limit, offset }
    ↓
 6. React Query caches response (2-min staleTime for lists)
    ↓
-7. Pass to view component (FilteredDataTable, KanbanView, GridView, CalendarView, DAGVisualizer)
+7. Pass to view component (EntityDataTable, KanbanView, GridView, CalendarView, DAGVisualizer)
    ↓
 8. View component renders using backend metadata + datalabels
 ```
@@ -393,16 +392,18 @@ const { createEntity, updateEntity, isCreating, isUpdating } = useEntityMutation
 ┌────────────────────────────────────────────────────────────────┐
 │                     CONTAINER LEVEL                            │
 ├────────────────────────────────────────────────────────────────┤
-│  FilteredDataTable (Routing + wrapper)                        │
-│    ├── EntityDataTable (Entity data)                         │
-│    └── SettingsDataTable (Datalabel data)                    │
+│  EntityDataTable (Entity data - used directly by pages)       │
+│    └── Backend metadata-driven columns and rendering          │
+│                                                                │
+│  LabelsDataTable (Datalabel data - fixed schema)             │
+│    └── Used for settings/labels management                    │
 │                                                                │
 │  EntityFormContainer (Form rendering)                         │
 │    ├── renderEditModeFromMetadata for each field             │
 │    └── Form validation                                        │
 │                                                                │
 │  DynamicChildEntityTabs (Child entity tabs)                  │
-│    └── FilteredDataTable per tab                             │
+│    └── EntityDataTable per tab (inline rendering)            │
 └────────────────────────────────────────────────────────────────┘
                             ↓
 ┌────────────────────────────────────────────────────────────────┐
@@ -420,7 +421,7 @@ const { createEntity, updateEntity, isCreating, isUpdating } = useEntityMutation
 │    ├── Uses renderEditModeFromMetadata                       │
 │    └── Backend metadata-driven                               │
 │                                                                │
-│  SettingsDataTable (Settings extension)                      │
+│  LabelsDataTable (Labels/settings extension)                 │
 │    ├── Extends DataTableBase                                 │
 │    ├── Uses renderDataLabelBadge                             │
 │    └── Reorderable rows                                       │
@@ -450,32 +451,6 @@ const { createEntity, updateEntity, isCreating, isUpdating } = useEntityMutation
 ```
 
 ### 3.2 Key Components
-
-#### FilteredDataTable
-
-**Purpose**: Routing wrapper that delegates to correct table type
-
-**Location**: `apps/web/src/components/shared/dataTable/FilteredDataTable.tsx`
-
-**Props**:
-```typescript
-interface FilteredDataTableProps {
-  entityType: string;           // 'project', 'task', etc.
-  parentCode?: string;          // For child entity filtering
-  parentId?: string;            // Parent UUID
-  inlineEditable?: boolean;     // Enable inline editing
-  selectable?: boolean;         // Enable row selection
-}
-```
-
-**Key Logic**:
-```typescript
-// Route to correct table type
-if (entityType.startsWith('setting_')) {
-  return <SettingsDataTable ... />;
-}
-return <EntityDataTable metadata={metadata} data={data} ... />;
-```
 
 #### EntityDataTable
 
@@ -606,13 +581,15 @@ interface DynamicChildEntityTabsProps {
 const entityMeta = await fetch(`/api/v1/entity/codes/${parentEntityType}`);
 const childCodes = entityMeta.child_entity_codes; // ['task', 'artifact', 'wiki']
 
-// Render tab for each child
+// Render tab for each child (inline in EntitySpecificInstancePage)
+// Child tabs render EntityDataTable directly with data from useEntityInstanceList
 childCodes.map(childCode => (
   <Tab key={childCode} label={childCode}>
-    <FilteredDataTable
-      entityType={childCode}
-      parentCode={parentEntityType}
-      parentId={parentEntityId}
+    <EntityDataTable
+      data={childData}
+      metadata={childMetadata}
+      loading={childLoading}
+      // ... inline edit props
     />
   </Tab>
 ));
@@ -1334,8 +1311,8 @@ const fieldKeys = useMemo(() => {
 **Base Component + Extensions**:
 ```
 DataTableBase (pure base)
-    ├── EntityDataTable (entity extension)
-    └── SettingsDataTable (settings extension)
+    ├── EntityDataTable (entity extension - dynamic schema)
+    └── LabelsDataTable (labels extension - fixed schema)
 ```
 
 ### 9.2 Render Props
@@ -1465,9 +1442,9 @@ test('EntityListOfInstancesPage loads and displays data', async () => {
 **Key Components**:
 - **3 Universal Pages**: EntityListOfInstancesPage, EntitySpecificInstancePage, EntityFormPage
 - **5 View Modes**: Table, Kanban, Grid, Calendar, Graph
-- **2 Data Tables**: EntityDataTable (backend metadata), SettingsDataTable (datalabels)
+- **2 Data Tables**: EntityDataTable (backend metadata, dynamic schema), LabelsDataTable (fixed schema for labels)
 - **1 Form Container**: EntityFormContainer (backend metadata-driven)
-- **Dynamic Child Tabs**: DynamicChildEntityTabs (from entity.child_entity_codes)
+- **Dynamic Child Tabs**: DynamicChildEntityTabs (from entity.child_entity_codes, renders EntityDataTable inline)
 - **Debounced Inputs**: DebouncedInput, DebouncedTextarea (industry-standard pattern)
 
 **State Management**:
@@ -1496,4 +1473,4 @@ test('EntityListOfInstancesPage loads and displays data', async () => {
 - **Prefetching**: Entity data prefetched on hover for instant navigation
 - **Caching**: React Query + Zustand specialized stores
 
-**Status**: ✅ Production Ready - v4.3 Backend Metadata + Industry-Standard State Management
+**Status**: ✅ Production Ready - v5.0 Direct EntityDataTable + LabelsDataTable Architecture

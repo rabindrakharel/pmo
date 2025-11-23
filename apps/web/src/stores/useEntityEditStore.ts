@@ -15,6 +15,7 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import { getChangedFields, preparePatchData } from '../lib/changeDetection';
 import { apiClient } from '../lib/api';
 import { useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 
 // ============================================================================
 // Types
@@ -428,12 +429,16 @@ export const useEntityEditStore = create<EditState & EditActions>()(
 /**
  * Hook that integrates Zustand edit store with React Query
  * Provides optimistic updates and cache invalidation
+ *
+ * ✅ INDUSTRY STANDARD: Use getState() for callback methods to avoid subscription
+ * Only subscribe to reactive state that needs to trigger re-renders
  */
 export function useEntityEdit(entityType: string, entityId: string) {
   const queryClient = useQueryClient();
-  const store = useEntityEditStore();
+  // ✅ Use getState() inside callbacks - no store subscription to avoid re-renders
 
-  const saveWithOptimisticUpdate = async () => {
+  const saveWithOptimisticUpdate = useCallback(async () => {
+    const store = useEntityEditStore.getState();
     const changes = store.getChanges();
 
     if (Object.keys(changes).length === 0) {
@@ -463,11 +468,21 @@ export function useEntityEdit(entityType: string, entityId: string) {
     }
 
     return success;
-  };
+  }, [queryClient, entityType, entityId]);
 
+  // Return stable action references (getState() calls inside)
   return {
-    ...store,
-    saveWithOptimisticUpdate
+    saveWithOptimisticUpdate,
+    // Expose store actions via getState() - stable references
+    startEdit: useEntityEditStore.getState().startEdit,
+    updateField: useEntityEditStore.getState().updateField,
+    saveChanges: useEntityEditStore.getState().saveChanges,
+    cancelEdit: useEntityEditStore.getState().cancelEdit,
+    reset: useEntityEditStore.getState().reset,
+    undo: useEntityEditStore.getState().undo,
+    redo: useEntityEditStore.getState().redo,
+    getChanges: useEntityEditStore.getState().getChanges,
+    isFieldDirty: useEntityEditStore.getState().isFieldDirty,
   };
 }
 

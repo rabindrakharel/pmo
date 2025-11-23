@@ -10,8 +10,9 @@
  * Integrates with useEntityEditStore for state management.
  */
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo, useRef } from 'react';
 import { useEntityEditStore } from '../../stores/useEntityEditStore';
+import { useShallow } from 'zustand/shallow';
 
 interface KeyboardShortcutOptions {
   /** Enable undo shortcut (Ctrl+Z / Cmd+Z) */
@@ -57,17 +58,41 @@ export function useKeyboardShortcuts(options: KeyboardShortcutOptions = {}) {
     activeWhenEditing = true,
   } = options;
 
-  const editStore = useEntityEditStore();
+  // ✅ INDUSTRY STANDARD: Use refs to store callbacks to avoid dependency changes
+  // This prevents re-renders when parent callback references change
+  const onSaveRef = useRef(onSave);
+  const onCancelRef = useRef(onCancel);
+  useEffect(() => {
+    onSaveRef.current = onSave;
+    onCancelRef.current = onCancel;
+  }, [onSave, onCancel]);
+
+  // ✅ INDUSTRY STANDARD: Use useShallow selector to prevent unnecessary re-renders
+  // Only subscribe to the specific state slices and actions needed
   const {
     isEditing,
+    undoStackLength,
+    redoStackLength,
+    dirtyFieldsSize,
     undo,
     redo,
-    canUndo,
-    canRedo,
     saveChanges,
     cancelEdit,
-    hasChanges,
-  } = editStore;
+  } = useEntityEditStore(useShallow(state => ({
+    isEditing: state.isEditing,
+    undoStackLength: state.undoStack.length,
+    redoStackLength: state.redoStack.length,
+    dirtyFieldsSize: state.dirtyFields.size,
+    undo: state.undo,
+    redo: state.redo,
+    saveChanges: state.saveChanges,
+    cancelEdit: state.cancelEdit,
+  })));
+
+  // Derive booleans from primitive values (stable computation)
+  const canUndo = undoStackLength > 0;
+  const canRedo = redoStackLength > 0;
+  const hasChanges = dirtyFieldsSize > 0;
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -81,7 +106,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutOptions = {}) {
 
       // Ctrl+Z / Cmd+Z: Undo
       if (enableUndo && modifier && event.key === 'z' && !event.shiftKey) {
-        if (canUndo()) {
+        if (canUndo) {
           event.preventDefault();
           undo();
           console.log('[Keyboard] Undo triggered');
@@ -91,7 +116,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutOptions = {}) {
 
       // Ctrl+Shift+Z / Cmd+Shift+Z: Redo
       if (enableRedo && modifier && event.key === 'z' && event.shiftKey) {
-        if (canRedo()) {
+        if (canRedo) {
           event.preventDefault();
           redo();
           console.log('[Keyboard] Redo triggered');
@@ -101,7 +126,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutOptions = {}) {
 
       // Ctrl+Y / Cmd+Y: Redo (alternative)
       if (enableRedo && modifier && event.key === 'y') {
-        if (canRedo()) {
+        if (canRedo) {
           event.preventDefault();
           redo();
           console.log('[Keyboard] Redo triggered (Ctrl+Y)');
@@ -113,9 +138,9 @@ export function useKeyboardShortcuts(options: KeyboardShortcutOptions = {}) {
       if (enableSave && modifier && event.key === 's') {
         event.preventDefault();
 
-        if (onSave) {
-          onSave();
-        } else if (hasChanges()) {
+        if (onSaveRef.current) {
+          onSaveRef.current();
+        } else if (hasChanges) {
           saveChanges();
         }
         console.log('[Keyboard] Save triggered');
@@ -124,8 +149,8 @@ export function useKeyboardShortcuts(options: KeyboardShortcutOptions = {}) {
 
       // Escape: Cancel
       if (enableEscape && event.key === 'Escape') {
-        if (onCancel) {
-          onCancel();
+        if (onCancelRef.current) {
+          onCancelRef.current();
         } else {
           cancelEdit();
         }
@@ -147,8 +172,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutOptions = {}) {
       saveChanges,
       cancelEdit,
       hasChanges,
-      onSave,
-      onCancel,
+      // onSave and onCancel accessed via refs - no dependency needed
     ]
   );
 
@@ -159,15 +183,16 @@ export function useKeyboardShortcuts(options: KeyboardShortcutOptions = {}) {
     };
   }, [handleKeyDown]);
 
-  // Return utility functions for manual triggering
+  // Return utility values and functions for manual triggering
+  // ✅ Now using stable boolean values instead of function calls
   return {
     triggerUndo: undo,
     triggerRedo: redo,
-    triggerSave: onSave || saveChanges,
-    triggerCancel: onCancel || cancelEdit,
-    canUndo: canUndo(),
-    canRedo: canRedo(),
-    hasChanges: hasChanges(),
+    triggerSave: onSaveRef.current || saveChanges,
+    triggerCancel: onCancelRef.current || cancelEdit,
+    canUndo,
+    canRedo,
+    hasChanges,
     isEditing,
   };
 }

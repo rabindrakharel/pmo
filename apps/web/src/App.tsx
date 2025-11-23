@@ -61,7 +61,7 @@ import { LinkagePage } from './pages/LinkagePage';
 import { RBACOverviewPage } from './pages/RBACOverviewPage';
 
 // Shared/Universal Components
-import { EntityListOfInstancesPage, EntitySpecificInstancePage, EntityChildListPage, EntityCreatePage, SharedURLEntityPage } from './pages/shared';
+import { EntityListOfInstancesPage, EntitySpecificInstancePage, EntityCreatePage, SharedURLEntityPage } from './pages/shared';
 
 // Entity Configuration
 import { entityConfigs } from './lib/entityConfig';
@@ -132,17 +132,11 @@ function AppRoutes() {
             element={<ProtectedRoute><EntityCreatePage entityCode={entityCode} /></ProtectedRoute>}
           />
 
-          {/* Detail Route with Child Entity Routes */}
+          {/* Detail Route - handles both overview and child tabs via URL parsing */}
           <Route
-            path={`/${entityCode}/:id`}
+            path={`/${entityCode}/:id/*`}
             element={<ProtectedRoute><EntitySpecificInstancePage entityCode={entityCode} /></ProtectedRoute>}
-          >
-            {/* Wildcard route for any child entity type */}
-            <Route
-              path=":childType"
-              element={<EntityChildListPage parentType={entityCode} childType="" />}
-            />
-          </Route>
+          />
         </Fragment>
       );
     });

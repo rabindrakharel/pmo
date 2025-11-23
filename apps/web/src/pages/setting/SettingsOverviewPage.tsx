@@ -1,12 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout, FilteredDataTable } from '../../components/shared';
+import { Layout, EntityDataTable } from '../../components/shared';
 import { useSettings } from '../../contexts/SettingsContext';
 import { AddDatalabelModal } from '../../components/shared/modals/AddDatalabelModal';
 import { EntityConfigurationModal } from '../../components/settings/EntityConfigurationModal';
 import { PermissionManagementModal } from '../../components/settings/PermissionManagementModal';
+import { useEntityInstanceList } from '../../lib/hooks';
+import { API_CONFIG } from '../../lib/config/api';
+import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
+import { Edit, Trash2 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { getIconComponent } from '../../lib/iconMapping';
+import type { RowAction } from '../../components/shared/ui/EntityDataTable';
 
 // Available icons for picker (must match iconMapping.ts)
 const AVAILABLE_ICON_NAMES = [
@@ -100,6 +105,96 @@ export function SettingsOverviewPage() {
 
   // Permission management modal
   const [showPermissionModal, setShowPermissionModal] = useState(false);
+
+  // RBAC data table state
+  const [rbacEditingRow, setRbacEditingRow] = useState<string | null>(null);
+  const [rbacEditedData, setRbacEditedData] = useState<any>({});
+
+  // Fetch RBAC data
+  const {
+    data: rbacQueryResult,
+    isLoading: rbacLoading,
+    refetch: refetchRbac,
+  } = useEntityInstanceList('rbac', { page: 1, pageSize: 100 }, { enabled: activeMainTab === 'rbac' });
+
+  const rbacData = rbacQueryResult?.data || [];
+  const rbacMetadata = rbacQueryResult?.metadata || null;
+  const rbacTotal = rbacQueryResult?.total || 0;
+
+  const rbacPagination = useMemo(() => ({
+    current: 1,
+    pageSize: 100,
+    total: rbacTotal,
+  }), [rbacTotal]);
+
+  const handleRbacInlineEdit = useCallback((_rowId: string, field: string, value: any) => {
+    setRbacEditedData((prev: any) => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleRbacSaveInlineEdit = useCallback(async (record: any) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/rbac/${record.id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(transformForApi(rbacEditedData, record))
+      });
+
+      if (response.ok) {
+        await refetchRbac();
+        setRbacEditingRow(null);
+        setRbacEditedData({});
+      }
+    } catch (error) {
+      console.error('Error updating RBAC:', error);
+    }
+  }, [rbacEditedData, refetchRbac]);
+
+  const handleRbacCancelInlineEdit = useCallback(() => {
+    setRbacEditingRow(null);
+    setRbacEditedData({});
+  }, []);
+
+  const handleRbacDelete = useCallback(async (record: any) => {
+    if (!window.confirm('Delete this permission?')) return;
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/rbac/${record.id}`, {
+        method: 'DELETE',
+        headers
+      });
+
+      if (response.ok) await refetchRbac();
+    } catch (error) {
+      console.error('Error deleting RBAC:', error);
+    }
+  }, [refetchRbac]);
+
+  const rbacRowActions: RowAction[] = useMemo(() => [
+    {
+      key: 'edit',
+      label: 'Edit',
+      icon: <Edit className="h-4 w-4" />,
+      variant: 'default' as const,
+      onClick: (record: any) => {
+        setRbacEditingRow(record.id);
+        setRbacEditedData(transformFromApi({ ...record }));
+      }
+    },
+    {
+      key: 'delete',
+      label: 'Delete',
+      icon: <Trash2 className="h-4 w-4" />,
+      variant: 'danger' as const,
+      onClick: handleRbacDelete
+    }
+  ], [handleRbacDelete]);
 
   // Role statistics
   const [roleStats, setRoleStats] = useState({ total: 0, active: 0, loading: true });
@@ -825,17 +920,28 @@ export function SettingsOverviewPage() {
               <p className="text-sm text-dark-600 mb-4">
                 View and manage all permissions across roles and employees. Click any row to edit or delete permissions.
               </p>
-              <FilteredDataTable
-                entityCode="rbac"
-                showActionButtons={false}
-                showActionIcons={true}
-                showEditIcon={true}
-                inlineEditable={true}
-                onRowClick={() => {
-                  // Navigate to detail page if needed
-                  // navigate(`/rbac/${item.id}`);
-                }}
-              />
+              {rbacLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-dark-700" />
+                </div>
+              ) : (
+                <EntityDataTable
+                  data={rbacData}
+                  metadata={rbacMetadata}
+                  loading={rbacLoading}
+                  pagination={rbacPagination}
+                  searchable={true}
+                  filterable={true}
+                  columnSelection={true}
+                  rowActions={rbacRowActions}
+                  inlineEditable={true}
+                  editingRow={rbacEditingRow}
+                  editedData={rbacEditedData}
+                  onInlineEdit={handleRbacInlineEdit}
+                  onSaveInlineEdit={handleRbacSaveInlineEdit}
+                  onCancelInlineEdit={handleRbacCancelInlineEdit}
+                />
+              )}
             </div>
 
             {/* RBAC Architecture Overview */}

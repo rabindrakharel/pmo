@@ -11,6 +11,7 @@
 
 import React, { useEffect, useMemo, useCallback } from 'react';
 import { useEntityEditStore } from '../../../stores/useEntityEditStore';
+import { useShallow } from 'zustand/shallow';
 import type { EntityConfig, FieldDef } from '../../../lib/entityConfig';
 import type { SettingOption } from '../../../lib/settingsLoader';
 import { DAGVisualizer, type DAGNode } from '../../workflow/DAGVisualizer';
@@ -71,6 +72,8 @@ export const EntityFormContainerWithStore: React.FC<EntityFormContainerProps> = 
 }) => {
   // ============================================================================
   // Zustand Store Integration
+  // ✅ INDUSTRY STANDARD: Use useShallow selector to prevent unnecessary re-renders
+  // Only subscribe to specific state slices needed by this component
   // ============================================================================
 
   const {
@@ -83,15 +86,32 @@ export const EntityFormContainerWithStore: React.FC<EntityFormContainerProps> = 
     updateField,
     saveChanges,
     cancelEdit,
-    hasChanges,
     getChanges,
     isFieldDirty,
     undo,
     redo,
-    canUndo,
-    canRedo,
     reset
-  } = useEntityEditStore();
+  } = useEntityEditStore(useShallow(state => ({
+    currentData: state.currentData,
+    dirtyFields: state.dirtyFields,
+    isEditing: state.isEditing,
+    isSaving: state.isSaving,
+    saveError: state.saveError,
+    startEdit: state.startEdit,
+    updateField: state.updateField,
+    saveChanges: state.saveChanges,
+    cancelEdit: state.cancelEdit,
+    getChanges: state.getChanges,
+    isFieldDirty: state.isFieldDirty,
+    undo: state.undo,
+    redo: state.redo,
+    reset: state.reset,
+  })));
+
+  // Derive boolean helpers from state (stable computation)
+  const hasChanges = dirtyFields.size > 0;
+  const canUndo = useEntityEditStore.getState().undoStack.length > 0;
+  const canRedo = useEntityEditStore.getState().redoStack.length > 0;
 
   // Initialize edit session when component mounts or data changes
   useEffect(() => {

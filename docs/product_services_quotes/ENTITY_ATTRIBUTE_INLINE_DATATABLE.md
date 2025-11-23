@@ -21,7 +21,7 @@ EntityAttributeInlineDataTable is a **universal, reusable component** for render
 
 **Don't use for:**
 - ❌ Full entity tables (use EntityDataTable)
-- ❌ Settings management (use SettingsDataTable)
+- ❌ Settings/labels management (use LabelsDataTable)
 - ❌ Paginated entity lists (use EntityListOfInstancesPage)
 
 ---
@@ -32,7 +32,7 @@ EntityAttributeInlineDataTable is a **universal, reusable component** for render
 
 ```
 EntityAttributeInlineDataTable (generic, configurable)
-    ├── Based on SettingsDataTable pattern
+    ├── Based on LabelsDataTable pattern
     ├── Extends DataTableBase (composition)
     └── Configurable columns, renderers, behaviors
 
@@ -47,7 +47,7 @@ Specialized Wrappers (specific implementations)
 apps/web/src/components/shared/
 ├── ui/
 │   ├── EntityAttributeInlineDataTable.tsx  ← Generic component
-│   ├── SettingsDataTable.tsx               ← Reference pattern
+│   ├── LabelsDataTable.tsx                 ← Reference pattern for labels
 │   └── DataTableBase.tsx                   ← Base table component
 └── entity/
     ├── MetadataTable.tsx                   ← Metadata wrapper (existing)
@@ -310,14 +310,14 @@ fields: [
 
 ## Comparison with Alternatives
 
-### vs. SettingsDataTable
+### vs. LabelsDataTable
 
-| Feature | SettingsDataTable | EntityAttributeInlineDataTable |
-|---------|-------------------|-------------------------------|
+| Feature | LabelsDataTable | EntityAttributeInlineDataTable |
+|---------|-----------------|-------------------------------|
 | **Schema** | Fixed (id, name, descr, parent_id, color_code) | Dynamic (configurable columns) |
-| **Data Source** | Settings entities | JSON attributes |
-| **Rendering** | Fixed cell types | Custom renderCell prop |
-| **Use Case** | Settings/datalabel management | Any JSON attribute |
+| **Data Source** | Settings/datalabel entities | JSON attributes |
+| **Rendering** | Fixed cell types with color badges | Custom renderCell prop |
+| **Use Case** | Labels/datalabel management | Any JSON attribute |
 
 ### vs. EntityDataTable
 

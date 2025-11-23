@@ -6,6 +6,5 @@
 
 export { EntityListOfInstancesPage } from './EntityListOfInstancesPage';
 export { EntitySpecificInstancePage } from './EntitySpecificInstancePage';
-export { EntityChildListPage } from './EntityChildListPage';
 export { EntityCreatePage } from './EntityCreatePage';
 export { SharedURLEntityPage } from './SharedURLEntityPage';

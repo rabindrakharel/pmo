@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams, Outlet, useLocation } from 'react-router-dom';
-import { Edit2, Save, X, Palette, Download, Share2, Link as LinkIcon, Undo2, Redo2 } from 'lucide-react';
-import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityFormContainer, FilePreview, DragDropFileUpload, MetadataField, MetadataRow, MetadataSeparator } from '../../components/shared';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { Edit2, Save, X, Palette, Download, Share2, Link as LinkIcon, Undo2, Redo2, Edit, Trash2 } from 'lucide-react';
+import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityFormContainer, EntityDataTable, FilePreview, DragDropFileUpload, MetadataField, MetadataRow, MetadataSeparator } from '../../components/shared';
 import { ExitButton } from '../../components/shared/button/ExitButton';
 import { ShareModal } from '../../components/shared/modal';
 import { UnifiedLinkageModal } from '../../components/shared/modal/UnifiedLinkageModal';
@@ -11,15 +11,17 @@ import { TaskDataContainer } from '../../components/entity/task';
 import { FormDataTable, InteractiveForm, FormSubmissionEditor } from '../../components/entity/form';
 import { EmailTemplateRenderer } from '../../components/entity/marketing';
 import { getEntityConfig } from '../../lib/entityConfig';
-import { formatRelativeTime, formatFriendlyDate } from '../../lib/frontEndFormatterService';
+import { formatRelativeTime, formatFriendlyDate, transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
 import { Button } from '../../components/shared/button/Button';
 import { useS3Upload } from '../../lib/hooks/useS3Upload';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../contexts/NavigationHistoryContext';
-import { useEntityInstance, useEntityMutation, useCacheInvalidation } from '../../lib/hooks';
+import { useEntityInstance, useEntityMutation, useCacheInvalidation, useEntityInstanceList } from '../../lib/hooks';
 import { useEntityEditStore } from '../../stores/useEntityEditStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useKeyboardShortcuts, useShortcutHints } from '../../lib/hooks/useKeyboardShortcuts';
+import { API_CONFIG } from '../../lib/config/api';
+import type { RowAction } from '../../components/shared/ui/EntityDataTable';
 
 /**
  * Universal EntitySpecificInstancePage
@@ -198,6 +200,195 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   const currentChildEntity = pathParts.length > 2 ? pathParts[2] : null;
   const isOverviewTab = !currentChildEntity;
 
+  // ============================================================================
+  // CHILD ENTITY DATA & STATE (Direct EntityDataTable - no FilteredDataTable)
+  // ============================================================================
+  const childConfig = currentChildEntity ? getEntityConfig(currentChildEntity) : null;
+
+  // Fetch child entity data when on a child tab
+  const childQueryParams = useMemo(() => ({
+    page: 1,
+    pageSize: 100,
+    parentType: entityCode,
+    parentId: id,
+  }), [entityCode, id]);
+
+  const {
+    data: childQueryResult,
+    isLoading: childLoading,
+    refetch: refetchChild,
+  } = useEntityInstanceList(currentChildEntity || '', childQueryParams, {
+    enabled: !isOverviewTab && !!currentChildEntity && !!id,
+  });
+
+  // ✅ FIX: Use useMemo to prevent new array reference on each render
+  // Empty array fallback must be stable to prevent useEffect re-runs
+  const childData = useMemo(() => childQueryResult?.data || [], [childQueryResult?.data]);
+  const childMetadata = childQueryResult?.metadata || null;
+  const childTotal = childQueryResult?.total || 0;
+
+  // Child entity inline edit state
+  const [childEditingRow, setChildEditingRow] = useState<string | null>(null);
+  const [childEditedData, setChildEditedData] = useState<any>({});
+  const [childIsAddingRow, setChildIsAddingRow] = useState(false);
+  const [childLocalData, setChildLocalData] = useState<any[]>([]);
+
+  // Sync child local data
+  useEffect(() => {
+    if (childData && childData.length > 0) {
+      setChildLocalData(childData);
+    } else {
+      setChildLocalData([]);
+    }
+  }, [childData]);
+
+  const childDisplayData = childLocalData.length > 0 ? childLocalData : childData;
+
+  // Child pagination
+  const childPagination = useMemo(() => ({
+    current: 1,
+    pageSize: 100,
+    total: childTotal,
+    showSizeChanger: false,
+  }), [childTotal]);
+
+  // Child inline edit handlers
+  const handleChildInlineEdit = useCallback((_rowId: string, field: string, value: any) => {
+    setChildEditedData((prev: any) => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleChildSaveInlineEdit = useCallback(async (record: any) => {
+    if (!childConfig || !currentChildEntity) return;
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const isNewRow = childIsAddingRow || record.id?.toString().startsWith('temp_') || record._isNew;
+      const transformedData = transformForApi(childEditedData, record);
+
+      delete transformedData._isNew;
+      if (isNewRow) delete transformedData.id;
+
+      let response;
+      if (isNewRow) {
+        // Create child entity and link to parent
+        response = await fetch(`${API_CONFIG.BASE_URL}${childConfig.apiEndpoint}`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(transformedData)
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          // Create linkage to parent
+          await fetch(`${API_CONFIG.BASE_URL}/api/v1/linkage`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              parent_entity_type: entityCode,
+              parent_entity_id: id,
+              child_entity_type: currentChildEntity,
+              child_entity_id: result.id,
+              relationship_type: 'contains'
+            })
+          });
+          await refetchChild();
+          setChildEditingRow(null);
+          setChildEditedData({});
+          setChildIsAddingRow(false);
+        } else {
+          alert(`Failed to create ${currentChildEntity}`);
+        }
+      } else {
+        response = await fetch(`${API_CONFIG.BASE_URL}${childConfig.apiEndpoint}/${record.id}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify(transformedData)
+        });
+
+        if (response.ok) {
+          await refetchChild();
+          setChildEditingRow(null);
+          setChildEditedData({});
+        } else {
+          alert(`Failed to update ${currentChildEntity}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving child record:', error);
+      alert('An error occurred while saving.');
+    }
+  }, [childConfig, currentChildEntity, childEditedData, childIsAddingRow, entityCode, id, refetchChild]);
+
+  const handleChildCancelInlineEdit = useCallback(() => {
+    if (childIsAddingRow && childEditingRow) {
+      setChildLocalData(prev => prev.filter(row => row.id !== childEditingRow));
+      setChildIsAddingRow(false);
+    }
+    setChildEditingRow(null);
+    setChildEditedData({});
+  }, [childIsAddingRow, childEditingRow]);
+
+  const handleChildAddRow = useCallback((newRow: any) => {
+    setChildLocalData(prev => [...prev, newRow]);
+    setChildEditingRow(newRow.id);
+    setChildEditedData(newRow);
+    setChildIsAddingRow(true);
+  }, []);
+
+  const handleChildDelete = useCallback(async (record: any) => {
+    if (!childConfig || !currentChildEntity) return;
+    if (!window.confirm('Are you sure you want to delete this record?')) return;
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers: HeadersInit = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}${childConfig.apiEndpoint}/${record.id}`, {
+        method: 'DELETE',
+        headers
+      });
+
+      if (response.ok) {
+        await refetchChild();
+      } else {
+        alert(`Failed to delete ${currentChildEntity}`);
+      }
+    } catch (error) {
+      console.error('Error deleting child record:', error);
+      alert('An error occurred while deleting.');
+    }
+  }, [childConfig, currentChildEntity, refetchChild]);
+
+  const handleChildRowClick = useCallback((item: any) => {
+    if (!currentChildEntity) return;
+    navigate(`/${currentChildEntity}/${item.id}`);
+  }, [currentChildEntity, navigate]);
+
+  // Child row actions
+  const childRowActions: RowAction[] = useMemo(() => [
+    {
+      key: 'edit',
+      label: 'Edit',
+      icon: <Edit className="h-4 w-4" />,
+      variant: 'default' as const,
+      onClick: (record: any) => {
+        setChildEditingRow(record.id);
+        setChildEditedData(transformFromApi({ ...record }));
+      }
+    },
+    {
+      key: 'delete',
+      label: 'Delete',
+      icon: <Trash2 className="h-4 w-4" />,
+      variant: 'danger' as const,
+      onClick: handleChildDelete
+    }
+  ], [handleChildDelete]);
+
   // Prepare tabs with Overview as first tab - MUST be before any returns
   const allTabs = React.useMemo(() => {
     // Special handling for form entity - always show tabs
@@ -262,12 +453,13 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   }, [loading, location.state, data]); // data added to ensure we have data before starting edit
 
   // Register entity in navigation history when data is loaded
-  // Use a ref to track if we've already pushed this entity to prevent duplicates
-  const hasPushedEntityRef = React.useRef(false);
+  // Track the last entity ID we pushed to detect navigation to a different entity
+  const lastPushedIdRef = React.useRef<string | null>(null);
 
   useEffect(() => {
-    if (data && id && !hasPushedEntityRef.current) {
-      hasPushedEntityRef.current = true;
+    // Only push if we have data and haven't pushed this specific entity yet
+    if (data && id && lastPushedIdRef.current !== id) {
+      lastPushedIdRef.current = id;
       pushEntity({
         entityCode,
         entityId: id,
@@ -275,13 +467,6 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
         timestamp: Date.now()
       });
     }
-
-    // Reset the flag when entity changes
-    return () => {
-      if (id !== data?.id) {
-        hasPushedEntityRef.current = false;
-      }
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.id, id, entityCode]); // Only re-run when entity ID changes, not entire data object
 
@@ -1103,8 +1288,33 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
             />
           </div>
         ) : (
-          // Child Entity Tab - Filtered Data Table
-          <Outlet />
+          // Child Entity Tab - Direct EntityDataTable (no FilteredDataTable/Outlet)
+          childLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700" />
+            </div>
+          ) : (
+            <EntityDataTable
+              data={childDisplayData}
+              metadata={childMetadata}
+              loading={childLoading}
+              pagination={childPagination}
+              onRowClick={handleChildRowClick}
+              searchable={true}
+              filterable={true}
+              columnSelection={true}
+              rowActions={childRowActions}
+              selectable={true}
+              inlineEditable={true}
+              editingRow={childEditingRow}
+              editedData={childEditedData}
+              onInlineEdit={handleChildInlineEdit}
+              onSaveInlineEdit={handleChildSaveInlineEdit}
+              onCancelInlineEdit={handleChildCancelInlineEdit}
+              allowAddRow={true}
+              onAddRow={handleChildAddRow}
+            />
+          )
         )}
         </div>
       </div>

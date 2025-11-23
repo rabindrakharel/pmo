@@ -207,9 +207,23 @@ export function normalizeApiResponse<T = any>(
 
 /**
  * Type guard to check if response contains metadata
+ * Supports both:
+ * - New format: metadata.entityDataTable (object keyed by field name)
+ * - Legacy format: metadata.fields (array of field objects)
  */
 export function hasMetadata(response: any): response is ApiResponse & { metadata: EntityMetadata } {
-  return response && response.metadata && Array.isArray(response.metadata.fields);
+  if (!response || !response.metadata) return false;
+
+  // New component-keyed format: metadata.entityDataTable, metadata.entityFormContainer, etc.
+  const hasComponentMetadata =
+    typeof response.metadata.entityDataTable === 'object' ||
+    typeof response.metadata.entityFormContainer === 'object' ||
+    typeof response.metadata.kanbanView === 'object';
+
+  // Legacy array format: metadata.fields
+  const hasLegacyFields = Array.isArray(response.metadata.fields);
+
+  return hasComponentMetadata || hasLegacyFields;
 }
 
 /**

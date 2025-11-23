@@ -48,28 +48,18 @@ Users navigate from entity list (DataTable) to detail view for deep inspection a
                      ▼
          ┌───────────────────────────┐
          │ State Updates             │
-         │ setData(response.data)    │
-         │ setMetadata(metadata)     │
-         │ setDatalabels(datalabels) │
+         │ data = queryResult.data   │
+         │ metadata = queryResult.   │
+         │            metadata       │
          └───────────┬───────────────┘
                      │
                      ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│         Render: FilteredDataTable                                │
-│  - metadata={metadata}                                           │
-│  - datalabels={datalabels}                                       │
+│         Render: EntityDataTable (directly from page)             │
 │  - data={data}                                                   │
-└────────────────────┬─────────────────────────────────────────────┘
-                     │
-                     ├─ Extract: metadata.entityDataTable
-                     ├─ Create columns with backendMetadata
-                     │
-                     ▼
-┌──────────────────────────────────────────────────────────────────┐
-│         Render: EntityDataTable                                  │
 │  - metadata={metadata}                                           │
-│  - datalabels={datalabels}                                       │
-│  - columns={columns}  // with backendMetadata attached           │
+│  - loading={isLoading}                                           │
+│  - columns derived from metadata.fields                          │
 └────────────────────┬─────────────────────────────────────────────┘
                      │
                      ├─ Render rows
@@ -163,17 +153,14 @@ Users navigate from entity list (DataTable) to detail view for deep inspection a
 ```
 EntityListOfInstancesPage
    │
-   ├─ State: metadata, datalabels
+   ├─ Fetch: useEntityInstanceList() hook
+   ├─ State: data, metadata from queryResult
    │
    ▼
-FilteredDataTable (props: metadata, datalabels)
+EntityDataTable (used directly by page)
    │
-   ├─ Extract: metadata.entityDataTable
-   ├─ Create: columns[] with backendMetadata
-   │
-   ▼
-EntityDataTable (props: metadata, datalabels, columns)
-   │
+   ├─ Props: data, metadata, loading
+   ├─ Extract: metadata.fields for columns
    ├─ Access: column.backendMetadata
    ├─ Render: renderViewModeFromMetadata(value, backendMetadata)
    │

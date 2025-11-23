@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 // ============================================================================
 // TYPES
@@ -115,10 +115,16 @@ export function useLinkageModal(options: UseLinkageModalOptions = {}) {
 
   /**
    * Handle linkage change event
+   * ✅ INDUSTRY STANDARD: Use ref to avoid recreating callback on every render
    */
-  const handleLinkageChange = useCallback(() => {
-    options.onLinkageChange?.();
+  const onLinkageChangeRef = useRef(options.onLinkageChange);
+  useEffect(() => {
+    onLinkageChangeRef.current = options.onLinkageChange;
   }, [options.onLinkageChange]);
+
+  const handleLinkageChange = useCallback(() => {
+    onLinkageChangeRef.current?.();
+  }, []); // Empty deps - stable callback reference
 
   return {
     // State

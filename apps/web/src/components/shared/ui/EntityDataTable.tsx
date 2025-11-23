@@ -366,9 +366,6 @@ export interface EntityDataTableProps<T = any> {
   // Inline row addition support
   allowAddRow?: boolean;
   onAddRow?: (newRecord: Partial<T>) => void;
-  // DEPRECATED props (kept for backward compatibility, will be removed)
-  autoGenerateColumns?: boolean;  // DEPRECATED: Use metadata instead
-  dataTypes?: Record<string, string>;  // DEPRECATED: Use metadata instead
 }
 
 export function EntityDataTable<T = any>({
@@ -411,15 +408,68 @@ export function EntityDataTable<T = any>({
   // Backend sends complete field metadata → Frontend renders exactly as instructed
 
   const columns = useMemo(() => {
-    // Priority 1: Backend Metadata (Pure metadata-driven - NO FALLBACK)
-    if (metadata?.fields) {
+    // DEBUG: Log metadata structure
+    console.log(`%c[EntityDataTable] 🔍 Metadata received:`, 'color: #69db7c; font-weight: bold', {
+      hasMetadata: !!metadata,
+      metadataKeys: metadata ? Object.keys(metadata) : [],
+      hasEntityDataTable: !!(metadata as any)?.entityDataTable,
+      hasFields: !!(metadata as any)?.fields,
+      entityDataTableFieldCount: (metadata as any)?.entityDataTable ? Object.keys((metadata as any).entityDataTable).length : 0,
+    });
+
+    // ============================================================================
+    // Priority 1: Backend Component-Keyed Metadata (New Format)
+    // Backend returns: metadata.entityDataTable = { fieldName: { visible, label, ... } }
+    // ============================================================================
+    const componentMetadata = (metadata as any)?.entityDataTable;
+    if (componentMetadata && typeof componentMetadata === 'object' && !Array.isArray(componentMetadata)) {
+      // Get field order from fields array if available, otherwise use object keys
+      const fieldOrder = (metadata as any)?.fields || Object.keys(componentMetadata);
+
+      return fieldOrder
+        .filter((fieldKey: string) => {
+          const fieldMeta = componentMetadata[fieldKey];
+          if (!fieldMeta) return false;
+          // Backend returns visible as boolean for each component
+          return fieldMeta.visible === true;
+        })
+        .map((fieldKey: string) => {
+          const fieldMeta = componentMetadata[fieldKey];
+          // Inject key into metadata for downstream use
+          const enrichedMeta = { key: fieldKey, ...fieldMeta };
+          return {
+            key: fieldKey,
+            title: fieldMeta.label || fieldKey.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+            visible: true,  // Already filtered above
+            sortable: fieldMeta.sortable,
+            filterable: fieldMeta.filterable,
+            searchable: fieldMeta.searchable,
+            width: fieldMeta.width,
+            align: fieldMeta.align,
+            editable: fieldMeta.editable,
+            editType: fieldMeta.editType,
+            loadDataLabels: fieldMeta.loadFromDataLabels || fieldMeta.datalabelKey,
+            loadFromEntity: fieldMeta.loadFromEntity,
+            // Store enriched backend metadata for use in edit mode
+            backendMetadata: enrichedMeta,
+            // Pure metadata-driven rendering - backend tells frontend how to render
+            render: (value: any, record: any) => renderViewModeFromMetadata(value, enrichedMeta, record)
+          } as Column<T>;
+        });
+    }
+
+    // ============================================================================
+    // Priority 2: Legacy Array-Based Metadata (Backward Compatibility)
+    // Old format: metadata.fields = [{ key, visible, label, ... }]
+    // ============================================================================
+    if (metadata?.fields && Array.isArray(metadata.fields)) {
       return metadata.fields
         .filter(fieldMeta => {
-          // ✅ NEW: Object-based visibility control
+          // Object-based visibility control
           if (typeof fieldMeta.visible === 'object' && fieldMeta.visible !== null) {
             return fieldMeta.visible.EntityDataTable === true;
           }
-          // Backward compatibility: treat boolean as visible everywhere
+          // Boolean visibility
           return fieldMeta.visible === true;
         })
         .map(fieldMeta => ({

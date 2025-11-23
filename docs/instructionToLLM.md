@@ -11,10 +11,10 @@ http://localhost:5173/office/f3f1d494-a334-49cc-aa23-540f8b59da5f
 Navigation Flow Logging Summary
 1. Sidebar → Office List (EntityListOfInstancesPage)
 [RENDER #1] 🖼️ EntityListOfInstancesPage: office
-2. Office List Data Table (FilteredDataTable)
-[RENDER #1] 🖼️ FilteredDataTable: office
-[API FETCH] 📡 FilteredDataTable.fetchData: office
-[API FETCH] ✅ FilteredDataTable received X items
+2. Office List Data Table (EntityDataTable)
+[RENDER #1] 🖼️ EntityDataTable: office
+[API FETCH] 📡 useEntityInstanceList.fetchData: office
+[API FETCH] ✅ EntityDataTable received X items
 3. Click Row → Navigate to Detail (EntitySpecificInstancePage)
 [NAVIGATION] 🚀 Row clicked - navigating to detail page
 [RENDER #1] 🖼️ EntitySpecificInstancePage: office/{id}
@@ -38,7 +38,7 @@ Color	Meaning
 🟡 Yellow #fcc419	Cache MISS / Config fallback
 🔵 Blue #748ffc	EntityListOfInstancesPage render
 🟣 Purple #da77f2	EntitySpecificInstancePage render
-🟢 Green #69db7c	FilteredDataTable render
+🟢 Green #69db7c	EntityDataTable render
 🟡 Gold #ffd43b	EntityFormContainer render
 🔵 Cyan #74c0fc	Field change events
 
@@ -60,7 +60,7 @@ docs/services/entity-infrastructure.service.md\
 
 
 You are a Staff-level Advanced Software Engineer and Solutions Architect.
-Your task is to produce crisp, concise, technically coherent documentation describing the final state of a system’s architecture, patterns, flows, and relationships.
+Your task is to produce crisp, concise, technically coherent documentation describing the final state of a system’s architecture, reusable design patterns, data/interaction flows, and page, component, route, service relationship, and more.
 
 You are writing this documentation for another highly technical Staff Architect LLM agent.
 

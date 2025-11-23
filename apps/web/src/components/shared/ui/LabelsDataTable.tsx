@@ -1,35 +1,35 @@
 /**
  * ============================================================================
- * SETTINGS DATA TABLE - Specialized table for settings/datalabel management
+ * LABELS DATA TABLE - Specialized table for labels/datalabel management
  * ============================================================================
  *
- * Purpose: Dedicated table component for managing settings datalabels
- * Extends DataTableBase with settings-specific rendering and behavior
+ * Purpose: Dedicated table component for managing labels/datalabels
+ * Extends DataTableBase with labels-specific rendering and behavior
  * Optimized for the fixed schema: id, name, descr, parent_id, color_code
  *
- * Key Features (Settings-Specific):
+ * Key Features (Labels-Specific):
  * ✓ Visual color swatches in dropdown (shows actual colors)
  * ✓ Inline editing for all fields
  * ✓ Drag-and-drop reordering (changes database array order)
  * ✓ Inline row addition with prominent "+" button below table
  * ✓ Badge rendering with colors from database
  * ✓ Scrollbar positioned at bottom of container
- * ✓ Simple sorting (no complex filters - settings are small datasets)
+ * ✓ Simple sorting (no complex filters - labels are small datasets)
  *
  * Architecture:
  * - Extends DataTableBase (React composition pattern)
- * - Provides settings-specific cell rendering
+ * - Provides labels-specific cell rendering
  * - Fixed schema (5 columns: id, name, descr, parent_id, color_code)
  * - No dynamic column configuration needed
  *
  * Used by:
- * - FilteredDataTable when entityCode is a settings entity (e.g., "taskStage")
+ * - LabelsDataTableWithFetching for labels entities (e.g., "taskStage")
  * - Routes: /setting/taskStage, /setting/acquisitionChannel, etc.
  * - Entity configs using createSettingsEntityConfig()
  *
  * Different from EntityDataTable:
  * - EntityDataTable: Dynamic columns, filters, pagination, complex entities
- * - SettingsDataTable: Fixed columns, simple sorting, reordering, settings only
+ * - LabelsDataTable: Fixed columns, simple sorting, reordering, labels only
  */
 
 import React, { useState } from 'react';
@@ -39,7 +39,7 @@ import { renderDataLabelBadge } from '../../../lib/frontEndFormatterService';
 import { COLOR_OPTIONS } from '../../../lib/settingsConfig';
 import { inputStyles, actionButtonStyles } from '../../../lib/designSystem';
 
-export interface SettingsRecord {
+export interface LabelRecord {
   id: string | number;
   name: string;
   descr?: string;
@@ -48,23 +48,29 @@ export interface SettingsRecord {
   position?: number;  // Array position from backend
 }
 
-export interface SettingsDataTableProps {
-  data: SettingsRecord[];
-  onRowUpdate?: (id: string | number, updates: Partial<SettingsRecord>) => void;
-  onAddRow?: (newRecord: Partial<SettingsRecord>) => void;
+// Backward compatibility alias
+export type SettingsRecord = LabelRecord;
+
+export interface LabelsDataTableProps {
+  data: LabelRecord[];
+  onRowUpdate?: (id: string | number, updates: Partial<LabelRecord>) => void;
+  onAddRow?: (newRecord: Partial<LabelRecord>) => void;
   onDeleteRow?: (id: string | number) => void;
-  onReorder?: (reorderedData: SettingsRecord[]) => void;
+  onReorder?: (reorderedData: LabelRecord[]) => void;
   allowAddRow?: boolean;
   allowEdit?: boolean;
   allowDelete?: boolean;
   allowReorder?: boolean;
 }
 
+// Backward compatibility alias
+export type SettingsDataTableProps = LabelsDataTableProps;
+
 /**
- * Main Settings Data Table Component
- * Uses DataTableBase with settings-specific rendering
+ * Main Labels Data Table Component
+ * Uses DataTableBase with labels-specific rendering
  */
-export function SettingsDataTable({
+export function LabelsDataTable({
   data,
   onRowUpdate,
   onAddRow,
@@ -74,13 +80,13 @@ export function SettingsDataTable({
   allowEdit = true,
   allowDelete = false,
   allowReorder = false
-}: SettingsDataTableProps) {
+}: LabelsDataTableProps) {
   const [sortField, setSortField] = useState<string>('id');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [editingRowId, setEditingRowId] = useState<string | number | null>(null);
-  const [editingData, setEditingData] = useState<Partial<SettingsRecord>>({});
+  const [editingData, setEditingData] = useState<Partial<LabelRecord>>({});
   const [isAddingRow, setIsAddingRow] = useState(false);
-  const [newRowData, setNewRowData] = useState<Partial<SettingsRecord>>({
+  const [newRowData, setNewRowData] = useState<Partial<LabelRecord>>({
     name: '',
     descr: '',
     parent_id: null,
@@ -369,3 +375,6 @@ export function SettingsDataTable({
     />
   );
 }
+
+// Backward compatibility alias
+export const SettingsDataTable = LabelsDataTable;

@@ -115,9 +115,8 @@ export function useEntityInstanceList<T = any>(
   params: EntityInstanceListParams = {},
   options?: Omit<UseQueryOptions<EntityInstanceListResult<T>>, 'queryKey' | 'queryFn'>
 ) {
-  // Specialized Zustand stores
-  const componentMetadataStore = useEntityComponentMetadataStore();
-  const listDataStore = useEntityInstanceListDataStore();
+  // ✅ INDUSTRY STANDARD: Use getState() for imperative store access
+  // This prevents subscription-based re-renders from store changes
   const queryClient = useQueryClient();
 
   // Map view mode to component name for backend metadata filtering
@@ -130,12 +129,15 @@ export function useEntityInstanceList<T = any>(
     hierarchy: 'hierarchyGraphView',
   };
 
+  // Map frontend view mode to backend component name
+  const mappedView = params.view ? viewComponentMap[params.view] || params.view : 'entityDataTable';
+
   const normalizedParams = useMemo(() => ({
+    ...params,  // Spread first so explicit values override
     page: params.page || 1,
     pageSize: params.pageSize || 100,
-    view: params.view ? viewComponentMap[params.view] || params.view : 'entityDataTable',
-    ...params,
-  }), [params]);
+    view: mappedView,  // Use mapped view, not raw params.view
+  }), [params, mappedView]);
 
   const queryKey = useMemo(
     () => queryKeys.entityInstanceList(entityCode, normalizedParams),
@@ -157,9 +159,15 @@ export function useEntityInstanceList<T = any>(
       const response = await api.list(normalizedParams);
 
       // Note: datalabels and globalSettings are fetched via dedicated endpoints
+      // Preserve fields array for column ordering, and include it in metadata for downstream use
+      const metadataWithFields = response.metadata ? {
+        ...response.metadata,
+        fields: response.fields || [],  // Include fields array in metadata
+      } : null;
+
       const result: EntityInstanceListResult<T> = {
         data: response.data || [],
-        metadata: response.metadata || null,
+        metadata: metadataWithFields,
         total: response.total || 0,
         page: normalizedParams.page,
         pageSize: normalizedParams.pageSize,
@@ -169,10 +177,14 @@ export function useEntityInstanceList<T = any>(
       console.log(`%c[API FETCH] ✅ Received ${result.data.length} items for ${entityCode}`, 'color: #ff6b6b', {
         total: result.total,
         hasMetadata: !!result.metadata,
+        metadataKeys: result.metadata ? Object.keys(result.metadata) : [],
+        entityDataTableFieldCount: result.metadata?.entityDataTable ? Object.keys(result.metadata.entityDataTable).length : 0,
+        fieldsCount: result.metadata?.fields?.length || 0,
       });
 
       // Cache list data in entityInstanceListDataStore (5 min TTL)
-      listDataStore.setList(entityCode, queryHash, {
+      // ✅ Use getState() for imperative access - no subscription needed
+      useEntityInstanceListDataStore.getState().setList(entityCode, queryHash, {
         data: result.data,
         total: result.total,
         page: result.page,
@@ -181,9 +193,15 @@ export function useEntityInstanceList<T = any>(
       });
 
       // Cache component metadata in entityComponentMetadataStore (30 min TTL)
+      // Backend returns: { entityDataTable: {...}, entityFormContainer: {...}, ... }
+      // Extract only the requested component's metadata
       if (result.metadata) {
         const componentName = normalizedParams.view || 'entityDataTable';
-        componentMetadataStore.setComponentMetadata(entityCode, componentName, result.metadata);
+        const componentMetadata = (result.metadata as any)[componentName];
+        if (componentMetadata && typeof componentMetadata === 'object') {
+          // ✅ Use getState() for imperative access - no subscription needed
+          useEntityComponentMetadataStore.getState().setComponentMetadata(entityCode, componentName, componentMetadata);
+        }
       }
 
       return result;
@@ -239,8 +257,8 @@ export function useEntityInstance<T = any>(
   id: string | undefined,
   options?: Omit<UseQueryOptions<EntityInstanceResult<T>>, 'queryKey' | 'queryFn'>
 ) {
-  // Specialized Zustand stores
-  const instanceDataStore = useEntityInstanceDataStore();
+  // ✅ INDUSTRY STANDARD: Use getState() for imperative store access
+  // This prevents subscription-based re-renders from store changes
   const queryClient = useQueryClient();
 
   const queryKey = useMemo(
@@ -294,7 +312,8 @@ export function useEntityInstance<T = any>(
       });
 
       // Cache instance data in entityInstanceDataStore (5 min TTL)
-      instanceDataStore.setInstance(entityCode, id, data);
+      // ✅ Use getState() for imperative access - no subscription needed
+      useEntityInstanceDataStore.getState().setInstance(entityCode, id, data);
 
       return { data, metadata, fields };
     },
@@ -347,13 +366,13 @@ export function useEntityInstance<T = any>(
 export function useEntityCodes(
   options?: Omit<UseQueryOptions<Map<string, import('../../stores/entityCodeMetadataStore').EntityCodeData>>, 'queryKey' | 'queryFn'>
 ) {
-  // Specialized Zustand store
-  const entityCodeStore = useEntityCodeMetadataStore();
+  // ✅ INDUSTRY STANDARD: Use getState() to avoid store subscription
+  // Subscribing to entire store causes re-renders on ANY state change
   const queryClient = useQueryClient();
   const queryKey = queryKeys.entityCodes();
 
-  // Check if already cached in Zustand
-  const cachedEntityCodes = entityCodeStore.getEntityCodesMap();
+  // Check if already cached in Zustand (imperative access)
+  const cachedEntityCodes = useEntityCodeMetadataStore.getState().getEntityCodesMap();
 
   const query = useQuery<Map<string, import('../../stores/entityCodeMetadataStore').EntityCodeData>>({
     queryKey,
@@ -387,8 +406,8 @@ export function useEntityCodes(
         codes: Array.from(entityMap.keys()),
       });
 
-      // Cache in entityCodeMetadataStore (30 min TTL)
-      entityCodeStore.setEntityCodes(Array.from(entityMap.values()));
+      // Cache in entityCodeMetadataStore (30 min TTL) - use getState() inside callback
+      useEntityCodeMetadataStore.getState().setEntityCodes(Array.from(entityMap.values()));
 
       return entityMap;
     },
@@ -439,27 +458,24 @@ export function useEntityCodes(
  */
 export function useEntityMutation(entityCode: string) {
   const queryClient = useQueryClient();
-  const editStore = useEntityEditStore();
 
-  // Zustand stores for comprehensive invalidation
-  const componentMetadataStore = useEntityComponentMetadataStore();
-  const instanceDataStore = useEntityInstanceDataStore();
-  const listDataStore = useEntityInstanceListDataStore();
+  // ✅ INDUSTRY STANDARD: Use getState() for imperative store access
+  // This prevents subscription-based re-renders from store changes
 
   // Helper to invalidate all caches for this entity (React Query + Zustand)
-  const invalidateAllCaches = (id?: string) => {
+  const invalidateAllCaches = useCallback((id?: string) => {
     // React Query invalidation
     if (id) {
       queryClient.invalidateQueries({ queryKey: queryKeys.entityInstance(entityCode, id) });
-      instanceDataStore.invalidate(entityCode, id);
+      useEntityInstanceDataStore.getState().invalidate(entityCode, id);
     }
     queryClient.invalidateQueries({ queryKey: ['entity-instance-list', entityCode] });
 
     // Zustand store invalidation - ensures no stale data
-    componentMetadataStore.invalidateEntity(entityCode);
-    listDataStore.invalidate(entityCode);
-    instanceDataStore.invalidateEntity(entityCode);
-  };
+    useEntityComponentMetadataStore.getState().invalidateEntity(entityCode);
+    useEntityInstanceListDataStore.getState().invalidate(entityCode);
+    useEntityInstanceDataStore.getState().invalidateEntity(entityCode);
+  }, [queryClient, entityCode]);
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Record<string, any> }) => {
@@ -550,13 +566,12 @@ export function useDatalabels(
   fieldKey: string,
   options?: Omit<UseQueryOptions<DatalabelData['options']>, 'queryKey' | 'queryFn'>
 ) {
-  // Specialized Zustand store
-  const datalabelStore = useDatalabelMetadataStore();
+  // ✅ INDUSTRY STANDARD: Use getState() to avoid store subscription
   const queryClient = useQueryClient();
   const queryKey = queryKeys.datalabels(fieldKey);
 
-  // Check if already cached in Zustand
-  const cachedOptions = datalabelStore.getDatalabel(fieldKey);
+  // Check if already cached in Zustand (imperative access)
+  const cachedOptions = useDatalabelMetadataStore.getState().getDatalabel(fieldKey);
   if (cachedOptions) {
     console.log(`%c[ZUSTAND CACHE HIT] 🗄️ useDatalabels: ${fieldKey}`, 'color: #be4bdb; font-weight: bold', {
       source: 'datalabelMetadataStore',
@@ -591,8 +606,8 @@ export function useDatalabels(
         options: opts,
       });
 
-      // Cache in datalabelMetadataStore (30 min TTL)
-      datalabelStore.setDatalabel(fieldKey, opts);
+      // Cache in datalabelMetadataStore (30 min TTL) - use getState() inside callback
+      useDatalabelMetadataStore.getState().setDatalabel(fieldKey, opts);
 
       return opts;
     },
@@ -641,19 +656,19 @@ export function useDatalabels(
  */
 export function useDatalabelMutation(datalabelName: string) {
   const queryClient = useQueryClient();
-  const datalabelStore = useDatalabelMetadataStore();
+  // ✅ INDUSTRY STANDARD: No store subscription - use getState() in callbacks
 
   // Helper to invalidate all datalabel caches
-  const invalidateDatalabelCache = () => {
+  const invalidateDatalabelCache = useCallback(() => {
     // Invalidate React Query cache for this specific datalabel
     queryClient.invalidateQueries({ queryKey: queryKeys.datalabels(datalabelName) });
     // Invalidate all datalabels query (used by some components)
     queryClient.invalidateQueries({ queryKey: ['settings', 'datalabels', 'all'] });
-    // Invalidate Zustand store
-    datalabelStore.invalidate(datalabelName);
+    // Invalidate Zustand store - use getState() inside callback
+    useDatalabelMetadataStore.getState().invalidate(datalabelName);
 
     console.log(`%c[DatalabelMutation] Cache invalidated: ${datalabelName}`, 'color: #ff6b6b');
-  };
+  }, [queryClient, datalabelName]);
 
   const addItemMutation = useMutation({
     mutationFn: async (item: { name: string; descr?: string; color_code?: string; parent_id?: number }) => {
@@ -803,12 +818,13 @@ export function useEntityLookup(entityCode: string) {
  * const metadata = useEntityMetadata('project', 'entityDataTable');
  */
 export function useEntityMetadata(entityCode: string, componentName?: string) {
-  // Specialized Zustand store
-  const componentMetadataStore = useEntityComponentMetadataStore();
+  // ✅ INDUSTRY STANDARD: Use getState() to avoid store subscription
+  // This is a synchronous lookup - no need to subscribe to store changes
+  const store = useEntityComponentMetadataStore.getState();
 
   // If component name specified, get specific component metadata
   if (componentName) {
-    const metadata = componentMetadataStore.getComponentMetadata(entityCode, componentName);
+    const metadata = store.getComponentMetadata(entityCode, componentName);
     if (metadata) {
       console.log(`%c[CACHE HIT] 💾 useEntityMetadata: ${entityCode}:${componentName}`, 'color: #51cf66; font-weight: bold');
     }
@@ -816,7 +832,7 @@ export function useEntityMetadata(entityCode: string, componentName?: string) {
   }
 
   // Otherwise, get all component metadata for the entity
-  const allMetadata = componentMetadataStore.getAllComponentMetadata(entityCode);
+  const allMetadata = store.getAllComponentMetadata(entityCode);
   if (allMetadata) {
     console.log(`%c[CACHE HIT] 💾 useEntityMetadata: ${entityCode} (all components)`, 'color: #51cf66; font-weight: bold', {
       components: Object.keys(allMetadata),
@@ -841,13 +857,12 @@ export function useEntityMetadata(entityCode: string, componentName?: string) {
  * const { data: globalSettings, isLoading } = useGlobalSettings();
  */
 export function useGlobalSettings() {
-  // Specialized Zustand store
-  const globalSettingsStore = useGlobalSettingsMetadataStore();
+  // ✅ INDUSTRY STANDARD: Use getState() to avoid store subscription
   const queryClient = useQueryClient();
   const queryKey = queryKeys.globalSettings();
 
-  // Check if already cached in Zustand
-  const cachedSettings = globalSettingsStore.getGlobalSettings();
+  // Check if already cached in Zustand (imperative access)
+  const cachedSettings = useGlobalSettingsMetadataStore.getState().getGlobalSettings();
 
   const query = useQuery({
     queryKey,
@@ -872,8 +887,8 @@ export function useGlobalSettings() {
 
       console.log('%c[API FETCH] ✅ Received global settings', 'color: #ff6b6b', data);
 
-      // Cache in globalSettingsMetadataStore (30 min TTL)
-      globalSettingsStore.setGlobalSettings(data);
+      // Cache in globalSettingsMetadataStore (30 min TTL) - use getState() inside callback
+      useGlobalSettingsMetadataStore.getState().setGlobalSettings(data);
 
       return data;
     },
@@ -920,13 +935,12 @@ export function useGlobalSettings() {
  * const { data: datalabels, isLoading } = useAllDatalabels();
  */
 export function useAllDatalabels() {
-  // Specialized Zustand store
-  const datalabelStore = useDatalabelMetadataStore();
+  // ✅ INDUSTRY STANDARD: Use getState() to avoid store subscription
   const queryClient = useQueryClient();
   const queryKey = ['settings', 'datalabels', 'all'];
 
-  // Check if already cached in Zustand
-  const cachedDatalabels = datalabelStore.getAllDatalabels();
+  // Check if already cached in Zustand (imperative access)
+  const cachedDatalabels = useDatalabelMetadataStore.getState().getAllDatalabels();
 
   const query = useQuery({
     queryKey,
@@ -953,8 +967,8 @@ export function useAllDatalabels() {
         datalabelNames: result.data.map((d: any) => d.name),
       });
 
-      // Cache all datalabels in datalabelMetadataStore (30 min TTL)
-      datalabelStore.setAllDatalabels(result.data);
+      // Cache all datalabels in datalabelMetadataStore (30 min TTL) - use getState() inside callback
+      useDatalabelMetadataStore.getState().setAllDatalabels(result.data);
 
       return result;
     },
@@ -1000,61 +1014,56 @@ export function useAllDatalabels() {
 export function useCacheInvalidation() {
   const queryClient = useQueryClient();
 
-  // All specialized Zustand stores
-  const globalSettingsStore = useGlobalSettingsMetadataStore();
-  const datalabelStore = useDatalabelMetadataStore();
-  const componentMetadataStore = useEntityComponentMetadataStore();
-  const entityCodeStore = useEntityCodeMetadataStore();
-  const instanceDataStore = useEntityInstanceDataStore();
-  const listDataStore = useEntityInstanceListDataStore();
+  // ✅ INDUSTRY STANDARD: Use getState() for imperative store access
+  // This prevents subscription-based re-renders from store changes
 
   const invalidateEntity = useCallback((entityCode: string, id?: string) => {
     // Invalidate React Query cache
     if (id) {
       queryClient.invalidateQueries({ queryKey: queryKeys.entityInstance(entityCode, id) });
       // Invalidate specific instance in Zustand
-      instanceDataStore.invalidate(entityCode, id);
+      useEntityInstanceDataStore.getState().invalidate(entityCode, id);
     }
     queryClient.invalidateQueries({ queryKey: ['entity-instance-list', entityCode] });
 
     // Invalidate Zustand stores for this entity
-    componentMetadataStore.invalidateEntity(entityCode);
-    listDataStore.invalidate(entityCode);
-    instanceDataStore.invalidateEntity(entityCode);
-  }, [queryClient, componentMetadataStore, listDataStore, instanceDataStore]);
+    useEntityComponentMetadataStore.getState().invalidateEntity(entityCode);
+    useEntityInstanceListDataStore.getState().invalidate(entityCode);
+    useEntityInstanceDataStore.getState().invalidateEntity(entityCode);
+  }, [queryClient]);
 
   const invalidateAll = useCallback(() => {
     // Invalidate all React Query cache
     queryClient.invalidateQueries();
 
-    // Clear all Zustand stores
-    globalSettingsStore.clear();
-    datalabelStore.clear();
-    componentMetadataStore.clear();
-    entityCodeStore.clear();
-    instanceDataStore.clear();
-    listDataStore.clear();
-  }, [queryClient, globalSettingsStore, datalabelStore, componentMetadataStore, entityCodeStore, instanceDataStore, listDataStore]);
+    // Clear all Zustand stores - use getState() for imperative access
+    useGlobalSettingsMetadataStore.getState().clear();
+    useDatalabelMetadataStore.getState().clear();
+    useEntityComponentMetadataStore.getState().clear();
+    useEntityCodeMetadataStore.getState().clear();
+    useEntityInstanceDataStore.getState().clear();
+    useEntityInstanceListDataStore.getState().clear();
+  }, [queryClient]);
 
   const invalidateEntityCodes = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: queryKeys.entityCodes() });
-    entityCodeStore.clear();
-  }, [queryClient, entityCodeStore]);
+    useEntityCodeMetadataStore.getState().clear();
+  }, [queryClient]);
 
   const invalidateGlobalSettings = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: queryKeys.globalSettings() });
-    globalSettingsStore.clear();
-  }, [queryClient, globalSettingsStore]);
+    useGlobalSettingsMetadataStore.getState().clear();
+  }, [queryClient]);
 
   const invalidateDatalabels = useCallback((name?: string) => {
     if (name) {
       queryClient.invalidateQueries({ queryKey: queryKeys.datalabels(name) });
-      datalabelStore.invalidate(name);
+      useDatalabelMetadataStore.getState().invalidate(name);
     } else {
       queryClient.invalidateQueries({ queryKey: ['settings', 'datalabels'] });
-      datalabelStore.clear();
+      useDatalabelMetadataStore.getState().clear();
     }
-  }, [queryClient, datalabelStore]);
+  }, [queryClient]);
 
   return {
     invalidateEntity,

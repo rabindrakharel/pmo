@@ -5,7 +5,7 @@
 [![Version](https://img.shields.io/badge/version-4.0-blue.svg)](https://github.com/yourusername/pmo)
 [![Status](https://img.shields.io/badge/status-production-success.svg)](http://localhost:5173)
 
-**Related:** [SettingsDataTable](./settings_EntityDataTable.md) • [EntityDataTable](./entity_EntityDataTable.md) • [Overview](./data_table.md)
+**Related:** [LabelsDataTable](./settings_EntityDataTable.md) • [EntityDataTable](./entity_EntityDataTable.md) • [Overview](./data_table.md)
 
 **v4.0:** Runtime datalabel creation • Entity validation • Icon picker • Auto-navigation • Empty metadata support
 
@@ -62,7 +62,7 @@ Settings Overview (/setting/overview)
     │           └─→ Auto-navigate to /setting/{camelCase}
     │
     └─→ [Click Datalabel] → SettingDetailPage
-            └─→ SettingsDataTable (CRUD operations)
+            └─→ LabelsDataTable (CRUD operations)
                 ├─→ Add Row (temp_* ID)
                 ├─→ Inline Edit
                 ├─→ Color Picker
@@ -110,7 +110,7 @@ Settings Overview (/setting/overview)
 5. Choose Icon: "Users" (visual picker with search)
 6. Click "Create" → POST /api/v1/setting/category
 7. Auto-navigate to /setting/employeeEmploymentType
-8. Empty SettingsDataTable loads (ready for data)
+8. Empty LabelsDataTable loads (ready for data)
 ```
 
 **Result:** `dl__employee_employment_type` created with `metadata: []`
@@ -245,7 +245,7 @@ await updateItem(id, {...});  // WRONG - ID 2 may not exist!
 | **SettingsOverviewPage** | `apps/web/src/pages/setting/SettingsOverviewPage.tsx` | List all datalabels, create new |
 | **SettingDetailPage** | `apps/web/src/pages/setting/SettingDetailPage.tsx` | Load config, manage items |
 | **AddDatalabelModal** | `apps/web/src/components/settings/AddDatalabelModal.tsx` | Creation form with validation |
-| **SettingsDataTable** | `apps/web/src/components/shared/ui/SettingsDataTable.tsx` | CRUD operations, inline editing |
+| **LabelsDataTable** | `apps/web/src/components/shared/ui/LabelsDataTable.tsx` | CRUD operations, inline editing |
 
 ---
 
