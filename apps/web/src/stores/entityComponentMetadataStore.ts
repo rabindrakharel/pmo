@@ -86,6 +86,7 @@ interface EntityComponentMetadataActions {
   getComponentMetadata: (entityCode: string, componentName: string) => ComponentMetadata | null;
   getAllComponentMetadata: (entityCode: string) => Record<string, ComponentMetadata> | null;
   isExpired: (entityCode: string, componentName: string) => boolean;
+  getExpiredKeys: () => string[];
   invalidateEntity: (entityCode: string) => void;
   clear: () => void;
 }
@@ -94,7 +95,7 @@ interface EntityComponentMetadataActions {
 // Constants
 // ============================================================================
 
-const CACHE_TTL = 30 * 60 * 1000; // 30 minutes (session-level)
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutes (metadata)
 
 // ============================================================================
 // Store Implementation
@@ -198,6 +199,14 @@ export const useEntityComponentMetadataStore = create<EntityComponentMetadataSta
           const entry = metadata[cacheKey];
           if (!entry) return true;
           return Date.now() - entry.timestamp > entry.ttl;
+        },
+
+        getExpiredKeys: () => {
+          const { metadata } = get();
+          const now = Date.now();
+          return Object.entries(metadata)
+            .filter(([_, entry]) => now - entry.timestamp > entry.ttl)
+            .map(([key]) => key);
         },
 
         invalidateEntity: (entityCode: string) => {

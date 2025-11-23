@@ -1,22 +1,25 @@
 /**
  * Entity Query Hooks - React Query + Zustand Integration
  *
- * Provides unified data fetching hooks that combine:
- * - React Query for server state management and caching
- * - Zustand stores for local state and optimistic updates
- * - TTL-based cache invalidation with different cache tiers
+ * ARCHITECTURE (v6.0.0 - Industry Standard):
+ * - React Query: SOLE data cache for entity instances (lists & details)
+ * - Zustand: UI state only (edit state, preferences) + metadata caching
  *
- * Cache Tiers:
- * - Session-level (30 min): Entity types, global settings, datalabels, component metadata
- * - Short-lived (5 min): Entity instance data, entity lists
+ * Cache Strategy (Stale-While-Revalidate):
+ * - Reference Data (1 hour): Entity types, global settings, datalabels
+ * - Metadata (15 min): Field definitions, component schemas
+ * - Entity Lists (30 sec stale, 5 min cache): Show cached, refetch in background
+ * - Entity Details (10 sec stale, 2 min cache): Near real-time for edits
  *
- * Store Architecture:
+ * Store Architecture (Metadata Only):
  * - globalSettingsMetadataStore: Currency, date, timestamp formatting
  * - datalabelMetadataStore: Dropdown options (dl__* fields)
  * - entityComponentMetadataStore: Field metadata keyed by entityCode:componentName
  * - entityCodeMetadataStore: Entity types for sidebar navigation
- * - entityInstanceDataStore: Single entity data for optimistic updates
- * - entityInstanceListDataStore: List data for tables/grids
+ *
+ * REMOVED (v6.0.0 - Eliminated Dual Cache):
+ * - entityInstanceDataStore: Now using React Query only
+ * - entityInstanceListDataStore: Now using React Query only
  */
 
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
@@ -25,30 +28,66 @@ import { APIFactory, type EntityMetadata, type PaginatedResponse } from '../api'
 import { useEntityEditStore } from '../../stores/useEntityEditStore';
 import type { DatalabelData } from '../frontEndFormatterService';
 
-// Import specialized Zustand stores
+// Import specialized Zustand stores (METADATA ONLY - v6.0.0)
+// Entity instance data now uses React Query as sole cache
 import { useGlobalSettingsMetadataStore } from '../../stores/globalSettingsMetadataStore';
 import { useDatalabelMetadataStore } from '../../stores/datalabelMetadataStore';
 import { useEntityComponentMetadataStore } from '../../stores/entityComponentMetadataStore';
 import { useEntityCodeMetadataStore } from '../../stores/entityCodeMetadataStore';
-import { useEntityInstanceDataStore } from '../../stores/entityInstanceDataStore';
-import { useEntityInstanceListDataStore, generateQueryHash } from '../../stores/entityInstanceListDataStore';
+
+// Import normalized cache utilities (v6.1.0)
+import {
+  normalizeListResponse,
+  updateNormalizedEntity,
+  removeNormalizedEntity,
+  addNormalizedEntity,
+  getNormalizedEntity,
+  invalidateEntityQueries,
+} from '../cache/normalizedCache';
 
 // ============================================================================
 // Cache Configuration
 // ============================================================================
 
-/** Cache time constants in milliseconds */
+/**
+ * Cache TTL Configuration - Industry Standard (v6.0.0)
+ *
+ * Based on data volatility and user expectations:
+ * - Reference data: Users tolerate 1-hour staleness
+ * - Metadata: Schema changes are deployment-time (15 min)
+ * - Entity data: Stale-while-revalidate for near real-time
+ */
 export const CACHE_TTL = {
-  // Session-level caching (30 minutes) - rarely changes
-  SESSION: 30 * 60 * 1000,           // 30 minutes - session-level data
-  ENTITY_TYPES: 30 * 60 * 1000,      // 30 minutes - sidebar navigation
-  DATALABELS: 30 * 60 * 1000,        // 30 minutes - dropdown options
-  GLOBAL_SETTINGS: 30 * 60 * 1000,   // 30 minutes - app settings
-  ENTITY_METADATA: 30 * 60 * 1000,   // 30 minutes - field definitions
+  // =========================================================================
+  // TIER 2: Reference Data (1 hour) - Rarely changes
+  // =========================================================================
+  ENTITY_TYPES: 60 * 60 * 1000,      // 1 hour - sidebar navigation
+  DATALABELS: 60 * 60 * 1000,        // 1 hour - dropdown options
+  GLOBAL_SETTINGS: 60 * 60 * 1000,   // 1 hour - app settings
 
-  // Short-lived caching (5 minutes) - frequently changes
-  ENTITY_LIST: 5 * 60 * 1000,        // 5 minutes - list data
-  ENTITY_DETAIL: 5 * 60 * 1000,      // 5 minutes - detail data
+  // =========================================================================
+  // TIER 3: Metadata (15 minutes) - May change with deployments
+  // =========================================================================
+  ENTITY_METADATA: 15 * 60 * 1000,   // 15 minutes - field definitions
+
+  // =========================================================================
+  // TIER 4: Entity Lists - Stale-While-Revalidate
+  // =========================================================================
+  // Show cached data immediately, refetch in background
+  ENTITY_LIST_STALE: 30 * 1000,      // 30 seconds - mark as stale
+  ENTITY_LIST_CACHE: 5 * 60 * 1000,  // 5 minutes - keep for back navigation
+
+  // =========================================================================
+  // TIER 5: Entity Details - Near Real-time
+  // =========================================================================
+  // Short stale time for actively edited records
+  ENTITY_DETAIL_STALE: 10 * 1000,    // 10 seconds - mark as stale
+  ENTITY_DETAIL_CACHE: 2 * 60 * 1000, // 2 minutes - keep for navigation
+
+  // Legacy aliases (for backward compatibility during migration)
+  SESSION: 60 * 60 * 1000,           // 1 hour
+  ENTITY_LIST: 30 * 1000,            // 30 seconds (stale time)
+  ENTITY_DETAIL: 10 * 1000,          // 10 seconds (stale time)
 } as const;
 
 /** Query key factories for consistent cache keys */
@@ -144,9 +183,6 @@ export function useEntityInstanceList<T = any>(
     [entityCode, normalizedParams]
   );
 
-  // Generate query hash for Zustand list store
-  const queryHash = useMemo(() => generateQueryHash(normalizedParams), [normalizedParams]);
-
   const query = useQuery<EntityInstanceListResult<T>>({
     queryKey,
     queryFn: async () => {
@@ -182,17 +218,10 @@ export function useEntityInstanceList<T = any>(
         fieldsCount: result.metadata?.fields?.length || 0,
       });
 
-      // Cache list data in entityInstanceListDataStore (5 min TTL)
-      // ✅ Use getState() for imperative access - no subscription needed
-      useEntityInstanceListDataStore.getState().setList(entityCode, queryHash, {
-        data: result.data,
-        total: result.total,
-        page: result.page,
-        pageSize: result.pageSize,
-        hasMore: result.hasMore,
-      });
+      // v6.1.0: Store entities in normalized cache for cross-view consistency
+      normalizeListResponse(queryClient, { data: result.data, metadata: result.metadata, total: result.total }, entityCode);
 
-      // Cache component metadata in entityComponentMetadataStore (30 min TTL)
+      // Cache component metadata in entityComponentMetadataStore (15 min TTL)
       // Backend returns: { entityDataTable: {...}, entityFormContainer: {...}, ... }
       // Extract only the requested component's metadata
       if (result.metadata) {
@@ -206,9 +235,11 @@ export function useEntityInstanceList<T = any>(
 
       return result;
     },
-    staleTime: CACHE_TTL.ENTITY_LIST,
-    gcTime: CACHE_TTL.ENTITY_LIST * 2,
-    refetchOnWindowFocus: false,
+    // v6.0.0: Stale-while-revalidate pattern
+    staleTime: CACHE_TTL.ENTITY_LIST_STALE,  // 30 seconds - show cached, refetch in background
+    gcTime: CACHE_TTL.ENTITY_LIST_CACHE,     // 5 minutes - keep for back navigation
+    refetchOnWindowFocus: true,               // Industry standard: refresh when user returns
+    refetchOnMount: true,                     // Always check freshness on mount
     ...options,
   });
 
@@ -311,16 +342,17 @@ export function useEntityInstance<T = any>(
         dataKeys: Object.keys(data),
       });
 
-      // Cache instance data in entityInstanceDataStore (5 min TTL)
-      // ✅ Use getState() for imperative access - no subscription needed
-      useEntityInstanceDataStore.getState().setInstance(entityCode, id, data);
+      // v6.1.0: Store entity in normalized cache for cross-view consistency
+      addNormalizedEntity(queryClient, entityCode, data);
 
       return { data, metadata, fields };
     },
     enabled: !!id,
-    staleTime: CACHE_TTL.ENTITY_DETAIL,
-    gcTime: CACHE_TTL.ENTITY_DETAIL * 2,
-    refetchOnWindowFocus: false,
+    // v6.0.0: Near real-time for actively edited records
+    staleTime: CACHE_TTL.ENTITY_DETAIL_STALE,  // 10 seconds - short stale time
+    gcTime: CACHE_TTL.ENTITY_DETAIL_CACHE,     // 2 minutes - keep for navigation
+    refetchOnWindowFocus: true,                 // Industry standard: refresh when user returns
+    refetchOnMount: 'always',                   // Always check freshness for details
     ...options,
   });
 
@@ -462,19 +494,16 @@ export function useEntityMutation(entityCode: string) {
   // ✅ INDUSTRY STANDARD: Use getState() for imperative store access
   // This prevents subscription-based re-renders from store changes
 
-  // Helper to invalidate all caches for this entity (React Query + Zustand)
+  // v6.0.0: React Query is sole data cache - only invalidate RQ + metadata stores
   const invalidateAllCaches = useCallback((id?: string) => {
-    // React Query invalidation
+    // React Query invalidation (sole data cache)
     if (id) {
       queryClient.invalidateQueries({ queryKey: queryKeys.entityInstance(entityCode, id) });
-      useEntityInstanceDataStore.getState().invalidate(entityCode, id);
     }
     queryClient.invalidateQueries({ queryKey: ['entity-instance-list', entityCode] });
 
-    // Zustand store invalidation - ensures no stale data
+    // Only invalidate metadata store (not data stores - they're removed)
     useEntityComponentMetadataStore.getState().invalidateEntity(entityCode);
-    useEntityInstanceListDataStore.getState().invalidate(entityCode);
-    useEntityInstanceDataStore.getState().invalidateEntity(entityCode);
   }, [queryClient, entityCode]);
 
   const updateMutation = useMutation({
@@ -485,11 +514,16 @@ export function useEntityMutation(entityCode: string) {
     onMutate: async ({ id, data }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.entityInstance(entityCode, id) });
+      await queryClient.cancelQueries({ queryKey: ['entity-instance-list', entityCode] });
 
-      // Snapshot previous value
-      const previousData = queryClient.getQueryData(queryKeys.entityInstance(entityCode, id));
+      // Snapshot previous values from normalized cache and React Query
+      const previousNormalized = getNormalizedEntity(queryClient, entityCode, id);
+      const previousRQData = queryClient.getQueryData(queryKeys.entityInstance(entityCode, id));
 
-      // Optimistically update cache
+      // v6.1.0: Optimistically update normalized cache (reflects in ALL views)
+      updateNormalizedEntity(queryClient, entityCode, id, data);
+
+      // Also update React Query cache for immediate UI feedback
       queryClient.setQueryData(
         queryKeys.entityInstance(entityCode, id),
         (old: EntityInstanceResult | undefined) => old ? {
@@ -498,16 +532,20 @@ export function useEntityMutation(entityCode: string) {
         } : old
       );
 
-      return { previousData };
+      return { previousNormalized, previousRQData };
     },
     onError: (_error, { id }, context) => {
-      // Rollback on error
-      if (context?.previousData) {
-        queryClient.setQueryData(queryKeys.entityInstance(entityCode, id), context.previousData);
+      // Rollback normalized cache
+      if (context?.previousNormalized) {
+        updateNormalizedEntity(queryClient, entityCode, id, context.previousNormalized);
+      }
+      // Rollback React Query cache
+      if (context?.previousRQData) {
+        queryClient.setQueryData(queryKeys.entityInstance(entityCode, id), context.previousRQData);
       }
     },
     onSettled: (_data, _error, { id }) => {
-      // Invalidate ALL caches (React Query + Zustand) to refetch fresh data
+      // Invalidate caches to refetch fresh data
       invalidateAllCaches(id);
     },
   });
@@ -517,8 +555,26 @@ export function useEntityMutation(entityCode: string) {
       const api = APIFactory.getAPI(entityCode);
       return api.delete(id);
     },
+    onMutate: async (id) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['entity-instance-list', entityCode] });
+
+      // Snapshot for rollback
+      const previousEntity = getNormalizedEntity(queryClient, entityCode, id);
+
+      // v6.1.0: Optimistically remove from normalized cache
+      removeNormalizedEntity(queryClient, entityCode, id);
+
+      return { previousEntity };
+    },
+    onError: (_error, id, context) => {
+      // Rollback: re-add the entity
+      if (context?.previousEntity) {
+        addNormalizedEntity(queryClient, entityCode, context.previousEntity);
+      }
+    },
     onSettled: (_data, _error, id) => {
-      // Invalidate ALL caches after delete
+      // Invalidate caches after delete
       invalidateAllCaches(id);
     },
   });
@@ -528,8 +584,14 @@ export function useEntityMutation(entityCode: string) {
       const api = APIFactory.getAPI(entityCode);
       return api.create(data);
     },
+    onSuccess: (response) => {
+      // v6.1.0: Add new entity to normalized cache
+      if (response && response.id) {
+        addNormalizedEntity(queryClient, entityCode, response);
+      }
+    },
     onSettled: () => {
-      // Invalidate ALL caches after create
+      // Invalidate list caches after create
       invalidateAllCaches();
     },
   });
@@ -1017,32 +1079,28 @@ export function useCacheInvalidation() {
   // ✅ INDUSTRY STANDARD: Use getState() for imperative store access
   // This prevents subscription-based re-renders from store changes
 
+  // v6.0.0: React Query is sole data cache
   const invalidateEntity = useCallback((entityCode: string, id?: string) => {
-    // Invalidate React Query cache
+    // React Query invalidation (sole data cache)
     if (id) {
       queryClient.invalidateQueries({ queryKey: queryKeys.entityInstance(entityCode, id) });
-      // Invalidate specific instance in Zustand
-      useEntityInstanceDataStore.getState().invalidate(entityCode, id);
     }
     queryClient.invalidateQueries({ queryKey: ['entity-instance-list', entityCode] });
 
-    // Invalidate Zustand stores for this entity
+    // Only invalidate metadata store (not data stores - they're removed)
     useEntityComponentMetadataStore.getState().invalidateEntity(entityCode);
-    useEntityInstanceListDataStore.getState().invalidate(entityCode);
-    useEntityInstanceDataStore.getState().invalidateEntity(entityCode);
   }, [queryClient]);
 
   const invalidateAll = useCallback(() => {
-    // Invalidate all React Query cache
+    // Invalidate all React Query cache (sole data cache)
     queryClient.invalidateQueries();
 
-    // Clear all Zustand stores - use getState() for imperative access
+    // Clear metadata Zustand stores only - use getState() for imperative access
     useGlobalSettingsMetadataStore.getState().clear();
     useDatalabelMetadataStore.getState().clear();
     useEntityComponentMetadataStore.getState().clear();
     useEntityCodeMetadataStore.getState().clear();
-    useEntityInstanceDataStore.getState().clear();
-    useEntityInstanceListDataStore.getState().clear();
+    // v6.0.0: entityInstanceDataStore and entityInstanceListDataStore removed
   }, [queryClient]);
 
   const invalidateEntityCodes = useCallback(() => {

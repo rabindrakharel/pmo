@@ -58,7 +58,7 @@ interface EntityCodeMetadataActions {
 // Constants
 // ============================================================================
 
-const CACHE_TTL = 30 * 60 * 1000; // 30 minutes (session-level)
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour (reference data)
 
 // ============================================================================
 // Store Implementation

@@ -1,6 +1,6 @@
 # State Management Architecture
 
-**Version:** 6.0.0 | **Location:** `apps/web/src/stores/` | **Last Updated:** 2025-11-23
+**Version:** 6.2.0 | **Location:** `apps/web/src/stores/` | **Last Updated:** 2025-11-23
 
 ---
 
@@ -9,14 +9,16 @@
 1. [Overview](#1-overview)
 2. [Architecture Diagram](#2-architecture-diagram)
 3. [Store Catalog](#3-store-catalog)
-4. [Page-by-Page State Flow](#4-page-by-page-state-flow)
-5. [Component State Interactions](#5-component-state-interactions)
-6. [CRUD Operation Flows](#6-crud-operation-flows)
-7. [Industry Standard Patterns](#7-industry-standard-patterns)
-8. [Anti-Patterns & Solutions](#8-anti-patterns--solutions)
-9. [Cache Strategy](#9-cache-strategy)
-10. [Debugging Guide](#10-debugging-guide)
-11. [Performance Metrics](#11-performance-metrics)
+4. [Normalized Cache](#4-normalized-cache)
+5. [Garbage Collection](#5-garbage-collection)
+6. [Page-by-Page State Flow](#6-page-by-page-state-flow)
+7. [Component State Interactions](#7-component-state-interactions)
+8. [CRUD Operation Flows](#8-crud-operation-flows)
+9. [Industry Standard Patterns](#9-industry-standard-patterns)
+10. [Anti-Patterns & Solutions](#10-anti-patterns--solutions)
+11. [Cache Strategy](#11-cache-strategy)
+12. [Debugging Guide](#12-debugging-guide)
+13. [Performance Metrics](#13-performance-metrics)
 
 ---
 
@@ -26,17 +28,19 @@ The PMO platform uses a **hybrid state management architecture** combining:
 
 | Technology | Purpose | Scope |
 |------------|---------|-------|
-| **Zustand** | Client-side caching & UI state | 8 specialized stores |
-| **React Query** | Server state synchronization | API data fetching |
+| **React Query** | **SOLE data cache** for entity instances | Lists, details, CRUD |
+| **Zustand** | Metadata caching + UI state | 5 specialized stores |
 | **React Context** | Auth & global providers | Cross-cutting concerns |
 
-### Design Principles
+### Design Principles (v6.2.0)
 
-1. **Single Source of Truth**: Backend metadata drives all rendering
-2. **Separation of Concerns**: Server state (React Query) vs. client state (Zustand)
-3. **Minimal Re-renders**: `getState()` for imperative access, `useShallow` for selective subscriptions
-4. **TTL-based Caching**: Session-level (30 min) vs. short-lived (5 min)
+1. **Single Source of Truth**: React Query is sole data cache (no dual caching)
+2. **Separation of Concerns**: Server data (React Query) vs. metadata/UI state (Zustand)
+3. **Stale-While-Revalidate**: Show cached data immediately, refetch in background
+4. **Tiered TTL Caching**: Reference data (1h) > Metadata (15m) > Lists (30s) > Details (10s)
 5. **Optimistic Updates**: Immediate UI feedback with rollback on failure
+6. **Data Normalization**: Store entities once, reference by ID across queries
+7. **Automatic Garbage Collection**: Periodic cleanup of expired metadata (5 min intervals)
 
 ---
 
@@ -44,34 +48,46 @@ The PMO platform uses a **hybrid state management architecture** combining:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                          STATE MANAGEMENT ARCHITECTURE                               │
+│                    STATE MANAGEMENT ARCHITECTURE (v6.2.0)                            │
 ├─────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                      │
 │  ┌─────────────────────────────────────────────────────────────────────────────┐    │
-│  │                         ZUSTAND STORES (8 Total)                             │    │
-│  ├───────────────────────┬───────────────────────┬─────────────────────────────┤    │
-│  │   SESSION-LEVEL       │    URL-BOUND          │         MEMORY              │    │
-│  │   (30 min TTL)        │    (5 min TTL)        │       (No persist)          │    │
-│  ├───────────────────────┼───────────────────────┼─────────────────────────────┤    │
-│  │ globalSettingsMeta    │ entityInstanceList    │ entityEditStore             │    │
-│  │ datalabelMeta         │ entityInstanceData    │                             │    │
-│  │ entityCodeMeta        │                       │                             │    │
-│  │ entityComponentMeta   │                       │                             │    │
-│  └───────────────────────┴───────────────────────┴─────────────────────────────┘    │
+│  │                    REACT QUERY (SOLE DATA CACHE)                             │    │
+│  │                                                                              │    │
+│  │  Entity Data (Stale-While-Revalidate):                                       │    │
+│  │  • useEntityInstanceList() - Lists (30s stale, 5m cache)                     │    │
+│  │  • useEntityInstance() - Details (10s stale, 2m cache)                       │    │
+│  │  • useEntityMutation() - CRUD with optimistic updates + rollback             │    │
+│  │                                                                              │    │
+│  │  ┌─────────────────────────────────────────────────────────────────────┐     │    │
+│  │  │  NORMALIZED CACHE (lib/cache/normalizedCache.ts)                    │     │    │
+│  │  │  • Entities stored by type → ID (e.g., project: { uuid: {...} })    │     │    │
+│  │  │  • Updates reflected across ALL queries referencing entity          │     │    │
+│  │  │  • Optimistic updates with automatic rollback                       │     │    │
+│  │  └─────────────────────────────────────────────────────────────────────┘     │    │
+│  └─────────────────────────────────────────────────────────────────────────────┘    │
 │                                                                                      │
 │  ┌─────────────────────────────────────────────────────────────────────────────┐    │
-│  │                         REACT QUERY                                          │    │
-│  │  • useEntityInstanceList() - Entity list fetching                            │    │
-│  │  • useEntityInstance() - Single entity fetching                              │    │
-│  │  • useEntityMutation() - CRUD with optimistic updates                        │    │
-│  │  • useEntityCodes() - Entity type metadata                                   │    │
-│  │  • useDatalabels() - Dropdown options                                        │    │
-│  │  • useGlobalSettings() - Formatting settings                                 │    │
+│  │                    ZUSTAND STORES (5 Total - METADATA ONLY)                  │    │
+│  ├───────────────────────────────────────┬─────────────────────────────────────┤    │
+│  │   METADATA CACHING (TTL-based)        │         UI STATE (No persist)       │    │
+│  ├───────────────────────────────────────┼─────────────────────────────────────┤    │
+│  │ globalSettingsMetadataStore (1h)      │ entityEditStore                     │    │
+│  │ datalabelMetadataStore (1h)           │   • dirtyFields                     │    │
+│  │ entityCodeMetadataStore (1h)          │   • undo/redo stacks                │    │
+│  │ entityComponentMetadataStore (15m)    │   • edit mode state                 │    │
+│  └───────────────────────────────────────┴─────────────────────────────────────┘    │
+│                                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐    │
+│  │                    GARBAGE COLLECTION (lib/cache/garbageCollection.ts)       │    │
+│  │  • Runs every 5 minutes                                                      │    │
+│  │  • Cleans expired entries from all metadata stores                           │    │
+│  │  • Clears all caches on logout (security + memory hygiene)                   │    │
 │  └─────────────────────────────────────────────────────────────────────────────┘    │
 │                                                                                      │
 │  ┌─────────────────────────────────────────────────────────────────────────────┐    │
 │  │                         REACT CONTEXT                                        │    │
-│  │  • AuthContext - JWT token, user session                                     │    │
+│  │  • AuthContext - JWT token, user session, cache clearing on logout           │    │
 │  │  • SidebarContext - Navigation state                                         │    │
 │  │  • EntityMetadataContext - Entity type registry (wraps Zustand)              │    │
 │  └─────────────────────────────────────────────────────────────────────────────┘    │
@@ -83,13 +99,14 @@ The PMO platform uses a **hybrid state management architecture** combining:
 
 ## 3. Store Catalog
 
-### 3.1 Session-Level Stores (30 min TTL)
+### 3.1 Metadata Stores (TTL-Based)
 
 #### `globalSettingsMetadataStore`
 
 **Purpose:** Cache global formatting settings
 **File:** `stores/globalSettingsMetadataStore.ts`
 **Source:** `GET /api/v1/settings/global`
+**TTL:** 1 hour (reference data)
 
 ```typescript
 interface GlobalSettings {
@@ -106,7 +123,7 @@ interface GlobalSettings {
 | `setGlobalSettings(settings)` | Store settings from API |
 | `getGlobalSettings()` | Retrieve cached settings (checks TTL) |
 | `isExpired()` | Check if cache is stale |
-| `clear()` | Invalidate cache |
+| `clear()` | Invalidate cache (called by GC) |
 
 **Consumers:** `frontEndFormatterService.tsx`, `EntityFormContainer`, `EntityDataTable`
 
@@ -117,6 +134,7 @@ interface GlobalSettings {
 **Purpose:** Cache dropdown options for `dl__*` fields
 **File:** `stores/datalabelMetadataStore.ts`
 **Source:** `GET /api/v1/settings/datalabels/all` or `GET /api/v1/datalabel?name=<key>`
+**TTL:** 1 hour (reference data)
 
 ```typescript
 interface DatalabelOption {
@@ -137,8 +155,10 @@ interface DatalabelOption {
 | `setAllDatalabels(datalabels[])` | Store all datalabels at once |
 | `getDatalabel(name)` | Get options for field (checks TTL) |
 | `getAllDatalabels()` | Get all cached datalabels |
+| `isExpired(name)` | Check if specific datalabel is stale |
+| `getExpiredKeys()` | Get list of expired keys (for GC) |
 | `invalidate(name)` | Invalidate specific datalabel |
-| `clear()` | Invalidate all datalabels |
+| `clear()` | Invalidate all datalabels (called by GC) |
 
 **Consumers:** `EntityFormContainer`, `KanbanView`, `DAGVisualizer`
 
@@ -149,6 +169,7 @@ interface DatalabelOption {
 **Purpose:** Cache entity type definitions for sidebar navigation
 **File:** `stores/entityCodeMetadataStore.ts`
 **Source:** `GET /api/v1/entity/types`
+**TTL:** 1 hour (reference data)
 
 ```typescript
 interface EntityCodeData {
@@ -171,7 +192,7 @@ interface EntityCodeData {
 | `getEntityCodesMap()` | Get Map for O(1) lookup |
 | `getEntityByCode(code)` | Get single entity by code |
 | `isExpired()` | Check if cache is stale |
-| `clear()` | Invalidate cache |
+| `clear()` | Invalidate cache (called by GC) |
 
 **Consumers:** `Sidebar`, `DynamicChildEntityTabs`, `EntityMetadataContext`
 
@@ -182,6 +203,7 @@ interface EntityCodeData {
 **Purpose:** Cache field metadata per entity:component pair
 **File:** `stores/entityComponentMetadataStore.ts`
 **Source:** Piggybacks on entity API responses (metadata field)
+**TTL:** 15 minutes (metadata - may change with deployments)
 
 **Cache Key Format:** `"project:entityDataTable"`, `"task:entityFormContainer"`
 
@@ -207,83 +229,16 @@ interface FieldMetadata {
 | `setAllComponentMetadata(entity, allMetadata)` | Store all components at once |
 | `getComponentMetadata(entity, component)` | Get specific component metadata |
 | `getAllComponentMetadata(entity)` | Get all components for entity |
+| `isExpired(entityCode, componentName)` | Check if specific entry is stale |
+| `getExpiredKeys()` | Get list of expired keys (for GC) |
 | `invalidateEntity(entityCode)` | Invalidate all for entity |
-| `clear()` | Invalidate all |
+| `clear()` | Invalidate all (called by GC) |
 
 **Consumers:** `EntityDataTable`, `EntityFormContainer`, `KanbanView`, `GridView`
 
 ---
 
-### 3.2 URL-Bound Stores (5 min TTL)
-
-#### `entityInstanceListDataStore`
-
-**Purpose:** Cache entity list data for tables/grids
-**File:** `stores/entityInstanceListDataStore.ts`
-**Source:** `GET /api/v1/{entity}?page=&pageSize=`
-
-**Cache Key Format:** `"project:page=1&pageSize=100"`
-
-```typescript
-interface ListData {
-  data: EntityInstance[];
-  total: number;
-  page: number;
-  pageSize: number;
-  hasMore: boolean;
-}
-```
-
-**Methods:**
-| Method | Purpose |
-|--------|---------|
-| `setList(entityCode, queryHash, data)` | Store paginated list |
-| `getList(entityCode, queryHash)` | Retrieve cached list (checks TTL) |
-| `appendToList(entityCode, queryHash, items)` | Append for infinite scroll |
-| `updateItemInList(entityCode, id, changes)` | Optimistic update |
-| `removeFromList(entityCode, id)` | Optimistic delete |
-| `invalidate(entityCode, queryHash?)` | Invalidate specific or all |
-| `clear()` | Invalidate all |
-
-**Consumers:** `EntityListOfInstancesPage`, `useEntityInstanceList`
-
----
-
-#### `entityInstanceDataStore`
-
-**Purpose:** Cache single entity instances for optimistic updates
-**File:** `stores/entityInstanceDataStore.ts`
-**Source:** `GET /api/v1/{entity}/{id}`
-
-**Cache Key Format:** `"project:uuid-123"`
-
-```typescript
-interface CacheEntry {
-  data: EntityInstance;
-  timestamp: number;
-  ttl: number;
-  entityCode: string;
-  isDirty: boolean;  // Has local changes not synced
-}
-```
-
-**Methods:**
-| Method | Purpose |
-|--------|---------|
-| `setInstance(entityCode, id, data)` | Store entity data |
-| `getInstance(entityCode, id)` | Retrieve cached data (checks TTL) |
-| `updateInstance(entityCode, id, changes)` | Optimistic update |
-| `markSynced(entityCode, id)` | Clear dirty flag after save |
-| `isDirty(entityCode, id)` | Check for unsaved changes |
-| `invalidate(entityCode, id)` | Invalidate specific instance |
-| `invalidateEntity(entityCode)` | Invalidate all for entity |
-| `clear()` | Invalidate all |
-
-**Consumers:** `EntitySpecificInstancePage`, `useEntityInstance`, `useEntityMutation`
-
----
-
-### 3.3 Memory Stores (No persistence)
+### 3.2 UI State Stores (No Persistence)
 
 #### `useEntityEditStore`
 
@@ -323,9 +278,132 @@ interface EditState {
 
 ---
 
-## 4. Page-by-Page State Flow
+## 4. Normalized Cache
 
-### 4.1 EntityListOfInstancesPage
+**File:** `lib/cache/normalizedCache.ts`
+
+The normalized cache stores entities by type and ID, ensuring updates to an entity are reflected in ALL queries that reference it.
+
+### 4.1 Benefits
+
+| Benefit | Description |
+|---------|-------------|
+| **No stale data** | List view shows same data as detail view |
+| **Efficient memory** | Entity stored once, referenced by ID |
+| **Optimistic updates** | Update entity → all views reflect change |
+| **Automatic rollback** | On mutation failure, previous state restored |
+
+### 4.2 Store Structure
+
+```typescript
+interface NormalizedStore {
+  entities: {
+    project: { 'uuid-1': {...}, 'uuid-2': {...} },
+    task: { 'uuid-3': {...}, 'uuid-4': {...} },
+    // ... other entity types
+  };
+  lastUpdated: { 'project:uuid-1': timestamp, ... };
+}
+```
+
+### 4.3 Key Functions
+
+| Function | Purpose |
+|----------|---------|
+| `normalizeListResponse(qc, response, type)` | Store entities from list API |
+| `getNormalizedEntity(qc, type, id)` | Get single entity |
+| `updateNormalizedEntity(qc, type, id, updates)` | Update entity (optimistic) |
+| `addNormalizedEntity(qc, type, entity)` | Add new entity |
+| `removeNormalizedEntity(qc, type, id)` | Remove entity |
+| `clearNormalizedStore(qc)` | Clear all (on logout) |
+
+### 4.4 Integration with React Query
+
+```typescript
+// In useEntityInstanceList - normalize on fetch
+const result = await api.get(`/api/v1/${entityCode}`);
+normalizeListResponse(queryClient, result.data, entityCode);
+
+// In useEntityMutation - optimistic update with rollback
+onMutate: async ({ id, data }) => {
+  const previous = getNormalizedEntity(queryClient, entityCode, id);
+  updateNormalizedEntity(queryClient, entityCode, id, data);
+  return { previous };
+},
+onError: (err, vars, context) => {
+  // Rollback to previous state
+  if (context?.previous) {
+    updateNormalizedEntity(queryClient, entityCode, id, context.previous);
+  }
+},
+```
+
+---
+
+## 5. Garbage Collection
+
+**File:** `lib/cache/garbageCollection.ts`
+
+Automatic cleanup of expired metadata entries to prevent memory leaks.
+
+### 5.1 Configuration
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| `GC_INTERVAL` | 5 minutes | How often GC runs |
+| `DEBUG` | false | Enable verbose logging |
+
+### 5.2 GC Functions
+
+| Function | Purpose |
+|----------|---------|
+| `startMetadataGC()` | Start GC interval (called on app mount) |
+| `stopMetadataGC()` | Stop GC interval (called on unmount) |
+| `runGarbageCollection()` | Manual GC trigger |
+| `clearAllMetadataStores()` | Clear all stores (called on logout) |
+| `getMetadataCacheStats()` | Debug: get cache statistics |
+
+### 5.3 What Gets Cleaned
+
+```typescript
+// On each GC run:
+1. globalSettingsMetadataStore.isExpired() → clear()
+2. entityCodeMetadataStore.isExpired() → clear()
+3. datalabelMetadataStore.getExpiredKeys() → invalidate each
+4. entityComponentMetadataStore.getExpiredKeys() → invalidateEntity each
+```
+
+### 5.4 Lifecycle Integration
+
+```typescript
+// App.tsx - Start on mount
+useEffect(() => {
+  startMetadataGC();
+  return () => stopMetadataGC();
+}, []);
+
+// AuthContext.tsx - Clear on logout
+const logout = async () => {
+  clearAllMetadataStores();           // Zustand stores
+  clearNormalizedStore(queryClient);   // Normalized cache
+  queryClient.clear();                 // React Query cache
+};
+```
+
+### 5.5 Console Output
+
+```
+[GC] Metadata garbage collection started (interval: 5 min)
+[GC] Cleared expired globalSettings
+[GC] Cleared 3 expired datalabels
+[GC] Metadata cleanup completed { globalSettingsCleared: true, datalabelsCleared: 3 }
+```
+
+---
+
+## 6. Page-by-Page State Flow
+
+### 6.1 EntityListOfInstancesPage
 
 **File:** `pages/shared/EntityListOfInstancesPage.tsx`
 
@@ -377,7 +455,7 @@ interface EditState {
 
 ---
 
-### 4.2 EntitySpecificInstancePage
+### 6.2 EntitySpecificInstancePage
 
 **File:** `pages/shared/EntitySpecificInstancePage.tsx`
 
@@ -442,7 +520,7 @@ interface EditState {
 
 ---
 
-### 4.3 EntityCreatePage
+### 6.3 EntityCreatePage
 
 **File:** `pages/shared/EntityCreatePage.tsx`
 
@@ -473,7 +551,7 @@ interface EditState {
 
 ---
 
-### 4.4 SettingsOverviewPage / SettingDetailPage
+### 6.4 SettingsOverviewPage / SettingDetailPage
 
 **File:** `pages/setting/SettingsOverviewPage.tsx`, `pages/setting/SettingDetailPage.tsx`
 
@@ -502,9 +580,9 @@ interface EditState {
 
 ---
 
-## 5. Component State Interactions
+## 7. Component State Interactions
 
-### 5.1 EntityDataTable
+### 7.1 EntityDataTable
 
 **File:** `components/shared/ui/EntityDataTable.tsx`
 
@@ -531,7 +609,7 @@ const columns = useMemo(() => {
 
 ---
 
-### 5.2 EntityFormContainer
+### 7.2 EntityFormContainer
 
 **File:** `components/shared/entity/EntityFormContainer.tsx`
 
@@ -555,7 +633,7 @@ const EntityFormContainer = React.memo(
 
 ---
 
-### 5.3 EntityFormContainerWithStore
+### 7.3 EntityFormContainerWithStore
 
 **File:** `components/shared/entity/EntityFormContainerWithStore.tsx`
 
@@ -584,7 +662,7 @@ const hasChanges = dirtyFields.size > 0;
 
 ---
 
-### 5.4 DynamicChildEntityTabs
+### 7.4 DynamicChildEntityTabs
 
 **File:** `components/shared/entity/DynamicChildEntityTabs.tsx`
 
@@ -619,7 +697,7 @@ export function useDynamicChildEntityTabs(parentType, parentId) {
 
 ---
 
-### 5.5 useKeyboardShortcuts
+### 7.5 useKeyboardShortcuts
 
 **File:** `lib/hooks/useKeyboardShortcuts.ts`
 
@@ -647,9 +725,9 @@ const handleKeyDown = useCallback((event) => {
 
 ---
 
-## 6. CRUD Operation Flows
+## 8. CRUD Operation Flows
 
-### 6.1 READ (List)
+### 8.1 READ (List)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -675,7 +753,7 @@ const handleKeyDown = useCallback((event) => {
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 6.2 READ (Single)
+### 8.2 READ (Single)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -700,7 +778,7 @@ const handleKeyDown = useCallback((event) => {
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 6.3 CREATE
+### 8.3 CREATE
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -724,7 +802,7 @@ const handleKeyDown = useCallback((event) => {
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 6.4 UPDATE
+### 8.4 UPDATE
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -757,7 +835,7 @@ const handleKeyDown = useCallback((event) => {
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 6.5 DELETE
+### 8.5 DELETE
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -784,9 +862,9 @@ const handleKeyDown = useCallback((event) => {
 
 ---
 
-## 7. Industry Standard Patterns
+## 9. Industry Standard Patterns
 
-### 7.1 Server State vs. Client State Separation
+### 9.1 Server State vs. Client State Separation
 
 | Category | Technology | Purpose |
 |----------|------------|---------|
@@ -794,7 +872,7 @@ const handleKeyDown = useCallback((event) => {
 | **Client State** | Zustand | UI state, edit tracking, navigation |
 | **Derived State** | useMemo | Computed from server/client state |
 
-### 7.2 Selective Store Subscription (useShallow)
+### 9.2 Selective Store Subscription (useShallow)
 
 ```typescript
 // ✅ CORRECT: Only subscribe to needed slices
@@ -809,7 +887,7 @@ const { isEditing, dirtyFields } = useEntityEditStore(
 const store = useEntityEditStore();
 ```
 
-### 7.3 Imperative Store Access (getState())
+### 9.3 Imperative Store Access (getState())
 
 ```typescript
 // ✅ CORRECT: No subscription in callbacks/effects
@@ -824,7 +902,7 @@ const invalidate = useCallback(() => {
 }, [store, entityCode, id]);
 ```
 
-### 7.4 Ref Pattern for Callbacks
+### 9.4 Ref Pattern for Callbacks
 
 ```typescript
 // ✅ CORRECT: Store callbacks in refs
@@ -841,7 +919,7 @@ const handler = useCallback(() => {
 }, [onSave]);
 ```
 
-### 7.5 Stable Array/Object References
+### 9.5 Stable Array/Object References
 
 ```typescript
 // ✅ CORRECT: useMemo for stable reference
@@ -854,7 +932,7 @@ const childData = useMemo(
 const childData = queryResult?.data || [];
 ```
 
-### 7.6 Optimistic Updates with Rollback
+### 9.6 Optimistic Updates with Rollback
 
 ```typescript
 const updateMutation = useMutation({
@@ -889,9 +967,9 @@ const updateMutation = useMutation({
 
 ---
 
-## 8. Anti-Patterns & Solutions
+## 10. Anti-Patterns & Solutions
 
-### 8.1 Full Store Subscription
+### 10.1 Full Store Subscription
 
 ```typescript
 // ❌ ANTI-PATTERN: Re-renders on ANY store change
@@ -910,7 +988,7 @@ const { isEditing, dirtyFields } = useEntityEditStore(
 );
 ```
 
-### 8.2 Unstable Default Values
+### 10.2 Unstable Default Values
 
 ```typescript
 // ❌ ANTI-PATTERN: New array reference every render
@@ -921,7 +999,7 @@ useEffect(() => processData(data), [data]);  // Runs every render!
 const data = useMemo(() => queryResult?.data || [], [queryResult?.data]);
 ```
 
-### 8.3 Callback Props in Dependencies
+### 10.3 Callback Props in Dependencies
 
 ```typescript
 // ❌ ANTI-PATTERN: onSave changes every render
@@ -941,7 +1019,7 @@ const handler = useCallback(() => {
 }, []);  // Stable!
 ```
 
-### 8.4 Selecting Functions from Stores
+### 10.4 Selecting Functions from Stores
 
 ```typescript
 // ❌ ANTI-PATTERN: Functions compared by reference
@@ -964,9 +1042,9 @@ const canUndo = undoStackLength > 0;
 
 ---
 
-## 9. Cache Strategy
+## 11. Cache Strategy
 
-### 9.1 Cache Hierarchy
+### 11.1 Cache Hierarchy
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -993,7 +1071,7 @@ const canUndo = undoStackLength > 0;
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 9.2 Cache Invalidation Rules
+### 11.2 Cache Invalidation Rules
 
 | Event | Actions |
 |-------|---------|
@@ -1004,28 +1082,33 @@ const canUndo = undoStackLength > 0;
 | **Navigation away** | React Query handles via queryKey |
 | **Logout** | Clear all stores |
 
-### 9.3 Cache TTL Constants
+### 11.3 Cache TTL Constants (v6.2.0 - Industry Standard)
 
 ```typescript
 export const CACHE_TTL = {
-  // Session-level (30 minutes)
-  SESSION: 30 * 60 * 1000,
-  ENTITY_TYPES: 30 * 60 * 1000,
-  DATALABELS: 30 * 60 * 1000,
-  GLOBAL_SETTINGS: 30 * 60 * 1000,
-  ENTITY_METADATA: 30 * 60 * 1000,
+  // TIER 2: Reference Data (1 hour) - Rarely changes
+  ENTITY_TYPES: 60 * 60 * 1000,      // 1 hour - sidebar navigation
+  DATALABELS: 60 * 60 * 1000,        // 1 hour - dropdown options
+  GLOBAL_SETTINGS: 60 * 60 * 1000,   // 1 hour - app settings
 
-  // Short-lived (5 minutes)
-  ENTITY_LIST: 5 * 60 * 1000,
-  ENTITY_DETAIL: 5 * 60 * 1000,
+  // TIER 3: Metadata (15 minutes) - May change with deployments
+  ENTITY_METADATA: 15 * 60 * 1000,   // 15 minutes - field definitions
+
+  // TIER 4: Entity Lists - Stale-While-Revalidate
+  ENTITY_LIST_STALE: 30 * 1000,      // 30 seconds - mark as stale
+  ENTITY_LIST_CACHE: 5 * 60 * 1000,  // 5 minutes - keep for navigation
+
+  // TIER 5: Entity Details - Near Real-time
+  ENTITY_DETAIL_STALE: 10 * 1000,    // 10 seconds - mark as stale
+  ENTITY_DETAIL_CACHE: 2 * 60 * 1000, // 2 minutes - keep for navigation
 };
 ```
 
 ---
 
-## 10. Debugging Guide
+## 12. Debugging Guide
 
-### 10.1 Console Log Color Coding
+### 12.1 Console Log Color Coding
 
 | Color | Category | Example |
 |-------|----------|---------|
@@ -1037,7 +1120,7 @@ export const CACHE_TTL = {
 | `#4dabf7` (Cyan) | Store Cache | `[InstanceDataStore] Storing: office:uuid` |
 | `#f783ac` (Pink) | Navigation | `[NAVIGATION] 🚀 Row clicked` |
 
-### 10.2 Render Counter Pattern
+### 12.2 Render Counter Pattern
 
 ```typescript
 let renderCount = 0;
@@ -1056,7 +1139,7 @@ function MyComponent() {
 }
 ```
 
-### 10.3 Infinite Loop Diagnosis
+### 12.3 Infinite Loop Diagnosis
 
 **Symptoms:**
 - Console logs repeating rapidly
@@ -1077,9 +1160,9 @@ function MyComponent() {
 
 ---
 
-## 11. Performance Metrics
+## 13. Performance Metrics
 
-### 11.1 Render Budget
+### 13.1 Render Budget
 
 | Page | Expected Renders | Cause |
 |------|------------------|-------|
@@ -1088,7 +1171,7 @@ function MyComponent() {
 | EntityCreatePage | 2-4 | Mount + metadata loading |
 | EntityFormContainer | 1-2 | Only on metadata/editing change |
 
-### 11.2 Performance Targets
+### 13.2 Performance Targets
 
 | Metric | Target | Implementation |
 |--------|--------|----------------|
@@ -1097,7 +1180,7 @@ function MyComponent() {
 | Edit Save | < 50ms perceived | Optimistic update |
 | Render Count | < 10 per page | Proper memoization |
 
-### 11.3 Optimization Checklist
+### 13.3 Optimization Checklist
 
 - [ ] Use `useShallow` for multi-value store subscriptions
 - [ ] Use `getState()` in callbacks/effects
@@ -1124,6 +1207,11 @@ The PMO state management architecture follows industry best practices:
 ---
 
 **Version History:**
+- v6.1.0 (2025-11-23): **Eliminated Dual Cache** - React Query is sole data cache
+  - Removed `entityInstanceDataStore` and `entityInstanceListDataStore`
+  - Updated TTL to industry standard (1h reference, 15m metadata, 30s lists, 10s details)
+  - Enabled `refetchOnWindowFocus` and `refetchOnMount` for freshness
+  - Reduced stores from 8 to 5 (metadata + UI state only)
 - v6.0.0 (2025-11-23): Complete rewrite with comprehensive CRUD flows, component interactions, industry patterns
 - v5.1.0 (2025-11-23): Added anti-patterns, page flow analysis, debugging guide
 - v5.0.0 (2025-11-22): Initial hybrid architecture documentation

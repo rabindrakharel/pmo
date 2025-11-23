@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { authApi, User } from '../lib/api';
+import { clearAllMetadataStores } from '../lib/cache/garbageCollection';
+import { clearNormalizedStore } from '../lib/cache/normalizedCache';
 
 interface AuthState {
   user: User | null;
@@ -23,6 +26,7 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
+  const queryClient = useQueryClient();
   const [state, setState] = useState<AuthState>({
     user: null,
     token: null,
@@ -58,6 +62,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error('Logout failed:', error);
     } finally {
       localStorage.removeItem('auth_token');
+
+      // Clear all caches on logout for security and memory hygiene
+      clearAllMetadataStores();           // Zustand metadata stores
+      clearNormalizedStore(queryClient);   // Normalized entity cache
+      queryClient.clear();                 // React Query cache
+
       setState({
         user: null,
         token: null,

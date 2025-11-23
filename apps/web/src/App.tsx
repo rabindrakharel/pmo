@@ -10,12 +10,18 @@ import { EntityMetadataProvider, useEntityMetadata } from './contexts/EntityMeta
 import { LoginForm } from './components/shared';
 import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPanel';
 
-// Create a client for React Query
+// Garbage Collection for metadata stores
+import { startMetadataGC, stopMetadataGC } from './lib/cache/garbageCollection';
+
+// Create a client for React Query with industry-standard caching
+// Note: Individual hooks can override these defaults for specific data types
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      refetchOnWindowFocus: false,
+      staleTime: 30 * 1000,           // 30 seconds (stale-while-revalidate)
+      gcTime: 5 * 60 * 1000,          // 5 minutes (garbage collection)
+      refetchOnWindowFocus: true,     // Industry standard for data freshness
+      retry: 1,                       // Single retry on failure
     },
   },
 });
@@ -338,6 +344,12 @@ function AppRoutes() {
 }
 
 function App() {
+  // Start garbage collection for metadata stores on mount
+  useEffect(() => {
+    startMetadataGC();
+    return () => stopMetadataGC();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

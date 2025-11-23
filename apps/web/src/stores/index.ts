@@ -1,25 +1,27 @@
 /**
  * ============================================================================
- * ZUSTAND STORES - BARREL EXPORT
+ * ZUSTAND STORES - BARREL EXPORT (v6.0.0)
  * ============================================================================
  *
- * Centralized export for all Zustand stores with their specialized purposes:
+ * ARCHITECTURE:
+ * - React Query: SOLE data cache for entity instances (lists & details)
+ * - Zustand: METADATA caching + UI state only
  *
- * Session-level caching (30 min TTL):
+ * Metadata Stores (1 hour TTL):
  * - globalSettingsMetadataStore: Currency, date, timestamp formatting
  * - datalabelMetadataStore: Dropdown options (dl__* fields)
  * - entityComponentMetadataStore: Field metadata by entityCode:componentName
  * - entityCodeMetadataStore: Entity types for sidebar navigation
  *
- * Short-lived caching (5 min TTL):
- * - entityInstanceDataStore: Single entity data for optimistic updates
- * - entityInstanceListDataStore: List data for tables/grids
+ * UI State Stores (no TTL):
+ * - useEntityEditStore: Entity edit state management (dirty fields, undo/redo)
  *
- * Other stores:
- * - useEntityEditStore: Entity edit state management
+ * REMOVED (v6.0.0 - Eliminated Dual Cache):
+ * - entityInstanceDataStore: Now using React Query only
+ * - entityInstanceListDataStore: Now using React Query only
  */
 
-// Session-level stores (30 min TTL)
+// Metadata stores (1 hour TTL)
 export { useGlobalSettingsMetadataStore } from './globalSettingsMetadataStore';
 export type { GlobalSettings } from './globalSettingsMetadataStore';
 
@@ -32,12 +34,5 @@ export type { FieldMetadata, ComponentName, ComponentMetadata } from './entityCo
 export { useEntityCodeMetadataStore } from './entityCodeMetadataStore';
 export type { EntityCodeData } from './entityCodeMetadataStore';
 
-// Short-lived stores (5 min TTL)
-export { useEntityInstanceDataStore } from './entityInstanceDataStore';
-export type { EntityInstance as SingleEntityInstance } from './entityInstanceDataStore';
-
-export { useEntityInstanceListDataStore, generateQueryHash } from './entityInstanceListDataStore';
-export type { EntityInstance as ListEntityInstance, ListData } from './entityInstanceListDataStore';
-
-// Other stores
+// UI State stores (no persistence)
 export { useEntityEditStore } from './useEntityEditStore';

@@ -55,6 +55,7 @@ interface DatalabelMetadataActions {
   getDatalabel: (name: string) => DatalabelOption[] | null;
   getAllDatalabels: () => Record<string, DatalabelOption[]> | null;
   isExpired: (name: string) => boolean;
+  getExpiredKeys: () => string[];
   invalidate: (name: string) => void;
   clear: () => void;
 }
@@ -63,7 +64,7 @@ interface DatalabelMetadataActions {
 // Constants
 // ============================================================================
 
-const CACHE_TTL = 30 * 60 * 1000; // 30 minutes (session-level)
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour (reference data)
 
 // ============================================================================
 // Store Implementation
@@ -150,6 +151,14 @@ export const useDatalabelMetadataStore = create<DatalabelMetadataState & Datalab
           const entry = datalabels[name];
           if (!entry) return true;
           return Date.now() - entry.timestamp > entry.ttl;
+        },
+
+        getExpiredKeys: () => {
+          const { datalabels } = get();
+          const now = Date.now();
+          return Object.entries(datalabels)
+            .filter(([_, entry]) => now - entry.timestamp > entry.ttl)
+            .map(([name]) => name);
         },
 
         invalidate: (name: string) => {
