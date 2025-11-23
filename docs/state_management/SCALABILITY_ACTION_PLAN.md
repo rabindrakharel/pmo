@@ -1,6 +1,6 @@
 # State Management Scalability Action Plan
 
-**Version:** 2.0.0 | **Created:** 2025-11-23 | **Target:** 100k+ Records | **Status:** ✅ PHASES 1-3 COMPLETED
+**Version:** 2.1.0 | **Created:** 2025-11-23 | **Target:** 100k+ Records | **Status:** ✅ ALL PHASES COMPLETED + CLEANUP
 
 ---
 
@@ -885,6 +885,15 @@ git checkout HEAD~1 -- apps/web/src/stores/globalSettingsMetadataStore.ts
 | 3 | `lib/cache/garbageCollection.ts` | Automatic cleanup |
 | 4 | `docs/state_management/STATE_MANAGEMENT.md` | Pattern documentation |
 
+### Post-Completion Cleanup (v6.2.2)
+
+| Action | File | Result |
+|--------|------|--------|
+| DELETE | `stores/entityStore.ts` | Removed 14KB deprecated file |
+| FIX | `lib/hooks/useEntityQuery.ts` | Fixed `API_BASE_URL` undefined bug |
+| FIX | `lib/hooks/useEntityQuery.ts` | Fixed inconsistent `token` → `auth_token` |
+| REMOVE | `lib/hooks/useEntityQuery.ts` | Removed legacy TTL aliases |
+
 ---
 
 ## Lessons Learned
@@ -907,8 +916,8 @@ The following issues were identified during the initial architecture review and 
 
 ---
 
-**Document Version:** 2.0.0
+**Document Version:** 2.1.0
 **Author:** Claude
-**Status:** ✅ COMPLETED (2025-11-23)
+**Status:** ✅ COMPLETED + CLEANUP (2025-11-23)
 
 
