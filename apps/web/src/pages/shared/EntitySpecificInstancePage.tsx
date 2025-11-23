@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Edit2, Save, X, Palette, Download, Share2, Link as LinkIcon, Undo2, Redo2, Edit, Trash2 } from 'lucide-react';
-import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityFormContainer, EntityDataTable, FilePreview, DragDropFileUpload, MetadataField, MetadataRow, MetadataSeparator } from '../../components/shared';
+import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityFormContainer, EntityDataTable, FilePreview, DragDropFileUpload, EntityMetadataField, EntityMetadataRow, EntityMetadataSeparator } from '../../components/shared';
 import { ExitButton } from '../../components/shared/button/ExitButton';
 import { ShareModal } from '../../components/shared/modal';
 import { UnifiedLinkageModal } from '../../components/shared/modal/UnifiedLinkageModal';
@@ -905,9 +905,9 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
 
             <div className="flex-1 min-w-0 px-2">
               {/* Compact metadata row using DRY components */}
-              <MetadataRow className="overflow-x-auto">
+              <EntityMetadataRow className="overflow-x-auto">
                 {/* Name */}
-                <MetadataField
+                <EntityMetadataField
                   label={`${config.displayName} name`}
                   value={isEditing ? (editedData.name || editedData.title || '') : (data.name || data.title || `${config.displayName} Details`)}
                   isEditing={isEditing}
@@ -919,11 +919,11 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                   inputWidth="16rem"
                 />
 
-                <MetadataSeparator show={!!(data.code || id)} />
+                <EntityMetadataSeparator show={!!(data.code || id)} />
 
                 {/* Code */}
                 {(data.code || isEditing) && (
-                  <MetadataField
+                  <EntityMetadataField
                     label="code"
                     value={isEditing ? (editedData.code || '') : data.code}
                     isEditing={isEditing}
@@ -936,11 +936,11 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                   />
                 )}
 
-                <MetadataSeparator show={!!(data.code && id)} />
+                <EntityMetadataSeparator show={!!(data.code && id)} />
 
                 {/* ID */}
                 {id && (
-                  <MetadataField
+                  <EntityMetadataField
                     label="id"
                     value={id}
                     isEditing={false}
@@ -951,7 +951,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                   />
                 )}
 
-                <MetadataSeparator show={!!(data.created_ts || data.updated_ts)} />
+                <EntityMetadataSeparator show={!!(data.created_ts || data.updated_ts)} />
 
                 {/* Created */}
                 {data.created_ts && (
@@ -966,7 +966,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                   </>
                 )}
 
-                <MetadataSeparator show={!!(data.created_ts && data.updated_ts)} />
+                <EntityMetadataSeparator show={!!(data.created_ts && data.updated_ts)} />
 
                 {/* Updated */}
                 {data.updated_ts && (
@@ -981,11 +981,11 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                   </>
                 )}
 
-                <MetadataSeparator show={!!(entityCode === 'artifact' && data.version && id)} />
+                <EntityMetadataSeparator show={!!(entityCode === 'artifact' && data.version && id)} />
 
                 {/* Version badge (for artifacts) */}
                 {entityCode === 'artifact' && data.version && (
-                  <MetadataField
+                  <EntityMetadataField
                     label="version"
                     value={`v${data.version}`}
                     isEditing={false}
@@ -998,7 +998,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                     }
                   />
                 )}
-              </MetadataRow>
+              </EntityMetadataRow>
             </div>
           </div>
 

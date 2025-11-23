@@ -26,7 +26,7 @@ export { LabelsDataTableWithFetching, SettingsDataTableWithFetching } from './da
 // ============================================================================
 export { DynamicChildEntityTabs, useDynamicChildEntityTabs } from './entity/DynamicChildEntityTabs';
 export { EntityFormContainer } from './entity/EntityFormContainer';
-export { MetadataField, MetadataRow, MetadataSeparator } from './ui/MetadataComponents';
+export { EntityMetadataField, EntityMetadataRow, EntityMetadataSeparator } from './ui/EntitySpecificInstanceMetadataContainer';
 
 // ============================================================================
 // FILE COMPONENTS

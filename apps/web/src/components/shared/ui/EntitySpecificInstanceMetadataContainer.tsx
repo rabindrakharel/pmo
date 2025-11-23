@@ -1,16 +1,22 @@
 /**
  * ============================================================================
- * METADATA COMPONENTS - Reusable UI components for entity metadata
+ * ENTITY SPECIFIC INSTANCE METADATA CONTAINER
  * ============================================================================
  *
- * Provides consistent, compact metadata field rendering across entity pages.
- * Includes copy-to-clipboard and inline editing support.
+ * Provides consistent, compact metadata field rendering for entity detail page headers.
+ * Includes copy-to-clipboard, inline editing support, and debounced input for performance.
+ *
+ * Components:
+ * - EntityMetadataField: Individual field with label, value, copy, and edit support
+ * - EntityMetadataRow: Flex container for grouping fields
+ * - EntityMetadataSeparator: Visual dot separator between fields
  */
 
 import React from 'react';
 import { Copy, Check } from 'lucide-react';
+import { DebouncedInput } from './DebouncedInput';
 
-interface MetadataFieldProps {
+interface EntityMetadataFieldProps {
   label: string;
   value: string;
   isEditing?: boolean;
@@ -27,15 +33,15 @@ interface MetadataFieldProps {
 }
 
 /**
- * MetadataField Component
+ * EntityMetadataField Component
  *
  * Reusable component for displaying entity metadata with:
  * - Compact inline layout
  * - Copy to clipboard functionality
- * - Inline editing support
+ * - Inline editing support with DEBOUNCED input (prevents re-renders on every keystroke)
  * - Consistent styling
  */
-export function MetadataField({
+export function EntityMetadataField({
   label,
   value,
   isEditing = false,
@@ -49,7 +55,7 @@ export function MetadataField({
   className = '',
   inputWidth = '10rem',
   badge
-}: MetadataFieldProps) {
+}: EntityMetadataFieldProps) {
   const labelClass = 'text-gray-400 font-normal text-xs flex-shrink-0';
   const valueClass = `text-gray-700 font-medium text-sm ${className}`;
 
@@ -63,13 +69,14 @@ export function MetadataField({
         // Badge rendering (for version, status, etc.)
         badge
       ) : isEditing ? (
-        // Edit mode - input field
+        // Edit mode - DEBOUNCED input for performance (prevents re-renders on every keystroke)
         <div className="flex items-center">
           {prefix && <span className="text-dark-700 text-xs mr-0.5">{prefix}</span>}
-          <input
+          <DebouncedInput
             type="text"
             value={value}
-            onChange={(e) => onChange?.(fieldKey, e.target.value)}
+            onChange={(newValue) => onChange?.(fieldKey, newValue)}
+            debounceMs={300}
             placeholder={placeholder}
             className={`${valueClass} border-0 bg-dark-100/80 focus:bg-dark-100 focus:ring-1 focus:ring-dark-700 rounded px-2 py-0.5 transition-all duration-200`}
             style={{
@@ -102,17 +109,17 @@ export function MetadataField({
   );
 }
 
-interface MetadataRowProps {
+interface EntityMetadataRowProps {
   children: React.ReactNode;
   className?: string;
 }
 
 /**
- * MetadataRow Component
+ * EntityMetadataRow Component
  *
  * Container for metadata fields with consistent, compact spacing
  */
-export function MetadataRow({ children, className = '' }: MetadataRowProps) {
+export function EntityMetadataRow({ children, className = '' }: EntityMetadataRowProps) {
   return (
     <div className={`flex items-center gap-3 flex-wrap ${className}`}>
       {children}
@@ -120,16 +127,16 @@ export function MetadataRow({ children, className = '' }: MetadataRowProps) {
   );
 }
 
-interface MetadataSeparatorProps {
+interface EntityMetadataSeparatorProps {
   show?: boolean;
 }
 
 /**
- * MetadataSeparator Component
+ * EntityMetadataSeparator Component
  *
  * Visual separator between metadata fields
  */
-export function MetadataSeparator({ show = true }: MetadataSeparatorProps) {
+export function EntityMetadataSeparator({ show = true }: EntityMetadataSeparatorProps) {
   if (!show) return null;
   return <span className="text-gray-200 flex-shrink-0 mx-2">·</span>;
 }

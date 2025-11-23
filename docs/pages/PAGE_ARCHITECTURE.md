@@ -89,8 +89,8 @@ interface EntityListOfInstancesPageProps {
 ```
 EntitySpecificInstancePage
 ├── Layout
-├── MetadataRow                    // Name, code, ID, timestamps
-│   └── MetadataField[]            // Copyable inline fields
+├── EntityMetadataRow              // Name, code, ID, timestamps
+│   └── EntityMetadataField[]      // Copyable inline fields (debounced)
 ├── DynamicChildEntityTabs         // Tab navigation
 │   └── useDynamicChildEntityTabs()// Fetch tabs from API
 ├── EntityFormContainer            // Overview tab content
