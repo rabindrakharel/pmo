@@ -191,24 +191,6 @@ export function useUnifiedRBACPermissions(
   return { permissions, loading };
 }
 
-// LEGACY: TIER 1 Hook (kept for backward compatibility) - uses unified hook internally
-export function useBatchRBACPermissions(entityCode: string, records: any[], actions: string[]) {
-  return useUnifiedRBACPermissions(entityCode, records, actions);
-}
-
-// TIER 3: Hook for action entity tabs (Case III)
-// For: Action entity tabs (/project/{id}/task, /project/{id}/wiki, etc.)
-// LEGACY: TIER 3 Hook (kept for backward compatibility) - uses unified hook internally
-export function useBatchParentActionRBACPermissions(
-  parentEntity: string,
-  parentEntityId: string,
-  actionEntity: string,
-  records: any[],
-  actions: string[]
-) {
-  return useUnifiedRBACPermissions(actionEntity, records, actions, parentEntity, parentEntityId);
-}
-
 // TIER 2: Hook for detail page inline edit (Case II)
 // For: Detail page inline edit and share permissions
 export function useRBACPermission(permission: RBACPermission) {

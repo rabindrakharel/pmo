@@ -2,25 +2,17 @@ import React, { useState, useMemo } from 'react';
 import { MoreVertical } from 'lucide-react';
 
 // ============================================================================
-// TEMPORARY: Minimal compatibility (viewConfigGenerator.ts removed)
-// TODO: Migrate to backend metadata architecture
+// v7.0.0: Legacy auto-detection helpers - prefer explicit groupByField prop
 // ============================================================================
 import { loadFieldOptions } from '../../../lib/settingsLoader';
 
-/**
- * @deprecated Inline replacement for detectField()
- */
-function detectField(fieldKey: string, dataType?: string): { loadFromDataLabels?: boolean } {
-  return {
-    loadFromDataLabels: fieldKey.startsWith('dl__')
-  };
+// Helper to detect if field loads from datalabels
+function detectFieldIsDataLabel(fieldKey: string): boolean {
+  return fieldKey.startsWith('dl__');
 }
 
-/**
- * @deprecated Temporary replacement for viewConfigGenerator.generateKanbanConfig()
- * TODO: Migrate to backend metadata architecture
- */
-function generateKanbanConfig(
+// Auto-detect groupByField from data keys (fallback when not provided)
+function detectGroupByField(
   fieldKeys: string[],
   dataTypes?: Record<string, string>
 ): { groupByField: string; loadColumnsFrom?: string } | null {
@@ -31,11 +23,9 @@ function generateKanbanConfig(
 
   if (!groupByField) return null;
 
-  const meta = detectField(groupByField, dataTypes?.[groupByField]);
-
   return {
     groupByField,
-    loadColumnsFrom: meta.loadFromDataLabels ? 'settings' : undefined
+    loadColumnsFrom: detectFieldIsDataLabel(groupByField) ? 'settings' : undefined
   };
 }
 
@@ -342,7 +332,7 @@ export function KanbanBoard({
     if (!fieldKeysString) return null;
 
     const fieldKeys = fieldKeysString.split(',');
-    return generateKanbanConfig(fieldKeys, dataTypes);
+    return detectGroupByField(fieldKeys, dataTypes);
   }, [fieldKeysString, dataTypes]);
 
   // Load settings options and generate columns (only when columns not provided)

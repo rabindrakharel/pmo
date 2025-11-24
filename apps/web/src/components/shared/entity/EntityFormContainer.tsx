@@ -17,119 +17,13 @@ import {
   type DatalabelOption
 } from '../../../lib/frontEndFormatterService';
 
-// ============================================================================
-// TEMPORARY: Inline compatibility functions (deprecated function removal)
-// TODO: Migrate to backend metadata architecture
-// ============================================================================
-
-/**
- * Generate field label from key (inline helper)
- */
-function generateFieldLabel(fieldKey: string): string {
-  return fieldKey
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase())
-    .replace(/\bId\b/g, 'ID')
-    .replace(/\bAmt\b/g, 'Amount')
-    .replace(/\bTs\b/g, 'Timestamp')
-    .replace(/\bDescr\b/g, 'Description');
-}
-
-/**
- * @deprecated Inline replacement for detectField()
- */
-function detectField(fieldKey: string, dataType?: string): {
-  fieldName: string;
-  inputType: string;
-  editable: boolean;
-  visible: boolean;
-  loadFromDataLabels?: boolean;
-  loadFromEntity?: string;
-  toApi: (value: any) => any;
-  toDisplay: (value: any) => any;
-} {
-  const readonly = /^(id|.*_id|created.*|updated.*|deleted.*|.*_at|.*_ts|version|from_ts|to_ts|active_flag)$/i.test(fieldKey);
-  let inputType = 'text';
-  let loadFromDataLabels = false;
-  let loadFromEntity: string | undefined;
-
-  if (fieldKey.includes('_amt') || fieldKey.includes('_price') || fieldKey.includes('_cost')) {
-    inputType = 'currency';
-  } else if (fieldKey.endsWith('_date')) {
-    inputType = 'date';
-  } else if (fieldKey.endsWith('_ts') || fieldKey.endsWith('_at')) {
-    inputType = 'timestamp';
-  } else if (fieldKey.startsWith('is_') || fieldKey.endsWith('_flag')) {
-    inputType = 'checkbox';
-  } else if (fieldKey.startsWith('dl__')) {
-    inputType = 'select';
-    loadFromDataLabels = true;
-  } else if (fieldKey.match(/_(employee|project|task|customer|cust)_id$/)) {
-    inputType = 'select';
-    const match = fieldKey.match(/_(employee|project|task|customer|cust)_id$/);
-    loadFromEntity = match ? (match[1] === 'customer' ? 'cust' : match[1]) : undefined;
-  }
-
-  return {
-    fieldName: generateFieldLabel(fieldKey),
-    inputType,
-    editable: !readonly,
-    visible: true,
-    loadFromDataLabels,
-    loadFromEntity,
-    toApi: (value: any) => value,
-    toDisplay: (value: any) => value
-  };
-}
-
 import { MetadataTable } from './MetadataTable';
 import { QuoteItemsRenderer } from './QuoteItemsRenderer';
 import { getBadgeClass, textStyles } from '../../../lib/designSystem';
 
 // ============================================================================
-// TEMPORARY: Minimal compatibility types (viewConfigGenerator.ts removed)
-// TODO: Migrate to backend metadata architecture
+// v7.0.0: Legacy auto-generation removed - all routes must use backend metadata
 // ============================================================================
-interface FormField {
-  key: string;
-  label: string;
-  type: string;
-  editable: boolean;
-  visible: boolean;
-  loadFromDataLabels?: boolean;
-  loadFromEntity?: string;
-  toApi: (value: any) => any;
-  toDisplay: (value: any) => any;
-}
-
-/**
- * @deprecated Temporary replacement for viewConfigGenerator.generateFormConfig()
- * TODO: Migrate to backend metadata architecture
- */
-function generateFormConfig(
-  fieldKeys: string[],
-  options?: { dataTypes?: Record<string, string>; requiredFields?: string[] }
-): { editableFields: FormField[]; requiredFields: string[] } {
-  const editableFields = fieldKeys.map(key => {
-    const meta = detectField(key, options?.dataTypes?.[key]);
-    return {
-      key,
-      label: meta.fieldName,
-      type: meta.inputType,
-      editable: meta.editable,
-      visible: meta.visible,
-      loadFromDataLabels: meta.loadFromDataLabels,
-      loadFromEntity: meta.loadFromEntity,
-      toApi: meta.toApi,
-      toDisplay: meta.toDisplay
-    };
-  }).filter(f => f.editable);
-
-  return {
-    editableFields,
-    requiredFields: options?.requiredFields || []
-  };
-}
 
 /**
  * Helper function to render badge with color based on field type and value
@@ -187,37 +81,9 @@ interface EntityFormContainerProps {
    */
   datalabels?: DatalabelData[];
 
-  // ============================================================================
-  // FALLBACK: Auto-Generation Support (LEGACY - for non-integrated routes)
-  // ============================================================================
-  /**
-   * Auto-generate form fields from data using inline pattern detection
-   * ⚠️ DEPRECATED: Use metadata prop instead
-   * Only used when metadata is not provided
-   *
-   * @example
-   * <EntityFormContainer data={project} autoGenerateFields isEditing onChange={handleChange} />
-   */
-  autoGenerateFields?: boolean;
-
-  /**
-   * Optional data types for auto-generation (for JSONB/array detection)
-   * @example
-   * dataTypes={{ metadata: 'jsonb'}}
-   */
-  dataTypes?: Record<string, string>;
-
-  /**
-   * Required fields for auto-generated forms
-   * @example
-   * requiredFields={['name', 'code']}
-   */
-  requiredFields?: string[];
 }
 
-// ✅ FIX: Stable default values to prevent new array references on every render
-// These MUST be defined outside the component to maintain referential stability
-const EMPTY_ARRAY: string[] = [];
+// Stable default values to prevent new array references on every render
 const EMPTY_DATALABELS: DatalabelData[] = [];
 
 // ✅ FIX: Wrap with React.memo to prevent re-renders when props haven't changed
@@ -228,10 +94,7 @@ function EntityFormContainerInner({
   onChange,
   mode = 'edit',
   metadata,                     // PRIORITY 1: Backend metadata
-  datalabels = EMPTY_DATALABELS,  // ✅ Stable default reference
-  autoGenerateFields = false,   // FALLBACK: inline pattern detection
-  dataTypes,
-  requiredFields = EMPTY_ARRAY  // ✅ Stable default reference
+  datalabels = EMPTY_DATALABELS  // ✅ Stable default reference
 }: EntityFormContainerProps) {
   // DEBUG: Track renders
   entityFormContainerRenderCount++;
@@ -251,22 +114,9 @@ function EntityFormContainerInner({
   );
 
   // ============================================================================
-  // NOTE: Text input debouncing is handled by DebouncedInput/DebouncedTextarea
-  // components (industry-standard React pattern). No local state needed here.
+  // METADATA-DRIVEN FIELD GENERATION
   // ============================================================================
-  // ============================================================================
-  // AUTO-GENERATION: Universal Field Detector Integration
-  // ============================================================================
-  // Convert FormField to FieldDef format for backward compatibility
-
-  // ✅ FIX: Create stable field keys - only recompute when actual keys change
-  // Using joined string comparison instead of object reference to prevent
-  // recalculation when only values change (e.g., during typing)
-  const dataKeysString = Object.keys(data || {}).sort().join(',');
-  const fieldKeys = useMemo(() => {
-    return Object.keys(data || {}).sort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataKeysString]); // Compare by key string, not by data reference
+  // v7.0.0: Backend metadata is source of truth. No auto-generation.
 
   const fields = useMemo(() => {
     // PRIORITY 1: Backend metadata (v4.0 architecture - component-aware format)
@@ -306,32 +156,9 @@ function EntityFormContainerInner({
       return config.fields;
     }
 
-    // PRIORITY 3: Auto-generate if enabled and data exists (FALLBACK)
-    if (autoGenerateFields && fieldKeys.length > 0) {
-      console.log(
-        `%c[FIELDS] ⚠️ EntityFormContainer fields AUTO-GENERATED (SLOW PATH)`,
-        'color: #ff6b6b; font-weight: bold',
-        { fieldKeysCount: fieldKeys.length }
-      );
-      const generatedConfig = generateFormConfig(fieldKeys, {
-        dataTypes,
-        requiredFields
-      });
-
-      // Convert FormField to FieldDef format
-      return generatedConfig.editableFields.map(field => ({
-        key: field.key,
-        label: field.label,
-        type: field.type as any, // FormField.type matches FieldDef.type
-        required: generatedConfig.requiredFields.includes(field.key),
-        readonly: !field.editable,
-        loadDataLabels: field.loadFromDataLabels,
-        loadOptionsFromEntity: field.loadFromEntity} as FieldDef));
-    }
-
-    // Fallback: empty fields
+    // v7.0.0: No auto-generation - all routes must provide metadata from backend
     return [];
-  }, [metadata, config, autoGenerateFields, fieldKeys, dataTypes, requiredFields]);
+  }, [metadata, config]);
 
   // Simple onChange handler - debouncing is handled by DebouncedInput/DebouncedTextarea
   // This is the industry-standard pattern: input components manage their own debouncing

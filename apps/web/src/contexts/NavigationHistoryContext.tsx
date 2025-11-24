@@ -31,7 +31,6 @@ interface NavigationHistoryContextType {
   getCurrentEntity: () => NavigationNode | undefined;
   getParentEntity: () => NavigationNode | undefined;
   updateCurrentEntityName: (name: string) => void;
-  updateParentActiveTab: (childType: string) => void;
   updateCurrentEntityActiveTab: (childType: string) => void;
 }
 
@@ -112,22 +111,6 @@ export function NavigationHistoryProvider({ children }: { children: ReactNode })
   }, []);
 
   /**
-   * Update which tab should be active when returning to parent
-   * DEPRECATED: Use updateCurrentEntityActiveTab instead
-   */
-  const updateParentActiveTab = useCallback((childType: string) => {
-    setHistory(prev => {
-      if (prev.length < 2) return prev;
-      const updated = [...prev];
-      updated[updated.length - 2] = {
-        ...updated[updated.length - 2],
-        activeChildTab: childType
-      };
-      return updated;
-    });
-  }, []);
-
-  /**
    * Update which tab should be active on the current entity
    * This is used when navigating to a child entity from a tab
    */
@@ -186,7 +169,6 @@ export function NavigationHistoryProvider({ children }: { children: ReactNode })
       getCurrentEntity,
       getParentEntity,
       updateCurrentEntityName,
-      updateParentActiveTab,
       updateCurrentEntityActiveTab
     }),
     [
@@ -198,7 +180,6 @@ export function NavigationHistoryProvider({ children }: { children: ReactNode })
       getCurrentEntity,
       getParentEntity,
       updateCurrentEntityName,
-      updateParentActiveTab,
       updateCurrentEntityActiveTab
     ]
   );
