@@ -228,6 +228,17 @@ export function useEntityInstanceList<T = any>(
         }
       }
 
+      // ✅ v6.2.0: Cache datalabels from API response (backend sends colors)
+      // Backend returns: { datalabels: { dl__project_stage: [{ name, color_code }] } }
+      if (response.datalabels && typeof response.datalabels === 'object') {
+        Object.entries(response.datalabels).forEach(([datalabelKey, options]) => {
+          if (Array.isArray(options)) {
+            useDatalabelMetadataStore.getState().setDatalabel(datalabelKey, options);
+          }
+        });
+        console.log(`%c[API FETCH] 🎨 Cached datalabels from API:`, 'color: #be4bdb', Object.keys(response.datalabels));
+      }
+
       return result;
     },
     // v6.0.0: Stale-while-revalidate pattern

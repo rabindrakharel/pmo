@@ -259,6 +259,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           data: Type.Array(ProjectSchema),
           fields: Type.Array(Type.String()),
           metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+          datalabels: Type.Optional(Type.Any()),  // Datalabel options with colors for badge rendering
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number(),

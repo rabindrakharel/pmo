@@ -1761,9 +1761,6 @@ export function generateEntityResponse(
   // Generate metadata for requested components (pass entityCode for explicit config lookup)
   const metadata = generateMetadataForComponents(fieldNames, components, entityCode);
 
-  // Note: datalabels and globalSettings removed - frontend fetches via dedicated endpoints:
-  // - GET /api/v1/settings/global
-  // - GET /api/v1/datalabel?name=<name>
   return {
     data,
     fields: fieldNames,
@@ -1773,3 +1770,4 @@ export function generateEntityResponse(
     offset
   };
 }
+

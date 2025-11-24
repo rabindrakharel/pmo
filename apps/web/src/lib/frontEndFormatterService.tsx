@@ -45,6 +45,7 @@ import React from 'react';
 import { Copy, Check } from 'lucide-react';
 import { formatters } from './config/locale';
 import { DebouncedInput, DebouncedTextarea } from '../components/shared/ui/DebouncedInput';
+import { useDatalabelMetadataStore } from '../stores/datalabelMetadataStore';
 
 // ============================================================================
 // BACKEND METADATA TYPES
@@ -230,25 +231,42 @@ const FALLBACK_COLORS: Record<string, string> = {
 };
 
 /**
- * Render datalabel badge with backend-provided color
+ * Render datalabel badge with color from datalabel options
  *
- * **IMPORTANT:** Color should come from backend metadata.
- * Backend provides color in field metadata or via datalabel API endpoint.
+ * **COLOR RESOLUTION ORDER:**
+ * 1. Look up color_code from datalabel store options (by matching value → name)
+ * 2. Use metadata.color if provided
+ * 3. Fallback to default gray
  *
- * @param value - Badge text
- * @param datalabel - Datalabel key (unused if metadata provides color)
- * @param metadata - Backend metadata containing color
+ * @param value - Badge text (matches option.name in datalabel store)
+ * @param datalabelKey - Datalabel key (e.g., 'dl__project_stage')
+ * @param metadata - Backend metadata containing optional color override
  */
 export function renderDataLabelBadge(
   value: string,
-  datalabel: string,
+  datalabelKey: string,
   metadata?: { color?: string }
 ): React.ReactElement {
-  // Use backend-provided color or fallback
-  const color = metadata?.color || FALLBACK_COLORS.default;
+  // Step 1: Try to get color from datalabel store options
+  let resolvedColor = FALLBACK_COLORS.default;
+
+  // Use imperative getState() to access store without subscription
+  const datalabelOptions = useDatalabelMetadataStore.getState().getDatalabel(datalabelKey);
+  if (datalabelOptions && datalabelOptions.length > 0) {
+    // Find matching option by name (value matches option.name)
+    const matchingOption = datalabelOptions.find(opt => opt.name === value);
+    if (matchingOption?.color_code) {
+      resolvedColor = matchingOption.color_code;
+    }
+  }
+
+  // Step 2: Override with metadata.color if explicitly provided
+  if (metadata?.color) {
+    resolvedColor = metadata.color;
+  }
 
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${resolvedColor}`}>
       {value}
     </span>
   );
@@ -453,6 +471,10 @@ export function formatValueFromMetadata(
 
 /**
  * Render field in VIEW mode using backend metadata
+ *
+ * IMPORTANT: Uses viewType from backend (not renderType)
+ * Backend sends: viewType, editType, format
+ * Frontend adapts to backend naming conventions
  */
 export function renderViewModeFromMetadata(
   value: any,
@@ -464,18 +486,53 @@ export function renderViewModeFromMetadata(
     return <span className="text-gray-400 italic">—</span>;
   }
 
-  // Render based on backend-specified renderType
-  switch (metadata.renderType) {
-    case 'currency':
-      const formatted = formatCurrency(value, metadata.format?.currency);
+  // Use backend's viewType (primary) or format (fallback) or renderType (legacy)
+  const viewType = (metadata as any).viewType || (metadata as any).format || metadata.renderType;
+
+  // Render based on backend-specified viewType
+  switch (viewType) {
+    // =========================================================================
+    // CURRENCY - Budget fields (*_amt, *_price, *_cost)
+    // =========================================================================
+    case 'currency': {
+      // Use symbol from backend metadata (defaults to $)
+      const symbol = (metadata as any).symbol || '$';
+      const decimals = (metadata as any).decimals ?? 2;
+      const numValue = typeof value === 'number' ? value : parseFloat(value);
+      if (isNaN(numValue)) return <span className="text-gray-400 italic">—</span>;
+      const formatted = `${symbol}${numValue.toLocaleString('en-CA', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
       return <span className="font-mono text-right">{formatted}</span>;
+    }
 
-    case 'date':
-      return <span>{formatFriendlyDate(value)}</span>;
-
+    // =========================================================================
+    // TIMESTAMPS - created_ts, updated_ts (*_ts fields)
+    // Backend sends: timestamp_readonly with style: "relative"
+    // =========================================================================
+    case 'timestamp_readonly':
     case 'timestamp':
       return <span className="text-sm text-gray-600">{formatRelativeTime(value)}</span>;
 
+    // =========================================================================
+    // DATES - *_date fields
+    // =========================================================================
+    case 'date_readonly':
+    case 'date':
+      return <span>{formatFriendlyDate(value)}</span>;
+
+    // =========================================================================
+    // DATALABEL - dl__* fields (e.g., dl__project_stage)
+    // Backend sends: viewType: "datalabel" with datalabelKey
+    // Renders as colored badge/chip with rounded corners
+    // =========================================================================
+    case 'datalabel':
+      if ((metadata as any).datalabelKey) {
+        return renderDataLabelBadge(value, (metadata as any).datalabelKey, { color: (metadata as any).color });
+      }
+      return renderBadge(value, (metadata as any).color);
+
+    // =========================================================================
+    // BOOLEAN - is_*, *_flag fields
+    // =========================================================================
     case 'boolean':
       return (
         <span className={value ? 'text-green-600' : 'text-gray-400'}>
@@ -483,38 +540,41 @@ export function renderViewModeFromMetadata(
         </span>
       );
 
+    // =========================================================================
+    // LEGACY CASES (kept for backward compatibility)
+    // =========================================================================
     case 'datalabels':
-      // LEGACY: Old datalabel rendering (kept for backward compatibility)
-      const badgeColor = metadata.colorMap?.[value] || metadata.color;
-      if (metadata.datalabelKey) {
-        return renderDataLabelBadge(value, metadata.datalabelKey, { color: badgeColor });
+      // LEGACY: Old datalabel rendering
+      const badgeColor = (metadata as any).colorMap?.[value] || (metadata as any).color;
+      if ((metadata as any).datalabelKey) {
+        return renderDataLabelBadge(value, (metadata as any).datalabelKey, { color: badgeColor });
       }
       return renderBadge(value, badgeColor);
 
     case 'badge':
       // Datalabel lookup fields (dl__*) with badge rendering
-      // Used by: entityDataTable, entityFormContainer, kanbanView, calendarView, gridView, hierarchyGraphView
-      if (metadata.datalabelKey) {
-        return renderDataLabelBadge(value, metadata.datalabelKey, { color: metadata.color });
+      if ((metadata as any).datalabelKey) {
+        return renderDataLabelBadge(value, (metadata as any).datalabelKey, { color: (metadata as any).color });
       }
-      // Static badge (not from datalabels)
-      return renderBadge(value, metadata.color);
+      return renderBadge(value, (metadata as any).color);
 
     case 'select':
-      // LEGACY: Old select rendering (kept for backward compatibility)
-      if (metadata.datalabelKey) {
-        return renderDataLabelBadge(value, metadata.datalabelKey, { color: metadata.color });
+      // LEGACY: Old select rendering
+      if ((metadata as any).datalabelKey) {
+        return renderDataLabelBadge(value, (metadata as any).datalabelKey, { color: (metadata as any).color });
       }
       return <span className="text-gray-700">{value}</span>;
 
     case 'dag':
       // Datalabel lookup fields (dl__*) with DAG rendering
-      // Used by: dagView, entityFormContainer (for workflow visualization)
-      if (metadata.datalabelKey) {
-        return renderDataLabelBadge(value, metadata.datalabelKey, { color: metadata.color });
+      if ((metadata as any).datalabelKey) {
+        return renderDataLabelBadge(value, (metadata as any).datalabelKey, { color: (metadata as any).color });
       }
       return renderBadge(value, 'blue');
 
+    // =========================================================================
+    // JSON & ARRAYS
+    // =========================================================================
     case 'json':
       return (
         <pre className="text-xs bg-gray-50 p-2 rounded overflow-auto max-h-40">
@@ -536,15 +596,18 @@ export function renderViewModeFromMetadata(
       }
       return <span>{String(value)}</span>;
 
+    // =========================================================================
+    // ENTITY REFERENCES
+    // =========================================================================
     case 'reference':
-      return <span className="text-blue-600">{value}</span>;
-
     case 'entityInstance_Id':
       // Entity instance ID field (e.g., office_id, manager__employee_id)
-      // For now, display the value as-is
-      // TODO: Implement entity name resolution from lookup endpoint
       return <span className="text-blue-600">{value}</span>;
 
+    // =========================================================================
+    // TEXT (default)
+    // =========================================================================
+    case 'text':
     default:
       return <span>{String(value)}</span>;
   }
