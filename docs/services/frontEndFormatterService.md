@@ -1,6 +1,6 @@
 # Frontend Formatter Service
 
-**Version:** 7.0.0 | **Location:** `apps/web/src/lib/frontEndFormatterService.tsx`
+**Version:** 8.0.0 | **Location:** `apps/web/src/lib/frontEndFormatterService.tsx`
 
 ---
 
@@ -8,9 +8,9 @@
 
 **Path:** `docs/services/frontEndFormatterService.md`
 
-Frontend formatter service documentation for backend-driven metadata rendering and format-at-fetch optimization. Used by EntityDataTable, EntityFormContainer, and all view components for rendering field values.
+Frontend formatter service documentation for backend-driven metadata rendering and format-at-read optimization. Used by EntityDataTable, EntityFormContainer, and all view components for rendering field values.
 
-**Keywords:** `frontEndFormatterService`, `renderViewModeFromMetadata`, `renderEditModeFromMetadata`, `formatDataset`, `formatRow`, `FormattedRow`, `format-at-fetch`, `valueFormatters`, `BackendFieldMetadata`, `EntityMetadata`, `datalabel badge`, `currency formatting`, `date formatting`, `DebouncedInput`, `metadata-driven`, `zero pattern detection`, `pure renderer`
+**Keywords:** `frontEndFormatterService`, `renderViewModeFromMetadata`, `renderEditModeFromMetadata`, `formatDataset`, `formatRow`, `FormattedRow`, `format-at-read`, `valueFormatters`, `BackendFieldMetadata`, `EntityMetadata`, `datalabel badge`, `currency formatting`, `date formatting`, `DebouncedInput`, `metadata-driven`, `zero pattern detection`, `pure renderer`, `React Query select`
 
 ---
 
@@ -18,7 +18,7 @@ Frontend formatter service documentation for backend-driven metadata rendering a
 
 The Frontend Formatter Service is a **pure renderer** that consumes backend metadata and renders React elements. It contains **zero pattern detection logic** - all rendering decisions come from the backend.
 
-**v7.0.0 Architecture Change:** Format-at-fetch optimization moves formatting from render time to fetch time for improved scroll performance.
+**v8.0.0 Architecture Change:** Format-at-read optimization using React Query's `select` option. Cache stores raw data; formatting happens on read via memoized select.
 
 **Core Principle:** Frontend executes backend instructions exactly. No logic, no decisions, no pattern detection.
 
@@ -28,7 +28,7 @@ The Frontend Formatter Service is a **pure renderer** that consumes backend meta
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                    v7.0.0 FORMAT-AT-FETCH ARCHITECTURE                   │
+│                    v8.0.0 FORMAT-AT-READ ARCHITECTURE                   │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
@@ -36,17 +36,26 @@ The Frontend Formatter Service is a **pure renderer** that consumes backend meta
 │  │  { data: [...], metadata: { entityDataTable: {...} } }          │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                              │                                          │
-│                              ▼ ONCE at fetch time                       │
+│                              ▼ Cached as RAW data                       │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │            React Query Cache                                      │   │
+│  │  queryKey: ['entity-list', entityCode, params]                   │   │
+│  │  data: RAW response (not formatted)                              │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                              │                                          │
+│                              ▼ On READ via `select` option              │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
 │  │            lib/formatters/datasetFormatter.ts                     │   │
 │  │  formatDataset(data, metadata) → FormattedRow[]                  │   │
 │  │  ├── formatRow() per row                                          │   │
 │  │  └── formatValue() per field (using valueFormatters)              │   │
+│  │                                                                   │   │
+│  │  React Query memoizes this - only runs when cache changes         │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                              │                                          │
 │                              ▼                                          │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │            FormattedRow Structure (Cached)                        │   │
+│  │            FormattedRow Structure (Returned to Component)         │   │
 │  │  {                                                                │   │
 │  │    raw: { budget: 50000 },         // Original for mutations     │   │
 │  │    display: { budget: '$50,000' },  // Pre-formatted strings     │   │
@@ -69,32 +78,44 @@ The Frontend Formatter Service is a **pure renderer** that consumes backend meta
 ## Data Flow Diagram
 
 ```
-v7.0.0 FORMAT-AT-FETCH FLOW:
-─────────────────────────────
+v8.0.0 FORMAT-AT-READ FLOW:
+───────────────────────────
 
-API Response                 Hook (once)                    Component (fast)
-─────────────────            ────────────                   ─────────────────
+API Response         React Query Cache        Hook select             Component
+─────────────        ─────────────────        ───────────             ─────────
 
-{ data, metadata }  ───>   useEntityInstanceList()
-                              │
-                              ├── formatDataset(data, metadata)  ← ONE-TIME
-                              │   └── Returns FormattedRow[]
-                              │
-                              └── Returns { data, formattedData, metadata }
-                                                    │
-                                                    ▼
-                           EntityDataTable receives formattedData
-                              │
-                              └── Cell: row.display[key]  ← ZERO function calls
+{ data,         →    Stores RAW data    →    useFormattedEntityList()
+  metadata }         (canonical)               │
+                                               ├── select: formatDataset()  ← ON READ
+                                               │   └── React Query memoizes this
+                                               │
+                                               └── Returns FormattedRow[]
+                                                              │
+                                                              ▼
+                                         EntityDataTable receives formattedData
+                                              │
+                                              └── Cell: row.display[key]  ← ZERO calls
 
 
-LEGACY FLOW (deprecated):
-─────────────────────────
+v7.0.0 FORMAT-AT-FETCH (deprecated):
+────────────────────────────────────
+
+API Response              Hook (at fetch)           Component
+─────────────             ────────────              ─────────
+
+{ data, metadata }  →   formatDataset()       →   formattedData
+                        in queryFn                 (already formatted)
+                        │
+                        └── Cached formatted data (larger cache, stale colors)
+
+
+v6.x LEGACY FLOW (deprecated):
+──────────────────────────────
 
 API Response              Component (slow)
 ─────────────             ────────────────
 
-{ data, metadata }  ───>  EntityDataTable
+{ data, metadata }  →     EntityDataTable
                             │
                             └── Per cell: renderViewModeFromMetadata(value, meta)
                                           └── 1,000+ function calls per render!
@@ -104,17 +125,26 @@ API Response              Component (slow)
 
 ## Architecture Overview
 
-### Primary API (v7.0.0 Format-at-Fetch)
+### Primary API (v8.0.0 Format-at-Read)
 
 **Location:** `apps/web/src/lib/formatters/`
 
 | Module | Purpose | File |
 |--------|---------|------|
-| `formatDataset()` | Format entire dataset once | `datasetFormatter.ts` |
+| `formatDataset()` | Format entire dataset (via select) | `datasetFormatter.ts` |
 | `formatRow()` | Format single row | `datasetFormatter.ts` |
 | `formatValue()` | Format single value | `datasetFormatter.ts` |
 | `valueFormatters` | Type-specific formatters | `valueFormatters.ts` |
 | `FormattedRow` | Result type definition | `types.ts` |
+
+### Hooks (v8.0.0)
+
+**Location:** `apps/web/src/lib/hooks/useEntityQuery.ts`
+
+| Hook | Purpose |
+|------|---------|
+| `useEntityInstanceList()` | Returns RAW data (for components that need raw) |
+| `useFormattedEntityList()` | Returns formatted data via select (recommended) |
 
 ### Legacy API (Deprecated)
 
@@ -157,20 +187,26 @@ API Response              Component (slow)
 
 ## Tooling Overview
 
-### v7.0.0 Usage (Recommended)
+### v8.0.0 Usage (Recommended)
 
 ```typescript
-// In useEntityInstanceList hook (automatic):
-import { formatDataset } from '@/lib/formatters';
+// In useFormattedEntityList hook (automatic):
+// lib/hooks/useEntityQuery.ts
 
-const queryFn = async () => {
-  const response = await api.get(`/api/v1/${entityCode}`);
-  const formattedData = formatDataset(response.data, response.metadata?.entityDataTable);
-  return { ...response, formattedData };
-};
+export function useFormattedEntityList(entityCode: string, params: Params) {
+  return useQuery({
+    queryKey: ['entity-list', entityCode, params],
+    queryFn: () => api.get(`/api/v1/${entityCode}`, { params }),
+    // select transforms raw → formatted ON READ (memoized by React Query)
+    select: (response) => ({
+      ...response,
+      data: formatDataset(response.data, response.metadata?.entityDataTable)
+    })
+  });
+}
 
 // In component (optimized rendering):
-const { formattedData, metadata } = useEntityInstanceList(entityCode, params);
+const { data: formattedData, metadata } = useFormattedEntityList(entityCode, params);
 
 {formattedData.map(row => (
   <tr key={row.raw.id}>
@@ -203,15 +239,13 @@ import { renderEditModeFromMetadata } from '@/lib/frontEndFormatterService';
 ### Type Guard Usage
 
 ```typescript
-import { hasBackendMetadata } from '@/lib/frontEndFormatterService';
+import { isFormattedData } from '@/lib/formatters';
 
-const response = await api.get('/api/v1/project');
-
-if (hasBackendMetadata(response.data)) {
-  // Use metadata-driven rendering
-  const columns = response.data.metadata.fields;
+// Check if data is already formatted (has FormattedRow structure)
+if (isFormattedData(data)) {
+  // Use row.display[key] for rendering
 } else {
-  // Fallback (should not occur in production)
+  // Use raw values (shouldn't happen with useFormattedEntityList)
 }
 ```
 
@@ -248,34 +282,38 @@ const row: FormattedRow = {
 
 ---
 
-## Performance Comparison
+## Format-at-Read vs Format-at-Fetch
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  BEFORE (v6.x): Per-cell formatting during render                       │
+│  FORMAT-AT-FETCH (v7.0.0) - DEPRECATED                                   │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  100 rows × 10 columns = 1,000 formatValue() calls PER RENDER           │
-│  Each scroll/re-render triggers 1,000+ function calls                   │
-│  Datalabel color lookups: 1,000 store.getState() calls per render       │
+│  formatDataset() called in queryFn at fetch time                         │
+│  Cache stores: { data: FormattedRow[], metadata }                        │
 │                                                                         │
-│  Result: Laggy scrolling, frame drops, poor UX                          │
+│  Problems:                                                               │
+│  • Cache stores formatted strings (larger)                               │
+│  • Datalabel color changes require cache invalidation                    │
+│  • Multiple views need separate caches                                   │
 └─────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  AFTER (v7.0.0): Pre-formatted at fetch time                            │
+│  FORMAT-AT-READ (v8.0.0) - CURRENT                                       │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  formatDataset() called ONCE when data arrives                          │
-│  Cell rendering = simple property access: row.display[key]              │
-│  Scrolling triggers ZERO formatting function calls                      │
-│  Datalabel colors: Resolved once at format time, cached in styles       │
+│  formatDataset() called in select option ON READ                         │
+│  Cache stores: RAW response only                                         │
 │                                                                         │
-│  Result: Smooth 60fps scrolling, instant renders                        │
+│  Benefits:                                                               │
+│  • Smaller cache (raw data only)                                        │
+│  • Datalabel colors always fresh (reformatted on read)                   │
+│  • Same cache, different formats (table vs kanban vs grid)              │
+│  • React Query memoizes select - zero unnecessary re-formats            │
 └─────────────────────────────────────────────────────────────────────────┘
 
 BENCHMARKS (100 rows × 10 columns):
-  v6.x render time: ~45ms per scroll frame
-  v7.0.0 render time: ~3ms per scroll frame
-  Format time (once): ~1-2ms
+  v6.x render time: ~45ms per scroll frame (1,000 formatValue calls)
+  v7.0.0/v8.0.0 render time: ~3ms per scroll frame (property access)
+  Format time (once per cache): ~1-2ms
 ```
 
 ---
@@ -284,7 +322,7 @@ BENCHMARKS (100 rows × 10 columns):
 
 ### Metadata to Component Mapping
 
-| Backend Metadata | View (v7.0.0) | Edit Component |
+| Backend Metadata | View (v8.0.0) | Edit Component |
 |------------------|---------------|----------------|
 | `viewType: 'currency'` | `row.display[key]` | `<DebouncedInput type="number">` |
 | `viewType: 'datalabel'` | `<span className={row.styles[key]}>` | `<DataLabelSelect>` |
@@ -295,9 +333,9 @@ BENCHMARKS (100 rows × 10 columns):
 
 ### Component Integration Points
 
-| Component | Uses format-at-fetch | Uses renderEditMode |
+| Component | Uses format-at-read | Uses renderEditMode |
 |-----------|---------------------|---------------------|
-| EntityDataTable | Yes (formattedData) | Yes (inline edit) |
+| EntityDataTable | Yes (via useFormattedEntityList) | Yes (inline edit) |
 | EntityFormContainer | No (form layout) | Yes (form fields) |
 | KanbanView | Yes (card content) | No |
 | CalendarView | Yes (event display) | No |
@@ -305,37 +343,41 @@ BENCHMARKS (100 rows × 10 columns):
 
 ---
 
-## Migration Guide (v6.x → v7.0.0)
+## Migration Guide (v7.0.0 → v8.0.0)
 
-### Step 1: Update Data Fetching
+### No Code Changes Required
 
-```typescript
-// BEFORE (v6.x): Raw data passed to component
-const { data, metadata } = useEntityInstanceList(entityCode, params);
-return <EntityDataTable data={data} metadata={metadata} />;
+The v8.0.0 format-at-read pattern is implemented in `useFormattedEntityList`. If you're using this hook, you're already using the new pattern.
 
-// AFTER (v7.0.0): Use formattedData
-const { data, formattedData, metadata } = useEntityInstanceList(entityCode, params);
-return <EntityDataTable data={formattedData} metadata={metadata} />;
-```
-
-### Step 2: Update Cell Rendering
+### Understanding the Change
 
 ```typescript
-// BEFORE (v6.x): Per-cell formatting
-const cell = renderViewModeFromMetadata(value, fieldMeta, record);
+// v7.0.0: formatDataset in queryFn (format-at-fetch)
+useQuery({
+  queryKey: [...],
+  queryFn: async () => {
+    const response = await api.get(...);
+    const formattedData = formatDataset(response.data, response.metadata);
+    return { ...response, formattedData };  // ← Formatted data cached
+  }
+});
 
-// AFTER (v7.0.0): Property access
-const cell = row.display[key];
-const badgeStyle = row.styles[key]; // For badges only
+// v8.0.0: formatDataset in select (format-at-read)
+useQuery({
+  queryKey: [...],
+  queryFn: () => api.get(...),  // ← RAW data cached
+  select: (response) => ({
+    ...response,
+    data: formatDataset(response.data, response.metadata)  // ← Format on read
+  })
+});
 ```
 
-### Step 3: Keep Edit Mode Unchanged
+### Benefits You Get Automatically
 
-```typescript
-// Edit mode still uses renderEditModeFromMetadata
-// No changes needed for edit functionality
-```
+1. **Smaller cache** - Only raw data stored
+2. **Fresh colors** - Datalabel updates reflect immediately
+3. **Memoized** - React Query only re-runs select when data changes
 
 ---
 
@@ -346,7 +388,7 @@ const badgeStyle = row.styles[key]; // For badges only
 1. **Pure Renderer** - No business logic, no pattern detection
 2. **Metadata-Driven** - All decisions from backend metadata
 3. **Type-Safe** - Full TypeScript support
-4. **Format Once** - Data formatted at fetch time, not render time
+4. **Format on Read** - Data formatted via select, cached raw
 5. **Stateless** - No internal state management in formatters
 
 ### What This Service Does NOT Do
@@ -388,8 +430,10 @@ apps/web/src/lib/
 │   ├── types.ts                    # Type definitions (FormattedRow, etc.)
 │   ├── datasetFormatter.ts         # formatDataset(), formatRow()
 │   └── valueFormatters.ts          # Type-specific formatters
+├── hooks/
+│   └── useEntityQuery.ts           # useFormattedEntityList (format-at-read)
 ```
 
 ---
 
-**Last Updated:** 2025-11-24 | **Version:** 7.0.0 | **Status:** Production Ready
+**Last Updated:** 2025-11-23 | **Version:** 8.0.0 | **Status:** Production Ready

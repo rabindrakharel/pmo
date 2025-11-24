@@ -1,6 +1,6 @@
 # State Management Architecture
 
-**Version:** 6.2.2 | **Location:** `apps/web/src/stores/` | **Last Updated:** 2025-11-23
+**Version:** 8.0.0 | **Location:** `apps/web/src/stores/` | **Last Updated:** 2025-11-23
 
 ---
 
@@ -32,15 +32,16 @@ The PMO platform uses a **hybrid state management architecture** combining:
 | **Zustand** | Metadata caching + UI state | 5 specialized stores |
 | **React Context** | Auth & global providers | Cross-cutting concerns |
 
-### Design Principles (v6.2.2)
+### Design Principles (v8.0.0)
 
-1. **Single Source of Truth**: React Query is sole data cache (no dual caching)
-2. **Separation of Concerns**: Server data (React Query) vs. metadata/UI state (Zustand)
-3. **Stale-While-Revalidate**: Show cached data immediately, refetch in background
-4. **Tiered TTL Caching**: Reference data (1h) > Metadata (15m) > Lists (30s) > Details (10s)
-5. **Optimistic Updates**: Immediate UI feedback with rollback on failure
-6. **Data Normalization**: Store entities once, reference by ID across queries
-7. **Automatic Garbage Collection**: Periodic cleanup of expired metadata (5 min intervals)
+1. **Single Source of Truth**: React Query caches RAW data only (no formatted strings)
+2. **Format-at-Read**: Formatting via React Query's `select` option (memoized)
+3. **Separation of Concerns**: Server data (React Query) vs. metadata/UI state (Zustand)
+4. **Stale-While-Revalidate**: Show cached data immediately, refetch in background
+5. **Tiered TTL Caching**: Reference data (1h) > Metadata (15m) > Lists (30s) > Details (10s)
+6. **Optimistic Updates**: Immediate UI feedback with rollback on failure
+7. **Data Normalization**: Store entities once, reference by ID across queries
+8. **Automatic Garbage Collection**: Periodic cleanup of expired metadata (5 min intervals)
 
 ---
 
@@ -48,22 +49,24 @@ The PMO platform uses a **hybrid state management architecture** combining:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                    STATE MANAGEMENT ARCHITECTURE (v6.2.2)                            │
+│                    STATE MANAGEMENT ARCHITECTURE (v8.0.0)                            │
 ├─────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                      │
 │  ┌─────────────────────────────────────────────────────────────────────────────┐    │
-│  │                    REACT QUERY (SOLE DATA CACHE)                             │    │
+│  │                    REACT QUERY (SOLE DATA CACHE - RAW ONLY)                  │    │
 │  │                                                                              │    │
 │  │  Entity Data (Stale-While-Revalidate):                                       │    │
-│  │  • useEntityInstanceList() - Lists (30s stale, 5m cache)                     │    │
+│  │  • useEntityInstanceList() - RAW lists (30s stale, 5m cache)                 │    │
+│  │  • useFormattedEntityList() - Uses `select` for format-at-read              │    │
 │  │  • useEntityInstance() - Details (10s stale, 2m cache)                       │    │
 │  │  • useEntityMutation() - CRUD with optimistic updates + rollback             │    │
 │  │                                                                              │    │
 │  │  ┌─────────────────────────────────────────────────────────────────────┐     │    │
-│  │  │  NORMALIZED CACHE (lib/cache/normalizedCache.ts)                    │     │    │
-│  │  │  • Entities stored by type → ID (e.g., project: { uuid: {...} })    │     │    │
-│  │  │  • Updates reflected across ALL queries referencing entity          │     │    │
-│  │  │  • Optimistic updates with automatic rollback                       │     │    │
+│  │  │  FORMAT-AT-READ PATTERN (v8.0.0)                                    │     │    │
+│  │  │  • Cache stores RAW data only (smaller, canonical)                   │     │    │
+│  │  │  • `select` option transforms raw → FormattedRow on read             │     │    │
+│  │  │  • React Query memoizes select (zero unnecessary re-formats)         │     │    │
+│  │  │  • Same cache serves table, kanban, grid views                       │     │    │
 │  │  └─────────────────────────────────────────────────────────────────────┘     │    │
 │  └─────────────────────────────────────────────────────────────────────────────┘    │
 │                                                                                      │
@@ -403,22 +406,24 @@ const logout = async () => {
 
 ## 6. Page-by-Page State Flow
 
-### 6.1 EntityListOfInstancesPage
+### 6.1 EntityListOfInstancesPage (v8.0.0 Format-at-Read)
 
 **File:** `pages/shared/EntityListOfInstancesPage.tsx`
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    EntityListOfInstancesPage State Flow                      │
+│                    (Format-at-Read via React Query select)                  │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  [Mount] ──────────────────────────────────────────────────────────────────│
 │     │                                                                        │
-│     ├── 1. useEntityInstanceList(entityCode, params)                         │
+│     ├── 1. useFormattedEntityList(entityCode, params)                        │
 │     │      ├── React Query checks cache → MISS → API fetch                   │
-│     │      ├── API Response: { data, metadata, total }                       │
-│     │      ├── Store data → entityInstanceListDataStore (5 min TTL)          │
-│     │      └── Store metadata → entityComponentMetadataStore (30 min TTL)    │
+│     │      ├── API Response: { data, metadata, total } → cached RAW          │
+│     │      ├── `select` transforms raw → FormattedRow[] ON READ              │
+│     │      │    └── formatDataset(data, metadata) in select callback         │
+│     │      └── Returns: FormattedRow[] with display/styles                   │
 │     │                                                                        │
 │     ├── 2. useEntityMutation(entityCode)                                     │
 │     │      └── Provides: updateEntity, deleteEntity, createEntity            │
@@ -428,6 +433,11 @@ const logout = async () => {
 │            ├── editingRow (inline edit tracking)                             │
 │            ├── editedData (inline edit values)                               │
 │            └── localData (optimistic list updates)                           │
+│                                                                              │
+│  [Table Rendering] ────────────────────────────────────────────────────────│
+│     │                                                                        │
+│     ├── IF editing: Use row.raw for edit inputs                              │
+│     └── ELSE: Use row.display[key] for view (zero function calls)            │
 │                                                                              │
 │  [User Clicks Row] ────────────────────────────────────────────────────────│
 │     │                                                                        │
@@ -1207,6 +1217,13 @@ The PMO state management architecture follows industry best practices:
 ---
 
 **Version History:**
+- v8.0.0 (2025-11-23): **Format-at-Read Pattern**
+  - Changed from format-at-fetch to format-at-read using React Query's `select` option
+  - Cache stores RAW data only (smaller, canonical)
+  - Added `useFormattedEntityList()` hook for formatted data
+  - `select` transforms raw → FormattedRow on read (memoized by React Query)
+  - Same cache serves multiple view components (table, kanban, grid)
+  - Datalabel colors always fresh (reformatted on read, not cached)
 - v6.2.2 (2025-11-23): **Code Cleanup**
   - Deleted deprecated `entityStore.ts` (14KB, not used)
   - Fixed `API_BASE_URL` undefined bug in `useDatalabelMutation` and `useEntityLookup`

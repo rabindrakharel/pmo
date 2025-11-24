@@ -1,6 +1,6 @@
 # AI-FIRST PROCESS OPERATING SYSTEM
 
-**Version:** 7.0.0 | **Last Updated:** 2025-11-24
+**Version:** 8.0.0 | **Last Updated:** 2025-11-23
 
 ---
 
@@ -40,12 +40,12 @@
 | 2 | entity-infrastructure.service.md | `docs/services/` | Entity infrastructure service API |
 | 3 | STATE_MANAGEMENT.md | `docs/state_management/` | Zustand + React Query architecture |
 | 4 | PAGE_ARCHITECTURE.md | `docs/pages/` | Page components and routing |
-| 5 | frontEndFormatterService.md | `docs/services/` | Frontend formatter + format-at-fetch |
+| 5 | frontEndFormatterService.md | `docs/services/` | Frontend formatter + format-at-read |
 | 6 | backend-formatter.service.md | `docs/services/` | Backend metadata generation |
 
 ---
 
-## Data Flow Architecture (v7.0.0)
+## Data Flow Architecture (v8.0.0 - Format at Read)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -65,9 +65,9 @@
 │  │  API Response Structure                                            │     │
 │  ├────────────────────────────────────────────────────────────────────┤     │
 │  │  {                                                                 │     │
-│  │    data: [...],                                                    │     │
+│  │    data: [...],              // RAW data (cached as-is)            │     │
 │  │    fields: ['id', 'name', 'budget_allocated_amt'],                 │     │
-│  │    metadata: {                                                     │     │
+│  │    metadata: {               // Rendering instructions             │     │
 │  │      entityDataTable: {                                            │     │
 │  │        budget_allocated_amt: {                                     │     │
 │  │          viewType: 'currency',                                     │     │
@@ -82,23 +82,23 @@
                                     │
                                     ▼ HTTP Response
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                   FRONTEND (apps/web) - v7.0.0 FORMAT-AT-FETCH              │
+│                   FRONTEND (apps/web) - v8.0.0 FORMAT-AT-READ               │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  useEntityQuery.ts                                                          │
-│  └── useEntityInstanceList('project', { view: 'entityDataTable' })          │
+│  └── useFormattedEntityList('project', { view: 'entityDataTable' })         │
 │       │                                                                     │
-│       ├── React Query fetches API                                           │
+│       ├── React Query fetches API → caches RAW data                         │
 │       │                                                                     │
-│       ├── ✨ formatDataset() called ONCE at fetch time                      │
+│       ├── ✨ `select` option transforms raw → formatted ON READ             │
 │       │    └── lib/formatters/datasetFormatter.ts                           │
-│       │         ├── Formats ALL rows in single pass                         │
+│       │         ├── formatDataset(data, metadata) called by select          │
 │       │         └── Returns: FormattedRow[] with display/styles             │
 │       │                                                                     │
-│       └── Returns: { data, formattedData, metadata, total }                 │
+│       └── Returns: { data: FormattedRow[], formattedData, metadata }        │
 │                                                                             │
 │  EntityListOfInstancesPage.tsx                                              │
-│  └── const { data, formattedData, metadata } = queryResult;                 │
+│  └── const { data: formattedData, metadata } = queryResult;                 │
 │       │                                                                     │
 │       └── <EntityDataTable data={formattedData} metadata={metadata} />      │
 │                                                                             │
@@ -109,8 +109,8 @@
 │  │    └── row.display[key], row.styles[key]                           │     │
 │  │        (Zero function calls per cell!)                             │     │
 │  │                                                                    │     │
-│  │  ELSE (fallback):                                                  │     │
-│  │    └── renderViewModeFromMetadata(value, fieldMeta)                │     │
+│  │  ELSE (fallback for raw data):                                     │     │
+│  │    └── Simple String(value) display                                │     │
 │  └────────────────────────────────────────────────────────────────────┘     │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -118,32 +118,38 @@
 
 ---
 
-## Format-at-Fetch Performance
+## Format-at-Read vs Format-at-Fetch
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    PERFORMANCE COMPARISON                                   │
+│                    ARCHITECTURE EVOLUTION                                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  BEFORE (v6.x): Per-cell formatting during render                           │
+│  v6.x: Per-cell formatting during render                                    │
 │  ─────────────────────────────────────────────────────────────────────────  │
-│  • 100 rows × 10 columns = 1,000 formatValue() calls PER RENDER             │
-│  • Each scroll/re-render triggers 1,000+ function calls                     │
+│  • formatValue() called per cell during render                              │
+│  • 100 rows × 10 columns = 1,000 function calls PER RENDER                  │
 │  • Result: Laggy scrolling, frame drops                                     │
 │                                                                             │
-│  AFTER (v7.0.0): Pre-formatted at fetch time                                │
+│  v7.0.0: Format-at-Fetch (deprecated)                                       │
 │  ─────────────────────────────────────────────────────────────────────────  │
-│  • formatDataset() called ONCE when data arrives                            │
-│  • Cell rendering = simple property access: row.display[key]                │
-│  • Scrolling triggers ZERO formatting function calls                        │
-│  • Result: Smooth 60fps scrolling                                           │
+│  • formatDataset() in queryFn (at fetch time)                               │
+│  • Formatted data cached alongside raw data                                 │
+│  • Problem: Cache stores formatted strings (larger, less flexible)          │
+│                                                                             │
+│  v8.0.0: Format-at-Read (current)                                           │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  • Cache stores RAW data only (smaller, canonical)                          │
+│  • `select` option transforms raw → formatted on each read                  │
+│  • React Query memoizes select - only re-formats when raw data changes      │
 │                                                                             │
 │  ┌───────────────────────────────────────────────────────────────────┐      │
-│  │  BENCHMARKS (100 rows × 10 columns)                               │      │
+│  │  v8.0.0 BENEFITS                                                  │      │
 │  │  ─────────────────────────────────────────────────────────────    │      │
-│  │  v6.x render time:    ~45ms per scroll frame                      │      │
-│  │  v7.0.0 render time:  ~3ms per scroll frame                       │      │
-│  │  Format time (once):  ~1-2ms                                      │      │
+│  │  • Smaller cache (raw data only, not formatted strings)           │      │
+│  │  • Always fresh formatting (datalabel colors updated instantly)   │      │
+│  │  • Same cache, different formats (table vs kanban vs grid)        │      │
+│  │  • Memoized by React Query (zero unnecessary re-formats)          │      │
 │  └───────────────────────────────────────────────────────────────────┘      │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -280,23 +286,23 @@
 
 ## Page State Flows
 
-### EntityListOfInstancesPage (v7.0.0)
+### EntityListOfInstancesPage (v8.0.0)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    EntityListOfInstancesPage State Flow                     │
-│                    (Format-at-Fetch Optimization)                           │
+│                    (Format-at-Read via React Query select)                  │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  [Mount]                                                                    │
 │  ─────────────────────────────────────────────────────────────────────────  │
 │  │                                                                          │
-│  ├─► useEntityInstanceList(entityCode, params)                              │
+│  ├─► useFormattedEntityList(entityCode, params)                             │
 │  │   ├── React Query: cache check → MISS → API fetch                        │
-│  │   ├── API Response: { data, metadata, total }                            │
-│  │   ├── ✨ formatDataset(data, metadata) → formattedData                   │
-│  │   ├── Store → entityInstanceListDataStore (5 min TTL)                    │
-│  │   └── Store → entityComponentMetadataStore (30 min TTL)                  │
+│  │   ├── API Response: { data, metadata, total } → cached RAW               │
+│  │   ├── ✨ `select` transforms raw → formatted ON READ                     │
+│  │   │    └── formatDataset(data, metadata) in select callback              │
+│  │   └── Returns: FormattedRow[] with display/styles                        │
 │  │                                                                          │
 │  ├─► useEntityMutation(entityCode)                                          │
 │  │   └── Provides: updateEntity, deleteEntity, createEntity                 │
@@ -309,10 +315,9 @@
 │  [Table Rendering]                                                          │
 │  ─────────────────────────────────────────────────────────────────────────  │
 │  │                                                                          │
-│  ├─► IF editing: Pass raw data to EntityDataTable                           │
+│  ├─► IF editing: Use row.raw for edit inputs                                │
 │  │                                                                          │
-│  └─► ELSE: Pass formattedData (optimal performance)                         │
-│            └── Cell rendering: row.display[key] directly                    │
+│  └─► ELSE: Use row.display[key] for view (zero function calls)              │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```

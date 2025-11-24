@@ -8,9 +8,9 @@
 - **Database**: PostgreSQL 14+ with 50 tables (46 DDL files)
 - **Backend**: Fastify v5, TypeScript ESM, JWT, 45 API modules
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4
-- **State Management**: Zustand stores + TanStack Query
+- **State Management**: Zustand stores + TanStack Query (format-at-read pattern)
 - **Infrastructure**: AWS EC2/S3/Lambda, Terraform, Docker
-- **Version**: 5.0.0 (Transactional CRUD Pattern)
+- **Version**: 8.0.0 (Format-at-Read Pattern)
 
 ## Critical Operations
 
@@ -402,13 +402,13 @@ fastify.get('/api/v1/project', async (request, reply) => {
 
 ---
 
-## 5. State Management (Frontend)
+## 5. State Management (Frontend) - v8.0.0 Format-at-Read
 
 ### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    State Architecture                        │
+│                State Architecture (v8.0.0)                   │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  ┌─────────────────┐     ┌─────────────────┐               │
@@ -416,67 +416,65 @@ fastify.get('/api/v1/project', async (request, reply) => {
 │  │  (Client State) │     │  (Server State) │               │
 │  └────────┬────────┘     └────────┬────────┘               │
 │           │                       │                          │
-│  • UI State (modals, tabs)       • Entity data cache         │
-│  • Form state                    • Automatic refetch         │
+│  • UI State (modals, tabs)       • RAW data cache only      │
+│  • Form state                    • Format via `select`       │
 │  • Selection state               • Optimistic updates        │
-│  • Filters/pagination            • Background sync           │
+│  • Filters/pagination            • Memoized transforms       │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
+
+FORMAT-AT-READ PATTERN:
+─────────────────────────
+API → Cache RAW → select: formatDataset() → FormattedRow[]
+                   │
+                   └── React Query memoizes (zero re-formats)
 ```
 
-### Zustand Stores
+### Key Hooks
 
 ```typescript
-// apps/web/src/stores/
+// apps/web/src/lib/hooks/useEntityQuery.ts
 
-// Entity selection store
-const useEntityStore = create<EntityStore>((set) => ({
-  selectedEntity: null,
-  setSelectedEntity: (entity) => set({ selectedEntity: entity }),
-  filters: {},
-  setFilters: (filters) => set({ filters }),
-}));
+// RAW data (for components that need raw)
+const { data } = useEntityInstanceList(entityCode, params);
 
-// UI state store
-const useUIStore = create<UIStore>((set) => ({
-  sidebarOpen: true,
-  activeModal: null,
-  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-  openModal: (modal) => set({ activeModal: modal }),
-  closeModal: () => set({ activeModal: null }),
-}));
+// FORMATTED data via select (recommended)
+const { data: formattedData } = useFormattedEntityList(entityCode, params);
+// Returns: FormattedRow[] with display/styles
 ```
 
-### TanStack Query Patterns
+### Format-at-Read Implementation
 
 ```typescript
-// Entity list query
-const { data, isLoading, refetch } = useQuery({
-  queryKey: ['entities', entityCode, filters],
-  queryFn: () => api.get(`/api/v1/${entityCode}`, { params: filters }),
-  staleTime: 30000,  // 30s cache
-});
+// useFormattedEntityList - uses select for format-at-read
+export function useFormattedEntityList(entityCode: string, params: Params) {
+  return useQuery({
+    queryKey: ['entity-list', entityCode, params],
+    queryFn: () => api.get(`/api/v1/${entityCode}`, { params }),
+    // select transforms raw → formatted ON READ (memoized)
+    select: (response) => ({
+      ...response,
+      data: formatDataset(response.data, response.metadata?.entityDataTable)
+    })
+  });
+}
 
-// Entity mutation with optimistic update
-const mutation = useMutation({
-  mutationFn: (data) => api.patch(`/api/v1/${entityCode}/${id}`, data),
-  onMutate: async (newData) => {
-    await queryClient.cancelQueries(['entities', entityCode]);
-    const previous = queryClient.getQueryData(['entities', entityCode]);
-    queryClient.setQueryData(['entities', entityCode], (old) => ({
-      ...old,
-      data: old.data.map(e => e.id === id ? { ...e, ...newData } : e)
-    }));
-    return { previous };
-  },
-  onError: (err, newData, context) => {
-    queryClient.setQueryData(['entities', entityCode], context.previous);
-  },
-  onSettled: () => {
-    queryClient.invalidateQueries(['entities', entityCode]);
-  },
-});
+// FormattedRow structure
+interface FormattedRow<T> {
+  raw: T;                           // Original values (for editing)
+  display: Record<string, string>;  // Pre-formatted strings
+  styles: Record<string, string>;   // CSS classes (badges)
+}
 ```
+
+### Benefits vs Format-at-Fetch
+
+| Aspect | Format-at-Fetch (v7) | Format-at-Read (v8) |
+|--------|---------------------|---------------------|
+| Cache size | Larger (formatted strings) | Smaller (raw only) |
+| Datalabel updates | Requires invalidation | Instant (re-format) |
+| Multiple views | Separate caches | Same cache |
+| React Query | N/A | Auto-memoized |
 
 ---
 
@@ -685,9 +683,16 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
 
 ---
 
-**Version**: 5.0.0 | **Updated**: 2025-11-22 | **Pattern**: Transactional CRUD
+**Version**: 8.0.0 | **Updated**: 2025-11-23 | **Pattern**: Format-at-Read
 
 **Recent Updates**:
+- v8.0.0 (2025-11-23): **Format-at-Read Pattern**
+  - Changed from format-at-fetch to format-at-read using React Query's `select` option
+  - Cache stores RAW data only (smaller, canonical)
+  - Added `useFormattedEntityList()` hook for formatted data
+  - `select` transforms raw → FormattedRow on read (memoized by React Query)
+  - Same cache serves multiple view components (table, kanban, grid)
+  - Datalabel colors always fresh (reformatted on read, not cached)
 - v5.0.0 (2025-11-22): **Transactional CRUD Pattern**
   - Added `create_entity()`, `update_entity()`, `delete_entity()` transactional methods
   - Parameter naming: `entity_code` = TYPE, `instance_code` = record code
