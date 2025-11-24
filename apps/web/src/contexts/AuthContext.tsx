@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { authApi, User } from '../lib/api';
+import { authApi, settingApi, User } from '../lib/api';
 import { clearAllMetadataStores } from '../lib/cache/garbageCollection';
 import { clearNormalizedStore } from '../lib/cache/normalizedCache';
+import { useDatalabelMetadataStore } from '../stores/datalabelMetadataStore';
 
 interface AuthState {
   user: User | null;
@@ -34,11 +35,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAuthenticated: false,
   });
 
+  // Helper function to load and cache datalabels
+  const loadDatalabels = async () => {
+    try {
+      const store = useDatalabelMetadataStore.getState();
+
+      // Check if we have valid cached datalabels
+      const cachedDatalabels = store.getAllDatalabels();
+
+      if (cachedDatalabels && Object.keys(cachedDatalabels).length > 0) {
+        console.log(
+          `%c[Auth] ✓ Using cached datalabels (${Object.keys(cachedDatalabels).length} items)`,
+          'color: #51cf66; font-weight: bold'
+        );
+        return;
+      }
+
+      // Cache is empty or expired - fetch fresh data
+      console.log('%c[Auth] Fetching all datalabels...', 'color: #845ef7; font-weight: bold');
+      const response = await settingApi.getAll();
+      const datalabels = response.data || [];
+
+      // Cache all datalabels in the store (persisted to localStorage)
+      store.setAllDatalabels(datalabels);
+
+      console.log(
+        `%c[Auth] ✓ Cached ${datalabels.length} datalabels`,
+        'color: #51cf66; font-weight: bold',
+        { count: datalabels.length }
+      );
+    } catch (error) {
+      console.error('[Auth] Failed to load datalabels:', error);
+      // Don't throw - datalabels are enhancement, not critical for auth
+    }
+  };
+
   const login = async (email: string, password: string) => {
     try {
       const response = await authApi.login({ email, password });
       const { token, employee } = response;
-      
+
       localStorage.setItem('auth_token', token);
       if (employee?.name) localStorage.setItem('user_name', employee.name);
       setState({
@@ -47,6 +83,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoading: false,
         isAuthenticated: true,
       });
+
+      // Load and cache all datalabels after successful login
+      await loadDatalabels();
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -93,6 +132,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isAuthenticated: true,
         isLoading: false,
       });
+
+      // Load and cache datalabels (will use cache if valid)
+      await loadDatalabels();
     } catch (error) {
       console.error('Failed to refresh user:', error);
       localStorage.removeItem('auth_token');

@@ -139,20 +139,28 @@ export function DAGVisualizer({
       });
     }
 
-    // Calculate positions
-    const layerWidth = 160;
-    const nodeHeight = 80;
+    // Calculate positions (HORIZONTAL LEFT-TO-RIGHT)
+    const layerWidth = 120;  // Horizontal spacing between layers
+    const nodeHeight = 60;   // Vertical spacing within layers
+
+    console.log('[DAGVisualizer] Layers calculated:', Array.from(nodesByLayer.entries()).map(([layer, nodes]) => ({
+      layer,
+      nodeCount: nodes.length,
+      nodeNames: nodes.map(n => n.node_name)
+    })));
 
     nodesByLayer.forEach((layerNodes, layer) => {
       const totalHeight = layerNodes.length * nodeHeight;
-      const startY = (400 - totalHeight) / 2; // Center vertically in 400px height
+      const startY = (200 - totalHeight) / 2; // Center vertically in 200px height
 
       layerNodes.forEach((node, index) => {
-        positions.set(node.id, {
-          x: layer * layerWidth + 50,
-          y: startY + index * nodeHeight,
+        const pos = {
+          x: layer * layerWidth + 40,  // Horizontal position (left to right)
+          y: startY + index * nodeHeight + 40,  // Vertical position within layer
           layer
-        });
+        };
+        console.log(`[DAGVisualizer] Node "${node.node_name}" at layer ${layer}, position (${pos.x}, ${pos.y})`);
+        positions.set(node.id, pos);
       });
     });
 
@@ -179,13 +187,14 @@ export function DAGVisualizer({
         connections.push(
           <line
             key={key}
-            x1={parentPos.x + 100} // Right side of parent
-            y1={parentPos.y + 25}  // Middle of parent
-            x2={nodePos.x}         // Left side of child
-            y2={nodePos.y + 25}    // Middle of child
+            x1={parentPos.x + 35} // Right edge of parent ellipse
+            y1={parentPos.y}      // Center of parent ellipse
+            x2={nodePos.x - 35}   // Left edge of child ellipse
+            y2={nodePos.y}        // Center of child ellipse
             stroke={isActive ? '#3B82F6' : '#E5E7EB'}
             strokeWidth={isActive ? 2 : 1}
             strokeDasharray={isActive ? '' : '5,5'}
+            markerEnd="url(#arrowhead)"
           />
         );
       });
@@ -209,53 +218,73 @@ export function DAGVisualizer({
       return (
         <g
           key={node.id}
-          transform={`translate(${pos.x}, ${pos.y})`}
           className={onNodeClick ? 'cursor-pointer' : ''}
           onClick={() => onNodeClick?.(node.id)}
         >
-          <rect
-            width={100}
-            height={50}
-            rx={6}
+          {/* Elliptical node (small horizontal oval) */}
+          <ellipse
+            cx={pos.x}
+            cy={pos.y}
+            rx={35}  // Horizontal radius (width)
+            ry={18}  // Vertical radius (height) - creates horizontal oval
             className={
               isCurrent
-                ? 'fill-blue-500'
+                ? 'fill-blue-500 stroke-blue-700'
                 : isCompleted
                   ? 'fill-green-100 stroke-green-500'
                   : 'fill-white stroke-gray-300'
             }
             strokeWidth={isCurrent ? 2 : 1}
           />
+          {/* Node label (centered in ellipse) */}
           <text
-            x={50}
-            y={30}
+            x={pos.x}
+            y={pos.y + 4}  // Slight offset for vertical centering
             textAnchor="middle"
             className={
               isCurrent
-                ? 'fill-white text-sm font-medium'
-                : 'fill-gray-700 text-sm'
+                ? 'fill-white text-xs font-medium'
+                : 'fill-gray-700 text-xs'
             }
+            style={{ pointerEvents: 'none' }}
           >
-            {nodeName}
+            {nodeName.length > 12 ? `${nodeName.substring(0, 10)}...` : nodeName}
           </text>
         </g>
       );
     });
   };
 
-  // Calculate SVG dimensions
-  const maxX = Math.max(...Array.from(positionMap.values()).map(p => p.x)) + 150;
-  const maxY = Math.max(...Array.from(positionMap.values()).map(p => p.y)) + 100;
-  const svgHeight = Math.max(400, maxY);
-  const svgWidth = Math.max(600, maxX);
+  // Calculate SVG dimensions for horizontal layout
+  const maxX = Math.max(...Array.from(positionMap.values()).map(p => p.x)) + 80;
+  const maxY = Math.max(...Array.from(positionMap.values()).map(p => p.y)) + 60;
+  const svgHeight = Math.max(200, maxY);
+  const svgWidth = Math.max(400, maxX);
 
   return (
-    <div className="w-full h-full overflow-auto p-4 bg-gray-50 rounded-lg">
+    <div className="w-full overflow-x-auto p-4 bg-gray-50 rounded-lg">
       <svg
         width={svgWidth}
         height={svgHeight}
-        className="min-h-[400px]"
+        className="min-h-[150px]"
       >
+        {/* Arrowhead marker definition */}
+        <defs>
+          <marker
+            id="arrowhead"
+            markerWidth="10"
+            markerHeight="7"
+            refX="9"
+            refY="3.5"
+            orient="auto"
+          >
+            <polygon
+              points="0 0, 10 3.5, 0 7"
+              fill="#3B82F6"
+            />
+          </marker>
+        </defs>
+
         {renderConnections()}
         {renderNodes()}
       </svg>

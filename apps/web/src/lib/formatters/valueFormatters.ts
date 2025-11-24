@@ -14,6 +14,34 @@ import { useDatalabelMetadataStore } from '../../stores/datalabelMetadataStore';
 import type { FieldMetadata, FormattedValue } from './types';
 
 /**
+ * Convert color code from database to Tailwind badge classes
+ */
+export function colorCodeToTailwindClass(colorCode: string | null | undefined): string {
+  if (!colorCode) return 'bg-gray-100 text-gray-600';
+
+  const colorMap: Record<string, string> = {
+    blue: 'bg-blue-100 text-blue-700',
+    purple: 'bg-purple-100 text-purple-800',
+    yellow: 'bg-yellow-100 text-yellow-800',
+    orange: 'bg-orange-100 text-orange-800',
+    green: 'bg-green-100 text-green-800',
+    red: 'bg-red-100 text-red-800',
+    gray: 'bg-gray-100 text-gray-600',
+    cyan: 'bg-cyan-100 text-cyan-800',
+    indigo: 'bg-indigo-100 text-indigo-800',
+    amber: 'bg-amber-100 text-amber-800',
+    rose: 'bg-rose-100 text-rose-800',
+    emerald: 'bg-emerald-100 text-emerald-800',
+    pink: 'bg-pink-100 text-pink-700',
+    lime: 'bg-lime-100 text-lime-700',
+    teal: 'bg-teal-100 text-teal-700',
+    sky: 'bg-sky-100 text-sky-700',
+  };
+
+  return colorMap[colorCode.toLowerCase()] || 'bg-gray-100 text-gray-600';
+}
+
+/**
  * Format currency values
  */
 export function formatCurrency(
@@ -61,12 +89,13 @@ export function formatBadge(
     if (options) {
       const match = options.find(opt => opt.name === value);
       if (match?.color_code) {
-        color = match.color_code;
+        // ✅ Convert color_code (e.g., 'blue') to Tailwind classes
+        color = colorCodeToTailwindClass(match.color_code);
       }
     }
   }
 
-  // Override with explicit color if provided
+  // Override with explicit color if provided (already in Tailwind format)
   if (metadata?.color) {
     color = metadata.color;
   }

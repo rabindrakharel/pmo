@@ -13,7 +13,7 @@ import React, { useEffect, useMemo, useCallback } from 'react';
 import { useEntityEditStore } from '../../../stores/useEntityEditStore';
 import { useShallow } from 'zustand/shallow';
 import type { EntityConfig, FieldDef } from '../../../lib/entityConfig';
-import type { SettingOption } from '../../../lib/settingsLoader';
+import type { LabelMetadata } from '../../../lib/formatters/labelMetadataLoader';
 import { DAGVisualizer, type DAGNode } from '../../workflow/DAGVisualizer';
 import { renderEmployeeNames } from '../../../lib/entityConfig';
 import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
@@ -48,7 +48,7 @@ interface EntityFormContainerProps {
 
   // Fallback: frontend config
   config?: EntityConfig;
-  settings?: SettingOption[];
+  settings?: LabelMetadata[];
 }
 
 // ============================================================================
@@ -131,19 +131,31 @@ export const EntityFormContainerWithStore: React.FC<EntityFormContainerProps> = 
     if (metadata?.fields) {
       return metadata.fields
         .filter(f => f.visible?.EntityFormContainer !== false)
-        .map(fieldMeta => ({
-          key: fieldMeta.key,
-          label: fieldMeta.label || generateFieldLabel(fieldMeta.key),
-          type: fieldMeta.inputType || 'text',
-          loadFromDataLabels: fieldMeta.loadFromDataLabels,
-          datalabelKey: fieldMeta.datalabelKey || fieldMeta.key,
-          EntityFormContainer_viz_container: fieldMeta.EntityFormContainer_viz_container,
-          placeholder: fieldMeta.placeholder,
-          required: fieldMeta.required,
-          readonly: fieldMeta.readonly,
-          disabled: fieldMeta.disabled,
-          coerceBoolean: fieldMeta.coerceBoolean
-        }));
+        .map(fieldMeta => {
+          // Convert viewType to viz_container (backend-driven visualization)
+          let vizContainer = fieldMeta.EntityFormContainer_viz_container;
+          if (!vizContainer && (fieldMeta as any).viewType === 'dag') {
+            vizContainer = 'DAGVisualizer';
+          } else if (!vizContainer && (fieldMeta as any).renderType === 'dag') {
+            vizContainer = 'DAGVisualizer';
+          } else if (!vizContainer && fieldMeta.key === 'metadata') {
+            vizContainer = 'MetadataTable';
+          }
+
+          return {
+            key: fieldMeta.key,
+            label: fieldMeta.label || generateFieldLabel(fieldMeta.key),
+            type: fieldMeta.inputType || 'text',
+            loadFromDataLabels: fieldMeta.loadFromDataLabels,
+            datalabelKey: fieldMeta.datalabelKey || fieldMeta.key,
+            EntityFormContainer_viz_container: vizContainer,
+            placeholder: fieldMeta.placeholder,
+            required: fieldMeta.required,
+            readonly: fieldMeta.readonly,
+            disabled: fieldMeta.disabled,
+            coerceBoolean: fieldMeta.coerceBoolean
+          };
+        });
     }
 
     // v7.0.0: No auto-generation - all routes must provide metadata from backend

@@ -230,7 +230,8 @@
       "Bash(git -C /home/rabin/projects/pmo diff docs/instructionToLLM.md)",
       "Bash(do sed -i \"s/, extractDatalabelKeys//g\" \"$file\")",
       "Bash(source ~/.nvm/nvm.sh)",
-      "Bash(nvm use:*)"
+      "Bash(nvm use:*)",
+      "Bash(__NEW_LINE__ echo \"\")"
     ],
     "deny": [],
     "ask": [],

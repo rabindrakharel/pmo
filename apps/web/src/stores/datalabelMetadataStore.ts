@@ -4,8 +4,9 @@
  * ============================================================================
  *
  * Purpose: Cache datalabel options for dropdown fields (dl__* fields)
- * TTL: Session-level (30 minutes)
- * Source: GET /api/v1/settings/datalabels/all or entity responses
+ * TTL: 1 hour
+ * Source: GET /api/v1/datalabel/all (fetched on login)
+ * Persistence: localStorage (survives page reloads and browser restarts)
  *
  * Usage:
  * ```typescript
@@ -26,7 +27,8 @@ export interface DatalabelOption {
   id: number;
   name: string;
   descr?: string;
-  parent_id: number | null;
+  parent_id?: number | null;  // Legacy single parent
+  parent_ids?: number[];      // ✅ NEW: Array of parent IDs for DAG
   sort_order: number;
   color_code?: string;
   active_flag?: boolean;
@@ -175,7 +177,7 @@ export const useDatalabelMetadataStore = create<DatalabelMetadataState & Datalab
       }),
       {
         name: 'pmo-datalabel-store',
-        storage: createJSONStorage(() => sessionStorage),
+        storage: createJSONStorage(() => localStorage),
         partialize: (state) => ({ datalabels: state.datalabels }),
       }
     ),

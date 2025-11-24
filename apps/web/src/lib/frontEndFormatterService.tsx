@@ -8,23 +8,30 @@
  * Zero frontend pattern detection.
  *
  * ============================================================================
- * ✅ BACKEND-DRIVEN RENDERING
+ * ✅ BACKEND-DRIVEN RENDERING (v8.0.0)
  * ============================================================================
+ *
+ * **View Mode**: Uses format-at-read pattern via formatDataset()
+ * - Data formatted once at read time using React Query's select option
+ * - Returns FormattedRow with display strings and style classes
+ * - See: formatDataset() in lib/formatters/formatDataset.ts
+ *
+ * **Edit Mode**: Uses renderEditModeFromMetadata()
+ * - Renders interactive input components based on backend metadata
+ * - Datalabel fields automatically use ColoredDropdown with cached options
+ * - All colors converted via colorCodeToTailwindClass()
  *
  * ```typescript
  * import {
- *   renderViewModeFromMetadata,     // View mode (uses backend metadata)
  *   renderEditModeFromMetadata,     // Edit mode (uses backend metadata)
  *   hasBackendMetadata,             // Type guard for metadata responses
- *   formatValueFromMetadata         // Format using backend metadata
  * } from '../../../lib/frontEndFormatterService';
  *
  * // Check if response has backend metadata
  * if (hasBackendMetadata(apiResponse)) {
  *   const fieldMeta = apiResponse.metadata.fields.find(f => f.key === 'budget_allocated_amt');
  *
- *   // Render using backend metadata
- *   const viewElement = renderViewModeFromMetadata(50000, fieldMeta);
+ *   // Render edit mode using backend metadata
  *   const editElement = renderEditModeFromMetadata(50000, fieldMeta, onChange);
  * }
  * ```
@@ -36,7 +43,6 @@
  * - formatCurrency() - Pure currency formatter
  * - formatRelativeTime() - Pure time formatter
  * - formatFriendlyDate() - Pure date formatter
- * - renderDataLabelBadge() - Pure badge renderer
  * - transformForApi() - Data transformation
  * - transformFromApi() - Data transformation
  */
@@ -46,6 +52,8 @@ import { Copy, Check } from 'lucide-react';
 import { formatters } from './config/locale';
 import { DebouncedInput, DebouncedTextarea } from '../components/shared/ui/DebouncedInput';
 import { useDatalabelMetadataStore } from '../stores/datalabelMetadataStore';
+import { ColoredDropdown, type ColoredDropdownOption } from '../components/shared/ui/ColoredDropdown';
+import { colorCodeToTailwindClass } from './formatters/valueFormatters';
 
 // ============================================================================
 // BACKEND METADATA TYPES
@@ -116,6 +124,10 @@ export interface BackendFieldMetadata {
   composite?: boolean;
   compositeConfig?: CompositeFieldConfig;
   component?: string;
+
+  // Component-specific rendering (backend-driven)
+  EntityFormContainer_viz_container?: 'DAGVisualizer' | 'MetadataTable' | 'ProgressBar' | 'DateRangeVisualizer';
+  EntityDataTable_edit_component?: 'ColoredDropdown' | 'select' | 'input';
 }
 
 /**
@@ -125,7 +137,8 @@ export interface DatalabelOption {
   id: number;
   name: string;
   descr?: string | null;
-  parent_id: number | null;
+  parent_id?: number | null;  // Legacy single parent (deprecated)
+  parent_ids?: number[];      // ✅ NEW: Array of parent IDs for DAG visualization
   sort_order: number;
   color_code: string;
   active_flag: boolean;
@@ -218,89 +231,6 @@ export function formatFriendlyDate(dateString: string | Date | null | undefined)
     return '-';
   }
 }
-
-// ============================================================================
-// BADGE RENDERING (Backend-Driven Colors)
-// ============================================================================
-
-/**
- * Fallback colors for badge rendering (use backend-provided colors when available)
- */
-export const FALLBACK_COLORS: Record<string, string> = {
-  blue: 'bg-blue-100 text-blue-700',
-  purple: 'bg-purple-100 text-purple-700',
-  green: 'bg-green-100 text-green-700',
-  red: 'bg-red-100 text-red-700',
-  yellow: 'bg-yellow-100 text-yellow-700',
-  orange: 'bg-orange-100 text-orange-700',
-  gray: 'bg-gray-100 text-gray-600',
-  cyan: 'bg-cyan-100 text-cyan-700',
-  pink: 'bg-pink-100 text-pink-700',
-  amber: 'bg-amber-100 text-amber-700',
-  default: 'bg-gray-100 text-gray-600'
-};
-
-/**
- * Render datalabel badge with color from datalabel options
- *
- * **COLOR RESOLUTION ORDER:**
- * 1. Look up color_code from datalabel store options (by matching value → name)
- * 2. Use metadata.color if provided
- * 3. Fallback to default gray
- *
- * @param value - Badge text (matches option.name in datalabel store)
- * @param datalabelKey - Datalabel key (e.g., 'dl__project_stage')
- * @param metadata - Backend metadata containing optional color override
- */
-export function renderDataLabelBadge(
-  value: string,
-  datalabelKey: string,
-  metadata?: { color?: string }
-): React.ReactElement {
-  // Step 1: Try to get color from datalabel store options
-  let resolvedColor = FALLBACK_COLORS.default;
-
-  // Use imperative getState() to access store without subscription
-  const datalabelOptions = useDatalabelMetadataStore.getState().getDatalabel(datalabelKey);
-  if (datalabelOptions && datalabelOptions.length > 0) {
-    // Find matching option by name (value matches option.name)
-    const matchingOption = datalabelOptions.find(opt => opt.name === value);
-    if (matchingOption?.color_code) {
-      resolvedColor = matchingOption.color_code;
-    }
-  }
-
-  // Step 2: Override with metadata.color if explicitly provided
-  if (metadata?.color) {
-    resolvedColor = metadata.color;
-  }
-
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${resolvedColor}`}>
-      {value}
-    </span>
-  );
-}
-
-/**
- * Render generic badge with backend-provided color
- *
- * @param value - Badge text
- * @param color - Backend-provided Tailwind color classes
- */
-export function renderBadge(
-  value: string,
-  color?: string
-): React.ReactElement {
-  const badgeColor = color || FALLBACK_COLORS.default;
-
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeColor}`}>
-      {value}
-    </span>
-  );
-}
-
 
 // ============================================================================
 // DATA TRANSFORMERS (API <-> Frontend)
@@ -517,7 +447,37 @@ export function renderEditModeFromMetadata(
         />
       );
 
-    case 'select':
+    case 'select': {
+      // Check if this is a datalabel field (has datalabelKey)
+      if (metadata.datalabelKey || metadata.loadFromDataLabels) {
+        const datalabelKey = metadata.datalabelKey || metadata.key;
+
+        // Load options from datalabelMetadataStore (cached at login)
+        const datalabelOptions = useDatalabelMetadataStore.getState().getDatalabel(datalabelKey);
+
+        if (datalabelOptions && datalabelOptions.length > 0) {
+          // Convert datalabel options to ColoredDropdown format with Tailwind color classes
+          const coloredOptions: ColoredDropdownOption[] = datalabelOptions.map(opt => ({
+            value: opt.name,
+            label: opt.name,
+            metadata: {
+              // Convert color_code (e.g., "blue") to Tailwind classes (e.g., "bg-blue-100 text-blue-700")
+              color_code: colorCodeToTailwindClass(opt.color_code)
+            }
+          }));
+
+          return (
+            <ColoredDropdown
+              value={value ?? ''}
+              options={coloredOptions}
+              onChange={onChange}
+              placeholder={metadata.placeholder || 'Select...'}
+            />
+          );
+        }
+      }
+
+      // Fallback to plain select if not a datalabel field or options not loaded
       return (
         <select
           value={value ?? ''}
@@ -527,9 +487,10 @@ export function renderEditModeFromMetadata(
           className={`px-2 py-1 border rounded ${className}`}
         >
           <option value="">Select...</option>
-          {/* Options would be loaded from backend via loadFromDataLabels or loadFromEntity */}
+          {/* Options would be loaded from backend via loadFromEntity */}
         </select>
       );
+    }
 
     case 'text':
     default:
@@ -566,10 +527,6 @@ export default {
   formatRelativeTime,
   formatFriendlyDate,
 
-  // Badge renderers
-  renderDataLabelBadge,
-  renderBadge,
-
   // Data transformers
   transformForApi,
   transformFromApi,
@@ -585,7 +542,6 @@ export default {
   renderEditModeFromMetadata,
 
   // Constants
-  FALLBACK_COLORS,
   SYSTEM_FIELDS,
   READONLY_FIELDS
 };

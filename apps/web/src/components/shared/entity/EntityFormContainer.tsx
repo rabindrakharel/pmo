@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { EntityConfig, FieldDef } from '../../../lib/entityConfig';
-import type { SettingOption } from '../../../lib/settingsLoader';
+import type { LabelMetadata } from '../../../lib/formatters/labelMetadataLoader';
 import { DAGVisualizer, type DAGNode } from '../../workflow/DAGVisualizer';
 import { renderEmployeeNames } from '../../../lib/entityConfig';
 import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
 import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
 import { DebouncedInput, DebouncedTextarea } from '../ui/DebouncedInput';
+import { ColoredDropdown } from '../ui/ColoredDropdown';
 import {
   formatRelativeTime,
   formatFriendlyDate,
@@ -16,7 +17,9 @@ import {
   type DatalabelData,
   type DatalabelOption
 } from '../../../lib/frontEndFormatterService';
+import { colorCodeToTailwindClass } from '../../../lib/formatters/valueFormatters';
 import type { FormattedRow } from '../../../lib/formatters';
+import { useDatalabelMetadataStore } from '../../../stores/datalabelMetadataStore';
 
 import { MetadataTable } from './MetadataTable';
 import { QuoteItemsRenderer } from './QuoteItemsRenderer';
@@ -134,18 +137,28 @@ function EntityFormContainerInner({
       // Convert object format to array of FieldDef
       const result = Object.entries(componentMetadata)
         .filter(([_, fieldMeta]: [string, any]) => fieldMeta.visible !== false)
-        .map(([fieldKey, fieldMeta]: [string, any]) => ({
-          key: fieldKey,
-          label: fieldMeta.label || generateFieldLabel(fieldKey),
-          type: fieldMeta.editType || fieldMeta.inputType || 'text',
-          editable: fieldMeta.editable !== false,
-          visible: true,
-          loadDataLabels: fieldMeta.datalabelKey ? true : false,
-          loadFromEntity: fieldMeta.loadFromEntity,
-          EntityFormContainer_viz_container: fieldMeta.EntityFormContainer_viz_container,
-          toApi: (value: any) => value,
-          toDisplay: (value: any) => value
-        } as FieldDef));
+        .map(([fieldKey, fieldMeta]: [string, any]) => {
+          // Convert viewType/format to viz_container (backend-driven visualization)
+          let vizContainer = fieldMeta.EntityFormContainer_viz_container;
+          if (!vizContainer && (fieldMeta.viewType === 'dag' || fieldMeta.format === 'dag')) {
+            vizContainer = 'DAGVisualizer';
+          } else if (!vizContainer && fieldKey === 'metadata') {
+            vizContainer = 'MetadataTable';
+          }
+
+          return {
+            key: fieldKey,
+            label: fieldMeta.label || generateFieldLabel(fieldKey),
+            type: fieldMeta.editType || fieldMeta.inputType || 'text',
+            editable: fieldMeta.editable !== false,
+            visible: true,
+            loadDataLabels: fieldMeta.datalabelKey ? true : false,
+            loadFromEntity: fieldMeta.loadFromEntity,
+            EntityFormContainer_viz_container: vizContainer,
+            toApi: (value: any) => value,
+            toDisplay: (value: any) => value
+          } as FieldDef;
+        });
       console.log(
         `%c[FIELDS] 📋 EntityFormContainer fields computed from BACKEND METADATA`,
         'color: #51cf66; font-weight: bold',
@@ -181,12 +194,6 @@ function EntityFormContainerInner({
 
   // Helper to determine if a field should use DAG visualization
   // All dl__% fields that are stage or funnel fields use DAG visualization
-  const isStageField = useCallback((fieldKey: string): boolean => {
-    const lowerKey = fieldKey.toLowerCase();
-    // Check if field starts with dl__ (datalabel prefix) and contains stage or funnel
-    return lowerKey.startsWith('dl__') && (lowerKey.includes('stage') || lowerKey.includes('funnel'));
-  }, []);
-
   /**
    * Transform preloaded datalabel options to DAG nodes
    * Converts DatalabelOption[] → DAGNode[] format
@@ -195,74 +202,78 @@ function EntityFormContainerInner({
     return options.map(opt => ({
       id: opt.id,
       node_name: opt.name,
-      parent_ids: opt.parent_id !== null ? [opt.parent_id] : []
+      // ✅ Use parent_ids array if available, fallback to single parent_id for backwards compat
+      parent_ids: opt.parent_ids || (opt.parent_id !== null && opt.parent_id !== undefined ? [opt.parent_id] : [])
     }));
   };
 
   // ============================================================================
-  // DERIVED STATE: Compute settingOptions and dagNodes with useMemo
+  // DERIVED STATE: Compute labelsMetadata and dagNodes with useMemo
   // ============================================================================
   // No useState + useEffect for derived data to prevent render loops
   // Recomputed only when fields or datalabels actually change
   // ============================================================================
 
-  const { settingOptions, dagNodes } = useMemo(() => {
-    const settingsMap = new Map<string, SettingOption[]>();
+  const { labelsMetadata, dagNodes } = useMemo(() => {
+    const metadataMap = new Map<string, LabelMetadata[]>();
     const dagNodesMap = new Map<string, DAGNode[]>();
 
-    if (!fields || fields.length === 0 || !datalabels) {
-      return { settingOptions: settingsMap, dagNodes: dagNodesMap };
+    if (!fields || fields.length === 0) {
+      return { labelsMetadata: metadataMap, dagNodes: dagNodesMap };
     }
 
-    // Process all fields that need settings from preloaded datalabels
+    // Process all fields that need settings from datalabelMetadataStore
     const fieldsNeedingSettings = fields.filter(
       field => field.loadDataLabels && (field.type === 'select' || field.type === 'multiselect')
     );
 
-    // Use preloaded datalabels from backend (NO API CALLS)
+    // Use datalabels from datalabelMetadataStore cache (NO API CALLS)
     fieldsNeedingSettings.forEach((field) => {
-      // Find matching datalabel from preloaded data
-      const datalabel = datalabels.find(dl => dl.name === field.key);
+      // Fetch from datalabelMetadataStore cache
+      const cachedOptions = useDatalabelMetadataStore.getState().getDatalabel(field.key);
 
-      if (datalabel && datalabel.options.length > 0) {
-        // Transform datalabel options to SettingOption format for select/multiselect
-        const options: SettingOption[] = datalabel.options.map(opt => ({
-          value: opt.name,  // Use name as value for datalabels
-          label: opt.name,
-          colorClass: opt.color_code,
-          metadata: {
-            id: opt.id,
-            descr: opt.descr,
-            sort_order: opt.sort_order,
-            active_flag: opt.active_flag
-          }
-        }));
-        settingsMap.set(field.key, options);
+      if (cachedOptions && cachedOptions.length > 0) {
+        // Transform datalabel options to LabelMetadata format for select/multiselect
+        const options: LabelMetadata[] = cachedOptions
+          .filter(opt => opt.active_flag !== false)
+          .map(opt => ({
+            value: opt.name,  // Use name as value for datalabels
+            label: opt.name,
+            colorClass: colorCodeToTailwindClass(opt.color_code),  // ✅ Convert color_code to Tailwind classes
+            metadata: {
+              id: opt.id,
+              descr: opt.descr,
+              sort_order: opt.sort_order,
+              active_flag: opt.active_flag
+            }
+          }));
+        metadataMap.set(field.key, options);
 
-        // Load DAG nodes for stage/funnel fields
-        if (isStageField(field.key)) {
-          const nodes = transformDatalabelToDAGNodes(datalabel.options);
+        // Load DAG nodes for fields with DAG visualization (backend-driven)
+        // ✅ Metadata-driven: Check EntityFormContainer_viz_container set from backend viewType
+        if (field.EntityFormContainer_viz_container === 'DAGVisualizer') {
+          const nodes = transformDatalabelToDAGNodes(cachedOptions);
           dagNodesMap.set(field.key, nodes);
         }
       }
-      // NO FALLBACK - If field not found in datalabels, no options available
+      // NO FALLBACK - If field not found in cache, no options available
     });
 
-    return { settingOptions: settingsMap, dagNodes: dagNodesMap };
-  }, [fields, datalabels, isStageField]);  // ✅ Stable dependencies with memoized data
+    return { labelsMetadata: metadataMap, dagNodes: dagNodesMap };
+  }, [fields]);  // ✅ Stable dependencies - DAG detection now metadata-driven
 
   // Render field based on configuration
   const renderField = (field: FieldDef) => {
     const value = data[field.key];
 
     // Check if this is a sequential state field
-    const hasSettingOptions = field.loadDataLabels && settingOptions.has(field.key);
-    const options = hasSettingOptions
-      ? settingOptions.get(field.key)!
+    const hasLabelsMetadata = field.loadDataLabels && labelsMetadata.has(field.key);
+    const options = hasLabelsMetadata
+      ? labelsMetadata.get(field.key)!
       : field.options || [];
     const isSequentialField = field.type === 'select'
-      && hasSettingOptions
-      && isStageField(field.key)
+      && hasLabelsMetadata
+      && field.EntityFormContainer_viz_container === 'DAGVisualizer'  // ✅ Metadata-driven
       && options.length > 0;
 
 
@@ -609,6 +620,36 @@ function EntityFormContainerInner({
         }
 
         // Regular dropdown for non-sequential fields
+        // Check if this is a datalabel field - if so, use ColoredDropdown
+        if (hasLabelsMetadata && options.length > 0) {
+          const coloredOptions = options.map((opt: any) => ({
+            value: opt.value,
+            label: opt.label,
+            metadata: {
+              color_code: opt.colorClass || 'bg-gray-100 text-gray-600'
+            }
+          }));
+
+          return (
+            <div className="w-full">
+              <ColoredDropdown
+                value={value !== undefined && value !== null ? String(value) : ''}
+                options={coloredOptions}
+                onChange={(newValue) => {
+                  if (field.coerceBoolean) {
+                    handleFieldChange(field.key, newValue === 'true');
+                  } else {
+                    handleFieldChange(field.key, newValue === '' ? undefined : newValue);
+                  }
+                }}
+                placeholder="Select..."
+                disabled={field.disabled || field.readonly}
+              />
+            </div>
+          );
+        }
+
+        // Fallback: plain select for non-datalabel fields
         return (
           <select
             value={value !== undefined && value !== null ? String(value) : ''}

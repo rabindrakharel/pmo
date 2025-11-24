@@ -35,7 +35,7 @@
 import React, { useState } from 'react';
 import { DataTableBase, ActionButtons, type BaseColumn } from './DataTableBase';
 import { ColoredDropdown, type ColoredDropdownOption } from './ColoredDropdown';
-import { renderDataLabelBadge } from '../../../lib/frontEndFormatterService';
+import { colorCodeToTailwindClass } from '../../../lib/formatters/valueFormatters';
 import { COLOR_OPTIONS } from '../../../lib/settingsConfig';
 import { inputStyles, actionButtonStyles } from '../../../lib/designSystem';
 
@@ -266,7 +266,9 @@ export function LabelsDataTable({
             autoFocus
           />
         ) : (
-          renderDataLabelBadge(record.color_code, String(value))
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorCodeToTailwindClass(record.color_code)}`}>
+            {value}
+          </span>
         );
 
       case 'descr':
@@ -304,7 +306,9 @@ export function LabelsDataTable({
             placeholder="Select color..."
           />
         ) : (
-          renderDataLabelBadge(String(value), String(value).charAt(0).toUpperCase() + String(value).slice(1))
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorCodeToTailwindClass(String(value))}`}>
+            {String(value).charAt(0).toUpperCase() + String(value).slice(1)}
+          </span>
         );
 
       default:

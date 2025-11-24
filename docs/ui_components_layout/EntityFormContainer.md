@@ -1,6 +1,6 @@
 # EntityFormContainer Component
 
-**Version:** 4.0.0 | **Location:** `apps/web/src/components/shared/entity/EntityFormContainer.tsx`
+**Version:** 8.2.0 | **Location:** `apps/web/src/components/shared/entity/EntityFormContainer.tsx`
 
 ---
 
@@ -21,7 +21,8 @@ EntityFormContainer is a universal form component for creating and editing entit
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
 │  │                    API Response                                  │    │
-│  │  { data: {...}, metadata: { fields: [...] }, datalabels }       │    │
+│  │  { data: {...}, metadata: { fields: [...] } }                   │    │
+│  │  NOTE: Datalabels fetched at login, cached in localStorage      │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                              │                                          │
 │                              v                                          │
@@ -142,11 +143,11 @@ data._IDS: {                →     <EntityMultiSelect        →    ┌──�
   entityCode="project"
   data={project}
   metadata={metadata}
-  datalabels={datalabels}
   isEditing={isEditing}
   onChange={(field, value) => updateData(field, value)}
   onSave={handleSave}
 />
+// NOTE: datalabels no longer passed as prop - fetched at login and cached in localStorage
 ```
 
 ### Reference Handling
@@ -301,4 +302,4 @@ Edit Entity Flow
 
 ---
 
-**Last Updated:** 2025-11-21 | **Status:** Production Ready
+**Last Updated:** 2025-11-24 | **Status:** Production Ready

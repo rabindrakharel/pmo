@@ -4,7 +4,7 @@ import { MoreVertical } from 'lucide-react';
 // ============================================================================
 // v7.0.0: Legacy auto-detection helpers - prefer explicit groupByField prop
 // ============================================================================
-import { loadFieldOptions } from '../../../lib/settingsLoader';
+import { loadFieldOptions } from '../../../lib/formatters/labelMetadataLoader';
 
 // Helper to detect if field loads from datalabels
 function detectFieldIsDataLabel(fieldKey: string): boolean {

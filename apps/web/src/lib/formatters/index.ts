@@ -27,3 +27,6 @@ export * from './valueFormatters';
 
 // Dataset formatter (main)
 export * from './datasetFormatter';
+
+// Label metadata loader (datalabel options, settings)
+export * from './labelMetadataLoader';

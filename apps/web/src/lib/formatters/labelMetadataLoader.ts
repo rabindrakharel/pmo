@@ -8,7 +8,7 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
-export interface SettingOption {
+export interface LabelMetadata {
   value: string | number;
   label: string;
   colorClass?: string; // Badge color class (e.g., 'bg-dark-100 text-dark-600')
@@ -46,11 +46,11 @@ function colorCodeToTailwindClass(colorCode: string | null | undefined): string 
 }
 
 // In-memory cache for settings to avoid repeated API calls
-const settingsCache: Map<string, { data: SettingOption[]; timestamp: number }> = new Map();
+const settingsCache: Map<string, { data: LabelMetadata[]; timestamp: number }> = new Map();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 // Track in-flight requests to prevent duplicate fetches (fixes React StrictMode double-mounting)
-const inFlightRequests: Map<string, Promise<SettingOption[]>> = new Map();
+const inFlightRequests: Map<string, Promise<LabelMetadata[]>> = new Map();
 
 /**
  * Mapping of field names to their corresponding setting datalabels
@@ -152,7 +152,7 @@ export function getSettingEndpoint(datalabel: string): string {
 export async function loadSettingOptions(
   datalabel: string,
   forceRefresh: boolean = false
-): Promise<SettingOption[]> {
+): Promise<LabelMetadata[]> {
   // Check cache first
   if (!forceRefresh) {
     const cached = settingsCache.get(datalabel);
@@ -192,8 +192,8 @@ export async function loadSettingOptions(
       const result = await response.json();
       const data = result.data || result || [];
 
-      // Transform to SettingOption format
-      const options: SettingOption[] = data
+      // Transform to LabelMetadata format
+      const options: LabelMetadata[] = data
         .filter((item: any) => item.active_flag !== false) // Only active items
         .map((item: any) => {
           // Support both stage_* and level_* field naming patterns
@@ -250,7 +250,7 @@ export async function loadSettingOptions(
  * Load settings options for a specific field key
  * This is the main function to use in components
  */
-export async function loadFieldOptions(fieldKey: string): Promise<SettingOption[]> {
+export async function loadFieldOptions(fieldKey: string): Promise<LabelMetadata[]> {
   const datalabel = getSettingDatalabel(fieldKey);
   if (!datalabel) {
     return [];
@@ -293,8 +293,8 @@ export function getAllSettingDatalabels(): string[] {
  */
 export async function batchLoadFieldOptions(
   fieldKeys: string[]
-): Promise<Map<string, SettingOption[]>> {
-  const resultMap = new Map<string, SettingOption[]>();
+): Promise<Map<string, LabelMetadata[]>> {
+  const resultMap = new Map<string, LabelMetadata[]>();
 
   // Get unique datalabels
   const datalabels = new Set(
@@ -333,7 +333,7 @@ export async function batchLoadFieldOptions(
 export function getSettingLabel(
   fieldKey: string,
   value: string | number,
-  options: SettingOption[]
+  options: LabelMetadata[]
 ): string | null {
   const option = options.find(opt => String(opt.value) === String(value));
   return option ? option.label : null;

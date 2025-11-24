@@ -225,6 +225,11 @@ export const settingApi = {
     return response.data;
   },
 
+  async getAll() {
+    const response = await apiClient.get('/api/v1/datalabel/all');
+    return response.data;
+  },
+
   async getItem(datalabel: string, id: string) {
     const response = await apiClient.get(`/api/v1/datalabel?name=${datalabel}`);
     // Find item by id from the returned data

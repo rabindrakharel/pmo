@@ -241,8 +241,12 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const isNewRow = isAddingRow || record.id?.toString().startsWith('temp_') || record._isNew;
-      const transformedData = transformForApi(editedData, record);
+      // Handle both FormattedRow and raw data
+      const rawRecord = record.raw || record;
+      const recordId = rawRecord.id;
+
+      const isNewRow = isAddingRow || recordId?.toString().startsWith('temp_') || rawRecord._isNew;
+      const transformedData = transformForApi(editedData, rawRecord);
 
       // Remove temporary fields
       delete transformedData._isNew;
@@ -274,7 +278,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
       } else {
         // PATCH - Update existing entity
         console.log(`Updating ${entityCode}:`, transformedData);
-        response = await fetch(`${API_CONFIG.BASE_URL}${config.apiEndpoint}/${record.id}`, {
+        response = await fetch(`${API_CONFIG.BASE_URL}${config.apiEndpoint}/${recordId}`, {
           method: 'PATCH',
           headers,
           body: JSON.stringify(transformedData)
@@ -361,9 +365,10 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
         if (localData.length === 0 && rawData) {
           setLocalData(rawData);
         }
-        setEditingRow(record.id);
-        // Use raw record data for editing (handle both FormattedRow and raw)
+        // Handle both FormattedRow and raw data
         const rawRecord = record.raw || record;
+        const recordId = rawRecord.id;
+        setEditingRow(recordId);
         setEditedData(transformFromApi({ ...rawRecord }));
       }
     });

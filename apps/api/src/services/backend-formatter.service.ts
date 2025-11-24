@@ -105,6 +105,9 @@ export interface FieldMetadataBase {
   displayField?: string;
   valueField?: string;
   datalabelKey?: string;
+
+  // Component-specific visualization containers
+  EntityFormContainer_viz_container?: 'DAGVisualizer' | 'MetadataTable' | string;
 }
 
 export interface ComponentMetadata {
@@ -985,8 +988,9 @@ const PATTERN_RULES: Record<string, PatternRule> = {
       filterable: false,
       sortable: false,
       editable: true,
-      viewType: 'dag',         // ← Show as DAG in forms
-      editType: 'select'
+      viewType: 'datalabel',
+      editType: 'select',
+      EntityFormContainer_viz_container: 'DAGVisualizer'  // ← DAG visualization for workflow stages
     },
     kanbanView: {
       dtype: 'str',
@@ -1617,6 +1621,11 @@ function generateFieldMetadataForComponent(
     if (fieldName.startsWith('dl__')) {
       yamlMetadata.datalabelKey = fieldName;
       yamlMetadata.loadFromDataLabels = true;
+
+      // Add DAG visualization for entityFormContainer
+      if (component === 'entityFormContainer') {
+        yamlMetadata.EntityFormContainer_viz_container = 'DAGVisualizer';
+      }
     }
 
     return yamlMetadata;

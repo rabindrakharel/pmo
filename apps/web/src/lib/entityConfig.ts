@@ -4,7 +4,7 @@ import {
   createSettingsEntityConfig,
   applySettingsBadgeRenderers
 } from './settingsConfig';
-import type { SettingOption } from './settingsLoader';
+import type { LabelMetadata } from './formatters/labelMetadataLoader';
 
 /**
  * ============================================================================
@@ -141,7 +141,7 @@ export interface ColumnDef {
    * Static options for inline editing dropdowns (alternative to loadDataLabels)
    * Use this when options are hardcoded (e.g., color_code field in settings tables)
    */
-  options?: SettingOption[];
+  options?: LabelMetadata[];
   /**
    * When true, this column can be edited inline in the DataTable.
    * Fields with loadDataLabels automatically become editable with dropdowns.

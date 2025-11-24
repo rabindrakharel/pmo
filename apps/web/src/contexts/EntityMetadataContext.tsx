@@ -73,8 +73,10 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
 
         // Check Zustand cache first (30-minute TTL) - use getState() to avoid subscription
         const cachedTypes = useEntityCodeMetadataStore.getState().getEntityCodes();
+        console.log('[EntityMetadataContext] Cached types:', cachedTypes?.length || 0);
         if (cachedTypes && cachedTypes.length > 0) {
           console.log('[EntityMetadataContext] Using cached entity types from entityCodeMetadataStore');
+          console.log('[EntityMetadataContext] Cached entity codes:', cachedTypes.map((e: any) => e.code));
           const entityMap = new Map<string, EntityMetadata>();
           cachedTypes.forEach((entity: any) => {
             entityMap.set(entity.code, {
@@ -87,6 +89,8 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
               active_flag: entity.active_flag,
             });
           });
+          console.log('[EntityMetadataContext] Entity map size:', entityMap.size);
+          console.log('[EntityMetadataContext] Entity map keys:', Array.from(entityMap.keys()));
           setEntities(entityMap);
           setLoading(false);
           return;

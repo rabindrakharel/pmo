@@ -20,7 +20,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
-import { renderDataLabelBadge } from '../../../lib/frontEndFormatterService';
 
 export interface ColoredDropdownOption {
   value: string | number;
@@ -143,7 +142,9 @@ export function ColoredDropdown({
         }}
       >
         {selectedOption ? (
-          renderDataLabelBadge(selectedColor, String(selectedOption.label))
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${selectedColor || 'bg-gray-100 text-gray-600'}`}>
+            {selectedOption.label}
+          </span>
         ) : (
           <span className="text-dark-600">{placeholder}</span>
         )}
@@ -169,7 +170,7 @@ export function ColoredDropdown({
         >
           <div className="py-1">
             {options.map(opt => {
-              const optionColor = opt.metadata?.color_code;
+              const optionColor = opt.metadata?.color_code || 'bg-gray-100 text-gray-600';
               return (
                 <button
                   key={opt.value}
@@ -181,7 +182,9 @@ export function ColoredDropdown({
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-dark-100 transition-colors flex items-center"
                 >
-                  {renderDataLabelBadge(optionColor, String(opt.label))}
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${optionColor}`}>
+                    {opt.label}
+                  </span>
                 </button>
               );
             })}

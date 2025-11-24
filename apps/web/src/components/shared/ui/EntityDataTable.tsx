@@ -24,19 +24,19 @@
  * Used by: All entity pages (projects, tasks, clients, etc.)
  * Different from: SettingsDataTable (specialized for settings with fixed schema)
  */
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronUp, Search, Filter, Columns, ChevronLeft, ChevronRight, Edit, Share, Trash2, X, Plus, Check } from 'lucide-react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   getSettingDatalabel,
-  type SettingOption
-} from '../../../lib/settingsLoader';
+  type LabelMetadata
+} from '../../../lib/formatters/labelMetadataLoader';
 import {
-  renderDataLabelBadge,
-  FALLBACK_COLORS,
   renderEditModeFromMetadata,
   type BackendFieldMetadata
 } from '../../../lib/frontEndFormatterService';
+import { colorCodeToTailwindClass } from '../../../lib/formatters/valueFormatters';
 import { useDatalabelMetadataStore } from '../../../stores/datalabelMetadataStore';
 import type { EntityMetadata } from '../../../lib/api';
 
@@ -110,7 +110,7 @@ function extractSettingsDatalabel(columnKey: string): string {
  */
 interface ColoredDropdownProps {
   value: string;
-  options: SettingOption[];
+  options: LabelMetadata[];
   onChange: (value: string) => void;
   onClick: (e: React.MouseEvent) => void;
 }
@@ -159,11 +159,11 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
       };
 
       updatePosition();
-      window.addEventListener('scroll', updatePosition, true);
-      window.addEventListener('resize', updatePosition);
+      window.addEventListener('scroll', updatePosition, { capture: true, passive: true });
+      window.addEventListener('resize', updatePosition, { passive: true });
 
       return () => {
-        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('scroll', updatePosition, { capture: true } as any);
         window.removeEventListener('resize', updatePosition);
       };
     }
@@ -207,7 +207,9 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
           maxHeight: '32px'}}
       >
         {selectedOption ? (
-          renderDataLabelBadge(selectedColor, String(selectedOption.label))
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${selectedColor || 'bg-gray-100 text-gray-600'}`}>
+            {selectedOption.label}
+          </span>
         ) : (
           <span className="text-dark-600">Select...</span>
         )}
@@ -232,7 +234,7 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
         >
           <div className="py-1">
             {options.map(opt => {
-              const optionColor = opt.metadata?.color_code;
+              const optionColor = opt.metadata?.color_code || 'bg-gray-100 text-gray-600';
               return (
                 <button
                   key={opt.value}
@@ -244,7 +246,9 @@ function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownP
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-dark-100 transition-colors flex items-center"
                 >
-                  {renderDataLabelBadge(optionColor, String(opt.label))}
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${optionColor}`}>
+                    {opt.label}
+                  </span>
                 </button>
               );
             })}
@@ -281,7 +285,7 @@ export interface Column<T = any> {
    * Static options for inline editing dropdowns (alternative to loadDataLabels)
    * Use this when options are hardcoded (e.g., color_code field in settings tables)
    */
-  options?: SettingOption[];
+  options?: LabelMetadata[];
   /**
    * When true, this column can be edited inline in the DataTable.
    * Fields with loadDataLabels automatically become editable with dropdowns.
@@ -542,18 +546,18 @@ export function EntityDataTable<T = any>({
   // Zero frontend pattern detection - backend tells us via loadFromDataLabels flag
 
   // ✅ FIX: Use useMemo for derived state instead of useState+useEffect
-  // Compute setting options from columns and datalabels
-  const settingOptions = useMemo(() => {
-    const optionsMap = new Map<string, SettingOption[]>();
+  // Compute labels metadata from columns and datalabels
+  const labelsMetadata = useMemo(() => {
+    const metadataMap = new Map<string, LabelMetadata[]>();
 
     if (!inlineEditable) {
-      return optionsMap;
+      return metadataMap;
     }
 
     // First, add static options from column definitions
     columns.forEach(col => {
       if (col.options && col.options.length > 0) {
-        optionsMap.set(col.key, col.options);
+        metadataMap.set(col.key, col.options);
       }
     });
 
@@ -564,34 +568,36 @@ export function EntityDataTable<T = any>({
       return backendMeta?.loadFromDataLabels || col.loadDataLabels;
     });
 
-    // Use preloaded datalabels from props (NO API CALLS)
+    // Use datalabels from datalabelMetadataStore (populated by API response)
     columnsNeedingSettings.forEach((col) => {
       const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
       // Get datalabel key from backend metadata or column key
       const datalabelKey = backendMeta?.datalabelKey || col.key;
 
-      // Find matching datalabel from preloaded data
-      const datalabel = datalabels?.find((dl: any) => dl.name === datalabelKey);
+      // Fetch from datalabelMetadataStore cache
+      const cachedOptions = useDatalabelMetadataStore.getState().getDatalabel(datalabelKey);
 
-      if (datalabel && datalabel.options.length > 0) {
-        // Transform datalabel options to SettingOption format
-        const options: SettingOption[] = datalabel.options.map((opt: any) => ({
-          value: opt.name,  // Use name as value for datalabels
-          label: opt.name,
-          colorClass: opt.color_code,
-          metadata: {
-            id: opt.id,
-            descr: opt.descr,
-            sort_order: opt.sort_order,
-            active_flag: opt.active_flag
-          }
-        }));
-        optionsMap.set(col.key, options);
+      if (cachedOptions && cachedOptions.length > 0) {
+        // Transform datalabel options to LabelMetadata format
+        const options: LabelMetadata[] = cachedOptions
+          .filter(opt => opt.active_flag !== false)
+          .map((opt: any) => ({
+            value: opt.name,  // Use name as value for datalabels
+            label: opt.name,
+            colorClass: colorCodeToTailwindClass(opt.color_code),  // ✅ Convert color_code to Tailwind classes
+            metadata: {
+              id: opt.id,
+              descr: opt.descr,
+              sort_order: opt.sort_order,
+              active_flag: opt.active_flag
+            }
+          }));
+        metadataMap.set(col.key, options);
       }
     });
 
-    return optionsMap;
-  }, [columns, inlineEditable, datalabels]);
+    return metadataMap;
+  }, [columns, inlineEditable]);
 
   // Preload colors for all settings columns (for filter dropdowns and inline edit)
   useEffect(() => {
@@ -629,7 +635,15 @@ export function EntityDataTable<T = any>({
       Object.entries(dropdownFilters).forEach(([key, selectedValues]) => {
         if (selectedValues.length > 0) {
           result = result.filter(record => {
-            const value = (record as any)[key]?.toString();
+            // Handle both FormattedRow and raw data
+            let value: string;
+            if (isFormattedData([record])) {
+              // For formatted data, use raw value for filtering
+              value = ((record as FormattedRow).raw as any)[key]?.toString();
+            } else {
+              // For raw data, use direct property
+              value = (record as any)[key]?.toString();
+            }
             return selectedValues.includes(value);
           });
         }
@@ -662,11 +676,86 @@ export function EntityDataTable<T = any>({
     return filteredAndSortedData.slice(startIndex, endIndex);
   }, [filteredAndSortedData, pagination]);
 
-  // Get unique values for each filterable column
-  const getColumnOptions = (columnKey: string) => {
+  // ============================================================================
+  // VIRTUALIZATION - Only render visible rows for performance
+  // ============================================================================
+  // Uses @tanstack/react-virtual to render only rows in the viewport
+  // Dramatically improves performance for 1000+ row tables
+  const ESTIMATED_ROW_HEIGHT = 44; // px - typical row height with padding
+  const VIRTUALIZATION_THRESHOLD = 50; // Only virtualize when more than this many rows
+
+  // Determine if we should use virtualization
+  const shouldVirtualize = paginatedData.length > VIRTUALIZATION_THRESHOLD;
+
+  // Row virtualizer - only active when we have enough rows
+  const rowVirtualizer = useVirtualizer({
+    count: paginatedData.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: useCallback(() => ESTIMATED_ROW_HEIGHT, []),
+    overscan: 3, // Optimized: Render 3 extra rows (reduced from 10 for better performance)
+    enabled: shouldVirtualize,
+    // Stable keys improve React reconciliation performance
+    getItemKey: useCallback((index: number) => {
+      const record = paginatedData[index];
+      return record ? getRowKey(record, index) : `row-${index}`;
+    }, [paginatedData]),
+  });
+
+  // Helper to get row className (shared between virtualized and regular rendering)
+  const getRowClassName = useCallback((isDragging: boolean, isDragOver: boolean, isEditing: boolean) => {
+    return `group transition-all duration-200 ${
+      isDragging
+        ? 'opacity-40 scale-[0.98] bg-dark-100'
+        : isDragOver
+          ? 'bg-dark-100/50'
+          : ''
+    } ${
+      isEditing
+        ? 'bg-dark-100/30'
+        : allowReordering && !isEditing
+          ? 'cursor-move hover:bg-dark-100/40 hover:shadow-sm'
+          : onRowClick
+            ? 'cursor-pointer hover:bg-gradient-to-r hover:from-dark-50/30 hover:to-transparent hover:shadow-sm'
+            : 'hover:bg-dark-100/30'
+    }`;
+  }, [allowReordering, onRowClick]);
+
+  // Get unique values for each filterable column - CACHE-AWARE
+  const getColumnOptions = (columnKey: string): string[] => {
+    // Find column metadata to check if it's a datalabel field
+    const column = columns.find(col => col.key === columnKey);
+    const backendMeta = (column as any)?.backendMetadata as BackendFieldMetadata | undefined;
+    const isSettingsField = backendMeta?.loadFromDataLabels || column?.loadDataLabels || columnKey.startsWith('dl__');
+
+    // If it's a settings field, fetch options from datalabelMetadataStore cache
+    if (isSettingsField) {
+      const datalabel = backendMeta?.settingsDatalabel || extractSettingsDatalabel(columnKey);
+      const cachedOptions = useDatalabelMetadataStore.getState().getDatalabel(datalabel);
+
+      if (cachedOptions && cachedOptions.length > 0) {
+        // Return cached datalabel options (already sorted by sort_order in cache)
+        return cachedOptions
+          .filter(opt => opt.active_flag !== false)
+          .map(opt => opt.name);
+      }
+    }
+
+    // For entity reference fields (e.g., manager__employee_id), could fetch from entity lookup
+    // TODO: Implement entity lookup cache integration for reference fields
+
+    // Fallback: Get unique values from current data
     const uniqueValues = new Set<string>();
     data.forEach(record => {
-      const value = (record as any)[columnKey];
+      // Handle both FormattedRow and raw data
+      let value: any;
+      if (isFormattedData([record])) {
+        // For formatted data, use raw value
+        value = ((record as FormattedRow).raw as any)[columnKey];
+      } else {
+        // For raw data, use direct property
+        value = (record as any)[columnKey];
+      }
+
       if (value != null && value !== '') {
         uniqueValues.add(value.toString());
       }
@@ -784,6 +873,51 @@ export function EntityDataTable<T = any>({
 
     return filteredColumns;
   }, [columns, visibleColumns, allActions]);
+
+  // ============================================================================
+  // PRE-COMPUTED STYLES - Performance optimization for virtualization
+  // ============================================================================
+  // Pre-compute column styles (O(1) lookup vs O(n) calculation on every render)
+  // Dramatically reduces style object creation during scroll
+  const columnStylesMap = useMemo(() => {
+    const map = new Map<string, React.CSSProperties>();
+    processedColumns.forEach((col, idx) => {
+      // Actions column has different styling
+      if (col.key === '_actions') {
+        map.set(col.key, {
+          textAlign: (col.align || 'center') as any,
+          boxSizing: 'border-box',
+          width: col.width || 'auto',
+          minWidth: col.width || '80px',
+        });
+        return;
+      }
+
+      // Data columns: Base styles for all cells
+      const baseStyle: React.CSSProperties = {
+        textAlign: (col.align || 'left') as any,
+        boxSizing: 'border-box',
+      };
+
+      // Responsive width logic
+      if (processedColumns.length > 7) {
+        baseStyle.width = '200px';
+        baseStyle.minWidth = '200px';
+      } else {
+        baseStyle.width = col.width || 'auto';
+        baseStyle.minWidth = '100px';
+        baseStyle.flex = '1';
+      }
+
+      map.set(col.key, baseStyle);
+    });
+    return map;
+  }, [processedColumns]);
+
+  // Pre-compute cell className for sticky first column
+  const getStickyClassName = useCallback((colIndex: number) => {
+    return colIndex === 0 ? 'sticky left-0 z-20 bg-dark-100 shadow-r' : '';
+  }, []);
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -953,9 +1087,9 @@ export function EntityDataTable<T = any>({
     // Initial update
     updateBottomScrollbar();
 
-    // Update on various events
-    window.addEventListener('resize', updateBottomScrollbar);
-    window.addEventListener('scroll', updateBottomScrollbar, true); // Use capture phase
+    // Update on various events (passive listeners for better scroll performance)
+    window.addEventListener('resize', updateBottomScrollbar, { passive: true });
+    window.addEventListener('scroll', updateBottomScrollbar, { capture: true, passive: true });
 
     // Use ResizeObserver to detect table size changes
     const resizeObserver = new ResizeObserver(updateBottomScrollbar);
@@ -965,7 +1099,7 @@ export function EntityDataTable<T = any>({
 
     return () => {
       window.removeEventListener('resize', updateBottomScrollbar);
-      window.removeEventListener('scroll', updateBottomScrollbar, true);
+      window.removeEventListener('scroll', updateBottomScrollbar, { capture: true } as any);
       resizeObserver.disconnect();
     };
   }, [data.length, columns.length]); // Only re-run when data or column count changes
@@ -1217,7 +1351,9 @@ export function EntityDataTable<T = any>({
                                   <div className="flex-1 min-w-0">
                                     {isSettingsField ? (
                                       // Settings field - always render badge (with or without color)
-                                      colorCode ? renderDataLabelBadge(colorCode, option) : renderDataLabelBadge(undefined, option)
+                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorCode || 'bg-gray-100 text-gray-600'}`}>
+                                        {option}
+                                      </span>
                                     ) : (
                                       // Non-settings field - render text
                                       <span className="text-sm text-dark-600 group-hover:text-dark-600 truncate">{option}</span>
@@ -1357,7 +1493,7 @@ export function EntityDataTable<T = any>({
                       colorCode = match?.color_code;
                     }
 
-                    const chipColorClass = colorCode ? (FALLBACK_COLORS[colorCode as keyof typeof FALLBACK_COLORS] || FALLBACK_COLORS.gray) : 'bg-dark-100 text-dark-600';
+                    const chipColorClass = colorCode ? colorCodeToTailwindClass(colorCode) : 'bg-dark-100 text-dark-600';
 
                     return (
                       <div
@@ -1434,29 +1570,31 @@ export function EntityDataTable<T = any>({
                 ))}
               </tr>
             </thead>
-            <tbody className="bg-dark-100 divide-y divide-dark-400">
-              {paginatedData.map((record, index) => {
-                const recordId = getRowKey(record, index);
-                const isEditing = inlineEditable && editingRow === recordId;
-                const isDragging = draggedIndex === index;
-                const isDragOver = dragOverIndex === index;
+            <tbody
+              className="bg-dark-100 divide-y divide-dark-400"
+              style={shouldVirtualize ? {
+                display: 'block',
+                position: 'relative',
+                height: `${rowVirtualizer.getTotalSize()}px`,
+              } : undefined}
+            >
+              {shouldVirtualize ? (
+                // ============================================================================
+                // VIRTUALIZED RENDERING - Only visible rows rendered in DOM
+                // ============================================================================
+                rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const index = virtualRow.index;
+                  const record = paginatedData[index];
+                  const recordId = getRowKey(record, index);
+                  const isEditing = inlineEditable && editingRow === recordId;
+                  const isDragging = draggedIndex === index;
+                  const isDragOver = dragOverIndex === index;
 
-                return (
-                  <React.Fragment key={recordId}>
-                    {/* Drop indicator line */}
-                    {isDragOver && draggedIndex !== null && (
-                      <tr className="relative pointer-events-none">
-                        <td colSpan={columns.length} className="p-0 h-0">
-                          <div className="absolute left-0 right-0 h-1 bg-dark-1000 shadow-sm z-50 animate-pulse"
-                               style={{
-                                 top: '-2px',
-                                 boxShadow: '0 0 8px rgba(107, 114, 128, 0.5)'
-                               }}
-                          />
-                        </td>
-                      </tr>
-                    )}
+                  return (
                     <tr
+                      key={recordId}
+                      data-index={virtualRow.index}
+                      ref={rowVirtualizer.measureElement}
                       draggable={allowReordering && !isEditing}
                       onDragStart={(e) => handleDragStart(e, index)}
                       onDragOver={(e) => handleDragOver(e, index)}
@@ -1464,49 +1602,29 @@ export function EntityDataTable<T = any>({
                       onDrop={(e) => handleDrop(e, index)}
                       onDragEnd={handleDragEnd}
                       onClick={() => !isEditing && onRowClick?.(record)}
-                      className={`group transition-all duration-200 ${
-                        isDragging
-                          ? 'opacity-40 scale-[0.98] bg-dark-100'
-                          : isDragOver
-                            ? 'bg-dark-100/50'
-                            : ''
-                      } ${
-                        isEditing
-                          ? 'bg-dark-100/30'
-                          : allowReordering && !isEditing
-                            ? 'cursor-move hover:bg-dark-100/40 hover:shadow-sm'
-                            : onRowClick
-                              ? 'cursor-pointer hover:bg-gradient-to-r hover:from-dark-50/30 hover:to-transparent hover:shadow-sm'
-                              : 'hover:bg-dark-100/30'
-                      }`}
+                      className={getRowClassName(isDragging, isDragOver, isEditing)}
+                      style={{
+                        display: 'flex',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        transform: `translateY(${virtualRow.start}px)`,
+                        minHeight: `${ESTIMATED_ROW_HEIGHT}px`,
+                      }}
                     >
                     {processedColumns.map((column, colIndex) => {
-                      // ============================================================================
-                      // ACTIONS COLUMN - INLINE EDITING PATTERN (Matches SettingsDataTable)
-                      // ============================================================================
-                      // When row is being edited:
-                      //   - Edit icon (✏️) transforms into Check icon (✓)
-                      //   - Cancel (✗) icon appears
-                      //   - Other action icons are hidden
-                      // When row is NOT being edited:
-                      //   - Show all action icons (Edit, Delete, Share, etc.)
-                      // ============================================================================
+                      // Actions column: Show edit/save icons based on editing state
                       if (column.key === '_actions') {
                         return (
                           <td
                             key={column.key}
-                            className={`px-6 py-2.5 ${
-                              colIndex === 0 ? 'sticky left-0 z-20 bg-dark-100 shadow-r' : ''
-                            }`}
-                            style={{
-                              textAlign: column.align || 'center',
-                              boxSizing: 'border-box'
-                            }}
+                            className={`px-6 py-2.5 flex-shrink-0 ${getStickyClassName(colIndex)}`}
+                            style={columnStylesMap.get(column.key)}
                           >
                             <div className="flex items-center justify-center gap-1">
                               {isEditing ? (
                                 <>
-                                  {/* When editing: Show Check (Save) and X (Cancel) icons */}
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1530,29 +1648,22 @@ export function EntityDataTable<T = any>({
                                 </>
                               ) : (
                                 <>
-                                  {/* When not editing: Show all action icons */}
                                   {allActions.map((action) => {
                                     const isDisabled = action.disabled ? action.disabled(record) : false;
-
                                     const buttonVariants = {
                                       default: 'text-dark-700 hover:text-dark-600 hover:bg-dark-100',
                                       primary: 'text-dark-600 hover:text-dark-600 hover:bg-dark-100',
                                       danger: 'text-red-600 hover:text-red-900 hover:bg-red-50'};
-
                                     return (
                                       <button
                                         key={action.key}
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          if (!isDisabled) {
-                                            action.onClick(record);
-                                          }
+                                          if (!isDisabled) action.onClick(record);
                                         }}
                                         disabled={isDisabled}
                                         className={`p-1.5 rounded transition-colors ${
-                                          isDisabled
-                                            ? 'text-gray-300 cursor-not-allowed'
-                                            : buttonVariants[action.variant || 'default']
+                                          isDisabled ? 'text-gray-300 cursor-not-allowed' : buttonVariants[action.variant || 'default']
                                         } ${action.className || ''}`}
                                         title={action.label}
                                       >
@@ -1567,22 +1678,12 @@ export function EntityDataTable<T = any>({
                         );
                       }
 
-                      // Regular data columns
-                      // ============================================================================
-                      // BACKEND METADATA-DRIVEN RENDERING (Zero Frontend Pattern Detection)
-                      // ============================================================================
-
-                      // Get backend metadata for this field
+                      // Data columns: Extract metadata and render based on field type
                       const backendMeta = (column as any).backendMetadata as BackendFieldMetadata | undefined;
                       const fieldEditable = backendMeta?.editable ?? column.editable ?? false;
                       const editType = backendMeta?.inputType ?? column.editType ?? 'text';
-                      const isFileField = editType === 'file';
-
-                      // Get settings options if available
-                      const hasSettingOptions = settingOptions.has(column.key);
-                      const columnOptions = hasSettingOptions ? settingOptions.get(column.key)! : [];
-
-                      // v7.0.0: Get raw value from formatted data, or direct value from unformatted data
+                      const hasLabelsMetadata = labelsMetadata.has(column.key);
+                      const columnOptions = hasLabelsMetadata ? labelsMetadata.get(column.key)! : [];
                       const formattedRecord = record as FormattedRow<any>;
                       const rawRecord = formattedRecord.raw || record;
                       const rawValue = (rawRecord as any)[column.key];
@@ -1590,13 +1691,199 @@ export function EntityDataTable<T = any>({
                       return (
                         <td
                           key={column.key}
-                          className={`px-6 py-2.5 ${
-                            colIndex === 0 ? 'sticky left-0 z-20 bg-dark-100 shadow-r' : ''
-                          }`}
-                          style={{
-                            textAlign: column.align || 'left',
-                            boxSizing: 'border-box'
-                          }}
+                          className={`px-6 py-2.5 flex-shrink-0 ${getStickyClassName(colIndex)}`}
+                          style={columnStylesMap.get(column.key)}
+                          onClick={(e) => isEditing && e.stopPropagation()}
+                        >
+                          {isEditing && fieldEditable ? (
+                            editType === 'file' ? (
+                              <InlineFileUploadCell
+                                value={rawValue}
+                                entityCode={onEdit ? 'artifact' : 'cost'}
+                                entityId={(rawRecord as any).id}
+                                fieldName={column.key}
+                                accept={backendMeta?.accept}
+                                onUploadComplete={(fileUrl) => onInlineEdit?.(recordId, column.key, fileUrl)}
+                                disabled={false}
+                              />
+                            ) : column.key === 'color_code' && colorOptions ? (
+                              <div className="relative w-full">
+                                <select
+                                  value={editedData[column.key] ?? rawValue ?? ''}
+                                  onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors cursor-pointer appearance-none"
+                                  style={{ fontSize: '14px', minHeight: '32px', maxHeight: '32px' }}
+                                >
+                                  <option value="">Select color...</option>
+                                  {colorOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                                <ChevronDown className="h-4 w-4 text-dark-700 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                              </div>
+                            ) : editType === 'select' && hasLabelsMetadata ? (
+                              <ColoredDropdown
+                                value={editedData[column.key] ?? rawValue ?? ''}
+                                options={columnOptions}
+                                onChange={(value) => onInlineEdit?.(recordId, column.key, value)}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            ) : (
+                              <div onClick={(e) => e.stopPropagation()}>
+                                {(() => {
+                                  const metadata = (column as any).backendMetadata || createFallbackMetadata(column.key);
+                                  return renderEditModeFromMetadata(
+                                    editedData[column.key] ?? rawValue,
+                                    metadata,
+                                    (val) => onInlineEdit?.(recordId, column.key, val),
+                                    { className: 'w-full px-2 py-1 text-sm border border-dark-300 rounded focus:outline-none focus:ring-1 focus:ring-dark-500' }
+                                  );
+                                })()}
+                              </div>
+                            )
+                          ) : (
+                            <div style={{
+                              position: 'relative', zIndex: 1, textOverflow: 'ellipsis', padding: '2px 8px',
+                              overflow: 'hidden', whiteSpace: 'nowrap', fontSize: '14px', color: '#37352F',
+                              userSelect: 'none', cursor: 'inherit'
+                            }}>
+                              {(() => {
+                                if (column.render) return column.render((record as any)[column.key], record);
+                                const formatted = record as FormattedRow<any>;
+                                if (formatted.display && formatted.styles !== undefined) {
+                                  const displayValue = formatted.display[column.key];
+                                  const styleClass = formatted.styles[column.key];
+                                  if (styleClass) {
+                                    return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${styleClass}`}>{displayValue}</span>;
+                                  }
+                                  return <span>{displayValue}</span>;
+                                }
+                                const value = (record as any)[column.key];
+                                if (value === null || value === undefined || value === '') {
+                                  return <span className="text-gray-400 italic">—</span>;
+                                }
+                                return <span>{String(value)}</span>;
+                              })()}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+                })
+              ) : (
+                // ============================================================================
+                // REGULAR RENDERING - Standard table rendering for small datasets
+                // ============================================================================
+                paginatedData.map((record, index) => {
+                  const recordId = getRowKey(record, index);
+                  const isEditing = inlineEditable && editingRow === recordId;
+                  const isDragging = draggedIndex === index;
+                  const isDragOver = dragOverIndex === index;
+
+                  return (
+                    <React.Fragment key={recordId}>
+                      {isDragOver && draggedIndex !== null && (
+                        <tr className="relative pointer-events-none">
+                          <td colSpan={columns.length} className="p-0 h-0">
+                            <div className="absolute left-0 right-0 h-1 bg-dark-1000 shadow-sm z-50 animate-pulse"
+                                 style={{ top: '-2px', boxShadow: '0 0 8px rgba(107, 114, 128, 0.5)' }}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                      <tr
+                        draggable={allowReordering && !isEditing}
+                        onDragStart={(e) => handleDragStart(e, index)}
+                        onDragOver={(e) => handleDragOver(e, index)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, index)}
+                        onDragEnd={handleDragEnd}
+                        onClick={() => !isEditing && onRowClick?.(record)}
+                        className={getRowClassName(isDragging, isDragOver, isEditing)}
+                      >
+                    {processedColumns.map((column, colIndex) => {
+                      // Actions column: Show edit/save icons based on editing state
+                      if (column.key === '_actions') {
+                        return (
+                          <td
+                            key={column.key}
+                            className={`px-6 py-2.5 ${getStickyClassName(colIndex)}`}
+                            style={columnStylesMap.get(column.key)}
+                          >
+                            <div className="flex items-center justify-center gap-1">
+                              {isEditing ? (
+                                <>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onSaveInlineEdit?.(record);
+                                    }}
+                                    className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
+                                    title="Save"
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onCancelInlineEdit?.();
+                                    }}
+                                    className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
+                                    title="Cancel"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  {allActions.map((action) => {
+                                    const isDisabled = action.disabled ? action.disabled(record) : false;
+                                    const buttonVariants = {
+                                      default: 'text-dark-700 hover:text-dark-600 hover:bg-dark-100',
+                                      primary: 'text-dark-600 hover:text-dark-600 hover:bg-dark-100',
+                                      danger: 'text-red-600 hover:text-red-900 hover:bg-red-50'};
+                                    return (
+                                      <button
+                                        key={action.key}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (!isDisabled) action.onClick(record);
+                                        }}
+                                        disabled={isDisabled}
+                                        className={`p-1.5 rounded transition-colors ${
+                                          isDisabled ? 'text-gray-300 cursor-not-allowed' : buttonVariants[action.variant || 'default']
+                                        } ${action.className || ''}`}
+                                        title={action.label}
+                                      >
+                                        {action.icon}
+                                      </button>
+                                    );
+                                  })}
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        );
+                      }
+
+                      // Data columns: Extract metadata and render based on field type
+                      const backendMeta = (column as any).backendMetadata as BackendFieldMetadata | undefined;
+                      const fieldEditable = backendMeta?.editable ?? column.editable ?? false;
+                      const editType = backendMeta?.inputType ?? column.editType ?? 'text';
+                      const hasLabelsMetadata = labelsMetadata.has(column.key);
+                      const columnOptions = hasLabelsMetadata ? labelsMetadata.get(column.key)! : [];
+                      const formattedRecord = record as FormattedRow<any>;
+                      const rawRecord = formattedRecord.raw || record;
+                      const rawValue = (rawRecord as any)[column.key];
+
+                      return (
+                        <td
+                          key={column.key}
+                          className={`px-6 py-2.5 ${getStickyClassName(colIndex)}`}
+                          style={columnStylesMap.get(column.key)}
                           onClick={(e) => isEditing && e.stopPropagation()}
                         >
                           {isEditing && fieldEditable ? (
@@ -1641,7 +1928,7 @@ export function EntityDataTable<T = any>({
                                 </select>
                                 <ChevronDown className="h-4 w-4 text-dark-700 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                               </div>
-                            ) : editType === 'select' && hasSettingOptions ? (
+                            ) : editType === 'select' && hasLabelsMetadata ? (
                               // SETTINGS DROPDOWN - ColoredDropdown component for dl__* fields
                               <ColoredDropdown
                                 value={editedData[column.key] ?? rawValue ?? ''}
@@ -1668,9 +1955,9 @@ export function EntityDataTable<T = any>({
                             )
                           ) : (
                             // ============================================================================
-                            // VIEW MODE - v7.0.0 Format-at-Fetch Optimization
-                            // If data is pre-formatted (has raw/display/styles), use display values directly
-                            // Otherwise, fall back to runtime formatting via renderViewModeFromMetadata
+                            // VIEW MODE - v8.0.0 Format-at-Read Pattern
+                            // Data is pre-formatted (has raw/display/styles) via formatDataset()
+                            // Display values and styles are used directly from FormattedRow
                             // ============================================================================
                             <div
                               style={{
@@ -1729,7 +2016,8 @@ export function EntityDataTable<T = any>({
                   </tr>
                   </React.Fragment>
                 );
-              })}
+              })
+              )}
             </tbody>
           </table>
         </div>

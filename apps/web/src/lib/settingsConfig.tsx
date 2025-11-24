@@ -10,20 +10,23 @@
  * All badge rendering logic moved to single source of truth.
  */
 
-import {
-  FALLBACK_COLORS,
-  renderBadge
-} from './frontEndFormatterService';
+import React from 'react';
+import { colorCodeToTailwindClass } from './formatters/valueFormatters';
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
 /**
- * Render a colored badge using the universal badge renderer
+ * Render a colored badge using direct badge rendering
  */
 function renderColorBadge(color: string, value: string) {
-  return renderBadge(value, color);
+  const tailwindClass = colorCodeToTailwindClass(color);
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${tailwindClass}`}>
+      {value}
+    </span>
+  );
 }
 
 /**
@@ -43,12 +46,12 @@ function extractSettingsDatalabel(columnKey: string): string {
 function createSettingBadgeRenderer(datalabel: string) {
   return (value: any, record: any) => {
     const color = record?.color_code || 'gray';
-    return renderBadge(value, color);
+    return renderColorBadge(color, value);
   };
 }
 
 // ============================================================================
-// COLOR SYSTEM - Re-exports from centralized source
+// COLOR SYSTEM
 // ============================================================================
 
 /**
@@ -69,14 +72,10 @@ export const COLOR_OPTIONS = [
   { value: 'amber', label: 'Amber', metadata: { color_code: 'amber' } },
 ];
 
-// Re-export FALLBACK_COLORS as COLOR_MAP for backward compatibility
-export { FALLBACK_COLORS as COLOR_MAP };
-
 // ============================================================================
-// BADGE RENDERING - Direct use of frontEndFormatterService
+// BADGE RENDERING
 // ============================================================================
-// All badge rendering now done via renderDataLabelBadge() directly
-// Deprecated wrappers removed - use universal formatter service
+// All badge rendering uses direct inline rendering with colorCodeToTailwindClass()
 // ============================================================================
 
 /**
@@ -91,7 +90,7 @@ export { FALLBACK_COLORS as COLOR_MAP };
  * const columns = applySettingsBadgeRenderers([
  *   { key: 'project_stage', title: 'Stage', loadDataLabels: true }
  * ]);
- * // Automatically adds: render: renderDataLabelBadge('project_stage')
+ * // Automatically adds: render: createSettingBadgeRenderer('project_stage')
  * ```
  */
 export function applySettingsBadgeRenderers<T extends { key: string; loadDataLabels?: boolean; render?: any }>(
