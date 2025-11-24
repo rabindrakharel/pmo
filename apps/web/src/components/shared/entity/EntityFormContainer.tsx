@@ -346,20 +346,20 @@ function EntityFormContainerInner({
         const option = options.find((opt: any) => String(opt.value) === String(value));
         const rawValue = option?.label || value;
 
-        // Format value based on field type
+        // Format value based on field type (v7.0.0: use field.type directly from metadata)
         let displayValue: string;
-        const fieldFormat = detectField(field.key);
+        const inputType = field.type;
 
         // Format using inline logic
         if (rawValue == null) {
           displayValue = '-';
-        } else if (fieldFormat.inputType === 'currency') {
+        } else if (inputType === 'currency') {
           displayValue = formatCurrency(rawValue);
-        } else if (fieldFormat.inputType === 'date') {
+        } else if (inputType === 'date') {
           displayValue = formatFriendlyDate(rawValue);
-        } else if (fieldFormat.inputType === 'timestamp' || fieldFormat.inputType === 'datetime') {
+        } else if (inputType === 'timestamp' || inputType === 'datetime') {
           displayValue = formatRelativeTime(rawValue);
-        } else if (fieldFormat.inputType === 'checkbox') {
+        } else if (inputType === 'checkbox') {
           displayValue = rawValue ? 'Yes' : 'No';
         } else if (typeof rawValue === 'object') {
           if (Array.isArray(rawValue)) {
@@ -655,20 +655,20 @@ function EntityFormContainerInner({
           </span>
         );
       default:
-        // Format value for display
+        // Format value for display (v7.0.0: use field.type directly from metadata)
         let defaultDisplay: string;
-        const fieldFormat = detectField(field.key);
+        const defaultInputType = field.type;
 
         // Format using inline logic
         if (value == null) {
           defaultDisplay = '-';
-        } else if (fieldFormat.inputType === 'currency') {
+        } else if (defaultInputType === 'currency') {
           defaultDisplay = formatCurrency(value);
-        } else if (fieldFormat.inputType === 'date') {
+        } else if (defaultInputType === 'date') {
           defaultDisplay = formatFriendlyDate(value);
-        } else if (fieldFormat.inputType === 'timestamp' || fieldFormat.inputType === 'datetime') {
+        } else if (defaultInputType === 'timestamp' || defaultInputType === 'datetime') {
           defaultDisplay = formatRelativeTime(value);
-        } else if (fieldFormat.inputType === 'checkbox') {
+        } else if (defaultInputType === 'checkbox') {
           defaultDisplay = value ? 'Yes' : 'No';
         } else if (typeof value === 'object') {
           if (Array.isArray(value)) {
