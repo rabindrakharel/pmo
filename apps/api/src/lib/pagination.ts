@@ -50,11 +50,78 @@ export interface PaginatedResponse<T = any> {
 }
 
 /**
- * Default pagination configuration
+ * Central Pagination Configuration
+ * ================================
+ * Single source of truth for all pagination defaults across the platform.
+ *
+ * v8.1.0: Centralized configuration for consistent pagination behavior
+ * v8.0.0: Increased MAX_LIMIT to 100000 for large dataset rendering
+ *
+ * Usage in routes:
+ * ```typescript
+ * import { PAGINATION_CONFIG, getPaginationParams } from '@/lib/pagination.js';
+ *
+ * // Use defaults
+ * const { limit = PAGINATION_CONFIG.DEFAULT_LIMIT } = request.query;
+ *
+ * // Or use getPaginationParams (recommended)
+ * const { page, limit, offset } = getPaginationParams(request.query);
+ * ```
  */
-export const DEFAULT_PAGE = 1;
-export const DEFAULT_LIMIT = 20;
-export const MAX_LIMIT = 100;
+export const PAGINATION_CONFIG = {
+  /** Default page number when not specified */
+  DEFAULT_PAGE: 1,
+
+  /** Default records per page for list views (standard pagination) */
+  DEFAULT_PAGE_SIZE: 20,
+
+  /** Default limit for bulk data loading (format-at-read pattern) */
+  DEFAULT_LIMIT: 20000,
+
+  /** Maximum allowed limit per request */
+  MAX_LIMIT: 100000,
+
+  /** Minimum allowed limit */
+  MIN_LIMIT: 1,
+
+  /** Default for child entity lists (e.g., project tasks) */
+  CHILD_ENTITY_LIMIT: 100,
+
+  /** Default for dropdown/select options */
+  DROPDOWN_LIMIT: 1000,
+
+  /** Default for settings/datalabel lists */
+  SETTINGS_LIMIT: 500,
+
+  /** Entity-specific limits (override DEFAULT_LIMIT for specific entities) */
+  ENTITY_LIMITS: {
+    project: 1000,
+    task: 1000,
+    employee: 5000,
+    client: 5000,
+    // Add more entity-specific limits as needed
+  } as Record<string, number>,
+} as const;
+
+// Export individual constants for backward compatibility
+export const DEFAULT_PAGE = PAGINATION_CONFIG.DEFAULT_PAGE;
+export const DEFAULT_LIMIT = PAGINATION_CONFIG.DEFAULT_LIMIT;
+export const MAX_LIMIT = PAGINATION_CONFIG.MAX_LIMIT;
+
+/**
+ * Get the default limit for a specific entity type
+ * Falls back to DEFAULT_LIMIT if no entity-specific limit is configured
+ *
+ * @param entityCode - Entity type code (e.g., 'project', 'task')
+ * @returns The configured limit for this entity type
+ *
+ * @example
+ * const limit = getEntityLimit('project'); // Returns 3000
+ * const limit = getEntityLimit('wiki');    // Returns DEFAULT_LIMIT (20000)
+ */
+export function getEntityLimit(entityCode: string): number {
+  return PAGINATION_CONFIG.ENTITY_LIMITS[entityCode] ?? PAGINATION_CONFIG.DEFAULT_LIMIT;
+}
 
 /**
  * Extract and validate pagination parameters from query string

@@ -140,17 +140,23 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   const hasMore = queryResult?.hasMore || false;
   const error = queryError?.message || null;
 
-  // Pagination for EntityDataTable
+  // Client-side pagination for EntityDataTable rendering
+  // v8.1.0: Page size controls how many rows render at once
+  const [clientPageSize, setClientPageSize] = useState(1000);
   const pagination = useMemo(() => ({
     current: currentPage,
-    pageSize: 20000,  // v8.0.0: Large page size for format-at-read performance
+    pageSize: clientPageSize,
     total: totalRecords,
     showSizeChanger: true,
-    pageSizeOptions: [20000, 50000, 100000],
-    onChange: (page: number, _pageSize: number) => {
+    pageSizeOptions: [100, 500, 1000, 2000],
+    onChange: (page: number, newPageSize: number) => {
       setCurrentPage(page);
+      if (newPageSize !== clientPageSize) {
+        setClientPageSize(newPageSize);
+        setCurrentPage(1);  // Reset to page 1 when changing page size
+      }
     }
-  }), [currentPage, totalRecords]);
+  }), [currentPage, totalRecords, clientPageSize]);
 
   // Entity mutation for updates (kanban card moves, etc.)
   const { updateEntity } = useEntityMutation(entityCode);

@@ -3,6 +3,7 @@ import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import { getEntityInfrastructure, Permission } from '../services/entity-infrastructure.service.js';
+import { PAGINATION_CONFIG } from './pagination.js';
 
 /**
  * Entity-to-Table Mapping
@@ -169,7 +170,7 @@ export async function createChildEntityEndpointsFromMetadata(
       }, async (request, reply) => {
         try {
           const { id: parentId } = request.params as { id: string };
-          const { page = 1, limit = 20 } = request.query as any;
+          const { page = 1, limit = PAGINATION_CONFIG.CHILD_ENTITY_LIMIT } = request.query as any;
           const userId = request.user?.sub;
 
           if (!userId) {

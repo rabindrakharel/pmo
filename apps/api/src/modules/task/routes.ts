@@ -154,6 +154,8 @@ import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../serv
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✨ Backend Formatter Service - component-aware metadata generation
 import { generateEntityResponse } from '../../services/backend-formatter.service.js';
+// ✨ Centralized Pagination Config
+import { PAGINATION_CONFIG, getEntityLimit } from '../../lib/pagination.js';
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
 
 const TaskSchema = Type.Object({
@@ -235,7 +237,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         client_id: Type.Optional(Type.String()),
         active: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 10000 })),
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100000 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
         parent_type: Type.Optional(Type.String()),
@@ -259,7 +261,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const {
       project_id, assigned_to__employee_id, dl__task_stage, task_type, task_category,
-      worksite_id, client_id, active, search, limit = 20, offset: queryOffset, page,
+      worksite_id, client_id, active, search, limit = getEntityLimit(ENTITY_CODE), offset: queryOffset, page,
       parent_type, parent_id, view
     } = request.query as any;
 

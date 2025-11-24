@@ -161,6 +161,8 @@ import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../serv
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✨ Backend Formatter Service - component-aware metadata generation
 import { generateEntityResponse } from '../../services/backend-formatter.service.js';
+// ✨ Centralized Pagination Config
+import { PAGINATION_CONFIG, getEntityLimit } from '../../lib/pagination.js';
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
 
 // Schema for entity reference resolution (_ID and _IDS fields)
@@ -247,7 +249,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         search: Type.Optional(Type.String()),
         dl__project_stage: Type.Optional(Type.String()),
         business_id: Type.Optional(Type.String()),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 10000 })),
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100000 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
         parent_type: Type.Optional(Type.String()),
@@ -270,7 +272,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      search, limit = 20, offset: queryOffset, page, parent_type, parent_id, view
+      search, limit = getEntityLimit(ENTITY_CODE), offset: queryOffset, page, parent_type, parent_id, view
     } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 

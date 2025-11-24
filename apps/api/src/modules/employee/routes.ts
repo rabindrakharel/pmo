@@ -208,7 +208,7 @@ export async function empRoutes(fastify: FastifyInstance) {
         remote_work_eligible: Type.Optional(Type.Boolean()),
         parent_type: Type.Optional(Type.String()),
         parent_id: Type.Optional(Type.String({ format: 'uuid' })),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 10000 })),
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100000 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 }))}),
       response: {

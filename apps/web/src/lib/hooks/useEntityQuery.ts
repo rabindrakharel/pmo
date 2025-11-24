@@ -33,6 +33,8 @@ import type { DatalabelData } from '../frontEndFormatterService';
 // Import format-at-read utilities (v8.0.0)
 // Used by select option to transform raw cache data into formatted display data
 import { formatDataset, formatRow, type FormattedRow, type ComponentMetadata } from '../formatters';
+// Centralized pagination config (v8.1.0)
+import { getEntityLimit, PAGINATION_CONFIG } from '../pagination.config';
 
 // Import specialized Zustand stores (METADATA ONLY - v6.0.0)
 // Entity instance data now uses React Query as sole cache
@@ -201,9 +203,9 @@ export function useEntityInstanceList<T = any>(
   const normalizedParams = useMemo(() => ({
     ...params,  // Spread first so explicit values override
     page: params.page || 1,
-    pageSize: params.pageSize || 20000,  // v8.0.0: Large page size for format-at-read
+    pageSize: params.pageSize || getEntityLimit(entityCode),  // v8.1.0: Centralized pagination config
     view: mappedView,  // Use mapped view, not raw params.view
-  }), [params, mappedView]);
+  }), [params, mappedView, entityCode]);
 
   const queryKey = useMemo(
     () => queryKeys.entityInstanceList(entityCode, normalizedParams),
@@ -475,9 +477,9 @@ export function useFormattedEntityList<T = any>(
   const normalizedParams = useMemo(() => ({
     ...params,
     page: params.page || 1,
-    pageSize: params.pageSize || 20000,  // v8.0.0: Large page size for format-at-read
+    pageSize: params.pageSize || getEntityLimit(entityCode),  // v8.1.0: Centralized pagination config
     view: mappedView,
-  }), [params, mappedView]);
+  }), [params, mappedView, entityCode]);
 
   const queryKey = useMemo(
     () => queryKeys.entityInstanceList(entityCode, normalizedParams),
@@ -1471,8 +1473,8 @@ export function usePrefetch() {
           datalabels: response.datalabels || [],
           total: response.total || 0,
           page: params?.page || 1,
-          pageSize: params?.pageSize || 100,
-          hasMore: (response.data?.length || 0) === (params?.pageSize || 100),
+          pageSize: params?.pageSize || PAGINATION_CONFIG.CHILD_ENTITY_LIMIT,
+          hasMore: (response.data?.length || 0) === (params?.pageSize || PAGINATION_CONFIG.CHILD_ENTITY_LIMIT),
         };
       },
       staleTime: CACHE_TTL.ENTITY_LIST_STALE,

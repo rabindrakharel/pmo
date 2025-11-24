@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { normalizeApiResponse, hasMetadata } from './indexed-data-utils';
+import { PAGINATION_CONFIG } from './pagination.config';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -132,28 +133,28 @@ export const projectApi = {
   
   async getTasks(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/project/${id}/task`, { params: { page, limit } });
     return response.data;
   },
 
   async getWikis(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/project/${id}/wiki`, { params: { page, limit } });
     return response.data;
   },
 
   async getArtifacts(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/project/${id}/artifact`, { params: { page, limit } });
     return response.data;
   },
 
   async getForms(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/project/${id}/form`, { params: { page, limit } });
     return response.data;
   },
@@ -186,14 +187,14 @@ export const taskApi = {
 
   async getForms(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/task/${id}/form`, { params: { page, limit } });
     return response.data;
   },
 
   async getArtifacts(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/task/${id}/artifact`, { params: { page, limit } });
     return response.data;
   },
@@ -323,35 +324,35 @@ export const businessApi = {
 
   async getProjects(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/business/${id}/project`, { params: { page, limit } });
     return response.data;
   },
 
   async getTasks(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/business/${id}/task`, { params: { page, limit } });
     return response.data;
   },
 
   async getWikis(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/business/${id}/wiki`, { params: { page, limit } });
     return response.data;
   },
 
   async getArtifacts(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/business/${id}/artifact`, { params: { page, limit } });
     return response.data;
   },
 
   async getForms(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/business/${id}/form`, { params: { page, limit } });
     return response.data;
   },
@@ -384,42 +385,42 @@ export const officeApi = {
 
   async getWorksites(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/office/${id}/worksite`, { params: { page, limit } });
     return response.data;
   },
 
   async getEmployees(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/office/${id}/employee`, { params: { page, limit } });
     return response.data;
   },
 
   async getWikis(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/office/${id}/wiki`, { params: { page, limit } });
     return response.data;
   },
 
   async getTasks(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/office/${id}/task`, { params: { page, limit } });
     return response.data;
   },
 
   async getArtifacts(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/office/${id}/artifact`, { params: { page, limit } });
     return response.data;
   },
 
   async getForms(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/office/${id}/form`, { params: { page, limit } });
     return response.data;
   },
@@ -452,14 +453,14 @@ export const worksiteApi = {
 
   async getTasks(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/worksite/${id}/task`, { params: { page, limit } });
     return response.data;
   },
 
   async getForms(id: string, params?: { page?: number; pageSize?: number }) {
     const page = params?.page ?? 1;
-    const limit = params?.pageSize ?? 100;
+    const limit = params?.pageSize ?? PAGINATION_CONFIG.CHILD_ENTITY_LIMIT;
     const response = await apiClient.get(`/api/v1/worksite/${id}/form`, { params: { page, limit } });
     return response.data;
   },

@@ -651,6 +651,16 @@ export function EntityDataTable<T = any>({
     return result;
   }, [data, dropdownFilters, sortField, sortDirection, filterable]);
 
+  // Client-side pagination: Slice data for current page to avoid rendering all rows
+  // This dramatically improves performance when loading large datasets (1000+ rows)
+  const paginatedData = useMemo(() => {
+    if (!pagination) return filteredAndSortedData;
+
+    const { current, pageSize } = pagination;
+    const startIndex = (current - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return filteredAndSortedData.slice(startIndex, endIndex);
+  }, [filteredAndSortedData, pagination]);
 
   // Get unique values for each filterable column
   const getColumnOptions = (columnKey: string) => {
@@ -1425,7 +1435,7 @@ export function EntityDataTable<T = any>({
               </tr>
             </thead>
             <tbody className="bg-dark-100 divide-y divide-dark-400">
-              {filteredAndSortedData.map((record, index) => {
+              {paginatedData.map((record, index) => {
                 const recordId = getRowKey(record, index);
                 const isEditing = inlineEditable && editingRow === recordId;
                 const isDragging = draggedIndex === index;
@@ -1724,7 +1734,7 @@ export function EntityDataTable<T = any>({
           </table>
         </div>
 
-        {filteredAndSortedData.length === 0 && !loading && !allowAddRow && (
+        {paginatedData.length === 0 && !loading && !allowAddRow && (
           <div className="absolute inset-0 flex items-center justify-center">
             <p className="text-dark-700">No data found</p>
           </div>
