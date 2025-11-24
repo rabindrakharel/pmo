@@ -29,7 +29,7 @@ import { useEntityEditStore } from '../../stores/useEntityEditStore';
 import type { DatalabelData } from '../frontEndFormatterService';
 
 // Import format-at-fetch utilities (v7.0.0)
-import { formatDataset, type FormattedRow, type ComponentMetadata } from '../formatters';
+import { formatDataset, formatRow, type FormattedRow, type ComponentMetadata } from '../formatters';
 
 // Import specialized Zustand stores (METADATA ONLY - v6.0.0)
 // Entity instance data now uses React Query as sole cache
@@ -127,6 +127,7 @@ export interface EntityInstanceListResult<T = any> {
 
 export interface EntityInstanceResult<T = any> {
   data: T;
+  formattedData: FormattedRow<T>;  // v7.0.0: Pre-formatted data for instant rendering
   metadata: EntityMetadata | null;
   fields?: string[];  // Field names list from backend
 }
@@ -362,7 +363,13 @@ export function useEntityInstance<T = any>(
       // v6.1.0: Store entity in normalized cache for cross-view consistency
       addNormalizedEntity(queryClient, entityCode, data);
 
-      return { data, metadata, fields };
+      // ═══════════════════════════════════════════════════════════════
+      // v7.0.0: Format data ONCE at fetch time for optimal render performance
+      // ═══════════════════════════════════════════════════════════════
+      const componentMetadata = (metadata as any)?.entityFormContainer as ComponentMetadata | null;
+      const formattedData = formatRow(data, componentMetadata);
+
+      return { data, formattedData, metadata, fields };
     },
     enabled: !!id,
     // v6.0.0: Near real-time for actively edited records

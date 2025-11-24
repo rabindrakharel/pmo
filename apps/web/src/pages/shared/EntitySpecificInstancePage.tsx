@@ -81,6 +81,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // Extract data from React Query result
   // Note: datalabels are fetched via dedicated useDatalabels() hook, not from entity response
   const data = queryResult?.data || null;
+  const formattedData = queryResult?.formattedData || null;  // v7.0.0: Pre-formatted data
   const backendMetadata = queryResult?.metadata || null;
   const error = queryError?.message || null;
 
@@ -1226,6 +1227,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                 config={config}
                 metadata={backendMetadata}  // v7.0.0: Backend metadata is required
                 data={isEditing ? editedData : data}
+                formattedData={isEditing ? undefined : formattedData}  // v7.0.0: Pre-formatted for view mode
                 isEditing={isEditing}
                 onChange={handleFieldChange}
                 mode="edit"
