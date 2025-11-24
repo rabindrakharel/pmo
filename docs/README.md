@@ -1,6 +1,34 @@
-# PMO Platform Documentation
+# AI-FIRST PROCESS OPERATING SYSTEM
 
 **Version:** 7.0.0 | **Last Updated:** 2025-11-24
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS v4 |
+| **State** | Zustand (client) + TanStack Query (server) |
+| **Backend** | Fastify v5, TypeScript ESM, Drizzle ORM |
+| **Database** | PostgreSQL 14+ (50 tables, 46 DDL files) |
+| **Auth** | JWT + Person-based RBAC (7 permission levels) |
+| **Infra** | AWS EC2/S3/Lambda, Terraform, Docker |
+
+---
+
+## Tooling
+
+```bash
+./tools/start-all.sh          # Start platform (Docker + API + Web)
+./tools/db-import.sh          # Import/reset database
+./tools/test-api.sh GET /api/v1/project  # Test endpoints
+./tools/logs-api.sh -f        # Monitor API logs
+./tools/logs-web.sh -f        # Monitor Web logs
+./tools/restart-api.sh        # Restart API server
+```
+
+**Test Credentials:** `james.miller@huronhome.ca` / `password123`
 
 ---
 

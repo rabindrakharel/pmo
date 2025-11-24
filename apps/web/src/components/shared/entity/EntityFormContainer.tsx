@@ -16,6 +16,7 @@ import {
   type DatalabelData,
   type DatalabelOption
 } from '../../../lib/frontEndFormatterService';
+import type { FormattedRow } from '../../../lib/formatters';
 
 import { MetadataTable } from './MetadataTable';
 import { QuoteItemsRenderer } from './QuoteItemsRenderer';
@@ -81,6 +82,12 @@ interface EntityFormContainerProps {
    */
   datalabels?: DatalabelData[];
 
+  /**
+   * v7.0.0: Pre-formatted data from useEntityInstance hook
+   * When provided, uses formattedData.display[key] for view mode rendering
+   * Eliminates redundant formatting during render
+   */
+  formattedData?: FormattedRow<Record<string, any>>;
 }
 
 // Stable default values to prevent new array references on every render
@@ -94,7 +101,8 @@ function EntityFormContainerInner({
   onChange,
   mode = 'edit',
   metadata,                     // PRIORITY 1: Backend metadata
-  datalabels = EMPTY_DATALABELS  // ✅ Stable default reference
+  datalabels = EMPTY_DATALABELS,  // ✅ Stable default reference
+  formattedData                 // v7.0.0: Pre-formatted data for instant rendering
 }: EntityFormContainerProps) {
   // DEBUG: Track renders
   entityFormContainerRenderCount++;
@@ -343,32 +351,39 @@ function EntityFormContainerInner({
           );
         }
 
-        const option = options.find((opt: any) => String(opt.value) === String(value));
-        const rawValue = option?.label || value;
-
-        // Format value based on field type
+        // ═══════════════════════════════════════════════════════════════
+        // v7.0.0: Use pre-formatted value from formattedData if available
+        // ═══════════════════════════════════════════════════════════════
         let displayValue: string;
-        const fieldFormat = detectField(field.key);
 
-        // Format using inline logic
-        if (rawValue == null) {
-          displayValue = '-';
-        } else if (fieldFormat.inputType === 'currency') {
-          displayValue = formatCurrency(rawValue);
-        } else if (fieldFormat.inputType === 'date') {
-          displayValue = formatFriendlyDate(rawValue);
-        } else if (fieldFormat.inputType === 'timestamp' || fieldFormat.inputType === 'datetime') {
-          displayValue = formatRelativeTime(rawValue);
-        } else if (fieldFormat.inputType === 'checkbox') {
-          displayValue = rawValue ? 'Yes' : 'No';
-        } else if (typeof rawValue === 'object') {
-          if (Array.isArray(rawValue)) {
-            displayValue = rawValue.join(', ');
-          } else {
-            displayValue = JSON.stringify(rawValue);
-          }
+        if (formattedData?.display?.[field.key]) {
+          // v7.0.0: Use pre-formatted value (format-at-fetch)
+          displayValue = formattedData.display[field.key];
         } else {
-          displayValue = String(rawValue);
+          // Fallback: inline formatting for backwards compatibility
+          const option = options.find((opt: any) => String(opt.value) === String(value));
+          const rawValue = option?.label || value;
+          const inputType = field.type;
+
+          if (rawValue == null) {
+            displayValue = '-';
+          } else if (inputType === 'currency') {
+            displayValue = formatCurrency(rawValue);
+          } else if (inputType === 'date') {
+            displayValue = formatFriendlyDate(rawValue);
+          } else if (inputType === 'timestamp' || inputType === 'datetime') {
+            displayValue = formatRelativeTime(rawValue);
+          } else if (inputType === 'checkbox') {
+            displayValue = rawValue ? 'Yes' : 'No';
+          } else if (typeof rawValue === 'object') {
+            if (Array.isArray(rawValue)) {
+              displayValue = rawValue.join(', ');
+            } else {
+              displayValue = JSON.stringify(rawValue);
+            }
+          } else {
+            displayValue = String(rawValue);
+          }
         }
 
         if (!displayValue) return (
@@ -655,29 +670,37 @@ function EntityFormContainerInner({
           </span>
         );
       default:
-        // Format value for display
+        // ═══════════════════════════════════════════════════════════════
+        // v7.0.0: Use pre-formatted value from formattedData if available
+        // ═══════════════════════════════════════════════════════════════
         let defaultDisplay: string;
-        const fieldFormat = detectField(field.key);
 
-        // Format using inline logic
-        if (value == null) {
-          defaultDisplay = '-';
-        } else if (fieldFormat.inputType === 'currency') {
-          defaultDisplay = formatCurrency(value);
-        } else if (fieldFormat.inputType === 'date') {
-          defaultDisplay = formatFriendlyDate(value);
-        } else if (fieldFormat.inputType === 'timestamp' || fieldFormat.inputType === 'datetime') {
-          defaultDisplay = formatRelativeTime(value);
-        } else if (fieldFormat.inputType === 'checkbox') {
-          defaultDisplay = value ? 'Yes' : 'No';
-        } else if (typeof value === 'object') {
-          if (Array.isArray(value)) {
-            defaultDisplay = value.join(', ');
-          } else {
-            defaultDisplay = JSON.stringify(value);
-          }
+        if (formattedData?.display?.[field.key]) {
+          // v7.0.0: Use pre-formatted value (format-at-fetch)
+          defaultDisplay = formattedData.display[field.key];
         } else {
-          defaultDisplay = String(value);
+          // Fallback: inline formatting for backwards compatibility
+          const defaultInputType = field.type;
+
+          if (value == null) {
+            defaultDisplay = '-';
+          } else if (defaultInputType === 'currency') {
+            defaultDisplay = formatCurrency(value);
+          } else if (defaultInputType === 'date') {
+            defaultDisplay = formatFriendlyDate(value);
+          } else if (defaultInputType === 'timestamp' || defaultInputType === 'datetime') {
+            defaultDisplay = formatRelativeTime(value);
+          } else if (defaultInputType === 'checkbox') {
+            defaultDisplay = value ? 'Yes' : 'No';
+          } else if (typeof value === 'object') {
+            if (Array.isArray(value)) {
+              defaultDisplay = value.join(', ');
+            } else {
+              defaultDisplay = JSON.stringify(value);
+            }
+          } else {
+            defaultDisplay = String(value);
+          }
         }
         return <span className="text-dark-600 text-base tracking-tight">{defaultDisplay}</span>;
     }

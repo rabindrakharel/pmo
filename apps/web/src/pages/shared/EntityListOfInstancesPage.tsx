@@ -82,7 +82,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
 
   const queryParams = useMemo(() => ({
     page: currentPage,
-    pageSize: 100,
+    pageSize: 5000,  // v7.0.0: Large page size for format-at-fetch performance
     view: view,
   }), [currentPage, view]);
 
@@ -140,10 +140,10 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   // Pagination for EntityDataTable
   const pagination = useMemo(() => ({
     current: currentPage,
-    pageSize: 100,
+    pageSize: 5000,  // v7.0.0: Large page size for format-at-fetch performance
     total: totalRecords,
     showSizeChanger: true,
-    pageSizeOptions: [20, 50, 100],
+    pageSizeOptions: [5000, 10000, 30000],
     onChange: (page: number, _pageSize: number) => {
       setCurrentPage(page);
     }
