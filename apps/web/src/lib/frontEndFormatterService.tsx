@@ -437,6 +437,14 @@ export function getAllFieldMetadataFromResponse(response: ApiResponseWithMetadat
 
 /**
  * Format value using backend metadata
+ *
+ * @deprecated v7.0.0: Use formatDataset() from lib/formatters instead.
+ * This function will be removed in v8.0.0.
+ *
+ * Migration:
+ * - Import { formatDataset } from '../lib/formatters'
+ * - Call formatDataset(data, metadata) at fetch time
+ * - Access formatted values via row.display[key]
  */
 export function formatValueFromMetadata(
   value: any,
@@ -475,6 +483,16 @@ export function formatValueFromMetadata(
  * IMPORTANT: Uses viewType from backend (not renderType)
  * Backend sends: viewType, editType, format
  * Frontend adapts to backend naming conventions
+ *
+ * @deprecated v7.0.0: Use pre-formatted data from useEntityInstanceList instead.
+ * This function will be removed in v8.0.0.
+ *
+ * Migration:
+ * - View mode: Use row.display[key] from formattedData
+ * - Badges: Use row.styles[key] from formattedData
+ *
+ * The format-at-fetch pattern provides better scroll performance by
+ * formatting data once at fetch time instead of per-cell at render time.
  */
 export function renderViewModeFromMetadata(
   value: any,

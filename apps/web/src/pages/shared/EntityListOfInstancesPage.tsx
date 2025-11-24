@@ -114,6 +114,14 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     return queryResult.data;
   }, [queryResult, appendedData, currentPage]);
 
+  // v7.0.0: Extract pre-formatted data for instant rendering
+  const formattedData = useMemo(() => {
+    if (!queryResult?.formattedData) return [];
+    // For pagination, we'd need to merge formatted data too
+    // For now, use current page's formatted data
+    return queryResult.formattedData;
+  }, [queryResult]);
+
   // Use localData for inline editing, otherwise use query data
   const data = localData.length > 0 ? localData : queryData;
 
@@ -373,9 +381,14 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
         );
       }
 
+      // v7.0.0: Use pre-formatted data for instant rendering (format-at-fetch optimization)
+      // When editing (localData has content), use raw data for edit operations
+      // When viewing (localData is empty), use formattedData for optimal scroll performance
+      const tableData = localData.length > 0 ? data : (formattedData.length > 0 ? formattedData : data);
+
       return (
         <EntityDataTable
-          data={data}
+          data={tableData}
           metadata={metadata}
           loading={loading}
           pagination={pagination}

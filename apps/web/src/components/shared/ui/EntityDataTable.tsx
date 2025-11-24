@@ -44,6 +44,9 @@ import {
   type BackendFieldMetadata
 } from '../../../lib/frontEndFormatterService';
 import type { EntityMetadata } from '../../../lib/api';
+
+// v7.0.0: Format-at-fetch support
+import { type FormattedRow, isFormattedData } from '../../../lib/formatters';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 
 // ============================================================================
@@ -1612,6 +1615,11 @@ export function EntityDataTable<T = any>({
                       const hasSettingOptions = settingOptions.has(column.key);
                       const columnOptions = hasSettingOptions ? settingOptions.get(column.key)! : [];
 
+                      // v7.0.0: Get raw value from formatted data, or direct value from unformatted data
+                      const formattedRecord = record as FormattedRow<any>;
+                      const rawRecord = formattedRecord.raw || record;
+                      const rawValue = (rawRecord as any)[column.key];
+
                       return (
                         <td
                           key={column.key}
@@ -1632,9 +1640,9 @@ export function EntityDataTable<T = any>({
                             editType === 'file' ? (
                               // FILE UPLOAD - Complex drag-drop component
                               <InlineFileUploadCell
-                                value={(record as any)[column.key]}
+                                value={rawValue}
                                 entityCode={onEdit ? 'artifact' : 'cost'}
-                                entityId={(record as any).id}
+                                entityId={(rawRecord as any).id}
                                 fieldName={column.key}
                                 accept={backendMeta?.accept}
                                 onUploadComplete={(fileUrl) => onInlineEdit?.(recordId, column.key, fileUrl)}
@@ -1644,7 +1652,7 @@ export function EntityDataTable<T = any>({
                               // COLOR PICKER - Entity-specific field for settings tables
                               <div className="relative w-full">
                                 <select
-                                  value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
+                                  value={editedData[column.key] ?? rawValue ?? ''}
                                   onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
                                   onClick={(e) => e.stopPropagation()}
                                   className="w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors cursor-pointer appearance-none"
@@ -1669,7 +1677,7 @@ export function EntityDataTable<T = any>({
                             ) : editType === 'select' && hasSettingOptions ? (
                               // SETTINGS DROPDOWN - ColoredDropdown component for dl__* fields
                               <ColoredDropdown
-                                value={editedData[column.key] ?? (record as any)[column.key] ?? ''}
+                                value={editedData[column.key] ?? rawValue ?? ''}
                                 options={columnOptions}
                                 onChange={(value) => onInlineEdit?.(recordId, column.key, value)}
                                 onClick={(e) => e.stopPropagation()}
@@ -1681,7 +1689,7 @@ export function EntityDataTable<T = any>({
                                   // Use backend metadata from column (fallback only if not provided)
                                   const metadata = (column as any).backendMetadata || createFallbackMetadata(column.key);
                                   return renderEditModeFromMetadata(
-                                    editedData[column.key] ?? (record as any)[column.key],
+                                    editedData[column.key] ?? rawValue,
                                     metadata,
                                     (val) => onInlineEdit?.(recordId, column.key, val),
                                     {
@@ -1693,7 +1701,9 @@ export function EntityDataTable<T = any>({
                             )
                           ) : (
                             // ============================================================================
-                            // VIEW MODE - Backend-Driven Renderer
+                            // VIEW MODE - v7.0.0 Format-at-Fetch Optimization
+                            // If data is pre-formatted (has raw/display/styles), use display values directly
+                            // Otherwise, fall back to runtime formatting via renderViewModeFromMetadata
                             // ============================================================================
                             <div
                               style={{
@@ -1716,6 +1726,27 @@ export function EntityDataTable<T = any>({
                                   return column.render((record as any)[column.key], record);
                                 }
 
+                                // v7.0.0: Check if data is pre-formatted (FormattedRow structure)
+                                const formattedRecord = record as FormattedRow<any>;
+                                if (formattedRecord.display && formattedRecord.styles !== undefined) {
+                                  // Use pre-formatted display value
+                                  const displayValue = formattedRecord.display[column.key];
+                                  const styleClass = formattedRecord.styles[column.key];
+
+                                  // If this field has a style (badge), render with badge styling
+                                  if (styleClass) {
+                                    return (
+                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${styleClass}`}>
+                                        {displayValue}
+                                      </span>
+                                    );
+                                  }
+
+                                  // Otherwise, render plain text
+                                  return <span>{displayValue}</span>;
+                                }
+
+                                // FALLBACK: Runtime formatting for non-formatted data
                                 // Use backend metadata from column (fallback only if not provided)
                                 const metadata = (column as any).backendMetadata || createFallbackMetadata(column.key);
                                 if (column.loadDataLabels && !metadata.loadFromDataLabels) {

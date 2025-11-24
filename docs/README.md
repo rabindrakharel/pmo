@@ -1,3 +1,5 @@
+## Documentation Index
+
 1. RBAC_INFRASTRUCTURE.md
 Path: docs/rbac/RBAC_INFRASTRUCTURE.md Unified RBAC documentation covering all 4 infrastructure tables (entity, entity_instance, entity_instance_link, entity_rbac). Used by API routes for permission checking and by LLMs when implementing RBAC features. Keywords: RBAC, permissions, entity_rbac, entity_instance_link, entity_instance, Permission enum, VIEW, COMMENT, CONTRIBUTE, EDIT, SHARE, DELETE, CREATE, OWNER, ALL_ENTITIES_ID, check_entity_rbac, set_entity_rbac_owner, get_entity_rbac_where_condition, hard delete, soft delete, person-based RBAC, role-based permissions
 2. entity-infrastructure.service.md
@@ -7,8 +9,12 @@ Path: docs/state_management/STATE_MANAGEMENT.md Zustand + React Query hybrid arc
 4. PAGE_ARCHITECTURE.md
 Path: docs/pages/PAGE_ARCHITECTURE.md Comprehensive page and component architecture documentation. Used by LLMs when implementing new pages, understanding navigation flow, or modifying existing components. Keywords: EntityListOfInstancesPage, EntitySpecificInstancePage, EntityCreatePage, SettingsOverviewPage, SettingDetailPage, WikiViewPage, WikiEditorPage, FormBuilderPage, EntityDataTable, EntityFormContainer, LabelsDataTable, WikiDesigner, DynamicChildEntityTabs, Layout, ViewSwitcher, KanbanView, GridView, CalendarView, FilePreview, DragDropFileUpload, InteractiveForm, entityConfig.ts, universal pages, config-driven, Create-Link-Redirect, parent context, child entity tabs, datalabel URL conversion, position-based IDs, block editor, Notion-style
 
+5. FORMAT_AT_FETCH (v7.0.0)
+Path: apps/web/src/lib/formatters/ Performance optimization module that formats data once at fetch time instead of per-cell at render time. Used by useEntityInstanceList hook and EntityDataTable for optimal scroll performance. Keywords: formatDataset, formatRow, FormattedRow, valueFormatters, format-at-fetch, display, styles, currency formatting, badge formatting, date formatting, render optimization, scroll performance, pre-formatted data, datasetFormatter
 
-DATA FLOW / REQUEST - RESPONSE FLOW: 
+---
+
+DATA FLOW / REQUEST - RESPONSE FLOW (v7.0.0 Format-at-Fetch):
  ┌─────────────────────────────────────────────────────────────────────────┐
   │ BACKEND (apps/api)                                                      │
   ├─────────────────────────────────────────────────────────────────────────┤
@@ -29,7 +35,7 @@ DATA FLOW / REQUEST - RESPONSE FLOW:
   │                        metadata: {                                      │
   │                          entityDataTable: {                             │
   │                            manager__employee_id: {                      │
-  │                              format: 'entityInstance_Id',  ← RENAMED    │
+  │                              format: 'entityInstance_Id',               │
   │                              viewType: 'entityInstance_Id',             │
   │                              loadFromEntity: 'employee'                 │
   │                            }                                            │
@@ -40,7 +46,7 @@ DATA FLOW / REQUEST - RESPONSE FLOW:
                                 │
                                 ▼ HTTP Response
   ┌─────────────────────────────────────────────────────────────────────────┐
-  │ FRONTEND (apps/web)                                                     │
+  │ FRONTEND (apps/web) - v7.0.0 FORMAT-AT-FETCH OPTIMIZATION               │
   ├─────────────────────────────────────────────────────────────────────────┤
   │                                                                         │
   │  useEntityQuery.ts:189                                                  │
@@ -48,27 +54,43 @@ DATA FLOW / REQUEST - RESPONSE FLOW:
   │       │                                                                 │
   │       ├── React Query fetches API                                       │
   │       │                                                                 │
-  │       └── Caches metadata in Zustand:                                   │
-  │            entityComponentMetadataStore.setComponentMetadata(           │
-  │              'project', 'entityDataTable', metadata.entityDataTable     │
-  │            )                                                            │
+  │       ├── ✨ NEW: formatDataset() called ONCE at fetch time             │
+  │       │    └── lib/formatters/datasetFormatter.ts                       │
+  │       │         ├── Formats ALL rows in single pass                     │
+  │       │         └── Returns: FormattedRow[] with display/styles         │
+  │       │                                                                 │
+  │       └── Returns: { data, formattedData, metadata, total }             │
   │                                                                         │
   │  EntityListOfInstancesPage.tsx:127                                      │
-  │  └── const metadata = queryResult?.metadata || null;                    │
+  │  └── const { data, formattedData, metadata } = queryResult;             │
   │       │                                                                 │
-  │       └── <EntityDataTable data={data} metadata={metadata} />           │
+  │       └── <EntityDataTable data={formattedData} metadata={metadata} />  │
   │                                                                         │
-  │  EntityDataTable.tsx:424                                                │
-  │  └── const componentMetadata = metadata?.entityDataTable;               │
+  │  EntityDataTable.tsx:1724 (VIEW MODE - Optimized)                       │
+  │  └── For each cell:                                                     │
   │       │                                                                 │
-  │       └── For each field:                                               │
-  │            renderViewModeFromMetadata(value, fieldMeta)                 │
-  │                 │                                                       │
-  │                 └── frontEndFormatterService.tsx:542                    │
-  │                      case 'entityInstance_Id':  ← RENAMED               │
-  │                        return <span className="text-blue-600">          │
+  │       ├── IF row.display exists (FormattedRow):                         │
+  │       │    └── Use pre-formatted: row.display[key], row.styles[key]     │
+  │       │         (Zero function calls per cell!)                         │
+  │       │                                                                 │
+  │       └── ELSE (fallback for unformatted data):                         │
+  │            └── renderViewModeFromMetadata(value, fieldMeta)             │
   │                                                                         │
   └─────────────────────────────────────────────────────────────────────────┘
+
+FORMAT-AT-FETCH PERFORMANCE GAINS:
+┌─────────────────────────────────────────────────────────────────────────┐
+│  BEFORE (v6.x): Per-cell formatting during render                       │
+│  ─────────────────────────────────────────────────────────────────────  │
+│  100 rows × 10 columns = 1,000 formatValue() calls PER RENDER           │
+│  Each scroll/re-render triggers 1,000+ function calls                   │
+│                                                                         │
+│  AFTER (v7.0.0): Pre-formatted at fetch time                            │
+│  ─────────────────────────────────────────────────────────────────────  │
+│  formatDataset() called ONCE when data arrives                          │
+│  Cell rendering = simple property access: row.display[key]              │
+│  Scrolling triggers ZERO formatting function calls                      │
+└─────────────────────────────────────────────────────────────────────────┘
 
 
 
@@ -186,6 +208,7 @@ The PMO platform uses a **universal page architecture** where 3 main pages handl
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    EntityListOfInstancesPage State Flow                      │
+│                    (v7.0.0 Format-at-Fetch Optimization)                     │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  [Mount] ──────────────────────────────────────────────────────────────────│
@@ -193,6 +216,7 @@ The PMO platform uses a **universal page architecture** where 3 main pages handl
 │     ├── 1. useEntityInstanceList(entityCode, params)                         │
 │     │      ├── React Query checks cache → MISS → API fetch                   │
 │     │      ├── API Response: { data, metadata, total }                       │
+│     │      ├── ✨ formatDataset(data, metadata) → formattedData              │
 │     │      ├── Store data → entityInstanceListDataStore (5 min TTL)          │
 │     │      └── Store metadata → entityComponentMetadataStore (30 min TTL)    │
 │     │                                                                        │
@@ -204,6 +228,15 @@ The PMO platform uses a **universal page architecture** where 3 main pages handl
 │            ├── editingRow (inline edit tracking)                             │
 │            ├── editedData (inline edit values)                               │
 │            └── localData (optimistic list updates)                           │
+│                                                                              │
+│  [Table Rendering] ────────────────────────────────────────────────────────│
+│     │                                                                        │
+│     ├── IF localData.length > 0 (editing mode):                              │
+│     │    └── Pass raw data to EntityDataTable                                │
+│     │                                                                        │
+│     └── ELSE (view mode):                                                    │
+│          └── Pass formattedData to EntityDataTable (optimal performance)     │
+│               └── Cell rendering uses row.display[key] directly              │
 │                                                                              │
 │  [User Clicks Row] ────────────────────────────────────────────────────────│
 │     │                                                                        │
@@ -224,6 +257,8 @@ The PMO platform uses a **universal page architecture** where 3 main pages handl
 [RENDER #1] 🖼️ EntityListOfInstancesPage: office
 [API FETCH] 📡 useEntityInstanceList: office
 [API FETCH] ✅ Received 5 items for office
+[FORMAT] Formatting 5 rows                          ← v7.0.0 format-at-fetch
+[FORMAT] Formatted in 0.42ms                        ← one-time cost
 [ListDataStore] Storing: office:page=1&pageSize=100
 [EntityComponentStore] Storing: office:entityDataTable
 [CACHE MISS] 💾 useEntityInstanceList: office

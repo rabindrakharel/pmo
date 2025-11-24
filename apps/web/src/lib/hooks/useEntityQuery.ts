@@ -28,6 +28,9 @@ import { APIFactory, type EntityMetadata, type PaginatedResponse } from '../api'
 import { useEntityEditStore } from '../../stores/useEntityEditStore';
 import type { DatalabelData } from '../frontEndFormatterService';
 
+// Import format-at-fetch utilities (v7.0.0)
+import { formatDataset, type FormattedRow, type ComponentMetadata } from '../formatters';
+
 // Import specialized Zustand stores (METADATA ONLY - v6.0.0)
 // Entity instance data now uses React Query as sole cache
 import { useGlobalSettingsMetadataStore } from '../../stores/globalSettingsMetadataStore';
@@ -113,6 +116,7 @@ export interface EntityInstanceListParams {
 
 export interface EntityInstanceListResult<T = any> {
   data: T[];
+  formattedData: FormattedRow<T>[];  // v7.0.0: Pre-formatted data for instant rendering
   metadata: EntityMetadata | null;
   total: number;
   page: number;
@@ -196,8 +200,15 @@ export function useEntityInstanceList<T = any>(
         fields: response.fields || [],  // Include fields array in metadata
       } : null;
 
+      // ═══════════════════════════════════════════════════════════════
+      // v7.0.0: Format data ONCE at fetch time for optimal render performance
+      // ═══════════════════════════════════════════════════════════════
+      const componentMetadata = (metadataWithFields as any)?.entityDataTable as ComponentMetadata | null;
+      const formattedData = formatDataset(response.data || [], componentMetadata);
+
       const result: EntityInstanceListResult<T> = {
         data: response.data || [],
+        formattedData,  // v7.0.0: Pre-formatted for instant rendering
         metadata: metadataWithFields,
         total: response.total || 0,
         page: normalizedParams.page,

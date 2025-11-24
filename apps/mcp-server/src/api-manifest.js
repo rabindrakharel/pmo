@@ -39,13 +39,13 @@ export const API_MANIFEST = [
     {
         name: 'auth_get_scopes',
         method: 'GET',
-        path: '/api/v1/auth/scopes/:entityType',
+        path: '/api/v1/auth/scopes/:entityCode',
         description: 'Get accessible entities by type for current user',
         requiresAuth: true,
         category: 'Authentication',
         parameters: {
             path: {
-                entityType: 'Entity type (project, task, etc.)'
+                entityCode: 'Entity type (project, task, etc.)'
             },
             query: {
                 action: 'Permission action to check (view, edit, create, delete)'
@@ -1717,36 +1717,6 @@ export const API_MANIFEST = [
             }
         }
     },
-    // ==================== BOOKING ====================
-    {
-        name: 'booking_list',
-        method: 'GET',
-        path: '/api/v1/booking',
-        description: 'List all bookings/appointments',
-        requiresAuth: false,
-        category: 'Booking'
-    },
-    {
-        name: 'booking_get',
-        method: 'GET',
-        path: '/api/v1/booking/:id',
-        description: 'Get single booking',
-        requiresAuth: false,
-        category: 'Booking',
-        parameters: {
-            path: {
-                id: 'Booking UUID'
-            }
-        }
-    },
-    {
-        name: 'booking_create',
-        method: 'POST',
-        path: '/api/v1/booking',
-        description: 'Create new booking/appointment',
-        requiresAuth: false,
-        category: 'Booking'
-    },
     // ==================== HEALTH ====================
     {
         name: 'health_check',
@@ -1800,7 +1770,6 @@ export const API_CATEGORIES = [
     'Interaction',
     'Calendar',
     'Chat',
-    'Booking',
     'System'
 ];
 // Helper function to get endpoints by category
