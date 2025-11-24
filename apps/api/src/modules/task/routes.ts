@@ -235,7 +235,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         client_id: Type.Optional(Type.String()),
         active: Type.Optional(Type.Boolean()),
         search: Type.Optional(Type.String()),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 10000 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
         parent_type: Type.Optional(Type.String()),

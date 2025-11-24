@@ -9,6 +9,7 @@ import { EntityPreviewProvider } from './contexts/EntityPreviewContext';
 import { EntityMetadataProvider, useEntityMetadata } from './contexts/EntityMetadataContext';
 import { LoginForm } from './components/shared';
 import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPanel';
+import { EllipsisBounce } from './components/shared/ui/EllipsisBounce';
 
 // Garbage Collection for metadata stores
 import { startMetadataGC, stopMetadataGC } from './lib/cache/garbageCollection';
@@ -78,7 +79,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-dark-700"></div>
+        <EllipsisBounce size="lg" text="Processing" />
       </div>
     );
   }
@@ -97,7 +98,7 @@ function AppRoutes() {
   if (isLoading || entitiesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-dark-700"></div>
+        <EllipsisBounce size="lg" text="Processing" />
       </div>
     );
   }

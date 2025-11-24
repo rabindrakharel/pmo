@@ -1,9 +1,10 @@
 /**
  * Entity Query Hooks - React Query + Zustand Integration
  *
- * ARCHITECTURE (v6.0.0 - Industry Standard):
- * - React Query: SOLE data cache for entity instances (lists & details)
+ * ARCHITECTURE (v8.0.0 - Format at Read):
+ * - React Query: SOLE data cache for RAW entity instances (lists & details)
  * - Zustand: UI state only (edit state, preferences) + metadata caching
+ * - Formatting: Happens on READ via `select` option, NOT during fetch
  *
  * Cache Strategy (Stale-While-Revalidate):
  * - Reference Data (1 hour): Entity types, global settings, datalabels
@@ -11,15 +12,16 @@
  * - Entity Lists (30 sec stale, 5 min cache): Show cached, refetch in background
  * - Entity Details (10 sec stale, 2 min cache): Near real-time for edits
  *
+ * Format at Read Pattern (v8.0.0):
+ * - API returns raw data → cached as-is in React Query
+ * - `select` option transforms raw → formatted on each read
+ * - Benefits: Smaller cache, fresh formatting, view-specific transforms
+ *
  * Store Architecture (Metadata Only):
  * - globalSettingsMetadataStore: Currency, date, timestamp formatting
  * - datalabelMetadataStore: Dropdown options (dl__* fields)
  * - entityComponentMetadataStore: Field metadata keyed by entityCode:componentName
  * - entityCodeMetadataStore: Entity types for sidebar navigation
- *
- * REMOVED (v6.0.0 - Eliminated Dual Cache):
- * - entityInstanceDataStore: Now using React Query only
- * - entityInstanceListDataStore: Now using React Query only
  */
 
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
@@ -28,7 +30,8 @@ import { APIFactory, type EntityMetadata, type PaginatedResponse } from '../api'
 import { useEntityEditStore } from '../../stores/useEntityEditStore';
 import type { DatalabelData } from '../frontEndFormatterService';
 
-// Import format-at-fetch utilities (v7.0.0)
+// Import format-at-read utilities (v8.0.0)
+// Used by select option to transform raw cache data into formatted display data
 import { formatDataset, formatRow, type FormattedRow, type ComponentMetadata } from '../formatters';
 
 // Import specialized Zustand stores (METADATA ONLY - v6.0.0)
@@ -114,31 +117,51 @@ export interface EntityInstanceListParams {
   [key: string]: any;
 }
 
+/**
+ * Raw entity list result - cached as-is in React Query (v8.0.0)
+ */
 export interface EntityInstanceListResult<T = any> {
   data: T[];
-  formattedData: FormattedRow<T>[];  // v7.0.0: Pre-formatted data for instant rendering
   metadata: EntityMetadata | null;
   total: number;
   page: number;
   pageSize: number;
   hasMore: boolean;
 }
-// Note: datalabels and globalSettings are fetched via dedicated endpoints
 
+/**
+ * Formatted entity list result - created by select transform (v8.0.0)
+ */
+export interface FormattedEntityInstanceListResult<T = any> extends EntityInstanceListResult<T> {
+  formattedData: FormattedRow<T>[];
+}
+
+/**
+ * Raw entity instance result - cached as-is in React Query (v8.0.0)
+ */
 export interface EntityInstanceResult<T = any> {
   data: T;
-  formattedData: FormattedRow<T>;  // v7.0.0: Pre-formatted data for instant rendering
   metadata: EntityMetadata | null;
-  fields?: string[];  // Field names list from backend
+  fields?: string[];
 }
-// Note: datalabels fetched via useDatalabels hook, globalSettings via useGlobalSettings hook
+
+/**
+ * Formatted entity instance result - created by select transform (v8.0.0)
+ */
+export interface FormattedEntityInstanceResult<T = any> extends EntityInstanceResult<T> {
+  formattedData: FormattedRow<T>;
+}
 
 // ============================================================================
-// useEntityInstanceList - Fetch entity list with caching
+// useEntityInstanceList - Fetch RAW entity list with caching (v8.0.0)
 // ============================================================================
 
 /**
- * Hook for fetching entity lists with React Query
+ * Hook for fetching RAW entity lists with React Query
+ *
+ * v8.0.0: Format at Read Pattern
+ * - Caches RAW data only (no formatting in queryFn)
+ * - Use useFormattedEntityList() for formatted data with select transform
  *
  * Features:
  * - Automatic caching with configurable TTL (5 min for lists)
@@ -147,7 +170,11 @@ export interface EntityInstanceResult<T = any> {
  * - Integration with specialized Zustand stores
  *
  * @example
- * const { data, isLoading, refetch } = useEntityInstanceList('project', { page: 1, pageSize: 100 });
+ * // Raw data (for editing, exports, etc.)
+ * const { data } = useEntityInstanceList('project', { page: 1, pageSize: 100 });
+ *
+ * // Formatted data (for display) - use useFormattedEntityList instead
+ * const { data } = useFormattedEntityList('project', { page: 1, pageSize: 100 });
  */
 export function useEntityInstanceList<T = any>(
   entityCode: string,
@@ -202,14 +229,10 @@ export function useEntityInstanceList<T = any>(
       } : null;
 
       // ═══════════════════════════════════════════════════════════════
-      // v7.0.0: Format data ONCE at fetch time for optimal render performance
+      // v8.0.0: Cache RAW data only - formatting happens on READ via select
       // ═══════════════════════════════════════════════════════════════
-      const componentMetadata = (metadataWithFields as any)?.entityDataTable as ComponentMetadata | null;
-      const formattedData = formatDataset(response.data || [], componentMetadata);
-
       const result: EntityInstanceListResult<T> = {
         data: response.data || [],
-        formattedData,  // v7.0.0: Pre-formatted for instant rendering
         metadata: metadataWithFields,
         total: response.total || 0,
         page: normalizedParams.page,
@@ -286,11 +309,15 @@ export function useEntityInstanceList<T = any>(
 }
 
 // ============================================================================
-// useEntityInstance - Fetch single entity with caching
+// useEntityInstance - Fetch RAW single entity with caching (v8.0.0)
 // ============================================================================
 
 /**
- * Hook for fetching single entity details with React Query
+ * Hook for fetching RAW single entity details with React Query
+ *
+ * v8.0.0: Format at Read Pattern
+ * - Caches RAW data only (no formatting in queryFn)
+ * - Use useFormattedEntityInstance() for formatted data with select transform
  *
  * Features:
  * - Automatic caching (10s stale, 2m cache) with stale-while-revalidate
@@ -299,7 +326,11 @@ export function useEntityInstanceList<T = any>(
  * - Optimistic update support via normalized cache
  *
  * @example
- * const { data, isLoading, refetch } = useEntityInstance('project', 'uuid-123');
+ * // Raw data (for editing)
+ * const { data } = useEntityInstance('project', 'uuid-123');
+ *
+ * // Formatted data (for display) - use useFormattedEntityInstance instead
+ * const { data } = useFormattedEntityInstance('project', 'uuid-123');
  */
 export function useEntityInstance<T = any>(
   entityCode: string,
@@ -364,12 +395,9 @@ export function useEntityInstance<T = any>(
       addNormalizedEntity(queryClient, entityCode, data);
 
       // ═══════════════════════════════════════════════════════════════
-      // v7.0.0: Format data ONCE at fetch time for optimal render performance
+      // v8.0.0: Cache RAW data only - formatting happens on READ via select
       // ═══════════════════════════════════════════════════════════════
-      const componentMetadata = (metadata as any)?.entityFormContainer as ComponentMetadata | null;
-      const formattedData = formatRow(data, componentMetadata);
-
-      return { data, formattedData, metadata, fields };
+      return { data, metadata, fields };
     },
     enabled: !!id,
     // v6.0.0: Near real-time for actively edited records
@@ -400,6 +428,254 @@ export function useEntityInstance<T = any>(
       );
     }
   }, [query.data, query.isRefetching, queryClient, queryKey, entityCode, id]);
+
+  return query;
+}
+
+// ============================================================================
+// useFormattedEntityList - Format at Read pattern (v8.0.0)
+// ============================================================================
+
+/**
+ * Hook for fetching FORMATTED entity lists using select transform
+ *
+ * v8.0.0: Format at Read Pattern
+ * - Uses same cached RAW data as useEntityInstanceList
+ * - Applies formatting via React Query's `select` option on read
+ * - Memoized by React Query - only re-formats when raw data changes
+ *
+ * Benefits:
+ * - Smaller cache (raw data only)
+ * - Fresh formatting with latest datalabel colors
+ * - Same cache, different formats per component
+ *
+ * @example
+ * const { data } = useFormattedEntityList('project', { page: 1, pageSize: 100 });
+ * // data.formattedData contains FormattedRow[] ready for rendering
+ */
+export function useFormattedEntityList<T = any>(
+  entityCode: string,
+  params: EntityInstanceListParams = {},
+  options?: Omit<UseQueryOptions<FormattedEntityInstanceListResult<T>>, 'queryKey' | 'queryFn' | 'select'>
+) {
+  const queryClient = useQueryClient();
+
+  // Map view mode to component name for backend metadata filtering
+  const viewComponentMap: Record<string, string> = {
+    table: 'entityDataTable',
+    kanban: 'kanbanView',
+    grid: 'gridView',
+    calendar: 'calendarView',
+    dag: 'dagView',
+    hierarchy: 'hierarchyGraphView',
+  };
+
+  const mappedView = params.view ? viewComponentMap[params.view] || params.view : 'entityDataTable';
+
+  const normalizedParams = useMemo(() => ({
+    ...params,
+    page: params.page || 1,
+    pageSize: params.pageSize || 5000,
+    view: mappedView,
+  }), [params, mappedView]);
+
+  const queryKey = useMemo(
+    () => queryKeys.entityInstanceList(entityCode, normalizedParams),
+    [entityCode, normalizedParams]
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // v8.0.0: Use `select` to transform raw cache data → formatted on READ
+  // React Query memoizes this - only re-runs when raw data changes
+  // ═══════════════════════════════════════════════════════════════════════
+  const selectFormatted = useCallback(
+    (raw: EntityInstanceListResult<T>): FormattedEntityInstanceListResult<T> => {
+      const startTime = performance.now();
+
+      // Get component metadata for formatting
+      const componentMetadata = (raw.metadata as any)?.[mappedView] as ComponentMetadata | null;
+
+      // Format dataset (this runs only when raw data changes)
+      const formattedData = formatDataset(raw.data, componentMetadata);
+
+      const duration = performance.now() - startTime;
+      console.log(
+        `%c[FORMAT AT READ] 🎨 Formatted ${raw.data.length} rows in ${duration.toFixed(2)}ms`,
+        'color: #be4bdb; font-weight: bold',
+        { entityCode, view: mappedView, hasMetadata: !!componentMetadata }
+      );
+
+      return {
+        ...raw,
+        formattedData,
+      };
+    },
+    [entityCode, mappedView]
+  );
+
+  const query = useQuery<EntityInstanceListResult<T>, Error, FormattedEntityInstanceListResult<T>>({
+    queryKey,
+    queryFn: async () => {
+      // Fetch raw data (or use cached raw data)
+      console.log(`%c[API FETCH] 📡 useFormattedEntityList: ${entityCode}`, 'color: #ff6b6b; font-weight: bold', {
+        params: normalizedParams,
+        queryKey,
+      });
+
+      const api = APIFactory.getAPI(entityCode);
+      const response = await api.list(normalizedParams);
+
+      const metadataWithFields = response.metadata ? {
+        ...response.metadata,
+        fields: response.fields || [],
+      } : null;
+
+      const result: EntityInstanceListResult<T> = {
+        data: response.data || [],
+        metadata: metadataWithFields,
+        total: response.total || 0,
+        page: normalizedParams.page,
+        pageSize: normalizedParams.pageSize,
+        hasMore: (response.data?.length || 0) === normalizedParams.pageSize,
+      };
+
+      console.log(`%c[API FETCH] ✅ Received ${result.data.length} items for ${entityCode}`, 'color: #ff6b6b', {
+        total: result.total,
+        hasMetadata: !!result.metadata,
+      });
+
+      // Cache datalabels for formatting
+      if (response.datalabels && typeof response.datalabels === 'object') {
+        Object.entries(response.datalabels).forEach(([datalabelKey, opts]) => {
+          if (Array.isArray(opts)) {
+            useDatalabelMetadataStore.getState().setDatalabel(datalabelKey, opts);
+          }
+        });
+      }
+
+      // Cache component metadata
+      if (result.metadata) {
+        const componentName = normalizedParams.view || 'entityDataTable';
+        const componentMeta = (result.metadata as any)[componentName];
+        if (componentMeta && typeof componentMeta === 'object') {
+          useEntityComponentMetadataStore.getState().setComponentMetadata(entityCode, componentName, componentMeta);
+        }
+      }
+
+      // Normalize for cross-view consistency
+      normalizeListResponse(queryClient, { data: result.data, metadata: result.metadata, total: result.total }, entityCode);
+
+      return result;
+    },
+    select: selectFormatted,  // v8.0.0: Format on READ, not on FETCH
+    staleTime: CACHE_TTL.ENTITY_LIST_STALE,
+    gcTime: CACHE_TTL.ENTITY_LIST_CACHE,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    ...options,
+  });
+
+  return query;
+}
+
+// ============================================================================
+// useFormattedEntityInstance - Format at Read pattern (v8.0.0)
+// ============================================================================
+
+/**
+ * Hook for fetching FORMATTED single entity using select transform
+ *
+ * v8.0.0: Format at Read Pattern
+ * - Uses same cached RAW data as useEntityInstance
+ * - Applies formatting via React Query's `select` option on read
+ * - Memoized by React Query - only re-formats when raw data changes
+ *
+ * @example
+ * const { data } = useFormattedEntityInstance('project', 'uuid-123');
+ * // data.formattedData contains FormattedRow ready for rendering
+ */
+export function useFormattedEntityInstance<T = any>(
+  entityCode: string,
+  id: string | undefined,
+  componentName: string = 'entityFormContainer',
+  options?: Omit<UseQueryOptions<FormattedEntityInstanceResult<T>>, 'queryKey' | 'queryFn' | 'select'>
+) {
+  const queryClient = useQueryClient();
+
+  const queryKey = useMemo(
+    () => id ? queryKeys.entityInstance(entityCode, id) : ['entity-instance', entityCode, 'undefined'],
+    [entityCode, id]
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // v8.0.0: Use `select` to transform raw cache data → formatted on READ
+  // ═══════════════════════════════════════════════════════════════════════
+  const selectFormatted = useCallback(
+    (raw: EntityInstanceResult<T>): FormattedEntityInstanceResult<T> => {
+      const startTime = performance.now();
+
+      const componentMetadata = (raw.metadata as any)?.[componentName] as ComponentMetadata | null;
+      const formattedData = formatRow(raw.data, componentMetadata);
+
+      const duration = performance.now() - startTime;
+      console.log(
+        `%c[FORMAT AT READ] 🎨 Formatted entity in ${duration.toFixed(2)}ms`,
+        'color: #be4bdb; font-weight: bold',
+        { entityCode, id, component: componentName, hasMetadata: !!componentMetadata }
+      );
+
+      return {
+        ...raw,
+        formattedData,
+      };
+    },
+    [entityCode, id, componentName]
+  );
+
+  const query = useQuery<EntityInstanceResult<T>, Error, FormattedEntityInstanceResult<T>>({
+    queryKey,
+    queryFn: async () => {
+      if (!id) {
+        throw new Error('Entity ID is required');
+      }
+
+      console.log(`%c[API FETCH] 📡 useFormattedEntityInstance: ${entityCode}/${id}`, 'color: #ff6b6b; font-weight: bold');
+
+      const api = APIFactory.getAPI(entityCode);
+      const response = await api.get(id, { view: componentName });
+
+      let data = response.data || response;
+      let metadata = null;
+      let fields: string[] | undefined;
+
+      if (response && typeof response === 'object' && 'metadata' in response && 'data' in response) {
+        metadata = response.metadata;
+        data = response.data;
+        if ('fields' in response && Array.isArray(response.fields)) {
+          fields = response.fields;
+        }
+      }
+
+      if (data.metadata && typeof data.metadata === 'string') {
+        try {
+          data.metadata = JSON.parse(data.metadata);
+        } catch {
+          data.metadata = {};
+        }
+      }
+
+      addNormalizedEntity(queryClient, entityCode, data);
+
+      return { data, metadata, fields };
+    },
+    select: selectFormatted,  // v8.0.0: Format on READ, not on FETCH
+    enabled: !!id,
+    staleTime: CACHE_TTL.ENTITY_DETAIL_STALE,
+    gcTime: CACHE_TTL.ENTITY_DETAIL_CACHE,
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+    ...options,
+  });
 
   return query;
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, ArrowLeft, Edit, Trash2 } from 'lucide-react';
 import { Layout, ViewSwitcher, EntityDataTable } from '../../components/shared';
+import { EllipsisBounce } from '../../components/shared/ui/EllipsisBounce';
 import { KanbanView } from '../../components/shared/ui/KanbanView';
 import { GridView } from '../../components/shared/ui/GridView';
 import { CalendarView } from '../../components/shared/ui/CalendarView';
@@ -12,7 +13,7 @@ import { getEntityConfig, type ViewMode } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
 import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
 import { useSidebar } from '../../contexts/SidebarContext';
-import { useEntityInstanceList, useEntityMutation } from '../../lib/hooks';
+import { useFormattedEntityList, useEntityMutation } from '../../lib/hooks';
 import { API_CONFIG } from '../../lib/config/api';
 import type { RowAction } from '../../components/shared/ui/EntityDataTable';
 
@@ -73,16 +74,15 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   }, [view, entityCode]);
 
   // ============================================================================
-  // ZUSTAND + REACT QUERY INTEGRATION
+  // v8.0.0: FORMAT AT READ PATTERN
   // ============================================================================
-  // Use React Query for data fetching with automatic caching
-  // Data is cached for 2 minutes (CACHE_TTL.ENTITY_LIST)
-  // Metadata and datalabels are cached in Zustand store for cross-component reuse
+  // Raw data is cached in React Query, formatting happens on READ via select
+  // Benefits: Smaller cache, fresh formatting with latest datalabel colors
   // ============================================================================
 
   const queryParams = useMemo(() => ({
     page: currentPage,
-    pageSize: 5000,  // v7.0.0: Large page size for format-at-fetch performance
+    pageSize: 5000,
     view: view,
   }), [currentPage, view]);
 
@@ -91,8 +91,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     isLoading: loading,
     error: queryError,
     refetch,
-  } = useEntityInstanceList(entityCode, queryParams, {
-    // Fetch for ALL views including table (no more FilteredDataTable wrapper)
+  } = useFormattedEntityList(entityCode, queryParams, {
     enabled: !!config,
   });
 
@@ -104,33 +103,37 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   const [isAddingRow, setIsAddingRow] = useState(false);
   const [localData, setLocalData] = useState<any[]>([]);
 
-  // Extract data from React Query result
-  const queryData = useMemo(() => {
+  // ============================================================================
+  // v8.0.0: DATA EXTRACTION - Format at Read
+  // ============================================================================
+  // queryResult.data = raw data (for editing, mutations)
+  // queryResult.formattedData = formatted data (for display via select transform)
+  // ============================================================================
+
+  // Raw data for editing operations
+  const rawData = useMemo(() => {
     if (!queryResult) return appendedData;
-    // For pagination, combine appended data with new data
     if (currentPage > 1 && appendedData.length > 0) {
       return [...appendedData, ...queryResult.data];
     }
     return queryResult.data;
   }, [queryResult, appendedData, currentPage]);
 
-  // v7.0.0: Extract pre-formatted data for instant rendering
+  // Formatted data for display (from select transform)
   const formattedData = useMemo(() => {
     if (!queryResult?.formattedData) return [];
-    // For pagination, we'd need to merge formatted data too
-    // For now, use current page's formatted data
     return queryResult.formattedData;
   }, [queryResult]);
 
-  // Use localData for inline editing, otherwise use query data
-  const data = localData.length > 0 ? localData : queryData;
+  // Use localData only when actively editing, otherwise use rawData
+  const data = localData.length > 0 ? localData : rawData;
 
-  // Sync localData with queryData when query updates
+  // Reset localData when exiting edit mode or entity changes
   useEffect(() => {
-    if (queryData && queryData.length > 0) {
-      setLocalData(queryData);
+    if (!editingRow && !isAddingRow) {
+      setLocalData([]);
     }
-  }, [queryData]);
+  }, [editingRow, isAddingRow, entityCode]);
 
   const metadata = queryResult?.metadata || null;
   const totalRecords = queryResult?.total || 0;
@@ -167,13 +170,14 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
 
   const handleRowClick = useCallback((item: any) => {
     if (!config) return;
-    // Use custom detail page ID field if specified, otherwise default to 'id'
+    // v8.0.0: Handle FormattedRow objects (raw data is inside item.raw)
+    const rawItem = item.raw || item;
     const idField = config.detailPageIdField || 'id';
-    const id = item[idField];
+    const id = rawItem[idField];
     console.log(
       `%c[NAVIGATION] 🚀 Row clicked - navigating to detail page`,
       'color: #f783ac; font-weight: bold',
-      { entityCode, id, itemName: item.name || item.code, from: 'EntityListOfInstancesPage' }
+      { entityCode, id, itemName: rawItem.name || rawItem.code, from: 'EntityListOfInstancesPage' }
     );
     navigate(`/${entityCode}/${id}`);
   }, [config, entityCode, navigate]);
@@ -308,6 +312,9 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     if (!config) return;
     if (!window.confirm('Are you sure you want to delete this record?')) return;
 
+    // v8.0.0: Handle FormattedRow objects
+    const rawRecord = record.raw || record;
+
     try {
       const token = localStorage.getItem('auth_token');
       const headers: HeadersInit = {};
@@ -315,7 +322,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}${config.apiEndpoint}/${record.id}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${config.apiEndpoint}/${rawRecord.id}`, {
         method: 'DELETE',
         headers
       });
@@ -344,8 +351,14 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
       icon: <Edit className="h-4 w-4" />,
       variant: 'default',
       onClick: (record) => {
+        // v8.0.0: Sync localData with raw data when entering edit mode
+        if (localData.length === 0 && rawData) {
+          setLocalData(rawData);
+        }
         setEditingRow(record.id);
-        setEditedData(transformFromApi({ ...record }));
+        // Use raw record data for editing (handle both FormattedRow and raw)
+        const rawRecord = record.raw || record;
+        setEditedData(transformFromApi({ ...rawRecord }));
       }
     });
 
@@ -358,7 +371,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     });
 
     return actions;
-  }, [handleDelete]);
+  }, [handleDelete, localData.length, rawData]);
 
   if (!config) {
     return (
@@ -376,15 +389,17 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
       if (loading) {
         return (
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700" />
+            <EllipsisBounce size="lg" text="Processing" />
           </div>
         );
       }
 
-      // v7.0.0: Use pre-formatted data for instant rendering (format-at-fetch optimization)
-      // When editing (localData has content), use raw data for edit operations
-      // When viewing (localData is empty), use formattedData for optimal scroll performance
-      const tableData = localData.length > 0 ? data : (formattedData.length > 0 ? formattedData : data);
+      // v8.0.0: Format at Read - Use formattedData for display, raw data for editing
+      // When editing: use localData (raw) for form inputs
+      // When viewing: use formattedData (pre-formatted via select transform)
+      const tableData = editingRow || isAddingRow
+        ? data  // Raw data for editing
+        : (formattedData.length > 0 ? formattedData : data);  // Formatted data for viewing
 
       return (
         <EntityDataTable
@@ -413,7 +428,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     if (loading) {
       return (
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700" />
+          <EllipsisBounce size="lg" text="Processing" />
         </div>
       );
     }

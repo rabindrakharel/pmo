@@ -28,7 +28,7 @@ export function WikiViewPage() {
     return (
       <Layout>
         <div className="p-8 flex items-center justify-center">
-          <EllipsisBounce size="md" text="Loading page" />
+          <EllipsisBounce size="md" text="Processing" />
         </div>
       </Layout>
     );

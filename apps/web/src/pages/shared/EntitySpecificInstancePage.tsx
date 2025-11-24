@@ -16,11 +16,12 @@ import { Button } from '../../components/shared/button/Button';
 import { useS3Upload } from '../../lib/hooks/useS3Upload';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../contexts/NavigationHistoryContext';
-import { useEntityInstance, useEntityMutation, useCacheInvalidation, useEntityInstanceList } from '../../lib/hooks';
+import { useEntityInstance, useFormattedEntityInstance, useEntityMutation, useCacheInvalidation, useEntityInstanceList } from '../../lib/hooks';
 import { useEntityEditStore } from '../../stores/useEntityEditStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useKeyboardShortcuts, useShortcutHints } from '../../lib/hooks/useKeyboardShortcuts';
 import { API_CONFIG } from '../../lib/config/api';
+import { EllipsisBounce, InlineSpinner } from '../../components/shared/ui/EllipsisBounce';
 import type { RowAction } from '../../components/shared/ui/EntityDataTable';
 
 /**
@@ -71,17 +72,24 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // Keyboard shortcuts integrated for save/undo/redo
   // ============================================================================
 
+  // ============================================================================
+  // v8.0.0: FORMAT AT READ PATTERN
+  // ============================================================================
+  // Use useFormattedEntityInstance for detail view - formats on READ via select
+  // Raw data cached in React Query, formatting happens when reading from cache
+  // ============================================================================
   const {
     data: queryResult,
     isLoading: loading,
     error: queryError,
     refetch,
-  } = useEntityInstance(entityCode, id);
+  } = useFormattedEntityInstance(entityCode, id, 'entityFormContainer');
 
   // Extract data from React Query result
-  // Note: datalabels are fetched via dedicated useDatalabels() hook, not from entity response
+  // queryResult.data = raw data (for editing)
+  // queryResult.formattedData = formatted data (for view mode via select transform)
   const data = queryResult?.data || null;
-  const formattedData = queryResult?.formattedData || null;  // v7.0.0: Pre-formatted data
+  const formattedData = queryResult?.formattedData || null;  // v8.0.0: Formatted via select
   const backendMetadata = queryResult?.metadata || null;
   const error = queryError?.message || null;
 
@@ -867,7 +875,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700" />
+          <EllipsisBounce size="lg" text="Processing" />
         </div>
       </Layout>
     );
@@ -1126,7 +1134,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                   title={`Save (${shortcuts.save})`}
                 >
                   {isSaving ? (
-                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                    <InlineSpinner className="text-white" />
                   ) : (
                     <Save className="h-4 w-4 stroke-[1.5]" />
                   )}
@@ -1292,7 +1300,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
           // Child Entity Tab - Direct EntityDataTable (no FilteredDataTable/Outlet)
           childLoading ? (
             <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700" />
+              <EllipsisBounce size="lg" text="Processing" />
             </div>
           ) : (
             <EntityDataTable

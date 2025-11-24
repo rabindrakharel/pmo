@@ -1114,7 +1114,7 @@ export function EntityDataTable<T = any>({
     return (
       <div className="bg-dark-100 rounded-md shadow-sm border border-dark-300">
         <div className="flex items-center justify-center py-12">
-          <EllipsisBounce size="lg" text="Loading data" />
+          <EllipsisBounce size="lg" text="Processing" />
         </div>
       </div>
     );

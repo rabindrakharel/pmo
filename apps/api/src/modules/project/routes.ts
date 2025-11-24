@@ -247,7 +247,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         search: Type.Optional(Type.String()),
         dl__project_stage: Type.Optional(Type.String()),
         business_id: Type.Optional(Type.String()),
-        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 10000 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
         parent_type: Type.Optional(Type.String()),
