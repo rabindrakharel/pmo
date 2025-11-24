@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Layout } from '../../components/shared';
 import { useNavigate, useParams } from 'react-router-dom';
 import { wikiApi } from '../../lib/api';
+import { EllipsisBounce } from '../../components/shared/ui/EllipsisBounce';
 
 export function WikiViewPage() {
   const navigate = useNavigate();
@@ -26,7 +27,9 @@ export function WikiViewPage() {
   if (loading) {
     return (
       <Layout>
-        <div className="p-8">Loading...</div>
+        <div className="p-8 flex items-center justify-center">
+          <EllipsisBounce size="md" text="Loading page" />
+        </div>
       </Layout>
     );
   }

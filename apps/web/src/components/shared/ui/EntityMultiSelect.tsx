@@ -2,6 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { SearchableMultiSelect } from './SearchableMultiSelect';
+import { InlineSpinner } from './EllipsisBounce';
 
 export interface EntityMultiSelectProps {
   entityCode: string;
@@ -84,7 +85,7 @@ export function EntityMultiSelect({
   };
 
   if (isLoading) {
-    return <span className="text-gray-400 text-sm">Loading...</span>;
+    return <span className="text-dark-400 text-sm"><InlineSpinner /></span>;
   }
 
   return (

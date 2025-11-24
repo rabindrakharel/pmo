@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useEntityLookup } from '@/lib/hooks/useEntityQuery';
 import { Select } from './Select';
+import { InlineSpinner } from './EllipsisBounce';
 
 export interface EntitySelectProps {
   entityCode: string;    // e.g., "employee", "project", "client"
@@ -51,7 +52,7 @@ export function EntitySelect({
   );
 
   if (isLoading) {
-    return <span className="text-gray-400 text-sm">Loading...</span>;
+    return <span className="text-dark-400 text-sm"><InlineSpinner /></span>;
   }
 
   return (

@@ -33,21 +33,17 @@ import {
 } from '../../../lib/settingsLoader';
 import {
   renderDataLabelBadge,
-  COLOR_MAP,
-  getSettingColor,
-  loadSettingsColors,
-  renderViewModeFromMetadata,
+  FALLBACK_COLORS,
   renderEditModeFromMetadata,
-  formatCurrency,
-  formatRelativeTime,
-  formatFriendlyDate,
   type BackendFieldMetadata
 } from '../../../lib/frontEndFormatterService';
+import { useDatalabelMetadataStore } from '../../../stores/datalabelMetadataStore';
 import type { EntityMetadata } from '../../../lib/api';
 
 // v7.0.0: Format-at-fetch support
 import { type FormattedRow, isFormattedData } from '../../../lib/formatters';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
+import { EllipsisBounce, InlineSpinner } from './EllipsisBounce';
 
 // ============================================================================
 // MINIMAL FALLBACK: When backend doesn't send metadata
@@ -81,7 +77,7 @@ function createFallbackMetadata(columnKey: string): BackendFieldMetadata {
 // METADATA-DRIVEN RENDERING (Pure Backend-Driven)
 // ============================================================================
 // ALL field rendering (view + edit modes) driven by backend metadata
-// - renderViewModeFromMetadata() for view mode (reads metadata.renderType)
+// - View mode: uses FormattedRow.display[key] from format-at-fetch pattern
 // - renderEditModeFromMetadata() for edit mode (reads metadata.inputType)
 // - Zero frontend pattern detection or configuration
 // ============================================================================
@@ -338,26 +334,7 @@ export interface EntityDataTableProps<T = any> {
   inlineEditable?: boolean;
   editingRow?: string | null;
 
-  // ============================================================================
-  // NEW: Auto-Generation Support (Universal Field Detector Integration)
-  // ============================================================================
-  /**
-   * Auto-generate columns from data using universal field detector
-   * When true and columns prop is not provided, automatically detects field types
-   * and generates appropriate column configurations
-   *
-   * @example
-   * <EntityDataTable data={projects} autoGenerateColumns />
-   * // Automatically detects: budget_allocated_amt → currency, dl__project_stage → DAG, etc.
-   */
-  autoGenerateColumns?: boolean;
-
-  /**
-   * Optional data types for auto-generation (for JSONB/array detection)
-   * @example
-   * dataTypes={{ metadata: 'jsonb'}}
-   */
-  dataTypes?: Record<string, string>;
+  // Inline edit support
   editedData?: any;
   onInlineEdit?: (rowId: string, field: string, value: any) => void;
   onSaveInlineEdit?: (record: T) => void;
@@ -402,9 +379,8 @@ export function EntityDataTable<T = any>({
   allowReordering = false,
   onReorder,
   allowAddRow = false,
-  onAddRow,
-  autoGenerateColumns = false,
-  dataTypes}: EntityDataTableProps<T>) {
+  onAddRow
+}: EntityDataTableProps<T>) {
   // ============================================================================
   // METADATA-DRIVEN COLUMN GENERATION (Pure Backend-Driven Architecture)
   // ============================================================================
@@ -454,9 +430,8 @@ export function EntityDataTable<T = any>({
             loadDataLabels: fieldMeta.loadFromDataLabels || fieldMeta.datalabelKey,
             loadFromEntity: fieldMeta.loadFromEntity,
             // Store enriched backend metadata for use in edit mode
-            backendMetadata: enrichedMeta,
-            // Pure metadata-driven rendering - backend tells frontend how to render
-            render: (value: any, record: any) => renderViewModeFromMetadata(value, enrichedMeta, record)
+            backendMetadata: enrichedMeta
+            // v7.0.0: No render function - format-at-fetch handles view mode via FormattedRow
           } as Column<T>;
         });
     }
@@ -489,9 +464,8 @@ export function EntityDataTable<T = any>({
           loadDataLabels: fieldMeta.loadFromDataLabels,
           loadFromEntity: fieldMeta.loadFromEntity,
           // Store backend metadata for use in edit mode
-          backendMetadata: fieldMeta,
-          // Pure metadata-driven rendering - backend tells frontend how to render
-          render: (value: any, record: any) => renderViewModeFromMetadata(value, fieldMeta, record)
+          backendMetadata: fieldMeta
+          // v7.0.0: No render function - format-at-fetch handles view mode via FormattedRow
         } as Column<T>));
     }
 
@@ -500,19 +474,9 @@ export function EntityDataTable<T = any>({
       return initialColumns;
     }
 
-    // Priority 3: Legacy auto-generation (DEPRECATED - for backward compatibility only)
-    // ⚠️ This path should NOT be used for new entities - always provide metadata from backend
-    if (autoGenerateColumns && data.length > 0) {
-      console.warn(
-        '[EntityDataTable] Using deprecated autoGenerateColumns. ' +
-        'Update backend route to return metadata instead.'
-      );
-      // Fallback to empty columns - force migration to metadata
-      return [];
-    }
-
+    // v7.0.0: No auto-generation - all routes must provide metadata from backend
     return [];
-  }, [metadata, initialColumns, autoGenerateColumns, data.length]);
+  }, [metadata, initialColumns]);
 
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -639,18 +603,8 @@ export function EntityDataTable<T = any>({
       });
 
       // Extract datalabels and preload colors
-      const datalabels = settingsColumns.map(col => {
-        const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
-        return backendMeta?.settingsDatalabel || extractSettingsDatalabel(col.key);
-      });
-      const uniqueDatalabels = Array.from(new Set(datalabels));
-
-      // Preload all colors in parallel
-      await Promise.all(
-        uniqueDatalabels.map(datalabel => loadSettingsColors(datalabel).catch(err => {
-          console.error(`Failed to preload colors for ${datalabel}:`, err);
-        }))
-      );
+      // Colors are now resolved at format time via formatDataset()
+      // and stored in datalabelMetadataStore - no preloading needed
     };
 
     if (filterable || inlineEditable) {
@@ -1073,7 +1027,7 @@ export function EntityDataTable<T = any>({
         <div className="flex items-center text-sm text-dark-700">
           <span className="font-normal">
             {loading ? (
-              <>Loading...</>
+              <InlineSpinner />
             ) : (
               <>Showing <span className="text-dark-600">{startRecord}</span> to <span className="text-dark-600">{endRecord}</span> of <span className="text-dark-600">{actualTotal}</span> results</>
             )}
@@ -1160,8 +1114,7 @@ export function EntityDataTable<T = any>({
     return (
       <div className="bg-dark-100 rounded-md shadow-sm border border-dark-300">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-400"></div>
-          <span className="ml-3 text-dark-700">Loading...</span>
+          <EllipsisBounce size="lg" text="Loading data" />
         </div>
       </div>
     );
@@ -1225,11 +1178,13 @@ export function EntityDataTable<T = any>({
                               const backendMeta = (selectedColumn as any)?.backendMetadata as BackendFieldMetadata | undefined;
                               const isSettingsField = backendMeta?.loadFromDataLabels || selectedColumn?.loadDataLabels;
 
-                              // If this is a settings field, look up the color from centralized cache
+                              // If this is a settings field, look up the color from datalabelMetadataStore
                               let colorCode: string | undefined;
                               if (isSettingsField) {
                                 const datalabel = backendMeta?.settingsDatalabel || extractSettingsDatalabel(selectedFilterColumn);
-                                colorCode = getSettingColor(datalabel, option);
+                                const options = useDatalabelMetadataStore.getState().getDatalabel(datalabel);
+                                const match = options?.find(opt => opt.name === option);
+                                colorCode = match?.color_code;
                               }
 
                               return (
@@ -1387,10 +1342,12 @@ export function EntityDataTable<T = any>({
                     let colorCode: string | undefined;
                     if (isSettingsField) {
                       const datalabel = backendMeta?.settingsDatalabel || extractSettingsDatalabel(columnKey);
-                      colorCode = getSettingColor(datalabel, value);
+                      const options = useDatalabelMetadataStore.getState().getDatalabel(datalabel);
+                      const match = options?.find(opt => opt.name === value);
+                      colorCode = match?.color_code;
                     }
 
-                    const chipColorClass = colorCode ? (COLOR_MAP[colorCode] || COLOR_MAP.gray) : 'bg-dark-100 text-dark-600';
+                    const chipColorClass = colorCode ? (FALLBACK_COLORS[colorCode as keyof typeof FALLBACK_COLORS] || FALLBACK_COLORS.gray) : 'bg-dark-100 text-dark-600';
 
                     return (
                       <div
@@ -1746,16 +1703,13 @@ export function EntityDataTable<T = any>({
                                   return <span>{displayValue}</span>;
                                 }
 
-                                // FALLBACK: Runtime formatting for non-formatted data
-                                // Use backend metadata from column (fallback only if not provided)
-                                const metadata = (column as any).backendMetadata || createFallbackMetadata(column.key);
-                                if (column.loadDataLabels && !metadata.loadFromDataLabels) {
-                                  // Backward compatibility: override if loadDataLabels set on column
-                                  metadata.loadFromDataLabels = true;
-                                  metadata.datalabelKey = getSettingDatalabel(column.key) || column.key;
-                                  metadata.renderType = 'badge';
+                                // v7.0.0: Simple fallback for non-formatted data
+                                // Routes should migrate to format-at-fetch pattern
+                                const value = (record as any)[column.key];
+                                if (value === null || value === undefined || value === '') {
+                                  return <span className="text-gray-400 italic">—</span>;
                                 }
-                                return renderViewModeFromMetadata((record as any)[column.key], metadata, record);
+                                return <span>{String(value)}</span>;
                               })()}
                             </div>
                           )}

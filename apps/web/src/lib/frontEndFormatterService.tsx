@@ -224,9 +224,19 @@ export function formatFriendlyDate(dateString: string | Date | null | undefined)
 // ============================================================================
 
 /**
- * Minimal fallback colors (use backend-provided colors when available)
+ * Fallback colors for badge rendering (use backend-provided colors when available)
  */
-const FALLBACK_COLORS: Record<string, string> = {
+export const FALLBACK_COLORS: Record<string, string> = {
+  blue: 'bg-blue-100 text-blue-700',
+  purple: 'bg-purple-100 text-purple-700',
+  green: 'bg-green-100 text-green-700',
+  red: 'bg-red-100 text-red-700',
+  yellow: 'bg-yellow-100 text-yellow-700',
+  orange: 'bg-orange-100 text-orange-700',
+  gray: 'bg-gray-100 text-gray-600',
+  cyan: 'bg-cyan-100 text-cyan-700',
+  pink: 'bg-pink-100 text-pink-700',
+  amber: 'bg-amber-100 text-amber-700',
   default: 'bg-gray-100 text-gray-600'
 };
 
@@ -291,25 +301,6 @@ export function renderBadge(
   );
 }
 
-/**
- * @deprecated Legacy function - Backend should provide colors in metadata
- * Get badge color from settings cache
- */
-export function getSettingColor(datalabel: string, value: string | null | undefined): string | undefined {
-  // Return undefined - colors should come from backend metadata
-  return undefined;
-}
-
-/**
- * @deprecated Legacy function - Backend should provide colors in metadata
- * Load settings colors into cache
- */
-export async function loadSettingsColors(datalabels: string[]): Promise<void> {
-  // No-op - colors should come from backend metadata
-}
-
-// Export minimal fallback for backward compatibility
-export const COLOR_MAP = FALLBACK_COLORS;
 
 // ============================================================================
 // DATA TRANSFORMERS (API <-> Frontend)
@@ -435,201 +426,12 @@ export function getAllFieldMetadataFromResponse(response: ApiResponseWithMetadat
   return response.metadata?.fields || [];
 }
 
-/**
- * Format value using backend metadata
- *
- * @deprecated v7.0.0: Use formatDataset() from lib/formatters instead.
- * This function will be removed in v8.0.0.
- *
- * Migration:
- * - Import { formatDataset } from '../lib/formatters'
- * - Call formatDataset(data, metadata) at fetch time
- * - Access formatted values via row.display[key]
- */
-export function formatValueFromMetadata(
-  value: any,
-  metadata: BackendFieldMetadata
-): string {
-  if (value === null || value === undefined || value === '') return '-';
-
-  switch (metadata.renderType) {
-    case 'currency':
-      return formatCurrency(value, metadata.format?.currency);
-
-    case 'date':
-      return formatFriendlyDate(value);
-
-    case 'timestamp':
-      return formatRelativeTime(value);
-
-    case 'boolean':
-      return value ? 'Yes' : 'No';
-
-    case 'badge':
-      return value;
-
-    default:
-      return String(value);
-  }
-}
-
 // ============================================================================
-// BACKEND-DRIVEN RENDERERS (View & Edit Modes)
+// BACKEND-DRIVEN RENDERERS (Edit Mode Only)
 // ============================================================================
-
-/**
- * Render field in VIEW mode using backend metadata
- *
- * IMPORTANT: Uses viewType from backend (not renderType)
- * Backend sends: viewType, editType, format
- * Frontend adapts to backend naming conventions
- *
- * @deprecated v7.0.0: Use pre-formatted data from useEntityInstanceList instead.
- * This function will be removed in v8.0.0.
- *
- * Migration:
- * - View mode: Use row.display[key] from formattedData
- * - Badges: Use row.styles[key] from formattedData
- *
- * The format-at-fetch pattern provides better scroll performance by
- * formatting data once at fetch time instead of per-cell at render time.
- */
-export function renderViewModeFromMetadata(
-  value: any,
-  metadata: BackendFieldMetadata,
-  record?: Record<string, any>
-): React.ReactElement {
-  // Handle empty values
-  if (value === null || value === undefined || value === '') {
-    return <span className="text-gray-400 italic">—</span>;
-  }
-
-  // Use backend's viewType (primary) or format (fallback) or renderType (legacy)
-  const viewType = (metadata as any).viewType || (metadata as any).format || metadata.renderType;
-
-  // Render based on backend-specified viewType
-  switch (viewType) {
-    // =========================================================================
-    // CURRENCY - Budget fields (*_amt, *_price, *_cost)
-    // =========================================================================
-    case 'currency': {
-      // Use symbol from backend metadata (defaults to $)
-      const symbol = (metadata as any).symbol || '$';
-      const decimals = (metadata as any).decimals ?? 2;
-      const numValue = typeof value === 'number' ? value : parseFloat(value);
-      if (isNaN(numValue)) return <span className="text-gray-400 italic">—</span>;
-      const formatted = `${symbol}${numValue.toLocaleString('en-CA', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
-      return <span className="font-mono text-right">{formatted}</span>;
-    }
-
-    // =========================================================================
-    // TIMESTAMPS - created_ts, updated_ts (*_ts fields)
-    // Backend sends: timestamp_readonly with style: "relative"
-    // =========================================================================
-    case 'timestamp_readonly':
-    case 'timestamp':
-      return <span className="text-sm text-gray-600">{formatRelativeTime(value)}</span>;
-
-    // =========================================================================
-    // DATES - *_date fields
-    // =========================================================================
-    case 'date_readonly':
-    case 'date':
-      return <span>{formatFriendlyDate(value)}</span>;
-
-    // =========================================================================
-    // DATALABEL - dl__* fields (e.g., dl__project_stage)
-    // Backend sends: viewType: "datalabel" with datalabelKey
-    // Renders as colored badge/chip with rounded corners
-    // =========================================================================
-    case 'datalabel':
-      if ((metadata as any).datalabelKey) {
-        return renderDataLabelBadge(value, (metadata as any).datalabelKey, { color: (metadata as any).color });
-      }
-      return renderBadge(value, (metadata as any).color);
-
-    // =========================================================================
-    // BOOLEAN - is_*, *_flag fields
-    // =========================================================================
-    case 'boolean':
-      return (
-        <span className={value ? 'text-green-600' : 'text-gray-400'}>
-          {value ? '✓' : '✗'}
-        </span>
-      );
-
-    // =========================================================================
-    // LEGACY CASES (kept for backward compatibility)
-    // =========================================================================
-    case 'datalabels':
-      // LEGACY: Old datalabel rendering
-      const badgeColor = (metadata as any).colorMap?.[value] || (metadata as any).color;
-      if ((metadata as any).datalabelKey) {
-        return renderDataLabelBadge(value, (metadata as any).datalabelKey, { color: badgeColor });
-      }
-      return renderBadge(value, badgeColor);
-
-    case 'badge':
-      // Datalabel lookup fields (dl__*) with badge rendering
-      if ((metadata as any).datalabelKey) {
-        return renderDataLabelBadge(value, (metadata as any).datalabelKey, { color: (metadata as any).color });
-      }
-      return renderBadge(value, (metadata as any).color);
-
-    case 'select':
-      // LEGACY: Old select rendering
-      if ((metadata as any).datalabelKey) {
-        return renderDataLabelBadge(value, (metadata as any).datalabelKey, { color: (metadata as any).color });
-      }
-      return <span className="text-gray-700">{value}</span>;
-
-    case 'dag':
-      // Datalabel lookup fields (dl__*) with DAG rendering
-      if ((metadata as any).datalabelKey) {
-        return renderDataLabelBadge(value, (metadata as any).datalabelKey, { color: (metadata as any).color });
-      }
-      return renderBadge(value, 'blue');
-
-    // =========================================================================
-    // JSON & ARRAYS
-    // =========================================================================
-    case 'json':
-      return (
-        <pre className="text-xs bg-gray-50 p-2 rounded overflow-auto max-h-40">
-          {JSON.stringify(value, null, 2)}
-        </pre>
-      );
-
-    case 'array':
-      if (Array.isArray(value)) {
-        return (
-          <div className="flex flex-wrap gap-1">
-            {value.map((item, idx) => (
-              <span key={idx} className="px-2 py-0.5 bg-gray-100 rounded text-xs">
-                {String(item)}
-              </span>
-            ))}
-          </div>
-        );
-      }
-      return <span>{String(value)}</span>;
-
-    // =========================================================================
-    // ENTITY REFERENCES
-    // =========================================================================
-    case 'reference':
-    case 'entityInstance_Id':
-      // Entity instance ID field (e.g., office_id, manager__employee_id)
-      return <span className="text-blue-600">{value}</span>;
-
-    // =========================================================================
-    // TEXT (default)
-    // =========================================================================
-    case 'text':
-    default:
-      return <span>{String(value)}</span>;
-  }
-}
+// v7.0.0: View mode rendering removed - use format-at-fetch pattern instead
+// Use FormattedRow.display[key] and FormattedRow.styles[key] from formatDataset()
+// ============================================================================
 
 /**
  * Render field in EDIT mode using backend metadata
@@ -767,8 +569,6 @@ export default {
   // Badge renderers
   renderDataLabelBadge,
   renderBadge,
-  getSettingColor,
-  loadSettingsColors,
 
   // Data transformers
   transformForApi,
@@ -780,14 +580,12 @@ export default {
   hasBackendMetadata,
   getFieldMetadataFromResponse,
   getAllFieldMetadataFromResponse,
-  formatValueFromMetadata,
 
-  // Backend-driven renderers
-  renderViewModeFromMetadata,
+  // Backend-driven renderers (edit mode only)
   renderEditModeFromMetadata,
 
   // Constants
-  COLOR_MAP,
+  FALLBACK_COLORS,
   SYSTEM_FIELDS,
   READONLY_FIELDS
 };

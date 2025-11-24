@@ -1224,12 +1224,11 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
               {/* Metadata Block - EntityFormContainer */}
               <EntityFormContainer
                 config={config}
-                metadata={backendMetadata}  // ✅ Pass backend metadata (v4.0)
+                metadata={backendMetadata}  // v7.0.0: Backend metadata is required
                 data={isEditing ? editedData : data}
                 isEditing={isEditing}
                 onChange={handleFieldChange}
                 mode="edit"
-                autoGenerateFields={true}   // Fallback for non-integrated routes
               />
 
               {/* Task Data Container - Only show for task entity */}

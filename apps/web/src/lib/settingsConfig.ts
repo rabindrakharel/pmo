@@ -11,8 +11,7 @@
  */
 
 import {
-  loadSettingsColors,
-  COLOR_MAP,
+  FALLBACK_COLORS,
   renderBadge
 } from './frontEndFormatterService';
 
@@ -70,8 +69,8 @@ export const COLOR_OPTIONS = [
   { value: 'amber', label: 'Amber', metadata: { color_code: 'amber' } },
 ];
 
-// Re-export COLOR_MAP from centralized source
-export { COLOR_MAP };
+// Re-export FALLBACK_COLORS as COLOR_MAP for backward compatibility
+export { FALLBACK_COLORS as COLOR_MAP };
 
 // ============================================================================
 // BADGE RENDERING - Direct use of frontEndFormatterService

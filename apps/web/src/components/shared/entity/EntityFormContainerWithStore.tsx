@@ -46,8 +46,7 @@ interface EntityFormContainerProps {
   metadata?: EntityMetadata;
   datalabels?: DatalabelData[];
 
-  // Fallback: frontend config (legacy)
-  autoGenerateFields?: boolean;
+  // Fallback: frontend config
   config?: EntityConfig;
   settings?: SettingOption[];
 }
@@ -66,7 +65,6 @@ export const EntityFormContainerWithStore: React.FC<EntityFormContainerProps> = 
   mode = 'edit',
   metadata,
   datalabels,
-  autoGenerateFields,
   config,
   settings
 }) => {
@@ -148,9 +146,9 @@ export const EntityFormContainerWithStore: React.FC<EntityFormContainerProps> = 
         }));
     }
 
-    // Fallback logic (same as original)
+    // v7.0.0: No auto-generation - all routes must provide metadata from backend
     return [];
-  }, [metadata, config, autoGenerateFields]);
+  }, [metadata, config]);
 
   // ============================================================================
   // Settings and DAG nodes (same as original)

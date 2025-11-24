@@ -2,14 +2,12 @@ import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, Check, X, MoveUp, MoveDown, Database, Info } from 'lucide-react';
 
 // ============================================================================
-// TEMPORARY: Inline compatibility function (deprecated function removal)
-// TODO: Migrate to backend metadata architecture
+// v7.0.0: Field type detection helper for column metadata preview
+// This is specific to the entity-builder admin tool
 // ============================================================================
 
-/**
- * @deprecated Inline replacement for detectField()
- */
-function detectField(columnName: string, dataType?: string): {
+// Detect field type from column name for preview purposes
+function detectFieldType(columnName: string, dataType?: string): {
   fieldName: string;
   renderType: string;
   inputType: string;
@@ -246,7 +244,7 @@ export function ColumnMetadataEditor({ columns, onChange, entityCode }: ColumnMe
 
   // Get semantic display name for a column
   const getColumnDisplayName = (columnName: string, dataType: string) => {
-    const fieldMeta = detectField(columnName, dataType);
+    const fieldMeta = detectFieldType(columnName, dataType);
     return fieldMeta.fieldName;
   };
 

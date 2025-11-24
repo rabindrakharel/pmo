@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File, Search } from 'lucide-react';
+import { EllipsisBounce } from './EllipsisBounce';
 
 export interface TreeNode<T = any> {
   key: string;
@@ -211,8 +212,7 @@ export function TreeView<T = any>({
     return (
       <div className="bg-dark-100 rounded-md shadow-sm border border-dark-300">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700"></div>
-          <span className="ml-3 text-dark-700">Loading...</span>
+          <EllipsisBounce size="md" text="Loading tree" />
         </div>
       </div>
     );
