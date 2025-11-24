@@ -174,7 +174,7 @@ export function useEntityInstanceList<T = any>(
   const normalizedParams = useMemo(() => ({
     ...params,  // Spread first so explicit values override
     page: params.page || 1,
-    pageSize: params.pageSize || 100,
+    pageSize: params.pageSize || 5000,  // v7.0.0: Large page size for format-at-fetch
     view: mappedView,  // Use mapped view, not raw params.view
   }), [params, mappedView]);
 
