@@ -43,6 +43,7 @@ import type { EntityMetadata } from '../../../lib/api';
 // v7.0.0: Format-at-fetch support
 import { type FormattedRow, isFormattedData } from '../../../lib/formatters';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
+import { EllipsisBounce, InlineSpinner } from './EllipsisBounce';
 
 // ============================================================================
 // MINIMAL FALLBACK: When backend doesn't send metadata
@@ -1026,7 +1027,7 @@ export function EntityDataTable<T = any>({
         <div className="flex items-center text-sm text-dark-700">
           <span className="font-normal">
             {loading ? (
-              <>Loading...</>
+              <InlineSpinner />
             ) : (
               <>Showing <span className="text-dark-600">{startRecord}</span> to <span className="text-dark-600">{endRecord}</span> of <span className="text-dark-600">{actualTotal}</span> results</>
             )}
@@ -1113,8 +1114,7 @@ export function EntityDataTable<T = any>({
     return (
       <div className="bg-dark-100 rounded-md shadow-sm border border-dark-300">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-400"></div>
-          <span className="ml-3 text-dark-700">Loading...</span>
+          <EllipsisBounce size="lg" text="Loading data" />
         </div>
       </div>
     );

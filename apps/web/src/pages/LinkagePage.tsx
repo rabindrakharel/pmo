@@ -22,6 +22,7 @@ import {
 import { Layout } from '../components/shared/layout/Layout';
 import { useEntityPreview } from '../contexts/EntityPreviewContext';
 import { useSettings } from '../contexts/SettingsContext';
+import { InlineSpinner } from '../components/shared/ui/EllipsisBounce';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -763,7 +764,7 @@ export function LinkagePage() {
                 {selectedParentTypes.length > 0 && (
                   <div className="flex-1 flex flex-col min-h-0">
                     {loading ? (
-                      <div className="text-xs text-dark-600 py-6 text-center">Loading...</div>
+                      <div className="text-xs text-dark-600 py-6 text-center"><InlineSpinner /></div>
                     ) : filteredParentInstances.length === 0 ? (
                       <div className="text-xs text-dark-600 py-6 text-center">
                         {parentSearchQuery ? `No matches found for "${parentSearchQuery}"` : `No ${getEntityLabel(selectedParentTypes[0])} instances found`}
@@ -1037,7 +1038,7 @@ export function LinkagePage() {
                 {selectedChildType && (
                   <div className="flex-1 flex flex-col min-h-0">
                     {loading ? (
-                      <div className="text-xs text-dark-600 py-6 text-center">Loading...</div>
+                      <div className="text-xs text-dark-600 py-6 text-center"><InlineSpinner /></div>
                     ) : filteredChildInstances.length === 0 ? (
                       <div className="text-xs text-dark-600 py-6 text-center">
                         {childSearchQuery ? `No matches found for "${childSearchQuery}"` : `No ${getEntityLabel(selectedChildType)} instances found`}

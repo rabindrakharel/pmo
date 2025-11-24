@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ChevronDown, Chevr
 import type { EntityConfig } from '../../../lib/entityConfig';
 import { CalendarEventModal, type CalendarEvent, type EventFormData } from './CalendarEventModal';
 import { CalendarEventPopover } from './CalendarEventPopover';
+import { EllipsisBounce } from './EllipsisBounce';
 
 /**
  * CalendarView Component with Drag-and-Drop
@@ -672,10 +673,7 @@ export function CalendarView({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700 mx-auto mb-2" />
-          <p className="text-dark-700 text-sm">Loading calendar...</p>
-        </div>
+        <EllipsisBounce size="md" text="Loading calendar" />
       </div>
     );
   }

@@ -19,6 +19,7 @@ import {
 import { Modal } from './Modal';
 import { Button } from '../button/Button';
 import { useEntityInstancePicker } from '../../../hooks/useEntityInstancePicker';
+import { EllipsisBounce } from '../ui/EllipsisBounce';
 
 // ============================================================================
 // TYPES & CONFIGURATION
@@ -485,7 +486,7 @@ export const UnifiedLinkageModal: React.FC<UnifiedLinkageModalProps> = ({
         {selectedEntityType && (
           <div className="border border-dark-400 rounded-md overflow-hidden">
             {loading ? (
-              <div className="text-center py-12 text-dark-700">Loading...</div>
+              <div className="text-center py-12"><EllipsisBounce size="sm" text="Loading entities" /></div>
             ) : filteredEntities.length === 0 ? (
               <div className="text-center py-12 text-dark-700">
                 {searchQuery ? `No results for "${searchQuery}"` : `No ${selectedEntityType} entities found`}

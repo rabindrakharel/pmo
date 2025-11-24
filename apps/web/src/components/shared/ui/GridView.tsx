@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Filter, Grid, List } from 'lucide-react';
+import { EllipsisBounce } from './EllipsisBounce';
 
 export interface GridItem<T = any> {
   key: string;
@@ -281,17 +282,7 @@ export function GridView<T = any>({
     return (
       <div className="bg-dark-100 rounded-md shadow-sm border border-dark-300">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-dark-700"></div>
-          <span
-            className="ml-3 text-dark-700"
-            style={{
-              fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-              fontSize: '13px',
-              fontWeight: 400
-            }}
-          >
-            Loading...
-          </span>
+          <EllipsisBounce size="md" text="Loading items" />
         </div>
       </div>
     );

@@ -12,6 +12,7 @@ import { Edit, Trash2 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { getIconComponent } from '../../lib/iconMapping';
 import type { RowAction } from '../../components/shared/ui/EntityDataTable';
+import { InlineSpinner } from '../../components/shared/ui/EllipsisBounce';
 
 // Available icons for picker (must match iconMapping.ts)
 const AVAILABLE_ICON_NAMES = [
@@ -846,8 +847,8 @@ export function SettingsOverviewPage() {
                 <div className="mt-4 text-xs text-dark-500">
                   <p className="font-medium mb-1">Quick Stats:</p>
                   <ul className="list-disc list-inside space-y-1 text-dark-600">
-                    <li>Total Roles: {roleStats.loading ? 'Loading...' : roleStats.total}</li>
-                    <li>Active Roles: {roleStats.loading ? 'Loading...' : roleStats.active}</li>
+                    <li>Total Roles: {roleStats.loading ? <InlineSpinner /> : roleStats.total}</li>
+                    <li>Active Roles: {roleStats.loading ? <InlineSpinner /> : roleStats.active}</li>
                   </ul>
                 </div>
               </div>
