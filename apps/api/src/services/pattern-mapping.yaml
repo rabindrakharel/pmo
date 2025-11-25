@@ -131,16 +131,16 @@ patterns:
   - { pattern: "summary", exact: true, fieldBusinessType: summary }
 
 # ============================================================================
-# PERSON NAME FIELDS
+# PERSON NAME FIELDS (all map to 'name' type)
 # ============================================================================
-  - { pattern: "first_name", exact: true, fieldBusinessType: first_name }
-  - { pattern: "last_name", exact: true, fieldBusinessType: last_name }
-  - { pattern: "full_name", exact: true, fieldBusinessType: full_name }
-  - { pattern: "fname", exact: true, fieldBusinessType: first_name }
-  - { pattern: "lname", exact: true, fieldBusinessType: last_name }
-  - { pattern: "*_first_name", exact: false, fieldBusinessType: first_name }
-  - { pattern: "*_last_name", exact: false, fieldBusinessType: last_name }
-  - { pattern: "*_full_name", exact: false, fieldBusinessType: full_name }
+  - { pattern: "first_name", exact: true, fieldBusinessType: name }
+  - { pattern: "last_name", exact: true, fieldBusinessType: name }
+  - { pattern: "full_name", exact: true, fieldBusinessType: name }
+  - { pattern: "fname", exact: true, fieldBusinessType: name }
+  - { pattern: "lname", exact: true, fieldBusinessType: name }
+  - { pattern: "*_first_name", exact: false, fieldBusinessType: name }
+  - { pattern: "*_last_name", exact: false, fieldBusinessType: name }
+  - { pattern: "*_full_name", exact: false, fieldBusinessType: name }
   - { pattern: "*_name", exact: false, fieldBusinessType: name }
 
 # ============================================================================
@@ -172,22 +172,23 @@ patterns:
   - { pattern: "*_address", exact: false, fieldBusinessType: address }
   - { pattern: "*_addr", exact: false, fieldBusinessType: address }
 
-  - { pattern: "address_line1", exact: true, fieldBusinessType: address_line }
-  - { pattern: "address_line2", exact: true, fieldBusinessType: address_line }
-  - { pattern: "addr_line1", exact: true, fieldBusinessType: address_line }
-  - { pattern: "addr_line2", exact: true, fieldBusinessType: address_line }
-  - { pattern: "*_address_line1", exact: false, fieldBusinessType: address_line }
-  - { pattern: "*_address_line2", exact: false, fieldBusinessType: address_line }
+  # Address sub-fields (all use text type with different widths via pattern-mapping)
+  - { pattern: "address_line1", exact: true, fieldBusinessType: text }
+  - { pattern: "address_line2", exact: true, fieldBusinessType: text }
+  - { pattern: "addr_line1", exact: true, fieldBusinessType: text }
+  - { pattern: "addr_line2", exact: true, fieldBusinessType: text }
+  - { pattern: "*_address_line1", exact: false, fieldBusinessType: text }
+  - { pattern: "*_address_line2", exact: false, fieldBusinessType: text }
 
-  - { pattern: "street", exact: true, fieldBusinessType: street }
-  - { pattern: "*_street", exact: false, fieldBusinessType: street }
+  - { pattern: "street", exact: true, fieldBusinessType: text }
+  - { pattern: "*_street", exact: false, fieldBusinessType: text }
 
-  - { pattern: "city", exact: true, fieldBusinessType: city }
-  - { pattern: "*_city", exact: false, fieldBusinessType: city }
+  - { pattern: "city", exact: true, fieldBusinessType: text }
+  - { pattern: "*_city", exact: false, fieldBusinessType: text }
 
-  - { pattern: "state", exact: true, fieldBusinessType: state }
-  - { pattern: "province", exact: true, fieldBusinessType: province }
-  - { pattern: "*_province", exact: false, fieldBusinessType: province }
+  - { pattern: "state", exact: true, fieldBusinessType: text }
+  - { pattern: "province", exact: true, fieldBusinessType: text }
+  - { pattern: "*_province", exact: false, fieldBusinessType: text }
 
   - { pattern: "country", exact: true, fieldBusinessType: country }
   - { pattern: "*_country", exact: false, fieldBusinessType: country }
@@ -330,10 +331,11 @@ patterns:
 # ============================================================================
 # TEXT CONTENT FIELDS
 # ============================================================================
-  - { pattern: "notes", exact: true, fieldBusinessType: notes }
-  - { pattern: "*_notes", exact: false, fieldBusinessType: notes }
-  - { pattern: "instructions", exact: true, fieldBusinessType: instructions }
-  - { pattern: "*_instructions", exact: false, fieldBusinessType: instructions }
+  # Notes/instructions fields (all use text_long type - multiline text)
+  - { pattern: "notes", exact: true, fieldBusinessType: text_long }
+  - { pattern: "*_notes", exact: false, fieldBusinessType: text_long }
+  - { pattern: "instructions", exact: true, fieldBusinessType: text_long }
+  - { pattern: "*_instructions", exact: false, fieldBusinessType: text_long }
   - { pattern: "content", exact: true, fieldBusinessType: rich_text }
   - { pattern: "content_*", exact: false, fieldBusinessType: rich_text }
   - { pattern: "*_text", exact: false, fieldBusinessType: text_long }

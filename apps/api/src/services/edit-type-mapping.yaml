@@ -2,7 +2,7 @@
 # EDIT TYPE MAPPING
 # ============================================================================
 # Maps fieldBusinessType to component-specific EDIT/INPUT rendering
-# Version: 3.2.0
+# Version: 3.3.0
 #
 # ============================================================================
 # PURPOSE & POSITION IN MAPPING CHAIN
@@ -32,6 +32,14 @@
 #   │                                     │   │          behavior, style,   │
 #   └─────────────────────────────────────┘   │          validation         │
 #                                             └─────────────────────────────┘
+#
+# ============================================================================
+# THREE CATEGORIES (Quick Reference)
+# ============================================================================
+#
+#   behavior:   Interaction settings (editable, filterable, sortable, visible)
+#   style:      Visual presentation AND formatting (width, symbol, decimals, ...)
+#   validation: Input constraints (required, min, max, pattern, ...)
 #
 # ============================================================================
 # HOW THIS FILE IS COMPOSED
@@ -267,19 +275,18 @@
 #       validation: { required: true, minLength: 1, maxLength: 255 }
 #       style: { size: lg }
 #
-# Currency field (Custom component - inputType: component):
+# Currency field (HTML5 number with style formatting):
 #   currency:
 #     dtype: float
 #     entityDataTable:
-#       inputType: component
-#       component: CurrencyInput
+#       inputType: number
 #       behavior: { editable: true, filterable: true, sortable: true, visible: true }
+#       style: { step: 0.01 }
 #       validation: { min: 0 }
 #     entityFormContainer:
-#       inputType: component
-#       component: CurrencyInput
+#       inputType: number
 #       behavior: { editable: true }
-#       style: { symbol: "$", decimals: 2, locale: en-CA }
+#       style: { symbol: "$", decimals: 2, locale: en-CA, step: 0.01 }
 #       validation: { min: 0 }
 #
 # Select with lookup (Custom component):
@@ -381,39 +388,6 @@ fieldBusinessTypes:
     inherit: description
 
   # --------------------------------------------------------------------------
-  # PERSON NAME FIELDS
-  # --------------------------------------------------------------------------
-  first_name:
-    dtype: str
-    entityDataTable:
-      inputType: text
-      behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
-      inputType: text
-      behavior: { editable: true }
-      style: { autocomplete: given-name }
-
-  last_name:
-    dtype: str
-    entityDataTable:
-      inputType: text
-      behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
-      inputType: text
-      behavior: { editable: true }
-      style: { autocomplete: family-name }
-
-  full_name:
-    dtype: str
-    entityDataTable:
-      inputType: text
-      behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
-      inputType: text
-      behavior: { editable: true }
-      style: { autocomplete: name }
-
-  # --------------------------------------------------------------------------
   # CONTACT FIELDS
   # --------------------------------------------------------------------------
   email:
@@ -464,54 +438,8 @@ fieldBusinessTypes:
       behavior: { editable: true }
       style: { country: CA, showMap: false }
 
-  address_line:
-    dtype: str
-    entityDataTable:
-      inputType: text
-      behavior: { editable: true, filterable: false, sortable: false, visible: true }
-    entityFormContainer:
-      inputType: text
-      behavior: { editable: true }
-      style: { autocomplete: street-address }
-
-  street:
-    dtype: str
-    inherit: address_line
-
-  city:
-    dtype: str
-    entityDataTable:
-      inputType: text
-      behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
-      inputType: component
-      component: CityAutocomplete
-      behavior: { editable: true }
-      style: { country: CA }
-
-  state:
-    dtype: str
-    entityDataTable:
-      inputType: select
-      component: StateSelect
-      behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
-      inputType: select
-      component: StateSelect
-      behavior: { editable: true }
-      style: { country: US }
-
-  province:
-    dtype: str
-    entityDataTable:
-      inputType: select
-      component: ProvinceSelect
-      behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
-      inputType: select
-      component: ProvinceSelect
-      behavior: { editable: true }
-      style: { country: CA }
+  # address_line, street, city, state, province → consolidated to 'text' type
+  # See pattern-mapping.yaml for patterns that map to 'text'
 
   country:
     dtype: str
@@ -543,13 +471,11 @@ fieldBusinessTypes:
   currency:
     dtype: float
     entityDataTable:
-      inputType: component
-      component: CurrencyInput
+      inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
     entityFormContainer:
-      inputType: component
-      component: CurrencyInput
+      inputType: number
       behavior: { editable: true }
       style: { symbol: "$", decimals: 2, locale: en-CA }
       validation: { min: 0 }
@@ -561,8 +487,7 @@ fieldBusinessTypes:
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
     entityFormContainer:
-      inputType: component
-      component: CurrencyCentsInput
+      inputType: number
       behavior: { editable: true }
       style: { symbol: "$" }
       validation: { min: 0 }
@@ -573,8 +498,7 @@ fieldBusinessTypes:
   percentage:
     dtype: float
     entityDataTable:
-      inputType: component
-      component: PercentageInput
+      inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0, max: 100 }
     entityFormContainer:
@@ -641,8 +565,7 @@ fieldBusinessTypes:
   duration:
     dtype: int
     entityDataTable:
-      inputType: component
-      component: DurationInput
+      inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
     entityFormContainer:
@@ -663,8 +586,7 @@ fieldBusinessTypes:
   duration_hours:
     dtype: float
     entityDataTable:
-      inputType: component
-      component: DurationInput
+      inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
     entityFormContainer:
@@ -677,8 +599,7 @@ fieldBusinessTypes:
   duration_seconds:
     dtype: int
     entityDataTable:
-      inputType: component
-      component: DurationInput
+      inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
     entityFormContainer:
@@ -824,13 +745,11 @@ fieldBusinessTypes:
   area_sqft:
     dtype: float
     entityDataTable:
-      inputType: component
-      component: MeasurementInput
+      inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
     entityFormContainer:
-      inputType: component
-      component: MeasurementInput
+      inputType: number
       behavior: { editable: true }
       style: { unit: "sq ft", decimals: 2 }
       validation: { min: 0 }
@@ -838,13 +757,11 @@ fieldBusinessTypes:
   volume_m3:
     dtype: float
     entityDataTable:
-      inputType: component
-      component: MeasurementInput
+      inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
     entityFormContainer:
-      inputType: component
-      component: MeasurementInput
+      inputType: number
       behavior: { editable: true }
       style: { unit: "m³", decimals: 3 }
       validation: { min: 0 }
@@ -855,21 +772,18 @@ fieldBusinessTypes:
       inputType: text
       behavior: { editable: true, filterable: false, sortable: false, visible: true }
     entityFormContainer:
-      inputType: component
-      component: DimensionInput
+      inputType: text
       behavior: { editable: true }
       style: { unit: cm }
 
   weight_kg:
     dtype: float
     entityDataTable:
-      inputType: component
-      component: WeightInput
+      inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
     entityFormContainer:
-      inputType: component
-      component: WeightInput
+      inputType: number
       behavior: { editable: true }
       style: { unit: kg, decimals: 2 }
       validation: { min: 0 }
@@ -920,13 +834,11 @@ fieldBusinessTypes:
   latitude:
     dtype: float
     entityDataTable:
-      inputType: component
-      component: CoordinateInput
+      inputType: number
       behavior: { editable: true, filterable: false, sortable: false, visible: false }
       validation: { min: -90, max: 90 }
     entityFormContainer:
-      inputType: component
-      component: CoordinateInput
+      inputType: number
       behavior: { editable: true }
       style: { precision: 6, type: latitude }
       validation: { min: -90, max: 90 }
@@ -934,13 +846,11 @@ fieldBusinessTypes:
   longitude:
     dtype: float
     entityDataTable:
-      inputType: component
-      component: CoordinateInput
+      inputType: number
       behavior: { editable: true, filterable: false, sortable: false, visible: false }
       validation: { min: -180, max: 180 }
     entityFormContainer:
-      inputType: component
-      component: CoordinateInput
+      inputType: number
       behavior: { editable: true }
       style: { precision: 6, type: longitude }
       validation: { min: -180, max: 180 }
@@ -960,7 +870,10 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   # TEXT CONTENT FIELDS
   # --------------------------------------------------------------------------
-  notes:
+  # notes, instructions → consolidated to 'text_long' type
+  # See pattern-mapping.yaml for patterns that map to 'text_long'
+
+  text_long:
     dtype: str
     entityDataTable:
       inputType: textarea
@@ -969,14 +882,6 @@ fieldBusinessTypes:
       inputType: textarea
       behavior: { editable: true }
       style: { rows: 4, resizable: true }
-
-  instructions:
-    dtype: str
-    inherit: notes
-
-  text_long:
-    dtype: str
-    inherit: notes
 
   rich_text:
     dtype: str

@@ -1,6 +1,6 @@
 # Backend Formatter Service
 
-**Version:** 5.0.0 | **Location:** `apps/api/src/services/backend-formatter.service.ts`
+**Version:** 9.0.0 | **Location:** `apps/api/src/services/backend-formatter.service.ts`
 
 ---
 
@@ -54,25 +54,23 @@ The Backend Formatter Service generates field metadata from database column name
 ## Data Flow Diagram
 
 ```
-Database Column              Pattern Detection              Generated Metadata
-─────────────────            ─────────────────              ─────────────────────
+Database Column              Pattern Detection              Generated Metadata (v9.0)
+─────────────────            ─────────────────              ─────────────────────────
 
-total_amt          ───>      *_amt pattern       ───>       renderType: 'currency'
-                                                            inputType: 'currency'
-                                                            format: { symbol: '$' }
+total_amt          ───>      *_amt pattern       ───>       viewType: { component: 'CurrencyCell', format: {...} }
+                                                            editType: { component: 'CurrencyInput', inputType: 'component' }
 
-dl__project_stage  ───>      dl__* pattern       ───>       renderType: 'badge'
-                                                            inputType: 'select'
-                                                            loadFromDataLabels: true
+dl__project_stage  ───>      dl__* pattern       ───>       viewType: { component: 'BadgeCell', format: {...} }
+                                                            editType: { lookupSource: 'datalabel', datalabelKey: '...' }
 
-start_date         ───>      *_date pattern      ───>       renderType: 'date'
-                                                            inputType: 'date'
+start_date         ───>      *_date pattern      ───>       viewType: { component: 'DateCell' }
+                                                            editType: { inputType: 'date' }
 
-is_active          ───>      is_* pattern        ───>       renderType: 'boolean'
-                                                            inputType: 'checkbox'
+is_active          ───>      is_* pattern        ───>       viewType: { component: 'StatusCell' }
+                                                            editType: { inputType: 'component', component: 'Toggle' }
 
-manager__employee_id ───>    *__*_id pattern     ───>       renderType: 'reference'
-                                                            loadFromEntity: 'employee'
+manager__employee_id ───>    *__*_id pattern     ───>       viewType: { component: 'EntityLookupCell' }
+                                                            editType: { lookupSource: 'entityInstance', lookupEntity: 'employee' }
 ```
 
 ---
@@ -84,10 +82,10 @@ manager__employee_id ───>    *__*_id pattern     ───>       renderTy
 | Function | Purpose |
 |----------|---------|
 | `generateEntityResponse()` | Creates complete API response with metadata for requested components |
-| `getEntityMetadata()` | Generates field metadata from entity data |
-| `detectFieldType()` | Applies 35+ pattern rules to column names |
-| `extractDatalabelKeys()` | Extracts datalabel field keys from metadata |
-| `fetchDatalabels()` | Fetches datalabel options from database |
+| `generateMetadataForComponents()` | Generates viewType/editType metadata for all requested components |
+| `generateFieldMetadataForComponent()` | Generates field metadata using YAML mappings or pattern rules |
+| `getFieldBusinessType()` | Determines field business type from pattern-mapping.yaml |
+| `extractDatalabelKeys()` | Extracts datalabel field keys from editType metadata |
 
 ### Pattern Detection Rules (35+)
 
@@ -115,19 +113,15 @@ manager__employee_id ───>    *__*_id pattern     ───>       renderTy
 
 ```typescript
 // Standard LIST endpoint pattern
-import { generateEntityResponse, extractDatalabelKeys, fetchDatalabels } from '@/services/backend-formatter.service.js';
+import { generateEntityResponse } from '@/services/backend-formatter.service.js';
 
 const response = generateEntityResponse(ENTITY_CODE, entities, {
-  components: requestedComponents,
+  components: ['entityDataTable', 'entityFormContainer'],
   total, limit, offset
 });
 
-const datalabelKeys = extractDatalabelKeys(response.metadata);
-if (datalabelKeys.length > 0) {
-  response.datalabels = await fetchDatalabels(db, datalabelKeys);
-}
-
 return response;
+// Response includes metadata.entityDataTable.viewType and metadata.entityDataTable.editType
 ```
 
 ### Component-Aware Metadata
@@ -158,9 +152,9 @@ The `view` query parameter controls which components receive metadata:
 | `created_ts` | visible | readonly | hidden | visible |
 | `active_flag` | hidden | visible | hidden | visible |
 
-### API Response Structure
+### API Response Structure (v9.0 - viewType/editType Separation)
 
-The API returns a comprehensive response with component-aware metadata:
+The API returns a comprehensive response with component-aware metadata. Each component contains separate `viewType` and `editType` objects:
 
 ```json
 {
@@ -171,8 +165,6 @@ The API returns a comprehensive response with component-aware metadata:
       "name": "Customer Service Excellence Initiative",
       "dl__project_stage": "Execution",
       "budget_allocated_amt": 200000,
-      "budget_spent_amt": 80000,
-      "planned_start_date": "2024-08-01T00:00:00.000Z",
       "manager__employee_id": "8260b1b0-5efc-4611-ad33-ee76c0cf7f13",
       "_ID": {
         "manager": {
@@ -186,69 +178,62 @@ The API returns a comprehensive response with component-aware metadata:
   "fields": ["id", "code", "name", "dl__project_stage", "budget_allocated_amt", "..."],
   "metadata": {
     "entityDataTable": {
-      "budget_allocated_amt": {
-        "dtype": "float",
-        "format": "currency",
-        "viewType": "currency",
-        "editType": "currency",
-        "currencySymbol": "$",
-        "decimals": 2,
-        "locale": "en-CA",
-        "visible": true,
-        "editable": true,
-        "filterable": true,
-        "sortable": true,
-        "align": "right",
-        "width": "140px",
-        "label": "Budget Allocated"
+      "viewType": {
+        "budget_allocated_amt": {
+          "dtype": "float",
+          "label": "Budget Allocated",
+          "behavior": { "visible": true, "sortable": true, "filterable": true },
+          "style": { "width": "140px", "align": "right" },
+          "format": { "symbol": "$", "decimals": 2, "locale": "en-CA" },
+          "component": "CurrencyCell"
+        },
+        "dl__project_stage": {
+          "dtype": "str",
+          "label": "Project Stage",
+          "behavior": { "visible": true, "sortable": true, "filterable": true },
+          "format": { "colorFromData": true },
+          "component": "BadgeCell"
+        },
+        "manager__employee_id": {
+          "dtype": "uuid",
+          "label": "Manager Employee Name",
+          "behavior": { "visible": true, "sortable": true, "filterable": true },
+          "format": { "displayField": "name", "linkToEntity": true },
+          "component": "EntityLookupCell"
+        }
       },
-      "dl__project_stage": {
-        "dtype": "str",
-        "format": "datalabel_lookup",
-        "viewType": "badge",
-        "editType": "select",
-        "datalabelKey": "dl__project_stage",
-        "visible": true,
-        "editable": true,
-        "label": "Project Stage"
-      },
-      "manager__employee_id": {
-        "dtype": "uuid",
-        "format": "reference",
-        "viewType": "text",
-        "editType": "select",
-        "loadFromEntity": "employee",
-        "endpoint": "/api/v1/entity/employee/entity-instance-lookup",
-        "displayField": "name",
-        "valueField": "id",
-        "visible": true,
-        "editable": true,
-        "label": "Manager Employee Name"
+      "editType": {
+        "budget_allocated_amt": {
+          "dtype": "float",
+          "label": "Budget Allocated",
+          "inputType": "component",
+          "behavior": { "editable": true },
+          "validation": { "min": 0 },
+          "component": "CurrencyInput"
+        },
+        "dl__project_stage": {
+          "dtype": "str",
+          "label": "Project Stage",
+          "inputType": "select",
+          "behavior": { "editable": true },
+          "lookupSource": "datalabel",
+          "datalabelKey": "dl__project_stage",
+          "component": "DatalabelSelect"
+        },
+        "manager__employee_id": {
+          "dtype": "uuid",
+          "label": "Manager Employee Name",
+          "inputType": "select",
+          "behavior": { "editable": true },
+          "lookupSource": "entityInstance",
+          "lookupEntity": "employee",
+          "component": "EntitySelect"
+        }
       }
     },
     "entityFormContainer": {
-      "budget_allocated_amt": {
-        "dtype": "float",
-        "format": "currency",
-        "viewType": "currency",
-        "editType": "currency",
-        "currencySymbol": "$",
-        "decimals": 2,
-        "placeholder": "0.00",
-        "visible": true,
-        "editable": true,
-        "label": "Budget Allocated"
-      },
-      "dl__project_stage": {
-        "dtype": "str",
-        "format": "datalabel_lookup",
-        "viewType": "dag",
-        "editType": "select",
-        "datalabelKey": "dl__project_stage",
-        "visible": true,
-        "editable": true,
-        "label": "Project Stage"
-      }
+      "viewType": { /* ... view metadata for forms ... */ },
+      "editType": { /* ... edit metadata for forms ... */ }
     }
   },
   "total": 5,
@@ -284,39 +269,57 @@ The API returns a comprehensive response with component-aware metadata:
 - Session-level caching via Zustand stores (`globalSettingsMetadataStore`, `datalabelMetadataStore`)
 - Avoids redundant data in every entity request
 
-### Metadata Structure
+### Metadata Structure (v9.0)
 
-Metadata is **component-keyed** - each component gets its own field configuration:
+Metadata is **component-keyed** with **type-first** organization. Each component contains `viewType` and `editType` at the top level:
 
 ```typescript
 metadata: {
-  entityDataTable: { [fieldKey]: FieldMetadata },     // Table view
-  entityFormContainer: { [fieldKey]: FieldMetadata }, // Form view (also used for detail view)
-  kanbanView: { [fieldKey]: FieldMetadata }           // Kanban view
+  entityDataTable: {
+    viewType: { [fieldKey]: ViewFieldMetadata },   // Display/rendering config
+    editType: { [fieldKey]: EditFieldMetadata }    // Input/editing config
+  },
+  entityFormContainer: {
+    viewType: { [fieldKey]: ViewFieldMetadata },
+    editType: { [fieldKey]: EditFieldMetadata }
+  },
+  kanbanView: {
+    viewType: { [fieldKey]: ViewFieldMetadata },
+    editType: { [fieldKey]: EditFieldMetadata }
+  }
 }
 ```
 
-### Field Metadata Properties
+### ViewFieldMetadata Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `dtype` | `string` | Data type: `str`, `float`, `int`, `bool`, `uuid`, `date`, `timestamp`, `jsonb`, `array[uuid]` |
-| `format` | `string` | Format hint: `text`, `currency`, `date:YYYY-MM-DD`, `timestamp-relative`, `datalabel_lookup`, `reference`, `json` |
-| `viewType` | `string` | View renderer: `text`, `currency`, `date`, `timestamp`, `badge`, `boolean`, `json`, `dag` |
-| `editType` | `string` | Edit renderer: `text`, `textarea`, `currency`, `date`, `select`, `multiselect`, `checkbox`, `readonly` |
-| `visible` | `boolean` | Show in this component |
-| `editable` | `boolean` | Allow editing |
-| `filterable` | `boolean` | Show in filter UI |
-| `sortable` | `boolean` | Allow column sorting |
 | `label` | `string` | Human-readable label |
-| `width` | `string` | Column width (e.g., `140px`, `auto`) |
-| `align` | `string` | Text alignment: `left`, `center`, `right` |
-| `datalabelKey` | `string` | For `dl__*` fields - key to lookup in `datalabels` array |
-| `loadFromEntity` | `string` | For reference fields - entity code for lookup |
-| `endpoint` | `string` | API endpoint for dropdown options |
-| `currencySymbol` | `string` | Currency symbol (e.g., `$`) |
-| `decimals` | `number` | Decimal places for currency |
-| `dateFormat` | `string` | Date format string |
+| `behavior.visible` | `boolean` | Show in this component |
+| `behavior.sortable` | `boolean` | Allow column sorting |
+| `behavior.filterable` | `boolean` | Show in filter UI |
+| `behavior.searchable` | `boolean` | Include in search |
+| `style.width` | `string` | Column width (e.g., `140px`, `auto`) |
+| `style.align` | `string` | Text alignment: `left`, `center`, `right` |
+| `style.monospace` | `boolean` | Use monospace font |
+| `format` | `object` | Type-specific formatting (symbol, decimals, colorFromData, etc.) |
+| `component` | `string` | Cell component: `CurrencyCell`, `BadgeCell`, `DateCell`, `EntityLookupCell`, etc. |
+
+### EditFieldMetadata Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `dtype` | `string` | Data type (same as view) |
+| `label` | `string` | Human-readable label |
+| `inputType` | `string` | Input type: `text`, `textarea`, `select`, `date`, `readonly`, `component` |
+| `behavior.editable` | `boolean` | Allow editing |
+| `behavior.required` | `boolean` | Field is required |
+| `validation` | `object` | Validation rules: `min`, `max`, `pattern`, `maxLength` |
+| `lookupSource` | `string` | Lookup type: `datalabel` or `entityInstance` |
+| `lookupEntity` | `string` | Entity code for entity lookups |
+| `datalabelKey` | `string` | Field key for datalabel lookups (e.g., `dl__project_stage`) |
+| `component` | `string` | Input component: `CurrencyInput`, `DatalabelSelect`, `EntitySelect`, etc. |
 
 ---
 
@@ -330,15 +333,14 @@ metadata: {
 3. Backend Route Handler
    ├── Executes database query
    ├── Calls generateEntityResponse() with component list
-   ├── Extracts datalabel keys from metadata
-   └── Fetches datalabel options from database
+   └── Returns metadata with viewType/editType per component
    │
-4. Backend returns { data, metadata, datalabels }
+4. Backend returns { data, fields, metadata: { entityDataTable: { viewType, editType }, ... } }
    │
 5. Frontend receives response
-   ├── EntityDataTable reads metadata.fields for columns
-   ├── KanbanView reads metadata for card rendering
-   └── frontEndFormatterService renders based on renderType/inputType
+   ├── EntityDataTable reads metadata.entityDataTable.viewType for columns
+   ├── Edit forms read metadata.entityDataTable.editType for inputs
+   └── frontEndFormatterService renders based on component names
    │
 6. User sees data rendered exactly as backend specified
 ```
@@ -381,24 +383,26 @@ The API response properties map directly to frontend Zustand stores:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         API RESPONSE                                     │
+│                         API RESPONSE (v9.0)                              │
 │  {                                                                       │
-│    data: [...],           ─────────────►  EntitySpecificInstanceDataStore        │
-│                                           EntityListOfInstancesDataStore    │
+│    data: [...],           ─────────────►  EntitySpecificInstanceDataStore│
+│                                           EntityListOfInstancesDataStore │
 │                                           (URL-bound, 5 min TTL)         │
 │                                                                          │
 │    fields: [...],         ─────────────►  (used by stores internally)    │
 │                                                                          │
 │    metadata: {            ─────────────►  entityComponentMetadataStore   │
-│      entityDataTable,                     (URL-bound, 5 min TTL)         │
-│      entityFormContainer                                                 │
-│    },                                                                    │
+│      entityDataTable: {                   (URL-bound, 5 min TTL)         │
+│        viewType: {...},                   • viewType for rendering       │
+│        editType: {...}                    • editType for forms           │
+│      },                                                                  │
+│      entityFormContainer: {...}                                          │
+│    }                                                                     │
+│  }                                                                       │
 │                                                                          │
-│    datalabels: [...],     ─────────────►  datalabelMetadataStore         │
-│                                           (Session, 30 min, login)       │
-│                                                                          │
-│    globalSettings: {...}  ─────────────►  globalSettingsMetadataStore    │
-│  }                                        (Session, 30 min, login)       │
+│  Datalabels and globalSettings fetched from dedicated endpoints:         │
+│  • GET /api/v1/settings/datalabels/all → datalabelMetadataStore          │
+│  • GET /api/v1/settings/global → globalSettingsMetadataStore             │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -420,15 +424,19 @@ The API response properties map directly to frontend Zustand stores:
 ```typescript
 // Entity endpoint returns data + metadata together
 const response = await fetch('/api/v1/project?view=entityDataTable');
-// { data: [...], metadata: { entityDataTable: {...} }, ... }
+// { data: [...], metadata: { entityDataTable: { viewType: {...}, editType: {...} } }, ... }
 
 // Frontend caches both in their respective stores:
 EntityListOfInstancesDataStore.setList('project', queryHash, response.data);
 entityComponentMetadataStore.setMetadata('project', 'entityDataTable', response.metadata.entityDataTable);
+
+// Access viewType for rendering, editType for forms:
+const viewMeta = response.metadata.entityDataTable.viewType;
+const editMeta = response.metadata.entityDataTable.editType;
 ```
 
 > **See:** `docs/state_management/zustand-integration-guide.md` for complete store documentation
 
 ---
 
-**Last Updated:** 2025-11-21 | **Status:** Production Ready
+**Last Updated:** 2025-11-25 | **Status:** Production Ready | **Breaking Change:** v9.0 restructured metadata to viewType/editType

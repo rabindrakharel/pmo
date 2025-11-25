@@ -2,6 +2,7 @@
  * ============================================================================
  * BACKEND FORMATTER SERVICE - Component-Aware Metadata Generation
  * ============================================================================
+ * Version: 10.0.0
  *
  * PURPOSE:
  * Generate component-specific metadata from column names using pattern matching.
@@ -13,10 +14,15 @@
  * - Global settings for cross-cutting concerns (currency, date formats, etc.)
  * - Datalabels extracted and fetched separately
  *
- * YAML MAPPING FILES (v6.0):
+ * YAML MAPPING FILES (v3.0.0):
  * - pattern-mapping.yaml: Maps field name patterns to fieldBusinessType
  * - view-type-mapping.yaml: Maps fieldBusinessType to VIEW rendering config
  * - edit-type-mapping.yaml: Maps fieldBusinessType to EDIT/INPUT config
+ *
+ * YAML STRUCTURE (v3.0.0 - Three Categories):
+ *   behavior: { visible, sortable, filterable, searchable, editable }
+ *   style: { width, align, symbol, decimals, locale, truncate, ... }
+ *   validation: { required, min, max, pattern, ... } (edit-type only)
  *
  * EXPLICIT CONFIG (v5.0):
  * - Fields can be explicitly configured in config/entity-field-config.ts
@@ -58,33 +64,34 @@ export type ComponentName =
   | 'dagView'              // Workflow DAG visualizer
   | 'hierarchyGraphView';  // Hierarchy graph view
 
-// View metadata structure
+// View metadata structure - matches YAML structure with behavior/style
 export interface ViewMetadata {
   type: string;           // renderType: 'text', 'date', 'component', etc.
   component?: string;     // Component name when type is 'component'
-  visible?: boolean;
-  filterable?: boolean;
-  sortable?: boolean;
-  searchable?: boolean;   // Include in text search
-  width?: string;
-  align?: 'left' | 'center' | 'right';
-  // Format options
-  format?: Record<string, any>;
+  // Three categories matching YAML structure
+  behavior: {
+    visible?: boolean;
+    filterable?: boolean;
+    sortable?: boolean;
+    searchable?: boolean;
+  };
+  style: Record<string, any>;  // width, align, symbol, decimals, etc.
 }
 
-// Edit metadata structure
+// Edit metadata structure - matches YAML structure with behavior/style/validation
 export interface EditMetadata {
   type: string;           // inputType: 'text', 'select', 'date', etc.
   component?: string;     // Component name for custom inputs
-  editable?: boolean;
-  required?: boolean;
   // Lookup source for dropdowns
   lookupSource?: 'datalabel' | 'entityInstance';
   lookupEntity?: string;  // Entity code when lookupSource is 'entityInstance'
   datalabelKey?: string;  // Datalabel key when lookupSource is 'datalabel'
-  // Format/validation options
-  format?: Record<string, any>;
-  validation?: Record<string, any>;
+  // Three categories matching YAML structure
+  behavior: {
+    editable?: boolean;
+  };
+  style: Record<string, any>;      // symbol, decimals, step, etc.
+  validation: Record<string, any>; // required, min, max, pattern, etc.
 }
 
 export interface FieldMetadataBase {
@@ -145,8 +152,23 @@ export interface FieldMetadataBase {
   EntityFormContainer_viz_container?: 'DAGVisualizer' | 'MetadataTable' | string;
 }
 
-export interface ComponentMetadata {
+// Old structure (deprecated)
+export interface ComponentMetadataLegacy {
   [fieldName: string]: FieldMetadataBase;
+}
+
+// New structure: viewType and editType as top-level containers
+export interface ViewTypeMetadata {
+  [fieldName: string]: ViewMetadata & { dtype: string; label: string };
+}
+
+export interface EditTypeMetadata {
+  [fieldName: string]: EditMetadata & { dtype: string; label: string };
+}
+
+export interface ComponentMetadata {
+  viewType: ViewTypeMetadata;
+  editType: EditTypeMetadata;
 }
 
 export interface EntityMetadata {
@@ -420,7 +442,12 @@ function deepMerge(target: any, source: any): any {
 
 /**
  * Get VIEW metadata for a fieldBusinessType and component from YAML
- * Returns: ViewMetadata { type, component, visible, format, ... }
+ * Returns: ViewMetadata { type, component, behavior, style }
+ *
+ * YAML structure (v3.0.0):
+ *   entityDataTable:
+ *     behavior: { visible, sortable, filterable, searchable }
+ *     style: { width, align, symbol, decimals, ... }
  */
 function getViewMetadataFromYaml(
   fieldBusinessType: string,
@@ -438,29 +465,46 @@ function getViewMetadataFromYaml(
     return null;
   }
 
-  // Build ViewMetadata structure
-  const view: ViewMetadata = {
-    type: resolved.renderType || fieldBusinessType,
-    visible: componentConfig.visible ?? true,
-    sortable: componentConfig.sortable ?? false,
-    filterable: componentConfig.filterable ?? false,
-    searchable: componentConfig.searchable ?? false,
+  // Extract behavior and style from new structure
+  const yamlBehavior = componentConfig.behavior || {};
+  const yamlStyle = componentConfig.style || {};
+
+  // Build behavior object - read from behavior (new) with fallback to flat (legacy/defaults)
+  const behaviorObj = {
+    visible: yamlBehavior.visible ?? componentConfig.visible ?? true,
+    sortable: yamlBehavior.sortable ?? componentConfig.sortable ?? false,
+    filterable: yamlBehavior.filterable ?? componentConfig.filterable ?? false,
+    searchable: yamlBehavior.searchable ?? componentConfig.searchable ?? false,
   };
 
-  // Add width/align if specified
-  if (componentConfig.width) view.width = componentConfig.width;
-  if (componentConfig.align) view.align = componentConfig.align;
-
-  // Add component if specified at field level or component level
-  if (componentConfig.component) {
-    view.component = componentConfig.component;
-  } else if (resolved.component) {
-    view.component = resolved.component;
+  // Build style object - merge width/align from flat (defaults) with yamlStyle
+  const styleObj: Record<string, any> = {};
+  const width = yamlStyle.width ?? componentConfig.width;
+  const align = yamlStyle.align ?? componentConfig.align;
+  if (width) styleObj.width = width;
+  if (align) styleObj.align = align;
+  // Add all other style properties (symbol, decimals, etc.)
+  for (const [key, value] of Object.entries(yamlStyle)) {
+    if (key !== 'width' && key !== 'align') {
+      styleObj[key] = value;
+    }
   }
 
-  // Copy format settings into format object
-  if (componentConfig.format) {
-    view.format = { ...componentConfig.format };
+  // Build ViewMetadata with separate behavior and style objects
+  // renderType priority: componentConfig.renderType > resolved.renderType > fieldBusinessType
+  const view: ViewMetadata = {
+    type: componentConfig.renderType || resolved.renderType || fieldBusinessType,
+    behavior: behaviorObj,
+    style: styleObj,
+  };
+
+  // Add component only when renderType is 'component'
+  if (view.type === 'component') {
+    if (componentConfig.component) {
+      view.component = componentConfig.component;
+    } else if (resolved.component) {
+      view.component = resolved.component;
+    }
   }
 
   return {
@@ -471,7 +515,14 @@ function getViewMetadataFromYaml(
 
 /**
  * Get EDIT metadata for a fieldBusinessType and component from YAML
- * Returns: EditMetadata { type, component, editable, lookupSource, format, validation, ... }
+ * Returns: EditMetadata { type, component, behavior, style, validation }
+ *
+ * YAML structure (v3.3.0):
+ *   entityDataTable:
+ *     inputType: number
+ *     behavior: { editable, filterable, sortable, visible }
+ *     style: { step, symbol, decimals, ... }
+ *     validation: { required, min, max, pattern, ... }
  */
 function getEditMetadataFromYaml(
   fieldBusinessType: string,
@@ -486,10 +537,22 @@ function getEditMetadataFromYaml(
 
   const componentConfig = resolved[component];
 
-  // Build EditMetadata structure
+  // Extract behavior, style, and validation from new structure
+  const yamlBehavior = componentConfig?.behavior || {};
+  const yamlStyle = componentConfig?.style || {};
+  const yamlValidation = componentConfig?.validation || {};
+
+  // Build behavior object
+  const behaviorObj = {
+    editable: yamlBehavior.editable ?? componentConfig?.editable ?? resolved.editable ?? true,
+  };
+
+  // Build EditMetadata with separate behavior, style, validation objects
   const edit: EditMetadata = {
     type: componentConfig?.inputType || fieldBusinessType,
-    editable: resolved.editable ?? true,
+    behavior: behaviorObj,
+    style: { ...yamlStyle },
+    validation: { ...yamlValidation },
   };
 
   // Add component if specified
@@ -500,19 +563,6 @@ function getEditMetadataFromYaml(
   // Include lookupSource directly from YAML
   if (resolved.lookupSource) {
     edit.lookupSource = resolved.lookupSource;
-  }
-
-  // Copy validation settings into validation object
-  if (componentConfig?.validation) {
-    edit.validation = { ...componentConfig.validation };
-    if (componentConfig.validation.required !== undefined) {
-      edit.required = componentConfig.validation.required;
-    }
-  }
-
-  // Copy format settings into format object
-  if (componentConfig?.format) {
-    edit.format = { ...componentConfig.format };
   }
 
   return {
@@ -1574,24 +1624,31 @@ function convertExplicitConfigToMetadata(
     hierarchyGraphView: config.visible?.EntityFormContainer ?? true,
   };
 
-  // Build view metadata
+  // Build view metadata with behavior/style structure
+  const viewStyle: Record<string, any> = {};
+  if (config.width) viewStyle.width = config.width;
+  if (config.align) viewStyle.align = config.align;
+  if (config.format) Object.assign(viewStyle, config.format);
+
   const view: ViewMetadata = {
     type: config.renderType || 'text',
-    visible: visibilityMap[component] ?? true,
-    filterable: component === 'entityDataTable',
-    sortable: component === 'entityDataTable',
-    width: config.width || 'auto',
-    align: config.align || 'left',
+    behavior: {
+      visible: visibilityMap[component] ?? true,
+      filterable: component === 'entityDataTable',
+      sortable: component === 'entityDataTable',
+      searchable: false,
+    },
+    style: viewStyle,
   };
 
-  if (config.format) {
-    view.format = config.format;
-  }
-
-  // Build edit metadata
+  // Build edit metadata with behavior/style/validation structure
   const edit: EditMetadata = {
     type: config.inputType || 'text',
-    editable: config.editable ?? (component === 'entityFormContainer'),
+    behavior: {
+      editable: config.editable ?? (component === 'entityFormContainer'),
+    },
+    style: {},
+    validation: {},
   };
 
   // Handle lookup sources
@@ -1645,16 +1702,19 @@ function generateFieldMetadataForComponent(
   if (viewResult || editResult) {
     const dtype = (viewResult?.dtype || editResult?.dtype || 'str') as FieldMetadataBase['dtype'];
 
-    // Build view metadata
+    // Build view metadata with behavior/style structure
     const view: ViewMetadata = viewResult?.view || {
       type: fieldBusinessType,
-      visible: true,
+      behavior: { visible: true, sortable: false, filterable: false, searchable: false },
+      style: {},
     };
 
-    // Build edit metadata
+    // Build edit metadata with behavior/style/validation structure
     const edit: EditMetadata = editResult?.edit || {
       type: fieldBusinessType,
-      editable: component === 'entityFormContainer',
+      behavior: { editable: component === 'entityFormContainer' },
+      style: {},
+      validation: {},
     };
 
     // Auto-detect entity for ALL *_id and *_ids fields - set lookupSource and entity
@@ -1693,17 +1753,21 @@ function generateFieldMetadataForComponent(
       label: generateLabel(fieldName),
       view: {
         type: 'text',
-        visible: component === 'entityDataTable' ||
-                 component === 'entityFormContainer' ||
-                 component === 'gridView',
-        filterable: component === 'entityDataTable',
-        sortable: component === 'entityDataTable',
-        width: 'auto',
-        align: 'left',
+        behavior: {
+          visible: component === 'entityDataTable' ||
+                   component === 'entityFormContainer' ||
+                   component === 'gridView',
+          filterable: component === 'entityDataTable',
+          sortable: component === 'entityDataTable',
+          searchable: false,
+        },
+        style: { width: 'auto', align: 'left' },
       },
       edit: {
         type: 'text',
-        editable: component === 'entityFormContainer',
+        behavior: { editable: component === 'entityFormContainer' },
+        style: {},
+        validation: {},
       },
     };
   }
@@ -1726,19 +1790,27 @@ function generateFieldMetadataForComponent(
   // Clone the rule to avoid mutation
   componentRule = { ...componentRule };
 
-  // Build view and edit from legacy rule
+  // Build view and edit from legacy rule with behavior/style structure
+  const viewStyle: Record<string, any> = {};
+  if (componentRule.width) viewStyle.width = componentRule.width;
+  if (componentRule.align) viewStyle.align = componentRule.align;
+
   const view: ViewMetadata = {
     type: componentRule.viewType || 'text',
-    visible: componentRule.visible,
-    filterable: componentRule.filterable,
-    sortable: componentRule.sortable,
-    width: componentRule.width,
-    align: componentRule.align,
+    behavior: {
+      visible: componentRule.visible,
+      filterable: componentRule.filterable,
+      sortable: componentRule.sortable,
+      searchable: componentRule.searchable ?? false,
+    },
+    style: viewStyle,
   };
 
   const edit: EditMetadata = {
     type: componentRule.editType || 'text',
-    editable: componentRule.editable,
+    behavior: { editable: componentRule.editable },
+    style: {},
+    validation: {},
   };
 
   // Auto-detect entity for ALL *_id and *_ids fields (both simple and prefixed)
@@ -1767,6 +1839,8 @@ function generateFieldMetadataForComponent(
 /**
  * Generate metadata for all requested components
  *
+ * Structure: metadata.entityDataTable.viewType.{field} and metadata.entityDataTable.editType.{field}
+ *
  * @param fieldNames - List of field names from the entity data
  * @param requestedComponents - Components to generate metadata for
  * @param entityCode - Entity type code (for explicit config lookup)
@@ -1779,16 +1853,30 @@ export function generateMetadataForComponents(
   const metadata: EntityMetadata = {};
 
   for (const component of requestedComponents) {
-    const componentMetadata: ComponentMetadata = {};
+    const viewTypeMetadata: ViewTypeMetadata = {};
+    const editTypeMetadata: EditTypeMetadata = {};
 
     for (const fieldName of fieldNames) {
       const fieldMeta = generateFieldMetadataForComponent(fieldName, component, entityCode);
       if (fieldMeta) {
-        componentMetadata[fieldName] = fieldMeta;
+        // Split into viewType and editType containers
+        viewTypeMetadata[fieldName] = {
+          dtype: fieldMeta.dtype,
+          label: fieldMeta.label,
+          ...fieldMeta.view,
+        };
+        editTypeMetadata[fieldName] = {
+          dtype: fieldMeta.dtype,
+          label: fieldMeta.label,
+          ...fieldMeta.edit,
+        };
       }
     }
 
-    metadata[component] = componentMetadata;
+    metadata[component] = {
+      viewType: viewTypeMetadata,
+      editType: editTypeMetadata,
+    };
   }
 
   return metadata;
@@ -1801,14 +1889,10 @@ export function extractDatalabelKeys(metadata: EntityMetadata): string[] {
   const datalabelKeys = new Set<string>();
 
   for (const componentMetadata of Object.values(metadata)) {
-    if (componentMetadata) {
-      for (const fieldMeta of Object.values(componentMetadata) as FieldMetadataBase[]) {
-        // Check new structure: edit.lookupSource === 'datalabel' and edit.datalabelKey
-        if (fieldMeta.edit?.lookupSource === 'datalabel' && fieldMeta.edit?.datalabelKey) {
-          datalabelKeys.add(fieldMeta.edit.datalabelKey);
-        }
-        // Legacy fallback: check flat structure
-        else if (fieldMeta.format === 'datalabel_lookup' && fieldMeta.datalabelKey) {
+    if (componentMetadata?.editType) {
+      for (const fieldMeta of Object.values(componentMetadata.editType) as (EditMetadata & { dtype: string; label: string })[]) {
+        // Check new structure: lookupSource === 'datalabel' and datalabelKey
+        if (fieldMeta.lookupSource === 'datalabel' && fieldMeta.datalabelKey) {
           datalabelKeys.add(fieldMeta.datalabelKey);
         }
       }
