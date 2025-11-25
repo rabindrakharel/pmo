@@ -50,7 +50,8 @@ export interface FieldMetadata {
   falseLabel?: string;
   trueColor?: string;
   falseColor?: string;
-  loadFromEntity?: string;
+  lookupSource?: 'datalabel' | 'entityInstance';  // Backend lookup type
+  lookupEntity?: string;                           // Entity code for entityInstance lookup
   datalabelKey?: string;
   endpoint?: string;
   displayField?: string;

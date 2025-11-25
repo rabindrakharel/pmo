@@ -11,11 +11,11 @@
  * Metadata for a single field (from backend)
  */
 export interface FieldMetadata {
-  viewType?: string;
-  editType?: string;
+  renderType?: string;   // View mode: how to display the field
+  inputType?: string;    // Edit mode: what input control to use
   datalabelKey?: string;
-  loadFromEntity?: string;
-  loadFromDataLabels?: boolean;
+  lookupSource?: 'datalabel' | 'entityInstance';  // Backend lookup type
+  lookupEntity?: string;                           // Entity code for entityInstance lookup
   currencySymbol?: string;
   symbol?: string;
   decimals?: number;

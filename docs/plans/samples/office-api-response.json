@@ -1,0 +1,1724 @@
+{
+  "data": [
+    {
+      "id": "1d8643dc-0a1a-4917-abad-2ed5d9e97565",
+      "code": "CORP-OFF-001",
+      "name": "Corporate Office - London",
+      "from_ts": "2025-11-25T03:37:51.222Z",
+      "active_flag": true,
+      "created_ts": "2025-11-25T03:37:51.222Z",
+      "updated_ts": "2025-11-25T03:37:51.222Z",
+      "version": 1,
+      "descr": "Corporate headquarters physical location housing C-suite executives, finance, HR, and administrative functions",
+      "metadata": {},
+      "address_line1": "123 Executive Drive",
+      "address_line2": "Penthouse Suite",
+      "city": "London",
+      "province": "Ontario",
+      "postal_code": "N6A 1A1",
+      "country": "Canada",
+      "phone": "519-555-9000",
+      "email": "corporate@huronhome.ca",
+      "office_type": "Headquarters",
+      "capacity_employees": 30,
+      "square_footage": 10000,
+      "to_ts": ""
+    }
+  ],
+  "fields": [
+    "id",
+    "code",
+    "name",
+    "descr",
+    "metadata",
+    "address_line1",
+    "address_line2",
+    "city",
+    "province",
+    "postal_code",
+    "country",
+    "phone",
+    "email",
+    "office_type",
+    "capacity_employees",
+    "square_footage",
+    "from_ts",
+    "to_ts",
+    "active_flag",
+    "created_ts",
+    "updated_ts",
+    "version"
+  ],
+  "metadata": {
+    "entityDataTable": {
+      "viewType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "text",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "140px",
+            "align": "left",
+            "monospace": true
+          }
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": true
+          },
+          "style": {
+            "width": "250px",
+            "align": "left",
+            "bold": true,
+            "linkToDetail": true
+          }
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "text",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "truncate": 100
+          }
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "component",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {},
+          "component": "JsonPreviewCell"
+        },
+        "address_line1": {
+          "dtype": "str",
+          "label": "Address Line1",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "auto",
+            "align": "left"
+          }
+        },
+        "address_line2": {
+          "dtype": "str",
+          "label": "Address Line2",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "auto",
+            "align": "left"
+          }
+        },
+        "city": {
+          "dtype": "str",
+          "label": "City",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "auto",
+            "align": "left"
+          }
+        },
+        "province": {
+          "dtype": "str",
+          "label": "Province",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "auto",
+            "align": "left"
+          }
+        },
+        "postal_code": {
+          "dtype": "str",
+          "label": "Postal Code",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "100px",
+            "align": "left",
+            "monospace": true
+          }
+        },
+        "country": {
+          "dtype": "str",
+          "label": "Country",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "120px",
+            "align": "left",
+            "showFlag": true
+          },
+          "component": "CountryCell"
+        },
+        "phone": {
+          "dtype": "str",
+          "label": "Phone",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "140px",
+            "align": "left",
+            "linkable": true
+          }
+        },
+        "email": {
+          "dtype": "str",
+          "label": "Email",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "200px",
+            "align": "left",
+            "linkable": true
+          }
+        },
+        "office_type": {
+          "dtype": "str",
+          "label": "Office Type",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "120px",
+            "align": "left"
+          }
+        },
+        "capacity_employees": {
+          "dtype": "int",
+          "label": "Capacity Employees",
+          "type": "number",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "100px",
+            "align": "right"
+          }
+        },
+        "square_footage": {
+          "dtype": "float",
+          "label": "Square Footage",
+          "type": "number",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "120px",
+            "align": "right",
+            "unit": "sq ft"
+          }
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "160px",
+            "align": "left",
+            "format": "datetime"
+          }
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "160px",
+            "align": "left",
+            "format": "datetime"
+          }
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "boolean",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "100px",
+            "align": "center",
+            "trueLabel": "Active",
+            "falseLabel": "Inactive",
+            "trueColor": "green",
+            "falseColor": "red"
+          }
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "width": "140px",
+            "align": "left",
+            "format": "relative"
+          }
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "width": "140px",
+            "align": "left",
+            "format": "relative"
+          }
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "version",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        }
+      },
+      "editType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {
+            "pattern": "^[A-Za-z0-9-_]+$"
+          }
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {
+            "maxLength": 255
+          }
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "textarea",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "JsonEditor"
+        },
+        "address_line1": {
+          "dtype": "str",
+          "label": "Address Line1",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "address_line2": {
+          "dtype": "str",
+          "label": "Address Line2",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "city": {
+          "dtype": "str",
+          "label": "City",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "province": {
+          "dtype": "str",
+          "label": "Province",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "postal_code": {
+          "dtype": "str",
+          "label": "Postal Code",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {
+            "pattern": "^[A-Za-z]\\d[A-Za-z][ -]?\\d[A-Za-z]\\d$"
+          }
+        },
+        "country": {
+          "dtype": "str",
+          "label": "Country",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "CountrySelect"
+        },
+        "phone": {
+          "dtype": "str",
+          "label": "Phone",
+          "type": "tel",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "email": {
+          "dtype": "str",
+          "label": "Email",
+          "type": "email",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {
+            "pattern": "^[^@]+@[^@]+\\.[^@]+$"
+          }
+        },
+        "office_type": {
+          "dtype": "str",
+          "label": "Office Type",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "capacity_employees": {
+          "dtype": "int",
+          "label": "Capacity Employees",
+          "type": "number",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {
+            "min": 0
+          }
+        },
+        "square_footage": {
+          "dtype": "float",
+          "label": "Square Footage",
+          "type": "number",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {
+            "min": 0
+          }
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "datetime-local",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "datetime-local",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "Toggle"
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        }
+      }
+    },
+    "entityFormContainer": {
+      "viewType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "monospace": true,
+            "truncate": 8
+          }
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "monospace": true
+          }
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "size": "lg"
+          }
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "multiline": true
+          }
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "collapsed": true
+          },
+          "component": "JsonViewer"
+        },
+        "address_line1": {
+          "dtype": "str",
+          "label": "Address Line1",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "address_line2": {
+          "dtype": "str",
+          "label": "Address Line2",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "city": {
+          "dtype": "str",
+          "label": "City",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "province": {
+          "dtype": "str",
+          "label": "Province",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "postal_code": {
+          "dtype": "str",
+          "label": "Postal Code",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "country": "CA"
+          }
+        },
+        "country": {
+          "dtype": "str",
+          "label": "Country",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "showFlag": true
+          },
+          "component": "CountryField"
+        },
+        "phone": {
+          "dtype": "str",
+          "label": "Phone",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "countryCode": "CA"
+          }
+        },
+        "email": {
+          "dtype": "str",
+          "label": "Email",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "linkable": true
+          }
+        },
+        "office_type": {
+          "dtype": "str",
+          "label": "Office Type",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "capacity_employees": {
+          "dtype": "int",
+          "label": "Capacity Employees",
+          "type": "number",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "square_footage": {
+          "dtype": "float",
+          "label": "Square Footage",
+          "type": "number",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "unit": "sq ft"
+          }
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "boolean",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "trueLabel": "Active",
+            "falseLabel": "Inactive"
+          }
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "showAbsolute": true,
+            "format": "relative"
+          }
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "showAbsolute": true,
+            "format": "relative"
+          }
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "number",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "prefix": "v"
+          }
+        }
+      },
+      "editType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {
+            "monospace": true
+          },
+          "validation": {}
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {
+            "required": true,
+            "pattern": "^[A-Za-z0-9-_]+$"
+          }
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "size": "lg"
+          },
+          "validation": {
+            "required": true,
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "textarea",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "rows": 4,
+            "resizable": true
+          },
+          "validation": {}
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "mode": "tree",
+            "validateSchema": false
+          },
+          "validation": {},
+          "component": "JsonEditor"
+        },
+        "address_line1": {
+          "dtype": "str",
+          "label": "Address Line1",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "address_line2": {
+          "dtype": "str",
+          "label": "Address Line2",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "city": {
+          "dtype": "str",
+          "label": "City",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "province": {
+          "dtype": "str",
+          "label": "Province",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "postal_code": {
+          "dtype": "str",
+          "label": "Postal Code",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "mask": "A#A #A#",
+            "country": "CA"
+          },
+          "validation": {
+            "pattern": "^[A-Za-z]\\d[A-Za-z][ -]?\\d[A-Za-z]\\d$"
+          }
+        },
+        "country": {
+          "dtype": "str",
+          "label": "Country",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "showFlag": true,
+            "defaultValue": "CA"
+          },
+          "validation": {},
+          "component": "CountrySelect"
+        },
+        "phone": {
+          "dtype": "str",
+          "label": "Phone",
+          "type": "tel",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "countryCode": "CA",
+            "mask": "(###) ###-####"
+          },
+          "validation": {}
+        },
+        "email": {
+          "dtype": "str",
+          "label": "Email",
+          "type": "email",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "autocomplete": "email"
+          },
+          "validation": {
+            "pattern": "^[^@]+@[^@]+\\.[^@]+$"
+          }
+        },
+        "office_type": {
+          "dtype": "str",
+          "label": "Office Type",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "capacity_employees": {
+          "dtype": "int",
+          "label": "Capacity Employees",
+          "type": "number",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "step": 1
+          },
+          "validation": {
+            "min": 0
+          }
+        },
+        "square_footage": {
+          "dtype": "float",
+          "label": "Square Footage",
+          "type": "number",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "unit": "sq ft",
+            "decimals": 2
+          },
+          "validation": {
+            "min": 0
+          }
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "datetime-local",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "locale": "en-CA",
+            "showTimezone": false
+          },
+          "validation": {}
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "datetime-local",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "locale": "en-CA",
+            "showTimezone": false
+          },
+          "validation": {}
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "onLabel": "Active",
+            "offLabel": "Inactive"
+          },
+          "validation": {},
+          "component": "Toggle"
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        }
+      }
+    },
+    "kanbanView": {
+      "viewType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "text",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "monospace": true
+          }
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "truncate": 50
+          }
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "truncate": 80
+          }
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "json",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "address_line1": {
+          "dtype": "str",
+          "label": "Address Line1",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "address_line2": {
+          "dtype": "str",
+          "label": "Address Line2",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "city": {
+          "dtype": "str",
+          "label": "City",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "province": {
+          "dtype": "str",
+          "label": "Province",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "postal_code": {
+          "dtype": "str",
+          "label": "Postal Code",
+          "type": "postal_code",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "country": {
+          "dtype": "str",
+          "label": "Country",
+          "type": "country",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "phone": {
+          "dtype": "str",
+          "label": "Phone",
+          "type": "phone",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "email": {
+          "dtype": "str",
+          "label": "Email",
+          "type": "email",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "office_type": {
+          "dtype": "str",
+          "label": "Office Type",
+          "type": "type",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "capacity_employees": {
+          "dtype": "int",
+          "label": "Capacity Employees",
+          "type": "capacity",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "square_footage": {
+          "dtype": "float",
+          "label": "Square Footage",
+          "type": "area_sqft",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "timestamp",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "timestamp",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "boolean",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "trueColor": "green",
+            "falseColor": "red"
+          }
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "format": "relative"
+          }
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "format": "relative"
+          }
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "version",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        }
+      },
+      "editType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "uuid",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineTextInput"
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineTextInput"
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "description",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "json",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "address_line1": {
+          "dtype": "str",
+          "label": "Address Line1",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineTextInput"
+        },
+        "address_line2": {
+          "dtype": "str",
+          "label": "Address Line2",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineTextInput"
+        },
+        "city": {
+          "dtype": "str",
+          "label": "City",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineTextInput"
+        },
+        "province": {
+          "dtype": "str",
+          "label": "Province",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineTextInput"
+        },
+        "postal_code": {
+          "dtype": "str",
+          "label": "Postal Code",
+          "type": "postal_code",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "country": {
+          "dtype": "str",
+          "label": "Country",
+          "type": "country",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "phone": {
+          "dtype": "str",
+          "label": "Phone",
+          "type": "phone",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "email": {
+          "dtype": "str",
+          "label": "Email",
+          "type": "email",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "office_type": {
+          "dtype": "str",
+          "label": "Office Type",
+          "type": "type",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "capacity_employees": {
+          "dtype": "int",
+          "label": "Capacity Employees",
+          "type": "capacity",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "square_footage": {
+          "dtype": "float",
+          "label": "Square Footage",
+          "type": "area_sqft",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "timestamp",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "timestamp",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "status_flag",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "timestamp_readonly",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "timestamp_readonly",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "version",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        }
+      }
+    }
+  },
+  "total": 6,
+  "limit": 1,
+  "offset": 0
+}
+
+[0;32m✅ Success (HTTP 200)[0m

@@ -68,15 +68,12 @@ export interface CompositeFieldConfig {
 export interface BackendFieldMetadata {
   key: string;
   label: string;
-  type: string;
   dataType?: string;
   format: Record<string, any>;
-  renderType: string;
-  viewType?: string;
-  component?: string;
-  inputType: string;
-  editType?: string;
-  visible: ComponentVisibility;      // ✅ NEW: Per-component visibility
+  renderType: string;               // View mode: how to display the field
+  component?: string;               // Component name when renderType/inputType is 'component'
+  inputType: string;                // Edit mode: what input control to use
+  visible: ComponentVisibility;     // Per-component visibility
   composite?: boolean;               // ✅ NEW: Is this a composite field?
   compositeConfig?: CompositeFieldConfig;  // ✅ NEW: Composite field configuration
   sortable: boolean;
@@ -87,8 +84,9 @@ export interface BackendFieldMetadata {
   align: 'left' | 'right' | 'center';
   width: string;
   endpoint?: string;
-  loadFromDataLabels?: boolean;
-  loadFromEntity?: string;
+  lookupSource?: 'datalabel' | 'entityInstance';  // Backend lookup type
+  lookupEntity?: string;                           // Entity code for entityInstance lookup
+  datalabelKey?: string;                           // Datalabel key for datalabel lookup
   settingsDatalabel?: string;
   options?: Array<{ value: any; label: string; color?: string }>;
   validation?: Record<string, any>;

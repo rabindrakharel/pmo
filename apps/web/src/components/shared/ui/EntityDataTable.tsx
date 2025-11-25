@@ -279,8 +279,11 @@ export interface Column<T = any> {
   editType?: 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time' |
              'select' | 'multiselect' | 'checkbox' | 'textarea' | 'tags' |
              'jsonb' | 'datatable' | 'file' | 'dag-select';
-  loadDataLabels?: boolean;
-  loadFromEntity?: string;         // Load options from entity API (e.g., 'employee', 'project')
+  lookupSource?: 'datalabel' | 'entityInstance';  // Backend lookup type (replaces loadDataLabels)
+  lookupEntity?: string;                           // Entity code for entityInstance lookup
+  datalabelKey?: string;                           // Datalabel key for datalabel lookup
+  loadDataLabels?: boolean;                        // @deprecated - use lookupSource === 'datalabel'
+  loadFromEntity?: string;                         // @deprecated - use lookupEntity
   /**
    * Static options for inline editing dropdowns (alternative to loadDataLabels)
    * Use this when options are hardcoded (e.g., color_code field in settings tables)
@@ -431,8 +434,12 @@ export function EntityDataTable<T = any>({
             align: fieldMeta.align,
             editable: fieldMeta.editable,
             editType: fieldMeta.editType,
-            loadDataLabels: fieldMeta.loadFromDataLabels || fieldMeta.datalabelKey,
-            loadFromEntity: fieldMeta.loadFromEntity,
+            lookupSource: fieldMeta.lookupSource,
+            lookupEntity: fieldMeta.lookupEntity,
+            datalabelKey: fieldMeta.datalabelKey,
+            // @deprecated - for backward compatibility
+            loadDataLabels: fieldMeta.lookupSource === 'datalabel' || fieldMeta.datalabelKey,
+            loadFromEntity: fieldMeta.lookupEntity,
             // Store enriched backend metadata for use in edit mode
             backendMetadata: enrichedMeta
             // v7.0.0: No render function - format-at-fetch handles view mode via FormattedRow
@@ -465,8 +472,12 @@ export function EntityDataTable<T = any>({
           align: fieldMeta.align,
           editable: fieldMeta.editable,
           editType: fieldMeta.editType,
-          loadDataLabels: fieldMeta.loadFromDataLabels,
-          loadFromEntity: fieldMeta.loadFromEntity,
+          lookupSource: fieldMeta.lookupSource,
+          lookupEntity: fieldMeta.lookupEntity,
+          datalabelKey: fieldMeta.datalabelKey,
+          // @deprecated - for backward compatibility
+          loadDataLabels: fieldMeta.lookupSource === 'datalabel' || !!fieldMeta.datalabelKey,
+          loadFromEntity: fieldMeta.lookupEntity,
           // Store backend metadata for use in edit mode
           backendMetadata: fieldMeta
           // v7.0.0: No render function - format-at-fetch handles view mode via FormattedRow
@@ -564,8 +575,8 @@ export function EntityDataTable<T = any>({
     // Find all columns that need dynamic settings using backend metadata
     const columnsNeedingSettings = columns.filter(col => {
       const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
-      // Check backend metadata first, fallback to column.loadDataLabels
-      return backendMeta?.loadFromDataLabels || col.loadDataLabels;
+      // Check backend metadata first (lookupSource === 'datalabel' or has datalabelKey)
+      return backendMeta?.lookupSource === 'datalabel' || backendMeta?.datalabelKey || col.lookupSource === 'datalabel' || col.datalabelKey;
     });
 
     // Use datalabels from datalabelMetadataStore (populated by API response)
@@ -602,10 +613,10 @@ export function EntityDataTable<T = any>({
   // Preload colors for all settings columns (for filter dropdowns and inline edit)
   useEffect(() => {
     const preloadColors = async () => {
-      // Find all columns with loadDataLabels using backend metadata
+      // Find all columns with datalabel lookup using backend metadata
       const settingsColumns = columns.filter(col => {
         const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
-        return backendMeta?.loadFromDataLabels || col.loadDataLabels;
+        return backendMeta?.lookupSource === 'datalabel' || backendMeta?.datalabelKey || col.lookupSource === 'datalabel' || col.datalabelKey;
       });
 
       // Extract datalabels and preload colors
@@ -725,7 +736,7 @@ export function EntityDataTable<T = any>({
     // Find column metadata to check if it's a datalabel field
     const column = columns.find(col => col.key === columnKey);
     const backendMeta = (column as any)?.backendMetadata as BackendFieldMetadata | undefined;
-    const isSettingsField = backendMeta?.loadFromDataLabels || column?.loadDataLabels || columnKey.startsWith('dl__');
+    const isSettingsField = backendMeta?.lookupSource === 'datalabel' || backendMeta?.datalabelKey || column?.lookupSource === 'datalabel' || column?.datalabelKey || columnKey.startsWith('dl__');
 
     // If it's a settings field, fetch options from datalabelMetadataStore cache
     if (isSettingsField) {
@@ -1320,7 +1331,7 @@ export function EntityDataTable<T = any>({
                               // Check if this column has settings options loaded using backend metadata
                               const selectedColumn = columns.find(col => col.key === selectedFilterColumn);
                               const backendMeta = (selectedColumn as any)?.backendMetadata as BackendFieldMetadata | undefined;
-                              const isSettingsField = backendMeta?.loadFromDataLabels || selectedColumn?.loadDataLabels;
+                              const isSettingsField = backendMeta?.lookupSource === 'datalabel' || backendMeta?.datalabelKey || selectedColumn?.lookupSource === 'datalabel' || selectedColumn?.datalabelKey;
 
                               // If this is a settings field, look up the color from datalabelMetadataStore
                               let colorCode: string | undefined;
@@ -1482,7 +1493,7 @@ export function EntityDataTable<T = any>({
                     // Check if this column is a settings field using backend metadata
                     const column = columns.find(col => col.key === columnKey);
                     const backendMeta = (column as any)?.backendMetadata as BackendFieldMetadata | undefined;
-                    const isSettingsField = backendMeta?.loadFromDataLabels || column?.loadDataLabels;
+                    const isSettingsField = backendMeta?.lookupSource === 'datalabel' || backendMeta?.datalabelKey || column?.lookupSource === 'datalabel' || column?.datalabelKey;
 
                     // If this is a settings field, look up the color from centralized cache
                     let colorCode: string | undefined;

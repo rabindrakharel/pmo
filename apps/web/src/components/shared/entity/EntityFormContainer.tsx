@@ -152,8 +152,9 @@ function EntityFormContainerInner({
             type: fieldMeta.editType || fieldMeta.inputType || 'text',
             editable: fieldMeta.editable !== false,
             visible: true,
-            loadDataLabels: fieldMeta.datalabelKey ? true : false,
-            loadFromEntity: fieldMeta.loadFromEntity,
+            lookupSource: fieldMeta.lookupSource,
+            lookupEntity: fieldMeta.lookupEntity,
+            datalabelKey: fieldMeta.datalabelKey,
             EntityFormContainer_viz_container: vizContainer,
             toApi: (value: any) => value,
             toDisplay: (value: any) => value

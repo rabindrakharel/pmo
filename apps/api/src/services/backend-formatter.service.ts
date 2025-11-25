@@ -537,13 +537,13 @@ function getViewMetadataFromYaml(
   // Build ViewMetadata with separate behavior and style objects
   // renderType priority: componentConfig.renderType > resolved.renderType > fieldBusinessType
   const view: ViewMetadata = {
-    type: componentConfig.renderType || resolved.renderType || fieldBusinessType,
+    renderType: componentConfig.renderType || resolved.renderType || fieldBusinessType,
     behavior: behaviorObj,
     style: styleObj,
   };
 
   // Add component only when renderType is 'component'
-  if (view.type === 'component') {
+  if (view.renderType === 'component') {
     if (componentConfig.component) {
       view.component = componentConfig.component;
     } else if (resolved.component) {
@@ -593,7 +593,7 @@ function getEditMetadataFromYaml(
 
   // Build EditMetadata with separate behavior, style, validation objects
   const edit: EditMetadata = {
-    type: componentConfig?.inputType || fieldBusinessType,
+    inputType: componentConfig?.inputType || fieldBusinessType,
     behavior: behaviorObj,
     style: { ...yamlStyle },
     validation: { ...yamlValidation },
@@ -1675,7 +1675,7 @@ function convertExplicitConfigToMetadata(
   if (config.format) Object.assign(viewStyle, config.format);
 
   const view: ViewMetadata = {
-    type: config.renderType || 'text',
+    renderType: config.renderType || 'text',
     behavior: {
       visible: visibilityMap[component] ?? true,
       filterable: component === 'entityDataTable',
@@ -1687,7 +1687,7 @@ function convertExplicitConfigToMetadata(
 
   // Build edit metadata with behavior/style/validation structure
   const edit: EditMetadata = {
-    type: config.inputType || 'text',
+    inputType: config.inputType || 'text',
     behavior: {
       editable: config.editable ?? (component === 'entityFormContainer'),
     },
@@ -1748,14 +1748,14 @@ function generateFieldMetadataForComponent(
 
     // Build view metadata with behavior/style structure
     const view: ViewMetadata = viewResult?.view || {
-      type: fieldBusinessType,
+      renderType: fieldBusinessType,
       behavior: { visible: true, sortable: false, filterable: false, searchable: false },
       style: {},
     };
 
     // Build edit metadata with behavior/style/validation structure
     const edit: EditMetadata = editResult?.edit || {
-      type: fieldBusinessType,
+      inputType: fieldBusinessType,
       behavior: { editable: component === 'entityFormContainer' },
       style: {},
       validation: {},
@@ -1796,7 +1796,7 @@ function generateFieldMetadataForComponent(
       dtype: 'str',
       label: generateLabel(fieldName),
       view: {
-        type: 'text',
+        renderType: 'text',
         behavior: {
           visible: component === 'entityDataTable' ||
                    component === 'entityFormContainer' ||
@@ -1808,7 +1808,7 @@ function generateFieldMetadataForComponent(
         style: { width: 'auto', align: 'left' },
       },
       edit: {
-        type: 'text',
+        inputType: 'text',
         behavior: { editable: component === 'entityFormContainer' },
         style: {},
         validation: {},
@@ -1840,7 +1840,7 @@ function generateFieldMetadataForComponent(
   if (componentRule.align) viewStyle.align = componentRule.align;
 
   const view: ViewMetadata = {
-    type: componentRule.viewType || 'text',
+    renderType: componentRule.viewType || 'text',
     behavior: {
       visible: componentRule.visible,
       filterable: componentRule.filterable,
@@ -1851,7 +1851,7 @@ function generateFieldMetadataForComponent(
   };
 
   const edit: EditMetadata = {
-    type: componentRule.editType || 'text',
+    inputType: componentRule.editType || 'text',
     behavior: { editable: componentRule.editable },
     style: {},
     validation: {},

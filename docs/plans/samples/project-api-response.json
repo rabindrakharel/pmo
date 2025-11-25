@@ -1,0 +1,1909 @@
+{
+  "data": [
+    {
+      "id": "50192aab-000a-17c5-6904-1065b04a0a0b",
+      "code": "CSE-2024-001",
+      "name": "Customer Service Excellence Initiative",
+      "descr": "Comprehensive program to enhance customer satisfaction through improved service delivery, response times, communication protocols, and feedback management across all service departments.",
+      "metadata": {
+        "priority": "high",
+        "complexity": "medium",
+        "risk_level": "low",
+        "project_type": "service_improvement",
+        "customer_facing": true
+      },
+      "dl__project_stage": "Execution",
+      "budget_allocated_amt": 200000,
+      "budget_spent_amt": 80000,
+      "planned_start_date": "2024-08-01T00:00:00.000Z",
+      "planned_end_date": "2024-12-15T00:00:00.000Z",
+      "actual_start_date": "2024-08-05T00:00:00.000Z",
+      "actual_end_date": "",
+      "manager__employee_id": "8260b1b0-5efc-4611-ad33-ee76c0cf7f13",
+      "sponsor__employee_id": "8260b1b0-5efc-4611-ad33-ee76c0cf7f13",
+      "stakeholder__employee_ids": [
+        "8260b1b0-5efc-4611-ad33-ee76c0cf7f13"
+      ],
+      "from_ts": "2025-11-25T03:37:51.658Z",
+      "to_ts": "",
+      "active_flag": true,
+      "created_ts": "2025-11-25T03:37:51.658Z",
+      "updated_ts": "2025-11-25T03:37:51.658Z",
+      "version": 1,
+      "_ID": {
+        "manager": {
+          "entity_code": "employee",
+          "manager__employee_id": "8260b1b0-5efc-4611-ad33-ee76c0cf7f13",
+          "manager": "James Miller"
+        },
+        "sponsor": {
+          "entity_code": "employee",
+          "sponsor__employee_id": "8260b1b0-5efc-4611-ad33-ee76c0cf7f13",
+          "sponsor": "James Miller"
+        }
+      },
+      "_IDS": {
+        "stakeholder": [
+          {
+            "entity_code": "employee",
+            "stakeholder__employee_id": "8260b1b0-5efc-4611-ad33-ee76c0cf7f13",
+            "stakeholder": "James Miller"
+          }
+        ]
+      }
+    }
+  ],
+  "fields": [
+    "id",
+    "code",
+    "name",
+    "descr",
+    "metadata",
+    "dl__project_stage",
+    "budget_allocated_amt",
+    "budget_spent_amt",
+    "planned_start_date",
+    "planned_end_date",
+    "actual_start_date",
+    "actual_end_date",
+    "manager__employee_id",
+    "sponsor__employee_id",
+    "stakeholder__employee_ids",
+    "active_flag",
+    "from_ts",
+    "to_ts",
+    "created_ts",
+    "updated_ts",
+    "version",
+    "_ID",
+    "_IDS"
+  ],
+  "metadata": {
+    "entityDataTable": {
+      "viewType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "text",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "140px",
+            "align": "left",
+            "monospace": true
+          }
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": true
+          },
+          "style": {
+            "width": "250px",
+            "align": "left",
+            "bold": true,
+            "linkToDetail": true
+          }
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "text",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "truncate": 100
+          }
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "component",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {},
+          "component": "JsonPreviewCell"
+        },
+        "dl__project_stage": {
+          "dtype": "str",
+          "label": "Project Stage",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "140px",
+            "align": "left",
+            "colorFromData": true
+          },
+          "component": "BadgeCell"
+        },
+        "budget_allocated_amt": {
+          "dtype": "float",
+          "label": "Budget Allocated",
+          "type": "currency",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "140px",
+            "align": "right",
+            "symbol": "$",
+            "decimals": 2,
+            "locale": "en-CA"
+          }
+        },
+        "budget_spent_amt": {
+          "dtype": "float",
+          "label": "Budget Spent",
+          "type": "currency",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "140px",
+            "align": "right",
+            "symbol": "$",
+            "decimals": 2,
+            "locale": "en-CA"
+          }
+        },
+        "planned_start_date": {
+          "dtype": "date",
+          "label": "Planned Start",
+          "type": "date",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "120px",
+            "align": "left",
+            "format": "short",
+            "locale": "en-CA"
+          }
+        },
+        "planned_end_date": {
+          "dtype": "date",
+          "label": "Planned End",
+          "type": "date",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "120px",
+            "align": "left",
+            "format": "short",
+            "locale": "en-CA"
+          }
+        },
+        "actual_start_date": {
+          "dtype": "date",
+          "label": "Actual Start",
+          "type": "date",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "120px",
+            "align": "left",
+            "format": "short",
+            "locale": "en-CA"
+          }
+        },
+        "actual_end_date": {
+          "dtype": "date",
+          "label": "Actual End",
+          "type": "date",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "120px",
+            "align": "left",
+            "format": "short",
+            "locale": "en-CA"
+          }
+        },
+        "manager__employee_id": {
+          "dtype": "uuid",
+          "label": "Manager Employee Name",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "150px",
+            "align": "left",
+            "displayField": "name",
+            "linkToEntity": true
+          },
+          "component": "EntityLookupCell"
+        },
+        "sponsor__employee_id": {
+          "dtype": "uuid",
+          "label": "Sponsor Employee Name",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "150px",
+            "align": "left",
+            "displayField": "name",
+            "linkToEntity": true
+          },
+          "component": "EntityLookupCell"
+        },
+        "stakeholder__employee_ids": {
+          "dtype": "array[uuid]",
+          "label": "Stakeholder  Employee Ids",
+          "type": "component",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "maxDisplay": 3
+          },
+          "component": "EntityArrayCell"
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "boolean",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "100px",
+            "align": "center",
+            "trueLabel": "Active",
+            "falseLabel": "Inactive",
+            "trueColor": "green",
+            "falseColor": "red"
+          }
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "160px",
+            "align": "left",
+            "format": "datetime"
+          }
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "160px",
+            "align": "left",
+            "format": "datetime"
+          }
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "width": "140px",
+            "align": "left",
+            "format": "relative"
+          }
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "width": "140px",
+            "align": "left",
+            "format": "relative"
+          }
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "version",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "_ID": {
+          "dtype": "str",
+          "label": " ID",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "auto",
+            "align": "left"
+          }
+        },
+        "_IDS": {
+          "dtype": "str",
+          "label": " IDS",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "auto",
+            "align": "left"
+          }
+        }
+      },
+      "editType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {
+            "pattern": "^[A-Za-z0-9-_]+$"
+          }
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {
+            "maxLength": 255
+          }
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "textarea",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "JsonEditor"
+        },
+        "dl__project_stage": {
+          "dtype": "str",
+          "label": "Project Stage",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "DatalabelSelect",
+          "lookupSource": "datalabel",
+          "datalabelKey": "dl__project_stage"
+        },
+        "budget_allocated_amt": {
+          "dtype": "float",
+          "label": "Budget Allocated",
+          "type": "number",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {
+            "min": 0
+          }
+        },
+        "budget_spent_amt": {
+          "dtype": "float",
+          "label": "Budget Spent",
+          "type": "number",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {
+            "min": 0
+          }
+        },
+        "planned_start_date": {
+          "dtype": "date",
+          "label": "Planned Start",
+          "type": "date",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "planned_end_date": {
+          "dtype": "date",
+          "label": "Planned End",
+          "type": "date",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "actual_start_date": {
+          "dtype": "date",
+          "label": "Actual Start",
+          "type": "date",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "actual_end_date": {
+          "dtype": "date",
+          "label": "Actual End",
+          "type": "date",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "manager__employee_id": {
+          "dtype": "uuid",
+          "label": "Manager Employee Name",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "EntitySelect",
+          "lookupSource": "entityInstance",
+          "lookupEntity": "employee"
+        },
+        "sponsor__employee_id": {
+          "dtype": "uuid",
+          "label": "Sponsor Employee Name",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "EntitySelect",
+          "lookupSource": "entityInstance",
+          "lookupEntity": "employee"
+        },
+        "stakeholder__employee_ids": {
+          "dtype": "array[uuid]",
+          "label": "Stakeholder  Employee Ids",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "EntityMultiSelect",
+          "lookupSource": "entityInstance",
+          "lookupEntity": "employee"
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "Toggle"
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "datetime-local",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "datetime-local",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        },
+        "_ID": {
+          "dtype": "str",
+          "label": " ID",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "_IDS": {
+          "dtype": "str",
+          "label": " IDS",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        }
+      }
+    },
+    "entityFormContainer": {
+      "viewType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "monospace": true,
+            "truncate": 8
+          }
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "monospace": true
+          }
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "size": "lg"
+          }
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "multiline": true
+          }
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "collapsed": true
+          },
+          "component": "JsonViewer"
+        },
+        "dl__project_stage": {
+          "dtype": "str",
+          "label": "Project Stage",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "showHierarchy": true
+          },
+          "component": "DatalabelDAG"
+        },
+        "budget_allocated_amt": {
+          "dtype": "float",
+          "label": "Budget Allocated",
+          "type": "currency",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "symbol": "$",
+            "decimals": 2
+          }
+        },
+        "budget_spent_amt": {
+          "dtype": "float",
+          "label": "Budget Spent",
+          "type": "currency",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "symbol": "$",
+            "decimals": 2
+          }
+        },
+        "planned_start_date": {
+          "dtype": "date",
+          "label": "Planned Start",
+          "type": "date",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "format": "medium"
+          }
+        },
+        "planned_end_date": {
+          "dtype": "date",
+          "label": "Planned End",
+          "type": "date",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "format": "medium"
+          }
+        },
+        "actual_start_date": {
+          "dtype": "date",
+          "label": "Actual Start",
+          "type": "date",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "format": "medium"
+          }
+        },
+        "actual_end_date": {
+          "dtype": "date",
+          "label": "Actual End",
+          "type": "date",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "format": "medium"
+          }
+        },
+        "manager__employee_id": {
+          "dtype": "uuid",
+          "label": "Manager Employee Name",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "displayField": "name"
+          },
+          "component": "EntityLookupField"
+        },
+        "sponsor__employee_id": {
+          "dtype": "uuid",
+          "label": "Sponsor Employee Name",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "displayField": "name"
+          },
+          "component": "EntityLookupField"
+        },
+        "stakeholder__employee_ids": {
+          "dtype": "array[uuid]",
+          "label": "Stakeholder  Employee Ids",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "displayField": "name"
+          },
+          "component": "EntityArrayField"
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "boolean",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "trueLabel": "Active",
+            "falseLabel": "Inactive"
+          }
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "showAbsolute": true,
+            "format": "relative"
+          }
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "showAbsolute": true,
+            "format": "relative"
+          }
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "number",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "prefix": "v"
+          }
+        },
+        "_ID": {
+          "dtype": "str",
+          "label": " ID",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "_IDS": {
+          "dtype": "str",
+          "label": " IDS",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        }
+      },
+      "editType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {
+            "monospace": true
+          },
+          "validation": {}
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {
+            "required": true,
+            "pattern": "^[A-Za-z0-9-_]+$"
+          }
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "size": "lg"
+          },
+          "validation": {
+            "required": true,
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "textarea",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "rows": 4,
+            "resizable": true
+          },
+          "validation": {}
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "mode": "tree",
+            "validateSchema": false
+          },
+          "validation": {},
+          "component": "JsonEditor"
+        },
+        "dl__project_stage": {
+          "dtype": "str",
+          "label": "Project Stage",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "showColor": true,
+            "searchable": true
+          },
+          "validation": {},
+          "component": "DatalabelSelect",
+          "lookupSource": "datalabel",
+          "datalabelKey": "dl__project_stage"
+        },
+        "budget_allocated_amt": {
+          "dtype": "float",
+          "label": "Budget Allocated",
+          "type": "number",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "symbol": "$",
+            "decimals": 2,
+            "locale": "en-CA"
+          },
+          "validation": {
+            "min": 0
+          }
+        },
+        "budget_spent_amt": {
+          "dtype": "float",
+          "label": "Budget Spent",
+          "type": "number",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "symbol": "$",
+            "decimals": 2,
+            "locale": "en-CA"
+          },
+          "validation": {
+            "min": 0
+          }
+        },
+        "planned_start_date": {
+          "dtype": "date",
+          "label": "Planned Start",
+          "type": "date",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "locale": "en-CA",
+            "clearable": true
+          },
+          "validation": {}
+        },
+        "planned_end_date": {
+          "dtype": "date",
+          "label": "Planned End",
+          "type": "date",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "locale": "en-CA",
+            "clearable": true
+          },
+          "validation": {}
+        },
+        "actual_start_date": {
+          "dtype": "date",
+          "label": "Actual Start",
+          "type": "date",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "locale": "en-CA",
+            "clearable": true
+          },
+          "validation": {}
+        },
+        "actual_end_date": {
+          "dtype": "date",
+          "label": "Actual End",
+          "type": "date",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "locale": "en-CA",
+            "clearable": true
+          },
+          "validation": {}
+        },
+        "manager__employee_id": {
+          "dtype": "uuid",
+          "label": "Manager Employee Name",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "searchable": true,
+            "clearable": true,
+            "displayField": "name"
+          },
+          "validation": {},
+          "component": "EntitySelect",
+          "lookupSource": "entityInstance",
+          "lookupEntity": "employee"
+        },
+        "sponsor__employee_id": {
+          "dtype": "uuid",
+          "label": "Sponsor Employee Name",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "searchable": true,
+            "clearable": true,
+            "displayField": "name"
+          },
+          "validation": {},
+          "component": "EntitySelect",
+          "lookupSource": "entityInstance",
+          "lookupEntity": "employee"
+        },
+        "stakeholder__employee_ids": {
+          "dtype": "array[uuid]",
+          "label": "Stakeholder  Employee Ids",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "searchable": true,
+            "displayField": "name",
+            "maxSelections": null
+          },
+          "validation": {},
+          "component": "EntityMultiSelect",
+          "lookupSource": "entityInstance",
+          "lookupEntity": "employee"
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "onLabel": "Active",
+            "offLabel": "Inactive"
+          },
+          "validation": {},
+          "component": "Toggle"
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "datetime-local",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "locale": "en-CA",
+            "showTimezone": false
+          },
+          "validation": {}
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "datetime-local",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "locale": "en-CA",
+            "showTimezone": false
+          },
+          "validation": {}
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        },
+        "_ID": {
+          "dtype": "str",
+          "label": " ID",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "_IDS": {
+          "dtype": "str",
+          "label": " IDS",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        }
+      }
+    },
+    "kanbanView": {
+      "viewType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "text",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "monospace": true
+          }
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "truncate": 50
+          }
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "truncate": 80
+          }
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "json",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "dl__project_stage": {
+          "dtype": "str",
+          "label": "Project Stage",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {},
+          "component": "Badge"
+        },
+        "budget_allocated_amt": {
+          "dtype": "float",
+          "label": "Budget Allocated",
+          "type": "currency",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "compact": true
+          }
+        },
+        "budget_spent_amt": {
+          "dtype": "float",
+          "label": "Budget Spent",
+          "type": "currency",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "compact": true
+          }
+        },
+        "planned_start_date": {
+          "dtype": "date",
+          "label": "Planned Start",
+          "type": "date",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "planned_end_date": {
+          "dtype": "date",
+          "label": "Planned End",
+          "type": "date",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "actual_start_date": {
+          "dtype": "date",
+          "label": "Actual Start",
+          "type": "date",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "actual_end_date": {
+          "dtype": "date",
+          "label": "Actual End",
+          "type": "date",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "manager__employee_id": {
+          "dtype": "uuid",
+          "label": "Manager Employee Name",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {},
+          "component": "EntityBadge"
+        },
+        "sponsor__employee_id": {
+          "dtype": "uuid",
+          "label": "Sponsor Employee Name",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {},
+          "component": "EntityBadge"
+        },
+        "stakeholder__employee_ids": {
+          "dtype": "array[uuid]",
+          "label": "Stakeholder  Employee Ids",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "max": 3
+          },
+          "component": "AvatarStack"
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "boolean",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "trueColor": "green",
+            "falseColor": "red"
+          }
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "timestamp",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "timestamp",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "format": "relative"
+          }
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "format": "relative"
+          }
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "version",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "_ID": {
+          "dtype": "str",
+          "label": " ID",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "_IDS": {
+          "dtype": "str",
+          "label": " IDS",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        }
+      },
+      "editType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "uuid",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineTextInput"
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineTextInput"
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "description",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "json",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "dl__project_stage": {
+          "dtype": "str",
+          "label": "Project Stage",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineSelect",
+          "lookupSource": "datalabel",
+          "datalabelKey": "dl__project_stage"
+        },
+        "budget_allocated_amt": {
+          "dtype": "float",
+          "label": "Budget Allocated",
+          "type": "currency",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "budget_spent_amt": {
+          "dtype": "float",
+          "label": "Budget Spent",
+          "type": "currency",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "planned_start_date": {
+          "dtype": "date",
+          "label": "Planned Start",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineDatePicker"
+        },
+        "planned_end_date": {
+          "dtype": "date",
+          "label": "Planned End",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineDatePicker"
+        },
+        "actual_start_date": {
+          "dtype": "date",
+          "label": "Actual Start",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineDatePicker"
+        },
+        "actual_end_date": {
+          "dtype": "date",
+          "label": "Actual End",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineDatePicker"
+        },
+        "manager__employee_id": {
+          "dtype": "uuid",
+          "label": "Manager Employee Name",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineEntitySelect",
+          "lookupSource": "entityInstance",
+          "lookupEntity": "employee"
+        },
+        "sponsor__employee_id": {
+          "dtype": "uuid",
+          "label": "Sponsor Employee Name",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineEntitySelect",
+          "lookupSource": "entityInstance",
+          "lookupEntity": "employee"
+        },
+        "stakeholder__employee_ids": {
+          "dtype": "array[uuid]",
+          "label": "Stakeholder  Employee Ids",
+          "type": "entityInstance_Ids",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "lookupSource": "entityInstance",
+          "lookupEntity": "employee"
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "status_flag",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "timestamp",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "timestamp",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "timestamp_readonly",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "timestamp_readonly",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "version",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "_ID": {
+          "dtype": "str",
+          "label": " ID",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineTextInput"
+        },
+        "_IDS": {
+          "dtype": "str",
+          "label": " IDS",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineTextInput"
+        }
+      }
+    }
+  },
+  "total": 5,
+  "limit": 1,
+  "offset": 0
+}
+
+[0;32m✅ Success (HTTP 200)[0m

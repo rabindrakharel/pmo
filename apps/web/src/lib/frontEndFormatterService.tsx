@@ -111,10 +111,10 @@ export interface BackendFieldMetadata {
   sortable?: boolean;
   filterable?: boolean;
 
-  // Backend-driven field loading
-  loadFromDataLabels?: boolean;
-  loadFromEntity?: string;
-  datalabelKey?: string;
+  // Backend-driven field loading (matches backend property names)
+  lookupSource?: 'datalabel' | 'entityInstance';  // Backend lookup type
+  lookupEntity?: string;                           // Entity code for entityInstance lookup
+  datalabelKey?: string;                           // Datalabel key for datalabel lookup
 
   // Badge colors (backend-provided)
   color?: string;  // Tailwind color classes from backend (e.g., 'bg-red-100 text-red-700')
@@ -448,8 +448,8 @@ export function renderEditModeFromMetadata(
       );
 
     case 'select': {
-      // Check if this is a datalabel field (has datalabelKey)
-      if (metadata.datalabelKey || metadata.loadFromDataLabels) {
+      // Check if this is a datalabel field (lookupSource === 'datalabel' or has datalabelKey)
+      if (metadata.datalabelKey || metadata.lookupSource === 'datalabel') {
         const datalabelKey = metadata.datalabelKey || metadata.key;
 
         // Load options from datalabelMetadataStore (cached at login)
@@ -487,7 +487,7 @@ export function renderEditModeFromMetadata(
           className={`px-2 py-1 border rounded ${className}`}
         >
           <option value="">Select...</option>
-          {/* Options would be loaded from backend via loadFromEntity */}
+          {/* Options would be loaded from backend via lookupEntity */}
         </select>
       );
     }

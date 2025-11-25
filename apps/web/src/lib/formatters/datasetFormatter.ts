@@ -75,8 +75,8 @@ export function formatValue(
   key: string,
   metadata: FieldMetadata | undefined
 ): FormattedValue {
-  const viewType = metadata?.viewType || 'text';
-  const formatter = FORMATTERS[viewType] || formatText;
+  const renderType = metadata?.renderType || 'text';
+  const formatter = FORMATTERS[renderType] || formatText;
   return formatter(value, metadata);
 }
 

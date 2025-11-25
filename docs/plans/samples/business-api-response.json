@@ -1,0 +1,1133 @@
+{
+  "data": [
+    {
+      "id": "b6666666-6666-6666-6666-666666666666",
+      "code": "BIZ-CORP-SERVICES",
+      "name": "Corporate Services Team",
+      "from_ts": "2025-11-25T03:37:51.306Z",
+      "active_flag": true,
+      "created_ts": "2025-11-25T03:37:51.306Z",
+      "updated_ts": "2025-11-25T03:37:51.306Z",
+      "version": 1,
+      "descr": "Central corporate services team handling strategic initiatives, IT, and administrative functions",
+      "metadata": {},
+      "office_id": "11111111-1111-1111-1111-111111111111",
+      "current_headcount": 15,
+      "operational_status": "Active",
+      "to_ts": ""
+    }
+  ],
+  "fields": [
+    "id",
+    "code",
+    "name",
+    "descr",
+    "metadata",
+    "active_flag",
+    "office_id",
+    "current_headcount",
+    "operational_status",
+    "from_ts",
+    "to_ts",
+    "created_ts",
+    "updated_ts",
+    "version"
+  ],
+  "metadata": {
+    "entityDataTable": {
+      "viewType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "text",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "140px",
+            "align": "left",
+            "monospace": true
+          }
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": true
+          },
+          "style": {
+            "width": "250px",
+            "align": "left",
+            "bold": true,
+            "linkToDetail": true
+          }
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "text",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "truncate": 100
+          }
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "component",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {},
+          "component": "JsonPreviewCell"
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "boolean",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "100px",
+            "align": "center",
+            "trueLabel": "Active",
+            "falseLabel": "Inactive",
+            "trueColor": "green",
+            "falseColor": "red"
+          }
+        },
+        "office_id": {
+          "dtype": "uuid",
+          "label": "Office Name",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "150px",
+            "align": "left",
+            "displayField": "name",
+            "linkToEntity": true
+          },
+          "component": "EntityLookupCell"
+        },
+        "current_headcount": {
+          "dtype": "str",
+          "label": "Current Headcount",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "auto",
+            "align": "left"
+          }
+        },
+        "operational_status": {
+          "dtype": "str",
+          "label": "Operational Status",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "120px",
+            "align": "left"
+          },
+          "component": "StatusBadgeCell"
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "160px",
+            "align": "left",
+            "format": "datetime"
+          }
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "160px",
+            "align": "left",
+            "format": "datetime"
+          }
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "width": "140px",
+            "align": "left",
+            "format": "relative"
+          }
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "width": "140px",
+            "align": "left",
+            "format": "relative"
+          }
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "version",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        }
+      },
+      "editType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {
+            "pattern": "^[A-Za-z0-9-_]+$"
+          }
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {
+            "maxLength": 255
+          }
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "textarea",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "JsonEditor"
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "Toggle"
+        },
+        "office_id": {
+          "dtype": "uuid",
+          "label": "Office Name",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "EntitySelect",
+          "lookupSource": "entityInstance",
+          "lookupEntity": "office"
+        },
+        "current_headcount": {
+          "dtype": "str",
+          "label": "Current Headcount",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "operational_status": {
+          "dtype": "str",
+          "label": "Operational Status",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "StatusSelect"
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "datetime-local",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "datetime-local",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        }
+      }
+    },
+    "entityFormContainer": {
+      "viewType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "monospace": true,
+            "truncate": 8
+          }
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "monospace": true
+          }
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "size": "lg"
+          }
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "multiline": true
+          }
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "collapsed": true
+          },
+          "component": "JsonViewer"
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "boolean",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "trueLabel": "Active",
+            "falseLabel": "Inactive"
+          }
+        },
+        "office_id": {
+          "dtype": "uuid",
+          "label": "Office Name",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "displayField": "name"
+          },
+          "component": "EntityLookupField"
+        },
+        "current_headcount": {
+          "dtype": "str",
+          "label": "Current Headcount",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "operational_status": {
+          "dtype": "str",
+          "label": "Operational Status",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {},
+          "component": "StatusField"
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "showAbsolute": true,
+            "format": "relative"
+          }
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "showAbsolute": true,
+            "format": "relative"
+          }
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "number",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "prefix": "v"
+          }
+        }
+      },
+      "editType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {
+            "monospace": true
+          },
+          "validation": {}
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {
+            "required": true,
+            "pattern": "^[A-Za-z0-9-_]+$"
+          }
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "size": "lg"
+          },
+          "validation": {
+            "required": true,
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "textarea",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "rows": 4,
+            "resizable": true
+          },
+          "validation": {}
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "mode": "tree",
+            "validateSchema": false
+          },
+          "validation": {},
+          "component": "JsonEditor"
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "onLabel": "Active",
+            "offLabel": "Inactive"
+          },
+          "validation": {},
+          "component": "Toggle"
+        },
+        "office_id": {
+          "dtype": "uuid",
+          "label": "Office Name",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "searchable": true,
+            "clearable": true,
+            "displayField": "name"
+          },
+          "validation": {},
+          "component": "EntitySelect",
+          "lookupSource": "entityInstance",
+          "lookupEntity": "office"
+        },
+        "current_headcount": {
+          "dtype": "str",
+          "label": "Current Headcount",
+          "type": "text",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "operational_status": {
+          "dtype": "str",
+          "label": "Operational Status",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "StatusSelect"
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "datetime-local",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "locale": "en-CA",
+            "showTimezone": false
+          },
+          "validation": {}
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "datetime-local",
+          "behavior": {
+            "editable": true
+          },
+          "style": {
+            "locale": "en-CA",
+            "showTimezone": false
+          },
+          "validation": {}
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "readonly",
+          "behavior": {
+            "editable": false
+          },
+          "style": {},
+          "validation": {}
+        }
+      }
+    },
+    "kanbanView": {
+      "viewType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "text",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "monospace": true
+          }
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "truncate": 50
+          }
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "truncate": 80
+          }
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "json",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "boolean",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "trueColor": "green",
+            "falseColor": "red"
+          }
+        },
+        "office_id": {
+          "dtype": "uuid",
+          "label": "Office Name",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {},
+          "component": "EntityBadge"
+        },
+        "current_headcount": {
+          "dtype": "str",
+          "label": "Current Headcount",
+          "type": "text",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "operational_status": {
+          "dtype": "str",
+          "label": "Operational Status",
+          "type": "component",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {},
+          "component": "StatusBadge"
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "timestamp",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "timestamp",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "format": "relative"
+          }
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "timestamp",
+          "behavior": {
+            "visible": true,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {
+            "format": "relative"
+          }
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "version",
+          "behavior": {
+            "visible": false,
+            "sortable": false,
+            "filterable": false,
+            "searchable": false
+          },
+          "style": {}
+        }
+      },
+      "editType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "type": "uuid",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineTextInput"
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineTextInput"
+        },
+        "descr": {
+          "dtype": "str",
+          "label": "Description",
+          "type": "description",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "metadata": {
+          "dtype": "jsonb",
+          "label": "Metadata",
+          "type": "json",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "type": "status_flag",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "office_id": {
+          "dtype": "uuid",
+          "label": "Office Name",
+          "type": "select",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineEntitySelect",
+          "lookupSource": "entityInstance",
+          "lookupEntity": "office"
+        },
+        "current_headcount": {
+          "dtype": "str",
+          "label": "Current Headcount",
+          "type": "component",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {},
+          "component": "InlineTextInput"
+        },
+        "operational_status": {
+          "dtype": "str",
+          "label": "Operational Status",
+          "type": "status",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "from_ts": {
+          "dtype": "timestamp",
+          "label": "From",
+          "type": "timestamp",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "to_ts": {
+          "dtype": "timestamp",
+          "label": "To",
+          "type": "timestamp",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "type": "timestamp_readonly",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "updated_ts": {
+          "dtype": "timestamp",
+          "label": "Updated",
+          "type": "timestamp_readonly",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        },
+        "version": {
+          "dtype": "int",
+          "label": "Version",
+          "type": "version",
+          "behavior": {
+            "editable": true
+          },
+          "style": {},
+          "validation": {}
+        }
+      }
+    }
+  },
+  "total": 6,
+  "limit": 1,
+  "offset": 0,
+  "appliedFilters": {
+    "rbac": true,
+    "parent": false,
+    "search": false,
+    "active": false
+  }
+}
+
+[0;32m✅ Success (HTTP 200)[0m
