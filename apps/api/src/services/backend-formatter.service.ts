@@ -58,16 +58,51 @@ export type ComponentName =
   | 'dagView'              // Workflow DAG visualizer
   | 'hierarchyGraphView';  // Hierarchy graph view
 
+// View metadata structure
+export interface ViewMetadata {
+  type: string;           // renderType: 'text', 'date', 'component', etc.
+  component?: string;     // Component name when type is 'component'
+  visible?: boolean;
+  filterable?: boolean;
+  sortable?: boolean;
+  searchable?: boolean;   // Include in text search
+  width?: string;
+  align?: 'left' | 'center' | 'right';
+  // Format options
+  format?: Record<string, any>;
+}
+
+// Edit metadata structure
+export interface EditMetadata {
+  type: string;           // inputType: 'text', 'select', 'date', etc.
+  component?: string;     // Component name for custom inputs
+  editable?: boolean;
+  required?: boolean;
+  // Lookup source for dropdowns
+  lookupSource?: 'datalabel' | 'entityInstance';
+  lookupEntity?: string;  // Entity code when lookupSource is 'entityInstance'
+  datalabelKey?: string;  // Datalabel key when lookupSource is 'datalabel'
+  // Format/validation options
+  format?: Record<string, any>;
+  validation?: Record<string, any>;
+}
+
 export interface FieldMetadataBase {
   dtype: 'str' | 'float' | 'int' | 'bool' | 'uuid' | 'date' | 'timestamp' | 'jsonb' | 'array[str]' | 'array[uuid]';
-  format: string;  // 'text', 'currency', 'date:YYYY-MM-DD', 'timestamp-relative', 'badge', etc.
-  internal: boolean;
-  visible: boolean;
-  filterable: boolean;
-  sortable: boolean;
-  editable: boolean;
-  viewType: string;
-  editType: string;
+  label: string;
+  // Separated view and edit metadata
+  view: ViewMetadata;
+  edit: EditMetadata;
+
+  // Legacy flat fields (deprecated - for backward compatibility)
+  format?: string;
+  internal?: boolean;
+  visible?: boolean;
+  filterable?: boolean;
+  sortable?: boolean;
+  editable?: boolean;
+  viewType?: string;
+  editType?: string;
   width?: string;
   align?: 'left' | 'center' | 'right';
 
@@ -235,6 +270,8 @@ interface ViewTypeMappingYaml {
   defaults: Record<string, any>;
   fieldBusinessTypes: Record<string, {
     dtype: string;
+    renderType?: string;      // NEW: 'text', 'email', 'date', 'component', etc.
+    component?: string;       // NEW: Component name when renderType is 'component'
     inherit?: string;
     entityDataTable?: Record<string, any>;
     entityFormContainer?: Record<string, any>;
@@ -252,6 +289,8 @@ interface EditTypeMappingYaml {
     dtype: string;
     inherit?: string;
     editable?: boolean;
+    lookupSource?: 'datalabel' | 'entityInstance';  // NEW: unified lookup source
+    // Legacy fields (deprecated, use lookupSource instead)
     loadFromDataLabels?: boolean;
     loadFromEntity?: boolean;
     entityDataTable?: Record<string, any>;
@@ -381,11 +420,12 @@ function deepMerge(target: any, source: any): any {
 
 /**
  * Get VIEW metadata for a fieldBusinessType and component from YAML
+ * Returns: ViewMetadata { type, component, visible, format, ... }
  */
 function getViewMetadataFromYaml(
   fieldBusinessType: string,
   component: ComponentName
-): Partial<FieldMetadataBase> | null {
+): { dtype: string; view: ViewMetadata } | null {
   const viewMapping = loadViewTypeMapping();
   const resolved = resolveInheritance(fieldBusinessType, viewMapping.fieldBusinessTypes);
 
@@ -398,32 +438,45 @@ function getViewMetadataFromYaml(
     return null;
   }
 
-  // Build base metadata
-  const metadata: Partial<FieldMetadataBase> = {
-    dtype: resolved.dtype as FieldMetadataBase['dtype'],
+  // Build ViewMetadata structure
+  const view: ViewMetadata = {
+    type: resolved.renderType || fieldBusinessType,
     visible: componentConfig.visible ?? true,
     sortable: componentConfig.sortable ?? false,
     filterable: componentConfig.filterable ?? false,
-    width: componentConfig.width,
-    align: componentConfig.align,
-    viewType: fieldBusinessType,
+    searchable: componentConfig.searchable ?? false,
   };
 
-  // Copy format settings
-  if (componentConfig.format) {
-    Object.assign(metadata, componentConfig.format);
+  // Add width/align if specified
+  if (componentConfig.width) view.width = componentConfig.width;
+  if (componentConfig.align) view.align = componentConfig.align;
+
+  // Add component if specified at field level or component level
+  if (componentConfig.component) {
+    view.component = componentConfig.component;
+  } else if (resolved.component) {
+    view.component = resolved.component;
   }
 
-  return metadata;
+  // Copy format settings into format object
+  if (componentConfig.format) {
+    view.format = { ...componentConfig.format };
+  }
+
+  return {
+    dtype: resolved.dtype,
+    view
+  };
 }
 
 /**
  * Get EDIT metadata for a fieldBusinessType and component from YAML
+ * Returns: EditMetadata { type, component, editable, lookupSource, format, validation, ... }
  */
 function getEditMetadataFromYaml(
   fieldBusinessType: string,
   component: ComponentName
-): Partial<FieldMetadataBase> | null {
+): { dtype: string; edit: EditMetadata } | null {
   const editMapping = loadEditTypeMapping();
   const resolved = resolveInheritance(fieldBusinessType, editMapping.fieldBusinessTypes);
 
@@ -433,43 +486,39 @@ function getEditMetadataFromYaml(
 
   const componentConfig = resolved[component];
 
-  // Build base metadata
-  const metadata: Partial<FieldMetadataBase> = {
-    dtype: resolved.dtype as FieldMetadataBase['dtype'],
+  // Build EditMetadata structure
+  const edit: EditMetadata = {
+    type: componentConfig?.inputType || fieldBusinessType,
     editable: resolved.editable ?? true,
-    editType: fieldBusinessType,
   };
 
-  // Handle special flags
-  if (resolved.loadFromDataLabels) {
-    metadata.loadFromDataLabels = true;
-  }
-  if (resolved.loadFromEntity) {
-    metadata.loadFromEntity = String(resolved.loadFromEntity);
+  // Add component if specified
+  if (componentConfig?.component) {
+    edit.component = componentConfig.component;
   }
 
-  // Copy component-specific config
-  if (componentConfig) {
-    if (componentConfig.inputType) {
-      metadata.editType = componentConfig.inputType;
-    }
-    if (componentConfig.validation) {
-      if (componentConfig.validation.required !== undefined) {
-        metadata.required = componentConfig.validation.required;
-      }
-      if (componentConfig.validation.min !== undefined) {
-        metadata.min = componentConfig.validation.min;
-      }
-      if (componentConfig.validation.max !== undefined) {
-        metadata.max = componentConfig.validation.max;
-      }
-    }
-    if (componentConfig.format) {
-      Object.assign(metadata, componentConfig.format);
+  // Include lookupSource directly from YAML
+  if (resolved.lookupSource) {
+    edit.lookupSource = resolved.lookupSource;
+  }
+
+  // Copy validation settings into validation object
+  if (componentConfig?.validation) {
+    edit.validation = { ...componentConfig.validation };
+    if (componentConfig.validation.required !== undefined) {
+      edit.required = componentConfig.validation.required;
     }
   }
 
-  return metadata;
+  // Copy format settings into format object
+  if (componentConfig?.format) {
+    edit.format = { ...componentConfig.format };
+  }
+
+  return {
+    dtype: resolved.dtype,
+    edit
+  };
 }
 
 // ============================================================================
@@ -1486,33 +1535,33 @@ const COMPONENT_INHERITANCE: Record<ComponentName, ComponentName | null> = {
 };
 
 /**
- * Convert explicit field config to FieldMetadataBase
+ * Convert explicit field config to FieldMetadataBase with view{} and edit{} structure
  */
 function convertExplicitConfigToMetadata(
   config: FieldConfig,
   component: ComponentName,
   fieldName: string
 ): FieldMetadataBase {
-  // Map renderType to dtype and format
+  // Map renderType to dtype
   type DType = FieldMetadataBase['dtype'];
-  const renderTypeMap: Record<string, { dtype: DType; format: string }> = {
-    'currency': { dtype: 'float', format: 'currency' },
-    'date': { dtype: 'date', format: 'date' },
-    'timestamp': { dtype: 'timestamp', format: 'timestamp' },
-    'boolean': { dtype: 'bool', format: 'boolean' },
-    'badge': { dtype: 'str', format: 'datalabel_lookup' },
-    'reference': { dtype: 'uuid', format: 'entityInstance_Id' },
-    'entityInstance_Id': { dtype: 'uuid', format: 'entityInstance_Id' },
-    'json': { dtype: 'jsonb', format: 'json' },
-    'progress-bar': { dtype: 'float', format: 'progress_bar' },
-    'percentage': { dtype: 'float', format: 'percentage' },
-    'number': { dtype: 'int', format: 'number' },
-    'text': { dtype: 'str', format: 'text' },
-    'array': { dtype: 'array[str]', format: 'array' },
-    'multiselect': { dtype: 'array[uuid]', format: 'array' },
+  const renderTypeMap: Record<string, DType> = {
+    'currency': 'float',
+    'date': 'date',
+    'timestamp': 'timestamp',
+    'boolean': 'bool',
+    'badge': 'str',
+    'reference': 'uuid',
+    'entityInstance_Id': 'uuid',
+    'json': 'jsonb',
+    'progress-bar': 'float',
+    'percentage': 'float',
+    'number': 'int',
+    'text': 'str',
+    'array': 'array[str]',
+    'multiselect': 'array[uuid]',
   };
 
-  const typeInfo = renderTypeMap[config.renderType || 'text'] || { dtype: 'str' as DType, format: 'text' };
+  const dtype = renderTypeMap[config.renderType || 'text'] || 'str' as DType;
 
   // Determine visibility for this component
   const visibilityMap: Record<ComponentName, boolean> = {
@@ -1525,28 +1574,41 @@ function convertExplicitConfigToMetadata(
     hierarchyGraphView: config.visible?.EntityFormContainer ?? true,
   };
 
-  return {
-    dtype: typeInfo.dtype,
-    format: typeInfo.format,
-    internal: false,
+  // Build view metadata
+  const view: ViewMetadata = {
+    type: config.renderType || 'text',
     visible: visibilityMap[component] ?? true,
     filterable: component === 'entityDataTable',
     sortable: component === 'entityDataTable',
-    editable: config.editable ?? (component === 'entityFormContainer'),
-    viewType: config.renderType || 'text',
-    editType: config.inputType || 'text',
     width: config.width || 'auto',
     align: config.align || 'left',
-    // Additional properties from explicit config
-    ...(config.loadFromDataLabels && { loadFromDataLabels: true, datalabelKey: fieldName }),
-    ...(config.loadFromEntity && {
-      loadFromEntity: config.loadFromEntity,
-      endpoint: `/api/v1/entity/${config.loadFromEntity}/entity-instance-lookup`,
-      displayField: 'name',
-      valueField: 'id',
-    }),
-    ...(config.format && { formatConfig: config.format }),
-    ...(config.label && { label: config.label }),
+  };
+
+  if (config.format) {
+    view.format = config.format;
+  }
+
+  // Build edit metadata
+  const edit: EditMetadata = {
+    type: config.inputType || 'text',
+    editable: config.editable ?? (component === 'entityFormContainer'),
+  };
+
+  // Handle lookup sources
+  if (config.loadFromDataLabels) {
+    edit.lookupSource = 'datalabel';
+    edit.datalabelKey = fieldName;
+  }
+  if (config.loadFromEntity) {
+    edit.lookupSource = 'entityInstance';
+    edit.lookupEntity = config.loadFromEntity;
+  }
+
+  return {
+    dtype,
+    label: config.label || generateLabel(fieldName),
+    view,
+    edit,
   };
 }
 
@@ -1558,6 +1620,8 @@ function convertExplicitConfigToMetadata(
  * 2. YAML mapping files (new preferred method)
  * 3. Legacy pattern detection rules (fallback)
  * 4. Default text field (lowest priority)
+ *
+ * Returns metadata with separate view{} and edit{} objects
  */
 function generateFieldMetadataForComponent(
   fieldName: string,
@@ -1575,58 +1639,46 @@ function generateFieldMetadataForComponent(
 
   // STEP 2: Try YAML mappings (new preferred method)
   const fieldBusinessType = getFieldBusinessType(fieldName);
-  const viewMeta = getViewMetadataFromYaml(fieldBusinessType, component);
-  const editMeta = getEditMetadataFromYaml(fieldBusinessType, component);
+  const viewResult = getViewMetadataFromYaml(fieldBusinessType, component);
+  const editResult = getEditMetadataFromYaml(fieldBusinessType, component);
 
-  if (viewMeta || editMeta) {
-    // Merge VIEW and EDIT metadata from YAML
-    const yamlMetadata: FieldMetadataBase = {
-      dtype: (viewMeta?.dtype || editMeta?.dtype || 'str') as FieldMetadataBase['dtype'],
-      format: fieldBusinessType,
-      internal: false,
-      visible: viewMeta?.visible ?? true,
-      filterable: viewMeta?.filterable ?? (component === 'entityDataTable'),
-      sortable: viewMeta?.sortable ?? (component === 'entityDataTable'),
-      editable: editMeta?.editable ?? (component === 'entityFormContainer'),
-      viewType: viewMeta?.viewType || fieldBusinessType,
-      editType: editMeta?.editType || fieldBusinessType,
-      width: viewMeta?.width,
-      align: viewMeta?.align,
+  if (viewResult || editResult) {
+    const dtype = (viewResult?.dtype || editResult?.dtype || 'str') as FieldMetadataBase['dtype'];
+
+    // Build view metadata
+    const view: ViewMetadata = viewResult?.view || {
+      type: fieldBusinessType,
+      visible: true,
     };
 
-    // Copy additional properties from viewMeta
-    if (viewMeta) {
-      const { dtype, visible, filterable, sortable, width, align, viewType, ...viewExtras } = viewMeta;
-      Object.assign(yamlMetadata, viewExtras);
-    }
+    // Build edit metadata
+    const edit: EditMetadata = editResult?.edit || {
+      type: fieldBusinessType,
+      editable: component === 'entityFormContainer',
+    };
 
-    // Copy additional properties from editMeta
-    if (editMeta) {
-      const { dtype, editable, editType, ...editExtras } = editMeta;
-      Object.assign(yamlMetadata, editExtras);
-    }
-
-    // Auto-detect entity for ALL *_id and *_ids fields
+    // Auto-detect entity for ALL *_id and *_ids fields - set lookupSource and entity
     if ((fieldName.endsWith('_id') || fieldName.endsWith('_ids')) && fieldName !== 'id') {
       const entity = detectEntityFromFieldName(fieldName);
       if (entity) {
-        yamlMetadata.loadFromEntity = entity;
-        yamlMetadata.endpoint = `/api/v1/entity/${entity}/entity-instance-lookup`;
-        yamlMetadata.displayField = 'name';
-        yamlMetadata.valueField = 'id';
+        edit.lookupSource = 'entityInstance';
+        edit.lookupEntity = entity;
       }
     }
 
     // Set datalabelKey for dl__* fields
     if (fieldName.startsWith('dl__')) {
-      yamlMetadata.datalabelKey = fieldName;
-      yamlMetadata.loadFromDataLabels = true;
-
-      // Add DAG visualization for entityFormContainer
-      if (component === 'entityFormContainer') {
-        yamlMetadata.EntityFormContainer_viz_container = 'DAGVisualizer';
-      }
+      edit.lookupSource = 'datalabel';
+      edit.datalabelKey = fieldName;
     }
+
+    // Build final metadata with separated view and edit
+    const yamlMetadata: FieldMetadataBase = {
+      dtype,
+      label: generateLabel(fieldName),
+      view,
+      edit,
+    };
 
     return yamlMetadata;
   }
@@ -1638,18 +1690,21 @@ function generateFieldMetadataForComponent(
     // Default text field for unknown patterns
     return {
       dtype: 'str',
-      format: 'text',
-      internal: false,
-      visible: component === 'entityDataTable' ||
-               component === 'entityFormContainer' ||
-               component === 'gridView',
-      filterable: component === 'entityDataTable',
-      sortable: component === 'entityDataTable',
-      editable: component === 'entityFormContainer',
-      viewType: 'text',
-      editType: 'text',
-      width: 'auto',
-      align: 'left'
+      label: generateLabel(fieldName),
+      view: {
+        type: 'text',
+        visible: component === 'entityDataTable' ||
+                 component === 'entityFormContainer' ||
+                 component === 'gridView',
+        filterable: component === 'entityDataTable',
+        sortable: component === 'entityDataTable',
+        width: 'auto',
+        align: 'left',
+      },
+      edit: {
+        type: 'text',
+        editable: component === 'entityFormContainer',
+      },
     };
   }
 
@@ -1671,23 +1726,42 @@ function generateFieldMetadataForComponent(
   // Clone the rule to avoid mutation
   componentRule = { ...componentRule };
 
+  // Build view and edit from legacy rule
+  const view: ViewMetadata = {
+    type: componentRule.viewType || 'text',
+    visible: componentRule.visible,
+    filterable: componentRule.filterable,
+    sortable: componentRule.sortable,
+    width: componentRule.width,
+    align: componentRule.align,
+  };
+
+  const edit: EditMetadata = {
+    type: componentRule.editType || 'text',
+    editable: componentRule.editable,
+  };
+
   // Auto-detect entity for ALL *_id and *_ids fields (both simple and prefixed)
   if ((fieldName.endsWith('_id') || fieldName.endsWith('_ids')) && fieldName !== 'id') {
     const entity = detectEntityFromFieldName(fieldName);
     if (entity) {
-      componentRule.loadFromEntity = entity;
-      componentRule.endpoint = `/api/v1/entity/${entity}/entity-instance-lookup`;
-      componentRule.displayField = 'name';
-      componentRule.valueField = 'id';
+      edit.lookupSource = 'entityInstance';
+      edit.lookupEntity = entity;
     }
   }
 
   // Set datalabelKey for dl__* fields
   if (fieldName.startsWith('dl__')) {
-    componentRule.datalabelKey = fieldName;
+    edit.lookupSource = 'datalabel';
+    edit.datalabelKey = fieldName;
   }
 
-  return componentRule as FieldMetadataBase;
+  return {
+    dtype: componentRule.dtype as FieldMetadataBase['dtype'],
+    label: generateLabel(fieldName),
+    view,
+    edit,
+  };
 }
 
 /**
@@ -1710,10 +1784,6 @@ export function generateMetadataForComponents(
     for (const fieldName of fieldNames) {
       const fieldMeta = generateFieldMetadataForComponent(fieldName, component, entityCode);
       if (fieldMeta) {
-        // Add human-readable label (explicit config label takes precedence)
-        if (!(fieldMeta as any).label) {
-          (fieldMeta as any).label = generateLabel(fieldName);
-        }
         componentMetadata[fieldName] = fieldMeta;
       }
     }
@@ -1733,8 +1803,12 @@ export function extractDatalabelKeys(metadata: EntityMetadata): string[] {
   for (const componentMetadata of Object.values(metadata)) {
     if (componentMetadata) {
       for (const fieldMeta of Object.values(componentMetadata) as FieldMetadataBase[]) {
-        // Check if field is datalabel_lookup format and has datalabelKey
-        if (fieldMeta.format === 'datalabel_lookup' && fieldMeta.datalabelKey) {
+        // Check new structure: edit.lookupSource === 'datalabel' and edit.datalabelKey
+        if (fieldMeta.edit?.lookupSource === 'datalabel' && fieldMeta.edit?.datalabelKey) {
+          datalabelKeys.add(fieldMeta.edit.datalabelKey);
+        }
+        // Legacy fallback: check flat structure
+        else if (fieldMeta.format === 'datalabel_lookup' && fieldMeta.datalabelKey) {
           datalabelKeys.add(fieldMeta.datalabelKey);
         }
       }

@@ -1,7 +1,121 @@
-# Pattern Mapping - Maps field name patterns to business field types
-# Pattern matching: exact=true for literal match, exact=false for wildcard (*)
-# Order matters: first match wins. More specific patterns should come before generic ones.
-# Version: 2.0.0
+# ============================================================================
+# PATTERN MAPPING
+# ============================================================================
+# Maps column name patterns to fieldBusinessType identifiers
+# Version: 2.1.0
+#
+# ============================================================================
+# PURPOSE & POSITION IN MAPPING CHAIN
+# ============================================================================
+#
+# This file is STEP 1 in the field metadata pipeline:
+#
+#   Column Name (e.g., "budget_allocated_amt")
+#         │
+#         ▼
+#   ┌─────────────────────────────────────────────────────────────┐
+#   │  PATTERN-MAPPING.YAML (this file)                           │
+#   │  ─────────────────────────────────────────────────────────  │
+#   │  Matches column name against patterns to determine          │
+#   │  the fieldBusinessType (semantic identifier)                │
+#   │                                                             │
+#   │  Input:  Column name from database                          │
+#   │  Output: fieldBusinessType (e.g., "currency")               │
+#   └─────────────────────────────────────────────────────────────┘
+#         │
+#         ▼
+#   fieldBusinessType (e.g., "currency")
+#         │
+#         ├──────────────────────────────────────────┐
+#         ▼                                          ▼
+#   view-type-mapping.yaml                  edit-type-mapping.yaml
+#   (how to DISPLAY)                        (how to EDIT)
+#   Output: renderType, component,          Output: inputType,
+#           behavior, style                         behavior, style, validation
+#
+# ============================================================================
+# HOW PATTERN MATCHING WORKS
+# ============================================================================
+#
+# Pattern Types:
+#   - exact: true  → Literal match (e.g., "name" matches only "name")
+#   - exact: false → Wildcard match using * (e.g., "*_amt" matches "budget_amt")
+#
+# Wildcard Rules:
+#   - * matches any characters (including empty string)
+#   - *_amt matches: budget_amt, total_amt, discount_amt
+#   - dl__* matches: dl__project_stage, dl__customer_status
+#   - *__*_id matches: manager__employee_id, sponsor__client_id
+#
+# Order Matters:
+#   - First matching pattern wins
+#   - More specific patterns MUST come before generic ones
+#   - Example: "budget_*" should come before "*_amt"
+#
+# ============================================================================
+# FIELDBUSINESSTYPE
+# ============================================================================
+#
+# The fieldBusinessType is a semantic identifier that describes:
+#   - What the field represents in business terms
+#   - NOT how it's stored in the database
+#   - NOT how it's rendered on the frontend
+#
+# Examples:
+#   - "currency" → monetary values (regardless of column name)
+#   - "datalabel" → settings dropdown values
+#   - "entityInstance_Id" → reference to another entity
+#   - "timestamp_readonly" → system-managed timestamps
+#
+# The fieldBusinessType is then used by:
+#   - view-type-mapping.yaml → to determine VIEW rendering
+#   - edit-type-mapping.yaml → to determine EDIT controls
+#
+# ============================================================================
+# GUIDELINES
+# ============================================================================
+#
+# 1. SPECIFICITY FIRST
+#    - Put exact matches before wildcard matches
+#    - Put longer patterns before shorter patterns
+#    - Example: "created_ts" (exact) before "*_ts" (wildcard)
+#
+# 2. GROUP BY DOMAIN
+#    - Organize patterns by business domain (contact, currency, date, etc.)
+#    - Makes it easier to find and maintain patterns
+#
+# 3. USE MEANINGFUL NAMES
+#    - fieldBusinessType should describe the business meaning
+#    - "currency" not "money_field"
+#    - "datalabel" not "dropdown_value"
+#
+# 4. DEFAULT FALLBACK
+#    - Unknown patterns fall back to defaultFieldBusinessType: "text"
+#    - This ensures all fields get some metadata
+#
+# ============================================================================
+# EXAMPLES
+# ============================================================================
+#
+# Column: budget_allocated_amt
+#   → Matches: *_amt (wildcard)
+#   → fieldBusinessType: currency
+#   → Then: view-type-mapping → CurrencyCell
+#   → Then: edit-type-mapping → CurrencyInput
+#
+# Column: dl__project_stage
+#   → Matches: dl__* (wildcard)
+#   → fieldBusinessType: datalabel
+#   → Then: view-type-mapping → BadgeCell (with color from data)
+#   → Then: edit-type-mapping → DatalabelSelect (with lookup)
+#
+# Column: manager__employee_id
+#   → Matches: *__*_id (wildcard)
+#   → fieldBusinessType: entityInstance_Id
+#   → Then: view-type-mapping → EntityLookupCell
+#   → Then: edit-type-mapping → EntitySelect
+#
+# ============================================================================
 
 # ============================================================================
 # IDENTITY & CORE FIELDS

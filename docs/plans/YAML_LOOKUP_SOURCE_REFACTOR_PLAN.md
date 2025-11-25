@@ -2,7 +2,7 @@
 
 ## Goal
 Standardize the YAML mapping files by:
-1. Renaming `dtype` → `dataType`
+1. Keep `dtype` as-is (matches API response format)
 2. Adding `renderType` to view-type-mapping.yaml
 3. Adding `lookupSource` to edit-type-mapping.yaml (replaces `loadFromDataLabels`/`loadFromEntity`)
 
@@ -13,7 +13,7 @@ Standardize the YAML mapping files by:
 Each fieldBusinessType entry defines how a field is **displayed** across different UI contexts.
 
 **Required fields:**
-- `dataType`: The data storage type (str, int, float, bool, uuid, date, timestamp, jsonb, array[str], array[uuid])
+- `dtype`: The data storage type (str, int, float, bool, uuid, date, timestamp, jsonb, array[str], array[uuid])
 - `renderType`: How to render the value
   - HTML5 types: `text`, `email`, `date`, `number`, `tel`, `url`, `time`, `checkbox`
   - Custom: `component` (when using a React component)
@@ -36,7 +36,7 @@ Each entry has context-specific configs (entityDataTable, entityFormContainer, k
 ### Example 1: HTML5 text type (no component needed)
 ```yaml
 first_name:
-  dataType: str
+  dtype: str
   renderType: text
   entityDataTable: { <<: *table_default, format: { width: "120px" } }
   entityFormContainer: { <<: *form_default }
@@ -47,7 +47,7 @@ first_name:
 ### Example 2: HTML5 email type (no component needed)
 ```yaml
 email:
-  dataType: str
+  dtype: str
   renderType: email
   entityDataTable: { <<: *table_default, format: { width: "200px", linkable: true, icon: mail } }
   entityFormContainer: { <<: *form_default, format: { linkable: true } }
@@ -58,7 +58,7 @@ email:
 ### Example 3: HTML5 date type (no component needed)
 ```yaml
 date:
-  dataType: date
+  dtype: date
   renderType: date
   entityDataTable: { <<: *table_default, format: { width: "120px", style: short, locale: en-CA } }
   entityFormContainer: { <<: *form_default, format: { style: medium } }
@@ -70,7 +70,7 @@ date:
 ### Example 4: HTML5 number type (no component needed)
 ```yaml
 currency:
-  dataType: float
+  dtype: float
   renderType: number
   entityDataTable: { <<: *table_default, format: { width: "140px", align: right, symbol: "$", decimals: 2, locale: en-CA } }
   entityFormContainer: { <<: *form_default, format: { symbol: "$", decimals: 2 } }
@@ -81,7 +81,7 @@ currency:
 ### Example 5: Custom component (datalabel - component required)
 ```yaml
 datalabel:
-  dataType: str
+  dtype: str
   renderType: component
   component: DatalabelDAG
   entityDataTable: { <<: *table_default, component: BadgeCell, format: { width: "140px", colorFromData: true } }
@@ -99,7 +99,7 @@ datalabel:
 Each fieldBusinessType entry defines how a field is **edited/input** across different UI contexts.
 
 **Required fields:**
-- `dataType`: The data storage type (str, int, float, bool, uuid, date, timestamp, jsonb, array[str], array[uuid])
+- `dtype`: The data storage type (str, int, float, bool, uuid, date, timestamp, jsonb, array[str], array[uuid])
 - `editable`: Whether the field can be edited (true/false)
 
 **Conditional fields:**
@@ -124,7 +124,7 @@ Each entry has context-specific configs (entityDataTable, entityFormContainer, k
 ### Example 1: HTML5 text input (no lookup, no component)
 ```yaml
 first_name:
-  dataType: str
+  dtype: str
   editable: true
   entityDataTable: { inputType: text }
   entityFormContainer: { inputType: text, format: { autocomplete: given-name } }
@@ -133,7 +133,7 @@ first_name:
 ### Example 2: HTML5 email input (no lookup, no component)
 ```yaml
 email:
-  dataType: str
+  dtype: str
   editable: true
   entityDataTable: { inputType: email }
   entityFormContainer: { inputType: email, validation: { pattern: "^[^@]+@[^@]+\\.[^@]+$" }, format: { autocomplete: email } }
@@ -142,7 +142,7 @@ email:
 ### Example 3: HTML5 number input (no lookup, no component)
 ```yaml
 currency:
-  dataType: float
+  dtype: float
   editable: true
   entityDataTable: { inputType: number }
   entityFormContainer: { inputType: number, validation: { min: 0 }, format: { symbol: "$", decimals: 2, locale: en-CA } }
@@ -151,7 +151,7 @@ currency:
 ### Example 4: Datalabel select (lookupSource: datalabel, component required)
 ```yaml
 datalabel:
-  dataType: str
+  dtype: str
   editable: true
   lookupSource: datalabel
   entityDataTable: { inputType: select, component: DatalabelSelect }
@@ -163,7 +163,7 @@ datalabel:
 ### Example 5: Entity reference (lookupSource: entityInstance, component required)
 ```yaml
 entityInstance_Id:
-  dataType: uuid
+  dtype: uuid
   editable: true
   lookupSource: entityInstance
   entityDataTable: { inputType: entity_select, component: EntitySelect }
@@ -218,7 +218,7 @@ Define how the field is **displayed** in different UI contexts.
 ```yaml
 # Text field
 text:
-  dataType: str
+  dtype: str
   renderType: text
   entityDataTable: { <<: *table_default }
   entityFormContainer: { <<: *form_default }
@@ -227,7 +227,7 @@ text:
 
 # Email with mailto link
 email:
-  dataType: str
+  dtype: str
   renderType: email
   entityDataTable: { <<: *table_default, format: { width: "200px", linkable: true } }
   entityFormContainer: { <<: *form_default, format: { linkable: true } }
@@ -236,7 +236,7 @@ email:
 
 # Phone with tel link
 phone:
-  dataType: str
+  dtype: str
   renderType: tel
   entityDataTable: { <<: *table_default, format: { width: "140px", linkable: true } }
   entityFormContainer: { <<: *form_default, format: { countryCode: CA } }
@@ -245,7 +245,7 @@ phone:
 
 # URL with hyperlink
 url:
-  dataType: str
+  dtype: str
   renderType: url
   entityDataTable: { <<: *table_default, format: { width: "200px", truncate: true } }
   entityFormContainer: { <<: *form_default }
@@ -254,7 +254,7 @@ url:
 
 # Date display
 date:
-  dataType: date
+  dtype: date
   renderType: date
   entityDataTable: { <<: *table_default, format: { width: "120px", style: short, locale: en-CA } }
   entityFormContainer: { <<: *form_default, format: { style: medium } }
@@ -264,7 +264,7 @@ date:
 
 # Timestamp display
 timestamp:
-  dataType: timestamp
+  dtype: timestamp
   renderType: datetime
   entityDataTable: { <<: *table_default, format: { width: "160px", style: datetime } }
   entityFormContainer: { <<: *form_default }
@@ -273,7 +273,7 @@ timestamp:
 
 # Number display
 quantity:
-  dataType: int
+  dtype: int
   renderType: number
   entityDataTable: { <<: *table_default, format: { width: "100px", align: right } }
   entityFormContainer: { <<: *form_default }
@@ -282,7 +282,7 @@ quantity:
 
 # Currency display (formatted number)
 currency:
-  dataType: float
+  dtype: float
   renderType: number
   entityDataTable: { <<: *table_default, format: { width: "140px", align: right, symbol: "$", decimals: 2, locale: en-CA } }
   entityFormContainer: { <<: *form_default, format: { symbol: "$", decimals: 2 } }
@@ -291,7 +291,7 @@ currency:
 
 # Percentage display
 percentage:
-  dataType: float
+  dtype: float
   renderType: number
   entityDataTable: { <<: *table_default, format: { width: "100px", align: right, suffix: "%" } }
   entityFormContainer: { <<: *form_default, format: { showBar: true } }
@@ -300,7 +300,7 @@ percentage:
 
 # Boolean display
 boolean:
-  dataType: bool
+  dtype: bool
   renderType: checkbox
   entityDataTable: { <<: *table_default, format: { width: "80px", align: center } }
   entityFormContainer: { <<: *form_default }
@@ -312,7 +312,7 @@ boolean:
 ```yaml
 # Datalabel (settings dropdown) - needs DAGVisualizer
 datalabel:
-  dataType: str
+  dtype: str
   renderType: component
   component: DatalabelDAG
   entityDataTable: { <<: *table_default, component: BadgeCell, format: { width: "140px", colorFromData: true } }
@@ -324,7 +324,7 @@ datalabel:
 
 # Entity reference - needs EntityLookupCell
 entityInstance_Id:
-  dataType: uuid
+  dtype: uuid
   renderType: component
   component: EntityLookupCell
   entityDataTable: { <<: *table_default, component: EntityLookupCell, format: { width: "150px", displayField: name, linkToEntity: true } }
@@ -334,7 +334,7 @@ entityInstance_Id:
 
 # Tags array - needs TagsList
 tags:
-  dataType: array[str]
+  dtype: array[str]
   renderType: component
   component: TagsList
   entityDataTable: { <<: *hidden, component: TagsCell, format: { maxDisplay: 3 } }
@@ -344,7 +344,7 @@ tags:
 
 # JSON metadata - needs JsonViewer
 json:
-  dataType: jsonb
+  dtype: jsonb
   renderType: component
   component: JsonViewer
   entityDataTable: { <<: *hidden, component: JsonPreviewCell }
@@ -354,7 +354,7 @@ json:
 
 # Rating stars - needs RatingStars
 rating:
-  dataType: float
+  dtype: float
   renderType: component
   component: RatingStars
   entityDataTable: { <<: *table_default, component: RatingCell, format: { width: "120px", max: 5 } }
@@ -364,7 +364,7 @@ rating:
 
 # Avatar image - needs AvatarCell
 avatar:
-  dataType: str
+  dtype: str
   renderType: component
   component: AvatarCell
   entityDataTable: { <<: *table_default, component: AvatarCell, format: { width: "60px", align: center, size: sm } }
@@ -374,7 +374,7 @@ avatar:
 
 # File attachment - needs FileCell
 file:
-  dataType: str
+  dtype: str
   renderType: component
   component: FileCell
   entityDataTable: { <<: *table_default, component: FileCell, format: { width: "150px" } }
@@ -384,7 +384,7 @@ file:
 
 # Rich text content - needs RichTextViewer
 rich_text:
-  dataType: str
+  dtype: str
   renderType: component
   component: RichTextViewer
   entityDataTable: { <<: *hidden, component: RichTextPreview }
@@ -394,7 +394,7 @@ rich_text:
 
 # Color swatch - needs ColorCell
 color:
-  dataType: str
+  dtype: str
   renderType: component
   component: ColorCell
   entityDataTable: { <<: *table_default, component: ColorCell, format: { width: "100px", showHex: true } }
@@ -418,7 +418,7 @@ Define how the field is **edited/input** in different UI contexts.
 ```yaml
 # Text input
 text:
-  dataType: str
+  dtype: str
   editable: true
   entityDataTable: { inputType: text }
   entityFormContainer: { inputType: text }
@@ -426,28 +426,28 @@ text:
 
 # Email input
 email:
-  dataType: str
+  dtype: str
   editable: true
   entityDataTable: { inputType: email }
   entityFormContainer: { inputType: email, validation: { pattern: "^[^@]+@[^@]+\\.[^@]+$" }, format: { autocomplete: email } }
 
 # Phone input
 phone:
-  dataType: str
+  dtype: str
   editable: true
   entityDataTable: { inputType: tel }
   entityFormContainer: { inputType: tel, format: { countryCode: CA, mask: "(###) ###-####" } }
 
 # URL input
 url:
-  dataType: str
+  dtype: str
   editable: true
   entityDataTable: { inputType: url }
   entityFormContainer: { inputType: url, validation: { pattern: "^https?://" }, format: { placeholder: "https://..." } }
 
 # Date picker
 date:
-  dataType: date
+  dtype: date
   editable: true
   entityDataTable: { inputType: date }
   entityFormContainer: { inputType: date, format: { locale: en-CA, clearable: true } }
@@ -456,7 +456,7 @@ date:
 
 # Datetime picker
 timestamp:
-  dataType: timestamp
+  dtype: timestamp
   editable: true
   entityDataTable: { inputType: datetime-local }
   entityFormContainer: { inputType: datetime-local, format: { locale: en-CA } }
@@ -464,35 +464,35 @@ timestamp:
 
 # Time picker
 time:
-  dataType: str
+  dtype: str
   editable: true
   entityDataTable: { inputType: time }
   entityFormContainer: { inputType: time, format: { step: 15 } }
 
 # Number input
 quantity:
-  dataType: int
+  dtype: int
   editable: true
   entityDataTable: { inputType: number }
   entityFormContainer: { inputType: number, validation: { min: 0 }, format: { step: 1 } }
 
 # Currency input
 currency:
-  dataType: float
+  dtype: float
   editable: true
   entityDataTable: { inputType: number }
   entityFormContainer: { inputType: number, validation: { min: 0 }, format: { symbol: "$", decimals: 2, locale: en-CA } }
 
 # Percentage input
 percentage:
-  dataType: float
+  dtype: float
   editable: true
   entityDataTable: { inputType: number }
   entityFormContainer: { inputType: number, validation: { min: 0, max: 100 }, format: { suffix: "%" } }
 
 # Checkbox
 boolean:
-  dataType: bool
+  dtype: bool
   editable: true
   entityDataTable: { inputType: checkbox }
   entityFormContainer: { inputType: checkbox }
@@ -500,14 +500,14 @@ boolean:
 
 # Textarea
 description:
-  dataType: str
+  dtype: str
   editable: true
   entityDataTable: { inputType: textarea }
   entityFormContainer: { inputType: textarea, format: { rows: 4, resizable: true } }
 
 # Readonly (system fields)
 timestamp_readonly:
-  dataType: timestamp
+  dtype: timestamp
   editable: false
   entityDataTable: { inputType: readonly }
   entityFormContainer: { inputType: readonly }
@@ -517,7 +517,7 @@ timestamp_readonly:
 ```yaml
 # Datalabel dropdown (settings table lookup)
 datalabel:
-  dataType: str
+  dtype: str
   editable: true
   lookupSource: datalabel
   entityDataTable: { inputType: select, component: DatalabelSelect }
@@ -527,7 +527,7 @@ datalabel:
 
 # Entity reference dropdown (entity instance lookup)
 entityInstance_Id:
-  dataType: uuid
+  dtype: uuid
   editable: true
   lookupSource: entityInstance
   entityDataTable: { inputType: entity_select, component: EntitySelect }
@@ -536,7 +536,7 @@ entityInstance_Id:
 
 # Multi-entity reference (multiple entity instances)
 entityInstance_Ids:
-  dataType: array[uuid]
+  dtype: array[uuid]
   editable: true
   lookupSource: entityInstance
   entityDataTable: { inputType: entity_multiselect, component: EntityMultiSelect }
@@ -547,83 +547,83 @@ entityInstance_Ids:
 ```yaml
 # Tags input
 tags:
-  dataType: array[str]
+  dtype: array[str]
   editable: true
   entityDataTable: { inputType: tags, component: TagsInput }
   entityFormContainer: { inputType: tags, component: TagsInput, format: { allowCreate: true, maxTags: null } }
 
 # JSON editor
 json:
-  dataType: jsonb
+  dtype: jsonb
   editable: true
   entityDataTable: { inputType: json, component: JsonEditor }
   entityFormContainer: { inputType: json, component: JsonEditor, format: { mode: tree, validateSchema: false } }
 
 # Rating input
 rating:
-  dataType: float
+  dtype: float
   editable: true
   entityDataTable: { inputType: rating, component: RatingInput }
   entityFormContainer: { inputType: rating, component: RatingInput, format: { max: 5, allowHalf: true, clearable: true } }
 
 # Color picker
 color:
-  dataType: str
+  dtype: str
   editable: true
   entityDataTable: { inputType: color, component: ColorPicker }
   entityFormContainer: { inputType: color, component: ColorPicker, format: { presets: true, allowCustom: true, outputFormat: hex } }
 
 # File upload
 file:
-  dataType: str
+  dtype: str
   editable: true
   entityDataTable: { inputType: file, component: FileUpload }
   entityFormContainer: { inputType: file, component: FileUpload, format: { accept: "*/*", maxSize: 10485760 } }
 
 # Image upload
 image:
-  dataType: str
+  dtype: str
   editable: true
   entityDataTable: { inputType: image, component: ImageUpload }
   entityFormContainer: { inputType: image, component: ImageUpload, format: { accept: "image/*", maxSize: 5242880, preview: true } }
 
 # Avatar upload
 avatar:
-  dataType: str
+  dtype: str
   editable: true
   entityDataTable: { inputType: image, component: ImageUpload }
   entityFormContainer: { inputType: avatar, component: AvatarUpload, format: { accept: "image/*", maxSize: 2097152, crop: true, aspectRatio: 1 } }
 
 # Signature pad
 signature:
-  dataType: str
+  dtype: str
   editable: true
   entityFormContainer: { inputType: signature, component: SignaturePad, format: { width: 400, height: 200 } }
 
 # Rich text editor
 rich_text:
-  dataType: str
+  dtype: str
   editable: true
   entityDataTable: { inputType: textarea }
   entityFormContainer: { inputType: richtext, component: RichTextEditor, format: { toolbar: [bold, italic, link, list], minHeight: 200 } }
 
 # Address autocomplete
 address:
-  dataType: str
+  dtype: str
   editable: true
   entityDataTable: { inputType: text }
   entityFormContainer: { inputType: address, component: AddressAutocomplete, format: { country: CA, showMap: false } }
 
 # Geolocation picker
 geolocation:
-  dataType: str
+  dtype: str
   editable: true
   entityDataTable: { inputType: geolocation, component: GeolocationInput }
   entityFormContainer: { inputType: geolocation, component: GeolocationPicker, format: { showMap: true, allowManual: true } }
 
 # Duration picker
 duration:
-  dataType: int
+  dtype: int
   editable: true
   entityDataTable: { inputType: number }
   entityFormContainer: { inputType: duration, component: DurationPicker, format: { units: [hours, minutes], defaultUnit: minutes } }
@@ -631,7 +631,7 @@ duration:
 
 # Barcode scanner
 barcode:
-  dataType: str
+  dtype: str
   editable: true
   entityDataTable: { inputType: text }
   entityFormContainer: { inputType: barcode, component: BarcodeScanner, format: { type: code128, allowManual: true } }
@@ -644,8 +644,15 @@ barcode:
 | File | Changes |
 |------|---------|
 | **pattern-mapping.yaml** | NO CHANGES |
-| **view-type-mapping.yaml** | `dtype` → `dataType`, add `renderType` (+ `component` if renderType is `component`) |
-| **edit-type-mapping.yaml** | `dtype` → `dataType`, replace `loadFromDataLabels`/`loadFromEntity` with `lookupSource` |
+| **view-type-mapping.yaml** | Keep `dtype`, add `renderType` (+ `component` if renderType is `component`) |
+| **edit-type-mapping.yaml** | Keep `dtype`, replace `loadFromDataLabels`/`loadFromEntity` with `lookupSource` |
+
+### Implementation Status: ✅ COMPLETED
+
+Changes applied on 2025-11-25:
+- `view-type-mapping.yaml`: Added `renderType` field to all 80+ fieldBusinessType entries
+- `edit-type-mapping.yaml`: Replaced `loadFromDataLabels: true` → `lookupSource: datalabel`, `loadFromEntity: true` → `lookupSource: entityInstance`
+- `dtype` kept as-is (matches API response format)
 
 ---
 

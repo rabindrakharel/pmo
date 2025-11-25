@@ -1,23 +1,313 @@
-# Edit Type Mapping - Maps fieldBusinessType to component-specific EDIT/INPUT rendering
-# Uses YAML anchors (&) and aliases (*) to reduce duplication
-# Covers all form field types from FormFieldTypesToolbar
-# Version: 2.0.0
-
 # ============================================================================
-# COMPONENT DEFAULTS
+# EDIT TYPE MAPPING
 # ============================================================================
-defaults:
-  editable: &editable
-    editable: true
-
-  readonly: &readonly
-    editable: false
-    inputType: readonly
-    component: ReadonlyInput
-
-  hidden: &hidden
-    editable: false
-    inputType: hidden
+# Maps fieldBusinessType to component-specific EDIT/INPUT rendering
+# Version: 3.2.0
+#
+# ============================================================================
+# PURPOSE & POSITION IN MAPPING CHAIN
+# ============================================================================
+#
+# This file is STEP 2b in the field metadata pipeline:
+#
+#   Column Name (e.g., "budget_allocated_amt")
+#         │
+#         ▼
+#   pattern-mapping.yaml
+#   (column pattern → fieldBusinessType)
+#         │
+#         ▼
+#   fieldBusinessType (e.g., "currency")
+#         │
+#         ├──────────────────────────────────────────┐
+#         ▼                                          ▼
+#   ┌─────────────────────────────────────┐   ┌─────────────────────────────┐
+#   │  view-type-mapping.yaml             │   │  EDIT-TYPE-MAPPING.YAML     │
+#   │  ─────────────────────────────────  │   │  (this file)                │
+#   │  Defines how to DISPLAY the field   │   │  ─────────────────────────  │
+#   │  (read-only rendering)              │   │  Defines how to EDIT field  │
+#   │                                     │   │  (input controls)           │
+#   │  Output: renderType, component,     │   │                             │
+#   │          behavior, style            │   │  Output: inputType,         │
+#   │                                     │   │          behavior, style,   │
+#   └─────────────────────────────────────┘   │          validation         │
+#                                             └─────────────────────────────┘
+#
+# ============================================================================
+# HOW THIS FILE IS COMPOSED
+# ============================================================================
+#
+# This YAML file defines how each fieldBusinessType should render in EDIT mode
+# across different UI components (entityDataTable, entityFormContainer, kanbanView, etc.)
+#
+# ============================================================================
+# STRUCTURE
+# ============================================================================
+#
+# Each fieldBusinessType entry has:
+#
+#   fieldBusinessType:
+#     dtype: <data_type>           # REQUIRED - Database/JS data type (ONLY root-level field)
+#     lookupSource: <source>       # For select fields: "datalabel" or "entityInstance"
+#     inherit: <other_type>        # Optional - Inherit from another fieldBusinessType
+#
+#     # Component-specific definitions (REQUIRED for each supported component):
+#     entityDataTable:
+#       inputType: <type>          # REQUIRED - HTML5 input type or "component"
+#       component: <name>          # ONLY when inputType is "component" (NEVER with HTML5 types!)
+#       behavior: { editable, filterable, sortable, visible }
+#       style: { ... }
+#       validation: { ... }
+#
+#     entityFormContainer:
+#       inputType: <type>
+#       component: <name>          # ONLY when inputType is "component"
+#       behavior: { editable }
+#       style: { ... }
+#       validation: { ... }
+#
+# ============================================================================
+# CRITICAL RULE: HTML5 inputType vs component
+# ============================================================================
+#
+# !! IMPORTANT !! When inputType is an HTML5 type, you CANNOT specify component!
+#
+# CORRECT (HTML5 input - no component):
+#   entityDataTable:
+#     inputType: number
+#     behavior: { editable: true, filterable: true, sortable: true, visible: true }
+#     validation: { min: 0 }
+#
+# CORRECT (Custom component):
+#   entityDataTable:
+#     inputType: component
+#     component: CurrencyInput
+#     behavior: { editable: true, filterable: true, sortable: true, visible: true }
+#     validation: { min: 0 }
+#
+# WRONG (HTML5 input with component - INVALID!):
+#   entityDataTable:
+#     inputType: number
+#     component: CurrencyInput    # <-- ERROR! Cannot have component with HTML5 inputType
+#     behavior: { editable: true }
+#
+# Rule: If you need custom rendering, use inputType: "component" with component: <name>
+#       If using HTML5 inputType (text, number, email, etc.), browser renders natively
+#
+# ============================================================================
+# ROOT-LEVEL FIELDS
+# ============================================================================
+#
+# dtype (REQUIRED) - Data type for the field (ONLY dtype is at root level):
+#   - str          : String/text
+#   - int          : Integer number
+#   - float        : Decimal number
+#   - bool         : Boolean true/false
+#   - uuid         : UUID identifier
+#   - date         : Date only (YYYY-MM-DD)
+#   - timestamp    : Date and time
+#   - jsonb        : JSON object
+#   - array[str]   : Array of strings
+#   - array[uuid]  : Array of UUIDs
+#
+# lookupSource - For select/dropdown fields (optional):
+#   - datalabel      : Load options from datalabel settings table
+#   - entityInstance : Load options from entity instance lookup
+#
+# inherit - Copy all settings from another fieldBusinessType (optional)
+#
+# ============================================================================
+# COMPONENT-LEVEL FIELDS
+# ============================================================================
+#
+# inputType (REQUIRED) - How the field is edited:
+#
+#   HTML5 native types (NO component allowed with these!):
+#   - text         : Single line text input
+#   - textarea     : Multi-line text input
+#   - email        : Email input with validation
+#   - tel          : Phone number input
+#   - url          : URL input with validation
+#   - number       : Numeric input
+#   - date         : Date picker (native)
+#   - time         : Time picker (native)
+#   - datetime-local : DateTime picker (native)
+#   - checkbox     : Checkbox input
+#   - color        : Color picker (native)
+#   - file         : File upload (native)
+#   - range        : Range slider (native)
+#   - hidden       : Hidden field (not rendered)
+#   - readonly     : Display only, not editable
+#
+#   Custom types (REQUIRES component field):
+#   - component    : Custom React component - MUST specify component: <name>
+#   - select       : Dropdown select - MUST specify component: <name>
+#
+# component - React component name:
+#   - ONLY allowed when inputType is "component" or "select"
+#   - NEVER use with HTML5 inputTypes (text, number, email, date, etc.)
+#   - Examples: DatalabelSelect, EntitySelect, CurrencyInput, RichTextEditor
+#
+# behavior - Field behavior settings (differs by UI component):
+#   For entityDataTable:
+#     - editable: bool    : Whether field can be edited inline
+#     - filterable: bool  : Whether field appears in filters
+#     - sortable: bool    : Whether column can be sorted
+#     - visible: bool     : Whether column is visible by default
+#   For entityFormContainer:
+#     - editable: bool    : Whether field can be edited
+#   For kanbanView/calendarView/dagView:
+#     - editable: bool    : Whether field can be edited
+#
+# style - Styling/formatting options (see STYLE OPTIONS section)
+#
+# validation - Validation rules (can be on ANY component, not just forms!)
+#
+# ============================================================================
+# UI COMPONENTS
+# ============================================================================
+#
+#   entityDataTable:      # Table/grid inline editing
+#     behavior: { editable, filterable, sortable, visible }
+#
+#   entityFormContainer:  # Detail page forms
+#     behavior: { editable }
+#
+#   kanbanView:           # Kanban card editing
+#     behavior: { editable }
+#
+#   calendarView:         # Calendar event editing
+#     behavior: { editable }
+#
+#   dagView:              # DAG node editing
+#     behavior: { editable }
+#
+# ============================================================================
+# STYLE OPTIONS (style: {})
+# ============================================================================
+#
+# Visual and formatting options:
+#   - size: sm|md|lg           : Input size
+#   - rows: number             : Textarea rows
+#   - resizable: bool          : Allow resize
+#   - placeholder: string      : Placeholder text
+#   - autocomplete: string     : HTML autocomplete attribute
+#   - mask: string             : Input mask pattern
+#   - symbol: string           : Currency/unit symbol
+#   - decimals: number         : Decimal places
+#   - locale: string           : Locale for formatting (en-CA)
+#   - step: number             : Step increment
+#   - unit: string             : Unit suffix (kg, sq ft)
+#   - showColor: bool          : Show color indicator
+#   - searchable: bool         : Enable search in select
+#   - clearable: bool          : Allow clearing value
+#   - displayField: string     : Field to display for lookups
+#   - maxSelections: number    : Max items for multi-select
+#   - accept: string           : File types for upload
+#   - maxSize: number          : Max file size in bytes
+#   - preview: bool            : Show file preview
+#   - crop: bool               : Enable image cropping
+#   - aspectRatio: number      : Image aspect ratio
+#
+# ============================================================================
+# VALIDATION OPTIONS (validation: {})
+# ============================================================================
+#
+# Field validation rules (can apply to ANY component!):
+#   - required: bool           : Field is required
+#   - min: number              : Minimum value (numbers)
+#   - max: number              : Maximum value (numbers)
+#   - minLength: number        : Minimum string length
+#   - maxLength: number        : Maximum string length
+#   - pattern: string          : Regex pattern for validation
+#
+# ============================================================================
+# GUIDELINES
+# ============================================================================
+#
+# 1. ONLY dtype AT ROOT LEVEL
+#    - dtype is the only field common to all components
+#    - inputType, behavior, style, validation vary per component
+#
+# 2. HTML5 inputType = NO component
+#    - If inputType is text, number, email, date, checkbox, etc. → NO component field
+#    - Browser provides native rendering for HTML5 types
+#
+# 3. CUSTOM RENDERING = inputType: component
+#    - If you need custom UI (CurrencyInput, RatingInput, etc.)
+#    - Use inputType: "component" WITH component: <ComponentName>
+#
+# 4. DEFINE EACH COMPONENT SEPARATELY
+#    - Each component may have different inputType
+#    - Each component may have different validation strictness
+#    - entityDataTable needs: filterable, sortable, visible in behavior
+#
+# 5. VALIDATION ON BOTH TABLE AND FORM
+#    - Table editing can have validation too (min, max, pattern)
+#    - Form usually has stricter validation (required, minLength, etc.)
+#
+# 6. USE INHERITANCE FOR SIMILAR TYPES
+#    - inherit: other_type - Copies all settings from another type
+#    - Good for: title inherits from name, summary inherits from description
+#
+# ============================================================================
+# EXAMPLES
+# ============================================================================
+#
+# Simple text field (HTML5 - NO component):
+#   name:
+#     dtype: str
+#     entityDataTable:
+#       inputType: text
+#       behavior: { editable: true, filterable: true, sortable: true, visible: true }
+#       validation: { maxLength: 255 }
+#     entityFormContainer:
+#       inputType: text
+#       behavior: { editable: true }
+#       validation: { required: true, minLength: 1, maxLength: 255 }
+#       style: { size: lg }
+#
+# Currency field (Custom component - inputType: component):
+#   currency:
+#     dtype: float
+#     entityDataTable:
+#       inputType: component
+#       component: CurrencyInput
+#       behavior: { editable: true, filterable: true, sortable: true, visible: true }
+#       validation: { min: 0 }
+#     entityFormContainer:
+#       inputType: component
+#       component: CurrencyInput
+#       behavior: { editable: true }
+#       style: { symbol: "$", decimals: 2, locale: en-CA }
+#       validation: { min: 0 }
+#
+# Select with lookup (Custom component):
+#   datalabel:
+#     dtype: str
+#     lookupSource: datalabel
+#     entityDataTable:
+#       inputType: select
+#       component: DatalabelSelect
+#       behavior: { editable: true, filterable: true, sortable: true, visible: true }
+#     entityFormContainer:
+#       inputType: select
+#       component: DatalabelSelect
+#       behavior: { editable: true }
+#       style: { showColor: true, searchable: true }
+#
+# Readonly field (different behavior per component):
+#   created_ts:
+#     dtype: timestamp
+#     entityDataTable:
+#       inputType: readonly
+#       behavior: { editable: false, filterable: false, sortable: true, visible: true }
+#     entityFormContainer:
+#       inputType: readonly
+#       behavior: { editable: false }
+#       style: { showRelative: true }
+#
+# ============================================================================
 
 # ============================================================================
 # FIELD BUSINESS TYPE DEFINITIONS
@@ -28,605 +318,1037 @@ fieldBusinessTypes:
   # IDENTITY & CORE
   # --------------------------------------------------------------------------
   uuid:
-    dataType: uuid
-    <<: *readonly
-    entityFormContainer: { <<: *readonly, format: { monospace: true } }
+    dtype: uuid
+    entityDataTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: readonly
+      behavior: { editable: false }
+      style: { monospace: true }
 
   code:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: text, component: TextInput }
-    entityFormContainer: { inputType: text, component: TextInput, validation: { required: true, pattern: "^[A-Za-z0-9-_]+$" } }
-    kanbanView: { inputType: text, component: InlineTextInput }
+    dtype: str
+    entityDataTable:
+      inputType: text
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      validation: { pattern: "^[A-Za-z0-9-_]+$" }
+    entityFormContainer:
+      inputType: text
+      behavior: { editable: true }
+      validation: { required: true, pattern: "^[A-Za-z0-9-_]+$" }
+    kanbanView:
+      inputType: component
+      component: InlineTextInput
+      behavior: { editable: true }
 
   name:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: text, component: TextInput }
-    entityFormContainer: { inputType: text, component: TextInput, validation: { required: true, minLength: 1, maxLength: 255 }, format: { size: lg } }
-    kanbanView: { inputType: text, component: InlineTextInput }
+    dtype: str
+    entityDataTable:
+      inputType: text
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      validation: { maxLength: 255 }
+    entityFormContainer:
+      inputType: text
+      behavior: { editable: true }
+      validation: { required: true, minLength: 1, maxLength: 255 }
+      style: { size: lg }
+    kanbanView:
+      inputType: component
+      component: InlineTextInput
+      behavior: { editable: true }
 
   title:
-    dataType: str
+    dtype: str
     inherit: name
 
   subject:
-    dataType: str
+    dtype: str
     inherit: name
 
   description:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: textarea, component: TextareaInput }
-    entityFormContainer: { inputType: textarea, component: TextareaInput, format: { rows: 4, resizable: true } }
+    dtype: str
+    entityDataTable:
+      inputType: textarea
+      behavior: { editable: true, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: textarea
+      behavior: { editable: true }
+      style: { rows: 4, resizable: true }
 
   summary:
-    dataType: str
+    dtype: str
     inherit: description
 
   # --------------------------------------------------------------------------
   # PERSON NAME FIELDS
   # --------------------------------------------------------------------------
   first_name:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: text, component: TextInput }
-    entityFormContainer: { inputType: text, component: TextInput, format: { autocomplete: given-name } }
+    dtype: str
+    entityDataTable:
+      inputType: text
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: text
+      behavior: { editable: true }
+      style: { autocomplete: given-name }
 
   last_name:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: text, component: TextInput }
-    entityFormContainer: { inputType: text, component: TextInput, format: { autocomplete: family-name } }
+    dtype: str
+    entityDataTable:
+      inputType: text
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: text
+      behavior: { editable: true }
+      style: { autocomplete: family-name }
 
   full_name:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: text, component: TextInput }
-    entityFormContainer: { inputType: text, component: TextInput, format: { autocomplete: name } }
+    dtype: str
+    entityDataTable:
+      inputType: text
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: text
+      behavior: { editable: true }
+      style: { autocomplete: name }
 
   # --------------------------------------------------------------------------
   # CONTACT FIELDS
   # --------------------------------------------------------------------------
   email:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: email, component: EmailInput }
-    entityFormContainer: { inputType: email, component: EmailInput, validation: { pattern: "^[^@]+@[^@]+\\.[^@]+$" }, format: { autocomplete: email } }
+    dtype: str
+    entityDataTable:
+      inputType: email
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      validation: { pattern: "^[^@]+@[^@]+\\.[^@]+$" }
+    entityFormContainer:
+      inputType: email
+      behavior: { editable: true }
+      validation: { pattern: "^[^@]+@[^@]+\\.[^@]+$" }
+      style: { autocomplete: email }
 
   phone:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: tel, component: PhoneInput }
-    entityFormContainer: { inputType: tel, component: PhoneInput, format: { countryCode: CA, mask: "(###) ###-####" } }
+    dtype: str
+    entityDataTable:
+      inputType: tel
+      behavior: { editable: true, filterable: true, sortable: false, visible: true }
+    entityFormContainer:
+      inputType: tel
+      behavior: { editable: true }
+      style: { countryCode: CA, mask: "(###) ###-####" }
 
   url:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: url, component: UrlInput }
-    entityFormContainer: { inputType: url, component: UrlInput, validation: { pattern: "^https?://" }, format: { placeholder: "https://..." } }
+    dtype: str
+    entityDataTable:
+      inputType: url
+      behavior: { editable: true, filterable: false, sortable: false, visible: true }
+      validation: { pattern: "^https?://" }
+    entityFormContainer:
+      inputType: url
+      behavior: { editable: true }
+      validation: { pattern: "^https?://" }
+      style: { placeholder: "https://..." }
 
   # --------------------------------------------------------------------------
   # ADDRESS FIELDS
   # --------------------------------------------------------------------------
   address:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: text, component: AddressInput }
-    entityFormContainer: { inputType: address, component: AddressAutocomplete, format: { country: CA, showMap: false } }
+    dtype: str
+    entityDataTable:
+      inputType: text
+      behavior: { editable: true, filterable: true, sortable: false, visible: true }
+    entityFormContainer:
+      inputType: component
+      component: AddressAutocomplete
+      behavior: { editable: true }
+      style: { country: CA, showMap: false }
 
   address_line:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: text, component: TextInput }
-    entityFormContainer: { inputType: text, component: TextInput, format: { autocomplete: street-address } }
+    dtype: str
+    entityDataTable:
+      inputType: text
+      behavior: { editable: true, filterable: false, sortable: false, visible: true }
+    entityFormContainer:
+      inputType: text
+      behavior: { editable: true }
+      style: { autocomplete: street-address }
 
   street:
-    dataType: str
+    dtype: str
     inherit: address_line
 
   city:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: text, component: TextInput }
-    entityFormContainer: { inputType: text, component: CityAutocomplete, format: { country: CA } }
+    dtype: str
+    entityDataTable:
+      inputType: text
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: component
+      component: CityAutocomplete
+      behavior: { editable: true }
+      style: { country: CA }
 
   state:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: select, component: StateSelect }
-    entityFormContainer: { inputType: select, component: StateSelect, format: { country: US } }
+    dtype: str
+    entityDataTable:
+      inputType: select
+      component: StateSelect
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: select
+      component: StateSelect
+      behavior: { editable: true }
+      style: { country: US }
 
   province:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: select, component: ProvinceSelect }
-    entityFormContainer: { inputType: select, component: ProvinceSelect, format: { country: CA } }
+    dtype: str
+    entityDataTable:
+      inputType: select
+      component: ProvinceSelect
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: select
+      component: ProvinceSelect
+      behavior: { editable: true }
+      style: { country: CA }
 
   country:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: select, component: CountrySelect }
-    entityFormContainer: { inputType: select, component: CountrySelect, format: { showFlag: true, defaultValue: CA } }
+    dtype: str
+    entityDataTable:
+      inputType: select
+      component: CountrySelect
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: select
+      component: CountrySelect
+      behavior: { editable: true }
+      style: { showFlag: true, defaultValue: CA }
 
   postal_code:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: text, component: PostalCodeInput }
-    entityFormContainer: { inputType: text, component: PostalCodeInput, validation: { pattern: "^[A-Za-z]\\d[A-Za-z][ -]?\\d[A-Za-z]\\d$" }, format: { mask: "A#A #A#", country: CA } }
+    dtype: str
+    entityDataTable:
+      inputType: text
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      validation: { pattern: "^[A-Za-z]\\d[A-Za-z][ -]?\\d[A-Za-z]\\d$" }
+    entityFormContainer:
+      inputType: text
+      behavior: { editable: true }
+      validation: { pattern: "^[A-Za-z]\\d[A-Za-z][ -]?\\d[A-Za-z]\\d$" }
+      style: { mask: "A#A #A#", country: CA }
 
   # --------------------------------------------------------------------------
   # CURRENCY FIELDS
   # --------------------------------------------------------------------------
   currency:
-    dataType: float
-    <<: *editable
-    entityDataTable: { inputType: currency, component: CurrencyInput }
-    entityFormContainer: { inputType: currency, component: CurrencyInput, format: { symbol: "$", decimals: 2, locale: en-CA }, validation: { min: 0 } }
+    dtype: float
+    entityDataTable:
+      inputType: component
+      component: CurrencyInput
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      validation: { min: 0 }
+    entityFormContainer:
+      inputType: component
+      component: CurrencyInput
+      behavior: { editable: true }
+      style: { symbol: "$", decimals: 2, locale: en-CA }
+      validation: { min: 0 }
 
   currency_cents:
-    dataType: int
-    <<: *editable
-    entityDataTable: { inputType: number, component: NumberInput }
-    entityFormContainer: { inputType: number, component: CurrencyCentsInput, format: { symbol: "$" }, validation: { min: 0 } }
+    dtype: int
+    entityDataTable:
+      inputType: number
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      validation: { min: 0 }
+    entityFormContainer:
+      inputType: component
+      component: CurrencyCentsInput
+      behavior: { editable: true }
+      style: { symbol: "$" }
+      validation: { min: 0 }
 
   # --------------------------------------------------------------------------
   # PERCENTAGE FIELDS
   # --------------------------------------------------------------------------
   percentage:
-    dataType: float
-    <<: *editable
-    entityDataTable: { inputType: number, component: PercentageInput }
-    entityFormContainer: { inputType: slider, component: SliderInput, format: { min: 0, max: 100, step: 1, showValue: true } }
+    dtype: float
+    entityDataTable:
+      inputType: component
+      component: PercentageInput
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      validation: { min: 0, max: 100 }
+    entityFormContainer:
+      inputType: range
+      behavior: { editable: true }
+      style: { min: 0, max: 100, step: 1, showValue: true }
+      validation: { min: 0, max: 100 }
 
   # --------------------------------------------------------------------------
   # DATE & TIME FIELDS
   # --------------------------------------------------------------------------
   date:
-    dataType: date
-    <<: *editable
-    entityDataTable: { inputType: date, component: DatePicker }
-    entityFormContainer: { inputType: date, component: DatePicker, format: { locale: en-CA, clearable: true } }
-    kanbanView: { inputType: date, component: InlineDatePicker }
-    calendarView: { inputType: date, component: DatePicker }
+    dtype: date
+    entityDataTable:
+      inputType: date
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: date
+      behavior: { editable: true }
+      style: { locale: en-CA, clearable: true }
+    kanbanView:
+      inputType: component
+      component: InlineDatePicker
+      behavior: { editable: true }
+    calendarView:
+      inputType: date
+      behavior: { editable: true }
 
   timestamp:
-    dataType: timestamp
-    <<: *editable
-    entityDataTable: { inputType: datetime, component: DateTimePicker }
-    entityFormContainer: { inputType: datetime, component: DateTimePicker, format: { locale: en-CA, showTimezone: false } }
-    calendarView: { inputType: datetime, component: DateTimePicker }
+    dtype: timestamp
+    entityDataTable:
+      inputType: datetime-local
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: datetime-local
+      behavior: { editable: true }
+      style: { locale: en-CA, showTimezone: false }
+    calendarView:
+      inputType: datetime-local
+      behavior: { editable: true }
 
   timestamp_readonly:
-    dataType: timestamp
-    <<: *readonly
+    dtype: timestamp
+    entityDataTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: readonly
+      behavior: { editable: false }
 
   time:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: time, component: TimePicker }
-    entityFormContainer: { inputType: time, component: TimePicker, format: { step: 15 } }
+    dtype: str
+    entityDataTable:
+      inputType: time
+      behavior: { editable: true, filterable: false, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: time
+      behavior: { editable: true }
+      style: { step: 15 }
 
   # --------------------------------------------------------------------------
   # DURATION FIELDS
   # --------------------------------------------------------------------------
   duration:
-    dataType: int
-    <<: *editable
-    entityDataTable: { inputType: number, component: DurationInput }
-    entityFormContainer: { inputType: duration, component: DurationPicker, format: { units: [hours, minutes], defaultUnit: minutes } }
-    calendarView: { inputType: duration, component: DurationPicker }
+    dtype: int
+    entityDataTable:
+      inputType: component
+      component: DurationInput
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      validation: { min: 0 }
+    entityFormContainer:
+      inputType: component
+      component: DurationPicker
+      behavior: { editable: true }
+      style: { units: [hours, minutes], defaultUnit: minutes }
+      validation: { min: 0 }
+    calendarView:
+      inputType: component
+      component: DurationPicker
+      behavior: { editable: true }
 
   duration_minutes:
-    dataType: int
+    dtype: int
     inherit: duration
 
   duration_hours:
-    dataType: float
-    <<: *editable
-    entityDataTable: { inputType: number, component: DurationInput }
-    entityFormContainer: { inputType: duration, component: DurationPicker, format: { units: [hours], defaultUnit: hours } }
+    dtype: float
+    entityDataTable:
+      inputType: component
+      component: DurationInput
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      validation: { min: 0 }
+    entityFormContainer:
+      inputType: component
+      component: DurationPicker
+      behavior: { editable: true }
+      style: { units: [hours], defaultUnit: hours }
+      validation: { min: 0 }
 
   duration_seconds:
-    dataType: int
-    <<: *editable
-    entityDataTable: { inputType: number, component: DurationInput }
-    entityFormContainer: { inputType: duration, component: DurationPicker, format: { units: [minutes, seconds], defaultUnit: seconds } }
+    dtype: int
+    entityDataTable:
+      inputType: component
+      component: DurationInput
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      validation: { min: 0 }
+    entityFormContainer:
+      inputType: component
+      component: DurationPicker
+      behavior: { editable: true }
+      style: { units: [minutes, seconds], defaultUnit: seconds }
+      validation: { min: 0 }
 
   duration_ms:
-    dataType: int
-    <<: *editable
-    entityDataTable: { inputType: number, component: NumberInput }
-    entityFormContainer: { inputType: number, component: NumberInput, format: { suffix: ms } }
+    dtype: int
+    entityDataTable:
+      inputType: number
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      validation: { min: 0 }
+    entityFormContainer:
+      inputType: number
+      behavior: { editable: true }
+      style: { suffix: ms }
+      validation: { min: 0 }
 
   # --------------------------------------------------------------------------
   # BOOLEAN FIELDS
   # --------------------------------------------------------------------------
   boolean:
-    dataType: bool
-    <<: *editable
-    entityDataTable: { inputType: checkbox, component: Checkbox }
-    entityFormContainer: { inputType: checkbox, component: Checkbox, format: { label: true } }
-    kanbanView: { inputType: checkbox, component: InlineCheckbox }
+    dtype: bool
+    entityDataTable:
+      inputType: checkbox
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: checkbox
+      behavior: { editable: true }
+      style: { label: true }
+    kanbanView:
+      inputType: component
+      component: InlineCheckbox
+      behavior: { editable: true }
 
   status_flag:
-    dataType: bool
-    <<: *editable
-    entityDataTable: { inputType: toggle, component: Toggle }
-    entityFormContainer: { inputType: toggle, component: Toggle, format: { onLabel: Active, offLabel: Inactive } }
+    dtype: bool
+    entityDataTable:
+      inputType: component
+      component: Toggle
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: component
+      component: Toggle
+      behavior: { editable: true }
+      style: { onLabel: Active, offLabel: Inactive }
 
   # --------------------------------------------------------------------------
   # DATALABEL & ENTITY REFERENCE FIELDS
   # --------------------------------------------------------------------------
   datalabel:
-    dataType: str
-    <<: *editable
+    dtype: str
     lookupSource: datalabel
-    entityDataTable: { inputType: select, component: DatalabelSelect }
-    entityFormContainer: { inputType: select, component: DatalabelSelect, format: { showColor: true, searchable: true } }
-    kanbanView: { inputType: select, component: InlineSelect }
-    dagView: { inputType: select, component: DAGNodeSelect }
+    entityDataTable:
+      inputType: select
+      component: DatalabelSelect
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: select
+      component: DatalabelSelect
+      behavior: { editable: true }
+      style: { showColor: true, searchable: true }
+    kanbanView:
+      inputType: select
+      component: InlineSelect
+      behavior: { editable: true }
+    dagView:
+      inputType: select
+      component: DAGNodeSelect
+      behavior: { editable: true }
 
   entityInstance_Id:
-    dataType: uuid
-    <<: *editable
+    dtype: uuid
     lookupSource: entityInstance
-    entityDataTable: { inputType: entity_select, component: EntitySelect }
-    entityFormContainer: { inputType: entity_select, component: EntitySelect, format: { searchable: true, clearable: true, displayField: name } }
-    kanbanView: { inputType: entity_select, component: InlineEntitySelect }
+    entityDataTable:
+      inputType: select
+      component: EntitySelect
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: select
+      component: EntitySelect
+      behavior: { editable: true }
+      style: { searchable: true, clearable: true, displayField: name }
+    kanbanView:
+      inputType: select
+      component: InlineEntitySelect
+      behavior: { editable: true }
 
   entityInstance_Ids:
-    dataType: array[uuid]
-    <<: *editable
+    dtype: array[uuid]
     lookupSource: entityInstance
-    entityDataTable: { inputType: entityInstance_Ids, component: EntityMultiSelect }
-    entityFormContainer: { inputType: entityInstance_Ids, component: EntityMultiSelect, format: { searchable: true, displayField: name, maxSelections: null } }
+    entityDataTable:
+      inputType: select
+      component: EntityMultiSelect
+      behavior: { editable: true, filterable: true, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: select
+      component: EntityMultiSelect
+      behavior: { editable: true }
+      style: { searchable: true, displayField: name, maxSelections: null }
 
   # --------------------------------------------------------------------------
   # QUANTITY & NUMBER FIELDS
   # --------------------------------------------------------------------------
   quantity:
-    dataType: int
-    <<: *editable
-    entityDataTable: { inputType: number, component: NumberInput }
-    entityFormContainer: { inputType: number, component: NumberInput, format: { step: 1 }, validation: { min: 0 } }
+    dtype: int
+    entityDataTable:
+      inputType: number
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      validation: { min: 0 }
+    entityFormContainer:
+      inputType: number
+      behavior: { editable: true }
+      style: { step: 1 }
+      validation: { min: 0 }
 
   count:
-    dataType: int
+    dtype: int
     inherit: quantity
 
   number:
-    dataType: int
+    dtype: int
     inherit: quantity
 
   sort_order:
-    dataType: int
-    <<: *editable
-    entityDataTable: { inputType: number, component: NumberInput }
-    entityFormContainer: { inputType: number, component: NumberInput, format: { step: 1 }, validation: { min: 0 } }
+    dtype: int
+    entityDataTable:
+      inputType: number
+      behavior: { editable: true, filterable: false, sortable: true, visible: true }
+      validation: { min: 0 }
+    entityFormContainer:
+      inputType: number
+      behavior: { editable: true }
+      style: { step: 1 }
+      validation: { min: 0 }
 
   # --------------------------------------------------------------------------
   # MEASUREMENT FIELDS
   # --------------------------------------------------------------------------
   area_sqft:
-    dataType: float
-    <<: *editable
-    entityDataTable: { inputType: number, component: MeasurementInput }
-    entityFormContainer: { inputType: number, component: MeasurementInput, format: { unit: "sq ft", decimals: 2 }, validation: { min: 0 } }
+    dtype: float
+    entityDataTable:
+      inputType: component
+      component: MeasurementInput
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      validation: { min: 0 }
+    entityFormContainer:
+      inputType: component
+      component: MeasurementInput
+      behavior: { editable: true }
+      style: { unit: "sq ft", decimals: 2 }
+      validation: { min: 0 }
 
   volume_m3:
-    dataType: float
-    <<: *editable
-    entityDataTable: { inputType: number, component: MeasurementInput }
-    entityFormContainer: { inputType: number, component: MeasurementInput, format: { unit: "m³", decimals: 3 }, validation: { min: 0 } }
+    dtype: float
+    entityDataTable:
+      inputType: component
+      component: MeasurementInput
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      validation: { min: 0 }
+    entityFormContainer:
+      inputType: component
+      component: MeasurementInput
+      behavior: { editable: true }
+      style: { unit: "m³", decimals: 3 }
+      validation: { min: 0 }
 
   dimension_cm:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: text, component: TextInput }
-    entityFormContainer: { inputType: text, component: DimensionInput, format: { unit: cm } }
+    dtype: str
+    entityDataTable:
+      inputType: text
+      behavior: { editable: true, filterable: false, sortable: false, visible: true }
+    entityFormContainer:
+      inputType: component
+      component: DimensionInput
+      behavior: { editable: true }
+      style: { unit: cm }
 
   weight_kg:
-    dataType: float
-    <<: *editable
-    entityDataTable: { inputType: number, component: WeightInput }
-    entityFormContainer: { inputType: number, component: WeightInput, format: { unit: kg, decimals: 2 }, validation: { min: 0 } }
+    dtype: float
+    entityDataTable:
+      inputType: component
+      component: WeightInput
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      validation: { min: 0 }
+    entityFormContainer:
+      inputType: component
+      component: WeightInput
+      behavior: { editable: true }
+      style: { unit: kg, decimals: 2 }
+      validation: { min: 0 }
 
   file_size:
-    dataType: int
-    <<: *readonly
+    dtype: int
+    entityDataTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: readonly
+      behavior: { editable: false }
 
   capacity:
-    dataType: int
+    dtype: int
     inherit: quantity
 
   # --------------------------------------------------------------------------
   # RATING & SCORE FIELDS
   # --------------------------------------------------------------------------
   rating:
-    dataType: float
-    <<: *editable
-    entityDataTable: { inputType: rating, component: RatingInput }
-    entityFormContainer: { inputType: rating, component: RatingInput, format: { max: 5, allowHalf: true, clearable: true } }
+    dtype: float
+    entityDataTable:
+      inputType: component
+      component: RatingInput
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      validation: { min: 0, max: 5 }
+    entityFormContainer:
+      inputType: component
+      component: RatingInput
+      behavior: { editable: true }
+      style: { max: 5, allowHalf: true, clearable: true }
+      validation: { min: 0, max: 5 }
 
   score:
-    dataType: float
-    <<: *editable
-    entityDataTable: { inputType: number, component: NumberInput }
-    entityFormContainer: { inputType: number, component: NumberInput, format: { step: 1 } }
+    dtype: float
+    entityDataTable:
+      inputType: number
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: number
+      behavior: { editable: true }
+      style: { step: 1 }
 
   # --------------------------------------------------------------------------
   # COORDINATES & GEOLOCATION
   # --------------------------------------------------------------------------
   latitude:
-    dataType: float
-    <<: *editable
-    entityDataTable: { inputType: number, component: CoordinateInput }
-    entityFormContainer: { inputType: number, component: CoordinateInput, format: { precision: 6, type: latitude }, validation: { min: -90, max: 90 } }
+    dtype: float
+    entityDataTable:
+      inputType: component
+      component: CoordinateInput
+      behavior: { editable: true, filterable: false, sortable: false, visible: false }
+      validation: { min: -90, max: 90 }
+    entityFormContainer:
+      inputType: component
+      component: CoordinateInput
+      behavior: { editable: true }
+      style: { precision: 6, type: latitude }
+      validation: { min: -90, max: 90 }
 
   longitude:
-    dataType: float
-    <<: *editable
-    entityDataTable: { inputType: number, component: CoordinateInput }
-    entityFormContainer: { inputType: number, component: CoordinateInput, format: { precision: 6, type: longitude }, validation: { min: -180, max: 180 } }
+    dtype: float
+    entityDataTable:
+      inputType: component
+      component: CoordinateInput
+      behavior: { editable: true, filterable: false, sortable: false, visible: false }
+      validation: { min: -180, max: 180 }
+    entityFormContainer:
+      inputType: component
+      component: CoordinateInput
+      behavior: { editable: true }
+      style: { precision: 6, type: longitude }
+      validation: { min: -180, max: 180 }
 
   geolocation:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: geolocation, component: GeolocationInput }
-    entityFormContainer: { inputType: geolocation, component: GeolocationPicker, format: { showMap: true, allowManual: true } }
+    dtype: str
+    entityDataTable:
+      inputType: component
+      component: GeolocationInput
+      behavior: { editable: true, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: component
+      component: GeolocationPicker
+      behavior: { editable: true }
+      style: { showMap: true, allowManual: true }
 
   # --------------------------------------------------------------------------
   # TEXT CONTENT FIELDS
   # --------------------------------------------------------------------------
   notes:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: textarea, component: TextareaInput }
-    entityFormContainer: { inputType: textarea, component: TextareaInput, format: { rows: 4, resizable: true } }
+    dtype: str
+    entityDataTable:
+      inputType: textarea
+      behavior: { editable: true, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: textarea
+      behavior: { editable: true }
+      style: { rows: 4, resizable: true }
 
   instructions:
-    dataType: str
+    dtype: str
     inherit: notes
 
   text_long:
-    dataType: str
+    dtype: str
     inherit: notes
 
   rich_text:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: textarea, component: TextareaInput }
-    entityFormContainer: { inputType: richtext, component: RichTextEditor, format: { toolbar: [bold, italic, link, list], minHeight: 200 } }
+    dtype: str
+    entityDataTable:
+      inputType: textarea
+      behavior: { editable: true, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: component
+      component: RichTextEditor
+      behavior: { editable: true }
+      style: { toolbar: [bold, italic, link, list], minHeight: 200 }
 
   # --------------------------------------------------------------------------
   # JSON & STRUCTURED DATA
   # --------------------------------------------------------------------------
   json:
-    dataType: jsonb
-    <<: *editable
-    entityDataTable: { inputType: json, component: JsonEditor }
-    entityFormContainer: { inputType: json, component: JsonEditor, format: { mode: tree, validateSchema: false } }
+    dtype: jsonb
+    entityDataTable:
+      inputType: component
+      component: JsonEditor
+      behavior: { editable: true, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: component
+      component: JsonEditor
+      behavior: { editable: true }
+      style: { mode: tree, validateSchema: false }
 
   json_schema:
-    dataType: jsonb
+    dtype: jsonb
     inherit: json
 
   tags:
-    dataType: array[str]
-    <<: *editable
-    entityDataTable: { inputType: tags, component: TagsInput }
-    entityFormContainer: { inputType: tags, component: TagsInput, format: { allowCreate: true, maxTags: null } }
+    dtype: array[str]
+    entityDataTable:
+      inputType: component
+      component: TagsInput
+      behavior: { editable: true, filterable: true, sortable: false, visible: true }
+    entityFormContainer:
+      inputType: component
+      component: TagsInput
+      behavior: { editable: true }
+      style: { allowCreate: true, maxTags: null }
 
   # --------------------------------------------------------------------------
   # FILE & MEDIA FIELDS
   # --------------------------------------------------------------------------
   file:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: file, component: FileUpload }
-    entityFormContainer: { inputType: file, component: FileUpload, format: { accept: "*/*", maxSize: 10485760 } }
+    dtype: str
+    entityDataTable:
+      inputType: file
+      behavior: { editable: true, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: file
+      behavior: { editable: true }
+      style: { accept: "*/*", maxSize: 10485760 }
 
   image:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: image, component: ImageUpload }
-    entityFormContainer: { inputType: image, component: ImageUpload, format: { accept: "image/*", maxSize: 5242880, preview: true } }
+    dtype: str
+    entityDataTable:
+      inputType: component
+      component: ImageUpload
+      behavior: { editable: true, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: component
+      component: ImageUpload
+      behavior: { editable: true }
+      style: { accept: "image/*", maxSize: 5242880, preview: true }
 
   avatar:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: image, component: ImageUpload }
-    entityFormContainer: { inputType: avatar, component: AvatarUpload, format: { accept: "image/*", maxSize: 2097152, crop: true, aspectRatio: 1 } }
+    dtype: str
+    entityDataTable:
+      inputType: component
+      component: ImageUpload
+      behavior: { editable: true, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: component
+      component: AvatarUpload
+      behavior: { editable: true }
+      style: { accept: "image/*", maxSize: 2097152, crop: true, aspectRatio: 1 }
 
   signature:
-    dataType: str
-    <<: *editable
-    entityFormContainer: { inputType: signature, component: SignaturePad, format: { width: 400, height: 200 } }
+    dtype: str
+    entityFormContainer:
+      inputType: component
+      component: SignaturePad
+      behavior: { editable: true }
+      style: { width: 400, height: 200 }
 
   video:
-    dataType: str
-    <<: *editable
-    entityFormContainer: { inputType: video, component: VideoCapture, format: { maxDuration: 60 } }
+    dtype: str
+    entityFormContainer:
+      inputType: component
+      component: VideoCapture
+      behavior: { editable: true }
+      style: { maxDuration: 60 }
 
   # --------------------------------------------------------------------------
   # S3/STORAGE FIELDS (typically readonly)
   # --------------------------------------------------------------------------
   s3_bucket:
-    dataType: str
-    <<: *readonly
+    dtype: str
+    entityDataTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: readonly
+      behavior: { editable: false }
 
   s3_key:
-    dataType: str
-    <<: *readonly
+    dtype: str
+    entityDataTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: readonly
+      behavior: { editable: false }
 
   s3_url:
-    dataType: str
+    dtype: str
     inherit: url
 
   s3_region:
-    dataType: str
-    <<: *readonly
+    dtype: str
+    entityDataTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: readonly
+      behavior: { editable: false }
 
   hash:
-    dataType: str
-    <<: *readonly
+    dtype: str
+    entityDataTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: readonly
+      behavior: { editable: false }
 
   mime_type:
-    dataType: str
-    <<: *readonly
+    dtype: str
+    entityDataTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: true, sortable: true, visible: false }
+    entityFormContainer:
+      inputType: readonly
+      behavior: { editable: false }
 
   file_extension:
-    dataType: str
-    <<: *readonly
+    dtype: str
+    entityDataTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: true, sortable: true, visible: false }
+    entityFormContainer:
+      inputType: readonly
+      behavior: { editable: false }
 
   # --------------------------------------------------------------------------
   # BARCODE & SCANNING
   # --------------------------------------------------------------------------
   barcode:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: text, component: BarcodeInput }
-    entityFormContainer: { inputType: barcode, component: BarcodeScanner, format: { type: code128, allowManual: true } }
+    dtype: str
+    entityDataTable:
+      inputType: component
+      component: BarcodeInput
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: component
+      component: BarcodeScanner
+      behavior: { editable: true }
+      style: { type: code128, allowManual: true }
 
   sku:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: text, component: TextInput }
-    entityFormContainer: { inputType: text, component: TextInput }
+    dtype: str
+    entityDataTable:
+      inputType: text
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: text
+      behavior: { editable: true }
 
   upc:
-    dataType: str
+    dtype: str
     inherit: sku
 
   # --------------------------------------------------------------------------
   # COLOR
   # --------------------------------------------------------------------------
   color:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: color, component: ColorPicker }
-    entityFormContainer: { inputType: color, component: ColorPicker, format: { presets: true, allowCustom: true, outputFormat: hex } }
+    dtype: str
+    entityDataTable:
+      inputType: color
+      behavior: { editable: true, filterable: true, sortable: false, visible: true }
+    entityFormContainer:
+      inputType: component
+      component: ColorPicker
+      behavior: { editable: true }
+      style: { presets: true, allowCustom: true, outputFormat: hex }
 
   # --------------------------------------------------------------------------
   # STATUS & STATE FIELDS
   # --------------------------------------------------------------------------
   status:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: select, component: StatusSelect }
-    entityFormContainer: { inputType: select, component: StatusSelect }
+    dtype: str
+    entityDataTable:
+      inputType: select
+      component: StatusSelect
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: select
+      component: StatusSelect
+      behavior: { editable: true }
 
   state_workflow:
-    dataType: str
+    dtype: str
     inherit: status
 
   stage:
-    dataType: str
+    dtype: str
     inherit: datalabel
 
   # --------------------------------------------------------------------------
   # CATEGORY & TYPE FIELDS
   # --------------------------------------------------------------------------
   type:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: text, component: TextInput }
-    entityFormContainer: { inputType: text, component: TextInput }
+    dtype: str
+    entityDataTable:
+      inputType: text
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: text
+      behavior: { editable: true }
 
   category:
-    dataType: str
+    dtype: str
     inherit: type
 
   # --------------------------------------------------------------------------
   # IDENTIFICATION NUMBERS
   # --------------------------------------------------------------------------
   sensitive_id:
-    dataType: str
-    <<: *editable
-    entityFormContainer: { inputType: text, component: MaskedInput, format: { mask: "###-###-###", secure: true } }
+    dtype: str
+    entityFormContainer:
+      inputType: component
+      component: MaskedInput
+      behavior: { editable: true }
+      style: { mask: "###-###-###", secure: true }
 
   tax_id:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: text, component: TextInput }
-    entityFormContainer: { inputType: text, component: TextInput }
+    dtype: str
+    entityDataTable:
+      inputType: text
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: text
+      behavior: { editable: true }
 
   reference_number:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: text, component: TextInput }
-    entityFormContainer: { inputType: text, component: TextInput }
+    dtype: str
+    entityDataTable:
+      inputType: text
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: text
+      behavior: { editable: true }
 
   invoice_number:
-    dataType: str
+    dtype: str
     inherit: reference_number
 
   order_number:
-    dataType: str
+    dtype: str
     inherit: reference_number
 
   po_number:
-    dataType: str
+    dtype: str
     inherit: reference_number
 
   tracking_number:
-    dataType: str
+    dtype: str
     inherit: reference_number
 
   # --------------------------------------------------------------------------
   # AUTHENTICATION & SECURITY (typically readonly/hidden)
   # --------------------------------------------------------------------------
   username:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: text, component: TextInput }
-    entityFormContainer: { inputType: text, component: TextInput }
+    dtype: str
+    entityDataTable:
+      inputType: text
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: text
+      behavior: { editable: true }
 
   password_hash:
-    dataType: str
-    <<: *hidden
+    dtype: str
+    entityDataTable:
+      inputType: hidden
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: hidden
+      behavior: { editable: false }
 
   token:
-    dataType: str
-    <<: *readonly
+    dtype: str
+    entityDataTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: readonly
+      behavior: { editable: false }
 
   ip_address:
-    dataType: str
-    <<: *readonly
+    dtype: str
+    entityDataTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: true, sortable: true, visible: false }
+    entityFormContainer:
+      inputType: readonly
+      behavior: { editable: false }
 
   user_agent:
-    dataType: str
-    <<: *readonly
+    dtype: str
+    entityDataTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: readonly
+      behavior: { editable: false }
 
   # --------------------------------------------------------------------------
   # UI FIELDS
   # --------------------------------------------------------------------------
   icon:
-    dataType: str
-    <<: *editable
-    entityFormContainer: { inputType: icon, component: IconPicker, format: { library: lucide } }
+    dtype: str
+    entityFormContainer:
+      inputType: component
+      component: IconPicker
+      behavior: { editable: true }
+      style: { library: lucide }
 
   label:
-    dataType: str
+    dtype: str
     inherit: name
 
   # --------------------------------------------------------------------------
   # SYSTEM FIELDS
   # --------------------------------------------------------------------------
   version:
-    dataType: int
-    <<: *readonly
+    dtype: int
+    entityDataTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: readonly
+      behavior: { editable: false }
 
   # --------------------------------------------------------------------------
   # DEFAULT TEXT
   # --------------------------------------------------------------------------
   text:
-    dataType: str
-    <<: *editable
-    entityDataTable: { inputType: text, component: TextInput }
-    entityFormContainer: { inputType: text, component: TextInput }
-    kanbanView: { inputType: text, component: InlineTextInput }
+    dtype: str
+    entityDataTable:
+      inputType: text
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: text
+      behavior: { editable: true }
+    kanbanView:
+      inputType: component
+      component: InlineTextInput
+      behavior: { editable: true }
 
 # ============================================================================
 # FORM FIELD TYPE MAPPINGS (for FormBuilder)

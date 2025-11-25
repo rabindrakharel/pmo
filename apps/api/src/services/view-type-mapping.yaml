@@ -1,26 +1,405 @@
-# View Type Mapping - Maps fieldBusinessType to component-specific VIEW rendering
+# ============================================================================
+# VIEW TYPE MAPPING
+# ============================================================================
+# Maps fieldBusinessType to component-specific VIEW/DISPLAY rendering
+# Version: 2.1.0
+#
+# ============================================================================
+# PURPOSE & POSITION IN MAPPING CHAIN
+# ============================================================================
+#
+# This file is STEP 2a in the field metadata pipeline:
+#
+#   Column Name (e.g., "budget_allocated_amt")
+#         │
+#         ▼
+#   pattern-mapping.yaml
+#   (column pattern → fieldBusinessType)
+#         │
+#         ▼
+#   fieldBusinessType (e.g., "currency")
+#         │
+#         ├──────────────────────────────────────────┐
+#         ▼                                          ▼
+#   ┌─────────────────────────────────────┐   ┌─────────────────────────────┐
+#   │  VIEW-TYPE-MAPPING.YAML (this file) │   │  edit-type-mapping.yaml     │
+#   │  ─────────────────────────────────  │   │  ─────────────────────────  │
+#   │  Defines how to DISPLAY the field   │   │  Defines how to EDIT field  │
+#   │  (read-only rendering)              │   │  (input controls)           │
+#   │                                     │   │                             │
+#   │  Output: renderType, component,     │   │  Output: inputType,         │
+#   │          behavior, style            │   │          behavior, style,   │
+#   │                                     │   │          validation         │
+#   └─────────────────────────────────────┘   └─────────────────────────────┘
+#
+# ============================================================================
+# HOW THIS FILE IS COMPOSED
+# ============================================================================
+#
+# Each fieldBusinessType entry has:
+#
+#   fieldBusinessType:
+#     dtype: <data_type>           # REQUIRED - Database/JS data type (ONLY root-level field)
+#     inherit: <other_type>        # Optional - Inherit from another type
+#
+#     # Component-specific definitions (REQUIRED for each supported component):
+#     entityDataTable:
+#       visible: bool              # Show in table (default: true)
+#       sortable: bool             # Allow sorting (default: true)
+#       filterable: bool           # Allow filtering (default: true)
+#       searchable: bool           # Include in text search (default: false)
+#       width: <size>              # Column width (default: auto)
+#       align: left|center|right   # Text alignment (default: left)
+#       format: { ... }            # Formatting options
+#
+#     entityFormContainer:
+#       visible: bool              # Show in detail view (default: true)
+#       editable: bool             # Allow editing (default: true)
+#       format: { ... }            # Formatting options
+#
+#     kanbanView:
+#       visible: bool              # Show on kanban card (default: false)
+#       format: { ... }
+#
+#     gridView:
+#       visible: bool              # Show on grid card (default: false)
+#       format: { ... }
+#
+#     calendarView:
+#       visible: bool              # Show in calendar event (default: false)
+#       format: { ... }
+#
+#     dagView:
+#       visible: bool              # Show in DAG node (default: false)
+#       format: { ... }
+#
+# ============================================================================
+# CRITICAL RULE: Root-level vs Component-level Fields
+# ============================================================================
+#
+# !! IMPORTANT !! Only dtype and inherit belong at root level!
+#
+# CORRECT:
+#   duration:
+#     dtype: int
+#     entityDataTable: { <<: *table_default, width: "100px", format: { unit: minutes } }
+#     entityFormContainer: { <<: *form_default, format: { unit: minutes } }
+#
+# WRONG:
+#   duration:
+#     dtype: int
+#     renderType: duration       # <-- ERROR! Not root-level
+#     width: "100px"             # <-- ERROR! Not root-level
+#     entityDataTable: { ... }
+#
+# All display/behavior fields are page-specific and belong INSIDE
+# each component section (entityDataTable, entityFormContainer, etc.)
+#
+# ============================================================================
+# ROOT-LEVEL FIELDS (only these!)
+# ============================================================================
+#
+# dtype (REQUIRED) - Data type:
+#   - str, int, float, bool, uuid, date, timestamp, jsonb
+#   - array[str], array[uuid]
+#
+# inherit - Copy all settings from another fieldBusinessType (optional)
+#
+# ============================================================================
+# COMPONENT-LEVEL FIELDS
+# ============================================================================
+#
+# visible - Whether field is shown (default: true for tables, varies for others)
+#
+# sortable - Whether column can be sorted (tables only)
+#
+# filterable - Whether field appears in filters (tables only)
+#
+# searchable - Whether field is included in text search
+#
+# component - React component for rendering:
+#   - TextCell, CurrencyCell, DateCell, BadgeCell, etc. (for tables)
+#   - TextField, CurrencyField, DateField, etc. (for forms)
+#
+# width - Column width (tables only):
+#   - "auto", "80px", "120px", "200px", etc.
+#
+# align - Text alignment:
+#   - left (default), center, right
+#
+# format - Formatting options (varies by type):
+#   - { symbol: "$", decimals: 2, locale: "en-CA" } (currency)
+#   - { style: "short", locale: "en-CA" } (date)
+#   - { truncate: 50 } (text)
+#   - { colorFromData: true } (badges)
+#   - { showFlag: true } (country)
+#   - { linkToDetail: true } (name fields)
+#
+# ============================================================================
+# COMPONENT ARCHITECTURE: PAGE-LEVEL CONTAINERS + INLINE RENDERING
+# ============================================================================
+#
+# This system uses PAGE-LEVEL containers with INLINE rendering (no separate
+# field-level components):
+#
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │  PAGE-LEVEL COMPONENTS (Containers)                                      │
+# │  ═══════════════════════════════════                                     │
+# │  These are the KEYS in this YAML file. They define WHERE fields render.  │
+# │  They are React container components that orchestrate multiple fields.   │
+# │                                                                          │
+# │  Actual files:                                                           │
+# │    - EntityDataTable.tsx      (tables)                                   │
+# │    - EntityFormContainer.tsx  (detail/form views)                        │
+# │    - KanbanView.tsx           (kanban boards)                            │
+# │    - CalendarView.tsx         (calendar events)                          │
+# │    - DAGVisualizer.tsx        (workflow DAG)                             │
+# └─────────────────────────────────────────────────────────────────────────┘
+#
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │  INLINE RENDERING (No separate field components)                         │
+# │  ═══════════════════════════════════════════════                         │
+# │  Field rendering happens INLINE within page-level containers using:      │
+# │    - formatDataset() for view mode (returns display strings + styles)    │
+# │    - renderEditModeFromMetadata() for edit mode (returns input elements) │
+# │                                                                          │
+# │  The `component` key in this YAML is a descriptive hint only.            │
+# │  Actual rendering is based on renderType, inputType, and format options. │
+# └─────────────────────────────────────────────────────────────────────────┘
+#
+# Example - how datalabel fields are rendered:
+#
+#   datalabel:
+#     dtype: str
+#     entityDataTable:       ←── PAGE-LEVEL (container for table columns)
+#       format: { colorFromData: true }  ←── Inline badge rendering
+#     entityFormContainer:   ←── PAGE-LEVEL (container for detail view)
+#       viz_container: DAGVisualizer     ←── Triggers DAGVisualizer component
+#     dagView:               ←── PAGE-LEVEL (container for workflow DAG)
+#       visible: true        ←── Node rendered inline by DAGVisualizer
+#
+# ============================================================================
+# PAGE-LEVEL COMPONENTS (6 containers)
+# ============================================================================
+#
+# These are the section KEYS under each fieldBusinessType:
+#
+# ┌────────────────────┬────────────────────────────────────────────────────┐
+# │ Component Key      │ Description                                        │
+# ├────────────────────┼────────────────────────────────────────────────────┤
+# │ entityDataTable    │ Main entity list table (EntityDataTable.tsx)       │
+# │                    │ Renders sortable/filterable columns with data      │
+# │                    │ Used on: EntityListOfInstancesPage                 │
+# │                    │ Layout: Tabular rows and columns                   │
+# ├────────────────────┼────────────────────────────────────────────────────┤
+# │ entityFormContainer│ Entity detail/form view (EntityFormContainer.tsx)  │
+# │                    │ Renders Notion-style property list                 │
+# │                    │ Used on: EntitySpecificInstancePage                │
+# │                    │ Layout: Vertical key-value pairs                   │
+# ├────────────────────┼────────────────────────────────────────────────────┤
+# │ kanbanView         │ Kanban board cards (KanbanView.tsx)                │
+# │                    │ Renders fields on draggable cards                  │
+# │                    │ Used on: EntityListOfInstancesPage (kanban mode)   │
+# │                    │ Layout: Cards grouped by status column             │
+# ├────────────────────┼────────────────────────────────────────────────────┤
+# │ gridView           │ Card grid view (GridView.tsx)                      │
+# │                    │ Renders fields on grid cards                       │
+# │                    │ Used on: EntityListOfInstancesPage (grid mode)     │
+# │                    │ Layout: Responsive card grid                       │
+# ├────────────────────┼────────────────────────────────────────────────────┤
+# │ calendarView       │ Calendar event display (CalendarView.tsx)          │
+# │                    │ Renders fields in calendar events                  │
+# │                    │ Used on: EntityListOfInstancesPage (calendar mode) │
+# │                    │ Layout: Monthly/weekly calendar with events        │
+# ├────────────────────┼────────────────────────────────────────────────────┤
+# │ dagView            │ DAG workflow visualizer (DAGVisualizer.tsx)        │
+# │                    │ Renders fields as nodes in directed acyclic graph  │
+# │                    │ Used on: Workflow pages, datalabel hierarchies     │
+# │                    │ Layout: Connected nodes showing progression        │
+# └────────────────────┴────────────────────────────────────────────────────┘
+#
+# ============================================================================
+# ACTUAL RENDERING ARCHITECTURE (v8.0.0)
+# ============================================================================
+#
+# IMPORTANT: This project does NOT use separate cell/field components.
+# Rendering is done INLINE within page-level containers using formatters.
+#
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ VIEW MODE RENDERING (format-at-read pattern)                            │
+# ├─────────────────────────────────────────────────────────────────────────┤
+# │                                                                          │
+# │ 1. API returns raw data + metadata (renderType, inputType, format)      │
+# │ 2. React Query's `select` calls formatDataset()                         │
+# │ 3. Returns FormattedRow with:                                           │
+# │    - display[key]: Pre-formatted string ("$50,000.00")                  │
+# │    - styles[key]: Tailwind classes ("bg-green-100 text-green-700")      │
+# │ 4. Page containers render inline using display/styles                   │
+# │                                                                          │
+# │ Source: apps/web/src/lib/formatters/datasetFormatter.ts                 │
+# └─────────────────────────────────────────────────────────────────────────┘
+#
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ EDIT MODE RENDERING (renderEditModeFromMetadata)                        │
+# ├─────────────────────────────────────────────────────────────────────────┤
+# │                                                                          │
+# │ Uses inputType from metadata to render appropriate input:               │
+# │                                                                          │
+# │   inputType       → Renders                                             │
+# │   ─────────────────────────────────────────────────────                 │
+# │   text            → DebouncedInput (type="text")                        │
+# │   number          → DebouncedInput (type="number")                      │
+# │   currency        → DebouncedInput (type="number" step="0.01")          │
+# │   textarea        → DebouncedTextarea                                   │
+# │   date            → <input type="date">                                 │
+# │   datetime        → <input type="datetime-local">                       │
+# │   checkbox        → <input type="checkbox">                             │
+# │   select          → ColoredDropdown (with datalabel colors)             │
+# │   multiselect     → MultiSelect                                         │
+# │                                                                          │
+# │ Source: apps/web/src/lib/frontEndFormatterService.tsx                   │
+# └─────────────────────────────────────────────────────────────────────────┘
+#
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ ACTUAL SHARED UI COMPONENTS (apps/web/src/components/shared/ui/)        │
+# ├─────────────────────────────────────────────────────────────────────────┤
+# │                                                                          │
+# │ INPUT COMPONENTS                                                         │
+# │   DebouncedInput      - Text/number input with debounce                 │
+# │   DebouncedTextarea   - Textarea with debounce                          │
+# │   ColoredDropdown     - Select with colored options (datalabels)        │
+# │   Select              - Basic select dropdown                           │
+# │   MultiSelect         - Multi-select dropdown                           │
+# │   DataLabelSelect     - Datalabel-specific select                       │
+# │   EntitySelect        - Entity reference select                         │
+# │   EditableTags        - Tag input/editing                               │
+# │                                                                          │
+# │ DISPLAY COMPONENTS                                                       │
+# │   KanbanView          - Kanban board (page-level)                       │
+# │   CalendarView        - Calendar display (page-level)                   │
+# │   TreeView            - Hierarchical tree display                       │
+# │   DateRangeVisualizer - Date range bar visualization                    │
+# │                                                                          │
+# │ WORKFLOW                                                                 │
+# │   DAGVisualizer       - DAG workflow visualization (page-level)         │
+# │                         Source: apps/web/src/components/workflow/       │
+# │                                                                          │
+# └─────────────────────────────────────────────────────────────────────────┘
+#
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ SPECIAL VISUALIZATION CONTAINERS (EntityFormContainer_viz_container)    │
+# ├─────────────────────────────────────────────────────────────────────────┤
+# │                                                                          │
+# │ For datalabel fields with DAG structure, EntityFormContainer checks:    │
+# │   if (field.EntityFormContainer_viz_container === 'DAGVisualizer')      │
+# │                                                                          │
+# │ Valid values:                                                            │
+# │   DAGVisualizer       - Renders DAG workflow for datalabel stages       │
+# │   MetadataTable       - Renders key-value metadata table                │
+# │   ProgressBar         - Renders progress bar visualization              │
+# │   DateRangeVisualizer - Renders date range bar                          │
+# │                                                                          │
+# └─────────────────────────────────────────────────────────────────────────┘
+#
+# ============================================================================
+# YAML ANCHORS & ALIASES
+# ============================================================================
+#
+# This file uses YAML anchors (&) and aliases (*) to reduce duplication:
+#
+#   &table_default    - Default settings for table columns
+#   &form_default     - Default settings for form fields
+#   &hidden           - Hidden field settings
+#
+# Usage:
+#   entityDataTable: { <<: *table_default, width: "200px" }
+#   entityFormContainer: { <<: *hidden }
+#
+# ============================================================================
+# NOTE ON COMPONENT FIELD
+# ============================================================================
+#
+# The `component` field in this YAML is a DESCRIPTIVE HINT, not an actual React
+# component name. The frontend does NOT use this field for rendering.
+#
+# Actual rendering is determined by:
+#   - View mode: renderType + format options → formatDataset() inline rendering
+#   - Edit mode: inputType + format options → renderEditModeFromMetadata()
+#
+# The component field is included in API metadata for documentation purposes
+# and potential future use, but current rendering is fully inline.
+#
+# ============================================================================
+# EXAMPLES
+# ============================================================================
+#
+# Simple text field:
+#   name:
+#     dtype: str
+#     entityDataTable: { <<: *table_default, width: "250px" }
+#     entityFormContainer: { <<: *form_default }
+#
+# Currency field:
+#   currency:
+#     dtype: float
+#     entityDataTable: { <<: *table_default, align: right,
+#                        format: { symbol: "$", decimals: 2 } }
+#     entityFormContainer: { <<: *form_default }
+#
+# Datalabel with DAG visualization:
+#   datalabel:
+#     dtype: str
+#     entityDataTable: { <<: *table_default, format: { colorFromData: true } }
+#     entityFormContainer: { <<: *form_default, viz_container: DAGVisualizer }
+#
+# Inherited type:
+#   title:
+#     dtype: str
+#     inherit: name
+#
+# ============================================================================
 # Uses YAML anchors (&) and aliases (*) to reduce duplication
-# Version: 2.0.0
 
 # ============================================================================
 # COMPONENT DEFAULTS (inherited unless overridden)
 # ============================================================================
 defaults:
+  # entityDataTable defaults
   table: &table_default
     visible: true
     sortable: true
     filterable: true
+    searchable: false
     width: auto
     align: left
 
+  # entityFormContainer defaults
   form: &form_default
     visible: true
+    editable: true
 
-  card: &card_default
+  # kanbanView defaults
+  kanban: &kanban_default
     visible: false
 
+  # gridView defaults
+  grid: &grid_default
+    visible: false
+
+  # calendarView defaults
+  calendar: &calendar_default
+    visible: false
+
+  # dagView defaults
+  dag: &dag_default
+    visible: false
+
+  # Hidden field (for all views)
   hidden: &hidden
     visible: false
+    sortable: false
+    filterable: false
+    searchable: false
 
 # ============================================================================
 # FIELD BUSINESS TYPE DEFINITIONS
@@ -31,24 +410,26 @@ fieldBusinessTypes:
   # IDENTITY & CORE
   # --------------------------------------------------------------------------
   uuid:
-    dataType: uuid
-    renderType: text
-    entityDataTable: { <<: *hidden }
-    entityFormContainer: { visible: true, component: ReadonlyField, format: { monospace: true, truncate: 8 } }
-    kanbanView: *hidden
-    gridView: *hidden
+    dtype: uuid
+    entityDataTable:
+      behavior: { visible: false, sortable: false, filterable: false }
+    entityFormContainer:
+      behavior: { visible: true }
+      style: { monospace: true, truncate: 8 }
+    kanbanView:
+      behavior: { visible: false }
+    gridView:
+      behavior: { visible: false }
 
   code:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: CodeCell, width: "140px" }
     entityFormContainer: { <<: *form_default, component: CodeField, format: { monospace: true } }
     kanbanView: { visible: true, component: CodeBadge }
     gridView: { visible: true, component: CodeText }
 
   name:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: NameCell, width: "250px", searchable: true, format: { bold: true, linkToDetail: true } }
     entityFormContainer: { <<: *form_default, component: NameField, format: { size: lg } }
     kanbanView: { visible: true, component: CardTitle, format: { truncate: 50 } }
@@ -56,47 +437,40 @@ fieldBusinessTypes:
     calendarView: { visible: true, component: EventTitle }
 
   title:
-    dataType: str
-    renderType: text
+    dtype: str
     inherit: name
 
   subject:
-    dataType: str
-    renderType: text
+    dtype: str
     inherit: name
 
   description:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *hidden, component: TruncatedCell }
     entityFormContainer: { <<: *form_default, component: TextBlock }
     kanbanView: { visible: true, component: CardDescription, format: { truncate: 80 } }
     gridView: { visible: true, component: CardDescription }
 
   summary:
-    dataType: str
-    renderType: text
+    dtype: str
     inherit: description
 
   # --------------------------------------------------------------------------
   # PERSON NAME FIELDS
   # --------------------------------------------------------------------------
   first_name:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: TextCell, width: "120px" }
     entityFormContainer: { <<: *form_default, component: TextField }
     kanbanView: *hidden
     gridView: { visible: true, component: TextSpan }
 
   last_name:
-    dataType: str
-    renderType: text
+    dtype: str
     inherit: first_name
 
   full_name:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: TextCell, width: "180px" }
     entityFormContainer: { <<: *form_default, component: TextField }
     kanbanView: { visible: true, component: CardSubtitle }
@@ -106,24 +480,21 @@ fieldBusinessTypes:
   # CONTACT FIELDS
   # --------------------------------------------------------------------------
   email:
-    dataType: str
-    renderType: email
+    dtype: str
     entityDataTable: { <<: *table_default, component: EmailCell, width: "200px", format: { linkable: true, icon: mail } }
     entityFormContainer: { <<: *form_default, component: EmailField, format: { linkable: true } }
     kanbanView: *hidden
     gridView: { visible: true, component: EmailLink }
 
   phone:
-    dataType: str
-    renderType: tel
+    dtype: str
     entityDataTable: { <<: *table_default, component: PhoneCell, width: "140px", format: { linkable: true, countryCode: CA } }
     entityFormContainer: { <<: *form_default, component: PhoneField, format: { countryCode: CA } }
     kanbanView: *hidden
     gridView: { visible: true, component: PhoneLink }
 
   url:
-    dataType: str
-    renderType: url
+    dtype: str
     entityDataTable: { <<: *table_default, component: UrlCell, width: "200px", format: { truncate: true, showIcon: true } }
     entityFormContainer: { <<: *form_default, component: UrlField }
     kanbanView: *hidden
@@ -133,58 +504,50 @@ fieldBusinessTypes:
   # ADDRESS FIELDS
   # --------------------------------------------------------------------------
   address:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: AddressCell, width: "250px", format: { singleLine: true } }
     entityFormContainer: { <<: *form_default, component: AddressBlock }
     kanbanView: *hidden
     gridView: { visible: true, component: AddressCompact }
 
   address_line:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: TextCell, width: "200px" }
     entityFormContainer: { <<: *form_default, component: TextField }
     kanbanView: *hidden
     gridView: *hidden
 
   street:
-    dataType: str
-    renderType: text
+    dtype: str
     inherit: address_line
 
   city:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: TextCell, width: "120px" }
     entityFormContainer: { <<: *form_default, component: CityField }
     kanbanView: *hidden
     gridView: { visible: true, component: TextSpan }
 
   state:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: TextCell, width: "100px" }
     entityFormContainer: { <<: *form_default, component: StateField }
     kanbanView: *hidden
     gridView: *hidden
 
   province:
-    dataType: str
-    renderType: text
+    dtype: str
     inherit: state
 
   country:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: CountryCell, width: "120px", format: { showFlag: true } }
     entityFormContainer: { <<: *form_default, component: CountryField, format: { showFlag: true } }
     kanbanView: *hidden
     gridView: { visible: true, component: CountryFlag }
 
   postal_code:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: TextCell, width: "100px", format: { monospace: true } }
     entityFormContainer: { <<: *form_default, component: PostalCodeField, format: { country: CA } }
     kanbanView: *hidden
@@ -194,16 +557,14 @@ fieldBusinessTypes:
   # CURRENCY FIELDS
   # --------------------------------------------------------------------------
   currency:
-    dataType: float
-    renderType: number
+    dtype: float
     entityDataTable: { <<: *table_default, component: CurrencyCell, width: "140px", align: right, format: { symbol: "$", decimals: 2, locale: en-CA } }
     entityFormContainer: { <<: *form_default, component: CurrencyField, format: { symbol: "$", decimals: 2 } }
     kanbanView: { visible: true, component: CurrencyBadge, format: { compact: true } }
     gridView: { visible: true, component: CurrencyText }
 
   currency_cents:
-    dataType: int
-    renderType: number
+    dtype: int
     entityDataTable: { <<: *table_default, component: CurrencyCentsCell, width: "120px", align: right, format: { symbol: "$", locale: en-CA } }
     entityFormContainer: { <<: *form_default, component: CurrencyCentsField }
     kanbanView: *hidden
@@ -213,8 +574,7 @@ fieldBusinessTypes:
   # PERCENTAGE FIELDS
   # --------------------------------------------------------------------------
   percentage:
-    dataType: float
-    renderType: number
+    dtype: float
     entityDataTable: { <<: *table_default, component: PercentageCell, width: "100px", align: right, format: { decimals: 0 } }
     entityFormContainer: { <<: *form_default, component: PercentageField, format: { showBar: true } }
     kanbanView: { visible: true, component: ProgressBar }
@@ -224,8 +584,7 @@ fieldBusinessTypes:
   # DATE & TIME FIELDS
   # --------------------------------------------------------------------------
   date:
-    dataType: date
-    renderType: date
+    dtype: date
     entityDataTable: { <<: *table_default, component: DateCell, width: "120px", format: { style: short, locale: en-CA } }
     entityFormContainer: { <<: *form_default, component: DateField, format: { style: medium } }
     kanbanView: { visible: true, component: DateBadge }
@@ -233,8 +592,7 @@ fieldBusinessTypes:
     calendarView: { visible: true, component: EventDate }
 
   timestamp:
-    dataType: timestamp
-    renderType: datetime
+    dtype: timestamp
     entityDataTable: { <<: *table_default, component: TimestampCell, width: "160px", format: { style: datetime } }
     entityFormContainer: { <<: *form_default, component: TimestampField }
     kanbanView: *hidden
@@ -242,16 +600,14 @@ fieldBusinessTypes:
     calendarView: { visible: true, component: EventTime }
 
   timestamp_readonly:
-    dataType: timestamp
-    renderType: datetime
+    dtype: timestamp
     entityDataTable: { <<: *table_default, component: RelativeTimeCell, width: "140px", filterable: false, format: { style: relative } }
     entityFormContainer: { <<: *form_default, component: RelativeTimeField, format: { showAbsolute: true } }
     kanbanView: { visible: true, component: RelativeTimeBadge }
     gridView: { visible: true, component: RelativeTimeText }
 
   time:
-    dataType: str
-    renderType: time
+    dtype: str
     entityDataTable: { <<: *table_default, component: TimeCell, width: "100px" }
     entityFormContainer: { <<: *form_default, component: TimeField }
     kanbanView: *hidden
@@ -261,9 +617,7 @@ fieldBusinessTypes:
   # DURATION FIELDS
   # --------------------------------------------------------------------------
   duration:
-    dataType: int
-    renderType: component
-    component: DurationCell
+    dtype: int
     entityDataTable: { <<: *table_default, component: DurationCell, width: "100px", format: { unit: minutes } }
     entityFormContainer: { <<: *form_default, component: DurationField, format: { unit: minutes } }
     kanbanView: { visible: true, component: DurationBadge }
@@ -271,33 +625,25 @@ fieldBusinessTypes:
     calendarView: { visible: true, component: EventDuration }
 
   duration_minutes:
-    dataType: int
-    renderType: component
-    component: DurationCell
+    dtype: int
     inherit: duration
 
   duration_hours:
-    dataType: float
-    renderType: component
-    component: DurationCell
+    dtype: float
     entityDataTable: { <<: *table_default, component: DurationCell, width: "100px", format: { unit: hours } }
     entityFormContainer: { <<: *form_default, component: DurationField, format: { unit: hours } }
     kanbanView: *hidden
     gridView: *hidden
 
   duration_seconds:
-    dataType: int
-    renderType: component
-    component: DurationCell
+    dtype: int
     entityDataTable: { <<: *table_default, component: DurationCell, width: "100px", format: { unit: seconds } }
     entityFormContainer: { <<: *form_default, component: DurationField, format: { unit: seconds } }
     kanbanView: *hidden
     gridView: *hidden
 
   duration_ms:
-    dataType: int
-    renderType: component
-    component: DurationCell
+    dtype: int
     entityDataTable: { <<: *table_default, component: DurationCell, width: "100px", format: { unit: ms } }
     entityFormContainer: { <<: *form_default, component: DurationField, format: { unit: ms } }
     kanbanView: *hidden
@@ -307,17 +653,14 @@ fieldBusinessTypes:
   # BOOLEAN FIELDS
   # --------------------------------------------------------------------------
   boolean:
-    dataType: bool
-    renderType: checkbox
+    dtype: bool
     entityDataTable: { <<: *table_default, component: BooleanCell, width: "80px", align: center, format: { trueLabel: "Yes", falseLabel: "No", trueColor: green, falseColor: gray } }
     entityFormContainer: { <<: *form_default, component: BooleanField }
     kanbanView: { visible: true, component: BooleanIcon }
     gridView: { visible: true, component: BooleanIcon }
 
   status_flag:
-    dataType: bool
-    renderType: component
-    component: StatusCell
+    dtype: bool
     entityDataTable: { <<: *table_default, component: StatusCell, width: "100px", align: center, format: { trueLabel: Active, falseLabel: Inactive, trueColor: green, falseColor: red } }
     entityFormContainer: { <<: *form_default, component: StatusBadge }
     kanbanView: { visible: true, component: StatusDot }
@@ -327,9 +670,7 @@ fieldBusinessTypes:
   # DATALABEL & ENTITY REFERENCE FIELDS
   # --------------------------------------------------------------------------
   datalabel:
-    dataType: str
-    renderType: component
-    component: BadgeCell
+    dtype: str
     entityDataTable: { <<: *table_default, component: BadgeCell, width: "140px", format: { colorFromData: true } }
     entityFormContainer: { <<: *form_default, component: DatalabelDAG, format: { showHierarchy: true } }
     kanbanView: { visible: true, component: Badge }
@@ -338,18 +679,14 @@ fieldBusinessTypes:
     dagView: { visible: true, component: DAGNode }
 
   entityInstance_Id:
-    dataType: uuid
-    renderType: component
-    component: EntityLookupCell
+    dtype: uuid
     entityDataTable: { <<: *table_default, component: EntityLookupCell, width: "150px", format: { displayField: name, linkToEntity: true } }
     entityFormContainer: { <<: *form_default, component: EntityLookupField, format: { displayField: name } }
     kanbanView: { visible: true, component: EntityBadge }
     gridView: { visible: true, component: EntityLink }
 
   entityInstance_Ids:
-    dataType: array[uuid]
-    renderType: component
-    component: EntityArrayCell
+    dtype: array[uuid]
     entityDataTable: { <<: *hidden, component: EntityArrayCell, format: { maxDisplay: 3 } }
     entityFormContainer: { <<: *form_default, component: EntityArrayField, format: { displayField: name } }
     kanbanView: { visible: true, component: AvatarStack, format: { max: 3 } }
@@ -359,26 +696,22 @@ fieldBusinessTypes:
   # QUANTITY & NUMBER FIELDS
   # --------------------------------------------------------------------------
   quantity:
-    dataType: int
-    renderType: number
+    dtype: int
     entityDataTable: { <<: *table_default, component: NumberCell, width: "100px", align: right }
     entityFormContainer: { <<: *form_default, component: NumberField }
     kanbanView: *hidden
     gridView: { visible: true, component: NumberText }
 
   count:
-    dataType: int
-    renderType: number
+    dtype: int
     inherit: quantity
 
   number:
-    dataType: int
-    renderType: number
+    dtype: int
     inherit: quantity
 
   sort_order:
-    dataType: int
-    renderType: number
+    dtype: int
     entityDataTable: { <<: *table_default, component: NumberCell, width: "80px", align: center }
     entityFormContainer: { <<: *form_default, component: NumberField }
     kanbanView: *hidden
@@ -388,66 +721,56 @@ fieldBusinessTypes:
   # MEASUREMENT FIELDS
   # --------------------------------------------------------------------------
   area_sqft:
-    dataType: float
-    renderType: number
+    dtype: float
     entityDataTable: { <<: *table_default, component: MeasurementCell, width: "120px", align: right, format: { unit: "sq ft" } }
     entityFormContainer: { <<: *form_default, component: MeasurementField, format: { unit: "sq ft" } }
     kanbanView: *hidden
     gridView: *hidden
 
   volume_m3:
-    dataType: float
-    renderType: number
+    dtype: float
     entityDataTable: { <<: *table_default, component: MeasurementCell, width: "120px", align: right, format: { unit: "m³" } }
     entityFormContainer: { <<: *form_default, component: MeasurementField, format: { unit: "m³" } }
     kanbanView: *hidden
     gridView: *hidden
 
   dimension_cm:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: MeasurementCell, width: "120px", format: { unit: "cm" } }
     entityFormContainer: { <<: *form_default, component: MeasurementField, format: { unit: "cm" } }
     kanbanView: *hidden
     gridView: *hidden
 
   weight_kg:
-    dataType: float
-    renderType: number
+    dtype: float
     entityDataTable: { <<: *table_default, component: WeightCell, width: "100px", align: right, format: { unit: kg } }
     entityFormContainer: { <<: *form_default, component: WeightField, format: { unit: kg } }
     kanbanView: *hidden
     gridView: *hidden
 
   file_size:
-    dataType: int
-    renderType: component
-    component: FileSizeCell
+    dtype: int
     entityDataTable: { <<: *table_default, component: FileSizeCell, width: "100px", align: right }
     entityFormContainer: { <<: *form_default, component: FileSizeField }
     kanbanView: *hidden
     gridView: *hidden
 
   capacity:
-    dataType: int
-    renderType: number
+    dtype: int
     inherit: quantity
 
   # --------------------------------------------------------------------------
   # RATING & SCORE FIELDS
   # --------------------------------------------------------------------------
   rating:
-    dataType: float
-    renderType: component
-    component: RatingCell
+    dtype: float
     entityDataTable: { <<: *table_default, component: RatingCell, width: "120px", format: { max: 5 } }
     entityFormContainer: { <<: *form_default, component: RatingStars, format: { max: 5 } }
     kanbanView: { visible: true, component: RatingCompact }
     gridView: { visible: true, component: RatingStars }
 
   score:
-    dataType: float
-    renderType: number
+    dtype: float
     entityDataTable: { <<: *table_default, component: ScoreCell, width: "100px", align: right }
     entityFormContainer: { <<: *form_default, component: ScoreField }
     kanbanView: *hidden
@@ -457,22 +780,18 @@ fieldBusinessTypes:
   # COORDINATES & GEOLOCATION
   # --------------------------------------------------------------------------
   latitude:
-    dataType: float
-    renderType: number
+    dtype: float
     entityDataTable: { <<: *table_default, component: CoordinateCell, width: "120px", format: { precision: 6 } }
     entityFormContainer: { <<: *form_default, component: CoordinateField }
     kanbanView: *hidden
     gridView: *hidden
 
   longitude:
-    dataType: float
-    renderType: number
+    dtype: float
     inherit: latitude
 
   geolocation:
-    dataType: str
-    renderType: component
-    component: GeolocationField
+    dtype: str
     entityDataTable: { <<: *hidden }
     entityFormContainer: { <<: *form_default, component: GeolocationField, format: { showMap: true } }
     kanbanView: *hidden
@@ -482,27 +801,22 @@ fieldBusinessTypes:
   # TEXT CONTENT FIELDS
   # --------------------------------------------------------------------------
   notes:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *hidden, component: TruncatedCell }
     entityFormContainer: { <<: *form_default, component: TextareaField, format: { rows: 4 } }
     kanbanView: *hidden
     gridView: *hidden
 
   instructions:
-    dataType: str
-    renderType: text
+    dtype: str
     inherit: notes
 
   text_long:
-    dataType: str
-    renderType: text
+    dtype: str
     inherit: notes
 
   rich_text:
-    dataType: str
-    renderType: component
-    component: RichTextViewer
+    dtype: str
     entityDataTable: { <<: *hidden, component: RichTextPreview }
     entityFormContainer: { <<: *form_default, component: RichTextViewer }
     kanbanView: *hidden
@@ -512,24 +826,18 @@ fieldBusinessTypes:
   # JSON & STRUCTURED DATA
   # --------------------------------------------------------------------------
   json:
-    dataType: jsonb
-    renderType: component
-    component: JsonViewer
+    dtype: jsonb
     entityDataTable: { <<: *hidden, component: JsonPreviewCell }
     entityFormContainer: { <<: *form_default, component: JsonViewer, format: { collapsed: true } }
     kanbanView: *hidden
     gridView: *hidden
 
   json_schema:
-    dataType: jsonb
-    renderType: component
-    component: JsonViewer
+    dtype: jsonb
     inherit: json
 
   tags:
-    dataType: array[str]
-    renderType: component
-    component: TagsList
+    dtype: array[str]
     entityDataTable: { <<: *hidden, component: TagsCell, format: { maxDisplay: 3 } }
     entityFormContainer: { <<: *form_default, component: TagsList }
     kanbanView: { visible: true, component: TagsCompact, format: { max: 2 } }
@@ -539,45 +847,35 @@ fieldBusinessTypes:
   # FILE & MEDIA FIELDS
   # --------------------------------------------------------------------------
   file:
-    dataType: str
-    renderType: component
-    component: FileCell
+    dtype: str
     entityDataTable: { <<: *table_default, component: FileCell, width: "150px" }
     entityFormContainer: { <<: *form_default, component: FileField }
     kanbanView: *hidden
     gridView: *hidden
 
   image:
-    dataType: str
-    renderType: component
-    component: ImageCell
+    dtype: str
     entityDataTable: { <<: *table_default, component: ImageCell, width: "80px", format: { size: thumbnail } }
     entityFormContainer: { <<: *form_default, component: ImageField, format: { preview: true } }
     kanbanView: { visible: true, component: CardImage }
     gridView: { visible: true, component: CardImage }
 
   avatar:
-    dataType: str
-    renderType: component
-    component: AvatarCell
+    dtype: str
     entityDataTable: { <<: *table_default, component: AvatarCell, width: "60px", align: center, format: { size: sm } }
     entityFormContainer: { <<: *form_default, component: AvatarField, format: { size: lg } }
     kanbanView: { visible: true, component: Avatar, format: { size: sm } }
     gridView: { visible: true, component: Avatar, format: { size: md } }
 
   signature:
-    dataType: str
-    renderType: component
-    component: SignatureField
+    dtype: str
     entityDataTable: { <<: *hidden }
     entityFormContainer: { <<: *form_default, component: SignatureField }
     kanbanView: *hidden
     gridView: *hidden
 
   video:
-    dataType: str
-    renderType: component
-    component: VideoField
+    dtype: str
     entityDataTable: { <<: *hidden }
     entityFormContainer: { <<: *form_default, component: VideoField }
     kanbanView: *hidden
@@ -587,47 +885,40 @@ fieldBusinessTypes:
   # S3/STORAGE FIELDS
   # --------------------------------------------------------------------------
   s3_bucket:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *hidden }
     entityFormContainer: { <<: *form_default, component: ReadonlyField }
     kanbanView: *hidden
     gridView: *hidden
 
   s3_key:
-    dataType: str
-    renderType: text
+    dtype: str
     inherit: s3_bucket
 
   s3_url:
-    dataType: str
-    renderType: url
+    dtype: str
     inherit: url
 
   s3_region:
-    dataType: str
-    renderType: text
+    dtype: str
     inherit: s3_bucket
 
   hash:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *hidden }
     entityFormContainer: { <<: *form_default, component: ReadonlyField, format: { monospace: true } }
     kanbanView: *hidden
     gridView: *hidden
 
   mime_type:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: TextCell, width: "120px" }
     entityFormContainer: { <<: *form_default, component: ReadonlyField }
     kanbanView: *hidden
     gridView: *hidden
 
   file_extension:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: TextCell, width: "80px" }
     entityFormContainer: { <<: *form_default, component: ReadonlyField }
     kanbanView: *hidden
@@ -637,34 +928,28 @@ fieldBusinessTypes:
   # BARCODE & SCANNING
   # --------------------------------------------------------------------------
   barcode:
-    dataType: str
-    renderType: component
-    component: BarcodeCell
+    dtype: str
     entityDataTable: { <<: *table_default, component: BarcodeCell, width: "150px", format: { type: code128 } }
     entityFormContainer: { <<: *form_default, component: BarcodeField }
     kanbanView: *hidden
     gridView: { visible: true, component: BarcodeImage }
 
   sku:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: CodeCell, width: "120px" }
     entityFormContainer: { <<: *form_default, component: TextField }
     kanbanView: *hidden
     gridView: *hidden
 
   upc:
-    dataType: str
-    renderType: text
+    dtype: str
     inherit: sku
 
   # --------------------------------------------------------------------------
   # COLOR
   # --------------------------------------------------------------------------
   color:
-    dataType: str
-    renderType: component
-    component: ColorCell
+    dtype: str
     entityDataTable: { <<: *table_default, component: ColorCell, width: "100px", format: { showHex: true } }
     entityFormContainer: { <<: *form_default, component: ColorSwatch }
     kanbanView: { visible: true, component: ColorDot }
@@ -674,87 +959,72 @@ fieldBusinessTypes:
   # STATUS & STATE FIELDS
   # --------------------------------------------------------------------------
   status:
-    dataType: str
-    renderType: component
-    component: StatusBadgeCell
+    dtype: str
     entityDataTable: { <<: *table_default, component: StatusBadgeCell, width: "120px" }
     entityFormContainer: { <<: *form_default, component: StatusField }
     kanbanView: { visible: true, component: StatusBadge }
     gridView: { visible: true, component: StatusBadge }
 
   state_workflow:
-    dataType: str
-    renderType: component
-    component: StatusBadgeCell
+    dtype: str
     inherit: status
 
   stage:
-    dataType: str
-    renderType: component
-    component: BadgeCell
+    dtype: str
     inherit: datalabel
 
   # --------------------------------------------------------------------------
   # CATEGORY & TYPE FIELDS
   # --------------------------------------------------------------------------
   type:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: TextCell, width: "120px" }
     entityFormContainer: { <<: *form_default, component: TextField }
     kanbanView: *hidden
     gridView: *hidden
 
   category:
-    dataType: str
-    renderType: text
+    dtype: str
     inherit: type
 
   # --------------------------------------------------------------------------
   # IDENTIFICATION NUMBERS
   # --------------------------------------------------------------------------
   sensitive_id:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *hidden }
     entityFormContainer: { <<: *form_default, component: MaskedField, format: { mask: "***-***-***" } }
     kanbanView: *hidden
     gridView: *hidden
 
   tax_id:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: TextCell, width: "140px" }
     entityFormContainer: { <<: *form_default, component: TextField }
     kanbanView: *hidden
     gridView: *hidden
 
   reference_number:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: CodeCell, width: "140px" }
     entityFormContainer: { <<: *form_default, component: TextField }
     kanbanView: *hidden
     gridView: *hidden
 
   invoice_number:
-    dataType: str
-    renderType: text
+    dtype: str
     inherit: reference_number
 
   order_number:
-    dataType: str
-    renderType: text
+    dtype: str
     inherit: reference_number
 
   po_number:
-    dataType: str
-    renderType: text
+    dtype: str
     inherit: reference_number
 
   tracking_number:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: TrackingCell, width: "160px", format: { linkable: true } }
     entityFormContainer: { <<: *form_default, component: TextField }
     kanbanView: *hidden
@@ -764,40 +1034,35 @@ fieldBusinessTypes:
   # AUTHENTICATION & SECURITY
   # --------------------------------------------------------------------------
   username:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: TextCell, width: "140px" }
     entityFormContainer: { <<: *form_default, component: TextField }
     kanbanView: *hidden
     gridView: *hidden
 
   password_hash:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *hidden }
     entityFormContainer: { <<: *hidden }
     kanbanView: *hidden
     gridView: *hidden
 
   token:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *hidden }
     entityFormContainer: { <<: *form_default, component: ReadonlyField, format: { monospace: true } }
     kanbanView: *hidden
     gridView: *hidden
 
   ip_address:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: TextCell, width: "140px", format: { monospace: true } }
     entityFormContainer: { <<: *form_default, component: ReadonlyField }
     kanbanView: *hidden
     gridView: *hidden
 
   user_agent:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *hidden }
     entityFormContainer: { <<: *form_default, component: ReadonlyField }
     kanbanView: *hidden
@@ -807,25 +1072,21 @@ fieldBusinessTypes:
   # UI FIELDS
   # --------------------------------------------------------------------------
   icon:
-    dataType: str
-    renderType: component
-    component: IconCell
+    dtype: str
     entityDataTable: { <<: *table_default, component: IconCell, width: "80px", align: center }
     entityFormContainer: { <<: *form_default, component: IconPicker }
     kanbanView: *hidden
     gridView: *hidden
 
   label:
-    dataType: str
-    renderType: text
+    dtype: str
     inherit: name
 
   # --------------------------------------------------------------------------
   # SYSTEM FIELDS
   # --------------------------------------------------------------------------
   version:
-    dataType: int
-    renderType: number
+    dtype: int
     entityDataTable: { <<: *hidden }
     entityFormContainer: { <<: *form_default, component: VersionBadge, format: { prefix: v } }
     kanbanView: *hidden
@@ -835,8 +1096,7 @@ fieldBusinessTypes:
   # DEFAULT TEXT
   # --------------------------------------------------------------------------
   text:
-    dataType: str
-    renderType: text
+    dtype: str
     entityDataTable: { <<: *table_default, component: TextCell }
     entityFormContainer: { <<: *form_default, component: TextField }
     kanbanView: { visible: true, component: TextSpan }
