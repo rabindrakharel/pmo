@@ -275,6 +275,13 @@ patterns:
 # ============================================================================
 # DATALABEL FIELDS (Settings Dropdowns)
 # ============================================================================
+  # DAG datalabels - hierarchical stage/state/status with parent-child relations
+  # These MUST come before generic dl__* pattern (first match wins)
+  - { pattern: "dl__*_stage", exact: false, fieldBusinessType: datalabel_dag }
+  - { pattern: "dl__*_state", exact: false, fieldBusinessType: datalabel_dag }
+  - { pattern: "dl__*_status", exact: false, fieldBusinessType: datalabel_dag }
+
+  # Generic datalabel (catches remaining dl__* fields like dl__priority, dl__tier)
   - { pattern: "dl__*", exact: false, fieldBusinessType: datalabel }
 
 # ============================================================================

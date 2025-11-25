@@ -14,10 +14,54 @@
  * - Global settings for cross-cutting concerns (currency, date formats, etc.)
  * - Datalabels extracted and fetched separately
  *
- * YAML MAPPING FILES (v3.0.0):
+ * ============================================================================
+ * API OUTPUT STRUCTURE (v10.0.0)
+ * ============================================================================
+ *
+ * The API returns metadata with viewType and editType as top-level containers:
+ *
+ * {
+ *   "data": [...],
+ *   "fields": ["id", "name", "budget_allocated_amt", ...],
+ *   "metadata": {
+ *     "entityDataTable": {
+ *       "viewType": {
+ *         "budget_allocated_amt": {
+ *           "dtype": "float",
+ *           "label": "Budget Allocated",
+ *           "type": "currency",              // renderType from view-type-mapping.yaml
+ *           "component": "CurrencyCell",     // Only when type is "component"
+ *           "behavior": { "visible": true, "sortable": true, "filterable": true },
+ *           "style": { "width": "140px", "align": "right", "symbol": "$", "decimals": 2 }
+ *         }
+ *       },
+ *       "editType": {
+ *         "budget_allocated_amt": {
+ *           "dtype": "float",
+ *           "label": "Budget Allocated",
+ *           "type": "number",                // inputType from edit-type-mapping.yaml
+ *           "component": "CurrencyInput",    // Only when type is "component" or "select"
+ *           "behavior": { "editable": true },
+ *           "style": { "symbol": "$", "decimals": 2 },
+ *           "validation": { "min": 0 },
+ *           "lookupSource": "datalabel",     // For dropdown fields
+ *           "lookupEntity": "employee",      // For entity reference fields
+ *           "datalabelKey": "dl__status"     // For datalabel fields
+ *         }
+ *       }
+ *     },
+ *     "entityFormContainer": { "viewType": {...}, "editType": {...} },
+ *     "kanbanView": { "viewType": {...}, "editType": {...} }
+ *   }
+ * }
+ *
+ * ============================================================================
+ * YAML MAPPING FILES (v3.0.0)
+ * ============================================================================
+ *
  * - pattern-mapping.yaml: Maps field name patterns to fieldBusinessType
- * - view-type-mapping.yaml: Maps fieldBusinessType to VIEW rendering config
- * - edit-type-mapping.yaml: Maps fieldBusinessType to EDIT/INPUT config
+ * - view-type-mapping.yaml: Maps fieldBusinessType to VIEW rendering config (renderType)
+ * - edit-type-mapping.yaml: Maps fieldBusinessType to EDIT/INPUT config (inputType)
  *
  * YAML STRUCTURE (v3.0.0 - Three Categories):
  *   behavior: { visible, sortable, filterable, searchable, editable }
@@ -66,8 +110,8 @@ export type ComponentName =
 
 // View metadata structure - matches YAML structure with behavior/style
 export interface ViewMetadata {
-  type: string;           // renderType: 'text', 'date', 'component', etc.
-  component?: string;     // Component name when type is 'component'
+  renderType: string;     // 'text', 'date', 'currency', 'component', etc.
+  component?: string;     // Component name when renderType is 'component'
   // Three categories matching YAML structure
   behavior: {
     visible?: boolean;
@@ -80,8 +124,8 @@ export interface ViewMetadata {
 
 // Edit metadata structure - matches YAML structure with behavior/style/validation
 export interface EditMetadata {
-  type: string;           // inputType: 'text', 'select', 'date', etc.
-  component?: string;     // Component name for custom inputs
+  inputType: string;      // 'text', 'number', 'select', 'date', 'checkbox', etc.
+  component?: string;     // Component name when inputType is 'select' or 'component'
   // Lookup source for dropdowns
   lookupSource?: 'datalabel' | 'entityInstance';
   lookupEntity?: string;  // Entity code when lookupSource is 'entityInstance'

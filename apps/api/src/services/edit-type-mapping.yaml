@@ -42,6 +42,42 @@
 #   validation: Input constraints (required, min, max, pattern, ...)
 #
 # ============================================================================
+# API OUTPUT STRUCTURE (v10.0.0)
+# ============================================================================
+#
+# The API returns metadata with viewType and editType as top-level containers
+# within each component. This separates VIEW and EDIT concerns cleanly:
+#
+#   {
+#     "data": [...],
+#     "metadata": {
+#       "entityDataTable": {
+#         "viewType": {                          ← All VIEW metadata here
+#           "budget_allocated_amt": {
+#             "dtype": "float",
+#             "label": "Budget Allocated",
+#             "type": "currency",                ← renderType from view-type-mapping.yaml
+#             "behavior": { "visible": true, "sortable": true },
+#             "style": { "symbol": "$", "decimals": 2 }
+#           }
+#         },
+#         "editType": {                          ← All EDIT metadata (from this file)
+#           "budget_allocated_amt": {
+#             "dtype": "float",
+#             "label": "Budget Allocated",
+#             "type": "number",                  ← inputType from this file
+#             "behavior": { "editable": true },
+#             "style": { "symbol": "$", "decimals": 2 },
+#             "validation": { "min": 0 },
+#             "lookupSource": "datalabel",       ← For dropdown fields
+#             "datalabelKey": "dl__status"       ← For datalabel lookup
+#           }
+#         }
+#       }
+#     }
+#   }
+#
+# ============================================================================
 # HOW THIS FILE IS COMPOSED
 # ============================================================================
 #
@@ -345,8 +381,7 @@ fieldBusinessTypes:
       behavior: { editable: true }
       validation: { required: true, pattern: "^[A-Za-z0-9-_]+$" }
     kanbanView:
-      inputType: component
-      component: InlineTextInput
+      inputType: text
       behavior: { editable: true }
 
   name:
@@ -361,8 +396,7 @@ fieldBusinessTypes:
       validation: { required: true, minLength: 1, maxLength: 255 }
       style: { size: lg }
     kanbanView:
-      inputType: component
-      component: InlineTextInput
+      inputType: text
       behavior: { editable: true }
 
   title:
@@ -433,10 +467,9 @@ fieldBusinessTypes:
       inputType: text
       behavior: { editable: true, filterable: true, sortable: false, visible: true }
     entityFormContainer:
-      inputType: component
-      component: AddressAutocomplete
+      inputType: textarea
       behavior: { editable: true }
-      style: { country: CA, showMap: false }
+      style: { country: CA, rows: 3 }
 
   # address_line, street, city, state, province → consolidated to 'text' type
   # See pattern-mapping.yaml for patterns that map to 'text'
@@ -444,14 +477,12 @@ fieldBusinessTypes:
   country:
     dtype: str
     entityDataTable:
-      inputType: select
-      component: CountrySelect
+      inputType: text
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
     entityFormContainer:
-      inputType: select
-      component: CountrySelect
+      inputType: text
       behavior: { editable: true }
-      style: { showFlag: true, defaultValue: CA }
+      style: { defaultValue: CA }
 
   postal_code:
     dtype: str
@@ -520,8 +551,7 @@ fieldBusinessTypes:
       behavior: { editable: true }
       style: { locale: en-CA, clearable: true }
     kanbanView:
-      inputType: component
-      component: InlineDatePicker
+      inputType: date
       behavior: { editable: true }
     calendarView:
       inputType: date
@@ -569,14 +599,12 @@ fieldBusinessTypes:
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
     entityFormContainer:
-      inputType: component
-      component: DurationPicker
+      inputType: number
       behavior: { editable: true }
       style: { units: [hours, minutes], defaultUnit: minutes }
       validation: { min: 0 }
     calendarView:
-      inputType: component
-      component: DurationPicker
+      inputType: number
       behavior: { editable: true }
 
   duration_minutes:
@@ -590,8 +618,7 @@ fieldBusinessTypes:
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
     entityFormContainer:
-      inputType: component
-      component: DurationPicker
+      inputType: number
       behavior: { editable: true }
       style: { units: [hours], defaultUnit: hours }
       validation: { min: 0 }
@@ -603,8 +630,7 @@ fieldBusinessTypes:
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
     entityFormContainer:
-      inputType: component
-      component: DurationPicker
+      inputType: number
       behavior: { editable: true }
       style: { units: [minutes, seconds], defaultUnit: seconds }
       validation: { min: 0 }
@@ -634,21 +660,19 @@ fieldBusinessTypes:
       behavior: { editable: true }
       style: { label: true }
     kanbanView:
-      inputType: component
-      component: InlineCheckbox
+      inputType: checkbox
       behavior: { editable: true }
 
   status_flag:
     dtype: bool
     entityDataTable:
-      inputType: component
-      component: Toggle
+      inputType: checkbox
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      style: { trueLabel: Active, falseLabel: Inactive }
     entityFormContainer:
-      inputType: component
-      component: Toggle
+      inputType: checkbox
       behavior: { editable: true }
-      style: { onLabel: Active, offLabel: Inactive }
+      style: { trueLabel: Active, falseLabel: Inactive }
 
   # --------------------------------------------------------------------------
   # DATALABEL & ENTITY REFERENCE FIELDS
@@ -658,20 +682,44 @@ fieldBusinessTypes:
     lookupSource: datalabel
     entityDataTable:
       inputType: select
-      component: DatalabelSelect
+      component: DataLabelSelect
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
     entityFormContainer:
       inputType: select
-      component: DatalabelSelect
+      component: DataLabelSelect
       behavior: { editable: true }
       style: { showColor: true, searchable: true }
     kanbanView:
       inputType: select
-      component: InlineSelect
+      component: DataLabelSelect
       behavior: { editable: true }
     dagView:
       inputType: select
-      component: DAGNodeSelect
+      component: DataLabelSelect
+      behavior: { editable: true }
+
+  # DAG datalabels - hierarchical stage/state/status with parent-child relations
+  # Matched by: dl__*_stage, dl__*_state, dl__*_status
+  # Uses DAGVisualizer component for entityFormContainer editing
+  datalabel_dag:
+    dtype: str
+    lookupSource: datalabel
+    entityDataTable:
+      inputType: select
+      component: DataLabelSelect
+      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+    entityFormContainer:
+      inputType: component
+      component: DAGVisualizer
+      behavior: { editable: true }
+      style: { showHierarchy: true, interactive: true }
+    kanbanView:
+      inputType: select
+      component: DataLabelSelect
+      behavior: { editable: true }
+    dagView:
+      inputType: select
+      component: DataLabelSelect
       behavior: { editable: true }
 
   entityInstance_Id:
@@ -688,7 +736,7 @@ fieldBusinessTypes:
       style: { searchable: true, clearable: true, displayField: name }
     kanbanView:
       inputType: select
-      component: InlineEntitySelect
+      component: EntitySelect
       behavior: { editable: true }
 
   entityInstance_Ids:
@@ -807,15 +855,14 @@ fieldBusinessTypes:
   rating:
     dtype: float
     entityDataTable:
-      inputType: component
-      component: RatingInput
+      inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0, max: 5 }
+      style: { step: 0.5 }
     entityFormContainer:
-      inputType: component
-      component: RatingInput
+      inputType: number
       behavior: { editable: true }
-      style: { max: 5, allowHalf: true, clearable: true }
+      style: { max: 5, step: 0.5 }
       validation: { min: 0, max: 5 }
 
   score:
@@ -858,12 +905,10 @@ fieldBusinessTypes:
   geolocation:
     dtype: str
     entityDataTable:
-      inputType: component
-      component: GeolocationInput
+      inputType: text
       behavior: { editable: true, filterable: false, sortable: false, visible: false }
     entityFormContainer:
-      inputType: component
-      component: GeolocationPicker
+      inputType: text
       behavior: { editable: true }
       style: { showMap: true, allowManual: true }
 
@@ -889,10 +934,9 @@ fieldBusinessTypes:
       inputType: textarea
       behavior: { editable: true, filterable: false, sortable: false, visible: false }
     entityFormContainer:
-      inputType: component
-      component: RichTextEditor
+      inputType: textarea
       behavior: { editable: true }
-      style: { toolbar: [bold, italic, link, list], minHeight: 200 }
+      style: { rows: 6, minHeight: 200 }
 
   # --------------------------------------------------------------------------
   # JSON & STRUCTURED DATA
@@ -900,14 +944,12 @@ fieldBusinessTypes:
   json:
     dtype: jsonb
     entityDataTable:
-      inputType: component
-      component: JsonEditor
+      inputType: textarea
       behavior: { editable: true, filterable: false, sortable: false, visible: false }
     entityFormContainer:
-      inputType: component
-      component: JsonEditor
+      inputType: textarea
       behavior: { editable: true }
-      style: { mode: tree, validateSchema: false }
+      style: { mode: tree, validateSchema: false, rows: 6 }
 
   json_schema:
     dtype: jsonb
@@ -916,12 +958,12 @@ fieldBusinessTypes:
   tags:
     dtype: array[str]
     entityDataTable:
-      inputType: component
-      component: TagsInput
+      inputType: select
+      component: EditableTags
       behavior: { editable: true, filterable: true, sortable: false, visible: true }
     entityFormContainer:
-      inputType: component
-      component: TagsInput
+      inputType: select
+      component: EditableTags
       behavior: { editable: true }
       style: { allowCreate: true, maxTags: null }
 
@@ -941,42 +983,36 @@ fieldBusinessTypes:
   image:
     dtype: str
     entityDataTable:
-      inputType: component
-      component: ImageUpload
+      inputType: file
       behavior: { editable: true, filterable: false, sortable: false, visible: false }
     entityFormContainer:
-      inputType: component
-      component: ImageUpload
+      inputType: file
       behavior: { editable: true }
       style: { accept: "image/*", maxSize: 5242880, preview: true }
 
   avatar:
     dtype: str
     entityDataTable:
-      inputType: component
-      component: ImageUpload
+      inputType: file
       behavior: { editable: true, filterable: false, sortable: false, visible: false }
     entityFormContainer:
-      inputType: component
-      component: AvatarUpload
+      inputType: file
       behavior: { editable: true }
       style: { accept: "image/*", maxSize: 2097152, crop: true, aspectRatio: 1 }
 
   signature:
     dtype: str
     entityFormContainer:
-      inputType: component
-      component: SignaturePad
+      inputType: file
       behavior: { editable: true }
-      style: { width: 400, height: 200 }
+      style: { accept: "image/*", width: 400, height: 200 }
 
   video:
     dtype: str
     entityFormContainer:
-      inputType: component
-      component: VideoCapture
+      inputType: file
       behavior: { editable: true }
-      style: { maxDuration: 60 }
+      style: { accept: "video/*", maxDuration: 60 }
 
   # --------------------------------------------------------------------------
   # S3/STORAGE FIELDS (typically readonly)
@@ -1045,14 +1081,12 @@ fieldBusinessTypes:
   barcode:
     dtype: str
     entityDataTable:
-      inputType: component
-      component: BarcodeInput
+      inputType: text
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
     entityFormContainer:
-      inputType: component
-      component: BarcodeScanner
+      inputType: text
       behavior: { editable: true }
-      style: { type: code128, allowManual: true }
+      style: { type: code128 }
 
   sku:
     dtype: str
@@ -1076,10 +1110,9 @@ fieldBusinessTypes:
       inputType: color
       behavior: { editable: true, filterable: true, sortable: false, visible: true }
     entityFormContainer:
-      inputType: component
-      component: ColorPicker
+      inputType: color
       behavior: { editable: true }
-      style: { presets: true, allowCustom: true, outputFormat: hex }
+      style: { presets: true, outputFormat: hex }
 
   # --------------------------------------------------------------------------
   # STATUS & STATE FIELDS
@@ -1125,8 +1158,7 @@ fieldBusinessTypes:
   sensitive_id:
     dtype: str
     entityFormContainer:
-      inputType: component
-      component: MaskedInput
+      inputType: text
       behavior: { editable: true }
       style: { mask: "###-###-###", secure: true }
 
@@ -1218,8 +1250,7 @@ fieldBusinessTypes:
   icon:
     dtype: str
     entityFormContainer:
-      inputType: component
-      component: IconPicker
+      inputType: text
       behavior: { editable: true }
       style: { library: lucide }
 
@@ -1251,8 +1282,7 @@ fieldBusinessTypes:
       inputType: text
       behavior: { editable: true }
     kanbanView:
-      inputType: component
-      component: InlineTextInput
+      inputType: text
       behavior: { editable: true }
 
 # ============================================================================
