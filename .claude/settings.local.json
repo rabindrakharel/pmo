@@ -231,7 +231,8 @@
       "Bash(do sed -i \"s/, extractDatalabelKeys//g\" \"$file\")",
       "Bash(source ~/.nvm/nvm.sh)",
       "Bash(nvm use:*)",
-      "Bash(__NEW_LINE__ echo \"\")"
+      "Bash(__NEW_LINE__ echo \"\")",
+      "Bash(/home/rabin/projects/pmo/tools/start-all.sh:*)"
     ],
     "deny": [],
     "ask": [],

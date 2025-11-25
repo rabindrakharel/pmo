@@ -28,59 +28,59 @@ fieldBusinessTypes:
   # IDENTITY & CORE
   # --------------------------------------------------------------------------
   uuid:
-    dtype: uuid
+    dataType: uuid
     <<: *readonly
     entityFormContainer: { <<: *readonly, format: { monospace: true } }
 
   code:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: text, component: TextInput }
     entityFormContainer: { inputType: text, component: TextInput, validation: { required: true, pattern: "^[A-Za-z0-9-_]+$" } }
     kanbanView: { inputType: text, component: InlineTextInput }
 
   name:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: text, component: TextInput }
     entityFormContainer: { inputType: text, component: TextInput, validation: { required: true, minLength: 1, maxLength: 255 }, format: { size: lg } }
     kanbanView: { inputType: text, component: InlineTextInput }
 
   title:
-    dtype: str
+    dataType: str
     inherit: name
 
   subject:
-    dtype: str
+    dataType: str
     inherit: name
 
   description:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: textarea, component: TextareaInput }
     entityFormContainer: { inputType: textarea, component: TextareaInput, format: { rows: 4, resizable: true } }
 
   summary:
-    dtype: str
+    dataType: str
     inherit: description
 
   # --------------------------------------------------------------------------
   # PERSON NAME FIELDS
   # --------------------------------------------------------------------------
   first_name:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: text, component: TextInput }
     entityFormContainer: { inputType: text, component: TextInput, format: { autocomplete: given-name } }
 
   last_name:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: text, component: TextInput }
     entityFormContainer: { inputType: text, component: TextInput, format: { autocomplete: family-name } }
 
   full_name:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: text, component: TextInput }
     entityFormContainer: { inputType: text, component: TextInput, format: { autocomplete: name } }
@@ -89,19 +89,19 @@ fieldBusinessTypes:
   # CONTACT FIELDS
   # --------------------------------------------------------------------------
   email:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: email, component: EmailInput }
     entityFormContainer: { inputType: email, component: EmailInput, validation: { pattern: "^[^@]+@[^@]+\\.[^@]+$" }, format: { autocomplete: email } }
 
   phone:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: tel, component: PhoneInput }
     entityFormContainer: { inputType: tel, component: PhoneInput, format: { countryCode: CA, mask: "(###) ###-####" } }
 
   url:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: url, component: UrlInput }
     entityFormContainer: { inputType: url, component: UrlInput, validation: { pattern: "^https?://" }, format: { placeholder: "https://..." } }
@@ -110,47 +110,47 @@ fieldBusinessTypes:
   # ADDRESS FIELDS
   # --------------------------------------------------------------------------
   address:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: text, component: AddressInput }
     entityFormContainer: { inputType: address, component: AddressAutocomplete, format: { country: CA, showMap: false } }
 
   address_line:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: text, component: TextInput }
     entityFormContainer: { inputType: text, component: TextInput, format: { autocomplete: street-address } }
 
   street:
-    dtype: str
+    dataType: str
     inherit: address_line
 
   city:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: text, component: TextInput }
     entityFormContainer: { inputType: text, component: CityAutocomplete, format: { country: CA } }
 
   state:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: select, component: StateSelect }
     entityFormContainer: { inputType: select, component: StateSelect, format: { country: US } }
 
   province:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: select, component: ProvinceSelect }
     entityFormContainer: { inputType: select, component: ProvinceSelect, format: { country: CA } }
 
   country:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: select, component: CountrySelect }
     entityFormContainer: { inputType: select, component: CountrySelect, format: { showFlag: true, defaultValue: CA } }
 
   postal_code:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: text, component: PostalCodeInput }
     entityFormContainer: { inputType: text, component: PostalCodeInput, validation: { pattern: "^[A-Za-z]\\d[A-Za-z][ -]?\\d[A-Za-z]\\d$" }, format: { mask: "A#A #A#", country: CA } }
@@ -159,13 +159,13 @@ fieldBusinessTypes:
   # CURRENCY FIELDS
   # --------------------------------------------------------------------------
   currency:
-    dtype: float
+    dataType: float
     <<: *editable
     entityDataTable: { inputType: currency, component: CurrencyInput }
     entityFormContainer: { inputType: currency, component: CurrencyInput, format: { symbol: "$", decimals: 2, locale: en-CA }, validation: { min: 0 } }
 
   currency_cents:
-    dtype: int
+    dataType: int
     <<: *editable
     entityDataTable: { inputType: number, component: NumberInput }
     entityFormContainer: { inputType: number, component: CurrencyCentsInput, format: { symbol: "$" }, validation: { min: 0 } }
@@ -174,7 +174,7 @@ fieldBusinessTypes:
   # PERCENTAGE FIELDS
   # --------------------------------------------------------------------------
   percentage:
-    dtype: float
+    dataType: float
     <<: *editable
     entityDataTable: { inputType: number, component: PercentageInput }
     entityFormContainer: { inputType: slider, component: SliderInput, format: { min: 0, max: 100, step: 1, showValue: true } }
@@ -183,7 +183,7 @@ fieldBusinessTypes:
   # DATE & TIME FIELDS
   # --------------------------------------------------------------------------
   date:
-    dtype: date
+    dataType: date
     <<: *editable
     entityDataTable: { inputType: date, component: DatePicker }
     entityFormContainer: { inputType: date, component: DatePicker, format: { locale: en-CA, clearable: true } }
@@ -191,18 +191,18 @@ fieldBusinessTypes:
     calendarView: { inputType: date, component: DatePicker }
 
   timestamp:
-    dtype: timestamp
+    dataType: timestamp
     <<: *editable
     entityDataTable: { inputType: datetime, component: DateTimePicker }
     entityFormContainer: { inputType: datetime, component: DateTimePicker, format: { locale: en-CA, showTimezone: false } }
     calendarView: { inputType: datetime, component: DateTimePicker }
 
   timestamp_readonly:
-    dtype: timestamp
+    dataType: timestamp
     <<: *readonly
 
   time:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: time, component: TimePicker }
     entityFormContainer: { inputType: time, component: TimePicker, format: { step: 15 } }
@@ -211,30 +211,30 @@ fieldBusinessTypes:
   # DURATION FIELDS
   # --------------------------------------------------------------------------
   duration:
-    dtype: int
+    dataType: int
     <<: *editable
     entityDataTable: { inputType: number, component: DurationInput }
     entityFormContainer: { inputType: duration, component: DurationPicker, format: { units: [hours, minutes], defaultUnit: minutes } }
     calendarView: { inputType: duration, component: DurationPicker }
 
   duration_minutes:
-    dtype: int
+    dataType: int
     inherit: duration
 
   duration_hours:
-    dtype: float
+    dataType: float
     <<: *editable
     entityDataTable: { inputType: number, component: DurationInput }
     entityFormContainer: { inputType: duration, component: DurationPicker, format: { units: [hours], defaultUnit: hours } }
 
   duration_seconds:
-    dtype: int
+    dataType: int
     <<: *editable
     entityDataTable: { inputType: number, component: DurationInput }
     entityFormContainer: { inputType: duration, component: DurationPicker, format: { units: [minutes, seconds], defaultUnit: seconds } }
 
   duration_ms:
-    dtype: int
+    dataType: int
     <<: *editable
     entityDataTable: { inputType: number, component: NumberInput }
     entityFormContainer: { inputType: number, component: NumberInput, format: { suffix: ms } }
@@ -243,14 +243,14 @@ fieldBusinessTypes:
   # BOOLEAN FIELDS
   # --------------------------------------------------------------------------
   boolean:
-    dtype: bool
+    dataType: bool
     <<: *editable
     entityDataTable: { inputType: checkbox, component: Checkbox }
     entityFormContainer: { inputType: checkbox, component: Checkbox, format: { label: true } }
     kanbanView: { inputType: checkbox, component: InlineCheckbox }
 
   status_flag:
-    dtype: bool
+    dataType: bool
     <<: *editable
     entityDataTable: { inputType: toggle, component: Toggle }
     entityFormContainer: { inputType: toggle, component: Toggle, format: { onLabel: Active, offLabel: Inactive } }
@@ -259,26 +259,26 @@ fieldBusinessTypes:
   # DATALABEL & ENTITY REFERENCE FIELDS
   # --------------------------------------------------------------------------
   datalabel:
-    dtype: str
+    dataType: str
     <<: *editable
-    loadFromDataLabels: true
+    lookupSource: datalabel
     entityDataTable: { inputType: select, component: DatalabelSelect }
     entityFormContainer: { inputType: select, component: DatalabelSelect, format: { showColor: true, searchable: true } }
     kanbanView: { inputType: select, component: InlineSelect }
     dagView: { inputType: select, component: DAGNodeSelect }
 
   entityInstance_Id:
-    dtype: uuid
+    dataType: uuid
     <<: *editable
-    loadFromEntity: true
+    lookupSource: entityInstance
     entityDataTable: { inputType: entity_select, component: EntitySelect }
     entityFormContainer: { inputType: entity_select, component: EntitySelect, format: { searchable: true, clearable: true, displayField: name } }
     kanbanView: { inputType: entity_select, component: InlineEntitySelect }
 
   entityInstance_Ids:
-    dtype: array[uuid]
+    dataType: array[uuid]
     <<: *editable
-    loadFromEntity: true
+    lookupSource: entityInstance
     entityDataTable: { inputType: entityInstance_Ids, component: EntityMultiSelect }
     entityFormContainer: { inputType: entityInstance_Ids, component: EntityMultiSelect, format: { searchable: true, displayField: name, maxSelections: null } }
 
@@ -286,21 +286,21 @@ fieldBusinessTypes:
   # QUANTITY & NUMBER FIELDS
   # --------------------------------------------------------------------------
   quantity:
-    dtype: int
+    dataType: int
     <<: *editable
     entityDataTable: { inputType: number, component: NumberInput }
     entityFormContainer: { inputType: number, component: NumberInput, format: { step: 1 }, validation: { min: 0 } }
 
   count:
-    dtype: int
+    dataType: int
     inherit: quantity
 
   number:
-    dtype: int
+    dataType: int
     inherit: quantity
 
   sort_order:
-    dtype: int
+    dataType: int
     <<: *editable
     entityDataTable: { inputType: number, component: NumberInput }
     entityFormContainer: { inputType: number, component: NumberInput, format: { step: 1 }, validation: { min: 0 } }
@@ -309,48 +309,48 @@ fieldBusinessTypes:
   # MEASUREMENT FIELDS
   # --------------------------------------------------------------------------
   area_sqft:
-    dtype: float
+    dataType: float
     <<: *editable
     entityDataTable: { inputType: number, component: MeasurementInput }
     entityFormContainer: { inputType: number, component: MeasurementInput, format: { unit: "sq ft", decimals: 2 }, validation: { min: 0 } }
 
   volume_m3:
-    dtype: float
+    dataType: float
     <<: *editable
     entityDataTable: { inputType: number, component: MeasurementInput }
     entityFormContainer: { inputType: number, component: MeasurementInput, format: { unit: "m³", decimals: 3 }, validation: { min: 0 } }
 
   dimension_cm:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: text, component: TextInput }
     entityFormContainer: { inputType: text, component: DimensionInput, format: { unit: cm } }
 
   weight_kg:
-    dtype: float
+    dataType: float
     <<: *editable
     entityDataTable: { inputType: number, component: WeightInput }
     entityFormContainer: { inputType: number, component: WeightInput, format: { unit: kg, decimals: 2 }, validation: { min: 0 } }
 
   file_size:
-    dtype: int
+    dataType: int
     <<: *readonly
 
   capacity:
-    dtype: int
+    dataType: int
     inherit: quantity
 
   # --------------------------------------------------------------------------
   # RATING & SCORE FIELDS
   # --------------------------------------------------------------------------
   rating:
-    dtype: float
+    dataType: float
     <<: *editable
     entityDataTable: { inputType: rating, component: RatingInput }
     entityFormContainer: { inputType: rating, component: RatingInput, format: { max: 5, allowHalf: true, clearable: true } }
 
   score:
-    dtype: float
+    dataType: float
     <<: *editable
     entityDataTable: { inputType: number, component: NumberInput }
     entityFormContainer: { inputType: number, component: NumberInput, format: { step: 1 } }
@@ -359,19 +359,19 @@ fieldBusinessTypes:
   # COORDINATES & GEOLOCATION
   # --------------------------------------------------------------------------
   latitude:
-    dtype: float
+    dataType: float
     <<: *editable
     entityDataTable: { inputType: number, component: CoordinateInput }
     entityFormContainer: { inputType: number, component: CoordinateInput, format: { precision: 6, type: latitude }, validation: { min: -90, max: 90 } }
 
   longitude:
-    dtype: float
+    dataType: float
     <<: *editable
     entityDataTable: { inputType: number, component: CoordinateInput }
     entityFormContainer: { inputType: number, component: CoordinateInput, format: { precision: 6, type: longitude }, validation: { min: -180, max: 180 } }
 
   geolocation:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: geolocation, component: GeolocationInput }
     entityFormContainer: { inputType: geolocation, component: GeolocationPicker, format: { showMap: true, allowManual: true } }
@@ -380,21 +380,21 @@ fieldBusinessTypes:
   # TEXT CONTENT FIELDS
   # --------------------------------------------------------------------------
   notes:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: textarea, component: TextareaInput }
     entityFormContainer: { inputType: textarea, component: TextareaInput, format: { rows: 4, resizable: true } }
 
   instructions:
-    dtype: str
+    dataType: str
     inherit: notes
 
   text_long:
-    dtype: str
+    dataType: str
     inherit: notes
 
   rich_text:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: textarea, component: TextareaInput }
     entityFormContainer: { inputType: richtext, component: RichTextEditor, format: { toolbar: [bold, italic, link, list], minHeight: 200 } }
@@ -403,17 +403,17 @@ fieldBusinessTypes:
   # JSON & STRUCTURED DATA
   # --------------------------------------------------------------------------
   json:
-    dtype: jsonb
+    dataType: jsonb
     <<: *editable
     entityDataTable: { inputType: json, component: JsonEditor }
     entityFormContainer: { inputType: json, component: JsonEditor, format: { mode: tree, validateSchema: false } }
 
   json_schema:
-    dtype: jsonb
+    dataType: jsonb
     inherit: json
 
   tags:
-    dtype: array[str]
+    dataType: array[str]
     <<: *editable
     entityDataTable: { inputType: tags, component: TagsInput }
     entityFormContainer: { inputType: tags, component: TagsInput, format: { allowCreate: true, maxTags: null } }
@@ -422,30 +422,30 @@ fieldBusinessTypes:
   # FILE & MEDIA FIELDS
   # --------------------------------------------------------------------------
   file:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: file, component: FileUpload }
     entityFormContainer: { inputType: file, component: FileUpload, format: { accept: "*/*", maxSize: 10485760 } }
 
   image:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: image, component: ImageUpload }
     entityFormContainer: { inputType: image, component: ImageUpload, format: { accept: "image/*", maxSize: 5242880, preview: true } }
 
   avatar:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: image, component: ImageUpload }
     entityFormContainer: { inputType: avatar, component: AvatarUpload, format: { accept: "image/*", maxSize: 2097152, crop: true, aspectRatio: 1 } }
 
   signature:
-    dtype: str
+    dataType: str
     <<: *editable
     entityFormContainer: { inputType: signature, component: SignaturePad, format: { width: 400, height: 200 } }
 
   video:
-    dtype: str
+    dataType: str
     <<: *editable
     entityFormContainer: { inputType: video, component: VideoCapture, format: { maxDuration: 60 } }
 
@@ -453,57 +453,57 @@ fieldBusinessTypes:
   # S3/STORAGE FIELDS (typically readonly)
   # --------------------------------------------------------------------------
   s3_bucket:
-    dtype: str
+    dataType: str
     <<: *readonly
 
   s3_key:
-    dtype: str
+    dataType: str
     <<: *readonly
 
   s3_url:
-    dtype: str
+    dataType: str
     inherit: url
 
   s3_region:
-    dtype: str
+    dataType: str
     <<: *readonly
 
   hash:
-    dtype: str
+    dataType: str
     <<: *readonly
 
   mime_type:
-    dtype: str
+    dataType: str
     <<: *readonly
 
   file_extension:
-    dtype: str
+    dataType: str
     <<: *readonly
 
   # --------------------------------------------------------------------------
   # BARCODE & SCANNING
   # --------------------------------------------------------------------------
   barcode:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: text, component: BarcodeInput }
     entityFormContainer: { inputType: barcode, component: BarcodeScanner, format: { type: code128, allowManual: true } }
 
   sku:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: text, component: TextInput }
     entityFormContainer: { inputType: text, component: TextInput }
 
   upc:
-    dtype: str
+    dataType: str
     inherit: sku
 
   # --------------------------------------------------------------------------
   # COLOR
   # --------------------------------------------------------------------------
   color:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: color, component: ColorPicker }
     entityFormContainer: { inputType: color, component: ColorPicker, format: { presets: true, allowCustom: true, outputFormat: hex } }
@@ -512,117 +512,117 @@ fieldBusinessTypes:
   # STATUS & STATE FIELDS
   # --------------------------------------------------------------------------
   status:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: select, component: StatusSelect }
     entityFormContainer: { inputType: select, component: StatusSelect }
 
   state_workflow:
-    dtype: str
+    dataType: str
     inherit: status
 
   stage:
-    dtype: str
+    dataType: str
     inherit: datalabel
 
   # --------------------------------------------------------------------------
   # CATEGORY & TYPE FIELDS
   # --------------------------------------------------------------------------
   type:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: text, component: TextInput }
     entityFormContainer: { inputType: text, component: TextInput }
 
   category:
-    dtype: str
+    dataType: str
     inherit: type
 
   # --------------------------------------------------------------------------
   # IDENTIFICATION NUMBERS
   # --------------------------------------------------------------------------
   sensitive_id:
-    dtype: str
+    dataType: str
     <<: *editable
     entityFormContainer: { inputType: text, component: MaskedInput, format: { mask: "###-###-###", secure: true } }
 
   tax_id:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: text, component: TextInput }
     entityFormContainer: { inputType: text, component: TextInput }
 
   reference_number:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: text, component: TextInput }
     entityFormContainer: { inputType: text, component: TextInput }
 
   invoice_number:
-    dtype: str
+    dataType: str
     inherit: reference_number
 
   order_number:
-    dtype: str
+    dataType: str
     inherit: reference_number
 
   po_number:
-    dtype: str
+    dataType: str
     inherit: reference_number
 
   tracking_number:
-    dtype: str
+    dataType: str
     inherit: reference_number
 
   # --------------------------------------------------------------------------
   # AUTHENTICATION & SECURITY (typically readonly/hidden)
   # --------------------------------------------------------------------------
   username:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: text, component: TextInput }
     entityFormContainer: { inputType: text, component: TextInput }
 
   password_hash:
-    dtype: str
+    dataType: str
     <<: *hidden
 
   token:
-    dtype: str
+    dataType: str
     <<: *readonly
 
   ip_address:
-    dtype: str
+    dataType: str
     <<: *readonly
 
   user_agent:
-    dtype: str
+    dataType: str
     <<: *readonly
 
   # --------------------------------------------------------------------------
   # UI FIELDS
   # --------------------------------------------------------------------------
   icon:
-    dtype: str
+    dataType: str
     <<: *editable
     entityFormContainer: { inputType: icon, component: IconPicker, format: { library: lucide } }
 
   label:
-    dtype: str
+    dataType: str
     inherit: name
 
   # --------------------------------------------------------------------------
   # SYSTEM FIELDS
   # --------------------------------------------------------------------------
   version:
-    dtype: int
+    dataType: int
     <<: *readonly
 
   # --------------------------------------------------------------------------
   # DEFAULT TEXT
   # --------------------------------------------------------------------------
   text:
-    dtype: str
+    dataType: str
     <<: *editable
     entityDataTable: { inputType: text, component: TextInput }
     entityFormContainer: { inputType: text, component: TextInput }
