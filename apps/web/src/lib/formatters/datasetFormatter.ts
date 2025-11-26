@@ -6,10 +6,21 @@
  * This module provides the core formatDataset() function that transforms
  * raw API data into pre-formatted rows for instant rendering.
  *
+ * v8.1.0: Fixed metadata coupling - now correctly extracts viewType from
+ * nested component metadata structure { viewType: {...}, editType: {...} }
+ *
  * PERFORMANCE: Called once when data is fetched, not during scroll/render.
  */
 
-import type { FieldMetadata, ComponentMetadata, FormattedRow, FormattedValue } from './types';
+import type {
+  FieldMetadata,
+  ViewFieldMetadata,
+  ComponentMetadata,
+  FlatComponentMetadata,
+  FormattedRow,
+  FormattedValue,
+} from './types';
+import { extractViewType, isNestedComponentMetadata } from './types';
 import {
   formatCurrency,
   formatBadge,
@@ -25,9 +36,9 @@ import {
 } from './valueFormatters';
 
 /**
- * Formatter registry - maps viewType to formatter function
+ * Formatter registry - maps renderType to formatter function
  */
-const FORMATTERS: Record<string, (value: any, meta?: FieldMetadata) => FormattedValue> = {
+const FORMATTERS: Record<string, (value: any, meta?: ViewFieldMetadata | FieldMetadata) => FormattedValue> = {
   // Currency
   'currency': formatCurrency,
 
@@ -73,7 +84,7 @@ const FORMATTERS: Record<string, (value: any, meta?: FieldMetadata) => Formatted
 export function formatValue(
   value: any,
   key: string,
-  metadata: FieldMetadata | undefined
+  metadata: ViewFieldMetadata | FieldMetadata | undefined
 ): FormattedValue {
   const renderType = metadata?.renderType || 'text';
   const formatter = FORMATTERS[renderType] || formatText;
@@ -81,18 +92,24 @@ export function formatValue(
 }
 
 /**
- * Format a single row
+ * Format a single row using viewType metadata
+ *
+ * v8.1.0: Now accepts ComponentMetadata (nested) or FlatComponentMetadata (legacy)
+ * and correctly extracts viewType for formatting
  */
 export function formatRow<T extends Record<string, any>>(
   row: T,
-  metadata: ComponentMetadata | null
+  metadata: ComponentMetadata | FlatComponentMetadata | null
 ): FormattedRow<T> {
   const display: Record<string, string> = {};
   const styles: Record<string, string> = {};
 
+  // v8.1.0: Extract viewType from nested structure (or use flat structure directly)
+  const viewType = extractViewType(metadata);
+
   for (const [key, value] of Object.entries(row)) {
-    const fieldMeta = metadata?.[key];
-    const formatted = formatValue(value, key, fieldMeta);
+    const fieldMeta = viewType?.[key];
+    const formatted = formatValue(value, key, fieldMeta as ViewFieldMetadata | FieldMetadata | undefined);
 
     display[key] = formatted.display;
     if (formatted.style) {
@@ -106,22 +123,40 @@ export function formatRow<T extends Record<string, any>>(
 /**
  * Format entire dataset (call ONCE at fetch time)
  *
+ * v8.1.0: Now accepts ComponentMetadata (nested) or FlatComponentMetadata (legacy)
+ * and correctly extracts viewType for formatting
+ *
  * @param data - Raw data array from API
- * @param metadata - Component metadata (e.g., entityDataTable)
+ * @param metadata - Component metadata (e.g., entityDataTable) - can be nested or flat
  * @returns Array of formatted rows with raw, display, and styles
  *
  * @example
+ * // New nested format (correct)
  * const formattedData = formatDataset(response.data, response.metadata?.entityDataTable);
+ * // metadata.entityDataTable = { viewType: {...}, editType: {...} }
+ *
+ * // Legacy flat format (backwards compatible)
+ * const formattedData = formatDataset(response.data, flatMetadata);
+ * // flatMetadata = { fieldName: { renderType: 'currency', ... } }
  */
 export function formatDataset<T extends Record<string, any>>(
   data: T[],
-  metadata: ComponentMetadata | null
+  metadata: ComponentMetadata | FlatComponentMetadata | null
 ): FormattedRow<T>[] {
   if (!data || data.length === 0) {
     return [];
   }
 
-  console.log(`%c[FORMAT] Formatting ${data.length} rows`, 'color: #be4bdb; font-weight: bold');
+  // v8.1.0: Extract viewType once for logging and validation
+  const viewType = extractViewType(metadata);
+
+  console.log(`%c[FORMAT] Formatting ${data.length} rows`, 'color: #be4bdb; font-weight: bold', {
+    hasMetadata: !!metadata,
+    isNestedFormat: isNestedComponentMetadata(metadata),
+    hasViewType: !!viewType,
+    fieldCount: viewType ? Object.keys(viewType).length : 0,
+  });
+
   const startTime = performance.now();
 
   const result = data.map(row => formatRow(row, metadata));
@@ -137,7 +172,7 @@ export function formatDataset<T extends Record<string, any>>(
  */
 export function reformatRow<T extends Record<string, any>>(
   row: T,
-  metadata: ComponentMetadata | null
+  metadata: ComponentMetadata | FlatComponentMetadata | null
 ): FormattedRow<T> {
   return formatRow(row, metadata);
 }
