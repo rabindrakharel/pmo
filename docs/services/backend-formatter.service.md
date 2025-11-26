@@ -1,6 +1,6 @@
 # Backend Formatter Service
 
-**Version:** 10.0.0
+**Version:** 10.1.0
 **Location:** `apps/api/src/services/backend-formatter.service.ts`
 
 ---
@@ -985,3 +985,12 @@ export const GLOBAL_SETTINGS = {
 
 **Last Updated:** 2025-11-25
 **Status:** Production Ready
+
+---
+
+## Change Log
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 10.1.0 | 2025-11-25 | Documented frontend property naming alignment (`lookupSource`, `lookupEntity`) |
+| 10.0.0 | 2025-11-25 | Complete YAML-based metadata generation with component-aware configs |

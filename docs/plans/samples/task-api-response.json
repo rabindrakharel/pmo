@@ -59,7 +59,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -71,7 +71,7 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -87,7 +87,7 @@
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -104,7 +104,7 @@
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -118,7 +118,7 @@
         "internal_url": {
           "dtype": "str",
           "label": "Internal",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -135,7 +135,7 @@
         "shared_url": {
           "dtype": "str",
           "label": "Shared",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -152,20 +152,21 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "component",
+          "renderType": "json",
           "behavior": {
             "visible": false,
             "sortable": false,
             "filterable": false,
             "searchable": false
           },
-          "style": {},
-          "component": "JsonPreviewCell"
+          "style": {
+            "collapsed": true
+          }
         },
         "assignee_employee_ids": {
           "dtype": "array[uuid]",
           "label": "Assignee Employee Ids",
-          "type": "component",
+          "renderType": "entityLinks",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -174,13 +175,12 @@
           },
           "style": {
             "maxDisplay": 3
-          },
-          "component": "EntityArrayCell"
+          }
         },
         "assignee_employee_names": {
           "dtype": "str",
           "label": "Assignee Employee Names",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -195,7 +195,7 @@
         "dl__task_stage": {
           "dtype": "str",
           "label": "Task Stage",
-          "type": "component",
+          "renderType": "badge",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -206,13 +206,12 @@
             "width": "140px",
             "align": "left",
             "colorFromData": true
-          },
-          "component": "BadgeCell"
+          }
         },
         "dl__task_priority": {
           "dtype": "str",
           "label": "Task Priority",
-          "type": "component",
+          "renderType": "badge",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -223,13 +222,12 @@
             "width": "140px",
             "align": "left",
             "colorFromData": true
-          },
-          "component": "BadgeCell"
+          }
         },
         "estimated_hours": {
           "dtype": "float",
           "label": "Estimated Hours",
-          "type": "duration",
+          "renderType": "duration",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -245,7 +243,7 @@
         "actual_hours": {
           "dtype": "float",
           "label": "Actual Hours",
-          "type": "duration",
+          "renderType": "duration",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -261,7 +259,7 @@
         "story_points": {
           "dtype": "float",
           "label": "Story Points",
-          "type": "number",
+          "renderType": "number",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -276,7 +274,7 @@
         "project_id": {
           "dtype": "uuid",
           "label": "Project Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -288,13 +286,12 @@
             "align": "left",
             "displayField": "name",
             "linkToEntity": true
-          },
-          "component": "EntityLookupCell"
+          }
         },
         "business_id": {
           "dtype": "uuid",
           "label": "Business Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -306,13 +303,12 @@
             "align": "left",
             "displayField": "name",
             "linkToEntity": true
-          },
-          "component": "EntityLookupCell"
+          }
         },
         "office_id": {
           "dtype": "uuid",
           "label": "Office Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -324,13 +320,12 @@
             "align": "left",
             "displayField": "name",
             "linkToEntity": true
-          },
-          "component": "EntityLookupCell"
+          }
         },
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -346,7 +341,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -362,7 +357,7 @@
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "boolean",
+          "renderType": "boolean",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -381,7 +376,7 @@
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -397,7 +392,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -413,7 +408,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "version",
+          "renderType": "version",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -427,7 +422,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -437,7 +432,7 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -449,7 +444,7 @@
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -461,7 +456,7 @@
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "textarea",
+          "inputType": "textarea",
           "behavior": {
             "editable": true
           },
@@ -471,7 +466,7 @@
         "internal_url": {
           "dtype": "str",
           "label": "Internal",
-          "type": "url",
+          "inputType": "url",
           "behavior": {
             "editable": true
           },
@@ -483,7 +478,7 @@
         "shared_url": {
           "dtype": "str",
           "label": "Shared",
-          "type": "url",
+          "inputType": "url",
           "behavior": {
             "editable": true
           },
@@ -495,18 +490,17 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "component",
+          "inputType": "textarea",
           "behavior": {
             "editable": true
           },
           "style": {},
-          "validation": {},
-          "component": "JsonEditor"
+          "validation": {}
         },
         "assignee_employee_ids": {
           "dtype": "array[uuid]",
           "label": "Assignee Employee Ids",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -519,7 +513,7 @@
         "assignee_employee_names": {
           "dtype": "str",
           "label": "Assignee Employee Names",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -529,33 +523,33 @@
         "dl__task_stage": {
           "dtype": "str",
           "label": "Task Stage",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
           "style": {},
           "validation": {},
-          "component": "DatalabelSelect",
+          "component": "DataLabelSelect",
           "lookupSource": "datalabel",
           "datalabelKey": "dl__task_stage"
         },
         "dl__task_priority": {
           "dtype": "str",
           "label": "Task Priority",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
           "style": {},
           "validation": {},
-          "component": "DatalabelSelect",
+          "component": "DataLabelSelect",
           "lookupSource": "datalabel",
           "datalabelKey": "dl__task_priority"
         },
         "estimated_hours": {
           "dtype": "float",
           "label": "Estimated Hours",
-          "type": "number",
+          "inputType": "number",
           "behavior": {
             "editable": true
           },
@@ -567,7 +561,7 @@
         "actual_hours": {
           "dtype": "float",
           "label": "Actual Hours",
-          "type": "number",
+          "inputType": "number",
           "behavior": {
             "editable": true
           },
@@ -579,7 +573,7 @@
         "story_points": {
           "dtype": "float",
           "label": "Story Points",
-          "type": "number",
+          "inputType": "number",
           "behavior": {
             "editable": true
           },
@@ -589,7 +583,7 @@
         "project_id": {
           "dtype": "uuid",
           "label": "Project Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -602,7 +596,7 @@
         "business_id": {
           "dtype": "uuid",
           "label": "Business Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -615,7 +609,7 @@
         "office_id": {
           "dtype": "uuid",
           "label": "Office Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -628,7 +622,7 @@
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "datetime-local",
+          "inputType": "datetime-local",
           "behavior": {
             "editable": true
           },
@@ -638,7 +632,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "datetime-local",
+          "inputType": "datetime-local",
           "behavior": {
             "editable": true
           },
@@ -648,18 +642,20 @@
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "component",
+          "inputType": "checkbox",
           "behavior": {
             "editable": true
           },
-          "style": {},
-          "validation": {},
-          "component": "Toggle"
+          "style": {
+            "trueLabel": "Active",
+            "falseLabel": "Inactive"
+          },
+          "validation": {}
         },
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -669,7 +665,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -679,7 +675,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -693,7 +689,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -708,7 +704,7 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -722,7 +718,7 @@
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -736,7 +732,7 @@
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -750,7 +746,7 @@
         "internal_url": {
           "dtype": "str",
           "label": "Internal",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -764,7 +760,7 @@
         "shared_url": {
           "dtype": "str",
           "label": "Shared",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -778,7 +774,7 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "component",
+          "renderType": "json",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -787,13 +783,12 @@
           },
           "style": {
             "collapsed": true
-          },
-          "component": "JsonViewer"
+          }
         },
         "assignee_employee_ids": {
           "dtype": "array[uuid]",
           "label": "Assignee Employee Ids",
-          "type": "component",
+          "renderType": "entityLinks",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -802,13 +797,12 @@
           },
           "style": {
             "displayField": "name"
-          },
-          "component": "EntityArrayField"
+          }
         },
         "assignee_employee_names": {
           "dtype": "str",
           "label": "Assignee Employee Names",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -820,7 +814,7 @@
         "dl__task_stage": {
           "dtype": "str",
           "label": "Task Stage",
-          "type": "component",
+          "renderType": "component",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -828,14 +822,15 @@
             "searchable": false
           },
           "style": {
-            "showHierarchy": true
+            "showHierarchy": true,
+            "interactive": false
           },
-          "component": "DatalabelDAG"
+          "component": "DAGVisualizer"
         },
         "dl__task_priority": {
           "dtype": "str",
           "label": "Task Priority",
-          "type": "component",
+          "renderType": "badge",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -843,14 +838,13 @@
             "searchable": false
           },
           "style": {
-            "showHierarchy": true
-          },
-          "component": "DatalabelDAG"
+            "showHierarchy": false
+          }
         },
         "estimated_hours": {
           "dtype": "float",
           "label": "Estimated Hours",
-          "type": "duration",
+          "renderType": "duration",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -864,7 +858,7 @@
         "actual_hours": {
           "dtype": "float",
           "label": "Actual Hours",
-          "type": "duration",
+          "renderType": "duration",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -878,7 +872,7 @@
         "story_points": {
           "dtype": "float",
           "label": "Story Points",
-          "type": "number",
+          "renderType": "number",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -890,7 +884,7 @@
         "project_id": {
           "dtype": "uuid",
           "label": "Project Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -899,13 +893,12 @@
           },
           "style": {
             "displayField": "name"
-          },
-          "component": "EntityLookupField"
+          }
         },
         "business_id": {
           "dtype": "uuid",
           "label": "Business Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -914,13 +907,12 @@
           },
           "style": {
             "displayField": "name"
-          },
-          "component": "EntityLookupField"
+          }
         },
         "office_id": {
           "dtype": "uuid",
           "label": "Office Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -929,13 +921,12 @@
           },
           "style": {
             "displayField": "name"
-          },
-          "component": "EntityLookupField"
+          }
         },
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -947,7 +938,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -959,7 +950,7 @@
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "boolean",
+          "renderType": "boolean",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -974,7 +965,7 @@
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -989,7 +980,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1004,7 +995,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "number",
+          "renderType": "number",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1020,7 +1011,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -1032,7 +1023,7 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -1045,7 +1036,7 @@
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -1061,7 +1052,7 @@
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "textarea",
+          "inputType": "textarea",
           "behavior": {
             "editable": true
           },
@@ -1074,7 +1065,7 @@
         "internal_url": {
           "dtype": "str",
           "label": "Internal",
-          "type": "url",
+          "inputType": "url",
           "behavior": {
             "editable": true
           },
@@ -1088,7 +1079,7 @@
         "shared_url": {
           "dtype": "str",
           "label": "Shared",
-          "type": "url",
+          "inputType": "url",
           "behavior": {
             "editable": true
           },
@@ -1102,21 +1093,21 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "component",
+          "inputType": "textarea",
           "behavior": {
             "editable": true
           },
           "style": {
             "mode": "tree",
-            "validateSchema": false
+            "validateSchema": false,
+            "rows": 6
           },
-          "validation": {},
-          "component": "JsonEditor"
+          "validation": {}
         },
         "assignee_employee_ids": {
           "dtype": "array[uuid]",
           "label": "Assignee Employee Ids",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -1133,7 +1124,7 @@
         "assignee_employee_names": {
           "dtype": "str",
           "label": "Assignee Employee Names",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -1143,23 +1134,23 @@
         "dl__task_stage": {
           "dtype": "str",
           "label": "Task Stage",
-          "type": "select",
+          "inputType": "component",
           "behavior": {
             "editable": true
           },
           "style": {
-            "showColor": true,
-            "searchable": true
+            "showHierarchy": true,
+            "interactive": true
           },
           "validation": {},
-          "component": "DatalabelSelect",
+          "component": "DAGVisualizer",
           "lookupSource": "datalabel",
           "datalabelKey": "dl__task_stage"
         },
         "dl__task_priority": {
           "dtype": "str",
           "label": "Task Priority",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -1168,14 +1159,14 @@
             "searchable": true
           },
           "validation": {},
-          "component": "DatalabelSelect",
+          "component": "DataLabelSelect",
           "lookupSource": "datalabel",
           "datalabelKey": "dl__task_priority"
         },
         "estimated_hours": {
           "dtype": "float",
           "label": "Estimated Hours",
-          "type": "component",
+          "inputType": "number",
           "behavior": {
             "editable": true
           },
@@ -1187,13 +1178,12 @@
           },
           "validation": {
             "min": 0
-          },
-          "component": "DurationPicker"
+          }
         },
         "actual_hours": {
           "dtype": "float",
           "label": "Actual Hours",
-          "type": "component",
+          "inputType": "number",
           "behavior": {
             "editable": true
           },
@@ -1205,13 +1195,12 @@
           },
           "validation": {
             "min": 0
-          },
-          "component": "DurationPicker"
+          }
         },
         "story_points": {
           "dtype": "float",
           "label": "Story Points",
-          "type": "number",
+          "inputType": "number",
           "behavior": {
             "editable": true
           },
@@ -1223,7 +1212,7 @@
         "project_id": {
           "dtype": "uuid",
           "label": "Project Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -1240,7 +1229,7 @@
         "business_id": {
           "dtype": "uuid",
           "label": "Business Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -1257,7 +1246,7 @@
         "office_id": {
           "dtype": "uuid",
           "label": "Office Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -1274,7 +1263,7 @@
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "datetime-local",
+          "inputType": "datetime-local",
           "behavior": {
             "editable": true
           },
@@ -1287,7 +1276,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "datetime-local",
+          "inputType": "datetime-local",
           "behavior": {
             "editable": true
           },
@@ -1300,21 +1289,20 @@
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "component",
+          "inputType": "checkbox",
           "behavior": {
             "editable": true
           },
           "style": {
-            "onLabel": "Active",
-            "offLabel": "Inactive"
+            "trueLabel": "Active",
+            "falseLabel": "Inactive"
           },
-          "validation": {},
-          "component": "Toggle"
+          "validation": {}
         },
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -1324,7 +1312,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -1334,7 +1322,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -1348,7 +1336,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -1360,7 +1348,7 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1374,7 +1362,7 @@
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1388,7 +1376,7 @@
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1402,7 +1390,7 @@
         "internal_url": {
           "dtype": "str",
           "label": "Internal",
-          "type": "url",
+          "renderType": "url",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -1414,7 +1402,7 @@
         "shared_url": {
           "dtype": "str",
           "label": "Shared",
-          "type": "url",
+          "renderType": "url",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -1426,7 +1414,7 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "json",
+          "renderType": "json",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -1438,7 +1426,7 @@
         "assignee_employee_ids": {
           "dtype": "array[uuid]",
           "label": "Assignee Employee Ids",
-          "type": "component",
+          "renderType": "entityLinks",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1447,13 +1435,12 @@
           },
           "style": {
             "max": 3
-          },
-          "component": "AvatarStack"
+          }
         },
         "assignee_employee_names": {
           "dtype": "str",
           "label": "Assignee Employee Names",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1465,33 +1452,31 @@
         "dl__task_stage": {
           "dtype": "str",
           "label": "Task Stage",
-          "type": "component",
+          "renderType": "badge",
           "behavior": {
             "visible": true,
             "sortable": false,
             "filterable": false,
             "searchable": false
           },
-          "style": {},
-          "component": "Badge"
+          "style": {}
         },
         "dl__task_priority": {
           "dtype": "str",
           "label": "Task Priority",
-          "type": "component",
+          "renderType": "badge",
           "behavior": {
             "visible": true,
             "sortable": false,
             "filterable": false,
             "searchable": false
           },
-          "style": {},
-          "component": "Badge"
+          "style": {}
         },
         "estimated_hours": {
           "dtype": "float",
           "label": "Estimated Hours",
-          "type": "duration_hours",
+          "renderType": "duration_hours",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -1503,7 +1488,7 @@
         "actual_hours": {
           "dtype": "float",
           "label": "Actual Hours",
-          "type": "duration_hours",
+          "renderType": "duration_hours",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -1515,7 +1500,7 @@
         "story_points": {
           "dtype": "float",
           "label": "Story Points",
-          "type": "score",
+          "renderType": "score",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -1527,46 +1512,43 @@
         "project_id": {
           "dtype": "uuid",
           "label": "Project Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": false,
             "filterable": false,
             "searchable": false
           },
-          "style": {},
-          "component": "EntityBadge"
+          "style": {}
         },
         "business_id": {
           "dtype": "uuid",
           "label": "Business Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": false,
             "filterable": false,
             "searchable": false
           },
-          "style": {},
-          "component": "EntityBadge"
+          "style": {}
         },
         "office_id": {
           "dtype": "uuid",
           "label": "Office Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": false,
             "filterable": false,
             "searchable": false
           },
-          "style": {},
-          "component": "EntityBadge"
+          "style": {}
         },
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -1578,7 +1560,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -1590,7 +1572,7 @@
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "boolean",
+          "renderType": "boolean",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1605,7 +1587,7 @@
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1619,7 +1601,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1633,7 +1615,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "version",
+          "renderType": "version",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -1647,7 +1629,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "uuid",
+          "inputType": "uuid",
           "behavior": {
             "editable": true
           },
@@ -1657,29 +1639,27 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "component",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
           "style": {},
-          "validation": {},
-          "component": "InlineTextInput"
+          "validation": {}
         },
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "component",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
           "style": {},
-          "validation": {},
-          "component": "InlineTextInput"
+          "validation": {}
         },
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "description",
+          "inputType": "description",
           "behavior": {
             "editable": true
           },
@@ -1689,7 +1669,7 @@
         "internal_url": {
           "dtype": "str",
           "label": "Internal",
-          "type": "url",
+          "inputType": "url",
           "behavior": {
             "editable": true
           },
@@ -1699,7 +1679,7 @@
         "shared_url": {
           "dtype": "str",
           "label": "Shared",
-          "type": "url",
+          "inputType": "url",
           "behavior": {
             "editable": true
           },
@@ -1709,7 +1689,7 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "json",
+          "inputType": "json",
           "behavior": {
             "editable": true
           },
@@ -1719,7 +1699,7 @@
         "assignee_employee_ids": {
           "dtype": "array[uuid]",
           "label": "Assignee Employee Ids",
-          "type": "entityInstance_Ids",
+          "inputType": "entityInstance_Ids",
           "behavior": {
             "editable": true
           },
@@ -1731,44 +1711,43 @@
         "assignee_employee_names": {
           "dtype": "str",
           "label": "Assignee Employee Names",
-          "type": "component",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
           "style": {},
-          "validation": {},
-          "component": "InlineTextInput"
+          "validation": {}
         },
         "dl__task_stage": {
           "dtype": "str",
           "label": "Task Stage",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
           "style": {},
           "validation": {},
-          "component": "InlineSelect",
+          "component": "DataLabelSelect",
           "lookupSource": "datalabel",
           "datalabelKey": "dl__task_stage"
         },
         "dl__task_priority": {
           "dtype": "str",
           "label": "Task Priority",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
           "style": {},
           "validation": {},
-          "component": "InlineSelect",
+          "component": "DataLabelSelect",
           "lookupSource": "datalabel",
           "datalabelKey": "dl__task_priority"
         },
         "estimated_hours": {
           "dtype": "float",
           "label": "Estimated Hours",
-          "type": "duration_hours",
+          "inputType": "duration_hours",
           "behavior": {
             "editable": true
           },
@@ -1778,7 +1757,7 @@
         "actual_hours": {
           "dtype": "float",
           "label": "Actual Hours",
-          "type": "duration_hours",
+          "inputType": "duration_hours",
           "behavior": {
             "editable": true
           },
@@ -1788,7 +1767,7 @@
         "story_points": {
           "dtype": "float",
           "label": "Story Points",
-          "type": "score",
+          "inputType": "score",
           "behavior": {
             "editable": true
           },
@@ -1798,46 +1777,46 @@
         "project_id": {
           "dtype": "uuid",
           "label": "Project Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
           "style": {},
           "validation": {},
-          "component": "InlineEntitySelect",
+          "component": "EntitySelect",
           "lookupSource": "entityInstance",
           "lookupEntity": "project"
         },
         "business_id": {
           "dtype": "uuid",
           "label": "Business Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
           "style": {},
           "validation": {},
-          "component": "InlineEntitySelect",
+          "component": "EntitySelect",
           "lookupSource": "entityInstance",
           "lookupEntity": "business"
         },
         "office_id": {
           "dtype": "uuid",
           "label": "Office Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
           "style": {},
           "validation": {},
-          "component": "InlineEntitySelect",
+          "component": "EntitySelect",
           "lookupSource": "entityInstance",
           "lookupEntity": "office"
         },
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "timestamp",
+          "inputType": "timestamp",
           "behavior": {
             "editable": true
           },
@@ -1847,7 +1826,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "timestamp",
+          "inputType": "timestamp",
           "behavior": {
             "editable": true
           },
@@ -1857,7 +1836,7 @@
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "status_flag",
+          "inputType": "status_flag",
           "behavior": {
             "editable": true
           },
@@ -1867,7 +1846,7 @@
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "timestamp_readonly",
+          "inputType": "timestamp_readonly",
           "behavior": {
             "editable": true
           },
@@ -1877,7 +1856,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "timestamp_readonly",
+          "inputType": "timestamp_readonly",
           "behavior": {
             "editable": true
           },
@@ -1887,7 +1866,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "version",
+          "inputType": "version",
           "behavior": {
             "editable": true
           },
@@ -1901,5 +1880,3 @@
   "limit": 1,
   "offset": 0
 }
-
-[0;32m✅ Success (HTTP 200)[0m

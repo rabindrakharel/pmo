@@ -84,7 +84,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -96,7 +96,7 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -112,7 +112,7 @@
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -129,7 +129,7 @@
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -143,20 +143,21 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "component",
+          "renderType": "json",
           "behavior": {
             "visible": false,
             "sortable": false,
             "filterable": false,
             "searchable": false
           },
-          "style": {},
-          "component": "JsonPreviewCell"
+          "style": {
+            "collapsed": true
+          }
         },
         "dl__project_stage": {
           "dtype": "str",
           "label": "Project Stage",
-          "type": "component",
+          "renderType": "badge",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -167,13 +168,12 @@
             "width": "140px",
             "align": "left",
             "colorFromData": true
-          },
-          "component": "BadgeCell"
+          }
         },
         "budget_allocated_amt": {
           "dtype": "float",
           "label": "Budget Allocated",
-          "type": "currency",
+          "renderType": "currency",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -191,7 +191,7 @@
         "budget_spent_amt": {
           "dtype": "float",
           "label": "Budget Spent",
-          "type": "currency",
+          "renderType": "currency",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -209,7 +209,7 @@
         "planned_start_date": {
           "dtype": "date",
           "label": "Planned Start",
-          "type": "date",
+          "renderType": "date",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -226,7 +226,7 @@
         "planned_end_date": {
           "dtype": "date",
           "label": "Planned End",
-          "type": "date",
+          "renderType": "date",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -243,7 +243,7 @@
         "actual_start_date": {
           "dtype": "date",
           "label": "Actual Start",
-          "type": "date",
+          "renderType": "date",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -260,7 +260,7 @@
         "actual_end_date": {
           "dtype": "date",
           "label": "Actual End",
-          "type": "date",
+          "renderType": "date",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -277,7 +277,7 @@
         "manager__employee_id": {
           "dtype": "uuid",
           "label": "Manager Employee Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -289,13 +289,12 @@
             "align": "left",
             "displayField": "name",
             "linkToEntity": true
-          },
-          "component": "EntityLookupCell"
+          }
         },
         "sponsor__employee_id": {
           "dtype": "uuid",
           "label": "Sponsor Employee Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -307,13 +306,12 @@
             "align": "left",
             "displayField": "name",
             "linkToEntity": true
-          },
-          "component": "EntityLookupCell"
+          }
         },
         "stakeholder__employee_ids": {
           "dtype": "array[uuid]",
           "label": "Stakeholder  Employee Ids",
-          "type": "component",
+          "renderType": "entityLinks",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -322,13 +320,12 @@
           },
           "style": {
             "maxDisplay": 3
-          },
-          "component": "EntityArrayCell"
+          }
         },
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "boolean",
+          "renderType": "boolean",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -347,7 +344,7 @@
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -363,7 +360,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -379,7 +376,7 @@
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -395,7 +392,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -411,7 +408,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "version",
+          "renderType": "version",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -423,7 +420,7 @@
         "_ID": {
           "dtype": "str",
           "label": " ID",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -438,7 +435,7 @@
         "_IDS": {
           "dtype": "str",
           "label": " IDS",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -455,7 +452,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -465,7 +462,7 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -477,7 +474,7 @@
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -489,7 +486,7 @@
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "textarea",
+          "inputType": "textarea",
           "behavior": {
             "editable": true
           },
@@ -499,31 +496,30 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "component",
+          "inputType": "textarea",
           "behavior": {
             "editable": true
           },
           "style": {},
-          "validation": {},
-          "component": "JsonEditor"
+          "validation": {}
         },
         "dl__project_stage": {
           "dtype": "str",
           "label": "Project Stage",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
           "style": {},
           "validation": {},
-          "component": "DatalabelSelect",
+          "component": "DataLabelSelect",
           "lookupSource": "datalabel",
           "datalabelKey": "dl__project_stage"
         },
         "budget_allocated_amt": {
           "dtype": "float",
           "label": "Budget Allocated",
-          "type": "number",
+          "inputType": "number",
           "behavior": {
             "editable": true
           },
@@ -535,7 +531,7 @@
         "budget_spent_amt": {
           "dtype": "float",
           "label": "Budget Spent",
-          "type": "number",
+          "inputType": "number",
           "behavior": {
             "editable": true
           },
@@ -547,7 +543,7 @@
         "planned_start_date": {
           "dtype": "date",
           "label": "Planned Start",
-          "type": "date",
+          "inputType": "date",
           "behavior": {
             "editable": true
           },
@@ -557,7 +553,7 @@
         "planned_end_date": {
           "dtype": "date",
           "label": "Planned End",
-          "type": "date",
+          "inputType": "date",
           "behavior": {
             "editable": true
           },
@@ -567,7 +563,7 @@
         "actual_start_date": {
           "dtype": "date",
           "label": "Actual Start",
-          "type": "date",
+          "inputType": "date",
           "behavior": {
             "editable": true
           },
@@ -577,7 +573,7 @@
         "actual_end_date": {
           "dtype": "date",
           "label": "Actual End",
-          "type": "date",
+          "inputType": "date",
           "behavior": {
             "editable": true
           },
@@ -587,7 +583,7 @@
         "manager__employee_id": {
           "dtype": "uuid",
           "label": "Manager Employee Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -600,7 +596,7 @@
         "sponsor__employee_id": {
           "dtype": "uuid",
           "label": "Sponsor Employee Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -613,7 +609,7 @@
         "stakeholder__employee_ids": {
           "dtype": "array[uuid]",
           "label": "Stakeholder  Employee Ids",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -626,18 +622,20 @@
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "component",
+          "inputType": "checkbox",
           "behavior": {
             "editable": true
           },
-          "style": {},
-          "validation": {},
-          "component": "Toggle"
+          "style": {
+            "trueLabel": "Active",
+            "falseLabel": "Inactive"
+          },
+          "validation": {}
         },
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "datetime-local",
+          "inputType": "datetime-local",
           "behavior": {
             "editable": true
           },
@@ -647,7 +645,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "datetime-local",
+          "inputType": "datetime-local",
           "behavior": {
             "editable": true
           },
@@ -657,7 +655,7 @@
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -667,7 +665,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -677,7 +675,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -687,7 +685,7 @@
         "_ID": {
           "dtype": "str",
           "label": " ID",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -697,7 +695,7 @@
         "_IDS": {
           "dtype": "str",
           "label": " IDS",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -711,7 +709,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -726,7 +724,7 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -740,7 +738,7 @@
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -754,7 +752,7 @@
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -768,7 +766,7 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "component",
+          "renderType": "json",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -777,13 +775,12 @@
           },
           "style": {
             "collapsed": true
-          },
-          "component": "JsonViewer"
+          }
         },
         "dl__project_stage": {
           "dtype": "str",
           "label": "Project Stage",
-          "type": "component",
+          "renderType": "component",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -791,14 +788,15 @@
             "searchable": false
           },
           "style": {
-            "showHierarchy": true
+            "showHierarchy": true,
+            "interactive": false
           },
-          "component": "DatalabelDAG"
+          "component": "DAGVisualizer"
         },
         "budget_allocated_amt": {
           "dtype": "float",
           "label": "Budget Allocated",
-          "type": "currency",
+          "renderType": "currency",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -813,7 +811,7 @@
         "budget_spent_amt": {
           "dtype": "float",
           "label": "Budget Spent",
-          "type": "currency",
+          "renderType": "currency",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -828,7 +826,7 @@
         "planned_start_date": {
           "dtype": "date",
           "label": "Planned Start",
-          "type": "date",
+          "renderType": "date",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -842,7 +840,7 @@
         "planned_end_date": {
           "dtype": "date",
           "label": "Planned End",
-          "type": "date",
+          "renderType": "date",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -856,7 +854,7 @@
         "actual_start_date": {
           "dtype": "date",
           "label": "Actual Start",
-          "type": "date",
+          "renderType": "date",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -870,7 +868,7 @@
         "actual_end_date": {
           "dtype": "date",
           "label": "Actual End",
-          "type": "date",
+          "renderType": "date",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -884,7 +882,7 @@
         "manager__employee_id": {
           "dtype": "uuid",
           "label": "Manager Employee Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -893,13 +891,12 @@
           },
           "style": {
             "displayField": "name"
-          },
-          "component": "EntityLookupField"
+          }
         },
         "sponsor__employee_id": {
           "dtype": "uuid",
           "label": "Sponsor Employee Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -908,13 +905,12 @@
           },
           "style": {
             "displayField": "name"
-          },
-          "component": "EntityLookupField"
+          }
         },
         "stakeholder__employee_ids": {
           "dtype": "array[uuid]",
           "label": "Stakeholder  Employee Ids",
-          "type": "component",
+          "renderType": "entityLinks",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -923,13 +919,12 @@
           },
           "style": {
             "displayField": "name"
-          },
-          "component": "EntityArrayField"
+          }
         },
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "boolean",
+          "renderType": "boolean",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -944,7 +939,7 @@
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -956,7 +951,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -968,7 +963,7 @@
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -983,7 +978,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -998,7 +993,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "number",
+          "renderType": "number",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1012,7 +1007,7 @@
         "_ID": {
           "dtype": "str",
           "label": " ID",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1024,7 +1019,7 @@
         "_IDS": {
           "dtype": "str",
           "label": " IDS",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1038,7 +1033,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -1050,7 +1045,7 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -1063,7 +1058,7 @@
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -1079,7 +1074,7 @@
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "textarea",
+          "inputType": "textarea",
           "behavior": {
             "editable": true
           },
@@ -1092,37 +1087,37 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "component",
+          "inputType": "textarea",
           "behavior": {
             "editable": true
           },
           "style": {
             "mode": "tree",
-            "validateSchema": false
+            "validateSchema": false,
+            "rows": 6
           },
-          "validation": {},
-          "component": "JsonEditor"
+          "validation": {}
         },
         "dl__project_stage": {
           "dtype": "str",
           "label": "Project Stage",
-          "type": "select",
+          "inputType": "component",
           "behavior": {
             "editable": true
           },
           "style": {
-            "showColor": true,
-            "searchable": true
+            "showHierarchy": true,
+            "interactive": true
           },
           "validation": {},
-          "component": "DatalabelSelect",
+          "component": "DAGVisualizer",
           "lookupSource": "datalabel",
           "datalabelKey": "dl__project_stage"
         },
         "budget_allocated_amt": {
           "dtype": "float",
           "label": "Budget Allocated",
-          "type": "number",
+          "inputType": "number",
           "behavior": {
             "editable": true
           },
@@ -1138,7 +1133,7 @@
         "budget_spent_amt": {
           "dtype": "float",
           "label": "Budget Spent",
-          "type": "number",
+          "inputType": "number",
           "behavior": {
             "editable": true
           },
@@ -1154,7 +1149,7 @@
         "planned_start_date": {
           "dtype": "date",
           "label": "Planned Start",
-          "type": "date",
+          "inputType": "date",
           "behavior": {
             "editable": true
           },
@@ -1167,7 +1162,7 @@
         "planned_end_date": {
           "dtype": "date",
           "label": "Planned End",
-          "type": "date",
+          "inputType": "date",
           "behavior": {
             "editable": true
           },
@@ -1180,7 +1175,7 @@
         "actual_start_date": {
           "dtype": "date",
           "label": "Actual Start",
-          "type": "date",
+          "inputType": "date",
           "behavior": {
             "editable": true
           },
@@ -1193,7 +1188,7 @@
         "actual_end_date": {
           "dtype": "date",
           "label": "Actual End",
-          "type": "date",
+          "inputType": "date",
           "behavior": {
             "editable": true
           },
@@ -1206,7 +1201,7 @@
         "manager__employee_id": {
           "dtype": "uuid",
           "label": "Manager Employee Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -1223,7 +1218,7 @@
         "sponsor__employee_id": {
           "dtype": "uuid",
           "label": "Sponsor Employee Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -1240,7 +1235,7 @@
         "stakeholder__employee_ids": {
           "dtype": "array[uuid]",
           "label": "Stakeholder  Employee Ids",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -1257,21 +1252,20 @@
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "component",
+          "inputType": "checkbox",
           "behavior": {
             "editable": true
           },
           "style": {
-            "onLabel": "Active",
-            "offLabel": "Inactive"
+            "trueLabel": "Active",
+            "falseLabel": "Inactive"
           },
-          "validation": {},
-          "component": "Toggle"
+          "validation": {}
         },
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "datetime-local",
+          "inputType": "datetime-local",
           "behavior": {
             "editable": true
           },
@@ -1284,7 +1278,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "datetime-local",
+          "inputType": "datetime-local",
           "behavior": {
             "editable": true
           },
@@ -1297,7 +1291,7 @@
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -1307,7 +1301,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -1317,7 +1311,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -1327,7 +1321,7 @@
         "_ID": {
           "dtype": "str",
           "label": " ID",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -1337,7 +1331,7 @@
         "_IDS": {
           "dtype": "str",
           "label": " IDS",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -1351,7 +1345,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -1363,7 +1357,7 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1377,7 +1371,7 @@
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1391,7 +1385,7 @@
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1405,7 +1399,7 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "json",
+          "renderType": "json",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -1417,20 +1411,19 @@
         "dl__project_stage": {
           "dtype": "str",
           "label": "Project Stage",
-          "type": "component",
+          "renderType": "badge",
           "behavior": {
             "visible": true,
             "sortable": false,
             "filterable": false,
             "searchable": false
           },
-          "style": {},
-          "component": "Badge"
+          "style": {}
         },
         "budget_allocated_amt": {
           "dtype": "float",
           "label": "Budget Allocated",
-          "type": "currency",
+          "renderType": "currency",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1444,7 +1437,7 @@
         "budget_spent_amt": {
           "dtype": "float",
           "label": "Budget Spent",
-          "type": "currency",
+          "renderType": "currency",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1458,7 +1451,7 @@
         "planned_start_date": {
           "dtype": "date",
           "label": "Planned Start",
-          "type": "date",
+          "renderType": "date",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1470,7 +1463,7 @@
         "planned_end_date": {
           "dtype": "date",
           "label": "Planned End",
-          "type": "date",
+          "renderType": "date",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1482,7 +1475,7 @@
         "actual_start_date": {
           "dtype": "date",
           "label": "Actual Start",
-          "type": "date",
+          "renderType": "date",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1494,7 +1487,7 @@
         "actual_end_date": {
           "dtype": "date",
           "label": "Actual End",
-          "type": "date",
+          "renderType": "date",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1506,33 +1499,31 @@
         "manager__employee_id": {
           "dtype": "uuid",
           "label": "Manager Employee Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": false,
             "filterable": false,
             "searchable": false
           },
-          "style": {},
-          "component": "EntityBadge"
+          "style": {}
         },
         "sponsor__employee_id": {
           "dtype": "uuid",
           "label": "Sponsor Employee Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": false,
             "filterable": false,
             "searchable": false
           },
-          "style": {},
-          "component": "EntityBadge"
+          "style": {}
         },
         "stakeholder__employee_ids": {
           "dtype": "array[uuid]",
           "label": "Stakeholder  Employee Ids",
-          "type": "component",
+          "renderType": "entityLinks",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1541,13 +1532,12 @@
           },
           "style": {
             "max": 3
-          },
-          "component": "AvatarStack"
+          }
         },
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "boolean",
+          "renderType": "boolean",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1562,7 +1552,7 @@
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -1574,7 +1564,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -1586,7 +1576,7 @@
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1600,7 +1590,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1614,7 +1604,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "version",
+          "renderType": "version",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -1626,7 +1616,7 @@
         "_ID": {
           "dtype": "str",
           "label": " ID",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1638,7 +1628,7 @@
         "_IDS": {
           "dtype": "str",
           "label": " IDS",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -1652,7 +1642,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "uuid",
+          "inputType": "uuid",
           "behavior": {
             "editable": true
           },
@@ -1662,29 +1652,27 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "component",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
           "style": {},
-          "validation": {},
-          "component": "InlineTextInput"
+          "validation": {}
         },
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "component",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
           "style": {},
-          "validation": {},
-          "component": "InlineTextInput"
+          "validation": {}
         },
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "description",
+          "inputType": "description",
           "behavior": {
             "editable": true
           },
@@ -1694,7 +1682,7 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "json",
+          "inputType": "json",
           "behavior": {
             "editable": true
           },
@@ -1704,20 +1692,20 @@
         "dl__project_stage": {
           "dtype": "str",
           "label": "Project Stage",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
           "style": {},
           "validation": {},
-          "component": "InlineSelect",
+          "component": "DataLabelSelect",
           "lookupSource": "datalabel",
           "datalabelKey": "dl__project_stage"
         },
         "budget_allocated_amt": {
           "dtype": "float",
           "label": "Budget Allocated",
-          "type": "currency",
+          "inputType": "currency",
           "behavior": {
             "editable": true
           },
@@ -1727,7 +1715,7 @@
         "budget_spent_amt": {
           "dtype": "float",
           "label": "Budget Spent",
-          "type": "currency",
+          "inputType": "currency",
           "behavior": {
             "editable": true
           },
@@ -1737,77 +1725,73 @@
         "planned_start_date": {
           "dtype": "date",
           "label": "Planned Start",
-          "type": "component",
+          "inputType": "date",
           "behavior": {
             "editable": true
           },
           "style": {},
-          "validation": {},
-          "component": "InlineDatePicker"
+          "validation": {}
         },
         "planned_end_date": {
           "dtype": "date",
           "label": "Planned End",
-          "type": "component",
+          "inputType": "date",
           "behavior": {
             "editable": true
           },
           "style": {},
-          "validation": {},
-          "component": "InlineDatePicker"
+          "validation": {}
         },
         "actual_start_date": {
           "dtype": "date",
           "label": "Actual Start",
-          "type": "component",
+          "inputType": "date",
           "behavior": {
             "editable": true
           },
           "style": {},
-          "validation": {},
-          "component": "InlineDatePicker"
+          "validation": {}
         },
         "actual_end_date": {
           "dtype": "date",
           "label": "Actual End",
-          "type": "component",
+          "inputType": "date",
           "behavior": {
             "editable": true
           },
           "style": {},
-          "validation": {},
-          "component": "InlineDatePicker"
+          "validation": {}
         },
         "manager__employee_id": {
           "dtype": "uuid",
           "label": "Manager Employee Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
           "style": {},
           "validation": {},
-          "component": "InlineEntitySelect",
+          "component": "EntitySelect",
           "lookupSource": "entityInstance",
           "lookupEntity": "employee"
         },
         "sponsor__employee_id": {
           "dtype": "uuid",
           "label": "Sponsor Employee Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
           "style": {},
           "validation": {},
-          "component": "InlineEntitySelect",
+          "component": "EntitySelect",
           "lookupSource": "entityInstance",
           "lookupEntity": "employee"
         },
         "stakeholder__employee_ids": {
           "dtype": "array[uuid]",
           "label": "Stakeholder  Employee Ids",
-          "type": "entityInstance_Ids",
+          "inputType": "entityInstance_Ids",
           "behavior": {
             "editable": true
           },
@@ -1819,7 +1803,7 @@
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "status_flag",
+          "inputType": "status_flag",
           "behavior": {
             "editable": true
           },
@@ -1829,7 +1813,7 @@
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "timestamp",
+          "inputType": "timestamp",
           "behavior": {
             "editable": true
           },
@@ -1839,7 +1823,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "timestamp",
+          "inputType": "timestamp",
           "behavior": {
             "editable": true
           },
@@ -1849,7 +1833,7 @@
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "timestamp_readonly",
+          "inputType": "timestamp_readonly",
           "behavior": {
             "editable": true
           },
@@ -1859,7 +1843,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "timestamp_readonly",
+          "inputType": "timestamp_readonly",
           "behavior": {
             "editable": true
           },
@@ -1869,7 +1853,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "version",
+          "inputType": "version",
           "behavior": {
             "editable": true
           },
@@ -1879,24 +1863,22 @@
         "_ID": {
           "dtype": "str",
           "label": " ID",
-          "type": "component",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
           "style": {},
-          "validation": {},
-          "component": "InlineTextInput"
+          "validation": {}
         },
         "_IDS": {
           "dtype": "str",
           "label": " IDS",
-          "type": "component",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
           "style": {},
-          "validation": {},
-          "component": "InlineTextInput"
+          "validation": {}
         }
       }
     }
@@ -1905,5 +1887,3 @@
   "limit": 1,
   "offset": 0
 }
-
-[0;32m✅ Success (HTTP 200)[0m

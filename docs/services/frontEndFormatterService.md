@@ -1,6 +1,6 @@
 # Frontend Formatter Service
 
-**Version:** 8.2.0 | **Location:** `apps/web/src/lib/frontEndFormatterService.tsx`
+**Version:** 8.3.0 | **Location:** `apps/web/src/lib/frontEndFormatterService.tsx`
 
 ---
 
@@ -28,7 +28,7 @@ The Frontend Formatter Service is a **pure renderer** that consumes backend meta
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                    v8.2.0 FORMAT-AT-READ ARCHITECTURE                   │
+│                    v8.3.0 FORMAT-AT-READ ARCHITECTURE                   │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
@@ -466,11 +466,17 @@ apps/web/src/lib/
 
 ---
 
-**Last Updated:** 2025-11-24 | **Version:** 8.2.0 | **Status:** Production Ready
+**Last Updated:** 2025-11-25 | **Version:** 8.3.0 | **Status:** Production Ready
 
 ---
 
 ## Recent Updates
+
+**v8.3.0 (2025-11-25): Frontend Property Naming Alignment**
+- **Property names aligned with backend**: `loadFromDataLabels` → `lookupSource`, `loadFromEntity` → `lookupEntity`
+- **7 files updated**: types.ts, api-factory.ts, frontEndFormatterService.tsx, entityComponentMetadataStore.ts, EntityFormContainer.tsx, EntityFormContainerWithStore.tsx, EntityDataTable.tsx
+- **Backward compatibility**: Column interface in EntityDataTable.tsx maintains deprecated `loadDataLabels` and `loadFromEntity` properties
+- **TypeScript compilation**: All type definitions updated, passes with no errors
 
 **v8.2.0 (2025-11-24): Login-Time Datalabel Caching**
 - **Login-time caching**: All datalabels fetched once at login via `GET /api/v1/datalabel/all`

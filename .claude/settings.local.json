@@ -237,7 +237,10 @@
       "Bash(/tmp/test-fields.sh:*)",
       "mcp__ide__getDiagnostics",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0MDkwMjUyLCJleHAiOjE3NjQxNzY2NTJ9.e01HIfCa-TfH8e6NnIKMmAI7GFg4-mUhLgCHI3KajhI\" curl -s -X GET \"http://localhost:4000/api/v1/project?limit=1\" -H \"Authorization: Bearer $TOKEN\")",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0MDkwMjUyLCJleHAiOjE3NjQxNzY2NTJ9.e01HIfCa-TfH8e6NnIKMmAI7GFg4-mUhLgCHI3KajhI\")"
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0MDkwMjUyLCJleHAiOjE3NjQxNzY2NTJ9.e01HIfCa-TfH8e6NnIKMmAI7GFg4-mUhLgCHI3KajhI\")",
+      "Bash(git -C /home/rabin/projects/pmo log --oneline -30)",
+      "Bash(git -C /home/rabin/projects/pmo log --oneline -50)",
+      "Bash(git -C /home/rabin/projects/pmo log -10 --stat --oneline)"
     ],
     "deny": [],
     "ask": [],

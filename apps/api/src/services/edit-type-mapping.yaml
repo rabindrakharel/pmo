@@ -369,6 +369,9 @@ fieldBusinessTypes:
       inputType: readonly
       behavior: { editable: false }
       style: { monospace: true }
+    kanbanView:
+      inputType: readonly
+      behavior: { editable: false }
 
   code:
     dtype: str
@@ -416,6 +419,9 @@ fieldBusinessTypes:
       inputType: textarea
       behavior: { editable: true }
       style: { rows: 4, resizable: true }
+    kanbanView:
+      inputType: textarea
+      behavior: { editable: true }
 
   summary:
     dtype: str
@@ -510,6 +516,10 @@ fieldBusinessTypes:
       behavior: { editable: true }
       style: { symbol: "$", decimals: 2, locale: en-CA }
       validation: { min: 0 }
+    kanbanView:
+      inputType: number
+      behavior: { editable: true }
+      validation: { min: 0 }
 
   currency_cents:
     dtype: int
@@ -566,6 +576,9 @@ fieldBusinessTypes:
       inputType: datetime-local
       behavior: { editable: true }
       style: { locale: en-CA, showTimezone: false }
+    kanbanView:
+      inputType: datetime-local
+      behavior: { editable: true }
     calendarView:
       inputType: datetime-local
       behavior: { editable: true }
@@ -576,6 +589,9 @@ fieldBusinessTypes:
       inputType: readonly
       behavior: { editable: false, filterable: false, sortable: true, visible: true }
     entityFormContainer:
+      inputType: readonly
+      behavior: { editable: false }
+    kanbanView:
       inputType: readonly
       behavior: { editable: false }
 
@@ -673,6 +689,10 @@ fieldBusinessTypes:
       inputType: checkbox
       behavior: { editable: true }
       style: { trueLabel: Active, falseLabel: Inactive }
+    kanbanView:
+      inputType: checkbox
+      behavior: { editable: true }
+      style: { trueLabel: Active, falseLabel: Inactive }
 
   # --------------------------------------------------------------------------
   # DATALABEL & ENTITY REFERENCE FIELDS
@@ -751,6 +771,10 @@ fieldBusinessTypes:
       component: EntityMultiSelect
       behavior: { editable: true }
       style: { searchable: true, displayField: name, maxSelections: null }
+    kanbanView:
+      inputType: select
+      component: EntityMultiSelect
+      behavior: { editable: true }
 
   # --------------------------------------------------------------------------
   # QUANTITY & NUMBER FIELDS
@@ -1267,6 +1291,9 @@ fieldBusinessTypes:
       inputType: readonly
       behavior: { editable: false, filterable: false, sortable: false, visible: false }
     entityFormContainer:
+      inputType: readonly
+      behavior: { editable: false }
+    kanbanView:
       inputType: readonly
       behavior: { editable: false }
 

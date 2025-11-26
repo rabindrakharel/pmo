@@ -39,7 +39,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -51,7 +51,7 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -67,7 +67,7 @@
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -84,7 +84,7 @@
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -98,20 +98,21 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "component",
+          "renderType": "json",
           "behavior": {
             "visible": false,
             "sortable": false,
             "filterable": false,
             "searchable": false
           },
-          "style": {},
-          "component": "JsonPreviewCell"
+          "style": {
+            "collapsed": true
+          }
         },
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "boolean",
+          "renderType": "boolean",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -130,7 +131,7 @@
         "office_id": {
           "dtype": "uuid",
           "label": "Office Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -142,13 +143,12 @@
             "align": "left",
             "displayField": "name",
             "linkToEntity": true
-          },
-          "component": "EntityLookupCell"
+          }
         },
         "current_headcount": {
           "dtype": "str",
           "label": "Current Headcount",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -163,7 +163,7 @@
         "operational_status": {
           "dtype": "str",
           "label": "Operational Status",
-          "type": "component",
+          "renderType": "badge",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -173,13 +173,12 @@
           "style": {
             "width": "120px",
             "align": "left"
-          },
-          "component": "StatusBadgeCell"
+          }
         },
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -195,7 +194,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -211,7 +210,7 @@
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -227,7 +226,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": true,
@@ -243,7 +242,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "version",
+          "renderType": "version",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -257,7 +256,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -267,7 +266,7 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -279,7 +278,7 @@
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -291,7 +290,7 @@
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "textarea",
+          "inputType": "textarea",
           "behavior": {
             "editable": true
           },
@@ -301,29 +300,30 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "component",
+          "inputType": "textarea",
           "behavior": {
             "editable": true
           },
           "style": {},
-          "validation": {},
-          "component": "JsonEditor"
+          "validation": {}
         },
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "component",
+          "inputType": "checkbox",
           "behavior": {
             "editable": true
           },
-          "style": {},
-          "validation": {},
-          "component": "Toggle"
+          "style": {
+            "trueLabel": "Active",
+            "falseLabel": "Inactive"
+          },
+          "validation": {}
         },
         "office_id": {
           "dtype": "uuid",
           "label": "Office Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -336,7 +336,7 @@
         "current_headcount": {
           "dtype": "str",
           "label": "Current Headcount",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -346,7 +346,7 @@
         "operational_status": {
           "dtype": "str",
           "label": "Operational Status",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -357,7 +357,7 @@
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "datetime-local",
+          "inputType": "datetime-local",
           "behavior": {
             "editable": true
           },
@@ -367,7 +367,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "datetime-local",
+          "inputType": "datetime-local",
           "behavior": {
             "editable": true
           },
@@ -377,7 +377,7 @@
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -387,7 +387,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -397,7 +397,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -411,7 +411,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -426,7 +426,7 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -440,7 +440,7 @@
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -454,7 +454,7 @@
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -468,7 +468,7 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "component",
+          "renderType": "json",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -477,13 +477,12 @@
           },
           "style": {
             "collapsed": true
-          },
-          "component": "JsonViewer"
+          }
         },
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "boolean",
+          "renderType": "boolean",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -498,7 +497,7 @@
         "office_id": {
           "dtype": "uuid",
           "label": "Office Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -507,13 +506,12 @@
           },
           "style": {
             "displayField": "name"
-          },
-          "component": "EntityLookupField"
+          }
         },
         "current_headcount": {
           "dtype": "str",
           "label": "Current Headcount",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -525,20 +523,19 @@
         "operational_status": {
           "dtype": "str",
           "label": "Operational Status",
-          "type": "component",
+          "renderType": "badge",
           "behavior": {
             "visible": true,
             "sortable": false,
             "filterable": false,
             "searchable": false
           },
-          "style": {},
-          "component": "StatusField"
+          "style": {}
         },
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -550,7 +547,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -562,7 +559,7 @@
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -577,7 +574,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -592,7 +589,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "number",
+          "renderType": "number",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -608,7 +605,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -620,7 +617,7 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -633,7 +630,7 @@
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -649,7 +646,7 @@
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "textarea",
+          "inputType": "textarea",
           "behavior": {
             "editable": true
           },
@@ -662,35 +659,34 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "component",
+          "inputType": "textarea",
           "behavior": {
             "editable": true
           },
           "style": {
             "mode": "tree",
-            "validateSchema": false
+            "validateSchema": false,
+            "rows": 6
           },
-          "validation": {},
-          "component": "JsonEditor"
+          "validation": {}
         },
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "component",
+          "inputType": "checkbox",
           "behavior": {
             "editable": true
           },
           "style": {
-            "onLabel": "Active",
-            "offLabel": "Inactive"
+            "trueLabel": "Active",
+            "falseLabel": "Inactive"
           },
-          "validation": {},
-          "component": "Toggle"
+          "validation": {}
         },
         "office_id": {
           "dtype": "uuid",
           "label": "Office Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -707,7 +703,7 @@
         "current_headcount": {
           "dtype": "str",
           "label": "Current Headcount",
-          "type": "text",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
@@ -717,7 +713,7 @@
         "operational_status": {
           "dtype": "str",
           "label": "Operational Status",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
@@ -728,7 +724,7 @@
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "datetime-local",
+          "inputType": "datetime-local",
           "behavior": {
             "editable": true
           },
@@ -741,7 +737,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "datetime-local",
+          "inputType": "datetime-local",
           "behavior": {
             "editable": true
           },
@@ -754,7 +750,7 @@
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -764,7 +760,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -774,7 +770,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "readonly",
+          "inputType": "readonly",
           "behavior": {
             "editable": false
           },
@@ -788,7 +784,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -800,7 +796,7 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -814,7 +810,7 @@
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -828,7 +824,7 @@
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -842,7 +838,7 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "json",
+          "renderType": "json",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -854,7 +850,7 @@
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "boolean",
+          "renderType": "boolean",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -869,20 +865,19 @@
         "office_id": {
           "dtype": "uuid",
           "label": "Office Name",
-          "type": "component",
+          "renderType": "entityLink",
           "behavior": {
             "visible": true,
             "sortable": false,
             "filterable": false,
             "searchable": false
           },
-          "style": {},
-          "component": "EntityBadge"
+          "style": {}
         },
         "current_headcount": {
           "dtype": "str",
           "label": "Current Headcount",
-          "type": "text",
+          "renderType": "text",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -894,20 +889,19 @@
         "operational_status": {
           "dtype": "str",
           "label": "Operational Status",
-          "type": "component",
+          "renderType": "badge",
           "behavior": {
             "visible": true,
             "sortable": false,
             "filterable": false,
             "searchable": false
           },
-          "style": {},
-          "component": "StatusBadge"
+          "style": {}
         },
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -919,7 +913,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -931,7 +925,7 @@
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -945,7 +939,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "timestamp",
+          "renderType": "timestamp",
           "behavior": {
             "visible": true,
             "sortable": false,
@@ -959,7 +953,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "version",
+          "renderType": "version",
           "behavior": {
             "visible": false,
             "sortable": false,
@@ -973,7 +967,7 @@
         "id": {
           "dtype": "uuid",
           "label": "Id",
-          "type": "uuid",
+          "inputType": "uuid",
           "behavior": {
             "editable": true
           },
@@ -983,29 +977,27 @@
         "code": {
           "dtype": "str",
           "label": "Code",
-          "type": "component",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
           "style": {},
-          "validation": {},
-          "component": "InlineTextInput"
+          "validation": {}
         },
         "name": {
           "dtype": "str",
           "label": "Name",
-          "type": "component",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
           "style": {},
-          "validation": {},
-          "component": "InlineTextInput"
+          "validation": {}
         },
         "descr": {
           "dtype": "str",
           "label": "Description",
-          "type": "description",
+          "inputType": "description",
           "behavior": {
             "editable": true
           },
@@ -1015,7 +1007,7 @@
         "metadata": {
           "dtype": "jsonb",
           "label": "Metadata",
-          "type": "json",
+          "inputType": "json",
           "behavior": {
             "editable": true
           },
@@ -1025,7 +1017,7 @@
         "active_flag": {
           "dtype": "bool",
           "label": "Active",
-          "type": "status_flag",
+          "inputType": "status_flag",
           "behavior": {
             "editable": true
           },
@@ -1035,31 +1027,30 @@
         "office_id": {
           "dtype": "uuid",
           "label": "Office Name",
-          "type": "select",
+          "inputType": "select",
           "behavior": {
             "editable": true
           },
           "style": {},
           "validation": {},
-          "component": "InlineEntitySelect",
+          "component": "EntitySelect",
           "lookupSource": "entityInstance",
           "lookupEntity": "office"
         },
         "current_headcount": {
           "dtype": "str",
           "label": "Current Headcount",
-          "type": "component",
+          "inputType": "text",
           "behavior": {
             "editable": true
           },
           "style": {},
-          "validation": {},
-          "component": "InlineTextInput"
+          "validation": {}
         },
         "operational_status": {
           "dtype": "str",
           "label": "Operational Status",
-          "type": "status",
+          "inputType": "status",
           "behavior": {
             "editable": true
           },
@@ -1069,7 +1060,7 @@
         "from_ts": {
           "dtype": "timestamp",
           "label": "From",
-          "type": "timestamp",
+          "inputType": "timestamp",
           "behavior": {
             "editable": true
           },
@@ -1079,7 +1070,7 @@
         "to_ts": {
           "dtype": "timestamp",
           "label": "To",
-          "type": "timestamp",
+          "inputType": "timestamp",
           "behavior": {
             "editable": true
           },
@@ -1089,7 +1080,7 @@
         "created_ts": {
           "dtype": "timestamp",
           "label": "Created",
-          "type": "timestamp_readonly",
+          "inputType": "timestamp_readonly",
           "behavior": {
             "editable": true
           },
@@ -1099,7 +1090,7 @@
         "updated_ts": {
           "dtype": "timestamp",
           "label": "Updated",
-          "type": "timestamp_readonly",
+          "inputType": "timestamp_readonly",
           "behavior": {
             "editable": true
           },
@@ -1109,7 +1100,7 @@
         "version": {
           "dtype": "int",
           "label": "Version",
-          "type": "version",
+          "inputType": "version",
           "behavior": {
             "editable": true
           },
@@ -1129,5 +1120,3 @@
     "active": false
   }
 }
-
-[0;32m✅ Success (HTTP 200)[0m
