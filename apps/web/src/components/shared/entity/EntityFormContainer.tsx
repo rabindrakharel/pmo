@@ -39,6 +39,7 @@ function renderFieldBadge(fieldKey: string, value: string): React.ReactNode {
   return <span className={badgeClass}>{value}</span>;
 }
 
+
 /**
  * EntityFormContainer
  *
@@ -168,8 +169,8 @@ function EntityFormContainerInner({
       .map(([fieldKey, viewMeta]) => {
         const editMeta = editType?.[fieldKey];
 
-        // Extract properties from nested structure
-        const label = viewMeta.label || generateFieldLabel(fieldKey);
+        // v8.2.0: Backend always provides labels via generateLabel()
+        const label = viewMeta.label;
         const inputType = editMeta?.inputType ?? 'text';
         const editable = editMeta?.behavior?.editable ?? false;
         const lookupSource = editMeta?.lookupSource;
