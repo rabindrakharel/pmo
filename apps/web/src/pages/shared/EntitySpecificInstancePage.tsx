@@ -41,23 +41,8 @@ interface EntitySpecificInstancePageProps {
   entityCode: string;
 }
 
-// ============================================================================
-// DEBUG: Render counter for tracking re-renders
-// ============================================================================
-let entityDetailRenderCount = 0;
-
 export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstancePageProps) {
   const { id } = useParams<{ id: string }>();
-
-  // DEBUG: Track renders
-  entityDetailRenderCount++;
-  const renderIdRef = React.useRef(entityDetailRenderCount);
-  console.log(
-    `%c[RENDER #${renderIdRef.current}] 🖼️ EntitySpecificInstancePage: ${entityCode}/${id}`,
-    'color: #da77f2; font-weight: bold',
-    { entityCode, id, timestamp: new Date().toLocaleTimeString() }
-  );
-
   const navigate = useNavigate();
   const location = useLocation();
   const config = getEntityConfig(entityCode);
@@ -514,11 +499,6 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // ============================================================================
 
   const handleSave = async () => {
-    console.log(
-      `%c[SAVE] 💾 handleSave called`,
-      'color: #20c997; font-weight: bold',
-      { entityCode, id, dirtyFields: Array.from(dirtyFields || []), editedData, timestamp: new Date().toLocaleTimeString() }
-    );
     try {
       // Special handling for artifact with new file upload (create new version)
       if (entityCode === 'artifact' && uploadedObjectKey && selectedFile) {
@@ -903,7 +883,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
 
   return (
     <Layout>
-      <div className="w-[97%] max-w-[1536px] mx-auto">
+        <div className="w-[97%] max-w-[1536px] mx-auto">
         {/* Sticky Header Section */}
         <div className="sticky top-0 z-20 bg-white pb-2">
           {/* Header */}
@@ -1067,11 +1047,6 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                       navigate(`/marketing/${id}/design`);
                     } else {
                       // Start edit mode using Zustand store
-                      console.log(
-                        `%c[EDIT MODE] ✏️ Starting edit mode`,
-                        'color: #ffa94d; font-weight: bold',
-                        { entityCode, id, dataKeys: Object.keys(data || {}), timestamp: new Date().toLocaleTimeString() }
-                      );
                       startEdit(entityCode, id!, data);
                     }
                   }}

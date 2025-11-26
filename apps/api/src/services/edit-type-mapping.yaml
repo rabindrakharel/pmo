@@ -748,35 +748,27 @@ fieldBusinessTypes:
     dtype: uuid
     lookupSource: entityInstance
     entityDataTable:
-      inputType: select
-      component: EntitySelect
-      behavior: { editable: true, filterable: true, sortable: true, visible: true }
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
     entityFormContainer:
-      inputType: select
-      component: EntitySelect
-      behavior: { editable: true }
-      style: { searchable: true, clearable: true, displayField: name }
+      inputType: readonly
+      behavior: { editable: false, visible: false }
     kanbanView:
-      inputType: select
-      component: EntitySelect
-      behavior: { editable: true }
+      inputType: readonly
+      behavior: { editable: false, visible: false }
 
   entityInstance_Ids:
     dtype: array[uuid]
     lookupSource: entityInstance
     entityDataTable:
-      inputType: select
-      component: EntityMultiSelect
-      behavior: { editable: true, filterable: true, sortable: false, visible: false }
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
     entityFormContainer:
-      inputType: select
-      component: EntityMultiSelect
-      behavior: { editable: true }
-      style: { searchable: true, displayField: name, maxSelections: null }
+      inputType: readonly
+      behavior: { editable: false, visible: false }
     kanbanView:
-      inputType: select
-      component: EntityMultiSelect
-      behavior: { editable: true }
+      inputType: readonly
+      behavior: { editable: false, visible: false }
 
   # --------------------------------------------------------------------------
   # QUANTITY & NUMBER FIELDS
@@ -970,12 +962,13 @@ fieldBusinessTypes:
   json:
     dtype: jsonb
     entityDataTable:
-      inputType: textarea
-      behavior: { editable: true, filterable: false, sortable: false, visible: false }
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
     entityFormContainer:
-      inputType: textarea
+      inputType: component
+      component: MetadataTable
       behavior: { editable: true }
-      style: { mode: tree, validateSchema: false, rows: 6 }
+      style: { mode: table }
 
   json_schema:
     dtype: jsonb
@@ -1313,6 +1306,48 @@ fieldBusinessTypes:
     kanbanView:
       inputType: text
       behavior: { editable: true }
+
+  # --------------------------------------------------------------------------
+  # SYSTEM INTERNAL FIELDS (hidden from UI)
+  # --------------------------------------------------------------------------
+  # These fields are for internal system use only (from_ts, to_ts, active_flag)
+  # They are hidden and not editable in all views
+
+  systemInternal_ts:
+    dtype: timestamp
+    entityDataTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: readonly
+      behavior: { editable: false, visible: false }
+    kanbanView:
+      inputType: readonly
+      behavior: { editable: false, visible: false }
+    calendarView:
+      inputType: readonly
+      behavior: { editable: false, visible: false }
+    dagView:
+      inputType: readonly
+      behavior: { editable: false, visible: false }
+
+  systemInternal_flag:
+    dtype: bool
+    entityDataTable:
+      inputType: readonly
+      behavior: { editable: false, filterable: false, sortable: false, visible: false }
+    entityFormContainer:
+      inputType: readonly
+      behavior: { editable: false, visible: false }
+    kanbanView:
+      inputType: readonly
+      behavior: { editable: false, visible: false }
+    calendarView:
+      inputType: readonly
+      behavior: { editable: false, visible: false }
+    dagView:
+      inputType: readonly
+      behavior: { editable: false, visible: false }
 
 # ============================================================================
 # FORM FIELD TYPE MAPPINGS (for FormBuilder)

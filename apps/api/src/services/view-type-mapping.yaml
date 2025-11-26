@@ -965,19 +965,19 @@ fieldBusinessTypes:
   entityInstance_Id:
     dtype: uuid
     entityDataTable:
-      <<: *table_default
+      <<: *hidden
       renderType: entityLink
-      style: { width: "150px", displayField: name, linkToEntity: true }
+      style: { displayField: name, linkToEntity: true }
     entityFormContainer:
-      <<: *form_default
+      <<: *hidden
       renderType: entityLink
       style: { displayField: name }
     kanbanView:
+      <<: *hidden
       renderType: entityLink
-      behavior: { visible: true }
     gridView:
+      <<: *hidden
       renderType: entityLink
-      behavior: { visible: true }
 
   entityInstance_Ids:
     dtype: array[uuid]
@@ -986,16 +986,16 @@ fieldBusinessTypes:
       renderType: entityLinks
       style: { maxDisplay: 3 }
     entityFormContainer:
-      <<: *form_default
+      <<: *hidden
       renderType: entityLinks
       style: { displayField: name }
     kanbanView:
+      <<: *hidden
       renderType: entityLinks
-      behavior: { visible: true }
       style: { max: 3 }
     gridView:
+      <<: *hidden
       renderType: entityLinks
-      behavior: { visible: true }
 
   # --------------------------------------------------------------------------
   # QUANTITY & NUMBER FIELDS
@@ -1210,8 +1210,9 @@ fieldBusinessTypes:
       style: { collapsed: true }
     entityFormContainer:
       <<: *form_default
-      renderType: json
-      style: { collapsed: true }
+      renderType: component
+      component: MetadataTable
+      style: { collapsed: false }
     kanbanView: *hidden
     gridView: *hidden
 
@@ -1636,3 +1637,43 @@ fieldBusinessTypes:
     gridView:
       renderType: text
       behavior: { visible: true }
+
+  # --------------------------------------------------------------------------
+  # SYSTEM INTERNAL FIELDS (hidden from UI)
+  # --------------------------------------------------------------------------
+  # These fields are for internal system use only (from_ts, to_ts, active_flag)
+  # They use *hidden anchor to hide from all views
+
+  systemInternal_ts:
+    dtype: timestamp
+    entityDataTable:
+      <<: *hidden
+      renderType: timestamp
+    entityFormContainer:
+      <<: *hidden
+      renderType: timestamp
+    kanbanView:
+      <<: *hidden
+    gridView:
+      <<: *hidden
+    calendarView:
+      <<: *hidden
+    dagView:
+      <<: *hidden
+
+  systemInternal_flag:
+    dtype: bool
+    entityDataTable:
+      <<: *hidden
+      renderType: boolean
+    entityFormContainer:
+      <<: *hidden
+      renderType: boolean
+    kanbanView:
+      <<: *hidden
+    gridView:
+      <<: *hidden
+    calendarView:
+      <<: *hidden
+    dagView:
+      <<: *hidden

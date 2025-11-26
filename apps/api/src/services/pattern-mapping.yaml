@@ -242,8 +242,8 @@ patterns:
   - { pattern: "deleted_ts", exact: true, fieldBusinessType: timestamp_readonly }
   - { pattern: "archived_ts", exact: true, fieldBusinessType: timestamp_readonly }
 
-  - { pattern: "from_ts", exact: true, fieldBusinessType: timestamp }
-  - { pattern: "to_ts", exact: true, fieldBusinessType: timestamp }
+  - { pattern: "from_ts", exact: true, fieldBusinessType: systemInternal_ts }
+  - { pattern: "to_ts", exact: true, fieldBusinessType: systemInternal_ts }
   - { pattern: "*_ts", exact: false, fieldBusinessType: timestamp }
   - { pattern: "*_at", exact: false, fieldBusinessType: timestamp }
   - { pattern: "*_datetime", exact: false, fieldBusinessType: timestamp }
@@ -268,7 +268,7 @@ patterns:
 # ============================================================================
 # BOOLEAN FLAGS
 # ============================================================================
-  - { pattern: "active_flag", exact: true, fieldBusinessType: status_flag }
+  - { pattern: "active_flag", exact: true, fieldBusinessType: systemInternal_flag }
   - { pattern: "*_flag", exact: false, fieldBusinessType: boolean }
   - { pattern: "is_*", exact: false, fieldBusinessType: boolean }
 
@@ -285,7 +285,7 @@ patterns:
   - { pattern: "dl__*", exact: false, fieldBusinessType: datalabel }
 
 # ============================================================================
-# ENTITY REFERENCE FIELDS
+# ENTITY REFERENCE FIELDS (_id/_ids - hidden from UI)
 # ============================================================================
   # Prefixed references (manager__employee_id, sponsor__client_id)
   - { pattern: "*__*_id", exact: false, fieldBusinessType: entityInstance_Id }

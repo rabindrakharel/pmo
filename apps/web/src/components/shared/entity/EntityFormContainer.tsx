@@ -53,11 +53,6 @@ function renderFieldBadge(fieldKey: string, value: string): React.ReactNode {
  * - Handles field validation
  */
 
-// ============================================================================
-// DEBUG: Render counter for tracking re-renders
-// ============================================================================
-let entityFormContainerRenderCount = 0;
-
 interface EntityFormContainerProps {
   config?: EntityConfig;              // Now optional - can be auto-generated
   data: Record<string, any>;
@@ -109,23 +104,6 @@ function EntityFormContainerInner({
   datalabels = EMPTY_DATALABELS,  // ✅ Stable default reference
   formattedData                 // v7.0.0: Pre-formatted data for instant rendering
 }: EntityFormContainerProps) {
-  // DEBUG: Track renders
-  entityFormContainerRenderCount++;
-  const renderIdRef = React.useRef(entityFormContainerRenderCount);
-  console.log(
-    `%c[RENDER #${renderIdRef.current}] 🖼️ EntityFormContainer`,
-    'color: #ffd43b; font-weight: bold',
-    {
-      isEditing,
-      mode,
-      hasMetadata: !!metadata,
-      hasEntityFormContainerMetadata: !!metadata?.entityFormContainer,
-      dataKeys: Object.keys(data || {}),
-      datalabelsCount: datalabels?.length || 0,
-      timestamp: new Date().toLocaleTimeString()
-    }
-  );
-
   // ============================================================================
   // METADATA-DRIVEN FIELD GENERATION
   // ============================================================================
@@ -137,24 +115,12 @@ function EntityFormContainerInner({
 
     // Explicit config fields override (for special cases)
     if (config?.fields && config.fields.length > 0) {
-      console.log(
-        `%c[FIELDS] 📋 EntityFormContainer using explicit config fields`,
-        'color: #fcc419; font-weight: bold',
-        { fieldCount: config.fields.length }
-      );
       return config.fields;
     }
 
     // Extract viewType and editType from component metadata
     const viewType = extractViewType(componentMetadata);
     const editType = extractEditType(componentMetadata);
-
-    console.log(`%c[FIELDS] 📋 EntityFormContainer metadata:`, 'color: #51cf66; font-weight: bold', {
-      isValid: isValidComponentMetadata(componentMetadata),
-      hasViewType: !!viewType,
-      hasEditType: !!editType,
-      fieldCount: viewType ? Object.keys(viewType).length : 0,
-    });
 
     if (!viewType) {
       console.error('[EntityFormContainer] No viewType in metadata - backend must send { viewType, editType }');
@@ -202,22 +168,12 @@ function EntityFormContainerInner({
         } as FieldDef;
       });
 
-    console.log(
-      `%c[FIELDS] 📋 EntityFormContainer fields computed`,
-      'color: #51cf66; font-weight: bold',
-      { fieldCount: result.length, fieldKeys: result.map(f => f.key) }
-    );
     return result;
   }, [metadata, config]);
 
   // Simple onChange handler - debouncing is handled by DebouncedInput/DebouncedTextarea
   // This is the industry-standard pattern: input components manage their own debouncing
   const handleFieldChange = React.useCallback((fieldKey: string, value: any) => {
-    console.log(
-      `%c[FIELD CHANGE] ✍️ EntityFormContainer.handleFieldChange`,
-      'color: #74c0fc',
-      { fieldKey, valueType: typeof value, valuePreview: typeof value === 'string' ? value.substring(0, 50) : value }
-    );
     onChange(fieldKey, value);
   }, [onChange]);
 
@@ -446,6 +402,14 @@ function EntityFormContainerInner({
         );
       }
       if (field.type === 'textarea' || field.type === 'richtext') {
+        // Handle object values (e.g., metadata field typed as textarea but containing JSON)
+        if (typeof value === 'object' && value !== null) {
+          return (
+            <pre className="font-mono bg-dark-100 p-2 rounded overflow-auto max-h-40 text-sm text-dark-700 whitespace-pre-wrap">
+              {JSON.stringify(value, null, 2)}
+            </pre>
+          );
+        }
         return (
           <div className="whitespace-pre-wrap text-dark-600 text-base tracking-tight leading-relaxed">
             {value || '-'}
@@ -781,6 +745,7 @@ function EntityFormContainerInner({
   // In create mode: include name and code so users can see auto-populated values and edit them
   // Always exclude: slug, id, tags, created_ts, updated_ts
   // Also exclude: UUID reference fields (*_id, *_ids) - resolved labels shown instead
+  // NOTE: _ID, _IDS exclusion should happen in backend-formatter.service.ts (BFF)
   const excludedFields = mode === 'create'
     ? ['title', 'id', 'created_ts', 'updated_ts']
     : ['name', 'title', 'code', 'id', 'created_ts', 'updated_ts'];
