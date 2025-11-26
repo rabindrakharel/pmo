@@ -190,7 +190,7 @@
 # inherit - Copy all settings from another fieldBusinessType (optional)
 #
 # ============================================================================
-# COMPONENT-LEVEL FIELDS (organized into behavior, style, validation)
+# COMPONENT-LEVEL FIELDS (organized into behavior, style)
 # ============================================================================
 #
 # BEHAVIOR - Interaction/visibility settings:
@@ -198,7 +198,7 @@
 #   sortable    - Whether column can be sorted (tables only)
 #   filterable  - Whether field appears in filters (tables only)
 #   searchable  - Whether field is included in text search
-#   editable    - Whether field can be edited (forms only)
+#   required    - Show required indicator (*) in display mode (default: false)
 #
 # STYLE - Visual presentation AND formatting:
 #   width       - Column width: "auto", "80px", "120px", "200px", etc.
@@ -215,9 +215,10 @@
 #   showFlag    - Show country flag: true/false
 #   compact     - Compact display mode: true/false
 #   unit        - Unit for measurements: "minutes", "hours", "kg", etc.
+#   emptyValue  - Display when value is null/empty: "—", "N/A", "(none)", etc.
+#   helpText    - Tooltip text shown on hover (contextual guidance)
 #
-# VALIDATION - Input constraints (edit-type-mapping.yaml only):
-#   required, min, max, pattern, etc.
+# NOTE: validation rules are in edit-type-mapping.yaml only (for input controls)
 #
 # ============================================================================
 # COMPONENT ARCHITECTURE: PAGE-LEVEL CONTAINERS + INLINE RENDERING
@@ -513,11 +514,11 @@ fieldBusinessTypes:
     entityDataTable:
       <<: *table_default
       renderType: text
-      style: { width: "140px", monospace: true }
+      style: { width: "140px", monospace: true, emptyValue: "—" }
     entityFormContainer:
       <<: *form_default
       renderType: text
-      style: { monospace: true }
+      style: { monospace: true, emptyValue: "—", helpText: "Unique identifier code (e.g., PROJ-001)" }
     kanbanView:
       renderType: text
       behavior: { visible: true }
@@ -532,16 +533,17 @@ fieldBusinessTypes:
     entityDataTable:
       <<: *table_default
       renderType: text
-      behavior: { visible: true, sortable: true, filterable: true, searchable: true }
-      style: { width: "250px", bold: true, linkToDetail: true }
+      behavior: { visible: true, sortable: true, filterable: true, searchable: true, required: true }
+      style: { width: "250px", bold: true, linkToDetail: true, emptyValue: "(untitled)" }
     entityFormContainer:
       <<: *form_default
       renderType: text
-      style: { size: lg }
+      behavior: { required: true }
+      style: { size: lg, emptyValue: "(untitled)", helpText: "The display name for this record" }
     kanbanView:
       renderType: text
-      behavior: { visible: true }
-      style: { truncate: 50 }
+      behavior: { visible: true, required: true }
+      style: { truncate: 50, emptyValue: "(untitled)" }
     gridView:
       renderType: text
       behavior: { visible: true }
@@ -687,15 +689,15 @@ fieldBusinessTypes:
     entityDataTable:
       <<: *table_default
       renderType: currency
-      style: { align: right, width: "140px", symbol: "$", decimals: 2, locale: en-CA }
+      style: { align: right, width: "140px", symbol: "$", decimals: 2, locale: en-CA, emptyValue: "$0.00" }
     entityFormContainer:
       <<: *form_default
       renderType: currency
-      style: { symbol: "$", decimals: 2 }
+      style: { symbol: "$", decimals: 2, emptyValue: "$0.00", helpText: "Amount in Canadian dollars" }
     kanbanView:
       renderType: currency
       behavior: { visible: true }
-      style: { compact: true }
+      style: { compact: true, emptyValue: "$0" }
     gridView:
       renderType: currency
       behavior: { visible: true }

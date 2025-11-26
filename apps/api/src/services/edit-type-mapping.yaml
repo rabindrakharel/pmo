@@ -234,7 +234,8 @@
 #   - size: sm|md|lg           : Input size
 #   - rows: number             : Textarea rows
 #   - resizable: bool          : Allow resize
-#   - placeholder: string      : Placeholder text
+#   - placeholder: string      : Placeholder text (e.g., "Enter project name...")
+#   - helpText: string         : Tooltip/help text shown near input (contextual guidance)
 #   - autocomplete: string     : HTML autocomplete attribute
 #   - mask: string             : Input mask pattern
 #   - symbol: string           : Currency/unit symbol
@@ -383,6 +384,7 @@ fieldBusinessTypes:
       inputType: text
       behavior: { editable: true }
       validation: { required: true, pattern: "^[A-Za-z0-9-_]+$" }
+      style: { placeholder: "PROJ-001", helpText: "Letters, numbers, hyphens and underscores only" }
     kanbanView:
       inputType: text
       behavior: { editable: true }
@@ -397,7 +399,7 @@ fieldBusinessTypes:
       inputType: text
       behavior: { editable: true }
       validation: { required: true, minLength: 1, maxLength: 255 }
-      style: { size: lg }
+      style: { size: lg, placeholder: "Enter name...", helpText: "The display name for this record" }
     kanbanView:
       inputType: text
       behavior: { editable: true }
@@ -440,7 +442,7 @@ fieldBusinessTypes:
       inputType: email
       behavior: { editable: true }
       validation: { pattern: "^[^@]+@[^@]+\\.[^@]+$" }
-      style: { autocomplete: email }
+      style: { autocomplete: email, placeholder: "user@example.com", helpText: "Valid email address required" }
 
   phone:
     dtype: str
@@ -514,7 +516,7 @@ fieldBusinessTypes:
     entityFormContainer:
       inputType: number
       behavior: { editable: true }
-      style: { symbol: "$", decimals: 2, locale: en-CA }
+      style: { symbol: "$", decimals: 2, locale: en-CA, placeholder: "0.00", helpText: "Amount in Canadian dollars" }
       validation: { min: 0 }
     kanbanView:
       inputType: number

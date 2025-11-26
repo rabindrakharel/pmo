@@ -1,118 +1,433 @@
 # Metadata Coupling Implementation Plan
 
-**Version:** 1.0.0 | **Date:** 2025-11-25 | **Status:** 📋 PLANNING
+**Version:** 3.2.0 | **Date:** 2025-11-25 | **Status:** 🔄 IN PROGRESS
 
 ---
 
 ## Table of Contents
 
-1. [Current State: Frontend Architecture](#1-current-state-frontend-architecture)
-2. [Current State: Backend Response Format](#2-current-state-backend-response-format)
-3. [The Coupling Requirement](#3-the-coupling-requirement)
-4. [The Gap Analysis](#4-the-gap-analysis)
-5. [Implementation Plan](#5-implementation-plan)
-6. [Testing Strategy](#6-testing-strategy)
+1. [Problem Statement](#1-problem-statement)
+2. [Current State: Frontend Architecture](#2-current-state-frontend-architecture)
+3. [Current State: Backend Format](#3-current-state-backend-format)
+4. [The Gap: What's Missing](#4-the-gap-whats-missing)
+5. [Industry Best Practices](#5-industry-best-practices)
+6. [Solution Design](#6-solution-design)
+7. [Implementation Plan](#7-implementation-plan)
+8. [Testing & Verification](#8-testing--verification)
+9. [Changelog](#9-changelog)
 
 ---
 
-## 1. Current State: Frontend Architecture
+## 1. Problem Statement
 
-### 1.1 State Management (MUST PRESERVE)
+### 1.1 The Core Problem
 
-The frontend uses a **hybrid architecture** that MUST be respected:
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    STATE MANAGEMENT (v8.0.0)                             │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  REACT QUERY (SOLE Data Cache)                                          │
-│  ├── Caches RAW entity data only                                        │
-│  ├── Format-at-Read via `select` option (memoized)                      │
-│  ├── Stale-While-Revalidate pattern                                     │
-│  └── TTL: Lists (30s stale), Details (10s stale)                        │
-│                                                                          │
-│  ZUSTAND STORES (Metadata Only)                                          │
-│  ├── datalabelMetadataStore (1h TTL) - Dropdown options                 │
-│  ├── entityComponentMetadataStore (15m TTL) - Field metadata            │
-│  ├── globalSettingsMetadataStore (1h TTL) - Formatting settings         │
-│  └── entityCodeMetadataStore (1h TTL) - Entity type registry            │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### 1.2 Data Flow (MUST PRESERVE)
+**The frontend cannot read field metadata because it looks in the wrong place.**
 
 ```
-API Response → React Query Cache (RAW) → select transform → FormattedRow[]
-                     │
-                     └→ Zustand stores metadata separately (15m TTL)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          THE COUPLING FAILURE                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  FRONTEND CODE:                                                             │
+│  ──────────────                                                             │
+│  const meta = metadata.entityDataTable["budget_allocated_amt"];             │
+│  // Returns: undefined ❌                                                   │
+│                                                                             │
+│  BACKEND SENDS:                                                             │
+│  ──────────────                                                             │
+│  metadata.entityDataTable.viewType["budget_allocated_amt"]  // ✅ Here!    │
+│  metadata.entityDataTable.editType["budget_allocated_amt"]  // ✅ And here!│
+│                                                                             │
+│  RESULT:                                                                    │
+│  ───────                                                                    │
+│  • Columns render without proper formatting                                 │
+│  • Edit mode doesn't know input types                                       │
+│  • Validation rules are ignored                                             │
+│  • Dropdowns don't populate correctly                                       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.3 Format-at-Read Pattern (MUST PRESERVE)
+### 1.2 Three Distinct Mismatches
+
+| # | Issue | Frontend Expects | Backend Sends |
+|---|-------|------------------|---------------|
+| 1 | **Path mismatch** | `metadata.entityDataTable[field]` | `metadata.entityDataTable.viewType[field]` |
+| 2 | **Property nesting** | `fieldMeta.visible` (flat) | `fieldMeta.behavior.visible` (nested) |
+| 3 | **Property naming** | `fieldMeta.editType` | `fieldMeta.inputType` |
+
+### 1.3 Impact Assessment
+
+| Component | Symptom | Root Cause |
+|-----------|---------|------------|
+| **EntityDataTable** | Columns show raw data without formatting | Can't find `renderType` |
+| **EntityFormContainer** | Forms don't validate | Can't find `validation` |
+| **KanbanView** | Cards show wrong fields | Can't find `behavior.visible` |
+| **Inline Edit** | Wrong input controls | Can't find `inputType` |
+| **Dropdowns** | Don't populate options | Can't find `lookupSource` |
+
+---
+
+## 2. Current State: Frontend Architecture
+
+### 2.1 Architecture Overview
+
+The frontend follows a strict architecture pattern that **MUST be preserved**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    FRONTEND ARCHITECTURE (v8.0.0)                           │
+│                    ══════════════════════════════                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                         API LAYER                                    │   │
+│  │  GET /api/v1/{entity}?limit=20 → { data, metadata, total, ... }     │   │
+│  └───────────────────────────────────┬─────────────────────────────────┘   │
+│                                      │                                      │
+│                                      ▼                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    REACT QUERY (Data Cache)                          │   │
+│  │  ────────────────────────────────────────                           │   │
+│  │  • SOLE source of truth for entity data                             │   │
+│  │  • Caches RAW data only (no formatting in cache)                    │   │
+│  │  • Stale time: 30s for lists, 10s for details                       │   │
+│  │  • Format-at-Read via `select` option (memoized)                    │   │
+│  │                                                                      │   │
+│  │  useQuery({                                                          │   │
+│  │    queryKey: ['entity-list', entityCode, params],                   │   │
+│  │    queryFn: () => api.get(`/api/v1/${entityCode}`),                 │   │
+│  │    select: (data) => formatDataset(data, metadata) // ← Format here │   │
+│  │  })                                                                  │   │
+│  └───────────────────────────────────┬─────────────────────────────────┘   │
+│                                      │                                      │
+│         ┌────────────────────────────┴────────────────────────────┐        │
+│         │                                                          │        │
+│         ▼                                                          ▼        │
+│  ┌─────────────────────────────┐    ┌─────────────────────────────────┐   │
+│  │  ZUSTAND: Metadata Stores   │    │  COMPONENTS                      │   │
+│  │  ──────────────────────────│    │  ────────────                    │   │
+│  │                             │    │                                  │   │
+│  │  entityComponentMetadataStore    │  EntityDataTable                 │   │
+│  │  ├─ entityDataTable metadata     │  ├─ Reads viewType for columns  │   │
+│  │  ├─ entityFormContainer metadata │  └─ Reads editType for inline   │   │
+│  │  └─ kanbanView metadata          │                                  │   │
+│  │  TTL: 15 minutes                 │  EntityFormContainer             │   │
+│  │                             │    │  └─ Reads editType for fields   │   │
+│  │  datalabelMetadataStore     │    │                                  │   │
+│  │  └─ Dropdown options (1h TTL)    │  KanbanView                      │   │
+│  │                             │    │  └─ Reads viewType for cards    │   │
+│  └─────────────────────────────┘    └─────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 2.2 Design Pattern Constraints (MUST Preserve)
+
+| Constraint | Description | Why |
+|------------|-------------|-----|
+| **React Query = SOLE data cache** | All entity data flows through React Query | Prevents cache duplication, ensures consistency |
+| **Format-at-Read pattern** | Raw data cached, formatting via `select` | Smaller cache, instant datalabel color updates |
+| **Zustand for metadata** | Component metadata cached separately with TTL | Metadata rarely changes, reduces API calls |
+| **No data transformation in components** | Components receive pre-formatted data | Keeps components pure, testable |
+| **15-minute metadata TTL** | Metadata refreshes every 15 minutes | Balance between freshness and performance |
+
+### 2.3 State Management Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       STATE MANAGEMENT FLOW                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  1. API CALL                                                                │
+│     useEntityQuery('project', { limit: 20 })                               │
+│           │                                                                 │
+│           ▼                                                                 │
+│  2. REACT QUERY CACHES RAW RESPONSE                                        │
+│     {                                                                       │
+│       data: [{ id, name, budget_allocated_amt: 200000, ... }],             │
+│       metadata: { entityDataTable: { viewType: {...}, editType: {...} } }, │
+│       total: 100                                                            │
+│     }                                                                       │
+│           │                                                                 │
+│           ├──────────────────────────────────────┐                         │
+│           │                                      │                          │
+│           ▼                                      ▼                          │
+│  3. ZUSTAND STORES METADATA              4. SELECT FORMATS DATA             │
+│     entityComponentMetadataStore            formatDataset(raw, viewType)    │
+│       .setComponentMetadata(                      │                         │
+│         'project',                               ▼                          │
+│         'entityDataTable',               FormattedRow[] {                   │
+│         { viewType, editType }             raw: { budget: 200000 },         │
+│       )                                    display: { budget: "$200,000" }, │
+│           │                                styles: { ... }                  │
+│           │                              }                                  │
+│           ▼                                      │                          │
+│  5. COMPONENT READS BOTH                        │                          │
+│     const { viewType, editType } = metadata;    │                          │
+│     const formattedData = useFormattedList();←──┘                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 2.4 Current Frontend Types (BROKEN)
 
 ```typescript
-// useEntityQuery.ts - The pattern we MUST maintain
-export function useFormattedEntityList(entityCode, params) {
-  return useQuery({
-    queryKey: ['entity-list', entityCode, params],
-    queryFn: async () => {
-      const response = await api.list(params);
-      // Store metadata in Zustand (separate from data)
-      if (response.metadata) {
-        entityComponentMetadataStore.setComponentMetadata(entityCode, 'entityDataTable', componentMetadata);
+// apps/web/src/stores/entityComponentMetadataStore.ts
+
+// CURRENT TYPE - WRONG (assumes flat structure)
+export type ComponentMetadata = Record<string, FieldMetadata>;
+
+// Frontend code tries to read:
+const componentMetadata = metadata?.entityDataTable;
+const fieldMeta = componentMetadata['budget_allocated_amt'];  // ❌ undefined!
+
+// Because componentMetadata is actually:
+// { viewType: {...}, editType: {...} }
+// NOT: { budget_allocated_amt: {...}, name: {...} }
+```
+
+---
+
+## 3. Current State: Backend Format
+
+### 3.1 Backend Architecture
+
+The backend generates metadata via a **3-stage YAML pipeline**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    BACKEND METADATA PIPELINE                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Database Column: "budget_allocated_amt"                                    │
+│         │                                                                   │
+│         ▼                                                                   │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  STAGE 1: pattern-mapping.yaml                                       │   │
+│  │  ───────────────────────────                                         │   │
+│  │  Pattern: *_amt  →  fieldBusinessType: "currency"                    │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│         │                                                                   │
+│         ▼                                                                   │
+│  ┌────────────────────────────┐    ┌────────────────────────────┐          │
+│  │  STAGE 2a: view-type-      │    │  STAGE 2b: edit-type-      │          │
+│  │  mapping.yaml              │    │  mapping.yaml              │          │
+│  │  ────────────────────      │    │  ────────────────────      │          │
+│  │  currency:                 │    │  currency:                 │          │
+│  │    renderType: currency    │    │    inputType: number       │          │
+│  │    behavior:               │    │    behavior:               │          │
+│  │      visible: true         │    │      editable: true        │          │
+│  │      sortable: true        │    │    style:                  │          │
+│  │    style:                  │    │      step: 0.01            │          │
+│  │      symbol: "$"           │    │    validation:             │          │
+│  │      decimals: 2           │    │      min: 0                │          │
+│  └────────────────────────────┘    └────────────────────────────┘          │
+│         │                                   │                               │
+│         └─────────────┬─────────────────────┘                               │
+│                       ▼                                                     │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  STAGE 3: API Response                                               │   │
+│  │  ─────────────────────                                               │   │
+│  │  {                                                                   │   │
+│  │    "metadata": {                                                     │   │
+│  │      "entityDataTable": {                                            │   │
+│  │        "viewType": { "budget_allocated_amt": {...} },                │   │
+│  │        "editType": { "budget_allocated_amt": {...} }                 │   │
+│  │      }                                                               │   │
+│  │    }                                                                 │   │
+│  │  }                                                                   │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Actual API Response Example:**
+
+```json
+{
+  "data": [{ "id": "uuid", "name": "Kitchen Reno", "budget_allocated_amt": 200000 }],
+  "metadata": {
+    "entityDataTable": {
+      "viewType": {
+        "budget_allocated_amt": {
+          "dtype": "float",
+          "label": "Budget Allocated",
+          "renderType": "currency",
+          "behavior": {
+            "visible": true,
+            "sortable": true,
+            "filterable": true,
+            "searchable": false
+          },
+          "style": {
+            "width": "140px",
+            "align": "right",
+            "symbol": "$",
+            "decimals": 2,
+            "locale": "en-CA",
+            "emptyValue": "$0.00",
+            "helpText": "Amount in Canadian dollars"
+          }
+        }
+      },
+      "editType": {
+        "budget_allocated_amt": {
+          "dtype": "float",
+          "label": "Budget Allocated",
+          "inputType": "number",
+          "behavior": { "editable": true },
+          "style": {
+            "step": 0.01,
+            "placeholder": "0.00",
+            "helpText": "Amount in Canadian dollars"
+          },
+          "validation": { "min": 0 }
+        }
       }
-      return response;  // RAW data cached
-    },
-    // Format-at-read via select (memoized by React Query)
-    select: (response) => ({
-      ...response,
-      formattedData: formatDataset(response.data, response.metadata?.entityDataTable)
-    })
-  });
+    }
+  }
 }
 ```
 
-### 1.4 Component Architecture (MUST PRESERVE)
+### 3.2 Why viewType and editType are Separate
 
-| Component | Data Source | Metadata Source |
-|-----------|-------------|-----------------|
-| `EntityDataTable` | `formattedData` (from select) | `metadata` prop |
-| `EntityFormContainer` | `data` (raw for editing) | `metadata` prop |
-| `KanbanView` | `formattedData` | `metadata` prop |
+The backend separates view and edit because they serve **fundamentally different purposes**:
 
----
+| Field | viewType (Display) | editType (Input) |
+|-------|-------------------|------------------|
+| `budget_allocated_amt` | `renderType: currency`, `decimals: 2`, `symbol: "$"` | `inputType: number`, `step: 0.01`, `min: 0` |
+| `dl__project_stage` | `renderType: badge`, `colorFromData: true` | `inputType: select`, `component: DAGVisualizer` |
+| `created_ts` | `renderType: timestamp`, `format: relative` | `inputType: readonly` |
+| `manager__employee_id` | `renderType: entityLink`, `displayField: name` | `inputType: select`, `lookupEntity: employee` |
 
-## 2. Current State: Backend Response Format
+**If merged, conflicts arise:**
+- `decimals: 2` for display vs `step: 0.01` for input
+- `truncate: 100` for tables vs `rows: 4` for forms
+- `colorFromData: true` for badges vs `searchable: true` for selects
 
-### 2.1 Response Structure
-
-The backend returns this structure for ALL entity endpoints:
+### 3.3 Complete API Response Example
 
 ```json
 {
   "data": [
     {
-      "id": "uuid-here",
-      "name": "Customer Service Excellence Initiative",
+      "id": "a1234567-1234-1234-1234-123456789abc",
+      "name": "Kitchen Renovation",
+      "code": "PROJ-001",
       "budget_allocated_amt": 200000,
-      "dl__project_stage": "Execution"
+      "dl__project_stage": "in_progress",
+      "manager__employee_id": "8260b1b0-5efc-4611-ad33-ee76c0cf7f13",
+      "created_ts": "2025-01-15T10:30:00Z"
     }
   ],
-  "fields": ["id", "code", "name", "budget_allocated_amt", "dl__project_stage", ...],
+  "fields": ["id", "name", "code", "budget_allocated_amt", "dl__project_stage", "manager__employee_id", "created_ts"],
   "metadata": {
     "entityDataTable": {
-      "viewType": { ... },    // Display configuration
-      "editType": { ... }     // Edit configuration
+      "viewType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "renderType": "text",
+          "behavior": { "visible": false, "sortable": false, "filterable": false, "searchable": false },
+          "style": {}
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "renderType": "text",
+          "behavior": { "visible": true, "sortable": true, "filterable": true, "searchable": true, "required": true },
+          "style": { "width": "250px", "bold": true, "linkToDetail": true, "emptyValue": "(untitled)", "helpText": "The display name for this record" }
+        },
+        "budget_allocated_amt": {
+          "dtype": "float",
+          "label": "Budget Allocated",
+          "renderType": "currency",
+          "behavior": { "visible": true, "sortable": true, "filterable": true, "searchable": false },
+          "style": { "width": "140px", "align": "right", "symbol": "$", "decimals": 2, "locale": "en-CA", "emptyValue": "$0.00" }
+        },
+        "dl__project_stage": {
+          "dtype": "str",
+          "label": "Stage",
+          "renderType": "badge",
+          "behavior": { "visible": true, "sortable": true, "filterable": true, "searchable": false },
+          "style": { "width": "120px", "colorFromData": true }
+        },
+        "manager__employee_id": {
+          "dtype": "uuid",
+          "label": "Manager",
+          "renderType": "entityLink",
+          "behavior": { "visible": true, "sortable": true, "filterable": true, "searchable": false },
+          "style": { "width": "150px", "displayField": "name", "linkToEntity": true }
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "renderType": "timestamp",
+          "behavior": { "visible": true, "sortable": true, "filterable": false, "searchable": false },
+          "style": { "width": "140px", "format": "relative" }
+        }
+      },
+      "editType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "inputType": "readonly",
+          "behavior": { "editable": false },
+          "style": {},
+          "validation": {}
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "inputType": "text",
+          "behavior": { "editable": true },
+          "style": { "size": "lg", "placeholder": "Enter name...", "helpText": "The display name for this record" },
+          "validation": { "required": true, "minLength": 1, "maxLength": 255 }
+        },
+        "budget_allocated_amt": {
+          "dtype": "float",
+          "label": "Budget Allocated",
+          "inputType": "number",
+          "behavior": { "editable": true },
+          "style": { "symbol": "$", "decimals": 2, "locale": "en-CA", "placeholder": "0.00", "helpText": "Amount in Canadian dollars" },
+          "validation": { "min": 0 }
+        },
+        "dl__project_stage": {
+          "dtype": "str",
+          "label": "Stage",
+          "inputType": "select",
+          "behavior": { "editable": true },
+          "style": {},
+          "validation": {},
+          "component": "DataLabelSelect",
+          "lookupSource": "datalabel",
+          "datalabelKey": "dl__project_stage"
+        },
+        "manager__employee_id": {
+          "dtype": "uuid",
+          "label": "Manager",
+          "inputType": "select",
+          "behavior": { "editable": true },
+          "style": { "searchable": true, "clearable": true, "displayField": "name" },
+          "validation": {},
+          "component": "EntitySelect",
+          "lookupSource": "entityInstance",
+          "lookupEntity": "employee"
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "inputType": "readonly",
+          "behavior": { "editable": false },
+          "style": {},
+          "validation": {}
+        }
+      }
     },
-    "entityFormContainer": {
-      "viewType": { ... },
-      "editType": { ... }
-    },
-    "kanbanView": {
-      "viewType": { ... },
-      "editType": { ... }
-    }
+    "entityFormContainer": { "viewType": {...}, "editType": {...} },
+    "kanbanView": { "viewType": {...}, "editType": {...} }
   },
   "total": 100,
   "limit": 20,
@@ -120,343 +435,705 @@ The backend returns this structure for ALL entity endpoints:
 }
 ```
 
-### 2.2 viewType Structure (How to DISPLAY)
+### 3.4 Why Frontend Needs This Structure
 
-Each field in `viewType` contains:
+The frontend needs `viewType` and `editType` to:
 
-```json
-{
-  "budget_allocated_amt": {
-    "dtype": "float",
-    "label": "Budget Allocated",
-    "renderType": "currency",           // ← Key property for display
-    "behavior": {
-      "visible": true,
-      "sortable": true,
-      "filterable": true,
-      "searchable": false
-    },
-    "style": {
-      "width": "140px",
-      "align": "right",
-      "symbol": "$",
-      "decimals": 2,
-      "locale": "en-CA"
-    }
-  }
-}
-```
-
-### 2.3 editType Structure (How to EDIT)
-
-Each field in `editType` contains:
-
-```json
-{
-  "budget_allocated_amt": {
-    "dtype": "float",
-    "label": "Budget Allocated",
-    "inputType": "number",              // ← Key property for editing
-    "behavior": {
-      "editable": true
-    },
-    "style": {
-      "step": 0.01                      // ← Different from viewType.style!
-    },
-    "validation": {
-      "min": 0
-    }
-  }
-}
-```
-
-### 2.4 Why Separate viewType and editType?
-
-| Aspect | viewType | editType |
-|--------|----------|----------|
-| **Purpose** | Display formatting | Input control |
-| **Key Property** | `renderType` | `inputType` |
-| **style.decimals** | `2` (display precision) | - |
-| **style.step** | - | `0.01` (input increment) |
-| **style.width** | `"140px"` (column width) | - |
-| **validation** | - | `{ "min": 0 }` |
-| **behavior** | visible, sortable, filterable | editable |
-
-**They serve different purposes and MUST remain separate.**
+| Use Case | Reads From | Properties Used |
+|----------|-----------|-----------------|
+| **Render table columns** | `viewType` | `renderType`, `style.width`, `style.symbol`, `behavior.visible` |
+| **Format display values** | `viewType` | `renderType`, `style.decimals`, `style.format`, `style.emptyValue` |
+| **Render inline edit inputs** | `editType` | `inputType`, `validation`, `lookupSource`, `lookupEntity` |
+| **Populate dropdowns** | `editType` | `lookupSource`, `datalabelKey`, `lookupEntity` |
+| **Validate form inputs** | `editType` | `validation.required`, `validation.min`, `validation.pattern` |
+| **Show help text** | `editType` | `style.helpText`, `style.placeholder` |
 
 ---
 
-## 3. The Coupling Requirement
+## 4. The Gap: What's Missing
 
-### 3.1 Why Coupling is Needed
-
-The frontend components need backend metadata to:
-
-1. **Know which fields to show** → `viewType.behavior.visible`
-2. **Know how to format values** → `viewType.renderType` + `style`
-3. **Know which fields are editable** → `editType.behavior.editable`
-4. **Know what input to render** → `editType.inputType`
-5. **Know validation rules** → `editType.validation`
-6. **Load dropdown options** → `editType.lookupSource`, `lookupEntity`, `datalabelKey`
-
-### 3.2 Data Flow for View Mode
+### 4.1 Frontend Reading Logic is Broken
 
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────────┐
-│ Backend API     │ ──→ │ React Query      │ ──→ │ formatDataset()     │
-│                 │     │ Cache (RAW)      │     │ via select          │
-│ data: [...]     │     │                  │     │                     │
-│ metadata:       │     │ Stores:          │     │ Uses:               │
-│  viewType: {    │     │  • data (raw)    │     │  • renderType       │
-│   renderType    │     │  • metadata      │     │  • style.symbol     │
-│   style         │     │                  │     │  • style.decimals   │
-│  }              │     │                  │     │                     │
-└─────────────────┘     └──────────────────┘     └─────────────────────┘
-                                                           │
-                                                           ▼
-                                               ┌─────────────────────┐
-                                               │ FormattedRow[]      │
-                                               │  raw: { budget: 50k }│
-                                               │  display: { budget: │
-                                               │    "$50,000.00" }   │
-                                               └─────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      THE THREE MISMATCHES                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  MISMATCH 1: PATH EXTRACTION                                                │
+│  ───────────────────────────                                                │
+│                                                                             │
+│  Frontend does:    metadata.entityDataTable['budget_allocated_amt']         │
+│  Should do:        metadata.entityDataTable.viewType['budget_allocated_amt']│
+│                                                                             │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                             │
+│  MISMATCH 2: PROPERTY NESTING                                               │
+│  ────────────────────────────                                               │
+│                                                                             │
+│  Frontend reads:   fieldMeta.visible                                        │
+│  Backend sends:    fieldMeta.behavior.visible                               │
+│                                                                             │
+│  Frontend reads:   fieldMeta.width                                          │
+│  Backend sends:    fieldMeta.style.width                                    │
+│                                                                             │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                             │
+│  MISMATCH 3: PROPERTY NAMING                                                │
+│  ───────────────────────────                                                │
+│                                                                             │
+│  Frontend reads:   fieldMeta.editType                                       │
+│  Backend sends:    fieldMeta.inputType                                      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.3 Data Flow for Edit Mode
-
-```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────────┐
-│ Backend API     │ ──→ │ Zustand Store    │ ──→ │ renderEditMode()    │
-│                 │     │ (15m TTL)        │     │                     │
-│ metadata:       │     │                  │     │ Uses:               │
-│  editType: {    │     │ entityComponent  │     │  • inputType        │
-│   inputType     │     │ MetadataStore    │     │  • style.step       │
-│   validation    │     │                  │     │  • validation       │
-│   lookupSource  │     │                  │     │  • lookupSource     │
-│  }              │     │                  │     │  • lookupEntity     │
-└─────────────────┘     └──────────────────┘     └─────────────────────┘
-                                                           │
-                                                           ▼
-                                               ┌─────────────────────┐
-                                               │ <input type="number"│
-                                               │  step={0.01}        │
-                                               │  min={0} />         │
-                                               └─────────────────────┘
-```
-
----
-
-## 4. The Gap Analysis
-
-### 4.1 Current Frontend Code (BROKEN)
-
-**EntityDataTable.tsx:410-417:**
-```typescript
-// CURRENT CODE (WRONG)
-const componentMetadata = (metadata as any)?.entityDataTable;
-
-// Tries to access fields directly on componentMetadata
-const fieldMeta = componentMetadata[fieldKey];
-// ❌ Returns undefined because componentMetadata = { viewType, editType }
-// ❌ Not { budget_allocated_amt: {...}, name: {...} }
-```
-
-### 4.2 What Frontend EXPECTS
+### 4.2 TypeScript Types Don't Match API
 
 ```typescript
-// Frontend expects this structure:
-metadata.entityDataTable = {
-  "budget_allocated_amt": { visible: true, renderType: "currency", ... },
-  "name": { visible: true, renderType: "text", ... }
-}
-```
-
-### 4.3 What Backend SENDS
-
-```typescript
-// Backend actually sends this structure:
-metadata.entityDataTable = {
-  "viewType": {
-    "budget_allocated_amt": { renderType: "currency", ... },
-    "name": { renderType: "text", ... }
-  },
-  "editType": {
-    "budget_allocated_amt": { inputType: "number", ... },
-    "name": { inputType: "text", ... }
-  }
-}
-```
-
-### 4.4 The Gap
-
-| What | Expected | Actual | Issue |
-|------|----------|--------|-------|
-| `metadata.entityDataTable[fieldKey]` | Field metadata object | `undefined` | Structure mismatch |
-| `metadata.entityDataTable.keys()` | Field names | `['viewType', 'editType']` | Wrong keys |
-
----
-
-## 5. Implementation Plan
-
-### 5.1 Solution: Fix Frontend Reading Logic
-
-**Why frontend fix (not backend)?**
-- Backend structure is semantically correct (viewType ≠ editType)
-- Changing backend would break API contract
-- Frontend just needs to read the correct path
-
-### 5.2 Files to Modify
-
-| File | Change | Priority |
-|------|--------|----------|
-| `EntityDataTable.tsx` | Read from `viewType`/`editType` correctly | P0 |
-| `EntityFormContainer.tsx` | Read from `viewType`/`editType` correctly | P0 |
-| `useEntityQuery.ts` | Store metadata correctly in Zustand | P0 |
-| `entityComponentMetadataStore.ts` | Update types to match actual structure | P1 |
-| `datasetFormatter.ts` | Ensure reads `viewType` for formatting | P1 |
-
-### 5.3 Implementation Steps
-
-#### Step 1: Update entityComponentMetadataStore Types
-
-**File:** `apps/web/src/stores/entityComponentMetadataStore.ts`
-
-Based on **REAL API RESPONSE** from `/api/v1/project?limit=1`:
-
-```typescript
-// BEFORE (wrong)
+// CURRENT TYPE (WRONG)
 export type ComponentMetadata = Record<string, FieldMetadata>;
 
-// AFTER (correct - matches REAL API response exactly)
+// NEEDED TYPE (CORRECT)
+export interface ComponentMetadata {
+  viewType: Record<string, ViewFieldMetadata>;
+  editType: Record<string, EditFieldMetadata>;
+}
+```
+
+### 4.3 Files That Need Updating
+
+| File | Current Problem | Fix Required |
+|------|-----------------|--------------|
+| `entityComponentMetadataStore.ts` | Types assume flat structure | Update interfaces to match API |
+| `formatters/types.ts` | `ComponentMetadata` is flat | Update to `{ viewType, editType }` |
+| `formatters/datasetFormatter.ts` | Reads `metadata[field]` directly | Extract `viewType` first |
+| `EntityDataTable.tsx` | Reads `componentMetadata[field]` | Read `viewType[field]` + `editType[field]` |
+| `EntityFormContainer.tsx` | Reads `componentMetadata[field]` | Read `editType[field]` for forms |
+| `useEntityQuery.ts` | Passes wrong structure to formatter | Extract `viewType` for `formatDataset()` |
+
+---
+
+## 4.4 Zustand Store Deep Dive: The Hidden Bug
+
+### 4.4.1 Current Store Type Definition (WRONG)
+
+**File:** `apps/web/src/stores/entityComponentMetadataStore.ts` (lines 27-70)
+
+```typescript
+// CURRENT TYPES - WRONG
+export interface FieldMetadata {
+  dtype: string;
+  format: string;
+  internal: boolean;
+  visible: boolean;        // ← FLAT (expects behavior.visible to be here)
+  filterable: boolean;     // ← FLAT
+  sortable: boolean;       // ← FLAT
+  editable: boolean;       // ← FLAT
+  viewType: string;        // ← WRONG! viewType is a CONTAINER, not a string
+  editType: string;        // ← WRONG! editType is a CONTAINER, not a string
+  label: string;
+  width?: string;          // ← FLAT (expects style.width to be here)
+  // ...
+}
+
+export type ComponentMetadata = Record<string, FieldMetadata>;
+// ↑ WRONG! This says metadata['name'] returns FieldMetadata
+//   But actually metadata.viewType['name'] returns the field metadata
+```
+
+### 4.4.2 Current Formatter Types (ALSO WRONG)
+
+**File:** `apps/web/src/lib/formatters/types.ts` (lines 13-40)
+
+```typescript
+// ALSO WRONG - expects flat metadata
+export interface FieldMetadata {
+  renderType?: string;
+  inputType?: string;
+  visible?: boolean;       // ← FLAT
+  // ...
+}
+
+export interface ComponentMetadata {
+  [fieldName: string]: FieldMetadata;  // ← WRONG! Expects flat structure
+}
+```
+
+### 4.4.3 How Store is Populated (CORRECT)
+
+**File:** `apps/web/src/lib/hooks/useEntityQuery.ts` (lines 256-266)
+
+```typescript
+// This code is CORRECT - it stores the right data
+if (result.metadata) {
+  const componentName = normalizedParams.view || 'entityDataTable';
+  const componentMetadata = (result.metadata as any)[componentName];
+  // componentMetadata = { viewType: {...}, editType: {...} }
+
+  if (componentMetadata && typeof componentMetadata === 'object') {
+    useEntityComponentMetadataStore.getState().setComponentMetadata(
+      entityCode, componentName, componentMetadata
+      // ↑ Stores { viewType: {...}, editType: {...} } - CORRECT!
+    );
+  }
+}
+```
+
+### 4.4.4 THE BUG: Formatter Receives Wrong Structure
+
+**File:** `apps/web/src/lib/hooks/useEntityQuery.ts` (lines 493-501)
+
+```typescript
+const selectFormatted = useCallback(
+  (raw: EntityInstanceListResult<T>): FormattedEntityInstanceListResult<T> => {
+    // Gets { viewType: {...}, editType: {...} }
+    const componentMetadata = (raw.metadata as any)?.[mappedView] as ComponentMetadata | null;
+
+    // BUG: Passes { viewType, editType } but formatDataset expects Record<string, FieldMetadata>
+    const formattedData = formatDataset(raw.data, componentMetadata);
+    // ↑ formatDataset internally does: metadata['name'] → undefined!
+```
+
+**File:** `apps/web/src/lib/formatters/datasetFormatter.ts` (line 94)
+
+```typescript
+export function formatRow<T>(row: T, metadata: ComponentMetadata | null): FormattedRow<T> {
+  for (const [key, value] of Object.entries(row)) {
+    const fieldMeta = metadata?.[key];  // ← BUG! metadata is { viewType, editType }
+    // For key='name', this returns undefined, NOT the field metadata!
+    const formatted = formatValue(value, key, fieldMeta);  // fieldMeta = undefined
+  }
+}
+```
+
+### 4.4.5 Visual Diagram of the Bug
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        THE ZUSTAND/FORMATTER BUG                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  BACKEND RESPONSE:                                                          │
+│  ─────────────────                                                          │
+│  metadata.entityDataTable = {                                               │
+│    viewType: {                                                              │
+│      "name": { renderType: "text", behavior: {...}, style: {...} },        │
+│      "budget": { renderType: "currency", ... }                              │
+│    },                                                                       │
+│    editType: {                                                              │
+│      "name": { inputType: "text", validation: {...} },                     │
+│      "budget": { inputType: "number", ... }                                 │
+│    }                                                                        │
+│  }                                                                          │
+│         │                                                                   │
+│         ▼                                                                   │
+│  ZUSTAND STORE:                                                             │
+│  ──────────────                                                             │
+│  setComponentMetadata('project', 'entityDataTable', {                       │
+│    viewType: { name: {...}, budget: {...} },   ← Stored correctly          │
+│    editType: { name: {...}, budget: {...} }                                 │
+│  })                                                                         │
+│         │                                                                   │
+│         ▼                                                                   │
+│  FORMAT AT READ (select callback):                                          │
+│  ─────────────────────────────────                                          │
+│  componentMetadata = { viewType: {...}, editType: {...} }                   │
+│  formatDataset(data, componentMetadata)  // ← Passes whole object          │
+│         │                                                                   │
+│         ▼                                                                   │
+│  DATASET FORMATTER:                                                         │
+│  ──────────────────                                                         │
+│  for (const [key, value] of Object.entries(row)) {                          │
+│    const fieldMeta = metadata?.[key];  // key = 'name'                     │
+│    // metadata['name'] → undefined!  ❌                                     │
+│    // metadata.viewType['name'] → { renderType: "text", ... } ✅            │
+│  }                                                                          │
+│                                                                             │
+│  RESULT: All fields formatted as plain text because fieldMeta is undefined  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.4.6 Impact of the Bug
+
+| Symptom | Cause |
+|---------|-------|
+| Currency shows `200000` not `$200,000.00` | `fieldMeta.renderType` is undefined |
+| Dates show raw ISO string | `fieldMeta.renderType` is undefined |
+| Badges show plain text, no colors | `fieldMeta.renderType` is undefined |
+| All columns same width | `fieldMeta.width` is undefined |
+| Dropdowns don't populate | `fieldMeta.lookupSource` is undefined |
+
+### 4.4.7 Why It Appears to Work Sometimes
+
+The code has fallbacks that mask the bug:
+
+```typescript
+// In formatValue:
+const renderType = metadata?.renderType || 'text';  // Falls back to 'text'
+
+// In formatText:
+return { display: String(value ?? '') };  // Shows raw value as string
+```
+
+So instead of crashing, fields just render as plain text - which looks "okay" but loses all formatting.
+
+---
+
+## 5. Industry Best Practices
+
+### 5.1 Separation of Concerns is Standard
+
+| Platform | View Config | Edit Config | Approach |
+|----------|-------------|-------------|----------|
+| **Salesforce** | `displayType` | `inputType` | Separate field descriptors |
+| **SAP Fiori** | `@UI.lineItem` | `@UI.fieldGroup` | Different OData annotations |
+| **Microsoft Dynamics** | `DisplayMode` | `EditMode` | Separate attribute sections |
+| **Retool** | `displayType` | `inputType` | Explicit separation |
+| **Airtable** | `cellStyle` | `editorConfig` | Per-component configs |
+
+### 5.2 JSON:API / OpenAPI Patterns
+
+Modern API design recommends separating concerns:
+
+```yaml
+# OpenAPI best practice pattern
+components:
+  schemas:
+    FieldDescriptor:
+      properties:
+        display:
+          type: object
+          description: "Read-only rendering configuration"
+        input:
+          type: object
+          description: "Edit mode configuration"
+```
+
+### 5.3 React Best Practices
+
+```typescript
+// GOOD: Component props mirror API structure
+interface TableColumnProps {
+  viewConfig: ViewFieldMetadata;   // Display settings
+  editConfig: EditFieldMetadata;   // Edit settings (optional)
+}
+
+// BAD: Merged/transformed props
+interface TableColumnProps {
+  config: MergedFieldMetadata;     // Where does this come from? Who transforms it?
+}
+```
+
+---
+
+## 6. Solution Design
+
+### 6.1 Decision: Fix Frontend, Not Backend
+
+| Option | Pros | Cons | Decision |
+|--------|------|------|----------|
+| **A: Flatten backend** | Frontend code unchanged | Violates SRP, loses semantics, creates conflicts | ❌ Rejected |
+| **B: Fix frontend** | Preserves correct structure, industry-standard | Requires frontend changes | ✅ Chosen |
+
+**Why Option B:**
+1. Backend structure is semantically correct
+2. Follows industry best practices
+3. Changing backend would break API contract
+4. Frontend fix is localized (5 files)
+
+### 6.2 The Fix
+
+```typescript
+// ═══════════════════════════════════════════════════════════════════════════
+// BEFORE (BROKEN)
+// ═══════════════════════════════════════════════════════════════════════════
+const componentMetadata = metadata?.entityDataTable;
+const fieldMeta = componentMetadata[fieldKey];  // ❌ undefined
+
+return {
+  visible: fieldMeta.visible,       // ❌ undefined
+  width: fieldMeta.width,           // ❌ undefined
+  editType: fieldMeta.editType,     // ❌ undefined (wrong name)
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AFTER (FIXED)
+// ═══════════════════════════════════════════════════════════════════════════
+const componentMetadata = metadata?.entityDataTable;
+const viewType = componentMetadata?.viewType || {};
+const editType = componentMetadata?.editType || {};
+
+const viewMeta = viewType[fieldKey] || {};
+const editMeta = editType[fieldKey] || {};
+
+return {
+  // From viewType.behavior (nested)
+  visible: viewMeta.behavior?.visible ?? true,
+  sortable: viewMeta.behavior?.sortable ?? false,
+  filterable: viewMeta.behavior?.filterable ?? false,
+
+  // From viewType.style (nested)
+  width: viewMeta.style?.width,
+  align: viewMeta.style?.align,
+  emptyValue: viewMeta.style?.emptyValue,
+
+  // From viewType (flat)
+  renderType: viewMeta.renderType,
+  label: viewMeta.label,
+
+  // From editType.behavior (nested)
+  editable: editMeta.behavior?.editable ?? false,
+
+  // From editType (flat) - note: inputType NOT editType
+  inputType: editMeta.inputType,
+  component: editMeta.component,
+  lookupSource: editMeta.lookupSource,
+  lookupEntity: editMeta.lookupEntity,
+  datalabelKey: editMeta.datalabelKey,
+  validation: editMeta.validation,
+  placeholder: editMeta.style?.placeholder,
+  helpText: editMeta.style?.helpText,
+};
+```
+
+### 6.3 Data Flow After Fix
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       CORRECTED DATA FLOW                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  API Response                                                               │
+│       │                                                                     │
+│       ├─→ React Query Cache (RAW entity data)                              │
+│       │        │                                                            │
+│       │        └─→ select: formatDataset(data, metadata)                   │
+│       │                       │                                             │
+│       │                       └─→ Extract viewType for formatting          │
+│       │                                │                                    │
+│       │                                └─→ Use renderType, style.*         │
+│       │                                         │                           │
+│       │                                         └─→ FormattedRow[]         │
+│       │                                                                     │
+│       └─→ Zustand Store (metadata with 15m TTL)                            │
+│                │                                                            │
+│                └─→ Components read viewType/editType separately            │
+│                         │                                                   │
+│                         ├─→ View Mode: renderType, style, behavior         │
+│                         └─→ Edit Mode: inputType, validation, lookup*      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 7. Implementation Plan
+
+### 7.1 Files to Change (Updated Priority Order)
+
+| Priority | File | Change | Status |
+|----------|------|--------|--------|
+| **P0** | `formatters/types.ts` | Add `ViewFieldMetadata`, `EditFieldMetadata`, update `ComponentMetadata` | ⬜ Pending |
+| **P0** | `formatters/datasetFormatter.ts` | Extract `viewType` from nested structure | ⬜ Pending |
+| **P0** | `entityComponentMetadataStore.ts` | Update TypeScript interfaces | ⬜ Pending |
+| **P0** | `useEntityQuery.ts` | Fix `select` callback to extract `viewType` | ⬜ Pending |
+| **P1** | `EntityDataTable.tsx` | Read `viewType`/`editType` separately | ⬜ Pending |
+| **P1** | `EntityFormContainer.tsx` | Read `editType` for forms | ⬜ Pending |
+| **P2** | Backend: `_ID`/`_IDS` metadata | Fix or remove | ⬜ Pending |
+
+### 7.2 Step 0: Fix Formatter Types (CRITICAL - Fix the Bug First)
+
+**File:** `apps/web/src/lib/formatters/types.ts`
+
+```typescript
+// ═══════════════════════════════════════════════════════════════════════════
+// UPDATED TYPES - Match Real Backend Response
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * ViewFieldMetadata - For display/rendering (from viewType)
+ */
+export interface ViewFieldMetadata {
+  dtype: string;
+  label: string;
+  renderType: string;
+  behavior: {
+    visible: boolean;
+    sortable: boolean;
+    filterable: boolean;
+    searchable: boolean;
+    required?: boolean;
+  };
+  style: {
+    width?: string;
+    align?: 'left' | 'right' | 'center';
+    bold?: boolean;
+    monospace?: boolean;
+    symbol?: string;
+    decimals?: number;
+    locale?: string;
+    format?: string;
+    emptyValue?: string;
+    helpText?: string;
+    truncate?: number;
+    colorFromData?: boolean;
+    linkToDetail?: boolean;
+    linkToEntity?: boolean;
+    displayField?: string;
+    [key: string]: any;
+  };
+  component?: string;
+}
+
+/**
+ * EditFieldMetadata - For input controls (from editType)
+ */
+export interface EditFieldMetadata {
+  dtype: string;
+  label: string;
+  inputType: string;
+  behavior: {
+    editable: boolean;
+  };
+  style: {
+    step?: number;
+    rows?: number;
+    placeholder?: string;
+    helpText?: string;
+    searchable?: boolean;
+    clearable?: boolean;
+    displayField?: string;
+    [key: string]: any;
+  };
+  validation: {
+    required?: boolean;
+    min?: number;
+    max?: number;
+    minLength?: number;
+    maxLength?: number;
+    pattern?: string;
+  };
+  component?: string;
+  lookupSource?: 'datalabel' | 'entityInstance';
+  lookupEntity?: string;
+  datalabelKey?: string;
+}
+
+/**
+ * ComponentMetadata - Container for viewType and editType
+ * This is what the backend sends for each component (entityDataTable, etc.)
+ */
 export interface ComponentMetadata {
   viewType: Record<string, ViewFieldMetadata>;
   editType: Record<string, EditFieldMetadata>;
 }
 
 /**
- * ViewFieldMetadata - matches REAL viewType structure
- *
- * Example from API (dl__project_stage in entityDataTable.viewType):
- * {
- *   "dtype": "str",
- *   "label": "Project Stage",
- *   "renderType": "badge",
- *   "behavior": { "visible": true, "sortable": true, "filterable": true, "searchable": false },
- *   "style": { "width": "140px", "align": "left", "colorFromData": true }
- * }
+ * Legacy FieldMetadata - For backwards compatibility during migration
+ * @deprecated Use ViewFieldMetadata or EditFieldMetadata instead
  */
-export interface ViewFieldMetadata {
-  dtype: string;                    // "str" | "float" | "uuid" | "date" | "timestamp" | "bool" | "int" | "jsonb" | "array[uuid]"
-  label: string;                    // Human-readable label
-  renderType: string;               // "text" | "badge" | "currency" | "date" | "timestamp" | "boolean" | "entityLink" | "entityLinks" | "json" | "version" | "number" | "component"
-  behavior: {
-    visible: boolean;               // Show in view
-    sortable: boolean;              // Can sort column
-    filterable: boolean;            // Can filter
-    searchable: boolean;            // Include in search
-  };
-  style: {                          // Component-specific styling (varies by renderType)
-    width?: string;                 // "140px", "250px", etc.
-    align?: 'left' | 'right' | 'center';
-    bold?: boolean;
-    monospace?: boolean;
-    linkToDetail?: boolean;
-    truncate?: number;              // Character limit
-    symbol?: string;                // "$" for currency
-    decimals?: number;              // 2 for currency
-    locale?: string;                // "en-CA"
-    format?: string;                // "short" | "medium" | "datetime" | "relative"
-    colorFromData?: boolean;        // For badges
-    trueLabel?: string;             // For boolean
-    falseLabel?: string;
-    trueColor?: string;
-    falseColor?: string;
-    displayField?: string;          // "name" for entityLink
-    linkToEntity?: boolean;
-    maxDisplay?: number;            // For entityLinks array
-    collapsed?: boolean;            // For json
-    prefix?: string;                // "v" for version
-    [key: string]: any;             // Additional properties
-  };
-  component?: string;               // For renderType="component": "DAGVisualizer"
+export interface FieldMetadata {
+  renderType?: string;
+  inputType?: string;
+  datalabelKey?: string;
+  lookupSource?: 'datalabel' | 'entityInstance';
+  lookupEntity?: string;
+  symbol?: string;
+  decimals?: number;
+  label?: string;
+  width?: string;
+  align?: 'left' | 'center' | 'right';
+  visible?: boolean;
+  editable?: boolean;
+  sortable?: boolean;
+  filterable?: boolean;
 }
 
 /**
- * EditFieldMetadata - matches REAL editType structure
- *
- * Example from API (dl__project_stage in entityDataTable.editType):
- * {
- *   "dtype": "str",
- *   "label": "Project Stage",
- *   "inputType": "select",
- *   "behavior": { "editable": true },
- *   "style": {},
- *   "validation": {},
- *   "component": "DataLabelSelect",
- *   "lookupSource": "datalabel",
- *   "datalabelKey": "dl__project_stage"
- * }
- *
- * Example (manager__employee_id - entity reference):
- * {
- *   "dtype": "uuid",
- *   "label": "Manager Employee Name",
- *   "inputType": "select",
- *   "behavior": { "editable": true },
- *   "style": {},
- *   "validation": {},
- *   "component": "EntitySelect",
- *   "lookupSource": "entityInstance",
- *   "lookupEntity": "employee"
- * }
+ * Flat field metadata for formatters (extracted from viewType)
+ * Used internally by formatDataset/formatRow
  */
-export interface EditFieldMetadata {
-  dtype: string;                    // Same types as viewType
-  label: string;                    // Human-readable label
-  inputType: string;                // "text" | "textarea" | "number" | "date" | "datetime-local" | "checkbox" | "select" | "readonly" | "component" | "currency" | "json" | "uuid"
+export type FlatViewMetadata = Record<string, ViewFieldMetadata>;
+```
+
+### 7.3 Step 1: Fix datasetFormatter (CRITICAL)
+
+**File:** `apps/web/src/lib/formatters/datasetFormatter.ts`
+
+```typescript
+import type { ViewFieldMetadata, ComponentMetadata, FormattedRow, FormattedValue } from './types';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FIXED: Extract viewType from component metadata
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Extract viewType from component metadata
+ * Handles both nested { viewType, editType } and legacy flat structures
+ */
+function extractViewType(
+  metadata: ComponentMetadata | Record<string, any> | null
+): Record<string, ViewFieldMetadata> | null {
+  if (!metadata) return null;
+
+  // New structure: { viewType: {...}, editType: {...} }
+  if ('viewType' in metadata && typeof metadata.viewType === 'object') {
+    return metadata.viewType as Record<string, ViewFieldMetadata>;
+  }
+
+  // Legacy flat structure: { fieldName: {...} } - for backwards compatibility
+  // Check if first key looks like a field name (not 'viewType' or 'editType')
+  const keys = Object.keys(metadata);
+  if (keys.length > 0 && !['viewType', 'editType'].includes(keys[0])) {
+    console.warn('[formatters] Using legacy flat metadata structure');
+    return metadata as Record<string, ViewFieldMetadata>;
+  }
+
+  return null;
+}
+
+/**
+ * Format a single row using viewType metadata
+ */
+export function formatRow<T extends Record<string, any>>(
+  row: T,
+  metadata: ComponentMetadata | Record<string, any> | null
+): FormattedRow<T> {
+  const display: Record<string, string> = {};
+  const styles: Record<string, string> = {};
+
+  // FIXED: Extract viewType from nested structure
+  const viewType = extractViewType(metadata);
+
+  for (const [key, value] of Object.entries(row)) {
+    const fieldMeta = viewType?.[key];
+
+    // FIXED: Read renderType from viewType field metadata
+    const renderType = fieldMeta?.renderType || 'text';
+    const formatter = FORMATTERS[renderType] || formatText;
+
+    // FIXED: Pass the full viewType field metadata for style access
+    const formatted = formatter(value, fieldMeta);
+
+    display[key] = formatted.display;
+    if (formatted.style) {
+      styles[key] = formatted.style;
+    }
+  }
+
+  return { raw: row, display, styles };
+}
+
+/**
+ * Format entire dataset using viewType metadata
+ */
+export function formatDataset<T extends Record<string, any>>(
+  data: T[],
+  metadata: ComponentMetadata | Record<string, any> | null
+): FormattedRow<T>[] {
+  if (!data || data.length === 0) {
+    return [];
+  }
+
+  // FIXED: Extract viewType once for the entire dataset
+  const viewType = extractViewType(metadata);
+
+  console.log(`%c[FORMAT] Formatting ${data.length} rows`, 'color: #be4bdb; font-weight: bold', {
+    hasViewType: !!viewType,
+    fieldCount: viewType ? Object.keys(viewType).length : 0,
+  });
+
+  const startTime = performance.now();
+  const result = data.map(row => formatRow(row, metadata));
+  const duration = performance.now() - startTime;
+
+  console.log(`%c[FORMAT] Formatted in ${duration.toFixed(2)}ms`, 'color: #be4bdb');
+
+  return result;
+}
+```
+
+### 7.4 Step 2: Update Zustand Store Types
+
+**File:** `apps/web/src/stores/entityComponentMetadataStore.ts`
+
+```typescript
+// ═══════════════════════════════════════════════════════════════════════════
+// UPDATED TYPES (Match Real API Response)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * ComponentMetadata - Contains viewType and editType containers
+ */
+export interface ComponentMetadata {
+  viewType: Record<string, ViewFieldMetadata>;
+  editType: Record<string, EditFieldMetadata>;
+}
+
+/**
+ * ViewFieldMetadata - Display configuration (read-only rendering)
+ */
+export interface ViewFieldMetadata {
+  dtype: string;
+  label: string;
+  renderType: string;
   behavior: {
-    editable: boolean;              // Can edit this field
+    visible: boolean;
+    sortable: boolean;
+    filterable: boolean;
+    searchable: boolean;
+    required?: boolean;  // Display indicator (*)
   };
-  style: {                          // Input-specific styling
-    step?: number;                  // For number inputs
-    rows?: number;                  // For textarea
-    resizable?: boolean;
-    mode?: string;                  // "tree" for json editor
-    validateSchema?: boolean;
-    symbol?: string;                // For currency display in edit
+  style: {
+    width?: string;
+    align?: 'left' | 'right' | 'center';
+    bold?: boolean;
+    monospace?: boolean;
+    symbol?: string;
     decimals?: number;
     locale?: string;
-    clearable?: boolean;            // For date/select
-    searchable?: boolean;           // For select
-    displayField?: string;          // "name" for entity select
-    maxSelections?: number | null;  // For multi-select
-    trueLabel?: string;             // For checkbox
-    falseLabel?: string;
-    showTimezone?: boolean;
-    showHierarchy?: boolean;        // For DAGVisualizer
-    interactive?: boolean;          // For DAGVisualizer
-    monospace?: boolean;
-    size?: string;                  // "lg" for large inputs
+    format?: string;
+    emptyValue?: string;    // What to show when null
+    helpText?: string;      // Tooltip on hover
     [key: string]: any;
   };
-  validation: {                     // Validation rules
-    required?: boolean;
+  component?: string;
+}
+
+/**
+ * EditFieldMetadata - Input configuration (edit mode)
+ */
+export interface EditFieldMetadata {
+  dtype: string;
+  label: string;
+  inputType: string;
+  behavior: {
+    editable: boolean;
+  };
+  style: {
+    step?: number;
+    rows?: number;
+    placeholder?: string;   // Input hint
+    helpText?: string;      // Tooltip/help
+    [key: string]: any;
+  };
+  validation: {
+    required?: boolean;     // Form validation
     min?: number;
     max?: number;
     minLength?: number;
     maxLength?: number;
-    pattern?: string;               // Regex pattern
-    [key: string]: any;
+    pattern?: string;
   };
-  // Lookup properties (present when lookupSource exists)
-  component?: string;               // "DataLabelSelect" | "EntitySelect" | "EntityMultiSelect" | "DAGVisualizer"
+  component?: string;
   lookupSource?: 'datalabel' | 'entityInstance';
-  datalabelKey?: string;            // When lookupSource='datalabel': "dl__project_stage"
-  lookupEntity?: string;            // When lookupSource='entityInstance': "employee"
+  lookupEntity?: string;
+  datalabelKey?: string;
 }
 
 /**
- * Full API metadata response structure
+ * Full API metadata response
  */
 export interface EntityApiMetadata {
   entityDataTable: ComponentMetadata;
@@ -465,685 +1142,328 @@ export interface EntityApiMetadata {
 }
 ```
 
-#### Step 2: Update EntityDataTable Column Generation
+### 7.3 Step 2: Update EntityDataTable
 
 **File:** `apps/web/src/components/shared/ui/EntityDataTable.tsx`
 
-Based on **REAL API** structure - `metadata.entityDataTable` contains `{ viewType, editType }`:
-
 ```typescript
-// BEFORE (wrong - tries to access fieldKey directly on componentMetadata)
-const componentMetadata = (metadata as any)?.entityDataTable;
-const fieldMeta = componentMetadata[fieldKey];  // ❌ Returns undefined!
-// Why? Because componentMetadata = { viewType: {...}, editType: {...} }
-// NOT componentMetadata = { name: {...}, budget_allocated_amt: {...} }
-
-// AFTER (correct - access viewType and editType containers)
-const componentMetadata = (metadata as any)?.entityDataTable as ComponentMetadata | undefined;
+// Extract viewType and editType from component metadata
+const componentMetadata = metadata?.entityDataTable as ComponentMetadata | undefined;
 const viewType = componentMetadata?.viewType || {};
 const editType = componentMetadata?.editType || {};
 
-/**
- * Generate columns from real API metadata
- *
- * Real API viewType example for 'name' field:
- * {
- *   "dtype": "str",
- *   "label": "Name",
- *   "renderType": "text",
- *   "behavior": { "visible": true, "sortable": true, "filterable": true, "searchable": true },
- *   "style": { "width": "250px", "align": "left", "bold": true, "linkToDetail": true }
- * }
- */
-return fieldOrder
-  .filter((fieldKey: string) => {
-    const viewMeta = viewType[fieldKey];
-    // Use behavior.visible from viewType to determine column visibility
-    return viewMeta?.behavior?.visible === true;
-  })
-  .map((fieldKey: string) => {
+// Generate column config
+const columns = fieldOrder
+  .filter((fieldKey) => viewType[fieldKey]?.behavior?.visible !== false)
+  .map((fieldKey) => {
     const viewMeta = viewType[fieldKey] || {};
     const editMeta = editType[fieldKey] || {};
 
     return {
       key: fieldKey,
-      // Display properties from viewType
-      title: viewMeta.label || fieldKey,
-      visible: true,
-      renderType: viewMeta.renderType,           // "text", "badge", "currency", etc.
-      sortable: viewMeta.behavior?.sortable,
-      filterable: viewMeta.behavior?.filterable,
-      searchable: viewMeta.behavior?.searchable,
-      // Style from viewType (display styling)
-      width: viewMeta.style?.width,              // "250px"
-      align: viewMeta.style?.align,              // "left", "right", "center"
-      bold: viewMeta.style?.bold,
-      monospace: viewMeta.style?.monospace,
-      linkToDetail: viewMeta.style?.linkToDetail,
-      // Format options from viewType.style
-      symbol: viewMeta.style?.symbol,            // "$" for currency
-      decimals: viewMeta.style?.decimals,        // 2 for currency
-      locale: viewMeta.style?.locale,            // "en-CA"
-      format: viewMeta.style?.format,            // "short", "relative", etc.
-      colorFromData: viewMeta.style?.colorFromData, // For badges
-
-      // Edit properties from editType
-      editable: editMeta.behavior?.editable,
-      inputType: editMeta.inputType,             // "text", "select", "number", etc.
-      component: editMeta.component,             // "DataLabelSelect", "EntitySelect", etc.
-
-      // Lookup properties from editType (for dropdown population)
-      lookupSource: editMeta.lookupSource,       // "datalabel" | "entityInstance"
-      lookupEntity: editMeta.lookupEntity,       // "employee" (when lookupSource='entityInstance')
-      datalabelKey: editMeta.datalabelKey,       // "dl__project_stage" (when lookupSource='datalabel')
-
-      // Validation from editType
-      validation: editMeta.validation,           // { min: 0, maxLength: 255, pattern: "..." }
-
-      // Store full metadata for downstream renderers
-      viewMetadata: viewMeta,
-      editMetadata: editMeta,
-    } as Column<T>;
-  });
-```
-
-#### Step 3: Update EntityFormContainer Field Generation
-
-**File:** `apps/web/src/components/shared/entity/EntityFormContainer.tsx`
-
-Based on **REAL API** `metadata.entityFormContainer` structure:
-
-```typescript
-// BEFORE (wrong - accesses fieldKey directly on componentMetadata)
-const componentMetadata = metadata?.entityFormContainer;
-const fieldMeta = componentMetadata[fieldKey];  // ❌ Returns undefined!
-
-// AFTER (correct - uses viewType and editType containers)
-const componentMetadata = metadata?.entityFormContainer as ComponentMetadata | undefined;
-const viewType = componentMetadata?.viewType || {};
-const editType = componentMetadata?.editType || {};
-
-/**
- * Real API entityFormContainer.editType example for 'dl__project_stage':
- * {
- *   "dtype": "str",
- *   "label": "Project Stage",
- *   "inputType": "component",         // Note: different from entityDataTable ("select")
- *   "behavior": { "editable": true },
- *   "style": { "showHierarchy": true, "interactive": true },
- *   "validation": {},
- *   "component": "DAGVisualizer",
- *   "lookupSource": "datalabel",
- *   "datalabelKey": "dl__project_stage"
- * }
- *
- * Real API entityFormContainer.editType example for 'manager__employee_id':
- * {
- *   "dtype": "uuid",
- *   "label": "Manager Employee Name",
- *   "inputType": "select",
- *   "behavior": { "editable": true },
- *   "style": { "searchable": true, "clearable": true, "displayField": "name" },
- *   "validation": {},
- *   "component": "EntitySelect",
- *   "lookupSource": "entityInstance",
- *   "lookupEntity": "employee"
- * }
- */
-const fields = Object.keys(editType)
-  .filter(fieldKey => {
-    const editMeta = editType[fieldKey];
-    // Filter out readonly and non-editable fields
-    return editMeta?.behavior?.editable !== false &&
-           editMeta?.inputType !== 'readonly';
-  })
-  .map(fieldKey => {
-    const viewMeta = viewType[fieldKey] || {};
-    const editMeta = editType[fieldKey] || {};
-
-    return {
-      key: fieldKey,
-      dtype: editMeta.dtype,                    // "str", "uuid", "float", etc.
-      label: editMeta.label || viewMeta.label || fieldKey,
-
-      // Input type from editType (forms use edit metadata)
-      inputType: editMeta.inputType || 'text',  // "text", "textarea", "select", "component", etc.
-      editable: editMeta.behavior?.editable !== false,
-      visible: viewMeta.behavior?.visible !== false,
-
-      // Style from editType (form-specific styling)
-      style: editMeta.style,                    // { rows: 4, resizable: true, size: "lg", ... }
-
-      // Validation from editType
-      validation: editMeta.validation,          // { required: true, min: 0, maxLength: 255, pattern: "..." }
-
-      // Component to render (from editType)
-      component: editMeta.component,            // "DAGVisualizer", "DataLabelSelect", "EntitySelect", "EntityMultiSelect"
-
-      // Lookup properties from editType
-      lookupSource: editMeta.lookupSource,      // "datalabel" | "entityInstance"
-      lookupEntity: editMeta.lookupEntity,      // "employee" (when lookupSource='entityInstance')
-      datalabelKey: editMeta.datalabelKey,      // "dl__project_stage" (when lookupSource='datalabel')
-
-      // Store full metadata for custom rendering
-      viewMetadata: viewMeta,
-      editMetadata: editMeta,
+      // From viewType
+      title: viewMeta.label || humanize(fieldKey),
+      renderType: viewMeta.renderType,
+      sortable: viewMeta.behavior?.sortable ?? false,
+      filterable: viewMeta.behavior?.filterable ?? false,
+      width: viewMeta.style?.width,
+      align: viewMeta.style?.align,
+      symbol: viewMeta.style?.symbol,
+      decimals: viewMeta.style?.decimals,
+      emptyValue: viewMeta.style?.emptyValue,
+      // From editType
+      editable: editMeta.behavior?.editable ?? false,
+      inputType: editMeta.inputType,
+      lookupSource: editMeta.lookupSource,
+      lookupEntity: editMeta.lookupEntity,
+      datalabelKey: editMeta.datalabelKey,
+      validation: editMeta.validation,
+      placeholder: editMeta.style?.placeholder,
     };
   });
 ```
 
-#### Step 4: Update datasetFormatter to Use viewType
+### 7.4 Step 3: Update EntityFormContainer
+
+**File:** `apps/web/src/components/shared/entity/EntityFormContainer.tsx`
+
+```typescript
+// Extract viewType and editType for form
+const componentMetadata = metadata?.entityFormContainer as ComponentMetadata | undefined;
+const viewType = componentMetadata?.viewType || {};
+const editType = componentMetadata?.editType || {};
+
+// Generate form fields from editType (edit config drives forms)
+const fields = Object.keys(editType)
+  .filter(key => editType[key]?.behavior?.editable !== false)
+  .map(fieldKey => {
+    const editMeta = editType[fieldKey] || {};
+    const viewMeta = viewType[fieldKey] || {};
+
+    return {
+      key: fieldKey,
+      label: editMeta.label || viewMeta.label || humanize(fieldKey),
+      inputType: editMeta.inputType,
+      component: editMeta.component,
+      lookupSource: editMeta.lookupSource,
+      lookupEntity: editMeta.lookupEntity,
+      datalabelKey: editMeta.datalabelKey,
+      validation: editMeta.validation,
+      placeholder: editMeta.style?.placeholder,
+      helpText: editMeta.style?.helpText,
+      required: editMeta.validation?.required,
+    };
+  });
+```
+
+### 7.5 Step 4: Update datasetFormatter
 
 **File:** `apps/web/src/lib/formatters/datasetFormatter.ts`
 
-The formatter must extract `viewType` from the component metadata for display formatting:
-
 ```typescript
-import type { ComponentMetadata, ViewFieldMetadata } from '@/stores/entityComponentMetadataStore';
-
 /**
- * Format dataset using viewType metadata for display
- *
- * @param data Raw data rows from API
- * @param componentMetadata Full component metadata { viewType, editType }
- * @returns FormattedRow[] with display strings and styles
- *
- * Real API viewType example for 'budget_allocated_amt':
- * {
- *   "dtype": "float",
- *   "label": "Budget Allocated",
- *   "renderType": "currency",
- *   "behavior": { "visible": true, "sortable": true, ... },
- *   "style": { "width": "140px", "align": "right", "symbol": "$", "decimals": 2, "locale": "en-CA" }
- * }
+ * Format dataset using viewType metadata only
+ * (Edit metadata not needed for display formatting)
  */
-export function formatDataset<T extends Record<string, unknown>>(
+export function formatDataset<T>(
   data: T[],
-  componentMetadata: ComponentMetadata | null  // { viewType, editType }
+  componentMetadata: ComponentMetadata | null
 ): FormattedRow<T>[] {
-  // Extract viewType container - formatting only needs VIEW metadata
+  // Extract viewType - formatting only needs display config
   const viewType = componentMetadata?.viewType || {};
-
   return data.map(row => formatRow(row, viewType));
 }
 
-/**
- * Format a single row using viewType metadata
- */
-export function formatRow<T extends Record<string, unknown>>(
+function formatRow<T>(
   row: T,
   viewType: Record<string, ViewFieldMetadata>
 ): FormattedRow<T> {
   const display: Record<string, string> = {};
   const styles: Record<string, string> = {};
 
-  for (const [fieldKey, value] of Object.entries(row)) {
-    const fieldMeta = viewType[fieldKey];
+  for (const [key, value] of Object.entries(row as Record<string, any>)) {
+    const meta = viewType[key];
 
-    if (!fieldMeta) {
-      // No metadata - render as string
-      display[fieldKey] = String(value ?? '');
+    if (!meta) {
+      display[key] = value != null ? String(value) : '';
       continue;
     }
 
-    // Use renderType from viewType for formatting decision
-    switch (fieldMeta.renderType) {
+    // Handle null/empty values
+    if (value == null || value === '') {
+      display[key] = meta.style?.emptyValue || '';
+      continue;
+    }
+
+    // Format based on renderType from viewType
+    switch (meta.renderType) {
       case 'currency':
-        display[fieldKey] = formatCurrency(value, fieldMeta.style);
-        // style.align from viewType determines text alignment
-        if (fieldMeta.style?.align) {
-          styles[fieldKey] = `text-${fieldMeta.style.align}`;
-        }
+        display[key] = formatCurrency(value, meta.style);
         break;
-
       case 'date':
-        display[fieldKey] = formatDate(value, fieldMeta.style);
+        display[key] = formatDate(value, meta.style);
         break;
-
       case 'timestamp':
-        display[fieldKey] = formatTimestamp(value, fieldMeta.style);
+        display[key] = formatTimestamp(value, meta.style);
         break;
-
       case 'boolean':
-        // Use trueLabel/falseLabel from viewType.style
-        display[fieldKey] = value
-          ? (fieldMeta.style?.trueLabel || 'Yes')
-          : (fieldMeta.style?.falseLabel || 'No');
-        // Use trueColor/falseColor for styling
-        styles[fieldKey] = value
-          ? `text-${fieldMeta.style?.trueColor || 'green'}-600`
-          : `text-${fieldMeta.style?.falseColor || 'red'}-600`;
+        display[key] = value ? (meta.style?.trueLabel || 'Yes')
+                             : (meta.style?.falseLabel || 'No');
         break;
-
       case 'badge':
-        display[fieldKey] = String(value ?? '');
-        // colorFromData in viewType.style indicates badge color from data
-        if (fieldMeta.style?.colorFromData) {
-          styles[fieldKey] = 'badge-dynamic';  // CSS class to look up color
-        }
+        // Badge styling applied via styles map
+        display[key] = String(value);
+        styles[key] = getBadgeStyles(value, meta.style);
         break;
-
       default:
-        display[fieldKey] = String(value ?? '');
+        display[key] = String(value);
     }
   }
 
-  return {
-    raw: row,      // Original values (for editing)
-    display,       // Pre-formatted display strings
-    styles,        // CSS classes/inline styles
-  };
-}
-
-function formatCurrency(value: unknown, style?: ViewFieldMetadata['style']): string {
-  if (value == null) return '';
-  const num = Number(value);
-  if (isNaN(num)) return String(value);
-
-  return new Intl.NumberFormat(style?.locale || 'en-CA', {
-    style: 'currency',
-    currency: 'CAD',  // Could be derived from style.symbol
-    minimumFractionDigits: style?.decimals ?? 2,
-    maximumFractionDigits: style?.decimals ?? 2,
-  }).format(num);
-}
-
-function formatDate(value: unknown, style?: ViewFieldMetadata['style']): string {
-  if (!value) return '';
-  const date = new Date(String(value));
-  if (isNaN(date.getTime())) return String(value);
-
-  // Use style.format: "short", "medium", "long"
-  const options: Intl.DateTimeFormatOptions =
-    style?.format === 'short' ? { month: 'short', day: 'numeric', year: 'numeric' } :
-    style?.format === 'medium' ? { month: 'long', day: 'numeric', year: 'numeric' } :
-    { dateStyle: 'medium' };
-
-  return new Intl.DateTimeFormat(style?.locale || 'en-CA', options).format(date);
-}
-
-function formatTimestamp(value: unknown, style?: ViewFieldMetadata['style']): string {
-  if (!value) return '';
-  const date = new Date(String(value));
-  if (isNaN(date.getTime())) return String(value);
-
-  // Use style.format: "relative", "datetime", etc.
-  if (style?.format === 'relative') {
-    return formatRelativeTime(date);
-  }
-
-  return new Intl.DateTimeFormat(style?.locale || 'en-CA', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
-}
-
-function formatRelativeTime(date: Date): string {
-  const diff = Date.now() - date.getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return { raw: row, display, styles };
 }
 ```
 
-#### Step 5: Update useEntityQuery Metadata Caching
+### 7.6 Step 5: Update useEntityQuery
 
 **File:** `apps/web/src/lib/hooks/useEntityQuery.ts`
 
 ```typescript
-// Line 261-264 - Store the FULL component metadata (viewType + editType)
+// Store the FULL component metadata structure (viewType + editType)
 if (result.metadata) {
   const componentName = normalizedParams.view || 'entityDataTable';
   const componentMetadata = (result.metadata as any)[componentName];
 
-  // Store the full { viewType, editType } structure
-  if (componentMetadata && typeof componentMetadata === 'object') {
+  // Verify structure before storing
+  if (componentMetadata?.viewType || componentMetadata?.editType) {
     useEntityComponentMetadataStore.getState().setComponentMetadata(
       entityCode,
       componentName,
-      componentMetadata  // Full structure preserved
+      componentMetadata  // Preserves { viewType, editType }
     );
   }
 }
 ```
 
-### 5.4 Caching Considerations
-
-The implementation MUST preserve these caching behaviors:
-
-| Cache | What's Stored | TTL | No Change Needed |
-|-------|---------------|-----|------------------|
-| React Query | RAW data + full metadata | 30s stale | ✅ |
-| entityComponentMetadataStore | `{ viewType, editType }` | 15m | ✅ (type fix only) |
-| datalabelMetadataStore | Dropdown options | 1h | ✅ |
-
-### 5.5 Format-at-Read Integration
-
-The `select` transform must use `viewType` for formatting:
-
-```typescript
-// In useFormattedEntityList
-select: (response) => ({
-  ...response,
-  formattedData: formatDataset(
-    response.data,
-    response.metadata?.entityDataTable  // Pass full { viewType, editType }
-  )
-})
-
-// In formatDataset - extract viewType internally
-export function formatDataset(data, componentMetadata) {
-  const viewType = componentMetadata?.viewType || {};
-  return data.map(row => formatRow(row, viewType));
-}
-```
-
 ---
 
-## 6. Testing Strategy
+## 8. Testing & Verification
 
-### 6.1 Unit Tests
-
-```typescript
-import { ComponentMetadata, ViewFieldMetadata, EditFieldMetadata } from '@/stores/entityComponentMetadataStore';
-
-describe('EntityDataTable column generation', () => {
-  // Use REAL API structure from /api/v1/project?limit=1
-  const mockMetadata: { entityDataTable: ComponentMetadata } = {
-    entityDataTable: {
-      viewType: {
-        name: {
-          dtype: 'str',
-          label: 'Name',
-          renderType: 'text',
-          behavior: { visible: true, sortable: true, filterable: true, searchable: true },
-          style: { width: '250px', align: 'left', bold: true, linkToDetail: true }
-        },
-        budget_allocated_amt: {
-          dtype: 'float',
-          label: 'Budget Allocated',
-          renderType: 'currency',
-          behavior: { visible: true, sortable: true, filterable: true, searchable: false },
-          style: { width: '140px', align: 'right', symbol: '$', decimals: 2, locale: 'en-CA' }
-        },
-        dl__project_stage: {
-          dtype: 'str',
-          label: 'Project Stage',
-          renderType: 'badge',
-          behavior: { visible: true, sortable: true, filterable: true, searchable: false },
-          style: { width: '140px', align: 'left', colorFromData: true }
-        }
-      },
-      editType: {
-        name: {
-          dtype: 'str',
-          label: 'Name',
-          inputType: 'text',
-          behavior: { editable: true },
-          style: {},
-          validation: { maxLength: 255 }
-        },
-        budget_allocated_amt: {
-          dtype: 'float',
-          label: 'Budget Allocated',
-          inputType: 'number',
-          behavior: { editable: true },
-          style: {},
-          validation: { min: 0 }
-        },
-        dl__project_stage: {
-          dtype: 'str',
-          label: 'Project Stage',
-          inputType: 'select',
-          behavior: { editable: true },
-          style: {},
-          validation: {},
-          component: 'DataLabelSelect',
-          lookupSource: 'datalabel',
-          datalabelKey: 'dl__project_stage'
-        }
-      }
-    }
-  };
-
-  it('should extract viewType and editType containers', () => {
-    const componentMetadata = mockMetadata.entityDataTable;
-    expect(componentMetadata.viewType).toBeDefined();
-    expect(componentMetadata.editType).toBeDefined();
-    expect(Object.keys(componentMetadata)).toEqual(['viewType', 'editType']);
-  });
-
-  it('should extract columns from viewType', () => {
-    const { viewType, editType } = mockMetadata.entityDataTable;
-    const columns = Object.keys(viewType)
-      .filter(key => viewType[key].behavior.visible)
-      .map(key => ({
-        key,
-        title: viewType[key].label,
-        renderType: viewType[key].renderType,
-        editable: editType[key]?.behavior?.editable ?? false,
-      }));
-
-    expect(columns.length).toBe(3);
-    expect(columns[0].key).toBe('name');
-    expect(columns[0].title).toBe('Name');
-    expect(columns[0].renderType).toBe('text');
-    expect(columns[0].editable).toBe(true);
-  });
-
-  it('should correctly map lookup properties from editType', () => {
-    const { editType } = mockMetadata.entityDataTable;
-    const stageField = editType['dl__project_stage'];
-
-    expect(stageField.lookupSource).toBe('datalabel');
-    expect(stageField.datalabelKey).toBe('dl__project_stage');
-    expect(stageField.component).toBe('DataLabelSelect');
-  });
-
-  it('should use style properties from viewType for formatting', () => {
-    const { viewType } = mockMetadata.entityDataTable;
-    const budgetField = viewType['budget_allocated_amt'];
-
-    expect(budgetField.style.symbol).toBe('$');
-    expect(budgetField.style.decimals).toBe(2);
-    expect(budgetField.style.locale).toBe('en-CA');
-    expect(budgetField.style.align).toBe('right');
-  });
-});
-```
-
-### 6.2 Integration Tests
+### 8.1 API Verification Commands
 
 ```bash
-# 1. Verify API returns viewType and editType containers
+# Verify API structure has viewType/editType
 ./tools/test-api.sh GET "/api/v1/project?limit=1" | jq '.metadata.entityDataTable | keys'
 # Expected: ["editType", "viewType"]
 
-# 2. Verify viewType field structure
-./tools/test-api.sh GET "/api/v1/project?limit=1" | jq '.metadata.entityDataTable.viewType.name'
-# Expected:
-# {
-#   "dtype": "str",
-#   "label": "Name",
-#   "renderType": "text",
-#   "behavior": { "visible": true, "sortable": true, "filterable": true, "searchable": true },
-#   "style": { "width": "250px", "align": "left", "bold": true, "linkToDetail": true }
-# }
+# Verify viewType field structure
+./tools/test-api.sh GET "/api/v1/project?limit=1" | \
+  jq '.metadata.entityDataTable.viewType.budget_allocated_amt'
+# Expected: { "dtype": "float", "renderType": "currency", "behavior": {...}, "style": {...} }
 
-# 3. Verify editType field structure with lookup properties
-./tools/test-api.sh GET "/api/v1/project?limit=1" | jq '.metadata.entityDataTable.editType.dl__project_stage'
-# Expected:
-# {
-#   "dtype": "str",
-#   "label": "Project Stage",
-#   "inputType": "select",
-#   "behavior": { "editable": true },
-#   "style": {},
-#   "validation": {},
-#   "component": "DataLabelSelect",
-#   "lookupSource": "datalabel",
-#   "datalabelKey": "dl__project_stage"
-# }
-
-# 4. Verify entity reference lookup
-./tools/test-api.sh GET "/api/v1/project?limit=1" | jq '.metadata.entityDataTable.editType.manager__employee_id'
-# Expected:
-# {
-#   "dtype": "uuid",
-#   "label": "Manager Employee Name",
-#   "inputType": "select",
-#   "behavior": { "editable": true },
-#   "style": {},
-#   "validation": {},
-#   "component": "EntitySelect",
-#   "lookupSource": "entityInstance",
-#   "lookupEntity": "employee"
-# }
-
-# 5. Verify all component types have same structure
-./tools/test-api.sh GET "/api/v1/project?limit=1" | jq '.metadata | keys'
-# Expected: ["entityDataTable", "entityFormContainer", "kanbanView"]
-
-# 6. Verify entityFormContainer uses different style for DAGVisualizer
-./tools/test-api.sh GET "/api/v1/project?limit=1" | jq '.metadata.entityFormContainer.editType.dl__project_stage'
-# Expected:
-# {
-#   "dtype": "str",
-#   "label": "Project Stage",
-#   "inputType": "component",   // Different from entityDataTable
-#   "behavior": { "editable": true },
-#   "style": { "showHierarchy": true, "interactive": true },
-#   "validation": {},
-#   "component": "DAGVisualizer",
-#   "lookupSource": "datalabel",
-#   "datalabelKey": "dl__project_stage"
-# }
+# Verify editType field with lookup
+./tools/test-api.sh GET "/api/v1/project?limit=1" | \
+  jq '.metadata.entityDataTable.editType.dl__project_stage'
+# Expected: { "inputType": "select", "lookupSource": "datalabel", ... }
 ```
 
-### 6.3 Manual Testing Checklist
+### 8.2 Manual Testing Checklist
 
-**EntityDataTable (List View):**
-- [ ] `/project` page loads with correct columns
-- [ ] Column headers match `viewType[field].label`
-- [ ] Currency fields (`budget_allocated_amt`) show `$200,000.00` format (viewType.style)
-- [ ] Badge fields (`dl__project_stage`) show colored badge (viewType.style.colorFromData)
-- [ ] Date fields use correct locale format (viewType.style.locale: "en-CA")
-- [ ] Timestamps with `format: "relative"` show "2d ago" style
+**EntityDataTable:**
+- [ ] Columns render with correct labels from `viewType[field].label`
+- [ ] Currency fields show `$200,000.00` format (2 decimals)
+- [ ] Badge fields show colored pills with `colorFromData`
+- [ ] Empty values show `emptyValue` from style
+- [ ] Column widths match `style.width`
 
-**Inline Editing (EntityDataTable):**
-- [ ] Inline edit triggers `editType.inputType` based input
-- [ ] Datalabel dropdown shows options from `editType.datalabelKey`
-- [ ] Entity select shows options from `editType.lookupEntity`
-- [ ] Validation rules apply from `editType.validation`
+**Inline Edit:**
+- [ ] Edit uses correct input types from `editType[field].inputType`
+- [ ] Dropdown fields populate from `lookupSource`
+- [ ] Validation applies from `editType[field].validation`
+- [ ] Placeholder text shows from `style.placeholder`
 
-**EntityFormContainer (Detail/Edit View):**
-- [ ] Form renders all editable fields (`editType.behavior.editable: true`)
-- [ ] DAGVisualizer renders for `dl__*` fields with `component: "DAGVisualizer"`
-- [ ] EntitySelect renders for entity references with `lookupSource: "entityInstance"`
-- [ ] DataLabelSelect renders for datalabel fields with `lookupSource: "datalabel"`
-- [ ] Textarea renders for `descr` field with rows from `editType.style.rows`
-- [ ] Validation patterns apply (`editType.validation.pattern`)
+**EntityFormContainer:**
+- [ ] Form renders all editable fields
+- [ ] DAGVisualizer renders for stage fields (`component: DAGVisualizer`)
+- [ ] EntitySelect renders for entity references (`lookupEntity: employee`)
+- [ ] Required indicator (*) shows for `validation.required: true`
+- [ ] Help text shows on hover from `style.helpText`
 
 **KanbanView:**
-- [ ] Cards display fields with `viewType.behavior.visible: true`
-- [ ] Drag-drop updates stage correctly
-- [ ] Compact currency format used (`viewType.style.compact: true`)
+- [ ] Cards display only `behavior.visible: true` fields
+- [ ] Drag-drop works correctly
+- [ ] Status badges colored correctly
 
 ---
 
-## 7. Appendix: Real API Response Structure
+## 9. Changelog
 
-### 7.1 Complete Response Schema
+### v3.2.0 (2025-11-25) - Zustand Store Bug Discovery
 
-```json
-{
-  "data": [...],          // Array of entity instances
-  "fields": [...],        // Field order array
-  "metadata": {
-    "entityDataTable": {
-      "viewType": {
-        "<fieldKey>": {
-          "dtype": "str | float | uuid | date | timestamp | bool | int | jsonb | array[uuid]",
-          "label": "Human Label",
-          "renderType": "text | badge | currency | date | timestamp | boolean | entityLink | entityLinks | json | version | number | component",
-          "behavior": {
-            "visible": true,
-            "sortable": true,
-            "filterable": true,
-            "searchable": false
-          },
-          "style": { /* varies by renderType */ },
-          "component": "DAGVisualizer"  // Only when renderType="component"
-        }
-      },
-      "editType": {
-        "<fieldKey>": {
-          "dtype": "...",
-          "label": "...",
-          "inputType": "text | textarea | number | date | datetime-local | checkbox | select | readonly | component | currency | json",
-          "behavior": { "editable": true },
-          "style": { /* input-specific */ },
-          "validation": { /* validation rules */ },
-          "component": "DataLabelSelect | EntitySelect | EntityMultiSelect | DAGVisualizer",
-          "lookupSource": "datalabel | entityInstance",
-          "datalabelKey": "dl__*",        // When lookupSource="datalabel"
-          "lookupEntity": "employee"      // When lookupSource="entityInstance"
-        }
-      }
-    },
-    "entityFormContainer": { /* Same structure, different style values */ },
-    "kanbanView": { /* Same structure, different style values */ }
-  },
-  "total": 100,
-  "limit": 20,
-  "offset": 0
-}
+**CRITICAL BUG FOUND:** The formatter receives `{ viewType, editType }` but reads `metadata[field]` directly, resulting in `undefined` for all field metadata.
+
+- Added Section 4.4: Zustand Store Deep Dive - The Hidden Bug
+  - Documented current wrong type definitions in `entityComponentMetadataStore.ts`
+  - Documented current wrong type definitions in `formatters/types.ts`
+  - Showed how store is populated correctly but consumed incorrectly
+  - Visual diagram of the data flow and where it breaks
+  - Impact analysis (currency, dates, badges all broken)
+  - Explained why it "appears to work" (fallback to 'text')
+- Updated Section 7.1: Reordered files by priority
+  - P0: `formatters/types.ts` - Fix types first
+  - P0: `formatters/datasetFormatter.ts` - Extract viewType
+  - P0: `entityComponentMetadataStore.ts` - Update store types
+  - P0: `useEntityQuery.ts` - Fix select callback
+- Added Section 7.2: Step 0 - Fix Formatter Types
+  - Added `ViewFieldMetadata` interface
+  - Added `EditFieldMetadata` interface
+  - Updated `ComponentMetadata` to `{ viewType, editType }`
+- Added Section 7.3: Step 1 - Fix datasetFormatter
+  - Added `extractViewType()` helper function
+  - Updated `formatRow()` and `formatDataset()` to extract viewType
+
+### v3.1.0 (2025-11-25) - Frontend Architecture Context
+
+- Added Section 2: Current State - Frontend Architecture
+  - Documented React Query / Zustand architecture constraints
+  - Explained format-at-read pattern and why it must be preserved
+  - Showed state management flow diagram
+- Added Section 3: Current State - Backend Format
+  - Complete API response example with all field types
+  - Explained why viewType/editType separation is needed
+- Added Section 4: The Gap - What's Missing
+  - Documented the three mismatches (path, nesting, naming)
+  - Listed all files that need updating
+- Reorganized document structure for clarity
+
+### v3.0.0 (2025-11-25) - Comprehensive Rewrite
+
+- Rewrote entire document with clearer problem statement
+- Added detailed format comparison (backend vs frontend)
+- Explained why mismatch exists (historical, mental model)
+- Added industry best practices section
+- Consolidated implementation plan with code examples
+- Added testing verification section
+
+### v2.1.0 (2025-11-25) - YAML Schema Updates
+
+**Completed:** Backend YAML schema updates for `helpText`, `emptyValue`, and `required`.
+
+| File | Changes |
+|------|---------|
+| `view-type-mapping.yaml` | Added `helpText`, `emptyValue`, `required` (display indicator) |
+| `edit-type-mapping.yaml` | Added `helpText`, `placeholder` |
+
+**Field definitions updated:**
+- `name`: `emptyValue: "(untitled)"`, `helpText`, `required: true`
+- `code`: `emptyValue: "—"`, `placeholder: "PROJ-001"`, `helpText`
+- `email`: `placeholder: "user@example.com"`, `helpText`
+- `currency`: `emptyValue: "$0.00"`, `placeholder: "0.00"`, `helpText`
+
+### v2.0.0 (2025-11-25) - Initial Problem Analysis
+
+- Documented the three mismatches (path, nesting, naming)
+- Added backend metadata audit
+- Identified `_ID`/`_IDS` metadata issues
+
+---
+
+## Quick Reference
+
+### Property Location Summary
+
+| Property | Location | Path |
+|----------|----------|------|
+| `visible` | viewType | `behavior.visible` |
+| `sortable` | viewType | `behavior.sortable` |
+| `width` | viewType | `style.width` |
+| `renderType` | viewType | `renderType` (flat) |
+| `emptyValue` | viewType | `style.emptyValue` |
+| `editable` | editType | `behavior.editable` |
+| `inputType` | editType | `inputType` (flat) |
+| `validation` | editType | `validation.*` |
+| `placeholder` | editType | `style.placeholder` |
+| `helpText` | both | `style.helpText` |
+| `lookupSource` | editType | `lookupSource` (flat) |
+| `lookupEntity` | editType | `lookupEntity` (flat) |
+| `datalabelKey` | editType | `datalabelKey` (flat) |
+
+### Decision Tree for Dropdown Fields
+
 ```
-
-### 7.2 Lookup Property Decision Tree
-
-```
-if (editType[field].lookupSource === 'datalabel') {
-  // Use DataLabelSelect component
-  // Load options from datalabelMetadataStore using editType[field].datalabelKey
-  // Example: dl__project_stage → datalabel_project_stage table
+if (editMeta.lookupSource === 'datalabel') {
+  // Render DataLabelSelect
+  // Load options from datalabelMetadataStore[editMeta.datalabelKey]
 }
-else if (editType[field].lookupSource === 'entityInstance') {
-  // Use EntitySelect or EntityMultiSelect component
-  // Load options from /api/v1/${editType[field].lookupEntity}
-  // Example: lookupEntity='employee' → /api/v1/employee
+else if (editMeta.lookupSource === 'entityInstance') {
+  // Render EntitySelect or EntityMultiSelect
+  // Load options from /api/v1/${editMeta.lookupEntity}
 }
 else {
-  // Regular input based on editType[field].inputType
+  // Render native input based on editMeta.inputType
 }
 ```
 
 ---
 
-## Summary
-
-### What Changes
-
-| Component | Change |
-|-----------|--------|
-| **Types** | Update `ComponentMetadata` to include `viewType`/`editType` |
-| **EntityDataTable** | Read `viewType[field]` for display, `editType[field]` for edit |
-| **EntityFormContainer** | Read `editType[field]` for form fields |
-| **datasetFormatter** | Extract `viewType` internally for formatting |
-
-### What Stays the Same
-
-| Component | No Change |
-|-----------|-----------|
-| **Backend API** | Response structure preserved |
-| **React Query** | Still caches RAW data |
-| **Format-at-Read** | Still uses `select` transform |
-| **Zustand TTL** | 15m for component metadata |
-| **Datalabel caching** | Still at login, 1h TTL |
-
----
-
-**Next Steps:** Approve this plan, then implement Step 1-5 in order.
+**Status:** Ready for frontend implementation (Steps 1-5 in Section 6)
