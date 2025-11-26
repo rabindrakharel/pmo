@@ -1693,7 +1693,8 @@ export function EntityDataTable<T = any>({
                             ) : (
                               <div onClick={(e) => e.stopPropagation()}>
                                 {(() => {
-                                  const metadata = (column as any).backendMetadata || createFallbackMetadata(column.key);
+                                  // v8.2.0: Backend metadata required - minimal fallback for text input
+                                  const metadata = (column as any).backendMetadata || { inputType: 'text', label: column.key };
                                   return renderEditModeFromMetadata(
                                     editedData[column.key] ?? rawValue,
                                     metadata,
@@ -1901,8 +1902,8 @@ export function EntityDataTable<T = any>({
                               // ALL OTHER FIELDS - Backend-driven renderer
                               <div onClick={(e) => e.stopPropagation()}>
                                 {(() => {
-                                  // Use backend metadata from column (fallback only if not provided)
-                                  const metadata = (column as any).backendMetadata || createFallbackMetadata(column.key);
+                                  // v8.2.0: Backend metadata required - minimal fallback for text input
+                                  const metadata = (column as any).backendMetadata || { inputType: 'text', label: column.key };
                                   return renderEditModeFromMetadata(
                                     editedData[column.key] ?? rawValue,
                                     metadata,
