@@ -29,7 +29,7 @@ export { useDatalabelMetadataStore } from './datalabelMetadataStore';
 export type { DatalabelOption, Datalabel } from './datalabelMetadataStore';
 
 export { useEntityComponentMetadataStore } from './entityComponentMetadataStore';
-export type { FieldMetadata, ComponentName, ComponentMetadata } from './entityComponentMetadataStore';
+export type { ComponentName, ComponentMetadata, ViewFieldMetadata, EditFieldMetadata } from './entityComponentMetadataStore';
 
 export { useEntityCodeMetadataStore } from './entityCodeMetadataStore';
 export type { EntityCodeData } from './entityCodeMetadataStore';

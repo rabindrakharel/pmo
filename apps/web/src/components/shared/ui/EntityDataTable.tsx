@@ -40,41 +40,16 @@ import { colorCodeToTailwindClass } from '../../../lib/formatters/valueFormatter
 import { useDatalabelMetadataStore } from '../../../stores/datalabelMetadataStore';
 import type { EntityMetadata } from '../../../lib/api';
 
-// v7.0.0: Format-at-fetch support
-import { type FormattedRow, isFormattedData, extractViewType, extractEditType, isNestedComponentMetadata } from '../../../lib/formatters';
+// v8.2.0: Format-at-fetch with required nested metadata structure
+import { type FormattedRow, isFormattedData, extractViewType, extractEditType, isValidComponentMetadata } from '../../../lib/formatters';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 import { EllipsisBounce, InlineSpinner } from './EllipsisBounce';
 
 // ============================================================================
-// MINIMAL FALLBACK: When backend doesn't send metadata
-// Backend should ALWAYS send metadata via getEntityMetadata()
-// This fallback is only for non-integrated routes
-// ============================================================================
-
-/**
- * Minimal fallback metadata - NO PATTERN DETECTION
- * Backend is responsible for all pattern detection via backend-formatter.service
- */
-function createFallbackMetadata(columnKey: string): BackendFieldMetadata {
-  return {
-    key: columnKey,
-    label: columnKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-    renderType: 'text',
-    inputType: 'text',
-    visible: {
-      EntityDataTable: true,
-      EntityDetailView: true,
-      EntityFormContainer: true,
-      KanbanView: true,
-      CalendarView: true
-    },
-    editable: true,
-    align: 'left'
-  };
-}
-
-// ============================================================================
 // METADATA-DRIVEN RENDERING (Pure Backend-Driven)
+// ============================================================================
+// v8.2.0: Metadata is REQUIRED from backend - no fallback generation
+// Backend sends: metadata.entityDataTable = { viewType: {...}, editType: {...} }
 // ============================================================================
 // ALL field rendering (view + edit modes) driven by backend metadata
 // - View mode: uses FormattedRow.display[key] from format-at-fetch pattern
@@ -394,133 +369,78 @@ export function EntityDataTable<T = any>({
   // Backend sends complete field metadata → Frontend renders exactly as instructed
 
   const columns = useMemo(() => {
-    // DEBUG: Log metadata structure
+    // v8.2.0: Backend MUST send metadata.entityDataTable = { viewType: {...}, editType: {...} }
     const componentMetadata = (metadata as any)?.entityDataTable;
-    const isNested = isNestedComponentMetadata(componentMetadata);
+
     console.log(`%c[EntityDataTable] 🔍 Metadata received:`, 'color: #69db7c; font-weight: bold', {
       hasMetadata: !!metadata,
-      metadataKeys: metadata ? Object.keys(metadata) : [],
       hasEntityDataTable: !!componentMetadata,
-      isNestedFormat: isNested,
-      hasFields: !!(metadata as any)?.fields,
-      entityDataTableFieldCount: componentMetadata
-        ? (isNested ? Object.keys(componentMetadata.viewType || {}).length : Object.keys(componentMetadata).length)
-        : 0,
+      isValid: isValidComponentMetadata(componentMetadata),
+      fieldCount: componentMetadata?.viewType ? Object.keys(componentMetadata.viewType).length : 0,
     });
 
-    // ============================================================================
-    // Priority 1: Backend Component-Keyed Metadata
-    // v8.1.0: Backend now returns: metadata.entityDataTable = { viewType: {...}, editType: {...} }
-    // OR legacy: metadata.entityDataTable = { fieldName: { visible, label, ... } }
-    // ============================================================================
-    if (componentMetadata && typeof componentMetadata === 'object' && !Array.isArray(componentMetadata)) {
-      // v8.1.0: Extract viewType and editType from nested structure (or use flat structure)
-      const viewType = extractViewType(componentMetadata);
-      const editType = extractEditType(componentMetadata);
-
-      if (!viewType) {
-        console.warn('[EntityDataTable] No viewType found in metadata');
-        return [];
-      }
-
-      // Get field order from fields array if available, otherwise use viewType keys
-      const fieldOrder = (metadata as any)?.fields || Object.keys(viewType);
-
-      return fieldOrder
-        .filter((fieldKey: string) => {
-          const fieldMeta = viewType[fieldKey] as any;
-          if (!fieldMeta) return false;
-          // v8.1.0: Check nested behavior.visible OR flat visible
-          const visible = fieldMeta.behavior?.visible ?? fieldMeta.visible ?? true;
-          return visible === true;
-        })
-        .map((fieldKey: string) => {
-          const viewMeta = viewType[fieldKey] as any;
-          const editMeta = editType?.[fieldKey] as any;
-
-          // v8.1.0: Extract properties from nested behavior/style OR flat structure
-          const label = viewMeta.label || fieldKey.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
-          const sortable = viewMeta.behavior?.sortable ?? viewMeta.sortable;
-          const filterable = viewMeta.behavior?.filterable ?? viewMeta.filterable;
-          const searchable = viewMeta.behavior?.searchable ?? viewMeta.searchable;
-          const width = viewMeta.style?.width ?? viewMeta.width;
-          const align = viewMeta.style?.align ?? viewMeta.align;
-          const editable = editMeta?.behavior?.editable ?? viewMeta.editable;
-          const inputType = editMeta?.inputType ?? viewMeta.editType ?? viewMeta.inputType ?? 'text';
-          const lookupSource = editMeta?.lookupSource ?? viewMeta.lookupSource;
-          const lookupEntity = editMeta?.lookupEntity ?? viewMeta.lookupEntity;
-          const datalabelKey = editMeta?.datalabelKey ?? viewMeta.datalabelKey ?? viewMeta.settingsDatalabel;
-
-          // Inject key into metadata for downstream use
-          const enrichedMeta = { key: fieldKey, ...viewMeta, inputType, editable };
-          return {
-            key: fieldKey,
-            title: label,
-            visible: true,  // Already filtered above
-            sortable,
-            filterable,
-            searchable,
-            width,
-            align,
-            editable,
-            editType: inputType,
-            lookupSource,
-            lookupEntity,
-            datalabelKey,
-            // @deprecated - for backward compatibility
-            loadDataLabels: lookupSource === 'datalabel' || !!datalabelKey,
-            loadFromEntity: lookupEntity,
-            // Store enriched backend metadata for use in edit mode
-            backendMetadata: enrichedMeta
-            // v7.0.0: No render function - format-at-fetch handles view mode via FormattedRow
-          } as Column<T>;
-        });
-    }
-
-    // ============================================================================
-    // Priority 2: Legacy Array-Based Metadata (Backward Compatibility)
-    // Old format: metadata.fields = [{ key, visible, label, ... }]
-    // ============================================================================
-    if (metadata?.fields && Array.isArray(metadata.fields)) {
-      return metadata.fields
-        .filter(fieldMeta => {
-          // Object-based visibility control
-          if (typeof fieldMeta.visible === 'object' && fieldMeta.visible !== null) {
-            return fieldMeta.visible.EntityDataTable === true;
-          }
-          // Boolean visibility
-          return fieldMeta.visible === true;
-        })
-        .map(fieldMeta => ({
-          key: fieldMeta.key,
-          title: fieldMeta.label,
-          visible: true,  // Already filtered above, so all are visible
-          sortable: fieldMeta.sortable,
-          filterable: fieldMeta.filterable,
-          searchable: fieldMeta.searchable,
-          width: fieldMeta.width,
-          align: fieldMeta.align,
-          editable: fieldMeta.editable,
-          editType: fieldMeta.editType,
-          lookupSource: fieldMeta.lookupSource,
-          lookupEntity: fieldMeta.lookupEntity,
-          datalabelKey: fieldMeta.datalabelKey,
-          // @deprecated - for backward compatibility
-          loadDataLabels: fieldMeta.lookupSource === 'datalabel' || !!fieldMeta.datalabelKey,
-          loadFromEntity: fieldMeta.lookupEntity,
-          // Store backend metadata for use in edit mode
-          backendMetadata: fieldMeta
-          // v7.0.0: No render function - format-at-fetch handles view mode via FormattedRow
-        } as Column<T>));
-    }
-
-    // Priority 2: Explicit columns (for custom overrides only)
+    // Explicit columns override (for special cases)
     if (initialColumns && initialColumns.length > 0) {
       return initialColumns;
     }
 
-    // v7.0.0: No auto-generation - all routes must provide metadata from backend
-    return [];
+    // Extract viewType and editType from component metadata
+    const viewType = extractViewType(componentMetadata);
+    const editType = extractEditType(componentMetadata);
+
+    if (!viewType) {
+      console.error('[EntityDataTable] No viewType in metadata - backend must send { viewType, editType }');
+      return [];
+    }
+
+    // Get field order from fields array if available, otherwise use viewType keys
+    const fieldOrder = (metadata as any)?.fields || Object.keys(viewType);
+
+    return fieldOrder
+      .filter((fieldKey: string) => {
+        const fieldMeta = viewType[fieldKey];
+        if (!fieldMeta) return false;
+        return fieldMeta.behavior?.visible === true;
+      })
+      .map((fieldKey: string) => {
+        const viewMeta = viewType[fieldKey];
+        const editMeta = editType?.[fieldKey];
+
+        // Extract properties from nested structure
+        const label = viewMeta.label || fieldKey.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+        const sortable = viewMeta.behavior?.sortable;
+        const filterable = viewMeta.behavior?.filterable;
+        const searchable = viewMeta.behavior?.searchable;
+        const width = viewMeta.style?.width;
+        const align = viewMeta.style?.align;
+        const editable = editMeta?.behavior?.editable ?? false;
+        const inputType = editMeta?.inputType ?? 'text';
+        const lookupSource = editMeta?.lookupSource;
+        const lookupEntity = editMeta?.lookupEntity;
+        const datalabelKey = editMeta?.datalabelKey;
+
+        // Inject key into metadata for downstream use
+        const enrichedMeta = { key: fieldKey, ...viewMeta, inputType, editable };
+
+        return {
+          key: fieldKey,
+          title: label,
+          visible: true,
+          sortable,
+          filterable,
+          searchable,
+          width,
+          align,
+          editable,
+          editType: inputType,
+          lookupSource,
+          lookupEntity,
+          datalabelKey,
+          loadDataLabels: lookupSource === 'datalabel' || !!datalabelKey,
+          loadFromEntity: lookupEntity,
+          backendMetadata: enrichedMeta
+        } as Column<T>;
+      });
   }, [metadata, initialColumns]);
 
   const [sortField, setSortField] = useState<string>('');
@@ -1773,7 +1693,8 @@ export function EntityDataTable<T = any>({
                             ) : (
                               <div onClick={(e) => e.stopPropagation()}>
                                 {(() => {
-                                  const metadata = (column as any).backendMetadata || createFallbackMetadata(column.key);
+                                  // v8.2.0: Backend metadata required - minimal fallback for text input
+                                  const metadata = (column as any).backendMetadata || { inputType: 'text', label: column.key };
                                   return renderEditModeFromMetadata(
                                     editedData[column.key] ?? rawValue,
                                     metadata,
@@ -1981,8 +1902,8 @@ export function EntityDataTable<T = any>({
                               // ALL OTHER FIELDS - Backend-driven renderer
                               <div onClick={(e) => e.stopPropagation()}>
                                 {(() => {
-                                  // Use backend metadata from column (fallback only if not provided)
-                                  const metadata = (column as any).backendMetadata || createFallbackMetadata(column.key);
+                                  // v8.2.0: Backend metadata required - minimal fallback for text input
+                                  const metadata = (column as any).backendMetadata || { inputType: 'text', label: column.key };
                                   return renderEditModeFromMetadata(
                                     editedData[column.key] ?? rawValue,
                                     metadata,
