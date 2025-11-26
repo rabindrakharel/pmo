@@ -34,7 +34,19 @@ export type {
   // Formatted result types (v8.0.0)
   FormattedEntityInstanceListResult,
   FormattedEntityInstanceResult,
+  // v8.3.0: RefData type
+  RefData,
 } from './useEntityQuery';
+
+// v8.3.0: RefData Resolution Hooks
+export {
+  useRefData,
+  useMergedRefData,
+  useResolvedField,
+  useResolvedRow,
+} from './useRefData';
+
+export type { UseRefDataResult } from './useRefData';
 
 // Keyboard Shortcuts Hook
 export { useKeyboardShortcuts } from './useKeyboardShortcuts';

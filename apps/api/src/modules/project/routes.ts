@@ -206,6 +206,7 @@ const ProjectWithMetadataSchema = Type.Object({
   data: ProjectSchema,
   fields: Type.Array(Type.String()),  // Field names list
   metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+  ref_data: Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.String()))),  // v8.3.0: Entity reference lookup
 });
 
 const CreateProjectSchema = Type.Object({
@@ -262,6 +263,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           fields: Type.Array(Type.String()),
           metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
           datalabels: Type.Optional(Type.Any()),  // Datalabel options with colors for badge rendering
+          ref_data: Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.String()))),  // v8.3.0: Entity reference lookup { entityCode: { uuid: name } }
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number(),
@@ -365,18 +367,10 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const projects = dataResult;
 
       // ═══════════════════════════════════════════════════════════════
-      // ✅ RESOLVE ENTITY REFERENCES - Get _ID and _IDS for each project
+      // v8.3.0: BUILD REF_DATA - Response-level entity reference lookup
+      // More efficient than per-row _ID/_IDS (single query per entity type)
       // ═══════════════════════════════════════════════════════════════
-      const projectsWithReferences = await Promise.all(
-        projects.map(async (project) => {
-          const { _ID, _IDS } = await entityInfra.resolve_entity_references(project);
-          return {
-            ...project,
-            _ID,
-            _IDS
-          };
-        })
-      );
+      const ref_data = await entityInfra.build_ref_data(projects as Record<string, any>[]);
 
       // ═══════════════════════════════════════════════════════════════
       // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
@@ -387,14 +381,18 @@ export async function projectRoutes(fastify: FastifyInstance) {
         : ['entityDataTable', 'entityFormContainer', 'kanbanView'];
 
       // Generate response with metadata for requested components only
-      const response = generateEntityResponse(ENTITY_CODE, projectsWithReferences, {
+      const response = generateEntityResponse(ENTITY_CODE, projects, {
         components: requestedComponents,
         total,
         limit,
         offset
       });
 
-      return response;
+      // v8.3.0: Include ref_data in response for O(1) entity name lookups
+      return {
+        ...response,
+        ref_data,
+      };
     } catch (error) {
       fastify.log.error('Error fetching projects:', error as any);
       console.error('Full error details:', error);
@@ -552,16 +550,9 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const project = result[0];
 
       // ═══════════════════════════════════════════════════════════════
-      // ✅ RESOLVE ENTITY REFERENCES - Get _ID and _IDS structured format
+      // v8.3.0: BUILD REF_DATA - Response-level entity reference lookup
       // ═══════════════════════════════════════════════════════════════
-      const { _ID, _IDS } = await entityInfra.resolve_entity_references(project);
-
-      // Merge structured references with original data
-      const projectData = {
-        ...project,
-        _ID,
-        _IDS
-      };
+      const ref_data = await entityInfra.build_ref_data([project as Record<string, any>]);
 
       // ═══════════════════════════════════════════════════════════════
       // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
@@ -571,18 +562,19 @@ export async function projectRoutes(fastify: FastifyInstance) {
         ? view.split(',').map((v: string) => v.trim())
         : ['entityFormContainer'];
 
-      const response = generateEntityResponse(ENTITY_CODE, [projectData], {
+      const response = generateEntityResponse(ENTITY_CODE, [project], {
         components: requestedComponents,
         total: 1,
         limit: 1,
         offset: 0
       });
 
-      // Return single item (not array)
+      // v8.3.0: Return single item with ref_data
       return reply.send({
         data: response.data[0],  // Single object, not array
         fields: response.fields,
         metadata: response.metadata,
+        ref_data,  // v8.3.0: Entity reference lookup table
       });
     } catch (error) {
       fastify.log.error('Error fetching project:', error as any);

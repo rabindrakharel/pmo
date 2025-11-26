@@ -21,6 +21,8 @@ import { colorCodeToTailwindClass } from '../../../lib/formatters/valueFormatter
 import type { FormattedRow } from '../../../lib/formatters';
 import { extractViewType, extractEditType, isValidComponentMetadata } from '../../../lib/formatters';
 import { useDatalabelMetadataStore } from '../../../stores/datalabelMetadataStore';
+// v8.3.0: RefData for entity reference resolution
+import { useRefData, type RefData } from '../../../lib/hooks/useRefData';
 
 import { MetadataTable } from './MetadataTable';
 import { QuoteItemsRenderer } from './QuoteItemsRenderer';
@@ -88,6 +90,21 @@ interface EntityFormContainerProps {
    * Eliminates redundant formatting during render
    */
   formattedData?: FormattedRow<Record<string, any>>;
+
+  /**
+   * v8.3.0: Reference data lookup table for entity reference resolution
+   * Used to resolve UUIDs to display names for *_id and *_ids fields
+   * Structure: { entity_code: { uuid: name } }
+   *
+   * @example
+   * <EntityFormContainer
+   *   data={project}
+   *   ref_data={{ employee: { "uuid-123": "James Miller" } }}
+   *   isEditing={false}
+   *   onChange={handleChange}
+   * />
+   */
+  ref_data?: RefData;
 }
 
 // Stable default values to prevent new array references on every render
@@ -102,8 +119,11 @@ function EntityFormContainerInner({
   mode = 'edit',
   metadata,                     // PRIORITY 1: Backend metadata
   datalabels = EMPTY_DATALABELS,  // ✅ Stable default reference
-  formattedData                 // v7.0.0: Pre-formatted data for instant rendering
+  formattedData,                // v7.0.0: Pre-formatted data for instant rendering
+  ref_data                      // v8.3.0: Entity reference lookup table
 }: EntityFormContainerProps) {
+  // v8.3.0: useRefData hook for entity reference resolution
+  const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(ref_data);
   // ============================================================================
   // METADATA-DRIVEN FIELD GENERATION
   // ============================================================================
@@ -767,6 +787,9 @@ function arePropsEqual(
 
   // If datalabels change, must re-render
   if (prevProps.datalabels !== nextProps.datalabels) return false;
+
+  // v8.3.0: If ref_data changes, must re-render (entity reference resolution)
+  if (prevProps.ref_data !== nextProps.ref_data) return false;
 
   // For data: only re-render if KEYS change, not values
   // (values are handled by local state during editing)

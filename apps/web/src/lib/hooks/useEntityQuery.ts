@@ -91,6 +91,13 @@ export const CACHE_TTL = {
   // Short stale time for actively edited records
   ENTITY_DETAIL_STALE: 10 * 1000,    // 10 seconds - mark as stale
   ENTITY_DETAIL_CACHE: 2 * 60 * 1000, // 2 minutes - keep for navigation
+
+  // =========================================================================
+  // TIER 6: Reference Data (1 hour) - Entity name lookups (v8.3.0)
+  // =========================================================================
+  // Used for entity reference dropdowns in edit mode
+  REF_DATA_STALE: 60 * 60 * 1000,     // 1 hour stale time
+  REF_DATA_CACHE: 2 * 60 * 60 * 1000, // 2 hours cache time (GC)
 } as const;
 
 /** Query key factories for consistent cache keys */
@@ -103,6 +110,8 @@ export const queryKeys = {
   entityInstance: (entityCode: string, id: string) =>
     ['entity-instance', entityCode, id] as const,
   globalSettings: () => ['global-settings'] as const,
+  // v8.3.0: Reference data lookup (entity UUID → name)
+  refData: (entityCode: string) => ['ref-data', entityCode] as const,
 };
 
 // ============================================================================
@@ -120,6 +129,12 @@ export interface EntityInstanceListParams {
 }
 
 /**
+ * v8.3.0: RefData type - response-level entity reference lookup table
+ * Structure: { entity_code: { uuid: name } }
+ */
+export type RefData = Record<string, Record<string, string>>;
+
+/**
  * Raw entity list result - cached as-is in React Query (v8.0.0)
  */
 export interface EntityInstanceListResult<T = any> {
@@ -129,6 +144,7 @@ export interface EntityInstanceListResult<T = any> {
   page: number;
   pageSize: number;
   hasMore: boolean;
+  ref_data?: RefData;  // v8.3.0: Entity reference lookup table
 }
 
 /**
@@ -145,6 +161,7 @@ export interface EntityInstanceResult<T = any> {
   data: T;
   metadata: EntityMetadata | null;
   fields?: string[];
+  ref_data?: RefData;  // v8.3.0: Entity reference lookup table
 }
 
 /**
@@ -232,6 +249,7 @@ export function useEntityInstanceList<T = any>(
 
       // ═══════════════════════════════════════════════════════════════
       // v8.0.0: Cache RAW data only - formatting happens on READ via select
+      // v8.3.0: Include ref_data for entity reference resolution
       // ═══════════════════════════════════════════════════════════════
       const result: EntityInstanceListResult<T> = {
         data: response.data || [],
@@ -240,11 +258,14 @@ export function useEntityInstanceList<T = any>(
         page: normalizedParams.page,
         pageSize: normalizedParams.pageSize,
         hasMore: (response.data?.length || 0) === normalizedParams.pageSize,
+        ref_data: response.ref_data,  // v8.3.0: Entity reference lookup table
       };
 
       console.log(`%c[API FETCH] ✅ Received ${result.data.length} items for ${entityCode}`, 'color: #ff6b6b', {
         total: result.total,
         hasMetadata: !!result.metadata,
+        hasRefData: !!result.ref_data,
+        refDataEntities: result.ref_data ? Object.keys(result.ref_data) : [],
         metadataKeys: result.metadata ? Object.keys(result.metadata) : [],
         entityDataTableFieldCount: result.metadata?.entityDataTable ? Object.keys(result.metadata.entityDataTable).length : 0,
         fieldsCount: result.metadata?.fields?.length || 0,
@@ -387,9 +408,14 @@ export function useEntityInstance<T = any>(
         }
       }
 
+      // v8.3.0: Extract ref_data for entity reference resolution
+      const ref_data = response.ref_data;
+
       console.log(`%c[API FETCH] ✅ Received entity ${entityCode}/${id}`, 'color: #ff6b6b', {
         hasMetadata: !!metadata,
         hasFields: !!fields,
+        hasRefData: !!ref_data,
+        refDataEntities: ref_data ? Object.keys(ref_data) : [],
         dataKeys: Object.keys(data),
       });
 
@@ -398,8 +424,9 @@ export function useEntityInstance<T = any>(
 
       // ═══════════════════════════════════════════════════════════════
       // v8.0.0: Cache RAW data only - formatting happens on READ via select
+      // v8.3.0: Include ref_data for entity reference resolution
       // ═══════════════════════════════════════════════════════════════
-      return { data, metadata, fields };
+      return { data, metadata, fields, ref_data };
     },
     enabled: !!id,
     // v6.0.0: Near real-time for actively edited records
@@ -539,11 +566,13 @@ export function useFormattedEntityList<T = any>(
         page: normalizedParams.page,
         pageSize: normalizedParams.pageSize,
         hasMore: (response.data?.length || 0) === normalizedParams.pageSize,
+        ref_data: response.ref_data,  // v8.3.0: Entity reference lookup table
       };
 
       console.log(`%c[API FETCH] ✅ Received ${result.data.length} items for ${entityCode}`, 'color: #ff6b6b', {
         total: result.total,
         hasMetadata: !!result.metadata,
+        hasRefData: !!result.ref_data,
       });
 
       // Cache datalabels for formatting
@@ -666,9 +695,12 @@ export function useFormattedEntityInstance<T = any>(
         }
       }
 
+      // v8.3.0: Extract ref_data for entity reference resolution
+      const ref_data = response.ref_data;
+
       addNormalizedEntity(queryClient, entityCode, data);
 
-      return { data, metadata, fields };
+      return { data, metadata, fields, ref_data };
     },
     select: selectFormatted,  // v8.0.0: Format on READ, not on FETCH
     enabled: !!id,

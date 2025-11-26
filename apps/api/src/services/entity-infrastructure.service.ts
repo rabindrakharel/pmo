@@ -421,6 +421,16 @@ export class EntityInfrastructureService {
    * Resolve UUID fields to human-readable entity names
    * Returns structured format with _ID (single references) and _IDS (array references)
    *
+   * @deprecated v8.3.0 - Use build_ref_data() instead for response-level entity reference resolution.
+   * This method embeds _ID/_IDS in each row, which is inefficient.
+   * The new build_ref_data() returns a single lookup table for O(1) resolution.
+   *
+   * Migration:
+   * - OLD: const { _ID, _IDS } = await entityInfra.resolve_entity_references(row);
+   *        return { ...row, _ID, _IDS };
+   * - NEW: const ref_data = await entityInfra.build_ref_data(rows);
+   *        return { data: rows, ref_data };
+   *
    * Supports 4 naming patterns:
    * - Pattern 1: {label}__{entity}_id (e.g., "manager__employee_id")
    * - Pattern 2: {label}__{entity}_ids (e.g., "stakeholder__employee_ids")
@@ -626,6 +636,139 @@ export class EntityInfrastructureService {
     }
 
     return { _ID, _IDS };
+  }
+
+  /**
+   * Build ref_data object for response-level entity reference resolution
+   *
+   * Structure: { entity_code: { uuid: name } }
+   *
+   * Scans all rows for *_id and *_ids fields, collects unique UUIDs,
+   * batch resolves from entity_instance table, returns grouped object.
+   *
+   * This is the NEW pattern (v8.3.0) that replaces _ID/_IDS embedded per row.
+   * ref_data is returned at the response level for O(1) lookup.
+   *
+   * @param rows - Array of data rows to scan for entity references
+   * @returns ref_data object: { entity_code: { uuid: name } }
+   *
+   * @example
+   * // Input rows:
+   * [{ manager__employee_id: "uuid-123", business_id: "uuid-bus" }]
+   *
+   * // Output ref_data:
+   * {
+   *   "employee": { "uuid-123": "James Miller" },
+   *   "business": { "uuid-bus": "Huron Home Services" }
+   * }
+   */
+  async build_ref_data(
+    rows: Record<string, any>[]
+  ): Promise<Record<string, Record<string, string>>> {
+    // Structure: { entity_code: { uuid: name } }
+    const ref_data: Record<string, Record<string, string>> = {};
+
+    if (!rows || rows.length === 0) {
+      return ref_data;
+    }
+
+    // Pattern matching regexes
+    const labeledSinglePattern = /^(.+)__([a-z_]+)_id$/;
+    const labeledArrayPattern = /^(.+)__([a-z_]+)_ids$/;
+    const simpleSinglePattern = /^([a-z_]+)_id$/;
+    const simpleArrayPattern = /^([a-z_]+)_ids$/;
+
+    // Step 1: Collect all UUIDs grouped by entity_code (for batch query)
+    const entityCodeToUuids: Record<string, Set<string>> = {};
+
+    for (const row of rows) {
+      for (const [fieldName, value] of Object.entries(row)) {
+        if (value === null || value === undefined) continue;
+        if (fieldName === 'id') continue; // Skip primary key
+
+        // Match patterns to get entity_code
+        let entityCode: string | null = null;
+        let isArray = false;
+
+        // Pattern 1: {label}__{entity}_id (e.g., manager__employee_id)
+        const labeledSingleMatch = fieldName.match(labeledSinglePattern);
+        if (labeledSingleMatch) {
+          entityCode = labeledSingleMatch[2];
+          isArray = false;
+        }
+
+        // Pattern 2: {label}__{entity}_ids (e.g., stakeholder__employee_ids)
+        if (!entityCode) {
+          const labeledArrayMatch = fieldName.match(labeledArrayPattern);
+          if (labeledArrayMatch) {
+            entityCode = labeledArrayMatch[2];
+            isArray = true;
+          }
+        }
+
+        // Pattern 3: {entity}_id (e.g., business_id)
+        if (!entityCode) {
+          const simpleSingleMatch = fieldName.match(simpleSinglePattern);
+          if (simpleSingleMatch) {
+            entityCode = simpleSingleMatch[1];
+            isArray = false;
+          }
+        }
+
+        // Pattern 4: {entity}_ids (e.g., tag_ids)
+        if (!entityCode) {
+          const simpleArrayMatch = fieldName.match(simpleArrayPattern);
+          if (simpleArrayMatch) {
+            entityCode = simpleArrayMatch[1];
+            isArray = true;
+          }
+        }
+
+        if (!entityCode) continue;
+
+        // Initialize Set for this entity_code if needed
+        if (!entityCodeToUuids[entityCode]) {
+          entityCodeToUuids[entityCode] = new Set();
+        }
+
+        // Collect UUIDs
+        if (isArray && Array.isArray(value)) {
+          value.forEach(uuid => {
+            if (typeof uuid === 'string') entityCodeToUuids[entityCode!].add(uuid);
+          });
+        } else if (!isArray && typeof value === 'string') {
+          entityCodeToUuids[entityCode].add(value);
+        }
+      }
+    }
+
+    // Step 2: Batch resolve all UUIDs (1 query per entity_code)
+    // ONLY add to ref_data if UUIDs are found in entity_instance table
+    for (const [entityCode, uuidSet] of Object.entries(entityCodeToUuids)) {
+      const uuids = Array.from(uuidSet);
+      if (uuids.length === 0) continue;
+
+      const result = await this.db.execute(sql`
+        SELECT entity_instance_id::text, entity_instance_name
+        FROM app.entity_instance
+        WHERE entity_code = ${entityCode}
+          AND entity_instance_id IN (${sql.join(uuids.map(id => sql`${id}::uuid`), sql`, `)})
+      `);
+
+      // ONLY create bucket if we have results
+      if (result.length > 0) {
+        ref_data[entityCode] = {};
+
+        // Add resolved entries: { uuid: name }
+        for (const r of result) {
+          const row = r as Record<string, any>;
+          ref_data[entityCode][row.entity_instance_id as string] = row.entity_instance_name as string;
+        }
+      }
+      // If no results found, DON'T add empty bucket - keeps ref_data clean
+    }
+
+    return ref_data;
   }
 
   // ==========================================================================

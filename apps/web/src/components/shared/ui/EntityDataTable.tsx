@@ -44,6 +44,8 @@ import type { EntityMetadata } from '../../../lib/api';
 import { type FormattedRow, isFormattedData, extractViewType, extractEditType, isValidComponentMetadata } from '../../../lib/formatters';
 import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 import { EllipsisBounce, InlineSpinner } from './EllipsisBounce';
+// v8.3.0: RefData for entity reference resolution
+import { useRefData, type RefData } from '../../../lib/hooks/useRefData';
 
 // ============================================================================
 // METADATA-DRIVEN RENDERING (Pure Backend-Driven)
@@ -280,6 +282,7 @@ export interface EntityDataTableProps<T = any> {
   data: T[];
   metadata?: EntityMetadata | null;  // Backend metadata (REQUIRED for metadata-driven mode)
   datalabels?: any[];                // Datalabel options from API (for dropdowns and DAG viz)
+  ref_data?: RefData;                // v8.3.0: Entity reference lookup table { entity_code: { uuid: name } }
   columns?: Column<T>[];             // Legacy explicit columns (fallback only)
   loading?: boolean;
   pagination?: {
@@ -328,6 +331,7 @@ export function EntityDataTable<T = any>({
   data,
   metadata,  // Backend metadata from API
   datalabels,  // Datalabel options from API response
+  ref_data,  // v8.3.0: Entity reference lookup table
   columns: initialColumns,
   loading = false,
   pagination,
@@ -357,6 +361,10 @@ export function EntityDataTable<T = any>({
   allowAddRow = false,
   onAddRow
 }: EntityDataTableProps<T>) {
+  // v8.3.0: useRefData hook for entity reference resolution (future use)
+  // Currently ref fields are hidden, but ref_data enables future display of resolved names
+  const { resolveFieldDisplay, hasRefData } = useRefData(ref_data);
+
   // ============================================================================
   // METADATA-DRIVEN COLUMN GENERATION (Pure Backend-Driven Architecture)
   // ============================================================================
