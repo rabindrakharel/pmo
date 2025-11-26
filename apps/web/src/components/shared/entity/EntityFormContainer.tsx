@@ -40,6 +40,16 @@ function renderFieldBadge(fieldKey: string, value: string): React.ReactNode {
 }
 
 /**
+ * Generate human-readable label from field key
+ * Converts snake_case to Title Case
+ */
+function generateFieldLabel(fieldKey: string): string {
+  return fieldKey
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/**
  * EntityFormContainer
  *
  * A reusable form container component that renders form fields based on entityConfig.
