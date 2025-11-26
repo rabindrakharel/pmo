@@ -1,31 +1,22 @@
-# AI-FIRST PROCESS OPERATING SYSTEM
+# PMO Platform - End-to-End Architecture
 
-**Version:** 8.1.0 | **Last Updated:** 2025-11-24
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS v4, @tanstack/react-virtual |
-| **State** | Zustand (client) + TanStack Query (server) |
-| **Backend** | Fastify v5, TypeScript ESM, Drizzle ORM |
-| **Database** | PostgreSQL 14+ (50 tables, 46 DDL files) |
-| **Auth** | JWT + Person-based RBAC (7 permission levels) |
-| **Infra** | AWS EC2/S3/Lambda, Terraform, Docker |
+**Version:** 8.2.0 | **Last Updated:** 2025-11-26
 
 ---
 
-## Tooling
+## Quick Reference
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS v4 | UI rendering |
+| **State** | React Query (data) + Zustand (metadata) | Hybrid caching |
+| **Backend** | Fastify v5, TypeScript ESM | API + BFF |
+| **Database** | PostgreSQL 14+ (50 tables) | Persistence |
 
 ```bash
-./tools/start-all.sh          # Start platform (Docker + API + Web)
-./tools/db-import.sh          # Import/reset database
-./tools/test-api.sh GET /api/v1/project  # Test endpoints
-./tools/logs-api.sh -f        # Monitor API logs
-./tools/logs-web.sh -f        # Monitor Web logs
-./tools/restart-api.sh        # Restart API server
+./tools/start-all.sh          # Start platform
+./tools/test-api.sh GET /api/v1/project  # Test API
+./tools/logs-api.sh -f        # Monitor logs
 ```
 
 **Test Credentials:** `james.miller@huronhome.ca` / `password123`
@@ -34,406 +25,158 @@
 
 ## Documentation Index
 
-| # | Document | Path | Purpose |
-|---|----------|------|---------|
-| 1 | RBAC_INFRASTRUCTURE.md | `docs/rbac/` | RBAC tables, permissions, entity_rbac patterns |
-| 2 | entity-infrastructure.service.md | `docs/services/` | Entity infrastructure service API |
-| 3 | STATE_MANAGEMENT.md | `docs/state_management/` | Zustand + React Query architecture |
-| 4 | PAGE_ARCHITECTURE.md | `docs/pages/` | Page components and routing |
-| 5 | frontEndFormatterService.md | `docs/services/` | Frontend formatter + format-at-read |
-| 6 | backend-formatter.service.md | `docs/services/` | Backend metadata generation |
+| Doc | Path | Purpose |
+|-----|------|---------|
+| STATE_MANAGEMENT.md | `docs/state_management/` | React Query + Zustand |
+| frontEndFormatterService.md | `docs/services/` | Frontend rendering |
+| backend-formatter.service.md | `docs/services/` | BFF metadata |
+| RBAC_INFRASTRUCTURE.md | `docs/rbac/` | Permissions |
 
 ---
 
-## Data Flow Architecture (v8.1.0 - Format-at-Read + Virtualization)
+## End-to-End Data Flow (v8.2.0)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              BACKEND (apps/api)                             │
+│                              BACKEND (BFF Layer)                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  routes.ts                                                                  │
-│  └── generateEntityResponse(ENTITY_CODE, data, { components })             │
-│       │                                                                     │
-│       └── backend-formatter.service.ts                                      │
-│            └── generateFieldMetadataForComponent(fieldName, component)      │
-│                 │                                                           │
-│                 ├── Checks YAML mappings (pattern-mapping.yaml)             │
-│                 └── Returns: { viewType, editType, format, ... }            │
-│                                                                             │
-│  ┌────────────────────────────────────────────────────────────────────┐     │
-│  │  API Response Structure                                            │     │
-│  ├────────────────────────────────────────────────────────────────────┤     │
-│  │  {                                                                 │     │
-│  │    data: [...],              // RAW data (cached as-is)            │     │
-│  │    fields: ['id', 'name', 'budget_allocated_amt'],                 │     │
-│  │    metadata: {               // Rendering instructions             │     │
-│  │      entityDataTable: {                                            │     │
-│  │        budget_allocated_amt: {                                     │     │
-│  │          viewType: 'currency',                                     │     │
-│  │          symbol: '$', decimals: 2                                  │     │
-│  │        }                                                           │     │
-│  │      }                                                             │     │
-│  │    }                                                               │     │
-│  │  }                                                                 │     │
-│  └────────────────────────────────────────────────────────────────────┘     │
-│                                                                             │
+│                                                                              │
+│  routes.ts                                                                   │
+│  └── generateEntityResponse(entityCode, data, { components })                │
+│       │                                                                      │
+│       └── backend-formatter.service.ts                                       │
+│            ├── pattern-mapping.yaml     → fieldBusinessType                  │
+│            ├── view-type-mapping.yaml   → renderType per component           │
+│            └── edit-type-mapping.yaml   → inputType per component            │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────┐      │
+│  │  API Response Structure (v8.2.0)                                   │      │
+│  ├────────────────────────────────────────────────────────────────────┤      │
+│  │  {                                                                 │      │
+│  │    "data": [...],                    // RAW entity data            │      │
+│  │    "fields": ["id", "name", "budget_allocated_amt"],               │      │
+│  │    "metadata": {                                                   │      │
+│  │      "entityDataTable": {            // Component-specific         │      │
+│  │        "viewType": {                 // Display rendering          │      │
+│  │          "budget_allocated_amt": {                                 │      │
+│  │            "dtype": "float",                                       │      │
+│  │            "label": "Budget Allocated",                            │      │
+│  │            "renderType": "currency",                               │      │
+│  │            "style": { "symbol": "$", "decimals": 2 }               │      │
+│  │          }                                                         │      │
+│  │        },                                                          │      │
+│  │        "editType": {                 // Input rendering            │      │
+│  │          "budget_allocated_amt": {                                 │      │
+│  │            "dtype": "float",                                       │      │
+│  │            "label": "Budget Allocated",                            │      │
+│  │            "inputType": "number"                                   │      │
+│  │          }                                                         │      │
+│  │        }                                                           │      │
+│  │      },                                                            │      │
+│  │      "entityFormContainer": { "viewType": {...}, "editType": {...} }      │
+│  │    },                                                              │      │
+│  │    "datalabels": { "dl__project_stage": [...] }                    │      │
+│  │  }                                                                 │      │
+│  └────────────────────────────────────────────────────────────────────┘      │
+│                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼ HTTP Response
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                   FRONTEND (apps/web) - v8.0.0 FORMAT-AT-READ               │
+│                   FRONTEND - Format-at-Read Architecture                     │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  useEntityQuery.ts                                                          │
-│  └── useFormattedEntityList('project', { view: 'entityDataTable' })         │
-│       │                                                                     │
-│       ├── React Query fetches API → caches RAW data                         │
-│       │                                                                     │
-│       ├── ✨ `select` option transforms raw → formatted ON READ             │
-│       │    └── lib/formatters/datasetFormatter.ts                           │
-│       │         ├── formatDataset(data, metadata) called by select          │
-│       │         └── Returns: FormattedRow[] with display/styles             │
-│       │                                                                     │
-│       └── Returns: { data: FormattedRow[], formattedData, metadata }        │
-│                                                                             │
-│  EntityListOfInstancesPage.tsx                                              │
-│  └── const { data: formattedData, metadata } = queryResult;                 │
-│       │                                                                     │
-│       └── <EntityDataTable data={formattedData} metadata={metadata} />      │
-│                                                                             │
-│  ┌────────────────────────────────────────────────────────────────────┐     │
-│  │  EntityDataTable Cell Rendering (Optimized v8.1.0)                 │     │
-│  ├────────────────────────────────────────────────────────────────────┤     │
-│  │  ✅ Virtualization: Only render visible rows (DOM: ~20 vs 1000)    │     │
-│  │  ✅ Overscan: 3 rows (reduced from 10)                             │     │
-│  │  ✅ Passive Listeners: Non-blocking scroll (60fps)                 │     │
-│  │  ✅ Pre-computed Styles: Map<string, CSSProperties> (zero alloc)   │     │
-│  │  ✅ Stable Keys: getItemKey for React reconciliation               │     │
-│  │                                                                    │     │
-│  │  IF row.display exists (FormattedRow):                             │     │
-│  │    └── row.display[key], row.styles[key]                           │     │
-│  │        (Zero function calls per cell!)                             │     │
-│  │                                                                    │     │
-│  │  ELSE (fallback for raw data):                                     │     │
-│  │    └── Simple String(value) display                                │     │
-│  │                                                                    │     │
-│  │  Result: 98% fewer DOM nodes, 60fps scrolling, 90% less memory     │     │
-│  └────────────────────────────────────────────────────────────────────┘     │
-│                                                                             │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐     │
+│  │  useEntityQuery.ts - React Query Hooks                              │     │
+│  ├─────────────────────────────────────────────────────────────────────┤     │
+│  │                                                                     │     │
+│  │  useEntityInstanceList()     → Caches RAW data only                 │     │
+│  │                                                                     │     │
+│  │  useFormattedEntityList()    → RAW cache + select transform         │     │
+│  │    └── select: (raw) => {                                           │     │
+│  │          const viewType = raw.metadata.entityDataTable.viewType;    │     │
+│  │          return formatDataset(raw.data, { viewType, editType });    │     │
+│  │        }                                                            │     │
+│  │        └── Returns: FormattedRow[] (memoized by React Query)        │     │
+│  │                                                                     │     │
+│  └─────────────────────────────────────────────────────────────────────┘     │
+│                                    │                                         │
+│                                    ▼                                         │
+│  ┌─────────────────────────────────────────────────────────────────────┐     │
+│  │  Zustand Stores (Metadata Only)                                     │     │
+│  ├─────────────────────────────────────────────────────────────────────┤     │
+│  │                                                                     │     │
+│  │  entityComponentMetadataStore   → { viewType, editType } per entity │     │
+│  │  datalabelMetadataStore         → Dropdown options with colors      │     │
+│  │  globalSettingsMetadataStore    → Currency/date formats             │     │
+│  │  entityCodeMetadataStore        → Entity type definitions           │     │
+│  │                                                                     │     │
+│  │  ✗ NO entity data stored here (React Query only)                    │     │
+│  │                                                                     │     │
+│  └─────────────────────────────────────────────────────────────────────┘     │
+│                                    │                                         │
+│                                    ▼                                         │
+│  ┌─────────────────────────────────────────────────────────────────────┐     │
+│  │  Component Rendering (Zero Per-Cell Formatting)                     │     │
+│  ├─────────────────────────────────────────────────────────────────────┤     │
+│  │                                                                     │     │
+│  │  EntityDataTable receives FormattedRow[]:                           │     │
+│  │                                                                     │     │
+│  │    VIEW MODE:  {row.display[key]}      // Pre-formatted string      │     │
+│  │                {row.styles[key]}       // Pre-computed CSS class    │     │
+│  │                                                                     │     │
+│  │    EDIT MODE:  renderEditModeFromMetadata(row.raw[key], editType)   │     │
+│  │                                                                     │     │
+│  │  Zero function calls per cell during scroll (virtualized)           │     │
+│  │                                                                     │     │
+│  └─────────────────────────────────────────────────────────────────────┘     │
+│                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Format-at-Read Architecture (v8.0.0+)
+## Separation of Concerns
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    CURRENT ARCHITECTURE (v8.1.0)                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  v8.0.0: Format-at-Read Pattern                                             │
-│  ─────────────────────────────────────────────────────────────────────────  │
-│  • Cache stores RAW data only (smaller, canonical)                          │
-│  • `select` option transforms raw → formatted on each read                  │
-│  • React Query memoizes select - only re-formats when raw data changes      │
-│                                                                             │
-│  ┌───────────────────────────────────────────────────────────────────┐      │
-│  │  FORMAT-AT-READ BENEFITS                                          │      │
-│  │  ─────────────────────────────────────────────────────────────    │      │
-│  │  • Smaller cache (raw data only, not formatted strings)           │      │
-│  │  • Always fresh formatting (datalabel colors updated instantly)   │      │
-│  │  • Same cache, different formats (table vs kanban vs grid)        │      │
-│  │  • Memoized by React Query (zero unnecessary re-formats)          │      │
-│  └───────────────────────────────────────────────────────────────────┘      │
-│                                                                             │
-│  v8.1.0: Virtualization + Performance (current)                             │
-│  ─────────────────────────────────────────────────────────────────────────  │
-│  • @tanstack/react-virtual for DOM virtualization (threshold: 50 rows)      │
-│  • Overscan: 3 rows (reduced from 10)                                       │
-│  • Passive scroll listeners (non-blocking, 60fps)                           │
-│  • Pre-computed styles via useMemo Map (zero allocations during scroll)     │
-│  • Stable keys via getItemKey (better React reconciliation)                 │
-│                                                                             │
-│  ┌───────────────────────────────────────────────────────────────────┐      │
-│  │  PERFORMANCE GAINS                                                │      │
-│  │  ─────────────────────────────────────────────────────────────    │      │
-│  │  • 98% fewer DOM nodes (1000 rows: 10,000 → 200 nodes)            │      │
-│  │  • 60fps consistent scrolling (from 30-45fps legacy)              │      │
-│  │  • 90% memory reduction for large datasets                        │      │
-│  │  • Instant scroll response (from ~16ms latency legacy)            │      │
-│  │  • Threshold: >50 rows → virtualized, ≤50 → regular rendering     │      │
-│  └───────────────────────────────────────────────────────────────────┘      │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Three-Layer Component Hierarchy
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         COMPONENT ARCHITECTURE                              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │                        APPLICATION LAYER                              │  │
-│  │  ─────────────────────────────────────────────────────────────────    │  │
-│  │  EntityDataTable    EntityFormContainer    LabelsDataTable            │  │
-│  │  KanbanView         CalendarView           GridView                   │  │
-│  │  DAGVisualizer      HierarchyGraphView     DynamicChildEntityTabs     │  │
-│  │                                                                       │  │
-│  │  (Business logic, state management, API integration)                  │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
-│                                    │                                        │
-│                                    │ composes                               │
-│                                    ▼                                        │
-│  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │                          DOMAIN LAYER                                 │  │
-│  │  ─────────────────────────────────────────────────────────────────    │  │
-│  │  EntitySelect       EntityMultiSelect      DataLabelSelect            │  │
-│  │  EntitySelectDropdown                      EntityMultiSelectTags      │  │
-│  │                                                                       │  │
-│  │  (Data-aware components with useQuery hooks)                          │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
-│                                    │                                        │
-│                                    │ wraps                                  │
-│                                    ▼                                        │
-│  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │                           BASE LAYER                                  │  │
-│  │  ─────────────────────────────────────────────────────────────────    │  │
-│  │  Select             MultiSelect            SearchableMultiSelect      │  │
-│  │  ColoredDropdown    Button                 Input                      │  │
-│  │                                                                       │  │
-│  │  (Generic, reusable, no business logic, props-driven)                 │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Component Layer Summary
-
-### Base Layer (No Data Dependencies)
-
-| Component | File | Purpose |
-|-----------|------|---------|
-| Select | `ui/Select.tsx` | Single dropdown (static options) |
-| SearchableMultiSelect | `ui/SearchableMultiSelect.tsx` | Multi-select with tags |
-| ColoredDropdown | `ui/ColoredDropdown.tsx` | Dropdown with colored badges |
-
-### Domain Layer (Data-Aware)
-
-| Component | File | Purpose | API |
-|-----------|------|---------|-----|
-| EntitySelect | `ui/EntitySelect.tsx` | Entity reference picker | `/entity/{code}/entity-instance-lookup` |
-| EntityMultiSelect | `ui/EntityMultiSelect.tsx` | Multiple entity refs | `/entity/{code}/entity-instance-lookup` |
-| DataLabelSelect | `ui/DataLabelSelect.tsx` | Settings dropdown | `/setting?datalabel={name}` |
-
-### Application Layer (Business Logic)
-
-| Component | File | Purpose |
-|-----------|------|---------|
-| EntityDataTable | `ui/EntityDataTable.tsx` | Universal data table (backend metadata-driven, virtualized >50 rows) |
-| EntityFormContainer | `entity/EntityFormContainer.tsx` | Universal form (backend metadata-driven) |
-| LabelsDataTable | `ui/LabelsDataTable.tsx` | Labels/datalabel table (fixed schema) |
-| KanbanView | `ui/KanbanView.tsx` | Kanban board with drag-drop |
-| CalendarView | `ui/CalendarView.tsx` | Calendar event view |
-| GridView | `ui/GridView.tsx` | Card grid view |
-| DAGVisualizer | `workflow/DAGVisualizer.tsx` | Workflow/stage graph view |
-| HierarchyGraphView | `hierarchy/HierarchyGraphView.tsx` | Parent-child hierarchy graph |
-| DynamicChildEntityTabs | `entity/DynamicChildEntityTabs.tsx` | Dynamic child tabs |
-
----
-
-## Universal Page System
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          UNIVERSAL PAGE SYSTEM                              │
-│                    (3 pages handle 27+ entity types)                        │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │  EntityListOfInstancesPage.tsx                                        │  │
-│  │  ─────────────────────────────────────────────────────────────────    │  │
-│  │  Handles ALL entity list views                                        │  │
-│  │                                                                       │  │
-│  │  /project          → projects list                                    │  │
-│  │  /task             → tasks list                                       │  │
-│  │  /employee         → employees list                                   │  │
-│  │  /...              → 27+ entities                                     │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
-│                                                                             │
-│  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │  EntitySpecificInstancePage.tsx                                       │  │
-│  │  ─────────────────────────────────────────────────────────────────    │  │
-│  │  Handles ALL entity detail views                                      │  │
-│  │                                                                       │  │
-│  │  /project/:id      → project detail + child tabs                      │  │
-│  │  /task/:id         → task detail + child tabs                         │  │
-│  │  /employee/:id     → employee detail + child tabs                     │  │
-│  │  /...              → 27+ entities                                     │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
-│                                                                             │
-│  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │  EntityFormPage.tsx                                                   │  │
-│  │  ─────────────────────────────────────────────────────────────────    │  │
-│  │  Handles ALL entity forms                                             │  │
-│  │                                                                       │  │
-│  │  /project/new      → create project                                   │  │
-│  │  /project/:id/edit → edit project                                     │  │
-│  │  /...              → 27+ entities                                     │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
-│                                                                             │
-│                                    │                                        │
-│                                    ▼                                        │
-│                    Backend Metadata Drives ALL Rendering                    │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Page State Flows
-
-### EntityListOfInstancesPage (v8.1.0)
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    EntityListOfInstancesPage State Flow                     │
-│           (Format-at-Read + Virtualization for >50 rows)                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  [Mount]                                                                    │
-│  ─────────────────────────────────────────────────────────────────────────  │
-│  │                                                                          │
-│  ├─► useFormattedEntityList(entityCode, params)                             │
-│  │   ├── React Query: cache check → MISS → API fetch                        │
-│  │   ├── API Response: { data, metadata, total } → cached RAW               │
-│  │   ├── ✨ `select` transforms raw → formatted ON READ                     │
-│  │   │    └── formatDataset(data, metadata) in select callback              │
-│  │   └── Returns: FormattedRow[] with display/styles                        │
-│  │                                                                          │
-│  ├─► useEntityMutation(entityCode)                                          │
-│  │   └── Provides: updateEntity, deleteEntity, createEntity                 │
-│  │                                                                          │
-│  └─► Local State                                                            │
-│      ├── currentPage (pagination)                                           │
-│      ├── editingRow (inline edit tracking)                                  │
-│      └── localData (optimistic updates)                                     │
-│                                                                             │
-│  [Table Rendering]                                                          │
-│  ─────────────────────────────────────────────────────────────────────────  │
-│  │                                                                          │
-│  ├─► IF data.length > 50: Use @tanstack/react-virtual                       │
-│  │   ├── Render only visible rows (~20) + overscan (3)                      │
-│  │   ├── Pre-computed styles (Map<string, CSSProperties>)                   │
-│  │   ├── Passive scroll listeners (non-blocking)                            │
-│  │   └── Stable keys via getItemKey                                         │
-│  │                                                                          │
-│  ├─► ELSE: Regular rendering (all rows)                                     │
-│  │                                                                          │
-│  ├─► IF editing: Use row.raw for edit inputs                                │
-│  │                                                                          │
-│  └─► ELSE: Use row.display[key] for view (zero function calls)              │
-│                                                                             │
-│  Performance: 98% fewer DOM nodes, 60fps scrolling, 90% memory reduction    │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### EntitySpecificInstancePage
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    EntitySpecificInstancePage State Flow                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  [Mount]                                                                    │
-│  ─────────────────────────────────────────────────────────────────────────  │
-│  │                                                                          │
-│  ├─► useEntityInstance(entityCode, id)                                      │
-│  │   ├── React Query: cache check → MISS → API fetch                        │
-│  │   ├── API Response: { data, metadata, fields }                           │
-│  │   └── Store → entityInstanceDataStore (5 min TTL)                        │
-│  │                                                                          │
-│  ├─► useDynamicChildEntityTabs(entityCode, id)                              │
-│  │   ├── Access entityCodeMetadataStore → child_entity_codes                │
-│  │   └── Build tabs: [{ code, label, icon }, ...]                           │
-│  │                                                                          │
-│  ├─► useEntityEditStore (via useShallow)                                    │
-│  │   └── { isEditing, dirtyFields, currentData }                            │
-│  │                                                                          │
-│  └─► useKeyboardShortcuts                                                   │
-│      └── Ctrl+S (save), Ctrl+Z (undo), Escape (cancel)                      │
-│                                                                             │
-│  [Edit Flow]                                                                │
-│  ─────────────────────────────────────────────────────────────────────────  │
-│  │                                                                          │
-│  ├─► Click Edit → startEdit(entityCode, id, data)                           │
-│  ├─► Type → updateField(key, value) → dirtyFields.add(key)                  │
-│  └─► Save → PATCH /api/v1/{entity}/{id} (minimal payload)                   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### EntityCreatePage
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        EntityCreatePage State Flow                          │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  [Mount]                                                                    │
-│  ─────────────────────────────────────────────────────────────────────────  │
-│  │                                                                          │
-│  ├─► useEntityMetadata(entityCode, 'entityFormContainer')                   │
-│  │   └── Access entityComponentMetadataStore                                │
-│  │                                                                          │
-│  ├─► useAllDatalabels()                                                     │
-│  │   └── Prefetch all dropdown options                                      │
-│  │                                                                          │
-│  └─► Local State: formData: {}                                              │
-│                                                                             │
-│  [Submit]                                                                   │
-│  ─────────────────────────────────────────────────────────────────────────  │
-│  │                                                                          │
-│  ├─► POST /api/v1/{entity}                                                  │
-│  ├─► Success → navigate(`/${entity}/${newId}`)                              │
-│  └─► Invalidate list caches                                                 │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### SettingsPage
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          Settings Page State Flow                           │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  [SettingsOverviewPage]                                                     │
-│  ─────────────────────────────────────────────────────────────────────────  │
-│  │                                                                          │
-│  └─► useAllDatalabels()                                                     │
-│      ├── Fetches all datalabel categories                                   │
-│      └── Caches in datalabelMetadataStore (30 min TTL)                      │
-│                                                                             │
-│  [SettingDetailPage]                                                        │
-│  ─────────────────────────────────────────────────────────────────────────  │
-│  │                                                                          │
-│  ├─► useDatalabels(settingName)                                             │
-│  │   └── Get specific datalabel options                                     │
-│  │                                                                          │
-│  └─► useDatalabelMutation(settingName)                                      │
-│      ├── addItem(), updateItem(), deleteItem(), reorderItems()              │
-│      └── Auto-invalidates React Query + Zustand caches                      │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+│                         RESPONSIBILITY MATRIX                                │
+├───────────────────────┬─────────────────────────────────────────────────────┤
+│  LAYER                │  RESPONSIBILITY                                      │
+├───────────────────────┼─────────────────────────────────────────────────────┤
+│                       │                                                      │
+│  Backend Formatter    │  • Pattern detection (column name → field type)      │
+│  (BFF)                │  • Generate viewType/editType per component          │
+│                       │  • YAML-driven configuration (no hardcoding)         │
+│                       │  • Single source of truth for rendering behavior     │
+│                       │                                                      │
+├───────────────────────┼─────────────────────────────────────────────────────┤
+│                       │                                                      │
+│  React Query          │  • SOLE data cache (RAW data only)                   │
+│                       │  • Stale-while-revalidate fetching                   │
+│                       │  • Format-at-read via select option                  │
+│                       │  • Optimistic updates with rollback                  │
+│                       │                                                      │
+├───────────────────────┼─────────────────────────────────────────────────────┤
+│                       │                                                      │
+│  Zustand Stores       │  • Metadata caching (15m-1h TTL)                     │
+│                       │  • UI state (edit mode, dirty fields)                │
+│                       │  • NO entity data (React Query only)                 │
+│                       │                                                      │
+├───────────────────────┼─────────────────────────────────────────────────────┤
+│                       │                                                      │
+│  datasetFormatter     │  • Transform raw → FormattedRow in select            │
+│                       │  • Access datalabelStore for badge colors            │
+│                       │  • Pure function (deterministic)                     │
+│                       │                                                      │
+├───────────────────────┼─────────────────────────────────────────────────────┤
+│                       │                                                      │
+│  Components           │  • Render FormattedRow.display/styles                │
+│                       │  • Use FormattedRow.raw for edit inputs              │
+│                       │  • ZERO pattern detection                            │
+│                       │  • ZERO formatting logic                             │
+│                       │                                                      │
+└───────────────────────┴─────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -442,215 +185,176 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         FormattedRow Type                                   │
+│  FormattedRow<T>                                                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  interface FormattedRow<T> {                                                │
-│    raw: T;                        // Original values (mutations, sorting)   │
-│    display: Record<string, string>; // Pre-formatted display strings        │
-│    styles: Record<string, string>;  // CSS classes (badges only)            │
-│  }                                                                          │
-│                                                                             │
-│  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │  Example                                                              │  │
-│  ├───────────────────────────────────────────────────────────────────────┤  │
-│  │                                                                       │  │
-│  │  raw: {                                                               │  │
-│  │    id: 'uuid-123',                                                    │  │
-│  │    budget_allocated_amt: 50000,                                       │  │
-│  │    dl__project_stage: 'planning'                                      │  │
-│  │  }                                                                    │  │
-│  │                                                                       │  │
-│  │  display: {                                                           │  │
-│  │    id: 'uuid-123...',                                                 │  │
-│  │    budget_allocated_amt: '$50,000.00',                                │  │
-│  │    dl__project_stage: 'Planning'                                      │  │
-│  │  }                                                                    │  │
-│  │                                                                       │  │
-│  │  styles: {                                                            │  │
-│  │    dl__project_stage: 'bg-blue-100 text-blue-700'                     │  │
-│  │  }                                                                    │  │
-│  │                                                                       │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
-│                                                                             │
+│                                                                              │
+│  {                                                                           │
+│    raw: T;                          // Original values (for mutations)       │
+│    display: Record<string, string>; // Pre-formatted display strings         │
+│    styles: Record<string, string>;  // CSS classes (badges only)             │
+│  }                                                                           │
+│                                                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  EXAMPLE:                                                                    │
+│                                                                              │
+│  raw: {                                                                      │
+│    id: 'uuid-123',                                                           │
+│    budget_allocated_amt: 50000,                                              │
+│    dl__project_stage: 'planning'                                             │
+│  }                                                                           │
+│                                                                              │
+│  display: {                                                                  │
+│    id: 'uuid-123',                                                           │
+│    budget_allocated_amt: '$50,000.00',    // ← Formatted at read             │
+│    dl__project_stage: 'Planning'          // ← Label from datalabel          │
+│  }                                                                           │
+│                                                                              │
+│  styles: {                                                                   │
+│    dl__project_stage: 'bg-blue-100 text-blue-700'  // ← Badge CSS            │
+│  }                                                                           │
+│                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-entity data table inline edit feature: 
+## Component Architecture
 
- ┌──────────────────────────────────────────────────────────┐
-  │           INLINE EDIT FLOW (Fixed)                       │
-  ├──────────────────────────────────────────────────────────┤
-  │                                                           │
-  │  1. User clicks Edit icon (✏️)                           │
-  │     └── onClick extracts: record.raw.id ✅                │
-  │     └── setEditingRow(recordId) → Edit mode ON           │
-  │                                                           │
-  │  2. Fields become editable                                │
-  │     └── Shows input fields, dropdowns, date pickers      │
-  │                                                           │
-  │  3. User edits values                                     │
-  │     └── onInlineEdit updates editedData state            │
-  │                                                           │
-  │  4. User clicks Save (✓)                                  │
-  │     └── handleSaveInlineEdit extracts: record.raw.id ✅   │
-  │     └── PATCH /api/v1/project/{id} with changes          │
-  │     └── Refetches data, exits edit mode                  │
-  │                                                           │
-  │  5. User clicks Cancel (✗)                                │
-  │     └── handleCancelInlineEdit clears state              │
-  │     └── Exits edit mode without saving                   │
-  │                                                           │
-  └──────────────────────────────────────────────────────────┘
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         THREE-LAYER COMPONENT SYSTEM                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  APPLICATION LAYER (Business Logic)                                          │
+│  ─────────────────────────────────────────────────────────────────────────   │
+│  EntityDataTable      │ EntityFormContainer    │ KanbanView                  │
+│  CalendarView         │ GridView               │ DAGVisualizer               │
+│                                                                              │
+│  • Consumes FormattedRow[] from useFormattedEntityList                       │
+│  • Passes editType to renderEditModeFromMetadata                             │
+│  • Delegates rendering decisions to metadata                                 │
+│                       │                                                      │
+│                       ▼                                                      │
+│  DOMAIN LAYER (Data-Aware Components)                                        │
+│  ─────────────────────────────────────────────────────────────────────────   │
+│  EntitySelect         │ EntityMultiSelect      │ DataLabelSelect             │
+│                                                                              │
+│  • Fetch lookup data via dedicated hooks                                     │
+│  • Map entity references to display labels                                   │
+│                       │                                                      │
+│                       ▼                                                      │
+│  BASE LAYER (Pure UI)                                                        │
+│  ─────────────────────────────────────────────────────────────────────────   │
+│  Select               │ Input                  │ ColoredDropdown             │
+│  Button               │ DatePicker             │ SearchableMultiSelect       │
+│                                                                              │
+│  • Props-driven, no business logic                                           │
+│  • Reusable across application                                               │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
+---
 
- Complete Data Flow (Fixed)
+## Example Flow: Project List Page
 
-  ┌─────────────────────────────────────────────────────────────────────┐
-  │  API Response                                                        │
-  │  {                                                                   │
-  │    data: [{ dl__project_stage: 'planning' }],                       │
-  │    metadata: {                                                       │
-  │      dl__project_stage: {                                            │
-  │        viewType: 'badge',           ← formatBadge() will be called  │
-  │        datalabelKey: 'dl__project_stage'                             │
-  │      }                                                               │
-  │    },                                                                │
-  │    datalabels: [                                                     │
-  │      {                                                               │
-  │        name: 'dl__project_stage',                                    │
-  │        options: [                                                    │
-  │          { name: 'planning', color_code: 'blue' }  ← Database value │
-  │        ]                                                             │
-  │      }                                                               │
-  │    ]                                                                 │
-  │  }                                                                   │
-  └─────────────────────────────────────────────────────────────────────┘
-                                │
-                                ├──────────────────────────────────┐
-                                ▼                                  ▼
-                 ┌───────────────────────────┐   ┌─────────────────────────┐
-                 │  datalabelMetadataStore   │   │  React Query Cache      │
-                 │  (Zustand)                │   │  (RAW data)             │
-                 ├───────────────────────────┤   └─────────────────────────┘
-                 │  'dl__project_stage' →    │                │
-                 │  [{ name: 'planning',     │                │
-                 │     color_code: 'blue' }] │                │
-                 └───────────────────────────┘                │
-                                │                             │
-                                │                             ▼
-                                │              ┌──────────────────────────┐
-                                │              │  select: formatDataset() │
-                                │              │  (format-at-read)        │
-                                │              └──────────────────────────┘
-                                │                             │
-                                │                             ▼
-                                │              ┌──────────────────────────┐
-                                │              │  formatRow()             │
-                                │              └──────────────────────────┘
-                                │                             │
-                                │                             ▼
-                                │              ┌──────────────────────────┐
-                                │              │  formatValue()           │
-                                │              │  (detects viewType)      │
-                                │              └──────────────────────────┘
-                                │                             │
-                                │              viewType = 'badge'
-                                │                             │
-                                │                             ▼
-                                └──────────────►┌──────────────────────────┐
-                                                │  formatBadge()           │
-                                                │  1. Lookup datalabel     │
-                                                │  2. Find color_code      │
-                                                │  3. ✅ Convert to CSS    │
-                                                │     colorCodeToTailwind  │
-                                                │     ("blue" → classes)   │
-                                                └──────────────────────────┘
-                                                               │
-                                                               ▼
-                                ┌──────────────────────────────────────────┐
-                                │  FormattedRow                            │
-                                │  {                                       │
-                                │    raw: { dl__project_stage: 'planning' }│
-                                │    display: { dl__project_stage: 'Plann' }│
-                                │    styles: {                             │
-                                │      dl__project_stage:                  │
-                                │        'bg-blue-100 text-blue-700' ✅    │
-                                │    }                                     │
-                                │  }                                       │
-                                └──────────────────────────────────────────┘
-                                                               │
-                                                               ▼
-                                ┌──────────────────────────────────────────┐
-                                │  Component Rendering                     │
-                                │  <span className={row.styles[key]}>      │
-                                │    {row.display[key]}                    │
-                                │  </span>                                 │
-                                │                                          │
-                                │  → Blue badge with proper styling! ✅    │
-                                └──────────────────────────────────────────┘
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STEP 1: Page Mount                                                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  EntityListOfInstancesPage.tsx:                                              │
+│                                                                              │
+│    const { data, metadata } = useFormattedEntityList('project', {            │
+│      view: 'entityDataTable'                                                 │
+│    });                                                                       │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STEP 2: React Query Fetch + Cache                                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  useFormattedEntityList hook:                                                │
+│                                                                              │
+│    1. Check cache → MISS → fetch GET /api/v1/project?view=entityDataTable    │
+│    2. Cache RAW response in React Query                                      │
+│    3. Store metadata in Zustand (entityComponentMetadataStore)               │
+│    4. Store datalabels in Zustand (datalabelMetadataStore)                   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STEP 3: Format-at-Read (select transform)                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  React Query select option:                                                  │
+│                                                                              │
+│    select: (raw) => {                                                        │
+│      const { viewType, editType } = raw.metadata.entityDataTable;            │
+│      return {                                                                │
+│        ...raw,                                                               │
+│        formattedData: formatDataset(raw.data, { viewType, editType })        │
+│      };                                                                      │
+│    }                                                                         │
+│                                                                              │
+│  formatDataset:                                                              │
+│    • Reads viewType[field].renderType                                        │
+│    • Formats currency: 50000 → "$50,000.00"                                  │
+│    • Looks up badge colors from datalabelMetadataStore                       │
+│    • Returns FormattedRow[] (memoized by React Query)                        │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STEP 4: Component Render                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  EntityDataTable receives:                                                   │
+│    data: FormattedRow[]                                                      │
+│    metadata: { viewType, editType }                                          │
+│                                                                              │
+│  Cell rendering (view mode):                                                 │
+│    <span className={row.styles[key]}>{row.display[key]}</span>               │
+│                                                                              │
+│  Cell rendering (edit mode):                                                 │
+│    renderEditModeFromMetadata(row.raw[key], editType[key], onChange)         │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
-  1. Updated BackendFieldMetadata Interface (frontEndFormatterService.tsx)
-  // Added component-specific rendering fields (backend-driven)
-  EntityFormContainer_viz_container?: 'DAGVisualizer' | 'MetadataTable' | 'ProgressBar' | 'DateRangeVisualizer';
-  EntityDataTable_edit_component?: 'ColoredDropdown' | 'select' | 'input';
+---
 
-  2. EntityFormContainer.tsx - Added metadata conversion logic
-  // Convert viewType to viz_container (backend-driven visualization)
-  let vizContainer = fieldMeta.EntityFormContainer_viz_container;
-  if (!vizContainer && fieldMeta.viewType === 'dag') {
-    vizContainer = 'DAGVisualizer';
-  } else if (!vizContainer && fieldKey === 'metadata') {
-    vizContainer = 'MetadataTable';
-  }
+## Cache Strategy
 
-  3. EntityFormContainerWithStore.tsx - Same conversion logic for store-based form
+| Data Type | Store | TTL | Strategy |
+|-----------|-------|-----|----------|
+| Entity Lists | React Query | 30s stale, 5m cache | Stale-while-revalidate |
+| Entity Details | React Query | 10s stale, 2m cache | Near real-time |
+| Component Metadata | Zustand | 15 min | Session-level |
+| Datalabels | Zustand | 1 hour | Reference data |
+| Global Settings | Zustand | 1 hour | Reference data |
+| Entity Types | Zustand | 1 hour | Sidebar navigation |
 
-  How It Works Now
+---
 
-  Backend Sends Component-Specific Metadata:
-  {
-    "metadata": {
-      "entityDataTable": {
-        "dl__project_stage": {
-          "viewType": "badge",     // Shows badge in table
-          "editType": "select"     // Shows dropdown in table
-        }
-      },
-      "entityFormContainer": {
-        "dl__project_stage": {
-          "viewType": "dag",       // Shows DAG in form
-          "editType": "select"     // Interactive DAG in edit mode
-        }
-      }
-    }
-  }
+## Key Files Reference
 
-  Frontend Rendering:
+| Purpose | Backend | Frontend |
+|---------|---------|----------|
+| Metadata Generation | `backend-formatter.service.ts` | - |
+| Pattern Config | `pattern-mapping.yaml` | - |
+| View Config | `view-type-mapping.yaml` | - |
+| Edit Config | `edit-type-mapping.yaml` | - |
+| Data Hooks | - | `useEntityQuery.ts` |
+| Dataset Formatting | - | `datasetFormatter.ts` |
+| Edit Rendering | - | `frontEndFormatterService.tsx` |
+| Type Definitions | - | `lib/formatters/types.ts` |
+| Metadata Store | - | `entityComponentMetadataStore.ts` |
 
-  | Component           | DAG Fields View Mode | DAG Fields Edit Mode      |
-  |---------------------|----------------------|---------------------------|
-  | EntityDataTable     | Badge (colored chip) | ColoredDropdown           |
-  | EntityFormContainer | DAGVisualizer        | Interactive DAGVisualizer |
+---
 
-  Backend-Driven Flow
-
-  Backend Formatter Service
-  ├── For entityDataTable: sets viewType: 'badge'
-  └── For entityFormContainer: sets viewType: 'dag'
-           ↓
-  Frontend EntityFormContainer
-  ├── Reads metadata.entityFormContainer
-  ├── Converts viewType: 'dag' → EntityFormContainer_viz_container: 'DAGVisualizer'
-  └── Renders DAGVisualizer component
-           ↓
-  Frontend EntityDataTable
-  ├── Reads metadata.entityDataTable (viewType: 'badge')
-  ├── Uses renderEditModeFromMetadata() for inline editing
-  └── Shows ColoredDropdown (not DAG)
-  
-
-**Last Updated:** 2025-11-24 | **Version:** 8.1.0
-
+**Version:** 8.2.0 | **Updated:** 2025-11-26
