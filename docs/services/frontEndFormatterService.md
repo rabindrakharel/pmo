@@ -1,6 +1,6 @@
 # Frontend Formatter Service
 
-**Version:** 8.2.0 | **Location:** `apps/web/src/lib/` | **Updated:** 2025-11-26
+**Version:** 8.3.1 | **Location:** `apps/web/src/lib/` | **Updated:** 2025-11-26
 
 ---
 
@@ -10,24 +10,35 @@ The frontend formatter is a **pure renderer** that executes backend instructions
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  FRONTEND FORMATTER ARCHITECTURE                                             │
+│  FRONTEND FORMATTER ARCHITECTURE (v8.3.1)                                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  Backend Metadata                      Frontend Renderer                     │
 │  ─────────────────                     ─────────────────                     │
 │                                                                              │
-│  { viewType: {                         formatDataset(data, metadata)         │
+│  { viewType: {                         formatDataset(data, metadata, refData)│
 │      budget: {                          └── formatRow(row, metadata)         │
 │        renderType: 'currency',              └── formatValue()                │
 │        style: { decimals: 2 }                   └── formatCurrency(50000)    │
-│      }                                              └── "$50,000.00"         │
+│      },                                             └── "$50,000.00"         │
+│      manager__employee_id: {                                                 │
+│        viewType: 'entityInstance_Id', useRefData() → resolveFieldDisplay()  │
+│        lookupEntity: 'employee'           └── ref_data.employee[uuid]       │
+│      }                                        └── "James Miller"             │
 │    },                                                                        │
 │    editType: {                         renderEditModeFromMetadata()          │
 │      budget: {                          └── switch(editType[key].inputType)  │
 │        inputType: 'number'                  └── <input type="number" />      │
+│      },                                                                      │
+│      manager__employee_id: {                                                 │
+│        editType: 'entityInstance_Id',   └── <EntityDropdown                  │
+│        lookupEntity: 'employee'               entityCode="employee" />       │
 │      }                                                                       │
 │    }                                                                         │
 │  }                                                                           │
+│                                                                              │
+│  ✗ NO pattern detection (_id suffix, _amt suffix, etc.)                      │
+│  ✓ All decisions from metadata.viewType/editType/lookupEntity                │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -43,10 +54,12 @@ The frontend formatter is a **pure renderer** that executes backend instructions
 | `lib/formatters/valueFormatters.ts` | Currency, date, badge formatters |
 | `lib/frontEndFormatterService.tsx` | renderViewModeFromMetadata, renderEditModeFromMetadata |
 | `lib/formatters/labelMetadataLoader.ts` | Datalabel color lookup |
+| `lib/refDataResolver.ts` | Entity reference resolution utilities (v8.3.1) |
+| `lib/hooks/useRefData.ts` | Reference resolution hook (v8.3.0) |
 
 ---
 
-## Core Types (v8.2.0)
+## Core Types (v8.3.1)
 
 ```typescript
 // ComponentMetadata - Required structure from backend
@@ -55,11 +68,33 @@ interface ComponentMetadata {
   editType: Record<string, EditFieldMetadata>;
 }
 
+// ViewFieldMetadata - includes lookupEntity for references
+interface ViewFieldMetadata {
+  dtype: string;
+  label: string;
+  renderType?: string;
+  viewType?: string;              // 'entityInstance_Id' for references
+  lookupSource?: 'entityInstance' | 'datalabel';
+  lookupEntity?: string;          // Entity code (e.g., 'employee')
+  behavior: { visible?: boolean; sortable?: boolean };
+  style: Record<string, any>;
+}
+
 // FormattedRow - Output of formatDataset
 interface FormattedRow<T> {
   raw: T;                           // Original values (for mutations)
   display: Record<string, string>;  // Pre-formatted display strings
   styles: Record<string, string>;   // CSS classes (badges only)
+}
+
+// FieldMetadata for refDataResolver (v8.3.1)
+interface FieldMetadata {
+  key: string;
+  viewType?: string;
+  editType?: string;
+  lookupSource?: 'entityInstance' | 'datalabel';
+  lookupEntity?: string;
+  dtype?: string;
 }
 
 // Validation helper
@@ -70,24 +105,89 @@ function isValidComponentMetadata(metadata: any): boolean {
 
 ---
 
+## Entity Reference Resolution (v8.3.1)
+
+### Metadata-Based Resolution
+
+Frontend uses backend metadata to determine if a field is an entity reference - **NO pattern matching**:
+
+```typescript
+import {
+  isEntityReferenceField,
+  getEntityCodeFromMetadata,
+  resolveFieldDisplayWithMetadata
+} from '@/lib/refDataResolver';
+
+const fieldMeta = metadata.viewType.manager__employee_id;
+// { viewType: 'entityInstance_Id', lookupEntity: 'employee' }
+
+// Check using metadata (NOT field name pattern)
+if (isEntityReferenceField(fieldMeta)) {
+  const entityCode = getEntityCodeFromMetadata(fieldMeta);  // "employee"
+  const displayName = resolveFieldDisplayWithMetadata(fieldMeta, uuid, refData);
+  // → "James Miller"
+}
+
+// ✗ REMOVED (v8.3.1): Pattern detection
+// if (fieldName.endsWith('_id')) { ... }  // WRONG
+// if (fieldName.match(/^.*__(\w+)_id$/)) { ... }  // WRONG
+```
+
+### useRefData Hook
+
+```typescript
+import { useRefData } from '@/lib/hooks';
+
+// Get ref_data from API response
+const { data } = useEntityInstance('project', projectId);
+const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(data?.ref_data);
+
+// Resolve using field metadata
+const fieldMeta = metadata.viewType.manager__employee_id;
+const displayValue = resolveFieldDisplay(fieldMeta, project.manager__employee_id);
+// → "James Miller"
+
+// Hook interface (v8.3.1)
+interface UseRefDataResult {
+  refData: RefData | undefined;
+  hasRefData: boolean;
+
+  // Direct resolution (requires entityCode)
+  resolveName(uuid, entityCode): string | undefined;
+  resolveNames(uuids, entityCode): string[];
+
+  // Metadata-based resolution (recommended)
+  resolveField(fieldMeta, value): string | string[] | undefined;
+  resolveFieldDisplay(fieldMeta, value, fallback?): string;
+  resolveRow(row, fieldMetadataMap): Record<string, string>;
+
+  // Metadata utilities
+  isRefField(fieldMeta): boolean;
+  getEntityCode(fieldMeta): string | null;
+  isArrayRef(fieldMeta): boolean;
+}
+```
+
+---
+
 ## Data Flow
 
-### Format-at-Read Pattern
+### Format-at-Read Pattern with ref_data
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  FORMAT-AT-READ FLOW                                                         │
+│  FORMAT-AT-READ FLOW (v8.3.1)                                                │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  1. React Query Cache (RAW)                                                  │
+│  1. React Query Cache (RAW + ref_data)                                       │
 │     queryKey: ['entity-list', 'project', params]                             │
-│     data: { data: [...], metadata: {...} }                                   │
+│     data: { data: [...], ref_data: {...}, metadata: {...} }                  │
 │                       │                                                      │
 │                       ▼ `select` option (ON READ)                            │
 │                                                                              │
-│  2. formatDataset(raw.data, raw.metadata.entityDataTable)                    │
+│  2. formatDataset(raw.data, raw.metadata.entityDataTable, raw.ref_data)      │
 │                       │                                                      │
-│                       ├── Loop: formatRow(row, viewType)                     │
+│                       ├── Loop: formatRow(row, viewType, refData)            │
 │                       │                                                      │
 │                       ├── Per field: formatValue(value, key, viewType[key])  │
 │                       │    └── Switch on viewType[key].renderType            │
@@ -96,12 +196,16 @@ function isValidComponentMetadata(metadata: any): boolean {
 │                       │        ├── 'badge' → formatBadge() + style lookup    │
 │                       │        └── 'text' → String(value)                    │
 │                       │                                                      │
+│                       ├── For entity refs: Check viewType[key].viewType      │
+│                       │    └── 'entityInstance_Id' → use lookupEntity        │
+│                       │        └── ref_data[lookupEntity][uuid]              │
+│                       │                                                      │
 │                       └── Returns: FormattedRow[]                            │
 │                                                                              │
 │  3. Component receives FormattedRow[]                                        │
 │     {                                                                        │
-│       raw: { budget_allocated_amt: 50000 },                                  │
-│       display: { budget_allocated_amt: '$50,000.00' },                       │
+│       raw: { budget: 50000, manager__employee_id: 'uuid-james' },            │
+│       display: { budget: '$50,000.00', manager__employee_id: 'James Miller'},│
 │       styles: {}                                                             │
 │     }                                                                        │
 │                                                                              │
@@ -166,7 +270,7 @@ if (formattedRecord.display && formattedRecord.styles !== undefined) {
     );
   }
 
-  // Regular field
+  // Regular field (including resolved entity references)
   return <span>{displayValue}</span>;
 }
 ```
@@ -180,11 +284,24 @@ if (formattedRecord.display && formattedRecord.styles !== undefined) {
 import { renderEditModeFromMetadata } from '../lib/frontEndFormatterService';
 
 const editType = extractEditType(metadata);  // { viewType, editType } → editType
+const fieldMeta = editType[key];
 
-// Backend decides input type
+// Check if it's an entity reference using metadata (NOT pattern)
+if (fieldMeta.editType === 'entityInstance_Id') {
+  const entityCode = fieldMeta.lookupEntity;  // 'employee'
+  return (
+    <EntityDropdown
+      entityCode={entityCode}
+      value={row.raw[key]}
+      onChange={(val) => onChange(id, key, val)}
+    />
+  );
+}
+
+// Other field types
 renderEditModeFromMetadata(
   row.raw[key],           // Raw value for editing
-  editType[key],          // { inputType: 'number', validation: {...} }
+  fieldMeta,              // { inputType: 'number', validation: {...} }
   (val) => onChange(id, key, val)
 );
 ```
@@ -216,6 +333,11 @@ switch (metadata.inputType) {
   case 'textarea':
     return <textarea />;
 
+  // Entity reference (v8.3.0)
+  case 'entityInstance_Id':
+    const entityCode = metadata.lookupEntity;
+    return <EntityDropdown entityCode={entityCode} />;
+
   default:
     return <input type="text" />;
 }
@@ -231,10 +353,18 @@ switch (metadata.inputType) {
 function formatValue(
   value: any,
   key: string,
-  metadata: ViewFieldMetadata | undefined
+  metadata: ViewFieldMetadata | undefined,
+  refData?: RefData
 ): FormattedValue {
   if (!metadata) {
     return { display: String(value ?? ''), style: '' };
+  }
+
+  // Entity reference (v8.3.1 - uses metadata, not pattern)
+  if (metadata.viewType === 'entityInstance_Id' && metadata.lookupEntity && refData) {
+    const entityCode = metadata.lookupEntity;
+    const resolved = refData[entityCode]?.[value];
+    return { display: resolved ?? value ?? '', style: '' };
   }
 
   switch (metadata.renderType) {
@@ -263,39 +393,63 @@ function formatValue(
 ```typescript
 function formatDataset<T extends Record<string, any>>(
   data: T[],
-  metadata: ComponentMetadata | null
+  metadata: ComponentMetadata | null,
+  refData?: RefData
 ): FormattedRow<T>[] {
   if (!data || !Array.isArray(data)) return [];
 
   const viewType = extractViewType(metadata);
 
-  return data.map(row => formatRow(row, viewType));
+  return data.map(row => formatRow(row, viewType, refData));
 }
 ```
 
 ---
 
-## Anti-Patterns
+## Anti-Patterns (v8.3.1)
 
 | Anti-Pattern | Problem | Correct Approach |
 |--------------|---------|------------------|
-| Pattern detection in frontend | Duplicates backend logic | Read from `viewType[key].renderType` |
+| Pattern detection in frontend | Duplicates backend logic | Read from `metadata.viewType` |
+| Field name `_id` suffix check | Hardcoded pattern | Use `metadata.lookupEntity` |
 | Formatting during render | Slow scroll performance | Format-at-read via `select` |
 | Hardcoded field types | Maintenance burden | Backend metadata driven |
 | Accessing flat metadata | Removed in v8.2.0 | Use `extractViewType()`/`extractEditType()` |
 | Fallback inline formatting | Silent failure, inconsistent | Error if metadata missing |
-| Field name pattern checks | `_amt`, `_date` detection | Backend provides `renderType` |
 
 ---
 
-## Strict Requirements (v8.2.0)
+## Strict Requirements (v8.3.1)
+
+### No Pattern Detection
+
+Components MUST NOT detect field types by name patterns:
+
+```typescript
+// ✗ WRONG: Pattern detection (REMOVED in v8.3.1)
+if (field.key.endsWith('_id')) {
+  // Assume it's an entity reference
+}
+if (field.key.includes('_amt') || field.key.includes('_price')) {
+  return formatCurrency(value);
+}
+
+// ✓ CORRECT: Use backend metadata
+if (metadata.viewType === 'entityInstance_Id') {
+  const entityCode = metadata.lookupEntity;  // Backend tells us
+  return refData[entityCode][value];
+}
+if (metadata.renderType === 'currency') {
+  return formatCurrency(value);
+}
+```
 
 ### No Fallback Formatting
 
 Components MUST NOT implement fallback formatting when metadata is missing:
 
 ```typescript
-// WRONG: Silent fallback
+// ✗ WRONG: Silent fallback
 if (formattedData?.display?.[field.key]) {
   displayValue = formattedData.display[field.key];
 } else {
@@ -303,7 +457,7 @@ if (formattedData?.display?.[field.key]) {
   if (field.key.includes('_amt')) displayValue = formatCurrency(value);
 }
 
-// CORRECT: Require metadata, error if missing
+// ✓ CORRECT: Require metadata, error if missing
 if (!formattedData?.display) {
   console.error(`[EntityFormContainer] formattedData required for ${field.key}`);
   return <span className="text-red-500">Missing formatted data</span>;
@@ -311,37 +465,20 @@ if (!formattedData?.display) {
 return <span>{formattedData.display[field.key]}</span>;
 ```
 
-### No Pattern Detection
-
-Components MUST NOT detect field types by name patterns:
+### Metadata-Based Entity Detection
 
 ```typescript
-// WRONG: Pattern detection
-if (field.key.includes('_amt') || field.key.includes('_price')) {
-  return formatCurrency(value);
-}
+// ✗ WRONG: Pattern-based detection (REMOVED)
+import { parseReferenceField } from '@/lib/refDataResolver';  // Removed in v8.3.1
+const parsed = parseReferenceField('manager__employee_id');
 
-// CORRECT: Use backend metadata
-if (viewType[field.key]?.renderType === 'currency') {
-  return formatCurrency(value);
-}
-```
+// ✓ CORRECT: Metadata-based detection (v8.3.1)
+import { isEntityReferenceField, getEntityCodeFromMetadata } from '@/lib/refDataResolver';
 
-### Datalabel Options Required
-
-Select fields MUST have options pre-loaded from datalabelMetadataStore:
-
-```typescript
-// WRONG: Empty fallback select
-if (!options || options.length === 0) {
-  return <select><option>Select...</option></select>;
-}
-
-// CORRECT: Error if options not loaded
-const options = datalabelMetadataStore.getDatalabel(datalabelKey);
-if (!options) {
-  console.error(`[Select] Datalabel not cached: ${datalabelKey}`);
-  return <span className="text-red-500">Options not loaded</span>;
+const fieldMeta = metadata.viewType[fieldKey];
+if (isEntityReferenceField(fieldMeta)) {
+  const entityCode = getEntityCodeFromMetadata(fieldMeta);
+  // Use entityCode for resolution
 }
 ```
 
@@ -368,14 +505,20 @@ function extractEditType(metadata: ComponentMetadata | null): Record<string, Edi
   return metadata.editType;
 }
 
-// Validate ComponentMetadata has required structure
-function isValidComponentMetadata(metadata: any): boolean {
-  return metadata && 'viewType' in metadata && typeof metadata.viewType === 'object';
+// Check if field is entity reference (v8.3.1 - metadata-based)
+function isEntityReferenceField(fieldMeta: FieldMetadata | undefined): boolean {
+  if (!fieldMeta) return false;
+  return (
+    fieldMeta.viewType === 'entityInstance_Id' ||
+    fieldMeta.editType === 'entityInstance_Id' ||
+    fieldMeta.lookupSource === 'entityInstance'
+  );
 }
 
-// Check if data is already formatted
-function isFormattedData(data: any): data is FormattedRow<any> {
-  return data && typeof data === 'object' && 'raw' in data && 'display' in data;
+// Get entity code from metadata (v8.3.1)
+function getEntityCodeFromMetadata(fieldMeta: FieldMetadata | undefined): string | null {
+  if (!fieldMeta) return null;
+  return fieldMeta.lookupEntity ?? null;
 }
 ```
 
@@ -390,7 +533,12 @@ function isFormattedData(data: any): data is FormattedRow<any> {
 | Direct property access | Zero function calls during scroll |
 | Pre-computed styles | Badge CSS computed once at format time |
 | Virtualization compatible | Works with @tanstack/react-virtual |
+| ref_data O(1) lookup | Entity names resolved instantly |
 
 ---
 
-**Version:** 8.2.0 | **Updated:** 2025-11-26
+**Version:** 8.3.1 | **Updated:** 2025-11-26
+
+**Recent Updates:**
+- v8.3.1 (2025-11-26): Removed all pattern detection, enforced metadata as source of truth
+- v8.3.0 (2025-11-26): Added ref_data resolution, useRefData hook

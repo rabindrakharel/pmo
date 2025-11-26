@@ -1,6 +1,6 @@
 # Backend Formatter Service (BFF)
 
-**Version:** 8.2.0 | **Location:** `apps/api/src/services/backend-formatter.service.ts` | **Updated:** 2025-11-26
+**Version:** 8.3.1 | **Location:** `apps/api/src/services/backend-formatter.service.ts` | **Updated:** 2025-11-26
 
 ---
 
@@ -15,50 +15,56 @@ The Backend Formatter Service generates **component-aware field metadata** from 
 │  BFF METADATA GENERATION                                                     │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  Column Name: "budget_allocated_amt"                                         │
+│  Column Name: "manager__employee_id"                                         │
 │                       │                                                      │
 │                       ▼                                                      │
 │  ┌─────────────────────────────────────────────────────────────────────┐     │
-│  │  STEP 1: pattern-mapping.yaml                                       │     │
-│  │  Match: "*_amt" → fieldBusinessType: "currency"                     │     │
+│  │  STEP 1: Pattern Detection (Backend Only)                           │     │
+│  │  Match: "*__*_id" → fieldBusinessType: "entity_reference"           │     │
+│  │  Extract entity: "employee"                                          │     │
 │  └─────────────────────────────────────────────────────────────────────┘     │
 │                       │                                                      │
 │           ┌───────────┴───────────┐                                          │
 │           ▼                       ▼                                          │
 │  ┌─────────────────┐   ┌─────────────────┐                                   │
-│  │ view-type.yaml  │   │ edit-type.yaml  │                                   │
-│  │ renderType:     │   │ inputType:      │                                   │
-│  │  'currency'     │   │  'number'       │                                   │
+│  │ viewType:       │   │ editType:       │                                   │
+│  │  'entityInstance│   │  'entityInstance│                                   │
+│  │      _Id'       │   │      _Id'       │                                   │
+│  │ lookupEntity:   │   │ lookupEntity:   │                                   │
+│  │  'employee'     │   │  'employee'     │                                   │
 │  └─────────────────┘   └─────────────────┘                                   │
 │                       │                                                      │
 │                       ▼                                                      │
-│  API Response: metadata.entityDataTable.viewType.budget_allocated_amt        │
-│                metadata.entityDataTable.editType.budget_allocated_amt        │
+│  API Response includes:                                                      │
+│  • metadata.entityDataTable.viewType.manager__employee_id                    │
+│  • ref_data.employee = { "uuid-1": "James Miller", ... }                     │
+│                                                                              │
+│  Frontend uses metadata.lookupEntity (NO pattern matching)                   │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## YAML Configuration Files
-
-| File | Purpose |
-|------|---------|
-| `pattern-mapping.yaml` | Column name → fieldBusinessType |
-| `view-type-mapping.yaml` | fieldBusinessType → renderType per component |
-| `edit-type-mapping.yaml` | fieldBusinessType → inputType per component |
-| `entity-field-config.ts` | Explicit field overrides (highest priority) |
-
----
-
-## API Response Structure (v8.2.0)
+## API Response Structure (v8.3.1)
 
 ```json
 {
   "data": [
-    { "id": "uuid-123", "name": "Kitchen Renovation", "budget_allocated_amt": 50000 }
+    {
+      "id": "uuid-123",
+      "name": "Kitchen Renovation",
+      "budget_allocated_amt": 50000,
+      "manager__employee_id": "uuid-james",
+      "dl__project_stage": "planning"
+    }
   ],
-  "fields": ["id", "name", "budget_allocated_amt", "dl__project_stage"],
+  "fields": ["id", "name", "budget_allocated_amt", "manager__employee_id", "dl__project_stage"],
+  "ref_data": {
+    "employee": {
+      "uuid-james": "James Miller"
+    }
+  },
   "metadata": {
     "entityDataTable": {
       "viewType": {
@@ -68,6 +74,14 @@ The Backend Formatter Service generates **component-aware field metadata** from 
           "renderType": "currency",
           "behavior": { "visible": true, "sortable": true },
           "style": { "symbol": "$", "decimals": 2, "align": "right" }
+        },
+        "manager__employee_id": {
+          "dtype": "uuid",
+          "label": "Manager Employee Name",
+          "viewType": "entityInstance_Id",
+          "lookupSource": "entityInstance",
+          "lookupEntity": "employee",
+          "behavior": { "visible": true, "filterable": true }
         },
         "dl__project_stage": {
           "dtype": "str",
@@ -85,6 +99,14 @@ The Backend Formatter Service generates **component-aware field metadata** from 
           "behavior": { "editable": true },
           "validation": { "min": 0 }
         },
+        "manager__employee_id": {
+          "dtype": "uuid",
+          "label": "Manager Employee Name",
+          "editType": "entityInstance_Id",
+          "lookupSource": "entityInstance",
+          "lookupEntity": "employee",
+          "behavior": { "editable": true }
+        },
         "dl__project_stage": {
           "dtype": "str",
           "label": "Project Stage",
@@ -94,10 +116,6 @@ The Backend Formatter Service generates **component-aware field metadata** from 
           "behavior": { "editable": true }
         }
       }
-    },
-    "entityFormContainer": {
-      "viewType": { ... },
-      "editType": { ... }
     }
   },
   "datalabels": {
@@ -114,7 +132,58 @@ The Backend Formatter Service generates **component-aware field metadata** from 
 
 ---
 
-## Pattern Matching
+## Entity Reference Fields (v8.3.0)
+
+### ref_data Pattern
+
+Entity reference fields (`*_id`, `*__entity_id`) are resolved via `ref_data` lookup table instead of per-row embedded objects:
+
+```typescript
+// Backend generates ref_data for all entity reference fields
+const ref_data = await entityInfra.build_ref_data(data);
+
+// Response includes ref_data
+return {
+  data: projects,
+  ref_data,  // { employee: { "uuid-1": "James Miller" }, business: {...} }
+  metadata: { ... }
+};
+```
+
+### Field Metadata for References
+
+Backend automatically sets `lookupEntity` for all reference fields:
+
+| Field Pattern | lookupEntity | Example |
+|---------------|--------------|---------|
+| `*__employee_id` | `employee` | `manager__employee_id` |
+| `*__project_id` | `project` | `parent__project_id` |
+| `business_id` | `business` | Simple reference |
+| `*__employee_ids` | `employee` | Array reference |
+
+### Frontend Resolution (v8.3.1)
+
+Frontend uses `metadata.lookupEntity` - **NO pattern matching**:
+
+```typescript
+// Frontend code (v8.3.1)
+import { isEntityReferenceField, getEntityCodeFromMetadata } from '@/lib/refDataResolver';
+
+const fieldMeta = metadata.viewType.manager__employee_id;
+
+// Check using metadata, NOT field name pattern
+if (isEntityReferenceField(fieldMeta)) {
+  const entityCode = getEntityCodeFromMetadata(fieldMeta);  // "employee"
+  const displayName = ref_data[entityCode][uuid];           // "James Miller"
+}
+
+// ✗ WRONG: Pattern detection (removed in v8.3.1)
+// if (fieldName.endsWith('_id')) { ... }
+```
+
+---
+
+## Pattern Matching (Backend Only)
 
 ### pattern-mapping.yaml Examples
 
@@ -146,11 +215,15 @@ patterns:
   - pattern: "dl__*"
     fieldBusinessType: "datalabel"
 
-  # Entity reference fields
-  - pattern: "*__employee_id"
+  # Entity reference fields (v8.3.0)
+  - pattern: "*__*_id"
     fieldBusinessType: "entity_reference"
   - pattern: "*_id"
-    fieldBusinessType: "uuid_reference"
+    fieldBusinessType: "entity_reference"
+  - pattern: "*__*_ids"
+    fieldBusinessType: "entity_reference_array"
+  - pattern: "*_ids"
+    fieldBusinessType: "entity_reference_array"
 
   # Special fields
   - pattern: "metadata"
@@ -172,62 +245,21 @@ patterns:
 
 ---
 
-## Component-Specific Metadata
-
-Different components receive different metadata for the same field:
-
-### Example: dl__project_stage
-
-| Component | viewType.renderType | editType.inputType |
-|-----------|--------------------|--------------------|
-| entityDataTable | `badge` | `select` |
-| entityFormContainer | `dag` | `interactive_dag` |
-| kanbanView | `badge` | `select` |
-
-### view-type-mapping.yaml Structure
-
-```yaml
-currency:
-  entityDataTable:
-    renderType: "currency"
-    behavior:
-      visible: true
-      sortable: true
-    style:
-      align: "right"
-      symbol: "$"
-      decimals: 2
-
-  entityFormContainer:
-    renderType: "currency"
-    behavior:
-      visible: true
-    style:
-      symbol: "$"
-      decimals: 2
-
-datalabel:
-  entityDataTable:
-    renderType: "badge"
-    behavior:
-      visible: true
-      filterable: true
-
-  entityFormContainer:
-    renderType: "dag"  # Different for form!
-    behavior:
-      visible: true
-```
-
----
-
 ## Usage in Routes
+
+### Standard Pattern with ref_data
 
 ```typescript
 import { generateEntityResponse } from '@/services/backend-formatter.service.js';
+import { getEntityInfrastructure } from '@/services/entity-infrastructure.service.js';
+
+const entityInfra = getEntityInfrastructure(db);
 
 fastify.get('/api/v1/project', async (request, reply) => {
   const projects = await db.execute(sql`SELECT * FROM app.project...`);
+
+  // Build ref_data lookup table for entity references
+  const ref_data = await entityInfra.build_ref_data(projects);
 
   // Generate complete response with metadata
   const response = generateEntityResponse('project', projects, {
@@ -237,7 +269,10 @@ fastify.get('/api/v1/project', async (request, reply) => {
     offset: 0
   });
 
-  return reply.send(response);
+  return reply.send({
+    ...response,
+    ref_data  // Include ref_data in response
+  });
 });
 ```
 
@@ -282,6 +317,7 @@ function generateMetadataForComponents(
     for (const fieldName of fieldNames) {
       const fieldMeta = generateFieldMetadataForComponent(fieldName, component, entityCode);
       if (fieldMeta) {
+        // Includes lookupEntity for reference fields
         viewTypeMetadata[fieldName] = { dtype, label, ...fieldMeta.view };
         editTypeMetadata[fieldName] = { dtype, label, ...fieldMeta.edit };
       }
@@ -291,6 +327,31 @@ function generateMetadataForComponents(
   }
 
   return metadata;
+}
+```
+
+### detectEntityFromFieldName (Backend Internal)
+
+```typescript
+// Backend function - NOT used in frontend
+function detectEntityFromFieldName(fieldName: string): string | null {
+  // Pattern: *__entity_id → entity
+  const match1 = fieldName.match(/^.*__(\w+)_id$/);
+  if (match1) return match1[1];
+
+  // Pattern: *__entity_ids → entity
+  const match1b = fieldName.match(/^.*__(\w+)_ids$/);
+  if (match1b) return match1b[1];
+
+  // Pattern: entity_id → entity
+  const match2 = fieldName.match(/^(\w+)_id$/);
+  if (match2 && match2[1] !== 'id') return match2[1];
+
+  // Pattern: entity_ids → entity
+  const match2b = fieldName.match(/^(\w+)_ids$/);
+  if (match2b) return match2b[1];
+
+  return null;
 }
 ```
 
@@ -304,16 +365,19 @@ function generateMetadataForComponents(
 interface ViewFieldMetadata {
   dtype: 'str' | 'float' | 'int' | 'bool' | 'uuid' | 'date' | 'timestamp' | 'jsonb';
   label: string;
-  renderType: string;     // 'text', 'currency', 'date', 'badge', 'boolean', etc.
-  component?: string;     // Custom component name
+  renderType?: string;           // 'text', 'currency', 'date', 'badge', 'boolean'
+  viewType?: string;             // 'entityInstance_Id' for references (v8.3.0)
+  component?: string;            // Custom component name
   behavior: {
     visible?: boolean;
     sortable?: boolean;
     filterable?: boolean;
     searchable?: boolean;
   };
-  style: Record<string, any>;  // width, align, symbol, decimals, etc.
-  datalabelKey?: string;       // For badge fields
+  style: Record<string, any>;    // width, align, symbol, decimals
+  datalabelKey?: string;         // For badge fields
+  lookupSource?: 'entityInstance' | 'datalabel';  // (v8.3.0)
+  lookupEntity?: string;         // Entity code for reference fields (v8.3.0)
 }
 ```
 
@@ -323,52 +387,41 @@ interface ViewFieldMetadata {
 interface EditFieldMetadata {
   dtype: string;
   label: string;
-  inputType: string;      // 'text', 'number', 'select', 'date', 'checkbox', etc.
-  component?: string;     // Custom input component
+  inputType?: string;            // 'text', 'number', 'select', 'date', 'checkbox'
+  editType?: string;             // 'entityInstance_Id' for references (v8.3.0)
+  component?: string;            // Custom input component
   behavior: {
     editable?: boolean;
   };
   style: Record<string, any>;
   validation: Record<string, any>;  // required, min, max, pattern
-  lookupSource?: 'datalabel' | 'entityInstance';
-  lookupEntity?: string;            // Entity code for reference fields
-  datalabelKey?: string;            // Datalabel key for select fields
+  lookupSource?: 'entityInstance' | 'datalabel';  // (v8.3.0)
+  lookupEntity?: string;         // Entity code for reference fields (v8.3.0)
+  datalabelKey?: string;         // Datalabel key for select fields
 }
 ```
 
 ---
 
-## Explicit Field Configuration
+## Component-Specific Metadata
 
-For non-standard fields, use explicit configuration:
+Different components receive different metadata for the same field:
 
-```typescript
-// apps/api/src/config/entity-field-config.ts
+### Example: dl__project_stage
 
-export const FIELD_CONFIG: Record<string, Record<string, FieldConfig>> = {
-  project: {
-    custom_status: {
-      fieldBusinessType: 'datalabel',
-      viewType: { renderType: 'badge' },
-      editType: { inputType: 'select', datalabelKey: 'project_status' }
-    }
-  }
-};
-```
+| Component | viewType.renderType | editType.inputType |
+|-----------|--------------------|--------------------|
+| entityDataTable | `badge` | `select` |
+| entityFormContainer | `dag` | `interactive_dag` |
+| kanbanView | `badge` | `select` |
 
----
+### Example: manager__employee_id (v8.3.0)
 
-## Supported Components
-
-| Component | Purpose |
-|-----------|---------|
-| `entityDataTable` | Table/list view |
-| `entityFormContainer` | Create/edit forms |
-| `kanbanView` | Kanban board |
-| `calendarView` | Calendar events |
-| `gridView` | Card grid |
-| `dagView` | Workflow visualization |
-| `hierarchyGraphView` | Parent-child hierarchy |
+| Component | viewType | editType | lookupEntity |
+|-----------|----------|----------|--------------|
+| entityDataTable | `entityInstance_Id` | `entityInstance_Id` | `employee` |
+| entityFormContainer | `entityInstance_Id` | `entityInstance_Id` | `employee` |
+| kanbanView | `entityInstance_Id` | `entityInstance_Id` | `employee` |
 
 ---
 
@@ -376,11 +429,16 @@ export const FIELD_CONFIG: Record<string, Record<string, FieldConfig>> = {
 
 | Anti-Pattern | Problem | Solution |
 |--------------|---------|----------|
-| Frontend pattern detection | Duplicates logic | Backend sends complete metadata |
+| Frontend pattern detection | Duplicates logic | Backend sends `lookupEntity` |
+| Field name `_id` checking | Maintenance burden | Use `viewType === 'entityInstance_Id'` |
 | Hardcoded field configs | Maintenance burden | Use YAML mappings |
 | Same metadata for all components | Limited flexibility | Component-specific viewType/editType |
-| Flat metadata structure | Hard to extend | Use nested { viewType, editType } |
+| Per-row `_ID` embedded objects | N+1 performance | Use `ref_data` lookup table |
 
 ---
 
-**Version:** 8.2.0 | **Updated:** 2025-11-26
+**Version:** 8.3.1 | **Updated:** 2025-11-26
+
+**Recent Updates:**
+- v8.3.1 (2025-11-26): Enforced backend metadata as single source of truth
+- v8.3.0 (2025-11-26): Added `lookupEntity`, `lookupSource` for reference fields
