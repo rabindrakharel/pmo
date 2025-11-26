@@ -38,15 +38,20 @@ export type {
   RefData,
 } from './useEntityQuery';
 
-// v8.3.0: RefData Resolution Hooks
+// v8.3.1: RefData Resolution Hooks (metadata-based, no pattern matching)
 export {
   useRefData,
   useMergedRefData,
   useResolvedField,
   useResolvedRow,
+  // Metadata-based detection utilities
+  isEntityReferenceField,
+  getEntityCodeFromMetadata,
+  isArrayReferenceField,
+  mergeRefData,
 } from './useRefData';
 
-export type { UseRefDataResult } from './useRefData';
+export type { UseRefDataResult, FieldMetadata } from './useRefData';
 
 // Keyboard Shortcuts Hook
 export { useKeyboardShortcuts } from './useKeyboardShortcuts';

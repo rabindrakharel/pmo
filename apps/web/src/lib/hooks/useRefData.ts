@@ -1,13 +1,17 @@
 /**
- * useRefData Hook (v8.3.0)
+ * useRefData Hook (v8.3.1)
  *
  * React hook for accessing and resolving entity references using ref_data.
  *
+ * IMPORTANT: Backend metadata is the single source of truth.
+ * - viewType === 'entityInstance_Id' indicates a reference field
+ * - lookupEntity tells us which entity to look up
+ * - Frontend does NOT detect patterns from field names
+ *
  * Features:
  * - Extracts ref_data from entity queries automatically
- * - Provides convenient resolution methods
- * - Falls back to entity lookup API for edit mode dropdowns
- * - Caches entity lookup results with 1 hour TTL
+ * - Provides convenient resolution methods using metadata
+ * - Caches entity lookup results with React Query
  *
  * Usage:
  * - View mode: Use ref_data from entity query for O(1) lookups
@@ -19,13 +23,15 @@ import type { RefData } from './useEntityQuery';
 import {
   resolveEntityName,
   resolveEntityNames,
-  resolveFieldValue,
-  resolveFieldValueDisplay,
-  resolveRowReferences,
-  parseReferenceField,
-  isReferenceField,
-  getEntityCodeFromField,
+  resolveFieldWithMetadata,
+  resolveFieldDisplayWithMetadata,
+  resolveRowWithMetadata,
+  isEntityReferenceField,
+  getEntityCodeFromMetadata,
+  isArrayReferenceField,
+  getReferencedEntityCodesFromMetadata,
   mergeRefData,
+  type FieldMetadata,
   type ResolvedReference,
 } from '../refDataResolver';
 
@@ -45,43 +51,59 @@ export interface UseRefDataResult {
   hasRefData: boolean;
 
   /**
-   * Resolve a single UUID to entity name
+   * Resolve a single UUID to entity name (requires entityCode)
    */
   resolveName: (uuid: string | null | undefined, entityCode: string) => string | undefined;
 
   /**
-   * Resolve an array of UUIDs to entity names
+   * Resolve an array of UUIDs to entity names (requires entityCode)
    */
   resolveNames: (uuids: string[] | null | undefined, entityCode: string) => string[];
 
   /**
-   * Resolve a field value (auto-detects entity from field name)
+   * Resolve a field value using field metadata (NO pattern matching)
    */
-  resolveField: (fieldName: string, value: string | string[] | null | undefined) => string | string[] | undefined;
+  resolveField: (
+    fieldMeta: FieldMetadata | undefined,
+    value: string | string[] | null | undefined
+  ) => string | string[] | undefined;
 
   /**
-   * Resolve a field value to display string (comma-joined for arrays)
+   * Resolve a field value to display string using field metadata
    */
   resolveFieldDisplay: (
-    fieldName: string,
+    fieldMeta: FieldMetadata | undefined,
     value: string | string[] | null | undefined,
     fallback?: 'uuid' | 'empty' | 'unknown'
   ) => string;
 
   /**
-   * Resolve all reference fields in a row
+   * Resolve all reference fields in a row using field metadata map
    */
-  resolveRow: (row: Record<string, any>) => Record<string, string>;
+  resolveRow: (
+    row: Record<string, any>,
+    fieldMetadataMap: Record<string, FieldMetadata>
+  ) => Record<string, string>;
 
   /**
-   * Check if a field is a reference field
+   * Check if a field is a reference field using metadata
    */
-  isRefField: (fieldName: string) => boolean;
+  isRefField: (fieldMeta: FieldMetadata | undefined) => boolean;
 
   /**
-   * Get entity code from a reference field name
+   * Get entity code from field metadata
    */
-  getEntityCode: (fieldName: string) => string | null;
+  getEntityCode: (fieldMeta: FieldMetadata | undefined) => string | null;
+
+  /**
+   * Check if field is an array reference
+   */
+  isArrayRef: (fieldMeta: FieldMetadata | undefined) => boolean;
+
+  /**
+   * Get all referenced entity codes from field metadata map
+   */
+  getReferencedEntityCodes: (fieldMetadataMap: Record<string, FieldMetadata>) => string[];
 }
 
 // ============================================================================
@@ -99,9 +121,9 @@ export interface UseRefDataResult {
  * const { data } = useEntityInstance('project', projectId);
  * const { resolveName, resolveFieldDisplay } = useRefData(data?.ref_data);
  *
- * // Resolve references
- * const managerName = resolveName(project.manager__employee_id, 'employee');
- * const displayValue = resolveFieldDisplay('manager__employee_id', project.manager__employee_id);
+ * // Resolve references using metadata
+ * const managerField = metadata.fields.find(f => f.key === 'manager__employee_id');
+ * const displayValue = resolveFieldDisplay(managerField, project.manager__employee_id);
  */
 export function useRefData(refData: RefData | undefined): UseRefDataResult {
   // Memoize resolution functions to prevent unnecessary re-renders
@@ -120,37 +142,54 @@ export function useRefData(refData: RefData | undefined): UseRefDataResult {
   );
 
   const resolveField = useCallback(
-    (fieldName: string, value: string | string[] | null | undefined): string | string[] | undefined => {
-      return resolveFieldValue(fieldName, value, refData);
+    (
+      fieldMeta: FieldMetadata | undefined,
+      value: string | string[] | null | undefined
+    ): string | string[] | undefined => {
+      return resolveFieldWithMetadata(fieldMeta, value, refData);
     },
     [refData]
   );
 
   const resolveFieldDisplay = useCallback(
     (
-      fieldName: string,
+      fieldMeta: FieldMetadata | undefined,
       value: string | string[] | null | undefined,
       fallback: 'uuid' | 'empty' | 'unknown' = 'uuid'
     ): string => {
-      return resolveFieldValueDisplay(fieldName, value, refData, fallback);
+      return resolveFieldDisplayWithMetadata(fieldMeta, value, refData, fallback);
     },
     [refData]
   );
 
   const resolveRow = useCallback(
-    (row: Record<string, any>): Record<string, string> => {
-      return resolveRowReferences(row, refData);
+    (
+      row: Record<string, any>,
+      fieldMetadataMap: Record<string, FieldMetadata>
+    ): Record<string, string> => {
+      return resolveRowWithMetadata(row, fieldMetadataMap, refData);
     },
     [refData]
   );
 
-  const isRefField = useCallback((fieldName: string): boolean => {
-    return isReferenceField(fieldName);
+  const isRefField = useCallback((fieldMeta: FieldMetadata | undefined): boolean => {
+    return isEntityReferenceField(fieldMeta);
   }, []);
 
-  const getEntityCode = useCallback((fieldName: string): string | null => {
-    return getEntityCodeFromField(fieldName);
+  const getEntityCode = useCallback((fieldMeta: FieldMetadata | undefined): string | null => {
+    return getEntityCodeFromMetadata(fieldMeta);
   }, []);
+
+  const isArrayRef = useCallback((fieldMeta: FieldMetadata | undefined): boolean => {
+    return isArrayReferenceField(fieldMeta);
+  }, []);
+
+  const getReferencedEntityCodes = useCallback(
+    (fieldMetadataMap: Record<string, FieldMetadata>): string[] => {
+      return getReferencedEntityCodesFromMetadata(fieldMetadataMap);
+    },
+    []
+  );
 
   return {
     refData,
@@ -162,6 +201,8 @@ export function useRefData(refData: RefData | undefined): UseRefDataResult {
     resolveRow,
     isRefField,
     getEntityCode,
+    isArrayRef,
+    getReferencedEntityCodes,
   };
 }
 
@@ -192,24 +233,25 @@ export function useMergedRefData(...sources: (RefData | undefined)[]): UseRefDat
 // ============================================================================
 
 /**
- * Hook for resolving a specific reference field
+ * Hook for resolving a specific reference field using metadata
  *
- * @param fieldName - Reference field name
+ * @param fieldMeta - Field metadata from backend
  * @param value - UUID or array of UUIDs
  * @param refData - RefData lookup table
  * @returns Resolved display value
  *
  * @example
- * const managerName = useResolvedField('manager__employee_id', project.manager__employee_id, refData);
+ * const managerField = metadata.fields.find(f => f.key === 'manager__employee_id');
+ * const managerName = useResolvedField(managerField, project.manager__employee_id, refData);
  */
 export function useResolvedField(
-  fieldName: string,
+  fieldMeta: FieldMetadata | undefined,
   value: string | string[] | null | undefined,
   refData: RefData | undefined
 ): string {
   return useMemo(() => {
-    return resolveFieldValueDisplay(fieldName, value, refData);
-  }, [fieldName, value, refData]);
+    return resolveFieldDisplayWithMetadata(fieldMeta, value, refData);
+  }, [fieldMeta, value, refData]);
 }
 
 // ============================================================================
@@ -217,32 +259,34 @@ export function useResolvedField(
 // ============================================================================
 
 /**
- * Hook for resolving all reference fields in a row
+ * Hook for resolving all reference fields in a row using metadata
  *
  * @param row - Entity data row
+ * @param fieldMetadataMap - Map of field key to field metadata
  * @param refData - RefData lookup table
  * @returns Object with resolved display values for each reference field
  *
  * @example
- * const resolvedFields = useResolvedRow(project, refData);
+ * const fieldMetadataMap = Object.fromEntries(metadata.fields.map(f => [f.key, f]));
+ * const resolvedFields = useResolvedRow(project, fieldMetadataMap, refData);
  * // resolvedFields.manager__employee_id = "James Miller"
- * // resolvedFields.business_id = "Huron Home Services"
  */
 export function useResolvedRow(
   row: Record<string, any> | undefined,
+  fieldMetadataMap: Record<string, FieldMetadata>,
   refData: RefData | undefined
 ): Record<string, string> {
   return useMemo(() => {
     if (!row) return {};
-    return resolveRowReferences(row, refData);
-  }, [row, refData]);
+    return resolveRowWithMetadata(row, fieldMetadataMap, refData);
+  }, [row, fieldMetadataMap, refData]);
 }
 
 // Re-export types and utilities for convenience
-export type { RefData, ResolvedReference };
+export type { RefData, ResolvedReference, FieldMetadata };
 export {
-  parseReferenceField,
-  isReferenceField,
-  getEntityCodeFromField,
+  isEntityReferenceField,
+  getEntityCodeFromMetadata,
+  isArrayReferenceField,
   mergeRefData,
 };
