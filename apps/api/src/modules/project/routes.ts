@@ -165,12 +165,8 @@ import { generateEntityResponse } from '../../services/backend-formatter.service
 import { PAGINATION_CONFIG, getEntityLimit } from '../../lib/pagination.js';
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
 
-// Schema for entity reference resolution (_ID and _IDS fields)
-const EntityReferenceSchema = Type.Object({
-  entity_code: Type.String(),
-}, { additionalProperties: true });
-
 // Schema based on actual project table structure from db/XV_d_project.ddl
+// v8.3.0: Removed _ID/_IDS embedded reference fields - use ref_data at response level instead
 const ProjectSchema = Type.Object({
   id: Type.String(),
   code: Type.String(),
@@ -196,9 +192,6 @@ const ProjectSchema = Type.Object({
   created_ts: Type.Optional(Type.String()),
   updated_ts: Type.Optional(Type.String()),
   version: Type.Optional(Type.Number()),
-  // Entity reference resolution (populated by resolve_entity_references)
-  _ID: Type.Optional(Type.Record(Type.String(), EntityReferenceSchema)),
-  _IDS: Type.Optional(Type.Record(Type.String(), Type.Array(EntityReferenceSchema))),
 });
 
 // Response schema for metadata-driven endpoints
