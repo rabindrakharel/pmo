@@ -21,6 +21,8 @@ import { colorCodeToTailwindClass } from '../../../lib/formatters/valueFormatter
 import type { FormattedRow } from '../../../lib/formatters';
 import { extractViewType, extractEditType, isValidComponentMetadata } from '../../../lib/formatters';
 import { useDatalabelMetadataStore } from '../../../stores/datalabelMetadataStore';
+// v8.3.0: RefData for entity reference resolution
+import { useRefData, type RefData } from '../../../lib/hooks/useRefData';
 
 import { MetadataTable } from './MetadataTable';
 import { QuoteItemsRenderer } from './QuoteItemsRenderer';
@@ -88,6 +90,21 @@ interface EntityFormContainerProps {
    * Eliminates redundant formatting during render
    */
   formattedData?: FormattedRow<Record<string, any>>;
+
+  /**
+   * v8.3.0: Reference data lookup table for entity reference resolution
+   * Used to resolve UUIDs to display names for *_id and *_ids fields
+   * Structure: { entity_code: { uuid: name } }
+   *
+   * @example
+   * <EntityFormContainer
+   *   data={project}
+   *   ref_data={{ employee: { "uuid-123": "James Miller" } }}
+   *   isEditing={false}
+   *   onChange={handleChange}
+   * />
+   */
+  ref_data?: RefData;
 }
 
 // Stable default values to prevent new array references on every render
@@ -102,8 +119,11 @@ function EntityFormContainerInner({
   mode = 'edit',
   metadata,                     // PRIORITY 1: Backend metadata
   datalabels = EMPTY_DATALABELS,  // ✅ Stable default reference
-  formattedData                 // v7.0.0: Pre-formatted data for instant rendering
+  formattedData,                // v7.0.0: Pre-formatted data for instant rendering
+  ref_data                      // v8.3.0: Entity reference lookup table
 }: EntityFormContainerProps) {
+  // v8.3.0: useRefData hook for entity reference resolution
+  const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(ref_data);
   // ============================================================================
   // METADATA-DRIVEN FIELD GENERATION
   // ============================================================================
@@ -671,16 +691,11 @@ function EntityFormContainerInner({
   // In edit mode: name, code are in the page header, so exclude them
   // In create mode: include name and code so users can see auto-populated values and edit them
   // Always exclude: slug, id, tags, created_ts, updated_ts
-  // Also exclude: UUID reference fields (*_id, *_ids) - resolved labels shown instead
-  // NOTE: _ID, _IDS exclusion should happen in backend-formatter.service.ts (BFF)
+  // v8.3.0: Field visibility determined by backend metadata (visible property), NOT frontend pattern detection
   const excludedFields = mode === 'create'
     ? ['title', 'id', 'created_ts', 'updated_ts']
     : ['name', 'title', 'code', 'id', 'created_ts', 'updated_ts'];
-  const visibleFields = fields.filter(f =>
-    !excludedFields.includes(f.key) &&
-    !f.key.endsWith('_id') &&   // Hide UUID reference fields (e.g., manager__employee_id)
-    !f.key.endsWith('_ids')     // Hide UUID array fields (e.g., stakeholder__employee_ids)
-  );
+  const visibleFields = fields.filter(f => !excludedFields.includes(f.key));
 
   return (
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200">
@@ -767,6 +782,9 @@ function arePropsEqual(
 
   // If datalabels change, must re-render
   if (prevProps.datalabels !== nextProps.datalabels) return false;
+
+  // v8.3.0: If ref_data changes, must re-render (entity reference resolution)
+  if (prevProps.ref_data !== nextProps.ref_data) return false;
 
   // For data: only re-render if KEYS change, not values
   // (values are handled by local state during editing)

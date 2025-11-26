@@ -324,15 +324,12 @@ export const EntityFormContainerWithStore: React.FC<EntityFormContainerProps> = 
   // Render
   // ============================================================================
 
+  // v8.3.0: Field visibility determined by backend metadata (visible property), NOT frontend pattern detection
   const excludedFields = mode === 'create'
     ? ['id', 'created_ts', 'updated_ts']
     : ['name', 'code', 'id', 'created_ts', 'updated_ts'];
 
-  const visibleFields = fields.filter(f =>
-    !excludedFields.includes(f.key) &&
-    !f.key.endsWith('_id') &&
-    !f.key.endsWith('_ids')
-  );
+  const visibleFields = fields.filter(f => !excludedFields.includes(f.key));
 
   return (
     <div className="entity-form-container">
@@ -433,21 +430,27 @@ function generateFieldLabel(fieldKey: string): string {
     .replace(/\b\w/g, c => c.toUpperCase());
 }
 
+/**
+ * Format field value based on backend metadata renderType
+ * v8.3.0: Uses field.renderType from backend metadata, NOT pattern detection
+ */
 function formatFieldValue(field: FieldDef, value: any): string {
   if (value == null) return '-';
 
-  // Format based on field type
-  if (field.key.includes('_amt') || field.key.includes('_price')) {
-    return formatCurrency(value);
-  }
-  if (field.key.includes('_date')) {
-    return formatFriendlyDate(value);
-  }
-  if (field.key.includes('_ts') || field.key.includes('_at')) {
-    return formatRelativeTime(value);
-  }
+  // v8.3.0: Use renderType from backend metadata for formatting decisions
+  const renderType = (field as any).renderType;
 
-  return String(value);
+  switch (renderType) {
+    case 'currency':
+      return formatCurrency(value);
+    case 'date':
+      return formatFriendlyDate(value);
+    case 'timestamp':
+    case 'datetime':
+      return formatRelativeTime(value);
+    default:
+      return String(value);
+  }
 }
 
 // ============================================================================
