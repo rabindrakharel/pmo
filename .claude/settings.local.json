@@ -240,7 +240,15 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0MDkwMjUyLCJleHAiOjE3NjQxNzY2NTJ9.e01HIfCa-TfH8e6NnIKMmAI7GFg4-mUhLgCHI3KajhI\")",
       "Bash(git -C /home/rabin/projects/pmo log --oneline -30)",
       "Bash(git -C /home/rabin/projects/pmo log --oneline -50)",
-      "Bash(git -C /home/rabin/projects/pmo log -10 --stat --oneline)"
+      "Bash(git -C /home/rabin/projects/pmo log -10 --stat --oneline)",
+      "Bash(npm install:*)",
+      "Bash(nvm list)",
+      "Bash(export NVM_DIR=\"$HOME/.nvm\")",
+      "Bash([ -s \"$NVM_DIR/nvm.sh\" ])",
+      "Bash(. \"$NVM_DIR/nvm.sh\")",
+      "Bash(nvm install:*)",
+      "Bash(npm:*)",
+      "Bash(/dev/null source ~/.nvm/nvm.sh)"
     ],
     "deny": [],
     "ask": [],

@@ -283,6 +283,67 @@ function formatDataset<T extends Record<string, any>>(
 | Formatting during render | Slow scroll performance | Format-at-read via `select` |
 | Hardcoded field types | Maintenance burden | Backend metadata driven |
 | Accessing flat metadata | Removed in v8.2.0 | Use `extractViewType()`/`extractEditType()` |
+| Fallback inline formatting | Silent failure, inconsistent | Error if metadata missing |
+| Field name pattern checks | `_amt`, `_date` detection | Backend provides `renderType` |
+
+---
+
+## Strict Requirements (v8.2.0)
+
+### No Fallback Formatting
+
+Components MUST NOT implement fallback formatting when metadata is missing:
+
+```typescript
+// WRONG: Silent fallback
+if (formattedData?.display?.[field.key]) {
+  displayValue = formattedData.display[field.key];
+} else {
+  // Fallback: inline formatting for backwards compatibility
+  if (field.key.includes('_amt')) displayValue = formatCurrency(value);
+}
+
+// CORRECT: Require metadata, error if missing
+if (!formattedData?.display) {
+  console.error(`[EntityFormContainer] formattedData required for ${field.key}`);
+  return <span className="text-red-500">Missing formatted data</span>;
+}
+return <span>{formattedData.display[field.key]}</span>;
+```
+
+### No Pattern Detection
+
+Components MUST NOT detect field types by name patterns:
+
+```typescript
+// WRONG: Pattern detection
+if (field.key.includes('_amt') || field.key.includes('_price')) {
+  return formatCurrency(value);
+}
+
+// CORRECT: Use backend metadata
+if (viewType[field.key]?.renderType === 'currency') {
+  return formatCurrency(value);
+}
+```
+
+### Datalabel Options Required
+
+Select fields MUST have options pre-loaded from datalabelMetadataStore:
+
+```typescript
+// WRONG: Empty fallback select
+if (!options || options.length === 0) {
+  return <select><option>Select...</option></select>;
+}
+
+// CORRECT: Error if options not loaded
+const options = datalabelMetadataStore.getDatalabel(datalabelKey);
+if (!options) {
+  console.error(`[Select] Datalabel not cached: ${datalabelKey}`);
+  return <span className="text-red-500">Options not loaded</span>;
+}
+```
 
 ---
 

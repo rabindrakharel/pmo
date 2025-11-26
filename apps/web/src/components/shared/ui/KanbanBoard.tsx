@@ -2,32 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { MoreVertical } from 'lucide-react';
 
 // ============================================================================
-// v7.0.0: Legacy auto-detection helpers - prefer explicit groupByField prop
+// v8.2.0: No auto-detection - groupByField REQUIRED via prop or backend metadata
 // ============================================================================
 import { loadFieldOptions } from '../../../lib/formatters/labelMetadataLoader';
-
-// Helper to detect if field loads from datalabels
-function detectFieldIsDataLabel(fieldKey: string): boolean {
-  return fieldKey.startsWith('dl__');
-}
-
-// Auto-detect groupByField from data keys (fallback when not provided)
-function detectGroupByField(
-  fieldKeys: string[],
-  dataTypes?: Record<string, string>
-): { groupByField: string; loadColumnsFrom?: string } | null {
-  // Auto-detect: dl__*_stage > dl__*_status > status > *_status
-  const groupByField = fieldKeys.find(k =>
-    k.startsWith('dl__') && (k.includes('stage') || k.includes('status'))
-  ) || fieldKeys.find(k => k === 'status' || k.endsWith('_status'));
-
-  if (!groupByField) return null;
-
-  return {
-    groupByField,
-    loadColumnsFrom: detectFieldIsDataLabel(groupByField) ? 'settings' : undefined
-  };
-}
 
 export interface KanbanColumn {
   id: string;
@@ -52,19 +29,12 @@ export interface KanbanBoardProps {
   columns?: KanbanColumn[];
 
   /**
-   * Optional: Explicitly specify grouping field (overrides auto-detection)
-   * If not provided, auto-detects: dl__*_stage > dl__*_status > status
+   * v8.2.0: REQUIRED - grouping field for kanban columns
+   * No auto-detection - must be explicitly provided
    * @example
    * groupByField="dl__task_stage"
    */
   groupByField?: string;
-
-  /**
-   * Optional data types for JSONB/array detection
-   * @example
-   * dataTypes={{ metadata: 'jsonb'}}
-   */
-  dataTypes?: Record<string, string>;
 
   // UI handlers
   onCardClick?: (item: any) => void;
@@ -309,31 +279,19 @@ export function KanbanBoard({
   data,
   columns: providedColumns,
   groupByField: explicitGroupByField,
-  dataTypes,
   onCardClick,
   onCardMove,
   renderCard,
   emptyMessage = 'No columns to display'}: KanbanBoardProps) {
   // ============================================================================
-  // NEW ARCHITECTURE: Auto-Generation ONLY (when columns not provided)
+  // v8.2.0: Column generation from explicit groupByField (no auto-detection)
   // ============================================================================
   const [columns, setColumns] = useState<KanbanColumn[]>(providedColumns || []);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Auto-detect grouping field using universal field detector (only when columns not provided)
-  // ✅ FIX: Extract field keys separately to prevent infinite loop
-  // Create stable string representation directly
-  const fieldKeysString = useMemo(() => {
-    if (providedColumns || !data || data.length === 0) return '';
-    return Object.keys(data[0]).sort().join(',');
-  }, [providedColumns, data.length, data.length > 0 ? Object.keys(data[0]).length : 0, ...(data.length > 0 ? Object.keys(data[0]).sort() : [])]);
-
-  const detectedConfig = useMemo(() => {
-    if (!fieldKeysString) return null;
-
-    const fieldKeys = fieldKeysString.split(',');
-    return detectGroupByField(fieldKeys, dataTypes);
-  }, [fieldKeysString, dataTypes]);
+  // ============================================================================
+  // v8.2.0: No auto-detection - groupByField REQUIRED
+  // ============================================================================
 
   // Load settings options and generate columns (only when columns not provided)
   React.useEffect(() => {
@@ -351,11 +309,11 @@ export function KanbanBoard({
 
       setIsGenerating(true);
       try {
-        // Use explicit groupByField if provided, otherwise use detected field
-        const groupField = explicitGroupByField || detectedConfig?.groupByField;
+        // v8.2.0: REQUIRE explicit groupByField - no auto-detection
+        const groupField = explicitGroupByField;
 
         if (!groupField) {
-          console.warn('[KanbanBoard] No grouping field found');
+          console.error('[KanbanBoard] groupByField prop is REQUIRED - no auto-detection');
           setColumns([]);
           return;
         }
@@ -402,7 +360,7 @@ export function KanbanBoard({
     if (!providedColumns) {
       generateColumns();
     }
-  }, [data, detectedConfig, explicitGroupByField, providedColumns]);
+  }, [data, explicitGroupByField, providedColumns]);
 
   const handleCardMove = (itemId: string, toColumnId: string) => {
     if (!onCardMove) return;

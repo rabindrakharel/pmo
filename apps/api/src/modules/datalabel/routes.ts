@@ -159,6 +159,7 @@ export async function datalabelRoutes(fastify: FastifyInstance) {
               name: Type.String(),
               descr: Type.Optional(Type.String()),
               parent_id: Type.Union([Type.Number(), Type.Null()]),
+              parent_ids: Type.Optional(Type.Array(Type.Number())),  // DAG parent IDs array
               sort_order: Type.Number(),
               color_code: Type.Optional(Type.String()),
               active_flag: Type.Optional(Type.Boolean()),
@@ -192,6 +193,7 @@ export async function datalabelRoutes(fastify: FastifyInstance) {
             name: item.name,
             descr: item.descr || '',
             parent_id: item.parent_id ?? null,
+            parent_ids: item.parent_ids || [],  // DAG parent IDs array from JSONB
             sort_order: item.sort_order ?? index,
             color_code: item.color_code || null,
             active_flag: item.active_flag !== false,

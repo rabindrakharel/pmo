@@ -1,13 +1,34 @@
 /**
- * DAGVisualizer - Reusable DAG graph visualization component
+ * DAGVisualizer - ReactFlow-based DAG graph visualization component
  *
- * FIXED: Component now receives all data via props
- * - No API calls
- * - No data fetching
- * - Pure presentation component
- * - Parent components provide nodes from preloaded data
+ * v2.0.0: Replaced custom SVG with ReactFlow for better:
+ * - Auto-layout via dagre
+ * - Touch/zoom support
+ * - Professional node styling
+ *
+ * FORMAT-AT-READ PATTERN:
+ * - Receives DAGNode[] from datalabel cache (via EntityFormContainer)
+ * - Transforms to ReactFlow format in useMemo (memoized)
+ * - No API calls - pure presentation component
  */
-import type { ReactElement } from 'react';
+import { useMemo, useCallback } from 'react';
+import {
+  ReactFlow,
+  Node,
+  Edge,
+  Position,
+  useNodesState,
+  useEdgesState,
+  Background,
+  BackgroundVariant,
+  MarkerType,
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+import * as dagre from '@dagrejs/dagre';
+
+// ============================================================================
+// TYPES
+// ============================================================================
 
 export interface DAGNode {
   id: number;
@@ -15,16 +36,10 @@ export interface DAGNode {
   parent_ids: number[];
 }
 
-interface NodePosition {
-  x: number;
-  y: number;
-  layer: number;
-}
-
 interface DAGVisualizerProps {
   /**
    * DAG nodes to display - REQUIRED
-   * Must be provided by parent component from preloaded data
+   * Must be provided by parent component from preloaded datalabel cache
    * No API calls should be made by this component
    */
   nodes: DAGNode[];
@@ -40,254 +55,254 @@ interface DAGVisualizerProps {
   onNodeClick?: (nodeId: number) => void;
 }
 
+// ============================================================================
+// CUSTOM NODE COMPONENT
+// ============================================================================
+
+interface StageNodeData extends Record<string, unknown> {
+  label: string;
+  isCurrent: boolean;
+  isCompleted: boolean;
+  nodeId: number;
+}
+
+function StageNode({ data }: { data: StageNodeData }) {
+  const { label, isCurrent, isCompleted } = data;
+
+  // Node styling based on state
+  const getNodeStyle = () => {
+    if (isCurrent) {
+      return 'bg-blue-500 text-white border-blue-700 shadow-lg shadow-blue-200';
+    }
+    if (isCompleted) {
+      return 'bg-green-100 text-green-800 border-green-500';
+    }
+    return 'bg-white text-gray-700 border-gray-300';
+  };
+
+  return (
+    <div
+      className={`
+        px-4 py-2 rounded-full border-2 min-w-[80px] text-center
+        font-medium text-sm transition-all cursor-pointer
+        hover:shadow-md ${getNodeStyle()}
+      `}
+    >
+      {label.length > 14 ? `${label.substring(0, 12)}...` : label}
+    </div>
+  );
+}
+
+// Register custom node types
+const nodeTypes = {
+  stage: StageNode,
+};
+
+// ============================================================================
+// DAGRE LAYOUT
+// ============================================================================
+
+const NODE_WIDTH = 120;
+const NODE_HEIGHT = 40;
+
+function getLayoutedElements(
+  nodes: Node[],
+  edges: Edge[],
+  direction: 'TB' | 'LR' = 'LR'
+): { nodes: Node[]; edges: Edge[] } {
+  const dagreGraph = new dagre.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+  dagreGraph.setGraph({
+    rankdir: direction,
+    nodesep: 50,
+    ranksep: 80,
+    marginx: 20,
+    marginy: 20,
+  });
+
+  // Add nodes to dagre
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+  });
+
+  // Add edges to dagre
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  // Calculate layout
+  dagre.layout(dagreGraph);
+
+  // Apply calculated positions to nodes
+  const layoutedNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    return {
+      ...node,
+      position: {
+        x: nodeWithPosition.x - NODE_WIDTH / 2,
+        y: nodeWithPosition.y - NODE_HEIGHT / 2,
+      },
+      targetPosition: direction === 'LR' ? Position.Left : Position.Top,
+      sourcePosition: direction === 'LR' ? Position.Right : Position.Bottom,
+    };
+  });
+
+  return { nodes: layoutedNodes, edges };
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
 export function DAGVisualizer({
-  nodes,
+  nodes: dagNodes,
   currentNodeId,
-  onNodeClick
+  onNodeClick,
 }: DAGVisualizerProps) {
   // ============================================================================
-  // FIXED: Use props directly, no API calls
+  // FORMAT-AT-READ: Transform DAGNode[] → ReactFlow format (memoized)
   // ============================================================================
-  // DAGVisualizer should NEVER make API calls
-  // All data comes from props passed by parent components
-  // The backend already includes datalabel data in the response
+  // This transformation happens on READ from the datalabel cache
+  // ReactFlow nodes/edges are computed only when dagNodes change
+  // ============================================================================
 
-  // Validate required props
-  if (!nodes || nodes.length === 0) {
+  const { initialNodes, initialEdges } = useMemo(() => {
+    if (!dagNodes || dagNodes.length === 0) {
+      return { initialNodes: [], initialEdges: [] };
+    }
+
+    // Find completed nodes (ancestors of current node)
+    const completedNodes = new Set<number>();
+    if (currentNodeId !== undefined) {
+      const visited = new Set<number>();
+      const queue: number[] = [currentNodeId];
+
+      while (queue.length > 0) {
+        const nodeId = queue.shift()!;
+        if (visited.has(nodeId)) continue;
+        visited.add(nodeId);
+
+        const node = dagNodes.find((n) => n.id === nodeId);
+        if (!node) continue;
+
+        node.parent_ids.forEach((parentId) => {
+          completedNodes.add(parentId);
+          queue.push(parentId);
+        });
+      }
+    }
+
+    // Transform DAGNode[] → ReactFlow Node[]
+    const rfNodes: Node[] = dagNodes.map((node) => ({
+      id: String(node.id),
+      type: 'stage',
+      position: { x: 0, y: 0 }, // Will be set by dagre
+      data: {
+        label: node.node_name || 'Unknown',
+        isCurrent: node.id === currentNodeId,
+        isCompleted: completedNodes.has(node.id),
+        nodeId: node.id,
+      } as StageNodeData,
+    }));
+
+    // Transform parent_ids → ReactFlow Edge[]
+    const rfEdges: Edge[] = [];
+    dagNodes.forEach((node) => {
+      node.parent_ids.forEach((parentId) => {
+        const isActive =
+          completedNodes.has(parentId) &&
+          (completedNodes.has(node.id) || node.id === currentNodeId);
+
+        rfEdges.push({
+          id: `e${parentId}-${node.id}`,
+          source: String(parentId),
+          target: String(node.id),
+          type: 'smoothstep',
+          animated: isActive,
+          style: {
+            stroke: isActive ? '#3B82F6' : '#D1D5DB',
+            strokeWidth: isActive ? 2 : 1,
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: isActive ? '#3B82F6' : '#D1D5DB',
+            width: 20,
+            height: 20,
+          },
+        });
+      });
+    });
+
+    // Apply dagre layout
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+      rfNodes,
+      rfEdges,
+      'LR' // Left-to-right horizontal layout
+    );
+
+    return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
+  }, [dagNodes, currentNodeId]);
+
+  // ReactFlow state
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  // Update nodes/edges when props change
+  useMemo(() => {
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+  }, [initialNodes, initialEdges, setNodes, setEdges]);
+
+  // Handle node click
+  const handleNodeClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (onNodeClick) {
+        const nodeData = node.data as StageNodeData;
+        onNodeClick(nodeData.nodeId);
+      }
+    },
+    [onNodeClick]
+  );
+
+  // Don't render if no nodes
+  if (!dagNodes || dagNodes.length === 0) {
     console.warn('[DAGVisualizer] No nodes provided via props');
     return null;
   }
 
-  // Use the nodes and currentNodeId directly from props
-  const visibleNodes = nodes;
-  const visibleCurrentNodeId = currentNodeId;
-
-  // Find all ancestor nodes of the current node (completed nodes)
-  const findCompletedNodes = (): Set<number> => {
-    const completed = new Set<number>();
-    if (visibleCurrentNodeId === undefined) return completed;
-
-    const visited = new Set<number>();
-    const queue: number[] = [visibleCurrentNodeId];
-
-    // BFS to find all ancestors
-    while (queue.length > 0) {
-      const nodeId = queue.shift()!;
-      if (visited.has(nodeId)) continue;
-      visited.add(nodeId);
-
-      const node = visibleNodes.find(n => n.id === nodeId);
-      if (!node) continue;
-
-      // Add all parents as completed
-      node.parent_ids.forEach(parentId => {
-        completed.add(parentId);
-        queue.push(parentId);
-      });
-    }
-
-    return completed;
-  };
-
-  const completedNodes = findCompletedNodes();
-
-  // Calculate node positions
-  const calculateNodePositions = (): Map<number, NodePosition> => {
-    const positions = new Map<number, NodePosition>();
-    const nodesByLayer = new Map<number, DAGNode[]>();
-    const nodeLayers = new Map<number, number>();
-
-    // Build adjacency list for children
-    const childrenMap = new Map<number, number[]>();
-    visibleNodes.forEach(node => {
-      node.parent_ids.forEach(parentId => {
-        if (!childrenMap.has(parentId)) {
-          childrenMap.set(parentId, []);
-        }
-        childrenMap.get(parentId)!.push(node.id);
-      });
-    });
-
-    // Find root nodes (nodes with no parents)
-    const rootNodes = visibleNodes.filter(node => node.parent_ids.length === 0);
-
-    // Assign layers using BFS
-    const queue: { node: DAGNode; layer: number }[] = rootNodes.map(node => ({ node, layer: 0 }));
-    const visited = new Set<number>();
-
-    while (queue.length > 0) {
-      const { node, layer } = queue.shift()!;
-
-      if (visited.has(node.id)) continue;
-      visited.add(node.id);
-
-      nodeLayers.set(node.id, layer);
-
-      // Add to layer grouping
-      if (!nodesByLayer.has(layer)) {
-        nodesByLayer.set(layer, []);
-      }
-      nodesByLayer.get(layer)!.push(node);
-
-      // Process children
-      const children = childrenMap.get(node.id) || [];
-      children.forEach(childId => {
-        const childNode = visibleNodes.find(n => n.id === childId);
-        if (childNode && !visited.has(childId)) {
-          queue.push({ node: childNode, layer: layer + 1 });
-        }
-      });
-    }
-
-    // Calculate positions (HORIZONTAL LEFT-TO-RIGHT)
-    const layerWidth = 120;  // Horizontal spacing between layers
-    const nodeHeight = 60;   // Vertical spacing within layers
-
-    console.log('[DAGVisualizer] Layers calculated:', Array.from(nodesByLayer.entries()).map(([layer, nodes]) => ({
-      layer,
-      nodeCount: nodes.length,
-      nodeNames: nodes.map(n => n.node_name)
-    })));
-
-    nodesByLayer.forEach((layerNodes, layer) => {
-      const totalHeight = layerNodes.length * nodeHeight;
-      const startY = (200 - totalHeight) / 2; // Center vertically in 200px height
-
-      layerNodes.forEach((node, index) => {
-        const pos = {
-          x: layer * layerWidth + 40,  // Horizontal position (left to right)
-          y: startY + index * nodeHeight + 40,  // Vertical position within layer
-          layer
-        };
-        console.log(`[DAGVisualizer] Node "${node.node_name}" at layer ${layer}, position (${pos.x}, ${pos.y})`);
-        positions.set(node.id, pos);
-      });
-    });
-
-    return positions;
-  };
-
-  const positionMap = calculateNodePositions();
-
-  // Render connections between nodes
-  const renderConnections = () => {
-    const connections: ReactElement[] = [];
-
-    visibleNodes.forEach(node => {
-      const nodePos = positionMap.get(node.id);
-      if (!nodePos) return;
-
-      node.parent_ids.forEach(parentId => {
-        const parentPos = positionMap.get(parentId);
-        if (!parentPos) return;
-
-        const key = `${parentId}-${node.id}`;
-        const isActive = completedNodes.has(parentId) && (completedNodes.has(node.id) || node.id === visibleCurrentNodeId);
-
-        connections.push(
-          <line
-            key={key}
-            x1={parentPos.x + 35} // Right edge of parent ellipse
-            y1={parentPos.y}      // Center of parent ellipse
-            x2={nodePos.x - 35}   // Left edge of child ellipse
-            y2={nodePos.y}        // Center of child ellipse
-            stroke={isActive ? '#3B82F6' : '#E5E7EB'}
-            strokeWidth={isActive ? 2 : 1}
-            strokeDasharray={isActive ? '' : '5,5'}
-            markerEnd="url(#arrowhead)"
-          />
-        );
-      });
-    });
-
-    return connections;
-  };
-
-  // Render nodes
-  const renderNodes = () => {
-    return visibleNodes.map(node => {
-      const pos = positionMap.get(node.id);
-      if (!pos) return null;
-
-      const isCurrent = visibleCurrentNodeId !== undefined && node.id === visibleCurrentNodeId;
-      const isCompleted = completedNodes.has(node.id);
-
-      // Get node_name with fallback
-      const nodeName = node.node_name || 'Unknown';
-
-      return (
-        <g
-          key={node.id}
-          className={onNodeClick ? 'cursor-pointer' : ''}
-          onClick={() => onNodeClick?.(node.id)}
-        >
-          {/* Elliptical node (small horizontal oval) */}
-          <ellipse
-            cx={pos.x}
-            cy={pos.y}
-            rx={35}  // Horizontal radius (width)
-            ry={18}  // Vertical radius (height) - creates horizontal oval
-            className={
-              isCurrent
-                ? 'fill-blue-500 stroke-blue-700'
-                : isCompleted
-                  ? 'fill-green-100 stroke-green-500'
-                  : 'fill-white stroke-gray-300'
-            }
-            strokeWidth={isCurrent ? 2 : 1}
-          />
-          {/* Node label (centered in ellipse) */}
-          <text
-            x={pos.x}
-            y={pos.y + 4}  // Slight offset for vertical centering
-            textAnchor="middle"
-            className={
-              isCurrent
-                ? 'fill-white text-xs font-medium'
-                : 'fill-gray-700 text-xs'
-            }
-            style={{ pointerEvents: 'none' }}
-          >
-            {nodeName.length > 12 ? `${nodeName.substring(0, 10)}...` : nodeName}
-          </text>
-        </g>
-      );
-    });
-  };
-
-  // Calculate SVG dimensions for horizontal layout
-  const maxX = Math.max(...Array.from(positionMap.values()).map(p => p.x)) + 80;
-  const maxY = Math.max(...Array.from(positionMap.values()).map(p => p.y)) + 60;
-  const svgHeight = Math.max(200, maxY);
-  const svgWidth = Math.max(400, maxX);
+  // Calculate container height based on node count
+  const containerHeight = Math.max(150, Math.min(300, dagNodes.length * 50));
 
   return (
-    <div className="w-full overflow-x-auto p-4 bg-gray-50 rounded-lg">
-      <svg
-        width={svgWidth}
-        height={svgHeight}
-        className="min-h-[150px]"
+    <div
+      className="w-full rounded-lg border border-gray-200 bg-gray-50"
+      style={{ height: containerHeight }}
+    >
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onNodeClick={handleNodeClick}
+        nodeTypes={nodeTypes}
+        fitView
+        fitViewOptions={{
+          padding: 0.2,
+          minZoom: 0.5,
+          maxZoom: 1.5,
+        }}
+        proOptions={{ hideAttribution: true }}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable={false}
+        panOnDrag={false}
+        zoomOnScroll={false}
+        zoomOnPinch={false}
+        zoomOnDoubleClick={false}
+        preventScrolling={false}
       >
-        {/* Arrowhead marker definition */}
-        <defs>
-          <marker
-            id="arrowhead"
-            markerWidth="10"
-            markerHeight="7"
-            refX="9"
-            refY="3.5"
-            orient="auto"
-          >
-            <polygon
-              points="0 0, 10 3.5, 0 7"
-              fill="#3B82F6"
-            />
-          </marker>
-        </defs>
-
-        {renderConnections()}
-        {renderNodes()}
-      </svg>
+        <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#E5E7EB" />
+      </ReactFlow>
     </div>
   );
 }

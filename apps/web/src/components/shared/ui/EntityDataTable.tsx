@@ -59,25 +59,19 @@ import { EllipsisBounce, InlineSpinner } from './EllipsisBounce';
 
 /**
  * Extract settings datalabel from column key
- * Uses centralized mapping from settingsLoader for proper datalabel resolution
- * Examples:
- *   'project_stage' -> 'project_stage'
- *   'opportunity_funnel_stage_name' -> 'opportunity_funnel_stage'
- *   'dl__opportunity_funnel_stage' -> 'opportunity_funnel_stage' (via FIELD_TO_SETTING_MAP)
+ * v8.2.0: Uses centralized mapping from settingsLoader ONLY - no fallback suffix stripping
+ * Backend must provide correct datalabelKey via metadata
  */
 function extractSettingsDatalabel(columnKey: string): string {
-  // First try centralized mapping from settingsLoader
-  // This handles fields like dl__opportunity_funnel_stage -> opportunity_funnel_stage
+  // v8.2.0: Use centralized mapping ONLY - no fallback pattern stripping
   const mapped = getSettingDatalabel(columnKey);
   if (mapped) {
     return mapped;
   }
 
-  // Fallback: strip common suffixes for legacy field patterns
-  return columnKey
-    .replace(/_name$/, '')
-    .replace(/_id$/, '')
-    .replace(/_level_id$/, '');
+  // v8.2.0: Return as-is if not mapped (backend should provide settingsDatalabel)
+  console.warn(`[EntityDataTable] No datalabel mapping for: ${columnKey}`);
+  return columnKey;
 }
 
 /**

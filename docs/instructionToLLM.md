@@ -54,6 +54,10 @@ docs/services/entity-infrastructure.service.md\
 
 
 
+With all the changes made,  
+Search through to find out any legacy, backward compatibility code, or fallback logic that needs to be cleaned up, to strictly adhere to current state standards. What are the parts you want to remove? How do you plan on how updating these document and which part? Show me your action plan. 
+
+
 
 
 

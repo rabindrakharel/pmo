@@ -187,8 +187,8 @@ function EntityFormContainerInner({
     return options.map(opt => ({
       id: opt.id,
       node_name: opt.name,
-      // ✅ Use parent_ids array if available, fallback to single parent_id for backwards compat
-      parent_ids: opt.parent_ids || (opt.parent_id !== null && opt.parent_id !== undefined ? [opt.parent_id] : [])
+      // v8.2.0: REQUIRE parent_ids array format (no backward compat for parent_id)
+      parent_ids: opt.parent_ids || []
     }));
   };
 
@@ -348,56 +348,24 @@ function EntityFormContainerInner({
         }
 
         // ═══════════════════════════════════════════════════════════════
-        // v7.0.0: Use pre-formatted value from formattedData if available
+        // v8.2.0: REQUIRE pre-formatted value from formattedData
+        // No fallback formatting - backend metadata is sole source of truth
         // ═══════════════════════════════════════════════════════════════
-        let displayValue: string;
+        const displayValue = formattedData?.display?.[field.key] ?? String(value ?? '-');
+        const styleClass = formattedData?.styles?.[field.key];
 
-        if (formattedData?.display?.[field.key]) {
-          // v7.0.0: Use pre-formatted value (format-at-fetch)
-          displayValue = formattedData.display[field.key];
-        } else {
-          // Fallback: inline formatting for backwards compatibility
-          const option = options.find((opt: any) => String(opt.value) === String(value));
-          const rawValue = option?.label || value;
-          const inputType = field.type;
-
-          if (rawValue == null) {
-            displayValue = '-';
-          } else if (inputType === 'currency') {
-            displayValue = formatCurrency(rawValue);
-          } else if (inputType === 'date') {
-            displayValue = formatFriendlyDate(rawValue);
-          } else if (inputType === 'timestamp' || inputType === 'datetime') {
-            displayValue = formatRelativeTime(rawValue);
-          } else if (inputType === 'checkbox') {
-            displayValue = rawValue ? 'Yes' : 'No';
-          } else if (typeof rawValue === 'object') {
-            if (Array.isArray(rawValue)) {
-              displayValue = rawValue.join(', ');
-            } else {
-              displayValue = JSON.stringify(rawValue);
-            }
-          } else {
-            displayValue = String(rawValue);
-          }
-        }
-
-        if (!displayValue) return (
-          <span className="text-dark-600 text-base tracking-tight">
-            -
-          </span>
-        );
-
-        // Render badge for priority, stage, status fields
-        if (field.key.toLowerCase().includes('priority') ||
-            field.key.toLowerCase().includes('stage') ||
-            field.key.toLowerCase().includes('status')) {
-          return renderFieldBadge(field.key, displayValue);
+        // Render badge if backend provided style class
+        if (styleClass) {
+          return (
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${styleClass}`}>
+              {displayValue}
+            </span>
+          );
         }
 
         return (
           <span className="text-dark-600 text-base tracking-tight">
-            {displayValue}
+            {displayValue || '-'}
           </span>
         );
       }
@@ -446,26 +414,12 @@ function EntityFormContainerInner({
         return <span className="text-dark-600">No data</span>;
       }
       if (field.type === 'number') {
-        // Auto-detect and format currency fields
-        if (field.key.includes('_amt') || field.key.includes('_price') || field.key.includes('_cost')) {
-          return (
-            <span className="text-dark-600 font-medium text-base tracking-tight">
-              {formatCurrency(value)}
-            </span>
-          );
-        }
-        // Handle explicit prefix (deprecated, use isCurrencyField instead)
-        if (field.prefix) {
-          return (
-            <span className="text-dark-600 text-base tracking-tight">
-              {`${field.prefix}${value || 0}`}
-            </span>
-          );
-        }
-        // Regular number
+        // v8.2.0: Use pre-formatted value from formattedData
+        // Backend metadata determines if this is currency via renderType
+        const displayValue = formattedData?.display?.[field.key] ?? String(value ?? '-');
         return (
           <span className="text-dark-600 text-base tracking-tight">
-            {value || '-'}
+            {displayValue}
           </span>
         );
       }
@@ -705,37 +659,10 @@ function EntityFormContainerInner({
         );
       default:
         // ═══════════════════════════════════════════════════════════════
-        // v7.0.0: Use pre-formatted value from formattedData if available
+        // v8.2.0: REQUIRE pre-formatted value from formattedData
+        // No fallback formatting - backend metadata is sole source of truth
         // ═══════════════════════════════════════════════════════════════
-        let defaultDisplay: string;
-
-        if (formattedData?.display?.[field.key]) {
-          // v7.0.0: Use pre-formatted value (format-at-fetch)
-          defaultDisplay = formattedData.display[field.key];
-        } else {
-          // Fallback: inline formatting for backwards compatibility
-          const defaultInputType = field.type;
-
-          if (value == null) {
-            defaultDisplay = '-';
-          } else if (defaultInputType === 'currency') {
-            defaultDisplay = formatCurrency(value);
-          } else if (defaultInputType === 'date') {
-            defaultDisplay = formatFriendlyDate(value);
-          } else if (defaultInputType === 'timestamp' || defaultInputType === 'datetime') {
-            defaultDisplay = formatRelativeTime(value);
-          } else if (defaultInputType === 'checkbox') {
-            defaultDisplay = value ? 'Yes' : 'No';
-          } else if (typeof value === 'object') {
-            if (Array.isArray(value)) {
-              defaultDisplay = value.join(', ');
-            } else {
-              defaultDisplay = JSON.stringify(value);
-            }
-          } else {
-            defaultDisplay = String(value);
-          }
-        }
+        const defaultDisplay = formattedData?.display?.[field.key] ?? String(value ?? '-');
         return <span className="text-dark-600 text-base tracking-tight">{defaultDisplay}</span>;
     }
   };
