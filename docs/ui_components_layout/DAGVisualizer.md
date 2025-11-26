@@ -1,14 +1,14 @@
 # DAG Visualizer Component
 
-**Version:** 1.0.0 | **Location:** `apps/web/src/components/shared/ui/DAGVisualizer.tsx`
+**Version:** 8.2.0 | **Location:** `apps/web/src/components/workflow/DAGVisualizer.tsx`
 
 ---
 
 ## Semantics
 
-The DAG (Directed Acyclic Graph) Visualizer provides a visual representation of workflow stages for entities. It automatically activates for `dl__*_stage` fields and renders them as a progress path with color-coded stages.
+The DAG (Directed Acyclic Graph) Visualizer provides a visual representation of workflow stages for entities. It renders `dl__*_stage` fields as a progress path with color-coded stages using backend metadata.
 
-**Core Principle:** Auto-detection via naming convention. Stages from settings table. Zero configuration.
+**Core Principle:** Backend metadata drives rendering. Stages from datalabel store. Zero frontend pattern detection.
 
 ---
 
@@ -16,20 +16,24 @@ The DAG (Directed Acyclic Graph) Visualizer provides a visual representation of 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                      DAG VISUALIZER ARCHITECTURE                         │
+│                      DAG VISUALIZER ARCHITECTURE (v8.2.0)                │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    Field Detection                               │    │
-│  │  Column name matches: dl__*_stage                               │    │
-│  │  Backend metadata: renderType: 'dag', component: 'DAGVisualizer'│    │
+│  │                    Backend Metadata (BFF)                        │    │
+│  │  viewType.dl__project_stage = {                                  │    │
+│  │    dtype: 'str',                                                 │    │
+│  │    renderType: 'dag',                                            │    │
+│  │    datalabelKey: 'project_stage',                                │    │
+│  │    behavior: { visible: true }                                   │    │
+│  │  }                                                               │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                              │                                          │
 │                              v                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    Settings API                                  │    │
-│  │  GET /api/v1/datalabel?name=dl__project_stage                │    │
-│  │  Returns: [ { name, color_code, position }, ... ]               │    │
+│  │                    Datalabel Store (Zustand)                     │    │
+│  │  datalabelMetadataStore.getDatalabel('project_stage')           │    │
+│  │  → { options: [{ name, label, color_code, position }] }         │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                              │                                          │
 │                              v                                          │
@@ -49,47 +53,200 @@ The DAG (Directed Acyclic Graph) Visualizer provides a visual representation of 
 
 ---
 
-## Data Flow Diagram
+## Props Interface (v8.2.0)
 
-```
-Stage Data Flow
-───────────────
+```typescript
+interface DAGVisualizerProps {
+  /** Current stage value from entity data */
+  value: string;
 
-Database Column                Settings Table                DAG Visualizer
-───────────────                ──────────────                ──────────────
+  /** Field key (e.g., 'dl__project_stage') */
+  fieldKey: string;
 
-dl__project_stage     →        datalabel     →       Visual Progress
-  = "execution"                 datalabel_name:               Path
-                                'dl__project_stage'
-                                                              ●──●──●──○──○
-                                metadata: [                   │  │  ▲  │  │
-                                  {name: "Initiation",        │  │  │  │  │
-                                   color_code: "gray"},       │  │  Current
-                                  {name: "Planning",          │  │
-                                   color_code: "blue"},       │  │
-                                  {name: "Execution",         Completed
-                                   color_code: "orange"},
-                                  ...
-                                ]
+  /** Backend metadata for this field */
+  fieldMeta: ViewFieldMetadata;
+
+  /** Optional: Override stage data (defaults to datalabelMetadataStore) */
+  stages?: DatalabelOption[];
+
+  /** Callback when stage is clicked (edit mode) */
+  onStageClick?: (stageName: string) => void;
+
+  /** Interactive mode (allows clicking stages) */
+  interactive?: boolean;
+}
+
+// ViewFieldMetadata from backend (v8.2.0)
+interface ViewFieldMetadata {
+  dtype: 'str';
+  label: string;
+  renderType: 'dag';
+  datalabelKey: string;  // Maps to datalabelMetadataStore
+  behavior: {
+    visible: boolean;
+    filterable?: boolean;
+  };
+  style?: Record<string, any>;
+}
 ```
 
 ---
 
-## Architecture Overview
+## Data Flow Diagram (v8.2.0)
 
-### Naming Convention
+```
+Backend → Frontend Metadata Flow
+────────────────────────────────
 
-| Pattern | Description | Example |
-|---------|-------------|---------|
-| `dl__*_stage` | Workflow stage field | `dl__project_stage`, `dl__task_stage` |
+1. Backend BFF (generateEntityResponse)
+   │
+   ├── API Response:
+   │   {
+   │     data: [{ dl__project_stage: "execution" }],
+   │     metadata: {
+   │       entityDataTable: {
+   │         viewType: {
+   │           dl__project_stage: {
+   │             renderType: 'dag',
+   │             datalabelKey: 'project_stage'
+   │           }
+   │         },
+   │         editType: {
+   │           dl__project_stage: {
+   │             inputType: 'select',
+   │             datalabelKey: 'project_stage'
+   │           }
+   │         }
+   │       }
+   │     },
+   │     datalabels: { project_stage: [...] }
+   │   }
+   │
+   v
+2. React Query Cache (RAW data)
+   │
+   v
+3. Format-at-Read (select option)
+   │
+   ├── formatDataset() checks viewType[field].renderType === 'dag'
+   │
+   └── FormattedRow = {
+         raw: { dl__project_stage: 'execution' },
+         display: { dl__project_stage: 'Execution' },
+         styles: {}  // DAG uses custom rendering
+       }
+   │
+   v
+4. Component receives viewType via extractViewType(metadata)
+   │
+   ├── const viewType = extractViewType(metadata.entityDataTable);
+   │
+   └── if (viewType[fieldKey].renderType === 'dag') {
+         render <DAGVisualizer value={row.raw[fieldKey]} fieldMeta={viewType[fieldKey]} />
+       }
+   │
+   v
+5. DAGVisualizer
+   │
+   ├── Reads stages from datalabelMetadataStore using fieldMeta.datalabelKey
+   │
+   └── Renders visual progress path
+       ●───────●───────●───────○───────○
+       Init   Plan    Exec   Monitor  Close
+                       ▲
+                  (current)
+```
 
-### Stage Data Structure
+---
 
-| Field | Purpose | Example |
-|-------|---------|---------|
-| `name` | Display label | "Planning" |
-| `color_code` | Stage color | "blue" |
-| `position` | Order in workflow | 1 |
+## Integration with v8.2.0 Architecture
+
+### Component Consumption Pattern
+
+```typescript
+import { extractViewType, isValidComponentMetadata } from '@/lib/formatters';
+import { useDatalabelMetadataStore } from '@/stores/datalabelMetadataStore';
+
+function EntityFieldRenderer({ fieldKey, record, metadata }) {
+  // v8.2.0: Extract viewType from nested metadata structure
+  const viewType = extractViewType(metadata);
+
+  if (!viewType) {
+    console.error('[Renderer] No viewType - backend must send { viewType, editType }');
+    return null;
+  }
+
+  const fieldMeta = viewType[fieldKey];
+
+  // DAG rendering based on backend metadata
+  if (fieldMeta?.renderType === 'dag') {
+    return (
+      <DAGVisualizer
+        value={record.raw[fieldKey]}
+        fieldKey={fieldKey}
+        fieldMeta={fieldMeta}
+      />
+    );
+  }
+
+  // Other render types...
+}
+```
+
+### Datalabel Store Integration
+
+```typescript
+// DAGVisualizer internal implementation
+function DAGVisualizer({ value, fieldKey, fieldMeta }: DAGVisualizerProps) {
+  const getDatalabel = useDatalabelMetadataStore(state => state.getDatalabel);
+
+  // Get stages from store using datalabelKey from backend metadata
+  const datalabelKey = fieldMeta.datalabelKey;
+  const datalabelData = getDatalabel(datalabelKey);
+  const stages = datalabelData?.options || [];
+
+  // Find current stage position
+  const currentIndex = stages.findIndex(s => s.name === value);
+
+  return (
+    <div className="flex items-center gap-2">
+      {stages.map((stage, index) => (
+        <React.Fragment key={stage.name}>
+          {index > 0 && <div className="w-4 h-0.5 bg-gray-300" />}
+          <DAGNode
+            stage={stage}
+            isCompleted={index < currentIndex}
+            isCurrent={index === currentIndex}
+            isFuture={index > currentIndex}
+          />
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+## Stage Data Structure
+
+### Datalabel Store Format
+
+```typescript
+// Stored in datalabelMetadataStore (cached at login)
+interface DatalabelData {
+  datalabel: string;  // 'project_stage'
+  options: DatalabelOption[];
+}
+
+interface DatalabelOption {
+  id: string;
+  name: string;      // 'execution'
+  label: string;     // 'Execution'
+  color_code: string; // 'orange'
+  position: number;  // 2
+}
+```
 
 ### Visual States
 
@@ -101,7 +258,7 @@ dl__project_stage     →        datalabel     →       Visual Progress
 
 ### Supported Colors
 
-| Color Code | Hex Value | Usage |
+| color_code | Hex Value | Usage |
 |------------|-----------|-------|
 | `gray` | `#6B7280` | Initial/Cancelled |
 | `blue` | `#3B82F6` | Planning/Pending |
@@ -110,164 +267,97 @@ dl__project_stage     →        datalabel     →       Visual Progress
 | `orange` | `#F97316` | In Progress |
 | `red` | `#EF4444` | Blocked/Error |
 | `purple` | `#8B5CF6` | Review |
-| `indigo` | `#6366F1` | Special |
 
 ---
 
-## Tooling Overview
-
-### Database Setup
-
-```sql
--- Settings table entry
-INSERT INTO app.datalabel (
-  datalabel_name, ui_label, metadata
-) VALUES (
-  'dl__project_stage',
-  'Project Stage',
-  '[
-    {"id": 0, "name": "Initiation", "color_code": "gray"},
-    {"id": 1, "name": "Planning", "color_code": "blue"},
-    {"id": 2, "name": "Execution", "color_code": "orange"},
-    {"id": 3, "name": "Monitoring", "color_code": "yellow"},
-    {"id": 4, "name": "Closure", "color_code": "green"}
-  ]'::jsonb
-);
-```
-
-### Component Integration
-
-```typescript
-// Auto-detected by formatter service when field matches dl__*_stage
-// No manual component usage required
-
-// Backend metadata generation
-{
-  key: "dl__project_stage",
-  renderType: "dag",
-  component: "DAGVisualizer",
-  loadFromDataLabels: true
-}
-
-// Frontend renders DAGVisualizer automatically
-```
-
----
-
-## Database/API/UI Mapping
-
-### Field to Visualization
-
-| Entity | Field | Stages |
-|--------|-------|--------|
-| Project | `dl__project_stage` | Initiation → Planning → Execution → Monitoring → Closure |
-| Task | `dl__task_stage` | Backlog → To Do → In Progress → Review → Done |
-| Order | `dl__order_stage` | Received → Processing → Shipped → Delivered |
-
-### API Response
-
-```json
-{
-  "datalabels": [
-    {
-      "datalabel": "dl__project_stage",
-      "options": [
-        { "id": "0", "name": "Initiation", "color_code": "gray", "position": 0 },
-        { "id": "1", "name": "Planning", "color_code": "blue", "position": 1 },
-        { "id": "2", "name": "Execution", "color_code": "orange", "position": 2 }
-      ]
-    }
-  ]
-}
-```
-
----
-
-## User Interaction Flow
+## User Interaction Flow (v8.2.0)
 
 ```
 Workflow Visualization Flow
 ───────────────────────────
 
-1. User views project detail page
+1. Page loads entity data
    │
-2. API response includes:
-   ├── data.dl__project_stage = "execution"
-   └── datalabels[dl__project_stage] = [{stages...}]
+2. useFormattedEntityList returns:
+   ├── formattedData: FormattedRow[]
+   └── metadata: { entityDataTable: { viewType, editType } }
    │
-3. Frontend formatter service:
-   ├── Detects dl__*_stage pattern
-   ├── Reads metadata.renderType = 'dag'
-   └── Renders DAGVisualizer component
+3. Component extracts metadata:
+   const viewType = extractViewType(metadata.entityDataTable);
    │
-4. DAGVisualizer:
-   ├── Maps stages from datalabels
-   ├── Determines current position
+4. For each dl__*_stage field:
+   ├── viewType[field].renderType === 'dag'
+   ├── viewType[field].datalabelKey → datalabelMetadataStore
+   └── Render DAGVisualizer
+   │
+5. DAGVisualizer:
+   ├── Reads stages from datalabelMetadataStore
+   ├── Determines current position from value
    └── Renders visual progress path
-   │
-5. User sees:
+
    ●───────●───────●───────○───────○
    Init   Plan    Exec   Monitor  Close
                    ▲
               (current)
 
 
-Stage Update Flow
-─────────────────
+Stage Update Flow (Edit Mode)
+─────────────────────────────
 
-1. User selects new stage from dropdown
+1. User in edit mode selects new stage
    │
-2. PATCH /api/v1/project/:id
-   { dl__project_stage: "monitoring" }
+2. Component uses editType from metadata:
+   const editType = extractEditType(metadata.entityDataTable);
    │
-3. API updates database
+3. editType[field] = {
+     inputType: 'select',
+     datalabelKey: 'project_stage'
+   }
    │
-4. React Query invalidates cache
+4. DataLabelSelect renders dropdown with stages
    │
-5. DAGVisualizer re-renders:
-   ●───────●───────●───────●───────○
-   Init   Plan    Exec   Monitor  Close
-                           ▲
-                      (current)
+5. User selects "monitoring"
+   │
+6. onChange callback → updateField('dl__project_stage', 'monitoring')
+   │
+7. PATCH /api/v1/project/:id
+   │
+8. React Query invalidates cache
+   │
+9. DAGVisualizer re-renders with new position
 ```
+
+---
+
+## Integration Points
+
+| Component | Integration |
+|-----------|-------------|
+| EntityDataTable | Checks `viewType[key].renderType === 'dag'` |
+| EntityFormContainer | Renders DAG for stage fields in view mode |
+| KanbanView | Uses same datalabelKey for columns |
+| formatBadge() | Falls back to badge if no DAG rendering |
 
 ---
 
 ## Critical Considerations
 
-### Design Principles
+### Design Principles (v8.2.0)
 
-1. **Convention-Based** - `dl__*_stage` pattern triggers DAG
-2. **Settings-Driven** - Stages from `datalabel` table
-3. **Zero Config** - No frontend configuration needed
-4. **Color Consistency** - Colors from database, not hardcoded
-
-### Common Use Cases
-
-| Use Case | Field | Stages |
-|----------|-------|--------|
-| Project Lifecycle | `dl__project_stage` | 5 stages |
-| Task Workflow | `dl__task_stage` | 7 stages |
-| Order Processing | `dl__order_stage` | 4 stages |
-| Approval Workflow | `dl__approval_stage` | 3 stages |
-| Service Requests | `dl__service_stage` | 4 stages |
-
-### Integration Points
-
-| Component | Integration |
-|-----------|-------------|
-| EntityFormContainer | Renders DAG for stage fields |
-| EntitySpecificInstancePage | Shows workflow progress |
-| KanbanView | Uses same stage data for columns |
+1. **Backend Metadata Driven** - `renderType: 'dag'` triggers DAG rendering
+2. **Datalabel Store** - Stages from Zustand store (cached at login)
+3. **Zero Pattern Detection** - No frontend field name parsing
+4. **extractViewType()** - Always use helper to get viewType from metadata
 
 ### Anti-Patterns
 
 | Anti-Pattern | Correct Approach |
 |--------------|------------------|
-| Hardcoded stage colors | Use color_code from settings |
-| Manual DAG rendering | Let formatter service auto-detect |
-| Stage order in frontend | Use position from settings |
+| Detecting `dl__*_stage` pattern | Check `viewType[key].renderType === 'dag'` |
+| Hardcoded stage colors | Use color_code from datalabel store |
+| Direct metadata access | Use `extractViewType(metadata)` |
+| Fetching stages in component | Use datalabelMetadataStore (cached) |
 
 ---
 
-**Last Updated:** 2025-11-21 | **Status:** Production Ready
+**Last Updated:** 2025-11-26 | **Version:** 8.2.0 | **Status:** Production Ready

@@ -6,9 +6,9 @@
 
 ## Semantics
 
-EntityFormContainer is a universal form component for creating and editing entities. It generates form fields from backend metadata, handles entity references (`_ID`/`_IDS` structures), and renders workflow stages with DAGVisualizer.
+EntityFormContainer is a universal form component for creating and editing entities. It uses the v8.2.0 `{ viewType, editType }` metadata structure via `extractViewType()` and `extractEditType()` helpers, handles entity references (`_ID`/`_IDS` structures), and supports FormattedRow data.
 
-**Core Principle:** Auto-field generation from metadata. Entity references via domain components. Zero hardcoded field configs.
+**Core Principle:** Backend metadata with `{ viewType, editType }` structure controls all form fields. Use `extractViewType()` for view mode, `extractEditType()` for edit mode inputs.
 
 ---
 
@@ -16,39 +16,45 @@ EntityFormContainer is a universal form component for creating and editing entit
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                   ENTITY FORM CONTAINER ARCHITECTURE                     │
+│                   ENTITY FORM CONTAINER ARCHITECTURE (v8.2.0)            │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    API Response                                  │    │
-│  │  { data: {...}, metadata: { fields: [...] } }                   │    │
-│  │  NOTE: Datalabels fetched at login, cached in localStorage      │    │
+│  │                    API Response Structure                        │    │
+│  │  {                                                               │    │
+│  │    data: {...},                                                  │    │
+│  │    metadata: {                                                   │    │
+│  │      entityFormContainer: {                                      │    │
+│  │        viewType: { field: { renderType, behavior, style } },     │    │
+│  │        editType: { field: { inputType, validation } }            │    │
+│  │      }                                                           │    │
+│  │    }                                                             │    │
+│  │  }                                                               │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                              │                                          │
 │                              v                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
 │  │                    EntityFormContainer                           │    │
 │  │                                                                  │    │
+│  │  const viewType = extractViewType(metadata.entityFormContainer); │    │
+│  │  const editType = extractEditType(metadata.entityFormContainer); │    │
+│  │                                                                  │    │
 │  │  ┌───────────────────────────────────────────────────────────┐  │    │
-│  │  │  Standard Fields (from metadata.fields)                    │  │    │
-│  │  │  ┌─────────────────────────────────────────────────────┐  │  │    │
-│  │  │  │ renderEditModeFromMetadata(value, fieldMeta, onChange) │  │    │
-│  │  │  └─────────────────────────────────────────────────────┘  │  │    │
+│  │  │  Standard Fields (from viewType/editType)                  │  │    │
+│  │  │  VIEW: row.display[key] or formatted value                │  │    │
+│  │  │  EDIT: renderEditModeFromMetadata(raw[key], editType[key]) │  │    │
 │  │  └───────────────────────────────────────────────────────────┘  │    │
 │  │                                                                  │    │
 │  │  ┌───────────────────────────────────────────────────────────┐  │    │
 │  │  │  Entity References (_ID - single)                          │  │    │
-│  │  │  <EntitySelect entityCode={ref.entity_code} ... />         │  │    │
-│  │  └───────────────────────────────────────────────────────────┘  │    │
-│  │                                                                  │    │
-│  │  ┌───────────────────────────────────────────────────────────┐  │    │
-│  │  │  Entity References (_IDS - multiple)                       │  │    │
-│  │  │  <EntityMultiSelect entityCode={ref.entity_code} ... />    │  │    │
+│  │  │  Uses editType[key].lookupSource === 'entityInstance'     │  │    │
+│  │  │  <EntitySelect entityCode={editType[key].lookupEntity} /> │  │    │
 │  │  └───────────────────────────────────────────────────────────┘  │    │
 │  │                                                                  │    │
 │  │  ┌───────────────────────────────────────────────────────────┐  │    │
 │  │  │  Stage Fields (dl__*_stage)                                │  │    │
-│  │  │  <DAGVisualizer stages={...} currentStage={...} />         │  │    │
+│  │  │  VIEW: DAGVisualizer (viewType[key].renderType === 'dag') │  │    │
+│  │  │  EDIT: DataLabelSelect (editType[key].inputType === 'select')│    │
 │  │  └───────────────────────────────────────────────────────────┘  │    │
 │  │                                                                  │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
@@ -58,248 +64,425 @@ EntityFormContainer is a universal form component for creating and editing entit
 
 ---
 
-## Data Flow Diagram
+## Props Interface (v8.2.0)
 
-```
-Form Field Generation Flow
-──────────────────────────
+```typescript
+import type { FormattedRow } from '@/lib/formatters';
 
-Backend Metadata                  Form Field                     Rendered Input
-────────────────                  ──────────────                 ──────────────
+interface EntityFormContainerProps {
+  /** Entity configuration (optional - can derive from metadata) */
+  config?: EntityConfig;
 
-metadata.fields: [         →      For each field:        →       ┌──────────────┐
-  {                               <div>                          │ Budget       │
-    key: "budget_amt",              <label>Budget</label>        │ $|50000.00  |│
-    label: "Budget",                {renderEditMode(...)}        │              │
-    inputType: "currency"         </div>                         └──────────────┘
-  }
-]
+  /** Entity data (can be raw or FormattedRow) */
+  data: Record<string, any>;
 
+  /** Is form in edit mode? */
+  isEditing: boolean;
 
-Entity Reference Flow (_ID)
-───────────────────────────
+  /** Field change handler */
+  onChange: (fieldKey: string, value: any) => void;
 
-data._ID: {                 →     <EntitySelect             →    ┌──────────────┐
-  manager: {                        entityCode="employee"        │ Manager      │
-    entity_code: "employee",        value={uuid}                 │ [John Smith▼]│
-    manager__employee_id: uuid,     onChange={(uuid, label) =>   └──────────────┘
-    manager: "John Smith"             update _ID.manager}
-  }                               />
+  /** Form mode */
+  mode?: 'create' | 'edit';
+
+  // ============================================================================
+  // PRIORITY 1: Backend Metadata (v8.2.0 Architecture)
+  // ============================================================================
+  /**
+   * Backend-generated metadata with { viewType, editType } structure (REQUIRED)
+   * Component uses extractViewType() and extractEditType() helpers
+   */
+  metadata?: EntityMetadata;
+
+  /** Datalabel options (cached in datalabelMetadataStore) */
+  datalabels?: DatalabelData[];
+
+  /** Pre-formatted data from format-at-read (optional) */
+  formattedData?: FormattedRow<Record<string, any>>;
 }
 
+// EntityMetadata from API response (v8.2.0)
+interface EntityMetadata {
+  entityFormContainer: ComponentMetadata;
+  entityDataTable?: ComponentMetadata;
+}
 
-Entity Reference Flow (_IDS)
-────────────────────────────
+// ComponentMetadata structure (v8.2.0 - REQUIRED)
+interface ComponentMetadata {
+  viewType: Record<string, ViewFieldMetadata>;
+  editType: Record<string, EditFieldMetadata>;
+}
+```
 
-data._IDS: {                →     <EntityMultiSelect        →    ┌──────────────┐
-  stakeholder: [                    entityCode="employee"        │ Stakeholders │
-    {                               values={array}               │ [Alice][Bob] │
-      entity_code: "employee",      onAdd={...}                  │ [+ Add     ▼]│
-      stakeholder__employee_id,     onRemove={...}               └──────────────┘
-      stakeholder: "Alice"        />
+---
+
+## Metadata Types (v8.2.0)
+
+### ViewFieldMetadata
+
+```typescript
+interface ViewFieldMetadata {
+  dtype: 'str' | 'float' | 'int' | 'bool' | 'uuid' | 'date' | 'timestamp' | 'jsonb';
+  label: string;
+  renderType: string;     // 'text', 'currency', 'date', 'badge', 'dag', etc.
+  behavior: {
+    visible?: boolean;    // Show in form
+  };
+  style: Record<string, any>;
+  datalabelKey?: string;  // For badge fields
+}
+```
+
+### EditFieldMetadata
+
+```typescript
+interface EditFieldMetadata {
+  dtype: string;
+  label: string;
+  inputType: string;      // 'text', 'number', 'select', 'date', 'checkbox', 'textarea', etc.
+  behavior: {
+    editable?: boolean;   // Allow editing
+  };
+  validation: {
+    required?: boolean;
+    min?: number;
+    max?: number;
+    pattern?: string;
+  };
+  lookupSource?: 'datalabel' | 'entityInstance';
+  datalabelKey?: string;    // For datalabel select fields
+  lookupEntity?: string;    // For entity reference fields
+}
+```
+
+---
+
+## Data Flow Diagram (v8.2.0)
+
+```
+Field Generation Flow
+─────────────────────
+
+Backend Metadata                     extractViewType/editType       Form Field
+────────────────                     ─────────────────────────       ──────────
+
+metadata.entityFormContainer: {  →   viewType = extractViewType()  →  VIEW MODE:
+  viewType: {                        editType = extractEditType()      row.display[key]
+    budget_amt: {                                                      or formatted value
+      dtype: 'float',                // v8.2.0: REQUIRED
+      label: 'Budget',               // Returns viewType or null
+      renderType: 'currency',        // Logs error if invalid        EDIT MODE:
+      behavior: { visible: true }                                      renderEditModeFromMetadata(
+    }                                                                    data[key],
+  },                                                                     editType[key],
+  editType: {                                                            onChange
+    budget_amt: {                                                      )
+      inputType: 'number',
+      validation: { min: 0 }
     }
-  ]
+  }
+}
+
+
+FormattedRow Support (v8.2.0)
+─────────────────────────────
+
+API Response         format-at-read          EntityFormContainer
+────────────         ───────────────         ───────────────────
+
+{ data: {...} }  →   FormattedRow = {    →   // Check for FormattedRow
+                       raw: { budget: 50000 },
+                       display: { budget: '$50,000.00' },
+                       styles: {}
+                     }
+
+                     // View mode uses display
+                     // Edit mode uses raw
+```
+
+---
+
+## Component Implementation (v8.2.0)
+
+### Field Generation with Extractors
+
+```typescript
+import { extractViewType, extractEditType, isValidComponentMetadata } from '@/lib/formatters';
+
+function EntityFormContainer({ data, metadata, isEditing, onChange, formattedData }: Props) {
+  // Get component-specific metadata
+  const componentMetadata = metadata?.entityFormContainer;
+
+  // v8.2.0: Use extractors to get viewType and editType
+  const viewType = extractViewType(componentMetadata);
+  const editType = extractEditType(componentMetadata);
+
+  // Generate field list from metadata
+  const fields = useMemo(() => {
+    if (!viewType) {
+      console.error('[EntityFormContainer] No viewType - backend must send { viewType, editType }');
+      return [];
+    }
+
+    return Object.entries(viewType)
+      .filter(([_, fieldMeta]) => fieldMeta.behavior?.visible !== false)
+      .map(([fieldKey, viewMeta]) => {
+        const editMeta = editType?.[fieldKey];
+
+        return {
+          key: fieldKey,
+          label: viewMeta.label,
+          dtype: viewMeta.dtype,
+          renderType: viewMeta.renderType,
+          inputType: editMeta?.inputType ?? 'text',
+          editable: editMeta?.behavior?.editable ?? false,
+          validation: editMeta?.validation ?? {},
+          lookupSource: editMeta?.lookupSource,
+          datalabelKey: viewMeta.datalabelKey || editMeta?.datalabelKey,
+          lookupEntity: editMeta?.lookupEntity,
+        };
+      });
+  }, [viewType, editType]);
+
+  return (
+    <div className="space-y-4">
+      {fields.map(field => (
+        <FormField
+          key={field.key}
+          field={field}
+          value={data[field.key]}
+          displayValue={formattedData?.display?.[field.key]}
+          isEditing={isEditing}
+          onChange={(value) => onChange(field.key, value)}
+        />
+      ))}
+    </div>
+  );
+}
+```
+
+### Field Rendering
+
+```typescript
+function FormField({ field, value, displayValue, isEditing, onChange }) {
+  // VIEW MODE
+  if (!isEditing) {
+    // Use pre-formatted display value if available
+    if (displayValue !== undefined) {
+      return <span>{displayValue}</span>;
+    }
+
+    // Fallback to renderViewModeFromMetadata
+    return renderViewModeFromMetadata(value, {
+      renderType: field.renderType,
+      label: field.label,
+      datalabelKey: field.datalabelKey,
+    });
+  }
+
+  // EDIT MODE - use editType metadata
+  const editMeta = {
+    inputType: field.inputType,
+    label: field.label,
+    validation: field.validation,
+    lookupSource: field.lookupSource,
+    datalabelKey: field.datalabelKey,
+    lookupEntity: field.lookupEntity,
+  };
+
+  // Special handling for entity references
+  if (field.lookupSource === 'entityInstance') {
+    return (
+      <EntitySelect
+        entityCode={field.lookupEntity}
+        value={value}
+        onChange={onChange}
+      />
+    );
+  }
+
+  // Special handling for datalabel selects
+  if (field.lookupSource === 'datalabel') {
+    return (
+      <DataLabelSelect
+        datalabelKey={field.datalabelKey}
+        value={value}
+        onChange={onChange}
+      />
+    );
+  }
+
+  // Standard field - use backend metadata
+  return renderEditModeFromMetadata(value, editMeta, onChange);
 }
 ```
 
 ---
 
-## Architecture Overview
+## Field Type Mapping (v8.2.0)
 
-### Field Types
-
-| Source | Component | Description |
-|--------|-----------|-------------|
-| Standard fields | `renderEditModeFromMetadata()` | Text, number, date, select |
-| `_ID` references | `EntitySelect` | Single entity reference |
-| `_IDS` references | `EntityMultiSelect` | Multiple entity references |
-| `dl__*_stage` | `DAGVisualizer` + `DataLabelSelect` | Workflow stages |
-| `metadata` field | `MetadataTable` | JSON key-value editor |
-
-### Data Structure
-
-| Structure | Purpose | Example |
-|-----------|---------|---------|
-| `data.{field}` | Standard field value | `data.name = "Project A"` |
-| `data._ID.{label}` | Single reference | `data._ID.manager = { entity_code, uuid, name }` |
-| `data._IDS.{label}` | Multiple references | `data._IDS.stakeholder = [{ entity_code, uuid, name }]` |
-
-### Form States
-
-| Mode | Trigger | Behavior |
-|------|---------|----------|
-| View | `isEditing = false` | Display values, no inputs |
-| Edit | `isEditing = true` | Editable inputs |
-| Create | `data.id = undefined` | Empty form, all editable |
+| viewType.renderType | View Display | editType.inputType | Edit Component |
+|---------------------|--------------|--------------------| ---------------|
+| `currency` | `$50,000.00` | `number` | `<input type="number">` |
+| `badge` | Badge with color | `select` | `<DataLabelSelect>` |
+| `dag` | DAGVisualizer | `select` | `<DataLabelSelect>` |
+| `date` | `Jan 15, 2025` | `date` | `<input type="date">` |
+| `boolean` | Check/X icon | `checkbox` | `<input type="checkbox">` |
+| `reference` | Entity name | `select` | `<EntitySelect>` |
+| `text` | Plain text | `text` | `<input type="text">` |
+| `textarea` | Multi-line text | `textarea` | `<textarea>` |
 
 ---
 
-## Tooling Overview
+## Entity Reference Handling
 
-### Basic Usage
-
-```typescript
-<EntityFormContainer
-  entityCode="project"
-  data={project}
-  metadata={metadata}
-  isEditing={isEditing}
-  onChange={(field, value) => updateData(field, value)}
-  onSave={handleSave}
-/>
-// NOTE: datalabels no longer passed as prop - fetched at login and cached in localStorage
-```
-
-### Reference Handling
+### _ID Structure (Single Reference)
 
 ```typescript
-// _ID update (single reference)
-onChange('_ID', {
-  ...data._ID,
+// Backend sends:
+data._ID = {
   manager: {
     entity_code: 'employee',
-    manager__employee_id: newUuid,
-    manager: newLabel
+    manager__employee_id: 'uuid-123',
+    manager: 'John Smith'
   }
-});
+};
 
-// _IDS update (add to array)
-onChange('_IDS', {
-  ...data._IDS,
+// editType for this field:
+editType['manager__employee_id'] = {
+  inputType: 'select',
+  lookupSource: 'entityInstance',
+  lookupEntity: 'employee'
+};
+
+// Component renders EntitySelect based on editType
+```
+
+### _IDS Structure (Multiple References)
+
+```typescript
+// Backend sends:
+data._IDS = {
   stakeholder: [
-    ...data._IDS.stakeholder,
-    { entity_code: 'employee', stakeholder__employee_id: uuid, stakeholder: label }
+    {
+      entity_code: 'employee',
+      stakeholder__employee_id: 'uuid-1',
+      stakeholder: 'Alice'
+    },
+    {
+      entity_code: 'employee',
+      stakeholder__employee_id: 'uuid-2',
+      stakeholder: 'Bob'
+    }
   ]
-});
+};
+
+// Component renders EntityMultiSelect based on editType
 ```
 
 ---
 
-## Database/API/UI Mapping
+## Usage Example (v8.2.0)
 
-### Field to Component Mapping
+```typescript
+import { useEntityInstance } from '@/lib/hooks/useEntityQuery';
+import { EntityFormContainer } from '@/components/shared/entity/EntityFormContainer';
 
-| Field Pattern | Form Component |
-|---------------|----------------|
-| `*_amt`, `*_price` | Currency input |
-| `*_date` | Date picker |
-| `*_ts` | DateTime picker (readonly) |
-| `is_*`, `*_flag` | Checkbox |
-| `dl__*` | DataLabelSelect |
-| `dl__*_stage` | DataLabelSelect + DAGVisualizer |
-| `*__employee_id` | EntitySelect (employee) |
-| `*__project_id` | EntitySelect (project) |
-| `descr`, `*_text` | Textarea |
-| `metadata` | MetadataTable |
-| Default | Text input |
+function ProjectDetailPage({ projectId }) {
+  const { data: queryResult, isLoading } = useEntityInstance('project', projectId);
 
-### Hidden Fields
+  // queryResult contains:
+  // - data: raw entity data
+  // - metadata: { entityFormContainer: { viewType, editType } }
+  const data = queryResult?.data;
+  const metadata = queryResult?.metadata;
 
-| Field | Reason |
-|-------|--------|
-| `id` | System identifier |
-| `created_ts` | Auto-generated |
-| `updated_ts` | Auto-generated |
-| `version` | Optimistic locking |
-| `active_flag` | System flag |
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedData, setEditedData] = useState(data);
+
+  const handleChange = (fieldKey: string, value: any) => {
+    setEditedData(prev => ({ ...prev, [fieldKey]: value }));
+  };
+
+  return (
+    <EntityFormContainer
+      data={isEditing ? editedData : data}
+      metadata={metadata}
+      isEditing={isEditing}
+      onChange={handleChange}
+    />
+  );
+}
+```
 
 ---
 
-## User Interaction Flow
+## User Interaction Flow (v8.2.0)
 
 ```
-Create Entity Flow
-──────────────────
+Form Load Flow
+──────────────
 
-1. User navigates to /project/new
+1. Page loads entity data
    │
-2. EntityFormPage loads with empty data
+2. useEntityInstance returns:
+   ├── data: raw entity data
+   └── metadata: { entityFormContainer: { viewType, editType } }
    │
-3. EntityFormContainer renders:
-   ├── Standard fields (empty)
-   ├── _ID references (empty dropdowns)
-   └── _IDS references (empty tag lists)
+3. EntityFormContainer extracts metadata:
+   const viewType = extractViewType(metadata.entityFormContainer);
+   const editType = extractEditType(metadata.entityFormContainer);
    │
-4. User fills form:
-   ├── Types in text fields
-   ├── Selects dates
-   ├── Picks entity references from dropdowns
-   └── Adds multiple stakeholders
+4. Fields generated from viewType (visible, label, renderType)
    │
-5. User clicks Save
-   │
-6. Form transforms data for API:
-   {
-     name: "Project A",
-     budget_amt: 50000,
-     manager__employee_id: "uuid-1",
-     stakeholder__employee_ids: ["uuid-2", "uuid-3"]
-   }
-   │
-7. POST /api/v1/project
-   │
-8. Navigate to /project/:newId
+5. VIEW MODE: Uses viewType.renderType for display
+   EDIT MODE: Uses editType.inputType for inputs
 
 
-Edit Entity Flow
-────────────────
+Edit Flow
+─────────
 
-1. User clicks Edit on project detail
+1. User clicks Edit button
    │
-2. GET /api/v1/project/:id
-   Response includes _ID, _IDS structures
+2. isEditing = true
    │
-3. EntityFormContainer renders:
-   ├── Standard fields (populated)
-   ├── _ID references (selected values)
-   └── _IDS references (tag list)
+3. For each visible field:
+   ├── editType[key].inputType determines input component
+   ├── editType[key].lookupSource determines data source
+   └── editType[key].validation determines constraints
    │
 4. User modifies values
    │
-5. User clicks Save
+5. onChange(fieldKey, value) updates local state
    │
-6. PATCH /api/v1/project/:id
-   Only changed fields sent
+6. User clicks Save → PATCH /api/v1/project/:id
    │
-7. Exit edit mode, refetch data
+7. Query invalidation, form refreshes
 ```
 
 ---
 
 ## Critical Considerations
 
-### Design Principles
+### Design Principles (v8.2.0)
 
-1. **Metadata-Driven** - All fields from backend metadata
-2. **Reference Structures** - `_ID`/`_IDS` for entity relations
-3. **Domain Components** - EntitySelect, DataLabelSelect for data-aware fields
-4. **DAG Integration** - Stage fields show workflow visualization
-5. **Transform on Save** - Flatten `_ID`/`_IDS` to API format
-
-### Reference Pattern
-
-| Pattern | Structure | API Transform |
-|---------|-----------|---------------|
-| Single FK | `_ID.manager.manager__employee_id` | `manager__employee_id: uuid` |
-| Multiple FK | `_IDS.stakeholder[].stakeholder__employee_id` | `stakeholder__employee_ids: [uuid]` |
-
-### Validation
-
-| Source | Validation |
-|--------|------------|
-| `metadata.required` | Field must have value |
-| `metadata.validation` | Custom validation rules |
-| `inputType` | Input type constraints |
+1. **extractViewType()** - Always use helper to access viewType
+2. **extractEditType()** - Always use helper to access editType
+3. **FormattedRow Support** - Can use `formattedData.display[key]` in view mode
+4. **Raw Values** - Edit mode uses `data[key]` for original values
+5. **Backend Required** - Metadata must contain `{ viewType, editType }`
+6. **Datalabel Store** - Use cached datalabels from `datalabelMetadataStore`
 
 ### Anti-Patterns
 
 | Anti-Pattern | Correct Approach |
 |--------------|------------------|
-| Hardcoded field list | Use metadata.fields |
-| Direct FK UUID inputs | Use EntitySelect |
-| Manual stage dropdowns | Use DataLabelSelect + DAG |
-| Custom reference handling | Use _ID/_IDS pattern |
+| Direct `metadata.viewType` access | Use `extractViewType(metadata)` |
+| Frontend pattern detection | Backend sends complete metadata |
+| Hardcoded field list | Use `viewType` from backend |
+| Manual entity reference dropdowns | Use `EntitySelect` with `editType.lookupEntity` |
+| Fallback metadata generation | Backend MUST send metadata |
 
 ---
 
-**Last Updated:** 2025-11-24 | **Status:** Production Ready
+**Last Updated:** 2025-11-26 | **Version:** 8.2.0 | **Status:** Production Ready
