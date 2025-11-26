@@ -106,43 +106,6 @@ export interface ComponentMetadata {
   editType: Record<string, EditFieldMetadata>;
 }
 
-// ============================================================================
-// LEGACY TYPES - For backwards compatibility during migration
-// ============================================================================
-
-/**
- * Legacy FieldMetadata - Flat structure (DEPRECATED)
- * Use ViewFieldMetadata or EditFieldMetadata instead
- *
- * @deprecated v8.1.0 - Use ViewFieldMetadata or EditFieldMetadata
- */
-export interface FieldMetadata {
-  renderType?: string;              // View mode: how to display
-  inputType?: string;               // Edit mode: what input control
-  datalabelKey?: string;
-  lookupSource?: 'datalabel' | 'entityInstance';
-  lookupEntity?: string;
-  currencySymbol?: string;
-  symbol?: string;
-  decimals?: number;
-  dateFormat?: string;
-  locale?: string;
-  label?: string;
-  width?: string;
-  align?: 'left' | 'center' | 'right';
-  visible?: boolean;
-  editable?: boolean;
-  sortable?: boolean;
-  filterable?: boolean;
-  color?: string;
-  colorMap?: Record<string, string>;
-}
-
-/**
- * Legacy flat metadata structure (DEPRECATED)
- * @deprecated v8.1.0 - Use ComponentMetadata instead
- */
-export type FlatComponentMetadata = Record<string, FieldMetadata>;
 
 // ============================================================================
 // FORMATTED VALUE TYPES
@@ -171,66 +134,53 @@ export interface FormattedRow<T = Record<string, any>> {
 export type ValueFormatter = (
   value: any,
   key: string,
-  metadata: ViewFieldMetadata | FieldMetadata | undefined
+  metadata: ViewFieldMetadata | undefined
 ) => FormattedValue;
 
 // ============================================================================
-// TYPE GUARDS
+// HELPER FUNCTIONS
 // ============================================================================
 
 /**
- * Check if metadata has the new nested structure (viewType/editType)
+ * Check if metadata has the required nested structure (viewType/editType)
  */
-export function isNestedComponentMetadata(
-  metadata: ComponentMetadata | FlatComponentMetadata | null | undefined
+export function isValidComponentMetadata(
+  metadata: ComponentMetadata | null | undefined
 ): metadata is ComponentMetadata {
   if (!metadata) return false;
   return 'viewType' in metadata && typeof metadata.viewType === 'object';
 }
 
 /**
- * Extract viewType from component metadata (handles both new and legacy structures)
+ * Extract viewType from component metadata
+ * v8.2.0: Only supports new nested structure - no legacy fallback
  */
 export function extractViewType(
-  metadata: ComponentMetadata | FlatComponentMetadata | null | undefined
-): Record<string, ViewFieldMetadata | FieldMetadata> | null {
+  metadata: ComponentMetadata | null | undefined
+): Record<string, ViewFieldMetadata> | null {
   if (!metadata) return null;
 
-  // New nested structure: { viewType: {...}, editType: {...} }
-  if (isNestedComponentMetadata(metadata)) {
-    return metadata.viewType;
+  if (!isValidComponentMetadata(metadata)) {
+    console.error('[formatters] Invalid metadata structure - expected { viewType, editType }');
+    return null;
   }
 
-  // Legacy flat structure: { fieldName: {...} }
-  // Check if first key looks like a field name (not 'viewType' or 'editType')
-  const keys = Object.keys(metadata);
-  if (keys.length > 0 && !['viewType', 'editType'].includes(keys[0])) {
-    console.warn('[formatters] Using legacy flat metadata structure - please migrate to viewType/editType');
-    return metadata as Record<string, FieldMetadata>;
-  }
-
-  return null;
+  return metadata.viewType;
 }
 
 /**
- * Extract editType from component metadata (handles both new and legacy structures)
+ * Extract editType from component metadata
+ * v8.2.0: Only supports new nested structure - no legacy fallback
  */
 export function extractEditType(
-  metadata: ComponentMetadata | FlatComponentMetadata | null | undefined
-): Record<string, EditFieldMetadata | FieldMetadata> | null {
+  metadata: ComponentMetadata | null | undefined
+): Record<string, EditFieldMetadata> | null {
   if (!metadata) return null;
 
-  // New nested structure: { viewType: {...}, editType: {...} }
-  if (isNestedComponentMetadata(metadata)) {
-    return metadata.editType;
+  if (!isValidComponentMetadata(metadata)) {
+    console.error('[formatters] Invalid metadata structure - expected { viewType, editType }');
+    return null;
   }
 
-  // Legacy flat structure doesn't have separate editType
-  // Return the flat structure as-is for backwards compatibility
-  const keys = Object.keys(metadata);
-  if (keys.length > 0 && !['viewType', 'editType'].includes(keys[0])) {
-    return metadata as Record<string, FieldMetadata>;
-  }
-
-  return null;
+  return metadata.editType;
 }

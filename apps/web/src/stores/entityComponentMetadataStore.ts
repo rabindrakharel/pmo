@@ -9,8 +9,8 @@
  *
  * Cache Key Format: "project:entityDataTable", "task:entityFormContainer"
  *
- * v8.1.0: Updated to support nested ComponentMetadata structure from backend
- * Backend sends: { viewType: {...}, editType: {...} }
+ * v8.2.0: Only supports nested ComponentMetadata structure from backend
+ * Backend MUST send: { viewType: {...}, editType: {...} }
  *
  * Usage:
  * ```typescript
@@ -29,53 +29,14 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { devtools } from 'zustand/middleware';
 import type {
   ComponentMetadata,
-  FlatComponentMetadata,
   ViewFieldMetadata,
   EditFieldMetadata,
 } from '../lib/formatters/types';
-import { isNestedComponentMetadata } from '../lib/formatters/types';
+import { isValidComponentMetadata } from '../lib/formatters/types';
 
 // ============================================================================
 // Types
 // ============================================================================
-
-/**
- * @deprecated Use ViewFieldMetadata or EditFieldMetadata from formatters/types.ts
- * Kept for backwards compatibility during migration
- */
-export interface FieldMetadata {
-  dtype: string;
-  format: string;
-  internal: boolean;
-  visible: boolean;
-  filterable: boolean;
-  sortable: boolean;
-  editable: boolean;
-  viewType: string;
-  editType: string;
-  label: string;
-  width?: string;
-  align?: 'left' | 'center' | 'right';
-  searchable?: boolean;
-  required?: boolean;
-  placeholder?: string;
-  help?: string;
-  currencySymbol?: string;
-  decimals?: number;
-  locale?: string;
-  dateFormat?: string;
-  timestampFormat?: string;
-  trueLabel?: string;
-  falseLabel?: string;
-  trueColor?: string;
-  falseColor?: string;
-  lookupSource?: 'datalabel' | 'entityInstance';
-  lookupEntity?: string;
-  datalabelKey?: string;
-  endpoint?: string;
-  displayField?: string;
-  valueField?: string;
-}
 
 export type ComponentName =
   | 'entityDataTable'
@@ -86,15 +47,8 @@ export type ComponentName =
   | 'dagView'
   | 'hierarchyGraphView';
 
-/**
- * Stored metadata type - can be either:
- * - New nested format: { viewType: {...}, editType: {...} }
- * - Legacy flat format: { fieldName: {...} } (for backwards compat)
- */
-export type StoredComponentMetadata = ComponentMetadata | FlatComponentMetadata;
-
 interface CacheEntry {
-  data: StoredComponentMetadata;
+  data: ComponentMetadata;
   timestamp: number;
   ttl: number;
   entityCode: string;
@@ -106,10 +60,10 @@ interface EntityComponentMetadataState {
 }
 
 interface EntityComponentMetadataActions {
-  setComponentMetadata: (entityCode: string, componentName: string, metadata: StoredComponentMetadata) => void;
-  setAllComponentMetadata: (entityCode: string, allMetadata: Record<string, StoredComponentMetadata>) => void;
-  getComponentMetadata: (entityCode: string, componentName: string) => StoredComponentMetadata | null;
-  getAllComponentMetadata: (entityCode: string) => Record<string, StoredComponentMetadata> | null;
+  setComponentMetadata: (entityCode: string, componentName: string, metadata: ComponentMetadata) => void;
+  setAllComponentMetadata: (entityCode: string, allMetadata: Record<string, ComponentMetadata>) => void;
+  getComponentMetadata: (entityCode: string, componentName: string) => ComponentMetadata | null;
+  getAllComponentMetadata: (entityCode: string) => Record<string, ComponentMetadata> | null;
   isExpired: (entityCode: string, componentName: string) => boolean;
   getExpiredKeys: () => string[];
   invalidateEntity: (entityCode: string) => void;
@@ -134,16 +88,13 @@ export const useEntityComponentMetadataStore = create<EntityComponentMetadataSta
         metadata: {},
 
         // Setters
-        setComponentMetadata: (entityCode: string, componentName: string, metadata: StoredComponentMetadata) => {
+        setComponentMetadata: (entityCode: string, componentName: string, metadata: ComponentMetadata) => {
           const cacheKey = `${entityCode}:${componentName}`;
-          const isNested = isNestedComponentMetadata(metadata);
-          const fieldCount = isNested
-            ? Object.keys(metadata.viewType || {}).length
-            : Object.keys(metadata).length;
+          const fieldCount = Object.keys(metadata.viewType || {}).length;
 
           console.log(`%c[EntityComponentStore] Storing: ${cacheKey}`, 'color: #be4bdb; font-weight: bold', {
             fieldCount,
-            isNestedFormat: isNested,
+            isValid: isValidComponentMetadata(metadata),
           });
 
           const { metadata: currentMetadata } = get();
@@ -161,7 +112,7 @@ export const useEntityComponentMetadataStore = create<EntityComponentMetadataSta
           });
         },
 
-        setAllComponentMetadata: (entityCode: string, allMetadata: Record<string, StoredComponentMetadata>) => {
+        setAllComponentMetadata: (entityCode: string, allMetadata: Record<string, ComponentMetadata>) => {
           const componentNames = Object.keys(allMetadata);
           console.log(`%c[EntityComponentStore] Storing all for ${entityCode}:`, 'color: #be4bdb; font-weight: bold', componentNames);
 
@@ -202,14 +153,14 @@ export const useEntityComponentMetadataStore = create<EntityComponentMetadataSta
           }
 
           console.log(`%c[EntityComponentStore] Cache HIT: ${cacheKey}`, 'color: #51cf66; font-weight: bold', {
-            isNestedFormat: isNestedComponentMetadata(entry.data),
+            isValid: isValidComponentMetadata(entry.data),
           });
           return entry.data;
         },
 
         getAllComponentMetadata: (entityCode: string) => {
           const { metadata } = get();
-          const result: Record<string, StoredComponentMetadata> = {};
+          const result: Record<string, ComponentMetadata> = {};
           let hasValidEntries = false;
 
           Object.entries(metadata).forEach(([_cacheKey, entry]) => {
@@ -274,4 +225,4 @@ export const useEntityComponentMetadataStore = create<EntityComponentMetadataSta
 // ============================================================================
 // Re-export types for convenience
 // ============================================================================
-export type { ComponentMetadata, FlatComponentMetadata, ViewFieldMetadata, EditFieldMetadata };
+export type { ComponentMetadata, ViewFieldMetadata, EditFieldMetadata };

@@ -19,7 +19,7 @@ import {
 } from '../../../lib/frontEndFormatterService';
 import { colorCodeToTailwindClass } from '../../../lib/formatters/valueFormatters';
 import type { FormattedRow } from '../../../lib/formatters';
-import { extractViewType, extractEditType, isNestedComponentMetadata } from '../../../lib/formatters';
+import { extractViewType, extractEditType, isValidComponentMetadata } from '../../../lib/formatters';
 import { useDatalabelMetadataStore } from '../../../stores/datalabelMetadataStore';
 
 import { MetadataTable } from './MetadataTable';
@@ -128,94 +128,85 @@ function EntityFormContainerInner({
   // ============================================================================
   // METADATA-DRIVEN FIELD GENERATION
   // ============================================================================
-  // v7.0.0: Backend metadata is source of truth. No auto-generation.
+  // v8.2.0: Backend metadata is REQUIRED. Only { viewType, editType } structure supported.
 
   const fields = useMemo(() => {
-    // PRIORITY 1: Backend metadata (v4.0 architecture - component-aware format)
-    // v8.1.0: Backend returns: metadata.entityFormContainer = { viewType: {...}, editType: {...} }
-    // OR legacy: metadata.entityFormContainer = { field_name: { visible, editable, ... }, ... }
+    // v8.2.0: Backend MUST return: metadata.entityFormContainer = { viewType: {...}, editType: {...} }
     const componentMetadata = metadata?.entityFormContainer;
-    if (componentMetadata && typeof componentMetadata === 'object') {
-      // v8.1.0: Extract viewType and editType from nested structure (or use flat structure)
-      const viewType = extractViewType(componentMetadata);
-      const editType = extractEditType(componentMetadata);
-      const isNested = isNestedComponentMetadata(componentMetadata);
 
-      console.log(`%c[FIELDS] 📋 EntityFormContainer metadata structure:`, 'color: #51cf66; font-weight: bold', {
-        isNestedFormat: isNested,
-        hasViewType: !!viewType,
-        hasEditType: !!editType,
-        viewTypeFieldCount: viewType ? Object.keys(viewType).length : 0,
-      });
-
-      if (!viewType) {
-        console.warn('[EntityFormContainer] No viewType found in metadata');
-        return [];
-      }
-
-      // Convert object format to array of FieldDef
-      const result = Object.entries(viewType)
-        .filter(([_, fieldMeta]: [string, any]) => {
-          // v8.1.0: Check nested behavior.visible OR flat visible
-          const visible = fieldMeta.behavior?.visible ?? fieldMeta.visible ?? true;
-          return visible !== false;
-        })
-        .map(([fieldKey, viewMeta]: [string, any]) => {
-          // v8.1.0: Get edit metadata separately
-          const editMeta = editType?.[fieldKey] as any;
-
-          // v8.1.0: Extract properties from nested structure OR flat structure
-          const label = viewMeta.label || generateFieldLabel(fieldKey);
-          const inputType = editMeta?.inputType ?? viewMeta.editType ?? viewMeta.inputType ?? 'text';
-          const editable = editMeta?.behavior?.editable ?? viewMeta.editable ?? true;
-          const lookupSource = editMeta?.lookupSource ?? viewMeta.lookupSource;
-          const lookupEntity = editMeta?.lookupEntity ?? viewMeta.lookupEntity;
-          const datalabelKey = editMeta?.datalabelKey ?? viewMeta.datalabelKey ?? viewMeta.settingsDatalabel;
-
-          // Convert renderType/format to viz_container (backend-driven visualization)
-          let vizContainer = viewMeta.EntityFormContainer_viz_container ?? editMeta?.component;
-          const renderType = viewMeta.renderType ?? viewMeta.viewType ?? viewMeta.format;
-          if (!vizContainer && (renderType === 'dag')) {
-            vizContainer = 'DAGVisualizer';
-          } else if (!vizContainer && fieldKey === 'metadata') {
-            vizContainer = 'MetadataTable';
-          }
-
-          return {
-            key: fieldKey,
-            label,
-            type: inputType,
-            editable,
-            visible: true,
-            lookupSource,
-            lookupEntity,
-            datalabelKey,
-            loadDataLabels: lookupSource === 'datalabel' || !!datalabelKey,
-            EntityFormContainer_viz_container: vizContainer,
-            toApi: (value: any) => value,
-            toDisplay: (value: any) => value
-          } as FieldDef;
-        });
-      console.log(
-        `%c[FIELDS] 📋 EntityFormContainer fields computed from BACKEND METADATA`,
-        'color: #51cf66; font-weight: bold',
-        { fieldCount: result.length, fieldKeys: result.map(f => f.key) }
-      );
-      return result;
-    }
-
-    // PRIORITY 2: Config fields (backward compatibility)
+    // Explicit config fields override (for special cases)
     if (config?.fields && config.fields.length > 0) {
       console.log(
-        `%c[FIELDS] 📋 EntityFormContainer fields from CONFIG`,
+        `%c[FIELDS] 📋 EntityFormContainer using explicit config fields`,
         'color: #fcc419; font-weight: bold',
         { fieldCount: config.fields.length }
       );
       return config.fields;
     }
 
-    // v7.0.0: No auto-generation - all routes must provide metadata from backend
-    return [];
+    // Extract viewType and editType from component metadata
+    const viewType = extractViewType(componentMetadata);
+    const editType = extractEditType(componentMetadata);
+
+    console.log(`%c[FIELDS] 📋 EntityFormContainer metadata:`, 'color: #51cf66; font-weight: bold', {
+      isValid: isValidComponentMetadata(componentMetadata),
+      hasViewType: !!viewType,
+      hasEditType: !!editType,
+      fieldCount: viewType ? Object.keys(viewType).length : 0,
+    });
+
+    if (!viewType) {
+      console.error('[EntityFormContainer] No viewType in metadata - backend must send { viewType, editType }');
+      return [];
+    }
+
+    // Convert object format to array of FieldDef
+    const result = Object.entries(viewType)
+      .filter(([_, fieldMeta]) => {
+        return fieldMeta.behavior?.visible !== false;
+      })
+      .map(([fieldKey, viewMeta]) => {
+        const editMeta = editType?.[fieldKey];
+
+        // Extract properties from nested structure
+        const label = viewMeta.label || generateFieldLabel(fieldKey);
+        const inputType = editMeta?.inputType ?? 'text';
+        const editable = editMeta?.behavior?.editable ?? false;
+        const lookupSource = editMeta?.lookupSource;
+        const lookupEntity = editMeta?.lookupEntity;
+        const datalabelKey = editMeta?.datalabelKey;
+
+        // Determine special visualization component
+        let vizContainer = editMeta?.component;
+        const renderType = viewMeta.renderType;
+        if (!vizContainer && renderType === 'dag') {
+          vizContainer = 'DAGVisualizer';
+        } else if (!vizContainer && fieldKey === 'metadata') {
+          vizContainer = 'MetadataTable';
+        }
+
+        return {
+          key: fieldKey,
+          label,
+          type: inputType,
+          editable,
+          visible: true,
+          lookupSource,
+          lookupEntity,
+          datalabelKey,
+          loadDataLabels: lookupSource === 'datalabel' || !!datalabelKey,
+          EntityFormContainer_viz_container: vizContainer,
+          toApi: (value: any) => value,
+          toDisplay: (value: any) => value
+        } as FieldDef;
+      });
+
+    console.log(
+      `%c[FIELDS] 📋 EntityFormContainer fields computed`,
+      'color: #51cf66; font-weight: bold',
+      { fieldCount: result.length, fieldKeys: result.map(f => f.key) }
+    );
+    return result;
   }, [metadata, config]);
 
   // Simple onChange handler - debouncing is handled by DebouncedInput/DebouncedTextarea
