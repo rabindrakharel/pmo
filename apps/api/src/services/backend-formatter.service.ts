@@ -1582,7 +1582,6 @@ function generateLabel(fieldName: string): string {
 
   return label
     .split('_')
-    .filter(word => word.length > 0)  // Remove empty strings from leading/trailing underscores
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 }
