@@ -2,8 +2,9 @@
 
 > **React 19, TypeScript, Backend-Driven Metadata, Zero Pattern Detection**
 > Universal page system with 3 pages handling 27+ entity types dynamically
+> Real-time sync via WebSocket invalidation (v8.4.0)
 
-**Version:** 8.3.3 | **Last Updated:** 2025-11-27
+**Version:** 8.4.0 | **Last Updated:** 2025-11-27
 
 ---
 
@@ -341,16 +342,26 @@ EntitySpecificInstancePage
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    STATE MANAGEMENT (v8.2.0)                     │
+│                    STATE MANAGEMENT (v8.4.0)                     │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌───────────────────────────────────────────────────────────┐  │
-│  │  REACT QUERY - Sole Data Cache                             │  │
+│  │  REACT QUERY - Sole Data Cache + Real-Time Sync            │  │
 │  │  ─────────────────────────────────────────────────────     │  │
 │  │  • Stores RAW entity data only (no formatted strings)      │  │
 │  │  • Format-at-read via `select` option (memoized)           │  │
 │  │  • Stale-while-revalidate pattern                          │  │
 │  │  • Automatic cache invalidation on mutations               │  │
+│  │  • WebSocket-triggered invalidation (v8.4.0)               │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  SYNC PROVIDER - WebSocket Real-Time Sync (v8.4.0)         │  │
+│  │  ─────────────────────────────────────────────────────     │  │
+│  │  • Manages WebSocket connection to PubSub service (:4001)  │  │
+│  │  • Auto-subscribe to loaded entity IDs                     │  │
+│  │  • INVALIDATE messages trigger cache invalidation          │  │
+│  │  • Exponential backoff reconnection                        │  │
 │  └───────────────────────────────────────────────────────────┘  │
 │                                                                 │
 │  ┌───────────────────────────────────────────────────────────┐  │
@@ -371,9 +382,11 @@ EntitySpecificInstancePage
 
 | Hook | Purpose | Returns |
 |------|---------|---------|
-| `useFormattedEntityList(entityCode, params)` | List with format-at-read | `{ formattedData: FormattedRow[], metadata }` |
-| `useEntityInstance(entityCode, id)` | Single entity | `{ data, metadata }` |
+| `useFormattedEntityList(entityCode, params)` | List with format-at-read + auto-subscribe | `{ formattedData: FormattedRow[], metadata }` |
+| `useEntityInstance(entityCode, id)` | Single entity + auto-subscribe | `{ data, metadata }` |
 | `useEntityMutation(entityCode)` | CRUD operations | `{ updateEntity, deleteEntity }` |
+| `useSync()` | WebSocket sync context (v8.4.0) | `{ status, subscribe, unsubscribe }` |
+| `useAutoSubscribe(entityCode, entityIds)` | Auto-manage subscriptions (v8.4.0) | `void` |
 | `extractViewType(metadata)` | Get viewType from ComponentMetadata | `Record<string, ViewFieldMetadata>` |
 | `extractEditType(metadata)` | Get editType from ComponentMetadata | `Record<string, EditFieldMetadata>` |
 
@@ -536,14 +549,23 @@ When implementing a new component that consumes metadata:
 | `lib/formatters/datasetFormatter.ts` | formatDataset, formatRow, formatValue |
 | `stores/entityComponentMetadataStore.ts` | Component metadata cache |
 | `stores/datalabelMetadataStore.ts` | Dropdown options cache |
-| `lib/hooks/useEntityQuery.ts` | React Query hooks |
+| `lib/hooks/useEntityQuery.ts` | React Query hooks + auto-subscribe integration |
 | `lib/frontEndFormatterService.tsx` | renderViewModeFromMetadata, renderEditModeFromMetadata |
+| `db/sync/SyncProvider.tsx` | WebSocket connection + cache invalidation (v8.4.0) |
+| `db/sync/useAutoSubscribe.ts` | Automatic entity subscription (v8.4.0) |
+| `db/sync/types.ts` | WebSocket message type definitions (v8.4.0) |
 
 ---
 
-**Version:** 8.3.3 | **Last Updated:** 2025-11-27 | **Status:** Production Ready
+**Version:** 8.4.0 | **Last Updated:** 2025-11-27 | **Status:** Production Ready
 
 **Recent Updates:**
+- v8.4.0 (2025-11-27): **Real-Time WebSocket Sync**
+  - Added `SyncProvider` to provider hierarchy (wraps EntityMetadataProvider)
+  - Entity hooks (`useEntityInstanceList`, `useEntityInstance`) now auto-subscribe
+  - Added `useSync()` and `useAutoSubscribe()` hooks
+  - WebSocket connection to PubSub service (port 4001)
+  - See `docs/caching/RXDB_SYNC_ARCHITECTURE.md` for full sync architecture
 - v8.3.3 (2025-11-27):
   - Updated DAGVisualizer props: `nodes: DAGNode[]`, `currentNodeId?: number`, `onNodeClick?`
   - Added `component` property to ViewFieldMetadata for `renderType: 'component'` pattern

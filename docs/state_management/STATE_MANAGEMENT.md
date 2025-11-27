@@ -1,6 +1,6 @@
 # State Management Architecture
 
-**Version:** 9.0.0 | **Location:** `apps/web/src/db/` | **Updated:** 2025-11-27
+**Version:** 8.4.0 | **Location:** `apps/web/src/stores/` | **Updated:** 2025-11-27
 
 ---
 
@@ -8,39 +8,28 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    STATE MANAGEMENT (v9.0.0 RxDB + RxState)                  │
+│                    STATE MANAGEMENT (v8.4.0)                                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌───────────────────────────────────────────────────────────────────────┐   │
-│  │  RxDB DATABASE (IndexedDB via Dexie)                                  │   │
+│  │  REACT QUERY - Sole Data Cache + Real-Time Sync                       │   │
 │  │  ─────────────────────────────────────────────────────────────────    │   │
-│  │                                                                       │   │
-│  │  ENTITY COLLECTIONS (Synced bidirectionally)                          │   │
-│  │  ├── project        → ProjectDoc schema                               │   │
-│  │  ├── task           → TaskDoc schema                                  │   │
-│  │  ├── employee       → EmployeeDoc schema                              │   │
-│  │  └── ... 27+ entity types                                             │   │
-│  │                                                                       │   │
-│  │  METADATA COLLECTIONS (Pull-only sync)                                │   │
-│  │  ├── datalabel      → DatalabelDoc (dropdown options)                 │   │
-│  │  └── entity_type    → EntityTypeDoc (entity definitions)              │   │
-│  │                                                                       │   │
-│  │  LOCAL DOCUMENTS (RxState - No sync)                                  │   │
-│  │  ├── global-settings       → Currency, date, boolean formats          │   │
-│  │  ├── component-metadata:*  → viewType/editType per component          │   │
-│  │  ├── edit-state:*          → Draft edits (survives refresh!)          │   │
-│  │  └── ui-preferences        → Theme, sidebar, default views            │   │
-│  │                                                                       │   │
+│  │  • Stores RAW entity data only (no formatted strings)                 │   │
+│  │  • Format-at-read via `select` option (memoized)                      │   │
+│  │  • Stale-while-revalidate pattern                                     │   │
+│  │  • Optimistic updates with automatic rollback                         │   │
+│  │  • ref_data_entityInstance lookup tables for entity references        │   │
+│  │  • WebSocket-triggered cache invalidation (v8.4.0)                    │   │
 │  └───────────────────────────────────────────────────────────────────────┘   │
-│                              │                                               │
-│                              ▼ Background Replication                        │
+│                                                                              │
 │  ┌───────────────────────────────────────────────────────────────────────┐   │
-│  │  REST REPLICATION LAYER                                               │   │
+│  │  WEBSOCKET SYNC - Real-Time Invalidation (v8.4.0)                     │   │
 │  │  ─────────────────────────────────────────────────────────────────    │   │
-│  │  • Entity sync: Pull + Push (bidirectional)                           │   │
-│  │  • Metadata sync: Pull only (reference data)                          │   │
-│  │  • Conflict: Server wins (RBAC is authoritative)                      │   │
-│  │  • Retry: Exponential backoff on failure                              │   │
+│  │  • SyncProvider manages WebSocket connection to PubSub service        │   │
+│  │  • Auto-subscribe to loaded entity IDs via useAutoSubscribe hook      │   │
+│  │  • INVALIDATE messages trigger queryClient.invalidateQueries()        │   │
+│  │  • Automatic reconnection with exponential backoff                    │   │
+│  │  • Version tracking prevents stale update processing                  │   │
 │  └───────────────────────────────────────────────────────────────────────┘   │
 │                                                                              │
 │  BENEFITS:                                                                   │
@@ -60,12 +49,14 @@
 
 | Principle | Implementation |
 |-----------|----------------|
-| **Local-First** | RxDB stores data in IndexedDB; works offline |
-| **Single Source of Truth** | All state in RxDB (collections + local documents) |
-| **Reactive Queries** | Subscriptions auto-update when documents change |
-| **Background Sync** | REST replication runs in background |
-| **Conflict Resolution** | Server wins (RBAC is authoritative) |
-| **Draft Persistence** | Edit state persists in local documents |
+| **Single Source of Truth** | React Query caches RAW data only |
+| **Format-at-Read** | `select` option transforms on read (memoized) |
+| **Backend Metadata** | viewType/editType/lookupEntity from backend (v8.3.1) |
+| **ref_data_entityInstance Pattern** | Entity references resolved via lookup table (v8.3.0) |
+| **Real-Time Sync** | WebSocket invalidation triggers React Query refetch (v8.4.0) |
+| **Separation of Concerns** | Data (React Query) vs Metadata (Zustand) vs Sync (SyncProvider) |
+| **Stale-While-Revalidate** | Show cached, refetch in background |
+| **Tiered TTL** | Reference (2h) > Metadata (15m) > Lists (30s) > Details (10s) |
 
 ---
 
@@ -105,7 +96,118 @@ apps/web/src/db/
 
 ---
 
-## Hook Catalog (v9.0.0)
+## Real-Time Sync Architecture (v8.4.0)
+
+### WebSocket Invalidation Pattern
+
+The frontend uses a WebSocket connection to the PubSub service (port 4001) for real-time cache invalidation. When entities change on the server, the PubSub service pushes INVALIDATE messages that trigger React Query cache invalidation.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  REAL-TIME SYNC FLOW (v8.4.0)                                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  1. Client loads entities via REST API                                       │
+│     GET /api/v1/project → React Query caches data                           │
+│                                                                              │
+│  2. useAutoSubscribe sends SUBSCRIBE message                                 │
+│     WebSocket → { type: 'SUBSCRIBE', payload: { entityCode, entityIds } }   │
+│                                                                              │
+│  3. PubSub stores subscriptions in database                                  │
+│     INSERT INTO app.rxdb_subscription (user_id, entity_code, entity_id)     │
+│                                                                              │
+│  4. Another user modifies entity via REST API                                │
+│     PATCH /api/v1/project/123 → Database trigger logs to app.logging        │
+│                                                                              │
+│  5. LogWatcher polls app.logging (60s), finds subscribers                    │
+│     SELECT * FROM app.rxdb_subscription WHERE entity_code = 'project'       │
+│                                                                              │
+│  6. PubSub pushes INVALIDATE to subscribed clients                           │
+│     WebSocket ← { type: 'INVALIDATE', payload: { entityCode, changes } }    │
+│                                                                              │
+│  7. SyncProvider handles INVALIDATE                                          │
+│     queryClient.invalidateQueries(['entity-instance', 'project', '123'])    │
+│                                                                              │
+│  8. React Query automatically refetches (if component is mounted)            │
+│     GET /api/v1/project/123 → Fresh data with RBAC enforced                 │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Sync Provider
+
+Location: `apps/web/src/db/sync/SyncProvider.tsx`
+
+```typescript
+// SyncProvider wraps the application (in App.tsx)
+<QueryClientProvider client={queryClient}>
+  <AuthProvider>
+    <SyncProvider>  {/* WebSocket connection manager */}
+      <EntityMetadataProvider>
+        <Router>
+          {/* App routes */}
+        </Router>
+      </EntityMetadataProvider>
+    </SyncProvider>
+  </AuthProvider>
+</QueryClientProvider>
+```
+
+### useAutoSubscribe Hook
+
+Location: `apps/web/src/db/sync/useAutoSubscribe.ts`
+
+Automatically subscribes to entity IDs when data is loaded:
+
+```typescript
+// Inside useEntityInstanceList hook
+const entityIds = useMemo(
+  () => query.data?.data?.map((item: { id: string }) => item.id) ?? [],
+  [query.data?.data]
+);
+useAutoSubscribe(entityCode, entityIds);  // Subscribe to all loaded IDs
+```
+
+### SyncContextValue Interface
+
+```typescript
+interface SyncContextValue {
+  status: 'disconnected' | 'connecting' | 'connected' | 'error';
+  subscribe: (entityCode: string, entityIds: string[]) => void;
+  unsubscribe: (entityCode: string, entityIds?: string[]) => void;
+  unsubscribeAll: () => void;
+}
+
+// Hook usage (REQUIRED - throws if not in SyncProvider)
+const { status, subscribe, unsubscribe } = useSync();
+```
+
+### Version Tracking (Out-of-Order Protection)
+
+```typescript
+// SyncProvider tracks processed versions to prevent stale updates
+const processedVersions = useRef(new Map<string, number>());
+
+const handleInvalidate = (payload) => {
+  for (const change of payload.changes) {
+    const key = `${payload.entityCode}:${change.entityId}`;
+    const lastVersion = processedVersions.current.get(key) || 0;
+
+    // Skip if we've already processed a newer version
+    if (change.version <= lastVersion) continue;
+    processedVersions.current.set(key, change.version);
+
+    // Invalidate React Query cache
+    queryClient.invalidateQueries({
+      queryKey: ['entity-instance', payload.entityCode, change.entityId],
+    });
+  }
+};
+```
+
+---
+
+## Entity Reference Resolution (v8.3.0)
 
 ### Core RxDB Hooks
 
@@ -486,6 +588,93 @@ fastify.get('/api/v1/project/sync', async (request, reply) => {
     hasMore: projects.length === limit
   };
 });
+
+// 3. Render based on vizContainer (set from viewType metadata)
+if (vizContainer?.view === 'DAGVisualizer' && dagNodes.has(field.key)) {
+  return <DAGVisualizer nodes={dagNodes.get(field.key)} />;
+}
+```
+
+### Anti-Patterns (REMOVED in v8.3.2)
+
+| Anti-Pattern | Correct Approach |
+|--------------|------------------|
+| `loadDataLabels` property | Use `editType.lookupSource === 'datalabel'` |
+| Pattern detection (`dl__*`) | Use backend metadata |
+| `isStageField()` function | Use `viewType.component === 'DAGVisualizer'` |
+| Per-field API calls | Login-time cache via `datalabelMetadataStore` |
+
+---
+
+## Cache Invalidation
+
+### On Mutation (Local User)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  MUTATION → CACHE INVALIDATION (Local User)                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  useEntityMutation('project').updateEntity(id, data)                         │
+│                       │                                                      │
+│                       ▼                                                      │
+│  1. Optimistic Update                                                        │
+│     React Query: setQueryData (immediate UI feedback)                        │
+│                       │                                                      │
+│                       ▼                                                      │
+│  2. API Call                                                                 │
+│     PATCH /api/v1/project/{id}                                               │
+│                       │                                                      │
+│       ┌───────────────┴───────────────┐                                      │
+│       ▼                               ▼                                      │
+│  3a. Success                     3b. Error                                   │
+│     invalidateQueries(['entity-list'])    rollback to previous data          │
+│     invalidateQueries(['entity', id])                                        │
+│     entityComponentMetadataStore.invalidate('project')                       │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### On Remote Change (WebSocket - v8.4.0)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  WEBSOCKET INVALIDATE → CACHE INVALIDATION (Remote User)                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  PubSub Service pushes INVALIDATE message                                    │
+│                       │                                                      │
+│                       ▼                                                      │
+│  1. SyncProvider receives WebSocket message                                  │
+│     { type: 'INVALIDATE', payload: { entityCode, changes } }                │
+│                       │                                                      │
+│                       ▼                                                      │
+│  2. Version Check (out-of-order protection)                                  │
+│     Skip if change.version <= lastProcessedVersion                          │
+│                       │                                                      │
+│                       ▼                                                      │
+│  3. Invalidate React Query Cache                                             │
+│     queryClient.invalidateQueries(['entity-instance', entityCode, entityId])│
+│     queryClient.invalidateQueries(['entity-instance-list', entityCode])     │
+│                       │                                                      │
+│                       ▼                                                      │
+│  4. React Query Auto-Refetch (if component mounted)                          │
+│     GET /api/v1/{entityCode}/{entityId} → Fresh data                        │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### On Logout
+
+```typescript
+// Auth context clears all caches
+const logout = () => {
+  queryClient.clear();  // React Query
+  useGlobalSettingsMetadataStore.getState().clear();
+  useDatalabelMetadataStore.getState().clear();
+  useEntityComponentMetadataStore.getState().clear();
+  useEntityCodeMetadataStore.getState().clear();
+};
 ```
 
 ---
@@ -510,32 +699,45 @@ fastify.get('/api/v1/project/sync', async (request, reply) => {
 
 | File | Purpose |
 |------|---------|
-| `db/index.ts` | Database creation, getDatabase() |
-| `db/DatabaseProvider.tsx` | React context, loading states |
-| `db/schemas/*.ts` | RxDB collection schemas |
-| `db/hooks/*.ts` | All React hooks |
-| `db/replication/*.ts` | REST sync handlers |
+| `stores/entityComponentMetadataStore.ts` | Component metadata cache |
+| `stores/datalabelMetadataStore.ts` | Dropdown options cache |
+| `stores/globalSettingsMetadataStore.ts` | Currency/date formats |
+| `stores/entityCodeMetadataStore.ts` | Entity type registry |
+| `stores/useEntityEditStore.ts` | Edit state management |
+| `lib/hooks/useEntityQuery.ts` | React Query hooks + RefData type + auto-subscribe |
+| `lib/hooks/useRefData.ts` | Reference resolution hook (v8.3.0) |
+| `lib/refDataResolver.ts` | Metadata-based resolution utilities (v8.3.1) |
+| `lib/formatters/types.ts` | ComponentMetadata types |
+| `lib/formatters/datasetFormatter.ts` | formatDataset function |
+| `db/sync/SyncProvider.tsx` | WebSocket connection + cache invalidation (v8.4.0) |
+| `db/sync/useAutoSubscribe.ts` | Auto-subscription to entity IDs (v8.4.0) |
+| `db/sync/types.ts` | Sync message type definitions (v8.4.0) |
 
 ---
 
-## Legacy Documentation (v8.x)
-
-For reference, the previous Zustand + React Query architecture is documented in:
-- `docs/migration/RXDB_MIGRATION_ANALYSIS.md` - Full migration analysis
-- Git history - Previous STATE_MANAGEMENT.md versions
-
----
-
-**Version:** 9.0.0 | **Updated:** 2025-11-27
+**Version:** 8.4.0 | **Updated:** 2025-11-27
 
 **Recent Updates:**
-- v9.0.0 (2025-11-27): **RxDB + RxState Local-First Architecture**
-  - Complete infrastructure for local-first state management
-  - Replaces Zustand stores with RxDB local documents
-  - Replaces React Query with RxDB reactive queries
-  - Added replication layer for REST sync
-  - Benefits: offline-first, persistent, multi-tab sync, draft persistence
-- v8.3.2 (2025-11-27): Component-driven rendering + BadgeDropdownSelect
-- v8.3.1 (2025-11-26): Metadata-based reference resolution
-- v8.3.0 (2025-11-26): ref_data_entityInstance pattern
-- v8.0.0 (2025-11-23): Format-at-read pattern with React Query
+- v8.4.0 (2025-11-27): **Real-Time WebSocket Sync**
+  - Added `SyncProvider` for WebSocket connection to PubSub service (port 4001)
+  - Added `useAutoSubscribe` hook for automatic entity subscription
+  - Entity hooks (`useEntityInstanceList`, `useEntityInstance`) now auto-subscribe
+  - INVALIDATE messages trigger `queryClient.invalidateQueries()`
+  - Version tracking prevents stale update processing
+  - Exponential backoff reconnection (1s → 30s max)
+  - See `docs/caching/RXDB_SYNC_ARCHITECTURE.md` for full architecture
+- v8.3.2 (2025-11-27): **Datalabel Rendering Architecture**
+  - viewType controls WHICH component renders (`renderType: 'component'` + `component: 'DAGVisualizer'`)
+  - editType controls WHERE data comes from (`lookupSource: 'datalabel'` + `datalabelKey`)
+  - Removed legacy `loadDataLabels` pattern from entityConfig
+  - `EntityFormContainer_viz_container: { view: string, edit: string }` object structure
+- v8.3.1 (2025-11-26): **Metadata-Based Reference Resolution**
+  - Removed pattern matching from `refDataResolver.ts`
+  - Added `isEntityReferenceField(fieldMeta)`, `getEntityCodeFromMetadata(fieldMeta)`
+  - Frontend uses `metadata.viewType`/`metadata.lookupEntity` (no `_id` suffix detection)
+  - Backend metadata is single source of truth for field type detection
+- v8.3.0 (2025-11-26): **ref_data_entityInstance Pattern**
+  - Added `ref_data_entityInstance` to API responses for O(1) entity reference resolution
+  - Added `useRefData` hook for reference resolution utilities
+  - Added `REF_DATA_STALE`/`REF_DATA_CACHE` TTL constants
+  - Deprecated per-row `_ID/_IDS` embedded object pattern
