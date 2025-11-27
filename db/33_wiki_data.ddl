@@ -1,11 +1,11 @@
 -- =====================================================
--- WIKI DATA (d_wiki_data) - DATA TABLE
+-- WIKI DATA (wiki_data) - DATA TABLE
 -- Wiki content with markdown/HTML and change tracking
 -- =====================================================
 
 CREATE TABLE app.wiki_data (
     id uuid DEFAULT gen_random_uuid(),
-    wiki_id uuid) ON DELETE CASCADE,
+    wiki_id uuid REFERENCES app.wiki(id) ON DELETE CASCADE,
 
     -- Content storage
     content_markdown text,
@@ -37,4 +37,4 @@ CREATE TABLE app.wiki_data (
 
 
 
-COMMENT ON TABLE app.d_wiki_data IS 'Wiki content with markdown/HTML and change tracking';
+COMMENT ON TABLE app.wiki_data IS 'Wiki content with markdown/HTML and change tracking';
