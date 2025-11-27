@@ -1,7 +1,7 @@
 /**
  * useRefData Hook (v8.3.1)
  *
- * React hook for accessing and resolving entity references using ref_data.
+ * React hook for accessing and resolving entity references using ref_data_entityInstance.
  *
  * IMPORTANT: Backend metadata is the single source of truth.
  * - viewType === 'entityInstance_Id' indicates a reference field
@@ -9,12 +9,12 @@
  * - Frontend does NOT detect patterns from field names
  *
  * Features:
- * - Extracts ref_data from entity queries automatically
+ * - Extracts ref_data_entityInstance from entity queries automatically
  * - Provides convenient resolution methods using metadata
  * - Caches entity lookup results with React Query
  *
  * Usage:
- * - View mode: Use ref_data from entity query for O(1) lookups
+ * - View mode: Use ref_data_entityInstance from entity query for O(1) lookups
  * - Edit mode: Use useEntityLookup for full dropdown options
  */
 
@@ -41,12 +41,12 @@ import {
 
 export interface UseRefDataResult {
   /**
-   * The ref_data lookup table
+   * The ref_data_entityInstance lookup table
    */
   refData: RefData | undefined;
 
   /**
-   * Check if ref_data is available
+   * Check if ref_data_entityInstance is available
    */
   hasRefData: boolean;
 
@@ -111,15 +111,15 @@ export interface UseRefDataResult {
 // ============================================================================
 
 /**
- * Hook for accessing and resolving entity references using ref_data
+ * Hook for accessing and resolving entity references using ref_data_entityInstance
  *
  * @param refData - RefData lookup table from entity query response
  * @returns Resolution utilities bound to the provided refData
  *
  * @example
- * // Get ref_data from entity query
+ * // Get ref_data_entityInstance from entity query
  * const { data } = useEntityInstance('project', projectId);
- * const { resolveName, resolveFieldDisplay } = useRefData(data?.ref_data);
+ * const { resolveName, resolveFieldDisplay } = useRefData(data?.ref_data_entityInstance);
  *
  * // Resolve references using metadata
  * const managerField = metadata.fields.find(f => f.key === 'manager__employee_id');
@@ -211,17 +211,17 @@ export function useRefData(refData: RefData | undefined): UseRefDataResult {
 // ============================================================================
 
 /**
- * Hook for merging multiple ref_data sources
+ * Hook for merging multiple ref_data_entityInstance sources
  *
- * Useful when you have ref_data from multiple entity queries that need to be combined.
+ * Useful when you have ref_data_entityInstance from multiple entity queries that need to be combined.
  *
  * @param sources - Array of RefData objects to merge
- * @returns UseRefDataResult with merged ref_data
+ * @returns UseRefDataResult with merged ref_data_entityInstance
  *
  * @example
  * const { data: projects } = useEntityInstanceList('project');
  * const { data: tasks } = useEntityInstanceList('task');
- * const { resolveFieldDisplay } = useMergedRefData(projects?.ref_data, tasks?.ref_data);
+ * const { resolveFieldDisplay } = useMergedRefData(projects?.ref_data_entityInstance, tasks?.ref_data_entityInstance);
  */
 export function useMergedRefData(...sources: (RefData | undefined)[]): UseRefDataResult {
   const mergedRefData = useMemo(() => mergeRefData(...sources), [sources]);

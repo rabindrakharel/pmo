@@ -50,7 +50,7 @@
 
 ## Semantics
 
-EntityFormContainer is a universal form component for creating and editing entities. It uses the v8.3.2 `{ viewType, editType }` metadata structure, handles entity references via `ref_data`, and supports FormattedRow data.
+EntityFormContainer is a universal form component for creating and editing entities. It uses the v8.3.2 `{ viewType, editType }` metadata structure, handles entity references via `ref_data_entityInstance`, and supports FormattedRow data.
 
 **Core Principle:** Backend metadata with `{ viewType, editType }` structure controls all form fields. viewType controls WHICH component renders, editType controls WHERE data comes from.
 
@@ -67,7 +67,7 @@ EntityFormContainer is a universal form component for creating and editing entit
 │  │                    API Response Structure                        │    │
 │  │  {                                                               │    │
 │  │    data: {...},                                                  │    │
-│  │    ref_data: { employee: { "uuid": "James Miller" } },           │    │
+│  │    ref_data_entityInstance: { employee: { "uuid": "James Miller" } },           │    │
 │  │    metadata: {                                                   │    │
 │  │      entityFormContainer: {                                      │    │
 │  │        viewType: { field: { renderType, component, behavior } }, │    │
@@ -153,7 +153,7 @@ interface EntityFormContainerProps {
    * Used to resolve UUIDs to display names for *_id and *_ids fields
    * Structure: { entity_code: { uuid: name } }
    */
-  ref_data?: RefData;
+  ref_data_entityInstance?: RefData;
 }
 
 // EntityMetadata from API response (v8.2.0)
@@ -240,18 +240,18 @@ metadata.entityFormContainer: {  →   viewType = extractViewType()  →  VIEW M
 }
 
 
-ref_data Pattern (v8.3.0)
+ref_data_entityInstance Pattern (v8.3.0)
 ─────────────────────────
 
 API Response                         EntityFormContainer
 ────────────                         ───────────────────
 
-{                                    const { resolveFieldDisplay } = useRefData(ref_data);
+{                                    const { resolveFieldDisplay } = useRefData(ref_data_entityInstance);
   data: {
     manager__employee_id: 'uuid-123'   // Field value: UUID
   },
-  ref_data: {                        // Resolution:
-    employee: {                      // ref_data['employee']['uuid-123'] → 'John Smith'
+  ref_data_entityInstance: {                        // Resolution:
+    employee: {                      // ref_data_entityInstance['employee']['uuid-123'] → 'John Smith'
       'uuid-123': 'John Smith'
     }
   },
@@ -259,7 +259,7 @@ API Response                         EntityFormContainer
     entityFormContainer: {
       viewType: {
         manager__employee_id: {
-          lookupEntity: 'employee',  // ← Determines ref_data lookup key
+          lookupEntity: 'employee',  // ← Determines ref_data_entityInstance lookup key
           lookupSource: 'entityInstance'
         }
       }
@@ -412,7 +412,7 @@ function FormField({ field, value, displayValue, isEditing, onChange }) {
 | `component` | `DAGVisualizer` | DAGVisualizer graph | `select` | Interactive `<DAGVisualizer>` or `<BadgeDropdownSelect>` |
 | `date` | - | `Jan 15, 2025` | `date` | `<input type="date">` |
 | `boolean` | - | Check/X icon | `checkbox` | `<input type="checkbox">` |
-| `reference` | - | Entity name (via ref_data) | `select` | `<EntitySelect>` |
+| `reference` | - | Entity name (via ref_data_entityInstance) | `select` | `<EntitySelect>` |
 | `text` | - | Plain text | `text` | `<DebouncedInput type="text">` |
 | `textarea` | - | Multi-line text | `textarea` | `<DebouncedTextarea>` |
 | `jsonb` | `MetadataTable` | JSON viewer | `jsonb` | `<MetadataTable isEditing={true}>` |
@@ -431,7 +431,7 @@ function FormField({ field, value, displayValue, isEditing, onChange }) {
 
 ## Entity Reference Handling (v8.3.0)
 
-### ref_data Pattern (Current)
+### ref_data_entityInstance Pattern (Current)
 
 ```typescript
 // Backend sends:
@@ -440,7 +440,7 @@ function FormField({ field, value, displayValue, isEditing, onChange }) {
     manager__employee_id: 'uuid-123',
     stakeholder__employee_ids: ['uuid-1', 'uuid-2']
   },
-  ref_data: {
+  ref_data_entityInstance: {
     employee: {
       'uuid-123': 'John Smith',
       'uuid-1': 'Alice',
@@ -460,9 +460,9 @@ function FormField({ field, value, displayValue, isEditing, onChange }) {
 }
 
 // Component uses useRefData hook:
-const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(ref_data);
+const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(ref_data_entityInstance);
 
-// Resolution: ref_data['employee']['uuid-123'] → 'John Smith'
+// Resolution: ref_data_entityInstance['employee']['uuid-123'] → 'John Smith'
 ```
 
 ### useRefData Hook
@@ -470,9 +470,9 @@ const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(ref_data);
 ```typescript
 import { useRefData, type RefData } from '@/lib/hooks/useRefData';
 
-function EntityFormContainer({ ref_data, metadata, ... }) {
+function EntityFormContainer({ ref_data_entityInstance, metadata, ... }) {
   // Hook provides utilities for entity reference resolution
-  const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(ref_data);
+  const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(ref_data_entityInstance);
 
   // Resolve using metadata (NOT field name pattern detection)
   const fieldMeta = metadata.entityFormContainer.viewType.manager__employee_id;
@@ -483,7 +483,7 @@ function EntityFormContainer({ ref_data, metadata, ... }) {
 ### Deprecated: _ID/_IDS Structure
 
 ```typescript
-// DEPRECATED (v8.2.x) - Use ref_data pattern instead
+// DEPRECATED (v8.2.x) - Use ref_data_entityInstance pattern instead
 data._ID = { manager: { ... } };   // ❌ Deprecated
 data._IDS = { stakeholder: [...] }; // ❌ Deprecated
 ```
@@ -501,10 +501,10 @@ function ProjectDetailPage({ projectId }) {
 
   // queryResult contains:
   // - data: raw entity data
-  // - ref_data: { entity_code: { uuid: name } } for entity reference resolution
+  // - ref_data_entityInstance: { entity_code: { uuid: name } } for entity reference resolution
   // - metadata: { entityFormContainer: { viewType, editType } }
   const data = queryResult?.data;
-  const ref_data = queryResult?.ref_data;
+  const ref_data_entityInstance = queryResult?.ref_data_entityInstance;
   const metadata = queryResult?.metadata;
 
   const [isEditing, setIsEditing] = useState(false);
@@ -518,7 +518,7 @@ function ProjectDetailPage({ projectId }) {
     <EntityFormContainer
       data={isEditing ? editedData : data}
       metadata={metadata}
-      ref_data={ref_data}
+      ref_data_entityInstance={ref_data_entityInstance}
       isEditing={isEditing}
       onChange={handleChange}
     />
@@ -593,7 +593,7 @@ Edit Flow
 | Hardcoded field list | Use `viewType` from backend |
 | Manual entity reference dropdowns | Use `EntitySelect` with `editType.lookupEntity` |
 | Fallback metadata generation | Backend MUST send metadata |
-| Using `_ID`/`_IDS` embedded objects | Use `ref_data` lookup table |
+| Using `_ID`/`_IDS` embedded objects | Use `ref_data_entityInstance` lookup table |
 | Pattern detection for DAG fields | Use `viewType.renderType === 'component'` + `viewType.component` |
 
 ---
@@ -610,7 +610,7 @@ function arePropsEqual(prevProps, nextProps): boolean {
   // - metadata changes (structure)
   // - config changes
   // - datalabels changes
-  // - ref_data changes (v8.3.0)
+  // - ref_data_entityInstance changes (v8.3.0)
   // - data KEYS change (not values during editing)
 
   // Does NOT trigger re-render:
@@ -638,11 +638,11 @@ export const EntityFormContainer = React.memo(EntityFormContainerInner, areProps
   - Added `case 'component':` in edit mode switch for `inputType: 'component'` fields
   - Added `BadgeDropdownSelect` as explicit `field.type` case in switch statement
   - `EntityFormContainer_viz_container: { view: string, edit: string }` object structure
-- v8.3.0 (2025-11-26): **ref_data Pattern**
-  - Added `ref_data?: RefData` prop for entity reference resolution
+- v8.3.0 (2025-11-26): **ref_data_entityInstance Pattern**
+  - Added `ref_data_entityInstance?: RefData` prop for entity reference resolution
   - Added `useRefData` hook integration for `resolveFieldDisplay`, `isRefField`, `getEntityCode`
   - Deprecated `_ID`/`_IDS` embedded object pattern
-  - Added `ref_data` to `arePropsEqual` memoization check
+  - Added `ref_data_entityInstance` to `arePropsEqual` memoization check
 - v8.2.0 (2025-11-25): **viewType/editType Architecture**
   - Backend metadata REQUIRED with `{ viewType, editType }` structure
   - Added `extractViewType()` and `extractEditType()` helper functions

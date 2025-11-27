@@ -10,7 +10,7 @@
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4
 - **State Management**: Zustand stores + TanStack Query (format-at-read pattern)
 - **Infrastructure**: AWS EC2/S3/Lambda, Terraform, Docker
-- **Version**: 8.3.1 (ref_data Pattern + Metadata-Based Resolution)
+- **Version**: 8.3.1 (ref_data_entityInstance Pattern + Metadata-Based Resolution)
 
 ## Critical Operations
 
@@ -384,7 +384,7 @@ fastify.get('/api/v1/project', async (request, reply) => {
       "manager__employee_id": "uuid-james"
     }
   ],
-  "ref_data": {
+  "ref_data_entityInstance": {
     "employee": { "uuid-james": "James Miller" }
   },
   "metadata": {
@@ -412,7 +412,7 @@ fastify.get('/api/v1/project', async (request, reply) => {
 
 ---
 
-## 5. State Management (Frontend) - v8.3.1 Format-at-Read + ref_data
+## 5. State Management (Frontend) - v8.3.1 Format-at-Read + ref_data_entityInstance
 
 ### Architecture
 
@@ -426,19 +426,19 @@ fastify.get('/api/v1/project', async (request, reply) => {
 │  │  (Client State) │     │  (Server State) │               │
 │  └────────┬────────┘     └────────┬────────┘               │
 │           │                       │                          │
-│  • UI State (modals, tabs)       • RAW data + ref_data       │
+│  • UI State (modals, tabs)       • RAW data + ref_data_entityInstance       │
 │  • Form state                    • Format via `select`       │
 │  • Selection state               • Optimistic updates        │
 │  • Filters/pagination            • O(1) reference resolution │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 
-FORMAT-AT-READ + ref_data PATTERN:
+FORMAT-AT-READ + ref_data_entityInstance PATTERN:
 ───────────────────────────────────
-API → Cache RAW + ref_data → select: formatDataset() → FormattedRow[]
+API → Cache RAW + ref_data_entityInstance → select: formatDataset() → FormattedRow[]
                               │
                               ├── React Query memoizes
-                              └── Entity refs resolved via ref_data[entityCode][uuid]
+                              └── Entity refs resolved via ref_data_entityInstance[entityCode][uuid]
 ```
 
 ### Key Hooks
@@ -448,7 +448,7 @@ API → Cache RAW + ref_data → select: formatDataset() → FormattedRow[]
 
 // RAW data (for components that need raw)
 const { data } = useEntityInstanceList(entityCode, params);
-// Returns: { data: T[], ref_data: RefData, metadata }
+// Returns: { data: T[], ref_data_entityInstance: RefData, metadata }
 
 // FORMATTED data via select (recommended)
 const { data: formattedData } = useFormattedEntityList(entityCode, params);
@@ -456,7 +456,7 @@ const { data: formattedData } = useFormattedEntityList(entityCode, params);
 
 // Entity reference resolution (v8.3.0)
 import { useRefData } from '@/lib/hooks';
-const { resolveFieldDisplay, isRefField } = useRefData(data?.ref_data);
+const { resolveFieldDisplay, isRefField } = useRefData(data?.ref_data_entityInstance);
 
 // Resolve using metadata (NOT field name pattern)
 const fieldMeta = metadata.viewType.manager__employee_id;
@@ -641,7 +641,7 @@ CREATE TABLE app.d_entity (
 - Non-transactional CREATE/UPDATE/DELETE
 - Using `entity_code` for instance code (use `instance_code`)
 - **Pattern detection in frontend** (use `metadata.lookupEntity` instead of `_id` suffix checks)
-- **Per-row `_ID` embedded objects** (use `ref_data` lookup table)
+- **Per-row `_ID` embedded objects** (use `ref_data_entityInstance` lookup table)
 
 ### Flow Diagrams
 
@@ -689,13 +689,13 @@ Unified RBAC documentation covering all 4 infrastructure tables (entity, entity_
 
 Core service documentation for centralized entity infrastructure management. Used by all entity route handlers for registry operations, linkage, and RBAC enforcement.
 
-**Keywords:** `EntityInfrastructureService`, `set_entity_instance_registry`, `update_entity_instance_registry`, `delete_entity_instance_registry`, `set_entity_instance_link`, `get_entity_instance_link_children`, `delete_entity_instance_link`, `Permission levels 0-7`, `parent_entity_code`, `child_entity_code`, `idempotent`, `transactional methods`, `create_entity`, `update_entity`, `delete_entity`, `build_ref_data`, `ref_data`
+**Keywords:** `EntityInfrastructureService`, `set_entity_instance_registry`, `update_entity_instance_registry`, `delete_entity_instance_registry`, `set_entity_instance_link`, `get_entity_instance_link_children`, `delete_entity_instance_link`, `Permission levels 0-7`, `parent_entity_code`, `child_entity_code`, `idempotent`, `transactional methods`, `create_entity`, `update_entity`, `delete_entity`, `build_ref_data_entityInstance`, `ref_data_entityInstance`
 
 ### 3. STATE_MANAGEMENT.md
 
 Zustand + React Query hybrid architecture for client-side state management and caching. Used by frontend components for data fetching, caching, and edit state tracking.
 
-**Keywords:** `Zustand`, `React Query`, `9 stores`, `session-level cache`, `URL-bound cache`, `30 min TTL`, `5 min TTL`, `globalSettingsMetadataStore`, `datalabelMetadataStore`, `entityCodeMetadataStore`, `EntityListOfInstancesDataStore`, `EntitySpecificInstanceDataStore`, `entityComponentMetadataStore`, `editStateStore`, `dirtyFields`, `optimistic updates`, `cache invalidation`, `field-level tracking`, `minimal PATCH`, `prefetching`, `ref_data`, `useRefData`, `entity reference resolution`, `lookupEntity`, `metadata-based detection`
+**Keywords:** `Zustand`, `React Query`, `9 stores`, `session-level cache`, `URL-bound cache`, `30 min TTL`, `5 min TTL`, `globalSettingsMetadataStore`, `datalabelMetadataStore`, `entityCodeMetadataStore`, `EntityListOfInstancesDataStore`, `EntitySpecificInstanceDataStore`, `entityComponentMetadataStore`, `editStateStore`, `dirtyFields`, `optimistic updates`, `cache invalidation`, `field-level tracking`, `minimal PATCH`, `prefetching`, `ref_data_entityInstance`, `useRefData`, `entity reference resolution`, `lookupEntity`, `metadata-based detection`
 
 ### 4. PAGE_ARCHITECTURE.md
 
@@ -705,7 +705,7 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
 
 ---
 
-**Version**: 8.3.1 | **Updated**: 2025-11-26 | **Pattern**: Format-at-Read + ref_data
+**Version**: 8.3.1 | **Updated**: 2025-11-26 | **Pattern**: Format-at-Read + ref_data_entityInstance
 
 **Recent Updates**:
 - v8.3.1 (2025-11-26): **Metadata-Based Reference Resolution**
@@ -713,9 +713,9 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
   - Frontend uses `metadata.viewType`/`metadata.lookupEntity` (no `_id` suffix detection)
   - Added `isEntityReferenceField(fieldMeta)`, `getEntityCodeFromMetadata(fieldMeta)`
   - Backend metadata is single source of truth for field type detection
-- v8.3.0 (2025-11-26): **ref_data Pattern**
-  - Added `ref_data` to API responses for O(1) entity reference resolution
-  - Added `build_ref_data()` method to entity-infrastructure.service
+- v8.3.0 (2025-11-26): **ref_data_entityInstance Pattern**
+  - Added `ref_data_entityInstance` to API responses for O(1) entity reference resolution
+  - Added `build_ref_data_entityInstance()` method to entity-infrastructure.service
   - Added `useRefData` hook for reference resolution utilities
   - Deprecated per-row `_ID/_IDS` embedded object pattern
 - v8.0.0 (2025-11-23): **Format-at-Read Pattern**

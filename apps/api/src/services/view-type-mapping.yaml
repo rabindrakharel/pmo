@@ -962,40 +962,48 @@ fieldBusinessTypes:
       renderType: badge
       behavior: { visible: true }
 
+  # Entity reference fields - single UUID reference to another entity
+  # Frontend uses entityInstanceId for both view and edit mode (context switches)
+  # View mode: resolves UUID to display name via ref_data_entityInstance, renders as clickable link
+  # Edit mode: renders EntitySelect component with lookupSource: entityInstance
   entityInstance_Id:
     dtype: uuid
     entityDataTable:
-      <<: *hidden
-      renderType: entityLink
+      renderType: entityInstanceId
+      behavior: { visible: true, sortable: false, filterable: false, searchable: false }
       style: { displayField: name, linkToEntity: true }
     entityFormContainer:
-      <<: *hidden
-      renderType: entityLink
+      renderType: entityInstanceId
+      behavior: { visible: true }
       style: { displayField: name }
     kanbanView:
-      <<: *hidden
-      renderType: entityLink
+      renderType: entityInstanceId
+      behavior: { visible: true }
     gridView:
-      <<: *hidden
-      renderType: entityLink
+      renderType: entityInstanceId
+      behavior: { visible: true }
 
+  # Entity reference fields - array of UUIDs referencing multiple entities
+  # Frontend uses entityInstanceIds for both view and edit mode (context switches)
+  # View mode: resolves UUIDs to display names via ref_data_entityInstance, renders as chip list
+  # Edit mode: renders MultiEntitySelect component with lookupSource: entityInstance
   entityInstance_Ids:
     dtype: array[uuid]
     entityDataTable:
-      <<: *hidden
-      renderType: entityLinks
+      renderType: entityInstanceIds
+      behavior: { visible: true, sortable: false, filterable: false, searchable: false }
       style: { maxDisplay: 3 }
     entityFormContainer:
-      <<: *hidden
-      renderType: entityLinks
+      renderType: entityInstanceIds
+      behavior: { visible: true }
       style: { displayField: name }
     kanbanView:
-      <<: *hidden
-      renderType: entityLinks
+      renderType: entityInstanceIds
+      behavior: { visible: true }
       style: { max: 3 }
     gridView:
-      <<: *hidden
-      renderType: entityLinks
+      renderType: entityInstanceIds
+      behavior: { visible: true }
 
   # --------------------------------------------------------------------------
   # QUANTITY & NUMBER FIELDS

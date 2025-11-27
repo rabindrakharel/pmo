@@ -166,7 +166,7 @@ import { PAGINATION_CONFIG, getEntityLimit } from '../../lib/pagination.js';
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
 
 // Schema based on actual project table structure from db/XV_d_project.ddl
-// v8.3.0: Removed _ID/_IDS embedded reference fields - use ref_data at response level instead
+// v8.3.0: Removed _ID/_IDS embedded reference fields - use ref_data_entityInstance at response level instead
 const ProjectSchema = Type.Object({
   id: Type.String(),
   code: Type.String(),
@@ -199,7 +199,7 @@ const ProjectWithMetadataSchema = Type.Object({
   data: ProjectSchema,
   fields: Type.Array(Type.String()),  // Field names list
   metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
-  ref_data: Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.String()))),  // v8.3.0: Entity reference lookup
+  ref_data_entityInstance: Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.String()))),  // v8.3.0: Entity reference lookup
 });
 
 const CreateProjectSchema = Type.Object({
@@ -256,7 +256,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           fields: Type.Array(Type.String()),
           metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
           datalabels: Type.Optional(Type.Any()),  // Datalabel options with colors for badge rendering
-          ref_data: Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.String()))),  // v8.3.0: Entity reference lookup { entityCode: { uuid: name } }
+          ref_data_entityInstance: Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.String()))),  // v8.3.0: Entity reference lookup { entityCode: { uuid: name } }
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number(),
@@ -363,7 +363,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // v8.3.0: BUILD REF_DATA - Response-level entity reference lookup
       // More efficient than per-row _ID/_IDS (single query per entity type)
       // ═══════════════════════════════════════════════════════════════
-      const ref_data = await entityInfra.build_ref_data(projects as Record<string, any>[]);
+      const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(projects as Record<string, any>[]);
 
       // ═══════════════════════════════════════════════════════════════
       // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
@@ -381,10 +381,10 @@ export async function projectRoutes(fastify: FastifyInstance) {
         offset
       });
 
-      // v8.3.0: Include ref_data in response for O(1) entity name lookups
+      // v8.3.0: Include ref_data_entityInstance in response for O(1) entity name lookups
       return {
         ...response,
-        ref_data,
+        ref_data_entityInstance,
       };
     } catch (error) {
       fastify.log.error('Error fetching projects:', error as any);
@@ -545,7 +545,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       // v8.3.0: BUILD REF_DATA - Response-level entity reference lookup
       // ═══════════════════════════════════════════════════════════════
-      const ref_data = await entityInfra.build_ref_data([project as Record<string, any>]);
+      const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance([project as Record<string, any>]);
 
       // ═══════════════════════════════════════════════════════════════
       // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
@@ -562,12 +562,12 @@ export async function projectRoutes(fastify: FastifyInstance) {
         offset: 0
       });
 
-      // v8.3.0: Return single item with ref_data
+      // v8.3.0: Return single item with ref_data_entityInstance
       return reply.send({
         data: response.data[0],  // Single object, not array
         fields: response.fields,
         metadata: response.metadata,
-        ref_data,  // v8.3.0: Entity reference lookup table
+        ref_data_entityInstance,  // v8.3.0: Entity reference lookup table
       });
     } catch (error) {
       fastify.log.error('Error fetching project:', error as any);

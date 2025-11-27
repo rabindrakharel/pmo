@@ -1756,18 +1756,19 @@ function generateFieldMetadataForComponent(
       validation: {},
     };
 
-    // Auto-detect entity for ALL *_id and *_ids fields - set lookupSource and entity
-    if ((fieldName.endsWith('_id') || fieldName.endsWith('_ids')) && fieldName !== 'id') {
+    // Extract lookupEntity from field name for entity reference fields
+    // YAML provides lookupSource: entityInstance, we extract the specific entity from field name
+    // e.g., manager__employee_id → lookupEntity: "employee"
+    if (edit.lookupSource === 'entityInstance') {
       const entity = detectEntityFromFieldName(fieldName);
       if (entity) {
-        edit.lookupSource = 'entityInstance';
         edit.lookupEntity = entity;
       }
     }
 
-    // Set datalabelKey for dl__* fields
-    if (fieldName.startsWith('dl__')) {
-      edit.lookupSource = 'datalabel';
+    // Extract datalabelKey from field name for datalabel fields
+    // YAML provides lookupSource: datalabel, we use field name as the key
+    if (edit.lookupSource === 'datalabel') {
       edit.datalabelKey = fieldName;
     }
 
@@ -1852,20 +1853,8 @@ function generateFieldMetadataForComponent(
     validation: {},
   };
 
-  // Auto-detect entity for ALL *_id and *_ids fields (both simple and prefixed)
-  if ((fieldName.endsWith('_id') || fieldName.endsWith('_ids')) && fieldName !== 'id') {
-    const entity = detectEntityFromFieldName(fieldName);
-    if (entity) {
-      edit.lookupSource = 'entityInstance';
-      edit.lookupEntity = entity;
-    }
-  }
-
-  // Set datalabelKey for dl__* fields
-  if (fieldName.startsWith('dl__')) {
-    edit.lookupSource = 'datalabel';
-    edit.datalabelKey = fieldName;
-  }
+  // Legacy pattern rules don't provide lookupSource/lookupEntity - they should use YAML instead
+  // Keep this code block empty as pattern rules are deprecated in favor of YAML config
 
   return {
     dtype: componentRule.dtype as FieldMetadataBase['dtype'],

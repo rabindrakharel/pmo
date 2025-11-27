@@ -99,12 +99,12 @@ interface EntityFormContainerProps {
    * @example
    * <EntityFormContainer
    *   data={project}
-   *   ref_data={{ employee: { "uuid-123": "James Miller" } }}
+   *   ref_data_entityInstance={{ employee: { "uuid-123": "James Miller" } }}
    *   isEditing={false}
    *   onChange={handleChange}
    * />
    */
-  ref_data?: RefData;
+  ref_data_entityInstance?: RefData;
 }
 
 // Stable default values to prevent new array references on every render
@@ -120,10 +120,10 @@ function EntityFormContainerInner({
   metadata,                     // PRIORITY 1: Backend metadata
   datalabels = EMPTY_DATALABELS,  // ✅ Stable default reference
   formattedData,                // v7.0.0: Pre-formatted data for instant rendering
-  ref_data                      // v8.3.0: Entity reference lookup table
+  ref_data_entityInstance                      // v8.3.0: Entity reference lookup table
 }: EntityFormContainerProps) {
   // v8.3.0: useRefData hook for entity reference resolution
-  const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(ref_data);
+  const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(ref_data_entityInstance);
   // ============================================================================
   // METADATA-DRIVEN FIELD GENERATION
   // ============================================================================
@@ -865,8 +865,8 @@ function arePropsEqual(
   // If datalabels change, must re-render
   if (prevProps.datalabels !== nextProps.datalabels) return false;
 
-  // v8.3.0: If ref_data changes, must re-render (entity reference resolution)
-  if (prevProps.ref_data !== nextProps.ref_data) return false;
+  // v8.3.0: If ref_data_entityInstance changes, must re-render (entity reference resolution)
+  if (prevProps.ref_data_entityInstance !== nextProps.ref_data_entityInstance) return false;
 
   // For data: only re-render if KEYS change, not values
   // (values are handled by local state during editing)

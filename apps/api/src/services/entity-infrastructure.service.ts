@@ -421,15 +421,15 @@ export class EntityInfrastructureService {
    * Resolve UUID fields to human-readable entity names
    * Returns structured format with _ID (single references) and _IDS (array references)
    *
-   * @deprecated v8.3.0 - Use build_ref_data() instead for response-level entity reference resolution.
+   * @deprecated v8.3.0 - Use build_ref_data_entityInstance() instead for response-level entity reference resolution.
    * This method embeds _ID/_IDS in each row, which is inefficient.
-   * The new build_ref_data() returns a single lookup table for O(1) resolution.
+   * The new build_ref_data_entityInstance() returns a single lookup table for O(1) resolution.
    *
    * Migration:
    * - OLD: const { _ID, _IDS } = await entityInfra.resolve_entity_references(row);
    *        return { ...row, _ID, _IDS };
-   * - NEW: const ref_data = await entityInfra.build_ref_data(rows);
-   *        return { data: rows, ref_data };
+   * - NEW: const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(rows);
+   *        return { data: rows, ref_data_entityInstance };
    *
    * Supports 4 naming patterns:
    * - Pattern 1: {label}__{entity}_id (e.g., "manager__employee_id")
@@ -639,7 +639,7 @@ export class EntityInfrastructureService {
   }
 
   /**
-   * Build ref_data object for response-level entity reference resolution
+   * Build ref_data_entityInstance object for response-level entity reference resolution
    *
    * Structure: { entity_code: { uuid: name } }
    *
@@ -647,29 +647,29 @@ export class EntityInfrastructureService {
    * batch resolves from entity_instance table, returns grouped object.
    *
    * This is the NEW pattern (v8.3.0) that replaces _ID/_IDS embedded per row.
-   * ref_data is returned at the response level for O(1) lookup.
+   * ref_data_entityInstance is returned at the response level for O(1) lookup.
    *
    * @param rows - Array of data rows to scan for entity references
-   * @returns ref_data object: { entity_code: { uuid: name } }
+   * @returns ref_data_entityInstance object: { entity_code: { uuid: name } }
    *
    * @example
    * // Input rows:
    * [{ manager__employee_id: "uuid-123", business_id: "uuid-bus" }]
    *
-   * // Output ref_data:
+   * // Output ref_data_entityInstance:
    * {
    *   "employee": { "uuid-123": "James Miller" },
    *   "business": { "uuid-bus": "Huron Home Services" }
    * }
    */
-  async build_ref_data(
+  async build_ref_data_entityInstance(
     rows: Record<string, any>[]
   ): Promise<Record<string, Record<string, string>>> {
     // Structure: { entity_code: { uuid: name } }
-    const ref_data: Record<string, Record<string, string>> = {};
+    const ref_data_entityInstance: Record<string, Record<string, string>> = {};
 
     if (!rows || rows.length === 0) {
-      return ref_data;
+      return ref_data_entityInstance;
     }
 
     // Pattern matching regexes
@@ -743,7 +743,7 @@ export class EntityInfrastructureService {
     }
 
     // Step 2: Batch resolve all UUIDs (1 query per entity_code)
-    // ONLY add to ref_data if UUIDs are found in entity_instance table
+    // ONLY add to ref_data_entityInstance if UUIDs are found in entity_instance table
     for (const [entityCode, uuidSet] of Object.entries(entityCodeToUuids)) {
       const uuids = Array.from(uuidSet);
       if (uuids.length === 0) continue;
@@ -757,18 +757,18 @@ export class EntityInfrastructureService {
 
       // ONLY create bucket if we have results
       if (result.length > 0) {
-        ref_data[entityCode] = {};
+        ref_data_entityInstance[entityCode] = {};
 
         // Add resolved entries: { uuid: name }
         for (const r of result) {
           const row = r as Record<string, any>;
-          ref_data[entityCode][row.entity_instance_id as string] = row.entity_instance_name as string;
+          ref_data_entityInstance[entityCode][row.entity_instance_id as string] = row.entity_instance_name as string;
         }
       }
-      // If no results found, DON'T add empty bucket - keeps ref_data clean
+      // If no results found, DON'T add empty bucket - keeps ref_data_entityInstance clean
     }
 
-    return ref_data;
+    return ref_data_entityInstance;
   }
 
   // ==========================================================================

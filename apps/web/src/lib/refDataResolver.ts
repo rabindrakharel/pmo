@@ -2,13 +2,18 @@
  * RefData Resolver Utilities (v8.3.1)
  *
  * Utilities for resolving entity reference UUIDs to human-readable names
- * using the ref_data lookup table from API responses.
+ * using the ref_data_entityInstance lookup table from API responses.
  *
  * IMPORTANT: Backend metadata is the single source of truth for:
- * - Whether a field is a reference (viewType === 'entityInstance_Id')
+ * - Whether a field is a reference (renderType/inputType === 'entityInstanceId')
  * - Which entity to look up (lookupEntity)
  *
- * ref_data structure:
+ * v8.3.1 Changes:
+ * - Backend now uses renderType/inputType = 'entityInstanceId' (singular) or 'entityInstanceIds' (array)
+ * - Frontend context-switches between view and edit mode based on usage
+ * - lookupSource: 'entityInstance' and lookupEntity from backend metadata
+ *
+ * ref_data_entityInstance structure:
  * {
  *   "employee": { "uuid-123": "James Miller", "uuid-456": "Sarah Johnson" },
  *   "business": { "uuid-bus": "Huron Home Services" }
@@ -33,11 +38,14 @@ export interface ResolvedReference {
 /**
  * Field metadata structure (from backend)
  * Backend provides this - frontend does NOT detect patterns
+ *
+ * v8.3.1: Backend uses renderType/inputType (both set to 'entityInstanceId')
+ * Frontend context-switches between view and edit mode based on usage
  */
 export interface FieldMetadata {
   key: string;
-  viewType?: string;
-  editType?: string;
+  renderType?: string;    // View mode type (e.g., 'entityInstanceId', 'currency', 'badge')
+  inputType?: string;     // Edit mode type (e.g., 'entityInstanceId', 'currency', 'select')
   lookupSource?: 'entityInstance' | 'datalabel';
   lookupEntity?: string;
   dtype?: string;
@@ -50,14 +58,18 @@ export interface FieldMetadata {
 /**
  * Check if a field is an entity reference using backend metadata
  *
+ * v8.3.1: Uses renderType/inputType = 'entityInstanceId' (or 'entityInstanceIds' for arrays)
+ *
  * @param fieldMeta - Field metadata from backend
  * @returns true if field is an entity reference
  */
 export function isEntityReferenceField(fieldMeta: FieldMetadata | undefined): boolean {
   if (!fieldMeta) return false;
   return (
-    fieldMeta.viewType === 'entityInstance_Id' ||
-    fieldMeta.editType === 'entityInstance_Id' ||
+    fieldMeta.renderType === 'entityInstanceId' ||
+    fieldMeta.renderType === 'entityInstanceIds' ||
+    fieldMeta.inputType === 'entityInstanceId' ||
+    fieldMeta.inputType === 'entityInstanceIds' ||
     fieldMeta.lookupSource === 'entityInstance'
   );
 }
@@ -76,14 +88,17 @@ export function getEntityCodeFromMetadata(fieldMeta: FieldMetadata | undefined):
 /**
  * Check if field is an array reference
  *
+ * v8.3.1: Uses renderType/inputType = 'entityInstanceIds' for arrays
+ *
  * @param fieldMeta - Field metadata from backend
  * @returns true if field is an array of entity references
  */
 export function isArrayReferenceField(fieldMeta: FieldMetadata | undefined): boolean {
   if (!fieldMeta) return false;
   return (
-    fieldMeta.dtype === 'array[uuid]' ||
-    fieldMeta.editType === 'multiselect'
+    fieldMeta.renderType === 'entityInstanceIds' ||
+    fieldMeta.inputType === 'entityInstanceIds' ||
+    fieldMeta.dtype === 'array[uuid]'
   );
 }
 

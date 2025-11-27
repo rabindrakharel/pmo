@@ -37,7 +37,7 @@ The Entity Infrastructure Service provides **transactional CRUD operations** and
 │  │  └───────────────┘ └───────────────┘ └───────────────┘          │    │
 │  │                                                                  │    │
 │  │  ┌───────────────────────────────────────────────────────────┐  │    │
-│  │  │ build_ref_data() - Entity reference resolution (v8.3.0)   │  │    │
+│  │  │ build_ref_data_entityInstance() - Entity reference resolution (v8.3.0)   │  │    │
 │  │  └───────────────────────────────────────────────────────────┘  │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                              │                                          │
@@ -52,7 +52,7 @@ The Entity Infrastructure Service provides **transactional CRUD operations** and
 │  PATCH  → update_entity()   (UPDATE + registry sync)                    │
 │  DELETE → delete_entity()   (DELETE + registry + links + RBAC)          │
 │  GET    → check_entity_rbac() + get_entity_rbac_where_condition()       │
-│        → build_ref_data()   (Entity reference lookup table)             │
+│        → build_ref_data_entityInstance()   (Entity reference lookup table)             │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -60,13 +60,13 @@ The Entity Infrastructure Service provides **transactional CRUD operations** and
 
 ## Entity Reference Resolution (v8.3.0)
 
-### build_ref_data()
+### build_ref_data_entityInstance()
 
-Generates a lookup table for resolving entity reference UUIDs to display names. Used by API routes to include `ref_data` in responses for O(1) frontend lookups.
+Generates a lookup table for resolving entity reference UUIDs to display names. Used by API routes to include `ref_data_entityInstance` in responses for O(1) frontend lookups.
 
 ```typescript
 /**
- * Build ref_data lookup table for entity references
+ * Build ref_data_entityInstance lookup table for entity references
  *
  * Scans rows for *_id/*_ids fields, batch resolves from entity_instance table.
  *
@@ -74,13 +74,13 @@ Generates a lookup table for resolving entity reference UUIDs to display names. 
  * @returns { [entityCode]: { [uuid]: name } }
  *
  * @example
- * const ref_data = await entityInfra.build_ref_data(projects);
+ * const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(projects);
  * // Returns: {
  * //   employee: { "uuid-james": "James Miller" },
  * //   business: { "uuid-huron": "Huron Home Services" }
  * // }
  */
-async build_ref_data(
+async build_ref_data_entityInstance(
   rows: Record<string, any>[]
 ): Promise<Record<string, Record<string, string>>>
 ```
@@ -95,18 +95,18 @@ const entityInfra = getEntityInfrastructure(db);
 fastify.get('/api/v1/project', async (request, reply) => {
   const projects = await db.execute(sql`SELECT * FROM app.project...`);
 
-  // Build ref_data for entity reference fields
-  const ref_data = await entityInfra.build_ref_data(projects);
+  // Build ref_data_entityInstance for entity reference fields
+  const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(projects);
 
   return reply.send({
     data: projects,
-    ref_data,  // Include in response
+    ref_data_entityInstance,  // Include in response
     metadata: { ... }
   });
 });
 ```
 
-### ref_data Response Structure
+### ref_data_entityInstance Response Structure
 
 ```json
 {
@@ -117,7 +117,7 @@ fastify.get('/api/v1/project', async (request, reply) => {
       "business_id": "uuid-huron"
     }
   ],
-  "ref_data": {
+  "ref_data_entityInstance": {
     "employee": {
       "uuid-james": "James Miller"
     },
@@ -216,7 +216,7 @@ User Request ──> Route Handler ──> RBAC Check (DELETE permission)
 
 | Method | Purpose | Use Case |
 |--------|---------|----------|
-| `build_ref_data()` | Build UUID→name lookup table | LIST/GET responses |
+| `build_ref_data_entityInstance()` | Build UUID→name lookup table | LIST/GET responses |
 
 ### Helper Methods (For Edge Cases)
 
@@ -331,7 +331,7 @@ fastify.delete('/api/v1/project/:id', async (request, reply) => {
 });
 ```
 
-### LIST with RBAC + ref_data Pattern (v8.3.0)
+### LIST with RBAC + ref_data_entityInstance Pattern (v8.3.0)
 
 ```typescript
 fastify.get('/api/v1/project', async (request, reply) => {
@@ -353,12 +353,12 @@ fastify.get('/api/v1/project', async (request, reply) => {
     LIMIT ${limit} OFFSET ${offset}
   `);
 
-  // Build ref_data for entity reference fields (v8.3.0)
-  const ref_data = await entityInfra.build_ref_data(projects);
+  // Build ref_data_entityInstance for entity reference fields (v8.3.0)
+  const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(projects);
 
   return reply.send({
     data: projects,
-    ref_data,  // Frontend uses for O(1) UUID→name resolution
+    ref_data_entityInstance,  // Frontend uses for O(1) UUID→name resolution
     metadata: { ... }
   });
 });
@@ -425,10 +425,10 @@ async delete_entity(params: {
 }>
 ```
 
-### build_ref_data() (v8.3.0)
+### build_ref_data_entityInstance() (v8.3.0)
 
 ```typescript
-async build_ref_data(
+async build_ref_data_entityInstance(
   rows: Record<string, any>[]
 ): Promise<Record<string, Record<string, string>>>
 ```
@@ -484,8 +484,8 @@ async set_entity_instance_link(params: {
 | `POST /api/v1/{entity}` | `create_entity()` |
 | `PATCH /api/v1/{entity}/:id` | `update_entity()` |
 | `DELETE /api/v1/{entity}/:id` | `delete_entity()` |
-| `GET /api/v1/{entity}` | `get_entity_rbac_where_condition()` + `build_ref_data()` |
-| `GET /api/v1/{entity}/:id` | `check_entity_rbac()` + `build_ref_data()` |
+| `GET /api/v1/{entity}` | `get_entity_rbac_where_condition()` + `build_ref_data_entityInstance()` |
+| `GET /api/v1/{entity}/:id` | `check_entity_rbac()` + `build_ref_data_entityInstance()` |
 | `GET /api/v1/{parent}/:id/{child}` | `get_entity_rbac_where_condition()` |
 
 ---
@@ -499,7 +499,7 @@ async set_entity_instance_link(params: {
 3. **Consistent Naming** - `entity_code` matches data model column names
 4. **No Foreign Keys** - All relationships via entity_instance_link
 5. **Hard Delete Links** - entity_instance_link uses hard delete (no active_flag)
-6. **ref_data for References** - Use `build_ref_data()` instead of per-row embedded objects (v8.3.0)
+6. **ref_data_entityInstance for References** - Use `build_ref_data_entityInstance()` instead of per-row embedded objects (v8.3.0)
 
 ### Naming Convention
 
@@ -531,13 +531,13 @@ async set_entity_instance_link(params: {
 | Direct INSERT + set_entity_instance_registry() + set_entity_rbac_owner() + set_entity_instance_link() | `create_entity()` |
 | Direct UPDATE + update_entity_instance_registry() | `update_entity()` |
 | delete_all_entity_infrastructure() | `delete_entity()` |
-| Per-row `_ID` embedded objects | `build_ref_data()` (v8.3.0) |
-| `resolve_entity_references()` | `build_ref_data()` (deprecated v8.3.0) |
+| Per-row `_ID` embedded objects | `build_ref_data_entityInstance()` (v8.3.0) |
+| `resolve_entity_references()` | `build_ref_data_entityInstance()` (deprecated v8.3.0) |
 
 ---
 
 **Last Updated:** 2025-11-26 | **Version:** 8.3.1 | **Status:** Production Ready
 
 **Recent Updates:**
-- v8.3.0 (2025-11-26): Added `build_ref_data()` for entity reference resolution
+- v8.3.0 (2025-11-26): Added `build_ref_data_entityInstance()` for entity reference resolution
 - v5.0.0 (2025-11-22): Added transactional CRUD methods

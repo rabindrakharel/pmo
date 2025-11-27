@@ -28,24 +28,24 @@ The current system uses `_ID` and `_IDS` objects embedded in each data row:
 - Complex structure (`data._ID.manager.manager` to get name)
 - Not scalable (grows with each reference field)
 
-### The Solution: `ref_data`
+### The Solution: `ref_data_entityInstance`
 
 Move entity reference resolution to a **response-level lookup table**:
 
 ```json
 {
   "data": [{ "manager__employee_id": "uuid-123" }],
-  "ref_data": {
+  "ref_data_entityInstance": {
     "employee": { "uuid-123": "James Miller" }   ← O(1) lookup!
   }
 }
 ```
 
 **Benefits:**
-1. **Cleaner data** - Raw UUIDs in `data`, names in `ref_data`
+1. **Cleaner data** - Raw UUIDs in `data`, names in `ref_data_entityInstance`
 2. **Smaller payload** - Deduplicated across all rows
-3. **Simple lookup** - `ref_data[entityCode][uuid]`
-4. **Cacheable** - Frontend can cache `ref_data` independently
+3. **Simple lookup** - `ref_data_entityInstance[entityCode][uuid]`
+4. **Cacheable** - Frontend can cache `ref_data_entityInstance` independently
 
 ---
 
@@ -53,12 +53,12 @@ Move entity reference resolution to a **response-level lookup table**:
 
 | Document | Update Required |
 |----------|-----------------|
-| `docs/services/entity-infrastructure.service.md` | Add `build_ref_data()` method documentation |
-| `docs/services/backend-formatter.service.md` | Document `ref_data` in response structure |
-| `docs/state_management/STATE_MANAGEMENT.md` | Add ref_data caching to React Query section |
+| `docs/services/entity-infrastructure.service.md` | Add `build_ref_data_entityInstance()` method documentation |
+| `docs/services/backend-formatter.service.md` | Document `ref_data_entityInstance` in response structure |
+| `docs/state_management/STATE_MANAGEMENT.md` | Add ref_data_entityInstance caching to React Query section |
 | `CLAUDE.md` | Update API response structure examples |
-| `docs/pages/PAGE_ARCHITECTURE.md` | Update EntityFormContainer props to include `ref_data` |
-| `docs/ui_components_layout/EntityDataTable.md` | Document ref_data usage for entity reference columns |
+| `docs/pages/PAGE_ARCHITECTURE.md` | Update EntityFormContainer props to include `ref_data_entityInstance` |
+| `docs/ui_components_layout/EntityDataTable.md` | Document ref_data_entityInstance usage for entity reference columns |
 
 ---
 
@@ -71,18 +71,18 @@ Move entity reference resolution to a **response-level lookup table**:
 │                                                                               │
 │  PHASE 1: BACKEND (Must complete before frontend)                            │
 │  ════════════════════════════════════════════════                            │
-│  1.1 Add build_ref_data() to entity-infrastructure.service.ts               │
-│  1.2 Update ALL route files to return ref_data in response                  │
+│  1.1 Add build_ref_data_entityInstance() to entity-infrastructure.service.ts               │
+│  1.2 Update ALL route files to return ref_data_entityInstance in response                  │
 │  1.3 Remove _ID/_IDS generation from routes                                 │
-│  1.4 Test: API responses include ref_data, exclude _ID/_IDS                 │
+│  1.4 Test: API responses include ref_data_entityInstance, exclude _ID/_IDS                 │
 │                                                                               │
 │  PHASE 2: FRONTEND (After backend is complete)                               │
 │  ═════════════════════════════════════════════                               │
 │  2.1 Add queryKeys.refData to useEntityQuery.ts                             │
 │  2.2 Create useRefData hook (React Query only)                              │
 │  2.3 Create refDataResolver.ts utility                                      │
-│  2.4 Update EntityFormContainer to use ref_data                             │
-│  2.5 Update EntityDataTable to use ref_data                                 │
+│  2.4 Update EntityFormContainer to use ref_data_entityInstance                             │
+│  2.5 Update EntityDataTable to use ref_data_entityInstance                                 │
 │  2.6 Remove all _ID/_IDS references from components                         │
 │                                                                               │
 │  PHASE 3: CLEANUP                                                            │
@@ -122,7 +122,7 @@ When hitting a project endpoint, the response contains entity references like `m
 }
 ```
 
-### NEW Structure (ref_data grouped by entity_code)
+### NEW Structure (ref_data_entityInstance grouped by entity_code)
 ```json
 {
   "data": [{
@@ -132,7 +132,7 @@ When hitting a project endpoint, the response contains entity references like `m
     "stakeholder__employee_ids": ["uuid-456", "uuid-789"],
     "business_id": "uuid-bus-001"
   }],
-  "ref_data": {
+  "ref_data_entityInstance": {
     "employee": {
       "uuid-123": "James Miller",
       "uuid-456": "Sarah Johnson",
@@ -148,11 +148,11 @@ When hitting a project endpoint, the response contains entity references like `m
 
 **Key Changes:**
 1. `_ID` and `_IDS` **REMOVED** from each data row
-2. `ref_data` added at **response level** (parallel to `metadata`)
+2. `ref_data_entityInstance` added at **response level** (parallel to `metadata`)
 3. Structure: **{ entity_code: { uuid: name } }** - nested object for O(1) lookup
 4. **ONLY contains UUIDs found in the query result** - no empty buckets, no pre-populated entity types
 5. Deduplication: Each UUID appears only once per entity_code
-6. Frontend lookup: `ref_data[entityCode][uuid]` → display name
+6. Frontend lookup: `ref_data_entityInstance[entityCode][uuid]` → display name
 
 ---
 
@@ -173,7 +173,7 @@ When hitting a project endpoint, the response contains entity references like `m
 │  │      manager__employee_id: "uuid-123",     ← Raw UUID (for PATCH)    │     │
 │  │      stakeholder__employee_ids: ["uuid-456", "uuid-789"]              │     │
 │  │    }],                                                                │     │
-│  │    ref_data: {                              ← Grouped by entity_code  │     │
+│  │    ref_data_entityInstance: {                              ← Grouped by entity_code  │     │
 │  │      "employee": {                          ← entity_code as key      │     │
 │  │        "uuid-123": "James Miller",          ← uuid: name mapping      │     │
 │  │        "uuid-456": "Sarah",                                           │     │
@@ -191,7 +191,7 @@ When hitting a project endpoint, the response contains entity references like `m
 │  │                                                                       │     │
 │  │  1. Entity Data Cache:                                                │     │
 │  │     queryKey: ['entity-instance', 'project', id]                      │     │
-│  │     data: { manager__employee_id, ref_data, metadata }                │     │
+│  │     data: { manager__employee_id, ref_data_entityInstance, metadata }                │     │
 │  │                                                                       │     │
 │  │  2. Entity Lookup Cache (useEntityLookup - for EDIT mode dropdowns): │     │
 │  │     queryKey: ['entity-lookup', 'employee', { search: 'jam' }]        │     │
@@ -207,7 +207,7 @@ When hitting a project endpoint, the response contains entity references like `m
 │  │  ┌──────────────────────────────────────────┐                        │     │
 │  │  │ Manager: James Miller                     │                        │     │
 │  │  └──────────────────────────────────────────┘                        │     │
-│  │  Lookup: ref_data["employee"]["uuid-123"] // → "James Miller"        │
+│  │  Lookup: ref_data_entityInstance["employee"]["uuid-123"] // → "James Miller"        │
 │  │                                                                       │     │
 │  │  EDIT MODE:                                                           │     │
 │  │  ┌──────────────────────────────────────────┐                        │     │
@@ -242,22 +242,22 @@ When hitting a project endpoint, the response contains entity references like `m
 │  1. API Request: GET /api/v1/project                                         │
 │                       │                                                       │
 │                       ▼                                                       │
-│  2. Backend builds ref_data:                                                 │
+│  2. Backend builds ref_data_entityInstance:                                                 │
 │     - Scans all rows for *_id, *_ids fields                                  │
 │     - Collects unique UUIDs per field                                        │
 │     - Batch resolves names from entity_instance table                        │
-│     - Returns ref_data at response level                                     │
+│     - Returns ref_data_entityInstance at response level                                     │
 │                       │                                                       │
 │                       ▼                                                       │
 │  3. React Query caches full response                                         │
 │     queryKey: ['entity-instance', 'project', id]                             │
-│     cache: { data, ref_data, metadata }                                      │
+│     cache: { data, ref_data_entityInstance, metadata }                                      │
 │                       │                                                       │
 │                       ▼                                                       │
 │  4. Frontend resolves display names:                                         │
 │     - For field manager__employee_id with value "uuid-123"                   │
 │     - Extract entity_code from field name: "employee"                        │
-│     - Lookup: ref_data["employee"]["uuid-123"] → "James Miller"              │
+│     - Lookup: ref_data_entityInstance["employee"]["uuid-123"] → "James Miller"              │
 │                                                                               │
 │  ─────────────────────────────────────────────────────────────────────────   │
 │                                                                               │
@@ -283,7 +283,7 @@ When hitting a project endpoint, the response contains entity references like `m
 │                       ▼                                                       │
 │  9. EntityFormContainer updates LOCAL state:                                 │
 │     - Sets manager__employee_id = newUuid                                    │
-│     - (ref_data not updated locally - refetched after save)                  │
+│     - (ref_data_entityInstance not updated locally - refetched after save)                  │
 │                                                                               │
 │  ─────────────────────────────────────────────────────────────────────────   │
 │                                                                               │
@@ -307,16 +307,16 @@ When hitting a project endpoint, the response contains entity references like `m
 │      - ['entity-instance-list', 'project']                                   │
 │                       │                                                       │
 │                       ▼                                                       │
-│  14. Refetch returns fresh data with updated ref_data                        │
+│  14. Refetch returns fresh data with updated ref_data_entityInstance                        │
 │                                                                               │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Implementation Plan (v2.0 - ref_data Restructure)
+## Implementation Plan (v2.0 - ref_data_entityInstance Restructure)
 
-### Phase 1: Backend - Create new build_ref_data() method
+### Phase 1: Backend - Create new build_ref_data_entityInstance() method
 
 **File**: [entity-infrastructure.service.ts](apps/api/src/services/entity-infrastructure.service.ts)
 
@@ -335,7 +335,7 @@ type RefData = Record<string, Record<string, string>>;
 **New Function**:
 ```typescript
 /**
- * Build ref_data object for response-level entity reference resolution
+ * Build ref_data_entityInstance object for response-level entity reference resolution
  *
  * Structure: { entity_code: { uuid: name } }
  *
@@ -343,13 +343,13 @@ type RefData = Record<string, Record<string, string>>;
  * batch resolves from entity_instance table, returns grouped object.
  *
  * @param rows - Array of data rows to scan for entity references
- * @returns ref_data object for response-level inclusion
+ * @returns ref_data_entityInstance object for response-level inclusion
  */
-async build_ref_data(
+async build_ref_data_entityInstance(
   rows: Record<string, any>[]
 ): Promise<RefData> {
   // Structure: { entity_code: { uuid: name } }
-  const ref_data: RefData = {};
+  const ref_data_entityInstance: RefData = {};
 
   // Pattern matching regexes
   const labeledSinglePattern = /^(.+)__([a-z_]+)_id$/;
@@ -422,7 +422,7 @@ async build_ref_data(
   }
 
   // Step 2: Batch resolve all UUIDs (1 query per entity_code)
-  // ONLY add to ref_data if UUIDs are found in entity_instance table
+  // ONLY add to ref_data_entityInstance if UUIDs are found in entity_instance table
   for (const [entityCode, uuidSet] of Object.entries(entityCodeToUuids)) {
     const uuids = Array.from(uuidSet);
     if (uuids.length === 0) continue;
@@ -436,18 +436,18 @@ async build_ref_data(
 
     // ONLY create bucket if we have results
     if (result.length > 0) {
-      ref_data[entityCode] = {};
+      ref_data_entityInstance[entityCode] = {};
 
       // Add resolved entries: { uuid: name }
       for (const r of result) {
         const row = r as Record<string, any>;
-        ref_data[entityCode][row.entity_instance_id as string] = row.entity_instance_name as string;
+        ref_data_entityInstance[entityCode][row.entity_instance_id as string] = row.entity_instance_name as string;
       }
     }
-    // If no results found, DON'T add empty bucket - keeps ref_data clean
+    // If no results found, DON'T add empty bucket - keeps ref_data_entityInstance clean
   }
 
-  return ref_data;
+  return ref_data_entityInstance;
 }
 ```
 
@@ -468,37 +468,37 @@ return reply.send({
 });
 ```
 
-**After (new ref_data pattern)**:
+**After (new ref_data_entityInstance pattern)**:
 ```typescript
 // In GET /api/v1/project (list)
 const projects = await db.execute(sql`SELECT * FROM app.project...`);
-const ref_data = await entityInfra.build_ref_data(projects);
+const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(projects);
 
 return reply.send({
   data: projects,  // Raw UUIDs only
-  ref_data,        // Response-level lookup table
+  ref_data_entityInstance,        // Response-level lookup table
   metadata,
   total, limit, offset
 });
 
 // In GET /api/v1/project/:id (single)
 const project = await db.execute(sql`SELECT * FROM app.project...`);
-const ref_data = await entityInfra.build_ref_data([project]);
+const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance([project]);
 
 return reply.send({
   data: project,   // Raw UUIDs only
-  ref_data,        // Response-level lookup table
+  ref_data_entityInstance,        // Response-level lookup table
   metadata
 });
 ```
 
-### Phase 3: Frontend - Add ref_data Resolution Utility
+### Phase 3: Frontend - Add ref_data_entityInstance Resolution Utility
 
 **New File**: `apps/web/src/lib/refDataResolver.ts`
 
 ```typescript
 // ============================================================================
-// ref_data Structure: { entity_code: { uuid: name } }
+// ref_data_entityInstance Structure: { entity_code: { uuid: name } }
 // ============================================================================
 // Example:
 // {
@@ -532,41 +532,41 @@ export function extractEntityCode(fieldName: string): string | null {
 }
 
 /**
- * Resolve entity reference display name from ref_data
+ * Resolve entity reference display name from ref_data_entityInstance
  *
- * @param ref_data - Response-level ref_data object { entity_code: { uuid: name } }
+ * @param ref_data_entityInstance - Response-level ref_data_entityInstance object { entity_code: { uuid: name } }
  * @param fieldName - Field name (e.g., "manager__employee_id")
  * @param uuid - UUID value from the data row
  * @returns Display name or empty string
  */
 export function resolveRefName(
-  ref_data: RefData | undefined,
+  ref_data_entityInstance: RefData | undefined,
   fieldName: string,
   uuid: string | null | undefined
 ): string {
-  if (!ref_data || !uuid) return '';
+  if (!ref_data_entityInstance || !uuid) return '';
 
   const entityCode = extractEntityCode(fieldName);
   if (!entityCode) return '';
 
-  return ref_data[entityCode]?.[uuid] || '';
+  return ref_data_entityInstance[entityCode]?.[uuid] || '';
 }
 
 /**
  * Resolve multiple entity references (for _ids fields)
  */
 export function resolveRefNames(
-  ref_data: RefData | undefined,
+  ref_data_entityInstance: RefData | undefined,
   fieldName: string,
   uuids: string[] | null | undefined
 ): string[] {
-  if (!ref_data || !uuids || uuids.length === 0) return [];
+  if (!ref_data_entityInstance || !uuids || uuids.length === 0) return [];
 
   const entityCode = extractEntityCode(fieldName);
   if (!entityCode) return [];
 
   return uuids
-    .map(uuid => ref_data[entityCode]?.[uuid] || '')
+    .map(uuid => ref_data_entityInstance[entityCode]?.[uuid] || '')
     .filter(name => name !== '');
 }
 
@@ -575,12 +575,12 @@ export function resolveRefNames(
  * More efficient than extracting from field name
  */
 export function resolveRefNameDirect(
-  ref_data: RefData | undefined,
+  ref_data_entityInstance: RefData | undefined,
   entityCode: string,
   uuid: string | null | undefined
 ): string {
-  if (!ref_data || !uuid) return '';
-  return ref_data[entityCode]?.[uuid] || '';
+  if (!ref_data_entityInstance || !uuid) return '';
+  return ref_data_entityInstance[entityCode]?.[uuid] || '';
 }
 
 /**
@@ -588,12 +588,12 @@ export function resolveRefNameDirect(
  * Useful for building dropdown options from current data
  */
 export function getRefEntriesForEntity(
-  ref_data: RefData | undefined,
+  ref_data_entityInstance: RefData | undefined,
   entityCode: string
 ): Array<{ id: string; name: string }> {
-  if (!ref_data || !ref_data[entityCode]) return [];
+  if (!ref_data_entityInstance || !ref_data_entityInstance[entityCode]) return [];
 
-  return Object.entries(ref_data[entityCode]).map(([uuid, name]) => ({
+  return Object.entries(ref_data_entityInstance[entityCode]).map(([uuid, name]) => ({
     id: uuid,
     name
   }));
@@ -603,18 +603,18 @@ export function getRefEntriesForEntity(
 **Usage Example**:
 ```typescript
 // In component
-const { data, ref_data, metadata } = useEntityInstance('project', id);
+const { data, ref_data_entityInstance, metadata } = useEntityInstance('project', id);
 
 // Single reference - extract entity_code from field name
-const managerName = resolveRefName(ref_data, 'manager__employee_id', data.manager__employee_id);
+const managerName = resolveRefName(ref_data_entityInstance, 'manager__employee_id', data.manager__employee_id);
 // → "James Miller"
 
 // Array reference
-const stakeholderNames = resolveRefNames(ref_data, 'stakeholder__employee_ids', data.stakeholder__employee_ids);
+const stakeholderNames = resolveRefNames(ref_data_entityInstance, 'stakeholder__employee_ids', data.stakeholder__employee_ids);
 // → ["Sarah", "Mike"]
 
 // Direct lookup when entity_code is known (from metadata)
-const businessName = resolveRefNameDirect(ref_data, 'business', data.business_id);
+const businessName = resolveRefNameDirect(ref_data_entityInstance, 'business', data.business_id);
 // → "Huron Home Services"
 ```
 
@@ -624,24 +624,24 @@ const businessName = resolveRefNameDirect(ref_data, 'business', data.business_id
 
 **Changes**:
 
-1. **Accept ref_data as prop**:
+1. **Accept ref_data_entityInstance as prop**:
 ```typescript
 import { RefData, resolveRefName, resolveRefNames, extractEntityCode } from '@/lib/refDataResolver';
 
 interface EntityFormContainerProps {
   data: Record<string, any>;
-  ref_data?: RefData;  // { entity_code: { uuid: name } }
+  ref_data_entityInstance?: RefData;  // { entity_code: { uuid: name } }
   metadata?: EntityMetadata;
   // ...
 }
 ```
 
-2. **View mode - resolve names from ref_data**:
+2. **View mode - resolve names from ref_data_entityInstance**:
 ```typescript
 // For _id fields (single reference)
 if (fieldName.endsWith('_id') && fieldName !== 'id') {
   const uuid = data[fieldName];
-  const displayName = resolveRefName(ref_data, fieldName, uuid);
+  const displayName = resolveRefName(ref_data_entityInstance, fieldName, uuid);
   if (displayName) {
     return <span className="text-gray-900">{displayName}</span>;
   }
@@ -651,7 +651,7 @@ if (fieldName.endsWith('_id') && fieldName !== 'id') {
 // For _ids fields (array reference)
 if (fieldName.endsWith('_ids')) {
   const uuids = data[fieldName] as string[] | null;
-  const displayNames = resolveRefNames(ref_data, fieldName, uuids);
+  const displayNames = resolveRefNames(ref_data_entityInstance, fieldName, uuids);
   if (displayNames.length > 0) {
     return <TagList items={displayNames} />;
   }
@@ -665,7 +665,7 @@ if (fieldName.endsWith('_ids')) {
 const editMeta = metadata?.editType?.[fieldName];
 if (editMeta?.lookupSource === 'entityInstance') {
   const currentUuid = data[fieldName];
-  const currentName = resolveRefName(ref_data, fieldName, currentUuid);
+  const currentName = resolveRefName(ref_data_entityInstance, fieldName, currentUuid);
 
   return (
     <EntitySelect
@@ -687,7 +687,7 @@ if (editMeta?.lookupSource === 'entityInstance' && fieldName.endsWith('_ids')) {
     <EntityMultiSelect
       entityCode={editMeta.lookupEntity}
       values={currentUuids || []}
-      ref_data={ref_data}  // Pass for displaying current selections
+      ref_data_entityInstance={ref_data_entityInstance}  // Pass for displaying current selections
       onChange={(newUuids) => handleFieldChange(fieldName, newUuids)}
     />
   );
@@ -707,7 +707,7 @@ import { RefData } from '@/lib/refDataResolver';
 
 interface EntityListResponse<T> {
   data: T[];
-  ref_data?: RefData;  // { entity_code: { uuid: name } }
+  ref_data_entityInstance?: RefData;  // { entity_code: { uuid: name } }
   metadata?: EntityMetadata;
   total: number;
   limit: number;
@@ -716,7 +716,7 @@ interface EntityListResponse<T> {
 
 interface EntityInstanceResponse<T> {
   data: T;
-  ref_data?: RefData;  // { entity_code: { uuid: name } }
+  ref_data_entityInstance?: RefData;  // { entity_code: { uuid: name } }
   metadata?: EntityMetadata;
 }
 ```
@@ -725,15 +725,15 @@ interface EntityInstanceResponse<T> {
 
 **Backend** - Remove from routes:
 1. Remove all calls to `resolve_entity_references()`
-2. Replace with `build_ref_data()`
+2. Replace with `build_ref_data_entityInstance()`
 3. Remove `_ID` and `_IDS` spreading into data rows
 4. Mark `resolve_entity_references()` as `@deprecated`
 
 **Frontend** - Remove from components:
 1. Remove all `_ID` and `_IDS` references
-2. Use `ref_data` + `resolveRefName()` instead
-3. Update EntityDataTable to use ref_data for rendering
-4. Update EntityDetailView to use ref_data for rendering
+2. Use `ref_data_entityInstance` + `resolveRefName()` instead
+3. Update EntityDataTable to use ref_data_entityInstance for rendering
+4. Update EntityDetailView to use ref_data_entityInstance for rendering
 
 ---
 
@@ -754,7 +754,7 @@ interface EntityInstanceResponse<T> {
       "active_flag": true
     }
   ],
-  "ref_data": {
+  "ref_data_entityInstance": {
     "employee": {
       "emp-uuid-123": "James Miller",
       "emp-uuid-789": "Sarah Johnson",
@@ -775,7 +775,7 @@ interface EntityInstanceResponse<T> {
 ```
 
 **Benefits of Grouped Object Structure**:
-1. **O(1) Lookup** - Direct access: `ref_data[entityCode][uuid]`
+1. **O(1) Lookup** - Direct access: `ref_data_entityInstance[entityCode][uuid]`
 2. **Organized** - Grouped by entity type for easy debugging
 3. **Deduplicated** - Each UUID appears once per entity_code
 4. **Simple Values** - Just `uuid: name` mapping, no wrapper object
@@ -784,24 +784,24 @@ interface EntityInstanceResponse<T> {
 
 ---
 
-## Component Interaction Diagram (v3.1.0 - ref_data Pattern)
+## Component Interaction Diagram (v3.1.0 - ref_data_entityInstance Pattern)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    COMPONENT HIERARCHY & DATA FLOW (ref_data)                 │
+│                    COMPONENT HIERARCHY & DATA FLOW (ref_data_entityInstance)                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                               │
 │  EntitySpecificInstancePage                                                   │
 │  ├── useEntityInstance('project', id)                                        │
-│  │   └── Returns: { data, ref_data, metadata }                               │
+│  │   └── Returns: { data, ref_data_entityInstance, metadata }                               │
 │  │       data: { manager__employee_id: "uuid-123", ... }  ← Raw UUIDs only   │
-│  │       ref_data: { "employee": { "uuid-123": "James Miller" } }            │
+│  │       ref_data_entityInstance: { "employee": { "uuid-123": "James Miller" } }            │
 │  │       metadata: { entityFormContainer: { viewType, editType } }           │
 │  │                                                                            │
 │  ├── [editedData, setEditedData] = useState(data)                            │
 │  │                                                                            │
 │  └── EntityFormContainer                                                     │
-│      ├── Props: { data, ref_data, metadata, isEditing, onChange }            │
+│      ├── Props: { data, ref_data_entityInstance, metadata, isEditing, onChange }            │
 │      │                                                                        │
 │      ├── FIELD GENERATION (from metadata.entityFormContainer.editType)       │
 │      │   ├── Regular fields → DebouncedInput, select, etc.                   │
@@ -809,8 +809,8 @@ interface EntityInstanceResponse<T> {
 │      │                                                                        │
 │      ├── VIEW MODE                                                            │
 │      │   ├── Regular fields: Show value from data[key]                       │
-│      │   └── Entity refs: resolveRefName(ref_data, fieldName, uuid)          │
-│      │       Example: ref_data["employee"]["uuid-123"] → "James Miller"      │
+│      │   └── Entity refs: resolveRefName(ref_data_entityInstance, fieldName, uuid)          │
+│      │       Example: ref_data_entityInstance["employee"]["uuid-123"] → "James Miller"      │
 │      │                                                                        │
 │      └── EDIT MODE                                                            │
 │          ├── Regular fields: Input from editType                             │
@@ -823,7 +823,7 @@ interface EntityInstanceResponse<T> {
 │                      │                                                        │
 │                      └── onChange(newUuid)                                   │
 │                          └── Parent updates: data[manager__employee_id] = newUuid│
-│                              (ref_data refreshed on save via invalidation)   │
+│                              (ref_data_entityInstance refreshed on save via invalidation)   │
 │                                                                               │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -836,19 +836,19 @@ interface EntityInstanceResponse<T> {
 
 | File | Changes | Priority |
 |------|---------|----------|
-| `entity-infrastructure.service.ts` | Add `build_ref_data()` method | High |
-| `apps/api/src/modules/*/routes.ts` | Return `ref_data` in response, remove `_ID`/`_IDS` | High |
+| `entity-infrastructure.service.ts` | Add `build_ref_data_entityInstance()` method | High |
+| `apps/api/src/modules/*/routes.ts` | Return `ref_data_entityInstance` in response, remove `_ID`/`_IDS` | High |
 
 ### Phase 2: Frontend
 
 | File | Changes | Priority |
 |------|---------|----------|
 | `useEntityQuery.ts` | Add `queryKeys.refData`, `CACHE_TTL.REF_DATA_*` | High |
-| `useRefData.ts` (new) | Create React Query hook for ref_data | High |
-| `refDataResolver.ts` (new) | Utility functions for ref_data lookup | High |
-| `EntityFormContainer.tsx` | Use `ref_data` for view mode, EntitySelect for edit | High |
-| `EntityDataTable.tsx` | Use `ref_data` for displaying entity references | High |
-| `EntitySpecificInstancePage.tsx` | Pass `ref_data` to children | Medium |
+| `useRefData.ts` (new) | Create React Query hook for ref_data_entityInstance | High |
+| `refDataResolver.ts` (new) | Utility functions for ref_data_entityInstance lookup | High |
+| `EntityFormContainer.tsx` | Use `ref_data_entityInstance` for view mode, EntitySelect for edit | High |
+| `EntityDataTable.tsx` | Use `ref_data_entityInstance` for displaying entity references | High |
+| `EntitySpecificInstancePage.tsx` | Pass `ref_data_entityInstance` to children | Medium |
 
 ---
 
@@ -1535,11 +1535,11 @@ mutate({ id, manager__employee_id: newUuid });
 ---
 ---
 
-# PART 3: ref_data React Query Caching Strategy
+# PART 3: ref_data_entityInstance React Query Caching Strategy
 
 **Date**: 2025-11-26
 **Version**: 8.3.0
-**Pattern**: React Query Only (No Zustand for ref_data)
+**Pattern**: React Query Only (No Zustand for ref_data_entityInstance)
 
 ---
 
@@ -1550,15 +1550,15 @@ mutate({ id, manager__employee_id: newUuid });
 │                    CACHE POPULATION: SINGLE SOURCE OF TRUTH                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                               │
-│  PRIMARY SOURCE: API response includes ref_data                               │
+│  PRIMARY SOURCE: API response includes ref_data_entityInstance                               │
 │  ═══════════════════════════════════════════════                             │
 │                                                                               │
-│  GET /api/v1/project → { data, ref_data, metadata }                          │
+│  GET /api/v1/project → { data, ref_data_entityInstance, metadata }                          │
 │                              │                                                │
 │                              ▼                                                │
-│  React Query caches ref_data alongside entity data                           │
+│  React Query caches ref_data_entityInstance alongside entity data                           │
 │  queryKey: ['entity-instance', 'project', id]                                │
-│  data: { data: {...}, ref_data: {...}, metadata: {...} }                     │
+│  data: { data: {...}, ref_data_entityInstance: {...}, metadata: {...} }                     │
 │                                                                               │
 │  ─────────────────────────────────────────────────────────────────────────   │
 │                                                                               │
@@ -1576,7 +1576,7 @@ mutate({ id, manager__employee_id: newUuid });
 │  KEY INSIGHT: These are DIFFERENT caches with DIFFERENT purposes             │
 │  ════════════════════════════════════════════════════════════════            │
 │                                                                               │
-│  1. Entity response ref_data → Resolve UUIDs in CURRENT data (view mode)     │
+│  1. Entity response ref_data_entityInstance → Resolve UUIDs in CURRENT data (view mode)     │
 │     - Only contains UUIDs from the query result                              │
 │     - Cached as part of entity response                                      │
 │                                                                               │
@@ -1593,7 +1593,7 @@ mutate({ id, manager__employee_id: newUuid });
 
 ## Overview
 
-ref_data caching uses **Pure React Query** - no Zustand stores. Component asks React Query for data, React Query handles cache check and API fetch if needed.
+ref_data_entityInstance caching uses **Pure React Query** - no Zustand stores. Component asks React Query for data, React Query handles cache check and API fetch if needed.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -1603,7 +1603,7 @@ ref_data caching uses **Pure React Query** - no Zustand stores. Component asks R
 │  COMPONENT USAGE (Simple!)                                                    │
 │  ─────────────────────────                                                    │
 │                                                                               │
-│  // Component just asks for ref_data - like useDatalabelMetadata              │
+│  // Component just asks for ref_data_entityInstance - like useDatalabelMetadata              │
 │  const { data: employeeRefData } = useRefData('employee');                    │
 │  const managerName = employeeRefData?.[uuid] || '';                           │
 │                                                                               │
@@ -1642,14 +1642,14 @@ ref_data caching uses **Pure React Query** - no Zustand stores. Component asks R
 | **Single Source of Truth** | React Query only - no Zustand sync issues |
 | **Stale-While-Revalidate** | React Query handles TTL automatically |
 | **Consistent** | Same pattern as useDatalabelMetadata |
-| **DevTools** | All ref_data visible in React Query DevTools |
+| **DevTools** | All ref_data_entityInstance visible in React Query DevTools |
 | **Auto GC** | Unused cache entries cleaned up automatically |
 
 ---
 
 ## Implementation Plan
 
-### Step 1: Add Query Keys for ref_data
+### Step 1: Add Query Keys for ref_data_entityInstance
 
 **File**: `apps/web/src/lib/hooks/useEntityQuery.ts`
 
@@ -1664,11 +1664,11 @@ export const queryKeys = {
   entityInstance: (entityCode: string, id: string) =>
     ['entity-instance', entityCode, id] as const,
 
-  // ✅ NEW: ref_data cache per entity_code
+  // ✅ NEW: ref_data_entityInstance cache per entity_code
   refData: (entityCode: string) => ['ref-data', entityCode] as const,
 };
 
-// Add TTL for ref_data (Reference Data tier)
+// Add TTL for ref_data_entityInstance (Reference Data tier)
 export const CACHE_TTL = {
   // ... existing TTLs
   REF_DATA_STALE: 60 * 60 * 1000,  // 1 hour stale time
@@ -1684,7 +1684,7 @@ export const CACHE_TTL = {
 
 ```typescript
 /**
- * useRefData - Simple React Query hook for ref_data access
+ * useRefData - Simple React Query hook for ref_data_entityInstance access
  *
  * Works exactly like useDatalabelMetadata - component just asks for data,
  * React Query handles cache check and fetch if needed.
@@ -1704,10 +1704,10 @@ import { useCallback } from 'react';
 import { apiClient } from '@/lib/api';
 import { queryKeys, CACHE_TTL } from './useEntityQuery';
 
-// Type for ref_data cache: { uuid: name }
+// Type for ref_data_entityInstance cache: { uuid: name }
 export type RefDataCache = Record<string, string>;
 
-// Type for API response ref_data: { entity_code: { uuid: name } }
+// Type for API response ref_data_entityInstance: { entity_code: { uuid: name } }
 export type RefData = Record<string, Record<string, string>>;
 
 // ============================================================================
@@ -1723,7 +1723,7 @@ export type RefData = Record<string, Record<string, string>>;
  * - If cache miss: fetch from /api/v1/entity/employee/entity-instance-lookup
  * - Component does simple lookup: refData?.[uuid]
  *
- * @param entityCode - Entity type to fetch ref_data for (e.g., 'employee', 'business')
+ * @param entityCode - Entity type to fetch ref_data_entityInstance for (e.g., 'employee', 'business')
  * @returns { data: { uuid: name }, isLoading, error }
  */
 export function useRefData(entityCode: string | null) {
@@ -1754,7 +1754,7 @@ export function useRefData(entityCode: string | null) {
 // NOTE: No upsert/merge between caches
 // ============================================================================
 //
-// ref_data from API response is cached AS PART OF the entity response.
+// ref_data_entityInstance from API response is cached AS PART OF the entity response.
 // useRefData fetches separately for dropdown population.
 // These are SEPARATE caches - no merging needed.
 //
@@ -1789,12 +1789,12 @@ export function extractEntityCode(fieldName: string): string | null {
 
 ---
 
-### Step 3: CRUD Cache Sync (Keep ref_data Fresh)
+### Step 3: CRUD Cache Sync (Keep ref_data_entityInstance Fresh)
 
 **File**: `apps/web/src/lib/hooks/useEntityQuery.ts`
 
 ```typescript
-// CREATE: Add new entity to ref_data cache
+// CREATE: Add new entity to ref_data_entityInstance cache
 onSuccess: (response) => {
   if (response?.id && response?.name) {
     queryClient.setQueryData(queryKeys.refData(entityCode), (old) => ({
@@ -1804,7 +1804,7 @@ onSuccess: (response) => {
   }
 },
 
-// UPDATE: Update name in ref_data cache
+// UPDATE: Update name in ref_data_entityInstance cache
 onSuccess: (response, { id, data }) => {
   if (data.name) {
     queryClient.setQueryData(queryKeys.refData(entityCode), (old) => ({
@@ -1814,7 +1814,7 @@ onSuccess: (response, { id, data }) => {
   }
 },
 
-// DELETE: Remove from ref_data cache
+// DELETE: Remove from ref_data_entityInstance cache
 onSuccess: (_data, id) => {
   queryClient.setQueryData(queryKeys.refData(entityCode), (old) => {
     if (!old) return old;
@@ -1828,7 +1828,7 @@ onSuccess: (_data, id) => {
 
 ### Step 4: Logout (No Changes Needed)
 
-`queryClient.clear()` automatically clears all ref_data cache.
+`queryClient.clear()` automatically clears all ref_data_entityInstance cache.
 
 ---
 

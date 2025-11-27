@@ -23,7 +23,7 @@ The frontend formatter is a **pure renderer** that executes backend instructions
 │      },                                             └── "$50,000.00"         │
 │      manager__employee_id: {                                                 │
 │        viewType: 'entityInstance_Id', useRefData() → resolveFieldDisplay()  │
-│        lookupEntity: 'employee'           └── ref_data.employee[uuid]       │
+│        lookupEntity: 'employee'           └── ref_data_entityInstance.employee[uuid]       │
 │      }                                        └── "James Miller"             │
 │    },                                                                        │
 │    editType: {                         renderEditModeFromMetadata()          │
@@ -146,9 +146,9 @@ if (isEntityReferenceField(fieldMeta)) {
 ```typescript
 import { useRefData } from '@/lib/hooks';
 
-// Get ref_data from API response
+// Get ref_data_entityInstance from API response
 const { data } = useEntityInstance('project', projectId);
-const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(data?.ref_data);
+const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(data?.ref_data_entityInstance);
 
 // Resolve using field metadata
 const fieldMeta = metadata.viewType.manager__employee_id;
@@ -180,20 +180,20 @@ interface UseRefDataResult {
 
 ## Data Flow
 
-### Format-at-Read Pattern with ref_data
+### Format-at-Read Pattern with ref_data_entityInstance
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  FORMAT-AT-READ FLOW (v8.3.1)                                                │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  1. React Query Cache (RAW + ref_data)                                       │
+│  1. React Query Cache (RAW + ref_data_entityInstance)                                       │
 │     queryKey: ['entity-list', 'project', params]                             │
-│     data: { data: [...], ref_data: {...}, metadata: {...} }                  │
+│     data: { data: [...], ref_data_entityInstance: {...}, metadata: {...} }                  │
 │                       │                                                      │
 │                       ▼ `select` option (ON READ)                            │
 │                                                                              │
-│  2. formatDataset(raw.data, raw.metadata.entityDataTable, raw.ref_data)      │
+│  2. formatDataset(raw.data, raw.metadata.entityDataTable, raw.ref_data_entityInstance)      │
 │                       │                                                      │
 │                       ├── Loop: formatRow(row, viewType, refData)            │
 │                       │                                                      │
@@ -206,7 +206,7 @@ interface UseRefDataResult {
 │                       │                                                      │
 │                       ├── For entity refs: Check viewType[key].viewType      │
 │                       │    └── 'entityInstance_Id' → use lookupEntity        │
-│                       │        └── ref_data[lookupEntity][uuid]              │
+│                       │        └── ref_data_entityInstance[lookupEntity][uuid]              │
 │                       │                                                      │
 │                       └── Returns: FormattedRow[]                            │
 │                                                                              │
@@ -547,7 +547,7 @@ function getEntityCodeFromMetadata(fieldMeta: FieldMetadata | undefined): string
 | Direct property access | Zero function calls during scroll |
 | Pre-computed styles | Badge CSS computed once at format time |
 | Virtualization compatible | Works with @tanstack/react-virtual |
-| ref_data O(1) lookup | Entity names resolved instantly |
+| ref_data_entityInstance O(1) lookup | Entity names resolved instantly |
 
 ---
 
@@ -559,4 +559,4 @@ function getEntityCodeFromMetadata(fieldMeta: FieldMetadata | undefined): string
   - Added `BadgeDropdownSelect` as valid inputType in renderEditModeFromMetadata
   - `EntityFormContainer_viz_container` is now object `{ view?: string; edit?: string }`
 - v8.3.1 (2025-11-26): Removed all pattern detection, enforced metadata as source of truth
-- v8.3.0 (2025-11-26): Added ref_data resolution, useRefData hook
+- v8.3.0 (2025-11-26): Added ref_data_entityInstance resolution, useRefData hook

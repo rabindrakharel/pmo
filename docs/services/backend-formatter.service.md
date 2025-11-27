@@ -37,7 +37,7 @@ The Backend Formatter Service generates **component-aware field metadata** from 
 │                       ▼                                                      │
 │  API Response includes:                                                      │
 │  • metadata.entityDataTable.viewType.manager__employee_id                    │
-│  • ref_data.employee = { "uuid-1": "James Miller", ... }                     │
+│  • ref_data_entityInstance.employee = { "uuid-1": "James Miller", ... }                     │
 │                                                                              │
 │  Frontend uses metadata.lookupEntity (NO pattern matching)                   │
 │                                                                              │
@@ -60,7 +60,7 @@ The Backend Formatter Service generates **component-aware field metadata** from 
     }
   ],
   "fields": ["id", "name", "budget_allocated_amt", "manager__employee_id", "dl__project_stage"],
-  "ref_data": {
+  "ref_data_entityInstance": {
     "employee": {
       "uuid-james": "James Miller"
     }
@@ -134,18 +134,18 @@ The Backend Formatter Service generates **component-aware field metadata** from 
 
 ## Entity Reference Fields (v8.3.0)
 
-### ref_data Pattern
+### ref_data_entityInstance Pattern
 
-Entity reference fields (`*_id`, `*__entity_id`) are resolved via `ref_data` lookup table instead of per-row embedded objects:
+Entity reference fields (`*_id`, `*__entity_id`) are resolved via `ref_data_entityInstance` lookup table instead of per-row embedded objects:
 
 ```typescript
-// Backend generates ref_data for all entity reference fields
-const ref_data = await entityInfra.build_ref_data(data);
+// Backend generates ref_data_entityInstance for all entity reference fields
+const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(data);
 
-// Response includes ref_data
+// Response includes ref_data_entityInstance
 return {
   data: projects,
-  ref_data,  // { employee: { "uuid-1": "James Miller" }, business: {...} }
+  ref_data_entityInstance,  // { employee: { "uuid-1": "James Miller" }, business: {...} }
   metadata: { ... }
 };
 ```
@@ -174,7 +174,7 @@ const fieldMeta = metadata.viewType.manager__employee_id;
 // Check using metadata, NOT field name pattern
 if (isEntityReferenceField(fieldMeta)) {
   const entityCode = getEntityCodeFromMetadata(fieldMeta);  // "employee"
-  const displayName = ref_data[entityCode][uuid];           // "James Miller"
+  const displayName = ref_data_entityInstance[entityCode][uuid];           // "James Miller"
 }
 
 // ✗ WRONG: Pattern detection (removed in v8.3.1)
@@ -247,7 +247,7 @@ patterns:
 
 ## Usage in Routes
 
-### Standard Pattern with ref_data
+### Standard Pattern with ref_data_entityInstance
 
 ```typescript
 import { generateEntityResponse } from '@/services/backend-formatter.service.js';
@@ -258,8 +258,8 @@ const entityInfra = getEntityInfrastructure(db);
 fastify.get('/api/v1/project', async (request, reply) => {
   const projects = await db.execute(sql`SELECT * FROM app.project...`);
 
-  // Build ref_data lookup table for entity references
-  const ref_data = await entityInfra.build_ref_data(projects);
+  // Build ref_data_entityInstance lookup table for entity references
+  const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(projects);
 
   // Generate complete response with metadata
   const response = generateEntityResponse('project', projects, {
@@ -271,7 +271,7 @@ fastify.get('/api/v1/project', async (request, reply) => {
 
   return reply.send({
     ...response,
-    ref_data  // Include ref_data in response
+    ref_data_entityInstance  // Include ref_data_entityInstance in response
   });
 });
 ```
@@ -448,7 +448,7 @@ This renders a dropdown with colored badges matching the datalabel options, usin
 | Field name `_id` checking | Maintenance burden | Use `viewType === 'entityInstance_Id'` |
 | Hardcoded field configs | Maintenance burden | Use YAML mappings |
 | Same metadata for all components | Limited flexibility | Component-specific viewType/editType |
-| Per-row `_ID` embedded objects | N+1 performance | Use `ref_data` lookup table |
+| Per-row `_ID` embedded objects | N+1 performance | Use `ref_data_entityInstance` lookup table |
 
 ---
 
