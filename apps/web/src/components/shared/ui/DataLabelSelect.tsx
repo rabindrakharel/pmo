@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useDatalabels } from '@/lib/hooks/useEntityQuery';
+import { useDatalabels } from '@/lib/hooks';
 import { BadgeDropdownSelect, type BadgeDropdownSelectOption } from './BadgeDropdownSelect';
 import { InlineSpinner } from './EllipsisBounce';
 import { colorCodeToTailwindClass } from '@/lib/formatters/valueFormatters';

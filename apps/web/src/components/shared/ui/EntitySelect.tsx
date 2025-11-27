@@ -1,5 +1,5 @@
 import React from 'react';
-import { useRefDataEntityInstanceOptions } from '@/lib/hooks/useRefDataEntityInstanceCache';
+import { useRefDataEntityInstanceOptions } from '@/lib/hooks';
 import { Select } from './Select';
 import { InlineSpinner } from './EllipsisBounce';
 

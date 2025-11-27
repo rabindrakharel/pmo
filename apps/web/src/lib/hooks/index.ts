@@ -209,3 +209,13 @@ export const CACHE_TTL = {
   MEDIUM: 300000,
   LONG: 1800000,
 };
+
+// Shim for useRefDataEntityInstanceOptions (was in deleted useRefDataEntityInstanceCache.ts)
+export function useRefDataEntityInstanceOptions(_entityCode: string) {
+  console.warn('[v9.0.0] useRefDataEntityInstanceOptions is deprecated. Use RxDB entity collections instead.');
+  return {
+    options: [] as Array<{ value: string; label: string }>,
+    isLoading: false,
+    refetch: async () => {},
+  };
+}
