@@ -7,6 +7,7 @@ import { NavigationHistoryProvider } from './contexts/NavigationHistoryContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { EntityPreviewProvider } from './contexts/EntityPreviewContext';
 import { EntityMetadataProvider, useEntityMetadata } from './contexts/EntityMetadataContext';
+import { SyncProvider } from './db/sync';
 import { LoginForm } from './components/shared';
 import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPanel';
 import { EllipsisBounce } from './components/shared/ui/EllipsisBounce';
@@ -364,20 +365,22 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <EntityMetadataProvider>
-          <Router>
-            <SidebarProvider>
-              <SettingsProvider>
-                <NavigationHistoryProvider>
-                  <EntityPreviewProvider>
-                    <AppRoutes />
-                    <EntityPreviewPanel />
-                  </EntityPreviewProvider>
-                </NavigationHistoryProvider>
-              </SettingsProvider>
-            </SidebarProvider>
-          </Router>
-        </EntityMetadataProvider>
+        <SyncProvider>
+          <EntityMetadataProvider>
+            <Router>
+              <SidebarProvider>
+                <SettingsProvider>
+                  <NavigationHistoryProvider>
+                    <EntityPreviewProvider>
+                      <AppRoutes />
+                      <EntityPreviewPanel />
+                    </EntityPreviewProvider>
+                  </NavigationHistoryProvider>
+                </SettingsProvider>
+              </SidebarProvider>
+            </Router>
+          </EntityMetadataProvider>
+        </SyncProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

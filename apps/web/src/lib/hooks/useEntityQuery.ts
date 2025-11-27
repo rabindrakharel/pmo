@@ -56,6 +56,9 @@ import {
 // v8.3.2: Unified ref_data_entityInstance cache for dropdown + view resolution
 import { upsertRefDataEntityInstanceCache } from './useRefDataEntityInstanceCache';
 
+// v8.4.0: Real-time sync via WebSocket invalidation
+import { useAutoSubscribe, useAutoSubscribeSingle } from '../../db/sync';
+
 // ============================================================================
 // Cache Configuration
 // ============================================================================
@@ -336,6 +339,13 @@ export function useEntityInstanceList<T = any>(
     }
   }, [query.data, query.isRefetching, queryClient, queryKey, entityCode]);
 
+  // v8.4.0: Auto-subscribe to loaded entities for real-time sync
+  const entityIds = useMemo(
+    () => query.data?.data?.map((item: { id: string }) => item.id) ?? [],
+    [query.data?.data]
+  );
+  useAutoSubscribe(entityCode, entityIds);
+
   return query;
 }
 
@@ -470,6 +480,9 @@ export function useEntityInstance<T = any>(
       );
     }
   }, [query.data, query.isRefetching, queryClient, queryKey, entityCode, id]);
+
+  // v8.4.0: Auto-subscribe to this entity for real-time sync
+  useAutoSubscribeSingle(entityCode, id);
 
   return query;
 }
@@ -625,6 +638,13 @@ export function useFormattedEntityList<T = any>(
     ...options,
   });
 
+  // v8.4.0: Auto-subscribe to loaded entities for real-time sync
+  const entityIds = useMemo(
+    () => query.data?.data?.map((item: { id: string }) => item.id) ?? [],
+    [query.data?.data]
+  );
+  useAutoSubscribe(entityCode, entityIds);
+
   return query;
 }
 
@@ -736,6 +756,9 @@ export function useFormattedEntityInstance<T = any>(
     refetchOnMount: 'always',
     ...options,
   });
+
+  // v8.4.0: Auto-subscribe to this entity for real-time sync
+  useAutoSubscribeSingle(entityCode, id);
 
   return query;
 }
