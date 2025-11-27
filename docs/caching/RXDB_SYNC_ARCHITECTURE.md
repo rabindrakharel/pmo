@@ -1,8 +1,8 @@
 # RxDB Real-Time Sync Architecture
 
-> WebSocket-based invalidation sync for real-time entity updates
+> Offline-first, persistent storage with WebSocket real-time sync
 
-**Version**: 3.0
+**Version**: 4.0
 **Date**: 2025-11-27
 **Status**: Implemented
 **Deployment**: Single-pod (<500 concurrent users)
@@ -26,17 +26,29 @@
 
 ## 1. Executive Summary
 
-This architecture implements real-time entity synchronization using WebSocket-based invalidation signals. When entities change, the PubSub service pushes lightweight "refetch" signals to subscribed clients, which then fetch fresh data via the existing REST API.
+This architecture implements **offline-first, persistent storage** using **RxDB with IndexedDB**, combined with **WebSocket-based real-time sync**. Data survives page refresh and browser restart. Unsaved edits persist through refreshes.
 
 ### Key Design Decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
+| Client Storage | RxDB + IndexedDB | Offline-first, persistent, multi-tab sync |
 | Sync Strategy | Invalidation-based | Reuse existing REST API, RBAC checked on refetch |
 | Subscription Storage | PostgreSQL table | Persistent across restarts, easy debugging |
 | Change Detection | Polling (60s) | Simple, reliable, low overhead |
 | WebSocket Protocol | Custom JSON | Lighter than full replication protocol |
-| State Management | React Query only | No Zustand, single source of truth |
+| Draft Persistence | RxDB drafts collection | Unsaved edits survive page refresh |
+
+### Key Benefits
+
+| Benefit | Description |
+|---------|-------------|
+| **Offline-First** | Works without network connection |
+| **Persistent** | Data survives browser restart (IndexedDB) |
+| **Multi-Tab** | Changes sync across browser tabs automatically |
+| **Draft Persistence** | Unsaved edits survive page refresh |
+| **Real-Time** | WebSocket push for instant updates |
+| **Reactive** | Queries auto-update when data changes |
 
 ### Architecture Summary
 
@@ -45,12 +57,13 @@ This architecture implements real-time entity synchronization using WebSocket-ba
 │                              SYSTEM FLOW                                  │
 ├──────────────────────────────────────────────────────────────────────────┤
 │                                                                           │
-│   1. Client loads entities via REST API → subscribes via WebSocket        │
-│   2. Entity changes logged to app.logging table (database triggers)       │
-│   3. LogWatcher polls every 60s, finds subscribers in app.rxdb_subscription│
-│   4. PubSub pushes INVALIDATE to subscribed WebSocket connections         │
-│   5. Client invalidates React Query cache → triggers automatic refetch    │
-│   6. Client gets fresh data via REST API (RBAC enforced)                  │
+│   1. Client loads entities via REST API → stores in RxDB (IndexedDB)     │
+│   2. ReplicationManager subscribes via WebSocket                          │
+│   3. Entity changes logged to app.logging table (database triggers)       │
+│   4. LogWatcher polls every 60s, finds subscribers in app.rxdb_subscription│
+│   5. PubSub pushes INVALIDATE to subscribed WebSocket connections         │
+│   6. ReplicationManager re-fetches → updates RxDB → UI auto-updates      │
+│   7. All tabs see changes via RxDB's shared IndexedDB storage             │
 │                                                                           │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -64,12 +77,18 @@ This architecture implements real-time entity synchronization using WebSocket-ba
 │                              FRONTEND (Browser)                              │
 │                                                                              │
 │   ┌──────────────────┐    ┌─────────────────┐    ┌──────────────────────┐   │
-│   │   React Query    │◄──►│   SyncProvider  │◄──►│  React Components    │   │
-│   │   Cache          │    │   (WebSocket)   │    │  (auto-subscribe)    │   │
-│   └────────┬─────────┘    └────────┬────────┘    └──────────────────────┘   │
+│   │   RxDB           │◄──►│ ReplicationMgr  │◄──►│  React Components    │   │
+│   │   (IndexedDB)    │    │   (WebSocket)   │    │  (reactive queries)  │   │
+│   │                  │    │                 │    │                      │   │
+│   │  ┌────────────┐  │    └────────┬────────┘    └──────────────────────┘   │
+│   │  │ entities   │  │             │                                         │
+│   │  │ drafts     │  │             │ subscribe/unsubscribe                   │
+│   │  │ metadata   │  │             │ INVALIDATE messages                     │
+│   │  └────────────┘  │             │                                         │
+│   └────────┬─────────┘             │                                         │
 │            │                       │                                         │
-│            │ refetch               │ subscribe/unsubscribe                   │
-│            │ on invalidate         │ INVALIDATE messages                     │
+│            │ persistent            │                                         │
+│            │ (survives refresh)    │                                         │
 └────────────┼───────────────────────┼─────────────────────────────────────────┘
              │                       │
              │ REST API              │ WebSocket
