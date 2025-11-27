@@ -1,6 +1,6 @@
 # Form System
 
-**Version:** 3.0.0 | **Tables:** `form`, `d_form_data`
+**Version:** 3.0.0 | **Tables:** `form`, `form_data`
 
 ---
 
@@ -40,7 +40,7 @@ The Form System provides schema-driven, multi-step forms with JSONB storage, S3 
 │                              v                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
 │  │                     FORM SUBMISSION                              │    │
-│  │                    (d_form_data)                                 │    │
+│  │                    (form_data)                                 │    │
 │  │  ┌─────────────────────────────────────────────────────────┐    │    │
 │  │  │  submission_data (JSONB)                                 │    │    │
 │  │  │  { field1: "value", file1: "s3_key" }                   │    │    │
@@ -67,7 +67,7 @@ Form Lifecycle
 CREATE          BUILD           PUBLISH         COLLECT         ARCHIVE
    │               │               │               │               │
    v               v               v               v               v
-form ─> form_schema ─> shared_url ─> d_form_data ─> active_flag=false
+form ─> form_schema ─> shared_url ─> form_data ─> active_flag=false
 
 
 Submission Flow
@@ -84,7 +84,7 @@ submitted_by_empid:             submitted_by_empid:
        │                              │
        └──────────────┬───────────────┘
                       v
-              d_form_data
+              form_data
                       │
                       v
               Approval workflow
@@ -100,7 +100,7 @@ submitted_by_empid:             submitted_by_empid:
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
 | `form` | Form definitions | slug, form_schema, version, shared_url |
-| `d_form_data` | Form submissions | form_id, submission_data, submission_status, approval_status |
+| `form_data` | Form submissions | form_id, submission_data, submission_status, approval_status |
 
 ### Form Schema Structure
 
@@ -225,7 +225,7 @@ Public Submission Flow
 6. Backend:
    ├── submitted_by_empid = '00000000-...'
    ├── submission_status = 'submitted'
-   └── Store in d_form_data
+   └── Store in form_data
 
 
 Approval Flow
@@ -263,7 +263,7 @@ Approval Flow
 
 | Data Type | Storage Location | Database Value |
 |-----------|------------------|----------------|
-| Text fields | d_form_data.submission_data | Actual value |
+| Text fields | form_data.submission_data | Actual value |
 | File uploads | S3 bucket | S3 object key |
 | Signatures | S3 bucket (PNG) | S3 object key |
 

@@ -26,8 +26,8 @@ The Knowledge & Documentation Domain provides comprehensive knowledge management
 | **Report Data** | XXII_d_report_data.ddl | `d_report_data` | Generated report instances with outputs (content) |
 | **Artifact** | XV_d_artifact.ddl | `d_artifact` | Document and file metadata with S3 references (metadata) |
 | **Artifact Data** | XVI_d_artifact_data.ddl | `d_artifact_data` | Document content versions and file chunks (content) |
-| **Form Head** | XVII_form.ddl | `form` | Form templates with field definitions (metadata) |
-| **Form Data** | XVIII_d_form_data.ddl | `d_form_data` | Form submission instances with user responses (content) |
+| **Form** | 30_form.ddl | `form` | Form templates with field definitions (metadata) |
+| **Form Data** | 31_form_data.ddl | `form_data` | Form submission instances with user responses (content) |
 
 ## Entity Relationships
 
@@ -65,7 +65,7 @@ The Knowledge & Documentation Domain provides comprehensive knowledge management
 │         ▼                                                             │
 │  ┌─────────────────┐         has instances      ┌─────────────────┐  │
 │  │  Form Head      │──────────────────────────► │   Form Data     │  │
-│  │ (form)   │                            │ (d_form_data)   │  │
+│  │ (form)   │                            │ (form_data)   │  │
 │  │                 │                            │                 │  │
 │  │ • Form Type     │                            │ • Submission    │  │
 │  │ • Fields JSONB  │                            │ • User Answers  │  │
@@ -582,7 +582,7 @@ CREATE TABLE app.form (
 );
 
 -- Form Data (Submissions)
-CREATE TABLE app.d_form_data (
+CREATE TABLE app.form_data (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     submission_number varchar(50) UNIQUE NOT NULL,
     form_id uuid NOT NULL,
@@ -695,7 +695,7 @@ CREATE INDEX idx_artifact_security ON app.d_artifact(dl__artifact_security_class
 -- Form indexes
 CREATE INDEX idx_form_type ON app.form(form_type);
 CREATE INDEX idx_form_data_form ON app.form_data(form_id);
-CREATE INDEX idx_form_data_submitted ON app.d_form_data(submitted_ts);
+CREATE INDEX idx_form_data_submitted ON app.form_data(submitted_ts);
 ```
 
 ## Future Enhancements

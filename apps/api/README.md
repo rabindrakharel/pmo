@@ -304,7 +304,7 @@ export const db = drizzle(pool);
 - **16 Setting Tables** (`datalabel_*`)
 - **13 Core Entity Tables** (`d_*`)
 - **3 Relationship Tables** (`d_entity_instance_link`, `d_entity_rbac`, `rel_emp_role`)
-- **7 Additional Tables** (`d_entity`, `d_form_data`, etc.)
+- **7 Additional Tables** (`entity`, `form_data`, etc.)
 
 See `/home/rabin/projects/pmo/db/README.md` for complete schema documentation.
 
