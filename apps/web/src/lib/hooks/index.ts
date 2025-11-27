@@ -53,5 +53,25 @@ export {
 
 export type { UseRefDataResult, FieldMetadata } from './useRefData';
 
+// v8.3.2: Unified Entity Instance Cache (dropdown + view resolution)
+export {
+  // React Hooks
+  useRefDataEntityInstanceOptions,
+  useRefDataEntityInstanceResolver,
+  useRefDataEntityInstanceUpsert,
+  // Utility Functions (for use outside components)
+  upsertRefDataEntityInstanceCache,
+  getRefDataEntityInstanceCache,
+  resolveFromCache,
+  prefetchEntityInstances,
+  // Query Keys
+  refDataEntityInstanceKeys,
+} from './useRefDataEntityInstanceCache';
+
+export type {
+  EntityInstanceLookup,
+  EntityInstanceOption,
+} from './useRefDataEntityInstanceCache';
+
 // Keyboard Shortcuts Hook
 export { useKeyboardShortcuts } from './useKeyboardShortcuts';

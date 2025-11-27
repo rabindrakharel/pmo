@@ -1,6 +1,5 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api';
+import { useRefDataEntityInstanceOptions } from '@/lib/hooks/useRefDataEntityInstanceCache';
 import { SearchableMultiSelect } from './SearchableMultiSelect';
 import { InlineSpinner } from './EllipsisBounce';
 
@@ -15,10 +14,13 @@ export interface EntityMultiSelectProps {
 }
 
 /**
- * Domain component for entity array references
+ * Domain component for entity array references (v8.3.2)
  * Used for all entity array fields (_IDS fields)
  *
- * Wraps SearchableMultiSelect with automatic data fetching from entity entity-instance API
+ * Uses the unified ref_data_entityInstance cache which:
+ * - Shares cache with view mode resolution (single source of truth)
+ * - Auto-populated from API response ref_data_entityInstance
+ * - On-demand fetch with 15-min TTL for dropdown population
  *
  * @example
  * <EntityMultiSelect
@@ -38,23 +40,9 @@ export function EntityMultiSelect({
   disabled = false,
   placeholder = 'Select...'
 }: EntityMultiSelectProps) {
-
-  const { data: options = [], isLoading } = useQuery({
-    queryKey: ['entity-lookup', entityCode],
-    queryFn: async () => {
-      const response = await apiClient.get(`/api/v1/entity/${entityCode}/entity-instance`, {
-        params: { active_only: true, limit: 500 }
-      });
-
-      // Transform entity data to SearchableMultiSelect format
-      return response.data.data.map((item: any) => ({
-        value: item.id,
-        label: item.name
-      }));
-    },
-    staleTime: 2 * 60 * 1000, // Cache for 2 minutes
-    enabled: !!entityCode
-  });
+  // v8.3.2: Use unified ref_data_entityInstance cache
+  // Options already in SelectOption format: [{ value: uuid, label: name }]
+  const { options, isLoading } = useRefDataEntityInstanceOptions(entityCode);
 
   // Extract current UUIDs from values array
   const selectedUuids = values.map((value) => {
