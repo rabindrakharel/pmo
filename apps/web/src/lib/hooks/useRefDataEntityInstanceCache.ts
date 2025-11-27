@@ -166,16 +166,26 @@ export async function prefetchEntityInstances(
 
   const promises = entityCodes.map(async (entityCode) => {
     try {
+      const queryKey = refDataEntityInstanceKeys.byEntity(entityCode);
+      console.log(
+        `%c[REF_DATA_CACHE] 📡 Starting prefetch for: ${entityCode}`,
+        'color: #74c0fc',
+        { queryKey }
+      );
+
       await queryClient.prefetchQuery({
-        queryKey: refDataEntityInstanceKeys.byEntity(entityCode),
+        queryKey,
         queryFn: async () => {
-          const response = await fetch(
-            `${apiUrl}/api/v1/entity/${entityCode}/entity-instance?active_only=true&limit=${limit}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+          const url = `${apiUrl}/api/v1/entity/${entityCode}/entity-instance?active_only=true&limit=${limit}`;
+          console.log(`%c[REF_DATA_CACHE] 🌐 Fetching: ${url}`, 'color: #74c0fc');
+
+          const response = await fetch(url, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
 
           if (!response.ok) {
-            throw new Error(`Failed to fetch ${entityCode} instances`);
+            console.error(`[REF_DATA_CACHE] ❌ HTTP ${response.status} for ${entityCode}`);
+            throw new Error(`Failed to fetch ${entityCode} instances: HTTP ${response.status}`);
           }
 
           const data = await response.json();
@@ -191,19 +201,63 @@ export async function prefetchEntityInstances(
 
           console.log(
             `%c[REF_DATA_CACHE] ✅ Prefetched ${Object.keys(lookup).length} ${entityCode} instances`,
-            'color: #51cf66'
+            'color: #51cf66',
+            { entityCode, count: Object.keys(lookup).length, sampleKeys: Object.keys(lookup).slice(0, 3) }
           );
 
           return lookup;
         },
         staleTime: REF_DATA_CACHE_CONFIG.STALE_TIME,
       });
+
+      // Verify cache was populated
+      const cachedData = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
+      console.log(
+        `%c[REF_DATA_CACHE] 🔍 Cache verification for ${entityCode}:`,
+        cachedData ? 'color: #51cf66' : 'color: #ff6b6b',
+        {
+          entityCode,
+          queryKey,
+          isCached: !!cachedData,
+          cacheSize: cachedData ? Object.keys(cachedData).length : 0,
+        }
+      );
     } catch (error) {
-      console.error(`[REF_DATA_CACHE] Failed to prefetch ${entityCode}:`, error);
+      console.error(`[REF_DATA_CACHE] ❌ Failed to prefetch ${entityCode}:`, error);
     }
   });
 
   await Promise.all(promises);
+
+  // Final summary log
+  console.log(
+    `%c[REF_DATA_CACHE] 📊 Prefetch complete. Cache summary:`,
+    'color: #be4bdb; font-weight: bold'
+  );
+  entityCodes.forEach((entityCode) => {
+    const queryKey = refDataEntityInstanceKeys.byEntity(entityCode);
+    const cachedData = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
+    console.log(
+      `  ${cachedData ? '✅' : '❌'} ${entityCode}: ${cachedData ? Object.keys(cachedData).length : 0} items`
+    );
+  });
+}
+
+/**
+ * Debug utility - call from browser console to inspect cache state
+ * Usage: window.__debugRefDataCache()
+ */
+if (typeof window !== 'undefined') {
+  (window as any).__debugRefDataCache = () => {
+    console.log('%c[REF_DATA_CACHE DEBUG] Inspecting cache...', 'color: #be4bdb; font-weight: bold');
+    const entityCodes = ['employee', 'project', 'business', 'office', 'role', 'cust', 'task', 'worksite'];
+    entityCodes.forEach((entityCode) => {
+      const queryKey = refDataEntityInstanceKeys.byEntity(entityCode);
+      // We need queryClient - this won't work without it, so just log the key structure
+      console.log(`  Query key for ${entityCode}:`, queryKey);
+    });
+    console.log('To check cache, use React Query DevTools or call this in a component with useQueryClient()');
+  };
 }
 
 // ============================================================================

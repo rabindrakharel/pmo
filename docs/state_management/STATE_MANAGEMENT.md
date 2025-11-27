@@ -104,7 +104,7 @@ API responses include `ref_data_entityInstance` - a lookup table for resolving e
 │      entityDataTable: {                                                      │
 │        viewType: {                                                           │
 │          manager__employee_id: {                                             │
-│            viewType: "entityInstance_Id",                                    │
+│            renderType: "entityInstanceId",                                   │
 │            lookupEntity: "employee"          // ← Backend tells frontend     │
 │          }                                                                   │
 │        }                                                                     │
@@ -131,7 +131,7 @@ API responses include `ref_data_entityInstance` - a lookup table for resolving e
 │  ─────────────────────────                                                   │
 │  {                                                                           │
 │    manager__employee_id: {                                                   │
-│      viewType: "entityInstance_Id",    // ← Tells frontend: it's a reference│
+│      renderType: "entityInstanceId",   // ← Tells frontend: it's a reference│
 │      lookupEntity: "employee",         // ← Tells frontend: use "employee"  │
 │      lookupSource: "entityInstance"    // ← Tells frontend: look in ref_data_entityInstance│
 │    }                                                                         │
@@ -208,7 +208,7 @@ interface UseRefDataResult {
 │           viewType: {                                                        │
 │             budget_allocated_amt: { renderType: 'currency' },                │
 │             manager__employee_id: {                                          │
-│               viewType: 'entityInstance_Id',                                 │
+│               renderType: 'entityInstanceId',                                │
 │               lookupEntity: 'employee'                                       │
 │             }                                                                │
 │           },                                                                 │
@@ -267,8 +267,7 @@ interface ComponentMetadata {
 interface ViewFieldMetadata {
   dtype: string;
   label: string;
-  renderType: string;
-  viewType?: string;              // 'entityInstance_Id' for references
+  renderType: string;             // 'entityInstanceId' for references (v11.0.0)
   lookupEntity?: string;          // Entity code for reference fields (v8.3.0)
   lookupSource?: 'entityInstance' | 'datalabel';  // Where to lookup
   behavior: { visible?: boolean; sortable?: boolean };
@@ -278,8 +277,7 @@ interface ViewFieldMetadata {
 interface EditFieldMetadata {
   dtype: string;
   label: string;
-  inputType: string;
-  editType?: string;              // 'entityInstance_Id' for references
+  inputType: string;              // 'entityInstanceId' for references (v11.0.0)
   lookupEntity?: string;          // Entity code for reference fields (v8.3.0)
   lookupSource?: 'entityInstance' | 'datalabel';
   behavior: { editable?: boolean };
@@ -520,7 +518,7 @@ export const CACHE_TTL = {
 | Subscribing to full store | Unnecessary re-renders | Use `getState()` or `useShallow` |
 | Hardcoded dropdown options | Maintenance burden | Use datalabelMetadataStore |
 | Pattern detection in frontend | Backend should decide | Use `metadata.lookupEntity` (v8.3.1) |
-| Field name `_id` suffix detection | Duplicates backend logic | Use `viewType === 'entityInstance_Id'` |
+| Field name `_id` suffix detection | Duplicates backend logic | Use `renderType === 'entityInstanceId'` |
 
 ---
 

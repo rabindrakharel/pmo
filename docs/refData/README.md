@@ -1,252 +1,107 @@
-# RefData Architecture (v8.3.2)
+# Entity Reference Resolution Pattern
 
-> Unified cache architecture for entity reference resolution: single cache serves both view mode display and edit mode dropdowns.
+**Version:** 11.0.0 | **Pattern Type:** Backend-for-Frontend (BFF) + Unified Cache | **Updated:** 2025-11-27
 
-## Overview
+---
 
-The RefData pattern solves entity reference resolution with a **unified cache**:
+## 1. Problem Statement
 
-1. **Backend** includes `ref_data_entityInstance` lookup table in API responses
-2. **Frontend** upserts this data to a shared React Query cache
-3. **Both view mode** (displaying names) **and edit mode** (dropdown options) use the same cache
+### The UUID Display Problem
+
+In enterprise applications with relational data models, database tables store **foreign key references as UUIDs**. However, users don't understand UUIDs—they need to see human-readable names.
+
+**Example Database Columns:**
+
+| Column Name | Stored Value | User Expectation |
+|-------------|--------------|------------------|
+| `manager__employee_id` | `8260b1b0-5efc-4611-ad33-ee76c0cf7f13` | "James Miller" |
+| `sponsor__employee_id` | `a1b2c3d4-e5f6-7890-abcd-ef1234567890` | "Sarah Johnson" |
+| `stakeholder__employee_ids` | `["uuid-1", "uuid-2", "uuid-3"]` | "James, Sarah, Michael" |
+| `business_id` | `f0e9d8c7-b6a5-4321-fedc-ba0987654321` | "Huron Home Services" |
+
+### The Challenge
+
+How do we translate these UUIDs into meaningful entity names across:
+
+1. **View Mode** - Displaying data in tables, detail views, cards
+2. **Edit Mode** - Populating dropdown/select options for users to choose from
+
+**Constraints:**
+- Backend owns the database schema and knows field semantics
+- Frontend should NOT parse field names to guess their meaning
+- Resolution must work for both single references (`_id`) and array references (`_ids`)
+- Performance must scale (N+1 query problem, cache efficiency)
+- View mode and edit mode must show consistent data
+
+---
+
+## 2. Design Pattern Overview
+
+### Pattern: Backend-Driven Reference Resolution with Unified Cache
+
+This pattern combines three architectural concepts:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    RefData Unified Cache Architecture (v8.3.2)              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌──────────────┐    ┌──────────────────────────────────────────────────┐   │
-│  │  API Response │    │           React Query Unified Cache              │   │
-│  │              │    │                                                    │   │
-│  │  ref_data_   │───▶│  ['ref-data-entity-instance', 'employee']         │   │
-│  │  entityInst. │    │  { "uuid-james": "James Miller", ... }            │   │
-│  │              │    │                                                    │   │
-│  └──────────────┘    └───────────────────┬──────────────────────────────┘   │
-│                                          │                                   │
-│                      ┌───────────────────┴───────────────────┐              │
-│                      │                                       │              │
-│                      ▼                                       ▼              │
-│           ┌──────────────────┐                   ┌──────────────────┐       │
-│           │    VIEW MODE     │                   │    EDIT MODE     │       │
-│           │                  │                   │                  │       │
-│           │  resolveField()  │                   │  EntitySelect    │       │
-│           │  → "James Miller"│                   │  dropdown opts   │       │
-│           └──────────────────┘                   └──────────────────┘       │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Key Improvement in v8.3.2
-
-| Aspect | v8.3.1 (Before) | v8.3.2 (After) |
-|--------|-----------------|----------------|
-| **View mode** | Uses per-response `ref_data_entityInstance` | Uses unified cache |
-| **Edit mode** | Separate `useEntityLookup` fetch | Uses unified cache |
-| **Cache entries** | 2 separate caches | 1 unified cache |
-| **Data freshness** | Could diverge | Always in sync |
-| **Network requests** | Dropdown fetches independently | Dropdown shares API response data |
-
----
-
-## 1. Sequence Diagram: View Mode Resolution
-
-```
-┌─────────┐     ┌──────────┐     ┌────────────┐     ┌──────────────┐     ┌─────────────┐
-│  User   │     │Component │     │useEntityList│     │ Unified Cache │     │  Backend   │
-└────┬────┘     └────┬─────┘     └──────┬─────┘     └──────┬───────┘     └──────┬──────┘
-     │               │                  │                  │                    │
-     │ Navigate to   │                  │                  │                    │
-     │ Project List  │                  │                  │                    │
-     │──────────────▶│                  │                  │                    │
-     │               │                  │                  │                    │
-     │               │ useEntityList()  │                  │                    │
-     │               │─────────────────▶│                  │                    │
-     │               │                  │                  │                    │
-     │               │                  │ Check cache      │                    │
-     │               │                  │─────────────────▶│                    │
-     │               │                  │                  │                    │
-     │               │                  │ Cache MISS       │                    │
-     │               │                  │◀─────────────────│                    │
-     │               │                  │                  │                    │
-     │               │                  │ GET /api/v1/project                   │
-     │               │                  │─────────────────────────────────────▶│
-     │               │                  │                  │                    │
-     │               │                  │                  │    { data: [...],  │
-     │               │                  │                  │      ref_data_     │
-     │               │                  │                  │      entityInst,   │
-     │               │                  │                  │      metadata }    │
-     │               │                  │◀─────────────────────────────────────│
-     │               │                  │                  │                    │
-     │               │                  │ UPSERT ref_data  │                    │
-     │               │                  │ to unified cache │                    │
-     │               │                  │─────────────────▶│                    │
-     │               │                  │                  │                    │
-     │               │                  │   ['ref-data-entity-instance', 'employee']
-     │               │                  │   = { "uuid-james": "James Miller" }
-     │               │                  │                  │                    │
-     │               │ { data, refData }│                  │                    │
-     │               │◀─────────────────│                  │                    │
-     │               │                  │                  │                    │
-     │               │ resolveField()   │                  │                    │
-     │               │ "uuid-james" ──▶ "James Miller"     │                    │
-     │               │                  │                  │                    │
-     │◀──────────────│                  │                  │                    │
-     │ Display table │                  │                  │                    │
-     │ with names    │                  │                  │                    │
-```
-
----
-
-## 2. Sequence Diagram: Edit Mode Dropdown
-
-```
-┌─────────┐     ┌────────────┐     ┌─────────────────────┐     ┌──────────────┐
-│  User   │     │EntitySelect│     │useRefDataEntityInst.│     │ Unified Cache│
-└────┬────┘     └──────┬─────┘     │     Options()       │     └──────┬───────┘
-     │                 │           └──────────┬──────────┘            │
-     │                 │                      │                       │
-     │ Click dropdown  │                      │                       │
-     │────────────────▶│                      │                       │
-     │                 │                      │                       │
-     │                 │ useRefDataEntity     │                       │
-     │                 │ InstanceOptions()    │                       │
-     │                 │─────────────────────▶│                       │
-     │                 │                      │                       │
-     │                 │                      │ Check unified cache   │
-     │                 │                      │──────────────────────▶│
-     │                 │                      │                       │
-     │                 │                      │                       │
-     │                 │         ┌────────────┴────────────────────┐  │
-     │                 │         │  CACHE HIT (from earlier view   │  │
-     │                 │         │  mode API response upsert)?     │  │
-     │                 │         └────────────┬────────────────────┘  │
-     │                 │                      │                       │
-     │                 │                      │   YES: Return cached  │
-     │                 │                      │◀──────────────────────│
-     │                 │                      │                       │
-     │                 │   options = [        │                       │
-     │                 │     { value: "uuid-james", label: "James" }, │
-     │                 │     { value: "uuid-sarah", label: "Sarah" }  │
-     │                 │   ]                  │                       │
-     │                 │◀─────────────────────│                       │
-     │                 │                      │                       │
-     │◀────────────────│                      │                       │
-     │ Show populated  │                      │                       │
-     │ dropdown        │                      │                       │
-```
-
-### Cache Miss Flow (Dropdown before View)
-
-```
-┌─────────┐     ┌────────────┐     ┌─────────────────────┐     ┌──────────────┐     ┌────────┐
-│  User   │     │EntitySelect│     │useRefDataEntityInst.│     │ Unified Cache│     │Backend │
-└────┬────┘     └──────┬─────┘     │     Options()       │     └──────┬───────┘     └───┬────┘
-     │                 │           └──────────┬──────────┘            │                 │
-     │                 │                      │                       │                 │
-     │ Click dropdown  │                      │                       │                 │
-     │ (first time)    │                      │                       │                 │
-     │────────────────▶│                      │                       │                 │
-     │                 │                      │                       │                 │
-     │                 │ useRefDataEntity     │                       │                 │
-     │                 │ InstanceOptions()    │                       │                 │
-     │                 │─────────────────────▶│                       │                 │
-     │                 │                      │                       │                 │
-     │                 │                      │ Check unified cache   │                 │
-     │                 │                      │──────────────────────▶│                 │
-     │                 │                      │                       │                 │
-     │                 │                      │ CACHE MISS            │                 │
-     │                 │                      │◀──────────────────────│                 │
-     │                 │                      │                       │                 │
-     │                 │                      │ GET /api/v1/entity/   │                 │
-     │                 │                      │ employee/entity-instance               │
-     │                 │                      │──────────────────────────────────────▶│
-     │                 │                      │                       │                 │
-     │                 │                      │                       │  [{ id, name }] │
-     │                 │                      │◀──────────────────────────────────────│
-     │                 │                      │                       │                 │
-     │                 │                      │ Store in unified cache│                 │
-     │                 │                      │──────────────────────▶│                 │
-     │                 │                      │                       │                 │
-     │                 │   options = [...]    │                       │                 │
-     │                 │◀─────────────────────│                       │                 │
-     │                 │                      │                       │                 │
-     │◀────────────────│                      │                       │                 │
-     │ Show dropdown   │                      │                       │                 │
-```
-
----
-
-## 3. Component Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      Component Architecture (v8.3.2)                         │
+│           ENTITY REFERENCE RESOLUTION PATTERN (v11.0.0)                      │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                        REACT QUERY LAYER                            │    │
-│  │                                                                     │    │
-│  │  ┌───────────────────────────────────────────────────────────────┐  │    │
-│  │  │  Unified Cache: ['ref-data-entity-instance', entityCode]      │  │    │
-│  │  │                                                               │  │    │
-│  │  │  employee: { "uuid-1": "James", "uuid-2": "Sarah" }          │  │    │
-│  │  │  project:  { "uuid-p1": "Kitchen Reno" }                     │  │    │
-│  │  │  business: { "uuid-b1": "Huron Home" }                       │  │    │
-│  │  │                                                               │  │    │
-│  │  │  TTL: staleTime=15min, gcTime=30min                          │  │    │
-│  │  └───────────────────────────────────────────────────────────────┘  │    │
-│  │                                                                     │    │
-│  │  ┌───────────────────────────────────────────────────────────────┐  │    │
-│  │  │  Entity Queries: ['entity-list', code, params]               │  │    │
-│  │  │                                                               │  │    │
-│  │  │  Contains: { data, ref_data_entityInstance, metadata }       │  │    │
-│  │  │  UPSERTS ref_data to unified cache on fetch                  │  │    │
-│  │  └───────────────────────────────────────────────────────────────┘  │    │
+│  │  LAYER 1: PATTERN MATCHING (Backend Only)                           │    │
+│  │                                                                      │    │
+│  │  YAML Configuration detects field types from column names:          │    │
+│  │  • "*__*_id"  → entityInstanceId (single reference)                 │    │
+│  │  • "*__*_ids" → entityInstanceIds (array reference)                 │    │
+│  │  • "*_id"     → entityInstanceId (simple reference)                 │    │
+│  │                                                                      │    │
+│  │  Extracts entity code: "manager__employee_id" → "employee"          │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
+│                              │                                               │
+│                              ▼                                               │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                           HOOKS LAYER                               │    │
-│  │                                                                     │    │
-│  │  ┌─────────────────────────┐    ┌────────────────────────────────┐ │    │
-│  │  │ useEntityInstanceList() │    │ useRefDataEntityInstanceCache  │ │    │
-│  │  │ useEntityInstance()     │    │                                │ │    │
-│  │  │                         │    │ ├─ useRefDataEntityInstance    │ │    │
-│  │  │ On fetch:               │    │ │  Options()                   │ │    │
-│  │  │ upsertRefDataEntity     │───▶│ │  → dropdown options         │ │    │
-│  │  │ InstanceCache()         │    │ │                              │ │    │
-│  │  │                         │    │ ├─ useRefDataEntityInstance    │ │    │
-│  │  └─────────────────────────┘    │ │  Resolver()                  │ │    │
-│  │                                 │ │  → view mode resolution      │ │    │
-│  │  ┌─────────────────────────┐    │ │                              │ │    │
-│  │  │ useRefData()            │    │ └─ prefetchEntityInstances()   │ │    │
-│  │  │                         │    │    → optional login prefetch   │ │    │
-│  │  │ Uses per-response       │    └────────────────────────────────┘ │    │
-│  │  │ ref_data (legacy)       │                                       │    │
-│  │  └─────────────────────────┘                                       │    │
+│  │  LAYER 2: METADATA GENERATION (Backend Formatter Service)           │    │
+│  │                                                                      │    │
+│  │  Generates field metadata with lookup instructions:                 │    │
+│  │  {                                                                   │    │
+│  │    renderType: "entityInstanceId",                                  │    │
+│  │    inputType: "entityInstanceId",                                   │    │
+│  │    lookupEntity: "employee",                                        │    │
+│  │    lookupSource: "entityInstance"                                   │    │
+│  │  }                                                                   │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
+│                              │                                               │
+│                              ▼                                               │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                         COMPONENT LAYER                             │    │
-│  │                                                                     │    │
-│  │  VIEW MODE                           EDIT MODE                      │    │
-│  │  ─────────                           ─────────                      │    │
-│  │  ┌─────────────────────┐             ┌────────────────────┐        │    │
-│  │  │ EntityDataTable     │             │ EntitySelect       │        │    │
-│  │  │                     │             │                    │        │    │
-│  │  │ useRefData() or     │             │ useRefDataEntity   │        │    │
-│  │  │ useRefDataEntity    │             │ InstanceOptions()  │        │    │
-│  │  │ InstanceResolver()  │             │                    │        │    │
-│  │  │                     │             │ Returns: options[] │        │    │
-│  │  │ resolveField() →    │             │ [{ value, label }] │        │    │
-│  │  │ "James Miller"      │             │                    │        │    │
-│  │  └─────────────────────┘             └────────────────────┘        │    │
-│  │                                                                     │    │
-│  │  ┌─────────────────────┐             ┌────────────────────┐        │    │
-│  │  │ EntityDetailView    │             │ EntityMultiSelect  │        │    │
-│  │  └─────────────────────┘             └────────────────────┘        │    │
-│  │                                                                     │    │
+│  │  LAYER 3: REFERENCE DATA BUNDLING (ref_data_entityInstance)         │    │
+│  │                                                                      │    │
+│  │  Backend scans response data, extracts UUIDs, batch resolves names: │    │
+│  │  {                                                                   │    │
+│  │    "employee": { "uuid-james": "James Miller", ... },               │    │
+│  │    "business": { "uuid-huron": "Huron Home Services", ... }         │    │
+│  │  }                                                                   │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                              │                                               │
+│                              ▼                                               │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  LAYER 4: UNIFIED CACHE (Frontend React Query)                      │    │
+│  │                                                                      │    │
+│  │  Single cache serves both view mode and edit mode:                  │    │
+│  │  ['ref-data-entity-instance', 'employee'] = { uuid: name }          │    │
+│  │                                                                      │    │
+│  │  Cache population sources:                                          │    │
+│  │  • Login prefetch (common entities)                                 │    │
+│  │  • API response upsert (incremental)                                │    │
+│  │  • On-demand fetch (cache miss)                                     │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                              │                                               │
+│                              ▼                                               │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  LAYER 5: FORMAT-AT-READ (Frontend Rendering)                       │    │
+│  │                                                                      │    │
+│  │  React Query's `select` option transforms raw → formatted on read:  │    │
+│  │  • Cache stores RAW data (small, canonical)                         │    │
+│  │  • Formatting happens on component render (memoized)                │    │
+│  │  • UUID → Name resolution via unified cache lookup                  │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -254,272 +109,208 @@ The RefData pattern solves entity reference resolution with a **unified cache**:
 
 ---
 
-## 4. Data Flow Diagram
+## 3. Key Design Principles
+
+### 3.1 Backend is Single Source of Truth
+
+The backend owns field semantics. Frontend does NOT:
+- Parse field names to detect types
+- Guess which entity a `_id` field references
+- Hardcode field-to-entity mappings
+
+**Frontend uses metadata:**
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              DATA FLOW (v8.3.2)                              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ╔═══════════════════════════════════════════════════════════════════════╗  │
-│  ║  FETCH PHASE (Entity List/Detail)                                     ║  │
-│  ╚═══════════════════════════════════════════════════════════════════════╝  │
-│                                                                              │
-│  Browser                    API Server                    Database          │
-│  ───────                    ──────────                    ────────          │
-│     │                           │                            │              │
-│     │  GET /api/v1/project      │                            │              │
-│     │──────────────────────────▶│                            │              │
-│     │                           │                            │              │
-│     │                           │  SELECT * FROM project     │              │
-│     │                           │───────────────────────────▶│              │
-│     │                           │◀───────────────────────────│              │
-│     │                           │                            │              │
-│     │                           │  build_ref_data_entityInstance()          │
-│     │                           │  ┌────────────────────────────────────┐   │
-│     │                           │  │ 1. Extract UUIDs from data rows   │   │
-│     │                           │  │ 2. Query entity_instance table    │   │
-│     │                           │  │ 3. Build { entityCode: { uuid: name }}│
-│     │                           │  └────────────────────────────────────┘   │
-│     │                           │                            │              │
-│     │  {                        │                            │              │
-│     │    data: [...],           │                            │              │
-│     │    ref_data_entityInstance: {                          │              │
-│     │      employee: { uuid: name }                          │              │
-│     │    },                     │                            │              │
-│     │    metadata: {...}        │                            │              │
-│     │  }                        │                            │              │
-│     │◀──────────────────────────│                            │              │
-│     │                           │                            │              │
-│                                                                              │
-│  ╔═══════════════════════════════════════════════════════════════════════╗  │
-│  ║  CACHE UPSERT PHASE                                                   ║  │
-│  ╚═══════════════════════════════════════════════════════════════════════╝  │
-│                                                                              │
-│  React Query                                                                 │
-│  ───────────                                                                 │
-│     │                                                                        │
-│     │  queryFn receives response                                             │
-│     │     │                                                                  │
-│     │     ▼                                                                  │
-│     │  upsertRefDataEntityInstanceCache(queryClient, ref_data)               │
-│     │     │                                                                  │
-│     │     ▼                                                                  │
-│     │  ┌──────────────────────────────────────────────────────────────────┐ │
-│     │  │  FOR EACH entityCode IN ref_data:                                │ │
-│     │  │    queryClient.setQueryData(                                     │ │
-│     │  │      ['ref-data-entity-instance', entityCode],                   │ │
-│     │  │      (old) => ({ ...old, ...newLookups })  // MERGE              │ │
-│     │  │    )                                                             │ │
-│     │  └──────────────────────────────────────────────────────────────────┘ │
-│     │                                                                        │
-│     │  RESULT: Unified cache now has employee names                          │
-│     │                                                                        │
-│                                                                              │
-│  ╔═══════════════════════════════════════════════════════════════════════╗  │
-│  ║  VIEW MODE RESOLUTION                                                 ║  │
-│  ╚═══════════════════════════════════════════════════════════════════════╝  │
-│                                                                              │
-│  Component: EntityDataTable                                                  │
-│  ─────────────────────────────                                               │
-│     │                                                                        │
-│     │  const { resolveFieldDisplay } = useRefData(data?.ref_data_entityInstance)
-│     │     │                                                                  │
-│     │     │  OR (using unified cache):                                       │
-│     │     │                                                                  │
-│     │  const { resolveName } = useRefDataEntityInstanceResolver()            │
-│     │     │                                                                  │
-│     │     ▼                                                                  │
-│     │  resolveFieldDisplay(fieldMeta, "uuid-james")                          │
-│     │     │                                                                  │
-│     │     ▼                                                                  │
-│     │  ┌──────────────────────────────────────────────────────────────────┐ │
-│     │  │  1. getEntityCodeFromMetadata(fieldMeta) → "employee"            │ │
-│     │  │  2. ref_data["employee"]["uuid-james"] → "James Miller"          │ │
-│     │  │  3. Return "James Miller"                                         │ │
-│     │  └──────────────────────────────────────────────────────────────────┘ │
-│     │                                                                        │
-│     │  RENDER: <td>James Miller</td>                                         │
-│     │                                                                        │
-│                                                                              │
-│  ╔═══════════════════════════════════════════════════════════════════════╗  │
-│  ║  EDIT MODE DROPDOWN                                                   ║  │
-│  ╚═══════════════════════════════════════════════════════════════════════╝  │
-│                                                                              │
-│  Component: EntitySelect                                                     │
-│  ───────────────────────                                                     │
-│     │                                                                        │
-│     │  const { options, isLoading } = useRefDataEntityInstanceOptions('employee')
-│     │     │                                                                  │
-│     │     ▼                                                                  │
-│     │  ┌──────────────────────────────────────────────────────────────────┐ │
-│     │  │  React Query checks cache:                                       │ │
-│     │  │  ['ref-data-entity-instance', 'employee']                        │ │
-│     │  │                                                                  │ │
-│     │  │  CACHE HIT? (from earlier API response upsert)                   │ │
-│     │  │    YES → Return cached { uuid: name } as options                 │ │
-│     │  │    NO  → Fetch /api/v1/entity/employee/entity-instance          │ │
-│     │  │          Store result in cache                                   │ │
-│     │  │          Return as options                                       │ │
-│     │  └──────────────────────────────────────────────────────────────────┘ │
-│     │                                                                        │
-│     │  options = [                                                           │
-│     │    { value: "uuid-james", label: "James Miller" },                     │
-│     │    { value: "uuid-sarah", label: "Sarah Johnson" }                     │
-│     │  ]                                                                     │
-│     │                                                                        │
-│     │  RENDER: <Select options={options} />                                  │
-│     │                                                                        │
-└─────────────────────────────────────────────────────────────────────────────┘
+✗ WRONG (Frontend pattern detection):
+  if (fieldName.endsWith('_id')) → assume entity reference
+
+✓ CORRECT (Metadata-driven):
+  if (metadata.renderType === 'entityInstanceId') → use metadata.lookupEntity
+```
+
+### 3.2 Unified Cache for View and Edit
+
+One cache serves both display and dropdown population:
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                         UNIFIED CACHE BENEFIT                              │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  BEFORE (v8.3.1):                        AFTER (v8.3.2+):                  │
+│  ─────────────────                        ─────────────────                │
+│                                                                            │
+│  ┌─────────────┐  ┌─────────────┐        ┌─────────────────────────────┐  │
+│  │ View Cache  │  │ Edit Cache  │        │      Unified Cache          │  │
+│  │             │  │             │        │                             │  │
+│  │ per-response│  │ useEntity   │   ──▶  │ ['ref-data-entity-instance']│  │
+│  │ ref_data    │  │ Lookup()    │        │                             │  │
+│  └─────────────┘  └─────────────┘        └─────────────────────────────┘  │
+│                                                                            │
+│  Problems:                                Benefits:                        │
+│  • 2x memory                              • 1x memory                      │
+│  • Data can diverge                       • Always consistent              │
+│  • Separate fetch patterns                • Shared fetch patterns          │
+│                                                                            │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+### 3.3 Format-at-Read, Not Format-at-Fetch
+
+Data is stored raw in cache, formatted when read:
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                       FORMAT-AT-READ PATTERN                               │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  API Response                                                              │
+│       │                                                                    │
+│       ▼                                                                    │
+│  React Query Cache (RAW DATA)                                              │
+│  • data: [{ manager__employee_id: "uuid-james", ... }]                     │
+│  • ref_data_entityInstance: { employee: { "uuid-james": "James" } }        │
+│       │                                                                    │
+│       │ `select` option (ON READ)                                          │
+│       ▼                                                                    │
+│  formatDataset(data, metadata, refData)                                    │
+│       │                                                                    │
+│       ▼                                                                    │
+│  FormattedRow[] (MEMOIZED)                                                 │
+│  {                                                                         │
+│    raw: { manager__employee_id: "uuid-james" },                            │
+│    display: { manager__employee_id: "James Miller" },                      │
+│    styles: {}                                                              │
+│  }                                                                         │
+│                                                                            │
+│  BENEFITS:                                                                 │
+│  • Cache stores small raw data                                             │
+│  • Re-formatting is instant (memoized by React Query)                      │
+│  • Datalabel/setting changes reflect immediately                           │
+│                                                                            │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 5. Cache Structure
+## 4. End-to-End Data Flow
 
-### React Query Cache Keys
+### Phase 1: Backend Pattern Matching (YAML Configuration)
 
-```typescript
-// Unified entity instance cache (NEW in v8.3.2)
-['ref-data-entity-instance', 'employee']  // { uuid: name }
-['ref-data-entity-instance', 'project']   // { uuid: name }
-['ref-data-entity-instance', 'business']  // { uuid: name }
+Database column names follow conventions that encode their semantics:
 
-// Entity data queries (existing)
-['entity-list', 'project', { limit: 20 }] // Full response with ref_data
-['entity-instance', 'project', 'uuid-1']  // Single entity with ref_data
+**pattern-mapping.yaml:**
+
+```yaml
+patterns:
+  # Entity reference (single)
+  - pattern: "*__*_id"
+    exact: false
+    fieldBusinessType: entityInstance_Id    # Internal identifier
+
+  # Entity reference (array)
+  - pattern: "*__*_ids"
+    exact: false
+    fieldBusinessType: entityInstance_Ids   # Internal identifier
+
+  # Simple reference
+  - pattern: "*_id"
+    exact: false
+    fieldBusinessType: entityInstance_Id
 ```
 
-### Cache Population Sources
+**view-type-mapping.yaml:**
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      CACHE POPULATION SOURCES                                │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  Source 1: API Response Upsert (Primary)                                     │
-│  ───────────────────────────────────────                                     │
-│                                                                              │
-│  useEntityInstanceList()  ─┐                                                 │
-│  useEntityInstance()       ├──▶ upsertRefDataEntityInstanceCache()           │
-│  useFormattedEntityList() ─┘         │                                       │
-│                                      ▼                                       │
-│                           ['ref-data-entity-instance', entityCode]           │
-│                                                                              │
-│  ═══════════════════════════════════════════════════════════════════════════ │
-│                                                                              │
-│  Source 2: On-Demand Fetch (Dropdown)                                        │
-│  ────────────────────────────────────                                        │
-│                                                                              │
-│  useRefDataEntityInstanceOptions('employee')                                 │
-│         │                                                                    │
-│         ▼                                                                    │
-│  Cache MISS? ──▶ GET /api/v1/entity/employee/entity-instance                │
-│         │                                                                    │
-│         ▼                                                                    │
-│  Store in ['ref-data-entity-instance', 'employee']                          │
-│                                                                              │
-│  ═══════════════════════════════════════════════════════════════════════════ │
-│                                                                              │
-│  Source 3: Optional Prefetch (Login)                                         │
-│  ────────────────────────────────────                                        │
-│                                                                              │
-│  prefetchEntityInstances(queryClient, ['employee', 'project', 'business'])  │
-│         │                                                                    │
-│         ▼                                                                    │
-│  Parallel fetch and cache commonly used entities                            │
-│                                                                              │
-│  NOTE: Use sparingly - lazy loading is preferred                            │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```yaml
+entityInstance_Id:                          # Maps internal → output
+  entityDataTable:
+    renderType: entityInstanceId            # Output format (camelCase)
+    lookupSource: entityInstance
+  entityFormContainer:
+    renderType: entityInstanceId
+    lookupSource: entityInstance
 ```
 
----
+**edit-type-mapping.yaml:**
 
-## 6. Hook API Reference
+```yaml
+entityInstance_Id:
+  lookupSource: entityInstance
+  entityDataTable:
+    inputType: entityInstanceId             # Output format (camelCase)
+  entityFormContainer:
+    inputType: entityInstanceId
+```
 
-### useRefDataEntityInstanceOptions
+### Phase 2: Backend Formatter Service (Metadata Generation)
 
-Dropdown population hook - primary way to get options for EntitySelect.
+The Backend Formatter Service reads YAML configs and generates field metadata:
 
-```typescript
-import { useRefDataEntityInstanceOptions } from '@/lib/hooks';
+**Input:** Column name `manager__employee_id`
 
-function MyForm() {
-  const { options, lookup, isLoading, error } = useRefDataEntityInstanceOptions('employee');
+**Processing:**
+1. Match pattern `*__*_id` → fieldBusinessType: `entityInstance_Id`
+2. Extract entity code: `manager__employee_id` → `employee`
+3. Apply view-type-mapping → `renderType: entityInstanceId`
+4. Apply edit-type-mapping → `inputType: entityInstanceId`
+5. Set `lookupEntity: employee`
 
-  // options: [{ value: "uuid-1", label: "James Miller" }, ...]
-  // lookup: { "uuid-1": "James Miller", ... }
-  // isLoading: boolean
-  // error: Error | null
+**Output (in API response):**
 
-  return (
-    <Select options={options} />
-  );
+```
+metadata.entityDataTable.viewType.manager__employee_id = {
+  dtype: "uuid",
+  label: "Manager",
+  renderType: "entityInstanceId",
+  lookupSource: "entityInstance",
+  lookupEntity: "employee"
+}
+
+metadata.entityDataTable.editType.manager__employee_id = {
+  dtype: "uuid",
+  label: "Manager",
+  inputType: "entityInstanceId",
+  lookupSource: "entityInstance",
+  lookupEntity: "employee"
 }
 ```
 
-### useRefDataEntityInstanceResolver
+### Phase 3: Reference Data Building (ref_data_entityInstance)
 
-View mode resolution hook - resolve UUIDs to names from unified cache.
+The Entity Infrastructure Service scans response data and builds a lookup table:
 
-```typescript
-import { useRefDataEntityInstanceResolver } from '@/lib/hooks';
+**Input:** Data rows containing UUID references
 
-function MyTable() {
-  const { resolveName, resolveNames, hasCachedData } = useRefDataEntityInstanceResolver();
+```
+data = [
+  { id: "proj-1", manager__employee_id: "uuid-james", business_id: "uuid-huron" },
+  { id: "proj-2", manager__employee_id: "uuid-sarah", business_id: "uuid-huron" }
+]
+```
 
-  // Single UUID
-  const managerName = resolveName('employee', 'uuid-james'); // "James Miller"
+**Processing:**
+1. Scan all fields ending in `_id` or `_ids`
+2. Collect unique UUIDs per entity type
+3. Batch query `entity_instance` table
+4. Build lookup dictionary
 
-  // Array of UUIDs
-  const teamNames = resolveNames('employee', ['uuid-1', 'uuid-2']); // ["James", "Sarah"]
+**Output:**
 
-  // Check if data is cached
-  if (!hasCachedData('employee')) {
-    // Data not yet cached for this entity type
+```
+ref_data_entityInstance = {
+  "employee": {
+    "uuid-james": "James Miller",
+    "uuid-sarah": "Sarah Johnson"
+  },
+  "business": {
+    "uuid-huron": "Huron Home Services"
   }
 }
 ```
 
-### upsertRefDataEntityInstanceCache
+### Phase 4: Complete API Response
 
-Utility function to merge ref_data into cache (called automatically by query hooks).
-
-```typescript
-import { upsertRefDataEntityInstanceCache } from '@/lib/hooks';
-
-// Inside queryFn or onSuccess
-upsertRefDataEntityInstanceCache(queryClient, {
-  employee: { "uuid-1": "James Miller" },
-  business: { "uuid-2": "Huron Home" }
-});
 ```
-
-### prefetchEntityInstances
-
-Optional bulk prefetch for common entities.
-
-```typescript
-import { prefetchEntityInstances } from '@/lib/hooks';
-
-// After login (optional)
-async function onLoginSuccess() {
-  await prefetchEntityInstances(
-    queryClient,
-    ['employee', 'project', 'business'],
-    { limit: 500 }
-  );
-}
-```
-
----
-
-## 7. API Response Structure
-
-### Entity List Response
-
-```json
 {
   "data": [
     {
@@ -527,9 +318,11 @@ async function onLoginSuccess() {
       "name": "Kitchen Renovation",
       "manager__employee_id": "uuid-james",
       "sponsor__employee_id": "uuid-sarah",
-      "business_id": "uuid-huron"
+      "business_id": "uuid-huron",
+      "dl__project_stage": "planning"
     }
   ],
+
   "ref_data_entityInstance": {
     "employee": {
       "uuid-james": "James Miller",
@@ -539,113 +332,596 @@ async function onLoginSuccess() {
       "uuid-huron": "Huron Home Services"
     }
   },
+
   "metadata": {
-    "viewType": {
-      "manager__employee_id": {
-        "renderType": "entityInstanceId",
-        "lookupSource": "entityInstance",
-        "lookupEntity": "employee"
-      }
-    },
-    "editType": {
-      "manager__employee_id": {
-        "inputType": "entityInstanceId",
-        "lookupSource": "entityInstance",
-        "lookupEntity": "employee"
+    "entityDataTable": {
+      "viewType": {
+        "manager__employee_id": {
+          "dtype": "uuid",
+          "label": "Manager",
+          "renderType": "entityInstanceId",
+          "lookupSource": "entityInstance",
+          "lookupEntity": "employee"
+        },
+        "business_id": {
+          "dtype": "uuid",
+          "label": "Business",
+          "renderType": "entityInstanceId",
+          "lookupSource": "entityInstance",
+          "lookupEntity": "business"
+        }
+      },
+      "editType": {
+        "manager__employee_id": {
+          "dtype": "uuid",
+          "label": "Manager",
+          "inputType": "entityInstanceId",
+          "lookupSource": "entityInstance",
+          "lookupEntity": "employee"
+        }
       }
     }
   },
+
   "total": 45,
   "limit": 20,
   "offset": 0
 }
 ```
 
-### Entity Instance Lookup Response
+---
 
-```json
-{
-  "data": [
-    { "id": "uuid-james", "name": "James Miller" },
-    { "id": "uuid-sarah", "name": "Sarah Johnson" }
-  ],
-  "total": 25
+## 5. Frontend Cache Architecture
+
+### Cache Structure
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    REACT QUERY CACHE STRUCTURE                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  UNIFIED REFERENCE CACHE                                            │    │
+│  │  Cache Key: ['ref-data-entity-instance', entityCode]                │    │
+│  │  TTL: staleTime=15min, gcTime=30min                                 │    │
+│  │                                                                      │    │
+│  │  ['ref-data-entity-instance', 'employee']                           │    │
+│  │    = { "uuid-james": "James Miller", "uuid-sarah": "Sarah" }        │    │
+│  │                                                                      │    │
+│  │  ['ref-data-entity-instance', 'business']                           │    │
+│  │    = { "uuid-huron": "Huron Home Services" }                        │    │
+│  │                                                                      │    │
+│  │  ['ref-data-entity-instance', 'project']                            │    │
+│  │    = { "uuid-proj1": "Kitchen Renovation" }                         │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  ENTITY DATA CACHE                                                  │    │
+│  │  Cache Key: ['entity-list', entityCode, params]                     │    │
+│  │  Contains: { data, ref_data_entityInstance, metadata }              │    │
+│  │                                                                      │    │
+│  │  ['entity-list', 'project', { limit: 20 }]                          │    │
+│  │    = Full API response (raw data)                                   │    │
+│  │                                                                      │    │
+│  │  On fetch: UPSERTS ref_data to unified cache                        │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Cache Population Sources
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    CACHE POPULATION SOURCES                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  SOURCE 1: Login Prefetch                                                    │
+│  ─────────────────────────                                                   │
+│                                                                              │
+│  User logs in                                                                │
+│       │                                                                      │
+│       ▼                                                                      │
+│  AuthContext.login()                                                         │
+│       │                                                                      │
+│       ▼                                                                      │
+│  prefetchEntityInstances(queryClient, [                                      │
+│    'employee', 'project', 'business', 'office', 'role', 'cust'             │
+│  ])                                                                          │
+│       │                                                                      │
+│       ▼                                                                      │
+│  Parallel API calls, results stored in unified cache                         │
+│  → Dropdowns are instant when user opens forms                               │
+│                                                                              │
+│  ═══════════════════════════════════════════════════════════════════════════ │
+│                                                                              │
+│  SOURCE 2: API Response Upsert (Incremental Merge)                           │
+│  ─────────────────────────────────────────────────                           │
+│                                                                              │
+│  User views project list                                                     │
+│       │                                                                      │
+│       ▼                                                                      │
+│  GET /api/v1/project                                                         │
+│       │                                                                      │
+│       ▼                                                                      │
+│  Response includes ref_data_entityInstance                                   │
+│       │                                                                      │
+│       ▼                                                                      │
+│  upsertRefDataEntityInstanceCache(queryClient, ref_data)                     │
+│       │                                                                      │
+│       ▼                                                                      │
+│  FOR EACH entityCode IN ref_data:                                            │
+│    queryClient.setQueryData(                                                 │
+│      ['ref-data-entity-instance', entityCode],                               │
+│      (existing) => ({ ...existing, ...newLookups })  // MERGE                │
+│    )                                                                         │
+│                                                                              │
+│  → Cache grows incrementally as user browses                                 │
+│                                                                              │
+│  ═══════════════════════════════════════════════════════════════════════════ │
+│                                                                              │
+│  SOURCE 3: On-Demand Fetch (Cache Miss)                                      │
+│  ──────────────────────────────────────                                      │
+│                                                                              │
+│  User opens dropdown for entity not yet cached                               │
+│       │                                                                      │
+│       ▼                                                                      │
+│  useRefDataEntityInstanceOptions('worksite')                                 │
+│       │                                                                      │
+│       ▼                                                                      │
+│  Check cache: ['ref-data-entity-instance', 'worksite']                       │
+│       │                                                                      │
+│       ▼                                                                      │
+│  CACHE MISS                                                                  │
+│       │                                                                      │
+│       ▼                                                                      │
+│  GET /api/v1/entity/worksite/entity-instance                                │
+│       │                                                                      │
+│       ▼                                                                      │
+│  Store result in unified cache                                               │
+│       │                                                                      │
+│       ▼                                                                      │
+│  Return as dropdown options                                                  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 6. Component Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      COMPONENT ARCHITECTURE                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                        BACKEND LAYER                                │    │
+│  │                                                                      │    │
+│  │  ┌───────────────────┐   ┌────────────────────┐   ┌──────────────┐  │    │
+│  │  │ YAML Configs      │   │ Backend Formatter  │   │ Entity Infra │  │    │
+│  │  │                   │   │ Service            │   │ Service      │  │    │
+│  │  │ pattern-mapping   │──▶│                    │   │              │  │    │
+│  │  │ view-type-mapping │   │ Generates metadata │   │ Builds       │  │    │
+│  │  │ edit-type-mapping │   │ per field          │   │ ref_data     │  │    │
+│  │  └───────────────────┘   └────────────────────┘   └──────────────┘  │    │
+│  │                                   │                       │          │    │
+│  │                                   └───────────┬───────────┘          │    │
+│  │                                               │                      │    │
+│  │                                               ▼                      │    │
+│  │                                    ┌──────────────────┐              │    │
+│  │                                    │ API Response     │              │    │
+│  │                                    │ { data,          │              │    │
+│  │                                    │   ref_data,      │              │    │
+│  │                                    │   metadata }     │              │    │
+│  │                                    └──────────────────┘              │    │
+│  └──────────────────────────────────────────────│───────────────────────┘    │
+│                                                 │                            │
+│                                                 ▼                            │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                       FRONTEND LAYER                                │    │
+│  │                                                                      │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │  REACT QUERY CACHE LAYER                                    │    │    │
+│  │  │                                                              │    │    │
+│  │  │  Entity Query Cache          Unified Reference Cache         │    │    │
+│  │  │  ['entity-list', ...]        ['ref-data-entity-instance', *] │    │    │
+│  │  │          │                              ▲                    │    │    │
+│  │  │          │    upsertRefDataCache()      │                    │    │    │
+│  │  │          └──────────────────────────────┘                    │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                           │                │                         │    │
+│  │              ┌────────────┘                └────────────┐            │    │
+│  │              │                                          │            │    │
+│  │              ▼                                          ▼            │    │
+│  │  ┌─────────────────────────┐          ┌─────────────────────────┐   │    │
+│  │  │  HOOKS LAYER            │          │  HOOKS LAYER            │   │    │
+│  │  │                         │          │                         │   │    │
+│  │  │  useFormattedEntityList │          │  useRefDataEntityInst.  │   │    │
+│  │  │  ─────────────────────  │          │  Options()              │   │    │
+│  │  │  • Fetches entity data  │          │  ─────────────────────  │   │    │
+│  │  │  • Upserts ref_data     │          │  • Returns dropdown     │   │    │
+│  │  │  • select: formatDataset│          │    options from cache   │   │    │
+│  │  │                         │          │                         │   │    │
+│  │  │  useRefData             │          │  useRefDataEntityInst.  │   │    │
+│  │  │  ───────────            │          │  Resolver()             │   │    │
+│  │  │  • Per-response ref_data│          │  ─────────────────────  │   │    │
+│  │  │  • resolveFieldDisplay()│          │  • resolveName() from   │   │    │
+│  │  │                         │          │    unified cache        │   │    │
+│  │  └─────────────────────────┘          └─────────────────────────┘   │    │
+│  │              │                                          │            │    │
+│  │              ▼                                          ▼            │    │
+│  │  ┌─────────────────────────┐          ┌─────────────────────────┐   │    │
+│  │  │  COMPONENT LAYER        │          │  COMPONENT LAYER        │   │    │
+│  │  │                         │          │                         │   │    │
+│  │  │  VIEW MODE              │          │  EDIT MODE              │   │    │
+│  │  │  ──────────             │          │  ─────────              │   │    │
+│  │  │  EntityDataTable        │          │  EntitySelect           │   │    │
+│  │  │  EntityDetailView       │          │  EntityMultiSelect      │   │    │
+│  │  │  EntityFormContainer    │          │  EntityFormContainer    │   │    │
+│  │  │                         │          │                         │   │    │
+│  │  │  Displays: "James"      │          │  Shows: [dropdown]      │   │    │
+│  │  └─────────────────────────┘          └─────────────────────────┘   │    │
+│  │                                                                      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 7. Sequence Diagrams
+
+### 7.1 View Mode: User Views Project List
+
+```
+┌─────────┐     ┌──────────────┐     ┌──────────────┐     ┌───────────────┐     ┌─────────┐
+│  User   │     │EntityDataTable│    │useFormatted  │     │ Unified Cache │     │ Backend │
+│         │     │              │     │EntityList()  │     │               │     │         │
+└────┬────┘     └──────┬───────┘     └──────┬───────┘     └───────┬───────┘     └────┬────┘
+     │                 │                    │                     │                  │
+     │ Navigate to     │                    │                     │                  │
+     │ /projects       │                    │                     │                  │
+     │────────────────▶│                    │                     │                  │
+     │                 │                    │                     │                  │
+     │                 │ Render component   │                     │                  │
+     │                 │───────────────────▶│                     │                  │
+     │                 │                    │                     │                  │
+     │                 │                    │ Check cache         │                  │
+     │                 │                    │ ['entity-list',     │                  │
+     │                 │                    │  'project', params] │                  │
+     │                 │                    │────────────────────▶│                  │
+     │                 │                    │                     │                  │
+     │                 │                    │ CACHE MISS          │                  │
+     │                 │                    │◀────────────────────│                  │
+     │                 │                    │                     │                  │
+     │                 │                    │ GET /api/v1/project │                  │
+     │                 │                    │────────────────────────────────────────▶
+     │                 │                    │                     │                  │
+     │                 │                    │                     │  { data: [...],  │
+     │                 │                    │                     │    ref_data_     │
+     │                 │                    │                     │    entityInst.,  │
+     │                 │                    │                     │    metadata }    │
+     │                 │                    │◀────────────────────────────────────────
+     │                 │                    │                     │                  │
+     │                 │                    │ Store in entity     │                  │
+     │                 │                    │ cache               │                  │
+     │                 │                    │────────────────────▶│                  │
+     │                 │                    │                     │                  │
+     │                 │                    │ UPSERT ref_data     │                  │
+     │                 │                    │ to unified cache    │                  │
+     │                 │                    │────────────────────▶│                  │
+     │                 │                    │                     │                  │
+     │                 │                    │ select: transform   │                  │
+     │                 │                    │ formatDataset()     │                  │
+     │                 │                    │                     │                  │
+     │                 │ FormattedRow[]     │                     │                  │
+     │                 │◀───────────────────│                     │                  │
+     │                 │                    │                     │                  │
+     │                 │ Render table with  │                     │                  │
+     │                 │ display values     │                     │                  │
+     │                 │ "James Miller"     │                     │                  │
+     │◀────────────────│                    │                     │                  │
+     │                 │                    │                     │                  │
+     │ See table with  │                    │                     │                  │
+     │ names, not UUIDs│                    │                     │                  │
+```
+
+### 7.2 Edit Mode: User Opens Manager Dropdown
+
+```
+┌─────────┐     ┌──────────────┐     ┌──────────────┐     ┌───────────────┐
+│  User   │     │ EntitySelect │     │useRefDataEnt.│     │ Unified Cache │
+│         │     │              │     │Inst.Options()│     │               │
+└────┬────┘     └──────┬───────┘     └──────┬───────┘     └───────┬───────┘
+     │                 │                    │                     │
+     │ Click manager   │                    │                     │
+     │ dropdown        │                    │                     │
+     │────────────────▶│                    │                     │
+     │                 │                    │                     │
+     │                 │ Request options    │                     │
+     │                 │ for 'employee'     │                     │
+     │                 │───────────────────▶│                     │
+     │                 │                    │                     │
+     │                 │                    │ Check cache         │
+     │                 │                    │ ['ref-data-entity-  │
+     │                 │                    │  instance','employee│
+     │                 │                    │────────────────────▶│
+     │                 │                    │                     │
+     │                 │                    │                     │
+     │                 │    ┌───────────────┴──────────────────┐  │
+     │                 │    │  CACHE HIT!                      │  │
+     │                 │    │  (from earlier project list      │  │
+     │                 │    │   API response upsert)           │  │
+     │                 │    └───────────────┬──────────────────┘  │
+     │                 │                    │                     │
+     │                 │                    │ Return cached       │
+     │                 │                    │ { uuid: name }      │
+     │                 │                    │◀────────────────────│
+     │                 │                    │                     │
+     │                 │                    │ Transform to        │
+     │                 │                    │ options format      │
+     │                 │                    │                     │
+     │                 │ options = [        │                     │
+     │                 │  { value: uuid,    │                     │
+     │                 │    label: "James" }│                     │
+     │                 │ ]                  │                     │
+     │                 │◀───────────────────│                     │
+     │                 │                    │                     │
+     │                 │ Render dropdown    │                     │
+     │◀────────────────│                    │                     │
+     │                 │                    │                     │
+     │ See populated   │                    │                     │
+     │ dropdown with   │                    │                     │
+     │ employee names  │                    │                     │
+```
+
+### 7.3 Edit Mode: Cache Miss (First Access)
+
+```
+┌─────────┐     ┌──────────────┐     ┌──────────────┐     ┌───────────────┐     ┌─────────┐
+│  User   │     │ EntitySelect │     │useRefDataEnt.│     │ Unified Cache │     │ Backend │
+│         │     │              │     │Inst.Options()│     │               │     │         │
+└────┬────┘     └──────┬───────┘     └──────┬───────┘     └───────┬───────┘     └────┬────┘
+     │                 │                    │                     │                  │
+     │ Click worksite  │                    │                     │                  │
+     │ dropdown        │                    │                     │                  │
+     │────────────────▶│                    │                     │                  │
+     │                 │                    │                     │                  │
+     │                 │ Request options    │                     │                  │
+     │                 │ for 'worksite'     │                     │                  │
+     │                 │───────────────────▶│                     │                  │
+     │                 │                    │                     │                  │
+     │                 │                    │ Check cache         │                  │
+     │                 │                    │────────────────────▶│                  │
+     │                 │                    │                     │                  │
+     │                 │                    │ CACHE MISS          │                  │
+     │                 │                    │ (worksite never     │                  │
+     │                 │                    │  fetched before)    │                  │
+     │                 │                    │◀────────────────────│                  │
+     │                 │                    │                     │                  │
+     │                 │ isLoading: true    │                     │                  │
+     │◀────────────────│                    │                     │                  │
+     │                 │                    │                     │                  │
+     │ See loading     │                    │ GET /api/v1/entity/ │                  │
+     │ spinner         │                    │ worksite/           │                  │
+     │                 │                    │ entity-instance     │                  │
+     │                 │                    │────────────────────────────────────────▶
+     │                 │                    │                     │                  │
+     │                 │                    │                     │ [{ id, name }]   │
+     │                 │                    │◀────────────────────────────────────────
+     │                 │                    │                     │                  │
+     │                 │                    │ Store in cache      │                  │
+     │                 │                    │────────────────────▶│                  │
+     │                 │                    │                     │                  │
+     │                 │ options = [...]    │                     │                  │
+     │                 │◀───────────────────│                     │                  │
+     │                 │                    │                     │                  │
+     │◀────────────────│                    │                     │                  │
+     │ See populated   │                    │                     │                  │
+     │ dropdown        │                    │                     │                  │
+```
+
+---
+
+## 8. User Interaction Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    USER INTERACTION FLOW                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  1. USER LOGS IN                                                             │
+│     │                                                                        │
+│     ▼                                                                        │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ AuthContext prefetches common entities:                              │   │
+│  │ employee, project, business, office, role, cust                     │   │
+│  │                                                                       │   │
+│  │ Cache: ['ref-data-entity-instance', 'employee'] = { populated }      │   │
+│  │ Cache: ['ref-data-entity-instance', 'project'] = { populated }       │   │
+│  │ Cache: ['ref-data-entity-instance', 'business'] = { populated }      │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│     │                                                                        │
+│     ▼                                                                        │
+│  2. USER NAVIGATES TO PROJECT LIST                                           │
+│     │                                                                        │
+│     ▼                                                                        │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ API Response includes:                                               │   │
+│  │ • data: [{ manager__employee_id: "uuid-james", ... }]               │   │
+│  │ • ref_data_entityInstance: { employee: { "uuid-james": "James" } }  │   │
+│  │ • metadata: { viewType: { manager__employee_id: { ... } } }         │   │
+│  │                                                                       │   │
+│  │ Frontend:                                                             │   │
+│  │ • Upserts ref_data into unified cache (MERGE with existing)          │   │
+│  │ • Formats data using metadata: "uuid-james" → "James Miller"        │   │
+│  │ • Renders table with human-readable names                            │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│     │                                                                        │
+│     ▼                                                                        │
+│  3. USER SEES TABLE WITH NAMES (NOT UUIDs)                                   │
+│     │                                                                        │
+│     │ ┌─────────────────────────────────────────────────────────────────┐   │
+│     │ │  Project Name      │ Manager      │ Business             │ ... │   │
+│     │ ├─────────────────────────────────────────────────────────────────┤   │
+│     │ │  Kitchen Reno      │ James Miller │ Huron Home Services  │ ... │   │
+│     │ │  Bathroom Update   │ Sarah Johnson│ Huron Home Services  │ ... │   │
+│     │ └─────────────────────────────────────────────────────────────────┘   │
+│     │                                                                        │
+│     ▼                                                                        │
+│  4. USER CLICKS EDIT ON A PROJECT                                            │
+│     │                                                                        │
+│     ▼                                                                        │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ EntityFormContainer renders form with:                               │   │
+│  │ • field.type === 'entityInstanceId' (from metadata)                 │   │
+│  │ • field.lookupEntity === 'employee' (from metadata)                 │   │
+│  │                                                                       │   │
+│  │ Renders EntitySelect component for manager field                     │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│     │                                                                        │
+│     ▼                                                                        │
+│  5. USER CLICKS MANAGER DROPDOWN                                             │
+│     │                                                                        │
+│     ▼                                                                        │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ EntitySelect uses useRefDataEntityInstanceOptions('employee')        │   │
+│  │                                                                       │   │
+│  │ Check cache: ['ref-data-entity-instance', 'employee']               │   │
+│  │ → CACHE HIT (from login prefetch + API response upsert)             │   │
+│  │                                                                       │   │
+│  │ Instant dropdown population with employee names                      │   │
+│  │ NO additional network request!                                       │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│     │                                                                        │
+│     ▼                                                                        │
+│  6. USER SELECTS A DIFFERENT MANAGER                                         │
+│     │                                                                        │
+│     ▼                                                                        │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │ EntitySelect fires onChange(uuid, label)                             │   │
+│  │ Form state updated with new UUID                                     │   │
+│  │ Display shows selected name from cache                               │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 9. Interface Definitions
+
+### Backend Response Structure
+
+```
+EntityListResponse {
+  data: EntityRow[]                           // Raw entity data with UUID references
+  ref_data_entityInstance: RefData            // Lookup table: { entityCode: { uuid: name } }
+  metadata: EntityMetadata                    // Field rendering/editing instructions
+  total: number
+  limit: number
+  offset: number
+}
+
+RefData {
+  [entityCode: string]: {                     // e.g., "employee", "business"
+    [uuid: string]: string                    // e.g., "uuid-james": "James Miller"
+  }
+}
+
+EntityMetadata {
+  entityDataTable: ComponentMetadata          // Metadata per component
+  entityFormContainer: ComponentMetadata
+  // ... other components
+}
+
+ComponentMetadata {
+  viewType: { [fieldKey: string]: ViewFieldMetadata }
+  editType: { [fieldKey: string]: EditFieldMetadata }
+}
+
+ViewFieldMetadata {
+  dtype: "str" | "float" | "int" | "bool" | "uuid" | "date" | "timestamp"
+  label: string
+  renderType: string                          // "entityInstanceId" for references
+  lookupSource: "entityInstance" | "datalabel"
+  lookupEntity: string                        // Entity code, e.g., "employee"
+  behavior: { visible, sortable, filterable }
+  style: { width, align, ... }
+}
+
+EditFieldMetadata {
+  dtype: string
+  label: string
+  inputType: string                           // "entityInstanceId" for references
+  lookupSource: "entityInstance" | "datalabel"
+  lookupEntity: string                        // Entity code, e.g., "employee"
+  behavior: { editable }
+  validation: { required, min, max, pattern }
+}
+```
+
+### Frontend Types
+
+```
+FormattedRow<T> {
+  raw: T                                      // Original data (for mutations)
+  display: { [key: string]: string }          // Pre-formatted display values
+  styles: { [key: string]: string }           // CSS classes (for badges)
+}
+
+DropdownOption {
+  value: string                               // UUID
+  label: string                               // Display name
+}
+
+UseRefDataEntityInstanceOptionsResult {
+  options: DropdownOption[]                   // Dropdown options
+  lookup: { [uuid: string]: string }          // Quick lookup map
+  isLoading: boolean
+  error: Error | null
+}
+
+UseRefDataEntityInstanceResolverResult {
+  resolveName: (entityCode: string, uuid: string) => string | undefined
+  resolveNames: (entityCode: string, uuids: string[]) => string[]
+  hasCachedData: (entityCode: string) => boolean
 }
 ```
 
 ---
 
-## 8. Benefits of Unified Cache
+## 10. Benefits Summary
 
-### Performance
-
-| Metric | Before (v8.3.1) | After (v8.3.2) |
-|--------|-----------------|----------------|
-| Dropdown fetch when view cached | Always fetches | Cache hit |
-| View render when dropdown cached | Always fetches | Cache hit |
-| Memory for employee names | 2x (two caches) | 1x (unified) |
-| Network requests | Separate for view/edit | Shared |
-
-### Consistency
-
-```
-Before v8.3.2:
-- View shows "James Miller"
-- Dropdown shows "James M. Miller" (different fetch, different data)
-
-After v8.3.2:
-- Both use same cache entry
-- Always consistent
-```
-
-### Developer Experience
-
-```typescript
-// Before: Two different patterns
-const { options } = useEntityLookup('employee');         // Dropdown
-const { resolveFieldDisplay } = useRefData(ref_data);   // View mode
-
-// After: Unified pattern
-const { options } = useRefDataEntityInstanceOptions('employee');  // Dropdown
-const { resolveName } = useRefDataEntityInstanceResolver();       // View mode
-// Both use ['ref-data-entity-instance', 'employee'] cache
-```
+| Aspect | Benefit |
+|--------|---------|
+| **Separation of Concerns** | Backend owns field semantics, frontend is a pure renderer |
+| **Performance** | O(1) name resolution via lookup table, no N+1 queries |
+| **Consistency** | View mode and edit mode always show same data |
+| **Cache Efficiency** | Single unified cache, incremental population, merge strategy |
+| **Developer Experience** | No field name parsing, metadata-driven rendering |
+| **Scalability** | Pattern works for any entity type, any reference field |
+| **Maintainability** | YAML configs, no hardcoded mappings in frontend |
 
 ---
 
-## 9. File Reference
+## 11. File Reference
 
-| File | Purpose |
-|------|---------|
-| `apps/web/src/lib/hooks/useRefDataEntityInstanceCache.ts` | **Unified cache hook (v8.3.2)** |
-| `apps/web/src/lib/hooks/useRefData.ts` | Per-response resolution (legacy) |
-| `apps/web/src/lib/hooks/useEntityQuery.ts` | Entity queries + cache upsert |
-| `apps/web/src/lib/refDataResolver.ts` | Resolution utility functions |
-| `apps/web/src/components/shared/ui/EntitySelect.tsx` | Single entity dropdown |
-| `apps/web/src/components/shared/ui/EntityMultiSelect.tsx` | Multi-select dropdown |
-| `apps/api/src/services/entity-infrastructure.service.ts` | build_ref_data_entityInstance() |
-| `apps/api/src/modules/entity-instance-lookup/routes.ts` | Entity instance API |
-
----
-
-## 10. Migration Guide
-
-### From useEntityLookup to useRefDataEntityInstanceOptions
-
-```typescript
-// Before
-import { useEntityLookup } from '@/lib/hooks/useEntityQuery';
-const { options, isLoading } = useEntityLookup('employee');
-
-// After
-import { useRefDataEntityInstanceOptions } from '@/lib/hooks';
-const { options, isLoading } = useRefDataEntityInstanceOptions('employee');
-```
-
-### EntitySelect Already Updated
-
-EntitySelect and EntityMultiSelect have been updated to use the unified cache internally. No changes needed in consuming code.
+| Layer | File | Purpose |
+|-------|------|---------|
+| **Backend Config** | `apps/api/src/services/pattern-mapping.yaml` | Field pattern → business type |
+| **Backend Config** | `apps/api/src/services/view-type-mapping.yaml` | Business type → view metadata |
+| **Backend Config** | `apps/api/src/services/edit-type-mapping.yaml` | Business type → edit metadata |
+| **Backend Service** | `apps/api/src/services/backend-formatter.service.ts` | Metadata generation |
+| **Backend Service** | `apps/api/src/services/entity-infrastructure.service.ts` | build_ref_data_entityInstance() |
+| **Frontend Cache** | `apps/web/src/lib/hooks/useRefDataEntityInstanceCache.ts` | Unified cache hooks |
+| **Frontend Hook** | `apps/web/src/lib/hooks/useRefData.ts` | Per-response resolution |
+| **Frontend Hook** | `apps/web/src/lib/hooks/useEntityQuery.ts` | Entity queries + cache upsert |
+| **Frontend Util** | `apps/web/src/lib/refDataResolver.ts` | Resolution utilities |
+| **Frontend Component** | `apps/web/src/components/shared/ui/EntitySelect.tsx` | Single entity dropdown |
+| **Frontend Component** | `apps/web/src/components/shared/ui/EntityMultiSelect.tsx` | Multi-select dropdown |
 
 ---
 
-**Version:** 8.3.2 | **Updated:** 2025-11-27 | **Pattern:** Unified Cache
+**Version:** 11.0.0 | **Updated:** 2025-11-27 | **Pattern:** Backend-Driven Reference Resolution with Unified Cache

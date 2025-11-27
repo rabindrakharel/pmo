@@ -145,6 +145,7 @@ validate_all_ddls() {
     local schema_file="01_schema_create.ddl"
 
     # Entity Configuration (db/entity_configuration_settings/)
+    # Note: 04_entity_instance_backfill.ddl runs AFTER all business entities
     local entity_config_files=(
         "02_domain.ddl"
         "02_entity.ddl"
@@ -262,11 +263,10 @@ import_ddls() {
     execute_sql "$DB_PATH/01_schema_create.ddl" "01: Schema setup (drop and recreate)"
 
     # ===== ENTITY CONFIGURATION (entity_configuration_settings/ 02-06) =====
-    print_status $CYAN "  ⚙️  Entity Configuration (6 files)..."
+    print_status $CYAN "  ⚙️  Entity Configuration (5 files - backfill runs after business entities)..."
     execute_sql "$DB_PATH/entity_configuration_settings/02_domain.ddl" "02: Domain master table (10 business domains)"
     execute_sql "$DB_PATH/entity_configuration_settings/02_entity.ddl" "02: Entity metadata (27+ entity types)"
     execute_sql "$DB_PATH/entity_configuration_settings/03_entity_instance.ddl" "03: Entity instance registry"
-    execute_sql "$DB_PATH/entity_configuration_settings/04_entity_instance_backfill.ddl" "04: Entity instance backfill"
     execute_sql "$DB_PATH/entity_configuration_settings/05_entity_instance_link.ddl" "05: Entity instance relationships"
     execute_sql "$DB_PATH/entity_configuration_settings/06_entity_rbac.ddl" "06: Entity RBAC permissions"
 
@@ -349,6 +349,10 @@ import_ddls() {
     print_status $CYAN "  🌱 RBAC Seed Data..."
     execute_sql "$DB_PATH/49_rbac_seed_data.ddl" "49: RBAC permission seed data (roles & employees)"
 
+    # ===== ENTITY INSTANCE BACKFILL (runs after all business entities) =====
+    print_status $CYAN "  📋 Entity Instance Backfill..."
+    execute_sql "$DB_PATH/entity_configuration_settings/04_entity_instance_backfill.ddl" "04: Backfill entity_instance registry from all entities"
+
     print_status $GREEN "✅ All 54 DDL files imported successfully!"
 }
 
@@ -369,17 +373,17 @@ validate_schema() {
     # Check all table counts
     print_status $CYAN "📊 Entity Counts:"
 
-    # Core entities
-    local office_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_office;" 2>/dev/null | xargs || echo "0")
-    local business_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_business;" 2>/dev/null | xargs || echo "0")
-    local project_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_project;" 2>/dev/null | xargs || echo "0")
-    local task_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_task;" 2>/dev/null | xargs || echo "0")
-    local employee_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_employee;" 2>/dev/null | xargs || echo "0")
+    # Core entities (using correct table names without d_ prefix)
+    local office_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.office;" 2>/dev/null | xargs || echo "0")
+    local business_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.business;" 2>/dev/null | xargs || echo "0")
+    local project_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.project;" 2>/dev/null | xargs || echo "0")
+    local task_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.task;" 2>/dev/null | xargs || echo "0")
+    local employee_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.employee;" 2>/dev/null | xargs || echo "0")
 
-    # Infrastructure
-    local entity_registry_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_entity_instance_registry;" 2>/dev/null | xargs || echo "0")
-    local entity_link_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_entity_instance_link;" 2>/dev/null | xargs || echo "0")
-    local rbac_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.d_entity_rbac;" 2>/dev/null | xargs || echo "0")
+    # Infrastructure (correct table names)
+    local entity_registry_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.entity_instance;" 2>/dev/null | xargs || echo "0")
+    local entity_link_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.entity_instance_link;" 2>/dev/null | xargs || echo "0")
+    local rbac_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.entity_rbac;" 2>/dev/null | xargs || echo "0")
     local datalabel_count=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM app.datalabel;" 2>/dev/null | xargs || echo "0")
 
     print_status $CYAN "   Offices: $office_count | Businesses: $business_count | Projects: $project_count"
@@ -388,7 +392,7 @@ validate_schema() {
     print_status $CYAN "   Settings: $datalabel_count"
 
     # Verify James Miller CEO account
-    local james_email=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT email FROM app.d_employee WHERE name = 'James Miller';" 2>/dev/null | xargs || echo "")
+    local james_email=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT email FROM app.employee WHERE name = 'James Miller';" 2>/dev/null | xargs || echo "")
     if [ "$james_email" = "james.miller@huronhome.ca" ]; then
         print_status $GREEN "✅ James Miller CEO account verified"
     elif [ -n "$employee_count" ] && [ "$employee_count" -gt 0 ]; then

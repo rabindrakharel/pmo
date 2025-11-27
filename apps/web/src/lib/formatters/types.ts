@@ -50,7 +50,12 @@ export interface ViewFieldMetadata {
   component?: string;               // Special component to use
   // For datalabel fields
   settingsDatalabel?: string;       // Datalabel key for lookup
+  // v8.3.2: For entity reference fields - used with ref_data_entityInstance
+  lookupEntity?: string;            // Entity code for name resolution
 }
+
+// Alias for backward compatibility
+export type FieldMetadata = ViewFieldMetadata;
 
 // ============================================================================
 // EDIT TYPE METADATA - For input controls (from editType)

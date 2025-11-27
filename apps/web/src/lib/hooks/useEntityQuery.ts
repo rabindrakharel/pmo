@@ -528,6 +528,7 @@ export function useFormattedEntityList<T = any>(
 
   // ═══════════════════════════════════════════════════════════════════════
   // v8.0.0: Use `select` to transform raw cache data → formatted on READ
+  // v8.3.2: Pass ref_data_entityInstance for entity reference resolution
   // React Query memoizes this - only re-runs when raw data changes
   // ═══════════════════════════════════════════════════════════════════════
   const selectFormatted = useCallback(
@@ -537,14 +538,14 @@ export function useFormattedEntityList<T = any>(
       // Get component metadata for formatting
       const componentMetadata = (raw.metadata as any)?.[mappedView] as ComponentMetadata | null;
 
-      // Format dataset (this runs only when raw data changes)
-      const formattedData = formatDataset(raw.data, componentMetadata);
+      // v8.3.2: Pass ref_data_entityInstance for entity name resolution
+      const formattedData = formatDataset(raw.data, componentMetadata, raw.ref_data_entityInstance);
 
       const duration = performance.now() - startTime;
       console.log(
         `%c[FORMAT AT READ] 🎨 Formatted ${raw.data.length} rows in ${duration.toFixed(2)}ms`,
         'color: #be4bdb; font-weight: bold',
-        { entityCode, view: mappedView, hasMetadata: !!componentMetadata }
+        { entityCode, view: mappedView, hasMetadata: !!componentMetadata, hasRefData: !!raw.ref_data_entityInstance }
       );
 
       return {
@@ -658,19 +659,21 @@ export function useFormattedEntityInstance<T = any>(
 
   // ═══════════════════════════════════════════════════════════════════════
   // v8.0.0: Use `select` to transform raw cache data → formatted on READ
+  // v8.3.2: Pass ref_data_entityInstance for entity reference resolution
   // ═══════════════════════════════════════════════════════════════════════
   const selectFormatted = useCallback(
     (raw: EntityInstanceResult<T>): FormattedEntityInstanceResult<T> => {
       const startTime = performance.now();
 
       const componentMetadata = (raw.metadata as any)?.[componentName] as ComponentMetadata | null;
-      const formattedData = formatRow(raw.data, componentMetadata);
+      // v8.3.2: Pass ref_data_entityInstance for entity name resolution
+      const formattedData = formatRow(raw.data, componentMetadata, raw.ref_data_entityInstance);
 
       const duration = performance.now() - startTime;
       console.log(
         `%c[FORMAT AT READ] 🎨 Formatted entity in ${duration.toFixed(2)}ms`,
         'color: #be4bdb; font-weight: bold',
-        { entityCode, id, component: componentName, hasMetadata: !!componentMetadata }
+        { entityCode, id, component: componentName, hasMetadata: !!componentMetadata, hasRefData: !!raw.ref_data_entityInstance }
       );
 
       return {

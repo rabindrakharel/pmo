@@ -4,6 +4,7 @@ import { authApi, settingApi, User } from '../lib/api';
 import { clearAllMetadataStores } from '../lib/cache/garbageCollection';
 import { clearNormalizedStore } from '../lib/cache/normalizedCache';
 import { useDatalabelMetadataStore } from '../stores/datalabelMetadataStore';
+import { prefetchEntityInstances } from '../lib/hooks';
 
 interface AuthState {
   user: User | null;
@@ -86,6 +87,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Load and cache all datalabels after successful login
       await loadDatalabels();
+
+      // v8.3.2: Prefetch common entity instances for dropdown caches
+      // This populates the unified ref_data_entityInstance cache
+      prefetchEntityInstances(queryClient, [
+        'employee',
+        'project',
+        'business',
+        'office',
+        'role',
+        'cust',
+      ]).catch((err) => console.warn('[Auth] Entity instance prefetch failed:', err));
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -135,6 +147,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Load and cache datalabels (will use cache if valid)
       await loadDatalabels();
+
+      // v8.3.2: Prefetch common entity instances for dropdown caches
+      prefetchEntityInstances(queryClient, [
+        'employee',
+        'project',
+        'business',
+        'office',
+        'role',
+        'cust',
+      ]).catch((err) => console.warn('[Auth] Entity instance prefetch failed:', err));
     } catch (error) {
       console.error('Failed to refresh user:', error);
       localStorage.removeItem('auth_token');

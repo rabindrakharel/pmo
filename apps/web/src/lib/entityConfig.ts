@@ -151,7 +151,8 @@ export interface ColumnDef {
 export interface FieldDef {
   key: string;
   label: string;
-  type: 'text' | 'textarea' | 'richtext' | 'number' | 'date' | 'timestamp' | 'select' | 'multiselect' | 'jsonb' | 'array' | 'BadgeDropdownSelect' | 'component';
+  // v8.3.2: Added entityInstanceId for entity reference dropdowns
+  type: 'text' | 'textarea' | 'richtext' | 'number' | 'date' | 'timestamp' | 'select' | 'multiselect' | 'jsonb' | 'array' | 'BadgeDropdownSelect' | 'component' | 'entityInstanceId';
   required?: boolean;
   readonly?: boolean;
   disabled?: boolean;

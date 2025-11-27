@@ -27,9 +27,9 @@ The Backend Formatter Service generates **component-aware field metadata** from 
 │           ┌───────────┴───────────┐                                          │
 │           ▼                       ▼                                          │
 │  ┌─────────────────┐   ┌─────────────────┐                                   │
-│  │ viewType:       │   │ editType:       │                                   │
+│  │ renderType:     │   │ inputType:      │                                   │
 │  │  'entityInstance│   │  'entityInstance│                                   │
-│  │      _Id'       │   │      _Id'       │                                   │
+│  │      Id'        │   │      Id'        │                                   │
 │  │ lookupEntity:   │   │ lookupEntity:   │                                   │
 │  │  'employee'     │   │  'employee'     │                                   │
 │  └─────────────────┘   └─────────────────┘                                   │
@@ -78,7 +78,7 @@ The Backend Formatter Service generates **component-aware field metadata** from 
         "manager__employee_id": {
           "dtype": "uuid",
           "label": "Manager Employee Name",
-          "viewType": "entityInstance_Id",
+          "renderType": "entityInstanceId",
           "lookupSource": "entityInstance",
           "lookupEntity": "employee",
           "behavior": { "visible": true, "filterable": true }
@@ -102,7 +102,7 @@ The Backend Formatter Service generates **component-aware field metadata** from 
         "manager__employee_id": {
           "dtype": "uuid",
           "label": "Manager Employee Name",
-          "editType": "entityInstance_Id",
+          "inputType": "entityInstanceId",
           "lookupSource": "entityInstance",
           "lookupEntity": "employee",
           "behavior": { "editable": true }
@@ -174,7 +174,7 @@ const fieldMeta = metadata.viewType.manager__employee_id;
 // Check using metadata, NOT field name pattern
 if (isEntityReferenceField(fieldMeta)) {
   const entityCode = getEntityCodeFromMetadata(fieldMeta);  // "employee"
-  const displayName = ref_data_entityInstance[entityCode][uuid];           // "James Miller"
+  const displayName = ref_data_entityInstance[entityCode][uuid];  // "James Miller"
 }
 
 // ✗ WRONG: Pattern detection (removed in v8.3.1)
@@ -238,10 +238,11 @@ patterns:
 
 ```
 1. Explicit Config (entity-field-config.ts)  → Highest priority
-2. YAML Mappings (pattern → view/edit YAML)  → Preferred method
-3. Legacy Pattern (PATTERN_RULES object)     → Fallback
-4. Default (plain text)                       → Lowest priority
+2. YAML Mappings (pattern → view/edit YAML)  → Standard method
+3. Default (plain text)                       → Lowest priority
 ```
+
+> **Note:** Legacy PATTERN_RULES was removed in v11.0.0. YAML mappings are now the sole source of truth.
 
 ---
 
@@ -365,8 +366,7 @@ function detectEntityFromFieldName(fieldName: string): string | null {
 interface ViewFieldMetadata {
   dtype: 'str' | 'float' | 'int' | 'bool' | 'uuid' | 'date' | 'timestamp' | 'jsonb';
   label: string;
-  renderType?: string;           // 'text', 'currency', 'date', 'badge', 'boolean'
-  viewType?: string;             // 'entityInstance_Id' for references (v8.3.0)
+  renderType?: string;           // 'text', 'currency', 'date', 'badge', 'boolean', 'entityInstanceId'
   component?: string;            // Custom component name
   behavior: {
     visible?: boolean;
@@ -387,8 +387,7 @@ interface ViewFieldMetadata {
 interface EditFieldMetadata {
   dtype: string;
   label: string;
-  inputType?: string;            // 'text', 'number', 'select', 'date', 'checkbox'
-  editType?: string;             // 'entityInstance_Id' for references (v8.3.0)
+  inputType?: string;            // 'text', 'number', 'select', 'date', 'checkbox', 'entityInstanceId'
   component?: string;            // Custom input component
   behavior: {
     editable?: boolean;
@@ -432,11 +431,11 @@ This renders a dropdown with colored badges matching the datalabel options, usin
 
 ### Example: manager__employee_id (v8.3.0)
 
-| Component | viewType | editType | lookupEntity |
-|-----------|----------|----------|--------------|
-| entityDataTable | `entityInstance_Id` | `entityInstance_Id` | `employee` |
-| entityFormContainer | `entityInstance_Id` | `entityInstance_Id` | `employee` |
-| kanbanView | `entityInstance_Id` | `entityInstance_Id` | `employee` |
+| Component | renderType | inputType | lookupEntity |
+|-----------|------------|-----------|--------------|
+| entityDataTable | `entityInstanceId` | `entityInstanceId` | `employee` |
+| entityFormContainer | `entityInstanceId` | `entityInstanceId` | `employee` |
+| kanbanView | `entityInstanceId` | `entityInstanceId` | `employee` |
 
 ---
 
@@ -445,16 +444,20 @@ This renders a dropdown with colored badges matching the datalabel options, usin
 | Anti-Pattern | Problem | Solution |
 |--------------|---------|----------|
 | Frontend pattern detection | Duplicates logic | Backend sends `lookupEntity` |
-| Field name `_id` checking | Maintenance burden | Use `viewType === 'entityInstance_Id'` |
+| Field name `_id` checking | Maintenance burden | Use `renderType === 'entityInstanceId'` |
 | Hardcoded field configs | Maintenance burden | Use YAML mappings |
 | Same metadata for all components | Limited flexibility | Component-specific viewType/editType |
 | Per-row `_ID` embedded objects | N+1 performance | Use `ref_data_entityInstance` lookup table |
 
 ---
 
-**Version:** 8.3.2 | **Updated:** 2025-11-27
+**Version:** 11.0.0 | **Updated:** 2025-11-27
 
 **Recent Updates:**
+- v11.0.0 (2025-11-27):
+  - **Removed legacy PATTERN_RULES** (~900 lines) - YAML is now sole source of truth
+  - Standardized naming: `entityInstanceId` (camelCase) for both `renderType` and `inputType`
+  - Removed `viewType`/`editType` field properties - use `renderType`/`inputType` instead
 - v8.3.2 (2025-11-27):
   - Added `BadgeDropdownSelect` as valid inputType for datalabel fields
   - DAG fields use `renderType: 'component'` + `component: 'DAGVisualizer'` (not `renderType: 'dag'`)

@@ -229,7 +229,7 @@ export function resolveEntityReferences(
  * @returns Resolved name(s) or undefined
  *
  * @example
- * const fieldMeta = { key: 'manager__employee_id', lookupEntity: 'employee', viewType: 'entityInstance_Id' };
+ * const fieldMeta = { key: 'manager__employee_id', lookupEntity: 'employee', renderType: 'entityInstanceId' };
  * const name = resolveFieldWithMetadata(fieldMeta, "uuid-123", refData);
  * // Returns: "James Miller"
  */
@@ -308,8 +308,8 @@ export function resolveFieldDisplayWithMetadata(
  *
  * @example
  * const fieldMetadataMap = {
- *   'manager__employee_id': { key: 'manager__employee_id', lookupEntity: 'employee', viewType: 'entityInstance_Id' },
- *   'business_id': { key: 'business_id', lookupEntity: 'business', viewType: 'entityInstance_Id' }
+ *   'manager__employee_id': { key: 'manager__employee_id', lookupEntity: 'employee', renderType: 'entityInstanceId' },
+ *   'business_id': { key: 'business_id', lookupEntity: 'business', renderType: 'entityInstanceId' }
  * };
  * const resolved = resolveRowWithMetadata(row, fieldMetadataMap, refData);
  * // Returns: { manager__employee_id: "James Miller", business_id: "Huron Home Services" }

@@ -22,23 +22,23 @@ The frontend formatter is a **pure renderer** that executes backend instructions
 │        style: { decimals: 2 }                   └── formatCurrency(50000)    │
 │      },                                             └── "$50,000.00"         │
 │      manager__employee_id: {                                                 │
-│        viewType: 'entityInstance_Id', useRefData() → resolveFieldDisplay()  │
-│        lookupEntity: 'employee'           └── ref_data_entityInstance.employee[uuid]       │
-│      }                                        └── "James Miller"             │
+│        renderType: 'entityInstanceId', useRefData() → resolveFieldDisplay() │
+│        lookupEntity: 'employee'        └── ref_data_entityInstance.employee[uuid]
+│      }                                     └── "James Miller"                │
 │    },                                                                        │
 │    editType: {                         renderEditModeFromMetadata()          │
 │      budget: {                          └── switch(editType[key].inputType)  │
 │        inputType: 'number'                  └── <input type="number" />      │
 │      },                                                                      │
 │      manager__employee_id: {                                                 │
-│        editType: 'entityInstance_Id',   └── <EntityDropdown                  │
+│        inputType: 'entityInstanceId',   └── <EntityDropdown                  │
 │        lookupEntity: 'employee'               entityCode="employee" />       │
 │      }                                                                       │
 │    }                                                                         │
 │  }                                                                           │
 │                                                                              │
 │  ✗ NO pattern detection (_id suffix, _amt suffix, etc.)                      │
-│  ✓ All decisions from metadata.viewType/editType/lookupEntity                │
+│  ✓ All decisions from metadata.renderType/inputType/lookupEntity             │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -73,10 +73,9 @@ interface ComponentMetadata {
 interface ViewFieldMetadata {
   dtype: string;
   label: string;
-  renderType?: string;
-  viewType?: string;              // 'entityInstance_Id' for references
+  renderType?: string;              // 'entityInstanceId' for references
   lookupSource?: 'entityInstance' | 'datalabel';
-  lookupEntity?: string;          // Entity code (e.g., 'employee')
+  lookupEntity?: string;            // Entity code (e.g., 'employee')
   behavior: { visible?: boolean; sortable?: boolean };
   style: Record<string, any>;
 }
@@ -91,8 +90,8 @@ interface FormattedRow<T> {
 // FieldMetadata for refDataResolver (v8.3.1)
 interface FieldMetadata {
   key: string;
-  viewType?: string;
-  editType?: string;
+  renderType?: string;
+  inputType?: string;
   lookupSource?: 'entityInstance' | 'datalabel';
   lookupEntity?: string;
   dtype?: string;
@@ -127,7 +126,7 @@ import {
 } from '@/lib/refDataResolver';
 
 const fieldMeta = metadata.viewType.manager__employee_id;
-// { viewType: 'entityInstance_Id', lookupEntity: 'employee' }
+// { renderType: 'entityInstanceId', lookupEntity: 'employee' }
 
 // Check using metadata (NOT field name pattern)
 if (isEntityReferenceField(fieldMeta)) {
@@ -204,8 +203,8 @@ interface UseRefDataResult {
 │                       │        ├── 'badge' → formatBadge() + style lookup    │
 │                       │        └── 'text' → String(value)                    │
 │                       │                                                      │
-│                       ├── For entity refs: Check viewType[key].viewType      │
-│                       │    └── 'entityInstance_Id' → use lookupEntity        │
+│                       ├── For entity refs: Check viewType[key].renderType    │
+│                       │    └── 'entityInstanceId' → use lookupEntity         │
 │                       │        └── ref_data_entityInstance[lookupEntity][uuid]              │
 │                       │                                                      │
 │                       └── Returns: FormattedRow[]                            │
@@ -295,7 +294,7 @@ const editType = extractEditType(metadata);  // { viewType, editType } → editT
 const fieldMeta = editType[key];
 
 // Check if it's an entity reference using metadata (NOT pattern)
-if (fieldMeta.editType === 'entityInstance_Id') {
+if (fieldMeta.inputType === 'entityInstanceId') {
   const entityCode = fieldMeta.lookupEntity;  // 'employee'
   return (
     <EntityDropdown
@@ -342,7 +341,7 @@ switch (metadata.inputType) {
     return <textarea />;
 
   // Entity reference (v8.3.0)
-  case 'entityInstance_Id':
+  case 'entityInstanceId':
     const entityCode = metadata.lookupEntity;
     return <EntityDropdown entityCode={entityCode} />;
 
@@ -375,7 +374,7 @@ function formatValue(
   }
 
   // Entity reference (v8.3.1 - uses metadata, not pattern)
-  if (metadata.viewType === 'entityInstance_Id' && metadata.lookupEntity && refData) {
+  if (metadata.renderType === 'entityInstanceId' && metadata.lookupEntity && refData) {
     const entityCode = metadata.lookupEntity;
     const resolved = refData[entityCode]?.[value];
     return { display: resolved ?? value ?? '', style: '' };
@@ -449,7 +448,7 @@ if (field.key.includes('_amt') || field.key.includes('_price')) {
 }
 
 // ✓ CORRECT: Use backend metadata
-if (metadata.viewType === 'entityInstance_Id') {
+if (metadata.renderType === 'entityInstanceId') {
   const entityCode = metadata.lookupEntity;  // Backend tells us
   return refData[entityCode][value];
 }
@@ -523,8 +522,8 @@ function extractEditType(metadata: ComponentMetadata | null): Record<string, Edi
 function isEntityReferenceField(fieldMeta: FieldMetadata | undefined): boolean {
   if (!fieldMeta) return false;
   return (
-    fieldMeta.viewType === 'entityInstance_Id' ||
-    fieldMeta.editType === 'entityInstance_Id' ||
+    fieldMeta.renderType === 'entityInstanceId' ||
+    fieldMeta.inputType === 'entityInstanceId' ||
     fieldMeta.lookupSource === 'entityInstance'
   );
 }
@@ -551,9 +550,13 @@ function getEntityCodeFromMetadata(fieldMeta: FieldMetadata | undefined): string
 
 ---
 
-**Version:** 8.3.2 | **Updated:** 2025-11-27
+**Version:** 11.0.0 | **Updated:** 2025-11-27
 
 **Recent Updates:**
+- v11.0.0 (2025-11-27):
+  - Standardized naming: `entityInstanceId` (camelCase) for both `renderType` and `inputType`
+  - Removed `viewType`/`editType` field properties - use `renderType`/`inputType` instead
+  - Aligned with backend v11.0.0 (PATTERN_RULES removal)
 - v8.3.2 (2025-11-27):
   - Renamed ColoredDropdown → BadgeDropdownSelect
   - Added `BadgeDropdownSelect` as valid inputType in renderEditModeFromMetadata

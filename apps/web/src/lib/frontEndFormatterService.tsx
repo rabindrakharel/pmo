@@ -53,6 +53,7 @@ import { formatters } from './config/locale';
 import { DebouncedInput, DebouncedTextarea } from '../components/shared/ui/DebouncedInput';
 import { useDatalabelMetadataStore } from '../stores/datalabelMetadataStore';
 import { BadgeDropdownSelect, type BadgeDropdownSelectOption } from '../components/shared/ui/BadgeDropdownSelect';
+import { EntitySelect } from '../components/shared/ui/EntitySelect';
 import { colorCodeToTailwindClass } from './formatters/valueFormatters';
 
 // ============================================================================
@@ -449,6 +450,41 @@ export function renderEditModeFromMetadata(
           rows={4}
         />
       );
+
+    // v8.3.2: Entity instance dropdown (foreign key reference fields)
+    case 'entityInstanceId': {
+      // Entity reference fields use EntitySelect with unified ref_data cache
+      const entityCode = metadata.lookupEntity;
+
+      if (!entityCode) {
+        console.warn(`[EDIT] Missing lookupEntity for field ${metadata.key}`);
+        return (
+          <DebouncedInput
+            type="text"
+            value={value ?? ''}
+            onChange={(val) => onChange(val)}
+            debounceMs={300}
+            onBlurCommit={true}
+            required={required}
+            disabled={disabled}
+            placeholder={metadata.placeholder || 'Missing entity configuration'}
+            className={`px-2 py-1 border rounded ${className}`}
+          />
+        );
+      }
+
+      return (
+        <EntitySelect
+          entityCode={entityCode}
+          value={value ?? ''}
+          onChange={(uuid, _label) => onChange(uuid)}
+          disabled={disabled}
+          required={required}
+          placeholder={metadata.placeholder || `Select ${entityCode}...`}
+          className={className}
+        />
+      );
+    }
 
     case 'select': {
       // Check if this is a datalabel field (lookupSource === 'datalabel' or has datalabelKey)

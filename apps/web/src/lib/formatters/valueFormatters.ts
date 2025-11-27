@@ -249,12 +249,48 @@ export function formatArray(value: any): FormattedValue {
 
 /**
  * Format reference/entity ID fields
+ *
+ * v8.3.2: Now resolves names from ref_data_entityInstance when available.
+ * Falls back to truncated UUID if name not found.
+ *
+ * @param value - UUID or array of UUIDs
+ * @param metadata - Field metadata with lookupEntity
+ * @param refData - ref_data_entityInstance lookup table
  */
-export function formatReference(value: any): FormattedValue {
+export function formatReference(
+  value: any,
+  metadata?: FieldMetadata,
+  refData?: Record<string, Record<string, string>>
+): FormattedValue {
   if (value === null || value === undefined || value === '') {
     return { display: '—' };
   }
-  const str = String(value);
-  // Show truncated UUID
-  return { display: str.length > 8 ? `${str.substring(0, 8)}...` : str };
+
+  // Get the entity code from metadata
+  const entityCode = metadata?.lookupEntity;
+
+  // Handle array of UUIDs
+  if (Array.isArray(value)) {
+    if (value.length === 0) return { display: '—' };
+
+    const names = value.map(uuid => {
+      if (entityCode && refData?.[entityCode]?.[uuid]) {
+        return refData[entityCode][uuid];
+      }
+      return String(uuid).substring(0, 8) + '...';
+    });
+
+    return { display: names.join(', ') };
+  }
+
+  // Single UUID
+  const uuid = String(value);
+
+  // Try to resolve from refData
+  if (entityCode && refData?.[entityCode]?.[uuid]) {
+    return { display: refData[entityCode][uuid] };
+  }
+
+  // Fallback: truncated UUID
+  return { display: uuid.length > 8 ? `${uuid.substring(0, 8)}...` : uuid };
 }

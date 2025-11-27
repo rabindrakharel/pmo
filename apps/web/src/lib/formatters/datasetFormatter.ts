@@ -9,6 +9,9 @@
  * v8.2.0: Removed legacy flat metadata support - only accepts nested
  * component metadata structure { viewType: {...}, editType: {...} }
  *
+ * v8.3.2: Added ref_data_entityInstance support for entity reference resolution.
+ * Reference fields (renderType: 'entityInstanceId') now resolve UUID to names.
+ *
  * PERFORMANCE: Called once when data is fetched, not during scroll/render.
  */
 
@@ -34,9 +37,25 @@ import {
 } from './valueFormatters';
 
 /**
- * Formatter registry - maps renderType to formatter function
+ * RefData type for entity instance name resolution (v8.3.2)
+ * Structure: { entityCode: { uuid: name } }
  */
-const FORMATTERS: Record<string, (value: any, meta?: ViewFieldMetadata) => FormattedValue> = {
+export type RefData = Record<string, Record<string, string>>;
+
+/**
+ * Reference render types that need refData for name resolution
+ */
+const REFERENCE_RENDER_TYPES = new Set([
+  'reference',
+  'entityInstanceId',
+  'entityInstanceIds',  // v8.3.2: Array of entity references
+]);
+
+/**
+ * Formatter registry - maps renderType to formatter function
+ * Note: formatReference requires refData for name resolution (v8.3.2)
+ */
+const FORMATTERS: Record<string, (value: any, meta?: ViewFieldMetadata, refData?: RefData) => FormattedValue> = {
   // Currency
   'currency': formatCurrency,
 
@@ -68,9 +87,10 @@ const FORMATTERS: Record<string, (value: any, meta?: ViewFieldMetadata) => Forma
   'jsonb': formatJson,
   'array': formatArray,
 
-  // References
+  // References - use refData for name resolution (v8.3.2)
   'reference': formatReference,
-  'entityInstance_Id': formatReference,
+  'entityInstanceId': formatReference,
+  'entityInstanceIds': formatReference,  // v8.3.2: Array of entity references
 
   // Default
   'text': formatText,
@@ -78,14 +98,23 @@ const FORMATTERS: Record<string, (value: any, meta?: ViewFieldMetadata) => Forma
 
 /**
  * Format a single value based on metadata
+ *
+ * v8.3.2: Added refData parameter for entity reference resolution
  */
 export function formatValue(
   value: any,
   key: string,
-  metadata: ViewFieldMetadata | undefined
+  metadata: ViewFieldMetadata | undefined,
+  refData?: RefData
 ): FormattedValue {
   const renderType = metadata?.renderType || 'text';
   const formatter = FORMATTERS[renderType] || formatText;
+
+  // Pass refData to formatters that need it (reference types)
+  if (REFERENCE_RENDER_TYPES.has(renderType)) {
+    return formatter(value, metadata, refData);
+  }
+
   return formatter(value, metadata);
 }
 
@@ -93,10 +122,12 @@ export function formatValue(
  * Format a single row using viewType metadata
  *
  * v8.2.0: Only accepts ComponentMetadata with { viewType, editType } structure
+ * v8.3.2: Added refData parameter for entity reference resolution
  */
 export function formatRow<T extends Record<string, any>>(
   row: T,
-  metadata: ComponentMetadata | null
+  metadata: ComponentMetadata | null,
+  refData?: RefData
 ): FormattedRow<T> {
   const display: Record<string, string> = {};
   const styles: Record<string, string> = {};
@@ -106,7 +137,7 @@ export function formatRow<T extends Record<string, any>>(
 
   for (const [key, value] of Object.entries(row)) {
     const fieldMeta = viewType?.[key];
-    const formatted = formatValue(value, key, fieldMeta);
+    const formatted = formatValue(value, key, fieldMeta, refData);
 
     display[key] = formatted.display;
     if (formatted.style) {
@@ -121,18 +152,21 @@ export function formatRow<T extends Record<string, any>>(
  * Format entire dataset (call ONCE at fetch time)
  *
  * v8.2.0: Only accepts ComponentMetadata with { viewType, editType } structure
+ * v8.3.2: Added refData parameter for entity reference resolution
  *
  * @param data - Raw data array from API
  * @param metadata - Component metadata with viewType and editType
+ * @param refData - ref_data_entityInstance for entity name resolution (v8.3.2)
  * @returns Array of formatted rows with raw, display, and styles
  *
  * @example
- * const formattedData = formatDataset(response.data, response.metadata?.entityDataTable);
+ * const formattedData = formatDataset(response.data, response.metadata?.entityDataTable, response.ref_data_entityInstance);
  * // metadata.entityDataTable = { viewType: {...}, editType: {...} }
  */
 export function formatDataset<T extends Record<string, any>>(
   data: T[],
-  metadata: ComponentMetadata | null
+  metadata: ComponentMetadata | null,
+  refData?: RefData
 ): FormattedRow<T>[] {
   if (!data || data.length === 0) {
     return [];
@@ -146,11 +180,13 @@ export function formatDataset<T extends Record<string, any>>(
     isValid: isValidComponentMetadata(metadata),
     hasViewType: !!viewType,
     fieldCount: viewType ? Object.keys(viewType).length : 0,
+    hasRefData: !!refData,
+    refDataEntities: refData ? Object.keys(refData) : [],
   });
 
   const startTime = performance.now();
 
-  const result = data.map(row => formatRow(row, metadata));
+  const result = data.map(row => formatRow(row, metadata, refData));
 
   const duration = performance.now() - startTime;
   console.log(`%c[FORMAT] Formatted in ${duration.toFixed(2)}ms`, 'color: #be4bdb');
@@ -160,12 +196,15 @@ export function formatDataset<T extends Record<string, any>>(
 
 /**
  * Re-format a single row after update (for optimistic updates)
+ *
+ * v8.3.2: Added refData parameter for entity reference resolution
  */
 export function reformatRow<T extends Record<string, any>>(
   row: T,
-  metadata: ComponentMetadata | null
+  metadata: ComponentMetadata | null,
+  refData?: RefData
 ): FormattedRow<T> {
-  return formatRow(row, metadata);
+  return formatRow(row, metadata, refData);
 }
 
 /**

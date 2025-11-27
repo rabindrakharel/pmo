@@ -4,7 +4,7 @@
  * React hook for accessing and resolving entity references using ref_data_entityInstance.
  *
  * IMPORTANT: Backend metadata is the single source of truth.
- * - viewType === 'entityInstance_Id' indicates a reference field
+ * - renderType === 'entityInstanceId' indicates a reference field
  * - lookupEntity tells us which entity to look up
  * - Frontend does NOT detect patterns from field names
  *
