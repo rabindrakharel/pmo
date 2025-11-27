@@ -1,14 +1,58 @@
 # EntityFormContainer Component
 
-**Version:** 8.2.0 | **Location:** `apps/web/src/components/shared/entity/EntityFormContainer.tsx`
+**Version:** 8.3.2 | **Location:** `apps/web/src/components/shared/entity/EntityFormContainer.tsx`
+
+---
+
+## Architectural Truth (v8.3.2)
+
+**Metadata properties control datalabel field rendering:**
+
+| Metadata | Property | Purpose |
+|----------|----------|---------|
+| **viewType** | `renderType` + `component` | Controls WHICH component renders (view mode) |
+| **editType** | `inputType` + `component` | Controls WHICH component renders (edit mode) |
+| **editType** | `lookupSource` + `datalabelKey` | Controls WHERE data comes from |
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  DATALABEL FIELD RENDERING ARCHITECTURE (v8.3.2)                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  viewType.dl__project_stage:                                                 │
+│  ┌────────────────────────────────┐                                          │
+│  │ renderType: "component"        │──┐                                       │
+│  │ component: "DAGVisualizer"     │──┼──► viewVizContainer = "DAGVisualizer" │
+│  └────────────────────────────────┘  │                                       │
+│                                      │                                       │
+│                                      ▼                                       │
+│          EntityFormContainer_viz_container: {                                │
+│            view: "DAGVisualizer"   ◄── This is the ONLY switch              │
+│          }                                                                   │
+│                                      │                                       │
+│                                      ▼                                       │
+│          if (vizContainer?.view === 'DAGVisualizer') {                       │
+│            return <DAGVisualizer nodes={...} />                              │
+│          }                                                                   │
+│                                                                              │
+│  editType.dl__project_stage:                                                 │
+│  ┌────────────────────────────────┐                                          │
+│  │ inputType: "component"         │──┐                                       │
+│  │ component: "BadgeDropdownSelect"│──┼──► editVizContainer = "BadgeDropdownSelect"│
+│  │ lookupSource: "datalabel"      │──┼──► Filter for loading datalabel options│
+│  │ datalabelKey: "dl__project_stage"│──► Cache key for options               │
+│  └────────────────────────────────┘                                          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Semantics
 
-EntityFormContainer is a universal form component for creating and editing entities. It uses the v8.2.0 `{ viewType, editType }` metadata structure via `extractViewType()` and `extractEditType()` helpers, handles entity references (`_ID`/`_IDS` structures), and supports FormattedRow data.
+EntityFormContainer is a universal form component for creating and editing entities. It uses the v8.3.2 `{ viewType, editType }` metadata structure, handles entity references via `ref_data`, and supports FormattedRow data.
 
-**Core Principle:** Backend metadata with `{ viewType, editType }` structure controls all form fields. Use `extractViewType()` for view mode, `extractEditType()` for edit mode inputs.
+**Core Principle:** Backend metadata with `{ viewType, editType }` structure controls all form fields. viewType controls WHICH component renders, editType controls WHERE data comes from.
 
 ---
 
@@ -16,17 +60,18 @@ EntityFormContainer is a universal form component for creating and editing entit
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                   ENTITY FORM CONTAINER ARCHITECTURE (v8.2.0)            │
+│                   ENTITY FORM CONTAINER ARCHITECTURE (v8.3.2)            │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
 │  │                    API Response Structure                        │    │
 │  │  {                                                               │    │
 │  │    data: {...},                                                  │    │
+│  │    ref_data: { employee: { "uuid": "James Miller" } },           │    │
 │  │    metadata: {                                                   │    │
 │  │      entityFormContainer: {                                      │    │
-│  │        viewType: { field: { renderType, behavior, style } },     │    │
-│  │        editType: { field: { inputType, validation } }            │    │
+│  │        viewType: { field: { renderType, component, behavior } }, │    │
+│  │        editType: { field: { inputType, lookupSource, datalabelKey } }│ │
 │  │      }                                                           │    │
 │  │    }                                                             │    │
 │  │  }                                                               │    │
@@ -46,15 +91,17 @@ EntityFormContainer is a universal form component for creating and editing entit
 │  │  └───────────────────────────────────────────────────────────┘  │    │
 │  │                                                                  │    │
 │  │  ┌───────────────────────────────────────────────────────────┐  │    │
-│  │  │  Entity References (_ID - single)                          │  │    │
+│  │  │  Entity References                                         │  │    │
 │  │  │  Uses editType[key].lookupSource === 'entityInstance'     │  │    │
 │  │  │  <EntitySelect entityCode={editType[key].lookupEntity} /> │  │    │
 │  │  └───────────────────────────────────────────────────────────┘  │    │
 │  │                                                                  │    │
 │  │  ┌───────────────────────────────────────────────────────────┐  │    │
-│  │  │  Stage Fields (dl__*_stage)                                │  │    │
-│  │  │  VIEW: DAGVisualizer (viewType[key].renderType === 'dag') │  │    │
-│  │  │  EDIT: DataLabelSelect (editType[key].inputType === 'select')│    │
+│  │  │  Datalabel Fields (dl__*)                                  │  │    │
+│  │  │  VIEW: viewType.renderType === 'component' &&              │  │    │
+│  │  │        viewType.component === 'DAGVisualizer' → DAGVisualizer│   │
+│  │  │  EDIT: BadgeDropdownSelect with cached options             │  │    │
+│  │  │  DATA: editType.lookupSource === 'datalabel' → load options │  │    │
 │  │  └───────────────────────────────────────────────────────────┘  │    │
 │  │                                                                  │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
@@ -64,10 +111,11 @@ EntityFormContainer is a universal form component for creating and editing entit
 
 ---
 
-## Props Interface (v8.2.0)
+## Props Interface (v8.3.2)
 
 ```typescript
 import type { FormattedRow } from '@/lib/formatters';
+import type { RefData } from '@/lib/hooks/useRefData';
 
 interface EntityFormContainerProps {
   /** Entity configuration (optional - can derive from metadata) */
@@ -99,6 +147,13 @@ interface EntityFormContainerProps {
 
   /** Pre-formatted data from format-at-read (optional) */
   formattedData?: FormattedRow<Record<string, any>>;
+
+  /**
+   * v8.3.0: Reference data lookup table for entity reference resolution
+   * Used to resolve UUIDs to display names for *_id and *_ids fields
+   * Structure: { entity_code: { uuid: name } }
+   */
+  ref_data?: RefData;
 }
 
 // EntityMetadata from API response (v8.2.0)
@@ -124,7 +179,8 @@ interface ComponentMetadata {
 interface ViewFieldMetadata {
   dtype: 'str' | 'float' | 'int' | 'bool' | 'uuid' | 'date' | 'timestamp' | 'jsonb';
   label: string;
-  renderType: string;     // 'text', 'currency', 'date', 'badge', 'dag', etc.
+  renderType: string;     // 'text', 'currency', 'date', 'badge', 'boolean', 'component', etc.
+  component?: string;     // Component name when renderType='component' (e.g., 'DAGVisualizer')
   behavior: {
     visible?: boolean;    // Show in form
   };
@@ -157,7 +213,7 @@ interface EditFieldMetadata {
 
 ---
 
-## Data Flow Diagram (v8.2.0)
+## Data Flow Diagram (v8.3.0)
 
 ```
 Field Generation Flow
@@ -179,6 +235,34 @@ metadata.entityFormContainer: {  →   viewType = extractViewType()  →  VIEW M
     budget_amt: {                                                      )
       inputType: 'number',
       validation: { min: 0 }
+    }
+  }
+}
+
+
+ref_data Pattern (v8.3.0)
+─────────────────────────
+
+API Response                         EntityFormContainer
+────────────                         ───────────────────
+
+{                                    const { resolveFieldDisplay } = useRefData(ref_data);
+  data: {
+    manager__employee_id: 'uuid-123'   // Field value: UUID
+  },
+  ref_data: {                        // Resolution:
+    employee: {                      // ref_data['employee']['uuid-123'] → 'John Smith'
+      'uuid-123': 'John Smith'
+    }
+  },
+  metadata: {
+    entityFormContainer: {
+      viewType: {
+        manager__employee_id: {
+          lookupEntity: 'employee',  // ← Determines ref_data lookup key
+          lookupSource: 'entityInstance'
+        }
+      }
     }
   }
 }
@@ -319,70 +403,94 @@ function FormField({ field, value, displayValue, isEditing, onChange }) {
 
 ---
 
-## Field Type Mapping (v8.2.0)
+## Field Type Mapping (v8.3.2)
 
-| viewType.renderType | View Display | editType.inputType | Edit Component |
-|---------------------|--------------|--------------------| ---------------|
-| `currency` | `$50,000.00` | `number` | `<input type="number">` |
-| `badge` | Badge with color | `select` | `<DataLabelSelect>` |
-| `dag` | DAGVisualizer | `select` | `<DataLabelSelect>` |
-| `date` | `Jan 15, 2025` | `date` | `<input type="date">` |
-| `boolean` | Check/X icon | `checkbox` | `<input type="checkbox">` |
-| `reference` | Entity name | `select` | `<EntitySelect>` |
-| `text` | Plain text | `text` | `<input type="text">` |
-| `textarea` | Multi-line text | `textarea` | `<textarea>` |
+| viewType.renderType | viewType.component | View Display | editType.inputType | Edit Component |
+|---------------------|--------------------|--------------|--------------------|----------------|
+| `currency` | - | `$50,000.00` | `number` | `<DebouncedInput type="number">` |
+| `badge` | - | Badge with color | `select` | `<BadgeDropdownSelect>` |
+| `component` | `DAGVisualizer` | DAGVisualizer graph | `select` | Interactive `<DAGVisualizer>` or `<BadgeDropdownSelect>` |
+| `date` | - | `Jan 15, 2025` | `date` | `<input type="date">` |
+| `boolean` | - | Check/X icon | `checkbox` | `<input type="checkbox">` |
+| `reference` | - | Entity name (via ref_data) | `select` | `<EntitySelect>` |
+| `text` | - | Plain text | `text` | `<DebouncedInput type="text">` |
+| `textarea` | - | Multi-line text | `textarea` | `<DebouncedTextarea>` |
+| `jsonb` | `MetadataTable` | JSON viewer | `jsonb` | `<MetadataTable isEditing={true}>` |
+| `jsonb` | `QuoteItemsRenderer` | Quote items | `jsonb` | `<QuoteItemsRenderer isEditing={true}>` |
+| `array` | - | Badge list | `array` | `<DebouncedInput>` (comma-separated) |
+| `timestamp` | - | Relative time | `timestamp` | Read-only display |
+
+**Notes:**
+- `viewType.renderType === 'component'` + `viewType.component === 'DAGVisualizer'` → renders DAGVisualizer
+- `editType.lookupSource === 'datalabel'` → loads options from datalabel cache
+- `editType.inputType === 'BadgeDropdownSelect'` is also supported as explicit type
+- `vizContainer?.edit === 'DAGVisualizer'` → renders interactive DAGVisualizer with `onNodeClick`
+- `vizContainer?.edit === 'MetadataTable'` → renders editable MetadataTable for JSONB fields
 
 ---
 
-## Entity Reference Handling
+## Entity Reference Handling (v8.3.0)
 
-### _ID Structure (Single Reference)
+### ref_data Pattern (Current)
 
 ```typescript
 // Backend sends:
-data._ID = {
-  manager: {
-    entity_code: 'employee',
+{
+  data: {
     manager__employee_id: 'uuid-123',
-    manager: 'John Smith'
+    stakeholder__employee_ids: ['uuid-1', 'uuid-2']
+  },
+  ref_data: {
+    employee: {
+      'uuid-123': 'John Smith',
+      'uuid-1': 'Alice',
+      'uuid-2': 'Bob'
+    }
+  },
+  metadata: {
+    entityFormContainer: {
+      viewType: {
+        manager__employee_id: {
+          lookupEntity: 'employee',
+          lookupSource: 'entityInstance'
+        }
+      }
+    }
   }
-};
+}
 
-// editType for this field:
-editType['manager__employee_id'] = {
-  inputType: 'select',
-  lookupSource: 'entityInstance',
-  lookupEntity: 'employee'
-};
+// Component uses useRefData hook:
+const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(ref_data);
 
-// Component renders EntitySelect based on editType
+// Resolution: ref_data['employee']['uuid-123'] → 'John Smith'
 ```
 
-### _IDS Structure (Multiple References)
+### useRefData Hook
 
 ```typescript
-// Backend sends:
-data._IDS = {
-  stakeholder: [
-    {
-      entity_code: 'employee',
-      stakeholder__employee_id: 'uuid-1',
-      stakeholder: 'Alice'
-    },
-    {
-      entity_code: 'employee',
-      stakeholder__employee_id: 'uuid-2',
-      stakeholder: 'Bob'
-    }
-  ]
-};
+import { useRefData, type RefData } from '@/lib/hooks/useRefData';
 
-// Component renders EntityMultiSelect based on editType
+function EntityFormContainer({ ref_data, metadata, ... }) {
+  // Hook provides utilities for entity reference resolution
+  const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(ref_data);
+
+  // Resolve using metadata (NOT field name pattern detection)
+  const fieldMeta = metadata.entityFormContainer.viewType.manager__employee_id;
+  const displayName = resolveFieldDisplay(fieldMeta, uuid);  // → "John Smith"
+}
+```
+
+### Deprecated: _ID/_IDS Structure
+
+```typescript
+// DEPRECATED (v8.2.x) - Use ref_data pattern instead
+data._ID = { manager: { ... } };   // ❌ Deprecated
+data._IDS = { stakeholder: [...] }; // ❌ Deprecated
 ```
 
 ---
 
-## Usage Example (v8.2.0)
+## Usage Example (v8.3.0)
 
 ```typescript
 import { useEntityInstance } from '@/lib/hooks/useEntityQuery';
@@ -393,8 +501,10 @@ function ProjectDetailPage({ projectId }) {
 
   // queryResult contains:
   // - data: raw entity data
+  // - ref_data: { entity_code: { uuid: name } } for entity reference resolution
   // - metadata: { entityFormContainer: { viewType, editType } }
   const data = queryResult?.data;
+  const ref_data = queryResult?.ref_data;
   const metadata = queryResult?.metadata;
 
   const [isEditing, setIsEditing] = useState(false);
@@ -408,6 +518,7 @@ function ProjectDetailPage({ projectId }) {
     <EntityFormContainer
       data={isEditing ? editedData : data}
       metadata={metadata}
+      ref_data={ref_data}
       isEditing={isEditing}
       onChange={handleChange}
     />
@@ -478,11 +589,61 @@ Edit Flow
 | Anti-Pattern | Correct Approach |
 |--------------|------------------|
 | Direct `metadata.viewType` access | Use `extractViewType(metadata)` |
-| Frontend pattern detection | Backend sends complete metadata |
+| Frontend pattern detection (e.g., `_id` suffix) | Backend sends `lookupEntity` in metadata |
 | Hardcoded field list | Use `viewType` from backend |
 | Manual entity reference dropdowns | Use `EntitySelect` with `editType.lookupEntity` |
 | Fallback metadata generation | Backend MUST send metadata |
+| Using `_ID`/`_IDS` embedded objects | Use `ref_data` lookup table |
+| Pattern detection for DAG fields | Use `viewType.renderType === 'component'` + `viewType.component` |
 
 ---
 
-**Last Updated:** 2025-11-26 | **Version:** 8.2.0 | **Status:** Production Ready
+## Memoization Strategy
+
+The component uses `React.memo` with a custom `arePropsEqual` function to prevent unnecessary re-renders during editing:
+
+```typescript
+function arePropsEqual(prevProps, nextProps): boolean {
+  // Re-render triggers:
+  // - isEditing changes
+  // - mode changes
+  // - metadata changes (structure)
+  // - config changes
+  // - datalabels changes
+  // - ref_data changes (v8.3.0)
+  // - data KEYS change (not values during editing)
+
+  // Does NOT trigger re-render:
+  // - onChange function reference changes (captured in useCallback)
+  // - data VALUES change during editing (handled by local state)
+
+  return true; // if none of the above changed
+}
+
+export const EntityFormContainer = React.memo(EntityFormContainerInner, arePropsEqual);
+```
+
+**Key insight:** During editing, text inputs use `DebouncedInput`/`DebouncedTextarea` components that manage their own local state. This allows instant typing feedback while debouncing parent updates, preventing re-renders on every keystroke.
+
+---
+
+**Last Updated:** 2025-11-27 | **Version:** 8.3.2 | **Status:** Production Ready
+
+**Recent Updates:**
+- v8.3.2 (2025-11-27): **Component-Driven Rendering Architecture**
+  - viewType controls WHICH component renders (`renderType: 'component'` + `component`)
+  - editType controls WHERE data comes from (`lookupSource: 'datalabel'` + `datalabelKey`)
+  - Fixed DAGVisualizer rendering: check `vizContainer?.view === 'DAGVisualizer'` BEFORE `field.type === 'select'`
+  - Fixed MetadataTable rendering: check `vizContainer?.view === 'MetadataTable'` BEFORE `field.type === 'jsonb'`
+  - Added `case 'component':` in edit mode switch for `inputType: 'component'` fields
+  - Added `BadgeDropdownSelect` as explicit `field.type` case in switch statement
+  - `EntityFormContainer_viz_container: { view: string, edit: string }` object structure
+- v8.3.0 (2025-11-26): **ref_data Pattern**
+  - Added `ref_data?: RefData` prop for entity reference resolution
+  - Added `useRefData` hook integration for `resolveFieldDisplay`, `isRefField`, `getEntityCode`
+  - Deprecated `_ID`/`_IDS` embedded object pattern
+  - Added `ref_data` to `arePropsEqual` memoization check
+- v8.2.0 (2025-11-25): **viewType/editType Architecture**
+  - Backend metadata REQUIRED with `{ viewType, editType }` structure
+  - Added `extractViewType()` and `extractEditType()` helper functions
+  - `formattedData.display[key]` for pre-formatted view mode values

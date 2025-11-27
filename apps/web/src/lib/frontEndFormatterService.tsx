@@ -18,7 +18,7 @@
  *
  * **Edit Mode**: Uses renderEditModeFromMetadata()
  * - Renders interactive input components based on backend metadata
- * - Datalabel fields automatically use ColoredDropdown with cached options
+ * - Datalabel fields automatically use BadgeDropdownSelect with cached options
  * - All colors converted via colorCodeToTailwindClass()
  *
  * ```typescript
@@ -52,7 +52,7 @@ import { Copy, Check } from 'lucide-react';
 import { formatters } from './config/locale';
 import { DebouncedInput, DebouncedTextarea } from '../components/shared/ui/DebouncedInput';
 import { useDatalabelMetadataStore } from '../stores/datalabelMetadataStore';
-import { ColoredDropdown, type ColoredDropdownOption } from '../components/shared/ui/ColoredDropdown';
+import { BadgeDropdownSelect, type BadgeDropdownSelectOption } from '../components/shared/ui/BadgeDropdownSelect';
 import { colorCodeToTailwindClass } from './formatters/valueFormatters';
 
 // ============================================================================
@@ -125,9 +125,12 @@ export interface BackendFieldMetadata {
   compositeConfig?: CompositeFieldConfig;
   component?: string;
 
-  // Component-specific rendering (backend-driven)
-  EntityFormContainer_viz_container?: 'DAGVisualizer' | 'MetadataTable' | 'ProgressBar' | 'DateRangeVisualizer';
-  EntityDataTable_edit_component?: 'ColoredDropdown' | 'select' | 'input';
+  // v8.3.2: Component-specific rendering (backend-driven)
+  EntityFormContainer_viz_container?: {
+    view?: string;
+    edit?: string;
+  };
+  EntityDataTable_edit_component?: 'BadgeDropdownSelect' | 'select' | 'input';
 }
 
 /**
@@ -456,8 +459,8 @@ export function renderEditModeFromMetadata(
         const datalabelOptions = useDatalabelMetadataStore.getState().getDatalabel(datalabelKey);
 
         if (datalabelOptions && datalabelOptions.length > 0) {
-          // Convert datalabel options to ColoredDropdown format with Tailwind color classes
-          const coloredOptions: ColoredDropdownOption[] = datalabelOptions.map(opt => ({
+          // Convert datalabel options to BadgeDropdownSelect format with Tailwind color classes
+          const coloredOptions: BadgeDropdownSelectOption[] = datalabelOptions.map(opt => ({
             value: opt.name,
             label: opt.name,
             metadata: {
@@ -467,7 +470,7 @@ export function renderEditModeFromMetadata(
           }));
 
           return (
-            <ColoredDropdown
+            <BadgeDropdownSelect
               value={value ?? ''}
               options={coloredOptions}
               onChange={onChange}

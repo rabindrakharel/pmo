@@ -132,20 +132,18 @@ export interface ColumnDef {
   visible?: boolean;
   render?: (value: any, record: any) => React.ReactNode;
   /**
-   * When true, options for this column will be dynamically loaded from settings tables
-   * for use in inline editing dropdowns. The column key will be mapped to the appropriate
-   * settings category.
+   * v8.3.2: Backend metadata lookup configuration
+   * Set from editType metadata (pattern-mapping.yaml detects dl__* fields)
    */
-  loadDataLabels?: boolean;
+  lookupSource?: 'entityInstance' | 'datalabel';
+  datalabelKey?: string;
   /**
-   * Static options for inline editing dropdowns (alternative to loadDataLabels)
+   * Static options for inline editing dropdowns
    * Use this when options are hardcoded (e.g., color_code field in settings tables)
    */
   options?: LabelMetadata[];
   /**
    * When true, this column can be edited inline in the DataTable.
-   * Fields with loadDataLabels automatically become editable with dropdowns.
-   * Tags fields are also automatically editable with text inputs.
    */
   inlineEditable?: boolean;
 }
@@ -153,7 +151,7 @@ export interface ColumnDef {
 export interface FieldDef {
   key: string;
   label: string;
-  type: 'text' | 'textarea' | 'richtext' | 'number' | 'date' | 'select' | 'multiselect' | 'jsonb' | 'array';
+  type: 'text' | 'textarea' | 'richtext' | 'number' | 'date' | 'timestamp' | 'select' | 'multiselect' | 'jsonb' | 'array' | 'BadgeDropdownSelect' | 'component';
   required?: boolean;
   readonly?: boolean;
   disabled?: boolean;
@@ -166,38 +164,34 @@ export interface FieldDef {
    */
   coerceBoolean?: boolean;
   /**
-   * When true, options will be dynamically loaded from settings tables.
-   * The field key will be mapped to the appropriate settings category.
-   * Example: project_stage → loads from setting_project_stage table
-   *
-   * NOTE: Fields with loadDataLabels that contain 'stage' or 'funnel'
-   * in their name will automatically use DAGVisualizer for workflow visualization.
+   * v8.3.2: Backend metadata lookup configuration
+   * Set from editType metadata when building FieldDef from backend response
    */
-  loadDataLabels?: boolean;
+  lookupSource?: 'entityInstance' | 'datalabel';
+  lookupEntity?: string;
+  datalabelKey?: string;
+  editable?: boolean;
   /**
-   * When set, options will be dynamically loaded from the specified entity type.
-   * Uses the universal entity options API to fetch {id, name} pairs.
-   * Example: 'employee' → loads from GET /api/v1/entity/employee/options
-   */
-  loadOptionsFromEntity?: string;
-  /**
-   * EntityFormContainer visualization container
+   * v8.3.2: EntityFormContainer visualization container (backend metadata driven)
    *
    * ONLY used by EntityFormContainer (EntityDataTable IGNORES this field completely).
    * When set, this OVERRIDES the default rendering logic based on field type.
    *
-   * The explicit naming makes the architecture crystal clear:
-   * - EntityDataTable → Always uses renderType (badge, currency, date, etc.)
-   * - EntityFormContainer → Uses this field when present (DAGVisualizer, MetadataTable, etc.)
+   * Structure:
+   * - view: Component for view mode (from viewMeta.renderType === 'component' && viewMeta.component)
+   * - edit: Component for edit mode (from editMeta.inputType === 'component' && editMeta.component)
    *
    * Examples:
-   * - 'DAGVisualizer' → Render workflow visualization for stage/status/funnel fields
-   * - 'MetadataTable' → Render key-value table for JSONB metadata field
-   * - 'ProgressBar' → Render composite progress bar for date ranges
+   * - { view: 'DAGVisualizer', edit: 'DAGVisualizer' } → DAG for both modes
+   * - { view: 'DAGVisualizer', edit: undefined } → DAG for view, dropdown for edit
+   * - { view: 'MetadataTable', edit: 'MetadataTable' } → Key-value table for JSONB
    *
-   * @see apps/api/src/services/backend-formatter.service.ts (componentFn)
+   * @see apps/api/src/services/backend-formatter.service.ts
    */
-  EntityFormContainer_viz_container?: 'DAGVisualizer' | 'MetadataTable' | 'ProgressBar' | 'DateRangeVisualizer';
+  EntityFormContainer_viz_container?: {
+    view?: string;
+    edit?: string;
+  };
 }
 
 export interface EntityConfig {
@@ -1105,14 +1099,14 @@ export const entityConfigs: Record<string, EntityConfig> = {
 // ============================================================================
 
 /**
- * Automatically apply badge renderers to all columns with loadDataLabels
+ * Automatically apply badge renderers to all datalabel columns
  * This eliminates the need to manually specify render functions for settings fields
  *
  * BEFORE (Manual):
- * { key: 'project_stage', loadDataLabels: true, render: renderSettingBadge('project_stage') }
+ * { key: 'project_stage', lookupSource: 'datalabel', render: renderSettingBadge('project_stage') }
  *
  * AFTER (Automatic):
- * { key: 'project_stage', loadDataLabels: true }  // ← render added automatically!
+ * { key: 'project_stage', lookupSource: 'datalabel' }  // ← render added automatically!
  */
 Object.keys(entityConfigs).forEach(entityKey => {
   const config = entityConfigs[entityKey];

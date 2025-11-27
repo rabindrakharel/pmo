@@ -187,10 +187,15 @@
 #   - component    : Custom React component - MUST specify component: <name>
 #   - select       : Dropdown select - MUST specify component: <name>
 #
+#   v8.3.2 Special inputTypes (standalone, no component needed):
+#   - BadgeDropdownSelect : Datalabel dropdown with colored badges
+#                           Uses datalabel cache, renders colored badge options
+#                           lookupSource: datalabel required
+#
 # component - React component name:
 #   - ONLY allowed when inputType is "component" or "select"
 #   - NEVER use with HTML5 inputTypes (text, number, email, date, etc.)
-#   - Examples: DatalabelSelect, EntitySelect, CurrencyInput, RichTextEditor
+#   - Examples: DatalabelSelect, EntitySelect, CurrencyInput, RichTextEditor, DAGVisualizer
 #
 # behavior - Field behavior settings (differs by UI component):
 #   For entityDataTable:
@@ -722,7 +727,7 @@ fieldBusinessTypes:
 
   # DAG datalabels - hierarchical stage/state/status with parent-child relations
   # Matched by: dl__*_stage, dl__*_state, dl__*_status
-  # Uses DAGVisualizer component for entityFormContainer editing
+  # v8.3.2: View mode shows DAGVisualizer, Edit mode uses BadgeDropdownSelect
   datalabel_dag:
     dtype: str
     lookupSource: datalabel
@@ -732,9 +737,8 @@ fieldBusinessTypes:
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
     entityFormContainer:
       inputType: component
-      component: DAGVisualizer
+      component: BadgeDropdownSelect
       behavior: { editable: true }
-      style: { showHierarchy: true, interactive: true }
     kanbanView:
       inputType: select
       component: DataLabelSelect

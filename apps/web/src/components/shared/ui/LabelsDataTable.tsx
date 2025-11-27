@@ -34,7 +34,7 @@
 
 import React, { useState } from 'react';
 import { DataTableBase, ActionButtons, type BaseColumn } from './DataTableBase';
-import { ColoredDropdown, type ColoredDropdownOption } from './ColoredDropdown';
+import { BadgeDropdownSelect, type BadgeDropdownSelectOption } from './BadgeDropdownSelect';
 import { colorCodeToTailwindClass } from '../../../lib/formatters/valueFormatters';
 import { COLOR_OPTIONS } from '../../../lib/settingsConfig';
 import { inputStyles, actionButtonStyles } from '../../../lib/designSystem';
@@ -299,9 +299,9 @@ export function LabelsDataTable({
 
       case 'color_code':
         return isEditing ? (
-          <ColoredDropdown
+          <BadgeDropdownSelect
             value={String(editValue)}
-            options={COLOR_OPTIONS as ColoredDropdownOption[]}
+            options={COLOR_OPTIONS as BadgeDropdownSelectOption[]}
             onChange={(newValue) => setEditingData({ ...editingData, color_code: newValue })}
             placeholder="Select color..."
           />

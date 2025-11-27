@@ -106,8 +106,8 @@
 # Column: dl__project_stage
 #   → Matches: dl__* (wildcard)
 #   → fieldBusinessType: datalabel
-#   → Then: view-type-mapping → BadgeCell (with color from data)
-#   → Then: edit-type-mapping → DatalabelSelect (with lookup)
+#   → Then: view-type-mapping → Badge (with color from data)
+#   → Then: edit-type-mapping → BadgeDropdownSelect (with lookup)
 #
 # Column: manager__employee_id
 #   → Matches: *__*_id (wildcard)

@@ -1,14 +1,14 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useDatalabels } from '@/lib/hooks/useEntityQuery';
-import { Select } from './Select';
+import { BadgeDropdownSelect, type BadgeDropdownSelectOption } from './BadgeDropdownSelect';
 import { InlineSpinner } from './EllipsisBounce';
+import { colorCodeToTailwindClass } from '@/lib/formatters/valueFormatters';
 
 export interface DataLabelSelectProps {
   datalabel: string;  // e.g., "dl__project_stage", "dl__task_priority"
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
-  required?: boolean;
   className?: string;
 }
 
@@ -21,6 +21,10 @@ export interface DataLabelSelectProps {
  * - Caches in Zustand datalabelMetadataStore
  * - Proper cache invalidation on mutations
  *
+ * v8.3.2: Now renders colored badges using BadgeDropdownSelect
+ * - Includes color_code from datalabel metadata
+ * - Consistent styling with EntityFormContainer edit mode
+ *
  * @example
  * <DataLabelSelect
  *   datalabel="dl__project_stage"
@@ -32,20 +36,24 @@ export function DataLabelSelect({
   datalabel,
   value,
   onChange,
-  disabled = false,
-  required = false,
-  className = ''
+  disabled = false
 }: DataLabelSelectProps) {
   // Use centralized hook that syncs with Zustand store
-  const { data: rawOptions = [], isLoading } = useDatalabels(datalabel);
+  const { data: rawOptions, isLoading } = useDatalabels(datalabel);
 
-  // Transform to SelectOption format
-  const options = useMemo(() =>
-    rawOptions.map((item: any) => ({
+  // Transform to BadgeDropdownSelectOption format with Tailwind color classes
+  // Type assertion needed due to React Query's complex generic types
+  const optionsArray = (rawOptions || []) as Array<{ name: string; color_code?: string }>;
+  const options: BadgeDropdownSelectOption[] = useMemo(() =>
+    optionsArray.map((item) => ({
       value: item.name,
-      label: item.name
+      label: item.name,
+      metadata: {
+        // Convert color_code (e.g., "blue") to Tailwind classes (e.g., "bg-blue-100 text-blue-700")
+        color_code: colorCodeToTailwindClass(item.color_code)
+      }
     })),
-    [rawOptions]
+    [optionsArray]
   );
 
   if (isLoading) {
@@ -53,14 +61,12 @@ export function DataLabelSelect({
   }
 
   return (
-    <Select
+    <BadgeDropdownSelect
       value={value}
       onChange={onChange}
       options={options}
       disabled={disabled}
-      required={required}
       placeholder={`Select ${datalabel.replace('dl__', '').replace(/_/g, ' ')}...`}
-      className={className}
     />
   );
 }

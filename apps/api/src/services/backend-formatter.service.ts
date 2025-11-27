@@ -186,7 +186,7 @@ export interface FieldMetadataBase {
 
   // For references / entity lookups
   loadFromEntity?: string;
-  loadFromDataLabels?: boolean;
+  // v8.3.2: Datalabels detected by pattern-mapping.yaml (dl__* pattern)
   endpoint?: string;
   displayField?: string;
   valueField?: string;
@@ -355,10 +355,8 @@ interface EditTypeMappingYaml {
     dtype: string;
     inherit?: string;
     editable?: boolean;
-    lookupSource?: 'datalabel' | 'entityInstance';  // NEW: unified lookup source
-    // Legacy fields (deprecated, use lookupSource instead)
-    loadFromDataLabels?: boolean;
-    loadFromEntity?: boolean;
+    lookupSource?: 'datalabel' | 'entityInstance';  // Unified lookup source
+    loadFromEntity?: boolean;  // For entity references only
     entityDataTable?: Record<string, any>;
     entityFormContainer?: Record<string, any>;
     kanbanView?: Record<string, any>;
@@ -1696,10 +1694,7 @@ function convertExplicitConfigToMetadata(
   };
 
   // Handle lookup sources
-  if (config.loadFromDataLabels) {
-    edit.lookupSource = 'datalabel';
-    edit.datalabelKey = fieldName;
-  }
+  // v8.3.2: Datalabels auto-detected by pattern-mapping.yaml (dl__* pattern)
   if (config.loadFromEntity) {
     edit.lookupSource = 'entityInstance';
     edit.lookupEntity = config.loadFromEntity;

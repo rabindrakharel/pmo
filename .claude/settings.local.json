@@ -248,7 +248,8 @@
       "Bash(. \"$NVM_DIR/nvm.sh\")",
       "Bash(nvm install:*)",
       "Bash(npm:*)",
-      "Bash(/dev/null source ~/.nvm/nvm.sh)"
+      "Bash(/dev/null source ~/.nvm/nvm.sh)",
+      "Bash(/tmp/check-dag-metadata.sh)"
     ],
     "deny": [],
     "ask": [],

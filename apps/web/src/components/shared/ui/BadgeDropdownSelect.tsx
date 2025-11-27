@@ -1,27 +1,34 @@
 /**
  * ============================================================================
- * COLORED DROPDOWN - Shared dropdown component with Portal rendering
+ * BADGE DROPDOWN SELECT - Shared dropdown component with Portal rendering
  * ============================================================================
  *
- * Purpose: Reusable dropdown for settings fields with colored badges
- * Used by: EntityDataTable, SettingsDataTable (via DataTableBase)
+ * v8.3.2: Renamed from ColoredDropdown to BadgeDropdownSelect
+ *
+ * Purpose: Reusable dropdown for datalabel fields with colored badges
+ * Used by: EntityDataTable, EntityFormContainer, SettingsDataTable
  *
  * Key Features:
  * - Portal rendering (avoids table overflow clipping)
  * - Dynamic positioning (opens upward/downward based on available space)
  * - Auto-updates position on scroll/resize
- * - Colored badge rendering for settings
+ * - Colored badge rendering for datalabel options
+ * - Options loaded from datalabel cache (format-at-read pattern)
+ *
+ * YAML Configuration (edit-type-mapping.yaml):
+ *   inputType: BadgeDropdownSelect
+ *   lookupSource: datalabel
  *
  * Architecture:
  * - Shared component in base table ecosystem
- * - Can be used by any table extension
+ * - Can be used by any table extension or form container
  */
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 
-export interface ColoredDropdownOption {
+export interface BadgeDropdownSelectOption {
   value: string | number;
   label: string;
   metadata?: {
@@ -29,21 +36,23 @@ export interface ColoredDropdownOption {
   };
 }
 
-export interface ColoredDropdownProps {
+export interface BadgeDropdownSelectProps {
   value: string;
-  options: ColoredDropdownOption[];
+  options: BadgeDropdownSelectOption[];
   onChange: (value: string) => void;
   onClick?: (e: React.MouseEvent) => void;
   placeholder?: string;
+  disabled?: boolean;
 }
 
-export function ColoredDropdown({
+export function BadgeDropdownSelect({
   value,
   options,
   onChange,
   onClick,
-  placeholder = 'Select...'
-}: ColoredDropdownProps) {
+  placeholder = 'Select...',
+  disabled = false
+}: BadgeDropdownSelectProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -128,12 +137,14 @@ export function ColoredDropdown({
       <button
         ref={buttonRef}
         type="button"
+        disabled={disabled}
         onClick={(e) => {
+          if (disabled) return;
           e.stopPropagation();
           onClick?.(e);
           setDropdownOpen(!dropdownOpen);
         }}
-        className="w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors cursor-pointer text-left"
+        className={`w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors text-left ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
         style={{
           fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
           fontSize: '13px',

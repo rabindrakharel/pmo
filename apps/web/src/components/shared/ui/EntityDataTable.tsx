@@ -10,11 +10,14 @@
  * - Settings-driven dropdowns with colored badges
  * - Drag & drop reordering support
  *
- * INLINE EDITING PATTERN (Matches SettingsDataTable):
- * - Click Edit icon (✏️) on any row to enter edit mode
- * - Edit icon transforms into Check icon (✓) with Cancel (✗)
- * - All editable fields become inputs/dropdowns
- * - Click Check to save, X to cancel
+ * INLINE EDITING PATTERN (Airtable-style v8.4.0):
+ * - Single-click on editable cell → Instant inline edit of THAT cell only
+ * - Click outside / Tab / Enter → Auto-save and exit edit mode
+ * - Escape → Cancel without saving
+ * - Edit icon (✏️) kept as fallback for discoverability (edits entire row)
+ * - Keyboard: 'E' when row focused enters row edit mode
+ * - Tab navigates to next editable cell (spreadsheet convention)
+ * - Cmd+Z / Ctrl+Z → Undo last change with toast notification
  *
  * ADD ROW FEATURE:
  * - When allowAddRow=true, shows "+ Add new row" button at bottom
@@ -25,7 +28,6 @@
  * Different from: SettingsDataTable (specialized for settings with fixed schema)
  */
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronUp, Search, Filter, Columns, ChevronLeft, ChevronRight, Edit, Share, Trash2, X, Plus, Check } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
@@ -46,6 +48,8 @@ import { InlineFileUploadCell } from '../file/InlineFileUploadCell';
 import { EllipsisBounce, InlineSpinner } from './EllipsisBounce';
 // v8.3.0: RefData for entity reference resolution
 import { useRefData, type RefData } from '../../../lib/hooks/useRefData';
+// v8.3.2: Shared badge dropdown for datalabel fields (DRY principle)
+import { BadgeDropdownSelect } from './BadgeDropdownSelect';
 
 // ============================================================================
 // METADATA-DRIVEN RENDERING (Pure Backend-Driven)
@@ -77,161 +81,6 @@ function extractSettingsDatalabel(columnKey: string): string {
 }
 
 /**
- * Custom Dropdown Component for Inline Editing with Colored Badges
- */
-interface ColoredDropdownProps {
-  value: string;
-  options: LabelMetadata[];
-  onChange: (value: string) => void;
-  onClick: (e: React.MouseEvent) => void;
-}
-
-function ColoredDropdown({ value, options, onChange, onClick }: ColoredDropdownProps) {
-  const [dropdownOpen, setDropdownOpen] = React.useState(false);
-  const dropdownRef = React.useRef<HTMLDivElement>(null);
-  const buttonRef = React.useRef<HTMLButtonElement>(null);
-  const [dropdownPosition, setDropdownPosition] = React.useState({ top: 0, left: 0, width: 0, openUpward: false });
-
-  // Update dropdown position when it opens or on scroll/resize
-  React.useEffect(() => {
-    if (dropdownOpen && buttonRef.current) {
-      const updatePosition = () => {
-        if (buttonRef.current) {
-          const rect = buttonRef.current.getBoundingClientRect();
-          const maxDropdownHeight = 240; // max-h-60 = 240px
-          const viewportHeight = window.innerHeight;
-          const spaceBelow = viewportHeight - rect.bottom - 20; // 20px buffer
-          const spaceAbove = rect.top - 20; // 20px buffer
-
-          // Calculate actual content height (estimate)
-          const estimatedItemHeight = 40; // px per item
-          const estimatedContentHeight = Math.min(options.length * estimatedItemHeight, maxDropdownHeight);
-
-          // Decide if dropdown should open upward
-          const shouldOpenUpward = spaceBelow < estimatedContentHeight && spaceAbove > spaceBelow;
-
-          // Calculate position
-          let top: number;
-          if (shouldOpenUpward) {
-            // Open above: position so bottom of dropdown aligns near top of button
-            const availableHeight = Math.min(estimatedContentHeight, spaceAbove);
-            top = rect.top + window.scrollY - availableHeight - 4;
-          } else {
-            // Open below: position just below the button
-            top = rect.bottom + window.scrollY + 4;
-          }
-
-          setDropdownPosition({
-            top,
-            left: rect.left + window.scrollX,
-            width: rect.width,
-            openUpward: shouldOpenUpward});
-        }
-      };
-
-      updatePosition();
-      window.addEventListener('scroll', updatePosition, { capture: true, passive: true });
-      window.addEventListener('resize', updatePosition, { passive: true });
-
-      return () => {
-        window.removeEventListener('scroll', updatePosition, { capture: true } as any);
-        window.removeEventListener('resize', updatePosition);
-      };
-    }
-  }, [dropdownOpen, options.length]);
-
-  // Close dropdown when clicking outside
-  React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(event.target as Node)
-      ) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const selectedOption = options.find(opt => opt.value === value);
-  const selectedColor = selectedOption?.metadata?.color_code;
-
-  return (
-    <div className="relative w-full">
-      {/* Selected value display */}
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onClick(e);
-          setDropdownOpen(!dropdownOpen);
-        }}
-        className="w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors cursor-pointer text-left"
-        style={{
-          fontFamily: "'Open Sans', 'Helvetica Neue', helvetica, arial, sans-serif",
-          fontSize: '13px',
-          minHeight: '32px',
-          maxHeight: '32px'}}
-      >
-        {selectedOption ? (
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${selectedColor || 'bg-gray-100 text-gray-600'}`}>
-            {selectedOption.label}
-          </span>
-        ) : (
-          <span className="text-dark-600">Select...</span>
-        )}
-      </button>
-      <ChevronDown className="h-4 w-4 text-dark-700 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
-
-      {/* Dropdown menu - rendered via portal to avoid overflow clipping */}
-      {dropdownOpen && createPortal(
-        <div
-          ref={dropdownRef}
-          className="bg-dark-100 border border-dark-300 rounded-md overflow-auto"
-          style={{
-            position: 'absolute',
-            top: `${dropdownPosition.top}px`,
-            left: `${dropdownPosition.left}px`,
-            width: `${dropdownPosition.width}px`,
-            maxHeight: '240px',
-            zIndex: 9999,
-            boxShadow: dropdownPosition.openUpward
-              ? '0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06)'
-              : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'}}
-        >
-          <div className="py-1">
-            {options.map(opt => {
-              const optionColor = opt.metadata?.color_code || 'bg-gray-100 text-gray-600';
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onChange(opt.value as string);
-                    setDropdownOpen(false);
-                  }}
-                  className="w-full px-3 py-2 text-left hover:bg-dark-100 transition-colors flex items-center"
-                >
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${optionColor}`}>
-                    {opt.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>,
-        document.body
-      )}
-    </div>
-  );
-}
-
-/**
  * Column definition - Compatible with both manual and auto-generated configs
  * Matches DataTableColumn from viewConfigGenerator for seamless integration
  */
@@ -250,20 +99,16 @@ export interface Column<T = any> {
   editType?: 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time' |
              'select' | 'multiselect' | 'checkbox' | 'textarea' | 'tags' |
              'jsonb' | 'datatable' | 'file' | 'dag-select';
-  lookupSource?: 'datalabel' | 'entityInstance';  // Backend lookup type (replaces loadDataLabels)
+  lookupSource?: 'datalabel' | 'entityInstance';  // Backend lookup type
   lookupEntity?: string;                           // Entity code for entityInstance lookup
   datalabelKey?: string;                           // Datalabel key for datalabel lookup
-  loadDataLabels?: boolean;                        // @deprecated - use lookupSource === 'datalabel'
-  loadFromEntity?: string;                         // @deprecated - use lookupEntity
   /**
-   * Static options for inline editing dropdowns (alternative to loadDataLabels)
+   * Static options for inline editing dropdowns
    * Use this when options are hardcoded (e.g., color_code field in settings tables)
    */
   options?: LabelMetadata[];
   /**
    * When true, this column can be edited inline in the DataTable.
-   * Fields with loadDataLabels automatically become editable with dropdowns.
-   * Tags fields are also automatically editable with text inputs.
    */
   inlineEditable?: boolean;
 }
@@ -325,6 +170,12 @@ export interface EntityDataTableProps<T = any> {
   // Inline row addition support
   allowAddRow?: boolean;
   onAddRow?: (newRecord: Partial<T>) => void;
+  // v8.4.0: Airtable-style cell editing
+  editingCell?: { rowId: string; columnKey: string } | null;  // Currently editing cell
+  onCellClick?: (rowId: string, columnKey: string, record: T) => void;  // Cell click handler
+  onCellSave?: (rowId: string, columnKey: string, value: any, record: T) => void;  // Save single cell
+  focusedRowId?: string | null;  // Currently focused row (for keyboard nav)
+  onRowFocus?: (rowId: string | null) => void;  // Row focus handler
 }
 
 export function EntityDataTable<T = any>({
@@ -359,7 +210,13 @@ export function EntityDataTable<T = any>({
   allowReordering = false,
   onReorder,
   allowAddRow = false,
-  onAddRow
+  onAddRow,
+  // v8.4.0: Airtable-style cell editing
+  editingCell = null,
+  onCellClick,
+  onCellSave,
+  focusedRowId = null,
+  onRowFocus
 }: EntityDataTableProps<T>) {
   // v8.3.0: useRefData hook for entity reference resolution (future use)
   // Currently ref fields are hidden, but ref_data enables future display of resolved names
@@ -438,8 +295,6 @@ export function EntityDataTable<T = any>({
           lookupSource,
           lookupEntity,
           datalabelKey,
-          loadDataLabels: lookupSource === 'datalabel' || !!datalabelKey,
-          loadFromEntity: lookupEntity,
           backendMetadata: enrichedMeta
         } as Column<T>;
       });
@@ -503,10 +358,175 @@ export function EntityDataTable<T = any>({
   const [scrollProgress, setScrollProgress] = useState(0);
 
   // ============================================================================
+  // v8.4.0: AIRTABLE-STYLE CELL EDITING STATE & HANDLERS
+  // ============================================================================
+  // Single-click on cell → edit that cell only
+  // Enter/Tab/Click outside → save and exit
+  // Escape → cancel without saving
+  // ============================================================================
+
+  // Local cell editing state (if parent doesn't control it)
+  const [localEditingCell, setLocalEditingCell] = useState<{ rowId: string; columnKey: string } | null>(null);
+  const [localCellValue, setLocalCellValue] = useState<any>(null);
+  const [localFocusedRowId, setLocalFocusedRowId] = useState<string | null>(null);
+
+  // v8.4.0: Undo stack for cell edits
+  type UndoEntry = { rowId: string; columnKey: string; oldValue: any; newValue: any; record: T };
+  const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
+  const [showUndoNotification, setShowUndoNotification] = useState(false);
+
+  // Use parent-controlled state if provided, otherwise use local state
+  const activeEditingCell = editingCell ?? localEditingCell;
+  const activeFocusedRowId = focusedRowId ?? localFocusedRowId;
+
+  // Ref for click-outside detection
+  const editingCellRef = useRef<HTMLDivElement | null>(null);
+
+  // Check if a specific cell is being edited
+  const isCellEditing = useCallback((rowId: string, columnKey: string) => {
+    return activeEditingCell?.rowId === rowId && activeEditingCell?.columnKey === columnKey;
+  }, [activeEditingCell]);
+
+  // Handle cell click - enter edit mode for that cell
+  const handleCellClick = useCallback((
+    e: React.MouseEvent,
+    rowId: string,
+    columnKey: string,
+    record: T,
+    isEditable: boolean
+  ) => {
+    e.stopPropagation(); // Prevent row click navigation
+
+    if (!inlineEditable || !isEditable) return;
+
+    // If already editing this cell, do nothing
+    if (isCellEditing(rowId, columnKey)) return;
+
+    // Get the raw value for editing
+    const formattedRecord = record as FormattedRow<any>;
+    const rawRecord = formattedRecord.raw || record;
+    const rawValue = (rawRecord as any)[columnKey];
+
+    if (onCellClick) {
+      // Parent-controlled mode
+      onCellClick(rowId, columnKey, record);
+    } else {
+      // Local state mode
+      setLocalEditingCell({ rowId, columnKey });
+      setLocalCellValue(rawValue);
+    }
+
+    // Also call onInlineEdit to populate editedData for compatibility
+    if (onInlineEdit) {
+      onInlineEdit(rowId, columnKey, rawValue);
+    }
+  }, [inlineEditable, isCellEditing, onCellClick, onInlineEdit]);
+
+  // Handle cell value change
+  const handleCellValueChange = useCallback((rowId: string, columnKey: string, value: any) => {
+    setLocalCellValue(value);
+    // Also update editedData for compatibility with row-level editing
+    if (onInlineEdit) {
+      onInlineEdit(rowId, columnKey, value);
+    }
+  }, [onInlineEdit]);
+
+  // Handle cell save (Enter key or blur)
+  const handleCellSave = useCallback((rowId: string, columnKey: string, record: T) => {
+    const valueToSave = localCellValue ?? editedData[columnKey];
+
+    // Get original value for undo stack
+    const formattedRecord = record as FormattedRow<any>;
+    const rawRecord = formattedRecord.raw || record;
+    const originalValue = (rawRecord as any)[columnKey];
+
+    // Only save if value actually changed
+    if (valueToSave !== originalValue) {
+      // Push to undo stack
+      setUndoStack(prev => [...prev.slice(-19), {
+        rowId,
+        columnKey,
+        oldValue: originalValue,
+        newValue: valueToSave,
+        record
+      }]);
+
+      if (onCellSave) {
+        // Parent-controlled mode
+        onCellSave(rowId, columnKey, valueToSave, record);
+      } else if (onSaveInlineEdit) {
+        // Fallback to row-level save for compatibility
+        onSaveInlineEdit(record);
+      }
+    }
+
+    // Clear local editing state
+    setLocalEditingCell(null);
+    setLocalCellValue(null);
+  }, [localCellValue, editedData, onCellSave, onSaveInlineEdit]);
+
+  // Handle cell cancel (Escape key)
+  const handleCellCancel = useCallback(() => {
+    if (editingCell === null && onCancelInlineEdit) {
+      // Parent-controlled mode - let parent handle it
+      onCancelInlineEdit();
+    }
+
+    // Clear local state
+    setLocalEditingCell(null);
+    setLocalCellValue(null);
+  }, [editingCell, onCancelInlineEdit]);
+
+  // Handle keyboard events for cell editing
+  // Note: Tab navigation requires processedColumns, so we move this function after it's defined
+  // This placeholder will be replaced by the actual implementation below processedColumns
+
+  // Note: handleRowKeyDown is defined after processedColumns (see below)
+  // Note: Click-outside effect is defined after paginatedData (see below)
+
+  // ============================================================================
+  // v8.4.0: Undo handler (Cmd+Z / Ctrl+Z)
+  // ============================================================================
+  const handleUndo = useCallback(() => {
+    if (undoStack.length === 0) return;
+
+    const lastEdit = undoStack[undoStack.length - 1];
+    setUndoStack(prev => prev.slice(0, -1));
+
+    // Revert the value
+    if (onCellSave) {
+      onCellSave(lastEdit.rowId, lastEdit.columnKey, lastEdit.oldValue, lastEdit.record);
+    } else if (onInlineEdit && onSaveInlineEdit) {
+      onInlineEdit(lastEdit.rowId, lastEdit.columnKey, lastEdit.oldValue);
+      onSaveInlineEdit(lastEdit.record);
+    }
+
+    // Show notification
+    setShowUndoNotification(true);
+    setTimeout(() => setShowUndoNotification(false), 2000);
+  }, [undoStack, onCellSave, onInlineEdit, onSaveInlineEdit]);
+
+  // Global keyboard listener for Cmd+Z / Ctrl+Z
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle when not already editing a cell
+      if (activeEditingCell) return;
+
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [activeEditingCell, handleUndo]);
+
+  // ============================================================================
   // BACKEND METADATA-DRIVEN OPTIONS LOADING
   // ============================================================================
   // Uses backend metadata to determine which columns need datalabel options
-  // Zero frontend pattern detection - backend tells us via loadFromDataLabels flag
+  // Zero frontend pattern detection - backend tells us via lookupSource: 'datalabel'
 
   // ✅ FIX: Use useMemo for derived state instead of useState+useEffect
   // Compute labels metadata from columns and datalabels
@@ -682,6 +702,35 @@ export function EntityDataTable<T = any>({
             : 'hover:bg-dark-100/30'
     }`;
   }, [allowReordering, onRowClick]);
+
+  // ============================================================================
+  // v8.4.0: Click outside to save and close (moved here after paginatedData)
+  // ============================================================================
+  useEffect(() => {
+    if (!activeEditingCell) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (editingCellRef.current && !editingCellRef.current.contains(event.target as Node)) {
+        // Find the record for the editing cell
+        const record = paginatedData.find((r, idx) => getRowKey(r, idx) === activeEditingCell.rowId);
+        if (record) {
+          handleCellSave(activeEditingCell.rowId, activeEditingCell.columnKey, record);
+        } else {
+          handleCellCancel();
+        }
+      }
+    };
+
+    // Delay adding listener to avoid immediate trigger
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [activeEditingCell, paginatedData, getRowKey, handleCellSave, handleCellCancel]);
 
   // Get unique values for each filterable column - CACHE-AWARE
   const getColumnOptions = (columnKey: string): string[] => {
@@ -881,6 +930,147 @@ export function EntityDataTable<T = any>({
   const getStickyClassName = useCallback((colIndex: number) => {
     return colIndex === 0 ? 'sticky left-0 z-20 bg-dark-100 shadow-r' : '';
   }, []);
+
+  // ============================================================================
+  // v8.4.0: Keyboard handler for row-level shortcuts (E to edit)
+  // Defined here after processedColumns is available
+  // ============================================================================
+  const handleRowKeyDown = useCallback((
+    e: React.KeyboardEvent,
+    rowId: string,
+    record: T
+  ) => {
+    // E to enter edit mode (edit first editable column)
+    if (e.key === 'e' || e.key === 'E') {
+      if (!activeEditingCell && inlineEditable) {
+        e.preventDefault();
+        // Find first editable column
+        const firstEditableColumn = processedColumns.find(col => {
+          if (col.key === '_actions') return false;
+          const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
+          return backendMeta?.editable ?? col.editable ?? false;
+        });
+
+        if (firstEditableColumn) {
+          const formattedRecord = record as FormattedRow<any>;
+          const rawRecord = formattedRecord.raw || record;
+          const rawValue = (rawRecord as any)[firstEditableColumn.key];
+
+          setLocalEditingCell({ rowId, columnKey: firstEditableColumn.key });
+          setLocalCellValue(rawValue);
+          if (onInlineEdit) {
+            onInlineEdit(rowId, firstEditableColumn.key, rawValue);
+          }
+        }
+      }
+    }
+  }, [activeEditingCell, inlineEditable, processedColumns, onInlineEdit]);
+
+  // ============================================================================
+  // v8.4.0: Tab Navigation - Find next/previous editable cell
+  // ============================================================================
+  const findNextEditableCell = useCallback((
+    currentRowId: string,
+    currentColumnKey: string,
+    reverse: boolean = false
+  ): { rowId: string; columnKey: string; record: T } | null => {
+    // Get editable columns
+    const editableColumns = processedColumns.filter(col => {
+      if (col.key === '_actions') return false;
+      const backendMeta = (col as any).backendMetadata as BackendFieldMetadata | undefined;
+      return backendMeta?.editable ?? col.editable ?? false;
+    });
+
+    if (editableColumns.length === 0) return null;
+
+    // Find current position
+    const currentColIndex = editableColumns.findIndex(col => col.key === currentColumnKey);
+    const currentRowIndex = paginatedData.findIndex((r, idx) => getRowKey(r, idx) === currentRowId);
+
+    if (currentRowIndex === -1) return null;
+
+    let nextColIndex = reverse ? currentColIndex - 1 : currentColIndex + 1;
+    let nextRowIndex = currentRowIndex;
+
+    // If past end of row, go to next row
+    if (nextColIndex >= editableColumns.length) {
+      nextColIndex = 0;
+      nextRowIndex = currentRowIndex + 1;
+    }
+    // If before start of row, go to previous row
+    if (nextColIndex < 0) {
+      nextColIndex = editableColumns.length - 1;
+      nextRowIndex = currentRowIndex - 1;
+    }
+
+    // If no more rows, return null
+    if (nextRowIndex < 0 || nextRowIndex >= paginatedData.length) {
+      return null;
+    }
+
+    const nextRecord = paginatedData[nextRowIndex];
+    const nextRowId = getRowKey(nextRecord, nextRowIndex);
+    const nextColumnKey = editableColumns[nextColIndex].key;
+
+    return { rowId: nextRowId, columnKey: nextColumnKey, record: nextRecord };
+  }, [processedColumns, paginatedData, getRowKey]);
+
+  // Handle keyboard events for cell editing (with Tab navigation)
+  const handleCellKeyDown = useCallback((
+    e: React.KeyboardEvent,
+    rowId: string,
+    columnKey: string,
+    record: T,
+    editType: string
+  ) => {
+    // Enter to save (except for textarea)
+    if (e.key === 'Enter' && editType !== 'textarea') {
+      e.preventDefault();
+      handleCellSave(rowId, columnKey, record);
+      return;
+    }
+
+    // Escape to cancel
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCellCancel();
+      return;
+    }
+
+    // Tab to save and move to next editable cell (Shift+Tab for previous)
+    if (e.key === 'Tab') {
+      e.preventDefault();
+
+      // Save current cell first
+      const valueToSave = localCellValue ?? editedData[columnKey];
+      if (onCellSave) {
+        onCellSave(rowId, columnKey, valueToSave, record);
+      } else if (onSaveInlineEdit) {
+        onSaveInlineEdit(record);
+      }
+
+      // Find next editable cell
+      const nextCell = findNextEditableCell(rowId, columnKey, e.shiftKey);
+      if (nextCell) {
+        // Get raw value for next cell
+        const formattedRecord = nextCell.record as FormattedRow<any>;
+        const rawRecord = formattedRecord.raw || nextCell.record;
+        const rawValue = (rawRecord as any)[nextCell.columnKey];
+
+        // Start editing next cell
+        setLocalEditingCell({ rowId: nextCell.rowId, columnKey: nextCell.columnKey });
+        setLocalCellValue(rawValue);
+        if (onInlineEdit) {
+          onInlineEdit(nextCell.rowId, nextCell.columnKey, rawValue);
+        }
+      } else {
+        // No more cells, just close editing
+        setLocalEditingCell(null);
+        setLocalCellValue(null);
+      }
+      return;
+    }
+  }, [handleCellSave, handleCellCancel, findNextEditableCell, localCellValue, editedData, onCellSave, onSaveInlineEdit, onInlineEdit]);
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -1546,14 +1736,16 @@ export function EntityDataTable<T = any>({
                       key={recordId}
                       data-index={virtualRow.index}
                       ref={rowVirtualizer.measureElement}
-                      draggable={allowReordering && !isEditing}
+                      draggable={allowReordering && !isEditing && !activeEditingCell}
                       onDragStart={(e) => handleDragStart(e, index)}
                       onDragOver={(e) => handleDragOver(e, index)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, index)}
                       onDragEnd={handleDragEnd}
-                      onClick={() => !isEditing && onRowClick?.(record)}
-                      className={getRowClassName(isDragging, isDragOver, isEditing)}
+                      onClick={() => !isEditing && !activeEditingCell && onRowClick?.(record)}
+                      onKeyDown={(e) => handleRowKeyDown(e, recordId, record)}
+                      tabIndex={0}
+                      className={`${getRowClassName(isDragging, isDragOver, isEditing || !!isCellEditing(recordId, ''))} outline-none`}
                       style={{
                         display: 'flex',
                         position: 'absolute',
@@ -1566,6 +1758,8 @@ export function EntityDataTable<T = any>({
                     >
                     {processedColumns.map((column, colIndex) => {
                       // Actions column: Show edit/save icons based on editing state
+                      // v8.4.0: Also show save/cancel when any cell in the row is being edited
+                      const isAnyCellInRowEditing = activeEditingCell?.rowId === recordId;
                       if (column.key === '_actions') {
                         return (
                           <td
@@ -1574,25 +1768,33 @@ export function EntityDataTable<T = any>({
                             style={columnStylesMap.get(column.key)}
                           >
                             <div className="flex items-center justify-center gap-1">
-                              {isEditing ? (
+                              {(isEditing || isAnyCellInRowEditing) ? (
                                 <>
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      onSaveInlineEdit?.(record);
+                                      if (activeEditingCell) {
+                                        handleCellSave(recordId, activeEditingCell.columnKey, record);
+                                      } else {
+                                        onSaveInlineEdit?.(record);
+                                      }
                                     }}
                                     className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
-                                    title="Save"
+                                    title="Save (Enter)"
                                   >
                                     <Check className="h-4 w-4" />
                                   </button>
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      onCancelInlineEdit?.();
+                                      if (activeEditingCell) {
+                                        handleCellCancel();
+                                      } else {
+                                        onCancelInlineEdit?.();
+                                      }
                                     }}
                                     className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
-                                    title="Cancel"
+                                    title="Cancel (Esc)"
                                   >
                                     <X className="h-4 w-4" />
                                   </button>
@@ -1639,61 +1841,100 @@ export function EntityDataTable<T = any>({
                       const rawRecord = formattedRecord.raw || record;
                       const rawValue = (rawRecord as any)[column.key];
 
+                      // v8.4.0: Check if THIS specific cell is being edited (Airtable-style)
+                      const isCellBeingEdited = isCellEditing(recordId, column.key);
+
                       return (
                         <td
                           key={column.key}
-                          className={`px-6 py-2.5 flex-shrink-0 ${getStickyClassName(colIndex)}`}
+                          className={`px-6 py-2.5 flex-shrink-0 ${getStickyClassName(colIndex)} ${
+                            fieldEditable && inlineEditable ? 'cursor-text hover:bg-blue-50/30' : ''
+                          } ${isCellBeingEdited ? 'bg-blue-50/50' : ''}`}
                           style={columnStylesMap.get(column.key)}
-                          onClick={(e) => isEditing && e.stopPropagation()}
+                          onClick={(e) => {
+                            if (isEditing) {
+                              e.stopPropagation();
+                            } else if (fieldEditable && inlineEditable) {
+                              handleCellClick(e, recordId, column.key, record, fieldEditable);
+                            }
+                          }}
                         >
-                          {isEditing && fieldEditable ? (
-                            editType === 'file' ? (
-                              <InlineFileUploadCell
-                                value={rawValue}
-                                entityCode={onEdit ? 'artifact' : 'cost'}
-                                entityId={(rawRecord as any).id}
-                                fieldName={column.key}
-                                accept={backendMeta?.accept}
-                                onUploadComplete={(fileUrl) => onInlineEdit?.(recordId, column.key, fileUrl)}
-                                disabled={false}
-                              />
-                            ) : column.key === 'color_code' && colorOptions ? (
-                              <div className="relative w-full">
-                                <select
-                                  value={editedData[column.key] ?? rawValue ?? ''}
-                                  onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors cursor-pointer appearance-none"
-                                  style={{ fontSize: '14px', minHeight: '32px', maxHeight: '32px' }}
-                                >
-                                  <option value="">Select color...</option>
-                                  {colorOptions.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                  ))}
-                                </select>
-                                <ChevronDown className="h-4 w-4 text-dark-700 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
-                              </div>
-                            ) : editType === 'select' && hasLabelsMetadata ? (
-                              <ColoredDropdown
-                                value={editedData[column.key] ?? rawValue ?? ''}
-                                options={columnOptions}
-                                onChange={(value) => onInlineEdit?.(recordId, column.key, value)}
+                          {/* v8.4.0: Cell editing - show edit field if THIS cell is being edited OR row-level editing */}
+                          {(isCellBeingEdited || (isEditing && fieldEditable)) ? (
+                            <div
+                              ref={isCellBeingEdited ? editingCellRef : undefined}
+                              onKeyDown={(e) => handleCellKeyDown(e, recordId, column.key, record, editType)}
+                              className="w-full"
+                            >
+                              {editType === 'file' ? (
+                                <InlineFileUploadCell
+                                  value={rawValue}
+                                  entityCode={onEdit ? 'artifact' : 'cost'}
+                                  entityId={(rawRecord as any).id}
+                                  fieldName={column.key}
+                                  accept={backendMeta?.accept}
+                                  onUploadComplete={(fileUrl) => {
+                                    handleCellValueChange(recordId, column.key, fileUrl);
+                                    handleCellSave(recordId, column.key, record);
+                                  }}
+                                  disabled={false}
+                                />
+                              ) : column.key === 'color_code' && colorOptions ? (
+                                <div className="relative w-full">
+                                  <select
+                                    autoFocus
+                                    value={(isCellBeingEdited ? localCellValue : editedData[column.key]) ?? rawValue ?? ''}
+                                    onChange={(e) => {
+                                      handleCellValueChange(recordId, column.key, e.target.value);
+                                      if (isCellBeingEdited) {
+                                        setTimeout(() => handleCellSave(recordId, column.key, record), 0);
+                                      }
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:outline-none focus:border-dark-500 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors cursor-pointer appearance-none"
+                                    style={{ fontSize: '14px', minHeight: '32px', maxHeight: '32px' }}
+                                  >
+                                    <option value="">Select color...</option>
+                                    {colorOptions.map(opt => (
+                                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                  </select>
+                                  <ChevronDown className="h-4 w-4 text-dark-700 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                                </div>
+                              ) : editType === 'select' && hasLabelsMetadata ? (
+                                <BadgeDropdownSelect
+                                  value={(isCellBeingEdited ? localCellValue : editedData[column.key]) ?? rawValue ?? ''}
+                                options={columnOptions.map(opt => ({
+                                  value: opt.value,
+                                  label: opt.label,
+                                  metadata: { color_code: opt.colorClass }
+                                }))}
+                                onChange={(value) => {
+                                  handleCellValueChange(recordId, column.key, value);
+                                  if (isCellBeingEdited) {
+                                    setTimeout(() => handleCellSave(recordId, column.key, record), 0);
+                                  }
+                                }}
                                 onClick={(e) => e.stopPropagation()}
                               />
-                            ) : (
-                              <div onClick={(e) => e.stopPropagation()}>
-                                {(() => {
-                                  // v8.2.0: Backend metadata required - minimal fallback for text input
-                                  const metadata = (column as any).backendMetadata || { inputType: 'text', label: column.key };
-                                  return renderEditModeFromMetadata(
-                                    editedData[column.key] ?? rawValue,
-                                    metadata,
-                                    (val) => onInlineEdit?.(recordId, column.key, val),
-                                    { className: 'w-full px-2 py-1 text-sm border border-dark-300 rounded focus:outline-none focus:ring-1 focus:ring-dark-500' }
-                                  );
-                                })()}
-                              </div>
-                            )
+                              ) : (
+                                // ALL OTHER FIELDS - Backend-driven renderer with auto-focus
+                                <div onClick={(e) => e.stopPropagation()}>
+                                  {(() => {
+                                    const metadata = (column as any).backendMetadata || { inputType: 'text', label: column.key };
+                                    return renderEditModeFromMetadata(
+                                      (isCellBeingEdited ? localCellValue : editedData[column.key]) ?? rawValue,
+                                      metadata,
+                                      (val) => handleCellValueChange(recordId, column.key, val),
+                                      {
+                                        className: 'w-full px-2 py-1 text-sm border border-dark-300 rounded focus:outline-none focus:border-dark-500',
+                                        autoFocus: isCellBeingEdited
+                                      }
+                                    );
+                                  })()}
+                                </div>
+                              )}
+                            </div>
                           ) : (
                             <div style={{
                               position: 'relative', zIndex: 1, textOverflow: 'ellipsis', padding: '2px 8px',
@@ -1747,17 +1988,21 @@ export function EntityDataTable<T = any>({
                         </tr>
                       )}
                       <tr
-                        draggable={allowReordering && !isEditing}
+                        draggable={allowReordering && !isEditing && !activeEditingCell}
                         onDragStart={(e) => handleDragStart(e, index)}
                         onDragOver={(e) => handleDragOver(e, index)}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, index)}
                         onDragEnd={handleDragEnd}
-                        onClick={() => !isEditing && onRowClick?.(record)}
-                        className={getRowClassName(isDragging, isDragOver, isEditing)}
+                        onClick={() => !isEditing && !activeEditingCell && onRowClick?.(record)}
+                        onKeyDown={(e) => handleRowKeyDown(e, recordId, record)}
+                        tabIndex={0}
+                        className={`${getRowClassName(isDragging, isDragOver, isEditing || !!isCellEditing(recordId, ''))} outline-none`}
                       >
                     {processedColumns.map((column, colIndex) => {
                       // Actions column: Show edit/save icons based on editing state
+                      // v8.4.0: Also show save/cancel when any cell in the row is being edited
+                      const isAnyCellInRowEditing = activeEditingCell?.rowId === recordId;
                       if (column.key === '_actions') {
                         return (
                           <td
@@ -1766,25 +2011,33 @@ export function EntityDataTable<T = any>({
                             style={columnStylesMap.get(column.key)}
                           >
                             <div className="flex items-center justify-center gap-1">
-                              {isEditing ? (
+                              {(isEditing || isAnyCellInRowEditing) ? (
                                 <>
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      onSaveInlineEdit?.(record);
+                                      if (activeEditingCell) {
+                                        handleCellSave(recordId, activeEditingCell.columnKey, record);
+                                      } else {
+                                        onSaveInlineEdit?.(record);
+                                      }
                                     }}
                                     className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
-                                    title="Save"
+                                    title="Save (Enter)"
                                   >
                                     <Check className="h-4 w-4" />
                                   </button>
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      onCancelInlineEdit?.();
+                                      if (activeEditingCell) {
+                                        handleCellCancel();
+                                      } else {
+                                        onCancelInlineEdit?.();
+                                      }
                                     }}
                                     className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
-                                    title="Cancel"
+                                    title="Cancel (Esc)"
                                   >
                                     <X className="h-4 w-4" />
                                   </button>
@@ -1831,80 +2084,119 @@ export function EntityDataTable<T = any>({
                       const rawRecord = formattedRecord.raw || record;
                       const rawValue = (rawRecord as any)[column.key];
 
+                      // v8.4.0: Check if THIS specific cell is being edited (Airtable-style)
+                      const isCellBeingEdited = isCellEditing(recordId, column.key);
+
                       return (
                         <td
                           key={column.key}
-                          className={`px-6 py-2.5 ${getStickyClassName(colIndex)}`}
+                          className={`px-6 py-2.5 ${getStickyClassName(colIndex)} ${
+                            fieldEditable && inlineEditable ? 'cursor-text hover:bg-blue-50/30' : ''
+                          } ${isCellBeingEdited ? 'bg-blue-50/50' : ''}`}
                           style={columnStylesMap.get(column.key)}
-                          onClick={(e) => isEditing && e.stopPropagation()}
+                          onClick={(e) => {
+                            if (isEditing) {
+                              e.stopPropagation();
+                            } else if (fieldEditable && inlineEditable) {
+                              handleCellClick(e, recordId, column.key, record, fieldEditable);
+                            }
+                          }}
                         >
-                          {isEditing && fieldEditable ? (
+                          {/* v8.4.0: Cell editing - show edit field if THIS cell is being edited OR row-level editing */}
+                          {(isCellBeingEdited || (isEditing && fieldEditable)) ? (
                             // ============================================================================
-                            // EDIT MODE - Universal Field Renderer
+                            // v8.4.0: EDIT MODE - Airtable-style cell editing
+                            // Wrapped with keyboard handlers for Enter/Tab/Escape
                             // ============================================================================
-                            // Special cases that need custom components
-                            editType === 'file' ? (
-                              // FILE UPLOAD - Complex drag-drop component
-                              <InlineFileUploadCell
-                                value={rawValue}
-                                entityCode={onEdit ? 'artifact' : 'cost'}
-                                entityId={(rawRecord as any).id}
-                                fieldName={column.key}
-                                accept={backendMeta?.accept}
-                                onUploadComplete={(fileUrl) => onInlineEdit?.(recordId, column.key, fileUrl)}
-                                disabled={false}
-                              />
-                            ) : column.key === 'color_code' && colorOptions ? (
-                              // COLOR PICKER - Entity-specific field for settings tables
-                              <div className="relative w-full">
-                                <select
-                                  value={editedData[column.key] ?? rawValue ?? ''}
-                                  onChange={(e) => onInlineEdit?.(recordId, column.key, e.target.value)}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:ring-2 focus:ring-dark-700/30 focus:border-dark-400 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors cursor-pointer appearance-none"
-                                  style={{
-                                    fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
-                                    fontSize: '14px',
-                                    color: '#37352F',
-                                    minHeight: '32px',
-                                    maxHeight: '32px',
-                                    lineHeight: '1.2'
+                            <div
+                              ref={isCellBeingEdited ? editingCellRef : undefined}
+                              onKeyDown={(e) => handleCellKeyDown(e, recordId, column.key, record, editType)}
+                              className="w-full"
+                            >
+                              {editType === 'file' ? (
+                                // FILE UPLOAD - Complex drag-drop component
+                                <InlineFileUploadCell
+                                  value={rawValue}
+                                  entityCode={onEdit ? 'artifact' : 'cost'}
+                                  entityId={(rawRecord as any).id}
+                                  fieldName={column.key}
+                                  accept={backendMeta?.accept}
+                                  onUploadComplete={(fileUrl) => {
+                                    handleCellValueChange(recordId, column.key, fileUrl);
+                                    handleCellSave(recordId, column.key, record);
                                   }}
-                                >
-                                  <option value="" className="text-dark-600">Select color...</option>
-                                  {colorOptions.map(opt => (
-                                    <option key={opt.value} value={opt.value} className="text-dark-600 py-1.5">
-                                      {opt.label}
-                                    </option>
-                                  ))}
-                                </select>
-                                <ChevronDown className="h-4 w-4 text-dark-700 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
-                              </div>
-                            ) : editType === 'select' && hasLabelsMetadata ? (
-                              // SETTINGS DROPDOWN - ColoredDropdown component for dl__* fields
-                              <ColoredDropdown
-                                value={editedData[column.key] ?? rawValue ?? ''}
-                                options={columnOptions}
-                                onChange={(value) => onInlineEdit?.(recordId, column.key, value)}
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            ) : (
-                              // ALL OTHER FIELDS - Backend-driven renderer
-                              <div onClick={(e) => e.stopPropagation()}>
-                                {(() => {
-                                  // v8.2.0: Backend metadata required - minimal fallback for text input
-                                  const metadata = (column as any).backendMetadata || { inputType: 'text', label: column.key };
-                                  return renderEditModeFromMetadata(
-                                    editedData[column.key] ?? rawValue,
-                                    metadata,
-                                    (val) => onInlineEdit?.(recordId, column.key, val),
-                                    {
-                                      className: 'w-full px-2 py-1 text-sm border border-dark-300 rounded focus:outline-none focus:ring-1 focus:ring-dark-500'
+                                  disabled={false}
+                                />
+                              ) : column.key === 'color_code' && colorOptions ? (
+                                // COLOR PICKER - Entity-specific field for settings tables
+                                <div className="relative w-full">
+                                  <select
+                                    autoFocus
+                                    value={(isCellBeingEdited ? localCellValue : editedData[column.key]) ?? rawValue ?? ''}
+                                    onChange={(e) => {
+                                      handleCellValueChange(recordId, column.key, e.target.value);
+                                      // Auto-save on select change (Airtable behavior)
+                                      if (isCellBeingEdited) {
+                                        setTimeout(() => handleCellSave(recordId, column.key, record), 0);
+                                      }
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-full px-2.5 py-1.5 pr-8 border border-dark-400 rounded-md focus:outline-none focus:border-dark-500 bg-dark-100 shadow-sm hover:border-dark-400 transition-colors cursor-pointer appearance-none"
+                                    style={{
+                                      fontFamily: "'Inter', 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+                                      fontSize: '14px',
+                                      color: '#37352F',
+                                      minHeight: '32px',
+                                      maxHeight: '32px',
+                                      lineHeight: '1.2'
+                                    }}
+                                  >
+                                    <option value="" className="text-dark-600">Select color...</option>
+                                    {colorOptions.map(opt => (
+                                      <option key={opt.value} value={opt.value} className="text-dark-600 py-1.5">
+                                        {opt.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <ChevronDown className="h-4 w-4 text-dark-700 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                                </div>
+                              ) : editType === 'select' && hasLabelsMetadata ? (
+                                // v8.3.2: Use shared BadgeDropdownSelect (DRY principle)
+                                <BadgeDropdownSelect
+                                  value={(isCellBeingEdited ? localCellValue : editedData[column.key]) ?? rawValue ?? ''}
+                                  options={columnOptions.map(opt => ({
+                                    value: opt.value,
+                                    label: opt.label,
+                                    metadata: { color_code: opt.colorClass }
+                                  }))}
+                                  onChange={(value) => {
+                                    handleCellValueChange(recordId, column.key, value);
+                                    // Auto-save on select change (Airtable behavior)
+                                    if (isCellBeingEdited) {
+                                      setTimeout(() => handleCellSave(recordId, column.key, record), 0);
                                     }
-                                  );
-                                })()}
-                              </div>
-                            )
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              ) : (
+                                // ALL OTHER FIELDS - Backend-driven renderer with auto-focus
+                                <div onClick={(e) => e.stopPropagation()}>
+                                  {(() => {
+                                    // v8.2.0: Backend metadata required - minimal fallback for text input
+                                    const metadata = (column as any).backendMetadata || { inputType: 'text', label: column.key };
+                                    return renderEditModeFromMetadata(
+                                      (isCellBeingEdited ? localCellValue : editedData[column.key]) ?? rawValue,
+                                      metadata,
+                                      (val) => handleCellValueChange(recordId, column.key, val),
+                                      {
+                                        className: 'w-full px-2 py-1 text-sm border border-dark-300 rounded focus:outline-none focus:border-dark-500',
+                                        autoFocus: isCellBeingEdited
+                                      }
+                                    );
+                                  })()}
+                                </div>
+                              )}
+                            </div>
                           ) : (
                             // ============================================================================
                             // VIEW MODE - v8.0.0 Format-at-Read Pattern
@@ -2022,6 +2314,19 @@ export function EntityDataTable<T = any>({
       <div className="flex-shrink-0 mt-4">
         <PaginationComponent />
       </div>
+
+      {/* v8.4.0: Undo notification toast */}
+      {showUndoNotification && (
+        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-2 fade-in duration-200">
+          <div className="bg-gray-900 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+            <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+            </svg>
+            <span className="text-sm">Change undone</span>
+            <span className="text-xs text-gray-400 ml-2">⌘Z</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

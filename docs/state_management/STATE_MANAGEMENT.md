@@ -1,6 +1,6 @@
 # State Management Architecture
 
-**Version:** 8.3.1 | **Location:** `apps/web/src/stores/` | **Updated:** 2025-11-26
+**Version:** 8.3.2 | **Location:** `apps/web/src/stores/` | **Updated:** 2025-11-27
 
 ---
 
@@ -344,6 +344,102 @@ interface EntityComponentMetadataStore {
 
 ---
 
+## Datalabel Caching & Rendering (v8.3.2)
+
+### Architectural Truth
+
+**Metadata properties control datalabel field rendering:**
+
+| Metadata | Property | Purpose |
+|----------|----------|---------|
+| **viewType** | `renderType` + `component` | Controls WHICH component renders (view mode) |
+| **editType** | `inputType` + `component` | Controls WHICH component renders (edit mode) |
+| **editType** | `lookupSource` + `datalabelKey` | Controls WHERE data comes from |
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  DATALABEL CACHING & RENDERING (v8.3.2)                                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  1. Login Time: Cache ALL datalabels                                         │
+│     AuthContext → GET /api/v1/datalabels/all → datalabelMetadataStore        │
+│                                                                              │
+│  2. Component Load: Use metadata to detect datalabel fields                  │
+│     editType.lookupSource === 'datalabel' → needs datalabel options          │
+│     editType.datalabelKey → cache lookup key                                 │
+│                                                                              │
+│  3. View Mode: Render based on viewType metadata                             │
+│     viewType.renderType === 'component' && viewType.component === 'DAGVisualizer'│
+│     → <DAGVisualizer nodes={...} />                                          │
+│     Otherwise: <Badge color={...}>{value}</Badge>                            │
+│                                                                              │
+│  4. Edit Mode: Load options from cache                                       │
+│     const options = datalabelStore.getDatalabel(field.datalabelKey);         │
+│     → <BadgeDropdownSelect options={options} />                              │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### datalabelMetadataStore
+
+```typescript
+interface DatalabelMetadataStore {
+  // Cache structure
+  datalabels: Record<string, DatalabelOption[]>;  // keyed by datalabelKey
+
+  // Methods
+  setAllDatalabels(data: Record<string, DatalabelOption[]>): void;
+  getDatalabel(key: string): DatalabelOption[] | undefined;
+  invalidateDatalabel(key: string): void;
+  clear(): void;
+}
+
+interface DatalabelOption {
+  id: number;
+  name: string;
+  color_code?: string;
+  parent_ids?: number[];
+  sort_order?: number;
+  active_flag?: boolean;
+}
+```
+
+### Usage in EntityFormContainer
+
+```typescript
+// 1. Filter fields needing datalabel options (using metadata, NOT field name)
+const fieldsNeedingSettings = fields.filter(
+  field => field.lookupSource === 'datalabel' || field.datalabelKey
+);
+
+// 2. Load from cache using datalabelKey
+fieldsNeedingSettings.forEach((field) => {
+  const lookupKey = field.datalabelKey || field.key;
+  const cachedOptions = useDatalabelMetadataStore.getState().getDatalabel(lookupKey);
+
+  // Build DAG nodes if viewType specifies DAGVisualizer
+  if (vizContainer?.view === 'DAGVisualizer') {
+    dagNodesMap.set(field.key, transformToDAGNodes(cachedOptions));
+  }
+});
+
+// 3. Render based on vizContainer (set from viewType metadata)
+if (vizContainer?.view === 'DAGVisualizer' && dagNodes.has(field.key)) {
+  return <DAGVisualizer nodes={dagNodes.get(field.key)} />;
+}
+```
+
+### Anti-Patterns (REMOVED in v8.3.2)
+
+| Anti-Pattern | Correct Approach |
+|--------------|------------------|
+| `loadDataLabels` property | Use `editType.lookupSource === 'datalabel'` |
+| Pattern detection (`dl__*`) | Use backend metadata |
+| `isStageField()` function | Use `viewType.component === 'DAGVisualizer'` |
+| Per-field API calls | Login-time cache via `datalabelMetadataStore` |
+
+---
+
 ## Cache Invalidation
 
 ### On Mutation
@@ -445,9 +541,14 @@ export const CACHE_TTL = {
 
 ---
 
-**Version:** 8.3.1 | **Updated:** 2025-11-26
+**Version:** 8.3.2 | **Updated:** 2025-11-27
 
 **Recent Updates:**
+- v8.3.2 (2025-11-27): **Datalabel Rendering Architecture**
+  - viewType controls WHICH component renders (`renderType: 'component'` + `component: 'DAGVisualizer'`)
+  - editType controls WHERE data comes from (`lookupSource: 'datalabel'` + `datalabelKey`)
+  - Removed legacy `loadDataLabels` pattern from entityConfig
+  - `EntityFormContainer_viz_container: { view: string, edit: string }` object structure
 - v8.3.1 (2025-11-26): **Metadata-Based Reference Resolution**
   - Removed pattern matching from `refDataResolver.ts`
   - Added `isEntityReferenceField(fieldMeta)`, `getEntityCodeFromMetadata(fieldMeta)`

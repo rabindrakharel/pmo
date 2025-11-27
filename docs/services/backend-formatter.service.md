@@ -1,6 +1,6 @@
 # Backend Formatter Service (BFF)
 
-**Version:** 8.3.1 | **Location:** `apps/api/src/services/backend-formatter.service.ts` | **Updated:** 2025-11-26
+**Version:** 8.3.2 | **Location:** `apps/api/src/services/backend-formatter.service.ts` | **Updated:** 2025-11-27
 
 ---
 
@@ -409,11 +409,26 @@ Different components receive different metadata for the same field:
 
 ### Example: dl__project_stage
 
-| Component | viewType.renderType | editType.inputType |
-|-----------|--------------------|--------------------|
-| entityDataTable | `badge` | `select` |
-| entityFormContainer | `dag` | `interactive_dag` |
-| kanbanView | `badge` | `select` |
+| Component | viewType.renderType | viewType.component | editType.inputType |
+|-----------|--------------------|--------------------|---------------------|
+| entityDataTable | `badge` | - | `select` |
+| entityFormContainer | `component` | `DAGVisualizer` | `BadgeDropdownSelect` |
+| kanbanView | `badge` | - | `select` |
+
+### BadgeDropdownSelect inputType (v8.3.2)
+
+For datalabel fields that need colored badge rendering in edit mode, use `inputType: BadgeDropdownSelect`:
+
+```yaml
+# edit-type-mapping.yaml
+datalabel_dag:
+  entityFormContainer:
+    inputType: BadgeDropdownSelect
+    lookupSource: datalabel
+    behavior: { editable: true }
+```
+
+This renders a dropdown with colored badges matching the datalabel options, using portal rendering to avoid overflow clipping.
 
 ### Example: manager__employee_id (v8.3.0)
 
@@ -437,8 +452,12 @@ Different components receive different metadata for the same field:
 
 ---
 
-**Version:** 8.3.1 | **Updated:** 2025-11-26
+**Version:** 8.3.2 | **Updated:** 2025-11-27
 
 **Recent Updates:**
+- v8.3.2 (2025-11-27):
+  - Added `BadgeDropdownSelect` as valid inputType for datalabel fields
+  - DAG fields use `renderType: 'component'` + `component: 'DAGVisualizer'` (not `renderType: 'dag'`)
+  - EntityFormContainer uses separate view/edit component metadata
 - v8.3.1 (2025-11-26): Enforced backend metadata as single source of truth
 - v8.3.0 (2025-11-26): Added `lookupEntity`, `lookupSource` for reference fields

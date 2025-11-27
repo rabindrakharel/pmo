@@ -6,7 +6,7 @@ import { renderEmployeeNames } from '../../../lib/entityConfig';
 import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
 import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
 import { DebouncedInput, DebouncedTextarea } from '../ui/DebouncedInput';
-import { ColoredDropdown } from '../ui/ColoredDropdown';
+import { BadgeDropdownSelect } from '../ui/BadgeDropdownSelect';
 import {
   formatRelativeTime,
   formatFriendlyDate,
@@ -163,14 +163,14 @@ function EntityFormContainerInner({
         const lookupEntity = editMeta?.lookupEntity;
         const datalabelKey = editMeta?.datalabelKey;
 
-        // Determine special visualization component
-        let vizContainer = editMeta?.component;
-        const renderType = viewMeta.renderType;
-        if (!vizContainer && renderType === 'dag') {
-          vizContainer = 'DAGVisualizer';
-        } else if (!vizContainer && fieldKey === 'metadata') {
-          vizContainer = 'MetadataTable';
-        }
+        // v8.3.2: Backend metadata is single source of truth for viz containers
+        // viewMeta.component for view mode, editMeta.component for edit mode
+        const viewVizContainer = (viewMeta.renderType === 'component' && viewMeta.component)
+          ? viewMeta.component
+          : undefined;
+        const editVizContainer = (editMeta?.inputType === 'component' && editMeta?.component)
+          ? editMeta.component
+          : undefined;
 
         return {
           key: fieldKey,
@@ -181,8 +181,10 @@ function EntityFormContainerInner({
           lookupSource,
           lookupEntity,
           datalabelKey,
-          loadDataLabels: lookupSource === 'datalabel' || !!datalabelKey,
-          EntityFormContainer_viz_container: vizContainer,
+          EntityFormContainer_viz_container: {
+            view: viewVizContainer,
+            edit: editVizContainer
+          },
           toApi: (value: any) => value,
           toDisplay: (value: any) => value
         } as FieldDef;
@@ -227,15 +229,18 @@ function EntityFormContainerInner({
       return { labelsMetadata: metadataMap, dagNodes: dagNodesMap };
     }
 
-    // Process all fields that need settings from datalabelMetadataStore
+    // Process all fields that need datalabel options from datalabelMetadataStore
+    // v8.3.2: Backend metadata drives this via lookupSource or datalabelKey
     const fieldsNeedingSettings = fields.filter(
-      field => field.loadDataLabels && (field.type === 'select' || field.type === 'multiselect')
+      field => field.lookupSource === 'datalabel' || field.datalabelKey
     );
 
     // Use datalabels from datalabelMetadataStore cache (NO API CALLS)
     fieldsNeedingSettings.forEach((field) => {
       // Fetch from datalabelMetadataStore cache
-      const cachedOptions = useDatalabelMetadataStore.getState().getDatalabel(field.key);
+      // v8.3.2: Use datalabelKey from backend metadata as primary key, fallback to field.key
+      const lookupKey = field.datalabelKey || field.key;
+      const cachedOptions = useDatalabelMetadataStore.getState().getDatalabel(lookupKey);
 
       if (cachedOptions && cachedOptions.length > 0) {
         // Transform datalabel options to LabelMetadata format for select/multiselect
@@ -255,8 +260,9 @@ function EntityFormContainerInner({
         metadataMap.set(field.key, options);
 
         // Load DAG nodes for fields with DAG visualization (backend-driven)
-        // ✅ Metadata-driven: Check EntityFormContainer_viz_container set from backend viewType
-        if (field.EntityFormContainer_viz_container === 'DAGVisualizer') {
+        // v8.3.2: Check if either view or edit mode uses DAGVisualizer
+        const vizContainer = field.EntityFormContainer_viz_container;
+        if (vizContainer?.view === 'DAGVisualizer' || vizContainer?.edit === 'DAGVisualizer') {
           const nodes = transformDatalabelToDAGNodes(cachedOptions);
           dagNodesMap.set(field.key, nodes);
         }
@@ -271,14 +277,16 @@ function EntityFormContainerInner({
   const renderField = (field: FieldDef) => {
     const value = data[field.key];
 
-    // Check if this is a sequential state field
-    const hasLabelsMetadata = field.loadDataLabels && labelsMetadata.has(field.key);
+    // Check if this field has datalabel options loaded
+    const hasLabelsMetadata = labelsMetadata.has(field.key);
     const options = hasLabelsMetadata
       ? labelsMetadata.get(field.key)!
       : field.options || [];
+    // v8.3.2: Check view or edit mode based on isEditing
+    const vizContainer = field.EntityFormContainer_viz_container;
     const isSequentialField = field.type === 'select'
       && hasLabelsMetadata
-      && field.EntityFormContainer_viz_container === 'DAGVisualizer'  // ✅ Metadata-driven
+      && (vizContainer?.view === 'DAGVisualizer' || vizContainer?.edit === 'DAGVisualizer')
       && options.length > 0;
 
 
@@ -340,9 +348,10 @@ function EntityFormContainerInner({
           </span>
         );
       }
-      if (field.type === 'select') {
-        // Backend-specified DAG component (explicit from backend)
-        if (field.EntityFormContainer_viz_container === 'DAGVisualizer' && dagNodes.has(field.key)) {
+      // v8.3.2: Backend-specified DAG component for VIEW mode (check BEFORE field.type)
+      // When viewMeta.renderType === 'component' && viewMeta.component === 'DAGVisualizer',
+      // field.type may be 'component' (from editMeta.inputType), not 'select'
+      if (vizContainer?.view === 'DAGVisualizer' && dagNodes.has(field.key)) {
           // TWO DATA SOURCES for DAG visualization:
           // 1. DAG structure (nodes, parent_ids, relationships) from datalabel table
           const nodes = dagNodes.get(field.key)!; // {id, node_name, parent_ids}[]
@@ -365,8 +374,8 @@ function EntityFormContainerInner({
               />
             </div>
           );
-        }
-
+      }
+      if (field.type === 'select') {
         // ═══════════════════════════════════════════════════════════════
         // v8.2.0: REQUIRE pre-formatted value from formattedData
         // No fallback formatting - backend metadata is sole source of truth
@@ -415,14 +424,17 @@ function EntityFormContainerInner({
           </div>
         );
       }
+      // v8.3.2: Backend-specified component for JSONB VIEW mode (check BEFORE field.type)
+      // When viewMeta.renderType === 'component' && viewMeta.component === 'MetadataTable',
+      // field.type may be 'component' (from editMeta.inputType), not 'jsonb'
+      if (vizContainer?.view === 'MetadataTable') {
+        return <MetadataTable value={value || {}} isEditing={false} />;
+      }
+      if (vizContainer?.view === 'QuoteItemsRenderer') {
+        return <QuoteItemsRenderer value={value || []} isEditing={false} />;
+      }
       if (field.type === 'jsonb') {
-        // Special renderers for specific JSONB fields
-        if (field.key === 'metadata') {
-          return <MetadataTable value={value || {}} isEditing={false} />;
-        }
-        if (field.key === 'quote_items') {
-          return <QuoteItemsRenderer value={value || []} isEditing={false} />;
-        }
+        // Fallback for JSONB fields without specific component
         // Other JSONB fields show as formatted JSON
         if (value) {
           return (
@@ -511,9 +523,10 @@ function EntityFormContainerInner({
           />
         );
       }
-      case 'jsonb':
-        // Backend-specified component (explicit from backend)
-        if (field.EntityFormContainer_viz_container === 'MetadataTable') {
+      // v8.3.2: Generic 'component' type for backend-specified components
+      // When editMeta.inputType === 'component', check vizContainer.edit for component name
+      case 'component':
+        if (vizContainer?.edit === 'MetadataTable') {
           return (
             <MetadataTable
               value={value || {}}
@@ -522,7 +535,44 @@ function EntityFormContainerInner({
             />
           );
         }
-        if (field.key === 'quote_items') {
+        if (vizContainer?.edit === 'QuoteItemsRenderer') {
+          return (
+            <QuoteItemsRenderer
+              value={value || []}
+              onChange={(newValue) => handleFieldChange(field.key, newValue)}
+              isEditing={true}
+            />
+          );
+        }
+        // Fallback for unknown component type - render as JSON textarea
+        return (
+          <textarea
+            value={value ? JSON.stringify(value, null, 2) : ''}
+            onChange={(e) => {
+              try {
+                handleFieldChange(field.key, JSON.parse(e.target.value));
+              } catch {
+                // Invalid JSON, don't update
+              }
+            }}
+            rows={6}
+            className="w-full border-0 border-b border-transparent hover:border-dark-400 focus:border-dark-600 focus:ring-0 focus:outline-none transition-colors bg-transparent px-0 py-0 font-mono resize-none text-sm text-dark-700"
+            placeholder={field.placeholder}
+            disabled={field.disabled || field.readonly}
+          />
+        );
+      case 'jsonb':
+        // v8.3.2: Backend-specified component for EDIT mode
+        if (vizContainer?.edit === 'MetadataTable') {
+          return (
+            <MetadataTable
+              value={value || {}}
+              onChange={(newValue) => handleFieldChange(field.key, newValue)}
+              isEditing={true}
+            />
+          );
+        }
+        if (vizContainer?.edit === 'QuoteItemsRenderer') {
           return (
             <QuoteItemsRenderer
               value={value || []}
@@ -548,9 +598,41 @@ function EntityFormContainerInner({
             disabled={field.disabled || field.readonly}
           />
         );
+      // v8.3.2: BadgeDropdownSelect - datalabel dropdown with colored badges
+      case 'BadgeDropdownSelect': {
+        if (hasLabelsMetadata && options.length > 0) {
+          const coloredOptions = options.map((opt: any) => ({
+            value: opt.value,
+            label: opt.label,
+            metadata: {
+              color_code: opt.colorClass || 'bg-gray-100 text-gray-600'
+            }
+          }));
+
+          return (
+            <div className="w-full">
+              <BadgeDropdownSelect
+                value={value !== undefined && value !== null ? String(value) : ''}
+                options={coloredOptions}
+                onChange={(newValue) => {
+                  handleFieldChange(field.key, newValue === '' ? undefined : newValue);
+                }}
+                placeholder="Select..."
+                disabled={field.disabled || field.readonly}
+              />
+            </div>
+          );
+        }
+        // Fallback to plain text if no options
+        return (
+          <span className="text-dark-600 text-base tracking-tight">
+            {value || '-'}
+          </span>
+        );
+      }
       case 'select': {
-        // Backend-specified DAG component (explicit from backend)
-        if (field.EntityFormContainer_viz_container === 'DAGVisualizer' && dagNodes.has(field.key)) {
+        // v8.3.2: Backend-specified DAG component for EDIT mode
+        if (vizContainer?.edit === 'DAGVisualizer' && dagNodes.has(field.key)) {
           // TWO DATA SOURCES for interactive DAG visualization:
           // 1. DAG structure (nodes, parent_ids, relationships) from datalabel table
           const nodes = dagNodes.get(field.key)!; // {id, node_name, parent_ids}[]
@@ -587,7 +669,7 @@ function EntityFormContainerInner({
         }
 
         // Regular dropdown for non-sequential fields
-        // Check if this is a datalabel field - if so, use ColoredDropdown
+        // Check if this is a datalabel field - if so, use BadgeDropdownSelect
         if (hasLabelsMetadata && options.length > 0) {
           const coloredOptions = options.map((opt: any) => ({
             value: opt.value,
@@ -599,7 +681,7 @@ function EntityFormContainerInner({
 
           return (
             <div className="w-full">
-              <ColoredDropdown
+              <BadgeDropdownSelect
                 value={value !== undefined && value !== null ? String(value) : ''}
                 options={coloredOptions}
                 onChange={(newValue) => {

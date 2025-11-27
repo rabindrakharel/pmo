@@ -339,7 +339,7 @@
 # │   date            → <input type="date">                                 │
 # │   datetime        → <input type="datetime-local">                       │
 # │   checkbox        → <input type="checkbox">                             │
-# │   select          → ColoredDropdown (with datalabel colors)             │
+# │   select          → BadgeDropdownSelect (with datalabel colors)         │
 # │   multiselect     → MultiSelect                                         │
 # │                                                                          │
 # │ Source: apps/web/src/lib/frontEndFormatterService.tsx                   │
@@ -352,7 +352,7 @@
 # │ INPUT COMPONENTS                                                         │
 # │   DebouncedInput      - Text/number input with debounce                 │
 # │   DebouncedTextarea   - Textarea with debounce                          │
-# │   ColoredDropdown     - Select with colored options (datalabels)        │
+# │   BadgeDropdownSelect - Select with colored options (datalabels)        │
 # │   Select              - Basic select dropdown                           │
 # │   MultiSelect         - Multi-select dropdown                           │
 # │   DataLabelSelect     - Datalabel-specific select                       │

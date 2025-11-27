@@ -245,7 +245,7 @@
 │                       ▼                                                      │
 │  BASE LAYER (Pure UI)                                                        │
 │  ─────────────────────────────────────────────────────────────────────────   │
-│  Select               │ Input                  │ ColoredDropdown             │
+│  Select               │ Input                  │ BadgeDropdownSelect         │
 │  Button               │ DatePicker             │ SearchableMultiSelect       │
 │                                                                              │
 │  • Props-driven, no business logic                                           │

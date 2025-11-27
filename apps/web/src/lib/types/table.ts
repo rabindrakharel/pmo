@@ -135,9 +135,10 @@ export interface UIColumn extends BaseColumn {
   editType?: EditType;
 
   /**
-   * Load options from data labels (dl__* fields)
+   * v8.3.2: Backend metadata lookup configuration
    */
-  loadDataLabels?: boolean;
+  lookupSource?: 'entityInstance' | 'datalabel';
+  datalabelKey?: string;
 
   /**
    * Searchable in global search

@@ -57,19 +57,20 @@ function createSettingBadgeRenderer(datalabel: string) {
 /**
  * Color options for dropdowns
  * Used in settings table color_code field
- * Each option includes metadata with color_code for badge rendering
+ * Each option includes metadata with Tailwind color classes for badge rendering
+ * v8.3.2: BadgeDropdownSelect expects Tailwind classes in metadata.color_code
  */
 export const COLOR_OPTIONS = [
-  { value: 'blue', label: 'Blue', metadata: { color_code: 'blue' } },
-  { value: 'purple', label: 'Purple', metadata: { color_code: 'purple' } },
-  { value: 'green', label: 'Green', metadata: { color_code: 'green' } },
-  { value: 'red', label: 'Red', metadata: { color_code: 'red' } },
-  { value: 'yellow', label: 'Yellow', metadata: { color_code: 'yellow' } },
-  { value: 'orange', label: 'Orange', metadata: { color_code: 'orange' } },
-  { value: 'gray', label: 'Gray', metadata: { color_code: 'gray' } },
-  { value: 'cyan', label: 'Cyan', metadata: { color_code: 'cyan' } },
-  { value: 'pink', label: 'Pink', metadata: { color_code: 'pink' } },
-  { value: 'amber', label: 'Amber', metadata: { color_code: 'amber' } },
+  { value: 'blue', label: 'Blue', metadata: { color_code: 'bg-blue-100 text-blue-700' } },
+  { value: 'purple', label: 'Purple', metadata: { color_code: 'bg-purple-100 text-purple-800' } },
+  { value: 'green', label: 'Green', metadata: { color_code: 'bg-green-100 text-green-800' } },
+  { value: 'red', label: 'Red', metadata: { color_code: 'bg-red-100 text-red-700' } },
+  { value: 'yellow', label: 'Yellow', metadata: { color_code: 'bg-yellow-100 text-yellow-800' } },
+  { value: 'orange', label: 'Orange', metadata: { color_code: 'bg-orange-100 text-orange-700' } },
+  { value: 'gray', label: 'Gray', metadata: { color_code: 'bg-gray-100 text-gray-600' } },
+  { value: 'cyan', label: 'Cyan', metadata: { color_code: 'bg-cyan-100 text-cyan-700' } },
+  { value: 'pink', label: 'Pink', metadata: { color_code: 'bg-pink-100 text-pink-700' } },
+  { value: 'amber', label: 'Amber', metadata: { color_code: 'bg-amber-100 text-amber-700' } },
 ];
 
 // ============================================================================
@@ -79,7 +80,7 @@ export const COLOR_OPTIONS = [
 // ============================================================================
 
 /**
- * DRY ENHANCEMENT: Automatically apply badge renderer to columns with loadDataLabels
+ * DRY ENHANCEMENT: Automatically apply badge renderer to datalabel columns
  *
  * This function processes column definitions and automatically adds:
  * - Database-driven badge rendering for settings fields
@@ -88,18 +89,18 @@ export const COLOR_OPTIONS = [
  * Usage:
  * ```typescript
  * const columns = applySettingsBadgeRenderers([
- *   { key: 'project_stage', title: 'Stage', loadDataLabels: true }
+ *   { key: 'project_stage', title: 'Stage', lookupSource: 'datalabel' }
  * ]);
  * // Automatically adds: render: createSettingBadgeRenderer('project_stage')
  * ```
  */
-export function applySettingsBadgeRenderers<T extends { key: string; loadDataLabels?: boolean; render?: any }>(
+export function applySettingsBadgeRenderers<T extends { key: string; lookupSource?: string; datalabelKey?: string; render?: any }>(
   columns: T[]
 ): T[] {
   return columns.map(col => {
-    // If loadDataLabels is true and no custom render function exists
-    if (col.loadDataLabels && !col.render) {
-      const datalabel = extractSettingsDatalabel(col.key);
+    // If lookupSource is datalabel and no custom render function exists
+    if ((col.lookupSource === 'datalabel' || col.datalabelKey) && !col.render) {
+      const datalabel = col.datalabelKey || extractSettingsDatalabel(col.key);
       return {
         ...col,
         render: createSettingBadgeRenderer(datalabel)

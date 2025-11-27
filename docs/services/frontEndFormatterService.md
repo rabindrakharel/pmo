@@ -1,6 +1,6 @@
 # Frontend Formatter Service
 
-**Version:** 8.3.1 | **Location:** `apps/web/src/lib/` | **Updated:** 2025-11-26
+**Version:** 8.3.2 | **Location:** `apps/web/src/lib/` | **Updated:** 2025-11-27
 
 ---
 
@@ -56,6 +56,7 @@ The frontend formatter is a **pure renderer** that executes backend instructions
 | `lib/formatters/labelMetadataLoader.ts` | Datalabel color lookup |
 | `lib/refDataResolver.ts` | Entity reference resolution utilities (v8.3.1) |
 | `lib/hooks/useRefData.ts` | Reference resolution hook (v8.3.0) |
+| `components/shared/ui/BadgeDropdownSelect.tsx` | Badge dropdown component for datalabel fields (v8.3.2) |
 
 ---
 
@@ -95,6 +96,13 @@ interface FieldMetadata {
   lookupSource?: 'entityInstance' | 'datalabel';
   lookupEntity?: string;
   dtype?: string;
+}
+
+// EntityFormContainer_viz_container (v8.3.2)
+// Supports separate view/edit components for form fields
+interface VizContainer {
+  view?: string;   // Component name for view mode (e.g., 'DAGVisualizer')
+  edit?: string;   // Component name for edit mode (optional, falls through to inputType)
 }
 
 // Validation helper
@@ -338,6 +346,12 @@ switch (metadata.inputType) {
     const entityCode = metadata.lookupEntity;
     return <EntityDropdown entityCode={entityCode} />;
 
+  // Badge dropdown for datalabel fields (v8.3.2)
+  case 'BadgeDropdownSelect':
+    // Colored badge dropdown with portal rendering
+    const options = datalabelMetadataStore.getDatalabel(metadata.datalabelKey);
+    return <BadgeDropdownSelect options={options} value={value} onChange={onChange} />;
+
   default:
     return <input type="text" />;
 }
@@ -537,8 +551,12 @@ function getEntityCodeFromMetadata(fieldMeta: FieldMetadata | undefined): string
 
 ---
 
-**Version:** 8.3.1 | **Updated:** 2025-11-26
+**Version:** 8.3.2 | **Updated:** 2025-11-27
 
 **Recent Updates:**
+- v8.3.2 (2025-11-27):
+  - Renamed ColoredDropdown → BadgeDropdownSelect
+  - Added `BadgeDropdownSelect` as valid inputType in renderEditModeFromMetadata
+  - `EntityFormContainer_viz_container` is now object `{ view?: string; edit?: string }`
 - v8.3.1 (2025-11-26): Removed all pattern detection, enforced metadata as source of truth
 - v8.3.0 (2025-11-26): Added ref_data resolution, useRefData hook

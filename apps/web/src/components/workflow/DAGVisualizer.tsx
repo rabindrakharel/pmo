@@ -17,6 +17,7 @@ import {
   Node,
   Edge,
   Position,
+  Handle,
   useNodesState,
   useEdgesState,
   Background,
@@ -24,7 +25,10 @@ import {
   MarkerType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import * as dagre from '@dagrejs/dagre';
+import dagre from '@dagrejs/dagre';
+
+// Extract Graph from dagre.graphlib (CommonJS/ESM compatibility)
+const Graph = dagre.graphlib.Graph;
 
 // ============================================================================
 // TYPES
@@ -69,13 +73,13 @@ interface StageNodeData extends Record<string, unknown> {
 function StageNode({ data }: { data: StageNodeData }) {
   const { label, isCurrent, isCompleted } = data;
 
-  // Node styling based on state
+  // Node styling based on state - all nodes have gray border
   const getNodeStyle = () => {
     if (isCurrent) {
-      return 'bg-blue-500 text-white border-blue-700 shadow-lg shadow-blue-200';
+      return 'bg-blue-500 text-white border-gray-400 shadow-lg shadow-blue-200';
     }
     if (isCompleted) {
-      return 'bg-green-100 text-green-800 border-green-500';
+      return 'bg-green-100 text-green-800 border-gray-400';
     }
     return 'bg-white text-gray-700 border-gray-300';
   };
@@ -88,7 +92,19 @@ function StageNode({ data }: { data: StageNodeData }) {
         hover:shadow-md ${getNodeStyle()}
       `}
     >
+      {/* Left handle for incoming edges */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!bg-transparent !border-0 !w-2 !h-2"
+      />
       {label.length > 14 ? `${label.substring(0, 12)}...` : label}
+      {/* Right handle for outgoing edges */}
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!bg-transparent !border-0 !w-2 !h-2"
+      />
     </div>
   );
 }
@@ -110,14 +126,14 @@ function getLayoutedElements(
   edges: Edge[],
   direction: 'TB' | 'LR' = 'LR'
 ): { nodes: Node[]; edges: Edge[] } {
-  const dagreGraph = new dagre.Graph();
+  const dagreGraph = new Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
   dagreGraph.setGraph({
     rankdir: direction,
-    nodesep: 50,
-    ranksep: 80,
-    marginx: 20,
-    marginy: 20,
+    nodesep: 20,      // Vertical spacing between nodes (reduced)
+    ranksep: 40,      // Horizontal spacing between ranks (reduced for closer nodes)
+    marginx: 10,
+    marginy: 10,
   });
 
   // Add nodes to dagre
@@ -207,8 +223,13 @@ export function DAGVisualizer({
 
     // Transform parent_ids → ReactFlow Edge[]
     const rfEdges: Edge[] = [];
+    console.log('[DAGVisualizer] Creating edges from nodes:', dagNodes.map(n => ({
+      id: n.id,
+      name: n.node_name,
+      parent_ids: n.parent_ids
+    })));
     dagNodes.forEach((node) => {
-      node.parent_ids.forEach((parentId) => {
+      (node.parent_ids || []).forEach((parentId) => {
         const isActive =
           completedNodes.has(parentId) &&
           (completedNodes.has(node.id) || node.id === currentNodeId);
@@ -217,21 +238,24 @@ export function DAGVisualizer({
           id: `e${parentId}-${node.id}`,
           source: String(parentId),
           target: String(node.id),
-          type: 'smoothstep',
-          animated: isActive,
+          type: 'default',  // Bezier curve (loose curve lines)
+          animated: false,  // No animation
           style: {
-            stroke: isActive ? '#3B82F6' : '#D1D5DB',
+            stroke: isActive ? '#3B82F6' : '#9CA3AF',  // Blue for traversed, gray for others
             strokeWidth: isActive ? 2 : 1,
+            strokeDasharray: isActive ? '0' : '5,5',  // Solid for traversed, dotted for others
           },
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            color: isActive ? '#3B82F6' : '#D1D5DB',
-            width: 20,
-            height: 20,
+            color: isActive ? '#3B82F6' : '#9CA3AF',
+            width: 16,
+            height: 16,
           },
         });
       });
     });
+
+    console.log('[DAGVisualizer] Created edges:', rfEdges.length, rfEdges.map(e => `${e.source}->${e.target}`));
 
     // Apply dagre layout
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
@@ -240,6 +264,7 @@ export function DAGVisualizer({
       'LR' // Left-to-right horizontal layout
     );
 
+    console.log('[DAGVisualizer] Layouted nodes:', layoutedNodes.length, 'edges:', layoutedEdges.length);
     return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
   }, [dagNodes, currentNodeId]);
 
@@ -270,8 +295,8 @@ export function DAGVisualizer({
     return null;
   }
 
-  // Calculate container height based on node count
-  const containerHeight = Math.max(150, Math.min(300, dagNodes.length * 50));
+  // Fixed height for consistent display
+  const containerHeight = 200;
 
   return (
     <div
@@ -287,9 +312,10 @@ export function DAGVisualizer({
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{
-          padding: 0.2,
-          minZoom: 0.5,
+          padding: 0.15,
+          minZoom: 0.3,
           maxZoom: 1.5,
+          includeHiddenNodes: true,
         }}
         proOptions={{ hideAttribution: true }}
         nodesDraggable={false}

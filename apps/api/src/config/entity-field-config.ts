@@ -22,8 +22,7 @@
  *   renderType: 'currency' | 'date' | 'timestamp' | 'boolean' | 'badge' | 'reference' | 'json' | 'progress-bar' | 'text',
  *   inputType: 'currency' | 'date' | 'datetime' | 'checkbox' | 'select' | 'reference' | 'json' | 'text' | 'textarea',
  *   format?: { symbol?: string; decimals?: number; locale?: string }, // for currency
- *   loadFromDataLabels?: boolean,  // for badge/select types
- *   loadFromEntity?: string,       // for reference types
+ *   loadFromEntity?: string,       // for reference types (datalabels detected by pattern-mapping.yaml)
  *   visible?: { EntityDataTable?: boolean; EntityDetailView?: boolean; EntityFormContainer?: boolean; KanbanView?: boolean; CalendarView?: boolean },
  *   editable?: boolean,
  *   align?: 'left' | 'center' | 'right',
@@ -41,7 +40,7 @@ export interface FieldConfig {
     decimals?: number;
     locale?: string;
   };
-  loadFromDataLabels?: boolean;
+  // v8.3.2: Datalabels detected by pattern-mapping.yaml (dl__* pattern), no explicit flag needed
   loadFromEntity?: string;
   visible?: {
     EntityDataTable?: boolean;

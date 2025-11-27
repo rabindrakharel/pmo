@@ -3,7 +3,7 @@
 > **React 19, TypeScript, Backend-Driven Metadata, Zero Pattern Detection**
 > Universal page system with 3 pages handling 27+ entity types dynamically
 
-**Version:** 8.2.0 | **Last Updated:** 2025-11-26
+**Version:** 8.3.3 | **Last Updated:** 2025-11-27
 
 ---
 
@@ -119,7 +119,7 @@ The PMO frontend uses a **three-layer component architecture** (Base → Domain 
 │                              ▼                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
 │  │                       BASE LAYER                                 │    │
-│  │  Select, MultiSelect, SearchableMultiSelect, ColoredDropdown    │    │
+│  │  Select, MultiSelect, SearchableMultiSelect, BadgeDropdownSelect│    │
 │  │  DebouncedInput, DebouncedTextarea                              │    │
 │  │                                                                  │    │
 │  │  Props: Generic value/onChange, no business logic               │    │
@@ -145,7 +145,8 @@ interface ComponentMetadata {
 interface ViewFieldMetadata {
   dtype: 'str' | 'float' | 'int' | 'bool' | 'uuid' | 'date' | 'timestamp' | 'jsonb';
   label: string;
-  renderType: string;     // 'text', 'currency', 'date', 'badge', 'boolean', 'dag', etc.
+  renderType: string;     // 'text', 'currency', 'date', 'badge', 'boolean', 'component', etc.
+  component?: string;     // Component name when renderType='component' (e.g., 'DAGVisualizer')
   behavior: {
     visible?: boolean;    // Show in component
     sortable?: boolean;   // Allow sorting (tables)
@@ -237,7 +238,7 @@ function isFormattedData(data: any): data is FormattedRow<any> {
 | EntityDataTable | `ui/EntityDataTable.tsx` | `data: FormattedRow[]`, `metadata: { entityDataTable: ComponentMetadata }` |
 | EntityFormContainer | `entity/EntityFormContainer.tsx` | `data`, `metadata: { entityFormContainer: ComponentMetadata }`, `formattedData?: FormattedRow` |
 | KanbanView | `ui/KanbanView.tsx` | `data: FormattedRow[]`, `metadata`, `config.kanban.datalabelKey` |
-| DAGVisualizer | `workflow/DAGVisualizer.tsx` | `value`, `fieldMeta: ViewFieldMetadata` |
+| DAGVisualizer | `workflow/DAGVisualizer.tsx` | `nodes: DAGNode[]`, `currentNodeId?: number`, `onNodeClick?: (nodeId) => void` |
 | DynamicChildEntityTabs | `entity/DynamicChildEntityTabs.tsx` | `parentEntityType`, `parentEntityId` |
 
 ### Domain Layer (Data-Aware)
@@ -254,7 +255,7 @@ function isFormattedData(data: any): data is FormattedRow<any> {
 |-----------|------|-------|
 | Select | `ui/Select.tsx` | `options`, `value`, `onChange` |
 | DebouncedInput | `ui/DebouncedInput.tsx` | `value`, `onChange`, `debounceMs` |
-| ColoredDropdown | `ui/ColoredDropdown.tsx` | `options`, `value`, `onChange` |
+| BadgeDropdownSelect | `ui/BadgeDropdownSelect.tsx` | `options`, `value`, `onChange`, `disabled` |
 
 ---
 
@@ -540,4 +541,11 @@ When implementing a new component that consumes metadata:
 
 ---
 
-**Version:** 8.2.0 | **Last Updated:** 2025-11-26 | **Status:** Production Ready
+**Version:** 8.3.3 | **Last Updated:** 2025-11-27 | **Status:** Production Ready
+
+**Recent Updates:**
+- v8.3.3 (2025-11-27):
+  - Updated DAGVisualizer props: `nodes: DAGNode[]`, `currentNodeId?: number`, `onNodeClick?`
+  - Added `component` property to ViewFieldMetadata for `renderType: 'component'` pattern
+  - DAGVisualizer now uses `renderType: 'component'` + `component: 'DAGVisualizer'` (not `renderType: 'dag'`)
+- v8.3.2 (2025-11-27): Renamed ColoredDropdown → BadgeDropdownSelect
