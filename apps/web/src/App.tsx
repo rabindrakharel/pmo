@@ -1,6 +1,5 @@
-import React, { Fragment, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React, { Fragment } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { NavigationHistoryProvider } from './contexts/NavigationHistoryContext';
@@ -12,23 +11,8 @@ import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPan
 import { EllipsisBounce } from './components/shared/ui/EllipsisBounce';
 
 // RxDB Database Provider (v9.0.0 - Local-First State Management)
+// Replaces QueryClientProvider from React Query
 import { DatabaseProvider } from './db/DatabaseProvider';
-
-// Garbage Collection for metadata stores (legacy - will be removed after full migration)
-import { startMetadataGC, stopMetadataGC } from './lib/cache/garbageCollection';
-
-// Create a client for React Query with industry-standard caching
-// Note: Individual hooks can override these defaults for specific data types
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30 * 1000,           // 30 seconds (stale-while-revalidate)
-      gcTime: 5 * 60 * 1000,          // 5 minutes (garbage collection)
-      refetchOnWindowFocus: true,     // Industry standard for data freshness
-      retry: 1,                       // Single retry on failure
-    },
-  },
-});
 
 // Landing & Auth Pages
 import { LandingPage } from './pages/LandingPage';
@@ -41,9 +25,6 @@ import { FormBuilderPage, FormEditPage, FormDataPreviewPage, PublicFormPage } fr
 
 // Wiki Pages
 import { WikiEditorPage } from './pages/wiki';
-
-// Artifact Pages
-// Note: Using EntityCreatePage instead of custom ArtifactUploadPage
 
 // Workflow Pages
 import { WorkflowDetailPage } from './pages/workflow';
@@ -110,56 +91,32 @@ function AppRoutes() {
   const customRouteEntities = ['artifact', 'form', 'wiki', 'marketing', 'workflow'];
 
   // Generate routes for all entities from d_entity table
-  // Only generates routes for entities that:
-  // 1. Are active
-  // 2. Not in customRouteEntities list
-  // 3. Have a config in entityConfigs (silently skips entities without configs)
   const generateEntityRoutes = () => {
-    console.log('[DEBUG] generateEntityRoutes called');
-    console.log('[DEBUG] entities.size:', entities.size);
-    console.log('[DEBUG] entities:', Array.from(entities.keys()));
-
     const entityCodes = Array.from(entities.values())
       .filter(entity => {
-        // Filter: active, not custom, and has config
         const hasConfig = !!entityConfigs[entity.code];
         const isActive = entity.active_flag;
         const isNotCustom = !customRouteEntities.includes(entity.code);
-
-        console.log(`[DEBUG] Entity: ${entity.code}, active: ${isActive}, notCustom: ${isNotCustom}, hasConfig: ${hasConfig}`);
-
         return isActive && isNotCustom && hasConfig;
       })
       .map(entity => entity.code);
 
-    console.log('[DEBUG] Generated routes for entities:', entityCodes);
-
-    return entityCodes.map(entityCode => {
-      const config = entityConfigs[entityCode];
-      // Config is guaranteed to exist due to filter above
-
-      return (
-        <Fragment key={entityCode}>
-          {/* List Route */}
-          <Route
-            path={`/${entityCode}`}
-            element={<ProtectedRoute><EntityListOfInstancesPage entityCode={entityCode} /></ProtectedRoute>}
-          />
-
-          {/* Create Route */}
-          <Route
-            path={`/${entityCode}/new`}
-            element={<ProtectedRoute><EntityCreatePage entityCode={entityCode} /></ProtectedRoute>}
-          />
-
-          {/* Detail Route - handles both overview and child tabs via URL parsing */}
-          <Route
-            path={`/${entityCode}/:id/*`}
-            element={<ProtectedRoute><EntitySpecificInstancePage entityCode={entityCode} /></ProtectedRoute>}
-          />
-        </Fragment>
-      );
-    });
+    return entityCodes.map(entityCode => (
+      <Fragment key={entityCode}>
+        <Route
+          path={`/${entityCode}`}
+          element={<ProtectedRoute><EntityListOfInstancesPage entityCode={entityCode} /></ProtectedRoute>}
+        />
+        <Route
+          path={`/${entityCode}/new`}
+          element={<ProtectedRoute><EntityCreatePage entityCode={entityCode} /></ProtectedRoute>}
+        />
+        <Route
+          path={`/${entityCode}/:id/*`}
+          element={<ProtectedRoute><EntitySpecificInstancePage entityCode={entityCode} /></ProtectedRoute>}
+        />
+      </Fragment>
+    ));
   };
 
   return (
@@ -168,47 +125,35 @@ function AppRoutes() {
       <Route path="/" element={isAuthenticated ? <Navigate to="/welcome" replace /> : <LandingPage />} />
       <Route path="/public/form/:id" element={<PublicFormPage />} />
 
-      {/* Welcome Page (Post-Signin Landing) */}
-      <Route
-        path="/welcome"
-        element={<ProtectedRoute><WelcomePage /></ProtectedRoute>}
-      />
+      {/* Welcome Page */}
+      <Route path="/welcome" element={<ProtectedRoute><WelcomePage /></ProtectedRoute>} />
 
-      {/* Shared Entity Routes (Auth Required) */}
+      {/* Shared Entity Routes */}
       <Route path="/task/shared/:code" element={<ProtectedRoute><SharedURLEntityPage entityCode="task" /></ProtectedRoute>} />
       <Route path="/form/shared/:code" element={<ProtectedRoute><SharedURLEntityPage entityCode="form" /></ProtectedRoute>} />
       <Route path="/wiki/shared/:code" element={<ProtectedRoute><SharedURLEntityPage entityCode="wiki" /></ProtectedRoute>} />
       <Route path="/artifact/shared/:code" element={<ProtectedRoute><SharedURLEntityPage entityCode="artifact" /></ProtectedRoute>} />
       <Route path="/:entityCode/shared/:code" element={<ProtectedRoute><SharedURLEntityPage /></ProtectedRoute>} />
 
-      <Route
-        path="/login"
-        element={isAuthenticated ? <Navigate to="/welcome" replace /> : <LoginForm />}
-      />
-      <Route
-        path="/signup"
-        element={isAuthenticated ? <Navigate to="/welcome" replace /> : <SignupPage />}
-      />
-      <Route
-        path="/onboarding"
-        element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>}
-      />
+      <Route path="/login" element={isAuthenticated ? <Navigate to="/welcome" replace /> : <LoginForm />} />
+      <Route path="/signup" element={isAuthenticated ? <Navigate to="/welcome" replace /> : <SignupPage />} />
+      <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
 
       {/* Auto-Generated Entity Routes */}
       {generateEntityRoutes()}
 
-      {/* Special Routes - Calendar (defaults to calendar view) */}
+      {/* Calendar */}
       <Route path="/calendar" element={<ProtectedRoute><EntityListOfInstancesPage entityCode="event" defaultView="calendar" /></ProtectedRoute>} />
       <Route path="/calendar/new" element={<ProtectedRoute><EntityCreatePage entityCode="event" /></ProtectedRoute>} />
       <Route path="/calendar/:id" element={<ProtectedRoute><EntitySpecificInstancePage entityCode="event" /></ProtectedRoute>} />
 
-      {/* Special Routes - Wiki (custom create/edit pages) */}
+      {/* Wiki */}
       <Route path="/wiki" element={<ProtectedRoute><EntityListOfInstancesPage entityCode="wiki" /></ProtectedRoute>} />
       <Route path="/wiki/new" element={<ProtectedRoute><WikiEditorPage /></ProtectedRoute>} />
       <Route path="/wiki/:id" element={<ProtectedRoute><EntitySpecificInstancePage entityCode="wiki" /></ProtectedRoute>} />
       <Route path="/wiki/:id/edit" element={<ProtectedRoute><WikiEditorPage /></ProtectedRoute>} />
 
-      {/* Special Routes - Form (custom builder/editor pages) */}
+      {/* Form */}
       <Route path="/form" element={<ProtectedRoute><EntityListOfInstancesPage entityCode="form" /></ProtectedRoute>} />
       <Route path="/form/new" element={<ProtectedRoute><FormBuilderPage /></ProtectedRoute>} />
       <Route path="/form/:id" element={<ProtectedRoute><EntitySpecificInstancePage entityCode="form" /></ProtectedRoute>}>
@@ -218,19 +163,19 @@ function AppRoutes() {
       <Route path="/form/:id/edit" element={<ProtectedRoute><FormEditPage /></ProtectedRoute>} />
       <Route path="/form/:formId/data/:submissionId" element={<ProtectedRoute><FormDataPreviewPage /></ProtectedRoute>} />
 
-      {/* Special Routes - Artifact (uses EntityCreatePage with file upload) */}
+      {/* Artifact */}
       <Route path="/artifact" element={<ProtectedRoute><EntityListOfInstancesPage entityCode="artifact" /></ProtectedRoute>} />
       <Route path="/artifact/new" element={<ProtectedRoute><EntityCreatePage entityCode="artifact" /></ProtectedRoute>} />
       <Route path="/artifact/:id" element={<ProtectedRoute><EntitySpecificInstancePage entityCode="artifact" /></ProtectedRoute>} />
 
-      {/* Special Routes - Workflow (custom detail page with graph visualization) */}
+      {/* Workflow */}
       <Route path="/workflow" element={<ProtectedRoute><EntityListOfInstancesPage entityCode="workflow" /></ProtectedRoute>} />
       <Route path="/workflow/:instance_id" element={<ProtectedRoute><WorkflowDetailPage /></ProtectedRoute>} />
 
-      {/* Special Routes - Marketing (email designer) */}
+      {/* Marketing */}
       <Route path="/marketing/:id/design" element={<ProtectedRoute><EmailDesignerPage /></ProtectedRoute>} />
 
-      {/* Special Routes - Chat (AI Assistant Widget) */}
+      {/* Chat */}
       <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
       <Route path="/voice-chat" element={<ProtectedRoute><VoiceChatPage /></ProtectedRoute>} />
 
@@ -238,119 +183,21 @@ function AppRoutes() {
       <Route path="/userguide" element={<ProtectedRoute><UserGuidePage /></ProtectedRoute>} />
       <Route path="/developers" element={<ProtectedRoute><DevelopersPage /></ProtectedRoute>} />
 
-      {/* Profile Navigation Pages */}
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <ProfilePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/labels"
-        element={
-          <ProtectedRoute>
-            <LabelsPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute>
-            <SettingsOverviewPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/settings/data-labels"
-        element={
-          <ProtectedRoute>
-            <DataLabelPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/settings/data-labels-viz"
-        element={
-          <ProtectedRoute>
-            <DataLabelsVisualizationPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/linkage"
-        element={
-          <ProtectedRoute>
-            <LinkagePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/entity-mapping"
-        element={
-          <ProtectedRoute>
-            <EntityLinkagePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/integrations"
-        element={
-          <ProtectedRoute>
-            <IntegrationsPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/rbac"
-        element={
-          <ProtectedRoute>
-            <RBACOverviewPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/setting/overview"
-        element={
-          <ProtectedRoute>
-            <SettingsOverviewPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/setting/:category"
-        element={
-          <ProtectedRoute>
-            <SettingDetailPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/entity-designer/:entityCode?"
-        element={
-          <ProtectedRoute>
-            <EntityDesignerPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/security"
-        element={
-          <ProtectedRoute>
-            <SecurityPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/billing"
-        element={
-          <ProtectedRoute>
-            <BillingPage />
-          </ProtectedRoute>
-        }
-      />
+      {/* Profile & Settings */}
+      <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+      <Route path="/labels" element={<ProtectedRoute><LabelsPage /></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><SettingsOverviewPage /></ProtectedRoute>} />
+      <Route path="/settings/data-labels" element={<ProtectedRoute><DataLabelPage /></ProtectedRoute>} />
+      <Route path="/settings/data-labels-viz" element={<ProtectedRoute><DataLabelsVisualizationPage /></ProtectedRoute>} />
+      <Route path="/linkage" element={<ProtectedRoute><LinkagePage /></ProtectedRoute>} />
+      <Route path="/entity-mapping" element={<ProtectedRoute><EntityLinkagePage /></ProtectedRoute>} />
+      <Route path="/integrations" element={<ProtectedRoute><IntegrationsPage /></ProtectedRoute>} />
+      <Route path="/rbac" element={<ProtectedRoute><RBACOverviewPage /></ProtectedRoute>} />
+      <Route path="/setting/overview" element={<ProtectedRoute><SettingsOverviewPage /></ProtectedRoute>} />
+      <Route path="/setting/:category" element={<ProtectedRoute><SettingDetailPage /></ProtectedRoute>} />
+      <Route path="/entity-designer/:entityCode?" element={<ProtectedRoute><EntityDesignerPage /></ProtectedRoute>} />
+      <Route path="/security" element={<ProtectedRoute><SecurityPage /></ProtectedRoute>} />
+      <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/welcome" replace />} />
     </Routes>
@@ -374,34 +221,25 @@ function DatabaseWrapper({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
-  // Start garbage collection for metadata stores on mount
-  // TODO: Remove after full migration to RxDB (Phase 5)
-  useEffect(() => {
-    startMetadataGC();
-    return () => stopMetadataGC();
-  }, []);
-
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <DatabaseWrapper>
-          <EntityMetadataProvider>
-            <Router>
-              <SidebarProvider>
-                <SettingsProvider>
-                  <NavigationHistoryProvider>
-                    <EntityPreviewProvider>
-                      <AppRoutes />
-                      <EntityPreviewPanel />
-                    </EntityPreviewProvider>
-                  </NavigationHistoryProvider>
-                </SettingsProvider>
-              </SidebarProvider>
-            </Router>
-          </EntityMetadataProvider>
-        </DatabaseWrapper>
-      </AuthProvider>
-    </QueryClientProvider>
+    <AuthProvider>
+      <DatabaseWrapper>
+        <EntityMetadataProvider>
+          <Router>
+            <SidebarProvider>
+              <SettingsProvider>
+                <NavigationHistoryProvider>
+                  <EntityPreviewProvider>
+                    <AppRoutes />
+                    <EntityPreviewPanel />
+                  </EntityPreviewProvider>
+                </NavigationHistoryProvider>
+              </SettingsProvider>
+            </SidebarProvider>
+          </Router>
+        </EntityMetadataProvider>
+      </DatabaseWrapper>
+    </AuthProvider>
   );
 }
 

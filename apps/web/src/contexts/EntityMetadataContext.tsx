@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useMe
 import { getIconComponent } from '../lib/iconMapping';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from './AuthContext';
-import { useEntityCodeMetadataStore } from '../stores/entityCodeMetadataStore';
 
 interface EntityMetadata {
   code: string;
@@ -42,11 +41,11 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
 
   // ============================================================================
-  // ZUSTAND CACHE INTEGRATION
+  // v9.0.0: RxDB ARCHITECTURE
   // ============================================================================
-  // Entity types are cached in entityCodeMetadataStore with 30-minute TTL
-  // This provides cross-component cache sharing and persistence
-  // ✅ INDUSTRY STANDARD: Use getState() to avoid store subscription re-renders
+  // Entity types will be synced to RxDB via replication.
+  // This context fetches from API for backward compatibility.
+  // Future: Replace with useEntityTypes() hook from RxDB.
   // ============================================================================
 
   useEffect(() => {
@@ -71,34 +70,9 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
           return;
         }
 
-        // Check Zustand cache first (30-minute TTL) - use getState() to avoid subscription
-        const cachedTypes = useEntityCodeMetadataStore.getState().getEntityCodes();
-        console.log('[EntityMetadataContext] Cached types:', cachedTypes?.length || 0);
-        if (cachedTypes && cachedTypes.length > 0) {
-          console.log('[EntityMetadataContext] Using cached entity types from entityCodeMetadataStore');
-          console.log('[EntityMetadataContext] Cached entity codes:', cachedTypes.map((e: any) => e.code));
-          const entityMap = new Map<string, EntityMetadata>();
-          cachedTypes.forEach((entity: any) => {
-            entityMap.set(entity.code, {
-              code: entity.code,
-              name: entity.name,
-              ui_label: entity.label,
-              ui_icon: entity.icon,
-              icon: getIconComponent(entity.icon),
-              display_order: entity.display_order || 0,
-              active_flag: entity.active_flag,
-            });
-          });
-          console.log('[EntityMetadataContext] Entity map size:', entityMap.size);
-          console.log('[EntityMetadataContext] Entity map keys:', Array.from(entityMap.keys()));
-          setEntities(entityMap);
-          setLoading(false);
-          return;
-        }
-
         console.log('[EntityMetadataContext] Fetching entity metadata from API...');
 
-        // Fetch from API if cache miss
+        // Fetch from API
         const response = await fetch(`${API_BASE_URL}/api/v1/entity/codes`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -122,9 +96,6 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
             });
           });
 
-          // Cache in entityCodeMetadataStore (30-minute TTL) - use getState() inside callback
-          useEntityCodeMetadataStore.getState().setEntityCodes(data);
-
           setEntities(entityMap);
           console.log(`[EntityMetadataContext] Loaded ${entityMap.size} entity types from API`);
         } else {
@@ -138,7 +109,7 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
     };
 
     fetchEntityMetadata();
-  }, [isAuthenticated, isAuthLoading]); // Re-fetch when auth state changes
+  }, [isAuthenticated, isAuthLoading]);
 
   const getEntityMetadata = (entityCode: string): EntityMetadata | undefined => {
     return entities.get(entityCode);

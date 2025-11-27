@@ -1,10 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { authApi, settingApi, User } from '../lib/api';
-import { clearAllMetadataStores } from '../lib/cache/garbageCollection';
-import { clearNormalizedStore } from '../lib/cache/normalizedCache';
-import { useDatalabelMetadataStore } from '../stores/datalabelMetadataStore';
-import { prefetchEntityInstances } from '../lib/hooks';
+import { authApi, User } from '../lib/api';
+import { destroyDatabase } from '../db';
 
 interface AuthState {
   user: User | null;
@@ -28,48 +24,12 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const queryClient = useQueryClient();
   const [state, setState] = useState<AuthState>({
     user: null,
     token: null,
     isLoading: true,
     isAuthenticated: false,
   });
-
-  // Helper function to load and cache datalabels
-  const loadDatalabels = async () => {
-    try {
-      const store = useDatalabelMetadataStore.getState();
-
-      // Check if we have valid cached datalabels
-      const cachedDatalabels = store.getAllDatalabels();
-
-      if (cachedDatalabels && Object.keys(cachedDatalabels).length > 0) {
-        console.log(
-          `%c[Auth] ✓ Using cached datalabels (${Object.keys(cachedDatalabels).length} items)`,
-          'color: #51cf66; font-weight: bold'
-        );
-        return;
-      }
-
-      // Cache is empty or expired - fetch fresh data
-      console.log('%c[Auth] Fetching all datalabels...', 'color: #845ef7; font-weight: bold');
-      const response = await settingApi.getAll();
-      const datalabels = response.data || [];
-
-      // Cache all datalabels in the store (persisted to localStorage)
-      store.setAllDatalabels(datalabels);
-
-      console.log(
-        `%c[Auth] ✓ Cached ${datalabels.length} datalabels`,
-        'color: #51cf66; font-weight: bold',
-        { count: datalabels.length }
-      );
-    } catch (error) {
-      console.error('[Auth] Failed to load datalabels:', error);
-      // Don't throw - datalabels are enhancement, not critical for auth
-    }
-  };
 
   const login = async (email: string, password: string) => {
     try {
@@ -85,19 +45,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isAuthenticated: true,
       });
 
-      // Load and cache all datalabels after successful login
-      await loadDatalabels();
-
-      // v8.3.2: Prefetch common entity instances for dropdown caches
-      // This populates the unified ref_data_entityInstance cache
-      prefetchEntityInstances(queryClient, [
-        'employee',
-        'project',
-        'business',
-        'office',
-        'role',
-        'cust',
-      ]).catch((err) => console.warn('[Auth] Entity instance prefetch failed:', err));
+      // v9.0.0: Data loading handled by RxDB replication
+      // DatabaseProvider will start replication with the auth token
+      console.log('%c[Auth] Login successful, RxDB replication will sync data', 'color: #51cf66; font-weight: bold');
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -114,10 +64,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       localStorage.removeItem('auth_token');
 
-      // Clear all caches on logout for security and memory hygiene
-      clearAllMetadataStores();           // Zustand metadata stores
-      clearNormalizedStore(queryClient);   // Normalized entity cache
-      queryClient.clear();                 // React Query cache
+      // v9.0.0: Clear RxDB database on logout for security
+      try {
+        await destroyDatabase();
+        console.log('%c[Auth] RxDB database cleared on logout', 'color: #51cf66');
+      } catch (err) {
+        console.error('[Auth] Failed to clear RxDB database:', err);
+      }
 
       setState({
         user: null,
@@ -145,18 +98,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoading: false,
       });
 
-      // Load and cache datalabels (will use cache if valid)
-      await loadDatalabels();
-
-      // v8.3.2: Prefetch common entity instances for dropdown caches
-      prefetchEntityInstances(queryClient, [
-        'employee',
-        'project',
-        'business',
-        'office',
-        'role',
-        'cust',
-      ]).catch((err) => console.warn('[Auth] Entity instance prefetch failed:', err));
+      // v9.0.0: Data loading handled by RxDB replication
+      console.log('%c[Auth] User refreshed, RxDB replication will sync data', 'color: #51cf66; font-weight: bold');
     } catch (error) {
       console.error('Failed to refresh user:', error);
       localStorage.removeItem('auth_token');

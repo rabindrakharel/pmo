@@ -19,8 +19,8 @@
  */
 
 import { useMemo, useCallback } from 'react';
-import type { RefData } from './useEntityQuery';
 import {
+  type RefData,
   resolveEntityName,
   resolveEntityNames,
   resolveFieldWithMetadata,

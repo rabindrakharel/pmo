@@ -21,9 +21,18 @@ import {
 import { colorCodeToTailwindClass } from '../../../lib/formatters/valueFormatters';
 import type { FormattedRow } from '../../../lib/formatters';
 import { extractViewType, extractEditType, isValidComponentMetadata } from '../../../lib/formatters';
-import { useDatalabelMetadataStore } from '../../../stores/datalabelMetadataStore';
 // v8.3.0: RefData for entity reference resolution
 import { useRefData, type RefData } from '../../../lib/hooks/useRefData';
+
+// ============================================================================
+// v9.0.0: RxDB Migration Shim
+// ============================================================================
+const datalabelShim = {
+  getState: () => ({
+    getDatalabel: (_key: string) => [] as any[]
+  })
+};
+const useDatalabelMetadataStore = datalabelShim;
 
 import { MetadataTable } from './MetadataTable';
 import { QuoteItemsRenderer } from './QuoteItemsRenderer';

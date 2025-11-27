@@ -20,11 +20,26 @@
  * }
  */
 
-import type { RefData } from './hooks/useEntityQuery';
-
 // ============================================================================
 // Types
 // ============================================================================
+
+/**
+ * RefData lookup table structure (v8.3.0+)
+ *
+ * Maps entity code → UUID → display name
+ *
+ * Example:
+ * {
+ *   "employee": { "uuid-123": "James Miller", "uuid-456": "Sarah Johnson" },
+ *   "business": { "uuid-bus": "Huron Home Services" }
+ * }
+ */
+export interface RefData {
+  [entityCode: string]: {
+    [uuid: string]: string;
+  };
+}
 
 /**
  * Resolved reference result

@@ -39,8 +39,24 @@ import {
   type BackendFieldMetadata
 } from '../../../lib/frontEndFormatterService';
 import { colorCodeToTailwindClass } from '../../../lib/formatters/valueFormatters';
-import { useDatalabelMetadataStore } from '../../../stores/datalabelMetadataStore';
 import type { EntityMetadata } from '../../../lib/api';
+
+// ============================================================================
+// v9.0.0: RxDB Migration Shim
+// ============================================================================
+// Datalabel lookups now use RxDB hooks. For backward compatibility during
+// migration, we provide a shim that returns empty options.
+// TODO: Update parent components to pass datalabel options as props
+// ============================================================================
+
+const datalabelShim = {
+  getState: () => ({
+    getDatalabel: (_key: string) => [] as any[]
+  })
+};
+
+// Shim for backward compatibility - returns empty arrays
+const useDatalabelMetadataStore = datalabelShim;
 
 // v8.2.0: Format-at-fetch with required nested metadata structure
 import { type FormattedRow, isFormattedData, extractViewType, extractEditType, isValidComponentMetadata } from '../../../lib/formatters';

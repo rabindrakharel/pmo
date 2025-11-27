@@ -6,12 +6,17 @@
  * Each formatter is a pure function that takes a value and metadata,
  * and returns a FormattedValue with display string and optional style.
  *
- * Colors for datalabels are looked up from the datalabelMetadataStore
- * at fetch time, not render time.
+ * v9.0.0: Datalabel colors are now passed as parameters or looked up
+ * from RxDB via useDatalabel hook in the calling component.
  */
 
-import { useDatalabelMetadataStore } from '../../stores/datalabelMetadataStore';
 import type { FieldMetadata, FormattedValue } from './types';
+
+// Type for datalabel options (from RxDB or API)
+interface DatalabelOption {
+  name: string;
+  color_code?: string | null;
+}
 
 /**
  * Convert color code from database to Tailwind badge classes
@@ -71,10 +76,18 @@ export function formatCurrency(
 
 /**
  * Format badge/datalabel values with color lookup
+ *
+ * v9.0.0: Accepts datalabel options as parameter instead of store lookup.
+ * Caller should provide options from useDatalabel() hook.
+ *
+ * @param value - The value to format
+ * @param metadata - Field metadata
+ * @param datalabelOptions - Optional array of datalabel options from RxDB/API
  */
 export function formatBadge(
   value: any,
-  metadata?: FieldMetadata
+  metadata?: FieldMetadata,
+  datalabelOptions?: DatalabelOption[]
 ): FormattedValue {
   if (value === null || value === undefined || value === '') {
     return { display: '—' };
@@ -83,15 +96,12 @@ export function formatBadge(
   const displayValue = String(value);
   let color = 'bg-gray-100 text-gray-600'; // Default
 
-  // Look up color from datalabel store
-  if (metadata?.datalabelKey) {
-    const options = useDatalabelMetadataStore.getState().getDatalabel(metadata.datalabelKey);
-    if (options) {
-      const match = options.find(opt => opt.name === value);
-      if (match?.color_code) {
-        // ✅ Convert color_code (e.g., 'blue') to Tailwind classes
-        color = colorCodeToTailwindClass(match.color_code);
-      }
+  // Look up color from provided datalabel options
+  if (datalabelOptions) {
+    const match = datalabelOptions.find(opt => opt.name === value);
+    if (match?.color_code) {
+      // Convert color_code (e.g., 'blue') to Tailwind classes
+      color = colorCodeToTailwindClass(match.color_code);
     }
   }
 

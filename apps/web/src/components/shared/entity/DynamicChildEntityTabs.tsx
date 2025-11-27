@@ -1,7 +1,6 @@
 import React from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { getIconComponent } from '../../../lib/iconMapping';
-import { useEntityCodeMetadataStore } from '../../../stores/entityCodeMetadataStore';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -92,23 +91,22 @@ export function DynamicChildEntityTabs({
   );
 }
 
-// Hook for generating tabs from centralized entity metadata API
-// Uses Zustand cache (entityCodeMetadataStore) to avoid duplicate API calls
+// ============================================================================
+// v9.0.0: RxDB ARCHITECTURE
+// ============================================================================
+// Entity data fetched directly from API.
+// Future: Use useEntityTypes() from RxDB hooks for cached data.
+// ============================================================================
+
+/**
+ * Hook for generating tabs from centralized entity metadata API
+ * v9.0.0: Fetches directly from API (RxDB replication handles caching)
+ */
 export function useDynamicChildEntityTabs(parentType: string, parentId: string) {
   const [tabs, setTabs] = React.useState<HeaderTab[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  // ✅ INDUSTRY STANDARD: Get store method once and use ref to avoid dependency changes
-  // Store methods are stable but selector creates new reference - use ref pattern
-  const getEntityByCodeRef = React.useRef(useEntityCodeMetadataStore.getState().getEntityByCode);
-
   React.useEffect(() => {
-    // Update ref if store method changes (unlikely but safe)
-    getEntityByCodeRef.current = useEntityCodeMetadataStore.getState().getEntityByCode;
-  }, []);
-
-  React.useEffect(() => {
-    const getEntityByCode = getEntityByCodeRef.current;
     const fetchChildTabs = async () => {
       try {
         setLoading(true);
@@ -128,41 +126,8 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
           return;
         }
 
-        // ✅ CHECK ZUSTAND CACHE FIRST (30-minute TTL)
-        // This eliminates duplicate API calls when navigating between entity details
-        const cachedEntity = getEntityByCode(parentType);
-        if (cachedEntity && cachedEntity.child_entity_codes) {
-          console.log(`%c[DynamicChildEntityTabs] Cache HIT for ${parentType}`, 'color: #51cf66; font-weight: bold');
-
-          // Build enriched child_entities from cached entity codes
-          const enrichedChildEntities = cachedEntity.child_entity_codes
-            .map((childCode: string) => {
-              const childEntity = getEntityByCode(childCode);
-              if (childEntity) {
-                return {
-                  entity: childEntity.code,
-                  ui_label: childEntity.label || childEntity.name,
-                  ui_icon: childEntity.icon,
-                  order: 999
-                };
-              }
-              return null;
-            })
-            .filter(Boolean);
-
-          // Build data object with enriched child_entities
-          const enrichedData = {
-            ...cachedEntity,
-            ui_icon: cachedEntity.icon,
-            child_entities: enrichedChildEntities
-          };
-
-          buildTabsFromData(enrichedData, parentType, parentId, setTabs, setLoading);
-          return;
-        }
-
-        // ✅ CACHE MISS: Fetch from API
-        console.log(`%c[DynamicChildEntityTabs] Cache MISS for ${parentType}, fetching from API`, 'color: #fcc419');
+        // Fetch from API
+        console.log(`%c[DynamicChildEntityTabs] Fetching ${parentType} from API`, 'color: #845ef7');
         const response = await fetch(`${API_BASE_URL}/api/v1/entity/codes/${parentType}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -177,7 +142,6 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
           // Fallback: show overview only if API call fails
           console.warn(`API call failed with status ${response.status}: ${response.statusText}, showing overview only`);
 
-          // If unauthorized, the token might be invalid
           if (response.status === 401) {
             console.warn('Unauthorized - token might be expired or invalid');
           }
@@ -210,12 +174,12 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
     if (parentId) {
       fetchChildTabs();
     }
-  }, [parentType, parentId]); // getEntityByCode accessed via ref - no dependency needed
+  }, [parentType, parentId]);
 
   return { tabs, loading };
 }
 
-// Helper function to build tabs from entity data (cached or fetched)
+// Helper function to build tabs from entity data
 function buildTabsFromData(
   data: any,
   parentType: string,
@@ -238,11 +202,10 @@ function buildTabsFromData(
   }
 
   // Convert API data to tab format - child_entities are already ordered
-  // IMPORTANT: Use ui_icon from child_entities (from entity table)
   const generatedTabs: HeaderTab[] = data.child_entities.map((tab: any) => ({
     id: tab.entity,
     label: tab.ui_label,
-    icon: getIconComponent(tab.ui_icon), // ✅ Uses API-provided icon from entity.ui_icon
+    icon: getIconComponent(tab.ui_icon),
     path: `/${parentType}/${parentId}/${tab.entity}`,
     disabled: false,
     order: tab.order || 999
@@ -254,7 +217,7 @@ function buildTabsFromData(
       id: 'overview',
       label: 'Overview',
       path: `/${parentType}/${parentId}`,
-      icon: getIconComponent(data.ui_icon || data.icon), // ✅ Uses parent icon from API
+      icon: getIconComponent(data.ui_icon || data.icon),
     },
     ...generatedTabs
   ]);

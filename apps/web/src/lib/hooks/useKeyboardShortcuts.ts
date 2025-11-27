@@ -1,5 +1,5 @@
 /**
- * Keyboard Shortcuts Hook
+ * Keyboard Shortcuts Hook (v9.0.0)
  *
  * Provides keyboard shortcut handling for entity editing:
  * - Ctrl+Z / Cmd+Z: Undo
@@ -7,12 +7,10 @@
  * - Ctrl+S / Cmd+S: Save
  * - Escape: Cancel edit
  *
- * Integrates with useEntityEditStore for state management.
+ * v9.0.0: Updated to work with RxDB edit state hooks
  */
 
 import { useEffect, useCallback, useMemo, useRef } from 'react';
-import { useEntityEditStore } from '../../stores/useEntityEditStore';
-import { useShallow } from 'zustand/shallow';
 
 interface KeyboardShortcutOptions {
   /** Enable undo shortcut (Ctrl+Z / Cmd+Z) */
@@ -27,23 +25,33 @@ interface KeyboardShortcutOptions {
   onSave?: () => Promise<void> | void;
   /** Custom cancel handler (overrides default) */
   onCancel?: () => void;
+  /** Custom undo handler */
+  onUndo?: () => Promise<void> | void;
+  /** Custom redo handler */
+  onRedo?: () => Promise<void> | void;
   /** Only active when editing */
   activeWhenEditing?: boolean;
+  /** Is currently editing */
+  isEditing?: boolean;
+  /** Has changes to save */
+  hasChanges?: boolean;
 }
 
 /**
  * Hook for handling keyboard shortcuts in entity editing
  *
- * @example
- * // Basic usage with edit store
- * useKeyboardShortcuts();
+ * v9.0.0: Updated to work with RxDB. Pass edit state from useEntityEditState().
  *
  * @example
- * // Custom save handler
+ * const { isEditing, hasChanges, undo, redo, saveChanges, cancelEdit } = useEntityEditState(entityType, entityId);
+ *
  * useKeyboardShortcuts({
- *   onSave: async () => {
- *     await customSaveLogic();
- *   },
+ *   isEditing,
+ *   hasChanges,
+ *   onUndo: undo,
+ *   onRedo: redo,
+ *   onSave: saveChanges,
+ *   onCancel: cancelEdit,
  *   activeWhenEditing: true,
  * });
  */
@@ -55,170 +63,130 @@ export function useKeyboardShortcuts(options: KeyboardShortcutOptions = {}) {
     enableEscape = true,
     onSave,
     onCancel,
+    onUndo,
+    onRedo,
     activeWhenEditing = true,
+    isEditing = false,
+    hasChanges = false,
   } = options;
 
-  // ✅ INDUSTRY STANDARD: Use refs to store callbacks to avoid dependency changes
-  // This prevents re-renders when parent callback references change
-  const onSaveRef = useRef(onSave);
-  const onCancelRef = useRef(onCancel);
-  useEffect(() => {
-    onSaveRef.current = onSave;
-    onCancelRef.current = onCancel;
-  }, [onSave, onCancel]);
+  // Track if action is in progress to prevent double-triggers
+  const actionInProgress = useRef(false);
 
-  // ✅ INDUSTRY STANDARD: Use useShallow selector to prevent unnecessary re-renders
-  // Only subscribe to the specific state slices and actions needed
-  const {
-    isEditing,
-    undoStackLength,
-    redoStackLength,
-    dirtyFieldsSize,
-    undo,
-    redo,
-    saveChanges,
-    cancelEdit,
-  } = useEntityEditStore(useShallow(state => ({
-    isEditing: state.isEditing,
-    undoStackLength: state.undoStack.length,
-    redoStackLength: state.redoStack.length,
-    dirtyFieldsSize: state.dirtyFields.size,
-    undo: state.undo,
-    redo: state.redo,
-    saveChanges: state.saveChanges,
-    cancelEdit: state.cancelEdit,
-  })));
+  // Check if we're inside an input/textarea
+  const isTextInput = useCallback((element: Element | null): boolean => {
+    if (!element) return false;
+    const tagName = element.tagName.toLowerCase();
+    return (
+      tagName === 'input' ||
+      tagName === 'textarea' ||
+      (element as HTMLElement).isContentEditable
+    );
+  }, []);
 
-  // Derive booleans from primitive values (stable computation)
-  const canUndo = undoStackLength > 0;
-  const canRedo = redoStackLength > 0;
-  const hasChanges = dirtyFieldsSize > 0;
+  const handleKeyDown = useCallback(async (event: KeyboardEvent) => {
+    // Skip if action in progress
+    if (actionInProgress.current) return;
 
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      // Only handle shortcuts when editing (if configured)
-      if (activeWhenEditing && !isEditing) {
-        return;
-      }
+    // Skip if activeWhenEditing is true but we're not editing
+    if (activeWhenEditing && !isEditing) return;
 
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-      const modifier = isMac ? event.metaKey : event.ctrlKey;
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const cmdOrCtrl = isMac ? event.metaKey : event.ctrlKey;
 
-      // Ctrl+Z / Cmd+Z: Undo
-      if (enableUndo && modifier && event.key === 'z' && !event.shiftKey) {
-        if (canUndo) {
-          event.preventDefault();
-          undo();
-          console.log('[Keyboard] Undo triggered');
-        }
-        return;
-      }
-
-      // Ctrl+Shift+Z / Cmd+Shift+Z: Redo
-      if (enableRedo && modifier && event.key === 'z' && event.shiftKey) {
-        if (canRedo) {
-          event.preventDefault();
-          redo();
-          console.log('[Keyboard] Redo triggered');
-        }
-        return;
-      }
-
-      // Ctrl+Y / Cmd+Y: Redo (alternative)
-      if (enableRedo && modifier && event.key === 'y') {
-        if (canRedo) {
-          event.preventDefault();
-          redo();
-          console.log('[Keyboard] Redo triggered (Ctrl+Y)');
-        }
-        return;
-      }
-
-      // Ctrl+S / Cmd+S: Save
-      if (enableSave && modifier && event.key === 's') {
+    // Undo: Cmd+Z (Mac) or Ctrl+Z (Windows)
+    if (enableUndo && cmdOrCtrl && event.key === 'z' && !event.shiftKey) {
+      // Allow undo in text inputs as native browser behavior
+      if (!isTextInput(document.activeElement) && onUndo) {
         event.preventDefault();
-
-        if (onSaveRef.current) {
-          onSaveRef.current();
-        } else if (hasChanges) {
-          saveChanges();
+        actionInProgress.current = true;
+        try {
+          await onUndo();
+        } finally {
+          actionInProgress.current = false;
         }
-        console.log('[Keyboard] Save triggered');
-        return;
       }
+      return;
+    }
 
-      // Escape: Cancel
-      if (enableEscape && event.key === 'Escape') {
-        if (onCancelRef.current) {
-          onCancelRef.current();
-        } else {
-          cancelEdit();
+    // Redo: Cmd+Shift+Z (Mac) or Ctrl+Shift+Z (Windows)
+    if (enableRedo && cmdOrCtrl && event.key === 'z' && event.shiftKey) {
+      if (!isTextInput(document.activeElement) && onRedo) {
+        event.preventDefault();
+        actionInProgress.current = true;
+        try {
+          await onRedo();
+        } finally {
+          actionInProgress.current = false;
         }
-        console.log('[Keyboard] Cancel triggered');
-        return;
       }
-    },
-    [
-      isEditing,
-      activeWhenEditing,
-      enableUndo,
-      enableRedo,
-      enableSave,
-      enableEscape,
-      canUndo,
-      canRedo,
-      undo,
-      redo,
-      saveChanges,
-      cancelEdit,
-      hasChanges,
-      // onSave and onCancel accessed via refs - no dependency needed
-    ]
-  );
+      return;
+    }
+
+    // Save: Cmd+S (Mac) or Ctrl+S (Windows)
+    if (enableSave && cmdOrCtrl && event.key === 's') {
+      event.preventDefault(); // Always prevent browser save dialog
+      if (hasChanges && onSave) {
+        actionInProgress.current = true;
+        try {
+          await onSave();
+        } finally {
+          actionInProgress.current = false;
+        }
+      }
+      return;
+    }
+
+    // Escape: Cancel edit
+    if (enableEscape && event.key === 'Escape') {
+      if (onCancel) {
+        event.preventDefault();
+        onCancel();
+      }
+      return;
+    }
+  }, [
+    activeWhenEditing,
+    isEditing,
+    enableUndo,
+    enableRedo,
+    enableSave,
+    enableEscape,
+    onSave,
+    onCancel,
+    onUndo,
+    onRedo,
+    hasChanges,
+    isTextInput
+  ]);
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  // Return utility values and functions for manual triggering
-  // ✅ Now using stable boolean values instead of function calls
-  return {
-    triggerUndo: undo,
-    triggerRedo: redo,
-    triggerSave: onSaveRef.current || saveChanges,
-    triggerCancel: onCancelRef.current || cancelEdit,
-    canUndo,
-    canRedo,
-    hasChanges,
-    isEditing,
-  };
+  // Return available shortcuts for UI hints
+  return useMemo(() => ({
+    shortcuts: {
+      undo: enableUndo ? (navigator.platform.toUpperCase().indexOf('MAC') >= 0 ? '⌘Z' : 'Ctrl+Z') : null,
+      redo: enableRedo ? (navigator.platform.toUpperCase().indexOf('MAC') >= 0 ? '⌘⇧Z' : 'Ctrl+Shift+Z') : null,
+      save: enableSave ? (navigator.platform.toUpperCase().indexOf('MAC') >= 0 ? '⌘S' : 'Ctrl+S') : null,
+      cancel: enableEscape ? 'Esc' : null,
+    }
+  }), [enableUndo, enableRedo, enableSave, enableEscape]);
 }
 
 /**
- * Hook for displaying keyboard shortcut hints
- *
- * @example
- * const { shortcuts, formatShortcut } = useShortcutHints();
- * // Returns: "Cmd+Z" on Mac, "Ctrl+Z" on Windows
+ * Hook for displaying shortcut hints in UI
  */
 export function useShortcutHints() {
-  const isMac = typeof navigator !== 'undefined'
-    ? navigator.platform.toUpperCase().indexOf('MAC') >= 0
-    : false;
+  const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
-  const modifier = isMac ? 'Cmd' : 'Ctrl';
-
-  const shortcuts = {
-    undo: `${modifier}+Z`,
-    redo: `${modifier}+Shift+Z`,
-    save: `${modifier}+S`,
-    cancel: 'Escape',
-  };
-
-  const formatShortcut = (action: keyof typeof shortcuts) => shortcuts[action];
-
-  return { shortcuts, formatShortcut, isMac };
+  return useMemo(() => ({
+    undo: isMac ? '⌘Z' : 'Ctrl+Z',
+    redo: isMac ? '⌘⇧Z' : 'Ctrl+Shift+Z',
+    save: isMac ? '⌘S' : 'Ctrl+S',
+    cancel: 'Esc',
+    modifier: isMac ? '⌘' : 'Ctrl',
+  }), [isMac]);
 }

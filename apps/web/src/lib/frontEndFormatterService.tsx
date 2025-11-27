@@ -51,10 +51,12 @@ import React from 'react';
 import { Copy, Check } from 'lucide-react';
 import { formatters } from './config/locale';
 import { DebouncedInput, DebouncedTextarea } from '../components/shared/ui/DebouncedInput';
-import { useDatalabelMetadataStore } from '../stores/datalabelMetadataStore';
 import { BadgeDropdownSelect, type BadgeDropdownSelectOption } from '../components/shared/ui/BadgeDropdownSelect';
 import { EntitySelect } from '../components/shared/ui/EntitySelect';
 import { colorCodeToTailwindClass } from './formatters/valueFormatters';
+
+// v9.0.0: Datalabel lookups now use RxDB hooks in components
+// This service provides pure formatting without store dependencies
 
 // ============================================================================
 // BACKEND METADATA TYPES
@@ -369,6 +371,8 @@ export function getAllFieldMetadataFromResponse(response: ApiResponseWithMetadat
 
 /**
  * Render field in EDIT mode using backend metadata
+ *
+ * v9.0.0: Added extraOptions for passing datalabel options from RxDB hooks
  */
 export function renderEditModeFromMetadata(
   value: any,
@@ -378,6 +382,9 @@ export function renderEditModeFromMetadata(
     required?: boolean;
     disabled?: boolean;
     className?: string;
+  },
+  extraOptions?: {
+    datalabelOptions?: DatalabelOption[];
   }
 ): React.ReactElement {
   const { required, disabled, className = '' } = options || {};
@@ -489,14 +496,13 @@ export function renderEditModeFromMetadata(
     case 'select': {
       // Check if this is a datalabel field (lookupSource === 'datalabel' or has datalabelKey)
       if (metadata.datalabelKey || metadata.lookupSource === 'datalabel') {
-        const datalabelKey = metadata.datalabelKey || metadata.key;
-
-        // Load options from datalabelMetadataStore (cached at login)
-        const datalabelOptions = useDatalabelMetadataStore.getState().getDatalabel(datalabelKey);
+        // v9.0.0: Datalabel options should be passed via extraOptions parameter
+        // Components using this function should call useDatalabel() hook and pass options
+        const datalabelOptions = extraOptions?.datalabelOptions;
 
         if (datalabelOptions && datalabelOptions.length > 0) {
           // Convert datalabel options to BadgeDropdownSelect format with Tailwind color classes
-          const coloredOptions: BadgeDropdownSelectOption[] = datalabelOptions.map(opt => ({
+          const coloredOptions: BadgeDropdownSelectOption[] = datalabelOptions.map((opt: DatalabelOption) => ({
             value: opt.name,
             label: opt.name,
             metadata: {
