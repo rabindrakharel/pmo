@@ -8,9 +8,10 @@
 - **Database**: PostgreSQL 14+ with 50 tables (46 DDL files)
 - **Backend**: Fastify v5, TypeScript ESM, JWT, 45 API modules
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4
-- **State Management**: Zustand stores + TanStack Query (format-at-read pattern)
+- **State Management**: **RxDB + RxState** (v9.0.0) | Legacy: Zustand + TanStack Query (v8.x)
+- **Local Database**: RxDB with Dexie/IndexedDB (offline-first, persistent)
 - **Infrastructure**: AWS EC2/S3/Lambda, Terraform, Docker
-- **Version**: 8.3.2 (ref_data_entityInstance Pattern + Metadata-Based Resolution + BadgeDropdownSelect)
+- **Version**: 9.0.0 (RxDB + RxState Local-First Architecture)
 
 ## Critical Operations
 
@@ -430,89 +431,106 @@ fastify.get('/api/v1/project', async (request, reply) => {
 
 ---
 
-## 5. State Management (Frontend) - v8.3.2 Format-at-Read + ref_data_entityInstance
+## 5. State Management (Frontend) - v9.0.0 RxDB + RxState
 
-### Architecture
+### Architecture (v9.0.0 - Local-First)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                State Architecture (v8.3.2)                   │
+│            State Architecture (v9.0.0 RxDB + RxState)        │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  ┌─────────────────┐     ┌─────────────────┐               │
-│  │  Zustand Stores │     │  TanStack Query │               │
-│  │  (Client State) │     │  (Server State) │               │
-│  └────────┬────────┘     └────────┬────────┘               │
-│           │                       │                          │
-│  • UI State (modals, tabs)       • RAW data + ref_data_entityInstance       │
-│  • Form state                    • Format via `select`       │
-│  • Selection state               • Optimistic updates        │
-│  • Filters/pagination            • O(1) reference resolution │
+│  ┌───────────────────────────────────────────────────────┐   │
+│  │              RxDB (IndexedDB via Dexie)               │   │
+│  │  ─────────────────────────────────────────────────    │   │
+│  │  • Entity Collections (project, task, employee, ...)  │   │
+│  │  • Metadata Collections (datalabel, entity_type)      │   │
+│  │  • Local Documents (RxState - UI state)               │   │
+│  │                                                       │   │
+│  │  BENEFITS:                                            │   │
+│  │  ✓ Persistent (survives browser restart)              │   │
+│  │  ✓ Offline-first (works without network)              │   │
+│  │  ✓ Multi-tab sync (changes propagate)                 │   │
+│  │  ✓ Draft persistence (edits survive refresh!)         │   │
+│  └───────────────────────────────────────────────────────┘   │
+│                         │                                    │
+│                         ▼                                    │
+│  ┌───────────────────────────────────────────────────────┐   │
+│  │              REST Replication Layer                   │   │
+│  │  ─────────────────────────────────────────────────    │   │
+│  │  • Entity sync: Pull + Push (bidirectional)           │   │
+│  │  • Metadata sync: Pull-only (reference data)          │   │
+│  │  • Conflict resolution: Server wins (RBAC authority)  │   │
+│  └───────────────────────────────────────────────────────┘   │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 
-FORMAT-AT-READ + ref_data_entityInstance PATTERN:
-───────────────────────────────────
-API → Cache RAW + ref_data_entityInstance → select: formatDataset() → FormattedRow[]
+LOCAL-FIRST DATA FLOW:
+──────────────────────
+Component → useRxQuery → RxDB Collection → IndexedDB
                               │
-                              ├── React Query memoizes
-                              └── Entity refs resolved via ref_data_entityInstance[entityCode][uuid]
+                              └── Reactive (auto-updates on change)
+                              └── Background sync with backend
 ```
 
-### Key Hooks
+### Key Hooks (v9.0.0)
 
 ```typescript
-// apps/web/src/lib/hooks/useEntityQuery.ts
+// apps/web/src/db/hooks/
 
-// RAW data (for components that need raw)
-const { data } = useEntityInstanceList(entityCode, params);
-// Returns: { data: T[], ref_data_entityInstance: RefData, metadata }
+// Query entity lists (reactive)
+import { useEntityList } from '@/db/hooks';
+const { data, formattedData, isLoading, total } = useEntityList('project', {
+  page: 1,
+  pageSize: 20,
+  filters: { dl__project_stage: 'planning' }
+});
 
-// FORMATTED data via select (recommended)
-const { data: formattedData } = useFormattedEntityList(entityCode, params);
-// Returns: FormattedRow[] with display/styles
+// Single entity with mutations
+import { useEntityInstance } from '@/db/hooks';
+const { data, update, softDelete } = useEntityInstance('project', projectId);
+await update({ name: 'New Name' });
 
-// Entity reference resolution (v8.3.0)
-import { useRefData } from '@/lib/hooks';
-const { resolveFieldDisplay, isRefField } = useRefData(data?.ref_data_entityInstance);
+// Global settings (replaces globalSettingsMetadataStore)
+import { useGlobalSettings } from '@/db/hooks';
+const { globalSettings, setCurrency } = useGlobalSettings();
 
-// Resolve using metadata (NOT field name pattern)
-const fieldMeta = metadata.viewType.manager__employee_id;
-resolveFieldDisplay(fieldMeta, uuid);  // → "James Miller"
+// Datalabels (replaces datalabelMetadataStore)
+import { useDatalabel } from '@/db/hooks';
+const { options } = useDatalabel('project_stage');
+
+// Entity types (replaces entityCodeMetadataStore)
+import { useEntityTypes } from '@/db/hooks';
+const { entityTypes, getEntityByCode } = useEntityTypes();
+
+// Edit state with undo/redo (persists across refresh!)
+import { useEntityEditState } from '@/db/hooks';
+const { startEdit, updateField, undo, redo, saveChanges } = useEntityEditState('project', projectId);
 ```
 
-### Format-at-Read Implementation
+### Hook Migration Map
 
-```typescript
-// useFormattedEntityList - uses select for format-at-read
-export function useFormattedEntityList(entityCode: string, params: Params) {
-  return useQuery({
-    queryKey: ['entity-list', entityCode, params],
-    queryFn: () => api.get(`/api/v1/${entityCode}`, { params }),
-    // select transforms raw → formatted ON READ (memoized)
-    select: (response) => ({
-      ...response,
-      data: formatDataset(response.data, response.metadata?.entityDataTable)
-    })
-  });
-}
+| Old (Zustand + React Query) | New (RxDB + RxState) |
+|----------------------------|----------------------|
+| `useQuery(['entity-list', ...])` | `useEntityList()` |
+| `useQuery(['entity', id])` | `useEntityInstance()` |
+| `useMutation()` | `useRxMutation()` |
+| `useGlobalSettingsMetadataStore()` | `useGlobalSettings()` |
+| `useDatalabelMetadataStore()` | `useDatalabel()` / `useAllDatalabels()` |
+| `useEntityCodeMetadataStore()` | `useEntityTypes()` |
+| `useEntityComponentMetadataStore()` | `useComponentMetadata()` |
+| `useEntityEditStore()` | `useEntityEditState()` |
 
-// FormattedRow structure
-interface FormattedRow<T> {
-  raw: T;                           // Original values (for editing)
-  display: Record<string, string>;  // Pre-formatted strings
-  styles: Record<string, string>;   // CSS classes (badges)
-}
-```
+### Benefits vs Previous Architecture
 
-### Benefits vs Format-at-Fetch
-
-| Aspect | Format-at-Fetch (v7) | Format-at-Read (v8) |
-|--------|---------------------|---------------------|
-| Cache size | Larger (formatted strings) | Smaller (raw only) |
-| Datalabel updates | Requires invalidation | Instant (re-format) |
-| Multiple views | Separate caches | Same cache |
-| React Query | N/A | Auto-memoized |
+| Aspect | v8.x (Zustand + React Query) | v9.x (RxDB + RxState) |
+|--------|------------------------------|------------------------|
+| **Cache Persistence** | Memory (lost on refresh) | IndexedDB (survives restart) |
+| **Offline Support** | ❌ None | ✅ Full offline-first |
+| **Draft Persistence** | ❌ Lost on refresh | ✅ Survives refresh |
+| **Multi-Tab Sync** | ❌ None | ✅ Automatic |
+| **State Libraries** | 2 (Zustand + React Query) | 1 unified (RxDB) |
+| **Reactivity** | Manual invalidation | Auto-reactive queries |
 
 ---
 
@@ -693,7 +711,9 @@ Request → RBAC Check (DELETE) → TRANSACTION {
 |----------|------|---------|
 | **RBAC_INFRASTRUCTURE.md** | `docs/rbac/` | RBAC tables, permissions, patterns |
 | **entity-infrastructure.service.md** | `docs/services/` | Entity infrastructure service API + build_ref_data_entityInstance |
-| **STATE_MANAGEMENT.md** | `docs/state_management/` | Zustand + React Query architecture |
+| **STATE_MANAGEMENT.md** | `docs/state_management/` | RxDB + RxState architecture (v9.0.0) |
+| **RXDB_API_REFERENCE.md** | `docs/state_management/` | RxDB hooks, schemas, replication |
+| **RXDB_MIGRATION_ANALYSIS.md** | `docs/migration/` | Migration guide from Zustand/React Query |
 | **PAGE_ARCHITECTURE.md** | `docs/pages/` | Page components and routing |
 | **backend-formatter.service.md** | `docs/services/` | Backend metadata generation (BFF) |
 | **frontEndFormatterService.md** | `docs/services/` | Frontend rendering (pure renderer) |
@@ -725,9 +745,18 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
 
 ---
 
-**Version**: 8.3.2 | **Updated**: 2025-11-27 | **Pattern**: Format-at-Read + ref_data_entityInstance
+**Version**: 9.0.0 | **Updated**: 2025-11-27 | **Pattern**: RxDB + RxState Local-First
 
 **Recent Updates**:
+- v9.0.0 (2025-11-27): **RxDB + RxState Local-First Architecture** ⭐
+  - Complete RxDB infrastructure replacing Zustand + React Query
+  - **Database**: `apps/web/src/db/` with Dexie/IndexedDB storage
+  - **Schemas**: Base entity factory + project/task/employee + metadata (datalabel, entity_type)
+  - **Hooks**: `useRxQuery`, `useRxDocument`, `useRxMutation`, `useRxState`
+  - **Store Replacements**: `useGlobalSettings`, `useDatalabels`, `useEntityTypes`, `useComponentMetadata`, `useEntityEditState`
+  - **Replication**: REST sync with pull/push for entities, pull-only for metadata
+  - **Benefits**: Offline-first, persistent cache, multi-tab sync, draft persistence
+  - Dependencies: rxdb@16.21.0, rxjs@7.8.2, dexie@4.2.1
 - v8.3.2 (2025-11-27): **Component-Driven Rendering + BadgeDropdownSelect**
   - Added `BadgeDropdownSelect` component for colored datalabel dropdowns
   - viewType controls WHICH component renders (`renderType: 'component'` + `component`)
