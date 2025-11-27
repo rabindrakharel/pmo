@@ -1,10 +1,11 @@
 # RxDB Real-Time Sync Architecture
 
-> Complete architecture for local-first RxDB with PubSub-based invalidation sync
+> Single-pod architecture for local-first RxDB with PubSub-based invalidation sync
 
-**Version**: 2.0
+**Version**: 2.1
 **Date**: 2025-11-27
 **Status**: Final Design
+**Deployment**: Single-pod (<500 concurrent users)
 
 ---
 
@@ -16,9 +17,10 @@ This architecture implements a local-first application using RxDB for client-sid
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
+| Deployment | Single-pod | <500 concurrent users, simple architecture |
 | Sync Strategy | Invalidation-based | Reuse existing REST API, RBAC checked on refetch |
-| Subscription Storage | PostgreSQL table | Multi-pod support, no Redis needed |
-| Change Detection | Polling (60s) | Simple, reliable, no LISTEN/NOTIFY complexity |
+| Subscription Storage | PostgreSQL table | Persistent across restarts, easy debugging |
+| Change Detection | Polling (60s) | Simple, reliable, low overhead |
 | WebSocket Protocol | Custom simple JSON | Lighter than RxDB's full replication protocol |
 
 ### Flow Summary
@@ -48,28 +50,28 @@ This architecture implements a local-first application using RxDB for client-sid
 │   └──────────────┘    └──────┬───────┘    └──────────────────────┘          │
 │                              │                                               │
 └──────────────────────────────┼───────────────────────────────────────────────┘
-                               │ WebSocket + REST API
-┌──────────────────────────────┼───────────────────────────────────────────────┐
-│                          BACKEND                                             │
-│                              │                                               │
-│   ┌──────────────┐    ┌──────┴──────────────────────────────────────┐       │
-│   │  REST API    │    │              PubSub Service                  │       │
-│   │  (Fastify)   │    │  ┌─────────────┐  ┌──────────────────────┐  │       │
-│   └──────┬───────┘    │  │  WebSocket  │  │     LogWatcher       │  │       │
-│          │            │  │   Handler   │  │   (60s polling)      │  │       │
-│          │            │  └──────┬──────┘  └──────────┬───────────┘  │       │
-│          │            │         │                    │              │       │
-│          │            │         ▼                    │              │       │
-│          │            │  ┌─────────────────┐         │              │       │
-│          │            │  │  Subscription   │◄────────┘              │       │
-│          │            │  │    Manager      │                        │       │
-│          │            │  │  (Database)     │                        │       │
-│          │            │  └────────┬────────┘                        │       │
-│          │            └───────────┼─────────────────────────────────┘       │
-│          │                        │                                         │
-└──────────┼────────────────────────┼─────────────────────────────────────────┘
-           │                        │
-┌──────────▼────────────────────────▼─────────────────────────────────────────┐
+                               │
+              ┌────────────────┴────────────────┐
+              │ REST API                        │ WebSocket
+              ▼                                 ▼
+┌─────────────────────────────┐   ┌─────────────────────────────────────────┐
+│         REST API            │   │           PubSub Service                 │
+│        (Fastify)            │   │         (Separate Process)               │
+│                             │   │                                          │
+│   GET/POST/PATCH/DELETE     │   │   ┌─────────────┐  ┌─────────────────┐  │
+│   /api/v1/*                 │   │   │  WebSocket  │  │   LogWatcher    │  │
+│                             │   │   │   Server    │  │  (60s polling)  │  │
+│   Port: 4000                │   │   │  Port: 4001 │  │                 │  │
+│                             │   │   └──────┬──────┘  └────────┬────────┘  │
+└─────────────┬───────────────┘   │          │                  │           │
+              │                   │          ▼                  │           │
+              │                   │   ┌─────────────────┐       │           │
+              │                   │   │  Subscription   │◄──────┘           │
+              │                   │   │    Manager      │                   │
+              │                   │   └────────┬────────┘                   │
+              │                   └────────────┼────────────────────────────┘
+              │                                │
+┌─────────────▼────────────────────────────────▼──────────────────────────────┐
 │                           POSTGRESQL                                         │
 │                                                                              │
 │   ┌────────────────┐  ┌────────────────┐  ┌─────────────────────────┐       │
@@ -80,6 +82,12 @@ This architecture implements a local-first application using RxDB for client-sid
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
+
+**Key Architecture Points:**
+- **REST API (Port 4000)**: Existing Fastify server, handles CRUD operations
+- **PubSub Service (Port 4001)**: Separate Node.js process for WebSocket + sync
+- **Shared Database**: Both services connect to same PostgreSQL instance
+- **No Inter-Process Communication**: PubSub reads `app.logging` table that REST API writes to
 
 ---
 
@@ -279,20 +287,26 @@ $$ LANGUAGE plpgsql;
 
 ## 2. Backend PubSub Service
 
+The PubSub Service runs as a **separate Node.js process** from the REST API.
+
 ### 2.1 File Structure
 
 ```
-apps/api/src/
-├── services/
-│   └── pubsub/
-│       ├── index.ts                 # Module exports
-│       ├── pubsub.service.ts        # Main orchestrator
-│       ├── websocket.plugin.ts      # Fastify WebSocket plugin
-│       ├── connection-manager.ts    # Track WS connections (in-memory)
-│       ├── subscription-manager.ts  # Database subscription ops
-│       ├── log-watcher.ts           # Poll logs, push invalidations
-│       └── types.ts                 # Type definitions
-└── index.ts                         # Register pubsub plugin
+apps/pubsub/                         # NEW: Separate service
+├── package.json                     # Dependencies: ws, pg, dotenv
+├── tsconfig.json
+├── src/
+│   ├── index.ts                     # Entry point, starts server
+│   ├── server.ts                    # WebSocket server setup
+│   ├── db.ts                        # Database connection
+│   ├── services/
+│   │   ├── connection-manager.ts    # Track WS connections (in-memory)
+│   │   ├── subscription-manager.ts  # Database subscription ops
+│   │   └── log-watcher.ts           # Poll logs, push invalidations
+│   ├── handlers/
+│   │   └── message-handler.ts       # Handle client messages
+│   └── types.ts                     # Type definitions
+└── Dockerfile                       # Container deployment
 ```
 
 ### 2.2 Message Protocol
@@ -688,206 +702,154 @@ export class LogWatcher {
 }
 ```
 
-### 2.6 WebSocket Plugin
+### 2.6 WebSocket Server (Standalone)
 
 ```typescript
-// services/pubsub/websocket.plugin.ts
-import type { FastifyInstance } from 'fastify';
-import fastifyWebsocket from '@fastify/websocket';
-import { verifyJwt } from '@/lib/auth';
-import { getPubSubService } from './pubsub.service';
+// src/server.ts
+import { WebSocketServer, WebSocket } from 'ws';
+import { createServer } from 'http';
+import { URL } from 'url';
+import { verifyJwt } from './auth';
+import { ConnectionManager } from './services/connection-manager';
+import { SubscriptionManager } from './services/subscription-manager';
+import { LogWatcher } from './services/log-watcher';
+import { db } from './db';
 import type { ClientMessage } from './types';
 
-export async function websocketPlugin(fastify: FastifyInstance) {
-  await fastify.register(fastifyWebsocket);
+const PORT = process.env.PUBSUB_PORT || 4001;
 
-  fastify.get('/ws/sync', { websocket: true }, (socket, request) => {
-    const pubsub = getPubSubService();
+// Initialize services
+const connectionManager = new ConnectionManager();
+const subscriptionManager = new SubscriptionManager(db);
+const logWatcher = new LogWatcher(db, connectionManager, subscriptionManager);
 
-    // 1. Auth check
-    const token = new URL(request.url, 'http://localhost').searchParams.get('token');
-    if (!token) {
-      socket.send(JSON.stringify({ type: 'ERROR', payload: { message: 'Missing token' } }));
-      socket.close();
-      return;
-    }
+// Create HTTP server for WebSocket upgrade
+const server = createServer((req, res) => {
+  // Health check endpoint
+  if (req.url === '/health') {
+    res.writeHead(200);
+    res.end(JSON.stringify({ status: 'ok', connections: connectionManager.getStats() }));
+    return;
+  }
+  res.writeHead(404);
+  res.end();
+});
 
-    const decoded = verifyJwt(token);
-    if (!decoded) {
-      socket.send(JSON.stringify({ type: 'ERROR', payload: { message: 'Invalid token' } }));
-      socket.close();
-      return;
-    }
+// Create WebSocket server
+const wss = new WebSocketServer({ server });
 
-    const userId = decoded.sub;
+wss.on('connection', async (socket: WebSocket, request) => {
+  // 1. Auth check
+  const url = new URL(request.url || '', `http://localhost:${PORT}`);
+  const token = url.searchParams.get('token');
 
-    // 2. Register connection
-    const connectionId = pubsub.connections.connect(userId, socket);
-    console.log('[WebSocket] Connected:', userId, connectionId);
+  if (!token) {
+    socket.send(JSON.stringify({ type: 'ERROR', payload: { message: 'Missing token' } }));
+    socket.close();
+    return;
+  }
 
-    // 3. Schedule token expiry warning
-    const expiresIn = (decoded.exp * 1000) - Date.now();
-    const warnAt = expiresIn - (5 * 60 * 1000); // 5 min before expiry
-    let expiryTimeout: NodeJS.Timeout | null = null;
+  const decoded = verifyJwt(token);
+  if (!decoded) {
+    socket.send(JSON.stringify({ type: 'ERROR', payload: { message: 'Invalid token' } }));
+    socket.close();
+    return;
+  }
 
-    if (warnAt > 0) {
-      expiryTimeout = setTimeout(() => {
-        socket.send(JSON.stringify({
-          type: 'TOKEN_EXPIRING_SOON',
-          payload: { expiresIn: 300 }
-        }));
-      }, warnAt);
-    }
+  const userId = decoded.sub;
 
-    // 4. Handle messages
-    socket.on('message', async (data) => {
-      try {
-        const message: ClientMessage = JSON.parse(data.toString());
+  // 2. Register connection
+  const connectionId = connectionManager.connect(userId, socket);
+  console.log('[PubSub] Connected:', userId, connectionId);
 
-        switch (message.type) {
-          case 'SUBSCRIBE': {
-            const count = await pubsub.subscriptions.subscribe(
-              userId,
-              connectionId,
-              message.payload.entityCode,
-              message.payload.entityIds
-            );
-            socket.send(JSON.stringify({ type: 'SUBSCRIBED', payload: { count } }));
-            break;
-          }
+  // 3. Handle messages
+  socket.on('message', async (data) => {
+    try {
+      const message: ClientMessage = JSON.parse(data.toString());
 
-          case 'UNSUBSCRIBE': {
-            await pubsub.subscriptions.unsubscribe(
-              userId,
-              message.payload.entityCode,
-              message.payload.entityIds
-            );
-            break;
-          }
-
-          case 'UNSUBSCRIBE_ALL': {
-            await pubsub.subscriptions.unsubscribeAll(userId);
-            break;
-          }
-
-          case 'TOKEN_REFRESH': {
-            const newDecoded = verifyJwt(message.payload.token);
-            if (newDecoded && newDecoded.sub === userId) {
-              // Clear old timeout, set new one
-              if (expiryTimeout) clearTimeout(expiryTimeout);
-              const newExpiresIn = (newDecoded.exp * 1000) - Date.now();
-              const newWarnAt = newExpiresIn - (5 * 60 * 1000);
-              if (newWarnAt > 0) {
-                expiryTimeout = setTimeout(() => {
-                  socket.send(JSON.stringify({
-                    type: 'TOKEN_EXPIRING_SOON',
-                    payload: { expiresIn: 300 }
-                  }));
-                }, newWarnAt);
-              }
-            }
-            break;
-          }
-
-          case 'PING': {
-            socket.send(JSON.stringify({ type: 'PONG' }));
-            break;
-          }
+      switch (message.type) {
+        case 'SUBSCRIBE': {
+          const count = await subscriptionManager.subscribe(
+            userId,
+            connectionId,
+            message.payload.entityCode,
+            message.payload.entityIds
+          );
+          socket.send(JSON.stringify({ type: 'SUBSCRIBED', payload: { count } }));
+          break;
         }
-      } catch (error) {
-        console.error('[WebSocket] Message error:', error);
+
+        case 'UNSUBSCRIBE': {
+          await subscriptionManager.unsubscribe(
+            userId,
+            message.payload.entityCode,
+            message.payload.entityIds
+          );
+          break;
+        }
+
+        case 'UNSUBSCRIBE_ALL': {
+          await subscriptionManager.unsubscribeAll(userId);
+          break;
+        }
+
+        case 'PING': {
+          socket.send(JSON.stringify({ type: 'PONG' }));
+          break;
+        }
       }
-    });
-
-    // 5. Cleanup on disconnect
-    socket.on('close', async () => {
-      console.log('[WebSocket] Disconnected:', userId, connectionId);
-
-      if (expiryTimeout) clearTimeout(expiryTimeout);
-      pubsub.connections.disconnect(connectionId);
-      await pubsub.subscriptions.cleanupConnection(connectionId);
-    });
+    } catch (error) {
+      console.error('[PubSub] Message error:', error);
+    }
   });
-}
+
+  // 4. Cleanup on disconnect
+  socket.on('close', async () => {
+    console.log('[PubSub] Disconnected:', userId, connectionId);
+    connectionManager.disconnect(connectionId);
+    await subscriptionManager.cleanupConnection(connectionId);
+  });
+});
+
+// Start server and log watcher
+server.listen(PORT, () => {
+  console.log(`[PubSub] WebSocket server running on port ${PORT}`);
+  logWatcher.start();
+});
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('[PubSub] Shutting down...');
+  logWatcher.stop();
+  wss.close();
+  server.close();
+  process.exit(0);
+});
 ```
 
-### 2.7 PubSub Service (Orchestrator)
+### 2.7 Entry Point
 
 ```typescript
-// services/pubsub/pubsub.service.ts
-import type { Database } from '@/db';
-import { ConnectionManager } from './connection-manager';
-import { SubscriptionManager } from './subscription-manager';
-import { LogWatcher } from './log-watcher';
-
-export class PubSubService {
-  private connectionManager: ConnectionManager;
-  private subscriptionManager: SubscriptionManager;
-  private logWatcher: LogWatcher;
-
-  constructor(db: Database) {
-    this.connectionManager = new ConnectionManager();
-    this.subscriptionManager = new SubscriptionManager(db);
-    this.logWatcher = new LogWatcher(
-      db,
-      this.connectionManager,
-      this.subscriptionManager
-    );
-  }
-
-  start(): void {
-    this.logWatcher.start();
-    console.log('[PubSub] Service started');
-  }
-
-  stop(): void {
-    this.logWatcher.stop();
-    console.log('[PubSub] Service stopped');
-  }
-
-  get connections(): ConnectionManager {
-    return this.connectionManager;
-  }
-
-  get subscriptions(): SubscriptionManager {
-    return this.subscriptionManager;
-  }
-
-  getStats() {
-    return {
-      ...this.connectionManager.getStats()
-    };
-  }
-}
-
-// Singleton instance
-let pubsubService: PubSubService | null = null;
-
-export function getPubSubService(db?: Database): PubSubService {
-  if (!pubsubService) {
-    if (!db) throw new Error('Database required for first initialization');
-    pubsubService = new PubSubService(db);
-  }
-  return pubsubService;
-}
-
-export function initPubSubService(db: Database): PubSubService {
-  pubsubService = new PubSubService(db);
-  pubsubService.start();
-  return pubsubService;
-}
+// src/index.ts
+import './server';
 ```
 
-### 2.8 Module Index
+### 2.8 Database Connection
 
 ```typescript
-// services/pubsub/index.ts
-export { PubSubService, getPubSubService, initPubSubService } from './pubsub.service';
-export { websocketPlugin } from './websocket.plugin';
-export { ConnectionManager } from './connection-manager';
-export { SubscriptionManager } from './subscription-manager';
-export { LogWatcher } from './log-watcher';
-export * from './types';
+// src/db.ts
+import { Pool } from 'pg';
+
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+export const db = {
+  async execute<T>(query: string, params?: any[]): Promise<T[]> {
+    const result = await pool.query(query, params);
+    return result.rows;
+  }
+};
 ```
 
 ---
@@ -1226,17 +1188,15 @@ ws.onmessage = (msg) => {
 };
 ```
 
-### 4.4 Single-Pod vs Multi-Pod
+### 4.4 Single-Pod Architecture
 
-**Single-Pod (Default):**
-- ConnectionManager is in-memory (pod-local)
-- SubscriptionManager queries database
-- LogWatcher filters to local connections only
+This deployment uses a single API pod, which simplifies the architecture:
 
-**Multi-Pod (Future Enhancement):**
-- Use PostgreSQL `LISTEN/NOTIFY` for inter-pod messaging
-- Leader election via `pg_advisory_lock`
-- All pods listen for notifications and push to local connections
+- **ConnectionManager**: In-memory Map of WebSocket connections
+- **SubscriptionManager**: PostgreSQL table (persists across restarts)
+- **LogWatcher**: Polls database, pushes to all local connections
+
+No inter-pod coordination needed. All WebSocket connections are on the same pod.
 
 ---
 
@@ -1255,15 +1215,16 @@ ws.onmessage = (msg) => {
 
 | Task | File | Est. Hours |
 |------|------|------------|
-| Add dependencies | `package.json` | 0.5 |
-| Create types | `services/pubsub/types.ts` | 1 |
-| Connection manager | `services/pubsub/connection-manager.ts` | 3 |
-| Subscription manager | `services/pubsub/subscription-manager.ts` | 4 |
-| Log watcher | `services/pubsub/log-watcher.ts` | 6 |
-| WebSocket plugin | `services/pubsub/websocket.plugin.ts` | 4 |
-| PubSub orchestrator | `services/pubsub/pubsub.service.ts` | 3 |
-| Register plugin | `index.ts` | 1 |
-| Unit tests | `services/pubsub/__tests__/` | 4 |
+| Initialize `apps/pubsub` package | `apps/pubsub/package.json` | 1 |
+| Database connection | `apps/pubsub/src/db.ts` | 1 |
+| JWT auth helper | `apps/pubsub/src/auth.ts` | 1 |
+| Types | `apps/pubsub/src/types.ts` | 1 |
+| Connection manager | `apps/pubsub/src/services/connection-manager.ts` | 3 |
+| Subscription manager | `apps/pubsub/src/services/subscription-manager.ts` | 4 |
+| Log watcher | `apps/pubsub/src/services/log-watcher.ts` | 6 |
+| WebSocket server | `apps/pubsub/src/server.ts` | 4 |
+| Dockerfile | `apps/pubsub/Dockerfile` | 1 |
+| Unit tests | `apps/pubsub/src/__tests__/` | 4 |
 
 ### Phase 3: Frontend Sync (Weeks 3-5)
 
@@ -1291,19 +1252,22 @@ ws.onmessage = (msg) => {
 
 ## 6. File Inventory
 
-### Backend (~550 lines)
+### PubSub Service (`apps/pubsub/`) - ~450 lines
 
 | File | Lines |
 |------|-------|
-| `services/pubsub/index.ts` | ~20 |
-| `services/pubsub/pubsub.service.ts` | ~80 |
-| `services/pubsub/websocket.plugin.ts` | ~120 |
-| `services/pubsub/connection-manager.ts` | ~80 |
-| `services/pubsub/subscription-manager.ts` | ~100 |
-| `services/pubsub/log-watcher.ts` | ~120 |
-| `services/pubsub/types.ts` | ~50 |
+| `src/index.ts` | ~5 |
+| `src/server.ts` | ~100 |
+| `src/db.ts` | ~20 |
+| `src/auth.ts` | ~30 |
+| `src/types.ts` | ~50 |
+| `src/services/connection-manager.ts` | ~80 |
+| `src/services/subscription-manager.ts` | ~100 |
+| `src/services/log-watcher.ts` | ~120 |
+| `package.json` | ~30 |
+| `Dockerfile` | ~15 |
 
-### Frontend (~320 lines)
+### Frontend (`apps/web/`) - ~320 lines
 
 | File | Lines |
 |------|-------|
@@ -1313,7 +1277,7 @@ ws.onmessage = (msg) => {
 | `db/sync/index.ts` | ~10 |
 | `components/SyncStatusIndicator.tsx` | ~30 |
 
-### Database (~260 lines)
+### Database - ~260 lines
 
 | File | Lines |
 |------|-------|
@@ -1321,7 +1285,7 @@ ws.onmessage = (msg) => {
 | `db/XXXVI_rxdb_subscription.ddl` | ~120 |
 | `db/triggers/entity_logging.sql` | ~60 |
 
-**Total: ~1130 lines of new code**
+**Total: ~1030 lines of new code**
 
 ---
 
@@ -1342,31 +1306,59 @@ ws.onmessage = (msg) => {
 ### Environment Variables
 
 ```bash
-# Backend (no new vars needed)
+# PubSub Service
+DATABASE_URL=postgresql://user:pass@localhost:5432/app
+PUBSUB_PORT=4001
+JWT_SECRET=your-jwt-secret
 
 # Frontend
-VITE_WS_URL=wss://api.yourapp.com
+VITE_WS_URL=ws://localhost:4001          # Development
+VITE_WS_URL=wss://pubsub.yourapp.com     # Production
 ```
 
 ### Infrastructure
 
 ```
-Single-Pod (<1000 users):
-  - Existing EC2 instance
-  - No additional infrastructure
+Single-Pod Deployment (<500 concurrent users):
 
-Multi-Pod (1000-10000 users):
-  - ALB with sticky sessions
-  - Multiple API pods
-  - Database handles subscription sync
+┌─────────────────────────────────────────────────────┐
+│                    EC2 Instance                      │
+│                                                      │
+│   ┌─────────────────┐    ┌─────────────────┐        │
+│   │   REST API      │    │  PubSub Service │        │
+│   │   (Port 4000)   │    │   (Port 4001)   │        │
+│   └────────┬────────┘    └────────┬────────┘        │
+│            │                      │                  │
+│            └──────────┬───────────┘                  │
+│                       ▼                              │
+│            ┌─────────────────┐                       │
+│            │   PostgreSQL    │                       │
+│            │   (Port 5432)   │                       │
+│            └─────────────────┘                       │
+└─────────────────────────────────────────────────────┘
+```
+
+### Starting the Services
+
+```bash
+# Start REST API (existing)
+pnpm --filter @pmo/api dev
+
+# Start PubSub Service (new)
+pnpm --filter @pmo/pubsub dev
+
+# Or with Docker
+docker-compose up -d api pubsub
 ```
 
 ### Rollback Plan
 
-1. **Disable PubSub Service**
-   ```typescript
-   // Comment out in index.ts
-   // await fastify.register(pubsubPlugin);
+1. **Stop PubSub Service**
+   ```bash
+   # Just stop the pubsub container/process
+   docker stop pmo-pubsub
+   # or
+   pm2 stop pubsub
    ```
 
 2. **Frontend graceful degradation**
@@ -1391,4 +1383,4 @@ Multi-Pod (1000-10000 users):
 
 ---
 
-**Version**: 2.0 | **Updated**: 2025-11-27 | **Status**: Final Design
+**Version**: 2.1 | **Updated**: 2025-11-27 | **Status**: Final Design (Single-Pod)
