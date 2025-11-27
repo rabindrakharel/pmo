@@ -10,7 +10,7 @@
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4
 - **State Management**: Zustand stores + TanStack Query (format-at-read pattern)
 - **Infrastructure**: AWS EC2/S3/Lambda, Terraform, Docker
-- **Version**: 8.3.1 (ref_data_entityInstance Pattern + Metadata-Based Resolution)
+- **Version**: 8.3.2 (ref_data_entityInstance Pattern + Metadata-Based Resolution + BadgeDropdownSelect)
 
 ## Critical Operations
 
@@ -373,7 +373,7 @@ fastify.get('/api/v1/project', async (request, reply) => {
 });
 ```
 
-### Response Structure (v8.3.1)
+### Response Structure (v8.3.2)
 
 ```json
 {
@@ -381,7 +381,8 @@ fastify.get('/api/v1/project', async (request, reply) => {
     {
       "id": "uuid",
       "budget_allocated_amt": 50000,
-      "manager__employee_id": "uuid-james"
+      "manager__employee_id": "uuid-james",
+      "dl__project_stage": "planning"
     }
   ],
   "ref_data_entityInstance": {
@@ -398,13 +399,30 @@ fastify.get('/api/v1/project', async (request, reply) => {
         },
         "manager__employee_id": {
           "dtype": "uuid",
-          "label": "Manager Employee Name",
-          "viewType": "entityInstance_Id",
+          "label": "Manager",
+          "renderType": "entityInstanceId",
           "lookupEntity": "employee",
           "lookupSource": "entityInstance"
+        },
+        "dl__project_stage": {
+          "dtype": "str",
+          "label": "Project Stage",
+          "renderType": "badge",
+          "datalabelKey": "project_stage"
         }
       },
-      "editType": { ... }
+      "editType": {
+        "manager__employee_id": {
+          "inputType": "entityInstanceId",
+          "lookupEntity": "employee",
+          "lookupSource": "entityInstance"
+        },
+        "dl__project_stage": {
+          "inputType": "BadgeDropdownSelect",
+          "lookupSource": "datalabel",
+          "datalabelKey": "project_stage"
+        }
+      }
     }
   }
 }
@@ -412,13 +430,13 @@ fastify.get('/api/v1/project', async (request, reply) => {
 
 ---
 
-## 5. State Management (Frontend) - v8.3.1 Format-at-Read + ref_data_entityInstance
+## 5. State Management (Frontend) - v8.3.2 Format-at-Read + ref_data_entityInstance
 
 ### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                State Architecture (v8.3.1)                   │
+│                State Architecture (v8.3.2)                   │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  ┌─────────────────┐     ┌─────────────────┐               │
@@ -674,10 +692,12 @@ Request → RBAC Check (DELETE) → TRANSACTION {
 | Document | Path | Purpose |
 |----------|------|---------|
 | **RBAC_INFRASTRUCTURE.md** | `docs/rbac/` | RBAC tables, permissions, patterns |
-| **entity-infrastructure.service.md** | `docs/services/` | Entity infrastructure service API |
+| **entity-infrastructure.service.md** | `docs/services/` | Entity infrastructure service API + build_ref_data_entityInstance |
 | **STATE_MANAGEMENT.md** | `docs/state_management/` | Zustand + React Query architecture |
 | **PAGE_ARCHITECTURE.md** | `docs/pages/` | Page components and routing |
-| **backend-formatter.service.md** | `docs/services/` | Backend metadata generation |
+| **backend-formatter.service.md** | `docs/services/` | Backend metadata generation (BFF) |
+| **frontEndFormatterService.md** | `docs/services/` | Frontend rendering (pure renderer) |
+| **RefData README.md** | `docs/refData/` | Entity reference resolution pattern |
 
 ### 1. RBAC_INFRASTRUCTURE.md
 
@@ -705,12 +725,18 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
 
 ---
 
-**Version**: 8.3.1 | **Updated**: 2025-11-26 | **Pattern**: Format-at-Read + ref_data_entityInstance
+**Version**: 8.3.2 | **Updated**: 2025-11-27 | **Pattern**: Format-at-Read + ref_data_entityInstance
 
 **Recent Updates**:
+- v8.3.2 (2025-11-27): **Component-Driven Rendering + BadgeDropdownSelect**
+  - Added `BadgeDropdownSelect` component for colored datalabel dropdowns
+  - viewType controls WHICH component renders (`renderType: 'component'` + `component`)
+  - editType controls WHERE data comes from (`lookupSource: 'datalabel'` + `datalabelKey`)
+  - `vizContainer: { view?: string; edit?: string }` structure for custom components
+  - DAG fields use `renderType: 'component'` + `component: 'DAGVisualizer'`
 - v8.3.1 (2025-11-26): **Metadata-Based Reference Resolution**
   - Removed all pattern matching from `refDataResolver.ts`
-  - Frontend uses `metadata.viewType`/`metadata.lookupEntity` (no `_id` suffix detection)
+  - Frontend uses `metadata.lookupEntity` (no `_id` suffix detection)
   - Added `isEntityReferenceField(fieldMeta)`, `getEntityCodeFromMetadata(fieldMeta)`
   - Backend metadata is single source of truth for field type detection
 - v8.3.0 (2025-11-26): **ref_data_entityInstance Pattern**
@@ -723,13 +749,7 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
   - Cache stores RAW data only (smaller, canonical)
   - Added `useFormattedEntityList()` hook for formatted data
   - `select` transforms raw → FormattedRow on read (memoized by React Query)
-  - Same cache serves multiple view components (table, kanban, grid)
-  - Datalabel colors always fresh (reformatted on read, not cached)
 - v5.0.0 (2025-11-22): **Transactional CRUD Pattern**
   - Added `create_entity()`, `update_entity()`, `delete_entity()` transactional methods
   - Parameter naming: `entity_code` = TYPE, `instance_code` = record code
-  - Deprecated `delete_all_entity_infrastructure()` - use `delete_entity()`
-  - Removed `register_created_entity()` - use `create_entity()`
-  - Updated 43 documentation files with correct naming
 - v4.0.0 (2025-11-21): Entity Infrastructure Service standardization
-- v3.4.0 (2025-11-18): Architecture cleanup, removed unified-data-gate.ts

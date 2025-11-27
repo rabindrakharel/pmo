@@ -1162,10 +1162,10 @@ export function useEntityLookup(entityCode: string) {
   const query = useQuery({
     queryKey: ['entity-lookup', entityCode],
     queryFn: async () => {
-      console.log(`%c[API FETCH] 🔄 Fetching entity-instance-lookup: ${entityCode}`, 'color: #ff6b6b');
+      console.log(`%c[API FETCH] 🔄 Fetching entity-instance: ${entityCode}`, 'color: #ff6b6b');
 
       const response = await fetch(
-        `${apiUrl}/api/v1/entity/${entityCode}/entity-instance-lookup?active_only=true&limit=500`,
+        `${apiUrl}/api/v1/entity/${entityCode}/entity-instance?active_only=true&limit=500`,
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
@@ -1180,7 +1180,7 @@ export function useEntityLookup(entityCode: string) {
       const data = await response.json();
       const options = data.data || data || [];
 
-      console.log(`%c[API FETCH] ✅ Received entity-instance-lookup ${entityCode}`, 'color: #51cf66', {
+      console.log(`%c[API FETCH] ✅ Received entity-instance ${entityCode}`, 'color: #51cf66', {
         optionCount: options.length,
       });
 

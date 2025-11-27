@@ -639,6 +639,194 @@ export class EntityInfrastructureService {
   }
 
   /**
+   * Get entity instance names by entity code and IDs (with RBAC filtering)
+   *
+   * Simple lookup method - pass entity code, IDs, and userId, get back names.
+   * Used internally by build_ref_data_entityInstance() and entity-instance route.
+   * Only returns names for entities the user has VIEW permission on.
+   *
+   * @param entityCode - Entity type code (e.g., 'employee', 'business')
+   * @param entityIds - Array of entity instance UUIDs to resolve
+   * @param userId - User ID for RBAC filtering (optional - if not provided, returns all)
+   * @returns Record<string, string> - { uuid: name }
+   *
+   * @example
+   * await getEntityInstanceNames('employee', ['uuid-1', 'uuid-2'], userId)
+   * // Returns: { "uuid-1": "James Miller", "uuid-2": "Sarah Johnson" }
+   */
+  async getEntityInstanceNames(
+    entityCode: string,
+    entityIds: string[],
+    userId?: string
+  ): Promise<Record<string, string>> {
+    if (!entityIds || entityIds.length === 0) {
+      return {};
+    }
+
+    // If userId provided, apply RBAC filtering
+    if (userId) {
+      // Get accessible IDs for this user
+      const accessibleIds = await this.getAccessibleEntityIds(userId, entityCode, Permission.VIEW);
+
+      // If user has type-level access, no filtering needed
+      const hasTypeLevelAccess = accessibleIds.includes(ALL_ENTITIES_ID);
+
+      if (!hasTypeLevelAccess && accessibleIds.length === 0) {
+        return {}; // No access
+      }
+
+      // Filter entityIds to only accessible ones
+      const filteredIds = hasTypeLevelAccess
+        ? entityIds
+        : entityIds.filter(id => accessibleIds.includes(id));
+
+      if (filteredIds.length === 0) {
+        return {};
+      }
+
+      const result = await this.db.execute(sql`
+        SELECT entity_instance_id::text, entity_instance_name
+        FROM app.entity_instance
+        WHERE entity_code = ${entityCode}
+          AND entity_instance_id IN (${sql.join(filteredIds.map(id => sql`${id}::uuid`), sql`, `)})
+      `);
+
+      const names: Record<string, string> = {};
+      for (const r of result) {
+        const row = r as Record<string, any>;
+        names[row.entity_instance_id as string] = row.entity_instance_name as string;
+      }
+      return names;
+    }
+
+    // No userId - return all (for internal use like build_ref_data_entityInstance)
+    const result = await this.db.execute(sql`
+      SELECT entity_instance_id::text, entity_instance_name
+      FROM app.entity_instance
+      WHERE entity_code = ${entityCode}
+        AND entity_instance_id IN (${sql.join(entityIds.map(id => sql`${id}::uuid`), sql`, `)})
+    `);
+
+    const names: Record<string, string> = {};
+    for (const r of result) {
+      const row = r as Record<string, any>;
+      names[row.entity_instance_id as string] = row.entity_instance_name as string;
+    }
+
+    return names;
+  }
+
+  /**
+   * Get ALL entity instance names for a given entity type (with RBAC filtering)
+   *
+   * Used by entity-instance route for edit mode dropdowns.
+   * Returns entity instances the user has VIEW permission on.
+   *
+   * @param entityCode - Entity type code (e.g., 'employee', 'business')
+   * @param userId - User ID for RBAC filtering
+   * @param limit - Maximum number of results (default 1000)
+   * @returns Record<string, string> - { uuid: name }
+   *
+   * @example
+   * await getAllEntityInstanceNames('employee', userId)
+   * // Returns: { "uuid-1": "James Miller", "uuid-2": "Sarah Johnson", ... }
+   */
+  async getAllEntityInstanceNames(
+    entityCode: string,
+    userId: string,
+    limit: number = 1000
+  ): Promise<Record<string, string>> {
+    // Get accessible IDs for this user
+    const accessibleIds = await this.getAccessibleEntityIds(userId, entityCode, Permission.VIEW);
+
+    // If no access, return empty
+    if (accessibleIds.length === 0) {
+      return {};
+    }
+
+    // If user has type-level access, return all
+    const hasTypeLevelAccess = accessibleIds.includes(ALL_ENTITIES_ID);
+
+    if (hasTypeLevelAccess) {
+      const result = await this.db.execute(sql`
+        SELECT entity_instance_id::text, entity_instance_name
+        FROM app.entity_instance
+        WHERE entity_code = ${entityCode}
+        ORDER BY entity_instance_name ASC
+        LIMIT ${limit}
+      `);
+
+      const names: Record<string, string> = {};
+      for (const r of result) {
+        const row = r as Record<string, any>;
+        names[row.entity_instance_id as string] = row.entity_instance_name as string;
+      }
+      return names;
+    }
+
+    // Filter to accessible IDs only
+    const result = await this.db.execute(sql`
+      SELECT entity_instance_id::text, entity_instance_name
+      FROM app.entity_instance
+      WHERE entity_code = ${entityCode}
+        AND entity_instance_id IN (${sql.join(accessibleIds.map(id => sql`${id}::uuid`), sql`, `)})
+      ORDER BY entity_instance_name ASC
+      LIMIT ${limit}
+    `);
+
+    const names: Record<string, string> = {};
+    for (const r of result) {
+      const row = r as Record<string, any>;
+      names[row.entity_instance_id as string] = row.entity_instance_name as string;
+    }
+
+    return names;
+  }
+
+  /**
+   * Get ALL entity instances from the entire table, grouped by entity_code (with RBAC)
+   *
+   * Returns all entity instances grouped by entity_code in ref_data_entityInstance format.
+   * Only returns entities the user has VIEW permission on.
+   *
+   * @param userId - User ID for RBAC filtering
+   * @param limit - Maximum number of results per entity type (default 1000)
+   * @returns Record<string, Record<string, string>> - { entity_code: { uuid: name } }
+   *
+   * @example
+   * await getEntityInstances(userId)
+   * // Returns:
+   * // {
+   * //   employee: { "uuid-1": "James Miller", "uuid-2": "Sarah Johnson" },
+   * //   project: { "uuid-3": "Kitchen Reno", "uuid-4": "Bathroom Upgrade" }
+   * // }
+   */
+  async getEntityInstances(
+    userId: string,
+    limit: number = 1000
+  ): Promise<Record<string, Record<string, string>>> {
+    // Get all unique entity codes first
+    const entityCodesResult = await this.db.execute(sql`
+      SELECT DISTINCT entity_code FROM app.entity_instance
+      ORDER BY entity_code
+    `);
+
+    const grouped: Record<string, Record<string, string>> = {};
+
+    // For each entity code, get names with RBAC filtering
+    for (const row of entityCodesResult) {
+      const entityCode = (row as Record<string, any>).entity_code as string;
+      const names = await this.getAllEntityInstanceNames(entityCode, userId, limit);
+
+      if (Object.keys(names).length > 0) {
+        grouped[entityCode] = names;
+      }
+    }
+
+    return grouped;
+  }
+
+  /**
    * Build ref_data_entityInstance object for response-level entity reference resolution
    *
    * Structure: { entity_code: { uuid: name } }
@@ -742,28 +930,18 @@ export class EntityInfrastructureService {
       }
     }
 
-    // Step 2: Batch resolve all UUIDs (1 query per entity_code)
+    // Step 2: Batch resolve all UUIDs using getEntityInstanceNames() service method
     // ONLY add to ref_data_entityInstance if UUIDs are found in entity_instance table
     for (const [entityCode, uuidSet] of Object.entries(entityCodeToUuids)) {
       const uuids = Array.from(uuidSet);
       if (uuids.length === 0) continue;
 
-      const result = await this.db.execute(sql`
-        SELECT entity_instance_id::text, entity_instance_name
-        FROM app.entity_instance
-        WHERE entity_code = ${entityCode}
-          AND entity_instance_id IN (${sql.join(uuids.map(id => sql`${id}::uuid`), sql`, `)})
-      `);
+      // Use service method instead of direct SQL
+      const names = await this.getEntityInstanceNames(entityCode, uuids);
 
       // ONLY create bucket if we have results
-      if (result.length > 0) {
-        ref_data_entityInstance[entityCode] = {};
-
-        // Add resolved entries: { uuid: name }
-        for (const r of result) {
-          const row = r as Record<string, any>;
-          ref_data_entityInstance[entityCode][row.entity_instance_id as string] = row.entity_instance_name as string;
-        }
+      if (Object.keys(names).length > 0) {
+        ref_data_entityInstance[entityCode] = names;
       }
       // If no results found, DON'T add empty bucket - keeps ref_data_entityInstance clean
     }

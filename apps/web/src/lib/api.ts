@@ -966,22 +966,43 @@ export const expenseApi = {
     return response.data;
   }};
 
-// Entity Options API - Universal options for dropdowns/selects
-export const entityOptionsApi = {
+// Entity Instance API - Universal entity instance lookups for dropdowns/selects
+export const entityInstanceApi = {
   /**
-   * Get list of {id, name} pairs for any entity type
+   * Get ALL entity instances for a given entity type
+   * Returns list of {id, name} pairs
    * Used for populating dropdowns and selection fields
+   *
+   * @param entityCode - Entity type code (e.g., 'employee', 'project')
+   * @param params - Optional search, limit, active_only filters
+   * @returns { data: [{ id, name }], total }
    */
-  async getOptions(entityCode: string, params?: { search?: string; limit?: number; active_only?: boolean }) {
-    const response = await apiClient.get(`/api/v1/entity/${entityCode}/entity-instance-lookup`, { params });
+  async getEntityInstances(entityCode: string, params?: { search?: string; limit?: number; active_only?: boolean }) {
+    const response = await apiClient.get(`/api/v1/entity/${entityCode}/entity-instance`, { params });
     return response.data;
   },
 
   /**
-   * Get names for specific entity IDs (bulk lookup)
+   * Get single entity instance by UUID
+   *
+   * @param entityCode - Entity type code (e.g., 'employee')
+   * @param id - Entity instance UUID
+   * @returns { id, name }
    */
-  async getBulkOptions(entityCode: string, ids: string[]) {
-    const response = await apiClient.post(`/api/v1/entity/${entityCode}/entity-instance-lookup/bulk`, { ids });
+  async getEntityInstance(entityCode: string, id: string) {
+    const response = await apiClient.get(`/api/v1/entity/${entityCode}/entity-instance/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Get entity instances for specific IDs (bulk lookup)
+   *
+   * @param entityCode - Entity type code (e.g., 'employee')
+   * @param ids - Array of entity instance UUIDs
+   * @returns { data: [{ id, name }] }
+   */
+  async getEntityInstancesBulk(entityCode: string, ids: string[]) {
+    const response = await apiClient.post(`/api/v1/entity/${entityCode}/entity-instance/bulk`, { ids });
     return response.data;
   },
 
@@ -1000,14 +1021,18 @@ export const entityOptionsApi = {
    * @example
    * ```typescript
    * // Get all children for a task
-   * const children = await entityOptionsApi.getEntitiesByParent('task', taskId);
+   * const children = await entityInstanceApi.getChildEntities('task', taskId);
    * // Returns: [{"employee": [{"id": "uuid", "name": "John Doe"}]}]
    * ```
    */
-  async getEntitiesByParent(parentType: string, parentId: string, params?: { active_only?: boolean }) {
+  async getChildEntities(parentType: string, parentId: string, params?: { active_only?: boolean }) {
     const response = await apiClient.get(`/api/v1/entity/${parentType}/${parentId}/children`, { params });
     return response.data;
-  }};
+  },
+};
+
+// Backwards compatibility alias (deprecated - use entityInstanceApi)
+export const entityOptionsApi = entityInstanceApi;
 
 // ========================================
 // GENERIC ENTITY API FACTORY

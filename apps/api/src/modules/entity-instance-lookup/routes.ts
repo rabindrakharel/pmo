@@ -5,10 +5,14 @@ import { sql } from 'drizzle-orm';
 import { getEntityInfrastructure, Permission } from '@/services/entity-infrastructure.service.js';
 
 /**
- * Universal Entity Instance Lookup API
+ * Universal Entity Instance API
  *
- * Returns a list of {id, name} pairs for any entity type.
- * Used for populating dropdowns, autocomplete, and selection fields.
+ * REST endpoints for entity instance lookups:
+ *
+ * GET  /api/v1/entity/entity-instance           - Bulk load ALL entity types
+ * GET  /api/v1/entity/:entityCode/entity-instance     - All instances of ONE type
+ * GET  /api/v1/entity/:entityCode/entity-instance/:id - Single instance by UUID
+ * POST /api/v1/entity/:entityCode/entity-instance/bulk - Multiple UUIDs lookup
  *
  * Uses Entity Infrastructure Service for RBAC permission filtering.
  */
@@ -34,14 +38,57 @@ const ENTITY_TABLE_MAP: Record<string, string> = {
 
 export async function entityInstanceLookupRoutes(fastify: FastifyInstance) {
   /**
-   * GET /api/v1/entity/:entityCode/entity-instance-lookup
+   * GET /api/v1/entity/entity-instance
+   *
+   * Bulk load ALL entity instances grouped by entity_code
+   * Used for initial cache population on login
+   *
+   * Response: { employee: { uuid: name }, business: { uuid: name }, ... }
+   *
+   * This is the bulk load endpoint for ref_data_entityInstance cache
+   */
+  fastify.get('/api/v1/entity/entity-instance', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      querystring: Type.Object({
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 5000, default: 1000 })),
+      }),
+      response: {
+        200: Type.Record(Type.String(), Type.Record(Type.String(), Type.String())),
+        401: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { limit = 1000 } = request.query as { limit?: number };
+
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    try {
+      const entityInfra = getEntityInfrastructure(db);
+
+      // Use service method that returns ALL entities grouped by entity_code
+      const allEntityInstances = await entityInfra.getEntityInstances(userId, limit);
+
+      return allEntityInstances;
+    } catch (error) {
+      fastify.log.error('Error fetching all entity instances:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * GET /api/v1/entity/:entityCode/entity-instance
    *
    * Returns list of {id, name} for a given entity code
    * Filtered by RBAC permissions
    *
    * Used by EntitySelectDropdown and EntityMultiSelectTags for dropdown options
    */
-  fastify.get('/api/v1/entity/:entityCode/entity-instance-lookup', {
+  fastify.get('/api/v1/entity/:entityCode/entity-instance', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -67,7 +114,7 @@ export async function entityInstanceLookupRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { entityCode } = request.params as { entityCode: string };
-    const { search, limit = 100, active_only = true } = request.query as any;
+    const { search, limit = 100 } = request.query as any;
 
     const userId = (request as any).user?.sub;
     if (!userId) {
@@ -83,57 +130,29 @@ export async function entityInstanceLookupRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Use Entity Infrastructure Service for RBAC filtering
+      // Use Entity Infrastructure Service for RBAC-filtered lookup
       const entityInfra = getEntityInfrastructure(db);
 
-      // Build RBAC filter using Entity Infrastructure Service
-      const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
-        userId,
-        entityCode,
-        Permission.VIEW,
-        'e'
-      );
+      // Use getAllEntityInstanceNames service method with RBAC
+      const names = await entityInfra.getAllEntityInstanceNames(entityCode, userId, limit);
 
-      // Build conditions
-      const conditions = [rbacCondition];
+      // Transform to array format and apply search filter if provided
+      let data = Object.entries(names)
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
 
-      // Add active filter
-      if (active_only) {
-        conditions.push(sql`e.active_flag = true`);
-      }
-
-      // Add search filter
+      // Apply search filter client-side (entity_instance stores names)
       if (search) {
-        conditions.push(sql`e.name ILIKE ${`%${search}%`}`);
+        const searchLower = search.toLowerCase();
+        data = data.filter(item => item.name.toLowerCase().includes(searchLower));
       }
 
-      // Get total count
-      const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.${sql.identifier(tableName)} e
-        WHERE ${sql.join(conditions, sql` AND `)}
-      `);
-      const total = Number(countResult[0]?.total || 0);
-
-      // Get options
-      const result = await db.execute(sql`
-        SELECT
-          e.id::text as id,
-          e.name
-        FROM app.${sql.identifier(tableName)} e
-        WHERE ${sql.join(conditions, sql` AND `)}
-        ORDER BY e.name ASC
-        LIMIT ${limit}
-      `);
-
-      const data = result.map(row => ({
-        id: String(row.id),
-        name: String(row.name),
-      }));
+      // Apply limit after filtering
+      const limitedData = data.slice(0, limit);
 
       return {
-        data,
-        total,
+        data: limitedData,
+        total: data.length,
       };
     } catch (error) {
       fastify.log.error('Error fetching entity options:', error);
@@ -142,14 +161,73 @@ export async function entityInstanceLookupRoutes(fastify: FastifyInstance) {
   });
 
   /**
-   * POST /api/v1/entity/:entityCode/entity-instance-lookup/bulk
+   * GET /api/v1/entity/:entityCode/entity-instance/:id
+   *
+   * Get name for a single entity instance by UUID
+   * Returns { id, name }
+   *
+   * Uses Entity Infrastructure Service for RBAC permission filtering
+   */
+  fastify.get('/api/v1/entity/:entityCode/entity-instance/:id', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: Type.Object({
+        entityCode: Type.String(),
+        id: Type.String({ format: 'uuid' }),
+      }),
+      response: {
+        200: Type.Object({
+          id: Type.String(),
+          name: Type.String(),
+        }),
+        400: Type.Object({ error: Type.String() }),
+        404: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { entityCode, id } = request.params as { entityCode: string; id: string };
+
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
+    // Validate entity code
+    const tableName = ENTITY_TABLE_MAP[entityCode];
+    if (!tableName) {
+      return reply.status(400).send({
+        error: `Invalid entity code: ${entityCode}`
+      });
+    }
+
+    try {
+      // Use Entity Infrastructure Service
+      const entityInfra = getEntityInfrastructure(db);
+
+      // Use getEntityInstanceNames for single ID lookup
+      const names = await entityInfra.getEntityInstanceNames(entityCode, [id], userId);
+
+      if (!names[id]) {
+        return reply.status(404).send({ error: `Entity instance not found: ${id}` });
+      }
+
+      return { id, name: names[id] };
+    } catch (error) {
+      fastify.log.error('Error fetching entity instance:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * POST /api/v1/entity/:entityCode/entity-instance/bulk
    *
    * Get names for specific IDs (bulk lookup)
    * Useful for resolving IDs to names
    *
    * Uses Entity Infrastructure Service for RBAC permission filtering
    */
-  fastify.post('/api/v1/entity/:entityCode/entity-instance-lookup/bulk', {
+  fastify.post('/api/v1/entity/:entityCode/entity-instance/bulk', {
     preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
@@ -191,32 +269,16 @@ export async function entityInstanceLookupRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Use Entity Infrastructure Service for RBAC filtering
+      // Use Entity Infrastructure Service
       const entityInfra = getEntityInfrastructure(db);
 
-      // Build RBAC filter using Entity Infrastructure Service
-      const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
-        userId,
-        entityCode,
-        Permission.VIEW,
-        'e'
-      );
+      // Use getEntityInstanceNames service method for bulk lookup with RBAC
+      const names = await entityInfra.getEntityInstanceNames(entityCode, ids, userId);
 
-      // Get names for specific IDs with RBAC filtering
-      const result = await db.execute(sql`
-        SELECT
-          e.id::text as id,
-          e.name
-        FROM app.${sql.identifier(tableName)} e
-        WHERE e.id = ANY(${ids}::uuid[])
-          AND ${rbacCondition}
-        ORDER BY e.name ASC
-      `);
-
-      const data = result.map(row => ({
-        id: String(row.id),
-        name: String(row.name),
-      }));
+      // Transform to array format: [{ id, name }]
+      const data = Object.entries(names)
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
 
       return { data };
     } catch (error) {

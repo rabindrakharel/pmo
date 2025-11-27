@@ -113,7 +113,7 @@ The PMO frontend uses a **three-layer component architecture** (Base → Domain 
 │  │  EntitySelectDropdown, EntityMultiSelectTags                    │    │
 │  │                                                                  │    │
 │  │  Props: Uses editType.lookupSource, editType.datalabelKey       │    │
-│  │  Data: datalabelMetadataStore, entity-instance-lookup API       │    │
+│  │  Data: datalabelMetadataStore, entity-instance API              │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                              │ wraps                                    │
 │                              ▼                                          │
@@ -448,7 +448,7 @@ switch (metadata.inputType) {
     return <input type="checkbox" />;
 
   case 'select':
-    // Lookup options from datalabelMetadataStore or entity-instance-lookup
+    // Lookup options from datalabelMetadataStore or entity-instance API
     if (metadata.lookupSource === 'datalabel') {
       return <DataLabelSelect datalabelKey={metadata.datalabelKey} />;
     }

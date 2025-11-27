@@ -18,7 +18,7 @@ export interface EntityMultiSelectProps {
  * Domain component for entity array references
  * Used for all entity array fields (_IDS fields)
  *
- * Wraps SearchableMultiSelect with automatic data fetching from entity entity-instance-lookup API
+ * Wraps SearchableMultiSelect with automatic data fetching from entity entity-instance API
  *
  * @example
  * <EntityMultiSelect
@@ -42,7 +42,7 @@ export function EntityMultiSelect({
   const { data: options = [], isLoading } = useQuery({
     queryKey: ['entity-lookup', entityCode],
     queryFn: async () => {
-      const response = await apiClient.get(`/api/v1/entity/${entityCode}/entity-instance-lookup`, {
+      const response = await apiClient.get(`/api/v1/entity/${entityCode}/entity-instance`, {
         params: { active_only: true, limit: 500 }
       });
 
