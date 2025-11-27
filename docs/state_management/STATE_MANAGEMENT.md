@@ -1,6 +1,6 @@
 # State Management Architecture
 
-**Version:** 8.2.0 | **Location:** `apps/web/src/stores/` | **Updated:** 2025-11-26
+**Version:** 8.3.1 | **Location:** `apps/web/src/stores/` | **Updated:** 2025-11-26
 
 ---
 
@@ -8,7 +8,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    STATE MANAGEMENT (v8.2.0)                                 │
+│                    STATE MANAGEMENT (v8.3.1)                                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌───────────────────────────────────────────────────────────────────────┐   │
@@ -18,6 +18,7 @@
 │  │  • Format-at-read via `select` option (memoized)                      │   │
 │  │  • Stale-while-revalidate pattern                                     │   │
 │  │  • Optimistic updates with automatic rollback                         │   │
+│  │  • ref_data lookup tables for entity references (v8.3.0)              │   │
 │  └───────────────────────────────────────────────────────────────────────┘   │
 │                                                                              │
 │  ┌───────────────────────────────────────────────────────────────────────┐   │
@@ -43,9 +44,11 @@
 |-----------|----------------|
 | **Single Source of Truth** | React Query caches RAW data only |
 | **Format-at-Read** | `select` option transforms on read (memoized) |
+| **Backend Metadata** | viewType/editType/lookupEntity from backend (v8.3.1) |
+| **ref_data Pattern** | Entity references resolved via lookup table (v8.3.0) |
 | **Separation of Concerns** | Data (React Query) vs Metadata (Zustand) |
 | **Stale-While-Revalidate** | Show cached, refetch in background |
-| **Tiered TTL** | Reference (1h) > Metadata (15m) > Lists (30s) > Details (10s) |
+| **Tiered TTL** | Reference (2h) > Metadata (15m) > Lists (30s) > Details (10s) |
 
 ---
 
@@ -55,11 +58,12 @@
 
 | Hook | Purpose | TTL | Returns |
 |------|---------|-----|---------|
-| `useEntityInstanceList` | RAW entity lists | 30s stale, 5m cache | `{ data: T[], metadata }` |
+| `useEntityInstanceList` | RAW entity lists | 30s stale, 5m cache | `{ data: T[], metadata, ref_data }` |
 | `useFormattedEntityList` | Formatted lists | Same cache + select | `{ formattedData: FormattedRow[] }` |
-| `useEntityInstance` | RAW single entity | 10s stale, 2m cache | `{ data: T, metadata }` |
+| `useEntityInstance` | RAW single entity | 10s stale, 2m cache | `{ data: T, metadata, ref_data }` |
 | `useFormattedEntityInstance` | Formatted entity | Same cache + select | `{ formattedData: FormattedRow }` |
 | `useEntityMutation` | CRUD operations | N/A | `{ updateEntity, deleteEntity }` |
+| `useRefData` | Reference resolution | Bound to query | `{ resolveName, resolveFieldDisplay }` |
 
 ### Zustand Stores
 
@@ -70,6 +74,119 @@
 | `globalSettingsMetadataStore` | Currency/date formats | 1 hour | `settings` |
 | `entityCodeMetadataStore` | Entity type registry | 1 hour | `entityCode` |
 | `entityEditStore` | Edit state | None | `entityCode:entityId` |
+
+---
+
+## Entity Reference Resolution (v8.3.0)
+
+### ref_data Pattern
+
+API responses include `ref_data` - a lookup table for resolving entity reference UUIDs to display names:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ref_data PATTERN (v8.3.0)                                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  API Response:                                                               │
+│  {                                                                           │
+│    data: [{                                                                  │
+│      id: "proj-1",                                                           │
+│      name: "Kitchen Renovation",                                             │
+│      manager__employee_id: "uuid-james",    // Raw UUID                      │
+│      business_id: "uuid-huron"              // Raw UUID                      │
+│    }],                                                                       │
+│    ref_data: {                                                               │
+│      employee: { "uuid-james": "James Miller" },   // Lookup table           │
+│      business: { "uuid-huron": "Huron Home Services" }                       │
+│    },                                                                        │
+│    metadata: {                                                               │
+│      entityDataTable: {                                                      │
+│        viewType: {                                                           │
+│          manager__employee_id: {                                             │
+│            viewType: "entityInstance_Id",                                    │
+│            lookupEntity: "employee"          // ← Backend tells frontend     │
+│          }                                                                   │
+│        }                                                                     │
+│      }                                                                       │
+│    }                                                                         │
+│  }                                                                           │
+│                                                                              │
+│  Frontend Resolution (using metadata):                                       │
+│  const { resolveFieldDisplay } = useRefData(data.ref_data);                  │
+│  const fieldMeta = metadata.entityDataTable.viewType.manager__employee_id;   │
+│  resolveFieldDisplay(fieldMeta, "uuid-james")  // → "James Miller"           │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Resolution Flow (v8.3.1 - Metadata-Based)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ENTITY REFERENCE RESOLUTION (v8.3.1)                                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Backend Metadata provides:                                                  │
+│  ─────────────────────────                                                   │
+│  {                                                                           │
+│    manager__employee_id: {                                                   │
+│      viewType: "entityInstance_Id",    // ← Tells frontend: it's a reference│
+│      lookupEntity: "employee",         // ← Tells frontend: use "employee"  │
+│      lookupSource: "entityInstance"    // ← Tells frontend: look in ref_data│
+│    }                                                                         │
+│  }                                                                           │
+│                                                                              │
+│  Frontend uses metadata (NO pattern matching):                               │
+│  ───────────────────────────────────────────                                 │
+│  import { useRefData, isEntityReferenceField, getEntityCodeFromMetadata }    │
+│                                                                              │
+│  // Check if field is a reference using metadata                             │
+│  if (isEntityReferenceField(fieldMeta)) {                                    │
+│    const entityCode = getEntityCodeFromMetadata(fieldMeta);  // "employee"   │
+│    const name = refData[entityCode][uuid];                   // "James"      │
+│  }                                                                           │
+│                                                                              │
+│  ✗ REMOVED: Frontend pattern matching (_id suffix detection)                 │
+│  ✓ NOW: Backend metadata is single source of truth                           │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### useRefData Hook (v8.3.1)
+
+```typescript
+import { useRefData } from '@/lib/hooks';
+
+// Get ref_data from entity query
+const { data } = useEntityInstance('project', projectId);
+const { resolveFieldDisplay, isRefField } = useRefData(data?.ref_data);
+
+// Resolve using field metadata (NOT field name pattern)
+const fieldMeta = metadata.entityDataTable.viewType.manager__employee_id;
+const displayValue = resolveFieldDisplay(fieldMeta, project.manager__employee_id);
+// → "James Miller"
+
+// Hook methods:
+interface UseRefDataResult {
+  refData: RefData | undefined;
+  hasRefData: boolean;
+
+  // Direct resolution (when you know the entity code)
+  resolveName(uuid, entityCode): string | undefined;
+  resolveNames(uuids, entityCode): string[];
+
+  // Metadata-based resolution (v8.3.1 - recommended)
+  resolveField(fieldMeta, value): string | string[] | undefined;
+  resolveFieldDisplay(fieldMeta, value, fallback?): string;
+  resolveRow(row, fieldMetadataMap): Record<string, string>;
+
+  // Metadata utilities
+  isRefField(fieldMeta): boolean;
+  getEntityCode(fieldMeta): string | null;
+  isArrayRef(fieldMeta): boolean;
+}
+```
 
 ---
 
@@ -84,32 +201,40 @@
 │                                                                              │
 │  1. API Response                                                             │
 │     {                                                                        │
-│       data: [{ budget_allocated_amt: 50000 }],                               │
+│       data: [{ budget_allocated_amt: 50000, manager__employee_id: "uuid" }], │
+│       ref_data: { employee: { "uuid": "James Miller" } },                    │
 │       metadata: {                                                            │
 │         entityDataTable: {                                                   │
-│           viewType: { budget_allocated_amt: { renderType: 'currency' } },    │
+│           viewType: {                                                        │
+│             budget_allocated_amt: { renderType: 'currency' },                │
+│             manager__employee_id: {                                          │
+│               viewType: 'entityInstance_Id',                                 │
+│               lookupEntity: 'employee'                                       │
+│             }                                                                │
+│           },                                                                 │
 │           editType: { budget_allocated_amt: { inputType: 'number' } }        │
 │         }                                                                    │
 │       }                                                                      │
 │     }                                                                        │
 │                       │                                                      │
 │                       ▼                                                      │
-│  2. React Query Cache (RAW data only)                                        │
+│  2. React Query Cache (RAW data + ref_data)                                  │
 │     queryKey: ['entity-list', 'project', params]                             │
-│     data: { data: [...], metadata: {...} }  // Stored as-is                  │
+│     data: { data: [...], ref_data: {...}, metadata: {...} }                  │
 │                       │                                                      │
 │                       ▼                                                      │
 │  3. select Transform (ON READ - memoized)                                    │
 │     select: (raw) => {                                                       │
 │       const { viewType } = raw.metadata.entityDataTable;                     │
-│       return formatDataset(raw.data, { viewType });                          │
+│       return formatDataset(raw.data, { viewType, refData: raw.ref_data });   │
 │     }                                                                        │
 │                       │                                                      │
 │                       ▼                                                      │
 │  4. Component receives FormattedRow[]                                        │
 │     {                                                                        │
-│       raw: { budget_allocated_amt: 50000 },                                  │
-│       display: { budget_allocated_amt: '$50,000.00' },                       │
+│       raw: { budget_allocated_amt: 50000, manager__employee_id: "uuid" },    │
+│       display: { budget_allocated_amt: '$50,000.00',                         │
+│                  manager__employee_id: 'James Miller' },                     │
 │       styles: {}                                                             │
 │     }                                                                        │
 │                                                                              │
@@ -124,15 +249,16 @@
 | **Fresh Formatting** | Datalabel colors always current |
 | **Multiple Views** | Same cache serves table, kanban, grid |
 | **Memoization** | React Query auto-memoizes select transform |
+| **O(1) Reference Resolution** | ref_data lookup vs per-row API calls |
 
 ---
 
-## Metadata Store Structure (v8.2.0)
+## Metadata Store Structure (v8.3.1)
 
 ### ComponentMetadata Type
 
 ```typescript
-// Required structure from backend (v8.2.0)
+// Required structure from backend (v8.3.1)
 interface ComponentMetadata {
   viewType: Record<string, ViewFieldMetadata>;
   editType: Record<string, EditFieldMetadata>;
@@ -142,6 +268,9 @@ interface ViewFieldMetadata {
   dtype: string;
   label: string;
   renderType: string;
+  viewType?: string;              // 'entityInstance_Id' for references
+  lookupEntity?: string;          // Entity code for reference fields (v8.3.0)
+  lookupSource?: 'entityInstance' | 'datalabel';  // Where to lookup
   behavior: { visible?: boolean; sortable?: boolean };
   style: Record<string, any>;
 }
@@ -150,9 +279,11 @@ interface EditFieldMetadata {
   dtype: string;
   label: string;
   inputType: string;
+  editType?: string;              // 'entityInstance_Id' for references
+  lookupEntity?: string;          // Entity code for reference fields (v8.3.0)
+  lookupSource?: 'entityInstance' | 'datalabel';
   behavior: { editable?: boolean };
   validation: Record<string, any>;
-  lookupSource?: 'datalabel' | 'entityInstance';
   datalabelKey?: string;
 }
 ```
@@ -184,26 +315,28 @@ interface EntityComponentMetadataStore {
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  COMPONENT → STORE INTERACTIONS                                              │
+│  COMPONENT → STORE INTERACTIONS (v8.3.1)                                     │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  EntityListOfInstancesPage                                                   │
 │  └── useFormattedEntityList('project', { view: 'entityDataTable' })          │
-│       ├── React Query: fetch + cache RAW                                     │
+│       ├── React Query: fetch + cache RAW + ref_data                          │
 │       ├── Zustand: store metadata in entityComponentMetadataStore            │
 │       ├── Zustand: store datalabels in datalabelMetadataStore                │
 │       └── select: formatDataset() → FormattedRow[]                           │
 │                                                                              │
 │  EntityDataTable                                                             │
-│  └── Receives: { data: FormattedRow[], metadata }                            │
+│  └── Receives: { data: FormattedRow[], metadata, ref_data }                  │
 │       ├── VIEW: row.display[key], row.styles[key]                            │
+│       ├── REFERENCE: Uses metadata.lookupEntity (no pattern matching)        │
 │       ├── EDIT: renderEditModeFromMetadata(row.raw[key], editType[key])      │
 │       └── Columns built from metadata.viewType                               │
 │                                                                              │
 │  EntityFormContainer                                                         │
 │  └── useEntityInstance('project', id)                                        │
-│       ├── Receives: { data, metadata: { entityFormContainer: {...} } }       │
+│       ├── Receives: { data, metadata, ref_data }                             │
 │       ├── Fields built from metadata.entityFormContainer.viewType            │
+│       ├── Reference dropdowns: metadata.lookupEntity → fetch options         │
 │       └── Inputs rendered via metadata.entityFormContainer.editType          │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -260,17 +393,19 @@ const logout = () => {
 ```typescript
 // useEntityQuery.ts
 export const CACHE_TTL = {
-  // Reference Data (1 hour)
-  ENTITY_TYPES: 60 * 60 * 1000,
-  DATALABELS: 60 * 60 * 1000,
-  GLOBAL_SETTINGS: 60 * 60 * 1000,
+  // Reference Data (long-lived)
+  ENTITY_TYPES: 60 * 60 * 1000,        // 1 hour
+  DATALABELS: 60 * 60 * 1000,          // 1 hour
+  GLOBAL_SETTINGS: 60 * 60 * 1000,     // 1 hour
+  REF_DATA_STALE: 60 * 60 * 1000,      // 1 hour (v8.3.0)
+  REF_DATA_CACHE: 2 * 60 * 60 * 1000,  // 2 hours (v8.3.0)
 
   // Metadata (15 minutes)
   ENTITY_METADATA: 15 * 60 * 1000,
 
   // Entity Lists (stale-while-revalidate)
-  ENTITY_LIST_STALE: 30 * 1000,   // Mark stale after 30s
-  ENTITY_LIST_CACHE: 5 * 60 * 1000, // Keep for 5 min
+  ENTITY_LIST_STALE: 30 * 1000,        // Mark stale after 30s
+  ENTITY_LIST_CACHE: 5 * 60 * 1000,    // Keep for 5 min
 
   // Entity Details (near real-time)
   ENTITY_DETAIL_STALE: 10 * 1000,
@@ -288,7 +423,8 @@ export const CACHE_TTL = {
 | Formatting in queryFn | Bloated cache | Use `select` option |
 | Subscribing to full store | Unnecessary re-renders | Use `getState()` or `useShallow` |
 | Hardcoded dropdown options | Maintenance burden | Use datalabelMetadataStore |
-| Pattern detection in frontend | Backend should decide | Backend sends { viewType, editType } |
+| Pattern detection in frontend | Backend should decide | Use `metadata.lookupEntity` (v8.3.1) |
+| Field name `_id` suffix detection | Duplicates backend logic | Use `viewType === 'entityInstance_Id'` |
 
 ---
 
@@ -301,10 +437,24 @@ export const CACHE_TTL = {
 | `stores/globalSettingsMetadataStore.ts` | Currency/date formats |
 | `stores/entityCodeMetadataStore.ts` | Entity type registry |
 | `stores/useEntityEditStore.ts` | Edit state management |
-| `lib/hooks/useEntityQuery.ts` | React Query hooks |
+| `lib/hooks/useEntityQuery.ts` | React Query hooks + RefData type |
+| `lib/hooks/useRefData.ts` | Reference resolution hook (v8.3.0) |
+| `lib/refDataResolver.ts` | Metadata-based resolution utilities (v8.3.1) |
 | `lib/formatters/types.ts` | ComponentMetadata types |
 | `lib/formatters/datasetFormatter.ts` | formatDataset function |
 
 ---
 
-**Version:** 8.2.0 | **Updated:** 2025-11-26
+**Version:** 8.3.1 | **Updated:** 2025-11-26
+
+**Recent Updates:**
+- v8.3.1 (2025-11-26): **Metadata-Based Reference Resolution**
+  - Removed pattern matching from `refDataResolver.ts`
+  - Added `isEntityReferenceField(fieldMeta)`, `getEntityCodeFromMetadata(fieldMeta)`
+  - Frontend uses `metadata.viewType`/`metadata.lookupEntity` (no `_id` suffix detection)
+  - Backend metadata is single source of truth for field type detection
+- v8.3.0 (2025-11-26): **ref_data Pattern**
+  - Added `ref_data` to API responses for O(1) entity reference resolution
+  - Added `useRefData` hook for reference resolution utilities
+  - Added `REF_DATA_STALE`/`REF_DATA_CACHE` TTL constants
+  - Deprecated per-row `_ID/_IDS` embedded object pattern

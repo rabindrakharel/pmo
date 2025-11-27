@@ -1,20 +1,18 @@
 /**
- * RefData Resolver Utilities (v8.3.0)
+ * RefData Resolver Utilities (v8.3.1)
  *
  * Utilities for resolving entity reference UUIDs to human-readable names
  * using the ref_data lookup table from API responses.
+ *
+ * IMPORTANT: Backend metadata is the single source of truth for:
+ * - Whether a field is a reference (viewType === 'entityInstance_Id')
+ * - Which entity to look up (lookupEntity)
  *
  * ref_data structure:
  * {
  *   "employee": { "uuid-123": "James Miller", "uuid-456": "Sarah Johnson" },
  *   "business": { "uuid-bus": "Huron Home Services" }
  * }
- *
- * Field naming patterns supported:
- * - Pattern 1: {label}__{entity}_id (e.g., manager__employee_id)
- * - Pattern 2: {label}__{entity}_ids (e.g., stakeholder__employee_ids)
- * - Pattern 3: {entity}_id (e.g., business_id)
- * - Pattern 4: {entity}_ids (e.g., tag_ids)
  */
 
 import type { RefData } from './hooks/useEntityQuery';
@@ -33,69 +31,60 @@ export interface ResolvedReference {
 }
 
 /**
- * Field parse result
+ * Field metadata structure (from backend)
+ * Backend provides this - frontend does NOT detect patterns
  */
-interface ParsedField {
-  entityCode: string;
-  label: string;
-  isArray: boolean;
+export interface FieldMetadata {
+  key: string;
+  viewType?: string;
+  editType?: string;
+  lookupSource?: 'entityInstance' | 'datalabel';
+  lookupEntity?: string;
+  dtype?: string;
 }
 
 // ============================================================================
-// Field Pattern Parsing
+// Metadata-Based Detection (v8.3.1 - Backend is source of truth)
 // ============================================================================
 
 /**
- * Parse a field name to extract entity code and label
+ * Check if a field is an entity reference using backend metadata
  *
- * @param fieldName - Field name like "manager__employee_id" or "business_id"
- * @returns Parsed field info or null if not a reference field
+ * @param fieldMeta - Field metadata from backend
+ * @returns true if field is an entity reference
  */
-export function parseReferenceField(fieldName: string): ParsedField | null {
-  // Skip primary key
-  if (fieldName === 'id') return null;
+export function isEntityReferenceField(fieldMeta: FieldMetadata | undefined): boolean {
+  if (!fieldMeta) return false;
+  return (
+    fieldMeta.viewType === 'entityInstance_Id' ||
+    fieldMeta.editType === 'entityInstance_Id' ||
+    fieldMeta.lookupSource === 'entityInstance'
+  );
+}
 
-  // Pattern 1: {label}__{entity}_id (e.g., manager__employee_id)
-  const labeledSingleMatch = fieldName.match(/^(.+)__([a-z_]+)_id$/);
-  if (labeledSingleMatch) {
-    return {
-      label: labeledSingleMatch[1],
-      entityCode: labeledSingleMatch[2],
-      isArray: false,
-    };
-  }
+/**
+ * Get the entity code from field metadata
+ *
+ * @param fieldMeta - Field metadata from backend
+ * @returns Entity code or null
+ */
+export function getEntityCodeFromMetadata(fieldMeta: FieldMetadata | undefined): string | null {
+  if (!fieldMeta) return null;
+  return fieldMeta.lookupEntity ?? null;
+}
 
-  // Pattern 2: {label}__{entity}_ids (e.g., stakeholder__employee_ids)
-  const labeledArrayMatch = fieldName.match(/^(.+)__([a-z_]+)_ids$/);
-  if (labeledArrayMatch) {
-    return {
-      label: labeledArrayMatch[1],
-      entityCode: labeledArrayMatch[2],
-      isArray: true,
-    };
-  }
-
-  // Pattern 3: {entity}_id (e.g., business_id)
-  const simpleSingleMatch = fieldName.match(/^([a-z_]+)_id$/);
-  if (simpleSingleMatch) {
-    return {
-      label: simpleSingleMatch[1],
-      entityCode: simpleSingleMatch[1],
-      isArray: false,
-    };
-  }
-
-  // Pattern 4: {entity}_ids (e.g., tag_ids)
-  const simpleArrayMatch = fieldName.match(/^([a-z_]+)_ids$/);
-  if (simpleArrayMatch) {
-    return {
-      label: simpleArrayMatch[1],
-      entityCode: simpleArrayMatch[1],
-      isArray: true,
-    };
-  }
-
-  return null;
+/**
+ * Check if field is an array reference
+ *
+ * @param fieldMeta - Field metadata from backend
+ * @returns true if field is an array of entity references
+ */
+export function isArrayReferenceField(fieldMeta: FieldMetadata | undefined): boolean {
+  if (!fieldMeta) return false;
+  return (
+    fieldMeta.dtype === 'array[uuid]' ||
+    fieldMeta.editType === 'multiselect'
+  );
 }
 
 // ============================================================================
@@ -211,71 +200,69 @@ export function resolveEntityReferences(
 }
 
 // ============================================================================
-// Field-Based Resolution (Auto-detect entity from field name)
+// Metadata-Based Resolution (Recommended)
 // ============================================================================
 
 /**
- * Resolve a field value to display name(s) based on field naming convention
+ * Resolve a field value using backend metadata
  *
- * Automatically detects entity type from field name pattern and resolves.
+ * Uses field metadata to determine entity code - NO pattern matching.
  *
- * @param fieldName - Field name (e.g., "manager__employee_id")
+ * @param fieldMeta - Field metadata from backend
  * @param value - UUID or array of UUIDs
  * @param refData - RefData lookup table
  * @returns Resolved name(s) or undefined
  *
  * @example
- * // Single reference
- * const name = resolveFieldValue("manager__employee_id", "uuid-123", refData);
+ * const fieldMeta = { key: 'manager__employee_id', lookupEntity: 'employee', viewType: 'entityInstance_Id' };
+ * const name = resolveFieldWithMetadata(fieldMeta, "uuid-123", refData);
  * // Returns: "James Miller"
- *
- * // Array reference
- * const names = resolveFieldValue("stakeholder__employee_ids", ["uuid-1", "uuid-2"], refData);
- * // Returns: ["James Miller", "Sarah Johnson"]
  */
-export function resolveFieldValue(
-  fieldName: string,
+export function resolveFieldWithMetadata(
+  fieldMeta: FieldMetadata | undefined,
   value: string | string[] | null | undefined,
   refData: RefData | undefined
 ): string | string[] | undefined {
-  if (!value || !refData) return undefined;
+  if (!value || !refData || !fieldMeta) return undefined;
 
-  const parsed = parseReferenceField(fieldName);
-  if (!parsed) return undefined;
+  const entityCode = getEntityCodeFromMetadata(fieldMeta);
+  if (!entityCode) return undefined;
 
-  if (parsed.isArray && Array.isArray(value)) {
-    return resolveEntityNames(value, parsed.entityCode, refData);
+  const isArray = isArrayReferenceField(fieldMeta);
+
+  if (isArray && Array.isArray(value)) {
+    return resolveEntityNames(value, entityCode, refData);
   }
 
-  if (!parsed.isArray && typeof value === 'string') {
-    return resolveEntityName(value, parsed.entityCode, refData);
+  if (!isArray && typeof value === 'string') {
+    return resolveEntityName(value, entityCode, refData);
   }
 
   return undefined;
 }
 
 /**
- * Resolve a field value to display string (comma-joined for arrays)
+ * Resolve a field value to display string using backend metadata
  *
- * @param fieldName - Field name
+ * @param fieldMeta - Field metadata from backend
  * @param value - UUID or array of UUIDs
  * @param refData - RefData lookup table
  * @param fallback - Fallback if not resolvable (default: UUID)
  * @returns Display string
  *
  * @example
- * resolveFieldValueDisplay("manager__employee_id", "uuid-123", refData)
+ * resolveFieldDisplayWithMetadata(fieldMeta, "uuid-123", refData)
  * // Returns: "James Miller" or "uuid-123" if not found
  */
-export function resolveFieldValueDisplay(
-  fieldName: string,
+export function resolveFieldDisplayWithMetadata(
+  fieldMeta: FieldMetadata | undefined,
   value: string | string[] | null | undefined,
   refData: RefData | undefined,
   fallback: 'uuid' | 'empty' | 'unknown' = 'uuid'
 ): string {
   if (!value) return '';
 
-  const resolved = resolveFieldValue(fieldName, value, refData);
+  const resolved = resolveFieldWithMetadata(fieldMeta, value, refData);
 
   if (resolved === undefined) {
     // Not resolvable - return fallback
@@ -293,25 +280,28 @@ export function resolveFieldValueDisplay(
 }
 
 // ============================================================================
-// Row-Level Resolution
+// Row-Level Resolution with Metadata
 // ============================================================================
 
 /**
- * Resolve all reference fields in a data row
+ * Resolve all reference fields in a data row using field metadata
  *
  * @param row - Entity data row
+ * @param fieldMetadataMap - Map of field key to field metadata
  * @param refData - RefData lookup table
  * @returns Object with resolved display values for each reference field
  *
  * @example
- * const resolved = resolveRowReferences(
- *   { id: "...", manager__employee_id: "uuid-123", business_id: "uuid-bus" },
- *   refData
- * );
+ * const fieldMetadataMap = {
+ *   'manager__employee_id': { key: 'manager__employee_id', lookupEntity: 'employee', viewType: 'entityInstance_Id' },
+ *   'business_id': { key: 'business_id', lookupEntity: 'business', viewType: 'entityInstance_Id' }
+ * };
+ * const resolved = resolveRowWithMetadata(row, fieldMetadataMap, refData);
  * // Returns: { manager__employee_id: "James Miller", business_id: "Huron Home Services" }
  */
-export function resolveRowReferences(
+export function resolveRowWithMetadata(
   row: Record<string, any>,
+  fieldMetadataMap: Record<string, FieldMetadata>,
   refData: RefData | undefined
 ): Record<string, string> {
   if (!row || !refData) return {};
@@ -321,10 +311,10 @@ export function resolveRowReferences(
   for (const [fieldName, value] of Object.entries(row)) {
     if (value === null || value === undefined) continue;
 
-    const parsed = parseReferenceField(fieldName);
-    if (!parsed) continue;
+    const fieldMeta = fieldMetadataMap[fieldName];
+    if (!fieldMeta || !isEntityReferenceField(fieldMeta)) continue;
 
-    const displayValue = resolveFieldValueDisplay(fieldName, value, refData);
+    const displayValue = resolveFieldDisplayWithMetadata(fieldMeta, value, refData);
     if (displayValue) {
       resolved[fieldName] = displayValue;
     }
@@ -338,41 +328,22 @@ export function resolveRowReferences(
 // ============================================================================
 
 /**
- * Check if a field is a reference field
+ * Get all unique entity codes from field metadata
  *
- * @param fieldName - Field name to check
- * @returns true if field is a reference field
- */
-export function isReferenceField(fieldName: string): boolean {
-  return parseReferenceField(fieldName) !== null;
-}
-
-/**
- * Get the entity code from a reference field name
- *
- * @param fieldName - Reference field name
- * @returns Entity code or null
- */
-export function getEntityCodeFromField(fieldName: string): string | null {
-  const parsed = parseReferenceField(fieldName);
-  return parsed?.entityCode ?? null;
-}
-
-/**
- * Get all unique entity codes from a data row
- *
- * @param row - Entity data row
+ * @param fieldMetadataMap - Map of field key to field metadata
  * @returns Array of unique entity codes
  */
-export function getReferencedEntityCodes(row: Record<string, any>): string[] {
-  if (!row) return [];
-
+export function getReferencedEntityCodesFromMetadata(
+  fieldMetadataMap: Record<string, FieldMetadata>
+): string[] {
   const entityCodes = new Set<string>();
 
-  for (const fieldName of Object.keys(row)) {
-    const parsed = parseReferenceField(fieldName);
-    if (parsed) {
-      entityCodes.add(parsed.entityCode);
+  for (const fieldMeta of Object.values(fieldMetadataMap)) {
+    if (isEntityReferenceField(fieldMeta)) {
+      const entityCode = getEntityCodeFromMetadata(fieldMeta);
+      if (entityCode) {
+        entityCodes.add(entityCode);
+      }
     }
   }
 

@@ -1,6 +1,6 @@
 # Entity Infrastructure Service
 
-**Version:** 5.0.0 | **Location:** `apps/api/src/services/entity-infrastructure.service.ts`
+**Version:** 8.3.1 | **Location:** `apps/api/src/services/entity-infrastructure.service.ts`
 
 ---
 
@@ -35,6 +35,10 @@ The Entity Infrastructure Service provides **transactional CRUD operations** and
 │  │  │ create_entity │ │ update_entity │ │ delete_entity │          │    │
 │  │  │ (4 ops in 1)  │ │ (2 ops in 1)  │ │ (4 ops in 1)  │          │    │
 │  │  └───────────────┘ └───────────────┘ └───────────────┘          │    │
+│  │                                                                  │    │
+│  │  ┌───────────────────────────────────────────────────────────┐  │    │
+│  │  │ build_ref_data() - Entity reference resolution (v8.3.0)   │  │    │
+│  │  └───────────────────────────────────────────────────────────┘  │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                              │                                          │
 └──────────────────────────────│──────────────────────────────────────────┘
@@ -48,7 +52,80 @@ The Entity Infrastructure Service provides **transactional CRUD operations** and
 │  PATCH  → update_entity()   (UPDATE + registry sync)                    │
 │  DELETE → delete_entity()   (DELETE + registry + links + RBAC)          │
 │  GET    → check_entity_rbac() + get_entity_rbac_where_condition()       │
+│        → build_ref_data()   (Entity reference lookup table)             │
 └─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Entity Reference Resolution (v8.3.0)
+
+### build_ref_data()
+
+Generates a lookup table for resolving entity reference UUIDs to display names. Used by API routes to include `ref_data` in responses for O(1) frontend lookups.
+
+```typescript
+/**
+ * Build ref_data lookup table for entity references
+ *
+ * Scans rows for *_id/*_ids fields, batch resolves from entity_instance table.
+ *
+ * @param rows - Data rows to scan for entity reference UUIDs
+ * @returns { [entityCode]: { [uuid]: name } }
+ *
+ * @example
+ * const ref_data = await entityInfra.build_ref_data(projects);
+ * // Returns: {
+ * //   employee: { "uuid-james": "James Miller" },
+ * //   business: { "uuid-huron": "Huron Home Services" }
+ * // }
+ */
+async build_ref_data(
+  rows: Record<string, any>[]
+): Promise<Record<string, Record<string, string>>>
+```
+
+### Usage in Routes
+
+```typescript
+import { getEntityInfrastructure } from '@/services/entity-infrastructure.service.js';
+
+const entityInfra = getEntityInfrastructure(db);
+
+fastify.get('/api/v1/project', async (request, reply) => {
+  const projects = await db.execute(sql`SELECT * FROM app.project...`);
+
+  // Build ref_data for entity reference fields
+  const ref_data = await entityInfra.build_ref_data(projects);
+
+  return reply.send({
+    data: projects,
+    ref_data,  // Include in response
+    metadata: { ... }
+  });
+});
+```
+
+### ref_data Response Structure
+
+```json
+{
+  "data": [
+    {
+      "id": "proj-1",
+      "manager__employee_id": "uuid-james",
+      "business_id": "uuid-huron"
+    }
+  ],
+  "ref_data": {
+    "employee": {
+      "uuid-james": "James Miller"
+    },
+    "business": {
+      "uuid-huron": "Huron Home Services"
+    }
+  }
+}
 ```
 
 ---
@@ -134,6 +211,12 @@ User Request ──> Route Handler ──> RBAC Check (DELETE permission)
 | `create_entity()` | Create entity with all infrastructure | INSERT primary + registry + RBAC + link |
 | `update_entity()` | Update entity with registry sync | UPDATE primary + registry sync |
 | `delete_entity()` | Delete entity with cleanup | DELETE/deactivate + registry + links + RBAC |
+
+### Reference Resolution Methods (v8.3.0)
+
+| Method | Purpose | Use Case |
+|--------|---------|----------|
+| `build_ref_data()` | Build UUID→name lookup table | LIST/GET responses |
 
 ### Helper Methods (For Edge Cases)
 
@@ -248,7 +331,7 @@ fastify.delete('/api/v1/project/:id', async (request, reply) => {
 });
 ```
 
-### LIST with RBAC Pattern
+### LIST with RBAC + ref_data Pattern (v8.3.0)
 
 ```typescript
 fastify.get('/api/v1/project', async (request, reply) => {
@@ -270,7 +353,14 @@ fastify.get('/api/v1/project', async (request, reply) => {
     LIMIT ${limit} OFFSET ${offset}
   `);
 
-  return reply.send({ data: projects });
+  // Build ref_data for entity reference fields (v8.3.0)
+  const ref_data = await entityInfra.build_ref_data(projects);
+
+  return reply.send({
+    data: projects,
+    ref_data,  // Frontend uses for O(1) UUID→name resolution
+    metadata: { ... }
+  });
 });
 ```
 
@@ -335,6 +425,14 @@ async delete_entity(params: {
 }>
 ```
 
+### build_ref_data() (v8.3.0)
+
+```typescript
+async build_ref_data(
+  rows: Record<string, any>[]
+): Promise<Record<string, Record<string, string>>>
+```
+
 ### Helper Methods (for edge cases)
 
 ```typescript
@@ -386,7 +484,8 @@ async set_entity_instance_link(params: {
 | `POST /api/v1/{entity}` | `create_entity()` |
 | `PATCH /api/v1/{entity}/:id` | `update_entity()` |
 | `DELETE /api/v1/{entity}/:id` | `delete_entity()` |
-| `GET /api/v1/{entity}` | `get_entity_rbac_where_condition()` |
+| `GET /api/v1/{entity}` | `get_entity_rbac_where_condition()` + `build_ref_data()` |
+| `GET /api/v1/{entity}/:id` | `check_entity_rbac()` + `build_ref_data()` |
 | `GET /api/v1/{parent}/:id/{child}` | `get_entity_rbac_where_condition()` |
 
 ---
@@ -400,6 +499,7 @@ async set_entity_instance_link(params: {
 3. **Consistent Naming** - `entity_code` matches data model column names
 4. **No Foreign Keys** - All relationships via entity_instance_link
 5. **Hard Delete Links** - entity_instance_link uses hard delete (no active_flag)
+6. **ref_data for References** - Use `build_ref_data()` instead of per-row embedded objects (v8.3.0)
 
 ### Naming Convention
 
@@ -431,7 +531,13 @@ async set_entity_instance_link(params: {
 | Direct INSERT + set_entity_instance_registry() + set_entity_rbac_owner() + set_entity_instance_link() | `create_entity()` |
 | Direct UPDATE + update_entity_instance_registry() | `update_entity()` |
 | delete_all_entity_infrastructure() | `delete_entity()` |
+| Per-row `_ID` embedded objects | `build_ref_data()` (v8.3.0) |
+| `resolve_entity_references()` | `build_ref_data()` (deprecated v8.3.0) |
 
 ---
 
-**Last Updated:** 2025-11-22 | **Status:** Production Ready
+**Last Updated:** 2025-11-26 | **Version:** 8.3.1 | **Status:** Production Ready
+
+**Recent Updates:**
+- v8.3.0 (2025-11-26): Added `build_ref_data()` for entity reference resolution
+- v5.0.0 (2025-11-22): Added transactional CRUD methods
