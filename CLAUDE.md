@@ -1,17 +1,17 @@
 # PMO Enterprise Platform - LLM Technical Reference
 
-> Production-ready Canadian home services management system with transactional CRUD, unified RBAC, and config-driven entity system
+> Production-ready Canadian home services management system with transactional CRUD, unified RBAC, config-driven entity system, and real-time WebSocket sync
 
 ## Platform Specifications
 
 - **Architecture**: 3 universal pages handle 27+ entity types dynamically
 - **Database**: PostgreSQL 14+ with 50 tables (46 DDL files)
 - **Backend**: Fastify v5, TypeScript ESM, JWT, 45 API modules
+- **PubSub Service**: WebSocket server for real-time sync (port 4001)
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4
-- **State Management**: **RxDB + RxState** (v9.0.0) | Legacy: Zustand + TanStack Query (v8.x)
-- **Local Database**: RxDB with Dexie/IndexedDB (offline-first, persistent)
+- **State Management**: React Query (data + WebSocket invalidation) + Zustand (metadata)
 - **Infrastructure**: AWS EC2/S3/Lambda, Terraform, Docker
-- **Version**: 9.0.0 (RxDB + RxState Local-First Architecture)
+- **Version**: 8.4.0 (WebSocket Real-Time Sync + ref_data_entityInstance + Metadata-Based Resolution)
 
 ## Critical Operations
 
@@ -431,46 +431,42 @@ fastify.get('/api/v1/project', async (request, reply) => {
 
 ---
 
-## 5. State Management (Frontend) - v9.0.0 RxDB + RxState
+## 5. State Management (Frontend) - v8.4.0 Format-at-Read + WebSocket Sync
 
 ### Architecture (v9.0.0 - Local-First)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│            State Architecture (v9.0.0 RxDB + RxState)        │
+│                State Architecture (v8.4.0)                   │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  ┌───────────────────────────────────────────────────────┐   │
-│  │              RxDB (IndexedDB via Dexie)               │   │
-│  │  ─────────────────────────────────────────────────    │   │
-│  │  • Entity Collections (project, task, employee, ...)  │   │
-│  │  • Metadata Collections (datalabel, entity_type)      │   │
-│  │  • Local Documents (RxState - UI state)               │   │
-│  │                                                       │   │
-│  │  BENEFITS:                                            │   │
-│  │  ✓ Persistent (survives browser restart)              │   │
-│  │  ✓ Offline-first (works without network)              │   │
-│  │  ✓ Multi-tab sync (changes propagate)                 │   │
-│  │  ✓ Draft persistence (edits survive refresh!)         │   │
-│  └───────────────────────────────────────────────────────┘   │
-│                         │                                    │
-│                         ▼                                    │
-│  ┌───────────────────────────────────────────────────────┐   │
-│  │              REST Replication Layer                   │   │
-│  │  ─────────────────────────────────────────────────    │   │
-│  │  • Entity sync: Pull + Push (bidirectional)           │   │
-│  │  • Metadata sync: Pull-only (reference data)          │   │
-│  │  • Conflict resolution: Server wins (RBAC authority)  │   │
-│  └───────────────────────────────────────────────────────┘   │
+│  ┌─────────────────┐     ┌─────────────────┐               │
+│  │  Zustand Stores │     │  TanStack Query │               │
+│  │  (Client State) │     │  (Server State) │               │
+│  └────────┬────────┘     └────────┬────────┘               │
+│           │                       │                          │
+│  • UI State (modals, tabs)       • RAW data + ref_data_entityInstance       │
+│  • Form state                    • Format via `select`       │
+│  • Selection state               • Optimistic updates        │
+│  • Filters/pagination            • O(1) reference resolution │
+│                                  • WebSocket-triggered invalidation         │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │  SyncProvider (WebSocket to PubSub :4001)               ││
+│  │  • Auto-subscribe to loaded entity IDs                  ││
+│  │  • INVALIDATE → queryClient.invalidateQueries()         ││
+│  │  • Version tracking prevents stale updates              ││
+│  └─────────────────────────────────────────────────────────┘│
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 
-LOCAL-FIRST DATA FLOW:
-──────────────────────
-Component → useRxQuery → RxDB Collection → IndexedDB
-                              │
-                              └── Reactive (auto-updates on change)
-                              └── Background sync with backend
+FORMAT-AT-READ + WEBSOCKET SYNC PATTERN:
+───────────────────────────────────────────
+1. API → Cache RAW + ref_data_entityInstance → select: formatDataset() → FormattedRow[]
+2. useAutoSubscribe → WebSocket SUBSCRIBE to loaded entity IDs
+3. PubSub INVALIDATE → queryClient.invalidateQueries() → auto-refetch
+
+See: docs/caching/RXDB_SYNC_ARCHITECTURE.md for full sync architecture
 ```
 
 ### Key Hooks (v9.0.0)
@@ -709,15 +705,20 @@ Request → RBAC Check (DELETE) → TRANSACTION {
 
 | Document | Path | Purpose |
 |----------|------|---------|
+| **RXDB_SYNC_ARCHITECTURE.md** | `docs/caching/` | WebSocket real-time sync architecture |
 | **RBAC_INFRASTRUCTURE.md** | `docs/rbac/` | RBAC tables, permissions, patterns |
 | **entity-infrastructure.service.md** | `docs/services/` | Entity infrastructure service API + build_ref_data_entityInstance |
-| **STATE_MANAGEMENT.md** | `docs/state_management/` | RxDB + RxState architecture (v9.0.0) |
-| **RXDB_API_REFERENCE.md** | `docs/state_management/` | RxDB hooks, schemas, replication |
-| **RXDB_MIGRATION_ANALYSIS.md** | `docs/migration/` | Migration guide from Zustand/React Query |
+| **STATE_MANAGEMENT.md** | `docs/state_management/` | React Query + Zustand + WebSocket sync |
 | **PAGE_ARCHITECTURE.md** | `docs/pages/` | Page components and routing |
 | **backend-formatter.service.md** | `docs/services/` | Backend metadata generation (BFF) |
 | **frontEndFormatterService.md** | `docs/services/` | Frontend rendering (pure renderer) |
 | **RefData README.md** | `docs/refData/` | Entity reference resolution pattern |
+
+### 0. RXDB_SYNC_ARCHITECTURE.md
+
+WebSocket-based real-time sync architecture documentation. Used when implementing real-time features, understanding cache invalidation flow, or troubleshooting sync issues.
+
+**Keywords:** `WebSocket`, `PubSub`, `SyncProvider`, `useAutoSubscribe`, `INVALIDATE`, `SUBSCRIBE`, `LogWatcher`, `app.logging`, `app.rxdb_subscription`, `real-time sync`, `cache invalidation`, `queryClient.invalidateQueries`, `exponential backoff`, `version tracking`, `port 4001`
 
 ### 1. RBAC_INFRASTRUCTURE.md
 
@@ -745,18 +746,18 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
 
 ---
 
-**Version**: 9.0.0 | **Updated**: 2025-11-27 | **Pattern**: RxDB + RxState Local-First
+**Version**: 8.4.0 | **Updated**: 2025-11-27 | **Pattern**: WebSocket Sync + Format-at-Read + ref_data_entityInstance
 
 **Recent Updates**:
-- v9.0.0 (2025-11-27): **RxDB + RxState Local-First Architecture** ⭐
-  - Complete RxDB infrastructure replacing Zustand + React Query
-  - **Database**: `apps/web/src/db/` with Dexie/IndexedDB storage
-  - **Schemas**: Base entity factory + project/task/employee + metadata (datalabel, entity_type)
-  - **Hooks**: `useRxQuery`, `useRxDocument`, `useRxMutation`, `useRxState`
-  - **Store Replacements**: `useGlobalSettings`, `useDatalabels`, `useEntityTypes`, `useComponentMetadata`, `useEntityEditState`
-  - **Replication**: REST sync with pull/push for entities, pull-only for metadata
-  - **Benefits**: Offline-first, persistent cache, multi-tab sync, draft persistence
-  - Dependencies: rxdb@16.21.0, rxjs@7.8.2, dexie@4.2.1
+- v8.4.0 (2025-11-27): **WebSocket Real-Time Sync**
+  - Added PubSub service (port 4001) for WebSocket-based cache invalidation
+  - SyncProvider manages WebSocket connection + subscription lifecycle
+  - useAutoSubscribe hook automatically subscribes to loaded entity IDs
+  - Entity hooks (`useEntityInstanceList`, `useEntityInstance`) auto-subscribe
+  - INVALIDATE messages trigger `queryClient.invalidateQueries()` → auto-refetch
+  - Database tables: `app.logging` (triggers) + `app.rxdb_subscription` (subscriptions)
+  - LogWatcher polls `app.logging` every 60s for pending changes
+  - See `docs/caching/RXDB_SYNC_ARCHITECTURE.md` for full architecture
 - v8.3.2 (2025-11-27): **Component-Driven Rendering + BadgeDropdownSelect**
   - Added `BadgeDropdownSelect` component for colored datalabel dropdowns
   - viewType controls WHICH component renders (`renderType: 'component'` + `component`)
