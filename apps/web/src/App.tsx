@@ -6,6 +6,7 @@ import { NavigationHistoryProvider } from './contexts/NavigationHistoryContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { EntityPreviewProvider } from './contexts/EntityPreviewContext';
 import { EntityMetadataProvider, useEntityMetadata } from './contexts/EntityMetadataContext';
+import { SyncProvider } from './db/sync';
 import { LoginForm } from './components/shared';
 import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPanel';
 import { EllipsisBounce } from './components/shared/ui/EllipsisBounce';
@@ -214,32 +215,26 @@ function DatabaseWrapper({ children }: { children: React.ReactNode }) {
   const { token, isAuthenticated } = useAuth();
 
   return (
-    <DatabaseProvider authToken={token} skip={!isAuthenticated}>
-      {children}
-    </DatabaseProvider>
-  );
-}
-
-function App() {
-  return (
-    <AuthProvider>
-      <DatabaseWrapper>
-        <EntityMetadataProvider>
-          <Router>
-            <SidebarProvider>
-              <SettingsProvider>
-                <NavigationHistoryProvider>
-                  <EntityPreviewProvider>
-                    <AppRoutes />
-                    <EntityPreviewPanel />
-                  </EntityPreviewProvider>
-                </NavigationHistoryProvider>
-              </SettingsProvider>
-            </SidebarProvider>
-          </Router>
-        </EntityMetadataProvider>
-      </DatabaseWrapper>
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <SyncProvider>
+          <EntityMetadataProvider>
+            <Router>
+              <SidebarProvider>
+                <SettingsProvider>
+                  <NavigationHistoryProvider>
+                    <EntityPreviewProvider>
+                      <AppRoutes />
+                      <EntityPreviewPanel />
+                    </EntityPreviewProvider>
+                  </NavigationHistoryProvider>
+                </SettingsProvider>
+              </SidebarProvider>
+            </Router>
+          </EntityMetadataProvider>
+        </SyncProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
 
