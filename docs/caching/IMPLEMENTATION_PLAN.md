@@ -31,13 +31,17 @@ This plan implements a local-first architecture using RxDB for client-side stora
 │   ┌──────────────────────────────┼───────────────────────────────────────┐   │
 │   │                          BACKEND                                     │   │
 │   │                              │                                       │   │
-│   │   ┌──────────────┐    ┌──────▼───────┐    ┌──────────────────────┐  │   │
-│   │   │  REST API    │    │  WebSocket   │    │    Log Watcher       │  │   │
-│   │   │  (Fastify)   │    │   Server     │◄───│    (60s poll)        │  │   │
-│   │   └──────┬───────┘    └──────────────┘    └──────────┬───────────┘  │   │
-│   │          │                                           │              │   │
-│   └──────────┼───────────────────────────────────────────┼──────────────┘   │
-│              │                                           │                   │
+│   │   ┌──────────────┐    ┌─────────────────────────────────────────┐  │   │
+│   │   │  REST API    │    │              PubSub Service              │  │   │
+│   │   │  (Fastify)   │    │  ┌─────────────┐  ┌──────────────────┐   │  │   │
+│   │   └──────┬───────┘    │  │  WebSocket  │  │   Log Watcher    │   │  │   │
+│   │          │            │  │  Handler    │  │   (60s poll)     │   │  │   │
+│   │          │            │  └──────┬──────┘  └────────┬─────────┘   │  │   │
+│   │          │            │         │ Subscriptions    │ Changes     │  │   │
+│   │          │            └─────────┼──────────────────┼─────────────┘  │   │
+│   │          │                      │                  │                │   │
+│   └──────────┼──────────────────────┼──────────────────┼────────────────┘   │
+│              │                      │                  │                     │
 │   ┌──────────▼───────────────────────────────────────────▼──────────────┐   │
 │   │                         POSTGRESQL                                   │   │
 │   │                                                                      │   │
@@ -189,27 +193,30 @@ psql -c "SELECT * FROM app.logging WHERE entity_code = 'project' ORDER BY create
 
 ---
 
-## Phase 2: Backend Services (Weeks 2-3)
+## Phase 2: Backend PubSub Service (Weeks 2-3)
 
 ### Objectives
-- Implement WebSocket server with Fastify
-- Create subscription management service
-- Create log watcher polling service
-- Integrate with existing auth
+- Implement unified PubSub Service that:
+  - Manages WebSocket connections for real-time communication
+  - Tracks subscriptions in `app.rxdb_subscription` table
+  - Polls `app.logging` table for changes (LogWatcher)
+  - Pushes INVALIDATE signals to subscribed clients
+- Integrate with existing JWT auth
 
 ### File Structure
 
 ```
 apps/api/src/
-├── plugins/
-│   └── websocket.plugin.ts          # NEW: WebSocket setup
 ├── services/
-│   ├── connection-manager.service.ts # NEW: Track WS connections
-│   ├── subscription.service.ts       # NEW: DB subscription ops
-│   └── log-watcher.service.ts        # NEW: Poll & notify
-├── types/
-│   └── sync.types.ts                 # NEW: Type definitions
-└── index.ts                          # MODIFY: Register plugin
+│   └── pubsub/                        # NEW: PubSub Service module
+│       ├── index.ts                   # Service exports
+│       ├── pubsub.service.ts          # Main PubSub service orchestrator
+│       ├── websocket.plugin.ts        # Fastify WebSocket plugin
+│       ├── connection-manager.ts      # Track WS connections
+│       ├── subscription-manager.ts    # DB subscription ops
+│       ├── log-watcher.ts             # Poll & notify
+│       └── types.ts                   # Type definitions
+└── index.ts                           # MODIFY: Register pubsub plugin
 ```
 
 ### Tasks
@@ -217,14 +224,14 @@ apps/api/src/
 | Task | File | Priority | Est. Hours |
 |------|------|----------|------------|
 | 2.1 Add dependencies | `package.json` | High | 0.5 |
-| 2.2 Create types | `types/sync.types.ts` | High | 1 |
-| 2.3 Connection manager | `services/connection-manager.service.ts` | High | 3 |
-| 2.4 Subscription service | `services/subscription.service.ts` | High | 4 |
-| 2.5 Log watcher service | `services/log-watcher.service.ts` | High | 6 |
-| 2.6 WebSocket plugin | `plugins/websocket.plugin.ts` | High | 6 |
-| 2.7 Register plugin | `index.ts` | High | 1 |
-| 2.8 Add logging middleware | `middleware/logging.ts` | Medium | 2 |
-| 2.9 Unit tests | `__tests__/` | Medium | 4 |
+| 2.2 Create types | `services/pubsub/types.ts` | High | 1 |
+| 2.3 Connection manager | `services/pubsub/connection-manager.ts` | High | 3 |
+| 2.4 Subscription manager | `services/pubsub/subscription-manager.ts` | High | 4 |
+| 2.5 Log watcher | `services/pubsub/log-watcher.ts` | High | 6 |
+| 2.6 WebSocket plugin | `services/pubsub/websocket.plugin.ts` | High | 4 |
+| 2.7 PubSub service orchestrator | `services/pubsub/pubsub.service.ts` | High | 3 |
+| 2.8 Register pubsub plugin | `index.ts` | High | 1 |
+| 2.9 Unit tests | `services/pubsub/__tests__/` | Medium | 4 |
 
 ### Deliverables
 
@@ -235,7 +242,7 @@ pnpm add @fastify/websocket ws
 pnpm add -D @types/ws
 ```
 
-#### 2.2 Types (`types/sync.types.ts`)
+#### 2.2 Types (`services/pubsub/types.ts`)
 
 ```typescript
 // Client → Server
@@ -269,8 +276,8 @@ export interface InvalidateMessage {
 #### 2.3 Connection Manager
 
 ```typescript
-// services/connection-manager.service.ts
-class ConnectionManager {
+// services/pubsub/connection-manager.ts
+export class ConnectionManager {
   private connections = new Map<string, WebSocket>();      // connId → socket
   private userConnections = new Map<string, string>();     // userId → connId
 
@@ -278,14 +285,15 @@ class ConnectionManager {
   disconnect(connectionId: string): void;
   getSocket(connectionId: string): WebSocket | undefined;
   getSocketByUserId(userId: string): WebSocket | undefined;
+  broadcast(connectionIds: string[], message: object): void;
 }
 ```
 
-#### 2.4 Subscription Service
+#### 2.4 Subscription Manager
 
 ```typescript
-// services/subscription.service.ts
-class SubscriptionService {
+// services/pubsub/subscription-manager.ts
+export class SubscriptionManager {
   async subscribe(userId: string, connectionId: string, entityCode: string, entityIds: string[]): Promise<number>;
   async unsubscribe(userId: string, entityCode: string, entityIds?: string[]): Promise<number>;
   async cleanupConnection(connectionId: string): Promise<number>;
@@ -293,38 +301,70 @@ class SubscriptionService {
 }
 ```
 
-#### 2.5 Log Watcher Service
+#### 2.5 Log Watcher
 
 ```typescript
-// services/log-watcher.service.ts
+// services/pubsub/log-watcher.ts
 const POLL_INTERVAL = 60_000; // 60 seconds
 
-export function startLogWatcher(): void;
-export function stopLogWatcher(): void;
+export class LogWatcher {
+  private intervalId: NodeJS.Timeout | null = null;
 
-async function pollAndNotify(): Promise<void> {
-  // 1. SELECT pending from app.logging
-  // 2. Group by entity_code
-  // 3. Query app.rxdb_subscription for subscribers
-  // 4. Push INVALIDATE via WebSocket
-  // 5. UPDATE app.logging SET sync_status = 'sent'
+  start(): void;
+  stop(): void;
+
+  private async pollAndNotify(): Promise<void> {
+    // 1. SELECT pending from app.logging WHERE sync_status = 'pending'
+    // 2. Group by entity_code
+    // 3. Query app.rxdb_subscription for subscribers
+    // 4. Push INVALIDATE via ConnectionManager.broadcast()
+    // 5. UPDATE app.logging SET sync_status = 'sent'
+  }
 }
 ```
 
 #### 2.6 WebSocket Plugin
 
 ```typescript
-// plugins/websocket.plugin.ts
+// services/pubsub/websocket.plugin.ts
 export async function websocketPlugin(fastify: FastifyInstance) {
   await fastify.register(fastifyWebsocket);
 
   fastify.get('/ws/sync', { websocket: true }, (socket, request) => {
-    // Auth check
-    // Register connection
-    // Handle SUBSCRIBE/UNSUBSCRIBE messages
+    // Auth check via JWT
+    // Register connection with ConnectionManager
+    // Handle SUBSCRIBE/UNSUBSCRIBE messages via SubscriptionManager
     // Cleanup on disconnect
   });
 }
+```
+
+#### 2.7 PubSub Service (Orchestrator)
+
+```typescript
+// services/pubsub/pubsub.service.ts
+export class PubSubService {
+  private connectionManager: ConnectionManager;
+  private subscriptionManager: SubscriptionManager;
+  private logWatcher: LogWatcher;
+
+  constructor(db: Database) {
+    this.connectionManager = new ConnectionManager();
+    this.subscriptionManager = new SubscriptionManager(db);
+    this.logWatcher = new LogWatcher(db, this.connectionManager, this.subscriptionManager);
+  }
+
+  start(): void { this.logWatcher.start(); }
+  stop(): void { this.logWatcher.stop(); }
+
+  // Expose for WebSocket plugin
+  get connections() { return this.connectionManager; }
+  get subscriptions() { return this.subscriptionManager; }
+}
+
+// Singleton instance
+let pubsubService: PubSubService | null = null;
+export function getPubSubService(db?: Database): PubSubService;
 ```
 
 ### Verification
@@ -592,16 +632,18 @@ async function testMultiUser() {
 
 ## Complete File Inventory
 
-### New Files (Backend)
+### New Files (Backend - PubSub Service)
 
 | File | Lines | Description |
 |------|-------|-------------|
-| `plugins/websocket.plugin.ts` | ~150 | WebSocket setup & handlers |
-| `services/connection-manager.service.ts` | ~80 | Track live connections |
-| `services/subscription.service.ts` | ~100 | Database subscription ops |
-| `services/log-watcher.service.ts` | ~150 | Poll logs & notify |
-| `types/sync.types.ts` | ~50 | TypeScript types |
-| **Total Backend** | **~530** | |
+| `services/pubsub/index.ts` | ~20 | Module exports |
+| `services/pubsub/pubsub.service.ts` | ~80 | Main orchestrator |
+| `services/pubsub/websocket.plugin.ts` | ~100 | Fastify WebSocket plugin |
+| `services/pubsub/connection-manager.ts` | ~80 | Track live WS connections |
+| `services/pubsub/subscription-manager.ts` | ~100 | Database subscription ops |
+| `services/pubsub/log-watcher.ts` | ~120 | Poll logs & push invalidations |
+| `services/pubsub/types.ts` | ~50 | TypeScript types |
+| **Total Backend** | **~550** | |
 
 ### New Files (Frontend)
 
@@ -627,7 +669,7 @@ async function testMultiUser() {
 
 | File | Changes |
 |------|---------|
-| `apps/api/src/index.ts` | Register WebSocket plugin |
+| `apps/api/src/index.ts` | Register PubSub service & WebSocket plugin |
 | `apps/api/package.json` | Add @fastify/websocket, ws |
 | `apps/web/src/App.tsx` | Add SyncProvider |
 | `apps/web/src/db/hooks/useEntityQuery.ts` | Add auto-subscribe |
@@ -671,10 +713,11 @@ For 1000-10000 users:
 
 ### If Issues Occur
 
-1. **Disable WebSocket endpoint**
+1. **Disable PubSub Service**
    ```typescript
    // Comment out in index.ts
-   // await fastify.register(websocketPlugin);
+   // import { pubsubPlugin } from '@/services/pubsub';
+   // await fastify.register(pubsubPlugin);
    ```
 
 2. **Frontend graceful degradation**
@@ -706,11 +749,11 @@ For 1000-10000 users:
 
 | Phase | Duration | Key Deliverables |
 |-------|----------|------------------|
-| **Phase 1** | Week 1 | Database tables, triggers |
-| **Phase 2** | Weeks 2-3 | WebSocket server, services |
-| **Phase 3** | Weeks 3-5 | Frontend sync, auto-subscribe |
-| **Phase 4** | Weeks 5-6 | Testing, documentation |
-| **Total** | **6 weeks** | **~1100 lines of new code** |
+| **Phase 1** | Week 1 | Database tables (logging, subscription), triggers |
+| **Phase 2** | Weeks 2-3 | PubSub Service (WebSocket, LogWatcher, SubscriptionManager) |
+| **Phase 3** | Weeks 3-5 | Frontend sync (SyncProvider, auto-subscribe hooks) |
+| **Phase 4** | Weeks 5-6 | Integration testing, documentation |
+| **Total** | **6 weeks** | **~1130 lines of new code** |
 
 ### Dependencies
 

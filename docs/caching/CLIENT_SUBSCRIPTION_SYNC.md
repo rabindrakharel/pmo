@@ -17,10 +17,13 @@ Clients subscribe to specific entity instances they have in their local RxDB. Wh
 │                         HIGH-LEVEL FLOW                                      │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│   ┌──────────┐     ┌──────────────┐     ┌──────────┐     ┌──────────┐      │
-│   │  Client  │     │  WebSocket   │     │   Log    │     │ Postgres │      │
-│   │  RxDB    │     │   Server     │     │ Watcher  │     │          │      │
-│   └────┬─────┘     └──────┬───────┘     └────┬─────┘     └────┬─────┘      │
+│   ┌──────────┐     ┌──────────────────────────────────┐     ┌──────────┐      │
+│   │  Client  │     │          PubSub Service          │     │ Postgres │      │
+│   │  RxDB    │     │  ┌─────────────┐ ┌────────────┐  │     │          │      │
+│   └────┬─────┘     │  │  WebSocket  │ │ LogWatcher │  │     └────┬─────┘      │
+│        │           │  │   Handler   │ │  (poll)    │  │          │            │
+│        │           │  └──────┬──────┘ └─────┬──────┘  │          │            │
+│        │           └─────────┼──────────────┼─────────┘          │            │
 │        │                  │                  │                │             │
 │        │ 1. Load 50       │                  │                │             │
 │        │    projects      │                  │                │             │
@@ -211,15 +214,16 @@ CREATE TRIGGER log_employee_changes
 
 ```
 apps/api/src/
-├── index.ts                              # MODIFY: Register WebSocket plugin
-├── plugins/
-│   └── websocket.plugin.ts               # NEW: WebSocket setup
+├── index.ts                              # MODIFY: Register PubSub plugin
 ├── services/
-│   ├── subscription-manager.service.ts   # NEW: Track client subscriptions
-│   ├── log-watcher.service.ts            # NEW: Poll logs, match subscriptions
-│   └── sync-pusher.service.ts            # NEW: Push to WebSocket clients
-└── types/
-    └── sync.types.ts                     # NEW: Type definitions
+│   └── pubsub/                           # NEW: PubSub Service module
+│       ├── index.ts                      # Module exports
+│       ├── pubsub.service.ts             # Main orchestrator
+│       ├── websocket.plugin.ts           # Fastify WebSocket plugin
+│       ├── connection-manager.ts         # Track WS connections
+│       ├── subscription-manager.ts       # Database subscription ops
+│       ├── log-watcher.ts                # Poll logs, push invalidations
+│       └── types.ts                      # Type definitions
 ```
 
 ### 2.2 Architecture Diagram
@@ -232,11 +236,11 @@ apps/api/src/
 │   ┌─────────────────────────────────────────────────────────────────────┐   │
 │   │                        Fastify Server                                │   │
 │   │                                                                      │   │
-│   │   ┌─────────────────┐    ┌─────────────────┐    ┌────────────────┐  │   │
-│   │   │  REST Routes    │    │ WebSocket Plugin│    │  Log Watcher   │  │   │
-│   │   │                 │    │                 │    │  (Singleton)   │  │   │
-│   │   │ GET /api/v1/... │    │ WS /ws/sync     │    │                │  │   │
-│   │   │ POST/PATCH/...  │    │                 │    │ Poll every 60s │  │   │
+│   │   ┌─────────────────┐    ┌─────────────────────────────────────────┐│   │
+│   │   │  REST Routes    │    │           PubSub Service                ││   │
+│   │   │                 │    │  ┌──────────────┐  ┌─────────────────┐  ││   │
+│   │   │ GET /api/v1/... │    │  │  WebSocket   │  │   Log Watcher   │  ││   │
+│   │   │ POST/PATCH/...  │    │  │  Handler     │  │   (60s poll)    │  ││   │
 │   │   └────────┬────────┘    └────────┬────────┘    └───────┬────────┘  │   │
 │   │            │                      │                     │           │   │
 │   │            │                      ▼                     │           │   │
