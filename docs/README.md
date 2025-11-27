@@ -1,6 +1,6 @@
 # PMO Platform - End-to-End Architecture
 
-**Version:** 8.3.2 | **Last Updated:** 2025-11-27
+**Version:** 8.4.0 | **Last Updated:** 2025-11-27
 
 ---
 
@@ -10,7 +10,8 @@
 |-------|------------|---------|
 | **Frontend** | React 19, TypeScript, Vite, Tailwind CSS v4 | UI rendering |
 | **State** | React Query (data) + Zustand (metadata) | Hybrid caching |
-| **Backend** | Fastify v5, TypeScript ESM | API + BFF |
+| **Real-Time Sync** | WebSocket + PubSub Service (port 4001) | Cache invalidation |
+| **Backend** | Fastify v5, TypeScript ESM | REST API + BFF |
 | **Database** | PostgreSQL 14+ (50 tables) | Persistence |
 
 ```bash
@@ -27,7 +28,8 @@
 
 | Doc | Path | Purpose |
 |-----|------|---------|
-| STATE_MANAGEMENT.md | `docs/state_management/` | React Query + Zustand |
+| RXDB_SYNC_ARCHITECTURE.md | `docs/caching/` | WebSocket real-time sync |
+| STATE_MANAGEMENT.md | `docs/state_management/` | React Query + Zustand + Sync |
 | frontEndFormatterService.md | `docs/services/` | Frontend rendering |
 | backend-formatter.service.md | `docs/services/` | BFF metadata |
 | entity-infrastructure.service.md | `docs/services/` | Entity CRUD + ref_data_entityInstance |
@@ -36,9 +38,32 @@
 
 ---
 
-## End-to-End Data Flow (v8.3.2)
+## End-to-End Data Flow (v8.4.0)
 
 ```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         REAL-TIME SYNC (v8.4.0)                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐        │
+│  │   REST API      │     │  PubSub Service │     │    Frontend     │        │
+│  │   (Port 4000)   │     │   (Port 4001)   │     │   SyncProvider  │        │
+│  └────────┬────────┘     └────────┬────────┘     └────────┬────────┘        │
+│           │                       │                       │                  │
+│           │  DB Trigger writes    │  LogWatcher polls     │  Subscribe to   │
+│           │  to app.logging       │  every 60s            │  loaded IDs     │
+│           │───────────────────────│                       │                  │
+│           │                       │──INVALIDATE──────────>│                  │
+│           │                       │                       │                  │
+│           │                       │                       │  Invalidate     │
+│           │                       │                       │  React Query    │
+│           │<──────────────────────────────────────────────│  cache          │
+│           │  Auto-refetch fresh data via REST API         │                  │
+│                                                                              │
+│  See: docs/caching/RXDB_SYNC_ARCHITECTURE.md for full details               │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              BACKEND (BFF Layer)                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
@@ -155,9 +180,16 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         RESPONSIBILITY MATRIX (v8.3.2)                       │
+│                         RESPONSIBILITY MATRIX (v8.4.0)                       │
 ├───────────────────────┬─────────────────────────────────────────────────────┤
 │  LAYER                │  RESPONSIBILITY                                      │
+├───────────────────────┼─────────────────────────────────────────────────────┤
+│                       │                                                      │
+│  PubSub Service       │  • WebSocket server for real-time sync (port 4001)  │
+│  (v8.4.0)             │  • LogWatcher polls app.logging (60s interval)       │
+│                       │  • Push INVALIDATE messages to subscribers           │
+│                       │  • Manage subscriptions in app.rxdb_subscription     │
+│                       │                                                      │
 ├───────────────────────┼─────────────────────────────────────────────────────┤
 │                       │                                                      │
 │  Backend Formatter    │  • Pattern detection (column name → field type)      │
@@ -174,10 +206,18 @@
 │                       │                                                      │
 ├───────────────────────┼─────────────────────────────────────────────────────┤
 │                       │                                                      │
+│  SyncProvider         │  • WebSocket connection to PubSub service (v8.4.0)   │
+│  (Frontend)           │  • Handle INVALIDATE → queryClient.invalidateQueries │
+│                       │  • Auto-reconnect with exponential backoff           │
+│                       │  • Version tracking (prevent stale updates)          │
+│                       │                                                      │
+├───────────────────────┼─────────────────────────────────────────────────────┤
+│                       │                                                      │
 │  React Query          │  • SOLE data cache (RAW data + ref_data_entityInstance)      │
 │                       │  • Stale-while-revalidate fetching                   │
 │                       │  • Format-at-read via select option                  │
 │                       │  • Optimistic updates with rollback                  │
+│                       │  • WebSocket-triggered cache invalidation (v8.4.0)   │
 │                       │                                                      │
 ├───────────────────────┼─────────────────────────────────────────────────────┤
 │                       │                                                      │
@@ -390,12 +430,13 @@ Entity references are resolved via a response-level lookup table instead of per-
 
 | Data Type | Store | TTL | Strategy |
 |-----------|-------|-----|----------|
-| Entity Lists + ref_data_entityInstance | React Query | 30s stale, 5m cache | Stale-while-revalidate |
-| Entity Details + ref_data_entityInstance | React Query | 10s stale, 2m cache | Near real-time |
+| Entity Lists + ref_data_entityInstance | React Query | 30s stale, 5m cache | Stale-while-revalidate + WebSocket invalidation |
+| Entity Details + ref_data_entityInstance | React Query | 10s stale, 2m cache | Near real-time + WebSocket invalidation |
 | Component Metadata | Zustand | 15 min | Session-level |
 | Datalabels | Zustand | 1 hour | Reference data |
 | Global Settings | Zustand | 1 hour | Reference data |
 | Entity Types | Zustand | 1 hour | Sidebar navigation |
+| WebSocket Subscriptions | PubSub DB | Connection lifetime | Auto-cleanup on disconnect |
 
 ---
 
@@ -408,6 +449,9 @@ Entity references are resolved via a response-level lookup table instead of per-
 | Pattern Config | `pattern-mapping.yaml` | - |
 | View Config | `view-type-mapping.yaml` | - |
 | Edit Config | `edit-type-mapping.yaml` | - |
+| WebSocket Server | `apps/pubsub/src/server.ts` | - |
+| Log Watcher | `apps/pubsub/src/services/log-watcher.ts` | - |
+| Subscription Manager | `apps/pubsub/src/services/subscription-manager.ts` | - |
 | Data Hooks | - | `useEntityQuery.ts` |
 | RefData Hook | - | `useRefData.ts` |
 | RefData Resolver | - | `refDataResolver.ts` |
@@ -415,6 +459,8 @@ Entity references are resolved via a response-level lookup table instead of per-
 | Edit Rendering | - | `frontEndFormatterService.tsx` |
 | Type Definitions | - | `lib/formatters/types.ts` |
 | Metadata Store | - | `entityComponentMetadataStore.ts` |
+| Sync Provider | - | `db/sync/SyncProvider.tsx` |
+| Auto-Subscribe Hook | - | `db/sync/useAutoSubscribe.ts` |
 
 ---
 
@@ -431,9 +477,16 @@ Entity references are resolved via a response-level lookup table instead of per-
 
 ---
 
-**Version:** 8.3.2 | **Updated:** 2025-11-27
+**Version:** 8.4.0 | **Updated:** 2025-11-27
 
 **Recent Updates:**
+- v8.4.0 (2025-11-27): **Real-Time WebSocket Sync**
+  - Added PubSub service (port 4001) for WebSocket-based cache invalidation
+  - SyncProvider manages WebSocket connection and subscription lifecycle
+  - useAutoSubscribe hook automatically subscribes to loaded entity IDs
+  - INVALIDATE messages trigger React Query cache invalidation → auto-refetch
+  - Database tables: `app.logging` (triggers) + `app.rxdb_subscription` (subscriptions)
+  - See `docs/caching/RXDB_SYNC_ARCHITECTURE.md` for full architecture
 - v8.3.2 (2025-11-27): Added `BadgeDropdownSelect` component, `vizContainer: { view, edit }` structure
 - v8.3.1 (2025-11-26): Removed all frontend pattern detection, metadata as source of truth
 - v8.3.0 (2025-11-26): Added `ref_data_entityInstance` pattern for entity reference resolution

@@ -20,7 +20,7 @@ import { sql } from 'drizzle-orm';
  */
 export const ENTITY_TABLE_MAP: Record<string, string> = {
   task: 'task',
-  form: 'form_head',
+  form: 'form',
   wiki: 'wiki',
   artifact: 'artifact',
   project: 'project',

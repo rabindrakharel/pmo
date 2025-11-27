@@ -172,7 +172,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
             'project': 'app.project',
             'task': 'app.task',
             'wiki': 'app.wiki',
-            'form': 'app.form_head',
+            'form': 'app.form',
             'artifact': 'app.artifact'};
 
           const actionTable = entityTableMap[entityTypeCode];
@@ -537,7 +537,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
               WHEN 'employee' THEN (SELECT name FROM app.employee WHERE id = eh.child_entity_id)
               WHEN 'role' THEN (SELECT name FROM app.role WHERE id = eh.child_entity_id)
               WHEN 'wiki' THEN (SELECT name FROM app.wiki WHERE id = eh.child_entity_id)
-              WHEN 'form' THEN (SELECT name FROM app.form_head WHERE id = eh.child_entity_id)
+              WHEN 'form' THEN (SELECT name FROM app.form WHERE id = eh.child_entity_id)
               WHEN 'task' THEN (SELECT name FROM app.task WHERE id = eh.child_entity_id)
               WHEN 'artifact' THEN (SELECT name FROM app.artifact WHERE id = eh.child_entity_id)
             END,
@@ -776,7 +776,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
                            AND eh.active_flag = true
                            AND a.active_flag = true)`;
             case 'form':
-              return sql`(SELECT COUNT(*) FROM app.form_head f
+              return sql`(SELECT COUNT(*) FROM app.form f
                          WHERE f.project_id = d_project.id AND f.active_flag = true)`;
             default:
               return sql`0`;
@@ -828,7 +828,7 @@ export async function hierarchyRoutes(fastify: FastifyInstance) {
                            AND a.active_flag = true
                            AND p.active_flag = true)`;
             case 'form':
-              return sql`(SELECT COUNT(*) FROM app.form_head f
+              return sql`(SELECT COUNT(*) FROM app.form f
                          INNER JOIN app.project p ON p.id = f.project_id
                          WHERE p.biz_id = d_business.id AND f.active_flag = true AND p.active_flag = true)`;
             case 'project':

@@ -1,5 +1,5 @@
 -- =====================================================
--- FORM DATA (d_form_data) - DATA TABLE
+-- FORM DATA (form_data) - DATA TABLE
 -- Form submissions with approval workflow
 -- =====================================================
 --

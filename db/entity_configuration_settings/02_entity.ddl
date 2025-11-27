@@ -145,7 +145,7 @@ VALUES (
   'Form',
   'Forms',
   'FileText',
-  'form_head',
+  'form',
   'fh',
   '["artifact"]'::jsonb,
   70

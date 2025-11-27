@@ -77,7 +77,7 @@
 -- • (entity_code, entity_instance_id) ← entity_instance_link (parent-child relationships)
 -- • (entity_code, entity_instance_id) ← entity_rbac (permission grants)
 -- • Source tables: office, business, project, task, employee, cust, role, position,
---                  worksite, wiki, artifact, form_head, reports
+--                  worksite, wiki, artifact, form, reports
 --
 -- =====================================================
 
@@ -162,7 +162,7 @@ FROM app.artifact;
 -- Register form entities
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
 SELECT 'form', id, name, code
-FROM app.form_head;
+FROM app.form;
 
 -- Register reports entities
 INSERT INTO app.entity_instance (entity_code, entity_instance_id, entity_instance_name, code)
