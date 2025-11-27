@@ -183,12 +183,14 @@ interface UseRefDataResult {
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  FORMAT-AT-READ FLOW (v8.3.1)                                                │
+│  FORMAT-AT-READ FLOW (v8.4.0 - includes WebSocket sync)                      │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  1. React Query Cache (RAW + ref_data_entityInstance)                                       │
+│  1. React Query Cache (RAW + ref_data_entityInstance)                        │
 │     queryKey: ['entity-list', 'project', params]                             │
-│     data: { data: [...], ref_data_entityInstance: {...}, metadata: {...} }                  │
+│     data: { data: [...], ref_data_entityInstance: {...}, metadata: {...} }   │
+│                       │                                                      │
+│                       │ ← WebSocket INVALIDATE triggers refetch (v8.4.0)     │
 │                       │                                                      │
 │                       ▼ `select` option (ON READ)                            │
 │                                                                              │
@@ -550,6 +552,22 @@ function getEntityCodeFromMetadata(fieldMeta: FieldMetadata | undefined): string
 
 ---
 
+## Integration with Real-Time Sync (v8.4.0)
+
+The frontend formatter integrates seamlessly with the WebSocket sync system:
+
+1. **WebSocket INVALIDATE** → SyncProvider invalidates React Query cache
+2. **Cache Invalidation** → React Query marks query as stale
+3. **Auto-Refetch** → Fresh RAW data fetched from REST API
+4. **Format-at-Read** → `select` transform applies formatDataset() on read
+5. **Component Re-render** → Updated FormattedRow[] displayed
+
+This ensures that when another user modifies an entity, subscribers see fresh, correctly formatted data within ~60 seconds (LogWatcher polling interval).
+
+See `docs/caching/RXDB_SYNC_ARCHITECTURE.md` for full sync architecture details.
+
+---
+
 **Version:** 11.0.0 | **Updated:** 2025-11-27
 
 **Recent Updates:**
@@ -557,6 +575,7 @@ function getEntityCodeFromMetadata(fieldMeta: FieldMetadata | undefined): string
   - Standardized naming: `entityInstanceId` (camelCase) for both `renderType` and `inputType`
   - Removed `viewType`/`editType` field properties - use `renderType`/`inputType` instead
   - Aligned with backend v11.0.0 (PATTERN_RULES removal)
+  - Added integration notes for WebSocket sync (v8.4.0)
 - v8.3.2 (2025-11-27):
   - Renamed ColoredDropdown → BadgeDropdownSelect
   - Added `BadgeDropdownSelect` as valid inputType in renderEditModeFromMetadata

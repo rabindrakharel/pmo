@@ -334,19 +334,16 @@ export function SyncProvider({ children }: SyncProviderProps) {
 }
 
 /**
- * Hook to access sync context
+ * Hook to access sync context (required)
+ * Must be used within SyncProvider - throws if not found
  */
 export function useSync(): SyncContextValue {
   const context = useContext(SyncContext);
   if (!context) {
-    // Return a no-op implementation if not inside SyncProvider
-    // This allows components to work without real-time sync
-    return {
-      status: 'disconnected',
-      subscribe: () => {},
-      unsubscribe: () => {},
-      unsubscribeAll: () => {},
-    };
+    throw new Error(
+      '[Sync] useSync must be used within SyncProvider. ' +
+      'Make sure SyncProvider is in your component tree.'
+    );
   }
   return context;
 }
