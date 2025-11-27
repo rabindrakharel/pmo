@@ -27,6 +27,7 @@ import {
   getDatabaseStats
 } from './index';
 import { setupReplication, stopAllReplications } from './replication';
+import { initializeSyncBridge, resetSyncBridge } from './syncBridge';
 
 // ============================================================================
 // Context Types
@@ -143,6 +144,10 @@ export function DatabaseProvider({
       const database = await getDatabase();
       setDb(database);
 
+      // Initialize sync bridge (loads RxDB data into Zustand for sync access)
+      console.log('%c[DatabaseProvider] Initializing sync bridge...', 'color: #7c3aed');
+      await initializeSyncBridge(database);
+
       // Start replication if we have an auth token
       if (authToken) {
         console.log('%c[DatabaseProvider] Starting replication...', 'color: #7c3aed');
@@ -210,6 +215,7 @@ export function DatabaseProvider({
   // ========================================
   const reinitialize = useCallback(async () => {
     await stopAllReplications();
+    resetSyncBridge();
     await destroyDatabase();
     setDb(null);
     await initDatabase();

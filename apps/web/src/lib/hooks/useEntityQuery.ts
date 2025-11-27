@@ -56,6 +56,9 @@ import {
 // v8.3.2: Unified ref_data_entityInstance cache for dropdown + view resolution
 import { upsertRefDataEntityInstanceCache } from './useRefDataEntityInstanceCache';
 
+// v9.0.0: RxDB sync bridge for persistence
+import { syncDatalabelsToRxDB, syncGlobalSettingsToRxDB, syncEntityTypesToRxDB } from '../../db/syncBridge';
+
 // ============================================================================
 // Cache Configuration
 // ============================================================================
@@ -801,6 +804,9 @@ export function useEntityCodes(
       // Cache in entityCodeMetadataStore (30 min TTL) - use getState() inside callback
       useEntityCodeMetadataStore.getState().setEntityCodes(Array.from(entityMap.values()));
 
+      // v9.0.0: Sync to RxDB for persistence (fire-and-forget)
+      syncEntityTypesToRxDB(Array.from(entityMap.values())).catch(console.error);
+
       return entityMap;
     },
     initialData: cachedEntityCodes || undefined,
@@ -1314,6 +1320,9 @@ export function useGlobalSettings() {
       // Cache in globalSettingsMetadataStore (30 min TTL) - use getState() inside callback
       useGlobalSettingsMetadataStore.getState().setGlobalSettings(data);
 
+      // v9.0.0: Sync to RxDB for persistence (fire-and-forget)
+      syncGlobalSettingsToRxDB(data).catch(console.error);
+
       return data;
     },
     initialData: cachedSettings || undefined,
@@ -1393,6 +1402,15 @@ export function useAllDatalabels() {
 
       // Cache all datalabels in datalabelMetadataStore (30 min TTL) - use getState() inside callback
       useDatalabelMetadataStore.getState().setAllDatalabels(result.data);
+
+      // v9.0.0: Sync to RxDB for persistence (fire-and-forget)
+      const datalabelMap: Record<string, Array<{ name: string; color_code?: string; sort_order?: number }>> = {};
+      for (const dl of result.data) {
+        if (dl.name && Array.isArray(dl.options)) {
+          datalabelMap[dl.name] = dl.options;
+        }
+      }
+      syncDatalabelsToRxDB(datalabelMap).catch(console.error);
 
       return result;
     },

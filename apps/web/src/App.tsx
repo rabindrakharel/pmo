@@ -11,7 +11,10 @@ import { LoginForm } from './components/shared';
 import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPanel';
 import { EllipsisBounce } from './components/shared/ui/EllipsisBounce';
 
-// Garbage Collection for metadata stores
+// RxDB Database Provider (v9.0.0 - Local-First State Management)
+import { DatabaseProvider } from './db/DatabaseProvider';
+
+// Garbage Collection for metadata stores (legacy - will be removed after full migration)
 import { startMetadataGC, stopMetadataGC } from './lib/cache/garbageCollection';
 
 // Create a client for React Query with industry-standard caching
@@ -354,8 +357,25 @@ function AppRoutes() {
   );
 }
 
+/**
+ * DatabaseWrapper - Provides RxDB database with auth token
+ *
+ * Must be inside AuthProvider to access authentication state.
+ * Skips database initialization for unauthenticated users.
+ */
+function DatabaseWrapper({ children }: { children: React.ReactNode }) {
+  const { token, isAuthenticated } = useAuth();
+
+  return (
+    <DatabaseProvider authToken={token} skip={!isAuthenticated}>
+      {children}
+    </DatabaseProvider>
+  );
+}
+
 function App() {
   // Start garbage collection for metadata stores on mount
+  // TODO: Remove after full migration to RxDB (Phase 5)
   useEffect(() => {
     startMetadataGC();
     return () => stopMetadataGC();
@@ -364,20 +384,22 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <EntityMetadataProvider>
-          <Router>
-            <SidebarProvider>
-              <SettingsProvider>
-                <NavigationHistoryProvider>
-                  <EntityPreviewProvider>
-                    <AppRoutes />
-                    <EntityPreviewPanel />
-                  </EntityPreviewProvider>
-                </NavigationHistoryProvider>
-              </SettingsProvider>
-            </SidebarProvider>
-          </Router>
-        </EntityMetadataProvider>
+        <DatabaseWrapper>
+          <EntityMetadataProvider>
+            <Router>
+              <SidebarProvider>
+                <SettingsProvider>
+                  <NavigationHistoryProvider>
+                    <EntityPreviewProvider>
+                      <AppRoutes />
+                      <EntityPreviewPanel />
+                    </EntityPreviewProvider>
+                  </NavigationHistoryProvider>
+                </SettingsProvider>
+              </SidebarProvider>
+            </Router>
+          </EntityMetadataProvider>
+        </DatabaseWrapper>
       </AuthProvider>
     </QueryClientProvider>
   );
