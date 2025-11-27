@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { useEntityLookup } from '@/lib/hooks/useEntityQuery';
+import React from 'react';
+import { useRefDataEntityInstanceOptions } from '@/lib/hooks/useRefDataEntityInstanceCache';
 import { Select } from './Select';
 import { InlineSpinner } from './EllipsisBounce';
 
@@ -15,12 +15,13 @@ export interface EntitySelectProps {
 }
 
 /**
- * Domain component for entity reference dropdowns
+ * Domain component for entity reference dropdowns (v8.3.2)
  * Used for all entity foreign key fields (_ID fields)
  *
- * Uses the centralized useEntityLookup hook which:
- * - Fetches via React Query with 5-min TTL
- * - Proper cache invalidation via React Query
+ * Uses the unified ref_data_entityInstance cache which:
+ * - Shares cache with view mode resolution (single source of truth)
+ * - Auto-populated from API response ref_data_entityInstance
+ * - On-demand fetch with 15-min TTL for dropdown population
  *
  * @example
  * <EntitySelect
@@ -39,17 +40,9 @@ export function EntitySelect({
   placeholder,
   className = ''
 }: EntitySelectProps) {
-  // Use centralized hook for consistent caching
-  const { options: rawOptions, isLoading } = useEntityLookup(entityCode);
-
-  // Transform to SelectOption format
-  const options = useMemo(() =>
-    rawOptions.map((item: any) => ({
-      value: item.id,
-      label: item.name
-    })),
-    [rawOptions]
-  );
+  // v8.3.2: Use unified ref_data_entityInstance cache
+  // Options already in SelectOption format: [{ value: uuid, label: name }]
+  const { options, isLoading } = useRefDataEntityInstanceOptions(entityCode);
 
   if (isLoading) {
     return <span className="text-dark-400 text-sm"><InlineSpinner /></span>;

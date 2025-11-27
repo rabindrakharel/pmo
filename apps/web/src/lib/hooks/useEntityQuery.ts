@@ -53,6 +53,9 @@ import {
   invalidateEntityQueries,
 } from '../cache/normalizedCache';
 
+// v8.3.2: Unified ref_data_entityInstance cache for dropdown + view resolution
+import { upsertRefDataEntityInstanceCache } from './useRefDataEntityInstanceCache';
+
 // ============================================================================
 // Cache Configuration
 // ============================================================================
@@ -274,6 +277,11 @@ export function useEntityInstanceList<T = any>(
       // v6.1.0: Store entities in normalized cache for cross-view consistency
       normalizeListResponse(queryClient, { data: result.data, metadata: result.metadata, total: result.total }, entityCode);
 
+      // v8.3.2: Upsert ref_data_entityInstance to unified cache for dropdown + view resolution
+      if (result.ref_data_entityInstance) {
+        upsertRefDataEntityInstanceCache(queryClient, result.ref_data_entityInstance);
+      }
+
       // Cache component metadata in entityComponentMetadataStore (15 min TTL)
       // Backend returns: { entityDataTable: {...}, entityFormContainer: {...}, ... }
       // Extract only the requested component's metadata
@@ -421,6 +429,11 @@ export function useEntityInstance<T = any>(
 
       // v6.1.0: Store entity in normalized cache for cross-view consistency
       addNormalizedEntity(queryClient, entityCode, data);
+
+      // v8.3.2: Upsert ref_data_entityInstance to unified cache for dropdown + view resolution
+      if (ref_data_entityInstance) {
+        upsertRefDataEntityInstanceCache(queryClient, ref_data_entityInstance);
+      }
 
       // ═══════════════════════════════════════════════════════════════
       // v8.0.0: Cache RAW data only - formatting happens on READ via select
@@ -596,6 +609,11 @@ export function useFormattedEntityList<T = any>(
       // Normalize for cross-view consistency
       normalizeListResponse(queryClient, { data: result.data, metadata: result.metadata, total: result.total }, entityCode);
 
+      // v8.3.2: Upsert ref_data_entityInstance to unified cache for dropdown + view resolution
+      if (result.ref_data_entityInstance) {
+        upsertRefDataEntityInstanceCache(queryClient, result.ref_data_entityInstance);
+      }
+
       return result;
     },
     select: selectFormatted,  // v8.0.0: Format on READ, not on FETCH
@@ -699,6 +717,11 @@ export function useFormattedEntityInstance<T = any>(
       const ref_data_entityInstance = response.ref_data_entityInstance;
 
       addNormalizedEntity(queryClient, entityCode, data);
+
+      // v8.3.2: Upsert ref_data_entityInstance to unified cache for dropdown + view resolution
+      if (ref_data_entityInstance) {
+        upsertRefDataEntityInstanceCache(queryClient, ref_data_entityInstance);
+      }
 
       return { data, metadata, fields, ref_data_entityInstance };
     },
