@@ -93,7 +93,7 @@ Action: EDIT              employee_id: emp-uuid
 | 01-03 | Schema & Settings | `01_schemaCreate.ddl`, `03_datalabel.ddl` |
 | III-IX | People & Organization | `d_employee`, `d_office`, `d_business` |
 | X-XIV | Products & Projects | `d_product`, `d_project`, `d_task` |
-| XV-XXV | Content & Workflow | `d_artifact`, `d_form_head`, `d_wiki` |
+| XV-XXV | Content & Workflow | `d_artifact`, `form`, `d_wiki` |
 | XXVI-XXXIII | Facts | `f_order`, `f_invoice`, `f_inventory` |
 | XXXIV-XLIII | Events & Messaging | `d_event`, `d_message_schema` |
 | XLIV-XLIX | Entity Infrastructure | `entity`, `entity_instance_link`, `entity_rbac` |

@@ -41,7 +41,7 @@ const ENTITY_TABLE_MAP: Record<string, string> = {
   'employee': 'app.employee',
   'role': 'app.role',
   'wiki': 'app.wiki',
-  'form': 'app.form_head',
+  'form': 'app.form',
   'task': 'app.task',
   'artifact': 'app.artifact'};
 

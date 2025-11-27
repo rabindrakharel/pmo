@@ -107,7 +107,7 @@ WHERE w.primary_entity_id IS NOT NULL
   AND w.primary_entity_code IS NOT NULL
   AND w.active_flag = true;
 
--- Task → Form relationships (explicit linkages, no FK columns on form_head)
+-- Task → Form relationships (explicit linkages, no FK columns on form)
 -- Forms are linked to parent tasks via entity_instance_link only
 INSERT INTO app.entity_instance_link (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type)
 VALUES

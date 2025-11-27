@@ -446,7 +446,7 @@ app (schema)
 │   ├── d_worksite        # Work sites
 │   ├── d_artifact        # Document attachments
 │   ├── d_wiki            # Knowledge base
-│   ├── d_form_head       # Form definitions
+│   ├── form       # Form definitions
 │   └── d_reports         # Report definitions
 │
 ├── Settings (16 tables)

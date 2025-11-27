@@ -184,7 +184,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         // Show all versions - simple query
         const countResult = await db.execute(sql`
           SELECT COUNT(*) as total
-          FROM app.form_head f
+          FROM app.form f
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         `);
         const total = Number(countResult[0]?.total || 0);
@@ -205,7 +205,7 @@ export async function formRoutes(fastify: FastifyInstance) {
             f.created_ts,
             f.updated_ts,
             f.version
-          FROM app.form_head f
+          FROM app.form f
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
           ORDER BY f.code ASC, f.version DESC
           LIMIT ${limit} OFFSET ${offset}
@@ -233,7 +233,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           SELECT COUNT(*) as total
           FROM (
             SELECT DISTINCT ON (f.code) f.id
-            FROM app.form_head f
+            FROM app.form f
             ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
             ORDER BY f.code, f.version DESC
           ) subq
@@ -256,7 +256,7 @@ export async function formRoutes(fastify: FastifyInstance) {
             f.created_ts,
             f.updated_ts,
             f.version
-          FROM app.form_head f
+          FROM app.form f
           ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
           ORDER BY f.code, f.version DESC
           LIMIT ${limit} OFFSET ${offset}
@@ -334,7 +334,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           f.created_ts,
           f.updated_ts,
           f.version
-        FROM app.form_head f
+        FROM app.form f
         WHERE f.id = ${id}
         ORDER BY f.version DESC
       `);
@@ -407,7 +407,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           f.created_ts,
           f.updated_ts,
           f.version
-        FROM app.form_head f
+        FROM app.form f
         WHERE f.id = ${id}
       `);
 
@@ -489,7 +489,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Insert form with minimalistic schema
       const result = await db.execute(sql`
-        INSERT INTO app.form_head (
+        INSERT INTO app.form (
           code,
           name,
           descr,
@@ -597,7 +597,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Get current form data
       const currentForm = await db.execute(sql`
         SELECT id, code, name, descr, form_type, form_schema, internal_url, shared_url, active_flag, version
-        FROM app.form_head
+        FROM app.form
         WHERE id = ${id}
       `);
 
@@ -618,7 +618,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         const newVersion = (current.version || 1) + 1;
 
         const result = await db.execute(sql`
-          UPDATE app.form_head
+          UPDATE app.form
           SET
             name = ${data.name !== undefined ? data.name : current.name},
             descr = ${data.descr !== undefined ? data.descr : current.descr},
@@ -664,7 +664,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         }
 
         const result = await db.execute(sql`
-          UPDATE app.form_head
+          UPDATE app.form
           SET ${sql.join(updateFields, sql`, `)}
           WHERE id = ${id}
           RETURNING
@@ -741,7 +741,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // Get current form data
       const currentForm = await db.execute(sql`
         SELECT id, code, name, descr, form_type, form_schema, internal_url, shared_url, active_flag, version
-        FROM app.form_head
+        FROM app.form
         WHERE id = ${id}
       `);
 
@@ -762,7 +762,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         const newVersion = (current.version || 1) + 1;
 
         const result = await db.execute(sql`
-          UPDATE app.form_head
+          UPDATE app.form
           SET
             name = ${data.name !== undefined ? data.name : current.name},
             descr = ${data.descr !== undefined ? data.descr : current.descr},
@@ -808,7 +808,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         }
 
         const result = await db.execute(sql`
-          UPDATE app.form_head
+          UPDATE app.form
           SET ${sql.join(updateFields, sql`, `)}
           WHERE id = ${id}
           RETURNING
@@ -1076,7 +1076,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Update submission
       await db.execute(sql`
-        UPDATE app.d_form_data
+        UPDATE app.form_data
         SET
           submission_data = ${JSON.stringify(data.submissionData || {})},
           submission_status = ${data.submissionStatus || 'submitted'},
@@ -1136,7 +1136,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Verify form exists and is active
       const forms = await db.execute(sql`
-        SELECT id FROM app.form_head
+        SELECT id FROM app.form
         WHERE id = ${id} AND active_flag = true
       `);
 
@@ -1146,7 +1146,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Create submission with user ID
       const result = await db.execute(sql`
-        INSERT INTO app.d_form_data (
+        INSERT INTO app.form_data (
           form_id,
           submission_data,
           submission_status,
@@ -1206,7 +1206,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           f.created_ts,
           f.updated_ts,
           f.version
-        FROM app.form_head f
+        FROM app.form f
         WHERE f.id = ${id}
           AND f.active_flag = true
       `);
@@ -1243,7 +1243,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Verify form exists and is active
       const forms = await db.execute(sql`
-        SELECT id FROM app.form_head
+        SELECT id FROM app.form
         WHERE id = ${id} AND active_flag = true
       `);
 
@@ -1253,7 +1253,7 @@ export async function formRoutes(fastify: FastifyInstance) {
 
       // Create anonymous submission
       const result = await db.execute(sql`
-        INSERT INTO app.d_form_data (
+        INSERT INTO app.form_data (
           form_id,
           submission_data,
           submission_status,
@@ -1289,7 +1289,7 @@ export async function formRoutes(fastify: FastifyInstance) {
   // ============================================================================
   // Delete form with cascading cleanup (soft delete)
   // Uses universal delete factory pattern - deletes from:
-  // 1. app.form_head (base entity table)
+  // 1. app.form (base entity table)
   // 2. app.entity_instance (entity registry)
   // 3. app.entity_instance_link (linkages in both directions)
   createEntityDeleteEndpoint(fastify, ENTITY_CODE);

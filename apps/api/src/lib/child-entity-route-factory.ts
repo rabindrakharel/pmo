@@ -12,7 +12,7 @@ import { PAGINATION_CONFIG } from './pagination.js';
  * Used by child entity route factories to automatically resolve table names.
  *
  * Convention: Most entities use direct mapping (entity code = table name), with these exceptions:
- * - 'form' → 'form_head' (form has head/data split)
+ * - 'form' → 'form' (form has head/data split)
  * - 'wiki' → 'wiki' (wiki has head/data split, head table is just 'wiki')
  * - 'invoice' → 'invoice_head' (invoice has head/data split)
  * - 'biz' (legacy) → 'business'
@@ -40,7 +40,7 @@ export const ENTITY_TABLE_MAP: Record<string, string> = {
   work_order: 'work_order',
 
   // Entities with head/data split
-  form: 'form_head',
+  form: 'form',
   invoice: 'invoice_head',
   message: 'message_data',
 
@@ -65,7 +65,7 @@ export const ENTITY_TABLE_MAP: Record<string, string> = {
  * Resolve Database Table Name for Entity Type
  *
  * @param entityCode - Entity type code (e.g., 'task', 'form', 'cust')
- * @returns Database table name (e.g., 'task', 'form_head', 'cust')
+ * @returns Database table name (e.g., 'task', 'form', 'cust')
  */
 export function getEntityTableName(entityCode: string): string {
   // Check map first
@@ -94,7 +94,7 @@ export function getEntityTableName(entityCode: string): string {
  * // Before (manual repetition):
  * createChildEntityEndpoint(fastify, 'project', 'task', 'task');
  * createChildEntityEndpoint(fastify, 'project', 'wiki', 'wiki');
- * createChildEntityEndpoint(fastify, 'project', 'form', 'form_head');
+ * createChildEntityEndpoint(fastify, 'project', 'form', 'form');
  * createChildEntityEndpoint(fastify, 'project', 'artifact', 'artifact');
  *
  * // After (database-driven):

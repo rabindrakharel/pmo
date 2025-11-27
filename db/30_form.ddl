@@ -1,5 +1,5 @@
 -- =====================================================
--- FORM ENTITY (d_form_head) - HEAD TABLE
+-- FORM ENTITY (form) - BASE TABLE
 -- Multi-step form definitions with JSONB schemas and public/internal URLs
 -- =====================================================
 --
@@ -7,7 +7,7 @@
 -- Forms are dynamic data collection templates with multi-step JSONB schemas.
 -- Each form has stable UUID and TWO URLs: internal (auth required) and shared (public, 8-char code).
 -- Updates are in-place (same ID, version++), enabling stable URLs while tracking schema evolution.
--- Submissions (d_form_data) reference form_id; old submissions preserve original schema structure.
+-- Submissions (form_data) reference form_id; old submissions preserve original schema structure.
 --
 -- OPERATIONS:
 -- • CREATE: POST /api/v1/form, INSERT with version=1, generates internal + shared URLs
@@ -30,7 +30,7 @@
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
 -- • Parent: project (via metadata.primary_entity_id or entity_instance_link)
--- • Children: d_form_data (submissions), artifact (attachments)
+-- • Children: form_data (submissions), artifact (attachments)
 --
 -- URL ACCESS MODES:
 -- • Internal URL (/form/{uuid}): Requires authentication, enables editing/management
@@ -38,7 +38,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.form_head (
+CREATE TABLE app.form (
     id uuid DEFAULT gen_random_uuid(),
     code varchar(50),   -- No unique constraint
     name varchar(200),
@@ -70,7 +70,7 @@ CREATE TABLE app.form_head (
 -- =====================================================
 
 -- Landscaping Form (linked to Fall Campaign Marketing Strategy task via entity_instance_link)
-INSERT INTO app.form_head (
+INSERT INTO app.form (
     id,
     code,
     name,
@@ -130,7 +130,7 @@ INSERT INTO app.form_head (
     updated_ts = now();
 
 -- PMO Vendor Evaluation Form (linked to PMO Software Vendor Evaluation task via entity_instance_link)
-INSERT INTO app.form_head (
+INSERT INTO app.form (
     id,
     code,
     name,
@@ -184,7 +184,7 @@ INSERT INTO app.form_head (
 );
 
 -- Customer Service Feedback Form (linked to Customer Service Process Optimization task via entity_instance_link)
-INSERT INTO app.form_head (
+INSERT INTO app.form (
     id,
     code,
     name,
@@ -237,7 +237,7 @@ INSERT INTO app.form_head (
 );
 
 -- HVAC Site Assessment Form (linked to Smart HVAC Market Research task via entity_instance_link)
-INSERT INTO app.form_head (
+INSERT INTO app.form (
     id,
     code,
     name,

@@ -1382,7 +1382,7 @@ Project (d_project)
   └─> Tasks (d_task) via entity_instance_link
   └─> Wiki (d_wiki) via entity_instance_link
   └─> Artifacts (d_artifact) via entity_instance_link
-  └─> Forms (d_form_head) via entity_instance_link
+  └─> Forms (form) via entity_instance_link
   └─> Costs (d_cost) via entity_instance_link
 
 Task (d_task)

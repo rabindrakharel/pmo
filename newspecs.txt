@@ -66,13 +66,13 @@ Artifact (d_artifact, d_artifact_data)
 
 Columns: id, slug, code, name, descr, metadata, version
 
-Form (d_form_head, d_form_data)
+Form (form, form_data)
 
 Stores form definitions and submissions.
 
 Columns: metadata
 
-d_form_data.form_id = d_form_head.id
+form_data.form_id = form.id
 
 Wiki (d_wiki, d_wiki_data)
 
