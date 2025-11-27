@@ -26,7 +26,7 @@ The Knowledge & Documentation Domain provides comprehensive knowledge management
 | **Report Data** | XXII_d_report_data.ddl | `d_report_data` | Generated report instances with outputs (content) |
 | **Artifact** | XV_d_artifact.ddl | `d_artifact` | Document and file metadata with S3 references (metadata) |
 | **Artifact Data** | XVI_d_artifact_data.ddl | `d_artifact_data` | Document content versions and file chunks (content) |
-| **Form Head** | XVII_d_form_head.ddl | `d_form_head` | Form templates with field definitions (metadata) |
+| **Form Head** | XVII_form.ddl | `form` | Form templates with field definitions (metadata) |
 | **Form Data** | XVIII_d_form_data.ddl | `d_form_data` | Form submission instances with user responses (content) |
 
 ## Entity Relationships
@@ -65,7 +65,7 @@ The Knowledge & Documentation Domain provides comprehensive knowledge management
 │         ▼                                                             │
 │  ┌─────────────────┐         has instances      ┌─────────────────┐  │
 │  │  Form Head      │──────────────────────────► │   Form Data     │  │
-│  │ (d_form_head)   │                            │ (d_form_data)   │  │
+│  │ (form)   │                            │ (d_form_data)   │  │
 │  │                 │                            │                 │  │
 │  │ • Form Type     │                            │ • Submission    │  │
 │  │ • Fields JSONB  │                            │ • User Answers  │  │
@@ -377,7 +377,7 @@ Form submissions stored as JSONB:
 
 ```json
 {
-  "form_head_id": "uuid-...",
+  "form_id": "uuid-...",
   "submitted_by": "uuid-employee-...",
   "submitted_ts": "2025-01-10T14:30:00Z",
   "completion_status": "completed",
@@ -507,7 +507,7 @@ Form submissions stored as JSONB:
 5. Customer clicks "Submit"
 6. System validates all required fields
 7. System creates Form Data record:
-   - form_head_id: <Intake Form UUID>
+   - form_id: <Intake Form UUID>
    - submission_number: FORM-2025-00567
    - responses: <JSONB with all answers>
    - submitted_ts: 2025-01-10 15:45:00
@@ -571,7 +571,7 @@ CREATE TABLE app.d_artifact (
 );
 
 -- Form Head (Template)
-CREATE TABLE app.d_form_head (
+CREATE TABLE app.form (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50) UNIQUE NOT NULL,
     name varchar(200) NOT NULL,
@@ -585,7 +585,7 @@ CREATE TABLE app.d_form_head (
 CREATE TABLE app.d_form_data (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     submission_number varchar(50) UNIQUE NOT NULL,
-    form_head_id uuid NOT NULL,
+    form_id uuid NOT NULL,
     responses jsonb,                                -- User answers
     completion_status text,                         -- completed, partial
     submitted_ts timestamptz,
@@ -693,8 +693,8 @@ CREATE INDEX idx_artifact_entity ON app.d_artifact(entity_code, entity_id);
 CREATE INDEX idx_artifact_security ON app.d_artifact(dl__artifact_security_classification);
 
 -- Form indexes
-CREATE INDEX idx_form_head_type ON app.d_form_head(form_type);
-CREATE INDEX idx_form_data_head ON app.d_form_data(form_head_id);
+CREATE INDEX idx_form_type ON app.form(form_type);
+CREATE INDEX idx_form_data_form ON app.form_data(form_id);
 CREATE INDEX idx_form_data_submitted ON app.d_form_data(submitted_ts);
 ```
 

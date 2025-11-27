@@ -875,7 +875,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
 
       const ext = data.fileName.split('.').pop() || '';
 
-      // In-place update: same ID, version++, new file (like form_head pattern)
+      // In-place update: same ID, version++, new file (like form pattern)
       const updatedResult = await db.execute(sql`
         UPDATE app.artifact SET
           attachment_object_key = ${finalObjectKey},

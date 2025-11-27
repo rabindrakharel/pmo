@@ -1,6 +1,6 @@
 # Form System
 
-**Version:** 3.0.0 | **Tables:** `d_form_head`, `d_form_data`
+**Version:** 3.0.0 | **Tables:** `form`, `d_form_data`
 
 ---
 
@@ -21,7 +21,7 @@ The Form System provides schema-driven, multi-step forms with JSONB storage, S3 
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
 │  │                     FORM DEFINITION                              │    │
-│  │                    (d_form_head)                                 │    │
+│  │                    (form)                                 │    │
 │  │  ┌─────────────────────────────────────────────────────────┐    │    │
 │  │  │  form_schema (JSONB)                                     │    │    │
 │  │  │  { steps: [ { fields: [...] } ] }                       │    │    │
@@ -67,7 +67,7 @@ Form Lifecycle
 CREATE          BUILD           PUBLISH         COLLECT         ARCHIVE
    │               │               │               │               │
    v               v               v               v               v
-d_form_head ─> form_schema ─> shared_url ─> d_form_data ─> active_flag=false
+form ─> form_schema ─> shared_url ─> d_form_data ─> active_flag=false
 
 
 Submission Flow
@@ -99,7 +99,7 @@ submitted_by_empid:             submitted_by_empid:
 
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
-| `d_form_head` | Form definitions | slug, form_schema, version, shared_url |
+| `form` | Form definitions | slug, form_schema, version, shared_url |
 | `d_form_data` | Form submissions | form_id, submission_data, submission_status, approval_status |
 
 ### Form Schema Structure

@@ -190,7 +190,7 @@ validate_all_ddls() {
         "26_message_data.ddl"
         "27_interaction.ddl"
         "28_artifact.ddl"
-        "30_form_head.ddl"
+        "30_form.ddl"
         "31_form_data.ddl"
         "32_wiki_head.ddl"
         "33_wiki_data.ddl"
@@ -322,7 +322,7 @@ import_ddls() {
     # ===== KNOWLEDGE & DOCUMENTATION (28-33) =====
     print_status $CYAN "  📚 Knowledge & Documentation (6 entities)..."
     execute_sql "$DB_PATH/28_artifact.ddl" "28: Artifact head entities"
-    execute_sql "$DB_PATH/30_form_head.ddl" "30: Form head entities"
+    execute_sql "$DB_PATH/30_form.ddl" "30: Form head entities"
     execute_sql "$DB_PATH/31_form_data.ddl" "31: Form data entities"
     execute_sql "$DB_PATH/32_wiki_head.ddl" "32: Wiki head entities"
     execute_sql "$DB_PATH/33_wiki_data.ddl" "33: Wiki data entities"

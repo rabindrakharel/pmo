@@ -36,7 +36,7 @@ The PMO platform uses **two distinct versioning patterns** based on entity type 
 ### Schema Structure
 
 ```sql
-CREATE TABLE app.d_form_head (
+CREATE TABLE app.form (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),  -- Stable, never changes
     code varchar(50),
     name varchar(200) NOT NULL,
@@ -85,18 +85,18 @@ CREATE TABLE app.d_form_head (
 
 ```sql
 -- Version 1: Create
-INSERT INTO app.d_form_head (id, name, form_schema, version)
+INSERT INTO app.form (id, name, form_schema, version)
 VALUES ('ee8a6cfd-...', 'Landscaping Form', '{"steps": [...]}'::jsonb, 1);
 
 -- Version 2: Update
-UPDATE app.d_form_head
+UPDATE app.form
 SET form_schema = '{"steps": [new content]}'::jsonb,
     version = version + 1,
     updated_ts = NOW()
 WHERE id = 'ee8a6cfd-...';
 
 -- Version 3: Update again
-UPDATE app.d_form_head
+UPDATE app.form
 SET form_schema = '{"steps": [newer content]}'::jsonb,
     version = version + 1,
     updated_ts = NOW()
@@ -312,14 +312,14 @@ ORDER BY version DESC, from_ts DESC;
 
 | Entity | Table | Version Field | History Storage |
 |--------|-------|---------------|-----------------|
-| **Forms** | `d_form_head` | `version` | Not stored (old schemas discarded) |
+| **Forms** | `form` | `version` | Not stored (old schemas discarded) |
 | **Artifacts** | `d_artifact` | `version` | `metadata.versionHistory` array |
 
 #### Forms: No History Retention
 
 ```sql
 -- Forms use in-place updates WITHOUT preserving history
-UPDATE app.d_form_head
+UPDATE app.form
 SET form_schema = '{"steps": [new schema]}'::jsonb,
     version = version + 1,
     updated_ts = NOW()

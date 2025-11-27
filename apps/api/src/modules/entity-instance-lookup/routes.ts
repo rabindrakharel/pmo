@@ -33,7 +33,7 @@ const ENTITY_TABLE_MAP: Record<string, string> = {
   position: 'position',
   artifact: 'artifact',
   wiki: 'wiki',
-  form: 'form_head',
+  form: 'form',
 };
 
 export async function entityInstanceLookupRoutes(fastify: FastifyInstance) {
