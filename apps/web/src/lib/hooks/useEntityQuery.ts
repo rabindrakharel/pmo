@@ -66,6 +66,19 @@ import {
   getReplicationManager,
 } from '../../db/rxdb';
 
+// v8.6.0: RxDB hooks for metadata (replaces Zustand stores)
+import {
+  useRxDatalabel,
+  useRxAllDatalabels,
+  useRxEntityCodes as useRxEntityCodesHook,
+  useRxGlobalSettings as useRxGlobalSettingsHook,
+  useRxComponentMetadata,
+  cacheComponentMetadata,
+  type DatalabelOption,
+  type EntityCodeData as RxDBEntityCodeData,
+  type GlobalSettings as RxDBGlobalSettings,
+} from '../../db/rxdb';
+
 // ============================================================================
 // Cache Configuration
 // ============================================================================
@@ -253,12 +266,15 @@ export function useEntityInstanceList<T = any>(
     ref_data_entityInstance: rxResult.refData,
   }), [rxResult.data, rxResult.metadata, rxResult.total, rxResult.refData, normalizedParams]);
 
-  // Cache metadata in Zustand stores for other components
+  // Cache metadata in RxDB (v8.6.0) + Zustand stores (for backwards compatibility)
   useEffect(() => {
     if (result.metadata) {
       const componentName = normalizedParams.view || 'entityDataTable';
       const componentMetadata = (result.metadata as any)[componentName];
       if (componentMetadata && typeof componentMetadata === 'object') {
+        // v8.6.0: Cache in RxDB
+        cacheComponentMetadata(entityCode, componentName, componentMetadata).catch(console.error);
+        // Legacy: Also cache in Zustand for backwards compatibility
         useEntityComponentMetadataStore.getState().setComponentMetadata(entityCode, componentName, componentMetadata);
       }
     }
@@ -1268,4 +1284,132 @@ export function usePrefetch() {
   }, [queryClient]);
 
   return { prefetchEntity, prefetchList };
+}
+
+// ============================================================================
+// v8.6.0: RxDB-Based Metadata Hooks (New - Replaces Zustand + React Query)
+// ============================================================================
+
+/**
+ * Hook for fetching entity codes using RxDB (v8.6.0)
+ *
+ * This is the RxDB-based replacement for useEntityCodes.
+ * Uses IndexedDB for offline-first storage.
+ *
+ * @example
+ * const { entityCodes, entityCodesMap, getEntityByCode, isLoading } = useEntityCodesV2();
+ * const projectEntity = getEntityByCode('project');
+ */
+export function useEntityCodesV2() {
+  const rxResult = useRxEntityCodesHook();
+
+  // Return React Query-compatible object for backwards compatibility
+  return {
+    data: rxResult.entityCodesMap,
+    entityCodes: rxResult.entityCodes,
+    entityCodesMap: rxResult.entityCodesMap,
+    getEntityByCode: rxResult.getEntityByCode,
+    isLoading: rxResult.isLoading,
+    isPending: rxResult.isLoading,
+    isError: !!rxResult.error,
+    error: rxResult.error,
+    refetch: rxResult.refetch,
+  };
+}
+
+/**
+ * Hook for fetching datalabel options using RxDB (v8.6.0)
+ *
+ * This is the RxDB-based replacement for useDatalabels.
+ * Uses IndexedDB for offline-first storage.
+ *
+ * @example
+ * const { options, isLoading } = useDatalabelsV2('dl__project_stage');
+ */
+export function useDatalabelsV2(fieldKey: string) {
+  const rxResult = useRxDatalabel(fieldKey);
+
+  // Return React Query-compatible object for backwards compatibility
+  return {
+    data: rxResult.options,
+    options: rxResult.options,
+    isLoading: rxResult.isLoading,
+    isPending: rxResult.isLoading,
+    isError: !!rxResult.error,
+    error: rxResult.error,
+    refetch: rxResult.refetch,
+  };
+}
+
+/**
+ * Hook for fetching global settings using RxDB (v8.6.0)
+ *
+ * This is the RxDB-based replacement for useGlobalSettings.
+ * Uses IndexedDB for offline-first storage.
+ *
+ * @example
+ * const { data: settings, isLoading } = useGlobalSettingsV2();
+ */
+export function useGlobalSettingsV2() {
+  const rxResult = useRxGlobalSettingsHook();
+
+  // Return React Query-compatible object for backwards compatibility
+  return {
+    data: rxResult.settings,
+    isLoading: rxResult.isLoading,
+    isPending: rxResult.isLoading,
+    isError: !!rxResult.error,
+    error: rxResult.error,
+    refetch: rxResult.refetch,
+  };
+}
+
+/**
+ * Hook for fetching all datalabels using RxDB (v8.6.0)
+ *
+ * This is the RxDB-based replacement for useAllDatalabels.
+ * Uses IndexedDB for offline-first storage.
+ *
+ * @example
+ * const { datalabels, getDatalabel, isLoading } = useAllDatalabelsV2();
+ */
+export function useAllDatalabelsV2() {
+  const rxResult = useRxAllDatalabels();
+
+  // Return React Query-compatible object for backwards compatibility
+  return {
+    data: {
+      data: Object.entries(rxResult.datalabels).map(([name, options]) => ({ name, options })),
+      total: Object.keys(rxResult.datalabels).length,
+    },
+    datalabels: rxResult.datalabels,
+    getDatalabel: rxResult.getDatalabel,
+    isLoading: rxResult.isLoading,
+    isPending: rxResult.isLoading,
+    isError: !!rxResult.error,
+    error: rxResult.error,
+    refetch: rxResult.refetch,
+  };
+}
+
+/**
+ * Hook for getting entity metadata using RxDB (v8.6.0)
+ *
+ * This is the RxDB-based replacement for useEntityMetadata.
+ * Uses IndexedDB for offline-first storage.
+ *
+ * @example
+ * const { metadata, isLoading } = useEntityMetadataV2('project', 'entityDataTable');
+ */
+export function useEntityMetadataV2(entityCode: string, componentName: string = 'entityDataTable') {
+  const rxResult = useRxComponentMetadata(entityCode, componentName);
+
+  return {
+    data: rxResult.metadata,
+    metadata: rxResult.metadata,
+    isLoading: rxResult.isLoading,
+    isPending: rxResult.isLoading,
+    isError: !!rxResult.error,
+    error: rxResult.error,
+  };
 }

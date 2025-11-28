@@ -30,6 +30,12 @@ export {
   usePrefetch,
   queryKeys,
   CACHE_TTL,
+  // v8.6.0: RxDB-based metadata hooks (replaces Zustand + React Query)
+  useEntityCodesV2,
+  useDatalabelsV2,
+  useGlobalSettingsV2,
+  useAllDatalabelsV2,
+  useEntityMetadataV2,
 } from './useEntityQuery';
 
 export type {
@@ -54,6 +60,24 @@ export {
   useRxDB,
   useRxDBReady,
   useReplicationStatus,
+  // v8.6.0: RxDB metadata hooks (replaces Zustand stores)
+  useRxDatalabel,
+  useRxAllDatalabels,
+  useRxEntityCodes,
+  useRxGlobalSettings,
+  useRxComponentMetadata,
+  useMetadataLoaded,
+  cacheComponentMetadata,
+  invalidateMetadataCache,
+  clearAllMetadataCache,
+  prefetchAllMetadata,
+} from '../../db/rxdb';
+
+export type {
+  DatalabelOption,
+  EntityCodeData,
+  GlobalSettings,
+  ComponentMetadata,
 } from '../../db/rxdb';
 
 // v8.3.1: RefData Resolution Hooks (metadata-based, no pattern matching)
