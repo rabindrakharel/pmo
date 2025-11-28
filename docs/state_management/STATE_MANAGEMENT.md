@@ -513,6 +513,44 @@ apps/web/src/db/rxdb/
 
 ---
 
+## React Query Compatibility Layer
+
+The existing React Query hooks (`useEntityInstanceList`, `useEntityInstance`, etc.) now use RxDB internally while maintaining the same API:
+
+```typescript
+// These hooks use RxDB under the hood, but return React Query-compatible results
+import {
+  useEntityInstanceList,   // ← RxDB backend, React Query API
+  useEntityInstance,
+  useFormattedEntityList,
+  useFormattedEntityInstance,
+  useEntityMutation,
+} from '@/lib/hooks';
+
+// Direct RxDB access when needed
+import {
+  useRxEntity,
+  useRxEntityList,
+  useRxEntityMutation,
+  useRxDraft,
+  useRecoverDraft,
+} from '@/db/rxdb';
+```
+
+### Migration Path
+
+Components don't need changes - the existing hooks work exactly as before:
+
+| Old Hook | New Backend | API Change |
+|----------|-------------|------------|
+| `useEntityInstanceList` | RxDB → IndexedDB | None (backwards compatible) |
+| `useEntityInstance` | RxDB → IndexedDB | None (backwards compatible) |
+| `useFormattedEntityList` | RxDB + format | None (backwards compatible) |
+| `useFormattedEntityInstance` | RxDB + format | None (backwards compatible) |
+| `useEntityMutation` | RxDB mutations | None (backwards compatible) |
+
+---
+
 ## RxDB Hooks
 
 ### Entity Hooks

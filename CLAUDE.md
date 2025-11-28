@@ -9,9 +9,9 @@
 - **Backend**: Fastify v5, TypeScript ESM, JWT, 45 API modules
 - **PubSub Service**: WebSocket server for real-time sync (port 4001)
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4
-- **State Management**: React Query (data + WebSocket invalidation) + Zustand (metadata)
+- **State Management**: RxDB (offline-first IndexedDB) + React Query (metadata) + Zustand (UI state)
 - **Infrastructure**: AWS EC2/S3/Lambda, Terraform, Docker
-- **Version**: 8.4.0 (WebSocket Real-Time Sync + ref_data_entityInstance + Metadata-Based Resolution)
+- **Version**: 8.5.0 (RxDB Offline-First Architecture + WebSocket Sync + Draft Persistence)
 
 ## Critical Operations
 
@@ -730,9 +730,9 @@ Core service documentation for centralized entity infrastructure management. Use
 
 ### 3. STATE_MANAGEMENT.md
 
-Zustand + React Query hybrid architecture for client-side state management and caching. Used by frontend components for data fetching, caching, and edit state tracking.
+RxDB offline-first architecture with IndexedDB storage. Entity data persists across page refresh and works offline. WebSocket sync via ReplicationManager for real-time updates.
 
-**Keywords:** `Zustand`, `React Query`, `9 stores`, `session-level cache`, `URL-bound cache`, `30 min TTL`, `5 min TTL`, `globalSettingsMetadataStore`, `datalabelMetadataStore`, `entityCodeMetadataStore`, `EntityListOfInstancesDataStore`, `EntitySpecificInstanceDataStore`, `entityComponentMetadataStore`, `editStateStore`, `dirtyFields`, `optimistic updates`, `cache invalidation`, `field-level tracking`, `minimal PATCH`, `prefetching`, `ref_data_entityInstance`, `useRefData`, `entity reference resolution`, `lookupEntity`, `metadata-based detection`
+**Keywords:** `RxDB`, `IndexedDB`, `offline-first`, `useRxEntity`, `useRxEntityList`, `useRxDraft`, `ReplicationManager`, `RxDBProvider`, `WebSocket sync`, `draft persistence`, `multi-tab sync`, `LeaderElection`, `reactive queries`, `entities collection`, `drafts collection`, `ref_data_entityInstance`, `useEntityInstanceList` (RxDB backend), `useEntityInstance` (RxDB backend)
 
 ### 4. PAGE_ARCHITECTURE.md
 
@@ -742,9 +742,18 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
 
 ---
 
-**Version**: 8.4.0 | **Updated**: 2025-11-27 | **Pattern**: WebSocket Sync + Format-at-Read + ref_data_entityInstance
+**Version**: 8.5.0 | **Updated**: 2025-11-28 | **Pattern**: RxDB Offline-First + WebSocket Sync + Draft Persistence
 
 **Recent Updates**:
+- v8.5.0 (2025-11-28): **RxDB Offline-First Architecture**
+  - Replaced React Query with RxDB (IndexedDB) for entity data storage
+  - Entity data persists across page refresh and browser restart
+  - Added RxDBProvider to App.tsx (replaces SyncProvider)
+  - Updated useEntityInstanceList, useEntityInstance to use RxDB internally
+  - Added useRxDraft, useRecoverDraft for draft persistence with undo/redo
+  - Multi-tab sync via RxDB LeaderElection plugin
+  - WebSocket replication via ReplicationManager
+  - React Query still used for metadata, datalabels, global settings
 - v8.4.0 (2025-11-27): **WebSocket Real-Time Sync**
   - Added PubSub service (port 4001) for WebSocket-based cache invalidation
   - SyncProvider manages WebSocket connection + subscription lifecycle

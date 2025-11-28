@@ -7,7 +7,8 @@ import { NavigationHistoryProvider } from './contexts/NavigationHistoryContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { EntityPreviewProvider } from './contexts/EntityPreviewContext';
 import { EntityMetadataProvider, useEntityMetadata } from './contexts/EntityMetadataContext';
-import { SyncProvider } from './db/sync';
+// v8.5.0: RxDB for offline-first entity storage with WebSocket sync
+import { RxDBProvider } from './db/rxdb';
 import { LoginForm } from './components/shared';
 import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPanel';
 import { EllipsisBounce } from './components/shared/ui/EllipsisBounce';
@@ -365,7 +366,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <SyncProvider>
+        {/* v8.5.0: RxDBProvider replaces SyncProvider
+            - Provides offline-first storage via IndexedDB
+            - Manages WebSocket connection for real-time sync
+            - Handles entity data caching and reactivity */}
+        <RxDBProvider>
           <EntityMetadataProvider>
             <Router>
               <SidebarProvider>
@@ -380,7 +385,7 @@ function App() {
               </SidebarProvider>
             </Router>
           </EntityMetadataProvider>
-        </SyncProvider>
+        </RxDBProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

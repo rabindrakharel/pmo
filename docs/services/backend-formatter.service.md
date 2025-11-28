@@ -1,6 +1,8 @@
 # Backend Formatter Service (BFF)
 
-**Version:** 8.3.2 | **Location:** `apps/api/src/services/backend-formatter.service.ts` | **Updated:** 2025-11-27
+**Version:** 8.5.0 | **Location:** `apps/api/src/services/backend-formatter.service.ts` | **Updated:** 2025-11-28
+
+> **Note:** The backend formatter generates metadata consumed by the RxDB-based frontend (v8.5.0). Data is stored in IndexedDB via RxDB, with metadata cached for formatting on read.
 
 ---
 

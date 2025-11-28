@@ -1,6 +1,8 @@
 # EntityDataTable Component
 
-**Version:** 8.2.0 | **Location:** `apps/web/src/components/shared/ui/EntityDataTable.tsx`
+**Version:** 8.5.0 | **Location:** `apps/web/src/components/shared/ui/EntityDataTable.tsx`
+
+> **Note:** As of v8.5.0, EntityDataTable receives data from RxDB (IndexedDB) via the `useEntityInstanceList` hook, which now uses RxDB internally for offline-first storage.
 
 ---
 
