@@ -315,4 +315,53 @@ apps/web/src/lib/cache/garbageCollection.ts
 
 ---
 
-**Status:** Planning | **Estimated Effort:** 3-5 days | **Breaking Changes:** None in Phase 1
+**Status:** Phase 2 Complete | **Estimated Effort:** 3-5 days | **Breaking Changes:** None in Phase 1-2
+
+---
+
+## Implementation Progress
+
+### Phase 1: Create RxDB Metadata Hooks ✅ COMPLETE
+
+- [x] Created `useRxMetadata.ts` with:
+  - `useRxDatalabel(key)` - replaces `useDatalabelMetadataStore`
+  - `useRxAllDatalabels()` - prefetch all datalabels
+  - `useRxEntityCodes()` - replaces `useEntityCodeMetadataStore`
+  - `useRxGlobalSettings()` - replaces `useGlobalSettingsMetadataStore`
+  - `useRxComponentMetadata()` - replaces `useEntityComponentMetadataStore`
+- [x] Added utility functions:
+  - `cacheComponentMetadata()` - store component metadata
+  - `invalidateMetadataCache()` - invalidate specific/all metadata
+  - `clearAllMetadataCache()` - clear all metadata
+  - `prefetchAllMetadata()` - prefetch on login
+- [x] Updated `RxDBProvider`:
+  - Added `isMetadataLoaded` state
+  - Added `refreshMetadata` action
+  - Prefetch metadata on auth token detection
+- [x] Updated exports in `db/rxdb/index.ts`
+
+### Phase 2: Add V2 Hooks with Backwards Compatibility ✅ COMPLETE
+
+- [x] Added V2 metadata hooks in `useEntityQuery.ts`:
+  - `useEntityCodesV2()` - RxDB-based replacement for `useEntityCodes`
+  - `useDatalabelsV2()` - RxDB-based replacement for `useDatalabels`
+  - `useGlobalSettingsV2()` - RxDB-based replacement for `useGlobalSettings`
+  - `useAllDatalabelsV2()` - RxDB-based replacement for `useAllDatalabels`
+  - `useEntityMetadataV2()` - RxDB-based replacement for `useEntityMetadata`
+- [x] Added dual-write: metadata cached in both RxDB and Zustand
+- [x] Exported new hooks from `lib/hooks/index.ts`
+
+### Phase 3: Migrate Consumers ⏳ PENDING
+
+Consumers can now be migrated file-by-file by:
+1. Replacing `useEntityCodes` with `useEntityCodesV2`
+2. Replacing `useDatalabels` with `useDatalabelsV2`
+3. Replacing `useGlobalSettings` with `useGlobalSettingsV2`
+4. Replacing `useEntityMetadata` with `useEntityMetadataV2`
+
+### Phase 4: Remove Deprecated Code ⏳ PENDING
+
+After all consumers are migrated:
+1. Remove Zustand stores
+2. Remove React Query wrapper (keep for entity reference cache only)
+3. Rename V2 hooks to original names
