@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect } from 'react';
+import React, { Fragment } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
@@ -11,9 +11,6 @@ import { TanstackCacheProvider } from './db/TanstackCacheProvider';
 import { LoginForm } from './components/shared';
 import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPanel';
 import { EllipsisBounce } from './components/shared/ui/EllipsisBounce';
-
-// Garbage Collection for metadata stores
-import { startMetadataGC, stopMetadataGC } from './lib/cache/garbageCollection';
 
 // Landing & Auth Pages
 import { LandingPage } from './pages/LandingPage';
@@ -343,12 +340,6 @@ function AppRoutes() {
 }
 
 function App() {
-  // Start garbage collection for metadata stores on mount
-  useEffect(() => {
-    startMetadataGC();
-    return () => stopMetadataGC();
-  }, []);
-
   return (
     // v9.1.3: TanstackCacheProvider includes QueryClientProvider - no need for outer one
     // Using single QueryClient from db/query/queryClient.ts for consistency

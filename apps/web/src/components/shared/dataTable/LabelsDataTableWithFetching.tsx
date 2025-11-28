@@ -22,9 +22,6 @@ export interface LabelsDataTableWithFetchingProps {
   onRowClick?: (record: any) => void;
 }
 
-// Backward compatibility alias
-export type SettingsDataTableWithFetchingProps = LabelsDataTableWithFetchingProps;
-
 export function LabelsDataTableWithFetching({
   entityCode,
   showActionButtons = false,
@@ -209,8 +206,5 @@ export function LabelsDataTableWithFetching({
     </div>
   );
 }
-
-// Backward compatibility alias
-export const SettingsDataTableWithFetching = LabelsDataTableWithFetching;
 
 export default LabelsDataTableWithFetching;

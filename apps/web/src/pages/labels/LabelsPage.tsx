@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Tag, Search, ChevronDown, X, Wrench } from 'lucide-react';
 import { Layout, EntityEditModal } from '../../components/shared';
-import { SettingsDataTableWithFetching } from '../../components/shared/dataTable/LabelsDataTableWithFetching';
+import { LabelsDataTableWithFetching } from '../../components/shared/dataTable/LabelsDataTableWithFetching';
 import { ENTITY_ICONS, ENTITY_GROUPS } from '../../lib/entityIcons';
 import { getEntityConfig } from '../../lib/entityConfig';
 
@@ -319,7 +319,7 @@ export function LabelsPage() {
 
                       {/* Data Table */}
                       <div className="p-4">
-                        <SettingsDataTableWithFetching
+                        <LabelsDataTableWithFetching
                           key={`${settingId}-${refreshTrigger}`}
                           entityCode={settingId}
                           showActionButtons={true}

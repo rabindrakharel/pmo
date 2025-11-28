@@ -5,8 +5,9 @@ import { SearchableMultiSelect } from './SearchableMultiSelect';
 interface EntityMultiSelectTagsProps {
   label: string;
   entityCode: string;
-  values: any[];           // Array of { entity_code, *__*_id, label }
-  labelField: string;      // The label field name (e.g., "stakeholder")
+  uuidField: string;        // The UUID field name from metadata (e.g., "stakeholder__employee_id")
+  values: any[];            // Array of { entity_code, [uuidField]: uuid, label }
+  labelField: string;       // The label field name (e.g., "stakeholder")
   onAdd: (uuid: string, label: string) => void;
   onRemove: (uuid: string) => void;
   disabled?: boolean;
@@ -15,16 +16,19 @@ interface EntityMultiSelectTagsProps {
 }
 
 /**
- * EntityMultiSelectTags - Multi-select with tags for _IDS fields
+ * EntityMultiSelectTags - Multi-select with tags for _IDS fields (v9.1.1)
  *
  * Uses existing SearchableMultiSelect component
  * Loads options from /api/v1/entity/{entityCode}/entity-instance
  * Returns both UUID and label on add
  *
+ * IMPORTANT: uuidField must be provided from backend metadata - no pattern detection
+ *
  * Usage:
  * <EntityMultiSelectTags
  *   label="Stakeholder"
  *   entityCode="employee"
+ *   uuidField="stakeholder__employee_id"  // From metadata.lookupEntity
  *   values={[ { entity_code: "employee", stakeholder__employee_id: "uuid", stakeholder: "Mike" } ]}
  *   labelField="stakeholder"
  *   onAdd={(uuid, label) => handleAdd(uuid, label)}
@@ -34,6 +38,7 @@ interface EntityMultiSelectTagsProps {
 export const EntityMultiSelectTags: React.FC<EntityMultiSelectTagsProps> = ({
   label,
   entityCode,
+  uuidField,
   values,
   labelField,
   onAdd,
@@ -77,11 +82,10 @@ export const EntityMultiSelectTags: React.FC<EntityMultiSelectTagsProps> = ({
     }
   }, [entityCode]);
 
-  // Extract current UUIDs from values
-  const selectedUuids = values.map((value) => {
-    const uuidField = Object.keys(value).find(k => k.endsWith('_id'));
-    return uuidField ? value[uuidField] : null;
-  }).filter(Boolean);
+  // Extract current UUIDs from values using explicit field name from metadata
+  const selectedUuids = values
+    .map((value) => value[uuidField])
+    .filter(Boolean);
 
   // Handle selection change
   const handleChange = (newUuids: string[]) => {

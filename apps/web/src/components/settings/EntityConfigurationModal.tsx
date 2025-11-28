@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, AlertCircle, Database, Eye, Tag } from 'lucide-react';
 import { ColumnMetadataEditor, ColumnMetadata } from '../entity-builder/ColumnMetadataEditor';
 import { IconDisplaySettings } from '../entity-builder/IconDisplaySettings';
-import { SettingsDataTable } from '../shared/ui/LabelsDataTable';
+import { LabelsDataTable } from '../shared/ui/LabelsDataTable';
 
 interface EntityConfigurationModalProps {
   isOpen: boolean;
@@ -410,7 +410,7 @@ export function EntityConfigurationModal({
                 </div>
               )}
 
-              {/* Data Labels Tab Content - shows SettingsDataTable for active data label */}
+              {/* Data Labels Tab Content - shows LabelsDataTable for active data label */}
               {activeTab === 'datalabels' && (
                 <div className="bg-white rounded-md border border-dark-300 p-6">
                   {activeDataLabel ? (
@@ -429,7 +429,7 @@ export function EntityConfigurationModal({
                             Manage values for this data label. Add, edit, or reorder items as needed.
                           </p>
                         </div>
-                        <SettingsDataTable
+                        <LabelsDataTable
                           data={activeDatalabelData}
                           onRowUpdate={async (id, updates) => {
                             // Update the local data optimistically

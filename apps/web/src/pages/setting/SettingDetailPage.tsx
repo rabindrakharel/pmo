@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Layout } from '../../components/shared';
-import { SettingsDataTable } from '../../components/shared/ui/LabelsDataTable';
+import { LabelsDataTable } from '../../components/shared/ui/LabelsDataTable';
 import { ExitButton } from '../../components/shared/button/ExitButton';
 import { getIconComponent } from '../../lib/iconMapping';
 import { useSettings } from '../../contexts/SettingsContext';
@@ -299,7 +299,7 @@ export function SettingDetailPage() {
 
         {/* Enhanced Data Table Container */}
         <div className="bg-dark-100 shadow-sm rounded-xl border border-dark-300 overflow-hidden">
-          <SettingsDataTable
+          <LabelsDataTable
             data={data}
             onRowUpdate={handleRowUpdate}
             onInlineEdit={handleInlineEdit}
