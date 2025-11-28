@@ -460,7 +460,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   useEffect(() => {
     const locationState = location.state as any;
     if (locationState?.autoEdit && data && !loading && !isEditing) {
-      // Start edit mode using RxDB draft (v8.6.0)
+      // Start edit mode using Dexie draft (v9.0.0)
       startDraft(data);
       // Clear the state to prevent re-entering edit mode on subsequent navigations
       window.history.replaceState({}, document.title);
@@ -514,9 +514,9 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   }, [currentChildEntity]); // updateCurrentEntityActiveTab removed from deps
 
   // ============================================================================
-  // RxDB DRAFT SAVE HANDLER (v8.6.0)
+  // DEXIE DRAFT SAVE HANDLER (v9.0.0)
   // ============================================================================
-  // Uses RxDB draft for save with automatic cache invalidation
+  // Uses Dexie draft for save with automatic cache invalidation
   // Special handling preserved for artifact versioning and task assignees
   // ============================================================================
 
@@ -572,7 +572,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
         setUploadedObjectKey(null);
       }
 
-      // Get changed fields from RxDB draft
+      // Get changed fields from Dexie draft
       const changes = getChanges();
 
       if (Object.keys(changes).length === 0) {
@@ -703,9 +703,9 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   };
 
   // ============================================================================
-  // RxDB DRAFT INTEGRATION FOR EDITING (v8.6.0)
+  // DEXIE DRAFT INTEGRATION FOR EDITING (v9.0.0)
   // ============================================================================
-  // handleCancel and handleFieldChange now use RxDB draft
+  // handleCancel and handleFieldChange now use Dexie draft
   // This enables field-level change tracking, undo/redo, and persistent drafts
   // ============================================================================
 
@@ -713,7 +713,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     await discardDraft();
   }, [discardDraft]);
 
-  // Use refs for debouncing field updates (RxDB draft handles state)
+  // Use refs for debouncing field updates (Dexie draft handles state)
   const updateTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const handleFieldChange = useCallback((fieldName: string, value: any, inputType?: string) => {
@@ -803,7 +803,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
         setUploadedObjectKey(objectKey);
         // Auto-populate file metadata immediately for the new version
         const fileExtension = selectedFile.name.split('.').pop() || 'unknown';
-        // Use RxDB draft for field updates (v8.6.0)
+        // Use Dexie draft for field updates (v9.0.0)
         await updateDraftMultipleFields({
           attachment_format: fileExtension,
           attachment_size_bytes: selectedFile.size
@@ -820,7 +820,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   const handleRemoveFile = async () => {
     setSelectedFile(null);
     setUploadedObjectKey(null);
-    // Restore original file metadata from current version using RxDB draft (v8.6.0)
+    // Restore original file metadata from current version using Dexie draft (v9.0.0)
     await updateDraftMultipleFields({
       attachment_format: data?.attachment_format || '',
       attachment_size_bytes: data?.attachment_size_bytes || 0
@@ -860,7 +860,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
       const result = await response.json();
       const shareUrl = result.sharedUrl || result.shared_url;
 
-      // Update RxDB draft with new share URL (v8.6.0)
+      // Update Dexie draft with new share URL (v9.0.0)
       await updateDraftField('shared_url', shareUrl);
 
       // Invalidate cache to ensure fresh data on next load
@@ -1095,7 +1095,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                     } else if (entityCode === 'marketing') {
                       navigate(`/marketing/${id}/design`);
                     } else {
-                      // Start edit mode using RxDB draft (v8.6.0)
+                      // Start edit mode using Dexie draft (v9.0.0)
                       startDraft(data);
                     }
                   }}

@@ -22,15 +22,9 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: [
-      'rxjs',
-      'rxdb',
-      'rxdb/plugins/dev-mode',
-      'rxdb/plugins/migration-schema',
-      'rxdb/plugins/storage-dexie',
-      'rxdb/plugins/leader-election',
-      'rxdb/plugins/query-builder',
-      'rxdb/plugins/validate-ajv',
-      'rxdb/plugins/update'
+      '@tanstack/react-query',
+      'dexie',
+      'dexie-react-hooks'
     ]
   }
 })

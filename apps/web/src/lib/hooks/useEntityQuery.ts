@@ -427,7 +427,7 @@ export function useFormattedEntityList<T = any>(
 
   const mappedView = params.view ? viewComponentMap[params.view] || params.view : 'entityListOfInstancesTable';
 
-  // Use RxDB-backed base hook
+  // Use TanStack Query + Dexie base hook
   const rawResult = useEntityInstanceList<T>(entityCode, params, options as any);
 
   // Format data on read (memoized)
@@ -485,7 +485,7 @@ export function useFormattedEntityInstance<T = any>(
   componentName: string = 'entityInstanceFormContainer',
   options?: Omit<UseQueryOptions<FormattedEntityInstanceResult<T>>, 'queryKey' | 'queryFn' | 'select'>
 ) {
-  // Use RxDB-backed base hook
+  // Use TanStack Query + Dexie base hook
   const rawResult = useEntityInstance<T>(entityCode, id, options as any);
 
   // Format data on read (memoized)

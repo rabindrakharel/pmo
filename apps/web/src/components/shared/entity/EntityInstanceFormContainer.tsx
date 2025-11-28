@@ -237,9 +237,9 @@ function EntityInstanceFormContainerInner({
       field => field.lookupSource === 'datalabel' || field.datalabelKey
     );
 
-    // v8.6.0: Use datalabels from RxDB sync cache (populated at login, NO API CALLS)
+    // v9.0.0: Use datalabels from Dexie sync cache (populated at login, NO API CALLS)
     fieldsNeedingSettings.forEach((field) => {
-      // Fetch from RxDB sync cache
+      // Fetch from Dexie sync cache
       // v8.3.2: Use datalabelKey from backend metadata as primary key, fallback to field.key
       const lookupKey = field.datalabelKey || field.key;
       const cachedOptions = getDatalabelSync(lookupKey);

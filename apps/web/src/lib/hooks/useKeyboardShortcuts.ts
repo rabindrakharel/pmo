@@ -1,5 +1,5 @@
 /**
- * Keyboard Shortcuts Hook (v8.6.0 - RxDB Draft Integration)
+ * Keyboard Shortcuts Hook (v9.0.0 - Dexie Draft Integration)
  *
  * Provides keyboard shortcut handling for entity editing:
  * - Ctrl+Z / Cmd+Z: Undo
@@ -7,8 +7,8 @@
  * - Ctrl+S / Cmd+S: Save
  * - Escape: Cancel edit
  *
- * v8.6.0: Refactored to accept draft state via options (no store dependency)
- * Consumer passes state from useRxDraft hook.
+ * v9.0.0: Refactored to accept draft state via options (no store dependency)
+ * Consumer passes state from useDraft hook.
  */
 
 import { useEffect, useCallback, useRef } from 'react';
