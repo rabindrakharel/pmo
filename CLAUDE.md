@@ -9,9 +9,9 @@
 - **Backend**: Fastify v5, TypeScript ESM, JWT, 45 API modules
 - **PubSub Service**: WebSocket server for real-time sync (port 4001)
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4
-- **State Management**: RxDB (offline-first IndexedDB) - single source of truth for all data + metadata
+- **State Management**: TanStack Query + Dexie (offline-first IndexedDB) - server state + persistence
 - **Infrastructure**: AWS EC2/S3/Lambda, Terraform, Docker
-- **Version**: 8.6.0 (RxDB Unified State - Zustand Metadata Stores Removed)
+- **Version**: 9.1.0 (TanStack Query + Dexie - RxDB Removed)
 
 ## Critical Operations
 
@@ -431,44 +431,40 @@ fastify.get('/api/v1/project', async (request, reply) => {
 
 ---
 
-## 5. State Management (Frontend) - v8.6.0 RxDB Unified State
+## 5. State Management (Frontend) - v9.1.0 TanStack Query + Dexie
 
 ### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                State Architecture (v8.6.0)                   │
+│           State Architecture (v9.1.0 - TanStack + Dexie)     │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  RxDB (IndexedDB) - SINGLE SOURCE OF TRUTH                  │
-│  ─────────────────────────────────────────                  │
-│  • Entity instances (project, task, employee, etc.)         │
-│  • Metadata (field definitions, component schemas)          │
-│  • Reference data (datalabels, entity types, settings)      │
-│  • Drafts (unsaved edits with undo/redo)                    │
-│                                                              │
-│  Features:                                                   │
-│  ─────────                                                   │
-│  • Offline-first: Works without network                     │
-│  • Persistent: Survives browser restart                     │
-│  • Reactive: UI auto-updates via RxJS observables           │
-│  • Multi-tab sync: LeaderElection coordinates tabs          │
-│  • Format-at-read: RAW data cached, formatted on render     │
+│  TanStack Query (In-Memory)       Dexie (IndexedDB)         │
+│  ─────────────────────────        ─────────────────         │
+│  • Server state management        • Persistent storage      │
+│  • Automatic background refetch   • Survives browser restart│
+│  • Stale-while-revalidate         • Offline-first access    │
+│  • Cache invalidation             • Multi-tab sync          │
 │                                                              │
 │  ┌─────────────────────────────────────────────────────────┐│
-│  │  RxDBProvider + ReplicationManager (WebSocket :4001)    ││
-│  │  • INVALIDATE → refetch entity → update IndexedDB       ││
+│  │  TanstackCacheProvider + WebSocketManager (:4001)       ││
+│  │  • INVALIDATE → queryClient.invalidateQueries()         ││
+│  │  • Auto-refetch → update Dexie → component re-renders   ││
 │  │  • prefetchAllMetadata() at login populates sync cache  ││
 │  └─────────────────────────────────────────────────────────┘│
+│                                                              │
+│  Bundle Size: ~25KB (vs ~150KB RxDB)                        │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 
 DATA FLOW PATTERN:
 ──────────────────
-1. Login → prefetchAllMetadata() → RxDB + sync cache populated
-2. Component renders → useRxEntity/useRxDatalabel → RxDB query
-3. Non-hook access → getDatalabelSync()/getEntityCodesSync()
-4. WebSocket INVALIDATE → refetch → RxDB update → reactive UI
+1. App start → hydrateQueryCache() → Load Dexie into TanStack Query
+2. Login → prefetchAllMetadata() → Dexie + sync cache populated
+3. Component renders → useEntity/useDatalabel → TanStack Query
+4. Non-hook access → getDatalabelSync()/getEntityCodesSync()
+5. WebSocket INVALIDATE → invalidateQueries() → auto-refetch → Dexie updated
 
 See: docs/state_management/STATE_MANAGEMENT.md for full architecture
 ```
@@ -476,27 +472,27 @@ See: docs/state_management/STATE_MANAGEMENT.md for full architecture
 ### Key Hooks
 
 ```typescript
-// apps/web/src/db/rxdb/hooks/
+// apps/web/src/db/tanstack-hooks/
 
-// Entity data (RxDB - offline-first)
-const { data, isLoading } = useRxEntity<Project>('project', projectId);
-const { data: projects, total } = useRxEntityList<Project>('project', { limit: 50 });
+// Entity data (TanStack Query + Dexie - offline-first)
+const { data, isLoading } = useEntity<Project>('project', projectId);
+const { data: projects, total } = useEntityList<Project>('project', { limit: 50 });
+const { updateEntity, deleteEntity } = useEntityMutation('project');
 
-// Metadata (RxDB - replaces Zustand stores in v8.6.0)
-const { options, isLoading } = useRxDatalabel('project_stage');
-const { entityCodes, getEntityByCode } = useRxEntityCodes();
-const { settings } = useRxGlobalSettings();
+// Metadata hooks
+const { options, isLoading } = useDatalabel('project_stage');
+const { entityCodes, getEntityByCode } = useEntityCodes();
+const { settings } = useGlobalSettings();
 
 // Non-hook access (sync cache - for formatters, utilities)
-import { getDatalabelSync, getEntityCodesSync } from '@/db/rxdb';
+import { getDatalabelSync, getEntityCodesSync } from '@/db/tanstack-index';
 const options = getDatalabelSync('project_stage');  // Returns cached data or null
 
-// Draft persistence (survives page refresh)
-const { currentData, updateField, undo, redo, hasChanges } = useRxDraft('project', projectId);
+// Draft persistence (survives page refresh - stored in Dexie)
+const { currentData, updateField, undo, redo, hasChanges } = useDraft('project', projectId);
 
-// Entity reference resolution (v8.3.0)
-import { useRefData } from '@/lib/hooks';
-const { resolveFieldDisplay } = useRefData(data?.ref_data_entityInstance);
+// Offline-only access (Dexie only, no network)
+const { data, isStale } = useOfflineEntity<Project>('project', projectId);
 ```
 
 ### Format-at-Read Implementation
@@ -523,14 +519,15 @@ interface FormattedRow<T> {
 }
 ```
 
-### Benefits vs Format-at-Fetch
+### Cache & Persistence
 
-| Aspect | Format-at-Fetch (v7) | Format-at-Read (v8) |
-|--------|---------------------|---------------------|
-| Cache size | Larger (formatted strings) | Smaller (raw only) |
-| Datalabel updates | Requires invalidation | Instant (re-format) |
-| Multiple views | Separate caches | Same cache |
-| React Query | N/A | Auto-memoized |
+| Data Type | TanStack Query | Dexie (IndexedDB) | TTL |
+|-----------|----------------|-------------------|-----|
+| Entity instances | ✓ | ✓ | 5 min stale |
+| Entity lists | ✓ | ✓ | 2 min stale |
+| Datalabels | ✓ | ✓ | 10 min |
+| Entity codes | ✓ | ✓ | 30 min |
+| Drafts | - | ✓ | Until saved |
 
 ---
 
@@ -709,20 +706,20 @@ Request → RBAC Check (DELETE) → TRANSACTION {
 
 | Document | Path | Purpose |
 |----------|------|---------|
-| **RXDB_SYNC_ARCHITECTURE.md** | `docs/caching/` | WebSocket real-time sync architecture |
+| **TANSTACK_DEXIE_SYNC_ARCHITECTURE.md** | `docs/caching/` | TanStack Query + Dexie + WebSocket sync |
 | **RBAC_INFRASTRUCTURE.md** | `docs/rbac/` | RBAC tables, permissions, patterns |
 | **entity-infrastructure.service.md** | `docs/services/` | Entity infrastructure service API + build_ref_data_entityInstance |
-| **STATE_MANAGEMENT.md** | `docs/state_management/` | React Query + Zustand + WebSocket sync |
+| **STATE_MANAGEMENT.md** | `docs/state_management/` | TanStack Query + Dexie state architecture |
 | **PAGE_ARCHITECTURE.md** | `docs/pages/` | Page components and routing |
 | **backend-formatter.service.md** | `docs/services/` | Backend metadata generation (BFF) |
 | **frontEndFormatterService.md** | `docs/services/` | Frontend rendering (pure renderer) |
 | **RefData README.md** | `docs/refData/` | Entity reference resolution pattern |
 
-### 0. RXDB_SYNC_ARCHITECTURE.md
+### 0. TANSTACK_DEXIE_SYNC_ARCHITECTURE.md
 
-WebSocket-based real-time sync architecture documentation. Used when implementing real-time features, understanding cache invalidation flow, or troubleshooting sync issues.
+TanStack Query + Dexie offline-first architecture with WebSocket real-time sync. Used when implementing caching, understanding invalidation flow, or troubleshooting sync issues.
 
-**Keywords:** `WebSocket`, `PubSub`, `SyncProvider`, `useAutoSubscribe`, `INVALIDATE`, `SUBSCRIBE`, `LogWatcher`, `app.logging`, `app.rxdb_subscription`, `real-time sync`, `cache invalidation`, `queryClient.invalidateQueries`, `exponential backoff`, `version tracking`, `port 4001`
+**Keywords:** `TanStack Query`, `Dexie`, `IndexedDB`, `WebSocket`, `PubSub`, `WebSocketManager`, `INVALIDATE`, `SUBSCRIBE`, `LogWatcher`, `app.logging`, `app.rxdb_subscription`, `real-time sync`, `cache invalidation`, `queryClient.invalidateQueries`, `hydrateQueryCache`, `port 4001`
 
 ### 1. RBAC_INFRASTRUCTURE.md
 
@@ -738,9 +735,9 @@ Core service documentation for centralized entity infrastructure management. Use
 
 ### 3. STATE_MANAGEMENT.md
 
-RxDB unified state architecture (v8.6.0). Single source of truth for all data (entities, metadata, drafts). IndexedDB persistence, offline-first, WebSocket sync. Zustand metadata stores replaced with RxDB hooks.
+TanStack Query + Dexie state architecture (v9.1.0). TanStack Query for server state, Dexie for IndexedDB persistence. WebSocket sync via WebSocketManager.
 
-**Keywords:** `RxDB`, `IndexedDB`, `offline-first`, `useRxEntity`, `useRxEntityList`, `useRxDraft`, `useRxDatalabel`, `useRxEntityCodes`, `useRxGlobalSettings`, `getDatalabelSync`, `getEntityCodesSync`, `prefetchAllMetadata`, `sync cache`, `ReplicationManager`, `RxDBProvider`, `metadata collection`, `Zustand migration`, `single source of truth`
+**Keywords:** `TanStack Query`, `Dexie`, `IndexedDB`, `offline-first`, `useEntity`, `useEntityList`, `useDraft`, `useDatalabel`, `useEntityCodes`, `useGlobalSettings`, `getDatalabelSync`, `getEntityCodesSync`, `prefetchAllMetadata`, `sync cache`, `WebSocketManager`, `TanstackCacheProvider`, `hydrateQueryCache`
 
 ### 4. PAGE_ARCHITECTURE.md
 
@@ -750,57 +747,38 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
 
 ---
 
-**Version**: 8.6.0 | **Updated**: 2025-11-28 | **Pattern**: RxDB Unified State (Single Source of Truth)
+**Version**: 9.1.0 | **Updated**: 2025-11-28 | **Pattern**: TanStack Query + Dexie (Offline-First)
 
 **Recent Updates**:
-- v8.6.0 (2025-11-28): **Zustand to RxDB Metadata Migration**
-  - RxDB is now single source of truth for ALL state (entity data + metadata)
-  - Removed 4 Zustand metadata stores (datalabel, entityCode, globalSettings, componentMetadata)
-  - Added RxDB metadata hooks: `useRxDatalabel`, `useRxEntityCodes`, `useRxGlobalSettings`
-  - Added sync cache for non-hook access: `getDatalabelSync()`, `getEntityCodesSync()`
-  - `prefetchAllMetadata()` populates RxDB + sync cache at login
-  - Updated 9 consumer files to use RxDB instead of Zustand
-  - `useEntityEditStore` remains for UI toggle state (pending migration)
-  - See: `docs/state_management/STATE_MANAGEMENT.md` for migration details
-- v8.5.0 (2025-11-28): **RxDB Offline-First Architecture**
-  - Replaced React Query with RxDB (IndexedDB) for entity data storage
-  - Entity data persists across page refresh and browser restart
-  - Added RxDBProvider to App.tsx (replaces SyncProvider)
-  - Updated useEntityInstanceList, useEntityInstance to use RxDB internally
-  - Added useRxDraft, useRecoverDraft for draft persistence with undo/redo
-  - Multi-tab sync via RxDB LeaderElection plugin
-  - WebSocket replication via ReplicationManager
+- v9.1.0 (2025-11-28): **RxDB Completely Removed**
+  - Removed `rxdb` and `rxjs` dependencies from package.json
+  - Updated vite.config.ts to optimize for TanStack Query + Dexie
+  - Updated all comments from "RxDB" to "Dexie"
+  - Bundle size reduced from ~150KB to ~25KB
+  - See: `docs/caching/TANSTACK_DEXIE_SYNC_ARCHITECTURE.md`
+- v9.0.0 (2025-11-28): **TanStack Query + Dexie Migration**
+  - Replaced RxDB with TanStack Query for server state management
+  - Replaced RxDB IndexedDB with Dexie for persistence
+  - TanStack Query: in-memory cache, auto-refetch, stale-while-revalidate
+  - Dexie: IndexedDB persistence, offline-first, multi-tab sync
+  - WebSocketManager replaces ReplicationManager for cache invalidation
+  - New hooks: `useEntity`, `useEntityList`, `useDraft`, `useDatalabel`
+  - Sync cache for non-hook access: `getDatalabelSync()`, `getEntityCodesSync()`
+  - See: `docs/state_management/STATE_MANAGEMENT.md` for full architecture
 - v8.4.0 (2025-11-27): **WebSocket Real-Time Sync**
   - Added PubSub service (port 4001) for WebSocket-based cache invalidation
-  - SyncProvider manages WebSocket connection + subscription lifecycle
-  - useAutoSubscribe hook automatically subscribes to loaded entity IDs
-  - Entity hooks (`useEntityInstanceList`, `useEntityInstance`) auto-subscribe
-  - INVALIDATE messages trigger `queryClient.invalidateQueries()` → auto-refetch
   - Database tables: `app.logging` (triggers) + `app.rxdb_subscription` (subscriptions)
   - LogWatcher polls `app.logging` every 60s for pending changes
-  - See `docs/caching/RXDB_SYNC_ARCHITECTURE.md` for full architecture
 - v8.3.2 (2025-11-27): **Component-Driven Rendering + BadgeDropdownSelect**
   - Added `BadgeDropdownSelect` component for colored datalabel dropdowns
   - viewType controls WHICH component renders (`renderType: 'component'` + `component`)
   - editType controls WHERE data comes from (`lookupSource: 'datalabel'` + `datalabelKey`)
-  - `vizContainer: { view?: string; edit?: string }` structure for custom components
-  - DAG fields use `renderType: 'component'` + `component: 'DAGVisualizer'`
-- v8.3.1 (2025-11-26): **Metadata-Based Reference Resolution**
-  - Removed all pattern matching from `refDataResolver.ts`
-  - Frontend uses `metadata.lookupEntity` (no `_id` suffix detection)
-  - Added `isEntityReferenceField(fieldMeta)`, `getEntityCodeFromMetadata(fieldMeta)`
-  - Backend metadata is single source of truth for field type detection
 - v8.3.0 (2025-11-26): **ref_data_entityInstance Pattern**
   - Added `ref_data_entityInstance` to API responses for O(1) entity reference resolution
   - Added `build_ref_data_entityInstance()` method to entity-infrastructure.service
-  - Added `useRefData` hook for reference resolution utilities
-  - Deprecated per-row `_ID/_IDS` embedded object pattern
 - v8.0.0 (2025-11-23): **Format-at-Read Pattern**
-  - Changed from format-at-fetch to format-at-read using React Query's `select` option
+  - Changed from format-at-fetch to format-at-read using TanStack Query's `select` option
   - Cache stores RAW data only (smaller, canonical)
-  - Added `useFormattedEntityList()` hook for formatted data
-  - `select` transforms raw → FormattedRow on read (memoized by React Query)
 - v5.0.0 (2025-11-22): **Transactional CRUD Pattern**
   - Added `create_entity()`, `update_entity()`, `delete_entity()` transactional methods
-  - Parameter naming: `entity_code` = TYPE, `instance_code` = record code
 - v4.0.0 (2025-11-21): Entity Infrastructure Service standardization
