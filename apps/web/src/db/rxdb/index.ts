@@ -61,3 +61,11 @@ export {
   useRecoverDraft,
   type UseRxDraftResult,
 } from './hooks/useRxDraft';
+
+// Provider
+export {
+  RxDBProvider,
+  useRxDB,
+  useReplicationStatus,
+  useRxDBReady,
+} from './RxDBProvider';
