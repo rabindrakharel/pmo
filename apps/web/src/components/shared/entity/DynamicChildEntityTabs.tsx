@@ -1,7 +1,8 @@
 import React from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { getIconComponent } from '../../../lib/iconMapping';
-import { useEntityCodeMetadataStore } from '../../../stores/entityCodeMetadataStore';
+// v8.6.0: Use RxDB for entity codes
+import { useRxEntityCodes } from '../../../db/rxdb';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -93,22 +94,20 @@ export function DynamicChildEntityTabs({
 }
 
 // Hook for generating tabs from centralized entity metadata API
-// Uses Zustand cache (entityCodeMetadataStore) to avoid duplicate API calls
+// v8.6.0: Uses RxDB cache (IndexedDB) for offline-first entity codes
 export function useDynamicChildEntityTabs(parentType: string, parentId: string) {
   const [tabs, setTabs] = React.useState<HeaderTab[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  // ✅ INDUSTRY STANDARD: Get store method once and use ref to avoid dependency changes
-  // Store methods are stable but selector creates new reference - use ref pattern
-  const getEntityByCodeRef = React.useRef(useEntityCodeMetadataStore.getState().getEntityByCode);
+  // v8.6.0: Use RxDB hook for entity codes
+  const { getEntityByCode, isLoading: isEntityCodesLoading } = useRxEntityCodes();
 
   React.useEffect(() => {
-    // Update ref if store method changes (unlikely but safe)
-    getEntityByCodeRef.current = useEntityCodeMetadataStore.getState().getEntityByCode;
-  }, []);
+    // Wait for RxDB entity codes to load
+    if (isEntityCodesLoading) {
+      return;
+    }
 
-  React.useEffect(() => {
-    const getEntityByCode = getEntityByCodeRef.current;
     const fetchChildTabs = async () => {
       try {
         setLoading(true);
@@ -128,11 +127,10 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
           return;
         }
 
-        // ✅ CHECK ZUSTAND CACHE FIRST (30-minute TTL)
-        // This eliminates duplicate API calls when navigating between entity details
+        // v8.6.0: Check RxDB cache first (offline-first)
         const cachedEntity = getEntityByCode(parentType);
         if (cachedEntity && cachedEntity.child_entity_codes) {
-          console.log(`%c[DynamicChildEntityTabs] Cache HIT for ${parentType}`, 'color: #51cf66; font-weight: bold');
+          console.log(`%c[DynamicChildEntityTabs] RxDB Cache HIT for ${parentType}`, 'color: #51cf66; font-weight: bold');
 
           // Build enriched child_entities from cached entity codes
           const enrichedChildEntities = cachedEntity.child_entity_codes
@@ -161,7 +159,7 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
           return;
         }
 
-        // ✅ CACHE MISS: Fetch from API
+        // CACHE MISS: Fetch from API (should rarely happen as RxDB is populated at login)
         console.log(`%c[DynamicChildEntityTabs] Cache MISS for ${parentType}, fetching from API`, 'color: #fcc419');
         const response = await fetch(`${API_BASE_URL}/api/v1/entity/codes/${parentType}`, {
           headers: {
@@ -210,7 +208,7 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
     if (parentId) {
       fetchChildTabs();
     }
-  }, [parentType, parentId]); // getEntityByCode accessed via ref - no dependency needed
+  }, [parentType, parentId, getEntityByCode, isEntityCodesLoading]);
 
   return { tabs, loading };
 }

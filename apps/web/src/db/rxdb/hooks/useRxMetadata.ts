@@ -83,6 +83,65 @@ export interface ComponentMetadata {
 }
 
 // ============================================================================
+// In-Memory Sync Cache for Non-Hook Access
+// ============================================================================
+// This cache is populated when data is fetched/stored via hooks or prefetch.
+// Used by non-hook functions that need synchronous access to cached data.
+
+const syncCache = {
+  datalabels: new Map<string, DatalabelOption[]>(),
+  entityCodes: null as EntityCodeData[] | null,
+  globalSettings: null as GlobalSettings | null,
+};
+
+/**
+ * Get datalabel options synchronously from in-memory cache.
+ * Used by non-hook functions like renderEditModeFromMetadata.
+ *
+ * @param datalabelKey - The datalabel key (e.g., 'project_stage' or 'dl__project_stage')
+ * @returns Array of options or null if not cached
+ */
+export function getDatalabelSync(datalabelKey: string): DatalabelOption[] | null {
+  // Normalize key (remove dl__ prefix if present)
+  const normalizedKey = datalabelKey.startsWith('dl__') ? datalabelKey.slice(4) : datalabelKey;
+  return syncCache.datalabels.get(normalizedKey) ?? null;
+}
+
+/**
+ * Get entity codes synchronously from in-memory cache.
+ * @returns Array of entity codes or null if not cached
+ */
+export function getEntityCodesSync(): EntityCodeData[] | null {
+  return syncCache.entityCodes;
+}
+
+/**
+ * Get global settings synchronously from in-memory cache.
+ * @returns Settings object or null if not cached
+ */
+export function getGlobalSettingsSync(): GlobalSettings | null {
+  return syncCache.globalSettings;
+}
+
+// Internal helper to update sync cache
+function updateSyncCache(type: string, key: string | null, data: unknown) {
+  if (type === 'datalabel' && key) {
+    syncCache.datalabels.set(key, data as DatalabelOption[]);
+  } else if (type === 'entity') {
+    syncCache.entityCodes = data as EntityCodeData[];
+  } else if (type === 'settings') {
+    syncCache.globalSettings = data as GlobalSettings;
+  }
+}
+
+// Clear sync cache (used on logout)
+export function clearSyncCache() {
+  syncCache.datalabels.clear();
+  syncCache.entityCodes = null;
+  syncCache.globalSettings = null;
+}
+
+// ============================================================================
 // Internal Helper - Get or Fetch Metadata
 // ============================================================================
 
@@ -101,6 +160,8 @@ async function getOrFetchMetadata<T>(
       `%c[RxDB Cache HIT] 💾 ${type}:${key}`,
       'color: #51cf66; font-weight: bold'
     );
+    // Also update sync cache
+    updateSyncCache(type, key, cached.data);
     return { data: cached.data as T, fromCache: true };
   }
 
@@ -122,6 +183,9 @@ async function getOrFetchMetadata<T>(
     ttl: METADATA_TTL[type],
     _deleted: false,
   });
+
+  // Also update sync cache
+  updateSyncCache(type, key, data);
 
   return { data, fromCache: false };
 }
@@ -267,6 +331,8 @@ export function useRxAllDatalabels(): UseRxAllDatalabelsResult {
         const result: Record<string, DatalabelOption[]> = {};
         validCached.forEach(doc => {
           result[doc.key] = doc.data as DatalabelOption[];
+          // Update sync cache for each datalabel
+          updateSyncCache('datalabel', doc.key, doc.data);
         });
         setDatalabels(result);
         setIsLoading(false);
@@ -312,6 +378,9 @@ export function useRxAllDatalabels(): UseRxAllDatalabelsResult {
         ttl: METADATA_TTL.datalabel,
         _deleted: false,
       });
+
+      // Also update sync cache
+      updateSyncCache('datalabel', key, dl.options || []);
     }
 
     console.log(
@@ -688,6 +757,8 @@ export async function clearAllMetadataCache(): Promise<void> {
   for (const doc of docs) {
     await doc.remove();
   }
+  // Also clear sync cache
+  clearSyncCache();
   console.log('%c[RxDB] 🗑️ Cleared all metadata cache', 'color: #ff6b6b');
 }
 
@@ -721,6 +792,8 @@ export async function prefetchAllMetadata(): Promise<void> {
         ttl: METADATA_TTL.datalabel,
         _deleted: false,
       });
+      // Also update sync cache
+      updateSyncCache('datalabel', dl.name, dl.options || []);
     }
     console.log(`[RxDB] ✅ Cached ${datalabelList.length} datalabels`);
 
@@ -739,6 +812,8 @@ export async function prefetchAllMetadata(): Promise<void> {
       ttl: METADATA_TTL.entity,
       _deleted: false,
     });
+    // Also update sync cache
+    updateSyncCache('entity', null, entityCodes);
     console.log(`[RxDB] ✅ Cached ${entityCodes.length} entity codes`);
 
     // 3. Fetch global settings
@@ -752,6 +827,8 @@ export async function prefetchAllMetadata(): Promise<void> {
       ttl: METADATA_TTL.settings,
       _deleted: false,
     });
+    // Also update sync cache
+    updateSyncCache('settings', null, settingsResponse.data);
     console.log('[RxDB] ✅ Cached global settings');
 
     console.log('%c[RxDB] ✅ All metadata prefetch complete', 'color: #51cf66; font-weight: bold');

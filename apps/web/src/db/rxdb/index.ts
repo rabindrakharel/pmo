@@ -70,11 +70,16 @@ export {
   useRxEntityCodes,
   useRxGlobalSettings,
   useRxComponentMetadata,
-  // Utilities
+  // Utilities (async)
   cacheComponentMetadata,
   invalidateMetadataCache,
   clearAllMetadataCache,
   prefetchAllMetadata,
+  // Utilities (sync) - for non-hook access
+  getDatalabelSync,
+  getEntityCodesSync,
+  getGlobalSettingsSync,
+  clearSyncCache,
   // Types
   type DatalabelOption,
   type EntityCodeData,

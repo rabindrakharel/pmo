@@ -10,7 +10,8 @@
  * at fetch time, not render time.
  */
 
-import { useDatalabelMetadataStore } from '../../stores/datalabelMetadataStore';
+// v8.6.0: Use RxDB sync cache for non-hook datalabel access
+import { getDatalabelSync } from '../../db/rxdb/hooks/useRxMetadata';
 import type { FieldMetadata, FormattedValue } from './types';
 
 /**
@@ -83,9 +84,9 @@ export function formatBadge(
   const displayValue = String(value);
   let color = 'bg-gray-100 text-gray-600'; // Default
 
-  // Look up color from datalabel store
+  // v8.6.0: Look up color from RxDB sync cache (populated at login via prefetchAllMetadata)
   if (metadata?.datalabelKey) {
-    const options = useDatalabelMetadataStore.getState().getDatalabel(metadata.datalabelKey);
+    const options = getDatalabelSync(metadata.datalabelKey);
     if (options) {
       const match = options.find(opt => opt.name === value);
       if (match?.color_code) {

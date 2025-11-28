@@ -39,7 +39,8 @@ import {
   type BackendFieldMetadata
 } from '../../../lib/frontEndFormatterService';
 import { colorCodeToTailwindClass } from '../../../lib/formatters/valueFormatters';
-import { useDatalabelMetadataStore } from '../../../stores/datalabelMetadataStore';
+// v8.6.0: Use RxDB sync cache for datalabel options
+import { getDatalabelSync } from '../../../db/rxdb/hooks/useRxMetadata';
 import type { EntityMetadata } from '../../../lib/api';
 
 // v8.2.0: Format-at-fetch with required nested metadata structure
@@ -558,7 +559,7 @@ export function EntityDataTable<T = any>({
       const datalabelKey = backendMeta?.datalabelKey || col.key;
 
       // Fetch from datalabelMetadataStore cache
-      const cachedOptions = useDatalabelMetadataStore.getState().getDatalabel(datalabelKey);
+      const cachedOptions = getDatalabelSync(datalabelKey);
 
       if (cachedOptions && cachedOptions.length > 0) {
         // Transform datalabel options to LabelMetadata format
@@ -742,7 +743,7 @@ export function EntityDataTable<T = any>({
     // If it's a settings field, fetch options from datalabelMetadataStore cache
     if (isSettingsField) {
       const datalabel = backendMeta?.settingsDatalabel || extractSettingsDatalabel(columnKey);
-      const cachedOptions = useDatalabelMetadataStore.getState().getDatalabel(datalabel);
+      const cachedOptions = getDatalabelSync(datalabel);
 
       if (cachedOptions && cachedOptions.length > 0) {
         // Return cached datalabel options (already sorted by sort_order in cache)
@@ -1479,7 +1480,7 @@ export function EntityDataTable<T = any>({
                               let colorCode: string | undefined;
                               if (isSettingsField) {
                                 const datalabel = backendMeta?.settingsDatalabel || extractSettingsDatalabel(selectedFilterColumn);
-                                const options = useDatalabelMetadataStore.getState().getDatalabel(datalabel);
+                                const options = getDatalabelSync(datalabel);
                                 const match = options?.find(opt => opt.name === option);
                                 colorCode = match?.color_code;
                               }
@@ -1629,7 +1630,7 @@ export function EntityDataTable<T = any>({
                     let colorCode: string | undefined;
                     if (isSettingsField) {
                       const datalabel = backendMeta?.settingsDatalabel || extractSettingsDatalabel(columnKey);
-                      const options = useDatalabelMetadataStore.getState().getDatalabel(datalabel);
+                      const options = getDatalabelSync(datalabel);
                       const match = options?.find(opt => opt.name === value);
                       colorCode = match?.color_code;
                     }
