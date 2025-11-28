@@ -366,7 +366,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        {/* v9.0.0: TanstackCacheProvider replaces RxDBProvider
+        {/* v9.0.0: TanstackCacheProvider
             - TanStack Query for server state management
             - Dexie/IndexedDB for offline persistence
             - WebSocket for real-time cache invalidation */}

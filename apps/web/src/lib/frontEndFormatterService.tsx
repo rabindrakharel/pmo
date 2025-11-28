@@ -492,7 +492,7 @@ export function renderEditModeFromMetadata(
       if (metadata.datalabelKey || metadata.lookupSource === 'datalabel') {
         const datalabelKey = metadata.datalabelKey || metadata.key;
 
-        // v8.6.0: Load options from RxDB sync cache (cached at login via prefetchAllMetadata)
+        // v9.0.0: Load options from Dexie sync cache (cached at login via prefetchAllMetadata)
         const datalabelOptions = getDatalabelSync(datalabelKey);
 
         if (datalabelOptions && datalabelOptions.length > 0) {

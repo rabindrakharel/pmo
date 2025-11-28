@@ -2,7 +2,7 @@
 // Dexie Database Schema
 // ============================================================================
 // Lightweight IndexedDB wrapper for offline-first persistence
-// Replaces RxDB with simpler, smaller footprint
+// Simple, smaller footprint (~25KB vs previous solutions)
 // ============================================================================
 
 import Dexie, { type Table } from 'dexie';
@@ -106,7 +106,7 @@ export interface CachedDraft {
  * - Automatic multi-tab sync via IndexedDB
  * - Simple schema definition
  * - Reactive queries via useLiveQuery
- * - Much smaller bundle than RxDB (~25KB vs ~150KB)
+ * - Small bundle size (~25KB)
  */
 export class PMODatabase extends Dexie {
   entities!: Table<CachedEntity, string>;

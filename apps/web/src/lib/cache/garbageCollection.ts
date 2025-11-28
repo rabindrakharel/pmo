@@ -20,7 +20,7 @@ import { clearAllCaches } from '../../db/query/queryClient';
 // Configuration (kept for backwards compatibility)
 // ============================================================================
 
-const GC_INTERVAL = 5 * 60 * 1000;  // 5 minutes (unused - RxDB handles TTL)
+const GC_INTERVAL = 5 * 60 * 1000;  // 5 minutes (unused - TanStack Query handles TTL)
 const DEBUG = false;
 
 // ============================================================================
@@ -95,7 +95,7 @@ export function isGCRunning(): boolean {
 /**
  * Force clear all metadata stores (use on logout)
  *
- * v9.0.0: Uses TanStack Query + Dexie clearAllCaches() instead of RxDB
+ * v9.0.0: Uses TanStack Query + Dexie clearAllCaches()
  */
 export async function clearAllMetadataStores(): Promise<void> {
   await clearAllCaches();
