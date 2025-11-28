@@ -19,6 +19,7 @@ import {
   type ReplicationStatus,
   type ReplicationManager,
 } from './replication';
+import { prefetchAllMetadata, clearAllMetadataCache } from './hooks/useRxMetadata';
 
 // ============================================================================
 // Context Types
@@ -32,10 +33,14 @@ interface RxDBContextValue {
   // Replication status
   replicationStatus: ReplicationStatus;
 
+  // Metadata status (v8.6.0)
+  isMetadataLoaded: boolean;
+
   // Actions
   connect: () => void;
   disconnect: () => void;
   clearAllData: () => Promise<void>;
+  refreshMetadata: () => Promise<void>;
 }
 
 // ============================================================================
@@ -57,6 +62,7 @@ export function RxDBProvider({ children }: RxDBProviderProps) {
   const [replicationManager, setReplicationManager] = useState<ReplicationManager | null>(null);
   const [replicationStatus, setReplicationStatus] = useState<ReplicationStatus>('disconnected');
   const [isReady, setIsReady] = useState(false);
+  const [isMetadataLoaded, setIsMetadataLoaded] = useState(false);
 
   // Initialize database and replication
   useEffect(() => {
@@ -85,6 +91,17 @@ export function RxDBProvider({ children }: RxDBProviderProps) {
         const token = localStorage.getItem('auth_token');
         if (token) {
           manager.connect(token);
+
+          // v8.6.0: Prefetch all metadata (datalabels, entity codes, settings)
+          prefetchAllMetadata()
+            .then(() => {
+              if (mounted) setIsMetadataLoaded(true);
+            })
+            .catch(err => {
+              console.warn('[RxDBProvider] Metadata prefetch failed:', err);
+              // Don't block - metadata will be fetched on demand
+              if (mounted) setIsMetadataLoaded(true);
+            });
         }
 
         setIsReady(true);
@@ -111,8 +128,14 @@ export function RxDBProvider({ children }: RxDBProviderProps) {
       if (e.key === 'auth_token' && replicationManager) {
         if (e.newValue) {
           replicationManager.connect(e.newValue);
+          // Prefetch metadata on token change (login from another tab)
+          setIsMetadataLoaded(false);
+          prefetchAllMetadata()
+            .then(() => setIsMetadataLoaded(true))
+            .catch(() => setIsMetadataLoaded(true));
         } else {
           replicationManager.disconnect();
+          setIsMetadataLoaded(false);
         }
       }
     };
@@ -138,6 +161,10 @@ export function RxDBProvider({ children }: RxDBProviderProps) {
   const clearAllData = useCallback(async () => {
     console.log('[RxDBProvider] Clearing all data...');
     replicationManager?.disconnect();
+    setIsMetadataLoaded(false);
+
+    // Clear metadata cache first (v8.6.0)
+    await clearAllMetadataCache();
     await clearDatabase();
     setDb(null);
     setIsReady(false);
@@ -148,6 +175,16 @@ export function RxDBProvider({ children }: RxDBProviderProps) {
     setIsReady(true);
     console.log('[RxDBProvider] Data cleared, database re-initialized');
   }, [replicationManager]);
+
+  // Refresh metadata (v8.6.0)
+  const refreshMetadata = useCallback(async () => {
+    console.log('[RxDBProvider] Refreshing metadata...');
+    setIsMetadataLoaded(false);
+    await clearAllMetadataCache();
+    await prefetchAllMetadata();
+    setIsMetadataLoaded(true);
+    console.log('[RxDBProvider] Metadata refreshed');
+  }, []);
 
   // Cleanup replication on unmount (but keep database open for persistence)
   useEffect(() => {
@@ -162,9 +199,11 @@ export function RxDBProvider({ children }: RxDBProviderProps) {
     db,
     isReady,
     replicationStatus,
+    isMetadataLoaded,
     connect,
     disconnect,
     clearAllData,
+    refreshMetadata,
   };
 
   return (
@@ -203,4 +242,12 @@ export function useReplicationStatus(): ReplicationStatus {
 export function useRxDBReady(): boolean {
   const { isReady } = useRxDB();
   return isReady;
+}
+
+/**
+ * Check if metadata is loaded (v8.6.0)
+ */
+export function useMetadataLoaded(): boolean {
+  const { isMetadataLoaded } = useRxDB();
+  return isMetadataLoaded;
 }

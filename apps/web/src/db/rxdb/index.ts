@@ -62,10 +62,36 @@ export {
   type UseRxDraftResult,
 } from './hooks/useRxDraft';
 
+// Metadata Hooks (v8.6.0 - replaces Zustand stores)
+export {
+  // Hooks
+  useRxDatalabel,
+  useRxAllDatalabels,
+  useRxEntityCodes,
+  useRxGlobalSettings,
+  useRxComponentMetadata,
+  // Utilities
+  cacheComponentMetadata,
+  invalidateMetadataCache,
+  clearAllMetadataCache,
+  prefetchAllMetadata,
+  // Types
+  type DatalabelOption,
+  type EntityCodeData,
+  type GlobalSettings,
+  type ComponentMetadata,
+  type UseRxDatalabelResult,
+  type UseRxAllDatalabelsResult,
+  type UseRxEntityCodesResult,
+  type UseRxGlobalSettingsResult,
+  type UseRxComponentMetadataResult,
+} from './hooks/useRxMetadata';
+
 // Provider
 export {
   RxDBProvider,
   useRxDB,
   useReplicationStatus,
   useRxDBReady,
+  useMetadataLoaded,
 } from './RxDBProvider';
