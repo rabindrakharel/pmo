@@ -3,17 +3,17 @@
  *
  * Centralized export for all custom React hooks
  *
- * v9.0.0: Hybrid RxDB + TanStack Query + Dexie Architecture
- * - RxDB: Existing entity data hooks (useEntityQuery.ts)
- * - TanStack Query + Dexie: New hooks for metadata and drafts
- * - Migration in progress - both systems available
+ * v9.0.0: TanStack Query + Dexie Architecture
+ * - TanStack Query: Server state management with automatic caching
+ * - Dexie: IndexedDB persistence for offline-first
+ * - WebSocket: Real-time cache invalidation via PubSub service
  */
 
 export { useColumnVisibility } from './useColumnVisibility';
 export type { UseColumnVisibilityReturn } from './useColumnVisibility';
 
-// Entity Query Hooks (RxDB integration - existing implementation)
-// These hooks use RxDB internally for entity data storage
+// Entity Query Hooks (TanStack Query + Dexie - v9.0.0)
+// These hooks use TanStack Query + Dexie internally for entity data storage
 export {
   // Raw data hooks (for editing, exports, mutations)
   useEntityInstanceList,
@@ -48,39 +48,9 @@ export type {
   RefData,
 } from './useEntityQuery';
 
-// v8.5.0: RxDB hooks for direct database access (legacy - still in use)
+// v9.0.0: TanStack + Dexie hooks - SINGLE SOURCE OF TRUTH
 export {
-  useRxEntity,
-  useRxEntityList,
-  useRxEntityMutation,
-  useRxDraft,
-  useRecoverDraft,
-  useRxDB,
-  useRxDBReady,
-  useReplicationStatus,
-  // v8.6.0: RxDB metadata hooks
-  useRxDatalabel,
-  useRxAllDatalabels,
-  useRxEntityCodes,
-  useRxGlobalSettings,
-  useRxComponentMetadata,
-  useMetadataLoaded,
-  cacheComponentMetadata,
-  invalidateMetadataCache,
-  clearAllMetadataCache,
-  prefetchAllMetadata,
-} from '../../db/rxdb';
-
-export type {
-  DatalabelOption,
-  EntityCodeData,
-  GlobalSettings,
-  ComponentMetadata,
-} from '../../db/rxdb';
-
-// v9.0.0: NEW TanStack + Dexie hooks (for consumer files that have migrated)
-export {
-  // Entity hooks
+  // Entity hooks (direct access)
   useEntity,
   useEntityList,
   // Offline-first hooks (Dexie-only, no network)
@@ -101,11 +71,17 @@ export {
   prefetchAllDatalabels,
   prefetchEntityCodes,
   prefetchGlobalSettings,
+  // Cache invalidation
+  invalidateMetadataCache,
+  clearAllMetadataCache,
 } from '../../db/tanstack-hooks';
 
 export type {
   UseDraftResult,
   DraftInfo,
+  DatalabelOption,
+  EntityCodeData,
+  GlobalSettings,
 } from '../../db/tanstack-hooks';
 
 // v8.3.1: RefData Resolution Hooks (metadata-based, no pattern matching)

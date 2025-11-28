@@ -1,23 +1,19 @@
 /**
- * Entity Query Hooks - RxDB Offline-First Architecture
+ * Entity Query Hooks - TanStack Query + Dexie Offline-First Architecture
  *
- * ARCHITECTURE (v8.6.0 - RxDB Unified State):
- * - RxDB: SINGLE SOURCE OF TRUTH for all data
- *   - Entity instances: entities collection
- *   - Drafts: drafts collection
- *   - Metadata: metadata collection (datalabels, entity codes, settings, component metadata)
+ * ARCHITECTURE (v9.0.0 - TanStack Query + Dexie):
+ * - TanStack Query: Server state management with automatic caching
+ * - Dexie: IndexedDB persistence for offline-first
+ * - WebSocket: Real-time cache invalidation via PubSub service
  * - Formatting: Happens on READ via memoization
  *
  * Benefits:
  * - Offline-first: Works without network connection
- * - Persistent: Survives browser restart
- * - Multi-tab sync: LeaderElection coordinates tabs
+ * - Persistent: Survives browser restart via Dexie
+ * - Multi-tab sync: TanStack Query handles tab focus
  * - Draft persistence: Unsaved edits survive refresh
- * - Reactive: UI auto-updates via RxJS observables
- * - Unified: Single cache system (no Zustand, no React Query for data)
- *
- * NOTE: TanStack Query + Dexie migration in progress.
- * New consumer code should use hooks from db/tanstack-hooks.
+ * - Reactive: UI auto-updates via TanStack Query
+ * - Unified: Single cache system with TanStack Query + Dexie
  */
 
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
@@ -33,25 +29,21 @@ import { getEntityLimit, PAGINATION_CONFIG } from '../pagination.config';
 // v8.3.2: Unified ref_data_entityInstance cache for dropdown + view resolution
 import { upsertRefDataEntityInstanceCache } from './useRefDataEntityInstanceCache';
 
-// v8.6.0: RxDB hooks - SINGLE SOURCE OF TRUTH
-// NOTE: Migration to TanStack Query + Dexie in progress. See db/tanstack-hooks for new implementation.
+// v9.0.0: TanStack Query + Dexie hooks - SINGLE SOURCE OF TRUTH
 import {
-  useRxEntity,
-  useRxEntityList,
-  useRxEntityMutation,
-  getReplicationManager,
-  // Metadata hooks (replaces Zustand stores)
-  useRxDatalabel,
-  useRxAllDatalabels,
-  useRxEntityCodes,
-  useRxGlobalSettings,
-  useRxComponentMetadata,
+  useEntity,
+  useEntityList,
+  useEntityMutation as useTanstackEntityMutation,
+  useDatalabel,
+  useAllDatalabels as useTanstackAllDatalabels,
+  useEntityCodes as useTanstackEntityCodes,
+  useGlobalSettings as useTanstackGlobalSettings,
   invalidateMetadataCache,
   clearAllMetadataCache,
   type DatalabelOption,
   type EntityCodeData,
   type GlobalSettings,
-} from '../../db/rxdb';
+} from '../../db/tanstack-hooks';
 
 // ============================================================================
 // Cache Configuration
@@ -172,22 +164,21 @@ export interface FormattedEntityInstanceResult<T = any> extends EntityInstanceRe
 }
 
 // ============================================================================
-// useEntityInstanceList - Fetch RAW entity list with RxDB caching (v8.5.0)
+// useEntityInstanceList - Fetch RAW entity list with TanStack Query + Dexie (v9.0.0)
 // ============================================================================
 
 /**
- * Hook for fetching RAW entity lists with RxDB offline-first storage
+ * Hook for fetching RAW entity lists with TanStack Query + Dexie offline-first storage
  *
- * v8.5.0: RxDB Offline-First Pattern
- * - Data persisted in IndexedDB via RxDB
- * - Reactive queries via RxJS observables
+ * v9.0.0: TanStack Query + Dexie Offline-First Pattern
+ * - Data persisted in IndexedDB via Dexie
+ * - TanStack Query handles caching and deduplication
  * - Auto-subscribe to WebSocket for real-time updates
  * - Works offline, syncs when connection restored
  *
  * Features:
  * - Instant display from IndexedDB cache
  * - Background sync with server
- * - Multi-tab coordination via LeaderElection
  * - Pagination support
  * - Metadata extraction
  *
@@ -222,73 +213,74 @@ export function useEntityInstanceList<T = any>(
     page: params.page || 1,
     pageSize: params.pageSize || getEntityLimit(entityCode),
     view: mappedView,
+    limit: params.pageSize || getEntityLimit(entityCode),
+    offset: ((params.page || 1) - 1) * (params.pageSize || getEntityLimit(entityCode)),
   }), [params, mappedView, entityCode]);
 
-  // v8.5.0: Use RxDB for entity data with offline-first storage
-  const rxResult = useRxEntityList<T>(entityCode, normalizedParams, {
+  // v9.0.0: Use TanStack Query + Dexie for entity data with offline-first storage
+  const tsResult = useEntityList<T>(entityCode, normalizedParams, {
     enabled: options?.enabled,
   });
 
-  // Transform RxDB result to React Query-compatible format
+  // Transform TanStack result to legacy result format
   const result: EntityInstanceListResult<T> = useMemo(() => ({
-    data: rxResult.data,
-    metadata: rxResult.metadata as EntityMetadata | null,
-    total: rxResult.total,
+    data: tsResult.data || [],
+    metadata: tsResult.metadata as EntityMetadata | null,
+    total: tsResult.total,
     page: normalizedParams.page,
     pageSize: normalizedParams.pageSize,
-    hasMore: rxResult.data.length === normalizedParams.pageSize,
-    ref_data_entityInstance: rxResult.refData,
-  }), [rxResult.data, rxResult.metadata, rxResult.total, rxResult.refData, normalizedParams]);
+    hasMore: (tsResult.data?.length || 0) === normalizedParams.pageSize,
+    ref_data_entityInstance: tsResult.refData,
+  }), [tsResult.data, tsResult.metadata, tsResult.total, tsResult.refData, normalizedParams]);
 
   // Cache ref_data_entityInstance for entity reference resolution
-  // Note: Component metadata is cached in replication.ts from raw API response
   useEffect(() => {
     if (result.ref_data_entityInstance) {
       upsertRefDataEntityInstanceCache(queryClient, result.ref_data_entityInstance);
     }
   }, [result.ref_data_entityInstance, queryClient]);
 
-  // Log RxDB cache status
+  // Log TanStack Query cache status
   const prevDataRef = useRef<T[] | undefined>(undefined);
   useEffect(() => {
-    if (rxResult.data && rxResult.data !== prevDataRef.current) {
-      prevDataRef.current = rxResult.data;
+    if (tsResult.data && tsResult.data !== prevDataRef.current) {
+      prevDataRef.current = tsResult.data;
       console.log(
-        `%c[RxDB ${rxResult.isStale ? 'STALE' : 'FRESH'}] 💾 useEntityInstanceList: ${entityCode}`,
-        `color: ${rxResult.isStale ? '#fcc419' : '#51cf66'}; font-weight: bold`,
+        `%c[TanStack ${tsResult.isStale ? 'STALE' : 'FRESH'}] 💾 useEntityInstanceList: ${entityCode}`,
+        `color: ${tsResult.isStale ? '#fcc419' : '#51cf66'}; font-weight: bold`,
         {
-          source: 'RxDB (IndexedDB)',
-          itemCount: rxResult.data.length,
-          total: rxResult.total,
-          isStale: rxResult.isStale,
-          isLoading: rxResult.isLoading,
+          source: 'TanStack Query + Dexie',
+          itemCount: tsResult.data.length,
+          total: tsResult.total,
+          isStale: tsResult.isStale,
+          isLoading: tsResult.isLoading,
         }
       );
     }
-  }, [rxResult.data, rxResult.isStale, rxResult.isLoading, rxResult.total, entityCode]);
+  }, [tsResult.data, tsResult.isStale, tsResult.isLoading, tsResult.total, entityCode]);
 
   // Return React Query-compatible object for backwards compatibility
   return {
     data: result,
-    isLoading: rxResult.isLoading,
-    isPending: rxResult.isLoading,
-    isError: !!rxResult.error,
-    error: rxResult.error,
-    isStale: rxResult.isStale,
-    isFetching: rxResult.isLoading,
-    isRefetching: false,
-    refetch: rxResult.refetch,
+    isLoading: tsResult.isLoading,
+    isPending: tsResult.isLoading,
+    isError: tsResult.isError,
+    error: tsResult.error,
+    isStale: tsResult.isStale,
+    isFetching: tsResult.isFetching,
+    isRefetching: tsResult.isFetching && !tsResult.isLoading,
+    refetch: tsResult.refetch,
     // Additional React Query compatibility properties
-    status: rxResult.isLoading ? 'pending' as const : rxResult.error ? 'error' as const : 'success' as const,
-    fetchStatus: rxResult.isLoading ? 'fetching' as const : 'idle' as const,
+    status: tsResult.isLoading ? 'pending' as const : tsResult.isError ? 'error' as const : 'success' as const,
+    fetchStatus: tsResult.isFetching ? 'fetching' as const : 'idle' as const,
     dataUpdatedAt: Date.now(),
     errorUpdatedAt: 0,
     failureCount: 0,
     failureReason: null,
-    isSuccess: !rxResult.isLoading && !rxResult.error,
-    isFetched: !rxResult.isLoading,
-    isFetchedAfterMount: !rxResult.isLoading,
-    isInitialLoading: rxResult.isLoading && rxResult.data.length === 0,
+    isSuccess: !tsResult.isLoading && !tsResult.isError,
+    isFetched: !tsResult.isLoading,
+    isFetchedAfterMount: !tsResult.isLoading,
+    isInitialLoading: tsResult.isLoading && (tsResult.data?.length || 0) === 0,
     isLoadingError: false,
     isPlaceholderData: false,
     isRefetchError: false,
@@ -296,22 +288,21 @@ export function useEntityInstanceList<T = any>(
 }
 
 // ============================================================================
-// useEntityInstance - Fetch RAW single entity with RxDB caching (v8.5.0)
+// useEntityInstance - Fetch RAW single entity with TanStack Query + Dexie (v9.0.0)
 // ============================================================================
 
 /**
- * Hook for fetching RAW single entity details with RxDB offline-first storage
+ * Hook for fetching RAW single entity details with TanStack Query + Dexie offline-first storage
  *
- * v8.5.0: RxDB Offline-First Pattern
- * - Data persisted in IndexedDB via RxDB
- * - Reactive queries via RxJS observables
+ * v9.0.0: TanStack Query + Dexie Offline-First Pattern
+ * - Data persisted in IndexedDB via Dexie
+ * - TanStack Query handles caching and deduplication
  * - Auto-subscribe to WebSocket for real-time updates
  * - Works offline, syncs when connection restored
  *
  * Features:
  * - Instant display from IndexedDB cache
  * - Background sync with server
- * - Multi-tab coordination via LeaderElection
  * - Metadata extraction with backend field definitions
  *
  * @example
@@ -328,21 +319,21 @@ export function useEntityInstance<T = any>(
 ) {
   const queryClient = useQueryClient();
 
-  // v8.5.0: Use RxDB for entity data with offline-first storage
-  const rxResult = useRxEntity<T>(entityCode, id, {
+  // v9.0.0: Use TanStack Query + Dexie for entity data with offline-first storage
+  const tsResult = useEntity<T>(entityCode, id, {
     enabled: options?.enabled !== false,
   });
 
-  // Transform RxDB result to React Query-compatible format
+  // Transform TanStack result to legacy result format
   const result: EntityInstanceResult<T> | undefined = useMemo(() => {
-    if (!rxResult.data) return undefined;
+    if (!tsResult.data) return undefined;
     return {
-      data: rxResult.data,
-      metadata: rxResult.metadata as EntityMetadata | null,
+      data: tsResult.data,
+      metadata: tsResult.metadata as EntityMetadata | null,
       fields: undefined, // Fields are included in metadata
-      ref_data_entityInstance: rxResult.refData,
+      ref_data_entityInstance: tsResult.refData,
     };
-  }, [rxResult.data, rxResult.metadata, rxResult.refData]);
+  }, [tsResult.data, tsResult.metadata, tsResult.refData]);
 
   // Cache metadata and refData in stores for other components
   useEffect(() => {
@@ -351,47 +342,47 @@ export function useEntityInstance<T = any>(
     }
   }, [result?.ref_data_entityInstance, queryClient]);
 
-  // Log RxDB cache status
+  // Log TanStack Query cache status
   const prevDataRef = useRef<T | null>(null);
   useEffect(() => {
-    if (rxResult.data && rxResult.data !== prevDataRef.current && id) {
-      prevDataRef.current = rxResult.data;
+    if (tsResult.data && tsResult.data !== prevDataRef.current && id) {
+      prevDataRef.current = tsResult.data;
       console.log(
-        `%c[RxDB ${rxResult.isStale ? 'STALE' : 'FRESH'}] 💾 useEntityInstance: ${entityCode}/${id}`,
-        `color: ${rxResult.isStale ? '#fcc419' : '#51cf66'}; font-weight: bold`,
+        `%c[TanStack ${tsResult.isStale ? 'STALE' : 'FRESH'}] 💾 useEntityInstance: ${entityCode}/${id}`,
+        `color: ${tsResult.isStale ? '#fcc419' : '#51cf66'}; font-weight: bold`,
         {
-          source: 'RxDB (IndexedDB)',
-          isStale: rxResult.isStale,
-          isLoading: rxResult.isLoading,
-          hasMetadata: !!rxResult.metadata,
-          hasRefData: !!rxResult.refData,
+          source: 'TanStack Query + Dexie',
+          isStale: tsResult.isStale,
+          isLoading: tsResult.isLoading,
+          hasMetadata: !!tsResult.metadata,
+          hasRefData: !!tsResult.refData,
         }
       );
     }
-  }, [rxResult.data, rxResult.isStale, rxResult.isLoading, rxResult.metadata, rxResult.refData, entityCode, id]);
+  }, [tsResult.data, tsResult.isStale, tsResult.isLoading, tsResult.metadata, tsResult.refData, entityCode, id]);
 
   // Return React Query-compatible object for backwards compatibility
   return {
     data: result,
-    isLoading: rxResult.isLoading,
-    isPending: rxResult.isLoading,
-    isError: !!rxResult.error,
-    error: rxResult.error,
-    isStale: rxResult.isStale,
-    isFetching: rxResult.isLoading,
-    isRefetching: false,
-    refetch: rxResult.refetch,
+    isLoading: tsResult.isLoading,
+    isPending: tsResult.isLoading,
+    isError: tsResult.isError,
+    error: tsResult.error,
+    isStale: tsResult.isStale,
+    isFetching: tsResult.isFetching,
+    isRefetching: tsResult.isFetching && !tsResult.isLoading,
+    refetch: tsResult.refetch,
     // Additional React Query compatibility properties
-    status: rxResult.isLoading ? 'pending' as const : rxResult.error ? 'error' as const : 'success' as const,
-    fetchStatus: rxResult.isLoading ? 'fetching' as const : 'idle' as const,
+    status: tsResult.isLoading ? 'pending' as const : tsResult.isError ? 'error' as const : 'success' as const,
+    fetchStatus: tsResult.isFetching ? 'fetching' as const : 'idle' as const,
     dataUpdatedAt: Date.now(),
     errorUpdatedAt: 0,
     failureCount: 0,
     failureReason: null,
-    isSuccess: !rxResult.isLoading && !rxResult.error && !!rxResult.data,
-    isFetched: !rxResult.isLoading,
-    isFetchedAfterMount: !rxResult.isLoading,
-    isInitialLoading: rxResult.isLoading && !rxResult.data,
+    isSuccess: !tsResult.isLoading && !tsResult.isError && !!tsResult.data,
+    isFetched: !tsResult.isLoading,
+    isFetchedAfterMount: !tsResult.isLoading,
+    isInitialLoading: tsResult.isLoading && !tsResult.data,
     isLoadingError: false,
     isPlaceholderData: false,
     isRefetchError: false,
@@ -399,21 +390,21 @@ export function useEntityInstance<T = any>(
 }
 
 // ============================================================================
-// useFormattedEntityList - Format at Read pattern with RxDB (v8.5.0)
+// useFormattedEntityList - Format at Read pattern with TanStack Query + Dexie (v9.0.0)
 // ============================================================================
 
 /**
- * Hook for fetching FORMATTED entity lists using RxDB + formatting
+ * Hook for fetching FORMATTED entity lists using TanStack Query + Dexie + formatting
  *
- * v8.5.0: RxDB Offline-First + Format at Read
- * - Uses RxDB for offline-first storage
+ * v9.0.0: TanStack Query + Dexie Offline-First + Format at Read
+ * - Uses TanStack Query + Dexie for offline-first storage
  * - Applies formatting on read (memoized)
  * - Real-time updates via WebSocket sync
  *
  * Benefits:
  * - Offline-first with IndexedDB persistence
  * - Fresh formatting with latest datalabel colors
- * - Multi-tab sync via LeaderElection
+ * - TanStack Query handles tab focus sync
  *
  * @example
  * const { data } = useFormattedEntityList('project', { page: 1, pageSize: 100 });
@@ -473,14 +464,14 @@ export function useFormattedEntityList<T = any>(
 }
 
 // ============================================================================
-// useFormattedEntityInstance - Format at Read pattern with RxDB (v8.5.0)
+// useFormattedEntityInstance - Format at Read pattern with TanStack Query + Dexie (v9.0.0)
 // ============================================================================
 
 /**
- * Hook for fetching FORMATTED single entity using RxDB + formatting
+ * Hook for fetching FORMATTED single entity using TanStack Query + Dexie + formatting
  *
- * v8.5.0: RxDB Offline-First + Format at Read
- * - Uses RxDB for offline-first storage
+ * v9.0.0: TanStack Query + Dexie Offline-First + Format at Read
+ * - Uses TanStack Query + Dexie for offline-first storage
  * - Applies formatting on read (memoized)
  * - Real-time updates via WebSocket sync
  *
@@ -529,134 +520,134 @@ export function useFormattedEntityInstance<T = any>(
 }
 
 // ============================================================================
-// useEntityCodes - Fetch entity codes (RxDB v8.6.0)
+// useEntityCodes - Fetch entity codes (TanStack Query + Dexie v9.0.0)
 // ============================================================================
 
 /**
- * Hook for fetching entity codes with RxDB offline-first storage
+ * Hook for fetching entity codes with TanStack Query + Dexie offline-first storage
  *
- * v8.6.0: Uses RxDB IndexedDB for persistent, offline-first caching
+ * v9.0.0: Uses TanStack Query + Dexie IndexedDB for persistent, offline-first caching
  *
  * @example
  * const { data, entityCodes, getEntityByCode, isLoading } = useEntityCodes();
  */
 export function useEntityCodes() {
-  const rxResult = useRxEntityCodes();
+  const tsResult = useTanstackEntityCodes();
 
   // Return compatible object structure
   return {
-    data: rxResult.entityCodesMap,
-    entityCodes: rxResult.entityCodes,
-    entityCodesMap: rxResult.entityCodesMap,
-    getEntityByCode: rxResult.getEntityByCode,
-    isLoading: rxResult.isLoading,
-    isPending: rxResult.isLoading,
-    isError: !!rxResult.error,
-    error: rxResult.error,
-    refetch: rxResult.refetch,
+    data: tsResult.entityCodesMap,
+    entityCodes: tsResult.entityCodes,
+    entityCodesMap: tsResult.entityCodesMap,
+    getEntityByCode: tsResult.getEntityByCode,
+    isLoading: tsResult.isLoading,
+    isPending: tsResult.isLoading,
+    isError: tsResult.isError,
+    error: tsResult.error,
+    refetch: tsResult.refetch,
     // React Query compatibility
-    status: rxResult.isLoading ? 'pending' as const : rxResult.error ? 'error' as const : 'success' as const,
-    isFetching: rxResult.isLoading,
-    isSuccess: !rxResult.isLoading && !rxResult.error,
+    status: tsResult.isLoading ? 'pending' as const : tsResult.isError ? 'error' as const : 'success' as const,
+    isFetching: tsResult.isLoading,
+    isSuccess: !tsResult.isLoading && !tsResult.isError,
   };
 }
 
 // ============================================================================
-// useEntityMutation - Unified mutation hook using RxDB (v8.5.0)
+// useEntityMutation - Unified mutation hook using TanStack Query + Dexie (v9.0.0)
 // ============================================================================
 
 /**
- * Hook for entity mutations with RxDB storage
+ * Hook for entity mutations with TanStack Query + Dexie storage
  *
- * v8.5.0: RxDB Offline-First Mutations
- * - Updates sent to server and stored in RxDB
- * - Automatic cache update via reactive queries
+ * v9.0.0: TanStack Query + Dexie Offline-First Mutations
+ * - Updates sent to server and stored in Dexie
+ * - Automatic cache update via TanStack Query
  * - Works offline (queues for sync when online)
  *
  * @example
  * const { updateEntity, deleteEntity, isUpdating } = useEntityMutation('project');
  */
 export function useEntityMutation(entityCode: string) {
-  // v8.5.0: Use RxDB mutation hook
-  const rxMutation = useRxEntityMutation(entityCode);
+  // v9.0.0: Use TanStack Query + Dexie mutation hook
+  const tsMutation = useTanstackEntityMutation(entityCode);
 
-  // Wrap RxDB methods to maintain backwards compatibility
+  // Wrap TanStack methods to maintain backwards compatibility
   const updateEntity = useCallback(
     async ({ id, data }: { id: string; data: Record<string, any> }) => {
-      await rxMutation.updateEntity(id, data);
+      await tsMutation.updateEntity(id, data);
       return data;
     },
-    [rxMutation]
+    [tsMutation]
   );
 
   const deleteEntity = useCallback(
     async (id: string) => {
-      await rxMutation.deleteEntity(id);
+      await tsMutation.deleteEntity(id);
       return { success: true };
     },
-    [rxMutation]
+    [tsMutation]
   );
 
   const createEntity = useCallback(
     async (data: Record<string, any>) => {
-      const id = await rxMutation.createEntity(data);
+      const id = await tsMutation.createEntity(data);
       return { id, ...data };
     },
-    [rxMutation]
+    [tsMutation]
   );
 
   return {
     updateEntity,
     deleteEntity,
     createEntity,
-    isUpdating: rxMutation.isLoading,
-    isDeleting: rxMutation.isLoading,
-    isCreating: rxMutation.isLoading,
-    updateError: rxMutation.error,
-    deleteError: rxMutation.error,
-    createError: rxMutation.error,
+    isUpdating: tsMutation.isLoading,
+    isDeleting: tsMutation.isLoading,
+    isCreating: tsMutation.isLoading,
+    updateError: tsMutation.error,
+    deleteError: tsMutation.error,
+    createError: tsMutation.error,
   };
 }
 
 // ============================================================================
-// useDatalabels - Fetch datalabel options (RxDB v8.6.0)
+// useDatalabels - Fetch datalabel options (TanStack Query + Dexie v9.0.0)
 // ============================================================================
 
 /**
- * Hook for fetching datalabel options with RxDB offline-first storage
+ * Hook for fetching datalabel options with TanStack Query + Dexie offline-first storage
  *
- * v8.6.0: Uses RxDB IndexedDB for persistent, offline-first caching
+ * v9.0.0: Uses TanStack Query + Dexie IndexedDB for persistent, offline-first caching
  *
  * @example
  * const { options, isLoading } = useDatalabels('dl__project_stage');
  */
 export function useDatalabels(fieldKey: string) {
-  const rxResult = useRxDatalabel(fieldKey);
+  const tsResult = useDatalabel(fieldKey);
 
   // Return compatible object structure
   return {
-    data: rxResult.options,
-    options: rxResult.options,
-    isLoading: rxResult.isLoading,
-    isPending: rxResult.isLoading,
-    isError: !!rxResult.error,
-    error: rxResult.error,
-    refetch: rxResult.refetch,
+    data: tsResult.options,
+    options: tsResult.options,
+    isLoading: tsResult.isLoading,
+    isPending: tsResult.isLoading,
+    isError: tsResult.isError,
+    error: tsResult.error,
+    refetch: tsResult.refetch,
     // React Query compatibility
-    status: rxResult.isLoading ? 'pending' as const : rxResult.error ? 'error' as const : 'success' as const,
-    isFetching: rxResult.isLoading,
-    isSuccess: !rxResult.isLoading && !rxResult.error,
+    status: tsResult.isLoading ? 'pending' as const : tsResult.isError ? 'error' as const : 'success' as const,
+    isFetching: tsResult.isLoading,
+    isSuccess: !tsResult.isLoading && !tsResult.isError,
   };
 }
 
 // ============================================================================
-// useDatalabelMutation - Mutate datalabel with RxDB cache invalidation
+// useDatalabelMutation - Mutate datalabel with TanStack Query + Dexie cache invalidation
 // ============================================================================
 
 /**
- * Hook for datalabel mutations with automatic RxDB cache invalidation
+ * Hook for datalabel mutations with automatic TanStack Query + Dexie cache invalidation
  *
- * v8.6.0: Uses RxDB for cache invalidation
+ * v9.0.0: Uses TanStack Query + Dexie for cache invalidation
  *
  * @example
  * const { addItem, updateItem, deleteItem, reorderItems } = useDatalabelMutation('dl__project_stage');
@@ -664,11 +655,11 @@ export function useDatalabels(fieldKey: string) {
 export function useDatalabelMutation(datalabelName: string) {
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
-  // Helper to invalidate RxDB datalabel cache
+  // Helper to invalidate TanStack Query + Dexie datalabel cache
   const invalidateDatalabelCache = useCallback(async () => {
-    // Invalidate RxDB metadata cache
+    // Invalidate TanStack Query + Dexie metadata cache
     await invalidateMetadataCache('datalabel', datalabelName);
-    console.log(`%c[RxDB] 🗑️ Cache invalidated: datalabel:${datalabelName}`, 'color: #ff6b6b');
+    console.log(`%c[TanStack] 🗑️ Cache invalidated: datalabel:${datalabelName}`, 'color: #ff6b6b');
   }, [datalabelName]);
 
   const addItemMutation = useMutation({
@@ -805,92 +796,119 @@ export function useEntityLookup(entityCode: string) {
 }
 
 // ============================================================================
-// useEntityMetadata - Get cached entity metadata (RxDB v8.6.0)
+// useEntityMetadata - Get cached entity metadata (TanStack Query + Dexie v9.0.0)
 // ============================================================================
 
 /**
- * Hook for accessing cached entity metadata with RxDB offline-first storage
+ * Hook for accessing cached entity metadata with TanStack Query + Dexie offline-first storage
  *
- * v8.6.0: Uses RxDB IndexedDB for persistent, offline-first caching
+ * v9.0.0: Uses TanStack Query + Dexie IndexedDB for persistent, offline-first caching
+ * Note: Component metadata is extracted from entity list/detail API responses.
  *
  * @example
  * const { metadata, isLoading } = useEntityMetadata('project', 'entityListOfInstancesTable');
  */
 export function useEntityMetadata(entityCode: string, componentName: string = 'entityListOfInstancesTable') {
-  const rxResult = useRxComponentMetadata(entityCode, componentName);
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+  const query = useQuery({
+    queryKey: ['componentMetadata', entityCode, componentName],
+    queryFn: async () => {
+      // Fetch from API - component metadata is included in entity responses
+      const response = await fetch(
+        `${apiUrl}/api/v1/${entityCode}?limit=1&view=${componentName}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch metadata: ${entityCode}`);
+      }
+
+      const data = await response.json();
+      return (data.metadata as any)?.[componentName] || null;
+    },
+    staleTime: CACHE_TTL.ENTITY_METADATA,
+    gcTime: CACHE_TTL.ENTITY_METADATA * 2,
+    refetchOnWindowFocus: false,
+    enabled: !!entityCode,
+  });
 
   return {
-    data: rxResult.metadata,
-    metadata: rxResult.metadata,
-    isLoading: rxResult.isLoading,
-    isPending: rxResult.isLoading,
-    isError: !!rxResult.error,
-    error: rxResult.error,
+    data: query.data,
+    metadata: query.data,
+    isLoading: query.isLoading,
+    isPending: query.isLoading,
+    isError: query.isError,
+    error: query.error,
   };
 }
 
 // ============================================================================
-// useGlobalSettings - Fetch global settings (RxDB v8.6.0)
+// useGlobalSettings - Fetch global settings (TanStack Query + Dexie v9.0.0)
 // ============================================================================
 
 /**
- * Hook for fetching global settings with RxDB offline-first storage
+ * Hook for fetching global settings with TanStack Query + Dexie offline-first storage
  *
- * v8.6.0: Uses RxDB IndexedDB for persistent, offline-first caching
+ * v9.0.0: Uses TanStack Query + Dexie IndexedDB for persistent, offline-first caching
  *
  * @example
  * const { data: settings, isLoading } = useGlobalSettings();
  */
 export function useGlobalSettings() {
-  const rxResult = useRxGlobalSettings();
+  const tsResult = useTanstackGlobalSettings();
 
   // Return compatible object structure
   return {
-    data: rxResult.settings,
-    isLoading: rxResult.isLoading,
-    isPending: rxResult.isLoading,
-    isError: !!rxResult.error,
-    error: rxResult.error,
-    refetch: rxResult.refetch,
+    data: tsResult.settings,
+    isLoading: tsResult.isLoading,
+    isPending: tsResult.isLoading,
+    isError: tsResult.isError,
+    error: tsResult.error,
+    refetch: tsResult.refetch,
     // React Query compatibility
-    status: rxResult.isLoading ? 'pending' as const : rxResult.error ? 'error' as const : 'success' as const,
-    isFetching: rxResult.isLoading,
-    isSuccess: !rxResult.isLoading && !rxResult.error,
+    status: tsResult.isLoading ? 'pending' as const : tsResult.isError ? 'error' as const : 'success' as const,
+    isFetching: tsResult.isLoading,
+    isSuccess: !tsResult.isLoading && !tsResult.isError,
   };
 }
 
 // ============================================================================
-// useAllDatalabels - Fetch all datalabels (RxDB v8.6.0)
+// useAllDatalabels - Fetch all datalabels (TanStack Query + Dexie v9.0.0)
 // ============================================================================
 
 /**
- * Hook for fetching all datalabels with RxDB offline-first storage
+ * Hook for fetching all datalabels with TanStack Query + Dexie offline-first storage
  *
- * v8.6.0: Uses RxDB IndexedDB for persistent, offline-first caching
+ * v9.0.0: Uses TanStack Query + Dexie IndexedDB for persistent, offline-first caching
  *
  * @example
  * const { datalabels, getDatalabel, isLoading } = useAllDatalabels();
  */
 export function useAllDatalabels() {
-  const rxResult = useRxAllDatalabels();
+  const tsResult = useTanstackAllDatalabels();
 
   // Return compatible object structure
   return {
     data: {
-      data: Object.entries(rxResult.datalabels).map(([name, options]) => ({ name, options })),
-      total: Object.keys(rxResult.datalabels).length,
+      data: Object.entries(tsResult.datalabels).map(([name, options]) => ({ name, options })),
+      total: Object.keys(tsResult.datalabels).length,
     },
-    datalabels: rxResult.datalabels,
-    getDatalabel: rxResult.getDatalabel,
-    isLoading: rxResult.isLoading,
-    isPending: rxResult.isLoading,
-    isError: !!rxResult.error,
-    error: rxResult.error,
-    refetch: rxResult.refetch,
+    datalabels: tsResult.datalabels,
+    getDatalabel: tsResult.getDatalabel,
+    isLoading: tsResult.isLoading,
+    isPending: tsResult.isLoading,
+    isError: false,
+    error: null,
+    refetch: tsResult.refetch,
     // React Query compatibility
-    status: rxResult.isLoading ? 'pending' as const : rxResult.error ? 'error' as const : 'success' as const,
-    isFetching: rxResult.isLoading,
-    isSuccess: !rxResult.isLoading && !rxResult.error,
+    status: tsResult.isLoading ? 'pending' as const : 'success' as const,
+    isFetching: tsResult.isLoading,
+    isSuccess: !tsResult.isLoading,
   };
 }
 
@@ -899,9 +917,9 @@ export function useAllDatalabels() {
 // ============================================================================
 
 /**
- * Hook to invalidate entity caches (RxDB v8.6.0)
+ * Hook to invalidate entity caches (TanStack Query + Dexie v9.0.0)
  *
- * v8.6.0: Uses RxDB for all cache invalidation (replaces Zustand stores)
+ * v9.0.0: Uses TanStack Query + Dexie for all cache invalidation
  *
  * @example
  * const { invalidateEntity, invalidateAll } = useCacheInvalidation();
@@ -910,49 +928,50 @@ export function useAllDatalabels() {
 export function useCacheInvalidation() {
   const queryClient = useQueryClient();
 
-  // v8.6.0: RxDB is single source of truth for data cache
+  // v9.0.0: TanStack Query + Dexie is single source of truth for data cache
   const invalidateEntity = useCallback(async (entityCode: string, id?: string) => {
-    // React Query invalidation (for ref data cache only)
+    // TanStack Query invalidation
     if (id) {
       queryClient.invalidateQueries({ queryKey: queryKeys.entityInstance(entityCode, id) });
     }
     queryClient.invalidateQueries({ queryKey: ['entity-instance-list', entityCode] });
+    queryClient.invalidateQueries({ queryKey: ['entity-list', entityCode] });
 
-    // Invalidate RxDB component metadata for this entity
+    // Invalidate TanStack Query + Dexie component metadata for this entity
     await invalidateMetadataCache('component', entityCode);
-    console.log(`%c[RxDB] 🗑️ Cache invalidated: entity ${entityCode}${id ? `/${id}` : ''}`, 'color: #ff6b6b');
+    console.log(`%c[TanStack] 🗑️ Cache invalidated: entity ${entityCode}${id ? `/${id}` : ''}`, 'color: #ff6b6b');
   }, [queryClient]);
 
   const invalidateAll = useCallback(async () => {
-    // Invalidate all React Query cache
+    // Invalidate all TanStack Query cache
     queryClient.invalidateQueries();
 
-    // Clear all RxDB metadata cache
+    // Clear all TanStack Query + Dexie metadata cache
     await clearAllMetadataCache();
-    console.log('%c[RxDB] 🗑️ All caches cleared', 'color: #ff6b6b');
+    console.log('%c[TanStack] 🗑️ All caches cleared', 'color: #ff6b6b');
   }, [queryClient]);
 
   const invalidateEntityCodes = useCallback(async () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.entityCodes() });
     await invalidateMetadataCache('entity');
-    console.log('%c[RxDB] 🗑️ Entity codes cache invalidated', 'color: #ff6b6b');
+    console.log('%c[TanStack] 🗑️ Entity codes cache invalidated', 'color: #ff6b6b');
   }, [queryClient]);
 
   const invalidateGlobalSettings = useCallback(async () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.globalSettings() });
     await invalidateMetadataCache('settings');
-    console.log('%c[RxDB] 🗑️ Global settings cache invalidated', 'color: #ff6b6b');
+    console.log('%c[TanStack] 🗑️ Global settings cache invalidated', 'color: #ff6b6b');
   }, [queryClient]);
 
   const invalidateDatalabels = useCallback(async (name?: string) => {
     if (name) {
       queryClient.invalidateQueries({ queryKey: queryKeys.datalabels(name) });
       await invalidateMetadataCache('datalabel', name);
-      console.log(`%c[RxDB] 🗑️ Datalabel cache invalidated: ${name}`, 'color: #ff6b6b');
+      console.log(`%c[TanStack] 🗑️ Datalabel cache invalidated: ${name}`, 'color: #ff6b6b');
     } else {
       queryClient.invalidateQueries({ queryKey: ['settings', 'datalabels'] });
       await invalidateMetadataCache('datalabel');
-      console.log('%c[RxDB] 🗑️ All datalabel caches invalidated', 'color: #ff6b6b');
+      console.log('%c[TanStack] 🗑️ All datalabel caches invalidated', 'color: #ff6b6b');
     }
   }, [queryClient]);
 

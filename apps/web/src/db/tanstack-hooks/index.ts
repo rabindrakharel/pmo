@@ -71,3 +71,11 @@ export {
   type DraftInfo,
   type UseRecoverDraftsResult,
 } from './useDraft';
+
+// Cache utilities (re-exported from queryClient)
+export {
+  invalidateMetadataCache,
+  clearAllMetadataCache,
+  invalidateEntityQueries,
+  clearAllCaches,
+} from '../query/queryClient';

@@ -191,3 +191,71 @@ export function removeCachedEntity(entityCode: string, entityId: string): void {
     queryKey: ['entity', entityCode, entityId],
   });
 }
+
+// ============================================================================
+// Metadata Cache Invalidation
+// ============================================================================
+
+/**
+ * Invalidate metadata cache by type
+ * Used when datalabels, entity codes, or settings are updated
+ *
+ * @param type - Type of metadata: 'datalabel' | 'entity' | 'settings' | 'component'
+ * @param key - Optional key for specific item (e.g., datalabel name)
+ */
+export async function invalidateMetadataCache(
+  type: 'datalabel' | 'entity' | 'settings' | 'component',
+  key?: string
+): Promise<void> {
+  switch (type) {
+    case 'datalabel':
+      if (key) {
+        queryClient.invalidateQueries({ queryKey: ['datalabel', key], refetchType: 'active' });
+        // Remove from Dexie
+        await db.metadata.delete(`datalabel:${key}`);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['datalabel'], refetchType: 'active' });
+        // Remove all datalabels from Dexie
+        await db.metadata.where('type').equals('datalabel').delete();
+      }
+      break;
+
+    case 'entity':
+      queryClient.invalidateQueries({ queryKey: ['entityCodes'], refetchType: 'active' });
+      await db.metadata.delete('entityCodes');
+      break;
+
+    case 'settings':
+      queryClient.invalidateQueries({ queryKey: ['globalSettings'], refetchType: 'active' });
+      await db.metadata.delete('globalSettings');
+      break;
+
+    case 'component':
+      if (key) {
+        // Invalidate component metadata for specific entity
+        queryClient.invalidateQueries({ queryKey: ['componentMetadata', key], refetchType: 'active' });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['componentMetadata'], refetchType: 'active' });
+      }
+      break;
+  }
+
+  console.log(`%c[QueryClient] Metadata cache invalidated: ${type}${key ? `:${key}` : ''}`, 'color: #ff6b6b');
+}
+
+/**
+ * Clear all metadata caches
+ * Used on logout or for complete cache refresh
+ */
+export async function clearAllMetadataCache(): Promise<void> {
+  // Clear TanStack Query metadata caches
+  queryClient.invalidateQueries({ queryKey: ['datalabel'], refetchType: 'all' });
+  queryClient.invalidateQueries({ queryKey: ['entityCodes'], refetchType: 'all' });
+  queryClient.invalidateQueries({ queryKey: ['globalSettings'], refetchType: 'all' });
+  queryClient.invalidateQueries({ queryKey: ['componentMetadata'], refetchType: 'all' });
+
+  // Clear Dexie metadata table
+  await db.metadata.clear();
+
+  console.log('%c[QueryClient] All metadata caches cleared', 'color: #ff6b6b');
+}

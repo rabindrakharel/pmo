@@ -64,6 +64,8 @@ export interface UseEntityListResult<T> {
   isLoading: boolean;
   /** Background refetch in progress */
   isFetching: boolean;
+  /** Data is stale and being refreshed in background */
+  isStale: boolean;
   /** Error occurred */
   isError: boolean;
   /** Error object */
@@ -182,6 +184,7 @@ export function useEntityList<T = Record<string, unknown>>(
     refData: query.data?.ref_data_entityInstance,
     isLoading: query.isLoading,
     isFetching: query.isFetching,
+    isStale: query.isStale,
     isError: query.isError,
     error: query.error,
     refetch,
