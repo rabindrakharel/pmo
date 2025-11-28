@@ -2,9 +2,9 @@
 
 > Comprehensive guide to offline-first storage with WebSocket real-time synchronization
 
-**Version**: 5.0
+**Version**: 5.1
 **Date**: 2025-11-28
-**Status**: Implemented
+**Status**: Implemented (v8.6.0 - RxDB Unified State)
 **Deployment**: Single-pod (<500 concurrent users)
 
 ---
@@ -395,6 +395,61 @@ const {
   startEdit, updateField, discardDraft,
   undo, redo, canUndo, canRedo
 } = useRxDraft('project', projectId);
+```
+
+### 5.4 Metadata Caching (v8.6.0)
+
+**Location**: `apps/web/src/db/rxdb/hooks/useRxMetadata.ts`
+
+v8.6.0 unified all metadata storage in RxDB, replacing 4 Zustand stores:
+
+```typescript
+// Metadata collection schema
+interface MetadataDocType {
+  _id: string;              // Composite: "type:key" (e.g., "datalabel:project_stage")
+  type: 'datalabel' | 'entity' | 'settings' | 'component';
+  key: string | null;       // Key within type (e.g., "project_stage")
+  data: unknown;            // Cached data
+  cachedAt: number;         // Cache timestamp (ms)
+  ttl: number;              // TTL in milliseconds
+}
+
+// TTL values
+const METADATA_TTL = {
+  datalabel: 60 * 60 * 1000,    // 1 hour
+  entity: 60 * 60 * 1000,       // 1 hour
+  settings: 60 * 60 * 1000,     // 1 hour
+  component: 15 * 60 * 1000,    // 15 minutes
+};
+```
+
+**React Hooks** (for components):
+```typescript
+const { options, isLoading } = useRxDatalabel('project_stage');
+const { entityCodes, getEntityByCode } = useRxEntityCodes();
+const { settings } = useRxGlobalSettings();
+const { metadata } = useRxComponentMetadata('project');
+```
+
+**Sync Cache** (for non-hook access - formatters, utilities):
+```typescript
+import { getDatalabelSync, getEntityCodesSync, getGlobalSettingsSync } from '@/db/rxdb';
+
+// Returns cached data or null (populated at login via prefetchAllMetadata)
+const options = getDatalabelSync('project_stage');
+const entityCodes = getEntityCodesSync();
+const settings = getGlobalSettingsSync();
+```
+
+**Initialization Flow**:
+```
+Login → prefetchAllMetadata() → {
+  1. Fetch datalabels from API
+  2. Fetch entity types from API
+  3. Fetch global settings from API
+  4. Store in RxDB metadata collection
+  5. Populate sync cache (in-memory Map)
+}
 ```
 
 ---
@@ -850,10 +905,10 @@ SELECT pg_size_pretty(pg_total_relation_size('app.rxdb_subscription'));
 
 | Document | Purpose |
 |----------|---------|
-| `docs/state_management/STATE_MANAGEMENT.md` | React Query + Zustand architecture |
+| `docs/state_management/STATE_MANAGEMENT.md` | RxDB unified state architecture (v8.6.0) |
 | `docs/services/entity-infrastructure.service.md` | Entity CRUD patterns |
 | `CLAUDE.md` | Main codebase reference |
 
 ---
 
-**Version**: 5.0 | **Updated**: 2025-11-28 | **Status**: Implemented
+**Version**: 5.1 | **Updated**: 2025-11-28 | **Status**: Implemented (v8.6.0 - RxDB Unified State)

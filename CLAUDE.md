@@ -9,9 +9,9 @@
 - **Backend**: Fastify v5, TypeScript ESM, JWT, 45 API modules
 - **PubSub Service**: WebSocket server for real-time sync (port 4001)
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4
-- **State Management**: RxDB (offline-first IndexedDB) + React Query (metadata) + Zustand (UI state)
+- **State Management**: RxDB (offline-first IndexedDB) - single source of truth for all data + metadata
 - **Infrastructure**: AWS EC2/S3/Lambda, Terraform, Docker
-- **Version**: 8.5.0 (RxDB Offline-First Architecture + WebSocket Sync + Draft Persistence)
+- **Version**: 8.6.0 (RxDB Unified State - Zustand Metadata Stores Removed)
 
 ## Critical Operations
 
@@ -431,64 +431,72 @@ fastify.get('/api/v1/project', async (request, reply) => {
 
 ---
 
-## 5. State Management (Frontend) - v8.4.0 Format-at-Read + WebSocket Sync
+## 5. State Management (Frontend) - v8.6.0 RxDB Unified State
 
 ### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                State Architecture (v8.4.0)                   │
+│                State Architecture (v8.6.0)                   │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  ┌─────────────────┐     ┌─────────────────┐               │
-│  │  Zustand Stores │     │  TanStack Query │               │
-│  │  (Client State) │     │  (Server State) │               │
-│  └────────┬────────┘     └────────┬────────┘               │
-│           │                       │                          │
-│  • UI State (modals, tabs)       • RAW data + ref_data_entityInstance       │
-│  • Form state                    • Format via `select`       │
-│  • Selection state               • Optimistic updates        │
-│  • Filters/pagination            • O(1) reference resolution │
-│                                  • WebSocket-triggered invalidation         │
+│  RxDB (IndexedDB) - SINGLE SOURCE OF TRUTH                  │
+│  ─────────────────────────────────────────                  │
+│  • Entity instances (project, task, employee, etc.)         │
+│  • Metadata (field definitions, component schemas)          │
+│  • Reference data (datalabels, entity types, settings)      │
+│  • Drafts (unsaved edits with undo/redo)                    │
+│                                                              │
+│  Features:                                                   │
+│  ─────────                                                   │
+│  • Offline-first: Works without network                     │
+│  • Persistent: Survives browser restart                     │
+│  • Reactive: UI auto-updates via RxJS observables           │
+│  • Multi-tab sync: LeaderElection coordinates tabs          │
+│  • Format-at-read: RAW data cached, formatted on render     │
 │                                                              │
 │  ┌─────────────────────────────────────────────────────────┐│
-│  │  SyncProvider (WebSocket to PubSub :4001)               ││
-│  │  • Auto-subscribe to loaded entity IDs                  ││
-│  │  • INVALIDATE → queryClient.invalidateQueries()         ││
-│  │  • Version tracking prevents stale updates              ││
+│  │  RxDBProvider + ReplicationManager (WebSocket :4001)    ││
+│  │  • INVALIDATE → refetch entity → update IndexedDB       ││
+│  │  • prefetchAllMetadata() at login populates sync cache  ││
 │  └─────────────────────────────────────────────────────────┘│
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 
-FORMAT-AT-READ + WEBSOCKET SYNC PATTERN:
-───────────────────────────────────────────
-1. API → Cache RAW + ref_data_entityInstance → select: formatDataset() → FormattedRow[]
-2. useAutoSubscribe → WebSocket SUBSCRIBE to loaded entity IDs
-3. PubSub INVALIDATE → queryClient.invalidateQueries() → auto-refetch
+DATA FLOW PATTERN:
+──────────────────
+1. Login → prefetchAllMetadata() → RxDB + sync cache populated
+2. Component renders → useRxEntity/useRxDatalabel → RxDB query
+3. Non-hook access → getDatalabelSync()/getEntityCodesSync()
+4. WebSocket INVALIDATE → refetch → RxDB update → reactive UI
 
-See: docs/caching/RXDB_SYNC_ARCHITECTURE.md for full sync architecture
+See: docs/state_management/STATE_MANAGEMENT.md for full architecture
 ```
 
 ### Key Hooks
 
 ```typescript
-// apps/web/src/lib/hooks/useEntityQuery.ts
+// apps/web/src/db/rxdb/hooks/
 
-// RAW data (for components that need raw)
-const { data } = useEntityInstanceList(entityCode, params);
-// Returns: { data: T[], ref_data_entityInstance: RefData, metadata }
+// Entity data (RxDB - offline-first)
+const { data, isLoading } = useRxEntity<Project>('project', projectId);
+const { data: projects, total } = useRxEntityList<Project>('project', { limit: 50 });
 
-// FORMATTED data via select (recommended)
-const { data: formattedData } = useFormattedEntityList(entityCode, params);
-// Returns: FormattedRow[] with display/styles
+// Metadata (RxDB - replaces Zustand stores in v8.6.0)
+const { options, isLoading } = useRxDatalabel('project_stage');
+const { entityCodes, getEntityByCode } = useRxEntityCodes();
+const { settings } = useRxGlobalSettings();
+
+// Non-hook access (sync cache - for formatters, utilities)
+import { getDatalabelSync, getEntityCodesSync } from '@/db/rxdb';
+const options = getDatalabelSync('project_stage');  // Returns cached data or null
+
+// Draft persistence (survives page refresh)
+const { currentData, updateField, undo, redo, hasChanges } = useRxDraft('project', projectId);
 
 // Entity reference resolution (v8.3.0)
 import { useRefData } from '@/lib/hooks';
-const { resolveFieldDisplay, isRefField } = useRefData(data?.ref_data_entityInstance);
-
-// Resolve using metadata (NOT field name pattern)
-const fieldMeta = metadata.viewType.manager__employee_id;
-resolveFieldDisplay(fieldMeta, uuid);  // → "James Miller"
+const { resolveFieldDisplay } = useRefData(data?.ref_data_entityInstance);
 ```
 
 ### Format-at-Read Implementation
@@ -730,9 +738,9 @@ Core service documentation for centralized entity infrastructure management. Use
 
 ### 3. STATE_MANAGEMENT.md
 
-RxDB offline-first architecture with IndexedDB storage. Entity data persists across page refresh and works offline. WebSocket sync via ReplicationManager for real-time updates.
+RxDB unified state architecture (v8.6.0). Single source of truth for all data (entities, metadata, drafts). IndexedDB persistence, offline-first, WebSocket sync. Zustand metadata stores replaced with RxDB hooks.
 
-**Keywords:** `RxDB`, `IndexedDB`, `offline-first`, `useRxEntity`, `useRxEntityList`, `useRxDraft`, `ReplicationManager`, `RxDBProvider`, `WebSocket sync`, `draft persistence`, `multi-tab sync`, `LeaderElection`, `reactive queries`, `entities collection`, `drafts collection`, `ref_data_entityInstance`, `useEntityInstanceList` (RxDB backend), `useEntityInstance` (RxDB backend)
+**Keywords:** `RxDB`, `IndexedDB`, `offline-first`, `useRxEntity`, `useRxEntityList`, `useRxDraft`, `useRxDatalabel`, `useRxEntityCodes`, `useRxGlobalSettings`, `getDatalabelSync`, `getEntityCodesSync`, `prefetchAllMetadata`, `sync cache`, `ReplicationManager`, `RxDBProvider`, `metadata collection`, `Zustand migration`, `single source of truth`
 
 ### 4. PAGE_ARCHITECTURE.md
 
@@ -742,9 +750,18 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
 
 ---
 
-**Version**: 8.5.0 | **Updated**: 2025-11-28 | **Pattern**: RxDB Offline-First + WebSocket Sync + Draft Persistence
+**Version**: 8.6.0 | **Updated**: 2025-11-28 | **Pattern**: RxDB Unified State (Single Source of Truth)
 
 **Recent Updates**:
+- v8.6.0 (2025-11-28): **Zustand to RxDB Metadata Migration**
+  - RxDB is now single source of truth for ALL state (entity data + metadata)
+  - Removed 4 Zustand metadata stores (datalabel, entityCode, globalSettings, componentMetadata)
+  - Added RxDB metadata hooks: `useRxDatalabel`, `useRxEntityCodes`, `useRxGlobalSettings`
+  - Added sync cache for non-hook access: `getDatalabelSync()`, `getEntityCodesSync()`
+  - `prefetchAllMetadata()` populates RxDB + sync cache at login
+  - Updated 9 consumer files to use RxDB instead of Zustand
+  - `useEntityEditStore` remains for UI toggle state (pending migration)
+  - See: `docs/state_management/STATE_MANAGEMENT.md` for migration details
 - v8.5.0 (2025-11-28): **RxDB Offline-First Architecture**
   - Replaced React Query with RxDB (IndexedDB) for entity data storage
   - Entity data persists across page refresh and browser restart
@@ -753,7 +770,6 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
   - Added useRxDraft, useRecoverDraft for draft persistence with undo/redo
   - Multi-tab sync via RxDB LeaderElection plugin
   - WebSocket replication via ReplicationManager
-  - React Query still used for metadata, datalabels, global settings
 - v8.4.0 (2025-11-27): **WebSocket Real-Time Sync**
   - Added PubSub service (port 4001) for WebSocket-based cache invalidation
   - SyncProvider manages WebSocket connection + subscription lifecycle
