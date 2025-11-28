@@ -6,33 +6,26 @@
 
 ## Overview
 
-The PMO frontend uses a **layered state management architecture** combining RxDB for persistent entity data with React Query for metadata and Zustand for UI state.
+The PMO frontend uses **RxDB as the sole state management layer**. All data (entity instances, metadata, drafts) is stored in IndexedDB via RxDB, providing offline-first, persistent storage with reactive queries.
 
 ```
 +-------------------------------------------------------------------------+
-|                    STATE MANAGEMENT LAYERS (v8.5.0)                      |
+|                    STATE MANAGEMENT (v8.5.0 - RxDB Only)                 |
 +-------------------------------------------------------------------------+
 |                                                                          |
-|  LAYER 1: RxDB (IndexedDB) - Entity Data                                |
+|  RxDB (IndexedDB) - Single Source of Truth                              |
 |  ----------------------------------------------------------------       |
-|  - PRIMARY cache for entity instances (project, task, employee, etc.)   |
+|  - Entity instances (project, task, employee, etc.)                     |
+|  - Metadata (field definitions, component schemas)                      |
+|  - Reference data (datalabels, entity types)                            |
+|  - Drafts (unsaved edits with undo/redo)                                |
+|                                                                          |
+|  Features:                                                               |
 |  - Persistent: Survives browser restart                                 |
 |  - Offline-first: Works without network                                 |
 |  - Reactive: UI auto-updates via RxJS observables                       |
 |  - Multi-tab sync: LeaderElection coordinates tabs                      |
 |  - Draft persistence: Unsaved edits survive page refresh                |
-|                                                                          |
-|  LAYER 2: React Query - Metadata & Reference Data                       |
-|  ----------------------------------------------------------------       |
-|  - Metadata: Field definitions, component schemas (15 min TTL)          |
-|  - Reference data: Entity types, datalabels (1 hour TTL)               |
-|  - In-memory only (does not persist across browser restart)             |
-|                                                                          |
-|  LAYER 3: Zustand - UI State Only                                       |
-|  ----------------------------------------------------------------       |
-|  - Edit mode state (isEditing, dirtyFields)                             |
-|  - UI preferences (collapsed panels, selected tabs)                     |
-|  - Session-only (cleared on page refresh)                               |
 |                                                                          |
 +-------------------------------------------------------------------------+
 ```
@@ -41,20 +34,17 @@ The PMO frontend uses a **layered state management architecture** combining RxDB
 
 ## Data Storage Summary
 
-| Data Type | Storage | TTL | Persists Refresh | Multi-Tab |
-|-----------|---------|-----|------------------|-----------|
-| **Entity instances** | RxDB (IndexedDB) | 30s stale | Yes | Yes |
-| **Drafts (unsaved edits)** | RxDB (IndexedDB) | Until saved | Yes | Yes |
-| **Field metadata** | React Query (memory) | 15 min | No | No |
-| **Datalabels** | React Query (memory) | 1 hour | No | No |
-| **Entity types** | React Query (memory) | 1 hour | No | No |
-| **UI state** | Zustand (memory) | Session | No | No |
+| Data Type | Collection | TTL | Persists Refresh | Multi-Tab |
+|-----------|------------|-----|------------------|-----------|
+| **Entity instances** | `entities` | 30s stale | Yes | Yes |
+| **Drafts (unsaved edits)** | `drafts` | Until saved | Yes | Yes |
+| **Field metadata** | `metadata` | 15 min | Yes | Yes |
+| **Datalabels** | `metadata` | 1 hour | Yes | Yes |
+| **Entity types** | `metadata` | 1 hour | Yes | Yes |
 
 ---
 
-## 1. RxDB Layer (Entity Data)
-
-### Collections
+## RxDB Collections
 
 | Collection | Purpose | Schema |
 |------------|---------|--------|
@@ -62,7 +52,9 @@ The PMO frontend uses a **layered state management architecture** combining RxDB
 | `drafts` | Unsaved edits | `{ entityCode, entityId, originalData, currentData, undoStack, redoStack }` |
 | `metadata` | Cached metadata | `{ type, key, data, cachedAt, ttl }` |
 
-### RxDB Hooks
+---
+
+## RxDB Hooks
 
 ```typescript
 // Direct RxDB hooks (apps/web/src/db/rxdb/hooks/)
@@ -75,7 +67,9 @@ import {
 } from '@/db/rxdb';
 ```
 
-### useRxEntityList Example
+---
+
+## useRxEntityList Example
 
 ```typescript
 function ProjectList() {
@@ -101,7 +95,9 @@ function ProjectList() {
 }
 ```
 
-### useRxDraft Example (Draft Persistence)
+---
+
+## useRxDraft Example (Draft Persistence)
 
 ```typescript
 function ProjectEditor({ projectId }: { projectId: string }) {
@@ -142,74 +138,7 @@ function ProjectEditor({ projectId }: { projectId: string }) {
 
 ---
 
-## 2. React Query Layer (Metadata)
-
-### React Query Hooks
-
-The existing React Query hooks maintain backwards compatibility while using RxDB internally for entity data:
-
-```typescript
-// Compatibility layer hooks (apps/web/src/lib/hooks/useEntityQuery.ts)
-import {
-  useEntityInstanceList,       // RxDB backend, React Query API
-  useEntityInstance,           // RxDB backend, React Query API
-  useFormattedEntityList,      // RxDB + format-at-read
-  useFormattedEntityInstance,  // RxDB + format-at-read
-  useEntityMutation,           // RxDB mutations
-} from '@/lib/hooks';
-```
-
-### Cache TTL Configuration
-
-```typescript
-// apps/web/src/lib/hooks/useEntityQuery.ts
-export const CACHE_TTL = {
-  // Reference data (1 hour) - Rarely changes
-  ENTITY_TYPES: 60 * 60 * 1000,
-  DATALABELS: 60 * 60 * 1000,
-  GLOBAL_SETTINGS: 60 * 60 * 1000,
-
-  // Metadata (15 minutes) - May change with deployments
-  ENTITY_METADATA: 15 * 60 * 1000,
-
-  // Entity lists - Stale-while-revalidate
-  ENTITY_LIST_STALE: 30 * 1000,   // Mark as stale after 30s
-  ENTITY_LIST_CACHE: 5 * 60 * 1000, // Keep for back navigation
-};
-```
-
----
-
-## 3. Zustand Layer (UI State)
-
-### Stores
-
-| Store | Purpose | Persists |
-|-------|---------|----------|
-| `useEntityEditStore` | Edit mode state (isEditing, currentData, dirtyFields) | No |
-| `useUIPreferencesStore` | UI preferences (collapsed panels) | No |
-| `useNavigationHistoryStore` | Breadcrumb navigation | No |
-
-### useEntityEditStore Example
-
-```typescript
-// apps/web/src/stores/useEntityEditStore.ts
-const {
-  isEditing,      // Boolean - edit mode active
-  currentData,    // Current edited values
-  dirtyFields,    // Set<string> - modified field keys
-  startEdit,      // Begin editing with initial data
-  updateField,    // Update a single field
-  saveChanges,    // Persist to server
-  cancelEdit,     // Discard changes
-  undo,           // Undo last change
-  redo,           // Redo undone change
-} = useEntityEditStore();
-```
-
----
-
-## 4. Data Flow Patterns
+## Data Flow Patterns
 
 ### Pattern 1: Initial Load (Cold Cache)
 
@@ -324,7 +253,7 @@ useRecoverDraft('project', projectId)
 
 ---
 
-## 5. File Structure
+## File Structure
 
 ```
 apps/web/src/
@@ -340,44 +269,32 @@ apps/web/src/
 |   +-- hooks/
 |       +-- useRxEntity.ts            # useRxEntity, useRxEntityList
 |       +-- useRxDraft.ts             # useRxDraft, useRecoverDraft
-|
-+-- lib/hooks/
-|   +-- useEntityQuery.ts             # React Query compatibility layer
-|
-+-- stores/
-    +-- useEntityEditStore.ts         # Zustand edit state
-    +-- datalabelMetadataStore.ts     # Datalabel cache
-    +-- entityComponentMetadataStore.ts # Metadata cache
-    +-- globalSettingsMetadataStore.ts # Settings cache
 ```
 
 ---
 
-## 6. App Integration
+## App Integration
 
 ```tsx
 // App.tsx
 import { RxDBProvider } from '@/db/rxdb/RxDBProvider';
-import { QueryClientProvider } from '@tanstack/react-query';
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <RxDBProvider>
-        <AuthProvider>
-          <Router>
-            {/* App routes */}
-          </Router>
-        </AuthProvider>
-      </RxDBProvider>
-    </QueryClientProvider>
+    <RxDBProvider>
+      <AuthProvider>
+        <Router>
+          {/* App routes */}
+        </Router>
+      </AuthProvider>
+    </RxDBProvider>
   );
 }
 ```
 
 ---
 
-## 7. Multi-Tab Sync
+## Multi-Tab Sync
 
 RxDB's LeaderElection plugin ensures only one tab manages replication:
 
@@ -398,7 +315,7 @@ Tab 1 (Leader)                    Tab 2 (Follower)
 
 ---
 
-## 8. Schema Version Management
+## Schema Version Management
 
 ```typescript
 // apps/web/src/db/rxdb/database.ts

@@ -9,7 +9,7 @@
 | Layer | Technology | Purpose |
 |-------|------------|---------|
 | **Frontend** | React 19, TypeScript, Vite, Tailwind CSS v4 | UI rendering |
-| **State** | React Query (data) + Zustand (metadata) | Hybrid caching |
+| **State** | RxDB (IndexedDB) | Offline-first persistent cache |
 | **Real-Time Sync** | WebSocket + PubSub Service (port 4001) | Cache invalidation |
 | **Backend** | Fastify v5, TypeScript ESM | REST API + BFF |
 | **Database** | PostgreSQL 14+ (50 tables) | Persistence |
@@ -29,7 +29,7 @@
 | Doc | Path | Purpose |
 |-----|------|---------|
 | RXDB_SYNC_ARCHITECTURE.md | `docs/caching/` | WebSocket real-time sync |
-| STATE_MANAGEMENT.md | `docs/state_management/` | React Query + Zustand + Sync |
+| STATE_MANAGEMENT.md | `docs/state_management/` | RxDB offline-first architecture |
 | frontEndFormatterService.md | `docs/services/` | Frontend rendering |
 | backend-formatter.service.md | `docs/services/` | BFF metadata |
 | entity-infrastructure.service.md | `docs/services/` | Entity CRUD + ref_data_entityInstance |
@@ -56,8 +56,8 @@
 │           │                       │──INVALIDATE──────────>│                  │
 │           │                       │                       │                  │
 │           │                       │                       │  Invalidate     │
-│           │                       │                       │  React Query    │
-│           │<──────────────────────────────────────────────│  cache          │
+│           │                       │                       │  RxDB cache     │
+│           │<──────────────────────────────────────────────│                 │
 │           │  Auto-refetch fresh data via REST API         │                  │
 │                                                                              │
 │  See: docs/caching/RXDB_SYNC_ARCHITECTURE.md for full details               │
@@ -123,18 +123,16 @@
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────┐     │
-│  │  useEntityQuery.ts - React Query Hooks                              │     │
+│  │  RxDB Hooks (Offline-First)                                         │     │
 │  ├─────────────────────────────────────────────────────────────────────┤     │
 │  │                                                                     │     │
-│  │  useEntityInstanceList()     → Caches RAW data + ref_data_entityInstance  │
+│  │  useRxEntityList()           → Entity list from IndexedDB           │     │
+│  │                              → Background refresh if stale          │     │
 │  │                                                                     │     │
-│  │  useFormattedEntityList()    → RAW cache + select transform         │     │
-│  │    └── select: (raw) => {                                           │     │
-│  │          const viewType = raw.metadata.entityDataTable.viewType;    │     │
-│  │          const refData = raw.ref_data_entityInstance;               │     │
-│  │          return formatDataset(raw.data, { viewType }, refData);     │     │
-│  │        }                                                            │     │
-│  │        └── Returns: FormattedRow[] (memoized by React Query)        │     │
+│  │  useRxEntity()               → Single entity with reactive updates  │     │
+│  │                                                                     │     │
+│  │  useRxDraft()                → Draft persistence with undo/redo     │     │
+│  │    └── Survives page refresh!                                       │     │
 │  │                                                                     │     │
 │  │  useRefData(refData)         → Entity reference resolution hook     │     │
 │  │    └── resolveFieldDisplay(fieldMeta, uuid)  → "James Miller"       │     │
@@ -143,15 +141,14 @@
 │                                    │                                         │
 │                                    ▼                                         │
 │  ┌─────────────────────────────────────────────────────────────────────┐     │
-│  │  Zustand Stores (Metadata Only)                                     │     │
+│  │  RxDB Collections (IndexedDB)                                       │     │
 │  ├─────────────────────────────────────────────────────────────────────┤     │
 │  │                                                                     │     │
-│  │  entityComponentMetadataStore   → { viewType, editType } per entity │     │
-│  │  datalabelMetadataStore         → Dropdown options with colors      │     │
-│  │  globalSettingsMetadataStore    → Currency/date formats             │     │
-│  │  entityCodeMetadataStore        → Entity type definitions           │     │
+│  │  entities collection         → All entity instances                 │     │
+│  │  drafts collection           → Unsaved edits with undo/redo         │     │
+│  │  metadata collection         → Datalabels, settings, entity types   │     │
 │  │                                                                     │     │
-│  │  ✗ NO entity data stored here (React Query only)                    │     │
+│  │  ✓ All data persists in IndexedDB (offline-first)                   │     │
 │  │                                                                     │     │
 │  └─────────────────────────────────────────────────────────────────────┘     │
 │                                    │                                         │
@@ -206,24 +203,18 @@
 │                       │                                                      │
 ├───────────────────────┼─────────────────────────────────────────────────────┤
 │                       │                                                      │
-│  SyncProvider         │  • WebSocket connection to PubSub service (v8.4.0)   │
-│  (Frontend)           │  • Handle INVALIDATE → queryClient.invalidateQueries │
+│  RxDBProvider         │  • WebSocket connection to PubSub service (v8.5.0)   │
+│  (Frontend)           │  • Handle INVALIDATE → RxDB refetch + upsert         │
 │                       │  • Auto-reconnect with exponential backoff           │
-│                       │  • Version tracking (prevent stale updates)          │
+│                       │  • Multi-tab sync via LeaderElection                 │
 │                       │                                                      │
 ├───────────────────────┼─────────────────────────────────────────────────────┤
 │                       │                                                      │
-│  React Query          │  • SOLE data cache (RAW data + ref_data_entityInstance)      │
-│                       │  • Stale-while-revalidate fetching                   │
-│                       │  • Format-at-read via select option                  │
-│                       │  • Optimistic updates with rollback                  │
-│                       │  • WebSocket-triggered cache invalidation (v8.4.0)   │
-│                       │                                                      │
-├───────────────────────┼─────────────────────────────────────────────────────┤
-│                       │                                                      │
-│  Zustand Stores       │  • Metadata caching (15m-1h TTL)                     │
-│                       │  • UI state (edit mode, dirty fields)                │
-│                       │  • NO entity data (React Query only)                 │
+│  RxDB (IndexedDB)     │  • SOLE data cache (entities, metadata, drafts)      │
+│                       │  • Offline-first (works without network)             │
+│                       │  • Persistent (survives browser restart)             │
+│                       │  • Reactive (RxJS observables auto-update UI)        │
+│                       │  • Draft persistence with undo/redo                  │
 │                       │                                                      │
 ├───────────────────────┼─────────────────────────────────────────────────────┤
 │                       │                                                      │
