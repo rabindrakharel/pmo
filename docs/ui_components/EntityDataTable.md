@@ -1,100 +1,93 @@
 # EntityDataTable Component
 
-**Version:** 8.5.0 | **Location:** `apps/web/src/components/shared/ui/EntityDataTable.tsx`
-
-> **Note:** As of v8.5.0, EntityDataTable receives data from RxDB (IndexedDB) via the `useEntityInstanceList` hook, which now uses RxDB internally for offline-first storage.
+**Version:** 8.5.0 | **Location:** `apps/web/src/components/shared/ui/EntityDataTable.tsx` | **Updated:** 2025-11-28
 
 ---
 
-## Semantics
+## Overview
 
-EntityDataTable is a universal data table component with **virtualized rendering**, inline editing, sorting, filtering, and pagination. It uses the v8.2.0 `{ viewType, editType }` metadata structure to determine column configuration and rendering.
+EntityDataTable is a universal data table component with **virtualized rendering**, inline editing, sorting, filtering, and pagination. It uses the `{ viewType, editType }` metadata structure from the backend to determine column configuration and rendering.
 
 **Core Principle:** Backend metadata with `{ viewType, editType }` structure controls all columns, rendering, and edit behavior. Frontend is a pure renderer using `extractViewType()` and `extractEditType()` helpers.
 
+**v8.5.0 Key Change:** Data is now provided via RxDB (IndexedDB) through `useRxEntityList` or `useEntityInstanceList` hooks, enabling offline-first storage with instant cache hits.
+
 ---
 
-## System Design Diagram
+## System Design
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                     ENTITY DATA TABLE ARCHITECTURE (v8.2.0)              │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    API Response Structure                        │    │
-│  │  {                                                               │    │
-│  │    data: [...],                                                  │    │
-│  │    metadata: {                                                   │    │
-│  │      entityDataTable: {                                          │    │
-│  │        viewType: { field: { renderType, behavior, style } },     │    │
-│  │        editType: { field: { inputType, validation } }            │    │
-│  │      }                                                           │    │
-│  │    },                                                            │    │
-│  │    datalabels: { ... }                                           │    │
-│  │  }                                                               │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                              │                                          │
-│                              v                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    EntityDataTable                               │    │
-│  │                                                                  │    │
-│  │  const viewType = extractViewType(metadata.entityDataTable);     │    │
-│  │  const editType = extractEditType(metadata.entityDataTable);     │    │
-│  │                                                                  │    │
-│  │  ┌─────────────────────────────────────────────────────────┐    │    │
-│  │  │  Header Row (Sticky)                                     │    │    │
-│  │  │  [Column titles from viewType[key].label]               │    │    │
-│  │  │  [Sort indicators, filter icons]                         │    │    │
-│  │  └─────────────────────────────────────────────────────────┘    │    │
-│  │                                                                  │    │
-│  │  ┌─────────────────────────────────────────────────────────┐    │    │
-│  │  │  Virtualized Rows (@tanstack/react-virtual)              │    │    │
-│  │  │  ─────────────────────────────────────────────────────   │    │    │
-│  │  │  Only visible rows rendered in DOM (3 row overscan)      │    │    │
-│  │  │                                                           │    │    │
-│  │  │  ┌─────────────────────────────────────────────────┐    │    │    │
-│  │  │  │ VIEW MODE: row.display[key] (pre-formatted)     │    │    │    │
-│  │  │  │            row.styles[key] (CSS classes)        │    │    │    │
-│  │  │  └─────────────────────────────────────────────────┘    │    │    │
-│  │  │  ┌─────────────────────────────────────────────────┐    │    │    │
-│  │  │  │ EDIT MODE: renderEditModeFromMetadata(          │    │    │    │
-│  │  │  │              row.raw[key], editType[key])       │    │    │    │
-│  │  │  └─────────────────────────────────────────────────┘    │    │    │
-│  │  │                                                           │    │    │
-│  │  │  Threshold: >50 rows → virtualized                       │    │    │
-│  │  │             ≤50 rows → regular rendering                 │    │    │
-│  │  └─────────────────────────────────────────────────────────┘    │    │
-│  │                                                                  │    │
-│  │  ┌─────────────────────────────────────────────────────────┐    │    │
-│  │  │  Pagination (Client-side slicing)                        │    │    │
-│  │  │  [Page numbers, page size selector: 100/500/1000/2000]   │    │    │
-│  │  └─────────────────────────────────────────────────────────┘    │    │
-│  │                                                                  │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     ENTITY DATA TABLE ARCHITECTURE (v8.5.0)                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                    Data Source (RxDB → IndexedDB)                    │    │
+│  │                                                                      │    │
+│  │  useRxEntityList('project') or useEntityInstanceList('project')     │    │
+│  │    ├── Instant from IndexedDB (if cached)                           │    │
+│  │    └── Background fetch if stale (>30s)                             │    │
+│  │                                                                      │    │
+│  │  Returns: { data, refData, metadata, isLoading, isStale }           │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                              │                                              │
+│                              v                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                    EntityDataTable                                   │    │
+│  │                                                                      │    │
+│  │  const viewType = extractViewType(metadata.entityDataTable);        │    │
+│  │  const editType = extractEditType(metadata.entityDataTable);        │    │
+│  │                                                                      │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │  Header Row (Sticky)                                         │    │    │
+│  │  │  [Column titles from viewType[key].label]                    │    │    │
+│  │  │  [Sort indicators, filter icons]                             │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │  Virtualized Rows (@tanstack/react-virtual)                  │    │    │
+│  │  │  ─────────────────────────────────────────────────────────   │    │    │
+│  │  │  Only visible rows rendered in DOM (3 row overscan)          │    │    │
+│  │  │                                                               │    │    │
+│  │  │  ┌─────────────────────────────────────────────────────┐    │    │    │
+│  │  │  │ VIEW MODE: row.display[key] (pre-formatted)         │    │    │    │
+│  │  │  │            row.styles[key] (CSS classes)            │    │    │    │
+│  │  │  └─────────────────────────────────────────────────────┘    │    │    │
+│  │  │  ┌─────────────────────────────────────────────────────┐    │    │    │
+│  │  │  │ EDIT MODE: renderEditModeFromMetadata(              │    │    │    │
+│  │  │  │              row.raw[key], editType[key])           │    │    │    │
+│  │  │  └─────────────────────────────────────────────────────┘    │    │    │
+│  │  │                                                               │    │    │
+│  │  │  Threshold: >50 rows → virtualized                           │    │    │
+│  │  │             ≤50 rows → regular rendering                     │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │  Pagination (Client-side slicing)                            │    │    │
+│  │  │  [Page numbers, page size selector: 100/500/1000/2000]       │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Props Interface (v8.2.0)
+## Props Interface
 
 ```typescript
 import type { FormattedRow } from '@/lib/formatters';
 
 export interface EntityDataTableProps<T = any> {
-  /** Entity records (FormattedRow[] from useFormattedEntityList) */
+  /** Entity records (FormattedRow[] or raw T[]) */
   data: T[];
 
-  /** Backend metadata with { viewType, editType } structure (REQUIRED) */
+  /** Backend metadata with { entityDataTable: { viewType, editType } } (REQUIRED) */
   metadata?: EntityMetadata | null;
 
-  /** Datalabel options from API (for dropdowns and DAG viz) */
-  datalabels?: any[];
-
-  /** Legacy explicit columns (fallback only - avoid in new code) */
-  columns?: Column<T>[];
+  /** Reference data for entity lookups (from API response) */
+  refData?: Record<string, Record<string, string>>;
 
   /** Loading state */
   loading?: boolean;
@@ -115,11 +108,14 @@ export interface EntityDataTableProps<T = any> {
   /** Row click handler */
   onRowClick?: (record: T) => void;
 
-  /** Inline edit handler */
+  /** Inline edit handler (cell-level) */
   onInlineEdit?: (recordId: string, fieldKey: string, value: any) => void;
 
   /** Enable inline editing mode */
   inlineEditable?: boolean;
+
+  /** Allow adding rows via inline form */
+  allowAddRow?: boolean;
 
   /** Row selection */
   selectable?: boolean;
@@ -127,13 +123,13 @@ export interface EntityDataTableProps<T = any> {
   onSelectionChange?: (ids: string[]) => void;
 }
 
-// EntityMetadata from API response (v8.2.0)
+// Metadata structure from API (v8.5.0)
 interface EntityMetadata {
   entityDataTable: ComponentMetadata;
   entityFormContainer?: ComponentMetadata;
+  fields?: string[];  // Field ordering
 }
 
-// ComponentMetadata structure (v8.2.0 - REQUIRED)
 interface ComponentMetadata {
   viewType: Record<string, ViewFieldMetadata>;
   editType: Record<string, EditFieldMetadata>;
@@ -142,7 +138,7 @@ interface ComponentMetadata {
 
 ---
 
-## Metadata Types (v8.2.0)
+## Metadata Types
 
 ### ViewFieldMetadata
 
@@ -150,7 +146,8 @@ interface ComponentMetadata {
 interface ViewFieldMetadata {
   dtype: 'str' | 'float' | 'int' | 'bool' | 'uuid' | 'date' | 'timestamp' | 'jsonb';
   label: string;
-  renderType: string;     // 'text', 'currency', 'date', 'badge', 'boolean', 'dag', etc.
+  renderType: string;     // 'text', 'currency', 'date', 'badge', 'boolean', 'component', etc.
+  component?: string;     // Component name when renderType='component' (e.g., 'DAGVisualizer')
   behavior: {
     visible?: boolean;    // Show in table
     sortable?: boolean;   // Allow sorting
@@ -163,6 +160,7 @@ interface ViewFieldMetadata {
     symbol?: string;      // Currency symbol
     decimals?: number;    // Decimal places
   };
+  lookupEntity?: string;  // For entity reference fields
   datalabelKey?: string;  // For badge/select fields
 }
 ```
@@ -173,7 +171,7 @@ interface ViewFieldMetadata {
 interface EditFieldMetadata {
   dtype: string;
   label: string;
-  inputType: string;      // 'text', 'number', 'select', 'date', 'checkbox', etc.
+  inputType: string;      // 'text', 'number', 'select', 'date', 'checkbox', 'BadgeDropdownSelect', etc.
   behavior: {
     editable?: boolean;   // Allow editing
   };
@@ -191,19 +189,18 @@ interface EditFieldMetadata {
 
 ---
 
-## Data Flow Diagram (v8.2.0)
+## Data Flow
+
+### Column Generation
 
 ```
-Column Generation Flow
-──────────────────────
-
 Backend Metadata                     extractViewType()           Processed Columns
 ────────────────                     ─────────────────           ─────────────────
 
 metadata.entityDataTable: {    →    viewType = extractViewType   →   columns: [
   viewType: {                         (metadata.entityDataTable)       {
     budget_amt: {                                                        key: 'budget_amt',
-      dtype: 'float',                 // v8.2.0: REQUIRED               title: 'Budget',
+      dtype: 'float',                 // REQUIRED                        title: 'Budget',
       label: 'Budget',                // Returns viewType or null        render: () =>
       renderType: 'currency',         // Logs error if invalid             row.display[key]
       behavior: { visible: true },                                      }
@@ -212,26 +209,26 @@ metadata.entityDataTable: {    →    viewType = extractViewType   →   columns
   },
   editType: { ... }
 }
+```
 
+### Format-at-Read Pattern
 
-Format-at-Read Flow
-───────────────────
+```
+RxDB (IndexedDB)         formatDataset()              Component Receives
+────────────────         ───────────────              ──────────────────
 
-API Response            React Query select           Component Receives
-────────────            ──────────────────           ──────────────────
+{ data: [          →     Uses viewType to format  →   FormattedRow[] = [
+  { budget_amt:          each field                     {
+    50000 }                                              raw: { budget_amt: 50000 },
+] }                                                      display: { budget_amt: '$50,000.00' },
+                                                         styles: {}
+                                                        }
+                                                       ]
+```
 
-{ data: [         →     formatDataset(data,    →     FormattedRow[] = [
-  { budget_amt:           metadata.entityDataTable)    {
-    50000 }              ↓                              raw: { budget_amt: 50000 },
-] }                     Uses viewType to format        display: { budget_amt: '$50,000.00' },
-                        each field                      styles: {}
-                                                       }
-                                                      ]
+### Cell Rendering
 
-
-Cell Rendering Flow (v8.2.0)
-────────────────────────────
-
+```
 VIEW MODE:                              EDIT MODE:
 ──────────                              ─────────
 
@@ -250,101 +247,42 @@ if (formatted.styles[key]) {                   onChange
 
 ---
 
-## Component Implementation (v8.2.0)
+## Inline Editing (Airtable-style v8.4.0)
 
-### Column Generation with Extractors
+### Behavior
 
-```typescript
-import { extractViewType, extractEditType, isValidComponentMetadata } from '@/lib/formatters';
+| Interaction | Action |
+|-------------|--------|
+| Single-click on editable cell | Instant inline edit of THAT cell only |
+| Click outside / Tab / Enter | Auto-save and exit edit mode |
+| Escape | Cancel without saving |
+| Edit icon (✏️) | Fallback - edits entire row |
+| 'E' key when row focused | Enter row edit mode |
+| Tab | Navigate to next editable cell |
+| Cmd+Z / Ctrl+Z | Undo last change with toast |
 
-// Inside EntityDataTable
-const processedColumns = useMemo(() => {
-  // Get component-specific metadata
-  const componentMetadata = metadata?.entityDataTable;
-
-  if (!componentMetadata || !isValidComponentMetadata(componentMetadata)) {
-    console.error('[EntityDataTable] Invalid metadata - backend must send { viewType, editType }');
-    return [];
-  }
-
-  // v8.2.0: Use extractors to get viewType and editType
-  const viewType = extractViewType(componentMetadata);
-  const editType = extractEditType(componentMetadata);
-
-  if (!viewType) {
-    console.error('[EntityDataTable] No viewType in metadata');
-    return [];
-  }
-
-  // Get field order from fields array if available
-  const fieldOrder = (metadata as any)?.fields || Object.keys(viewType);
-
-  return fieldOrder
-    .filter((fieldKey: string) => {
-      const fieldMeta = viewType[fieldKey];
-      return fieldMeta?.behavior?.visible === true;
-    })
-    .map((fieldKey: string) => {
-      const viewMeta = viewType[fieldKey];
-      const editMeta = editType?.[fieldKey];
-
-      return {
-        key: fieldKey,
-        title: viewMeta.label,
-        width: viewMeta.style?.width,
-        align: viewMeta.style?.align,
-        sortable: viewMeta.behavior?.sortable,
-        filterable: viewMeta.behavior?.filterable,
-        editable: editMeta?.behavior?.editable ?? false,
-        renderType: viewMeta.renderType,
-        inputType: editMeta?.inputType ?? 'text',
-        datalabelKey: viewMeta.datalabelKey,
-      };
-    });
-}, [metadata]);
-```
-
-### Cell Rendering
+### Implementation
 
 ```typescript
-// VIEW MODE - uses pre-formatted FormattedRow
-const formattedRecord = record as FormattedRow<any>;
-
-if (formattedRecord.display && formattedRecord.styles !== undefined) {
-  const displayValue = formattedRecord.display[column.key];
-  const styleClass = formattedRecord.styles[column.key];
-
-  // Badge field (has style class)
-  if (styleClass) {
-    return (
-      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${styleClass}`}>
-        {displayValue}
-      </span>
-    );
+// Cell-level editing
+const handleCellClick = (record, columnKey) => {
+  if (isEditable(columnKey)) {
+    setEditingCell({ rowId: record.id, columnKey });
   }
+};
 
-  // Regular field
-  return <span>{displayValue}</span>;
-}
-
-
-// EDIT MODE - uses editType metadata
-const editType = extractEditType(metadata.entityDataTable);
-const editMeta = editType[column.key];
-
-// v8.2.0: Backend metadata required - minimal fallback for text input
-const metadata = editMeta || { inputType: 'text', label: column.key };
-
-return renderEditModeFromMetadata(
-  formattedRecord.raw[column.key],  // Raw value for editing
-  metadata,
-  (newValue) => handleFieldChange(column.key, newValue)
-);
+// Auto-save on blur
+const handleCellBlur = async () => {
+  if (editingCell && hasChanged) {
+    await onInlineEdit(editingCell.rowId, editingCell.columnKey, newValue);
+  }
+  setEditingCell(null);
+};
 ```
 
 ---
 
-## Virtualization Architecture
+## Virtualization
 
 ### Performance Optimizations
 
@@ -394,27 +332,36 @@ const columnStylesMap = useMemo(() => {
 
 ---
 
-## Usage Example (v8.2.0)
+## Usage Example (v8.5.0)
+
+### With RxDB Hooks
 
 ```typescript
-import { useFormattedEntityList } from '@/lib/hooks/useEntityQuery';
+import { useRxEntityList } from '@/db/rxdb/hooks/useRxEntity';
 import { EntityDataTable } from '@/components/shared/ui/EntityDataTable';
+import { formatDataset } from '@/lib/formatters';
 
 function ProjectListPage() {
-  const { data: queryResult, isLoading } = useFormattedEntityList('project', {
-    limit: 1000,
-  });
+  const {
+    data,           // Raw data from IndexedDB
+    refData,        // Reference lookups
+    metadata,       // Field metadata
+    isLoading,
+    isStale,        // True if data older than 30s
+    refetch,
+  } = useRxEntityList<Project>('project', { limit: 1000 });
 
-  // queryResult contains:
-  // - formattedData: FormattedRow[] (via select transform)
-  // - metadata: { entityDataTable: { viewType, editType } }
-  const formattedData = queryResult?.formattedData || [];
-  const metadata = queryResult?.metadata;
+  // Format data for display
+  const formattedData = useMemo(() => {
+    if (!data.length) return [];
+    return formatDataset(data, metadata?.entityDataTable);
+  }, [data, metadata]);
 
   return (
     <EntityDataTable
       data={formattedData}
       metadata={metadata}
+      refData={refData}
       loading={isLoading}
       onRowClick={(record) => navigate(`/project/${record.raw.id}`)}
       onInlineEdit={async (id, key, value) => {
@@ -432,76 +379,103 @@ function ProjectListPage() {
 }
 ```
 
+### With Compatibility Hooks
+
+```typescript
+import { useFormattedEntityList } from '@/lib/hooks/useEntityQuery';
+
+function ProjectListPage() {
+  // Uses RxDB internally, maintains React Query API
+  const { data: formattedData, metadata, isLoading } = useFormattedEntityList('project', {
+    limit: 1000,
+  });
+
+  return (
+    <EntityDataTable
+      data={formattedData}
+      metadata={metadata}
+      loading={isLoading}
+      // ... other props
+    />
+  );
+}
+```
+
 ---
 
 ## Field Type Mapping
 
 | viewType.renderType | View Display | editType.inputType | Edit Component |
 |---------------------|--------------|--------------------| ---------------|
-| `currency` | `$50,000.00` (right-aligned) | `number` | `<input type="number">` |
-| `badge` | `<Badge>` with color | `select` | `<DataLabelSelect>` |
+| `currency` | `$50,000.00` (right-aligned) | `currency` | `<input type="number">` |
+| `badge` | `<Badge>` with color | `BadgeDropdownSelect` | `<BadgeDropdownSelect>` |
 | `date` | `Jan 15, 2025` | `date` | `<input type="date">` |
 | `boolean` | Check/X icon | `checkbox` | `<input type="checkbox">` |
-| `reference` | Entity name | `select` | `<EntitySelect>` |
+| `entityInstanceId` | Entity name (from refData) | `entityInstanceId` | `<EntitySelect>` |
 | `text` | Plain text | `text` | `<input type="text">` |
-| `dag` | Visual progress path | `select` | `<DAGVisualizer>` |
+| `component` | Custom component | Varies | `<DAGVisualizer>`, etc. |
 
 ---
 
 ## User Interaction Flow
 
 ```
-Table Load Flow (v8.2.0)
+Table Load Flow (v8.5.0)
 ────────────────────────
 
 1. Page component mounts
    │
-2. useFormattedEntityList fetches GET /api/v1/project?limit=1000
+2. useRxEntityList('project') queries IndexedDB
    │
-3. API returns { data, metadata: { entityDataTable: { viewType, editType } } }
+   ├── [Cache HIT] → Instant data, isLoading=false
+   │                  Check staleness, background refresh if >30s
    │
-4. React Query caches RAW data
+   └── [Cache MISS] → ReplicationManager.fetchEntityList()
+                      │
+                      v
+3. API returns { data, ref_data_entityInstance, metadata }
    │
-5. select: formatDataset() transforms to FormattedRow[]
-   │   (Uses viewType for formatting)
+4. ReplicationManager stores in RxDB (IndexedDB)
    │
-6. EntityDataTable receives FormattedRow[] + metadata
+5. RxDB reactive query emits → component re-renders
    │
-7. const viewType = extractViewType(metadata.entityDataTable)
+6. formatDataset() transforms to FormattedRow[]
+   │
+7. EntityDataTable receives FormattedRow[] + metadata
+   │
+8. const viewType = extractViewType(metadata.entityDataTable)
    const editType = extractEditType(metadata.entityDataTable)
    │
-8. Columns built from viewType (visible, sortable, label, etc.)
+9. Columns built from viewType (visible, sortable, label, etc.)
    │
-9. View cells: row.display[key], row.styles[key]
-   Edit cells: renderEditModeFromMetadata(row.raw[key], editType[key])
+10. View cells: row.display[key], row.styles[key]
+    Edit cells: renderEditModeFromMetadata(row.raw[key], editType[key])
 
 
 Inline Edit Flow
 ────────────────
 
-1. User clicks Edit icon on row
+1. User clicks cell (or Edit icon)
    │
-2. setEditingRowId(row.id)
+2. setEditingCell({ rowId, columnKey })
    │
-3. editType = extractEditType(metadata.entityDataTable)
-   │
-4. Row re-renders in edit mode:
+3. Cell re-renders in edit mode:
    renderEditModeFromMetadata(row.raw[key], editType[key], onChange)
    │
-5. User modifies values
+4. User modifies value
    │
-6. User clicks Save → onInlineEdit(rowId, key, value)
+5. User clicks away / Tab / Enter → onInlineEdit(rowId, key, value)
    │
-7. PATCH /api/v1/project/:id
+6. PATCH /api/v1/project/:id
    │
-8. Query invalidation, table refetches
+7. RxDB upsert → Reactive query emits → UI updates
 ```
 
 ---
 
 ## Critical Considerations
 
-### Design Principles (v8.2.0)
+### Design Principles (v8.5.0)
 
 1. **extractViewType()** - Always use helper to access viewType
 2. **extractEditType()** - Always use helper to access editType
@@ -509,12 +483,14 @@ Inline Edit Flow
 4. **Raw Values** - Edit mode uses `row.raw[key]` for original values
 5. **Backend Required** - Metadata must contain `{ viewType, editType }`
 6. **Virtualized** - Auto-activates for >50 rows
+7. **RxDB Cache** - Data persists in IndexedDB, survives page refresh
 
 ### Anti-Patterns
 
 | Anti-Pattern | Correct Approach |
 |--------------|------------------|
-| Direct `metadata.viewType` access | Use `extractViewType(metadata)` |
+| Direct `metadata.viewType` access | Use `extractViewType(metadata.entityDataTable)` |
+| Direct `metadata.editType` access | Use `extractEditType(metadata.entityDataTable)` |
 | Frontend pattern detection | Backend sends complete metadata |
 | Custom render per field | Use `row.display[key]` from FormattedRow |
 | Hardcoded columns | Use `viewType` from backend |
@@ -522,4 +498,22 @@ Inline Edit Flow
 
 ---
 
-**Last Updated:** 2025-11-26 | **Version:** 8.2.0 | **Status:** Production Ready
+## Related Documents
+
+| Document | Purpose |
+|----------|---------|
+| `docs/ui_page/PAGE_ARCHITECTURE.md` | Page components and routing |
+| `docs/ui_page/Layout_Component_Architecture.md` | Component hierarchy |
+| `docs/state_management/STATE_MANAGEMENT.md` | RxDB + React Query + Zustand |
+| `docs/caching/RXDB_SYNC_ARCHITECTURE.md` | WebSocket sync + caching |
+
+---
+
+**Version:** 8.5.0 | **Last Updated:** 2025-11-28 | **Status:** Production
+
+**Recent Updates:**
+- v8.5.0 (2025-11-28): RxDB offline-first data source, IndexedDB persistent storage
+- v8.4.0 (2025-11-27): WebSocket real-time updates via PubSub invalidation
+- v8.3.2 (2025-11-27): BadgeDropdownSelect for datalabel fields
+- v8.3.0 (2025-11-26): ref_data_entityInstance pattern for entity resolution
+- v8.2.0 (2025-11-25): Format-at-read pattern with FormattedRow

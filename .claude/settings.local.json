@@ -249,7 +249,10 @@
       "Bash(nvm install:*)",
       "Bash(npm:*)",
       "Bash(/dev/null source ~/.nvm/nvm.sh)",
-      "Bash(/tmp/check-dag-metadata.sh)"
+      "Bash(/tmp/check-dag-metadata.sh)",
+      "Bash(pnpm why:*)",
+      "Bash(pnpm list:*)",
+      "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" JWT_SECRET=\"dev-secret-key-change-in-production\" timeout 5 pnpm dev:*)"
     ],
     "deny": [],
     "ask": [],

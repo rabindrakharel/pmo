@@ -187,17 +187,21 @@ export class ReplicationManager {
 
     try {
       const response = await apiClient.get(`/api/v1/${entityCode}/${entityId}`);
-      const { data, metadata, ref_data_entityInstance } = response;
+      // apiClient.get returns AxiosResponse, data is in response.data
+      const apiResponse = response.data;
+      const { data, metadata, ref_data_entityInstance } = apiResponse;
 
+      // Store full metadata structure (API sends { entityDataTable: { viewType, editType } })
+      // Downstream consumers expect metadata.entityDataTable.viewType format
       const doc: EntityDocType = {
         _id: createEntityId(entityCode, entityId),
         entityCode,
         id: entityId,
-        data: data || response,
+        data: data || apiResponse,
         refData: ref_data_entityInstance,
-        metadata,
-        _version: data?.version || 1,
-        _syncedAt: Date.now(),
+        metadata: metadata,
+        version: data?.version || 1,
+        syncedAt: Date.now(),
         _deleted: false,
       };
 
@@ -227,8 +231,12 @@ export class ReplicationManager {
 
     try {
       const response = await apiClient.get(`/api/v1/${entityCode}`, { params });
-      const { data, metadata, ref_data_entityInstance } = response;
+      // apiClient.get returns AxiosResponse, data is in response.data
+      const apiResponse = response.data;
+      const { data, metadata, ref_data_entityInstance } = apiResponse;
 
+      // Store full metadata structure (API sends { entityDataTable: { viewType, editType } })
+      // Downstream consumers expect metadata.entityDataTable.viewType format
       const docs: EntityDocType[] = [];
       const entityIds: string[] = [];
 
@@ -242,9 +250,9 @@ export class ReplicationManager {
           id: entityId,
           data: item,
           refData: ref_data_entityInstance,
-          metadata,
-          _version: item.version || 1,
-          _syncedAt: Date.now(),
+          metadata: metadata,
+          version: item.version || 1,
+          syncedAt: Date.now(),
           _deleted: false,
         };
 
@@ -290,8 +298,8 @@ export class ReplicationManager {
         entityCode,
         id: entityId,
         data: updatedData,
-        _version: updatedData.version || 1,
-        _syncedAt: Date.now(),
+        version: updatedData.version || 1,
+        syncedAt: Date.now(),
         _deleted: false,
       };
 

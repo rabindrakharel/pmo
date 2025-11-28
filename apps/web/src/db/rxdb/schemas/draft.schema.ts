@@ -42,7 +42,7 @@ export interface DraftDocType {
  * RxDB Schema for drafts collection
  */
 export const draftSchema: RxJsonSchema<DraftDocType> = {
-  version: 0,
+  version: 0,  // Reset to 0 with SCHEMA_VERSION='v2' in database.ts
   primaryKey: '_id',
   type: 'object',
   properties: {
@@ -96,10 +96,14 @@ export const draftSchema: RxJsonSchema<DraftDocType> = {
     createdAt: {
       type: 'integer',
       minimum: 0,
+      maximum: 9007199254740991,  // Number.MAX_SAFE_INTEGER
+      multipleOf: 1,
     },
     updatedAt: {
       type: 'integer',
       minimum: 0,
+      maximum: 9007199254740991,  // Number.MAX_SAFE_INTEGER
+      multipleOf: 1,
     },
     _deleted: {
       type: 'boolean',

@@ -1,9 +1,9 @@
-# RxDB Real-Time Sync Architecture
+# RxDB Offline-First Cache & PubSub Real-Time Sync Architecture
 
-> Offline-first, persistent storage with WebSocket real-time sync
+> Comprehensive guide to offline-first storage with WebSocket real-time synchronization
 
-**Version**: 4.0
-**Date**: 2025-11-27
+**Version**: 5.0
+**Date**: 2025-11-28
 **Status**: Implemented
 **Deployment**: Single-pod (<500 concurrent users)
 
@@ -11,188 +11,640 @@
 
 ## Table of Contents
 
-1. [Executive Summary](#executive-summary)
-2. [System Architecture](#system-architecture)
-3. [Component Architecture](#component-architecture)
-4. [Interface Definitions](#interface-definitions)
-5. [End-to-End Flow](#end-to-end-flow)
-6. [Sequence Diagrams](#sequence-diagrams)
-7. [Database Schema](#database-schema)
-8. [Code Implementation](#code-implementation)
-9. [Sample Payloads](#sample-payloads)
-10. [Deployment](#deployment)
+1. [Executive Summary](#1-executive-summary)
+2. [System Architecture](#2-system-architecture)
+3. [Database Tables](#3-database-tables)
+4. [PubSub WebSocket Service](#4-pubsub-websocket-service)
+5. [Frontend Caching (RxDB)](#5-frontend-caching-rxdb)
+6. [Cache Invalidation Flow](#6-cache-invalidation-flow)
+7. [End-to-End Sequence Diagrams](#7-end-to-end-sequence-diagrams)
+8. [WebSocket Protocol](#8-websocket-protocol)
+9. [Code Implementation](#9-code-implementation)
+10. [Deployment](#10-deployment)
 
 ---
 
 ## 1. Executive Summary
 
-This architecture implements **offline-first, persistent storage** using **RxDB with IndexedDB**, combined with **WebSocket-based real-time sync**. Data survives page refresh and browser restart. Unsaved edits persist through refreshes.
+This architecture implements **offline-first, persistent storage** using **RxDB with IndexedDB**, combined with **WebSocket-based real-time sync** via a dedicated **PubSub service**.
+
+### Design Pattern: Invalidation-Based Sync
+
+```
++---------------------------------------------------------------------------+
+|                         DESIGN PATTERN                                     |
++---------------------------------------------------------------------------+
+|                                                                            |
+|   Pattern: INVALIDATION-BASED SYNC (not full replication)                 |
+|                                                                            |
+|   1. Client caches data in RxDB (IndexedDB)                               |
+|   2. Server pushes INVALIDATE messages when data changes                  |
+|   3. Client re-fetches via REST API (RBAC re-validated)                   |
+|   4. RxDB updates -> UI auto-refreshes (reactive queries)                 |
+|                                                                            |
+|   Why Invalidation vs Full Replication?                                   |
+|   +-- Simpler: Reuses existing REST API endpoints                         |
+|   +-- Secure: RBAC checked on every refetch                               |
+|   +-- Efficient: Only changed entities fetched                            |
+|   +-- Offline-first: IndexedDB persists across browser restart            |
+|                                                                            |
++---------------------------------------------------------------------------+
+```
 
 ### Key Design Decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Client Storage | RxDB + IndexedDB | Offline-first, persistent, multi-tab sync |
-| Sync Strategy | Invalidation-based | Reuse existing REST API, RBAC checked on refetch |
-| Subscription Storage | PostgreSQL table | Persistent across restarts, easy debugging |
-| Change Detection | Polling (60s) | Simple, reliable, low overhead |
-| WebSocket Protocol | Custom JSON | Lighter than full replication protocol |
-| Draft Persistence | RxDB drafts collection | Unsaved edits survive page refresh |
+| Sync Strategy | Invalidation-based | Reuse REST API, RBAC checked on refetch |
+| Subscription Storage | PostgreSQL table (`app.rxdb_subscription`) | Persistent, multi-pod support, no Redis |
+| Change Detection | Polling (60s) via `app.logging` | Simple, reliable, low overhead |
+| WebSocket Protocol | Custom JSON messages | Lighter than full replication protocol |
 
 ### Key Benefits
 
 | Benefit | Description |
 |---------|-------------|
-| **Offline-First** | Works without network connection |
-| **Persistent** | Data survives browser restart (IndexedDB) |
-| **Multi-Tab** | Changes sync across browser tabs automatically |
-| **Draft Persistence** | Unsaved edits survive page refresh |
+| **Offline-First** | Data persists in IndexedDB, works without network |
+| **Multi-Tab Sync** | Changes sync across browser tabs via shared IndexedDB |
 | **Real-Time** | WebSocket push for instant updates |
-| **Reactive** | Queries auto-update when data changes |
-
-### Architecture Summary
-
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                              SYSTEM FLOW                                  │
-├──────────────────────────────────────────────────────────────────────────┤
-│                                                                           │
-│   1. Client loads entities via REST API → stores in RxDB (IndexedDB)     │
-│   2. ReplicationManager subscribes via WebSocket                          │
-│   3. Entity changes logged to app.logging table (database triggers)       │
-│   4. LogWatcher polls every 60s, finds subscribers in app.rxdb_subscription│
-│   5. PubSub pushes INVALIDATE to subscribed WebSocket connections         │
-│   6. ReplicationManager re-fetches → updates RxDB → UI auto-updates      │
-│   7. All tabs see changes via RxDB's shared IndexedDB storage             │
-│                                                                           │
-└──────────────────────────────────────────────────────────────────────────┘
-```
+| **Reactive** | RxDB queries auto-update when data changes |
+| **Draft Persistence** | Unsaved edits survive page refresh |
 
 ---
 
 ## 2. System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              FRONTEND (Browser)                              │
-│                                                                              │
-│   ┌──────────────────┐    ┌─────────────────┐    ┌──────────────────────┐   │
-│   │   RxDB           │◄──►│ ReplicationMgr  │◄──►│  React Components    │   │
-│   │   (IndexedDB)    │    │   (WebSocket)   │    │  (reactive queries)  │   │
-│   │                  │    │                 │    │                      │   │
-│   │  ┌────────────┐  │    └────────┬────────┘    └──────────────────────┘   │
-│   │  │ entities   │  │             │                                         │
-│   │  │ drafts     │  │             │ subscribe/unsubscribe                   │
-│   │  │ metadata   │  │             │ INVALIDATE messages                     │
-│   │  └────────────┘  │             │                                         │
-│   └────────┬─────────┘             │                                         │
-│            │                       │                                         │
-│            │ persistent            │                                         │
-│            │ (survives refresh)    │                                         │
-└────────────┼───────────────────────┼─────────────────────────────────────────┘
-             │                       │
-             │ REST API              │ WebSocket
-             │ (HTTPS)               │ (WSS)
-             ▼                       ▼
-┌─────────────────────────────┐   ┌─────────────────────────────────────────┐
-│         REST API            │   │           PubSub Service                 │
-│        (Fastify)            │   │         (Separate Process)               │
-│                             │   │                                          │
-│   GET/POST/PATCH/DELETE     │   │   ┌─────────────┐  ┌─────────────────┐  │
-│   /api/v1/*                 │   │   │  WebSocket  │  │   LogWatcher    │  │
-│                             │   │   │   Server    │  │  (60s polling)  │  │
-│   Port: 4000                │   │   │  Port: 4001 │  │                 │  │
-│                             │   │   └──────┬──────┘  └────────┬────────┘  │
-│   Writes to app.logging     │   │          │                  │           │
-│   via database triggers     │   │          ▼                  │           │
-└─────────────┬───────────────┘   │   ┌─────────────────┐       │           │
-              │                   │   │  Connection     │◄──────┘           │
-              │                   │   │  Manager        │                   │
-              │                   │   └────────┬────────┘                   │
-              │                   └────────────┼────────────────────────────┘
-              │                                │
-              │                                │
-┌─────────────▼────────────────────────────────▼──────────────────────────────┐
-│                           POSTGRESQL (Shared Database)                       │
-│                                                                              │
-│   ┌────────────────┐  ┌────────────────┐  ┌─────────────────────────┐       │
-│   │  app.project   │  │  app.logging   │  │  app.rxdb_subscription  │       │
-│   │  app.task      │  │  (changes)     │  │  (live subscriptions)   │       │
-│   │  app.employee  │  │                │  │                         │       │
-│   │  ... 27 more   │  │                │  │                         │       │
-│   └────────────────┘  └────────────────┘  └─────────────────────────┘       │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘
++---------------------------------------------------------------------------+
+|                              SYSTEM OVERVIEW                               |
++---------------------------------------------------------------------------+
+|                                                                            |
+|  +--------------------------------------------------------------------+   |
+|  |                     BROWSER (Frontend)                              |   |
+|  |                                                                     |   |
+|  |   +---------------+    +-----------------+    +---------------+    |   |
+|  |   |     RxDB      |<-->|  ReplicationMgr |<-->|    React      |    |   |
+|  |   |  (IndexedDB)  |    |   (WebSocket)   |    |  Components   |    |   |
+|  |   |               |    |                 |    |               |    |   |
+|  |   |  +---------+  |    |  * connect()    |    |  useRxEntity  |    |   |
+|  |   |  | entities|  |    |  * subscribe()  |    |  useRxDraft   |    |   |
+|  |   |  | drafts  |  |    |  * handleMsg()  |    |               |    |   |
+|  |   |  | metadata|  |    +--------+--------+    +---------------+    |   |
+|  |   |  +---------+  |             |                                  |   |
+|  |   +-------+-------+             |                                  |   |
+|  |           |                     |                                  |   |
+|  |           | Persists across     | WebSocket (WSS)                  |   |
+|  |           | browser restart     | port 4001                        |   |
+|  |           |                     |                                  |   |
+|  +-----------|---------------------|----------------------------------+   |
+|              |                     |                                      |
+|              | REST API (HTTPS)    |                                      |
+|              | port 4000           |                                      |
+|              v                     v                                      |
+|  +----------------------+   +-------------------------------------+       |
+|  |       REST API       |   |         PubSub Service              |       |
+|  |      (Fastify)       |   |     (Standalone Node.js)            |       |
+|  |                      |   |                                     |       |
+|  |  * GET/POST/PATCH/DEL|   |  +--------------+  +-----------+   |       |
+|  |  * /api/v1/*         |   |  | WebSocket Srv|  | LogWatcher|   |       |
+|  |  * Writes app.logging|   |  | (connections)|  | (60s poll)|   |       |
+|  |    via DB triggers   |   |  +------+-------+  +-----+-----+   |       |
+|  |                      |   |         |               |          |       |
+|  |  Port: 4000          |   |         v               |          |       |
+|  |                      |   |  +--------------+       |          |       |
+|  +----------+-----------+   |  | Connection   |<------+          |       |
+|             |               |  | Manager      |                  |       |
+|             |               |  +--------------+                  |       |
+|             |               |                                     |       |
+|             |               |  Port: 4001                         |       |
+|             |               +-------------+-----------------------+       |
+|             |                             |                               |
+|             +-------------+---------------+                               |
+|                           v                                               |
+|  +--------------------------------------------------------------------+   |
+|  |                     POSTGRESQL (Shared Database)                    |   |
+|  |                                                                     |   |
+|  |  +---------------+  +---------------+  +---------------------+     |   |
+|  |  |  Entity Tables|  |  app.logging  |  | app.rxdb_subscription|     |   |
+|  |  |               |  |               |  |                     |     |   |
+|  |  |  app.project  |  |  * entity_code|  |  * user_id          |     |   |
+|  |  |  app.task     |  |  * entity_id  |  |  * entity_code      |     |   |
+|  |  |  app.employee |  |  * action     |  |  * entity_id        |     |   |
+|  |  |  ... 27 more  |  |  * sync_status|  |  * connection_id    |     |   |
+|  |  |               |  |               |  |                     |     |   |
+|  |  +---------------+  +---------------+  +---------------------+     |   |
+|  |                                                                     |   |
+|  |  Port: 5434                                                         |   |
+|  +--------------------------------------------------------------------+   |
+|                                                                            |
++---------------------------------------------------------------------------+
 ```
 
-### Key Points
+### Process Boundaries
 
-- **REST API (Port 4000)**: Existing Fastify server, handles all CRUD operations
-- **PubSub Service (Port 4001)**: Separate Node.js process for WebSocket connections
-- **Shared Database**: Both services connect to the same PostgreSQL instance
-- **No IPC Required**: PubSub reads `app.logging` table written by REST API triggers
+| Process | Port | Responsibility |
+|---------|------|----------------|
+| **REST API** | 4000 | CRUD operations, business logic, writes to `app.logging` |
+| **PubSub Service** | 4001 | WebSocket connections, subscription management, push notifications |
+| **PostgreSQL** | 5434 | Data storage, shared by both services |
 
 ---
 
-## 3. Component Architecture
+## 3. Database Tables
 
-### 3.1 Backend Components
+### 3.1 Logging Table (`app.logging`)
+
+**Purpose**: Audit trail of all entity changes. LogWatcher polls this for sync.
+
+**DDL**: `db/04_logging.ddl`
+
+```sql
+CREATE TABLE app.logging (
+    id UUID DEFAULT gen_random_uuid(),
+
+    -- Actor (WHO)
+    fname VARCHAR(100),
+    lname VARCHAR(100),
+    username VARCHAR(255),
+    person_type VARCHAR(50),  -- 'employee', 'customer', 'system', 'guest'
+
+    -- Target Entity (WHAT)
+    entity_code VARCHAR(100),  -- 'project', 'task', 'employee', etc.
+    entity_id UUID,
+
+    -- Action (HOW)
+    action SMALLINT CHECK (action >= 0 AND action <= 5),
+    -- 0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER
+
+    -- Timestamps
+    updated TIMESTAMPTZ DEFAULT now(),
+    created_ts TIMESTAMPTZ DEFAULT now(),
+
+    -- State Snapshots (optional, for audit)
+    entity_from_version JSONB,
+    entity_to_version JSONB,
+
+    -- Security Context
+    user_agent TEXT,
+    ip INET,
+    device_name VARCHAR(255),
+    log_source VARCHAR(50) DEFAULT 'api',
+
+    -- PubSub Sync Tracking
+    sync_status VARCHAR(20) DEFAULT 'pending',  -- 'pending', 'sent', 'failed'
+    sync_processed_ts TIMESTAMPTZ
+);
+
+-- Index for LogWatcher polling
+CREATE INDEX idx_logging_sync_status
+    ON app.logging(sync_status)
+    WHERE sync_status = 'pending';
+
+-- Index for entity-based lookups
+CREATE INDEX idx_logging_entity
+    ON app.logging(entity_code, entity_id);
+```
+
+### 3.2 Subscription Table (`app.rxdb_subscription`)
+
+**Purpose**: Track live WebSocket subscriptions. Database-backed (no Redis needed).
+
+**DDL**: `db/XXXVI_rxdb_subscription.ddl`
+
+```sql
+CREATE TABLE app.rxdb_subscription (
+    user_id UUID NOT NULL,
+    entity_code VARCHAR(100) NOT NULL,
+    entity_id UUID NOT NULL,
+    connection_id VARCHAR(50) NOT NULL,
+    subscribed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    PRIMARY KEY (user_id, entity_code, entity_id)
+);
+
+-- LogWatcher query: "Who subscribes to this entity?"
+CREATE INDEX idx_rxdb_subscription_entity
+    ON app.rxdb_subscription(entity_code, entity_id);
+
+-- Cleanup on disconnect
+CREATE INDEX idx_rxdb_subscription_connection
+    ON app.rxdb_subscription(connection_id);
+```
+
+### Why Database Instead of In-Memory?
+
+| Aspect | In-Memory Map | Database Table |
+|--------|---------------|----------------|
+| **Multi-pod** | Needs Redis to sync | Works natively |
+| **Server restart** | Lost | Survives (with cleanup) |
+| **Debugging** | Console logs only | SQL queries |
+| **Latency** | ~0ms | ~1-5ms |
+
+**Decision**: Database table eliminates Redis entirely.
+
+### 3.3 Subscription SQL Functions
+
+```sql
+-- Subscribe to multiple entities at once (bulk operation)
+SELECT app.bulk_subscribe(
+    'user-uuid'::UUID,
+    'conn-123',
+    'project',
+    ARRAY['uuid-1', 'uuid-2', ...]::UUID[]
+);
+
+-- Find subscribers for changed entities (LogWatcher uses this)
+SELECT * FROM app.get_batch_subscribers(
+    'project',
+    ARRAY['uuid-1', 'uuid-2', 'uuid-3']::UUID[]
+);
+-- Returns: user_id | connection_id | subscribed_entity_ids[]
+
+-- Cleanup on disconnect
+SELECT app.cleanup_connection_subscriptions('conn-123');
+
+-- Cleanup stale subscriptions (daily cron)
+SELECT app.cleanup_stale_subscriptions(24);  -- Remove >24h old
+```
+
+---
+
+## 4. PubSub WebSocket Service
+
+### 4.1 Service Architecture
+
+**Location**: `apps/pubsub/`
 
 ```
 apps/pubsub/
-├── package.json                     # Dependencies: ws, pg, jsonwebtoken
-├── tsconfig.json
-├── .env.example                     # Environment template
-├── Dockerfile
-└── src/
-    ├── index.ts                     # Entry point
-    ├── server.ts                    # WebSocket server setup
-    ├── db.ts                        # Database connection (shared with REST API)
-    ├── auth.ts                      # JWT verification (same secret as REST API)
-    ├── types.ts                     # TypeScript interfaces
-    └── services/
-        ├── connection-manager.ts    # In-memory WebSocket tracking
-        ├── subscription-manager.ts  # Database subscription CRUD
-        └── log-watcher.ts           # Polls app.logging, pushes invalidations
++-- package.json
++-- src/
+    +-- index.ts                     # Entry point
+    +-- server.ts                    # WebSocket server + HTTP health check
+    +-- db.ts                        # PostgreSQL connection
+    +-- auth.ts                      # JWT verification (same secret as API)
+    +-- types.ts                     # TypeScript interfaces
+    +-- services/
+        +-- connection-manager.ts    # In-memory WebSocket tracking
+        +-- subscription-manager.ts  # Database subscription CRUD
+        +-- log-watcher.ts           # Polls app.logging, pushes INVALIDATE
 ```
 
-### 3.2 Frontend Components
-
-```
-apps/web/src/db/sync/
-├── index.ts                         # Module exports
-├── SyncProvider.tsx                 # React context + WebSocket lifecycle
-├── useAutoSubscribe.ts              # Automatic subscription management
-├── useAutoSubscribeSingle.ts        # Single entity subscription
-└── types.ts                         # TypeScript interfaces
-
-Integration Points:
-├── App.tsx                          # SyncProvider wraps application
-└── lib/hooks/useEntityQuery.ts      # Hooks call useAutoSubscribe
-```
-
-### 3.3 Component Responsibilities
+### 4.2 Component Responsibilities
 
 | Component | Responsibility |
 |-----------|----------------|
-| **SyncProvider** | WebSocket connection lifecycle, message routing, cache invalidation |
-| **useAutoSubscribe** | Subscribe/unsubscribe based on entity IDs in view |
-| **ConnectionManager** | Track WebSocket connections in memory (pod-local) |
-| **SubscriptionManager** | CRUD operations on `app.rxdb_subscription` table |
-| **LogWatcher** | Poll `app.logging`, find subscribers, push INVALIDATE messages |
+| **ConnectionManager** | In-memory map of `connectionId -> WebSocket` |
+| **SubscriptionManager** | CRUD on `app.rxdb_subscription` table |
+| **LogWatcher** | Poll `app.logging` every 60s, push INVALIDATE to subscribers |
+
+### 4.3 LogWatcher Flow
+
+```
++---------------------------------------------------------------------------+
+|                         LOG WATCHER FLOW (Every 60s)                       |
++---------------------------------------------------------------------------+
+|                                                                            |
+|   1. Poll app.logging for pending changes                                 |
+|      +----------------------------------------------------------------+   |
+|      | SELECT DISTINCT ON (entity_code, entity_id)                    |   |
+|      |   id, entity_code, entity_id, action                           |   |
+|      | FROM app.logging                                               |   |
+|      | WHERE sync_status = 'pending' AND action != 0                  |   |
+|      | ORDER BY entity_code, entity_id, created_ts DESC               |   |
+|      | LIMIT 1000                                                     |   |
+|      +----------------------------------------------------------------+   |
+|                                                                            |
+|   2. Group changes by entity_code                                         |
+|      { 'project': ['uuid-1', 'uuid-5'], 'task': ['uuid-100'] }           |
+|                                                                            |
+|   3. Query subscribers from database                                      |
+|      +----------------------------------------------------------------+   |
+|      | SELECT * FROM app.get_batch_subscribers('project',             |   |
+|      |   ARRAY['uuid-1', 'uuid-5']::UUID[])                          |   |
+|      +----------------------------------------------------------------+   |
+|                                                                            |
+|   4. Push INVALIDATE via WebSocket (filtered per user)                    |
+|      -> user-A: INVALIDATE { project: ['uuid-1'] }                       |
+|      -> user-B: INVALIDATE { project: ['uuid-1', 'uuid-5'] }             |
+|                                                                            |
+|   5. Mark logs as processed                                               |
+|      UPDATE app.logging SET sync_status = 'sent' WHERE ...               |
+|                                                                            |
++---------------------------------------------------------------------------+
+```
 
 ---
 
-## 4. Interface Definitions
+## 5. Frontend Caching (RxDB)
 
-### 4.1 Client → Server Messages
+### 5.1 RxDB Collections
+
+**Location**: `apps/web/src/db/rxdb/`
+
+```typescript
+// Entity storage (persistent across browser restart)
+interface EntityDocType {
+  _id: string;              // Composite: "entityCode:entityId"
+  entityCode: string;       // 'project', 'task', etc.
+  id: string;               // Entity UUID
+  data: Record<string, unknown>;           // Raw entity data
+  refData?: Record<string, Record<string, string>>;  // Reference lookups
+  metadata?: Record<string, unknown>;      // Field metadata for rendering
+  version: number;          // Server version for conflict detection
+  syncedAt: number;         // Last sync timestamp (ms)
+  _deleted: boolean;        // Soft delete flag
+}
+
+// Draft storage (unsaved edits survive page refresh)
+interface DraftDocType {
+  _id: string;              // "draft:entityCode:entityId"
+  entityCode: string;
+  entityId: string;
+  originalData: Record<string, unknown>;
+  currentData: Record<string, unknown>;
+  undoStack: UndoEntry[];   // For undo/redo
+  redoStack: UndoEntry[];
+  updatedAt: number;
+}
+```
+
+### 5.2 Schema Version
+
+```typescript
+// apps/web/src/db/rxdb/database.ts
+const SCHEMA_VERSION = 'v4';
+
+// Bumping this forces IndexedDB reset (used for schema migrations)
+// v4: Store full metadata structure (metadata.entityDataTable.viewType)
+```
+
+### 5.3 RxDB Hooks
+
+```typescript
+// Single entity (reactive, auto-refetches on INVALIDATE)
+const { data, isLoading, refetch } = useRxEntity<Project>('project', projectId);
+
+// Entity list
+const { data: projects, total } = useRxEntityList<Project>('project', { limit: 20 });
+
+// Draft persistence (survives page refresh)
+const {
+  hasDraft, currentData, hasChanges,
+  startEdit, updateField, discardDraft,
+  undo, redo, canUndo, canRedo
+} = useRxDraft('project', projectId);
+```
+
+---
+
+## 6. Cache Invalidation Flow
+
+### 6.1 How Invalidation Works
+
+```
++---------------------------------------------------------------------------+
+|                      CACHE INVALIDATION FLOW                               |
++---------------------------------------------------------------------------+
+|                                                                            |
+|   User A (Editor)                                     User B (Viewer)      |
+|   ----------------                                    ----------------     |
+|                                                                            |
+|   1. PATCH /api/v1/project/123                                            |
+|      |                                                                     |
+|   2. API updates app.project                                              |
+|      |                                                                     |
+|   3. DB trigger inserts to app.logging                                    |
+|      { entity_code: 'project', entity_id: '123',                          |
+|        action: 1, sync_status: 'pending' }                                |
+|      |                                                                     |
+|   4. API returns 200 OK to User A                                         |
+|                                                                            |
+|   --------------- 60 seconds later ---------------                        |
+|                                                                            |
+|   5. LogWatcher polls app.logging                                         |
+|      |                                                                     |
+|   6. Queries app.rxdb_subscription:                                       |
+|      "Who subscribes to project/123?"                                     |
+|      |                                                                     |
+|   7. Finds User B is subscribed                      <-                   |
+|      |                                                                     |
+|   8. Pushes INVALIDATE via WebSocket                 ->  User B receives  |
+|      { type: 'INVALIDATE',                              INVALIDATE        |
+|        payload: { entityCode: 'project',                     |            |
+|                   changes: [{ entityId: '123',          9. RxDB marks     |
+|                              action: 'UPDATE' }] }}        entity stale   |
+|      |                                                       |            |
+|   10. Marks logs as 'sent'                              10. Re-fetches    |
+|                                                             GET /project/123
+|                                                              |            |
+|                                                          11. RxDB updates |
+|                                                              UI re-renders|
+|                                                                            |
++---------------------------------------------------------------------------+
+```
+
+### 6.2 ReplicationManager Handling
+
+```typescript
+// apps/web/src/db/rxdb/replication.ts
+
+private handleMessage(event: MessageEvent): void {
+  const message = JSON.parse(event.data);
+
+  switch (message.type) {
+    case 'INVALIDATE':
+      this.handleInvalidate(message.payload);
+      break;
+    case 'PONG':
+      // Heartbeat response
+      break;
+    case 'ERROR':
+      console.error('[Replication] Server error:', message.payload);
+      break;
+  }
+}
+
+private async handleInvalidate(payload: InvalidatePayload): Promise<void> {
+  const { entityCode, changes } = payload;
+
+  for (const change of changes) {
+    if (change.action === 'DELETE') {
+      // Mark as deleted in RxDB
+      await this.markDeleted(entityCode, change.entityId);
+    } else {
+      // Re-fetch from server and update RxDB
+      await this.fetchEntity(entityCode, change.entityId);
+    }
+  }
+}
+```
+
+---
+
+## 7. End-to-End Sequence Diagrams
+
+### 7.1 Complete Session Lifecycle
+
+```
+                    +-----------------------------------------------------+
+                    |                  SESSION LIFECYCLE                   |
+                    +-----------------------------------------------------+
+
+Time -------------------------------------------------------------------------->
+
+CLIENT              PUBSUB              DATABASE            REST API
+  |                   |                    |                   |
+  | ============================================================================
+  |                   PHASE 1: CONNECTION
+  | ============================================================================
+  |                   |                    |                   |
+  |  1. WebSocket     |                    |                   |
+  |  ws://host:4001   |                    |                   |
+  |  ?token=JWT       |                    |                   |
+  |------------------>|                    |                   |
+  |                   |                    |                   |
+  |                   |  2. Verify JWT     |                   |
+  |                   |  Store in          |                   |
+  |                   |  ConnectionManager |                   |
+  |                   |                    |                   |
+  |  3. Connected     |                    |                   |
+  |<------------------|                    |                   |
+  |                   |                    |                   |
+  | ============================================================================
+  |                   PHASE 2: LOAD + SUBSCRIBE
+  | ============================================================================
+  |                   |                    |                   |
+  |  4. GET /project  |                    |                   |
+  |---------------------------------------------------------->|
+  |                   |                    |                   |
+  |  5. Data [id1,    |                    |                   |
+  |     id2, id3]     |                    |                   |
+  |<----------------------------------------------------------|
+  |                   |                    |                   |
+  |  6. Store in RxDB |                    |                   |
+  |  ----------------  |                    |                   |
+  |                   |                    |                   |
+  |  7. SUBSCRIBE     |                    |                   |
+  |  {project,        |                    |                   |
+  |   [id1,id2,id3]}  |                    |                   |
+  |------------------>|                    |                   |
+  |                   |                    |                   |
+  |                   |  8. bulk_subscribe |                   |
+  |                   |  INSERT INTO       |                   |
+  |                   |  rxdb_subscription |                   |
+  |                   |------------------->|                   |
+  |                   |                    |                   |
+  |  9. SUBSCRIBED    |                    |                   |
+  |  {count: 3}       |                    |                   |
+  |<------------------|                    |                   |
+  |                   |                    |                   |
+  | ============================================================================
+  |                   PHASE 3: REAL-TIME SYNC (repeats)
+  | ============================================================================
+  |                   |                    |                   |
+  |                   |                    |  10. Another user |
+  |                   |                    |  updates id1      |
+  |                   |                    |<------------------|
+  |                   |                    |                   |
+  |                   |                    |  11. DB trigger   |
+  |                   |                    |  inserts to       |
+  |                   |                    |  app.logging      |
+  |                   |                    |                   |
+  |                   |  12. LogWatcher    |                   |
+  |                   |  polls (60s)       |                   |
+  |                   |<-------------------|                   |
+  |                   |                    |                   |
+  |                   |  13. Query         |                   |
+  |                   |  get_batch_        |                   |
+  |                   |  subscribers()     |                   |
+  |                   |<-------------------|                   |
+  |                   |                    |                   |
+  |  14. INVALIDATE   |                    |                   |
+  |  {project, id1}   |                    |                   |
+  |<------------------|                    |                   |
+  |                   |                    |                   |
+  |  15. Re-fetch     |                    |                   |
+  |  GET /project/id1 |                    |                   |
+  |---------------------------------------------------------->|
+  |                   |                    |                   |
+  |  16. Fresh data   |                    |                   |
+  |<----------------------------------------------------------|
+  |                   |                    |                   |
+  |  17. Update RxDB  |                    |                   |
+  |  -> UI re-renders |                    |                   |
+  |                   |                    |                   |
+  | ============================================================================
+  |                   PHASE 4: HEARTBEAT (every 30s)
+  | ============================================================================
+  |                   |                    |                   |
+  |  18. PING         |                    |                   |
+  |------------------>|                    |                   |
+  |                   |                    |                   |
+  |  19. PONG         |                    |                   |
+  |<------------------|                    |                   |
+  |                   |                    |                   |
+  | ============================================================================
+  |                   PHASE 5: DISCONNECT
+  | ============================================================================
+  |                   |                    |                   |
+  |  20. Close        |                    |                   |
+  |------------------>|                    |                   |
+  |                   |                    |                   |
+  |                   |  21. DELETE FROM   |                   |
+  |                   |  rxdb_subscription |                   |
+  |                   |  WHERE conn_id=X   |                   |
+  |                   |------------------->|                   |
+  |                   |                    |                   |
+```
+
+### 7.2 Reconnection with Exponential Backoff
+
+```
+CLIENT                                PUBSUB
+  |                                     |
+  |  Connection lost                    |
+  |  ----------------                   |
+  |                                     |
+  |  Wait 1s                            |
+  |  ---------                          |
+  |                                     |
+  |  Attempt 1                          |
+  |------------------------------------>| FAIL
+  |                                     |
+  |  Wait 2s (x2 backoff)               |
+  |  ---------                          |
+  |                                     |
+  |  Attempt 2                          |
+  |------------------------------------>| FAIL
+  |                                     |
+  |  Wait 4s (x2 backoff)               |
+  |  ---------                          |
+  |                                     |
+  |  Attempt 3                          |
+  |------------------------------------>| SUCCESS
+  |                                     |
+  |  Re-subscribe to tracked entities   |
+  |------------------------------------>|
+  |                                     |
+  |  SUBSCRIBED                         |
+  |<------------------------------------|
+  |                                     |
+```
+
+---
+
+## 8. WebSocket Protocol
+
+### 8.1 Client -> Server Messages
 
 ```typescript
 // SUBSCRIBE - Subscribe to entity changes
 interface SubscribeMessage {
   type: 'SUBSCRIBE';
   payload: {
-    entityCode: string;      // e.g., 'project', 'task', 'employee'
+    entityCode: string;      // 'project', 'task', 'employee'
     entityIds: string[];     // Array of UUIDs
   };
 }
@@ -202,7 +654,7 @@ interface UnsubscribeMessage {
   type: 'UNSUBSCRIBE';
   payload: {
     entityCode: string;
-    entityIds?: string[];    // If omitted, unsubscribe from all of this type
+    entityIds?: string[];    // If omitted, unsubscribe all of this type
   };
 }
 
@@ -223,16 +675,9 @@ interface TokenRefreshMessage {
     token: string;           // New JWT token
   };
 }
-
-type ClientMessage =
-  | SubscribeMessage
-  | UnsubscribeMessage
-  | UnsubscribeAllMessage
-  | PingMessage
-  | TokenRefreshMessage;
 ```
 
-### 4.2 Server → Client Messages
+### 8.2 Server -> Client Messages
 
 ```typescript
 // INVALIDATE - Entity has changed, refetch required
@@ -249,12 +694,10 @@ interface InvalidateMessage {
   };
 }
 
-// SUBSCRIBED - Confirmation of subscription
+// SUBSCRIBED - Confirmation
 interface SubscribedMessage {
   type: 'SUBSCRIBED';
-  payload: {
-    count: number;           // Number of entities subscribed
-  };
+  payload: { count: number };
 }
 
 // PONG - Heartbeat response
@@ -262,797 +705,86 @@ interface PongMessage {
   type: 'PONG';
 }
 
-// TOKEN_EXPIRING_SOON - Warning before JWT expires
+// TOKEN_EXPIRING_SOON - Warning (5 min before expiry)
 interface TokenExpiringSoonMessage {
   type: 'TOKEN_EXPIRING_SOON';
-  payload: {
-    expiresIn: number;       // Seconds until expiry
-  };
+  payload: { expiresIn: number };  // Seconds
 }
 
 // ERROR - Error message
 interface ErrorMessage {
   type: 'ERROR';
-  payload: {
-    message: string;
-    code?: string;
-  };
+  payload: { message: string; code?: string };
 }
-
-type ServerMessage =
-  | InvalidateMessage
-  | SubscribedMessage
-  | PongMessage
-  | TokenExpiringSoonMessage
-  | ErrorMessage;
 ```
 
-### 4.3 React Context Interface
+### 8.3 Sample Payloads
 
-```typescript
-// SyncProvider exports this context value
-interface SyncContextValue {
-  status: 'disconnected' | 'connecting' | 'connected' | 'error';
-  subscribe: (entityCode: string, entityIds: string[]) => void;
-  unsubscribe: (entityCode: string, entityIds?: string[]) => void;
-  unsubscribeAll: () => void;
+```json
+// SUBSCRIBE Request
+{
+  "type": "SUBSCRIBE",
+  "payload": {
+    "entityCode": "project",
+    "entityIds": ["550e8400-e29b-41d4-a716-446655440001", "550e8400-e29b-41d4-a716-446655440002"]
+  }
 }
 
-// Hook usage (REQUIRED - throws if not in SyncProvider)
-const { status, subscribe, unsubscribe } = useSync();
-```
-
-### 4.4 Database Interfaces
-
-```typescript
-// Subscription record (app.rxdb_subscription)
-interface Subscription {
-  user_id: string;           // UUID of subscribed user
-  entity_code: string;       // Entity type code
-  entity_id: string;         // Entity instance UUID
-  connection_id: string;     // WebSocket connection ID
-  subscribed_at: Date;
-}
-
-// Log entry (app.logging)
-interface LogEntry {
-  id: string;
-  entity_code: string;
-  entity_id: string;
-  action: number;            // 0=VIEW, 1=EDIT, 3=DELETE, 4=CREATE
-  sync_status: 'pending' | 'sent' | 'failed';
-  sync_processed_ts?: Date;
-  created_ts: Date;
+// INVALIDATE Message
+{
+  "type": "INVALIDATE",
+  "payload": {
+    "entityCode": "project",
+    "changes": [
+      { "entityId": "550e8400-e29b-41d4-a716-446655440001", "action": "UPDATE", "version": 42 }
+    ],
+    "timestamp": "2025-11-28T10:30:00.000Z"
+  }
 }
 ```
 
 ---
 
-## 5. End-to-End Flow
+## 9. Code Implementation
 
-### 5.1 Connection Establishment Flow
-
-```
-┌────────┐          ┌────────────┐          ┌──────────┐
-│ Client │          │  PubSub    │          │ Database │
-└───┬────┘          └─────┬──────┘          └────┬─────┘
-    │                     │                      │
-    │  1. WebSocket       │                      │
-    │  connect with       │                      │
-    │  JWT token          │                      │
-    │────────────────────>│                      │
-    │                     │                      │
-    │                     │  2. Verify JWT       │
-    │                     │  (same secret        │
-    │                     │   as REST API)       │
-    │                     │                      │
-    │                     │  3. Store connection │
-    │                     │  in memory map       │
-    │                     │                      │
-    │  4. Connection      │                      │
-    │  established        │                      │
-    │<────────────────────│                      │
-    │                     │                      │
-```
-
-### 5.2 Subscription Flow
-
-```
-┌────────┐          ┌────────────┐          ┌──────────┐
-│ Client │          │  PubSub    │          │ Database │
-└───┬────┘          └─────┬──────┘          └────┬─────┘
-    │                     │                      │
-    │  1. SUBSCRIBE       │                      │
-    │  {project, [id1,    │                      │
-    │   id2, id3]}        │                      │
-    │────────────────────>│                      │
-    │                     │                      │
-    │                     │  2. bulk_subscribe() │
-    │                     │  (upsert to          │
-    │                     │   rxdb_subscription) │
-    │                     │─────────────────────>│
-    │                     │                      │
-    │                     │  3. Rows affected    │
-    │                     │<─────────────────────│
-    │                     │                      │
-    │  4. SUBSCRIBED      │                      │
-    │  {count: 3}         │                      │
-    │<────────────────────│                      │
-    │                     │                      │
-```
-
-### 5.3 Entity Change Detection & Notification Flow
-
-```
-┌────────┐     ┌──────────┐     ┌──────────┐     ┌────────────┐     ┌────────┐
-│ User A │     │ REST API │     │ Database │     │  PubSub    │     │ User B │
-└───┬────┘     └────┬─────┘     └────┬─────┘     └─────┬──────┘     └───┬────┘
-    │               │                │                 │                │
-    │  1. PATCH     │                │                 │                │
-    │  /project/123 │                │                 │                │
-    │──────────────>│                │                 │                │
-    │               │                │                 │                │
-    │               │  2. UPDATE     │                 │                │
-    │               │  project       │                 │                │
-    │               │───────────────>│                 │                │
-    │               │                │                 │                │
-    │               │                │  3. TRIGGER     │                │
-    │               │                │  inserts to     │                │
-    │               │                │  app.logging    │                │
-    │               │                │                 │                │
-    │  4. 200 OK    │                │                 │                │
-    │<──────────────│                │                 │                │
-    │               │                │                 │                │
-    │               │                │                 │  5. LogWatcher │
-    │               │                │                 │  polls (60s)   │
-    │               │                │                 │<───────────────│
-    │               │                │                 │                │
-    │               │                │  6. Query       │                │
-    │               │                │  pending logs   │                │
-    │               │                │<────────────────│                │
-    │               │                │                 │                │
-    │               │                │  7. Query       │                │
-    │               │                │  subscribers    │                │
-    │               │                │<────────────────│                │
-    │               │                │                 │                │
-    │               │                │                 │  8. INVALIDATE │
-    │               │                │                 │  to User B     │
-    │               │                │                 │────────────────>│
-    │               │                │                 │                │
-    │               │                │  9. Mark logs   │                │
-    │               │                │  as 'sent'      │                │
-    │               │                │<────────────────│                │
-    │               │                │                 │                │
-```
-
-### 5.4 Client Cache Invalidation Flow
-
-```
-┌──────────────┐     ┌────────────┐     ┌─────────────┐     ┌──────────┐
-│ SyncProvider │     │ React Query│     │ Component   │     │ REST API │
-└──────┬───────┘     └─────┬──────┘     └──────┬──────┘     └────┬─────┘
-       │                   │                   │                  │
-       │  1. INVALIDATE    │                   │                  │
-       │  received         │                   │                  │
-       │                   │                   │                  │
-       │  2. Check version │                   │                  │
-       │  (skip if stale)  │                   │                  │
-       │                   │                   │                  │
-       │  3. invalidate    │                   │                  │
-       │  Queries()        │                   │                  │
-       │──────────────────>│                   │                  │
-       │                   │                   │                  │
-       │                   │  4. Mark query    │                  │
-       │                   │  as stale         │                  │
-       │                   │                   │                  │
-       │                   │  5. If component  │                  │
-       │                   │  mounted, refetch │                  │
-       │                   │──────────────────>│                  │
-       │                   │                   │                  │
-       │                   │                   │  6. GET /project │
-       │                   │                   │────────────────>│
-       │                   │                   │                  │
-       │                   │                   │  7. Fresh data   │
-       │                   │                   │<────────────────│
-       │                   │                   │                  │
-       │                   │  8. Update cache  │                  │
-       │                   │<──────────────────│                  │
-       │                   │                   │                  │
-       │                   │  9. Re-render     │                  │
-       │                   │  with new data    │                  │
-       │                   │──────────────────>│                  │
-       │                   │                   │                  │
-```
-
----
-
-## 6. Sequence Diagrams
-
-### 6.1 Complete Session Lifecycle
-
-```
-                    ┌─────────────────────────────────────────────────────┐
-                    │                  SESSION LIFECYCLE                   │
-                    └─────────────────────────────────────────────────────┘
-
-Time ─────────────────────────────────────────────────────────────────────────>
-
-CLIENT              PUBSUB              DATABASE            REST API
-  │                   │                    │                   │
-  │ ══════════════════════════════════════════════════════════════════════════
-  │                   PHASE 1: CONNECTION
-  │ ══════════════════════════════════════════════════════════════════════════
-  │                   │                    │                   │
-  │  1. Connect       │                    │                   │
-  │  ws://host:4001   │                    │                   │
-  │  ?token=JWT       │                    │                   │
-  │──────────────────>│                    │                   │
-  │                   │                    │                   │
-  │                   │  2. Verify JWT     │                   │
-  │                   │  Store connId      │                   │
-  │                   │                    │                   │
-  │  3. Connected     │                    │                   │
-  │<──────────────────│                    │                   │
-  │                   │                    │                   │
-  │ ══════════════════════════════════════════════════════════════════════════
-  │                   PHASE 2: LOAD + SUBSCRIBE
-  │ ══════════════════════════════════════════════════════════════════════════
-  │                   │                    │                   │
-  │  4. GET /project  │                    │                   │
-  │─────────────────────────────────────────────────────────────>│
-  │                   │                    │                   │
-  │  5. Data [id1,    │                    │                   │
-  │     id2, id3]     │                    │                   │
-  │<─────────────────────────────────────────────────────────────│
-  │                   │                    │                   │
-  │  6. SUBSCRIBE     │                    │                   │
-  │  {project,        │                    │                   │
-  │   [id1,id2,id3]}  │                    │                   │
-  │──────────────────>│                    │                   │
-  │                   │                    │                   │
-  │                   │  7. INSERT to      │                   │
-  │                   │  rxdb_subscription │                   │
-  │                   │───────────────────>│                   │
-  │                   │                    │                   │
-  │  8. SUBSCRIBED    │                    │                   │
-  │  {count: 3}       │                    │                   │
-  │<──────────────────│                    │                   │
-  │                   │                    │                   │
-  │ ══════════════════════════════════════════════════════════════════════════
-  │                   PHASE 3: REAL-TIME SYNC (repeats)
-  │ ══════════════════════════════════════════════════════════════════════════
-  │                   │                    │                   │
-  │                   │                    │  9. Another user  │
-  │                   │                    │  updates id1      │
-  │                   │                    │<──────────────────│
-  │                   │                    │                   │
-  │                   │                    │  10. TRIGGER      │
-  │                   │                    │  logs to          │
-  │                   │                    │  app.logging      │
-  │                   │                    │                   │
-  │                   │  11. LogWatcher    │                   │
-  │                   │  polls (60s)       │                   │
-  │                   │<───────────────────│                   │
-  │                   │                    │                   │
-  │  12. INVALIDATE   │                    │                   │
-  │  {project, id1}   │                    │                   │
-  │<──────────────────│                    │                   │
-  │                   │                    │                   │
-  │  13. Invalidate   │                    │                   │
-  │  React Query      │                    │                   │
-  │  ────────         │                    │                   │
-  │                   │                    │                   │
-  │  14. Refetch      │                    │                   │
-  │  GET /project/id1 │                    │                   │
-  │─────────────────────────────────────────────────────────────>│
-  │                   │                    │                   │
-  │  15. Fresh data   │                    │                   │
-  │<─────────────────────────────────────────────────────────────│
-  │                   │                    │                   │
-  │ ══════════════════════════════════════════════════════════════════════════
-  │                   PHASE 4: HEARTBEAT (every 30s)
-  │ ══════════════════════════════════════════════════════════════════════════
-  │                   │                    │                   │
-  │  16. PING         │                    │                   │
-  │──────────────────>│                    │                   │
-  │                   │                    │                   │
-  │  17. PONG         │                    │                   │
-  │<──────────────────│                    │                   │
-  │                   │                    │                   │
-  │ ══════════════════════════════════════════════════════════════════════════
-  │                   PHASE 5: DISCONNECT
-  │ ══════════════════════════════════════════════════════════════════════════
-  │                   │                    │                   │
-  │  18. Close        │                    │                   │
-  │──────────────────>│                    │                   │
-  │                   │                    │                   │
-  │                   │  19. DELETE from   │                   │
-  │                   │  rxdb_subscription │                   │
-  │                   │  WHERE conn_id=X   │                   │
-  │                   │───────────────────>│                   │
-  │                   │                    │                   │
-  │                   │  20. Remove from   │                   │
-  │                   │  in-memory map     │                   │
-  │                   │                    │                   │
-```
-
-### 6.2 Reconnection with Exponential Backoff
-
-```
-CLIENT                                PUBSUB
-  │                                     │
-  │  Connection lost                    │
-  │  ────────────────                   │
-  │                                     │
-  │  Wait 1s                            │
-  │  ─────────                          │
-  │                                     │
-  │  Attempt 1                          │
-  │────────────────────────────────────>│ FAIL
-  │                                     │
-  │  Wait 2s                            │
-  │  ─────────                          │
-  │                                     │
-  │  Attempt 2                          │
-  │────────────────────────────────────>│ FAIL
-  │                                     │
-  │  Wait 4s                            │
-  │  ─────────                          │
-  │                                     │
-  │  Attempt 3                          │
-  │────────────────────────────────────>│ SUCCESS
-  │                                     │
-  │  Flush pending subscriptions        │
-  │────────────────────────────────────>│
-  │                                     │
-  │  SUBSCRIBED                         │
-  │<────────────────────────────────────│
-  │                                     │
-```
-
----
-
-## 7. Database Schema
-
-### 7.1 Logging Table (`db/XXXV_logging.ddl`)
-
-```sql
-CREATE TABLE app.logging (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-
-    -- Actor (WHO)
-    person_id UUID,
-    fname VARCHAR(100),
-    lname VARCHAR(100),
-    username VARCHAR(255),
-    person_type VARCHAR(50),
-
-    -- Request Context
-    api_endpoint VARCHAR(500),
-    http_method VARCHAR(10),
-
-    -- Target Entity (WHAT) - Required for sync
-    entity_code VARCHAR(100) NOT NULL,
-    entity_id UUID NOT NULL,
-    action SMALLINT NOT NULL CHECK (action BETWEEN 0 AND 5),
-    -- 0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER
-
-    -- State Snapshots (optional, for audit)
-    entity_from_version JSONB,
-    entity_to_version JSONB,
-
-    -- Security
-    user_agent TEXT,
-    ip INET,
-
-    -- Timestamps
-    created_ts TIMESTAMPTZ NOT NULL DEFAULT now(),
-
-    -- Sync Status
-    sync_status VARCHAR(20) DEFAULT 'pending',
-    sync_processed_ts TIMESTAMPTZ
-);
-
--- Index for LogWatcher polling
-CREATE INDEX idx_logging_sync_pending
-    ON app.logging(created_ts)
-    WHERE sync_status = 'pending' AND action != 0;
-```
-
-### 7.2 Subscription Table (`db/XXXVI_rxdb_subscription.ddl`)
-
-```sql
-CREATE TABLE app.rxdb_subscription (
-    user_id UUID NOT NULL,
-    entity_code VARCHAR(100) NOT NULL,
-    entity_id UUID NOT NULL,
-    connection_id VARCHAR(50) NOT NULL,
-    subscribed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-
-    PRIMARY KEY (user_id, entity_code, entity_id)
-);
-
--- LogWatcher query index
-CREATE INDEX idx_rxdb_subscription_entity
-    ON app.rxdb_subscription(entity_code, entity_id);
-
--- Disconnect cleanup index
-CREATE INDEX idx_rxdb_subscription_connection
-    ON app.rxdb_subscription(connection_id);
-```
-
-### 7.3 Entity Change Triggers
-
-```sql
-CREATE OR REPLACE FUNCTION app.log_entity_change()
-RETURNS TRIGGER AS $$
-DECLARE
-    v_action SMALLINT;
-    v_person_id UUID;
-BEGIN
-    v_action := CASE TG_OP
-        WHEN 'INSERT' THEN 4  -- CREATE
-        WHEN 'UPDATE' THEN 1  -- EDIT
-        WHEN 'DELETE' THEN 3  -- DELETE
-    END;
-
-    v_person_id := NULLIF(current_setting('app.current_user_id', true), '')::UUID;
-
-    INSERT INTO app.logging (
-        person_id, entity_code, entity_id, action,
-        entity_from_version, entity_to_version
-    ) VALUES (
-        v_person_id,
-        TG_ARGV[0],  -- entity_code
-        COALESCE(NEW.id, OLD.id),
-        v_action,
-        CASE WHEN TG_OP IN ('UPDATE', 'DELETE') THEN to_jsonb(OLD) END,
-        CASE WHEN TG_OP IN ('INSERT', 'UPDATE') THEN to_jsonb(NEW) END
-    );
-
-    RETURN COALESCE(NEW, OLD);
-END;
-$$ LANGUAGE plpgsql;
-
--- Apply to each entity table
-CREATE TRIGGER log_project_changes
-    AFTER INSERT OR UPDATE OR DELETE ON app.project
-    FOR EACH ROW EXECUTE FUNCTION app.log_entity_change('project');
-```
-
----
-
-## 8. Code Implementation
-
-> **Note**: Version 8.5.0 introduced RxDB for offline-first storage. The legacy `SyncProvider`
-> (React Query-based) is still available but is being replaced by `RxDBProvider`.
-
-### 8.1 RxDBProvider (Frontend) - v8.5.0
+### 9.1 RxDBProvider (App Integration)
 
 **Location**: `apps/web/src/db/rxdb/RxDBProvider.tsx`
 
-```typescript
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { type PMODatabase, getDatabase, closeDatabase, clearDatabase } from './database';
-import { getReplicationManager, initializeReplication, type ReplicationStatus } from './replication';
-
-interface RxDBContextValue {
-  db: PMODatabase | null;
-  isReady: boolean;
-  replicationStatus: ReplicationStatus;
-  connect: () => void;
-  disconnect: () => void;
-  clearAllData: () => Promise<void>;
-}
-
-const RxDBContext = createContext<RxDBContextValue | null>(null);
-
-export function RxDBProvider({ children }: { children: React.ReactNode }) {
-  const [db, setDb] = useState<PMODatabase | null>(null);
-  const [replicationManager, setReplicationManager] = useState(null);
-  const [replicationStatus, setReplicationStatus] = useState<ReplicationStatus>('disconnected');
-  const [isReady, setIsReady] = useState(false);
-
-  // Initialize RxDB + WebSocket replication
-  useEffect(() => {
-    async function initialize() {
-      const database = await getDatabase();
-      setDb(database);
-
-      const manager = await initializeReplication();
-      setReplicationManager(manager);
-
-      // Subscribe to status changes
-      manager.status$.subscribe(setReplicationStatus);
-
-      // Auto-connect if we have a token
-      const token = localStorage.getItem('auth_token');
-      if (token) manager.connect(token);
-
-      setIsReady(true);
-    }
-    initialize();
-  }, []);
-
-  // ... connect, disconnect, clearAllData methods
-
-  return (
-    <RxDBContext.Provider value={{ db, isReady, replicationStatus, connect, disconnect, clearAllData }}>
-      {children}
-    </RxDBContext.Provider>
-  );
-}
-
-export function useRxDB(): RxDBContextValue {
-  const context = useContext(RxDBContext);
-  if (!context) throw new Error('useRxDB must be used within RxDBProvider');
-  return context;
-}
-```
-
-### 8.2 ReplicationManager (WebSocket Sync)
-
-**Location**: `apps/web/src/db/rxdb/replication.ts`
-
-```typescript
-import { Subject } from 'rxjs';
-import { apiClient } from '../../lib/api';
-import { getDatabase, type PMODatabase } from './database';
-import { createEntityId, type EntityDocType } from './schemas/entity.schema';
-
-export class ReplicationManager {
-  private db: PMODatabase | null = null;
-  private ws: WebSocket | null = null;
-  public status$ = new Subject<ReplicationStatus>();
-
-  // Fetch entity from API and store in RxDB
-  async fetchEntity(entityCode: string, entityId: string): Promise<EntityDocType | null> {
-    const response = await apiClient.get(`/api/v1/${entityCode}/${entityId}`);
-    const { data, metadata, ref_data_entityInstance } = response;
-
-    const doc: EntityDocType = {
-      _id: createEntityId(entityCode, entityId),
-      entityCode,
-      id: entityId,
-      data: data || response,
-      refData: ref_data_entityInstance,
-      metadata,
-      _version: data?.version || 1,
-      _syncedAt: Date.now(),
-      _deleted: false,
-    };
-
-    await this.db!.entities.upsert(doc);
-    this.subscribe(entityCode, [entityId]);  // Auto-subscribe
-    return doc;
-  }
-
-  // Handle INVALIDATE message - re-fetch from server
-  private async handleInvalidate(payload: InvalidatePayload): Promise<void> {
-    for (const change of payload.changes) {
-      if (change.action === 'DELETE') {
-        await this.markDeleted(payload.entityCode, change.entityId);
-      } else {
-        await this.fetchEntity(payload.entityCode, change.entityId);
-      }
-    }
-  }
-}
-```
-
-### 8.3 RxDB Entity Hooks
-
-**Location**: `apps/web/src/db/rxdb/hooks/useRxEntity.ts`
-
-```typescript
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { getDatabase } from '../database';
-import { getReplicationManager } from '../replication';
-import { createEntityId, type EntityDocType } from '../schemas/entity.schema';
-
-// Single entity hook with offline-first, persistent storage
-export function useRxEntity<T>(entityCode: string, entityId: string | undefined) {
-  const [db, setDb] = useState<PMODatabase | null>(null);
-  const [doc, setDoc] = useState<RxDocument<EntityDocType> | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    getDatabase().then(setDb);
-  }, []);
-
-  // Subscribe to document changes (reactive!)
-  useEffect(() => {
-    if (!db || !entityId) return;
-
-    const docId = createEntityId(entityCode, entityId);
-    const subscription = db.entities.findOne(docId).$.subscribe(async (rxDoc) => {
-      if (rxDoc && !rxDoc._deleted) {
-        setDoc(rxDoc);
-        setIsLoading(false);
-      } else {
-        // Not in cache, fetch from server
-        const manager = getReplicationManager();
-        await manager.fetchEntity(entityCode, entityId);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [db, entityCode, entityId]);
-
-  return {
-    data: doc?.data as T | null,
-    refData: doc?.refData,
-    metadata: doc?.metadata,
-    isLoading,
-    isStale: doc ? Date.now() - doc._syncedAt > 30000 : false,
-    refetch: () => getReplicationManager().fetchEntity(entityCode, entityId!),
-  };
-}
-
-// Entity list hook
-export function useRxEntityList<T>(entityCode: string, params?: Record<string, unknown>) {
-  // Similar pattern - queries RxDB collection, fetches from server if needed
-}
-```
-
-### 8.4 Draft Persistence Hook
-
-**Location**: `apps/web/src/db/rxdb/hooks/useRxDraft.ts`
-
-```typescript
-// Persist unsaved edits - survives page refresh!
-export function useRxDraft(entityCode: string, entityId: string | undefined) {
-  // ... subscribe to draft document in RxDB
-
-  return {
-    hasDraft: boolean,
-    originalData: Record<string, unknown>,
-    currentData: Record<string, unknown>,
-    dirtyFields: string[],
-    hasChanges: boolean,
-
-    startEdit: (data) => /* create draft */,
-    updateField: (field, value) => /* update with undo tracking */,
-    discardDraft: () => /* delete draft */,
-    getChanges: () => /* return only dirty fields */,
-
-    undo: () => /* restore previous value */,
-    redo: () => /* re-apply undone change */,
-    canUndo: boolean,
-    canRedo: boolean,
-  };
-}
-```
-
-### 8.5 App Integration
-
-**Location**: `apps/web/src/App.tsx`
-
-```typescript
+```tsx
 import { RxDBProvider } from '@/db/rxdb';
 
 function App() {
   return (
     <RxDBProvider>
       <AuthProvider>
-        <Router>
-          {/* App routes */}
-        </Router>
+        <Router>{/* App routes */}</Router>
       </AuthProvider>
     </RxDBProvider>
   );
 }
 ```
 
----
+### 9.2 ReplicationManager (WebSocket Client)
 
-## 9. Sample Payloads
+**Location**: `apps/web/src/db/rxdb/replication.ts`
 
-### 9.1 WebSocket Connection
+Key methods:
+- `connect(token)` - Establish WebSocket connection
+- `disconnect()` - Close connection
+- `subscribe(entityCode, entityIds)` - Subscribe to entities
+- `fetchEntity(entityCode, entityId)` - Fetch from API, store in RxDB
+- `fetchEntityList(entityCode, params)` - Fetch list, store all in RxDB
 
-**URL**: `ws://localhost:4001?token=<JWT>`
+### 9.3 PubSub Server
 
-### 9.2 SUBSCRIBE Request
+**Location**: `apps/pubsub/src/server.ts`
 
-```json
-{
-  "type": "SUBSCRIBE",
-  "payload": {
-    "entityCode": "project",
-    "entityIds": [
-      "550e8400-e29b-41d4-a716-446655440001",
-      "550e8400-e29b-41d4-a716-446655440002",
-      "550e8400-e29b-41d4-a716-446655440003"
-    ]
-  }
-}
-```
-
-### 9.3 SUBSCRIBED Response
-
-```json
-{
-  "type": "SUBSCRIBED",
-  "payload": {
-    "count": 3
-  }
-}
-```
-
-### 9.4 INVALIDATE Message
-
-```json
-{
-  "type": "INVALIDATE",
-  "payload": {
-    "entityCode": "project",
-    "changes": [
-      {
-        "entityId": "550e8400-e29b-41d4-a716-446655440001",
-        "action": "UPDATE",
-        "version": 42
-      }
-    ],
-    "timestamp": "2025-11-27T10:30:00.000Z"
-  }
-}
-```
-
-### 9.5 UNSUBSCRIBE Request
-
-```json
-{
-  "type": "UNSUBSCRIBE",
-  "payload": {
-    "entityCode": "project",
-    "entityIds": ["550e8400-e29b-41d4-a716-446655440001"]
-  }
-}
-```
-
-### 9.6 PING/PONG Heartbeat
-
-```json
-// Client sends
-{ "type": "PING" }
-
-// Server responds
-{ "type": "PONG" }
-```
-
-### 9.7 TOKEN_EXPIRING_SOON Warning
-
-```json
-{
-  "type": "TOKEN_EXPIRING_SOON",
-  "payload": {
-    "expiresIn": 300
-  }
-}
-```
-
-### 9.8 TOKEN_REFRESH Request
-
-```json
-{
-  "type": "TOKEN_REFRESH",
-  "payload": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
-
-### 9.9 ERROR Response
-
-```json
-{
-  "type": "ERROR",
-  "payload": {
-    "message": "Invalid token",
-    "code": "AUTH_FAILED"
-  }
-}
-```
+Key components:
+- WebSocket server on port 4001
+- JWT verification (same secret as REST API)
+- Message handling (SUBSCRIBE, UNSUBSCRIBE, PING, TOKEN_REFRESH)
+- LogWatcher integration
 
 ---
 
@@ -1062,8 +794,8 @@ function App() {
 
 ```bash
 # apps/pubsub/.env
-DATABASE_URL=postgresql://app:app@localhost:5434/app  # Same as REST API
-JWT_SECRET=your-jwt-secret-here                       # Same as REST API
+DATABASE_URL=postgresql://app:app@localhost:5434/app
+JWT_SECRET=your-jwt-secret-here  # Same as REST API!
 PUBSUB_PORT=4001
 
 # apps/web/.env
@@ -1074,37 +806,16 @@ VITE_WS_URL=wss://pubsub.yourapp.com   # Production
 ### 10.2 Starting Services
 
 ```bash
-# Start REST API (existing)
-pnpm --filter @pmo/api dev
+# Using tools
+./tools/start-all.sh  # Starts Docker + API + Web + PubSub
 
-# Start PubSub Service
-pnpm --filter @pmo/pubsub dev
-
-# Or with Docker Compose
-docker-compose up -d api pubsub
+# Or manually
+pnpm --filter @pmo/api dev      # Port 4000
+pnpm --filter @pmo/pubsub dev   # Port 4001
+pnpm --filter @pmo/web dev      # Port 5173
 ```
 
-### 10.3 Infrastructure Diagram
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    EC2 Instance                          │
-│                                                          │
-│   ┌─────────────────┐    ┌─────────────────┐            │
-│   │   REST API      │    │  PubSub Service │            │
-│   │   (Port 4000)   │    │   (Port 4001)   │            │
-│   └────────┬────────┘    └────────┬────────┘            │
-│            │                      │                      │
-│            └──────────┬───────────┘                      │
-│                       ▼                                  │
-│            ┌─────────────────┐                           │
-│            │   PostgreSQL    │                           │
-│            │   (Port 5432)   │                           │
-│            └─────────────────┘                           │
-└─────────────────────────────────────────────────────────┘
-```
-
-### 10.4 Health Check
+### 10.3 Health Checks
 
 ```bash
 # PubSub health endpoint
@@ -1113,11 +824,24 @@ curl http://localhost:4001/health
 # Response
 {
   "status": "ok",
-  "connections": {
-    "connections": 42,
-    "users": 35
-  }
+  "uptime": 3600,
+  "connections": 42,
+  "users": 35,
+  "logWatcherRunning": true
 }
+```
+
+### 10.4 Monitoring Queries
+
+```sql
+-- Subscription statistics
+SELECT * FROM app.get_subscription_stats();
+
+-- Pending log entries
+SELECT COUNT(*) FROM app.logging WHERE sync_status = 'pending';
+
+-- Table size
+SELECT pg_size_pretty(pg_total_relation_size('app.rxdb_subscription'));
 ```
 
 ---
@@ -1126,10 +850,10 @@ curl http://localhost:4001/health
 
 | Document | Purpose |
 |----------|---------|
-| `STATE_MANAGEMENT.md` | React Query + Zustand architecture |
+| `docs/state_management/STATE_MANAGEMENT.md` | React Query + Zustand architecture |
+| `docs/services/entity-infrastructure.service.md` | Entity CRUD patterns |
 | `CLAUDE.md` | Main codebase reference |
-| `README.md` | Caching overview |
 
 ---
 
-**Version**: 4.0 | **Updated**: 2025-11-27 | **Status**: Implemented
+**Version**: 5.0 | **Updated**: 2025-11-28 | **Status**: Implemented

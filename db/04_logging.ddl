@@ -107,8 +107,12 @@ CREATE TABLE app.logging (
     device_name varchar(255),           -- Device identifier (e.g., "MacBook Pro", "iPhone 13")
 
     -- Audit Metadata
-    created_at timestamptz DEFAULT now(),
-    log_source varchar(50) DEFAULT 'api' -- 'api', 'web', 'mobile', 'system'
+    created_ts timestamptz DEFAULT now(),
+    log_source varchar(50) DEFAULT 'api', -- 'api', 'web', 'mobile', 'system'
+
+    -- PubSub Sync Tracking (for LogWatcher)
+    sync_status varchar(20) DEFAULT 'pending', -- 'pending', 'sent', 'failed'
+    sync_processed_ts timestamptz             -- When the log was processed by LogWatcher
 );
 
 -- ============================================================================
@@ -124,6 +128,12 @@ CREATE TABLE app.logging (
 -- Index for time-based queries: "Show all actions in last 30 days"
 
 -- Index for security monitoring: "Show all access from suspicious IPs"
+
+-- Index for PubSub LogWatcher: "Find pending logs for sync"
+CREATE INDEX idx_logging_sync_status ON app.logging(sync_status) WHERE sync_status = 'pending';
+
+-- Index for entity-based lookups: "Find logs for entity X"
+CREATE INDEX idx_logging_entity ON app.logging(entity_code, entity_id);
 
 -- ============================================================================
 -- COMMENTS FOR SCHEMA DOCUMENTATION
@@ -145,7 +155,7 @@ COMMENT ON COLUMN app.logging.entity_to_version IS 'JSONB snapshot of entity sta
 COMMENT ON COLUMN app.logging.user_agent IS 'Browser/client user agent string for security context';
 COMMENT ON COLUMN app.logging.ip IS 'IP address of request origin (v4 or v6)';
 COMMENT ON COLUMN app.logging.device_name IS 'Device identifier (e.g., MacBook Pro, iPhone 13)';
-COMMENT ON COLUMN app.logging.created_at IS 'Record creation timestamp (immutable)';
+COMMENT ON COLUMN app.logging.created_ts IS 'Record creation timestamp (immutable)';
 COMMENT ON COLUMN app.logging.log_source IS 'Source of log entry (api, web, mobile, system)';
 
 -- ============================================================================

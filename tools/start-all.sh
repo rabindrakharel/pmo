@@ -81,8 +81,74 @@ else
     API_STATUS="❌ Failed"
 fi
 
-# Start web server  
-echo -e "${BLUE}5️⃣ Starting web server...${NC}"
+# Start PubSub WebSocket server
+echo -e "${BLUE}5️⃣ Starting PubSub WebSocket server...${NC}"
+
+PUBSUB_PORT=4001
+PUBSUB_PID_FILE=".pids/pubsub.pid"
+PUBSUB_LOG_FILE="logs/pubsub.log"
+
+# Check if PubSub server is already running
+if [[ -f "$PUBSUB_PID_FILE" ]]; then
+    OLD_PID=$(cat "$PUBSUB_PID_FILE")
+    if kill -0 "$OLD_PID" 2>/dev/null; then
+        echo -e "${YELLOW}⚠️  PubSub server is already running (PID: $OLD_PID)${NC}"
+        echo -e "${YELLOW}🔄 Stopping existing PubSub server...${NC}"
+        kill "$OLD_PID" 2>/dev/null || true
+        sleep 2
+
+        # Force kill if still running
+        if kill -0 "$OLD_PID" 2>/dev/null; then
+            echo -e "${RED}💀 Force killing existing PubSub server...${NC}"
+            kill -9 "$OLD_PID" 2>/dev/null || true
+            sleep 1
+        fi
+
+        rm -f "$PUBSUB_PID_FILE"
+        echo -e "${GREEN}✅ Stopped existing PubSub server${NC}"
+    else
+        rm -f "$PUBSUB_PID_FILE"
+    fi
+fi
+
+# Check if port is in use
+if lsof -Pi :$PUBSUB_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠️  Port $PUBSUB_PORT is in use, clearing...${NC}"
+    PIDS=$(lsof -Pi :$PUBSUB_PORT -sTCP:LISTEN -t)
+    for pid in $PIDS; do
+        kill "$pid" 2>/dev/null || true
+    done
+    sleep 2
+fi
+
+echo -e "${BLUE}🔧 Starting PubSub WebSocket server on port $PUBSUB_PORT...${NC}"
+
+# Start the PubSub server in background
+cd apps/pubsub
+nohup pnpm dev > "../../$PUBSUB_LOG_FILE" 2>&1 &
+PUBSUB_PID=$!
+
+# Save PID to file
+echo "$PUBSUB_PID" > "../../$PUBSUB_PID_FILE"
+
+cd ../..
+
+# Wait and check if PubSub is running
+sleep 3
+if kill -0 "$PUBSUB_PID" 2>/dev/null; then
+    echo -e "${GREEN}✅ PubSub server started successfully${NC}"
+    echo -e "${GREEN}   PID: $PUBSUB_PID${NC}"
+    echo -e "${GREEN}   Port: $PUBSUB_PORT${NC}"
+    echo -e "${GREEN}   Logs: $PUBSUB_LOG_FILE${NC}"
+    PUBSUB_STATUS="✅ Running"
+else
+    echo -e "${YELLOW}⚠️  PubSub server failed to start, check logs: $PUBSUB_LOG_FILE${NC}"
+    PUBSUB_STATUS="❌ Failed"
+    rm -f "$PUBSUB_PID_FILE"
+fi
+
+# Start web server
+echo -e "${BLUE}6️⃣ Starting web server...${NC}"
 
 WEB_PORT=5173
 WEB_PID_FILE=".pids/web.pid" 
@@ -182,6 +248,7 @@ echo -e "${GREEN}     - RabbitMQ: localhost:5672 (AMQP)${NC}"
 echo -e "${GREEN}     - MinIO: localhost:9000${NC}"
 echo -e "${GREEN}     - MailHog: localhost:1025 (SMTP)${NC}"
 echo -e "   • API Server: ${API_STATUS} http://localhost:4000${NC}"
+echo -e "   • PubSub WebSocket: ${PUBSUB_STATUS} ws://localhost:4001${NC}"
 echo -e "   • Web Application: ${WEB_STATUS} http://localhost:5173${NC}"
 echo ""
 echo -e "${BLUE}🔗 Quick Links:${NC}"

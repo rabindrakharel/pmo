@@ -12,7 +12,7 @@ import React, {
   useCallback,
   type ReactNode,
 } from 'react';
-import { type PMODatabase, getDatabase, closeDatabase, clearDatabase } from './database';
+import { type PMODatabase, getDatabase, clearDatabase } from './database';
 import {
   getReplicationManager,
   initializeReplication,
@@ -149,11 +149,12 @@ export function RxDBProvider({ children }: RxDBProviderProps) {
     console.log('[RxDBProvider] Data cleared, database re-initialized');
   }, [replicationManager]);
 
-  // Cleanup on unmount
+  // Cleanup replication on unmount (but keep database open for persistence)
   useEffect(() => {
     return () => {
-      replicationManager?.destroy();
-      closeDatabase();
+      // Only disconnect replication, don't destroy the database
+      // Database should persist across component unmounts for offline-first behavior
+      replicationManager?.disconnect();
     };
   }, [replicationManager]);
 

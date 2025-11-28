@@ -1,6 +1,6 @@
 # Page Architecture
 
-**Version:** 8.5.0 | **Location:** `apps/web/src/pages/` | **Updated:** 2025-11-27
+**Version:** 8.5.0 | **Location:** `apps/web/src/pages/` | **Updated:** 2025-11-28
 
 ---
 
@@ -766,9 +766,9 @@ User clicks sidebar → EntityListOfInstancesPage (/:entityCode)
 
 ---
 
-**Version:** 8.5.0 | **Last Updated:** 2025-11-27 | **Status:** Production Ready
+**Version:** 8.5.0 | **Last Updated:** 2025-11-28 | **Status:** Production Ready
 
 **Recent Updates:**
-- v8.5.0 (2025-11-27): RxDB offline-first architecture with IndexedDB persistent storage
+- v8.5.0 (2025-11-28): RxDB offline-first architecture with IndexedDB persistent storage
 - v8.4.0 (2025-11-27): WebSocket real-time sync via PubSub service
 - v8.3.0 (2025-11-26): ref_data_entityInstance pattern for entity reference resolution

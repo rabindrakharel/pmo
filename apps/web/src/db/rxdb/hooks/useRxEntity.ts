@@ -6,9 +6,9 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { type RxDocument } from 'rxdb';
-import { getDatabase, type PMODatabase } from '../database';
 import { getReplicationManager } from '../replication';
 import { createEntityId, type EntityDocType } from '../schemas/entity.schema';
+import { useRxDB } from '../RxDBProvider';
 
 // ============================================================================
 // Types
@@ -52,21 +52,17 @@ export function useRxEntity<T = Record<string, unknown>>(
   options: { enabled?: boolean } = {}
 ): UseRxEntityResult<T> {
   const { enabled = true } = options;
+  const { db, isReady } = useRxDB();
 
-  const [db, setDb] = useState<PMODatabase | null>(null);
   const [doc, setDoc] = useState<RxDocument<EntityDocType> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // Initialize database
+  // Subscribe to document changes - wait for provider to be ready
   useEffect(() => {
-    getDatabase().then(setDb);
-  }, []);
-
-  // Subscribe to document changes
-  useEffect(() => {
-    if (!db || !entityId || !enabled) {
-      setIsLoading(false);
+    // Check db.entities exists (collections may not be ready yet)
+    if (!db?.entities || !isReady || !entityId || !enabled) {
+      setIsLoading(!isReady);
       return;
     }
 
@@ -83,6 +79,7 @@ export function useRxEntity<T = Record<string, unknown>>(
           // Not in cache, fetch from server
           setIsLoading(true);
           try {
+            // Provider is ready, so replication manager is initialized
             const manager = getReplicationManager();
             await manager.fetchEntity(entityCode, entityId);
           } catch (err) {
@@ -94,17 +91,17 @@ export function useRxEntity<T = Record<string, unknown>>(
       });
 
     return () => subscription.unsubscribe();
-  }, [db, entityCode, entityId, enabled]);
+  }, [db, isReady, entityCode, entityId, enabled]);
 
   // Check if data is stale
   const isStale = useMemo(() => {
     if (!doc) return false;
-    return Date.now() - doc._syncedAt > STALE_THRESHOLD;
+    return Date.now() - doc.syncedAt > STALE_THRESHOLD;
   }, [doc]);
 
   // Refetch function
   const refetch = useCallback(async () => {
-    if (!entityId) return;
+    if (!entityId || !isReady) return;
     setIsLoading(true);
     try {
       const manager = getReplicationManager();
@@ -114,15 +111,15 @@ export function useRxEntity<T = Record<string, unknown>>(
     } finally {
       setIsLoading(false);
     }
-  }, [entityCode, entityId]);
+  }, [entityCode, entityId, isReady]);
 
   // Background refresh if stale
   useEffect(() => {
-    if (isStale && entityId && enabled) {
+    if (isStale && entityId && enabled && isReady) {
       const manager = getReplicationManager();
       manager.fetchEntity(entityCode, entityId).catch(console.error);
     }
-  }, [isStale, entityCode, entityId, enabled]);
+  }, [isStale, entityCode, entityId, enabled, isReady]);
 
   return {
     data: doc?.data as T | null,
@@ -149,22 +146,18 @@ export function useRxEntityList<T = Record<string, unknown>>(
   options: { enabled?: boolean } = {}
 ): UseRxEntityListResult<T> {
   const { enabled = true } = options;
+  const { db, isReady } = useRxDB();
 
-  const [db, setDb] = useState<PMODatabase | null>(null);
   const [docs, setDocs] = useState<RxDocument<EntityDocType>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
 
-  // Initialize database
+  // Subscribe to collection changes - wait for provider to be ready
   useEffect(() => {
-    getDatabase().then(setDb);
-  }, []);
-
-  // Subscribe to collection changes
-  useEffect(() => {
-    if (!db || !enabled) {
-      setIsLoading(false);
+    // Check db.entities exists (collections may not be ready yet)
+    if (!db?.entities || !isReady || !enabled) {
+      setIsLoading(!isReady);
       return;
     }
 
@@ -176,7 +169,7 @@ export function useRxEntityList<T = Record<string, unknown>>(
           _deleted: { $eq: false },
         },
       })
-      .$.subscribe((rxDocs) => {
+      .$.subscribe(async (rxDocs) => {
         setDocs(rxDocs);
 
         // If we have cached data, show it immediately
@@ -187,25 +180,31 @@ export function useRxEntityList<T = Record<string, unknown>>(
         // Fetch from server if not yet fetched
         if (!hasFetched) {
           setHasFetched(true);
-          const manager = getReplicationManager();
-          manager.fetchEntityList(entityCode, params)
-            .catch(err => setError(err instanceof Error ? err : new Error(String(err))))
-            .finally(() => setIsLoading(false));
+          try {
+            // Provider is ready, so replication manager is initialized
+            const manager = getReplicationManager();
+            await manager.fetchEntityList(entityCode, params);
+          } catch (err) {
+            setError(err instanceof Error ? err : new Error(String(err)));
+          } finally {
+            setIsLoading(false);
+          }
         }
       });
 
     return () => subscription.unsubscribe();
-  }, [db, entityCode, enabled, hasFetched, JSON.stringify(params)]);
+  }, [db, isReady, entityCode, enabled, hasFetched, JSON.stringify(params)]);
 
   // Check if data is stale
   const isStale = useMemo(() => {
     if (docs.length === 0) return false;
-    const oldest = Math.min(...docs.map(d => d._syncedAt));
+    const oldest = Math.min(...docs.map(d => d.syncedAt));
     return Date.now() - oldest > STALE_THRESHOLD;
   }, [docs]);
 
   // Refetch function
   const refetch = useCallback(async () => {
+    if (!isReady) return;
     setIsLoading(true);
     try {
       const manager = getReplicationManager();
@@ -215,7 +214,7 @@ export function useRxEntityList<T = Record<string, unknown>>(
     } finally {
       setIsLoading(false);
     }
-  }, [entityCode, JSON.stringify(params)]);
+  }, [entityCode, isReady, JSON.stringify(params)]);
 
   // Get shared metadata and refData from first doc
   const metadata = docs[0]?.metadata;
@@ -249,6 +248,7 @@ export interface UseRxEntityMutationResult {
  * Hook for entity mutations with optimistic updates
  */
 export function useRxEntityMutation(entityCode: string): UseRxEntityMutationResult {
+  const { db, isReady } = useRxDB();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -256,6 +256,7 @@ export function useRxEntityMutation(entityCode: string): UseRxEntityMutationResu
     entityId: string,
     changes: Record<string, unknown>
   ) => {
+    if (!isReady) throw new Error('Database not ready');
     setIsLoading(true);
     setError(null);
 
@@ -268,11 +269,12 @@ export function useRxEntityMutation(entityCode: string): UseRxEntityMutationResu
     } finally {
       setIsLoading(false);
     }
-  }, [entityCode]);
+  }, [entityCode, isReady]);
 
   const createEntity = useCallback(async (
     data: Record<string, unknown>
   ): Promise<string> => {
+    if (!isReady) throw new Error('Database not ready');
     setIsLoading(true);
     setError(null);
 
@@ -292,9 +294,10 @@ export function useRxEntityMutation(entityCode: string): UseRxEntityMutationResu
     } finally {
       setIsLoading(false);
     }
-  }, [entityCode]);
+  }, [entityCode, isReady]);
 
   const deleteEntity = useCallback(async (entityId: string) => {
+    if (!db?.entities || !isReady) throw new Error('Database not ready');
     setIsLoading(true);
     setError(null);
 
@@ -303,7 +306,6 @@ export function useRxEntityMutation(entityCode: string): UseRxEntityMutationResu
       await apiClient.delete(`/api/v1/${entityCode}/${entityId}`);
 
       // Mark as deleted in RxDB
-      const db = await getDatabase();
       const docId = createEntityId(entityCode, entityId);
       const doc = await db.entities.findOne(docId).exec();
       if (doc) {
@@ -315,7 +317,7 @@ export function useRxEntityMutation(entityCode: string): UseRxEntityMutationResu
     } finally {
       setIsLoading(false);
     }
-  }, [entityCode]);
+  }, [entityCode, db, isReady]);
 
   return {
     updateEntity,

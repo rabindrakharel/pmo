@@ -24,18 +24,16 @@ export interface EntityDocType {
   // Reference data for entity lookups (from ref_data_entityInstance)
   refData?: Record<string, Record<string, string>>;
 
-  // Field metadata for rendering
-  metadata?: {
-    viewType?: Record<string, unknown>;
-    editType?: Record<string, unknown>;
-  };
+  // Field metadata for rendering (full structure from API)
+  // Structure: { entityDataTable: { viewType, editType }, fields: [...] }
+  metadata?: Record<string, unknown>;
 
-  // Sync tracking
-  _version: number;            // Server version for conflict resolution
-  _syncedAt: number;           // Last sync timestamp (ms)
-  _localUpdatedAt?: number;    // Local update timestamp (for dirty tracking)
+  // Sync tracking (no underscore prefix - RxDB reserves _ for internal use)
+  version: number;             // Server version for conflict resolution
+  syncedAt: number;            // Last sync timestamp (ms)
+  localUpdatedAt?: number;     // Local update timestamp (for dirty tracking)
 
-  // Soft delete
+  // Soft delete (RxDB reserved field)
   _deleted: boolean;
 }
 
@@ -43,7 +41,7 @@ export interface EntityDocType {
  * RxDB Schema for entities collection
  */
 export const entitySchema: RxJsonSchema<EntityDocType> = {
-  version: 0,
+  version: 0,  // Reset to 0 with SCHEMA_VERSION='v2' in database.ts
   primaryKey: '_id',
   type: 'object',
   properties: {
@@ -69,33 +67,36 @@ export const entitySchema: RxJsonSchema<EntityDocType> = {
     },
     metadata: {
       type: 'object',
-      properties: {
-        viewType: { type: 'object', additionalProperties: true },
-        editType: { type: 'object', additionalProperties: true },
-      },
+      additionalProperties: true,  // Full metadata structure from API
     },
-    _version: {
+    version: {
       type: 'integer',
       minimum: 0,
+      maximum: 9007199254740991,  // Number.MAX_SAFE_INTEGER
+      multipleOf: 1,
       default: 0,
     },
-    _syncedAt: {
+    syncedAt: {
       type: 'integer',
       minimum: 0,
+      maximum: 9007199254740991,  // Number.MAX_SAFE_INTEGER (timestamp in ms)
+      multipleOf: 1,
     },
-    _localUpdatedAt: {
+    localUpdatedAt: {
       type: 'integer',
       minimum: 0,
+      maximum: 9007199254740991,  // Number.MAX_SAFE_INTEGER (timestamp in ms)
+      multipleOf: 1,
     },
     _deleted: {
       type: 'boolean',
       default: false,
     },
   },
-  required: ['_id', 'entityCode', 'id', 'data', '_version', '_syncedAt', '_deleted'],
+  required: ['_id', 'entityCode', 'id', 'data', 'version', 'syncedAt', '_deleted'],
   indexes: [
     'entityCode',
-    ['entityCode', '_syncedAt'],
+    ['entityCode', 'syncedAt'],
     ['entityCode', '_deleted'],
   ],
 };

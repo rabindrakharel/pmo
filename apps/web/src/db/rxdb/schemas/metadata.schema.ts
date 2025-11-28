@@ -35,7 +35,7 @@ export interface MetadataDocType {
  * RxDB Schema for metadata collection
  */
 export const metadataSchema: RxJsonSchema<MetadataDocType> = {
-  version: 0,
+  version: 0,  // Reset to 0 with SCHEMA_VERSION='v2' in database.ts
   primaryKey: '_id',
   type: 'object',
   properties: {
@@ -45,6 +45,7 @@ export const metadataSchema: RxJsonSchema<MetadataDocType> = {
     },
     type: {
       type: 'string',
+      maxLength: 20,  // Required for indexed string fields
       enum: ['datalabel', 'entity', 'settings', 'component'],
     },
     key: {
@@ -57,14 +58,20 @@ export const metadataSchema: RxJsonSchema<MetadataDocType> = {
     cachedAt: {
       type: 'integer',
       minimum: 0,
+      maximum: 9007199254740991,  // Number.MAX_SAFE_INTEGER
+      multipleOf: 1,
     },
     ttl: {
       type: 'integer',
       minimum: 0,
+      maximum: 9007199254740991,  // Number.MAX_SAFE_INTEGER
+      multipleOf: 1,
     },
     version: {
       type: 'integer',
       minimum: 0,
+      maximum: 9007199254740991,  // Number.MAX_SAFE_INTEGER
+      multipleOf: 1,
     },
     _deleted: {
       type: 'boolean',

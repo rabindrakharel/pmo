@@ -155,12 +155,13 @@ validate_all_ddls() {
         "06_entity_rbac.ddl"
     )
 
-    # Infrastructure files (db/ root 03-04)
+    # Infrastructure files (db/ root 03-04 + XXXVI)
     local infrastructure_files=(
         "03_datalabel.ddl"
         "04_logging.ddl"
         "04a_person.ddl"
         "04b_attachment.ddl"
+        "XXXVI_rxdb_subscription.ddl"
     )
 
     # Business Entity files (db/ root 05-49)
@@ -220,7 +221,7 @@ validate_all_ddls() {
     done
 
     # Validate infrastructure files
-    print_status $CYAN "  Infrastructure (4 files)..."
+    print_status $CYAN "  Infrastructure (5 files)..."
     for file in "${infrastructure_files[@]}"; do
         validate_ddl "$DB_PATH/$file"
     done
@@ -231,9 +232,9 @@ validate_all_ddls() {
         validate_ddl "$DB_PATH/$file"
     done
 
-    # Count: 1 schema + 6 entity config + 4 infrastructure + 43 business = 54 files
+    # Count: 1 schema + 6 entity config + 5 infrastructure + 43 business = 55 files
     local total_files=$((1 + ${#entity_config_files[@]} + ${#infrastructure_files[@]} + ${#business_entity_files[@]}))
-    print_status $GREEN "✅ All $total_files DDL files validated (1 schema + 6 entity config + 4 infrastructure + 43 business)"
+    print_status $GREEN "✅ All $total_files DDL files validated (1 schema + 6 entity config + 5 infrastructure + 43 business)"
 }
 
 # Function to drop existing schema
@@ -256,7 +257,7 @@ drop_schema() {
 
 # Function to import all DDL files
 import_ddls() {
-    print_status $BLUE "📥 Importing 54 DDL files in sequential dependency order..."
+    print_status $BLUE "📥 Importing 55 DDL files in sequential dependency order..."
 
     # ===== SCHEMA CREATION (01) =====
     print_status $CYAN "  🏗️  Schema Creation..."
@@ -270,12 +271,13 @@ import_ddls() {
     execute_sql "$DB_PATH/entity_configuration_settings/05_entity_instance_link.ddl" "05: Entity instance relationships"
     execute_sql "$DB_PATH/entity_configuration_settings/06_entity_rbac.ddl" "06: Entity RBAC permissions"
 
-    # ===== INFRASTRUCTURE (03-04) =====
-    print_status $CYAN "  🔧 Infrastructure (4 files)..."
+    # ===== INFRASTRUCTURE (03-04 + XXXVI) =====
+    print_status $CYAN "  🔧 Infrastructure (5 files)..."
     execute_sql "$DB_PATH/03_datalabel.ddl" "03: Unified data label settings"
     execute_sql "$DB_PATH/04_logging.ddl" "04: Central audit logging"
     execute_sql "$DB_PATH/04a_person.ddl" "04a: Person entities"
     execute_sql "$DB_PATH/04b_attachment.ddl" "04b: Attachment entities"
+    execute_sql "$DB_PATH/XXXVI_rxdb_subscription.ddl" "XXXVI: RxDB live subscription tracking"
 
     # ===== CUSTOMER 360 DOMAIN (05-10) =====
     print_status $CYAN "  🏢 Customer 360 (7 entities)..."
@@ -353,7 +355,7 @@ import_ddls() {
     print_status $CYAN "  📋 Entity Instance Backfill..."
     execute_sql "$DB_PATH/entity_configuration_settings/04_entity_instance_backfill.ddl" "04: Backfill entity_instance registry from all entities"
 
-    print_status $GREEN "✅ All 54 DDL files imported successfully!"
+    print_status $GREEN "✅ All 55 DDL files imported successfully!"
 }
 
 # Function to validate schema after import
@@ -408,13 +410,13 @@ validate_schema() {
 print_summary() {
     print_status $PURPLE "📋 IMPORT SUMMARY"
     print_status $PURPLE "===================="
-    print_status $CYAN "• 54 DDL files imported in sequential dependency order"
+    print_status $CYAN "• 55 DDL files imported in sequential dependency order"
     print_status $CYAN "• Schema → Domain → Entity Config → Settings → Business Entities"
     print_status $CYAN ""
     print_status $CYAN "  File Organization:"
     print_status $CYAN "    1. Schema Creation (1 file)"
     print_status $CYAN "    2. Entity Configuration (6 files) - domain, entity metadata, registry, links, RBAC"
-    print_status $CYAN "    3. Infrastructure (4 files) - settings, logging, person, attachment"
+    print_status $CYAN "    3. Infrastructure (5 files) - settings, logging, person, attachment, RxDB subscriptions"
     print_status $CYAN "    4. Business Entities (43 files) - organized by domain"
     print_status $CYAN ""
     print_status $CYAN "  Domains:"
@@ -440,7 +442,7 @@ print_summary() {
 
 # Main execution
 main() {
-    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT (54 DDL FILES)"
+    print_status $PURPLE "🚀 PMO ENTERPRISE DATABASE IMPORT (55 DDL FILES)"
     print_status $PURPLE "=================================================="
 
     if [ "$DRY_RUN" = true ]; then
