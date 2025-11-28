@@ -1,8 +1,8 @@
 # RxDB Real-Time Sync Architecture
 
-> WebSocket-based invalidation sync for real-time entity updates
+> Offline-first, persistent storage with WebSocket real-time sync
 
-**Version**: 3.0
+**Version**: 4.0
 **Date**: 2025-11-27
 **Status**: Implemented
 **Deployment**: Single-pod (<500 concurrent users)
@@ -26,17 +26,29 @@
 
 ## 1. Executive Summary
 
-This architecture implements real-time entity synchronization using WebSocket-based invalidation signals. When entities change, the PubSub service pushes lightweight "refetch" signals to subscribed clients, which then fetch fresh data via the existing REST API.
+This architecture implements **offline-first, persistent storage** using **RxDB with IndexedDB**, combined with **WebSocket-based real-time sync**. Data survives page refresh and browser restart. Unsaved edits persist through refreshes.
 
 ### Key Design Decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
+| Client Storage | RxDB + IndexedDB | Offline-first, persistent, multi-tab sync |
 | Sync Strategy | Invalidation-based | Reuse existing REST API, RBAC checked on refetch |
 | Subscription Storage | PostgreSQL table | Persistent across restarts, easy debugging |
 | Change Detection | Polling (60s) | Simple, reliable, low overhead |
 | WebSocket Protocol | Custom JSON | Lighter than full replication protocol |
-| State Management | React Query only | No Zustand, single source of truth |
+| Draft Persistence | RxDB drafts collection | Unsaved edits survive page refresh |
+
+### Key Benefits
+
+| Benefit | Description |
+|---------|-------------|
+| **Offline-First** | Works without network connection |
+| **Persistent** | Data survives browser restart (IndexedDB) |
+| **Multi-Tab** | Changes sync across browser tabs automatically |
+| **Draft Persistence** | Unsaved edits survive page refresh |
+| **Real-Time** | WebSocket push for instant updates |
+| **Reactive** | Queries auto-update when data changes |
 
 ### Architecture Summary
 
@@ -45,12 +57,13 @@ This architecture implements real-time entity synchronization using WebSocket-ba
 │                              SYSTEM FLOW                                  │
 ├──────────────────────────────────────────────────────────────────────────┤
 │                                                                           │
-│   1. Client loads entities via REST API → subscribes via WebSocket        │
-│   2. Entity changes logged to app.logging table (database triggers)       │
-│   3. LogWatcher polls every 60s, finds subscribers in app.rxdb_subscription│
-│   4. PubSub pushes INVALIDATE to subscribed WebSocket connections         │
-│   5. Client invalidates React Query cache → triggers automatic refetch    │
-│   6. Client gets fresh data via REST API (RBAC enforced)                  │
+│   1. Client loads entities via REST API → stores in RxDB (IndexedDB)     │
+│   2. ReplicationManager subscribes via WebSocket                          │
+│   3. Entity changes logged to app.logging table (database triggers)       │
+│   4. LogWatcher polls every 60s, finds subscribers in app.rxdb_subscription│
+│   5. PubSub pushes INVALIDATE to subscribed WebSocket connections         │
+│   6. ReplicationManager re-fetches → updates RxDB → UI auto-updates      │
+│   7. All tabs see changes via RxDB's shared IndexedDB storage             │
 │                                                                           │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -64,12 +77,18 @@ This architecture implements real-time entity synchronization using WebSocket-ba
 │                              FRONTEND (Browser)                              │
 │                                                                              │
 │   ┌──────────────────┐    ┌─────────────────┐    ┌──────────────────────┐   │
-│   │   React Query    │◄──►│   SyncProvider  │◄──►│  React Components    │   │
-│   │   Cache          │    │   (WebSocket)   │    │  (auto-subscribe)    │   │
-│   └────────┬─────────┘    └────────┬────────┘    └──────────────────────┘   │
+│   │   RxDB           │◄──►│ ReplicationMgr  │◄──►│  React Components    │   │
+│   │   (IndexedDB)    │    │   (WebSocket)   │    │  (reactive queries)  │   │
+│   │                  │    │                 │    │                      │   │
+│   │  ┌────────────┐  │    └────────┬────────┘    └──────────────────────┘   │
+│   │  │ entities   │  │             │                                         │
+│   │  │ drafts     │  │             │ subscribe/unsubscribe                   │
+│   │  │ metadata   │  │             │ INVALIDATE messages                     │
+│   │  └────────────┘  │             │                                         │
+│   └────────┬─────────┘             │                                         │
 │            │                       │                                         │
-│            │ refetch               │ subscribe/unsubscribe                   │
-│            │ on invalidate         │ INVALIDATE messages                     │
+│            │ persistent            │                                         │
+│            │ (survives refresh)    │                                         │
 └────────────┼───────────────────────┼─────────────────────────────────────────┘
              │                       │
              │ REST API              │ WebSocket
@@ -705,146 +724,223 @@ CREATE TRIGGER log_project_changes
 
 ## 8. Code Implementation
 
-### 8.1 SyncProvider (Frontend)
+> **Note**: Version 8.5.0 introduced RxDB for offline-first storage. The legacy `SyncProvider`
+> (React Query-based) is still available but is being replaced by `RxDBProvider`.
 
-**Location**: `apps/web/src/db/sync/SyncProvider.tsx`
+### 8.1 RxDBProvider (Frontend) - v8.5.0
+
+**Location**: `apps/web/src/db/rxdb/RxDBProvider.tsx`
 
 ```typescript
-import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { type PMODatabase, getDatabase, closeDatabase, clearDatabase } from './database';
+import { getReplicationManager, initializeReplication, type ReplicationStatus } from './replication';
 
-type SyncStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
-
-interface SyncContextValue {
-  status: SyncStatus;
-  subscribe: (entityCode: string, entityIds: string[]) => void;
-  unsubscribe: (entityCode: string, entityIds?: string[]) => void;
-  unsubscribeAll: () => void;
+interface RxDBContextValue {
+  db: PMODatabase | null;
+  isReady: boolean;
+  replicationStatus: ReplicationStatus;
+  connect: () => void;
+  disconnect: () => void;
+  clearAllData: () => Promise<void>;
 }
 
-const SyncContext = createContext<SyncContextValue | null>(null);
+const RxDBContext = createContext<RxDBContextValue | null>(null);
 
-export function SyncProvider({ children }: { children: React.ReactNode }) {
-  const queryClient = useQueryClient();
-  const wsRef = useRef<WebSocket | null>(null);
-  const [status, setStatus] = useState<SyncStatus>('disconnected');
-  const processedVersions = useRef(new Map<string, number>());
-  const pendingSubscriptions = useRef(new Map<string, Set<string>>());
+export function RxDBProvider({ children }: { children: React.ReactNode }) {
+  const [db, setDb] = useState<PMODatabase | null>(null);
+  const [replicationManager, setReplicationManager] = useState(null);
+  const [replicationStatus, setReplicationStatus] = useState<ReplicationStatus>('disconnected');
+  const [isReady, setIsReady] = useState(false);
 
-  // Handle INVALIDATE message
-  const handleInvalidate = useCallback((payload: InvalidateMessage['payload']) => {
-    for (const change of payload.changes) {
-      const key = `${payload.entityCode}:${change.entityId}`;
-      const lastVersion = processedVersions.current.get(key) || 0;
+  // Initialize RxDB + WebSocket replication
+  useEffect(() => {
+    async function initialize() {
+      const database = await getDatabase();
+      setDb(database);
 
-      // Skip stale updates
-      if (change.version <= lastVersion) continue;
-      processedVersions.current.set(key, change.version);
+      const manager = await initializeReplication();
+      setReplicationManager(manager);
 
-      // Invalidate React Query cache
-      queryClient.invalidateQueries({
-        queryKey: ['entity-instance', payload.entityCode, change.entityId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ['entity-instance-list', payload.entityCode],
-        exact: false,
-      });
+      // Subscribe to status changes
+      manager.status$.subscribe(setReplicationStatus);
+
+      // Auto-connect if we have a token
+      const token = localStorage.getItem('auth_token');
+      if (token) manager.connect(token);
+
+      setIsReady(true);
     }
-  }, [queryClient]);
+    initialize();
+  }, []);
 
-  // ... connection logic, subscribe/unsubscribe methods
+  // ... connect, disconnect, clearAllData methods
 
   return (
-    <SyncContext.Provider value={{ status, subscribe, unsubscribe, unsubscribeAll }}>
+    <RxDBContext.Provider value={{ db, isReady, replicationStatus, connect, disconnect, clearAllData }}>
       {children}
-    </SyncContext.Provider>
+    </RxDBContext.Provider>
   );
 }
 
-// REQUIRED - throws if not in SyncProvider
-export function useSync(): SyncContextValue {
-  const context = useContext(SyncContext);
-  if (!context) {
-    throw new Error('useSync must be used within SyncProvider');
-  }
+export function useRxDB(): RxDBContextValue {
+  const context = useContext(RxDBContext);
+  if (!context) throw new Error('useRxDB must be used within RxDBProvider');
   return context;
 }
 ```
 
-### 8.2 useAutoSubscribe Hook
+### 8.2 ReplicationManager (WebSocket Sync)
 
-**Location**: `apps/web/src/db/sync/useAutoSubscribe.ts`
+**Location**: `apps/web/src/db/rxdb/replication.ts`
 
 ```typescript
-import { useEffect, useRef } from 'react';
-import { useSync } from './SyncProvider';
+import { Subject } from 'rxjs';
+import { apiClient } from '../../lib/api';
+import { getDatabase, type PMODatabase } from './database';
+import { createEntityId, type EntityDocType } from './schemas/entity.schema';
 
-export function useAutoSubscribe(entityCode: string, entityIds: string[]) {
-  const { subscribe, unsubscribe } = useSync();
-  const previousIdsRef = useRef<Set<string>>(new Set());
+export class ReplicationManager {
+  private db: PMODatabase | null = null;
+  private ws: WebSocket | null = null;
+  public status$ = new Subject<ReplicationStatus>();
 
-  useEffect(() => {
-    const currentIds = new Set(entityIds);
-    const previousIds = previousIdsRef.current;
+  // Fetch entity from API and store in RxDB
+  async fetchEntity(entityCode: string, entityId: string): Promise<EntityDocType | null> {
+    const response = await apiClient.get(`/api/v1/${entityCode}/${entityId}`);
+    const { data, metadata, ref_data_entityInstance } = response;
 
-    // Subscribe to new IDs
-    const newIds = entityIds.filter(id => !previousIds.has(id));
-    if (newIds.length > 0) {
-      subscribe(entityCode, newIds);
-    }
-
-    // Unsubscribe from removed IDs
-    const removedIds = [...previousIds].filter(id => !currentIds.has(id));
-    if (removedIds.length > 0) {
-      unsubscribe(entityCode, removedIds);
-    }
-
-    previousIdsRef.current = currentIds;
-
-    // Cleanup on unmount
-    return () => {
-      if (entityIds.length > 0) {
-        unsubscribe(entityCode, entityIds);
-      }
+    const doc: EntityDocType = {
+      _id: createEntityId(entityCode, entityId),
+      entityCode,
+      id: entityId,
+      data: data || response,
+      refData: ref_data_entityInstance,
+      metadata,
+      _version: data?.version || 1,
+      _syncedAt: Date.now(),
+      _deleted: false,
     };
-  }, [entityCode, entityIds, subscribe, unsubscribe]);
+
+    await this.db!.entities.upsert(doc);
+    this.subscribe(entityCode, [entityId]);  // Auto-subscribe
+    return doc;
+  }
+
+  // Handle INVALIDATE message - re-fetch from server
+  private async handleInvalidate(payload: InvalidatePayload): Promise<void> {
+    for (const change of payload.changes) {
+      if (change.action === 'DELETE') {
+        await this.markDeleted(payload.entityCode, change.entityId);
+      } else {
+        await this.fetchEntity(payload.entityCode, change.entityId);
+      }
+    }
+  }
 }
 ```
 
-### 8.3 Integration with useEntityQuery
+### 8.3 RxDB Entity Hooks
 
-**Location**: `apps/web/src/lib/hooks/useEntityQuery.ts`
+**Location**: `apps/web/src/db/rxdb/hooks/useRxEntity.ts`
 
 ```typescript
-import { useAutoSubscribe, useAutoSubscribeSingle } from '../../db/sync';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { getDatabase } from '../database';
+import { getReplicationManager } from '../replication';
+import { createEntityId, type EntityDocType } from '../schemas/entity.schema';
 
-export function useEntityInstanceList(entityCode: string, params: QueryParams) {
-  const query = useQuery({
-    queryKey: ['entity-instance-list', entityCode, params],
-    queryFn: () => api.get(`/api/v1/${entityCode}`, { params }),
-  });
+// Single entity hook with offline-first, persistent storage
+export function useRxEntity<T>(entityCode: string, entityId: string | undefined) {
+  const [db, setDb] = useState<PMODatabase | null>(null);
+  const [doc, setDoc] = useState<RxDocument<EntityDocType> | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Auto-subscribe to all loaded entity IDs
-  const entityIds = useMemo(
-    () => query.data?.data?.map((item: { id: string }) => item.id) ?? [],
-    [query.data?.data]
-  );
-  useAutoSubscribe(entityCode, entityIds);
+  useEffect(() => {
+    getDatabase().then(setDb);
+  }, []);
 
-  return query;
+  // Subscribe to document changes (reactive!)
+  useEffect(() => {
+    if (!db || !entityId) return;
+
+    const docId = createEntityId(entityCode, entityId);
+    const subscription = db.entities.findOne(docId).$.subscribe(async (rxDoc) => {
+      if (rxDoc && !rxDoc._deleted) {
+        setDoc(rxDoc);
+        setIsLoading(false);
+      } else {
+        // Not in cache, fetch from server
+        const manager = getReplicationManager();
+        await manager.fetchEntity(entityCode, entityId);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [db, entityCode, entityId]);
+
+  return {
+    data: doc?.data as T | null,
+    refData: doc?.refData,
+    metadata: doc?.metadata,
+    isLoading,
+    isStale: doc ? Date.now() - doc._syncedAt > 30000 : false,
+    refetch: () => getReplicationManager().fetchEntity(entityCode, entityId!),
+  };
 }
 
-export function useEntityInstance(entityCode: string, id: string) {
-  const query = useQuery({
-    queryKey: ['entity-instance', entityCode, id],
-    queryFn: () => api.get(`/api/v1/${entityCode}/${id}`),
-    enabled: !!id,
-  });
+// Entity list hook
+export function useRxEntityList<T>(entityCode: string, params?: Record<string, unknown>) {
+  // Similar pattern - queries RxDB collection, fetches from server if needed
+}
+```
 
-  // Auto-subscribe to this single entity
-  useAutoSubscribeSingle(entityCode, id);
+### 8.4 Draft Persistence Hook
 
-  return query;
+**Location**: `apps/web/src/db/rxdb/hooks/useRxDraft.ts`
+
+```typescript
+// Persist unsaved edits - survives page refresh!
+export function useRxDraft(entityCode: string, entityId: string | undefined) {
+  // ... subscribe to draft document in RxDB
+
+  return {
+    hasDraft: boolean,
+    originalData: Record<string, unknown>,
+    currentData: Record<string, unknown>,
+    dirtyFields: string[],
+    hasChanges: boolean,
+
+    startEdit: (data) => /* create draft */,
+    updateField: (field, value) => /* update with undo tracking */,
+    discardDraft: () => /* delete draft */,
+    getChanges: () => /* return only dirty fields */,
+
+    undo: () => /* restore previous value */,
+    redo: () => /* re-apply undone change */,
+    canUndo: boolean,
+    canRedo: boolean,
+  };
+}
+```
+
+### 8.5 App Integration
+
+**Location**: `apps/web/src/App.tsx`
+
+```typescript
+import { RxDBProvider } from '@/db/rxdb';
+
+function App() {
+  return (
+    <RxDBProvider>
+      <AuthProvider>
+        <Router>
+          {/* App routes */}
+        </Router>
+      </AuthProvider>
+    </RxDBProvider>
+  );
 }
 ```
 
@@ -1036,4 +1132,4 @@ curl http://localhost:4001/health
 
 ---
 
-**Version**: 3.0 | **Updated**: 2025-11-27 | **Status**: Implemented
+**Version**: 4.0 | **Updated**: 2025-11-27 | **Status**: Implemented
