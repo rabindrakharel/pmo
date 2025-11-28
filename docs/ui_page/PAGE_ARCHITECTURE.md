@@ -651,13 +651,25 @@ Universal form renderer:
 
 ## 8. Data Fetching Patterns (v8.5.0)
 
-### RxDB Hooks (Offline-First)
+### Entity Hooks (RxDB Backend)
+
+All entity hooks now use RxDB internally for offline-first storage:
+
+| Hook | Purpose | Backend | Survives Refresh |
+|------|---------|---------|------------------|
+| `useEntityInstanceList()` | Entity list (React Query API, RxDB storage) | RxDB | ✅ Yes |
+| `useEntityInstance()` | Single entity (React Query API, RxDB storage) | RxDB | ✅ Yes |
+| `useFormattedEntityList()` | Formatted entity list | RxDB + format | ✅ Yes |
+| `useFormattedEntityInstance()` | Formatted single entity | RxDB + format | ✅ Yes |
+| `useRxDraft()` | Persist unsaved edits | RxDB | ✅ Yes |
+
+### Direct RxDB Hooks (Advanced)
 
 | Hook | Purpose | Storage | Survives Refresh |
 |------|---------|---------|------------------|
-| `useRxEntityList()` | Query entity list from RxDB | IndexedDB | ✅ Yes |
-| `useRxEntity()` | Query single entity from RxDB | IndexedDB | ✅ Yes |
-| `useRxDraft()` | Persist unsaved edits | IndexedDB | ✅ Yes |
+| `useRxEntityList()` | Direct RxDB query for entity list | IndexedDB | ✅ Yes |
+| `useRxEntity()` | Direct RxDB query for single entity | IndexedDB | ✅ Yes |
+| `useRecoverDraft()` | Check for existing draft | IndexedDB | ✅ Yes |
 
 ### Data Flow Summary
 

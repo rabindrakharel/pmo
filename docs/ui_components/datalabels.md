@@ -1,6 +1,8 @@
 # Datalabel System - End-to-End Data Flow
 
-**Version:** 8.3.2 | **Updated:** 2025-11-27
+**Version:** 8.5.0 | **Updated:** 2025-11-28
+
+> **Note:** As of v8.5.0, datalabel data is cached in Zustand stores (memory) while entity data uses RxDB (IndexedDB) for offline-first storage.
 
 ---
 

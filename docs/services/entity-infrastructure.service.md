@@ -1,6 +1,8 @@
 # Entity Infrastructure Service
 
-**Version:** 8.3.1 | **Location:** `apps/api/src/services/entity-infrastructure.service.ts`
+**Version:** 8.5.0 | **Location:** `apps/api/src/services/entity-infrastructure.service.ts`
+
+> **Note:** The entity infrastructure service generates `ref_data_entityInstance` lookup tables that are cached in RxDB (IndexedDB) on the frontend for offline entity reference resolution.
 
 ---
 

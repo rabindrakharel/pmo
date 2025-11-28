@@ -1,6 +1,8 @@
 # Frontend Formatter Service
 
-**Version:** 8.3.2 | **Location:** `apps/web/src/lib/` | **Updated:** 2025-11-27
+**Version:** 8.5.0 | **Location:** `apps/web/src/lib/` | **Updated:** 2025-11-28
+
+> **Note:** As of v8.5.0, the frontend uses RxDB (IndexedDB) for offline-first data storage. The formatter service works with data from RxDB reactive queries, formatting on read for display.
 
 ---
 

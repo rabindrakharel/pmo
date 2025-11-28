@@ -1,27 +1,29 @@
 /**
- * Entity Query Hooks - React Query + Zustand Integration
+ * Entity Query Hooks - RxDB + React Query Integration
  *
- * ARCHITECTURE (v8.0.0 - Format at Read):
- * - React Query: SOLE data cache for RAW entity instances (lists & details)
- * - Zustand: UI state only (edit state, preferences) + metadata caching
- * - Formatting: Happens on READ via `select` option, NOT during fetch
+ * ARCHITECTURE (v8.5.0 - RxDB Offline-First):
+ * - RxDB: PRIMARY data cache for entity instances (IndexedDB persistence)
+ * - React Query: Metadata, datalabels, entity codes, global settings
+ * - Zustand: UI state only (edit state, preferences)
+ * - Formatting: Happens on READ via `select` option
  *
- * Cache Strategy (Stale-While-Revalidate):
+ * Cache Strategy:
+ * - Entity Data (RxDB): Persistent, offline-first, reactive queries
  * - Reference Data (1 hour): Entity types, global settings, datalabels
  * - Metadata (15 min): Field definitions, component schemas
- * - Entity Lists (30 sec stale, 5 min cache): Show cached, refetch in background
- * - Entity Details (10 sec stale, 2 min cache): Near real-time for edits
  *
- * Format at Read Pattern (v8.0.0):
- * - API returns raw data → cached as-is in React Query
- * - `select` option transforms raw → formatted on each read
- * - Benefits: Smaller cache, fresh formatting, view-specific transforms
+ * RxDB Benefits (v8.5.0):
+ * - Offline-first: Works without network connection
+ * - Persistent: Survives browser restart
+ * - Multi-tab sync: LeaderElection coordinates tabs
+ * - Draft persistence: Unsaved edits survive refresh
+ * - Reactive: UI auto-updates via RxJS observables
  *
- * Store Architecture (Metadata Only):
- * - globalSettingsMetadataStore: Currency, date, timestamp formatting
- * - datalabelMetadataStore: Dropdown options (dl__* fields)
- * - entityComponentMetadataStore: Field metadata keyed by entityCode:componentName
- * - entityCodeMetadataStore: Entity types for sidebar navigation
+ * Store Architecture:
+ * - RxDB entities collection: Entity instance data
+ * - RxDB drafts collection: Unsaved edits with undo/redo
+ * - RxDB metadata collection: TTL-based metadata cache
+ * - Zustand stores: UI state, preferences
  */
 
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
@@ -30,20 +32,20 @@ import { APIFactory, type EntityMetadata, type PaginatedResponse } from '../api'
 import { useEntityEditStore } from '../../stores/useEntityEditStore';
 import type { DatalabelData } from '../frontEndFormatterService';
 
-// Import format-at-read utilities (v8.0.0)
+// Import format-at-read utilities
 // Used by select option to transform raw cache data into formatted display data
 import { formatDataset, formatRow, type FormattedRow, type ComponentMetadata } from '../formatters';
 // Centralized pagination config (v8.1.0)
 import { getEntityLimit, PAGINATION_CONFIG } from '../pagination.config';
 
-// Import specialized Zustand stores (METADATA ONLY - v6.0.0)
-// Entity instance data now uses React Query as sole cache
+// Import specialized Zustand stores (METADATA ONLY)
+// Entity instance data now uses RxDB as primary cache
 import { useGlobalSettingsMetadataStore } from '../../stores/globalSettingsMetadataStore';
 import { useDatalabelMetadataStore } from '../../stores/datalabelMetadataStore';
 import { useEntityComponentMetadataStore } from '../../stores/entityComponentMetadataStore';
 import { useEntityCodeMetadataStore } from '../../stores/entityCodeMetadataStore';
 
-// Import normalized cache utilities (v6.1.0)
+// Import normalized cache utilities (for React Query compatibility during transition)
 import {
   normalizeListResponse,
   updateNormalizedEntity,
@@ -56,8 +58,13 @@ import {
 // v8.3.2: Unified ref_data_entityInstance cache for dropdown + view resolution
 import { upsertRefDataEntityInstanceCache } from './useRefDataEntityInstanceCache';
 
-// v8.4.0: Real-time sync via WebSocket invalidation
-import { useAutoSubscribe, useAutoSubscribeSingle } from '../../db/sync';
+// v8.5.0: RxDB hooks for offline-first entity data
+import {
+  useRxEntity,
+  useRxEntityList,
+  useRxEntityMutation,
+  getReplicationManager,
+} from '../../db/rxdb';
 
 // ============================================================================
 // Cache Configuration
@@ -178,21 +185,24 @@ export interface FormattedEntityInstanceResult<T = any> extends EntityInstanceRe
 }
 
 // ============================================================================
-// useEntityInstanceList - Fetch RAW entity list with caching (v8.0.0)
+// useEntityInstanceList - Fetch RAW entity list with RxDB caching (v8.5.0)
 // ============================================================================
 
 /**
- * Hook for fetching RAW entity lists with React Query
+ * Hook for fetching RAW entity lists with RxDB offline-first storage
  *
- * v8.0.0: Format at Read Pattern
- * - Caches RAW data only (no formatting in queryFn)
- * - Use useFormattedEntityList() for formatted data with select transform
+ * v8.5.0: RxDB Offline-First Pattern
+ * - Data persisted in IndexedDB via RxDB
+ * - Reactive queries via RxJS observables
+ * - Auto-subscribe to WebSocket for real-time updates
+ * - Works offline, syncs when connection restored
  *
  * Features:
- * - Automatic caching with configurable TTL (5 min for lists)
+ * - Instant display from IndexedDB cache
+ * - Background sync with server
+ * - Multi-tab coordination via LeaderElection
  * - Pagination support
- * - Metadata and datalabels extraction
- * - Integration with specialized Zustand stores
+ * - Metadata extraction
  *
  * @example
  * // Raw data (for editing, exports, etc.)
@@ -205,313 +215,6 @@ export function useEntityInstanceList<T = any>(
   entityCode: string,
   params: EntityInstanceListParams = {},
   options?: Omit<UseQueryOptions<EntityInstanceListResult<T>>, 'queryKey' | 'queryFn'>
-) {
-  // ✅ INDUSTRY STANDARD: Use getState() for imperative store access
-  // This prevents subscription-based re-renders from store changes
-  const queryClient = useQueryClient();
-
-  // Map view mode to component name for backend metadata filtering
-  const viewComponentMap: Record<string, string> = {
-    table: 'entityDataTable',
-    kanban: 'kanbanView',
-    grid: 'gridView',
-    calendar: 'calendarView',
-    dag: 'dagView',
-    hierarchy: 'hierarchyGraphView',
-  };
-
-  // Map frontend view mode to backend component name
-  const mappedView = params.view ? viewComponentMap[params.view] || params.view : 'entityDataTable';
-
-  const normalizedParams = useMemo(() => ({
-    ...params,  // Spread first so explicit values override
-    page: params.page || 1,
-    pageSize: params.pageSize || getEntityLimit(entityCode),  // v8.1.0: Centralized pagination config
-    view: mappedView,  // Use mapped view, not raw params.view
-  }), [params, mappedView, entityCode]);
-
-  const queryKey = useMemo(
-    () => queryKeys.entityInstanceList(entityCode, normalizedParams),
-    [entityCode, normalizedParams]
-  );
-
-  const query = useQuery<EntityInstanceListResult<T>>({
-    queryKey,
-    queryFn: async () => {
-      console.log(`%c[API FETCH] 📡 useEntityInstanceList: ${entityCode}`, 'color: #ff6b6b; font-weight: bold', {
-        params: normalizedParams,
-        queryKey,
-      });
-
-      const api = APIFactory.getAPI(entityCode);
-      const response = await api.list(normalizedParams);
-
-      // Note: datalabels and globalSettings are fetched via dedicated endpoints
-      // Preserve fields array for column ordering, and include it in metadata for downstream use
-      const metadataWithFields = response.metadata ? {
-        ...response.metadata,
-        fields: response.fields || [],  // Include fields array in metadata
-      } : null;
-
-      // ═══════════════════════════════════════════════════════════════
-      // v8.0.0: Cache RAW data only - formatting happens on READ via select
-      // v8.3.0: Include ref_data_entityInstance for entity reference resolution
-      // ═══════════════════════════════════════════════════════════════
-      const result: EntityInstanceListResult<T> = {
-        data: response.data || [],
-        metadata: metadataWithFields,
-        total: response.total || 0,
-        page: normalizedParams.page,
-        pageSize: normalizedParams.pageSize,
-        hasMore: (response.data?.length || 0) === normalizedParams.pageSize,
-        ref_data_entityInstance: response.ref_data_entityInstance,  // v8.3.0: Entity reference lookup table
-      };
-
-      console.log(`%c[API FETCH] ✅ Received ${result.data.length} items for ${entityCode}`, 'color: #ff6b6b', {
-        total: result.total,
-        hasMetadata: !!result.metadata,
-        hasRefData: !!result.ref_data_entityInstance,
-        refDataEntities: result.ref_data_entityInstance ? Object.keys(result.ref_data_entityInstance) : [],
-        metadataKeys: result.metadata ? Object.keys(result.metadata) : [],
-        entityDataTableFieldCount: result.metadata?.entityDataTable ? Object.keys(result.metadata.entityDataTable).length : 0,
-        fieldsCount: result.metadata?.fields?.length || 0,
-      });
-
-      // v6.1.0: Store entities in normalized cache for cross-view consistency
-      normalizeListResponse(queryClient, { data: result.data, metadata: result.metadata, total: result.total }, entityCode);
-
-      // v8.3.2: Upsert ref_data_entityInstance to unified cache for dropdown + view resolution
-      if (result.ref_data_entityInstance) {
-        upsertRefDataEntityInstanceCache(queryClient, result.ref_data_entityInstance);
-      }
-
-      // Cache component metadata in entityComponentMetadataStore (15 min TTL)
-      // Backend returns: { entityDataTable: {...}, entityFormContainer: {...}, ... }
-      // Extract only the requested component's metadata
-      if (result.metadata) {
-        const componentName = normalizedParams.view || 'entityDataTable';
-        const componentMetadata = (result.metadata as any)[componentName];
-        if (componentMetadata && typeof componentMetadata === 'object') {
-          // ✅ Use getState() for imperative access - no subscription needed
-          useEntityComponentMetadataStore.getState().setComponentMetadata(entityCode, componentName, componentMetadata);
-        }
-      }
-
-      // ✅ v6.2.0: Cache datalabels from API response (backend sends colors)
-      // Backend returns: { datalabels: { dl__project_stage: [{ name, color_code }] } }
-      if (response.datalabels && typeof response.datalabels === 'object') {
-        Object.entries(response.datalabels).forEach(([datalabelKey, options]) => {
-          if (Array.isArray(options)) {
-            useDatalabelMetadataStore.getState().setDatalabel(datalabelKey, options);
-          }
-        });
-        console.log(`%c[API FETCH] 🎨 Cached datalabels from API:`, 'color: #be4bdb', Object.keys(response.datalabels));
-      }
-
-      return result;
-    },
-    // v6.0.0: Stale-while-revalidate pattern
-    staleTime: CACHE_TTL.ENTITY_LIST_STALE,  // 30 seconds - show cached, refetch in background
-    gcTime: CACHE_TTL.ENTITY_LIST_CACHE,     // 5 minutes - keep for back navigation
-    refetchOnWindowFocus: true,               // Industry standard: refresh when user returns
-    refetchOnMount: true,                     // Always check freshness on mount
-    ...options,
-  });
-
-  // Log cache status only when data changes (not on every render)
-  const prevDataRef = useRef<EntityInstanceListResult<T> | undefined>(undefined);
-  useEffect(() => {
-    if (query.data && query.data !== prevDataRef.current) {
-      prevDataRef.current = query.data;
-      const cacheState = queryClient.getQueryState(queryKey);
-      const isFromCache = cacheState && cacheState.dataUpdateCount > 1 && !query.isRefetching;
-      console.log(
-        `%c[CACHE ${isFromCache ? 'HIT' : 'MISS'}] 💾 useEntityInstanceList: ${entityCode}`,
-        `color: ${isFromCache ? '#51cf66' : '#fcc419'}; font-weight: bold`,
-        {
-          source: isFromCache ? 'React Query Cache' : 'Fresh API Response',
-          itemCount: query.data.data.length,
-          total: query.data.total,
-          staleTime: `${CACHE_TTL.ENTITY_LIST_STALE / 1000}s`,
-          dataUpdatedAt: cacheState?.dataUpdatedAt ? new Date(cacheState.dataUpdatedAt).toLocaleTimeString() : 'N/A',
-        }
-      );
-    }
-  }, [query.data, query.isRefetching, queryClient, queryKey, entityCode]);
-
-  // v8.4.0: Auto-subscribe to loaded entities for real-time sync
-  const entityIds = useMemo(
-    () => query.data?.data?.map((item: { id: string }) => item.id) ?? [],
-    [query.data?.data]
-  );
-  useAutoSubscribe(entityCode, entityIds);
-
-  return query;
-}
-
-// ============================================================================
-// useEntityInstance - Fetch RAW single entity with caching (v8.0.0)
-// ============================================================================
-
-/**
- * Hook for fetching RAW single entity details with React Query
- *
- * v8.0.0: Format at Read Pattern
- * - Caches RAW data only (no formatting in queryFn)
- * - Use useFormattedEntityInstance() for formatted data with select transform
- *
- * Features:
- * - Automatic caching (10s stale, 2m cache) with stale-while-revalidate
- * - Metadata extraction with backend field definitions
- * - Integration with normalized cache for cross-view consistency
- * - Optimistic update support via normalized cache
- *
- * @example
- * // Raw data (for editing)
- * const { data } = useEntityInstance('project', 'uuid-123');
- *
- * // Formatted data (for display) - use useFormattedEntityInstance instead
- * const { data } = useFormattedEntityInstance('project', 'uuid-123');
- */
-export function useEntityInstance<T = any>(
-  entityCode: string,
-  id: string | undefined,
-  options?: Omit<UseQueryOptions<EntityInstanceResult<T>>, 'queryKey' | 'queryFn'>
-) {
-  // ✅ INDUSTRY STANDARD: Use getState() for imperative store access
-  // This prevents subscription-based re-renders from store changes
-  const queryClient = useQueryClient();
-
-  const queryKey = useMemo(
-    () => id ? queryKeys.entityInstance(entityCode, id) : ['entity-instance', entityCode, 'undefined'],
-    [entityCode, id]
-  );
-
-  const query = useQuery<EntityInstanceResult<T>>({
-    queryKey,
-    queryFn: async () => {
-      if (!id) {
-        throw new Error('Entity ID is required');
-      }
-
-      console.log(`%c[API FETCH] 📡 useEntityInstance: ${entityCode}/${id}`, 'color: #ff6b6b; font-weight: bold', {
-        queryKey,
-      });
-
-      const api = APIFactory.getAPI(entityCode);
-      const response = await api.get(id, { view: 'entityFormContainer' });
-
-      // Extract data, metadata, fields from response
-      // Note: datalabels and globalSettings are fetched via dedicated endpoints
-      let data = response.data || response;
-      let metadata = null;
-      let fields: string[] | undefined;
-
-      // Check if response has backend metadata structure
-      if (response && typeof response === 'object' && 'metadata' in response && 'data' in response) {
-        metadata = response.metadata;
-        data = response.data;
-
-        if ('fields' in response && Array.isArray(response.fields)) {
-          fields = response.fields;
-        }
-      }
-
-      // Parse metadata if it's a string
-      if (data.metadata && typeof data.metadata === 'string') {
-        try {
-          data.metadata = JSON.parse(data.metadata);
-        } catch {
-          data.metadata = {};
-        }
-      }
-
-      // v8.3.0: Extract ref_data_entityInstance for entity reference resolution
-      const ref_data_entityInstance = response.ref_data_entityInstance;
-
-      console.log(`%c[API FETCH] ✅ Received entity ${entityCode}/${id}`, 'color: #ff6b6b', {
-        hasMetadata: !!metadata,
-        hasFields: !!fields,
-        hasRefData: !!ref_data_entityInstance,
-        refDataEntities: ref_data_entityInstance ? Object.keys(ref_data_entityInstance) : [],
-        dataKeys: Object.keys(data),
-      });
-
-      // v6.1.0: Store entity in normalized cache for cross-view consistency
-      addNormalizedEntity(queryClient, entityCode, data);
-
-      // v8.3.2: Upsert ref_data_entityInstance to unified cache for dropdown + view resolution
-      if (ref_data_entityInstance) {
-        upsertRefDataEntityInstanceCache(queryClient, ref_data_entityInstance);
-      }
-
-      // ═══════════════════════════════════════════════════════════════
-      // v8.0.0: Cache RAW data only - formatting happens on READ via select
-      // v8.3.0: Include ref_data_entityInstance for entity reference resolution
-      // ═══════════════════════════════════════════════════════════════
-      return { data, metadata, fields, ref_data_entityInstance };
-    },
-    enabled: !!id,
-    // v6.0.0: Near real-time for actively edited records
-    staleTime: CACHE_TTL.ENTITY_DETAIL_STALE,  // 10 seconds - short stale time
-    gcTime: CACHE_TTL.ENTITY_DETAIL_CACHE,     // 2 minutes - keep for navigation
-    refetchOnWindowFocus: true,                 // Industry standard: refresh when user returns
-    refetchOnMount: 'always',                   // Always check freshness for details
-    ...options,
-  });
-
-  // Log cache status only when data changes (not on every render)
-  const prevInstanceDataRef = useRef<EntityInstanceResult<T> | undefined>(undefined);
-  useEffect(() => {
-    if (query.data && id && query.data !== prevInstanceDataRef.current) {
-      prevInstanceDataRef.current = query.data;
-      const cacheState = queryClient.getQueryState(queryKey);
-      const isFromCache = cacheState && cacheState.dataUpdateCount > 1 && !query.isRefetching;
-      console.log(
-        `%c[CACHE ${isFromCache ? 'HIT' : 'MISS'}] 💾 useEntityInstance: ${entityCode}/${id}`,
-        `color: ${isFromCache ? '#51cf66' : '#fcc419'}; font-weight: bold`,
-        {
-          source: isFromCache ? 'React Query Cache' : 'Fresh API Response',
-          staleTime: `${CACHE_TTL.ENTITY_DETAIL_STALE / 1000}s`,
-          dataUpdatedAt: cacheState?.dataUpdatedAt ? new Date(cacheState.dataUpdatedAt).toLocaleTimeString() : 'N/A',
-          hasMetadata: !!query.data.metadata,
-          hasFields: !!query.data.fields,
-        }
-      );
-    }
-  }, [query.data, query.isRefetching, queryClient, queryKey, entityCode, id]);
-
-  // v8.4.0: Auto-subscribe to this entity for real-time sync
-  useAutoSubscribeSingle(entityCode, id);
-
-  return query;
-}
-
-// ============================================================================
-// useFormattedEntityList - Format at Read pattern (v8.0.0)
-// ============================================================================
-
-/**
- * Hook for fetching FORMATTED entity lists using select transform
- *
- * v8.0.0: Format at Read Pattern
- * - Uses same cached RAW data as useEntityInstanceList
- * - Applies formatting via React Query's `select` option on read
- * - Memoized by React Query - only re-formats when raw data changes
- *
- * Benefits:
- * - Smaller cache (raw data only)
- * - Fresh formatting with latest datalabel colors
- * - Same cache, different formats per component
- *
- * @example
- * const { data } = useFormattedEntityList('project', { page: 1, pageSize: 100 });
- * // data.formattedData contains FormattedRow[] ready for rendering
- */
-export function useFormattedEntityList<T = any>(
-  entityCode: string,
-  params: EntityInstanceListParams = {},
-  options?: Omit<UseQueryOptions<FormattedEntityInstanceListResult<T>>, 'queryKey' | 'queryFn' | 'select'>
 ) {
   const queryClient = useQueryClient();
 
@@ -530,135 +233,275 @@ export function useFormattedEntityList<T = any>(
   const normalizedParams = useMemo(() => ({
     ...params,
     page: params.page || 1,
-    pageSize: params.pageSize || getEntityLimit(entityCode),  // v8.1.0: Centralized pagination config
+    pageSize: params.pageSize || getEntityLimit(entityCode),
     view: mappedView,
   }), [params, mappedView, entityCode]);
 
-  const queryKey = useMemo(
-    () => queryKeys.entityInstanceList(entityCode, normalizedParams),
-    [entityCode, normalizedParams]
-  );
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // v8.0.0: Use `select` to transform raw cache data → formatted on READ
-  // v8.3.2: Pass ref_data_entityInstance for entity reference resolution
-  // React Query memoizes this - only re-runs when raw data changes
-  // ═══════════════════════════════════════════════════════════════════════
-  const selectFormatted = useCallback(
-    (raw: EntityInstanceListResult<T>): FormattedEntityInstanceListResult<T> => {
-      const startTime = performance.now();
-
-      // Get component metadata for formatting
-      const componentMetadata = (raw.metadata as any)?.[mappedView] as ComponentMetadata | null;
-
-      // v8.3.2: Pass ref_data_entityInstance for entity name resolution
-      const formattedData = formatDataset(raw.data, componentMetadata, raw.ref_data_entityInstance);
-
-      const duration = performance.now() - startTime;
-      console.log(
-        `%c[FORMAT AT READ] 🎨 Formatted ${raw.data.length} rows in ${duration.toFixed(2)}ms`,
-        'color: #be4bdb; font-weight: bold',
-        { entityCode, view: mappedView, hasMetadata: !!componentMetadata, hasRefData: !!raw.ref_data_entityInstance }
-      );
-
-      return {
-        ...raw,
-        formattedData,
-      };
-    },
-    [entityCode, mappedView]
-  );
-
-  const query = useQuery<EntityInstanceListResult<T>, Error, FormattedEntityInstanceListResult<T>>({
-    queryKey,
-    queryFn: async () => {
-      // Fetch raw data (or use cached raw data)
-      console.log(`%c[API FETCH] 📡 useFormattedEntityList: ${entityCode}`, 'color: #ff6b6b; font-weight: bold', {
-        params: normalizedParams,
-        queryKey,
-      });
-
-      const api = APIFactory.getAPI(entityCode);
-      const response = await api.list(normalizedParams);
-
-      const metadataWithFields = response.metadata ? {
-        ...response.metadata,
-        fields: response.fields || [],
-      } : null;
-
-      const result: EntityInstanceListResult<T> = {
-        data: response.data || [],
-        metadata: metadataWithFields,
-        total: response.total || 0,
-        page: normalizedParams.page,
-        pageSize: normalizedParams.pageSize,
-        hasMore: (response.data?.length || 0) === normalizedParams.pageSize,
-        ref_data_entityInstance: response.ref_data_entityInstance,  // v8.3.0: Entity reference lookup table
-      };
-
-      console.log(`%c[API FETCH] ✅ Received ${result.data.length} items for ${entityCode}`, 'color: #ff6b6b', {
-        total: result.total,
-        hasMetadata: !!result.metadata,
-        hasRefData: !!result.ref_data_entityInstance,
-      });
-
-      // Cache datalabels for formatting
-      if (response.datalabels && typeof response.datalabels === 'object') {
-        Object.entries(response.datalabels).forEach(([datalabelKey, opts]) => {
-          if (Array.isArray(opts)) {
-            useDatalabelMetadataStore.getState().setDatalabel(datalabelKey, opts);
-          }
-        });
-      }
-
-      // Cache component metadata
-      if (result.metadata) {
-        const componentName = normalizedParams.view || 'entityDataTable';
-        const componentMeta = (result.metadata as any)[componentName];
-        if (componentMeta && typeof componentMeta === 'object') {
-          useEntityComponentMetadataStore.getState().setComponentMetadata(entityCode, componentName, componentMeta);
-        }
-      }
-
-      // Normalize for cross-view consistency
-      normalizeListResponse(queryClient, { data: result.data, metadata: result.metadata, total: result.total }, entityCode);
-
-      // v8.3.2: Upsert ref_data_entityInstance to unified cache for dropdown + view resolution
-      if (result.ref_data_entityInstance) {
-        upsertRefDataEntityInstanceCache(queryClient, result.ref_data_entityInstance);
-      }
-
-      return result;
-    },
-    select: selectFormatted,  // v8.0.0: Format on READ, not on FETCH
-    staleTime: CACHE_TTL.ENTITY_LIST_STALE,
-    gcTime: CACHE_TTL.ENTITY_LIST_CACHE,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-    ...options,
+  // v8.5.0: Use RxDB for entity data with offline-first storage
+  const rxResult = useRxEntityList<T>(entityCode, normalizedParams, {
+    enabled: options?.enabled,
   });
 
-  // v8.4.0: Auto-subscribe to loaded entities for real-time sync
-  const entityIds = useMemo(
-    () => query.data?.data?.map((item: { id: string }) => item.id) ?? [],
-    [query.data?.data]
-  );
-  useAutoSubscribe(entityCode, entityIds);
+  // Transform RxDB result to React Query-compatible format
+  const result: EntityInstanceListResult<T> = useMemo(() => ({
+    data: rxResult.data,
+    metadata: rxResult.metadata as EntityMetadata | null,
+    total: rxResult.total,
+    page: normalizedParams.page,
+    pageSize: normalizedParams.pageSize,
+    hasMore: rxResult.data.length === normalizedParams.pageSize,
+    ref_data_entityInstance: rxResult.refData,
+  }), [rxResult.data, rxResult.metadata, rxResult.total, rxResult.refData, normalizedParams]);
 
-  return query;
+  // Cache metadata in Zustand stores for other components
+  useEffect(() => {
+    if (result.metadata) {
+      const componentName = normalizedParams.view || 'entityDataTable';
+      const componentMetadata = (result.metadata as any)[componentName];
+      if (componentMetadata && typeof componentMetadata === 'object') {
+        useEntityComponentMetadataStore.getState().setComponentMetadata(entityCode, componentName, componentMetadata);
+      }
+    }
+    if (result.ref_data_entityInstance) {
+      upsertRefDataEntityInstanceCache(queryClient, result.ref_data_entityInstance);
+    }
+  }, [result.metadata, result.ref_data_entityInstance, entityCode, normalizedParams.view, queryClient]);
+
+  // Log RxDB cache status
+  const prevDataRef = useRef<T[] | undefined>(undefined);
+  useEffect(() => {
+    if (rxResult.data && rxResult.data !== prevDataRef.current) {
+      prevDataRef.current = rxResult.data;
+      console.log(
+        `%c[RxDB ${rxResult.isStale ? 'STALE' : 'FRESH'}] 💾 useEntityInstanceList: ${entityCode}`,
+        `color: ${rxResult.isStale ? '#fcc419' : '#51cf66'}; font-weight: bold`,
+        {
+          source: 'RxDB (IndexedDB)',
+          itemCount: rxResult.data.length,
+          total: rxResult.total,
+          isStale: rxResult.isStale,
+          isLoading: rxResult.isLoading,
+        }
+      );
+    }
+  }, [rxResult.data, rxResult.isStale, rxResult.isLoading, rxResult.total, entityCode]);
+
+  // Return React Query-compatible object for backwards compatibility
+  return {
+    data: result,
+    isLoading: rxResult.isLoading,
+    isPending: rxResult.isLoading,
+    isError: !!rxResult.error,
+    error: rxResult.error,
+    isStale: rxResult.isStale,
+    isFetching: rxResult.isLoading,
+    isRefetching: false,
+    refetch: rxResult.refetch,
+    // Additional React Query compatibility properties
+    status: rxResult.isLoading ? 'pending' as const : rxResult.error ? 'error' as const : 'success' as const,
+    fetchStatus: rxResult.isLoading ? 'fetching' as const : 'idle' as const,
+    dataUpdatedAt: Date.now(),
+    errorUpdatedAt: 0,
+    failureCount: 0,
+    failureReason: null,
+    isSuccess: !rxResult.isLoading && !rxResult.error,
+    isFetched: !rxResult.isLoading,
+    isFetchedAfterMount: !rxResult.isLoading,
+    isInitialLoading: rxResult.isLoading && rxResult.data.length === 0,
+    isLoadingError: false,
+    isPlaceholderData: false,
+    isRefetchError: false,
+  };
 }
 
 // ============================================================================
-// useFormattedEntityInstance - Format at Read pattern (v8.0.0)
+// useEntityInstance - Fetch RAW single entity with RxDB caching (v8.5.0)
 // ============================================================================
 
 /**
- * Hook for fetching FORMATTED single entity using select transform
+ * Hook for fetching RAW single entity details with RxDB offline-first storage
  *
- * v8.0.0: Format at Read Pattern
- * - Uses same cached RAW data as useEntityInstance
- * - Applies formatting via React Query's `select` option on read
- * - Memoized by React Query - only re-formats when raw data changes
+ * v8.5.0: RxDB Offline-First Pattern
+ * - Data persisted in IndexedDB via RxDB
+ * - Reactive queries via RxJS observables
+ * - Auto-subscribe to WebSocket for real-time updates
+ * - Works offline, syncs when connection restored
+ *
+ * Features:
+ * - Instant display from IndexedDB cache
+ * - Background sync with server
+ * - Multi-tab coordination via LeaderElection
+ * - Metadata extraction with backend field definitions
+ *
+ * @example
+ * // Raw data (for editing)
+ * const { data } = useEntityInstance('project', 'uuid-123');
+ *
+ * // Formatted data (for display) - use useFormattedEntityInstance instead
+ * const { data } = useFormattedEntityInstance('project', 'uuid-123');
+ */
+export function useEntityInstance<T = any>(
+  entityCode: string,
+  id: string | undefined,
+  options?: Omit<UseQueryOptions<EntityInstanceResult<T>>, 'queryKey' | 'queryFn'>
+) {
+  const queryClient = useQueryClient();
+
+  // v8.5.0: Use RxDB for entity data with offline-first storage
+  const rxResult = useRxEntity<T>(entityCode, id, {
+    enabled: options?.enabled !== false,
+  });
+
+  // Transform RxDB result to React Query-compatible format
+  const result: EntityInstanceResult<T> | undefined = useMemo(() => {
+    if (!rxResult.data) return undefined;
+    return {
+      data: rxResult.data,
+      metadata: rxResult.metadata as EntityMetadata | null,
+      fields: undefined, // Fields are included in metadata
+      ref_data_entityInstance: rxResult.refData,
+    };
+  }, [rxResult.data, rxResult.metadata, rxResult.refData]);
+
+  // Cache metadata and refData in stores for other components
+  useEffect(() => {
+    if (result?.ref_data_entityInstance) {
+      upsertRefDataEntityInstanceCache(queryClient, result.ref_data_entityInstance);
+    }
+  }, [result?.ref_data_entityInstance, queryClient]);
+
+  // Log RxDB cache status
+  const prevDataRef = useRef<T | null>(null);
+  useEffect(() => {
+    if (rxResult.data && rxResult.data !== prevDataRef.current && id) {
+      prevDataRef.current = rxResult.data;
+      console.log(
+        `%c[RxDB ${rxResult.isStale ? 'STALE' : 'FRESH'}] 💾 useEntityInstance: ${entityCode}/${id}`,
+        `color: ${rxResult.isStale ? '#fcc419' : '#51cf66'}; font-weight: bold`,
+        {
+          source: 'RxDB (IndexedDB)',
+          isStale: rxResult.isStale,
+          isLoading: rxResult.isLoading,
+          hasMetadata: !!rxResult.metadata,
+          hasRefData: !!rxResult.refData,
+        }
+      );
+    }
+  }, [rxResult.data, rxResult.isStale, rxResult.isLoading, rxResult.metadata, rxResult.refData, entityCode, id]);
+
+  // Return React Query-compatible object for backwards compatibility
+  return {
+    data: result,
+    isLoading: rxResult.isLoading,
+    isPending: rxResult.isLoading,
+    isError: !!rxResult.error,
+    error: rxResult.error,
+    isStale: rxResult.isStale,
+    isFetching: rxResult.isLoading,
+    isRefetching: false,
+    refetch: rxResult.refetch,
+    // Additional React Query compatibility properties
+    status: rxResult.isLoading ? 'pending' as const : rxResult.error ? 'error' as const : 'success' as const,
+    fetchStatus: rxResult.isLoading ? 'fetching' as const : 'idle' as const,
+    dataUpdatedAt: Date.now(),
+    errorUpdatedAt: 0,
+    failureCount: 0,
+    failureReason: null,
+    isSuccess: !rxResult.isLoading && !rxResult.error && !!rxResult.data,
+    isFetched: !rxResult.isLoading,
+    isFetchedAfterMount: !rxResult.isLoading,
+    isInitialLoading: rxResult.isLoading && !rxResult.data,
+    isLoadingError: false,
+    isPlaceholderData: false,
+    isRefetchError: false,
+  };
+}
+
+// ============================================================================
+// useFormattedEntityList - Format at Read pattern with RxDB (v8.5.0)
+// ============================================================================
+
+/**
+ * Hook for fetching FORMATTED entity lists using RxDB + formatting
+ *
+ * v8.5.0: RxDB Offline-First + Format at Read
+ * - Uses RxDB for offline-first storage
+ * - Applies formatting on read (memoized)
+ * - Real-time updates via WebSocket sync
+ *
+ * Benefits:
+ * - Offline-first with IndexedDB persistence
+ * - Fresh formatting with latest datalabel colors
+ * - Multi-tab sync via LeaderElection
+ *
+ * @example
+ * const { data } = useFormattedEntityList('project', { page: 1, pageSize: 100 });
+ * // data.formattedData contains FormattedRow[] ready for rendering
+ */
+export function useFormattedEntityList<T = any>(
+  entityCode: string,
+  params: EntityInstanceListParams = {},
+  options?: Omit<UseQueryOptions<FormattedEntityInstanceListResult<T>>, 'queryKey' | 'queryFn' | 'select'>
+) {
+  // Map view mode to component name for backend metadata filtering
+  const viewComponentMap: Record<string, string> = {
+    table: 'entityDataTable',
+    kanban: 'kanbanView',
+    grid: 'gridView',
+    calendar: 'calendarView',
+    dag: 'dagView',
+    hierarchy: 'hierarchyGraphView',
+  };
+
+  const mappedView = params.view ? viewComponentMap[params.view] || params.view : 'entityDataTable';
+
+  // Use RxDB-backed base hook
+  const rawResult = useEntityInstanceList<T>(entityCode, params, options as any);
+
+  // Format data on read (memoized)
+  const formattedResult = useMemo((): FormattedEntityInstanceListResult<T> | undefined => {
+    if (!rawResult.data) return undefined;
+
+    const startTime = performance.now();
+    const raw = rawResult.data;
+
+    // Get component metadata for formatting
+    const componentMetadata = (raw.metadata as any)?.[mappedView] as ComponentMetadata | null;
+
+    // Format with ref_data_entityInstance for entity name resolution
+    const formattedData = formatDataset(raw.data, componentMetadata, raw.ref_data_entityInstance);
+
+    const duration = performance.now() - startTime;
+    console.log(
+      `%c[FORMAT AT READ] 🎨 Formatted ${raw.data.length} rows in ${duration.toFixed(2)}ms`,
+      'color: #be4bdb; font-weight: bold',
+      { entityCode, view: mappedView, hasMetadata: !!componentMetadata, hasRefData: !!raw.ref_data_entityInstance }
+    );
+
+    return {
+      ...raw,
+      formattedData,
+    };
+  }, [rawResult.data, entityCode, mappedView]);
+
+  // Return React Query-compatible object with formatted data
+  return {
+    ...rawResult,
+    data: formattedResult,
+  };
+}
+
+// ============================================================================
+// useFormattedEntityInstance - Format at Read pattern with RxDB (v8.5.0)
+// ============================================================================
+
+/**
+ * Hook for fetching FORMATTED single entity using RxDB + formatting
+ *
+ * v8.5.0: RxDB Offline-First + Format at Read
+ * - Uses RxDB for offline-first storage
+ * - Applies formatting on read (memoized)
+ * - Real-time updates via WebSocket sync
  *
  * @example
  * const { data } = useFormattedEntityInstance('project', 'uuid-123');
@@ -670,97 +513,38 @@ export function useFormattedEntityInstance<T = any>(
   componentName: string = 'entityFormContainer',
   options?: Omit<UseQueryOptions<FormattedEntityInstanceResult<T>>, 'queryKey' | 'queryFn' | 'select'>
 ) {
-  const queryClient = useQueryClient();
+  // Use RxDB-backed base hook
+  const rawResult = useEntityInstance<T>(entityCode, id, options as any);
 
-  const queryKey = useMemo(
-    () => id ? queryKeys.entityInstance(entityCode, id) : ['entity-instance', entityCode, 'undefined'],
-    [entityCode, id]
-  );
+  // Format data on read (memoized)
+  const formattedResult = useMemo((): FormattedEntityInstanceResult<T> | undefined => {
+    if (!rawResult.data) return undefined;
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // v8.0.0: Use `select` to transform raw cache data → formatted on READ
-  // v8.3.2: Pass ref_data_entityInstance for entity reference resolution
-  // ═══════════════════════════════════════════════════════════════════════
-  const selectFormatted = useCallback(
-    (raw: EntityInstanceResult<T>): FormattedEntityInstanceResult<T> => {
-      const startTime = performance.now();
+    const startTime = performance.now();
+    const raw = rawResult.data;
 
-      const componentMetadata = (raw.metadata as any)?.[componentName] as ComponentMetadata | null;
-      // v8.3.2: Pass ref_data_entityInstance for entity name resolution
-      const formattedData = formatRow(raw.data, componentMetadata, raw.ref_data_entityInstance);
+    const componentMetadata = (raw.metadata as any)?.[componentName] as ComponentMetadata | null;
+    // Format with ref_data_entityInstance for entity name resolution
+    const formattedData = formatRow(raw.data, componentMetadata, raw.ref_data_entityInstance);
 
-      const duration = performance.now() - startTime;
-      console.log(
-        `%c[FORMAT AT READ] 🎨 Formatted entity in ${duration.toFixed(2)}ms`,
-        'color: #be4bdb; font-weight: bold',
-        { entityCode, id, component: componentName, hasMetadata: !!componentMetadata, hasRefData: !!raw.ref_data_entityInstance }
-      );
+    const duration = performance.now() - startTime;
+    console.log(
+      `%c[FORMAT AT READ] 🎨 Formatted entity in ${duration.toFixed(2)}ms`,
+      'color: #be4bdb; font-weight: bold',
+      { entityCode, id, component: componentName, hasMetadata: !!componentMetadata, hasRefData: !!raw.ref_data_entityInstance }
+    );
 
-      return {
-        ...raw,
-        formattedData,
-      };
-    },
-    [entityCode, id, componentName]
-  );
+    return {
+      ...raw,
+      formattedData,
+    };
+  }, [rawResult.data, entityCode, id, componentName]);
 
-  const query = useQuery<EntityInstanceResult<T>, Error, FormattedEntityInstanceResult<T>>({
-    queryKey,
-    queryFn: async () => {
-      if (!id) {
-        throw new Error('Entity ID is required');
-      }
-
-      console.log(`%c[API FETCH] 📡 useFormattedEntityInstance: ${entityCode}/${id}`, 'color: #ff6b6b; font-weight: bold');
-
-      const api = APIFactory.getAPI(entityCode);
-      const response = await api.get(id, { view: componentName });
-
-      let data = response.data || response;
-      let metadata = null;
-      let fields: string[] | undefined;
-
-      if (response && typeof response === 'object' && 'metadata' in response && 'data' in response) {
-        metadata = response.metadata;
-        data = response.data;
-        if ('fields' in response && Array.isArray(response.fields)) {
-          fields = response.fields;
-        }
-      }
-
-      if (data.metadata && typeof data.metadata === 'string') {
-        try {
-          data.metadata = JSON.parse(data.metadata);
-        } catch {
-          data.metadata = {};
-        }
-      }
-
-      // v8.3.0: Extract ref_data_entityInstance for entity reference resolution
-      const ref_data_entityInstance = response.ref_data_entityInstance;
-
-      addNormalizedEntity(queryClient, entityCode, data);
-
-      // v8.3.2: Upsert ref_data_entityInstance to unified cache for dropdown + view resolution
-      if (ref_data_entityInstance) {
-        upsertRefDataEntityInstanceCache(queryClient, ref_data_entityInstance);
-      }
-
-      return { data, metadata, fields, ref_data_entityInstance };
-    },
-    select: selectFormatted,  // v8.0.0: Format on READ, not on FETCH
-    enabled: !!id,
-    staleTime: CACHE_TTL.ENTITY_DETAIL_STALE,
-    gcTime: CACHE_TTL.ENTITY_DETAIL_CACHE,
-    refetchOnWindowFocus: true,
-    refetchOnMount: 'always',
-    ...options,
-  });
-
-  // v8.4.0: Auto-subscribe to this entity for real-time sync
-  useAutoSubscribeSingle(entityCode, id);
-
-  return query;
+  // Return React Query-compatible object with formatted data
+  return {
+    ...rawResult,
+    data: formattedResult,
+  };
 }
 
 // ============================================================================
@@ -857,138 +641,59 @@ export function useEntityCodes(
 }
 
 // ============================================================================
-// useEntityMutation - Unified mutation hook for CRUD operations
+// useEntityMutation - Unified mutation hook using RxDB (v8.5.0)
 // ============================================================================
 
 /**
- * Hook for entity mutations with optimistic updates
+ * Hook for entity mutations with RxDB storage
  *
- * Features:
- * - Automatic cache invalidation
- * - Optimistic updates via Zustand edit store
- * - Error rollback
+ * v8.5.0: RxDB Offline-First Mutations
+ * - Updates sent to server and stored in RxDB
+ * - Automatic cache update via reactive queries
+ * - Works offline (queues for sync when online)
  *
  * @example
  * const { updateEntity, deleteEntity, isUpdating } = useEntityMutation('project');
  */
 export function useEntityMutation(entityCode: string) {
-  const queryClient = useQueryClient();
+  // v8.5.0: Use RxDB mutation hook
+  const rxMutation = useRxEntityMutation(entityCode);
 
-  // ✅ INDUSTRY STANDARD: Use getState() for imperative store access
-  // This prevents subscription-based re-renders from store changes
-
-  // v6.0.0: React Query is sole data cache - only invalidate RQ + metadata stores
-  const invalidateAllCaches = useCallback((id?: string) => {
-    // React Query invalidation (sole data cache)
-    if (id) {
-      queryClient.invalidateQueries({ queryKey: queryKeys.entityInstance(entityCode, id) });
-    }
-    queryClient.invalidateQueries({ queryKey: ['entity-instance-list', entityCode] });
-
-    // Only invalidate metadata store (not data stores - they're removed)
-    useEntityComponentMetadataStore.getState().invalidateEntity(entityCode);
-  }, [queryClient, entityCode]);
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Record<string, any> }) => {
-      const api = APIFactory.getAPI(entityCode);
-      return api.update(id, data);
+  // Wrap RxDB methods to maintain backwards compatibility
+  const updateEntity = useCallback(
+    async ({ id, data }: { id: string; data: Record<string, any> }) => {
+      await rxMutation.updateEntity(id, data);
+      return data;
     },
-    onMutate: async ({ id, data }) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.entityInstance(entityCode, id) });
-      await queryClient.cancelQueries({ queryKey: ['entity-instance-list', entityCode] });
+    [rxMutation]
+  );
 
-      // Snapshot previous values from normalized cache and React Query
-      const previousNormalized = getNormalizedEntity(queryClient, entityCode, id);
-      const previousRQData = queryClient.getQueryData(queryKeys.entityInstance(entityCode, id));
+  const deleteEntity = useCallback(
+    async (id: string) => {
+      await rxMutation.deleteEntity(id);
+      return { success: true };
+    },
+    [rxMutation]
+  );
 
-      // v6.1.0: Optimistically update normalized cache (reflects in ALL views)
-      updateNormalizedEntity(queryClient, entityCode, id, data);
-
-      // Also update React Query cache for immediate UI feedback
-      queryClient.setQueryData(
-        queryKeys.entityInstance(entityCode, id),
-        (old: EntityInstanceResult | undefined) => old ? {
-          ...old,
-          data: { ...old.data, ...data },
-        } : old
-      );
-
-      return { previousNormalized, previousRQData };
+  const createEntity = useCallback(
+    async (data: Record<string, any>) => {
+      const id = await rxMutation.createEntity(data);
+      return { id, ...data };
     },
-    onError: (_error, { id }, context) => {
-      // Rollback normalized cache
-      if (context?.previousNormalized) {
-        updateNormalizedEntity(queryClient, entityCode, id, context.previousNormalized);
-      }
-      // Rollback React Query cache
-      if (context?.previousRQData) {
-        queryClient.setQueryData(queryKeys.entityInstance(entityCode, id), context.previousRQData);
-      }
-    },
-    onSettled: (_data, _error, { id }) => {
-      // Invalidate caches to refetch fresh data
-      invalidateAllCaches(id);
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const api = APIFactory.getAPI(entityCode);
-      return api.delete(id);
-    },
-    onMutate: async (id) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['entity-instance-list', entityCode] });
-
-      // Snapshot for rollback
-      const previousEntity = getNormalizedEntity(queryClient, entityCode, id);
-
-      // v6.1.0: Optimistically remove from normalized cache
-      removeNormalizedEntity(queryClient, entityCode, id);
-
-      return { previousEntity };
-    },
-    onError: (_error, id, context) => {
-      // Rollback: re-add the entity
-      if (context?.previousEntity) {
-        addNormalizedEntity(queryClient, entityCode, context.previousEntity);
-      }
-    },
-    onSettled: (_data, _error, id) => {
-      // Invalidate caches after delete
-      invalidateAllCaches(id);
-    },
-  });
-
-  const createMutation = useMutation({
-    mutationFn: async (data: Record<string, any>) => {
-      const api = APIFactory.getAPI(entityCode);
-      return api.create(data);
-    },
-    onSuccess: (response) => {
-      // v6.1.0: Add new entity to normalized cache
-      if (response && response.id) {
-        addNormalizedEntity(queryClient, entityCode, response);
-      }
-    },
-    onSettled: () => {
-      // Invalidate list caches after create
-      invalidateAllCaches();
-    },
-  });
+    [rxMutation]
+  );
 
   return {
-    updateEntity: updateMutation.mutateAsync,
-    deleteEntity: deleteMutation.mutateAsync,
-    createEntity: createMutation.mutateAsync,
-    isUpdating: updateMutation.isPending,
-    isDeleting: deleteMutation.isPending,
-    isCreating: createMutation.isPending,
-    updateError: updateMutation.error,
-    deleteError: deleteMutation.error,
-    createError: createMutation.error,
+    updateEntity,
+    deleteEntity,
+    createEntity,
+    isUpdating: rxMutation.isLoading,
+    isDeleting: rxMutation.isLoading,
+    isCreating: rxMutation.isLoading,
+    updateError: rxMutation.error,
+    deleteError: rxMutation.error,
+    createError: rxMutation.error,
   };
 }
 

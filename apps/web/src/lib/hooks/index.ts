@@ -2,18 +2,24 @@
  * Hooks Index
  *
  * Centralized export for all custom React hooks
+ *
+ * v8.5.0: RxDB Offline-First Architecture
+ * - Entity data stored in IndexedDB via RxDB
+ * - Real-time sync via WebSocket
+ * - Draft persistence with undo/redo
+ * - Multi-tab coordination via LeaderElection
  */
 
 export { useColumnVisibility } from './useColumnVisibility';
 export type { UseColumnVisibilityReturn } from './useColumnVisibility';
 
-// Entity Query Hooks (React Query + Zustand integration)
-// v8.0.0: Format at Read pattern - raw data cached, formatting on read via select
+// Entity Query Hooks (RxDB + React Query integration)
+// v8.5.0: RxDB offline-first pattern - data persisted in IndexedDB
 export {
   // Raw data hooks (for editing, exports, mutations)
   useEntityInstanceList,
   useEntityInstance,
-  // Formatted data hooks (for display - uses select transform)
+  // Formatted data hooks (for display)
   useFormattedEntityList,
   useFormattedEntityInstance,
   // Utility hooks
@@ -31,12 +37,24 @@ export type {
   // Raw result types
   EntityInstanceListResult,
   EntityInstanceResult,
-  // Formatted result types (v8.0.0)
+  // Formatted result types
   FormattedEntityInstanceListResult,
   FormattedEntityInstanceResult,
-  // v8.3.0: RefData type
+  // RefData type
   RefData,
 } from './useEntityQuery';
+
+// v8.5.0: RxDB hooks for direct database access
+export {
+  useRxEntity,
+  useRxEntityList,
+  useRxEntityMutation,
+  useRxDraft,
+  useRecoverDraft,
+  useRxDB,
+  useRxDBReady,
+  useReplicationStatus,
+} from '../../db/rxdb';
 
 // v8.3.1: RefData Resolution Hooks (metadata-based, no pattern matching)
 export {
