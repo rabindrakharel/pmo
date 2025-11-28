@@ -1,6 +1,6 @@
 # Page Architecture
 
-**Version:** 8.5.0 | **Location:** `apps/web/src/pages/` | **Updated:** 2025-11-28
+**Version:** 8.6.0 | **Location:** `apps/web/src/pages/` | **Updated:** 2025-11-28
 
 ---
 
@@ -55,7 +55,7 @@ The PMO platform uses **3 universal pages** to handle 27+ entity types dynamical
 EntityListOfInstancesPage
 ├── Layout                         // App shell with sidebar
 ├── ViewSwitcher                   // Toggle between view modes
-├── useEntityInstanceList()        // React Query hook (data fetching)
+├── useRxEntityList()              // RxDB hook (offline-first data)
 ├── EntityDataTable                // Table view (default)
 │   ├── Pagination                 // Server-side pagination
 │   └── InlineEdit                 // Direct cell editing
@@ -76,8 +76,8 @@ interface EntityListOfInstancesPageProps {
 
 **Data Flow:**
 1. `entityCode` passed via route → `getEntityConfig(entityCode)`
-2. `useEntityInstanceList()` fetches data via React Query
-3. Backend returns `{ data, metadata, total }`
+2. `useRxEntityList()` fetches data via RxDB (instant from IndexedDB if cached)
+3. Backend returns `{ data, metadata, total }` → cached in RxDB
 4. ViewSwitcher determines which component renders
 
 ---
@@ -107,25 +107,32 @@ EntitySpecificInstancePage
 └── UnifiedLinkageModal            // Entity relationships
 ```
 
-**Edit Mode Integration:**
+**Edit Mode Integration (v8.6.0 - RxDB Drafts):**
 ```typescript
-// Zustand edit store integration
+// RxDB draft integration (persistent, survives page refresh)
 const {
-  isEditing,
+  hasDraft: isEditing,
   currentData,
   dirtyFields,
   startEdit,
   updateField,
-  saveChanges,
-  undo, redo
-} = useEntityEditStore();
+  discardDraft,
+  getChanges,
+  undo, redo,
+  canUndo, canRedo,
+  hasChanges
+} = useRxDraft(entityCode, entityId);
 
-// Keyboard shortcuts
+// Keyboard shortcuts (receives draft state via options)
 useKeyboardShortcuts({
-  enableSave: true,    // Ctrl+S
-  enableUndo: true,    // Ctrl+Z
-  enableRedo: true,    // Ctrl+Shift+Z
-  enableEscape: true   // Cancel edit
+  isEditing,
+  canUndo,
+  canRedo,
+  hasChanges,
+  onUndo: undo,
+  onRedo: redo,
+  onSave: handleSave,
+  onCancel: () => discardDraft()
 });
 ```
 

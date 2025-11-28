@@ -1,8 +1,8 @@
 # EntityFormContainer Component
 
-**Version:** 8.5.0 | **Location:** `apps/web/src/components/shared/entity/EntityFormContainer.tsx`
+**Version:** 8.6.0 | **Location:** `apps/web/src/components/shared/entity/EntityFormContainer.tsx`
 
-> **Note:** As of v8.5.0, EntityFormContainer integrates with RxDB for offline-first data storage. Entity data and drafts are persisted in IndexedDB, surviving page refresh.
+> **Note:** As of v8.6.0, all state is managed via RxDB (single source of truth). Entity data, metadata, and drafts are persisted in IndexedDB. Datalabel options accessed via `getDatalabelSync()`.
 
 ---
 

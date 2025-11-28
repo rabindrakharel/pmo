@@ -1,6 +1,6 @@
 # PMO Platform - End-to-End Architecture
 
-**Version:** 8.4.0 | **Last Updated:** 2025-11-27
+**Version:** 8.6.0 | **Last Updated:** 2025-11-28
 
 ---
 
@@ -38,11 +38,11 @@
 
 ---
 
-## End-to-End Data Flow (v8.4.0)
+## End-to-End Data Flow (v8.6.0)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         REAL-TIME SYNC (v8.4.0)                              │
+│                         REAL-TIME SYNC (v8.6.0)                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐        │
@@ -177,7 +177,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         RESPONSIBILITY MATRIX (v8.4.0)                       │
+│                         RESPONSIBILITY MATRIX (v8.6.0)                       │
 ├───────────────────────┬─────────────────────────────────────────────────────┤
 │  LAYER                │  RESPONSIBILITY                                      │
 ├───────────────────────┼─────────────────────────────────────────────────────┤
@@ -203,18 +203,19 @@
 │                       │                                                      │
 ├───────────────────────┼─────────────────────────────────────────────────────┤
 │                       │                                                      │
-│  RxDBProvider         │  • WebSocket connection to PubSub service (v8.5.0)   │
+│  RxDBProvider         │  • WebSocket connection to PubSub service (v8.6.0)   │
 │  (Frontend)           │  • Handle INVALIDATE → RxDB refetch + upsert         │
 │                       │  • Auto-reconnect with exponential backoff           │
 │                       │  • Multi-tab sync via LeaderElection                 │
+│                       │  • prefetchAllMetadata() at login                    │
 │                       │                                                      │
 ├───────────────────────┼─────────────────────────────────────────────────────┤
 │                       │                                                      │
-│  RxDB (IndexedDB)     │  • SOLE data cache (entities, metadata, drafts)      │
+│  RxDB (IndexedDB)     │  • SINGLE SOURCE OF TRUTH for all state (v8.6.0)     │
+│                       │  • Entities, metadata, datalabels, drafts            │
 │                       │  • Offline-first (works without network)             │
 │                       │  • Persistent (survives browser restart)             │
 │                       │  • Reactive (RxJS observables auto-update UI)        │
-│                       │  • Draft persistence with undo/redo                  │
 │                       │                                                      │
 ├───────────────────────┼─────────────────────────────────────────────────────┤
 │                       │                                                      │
@@ -360,15 +361,15 @@ Entity references are resolved via a response-level lookup table instead of per-
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  STEP 2: React Query Fetch + Cache                                           │
+│  STEP 2: RxDB Fetch + Cache                                                  │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  useFormattedEntityList hook:                                                │
+│  useRxEntityList hook:                                                       │
 │                                                                              │
-│    1. Check cache → MISS → fetch GET /api/v1/project?view=entityDataTable    │
-│    2. Cache RAW response + ref_data_entityInstance in React Query                    │
-│    3. Store metadata in Zustand (entityComponentMetadataStore)               │
-│    4. Store datalabels in Zustand (datalabelMetadataStore)                   │
+│    1. Check RxDB → MISS → fetch GET /api/v1/project?view=entityDataTable     │
+│    2. Cache RAW response + ref_data_entityInstance in RxDB (IndexedDB)       │
+│    3. Store metadata in RxDB metadata collection (auto-cached)               │
+│    4. Datalabels cached in RxDB at login via prefetchAllMetadata()           │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -391,9 +392,9 @@ Entity references are resolved via a response-level lookup table instead of per-
 │  formatDataset:                                                              │
 │    • Reads viewType[field].renderType                                        │
 │    • Formats currency: 50000 → "$50,000.00"                                  │
-│    • Resolves entity refs: ref_data_entityInstance[lookupEntity][uuid]               │
-│    • Looks up badge colors from datalabelMetadataStore                       │
-│    • Returns FormattedRow[] (memoized by React Query)                        │
+│    • Resolves entity refs: ref_data_entityInstance[lookupEntity][uuid]       │
+│    • Looks up badge colors from RxDB (via getDatalabelSync())                │
+│    • Returns FormattedRow[] (memoized by RxDB reactive queries)              │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -417,16 +418,17 @@ Entity references are resolved via a response-level lookup table instead of per-
 
 ---
 
-## Cache Strategy
+## Cache Strategy (v8.6.0 - RxDB Unified)
 
 | Data Type | Store | TTL | Strategy |
 |-----------|-------|-----|----------|
-| Entity Lists + ref_data_entityInstance | React Query | 30s stale, 5m cache | Stale-while-revalidate + WebSocket invalidation |
-| Entity Details + ref_data_entityInstance | React Query | 10s stale, 2m cache | Near real-time + WebSocket invalidation |
-| Component Metadata | Zustand | 15 min | Session-level |
-| Datalabels | Zustand | 1 hour | Reference data |
-| Global Settings | Zustand | 1 hour | Reference data |
-| Entity Types | Zustand | 1 hour | Sidebar navigation |
+| Entity Lists + ref_data_entityInstance | RxDB (IndexedDB) | 30s stale | Instant cache + background refresh |
+| Entity Details + ref_data_entityInstance | RxDB (IndexedDB) | 30s stale | Near real-time + WebSocket invalidation |
+| Component Metadata | RxDB (IndexedDB) | 15 min | Session-level, persistent |
+| Datalabels | RxDB (IndexedDB) | 1 hour | Reference data, persistent |
+| Global Settings | RxDB (IndexedDB) | 1 hour | Reference data, persistent |
+| Entity Types | RxDB (IndexedDB) | 1 hour | Sidebar navigation, persistent |
+| Drafts (unsaved edits) | RxDB (IndexedDB) | Until saved | Survives refresh |
 | WebSocket Subscriptions | PubSub DB | Connection lifetime | Auto-cleanup on disconnect |
 
 ---
@@ -449,9 +451,9 @@ Entity references are resolved via a response-level lookup table instead of per-
 | Dataset Formatting | - | `datasetFormatter.ts` |
 | Edit Rendering | - | `frontEndFormatterService.tsx` |
 | Type Definitions | - | `lib/formatters/types.ts` |
-| Metadata Store | - | `entityComponentMetadataStore.ts` |
-| Sync Provider | - | `db/sync/SyncProvider.tsx` |
-| Auto-Subscribe Hook | - | `db/sync/useAutoSubscribe.ts` |
+| RxDB Metadata Hooks | - | `db/rxdb/hooks/useRxMetadata.ts` |
+| RxDB Draft Hook | - | `db/rxdb/hooks/useRxDraft.ts` |
+| RxDB Provider | - | `db/rxdb/RxDBProvider.tsx` |
 
 ---
 
@@ -468,18 +470,17 @@ Entity references are resolved via a response-level lookup table instead of per-
 
 ---
 
-**Version:** 8.4.0 | **Updated:** 2025-11-27
+**Version:** 8.6.0 | **Updated:** 2025-11-28
 
 **Recent Updates:**
-- v8.4.0 (2025-11-27): **Real-Time WebSocket Sync**
-  - Added PubSub service (port 4001) for WebSocket-based cache invalidation
-  - SyncProvider manages WebSocket connection and subscription lifecycle
-  - useAutoSubscribe hook automatically subscribes to loaded entity IDs
-  - INVALIDATE messages trigger React Query cache invalidation → auto-refetch
-  - Database tables: `app.logging` (triggers) + `app.rxdb_subscription` (subscriptions)
-  - See `docs/caching/RXDB_SYNC_ARCHITECTURE.md` for full architecture
-- v8.3.2 (2025-11-27): Added `BadgeDropdownSelect` component, `vizContainer: { view, edit }` structure
-- v8.3.1 (2025-11-26): Removed all frontend pattern detection, metadata as source of truth
-- v8.3.0 (2025-11-26): Added `ref_data_entityInstance` pattern for entity reference resolution
-- v8.2.0 (2025-11-25): Component-specific viewType/editType metadata structure
-- v8.0.0 (2025-11-23): Format-at-read pattern with React Query `select`
+- v8.6.0 (2025-11-28): **RxDB Unified State (Zustand Migration Complete)**
+  - RxDB is now single source of truth for ALL state (entity data + metadata)
+  - Removed all Zustand stores (datalabel, entityCode, globalSettings, componentMetadata, entityEditStore)
+  - Added RxDB metadata hooks: `useRxDatalabel`, `useRxEntityCodes`, `useRxGlobalSettings`
+  - Added sync cache for non-hook access: `getDatalabelSync()`, `getEntityCodesSync()`
+  - `prefetchAllMetadata()` populates RxDB + sync cache at login
+  - `useRxDraft` replaces `useEntityEditStore` for persistent drafts with undo/redo
+- v8.5.0 (2025-11-28): RxDB offline-first architecture (IndexedDB)
+- v8.4.0 (2025-11-27): Real-time WebSocket sync via PubSub service
+- v8.3.2 (2025-11-27): Added `BadgeDropdownSelect` component
+- v8.3.0 (2025-11-26): Added `ref_data_entityInstance` pattern
