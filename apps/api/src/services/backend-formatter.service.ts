@@ -29,7 +29,7 @@
  *   "data": [...],
  *   "fields": ["id", "name", "budget_allocated_amt", ...],
  *   "metadata": {
- *     "entityDataTable": {
+ *     "entityListOfInstancesTable": {
  *       "viewType": {
  *         "budget_allocated_amt": {
  *           "dtype": "float",
@@ -84,7 +84,7 @@
  *
  * // In route handler
  * const response = generateEntityResponse('project', projects, {
- *   components: ['entityDataTable', 'entityFormContainer']
+ *   components: ['entityListOfInstancesTable', 'entityFormContainer']
  * });
  * return reply.send(response);
  * ```
@@ -105,7 +105,7 @@ const __dirname = dirname(__filename);
 // ============================================================================
 
 export type ComponentName =
-  | 'entityDataTable'      // Table view for entity lists
+  | 'entityListOfInstancesTable'      // Table view for entity lists
   | 'entityFormContainer'  // Create/edit forms (also used for detail view)
   | 'kanbanView'           // Kanban board view
   | 'calendarView'         // Calendar view for events
@@ -223,7 +223,7 @@ export interface ComponentMetadata {
 }
 
 export interface EntityMetadata {
-  entityDataTable?: ComponentMetadata;
+  entityListOfInstancesTable?: ComponentMetadata;
   entityFormContainer?: ComponentMetadata;
   kanbanView?: ComponentMetadata;
   calendarView?: ComponentMetadata;
@@ -289,7 +289,7 @@ export interface EntityResponse {
 // Note: datalabels and globalSettings are fetched via dedicated endpoints:
 // - GET /api/v1/settings/global (globalSettings)
 // - GET /api/v1/datalabel?name=<name> (individual datalabel)
-// - GET /api/v1/settings/datalabels/all (all datalabels)
+// - GET /api/v1/datalabel/all (all datalabels)
 
 // ============================================================================
 // GLOBAL SETTINGS
@@ -346,7 +346,7 @@ interface ViewTypeMappingYaml {
     renderType?: string;      // NEW: 'text', 'email', 'date', 'component', etc.
     component?: string;       // NEW: Component name when renderType is 'component'
     inherit?: string;
-    entityDataTable?: Record<string, any>;
+    entityListOfInstancesTable?: Record<string, any>;
     entityFormContainer?: Record<string, any>;
     kanbanView?: Record<string, any>;
     gridView?: Record<string, any>;
@@ -364,7 +364,7 @@ interface EditTypeMappingYaml {
     editable?: boolean;
     lookupSource?: 'datalabel' | 'entityInstance';  // Unified lookup source
     loadFromEntity?: boolean;  // For entity references only
-    entityDataTable?: Record<string, any>;
+    entityListOfInstancesTable?: Record<string, any>;
     entityFormContainer?: Record<string, any>;
     kanbanView?: Record<string, any>;
     gridView?: Record<string, any>;
@@ -494,7 +494,7 @@ function deepMerge(target: any, source: any): any {
  * Returns: ViewMetadata { type, component, behavior, style }
  *
  * YAML structure (v3.0.0):
- *   entityDataTable:
+ *   entityListOfInstancesTable:
  *     behavior: { visible, sortable, filterable, searchable }
  *     style: { width, align, symbol, decimals, ... }
  */
@@ -567,7 +567,7 @@ function getViewMetadataFromYaml(
  * Returns: EditMetadata { type, component, behavior, style, validation }
  *
  * YAML structure (v3.3.0):
- *   entityDataTable:
+ *   entityListOfInstancesTable:
  *     inputType: number
  *     behavior: { editable, filterable, sortable, visible }
  *     style: { step, symbol, decimals, ... }
@@ -737,7 +737,7 @@ function convertExplicitConfigToMetadata(
 
   // Determine visibility for this component
   const visibilityMap: Record<ComponentName, boolean> = {
-    entityDataTable: config.visible?.EntityDataTable ?? true,
+    entityListOfInstancesTable: config.visible?.EntityDataTable ?? true,
     entityFormContainer: config.visible?.EntityFormContainer ?? true,
     kanbanView: config.visible?.KanbanView ?? true,
     calendarView: config.visible?.CalendarView ?? true,
@@ -756,8 +756,8 @@ function convertExplicitConfigToMetadata(
     renderType: config.renderType || 'text',
     behavior: {
       visible: visibilityMap[component] ?? true,
-      filterable: component === 'entityDataTable',
-      sortable: component === 'entityDataTable',
+      filterable: component === 'entityListOfInstancesTable',
+      sortable: component === 'entityListOfInstancesTable',
       searchable: false,
     },
     style: viewStyle,
@@ -873,11 +873,11 @@ function generateFieldMetadataForComponent(
     view: {
       renderType: 'text',
       behavior: {
-        visible: component === 'entityDataTable' ||
+        visible: component === 'entityListOfInstancesTable' ||
                  component === 'entityFormContainer' ||
                  component === 'gridView',
-        filterable: component === 'entityDataTable',
-        sortable: component === 'entityDataTable',
+        filterable: component === 'entityListOfInstancesTable',
+        sortable: component === 'entityListOfInstancesTable',
         searchable: false,
       },
       style: { width: 'auto', align: 'left' },
@@ -894,7 +894,7 @@ function generateFieldMetadataForComponent(
 /**
  * Generate metadata for all requested components
  *
- * Structure: metadata.entityDataTable.viewType.{field} and metadata.entityDataTable.editType.{field}
+ * Structure: metadata.entityListOfInstancesTable.viewType.{field} and metadata.entityListOfInstancesTable.editType.{field}
  *
  * @param fieldNames - List of field names from the entity data
  * @param requestedComponents - Components to generate metadata for
@@ -902,7 +902,7 @@ function generateFieldMetadataForComponent(
  */
 export function generateMetadataForComponents(
   fieldNames: string[],
-  requestedComponents: ComponentName[] = ['entityDataTable', 'entityFormContainer', 'kanbanView'],
+  requestedComponents: ComponentName[] = ['entityListOfInstancesTable', 'entityFormContainer', 'kanbanView'],
   entityCode?: string
 ): EntityMetadata {
   const metadata: EntityMetadata = {};
@@ -971,7 +971,7 @@ export function generateEntityResponse(
   } = {}
 ): EntityResponse {
   const {
-    components = ['entityDataTable', 'entityFormContainer', 'kanbanView'],
+    components = ['entityListOfInstancesTable', 'entityFormContainer', 'kanbanView'],
     total = data.length,
     limit = 20,
     offset = 0

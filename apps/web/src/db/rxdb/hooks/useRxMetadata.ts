@@ -358,7 +358,7 @@ export function useRxAllDatalabels(): UseRxAllDatalabelsResult {
   const fetchFromServer = async (db: PMODatabase) => {
     console.log('%c[RxDB] 📡 Fetching all datalabels from server', 'color: #fcc419');
 
-    const response = await apiClient.get('/api/v1/settings/datalabels/all');
+    const response = await apiClient.get('/api/v1/datalabel/all');
     const datalabelList = response.data?.data || [];
 
     const result: Record<string, DatalabelOption[]> = {};
@@ -469,7 +469,7 @@ export function useRxEntityCodes(): UseRxEntityCodesResult {
         'entity',
         'all',
         async () => {
-          const response = await apiClient.get('/api/v1/entity/types');
+          const response = await apiClient.get('/api/v1/entity/codes');
           return Array.isArray(response.data) ? response.data : response.data?.data || [];
         }
       );
@@ -779,7 +779,7 @@ export async function prefetchAllMetadata(): Promise<void> {
 
   try {
     // 1. Fetch all datalabels
-    const datalabelsResponse = await apiClient.get('/api/v1/settings/datalabels/all');
+    const datalabelsResponse = await apiClient.get('/api/v1/datalabel/all');
     const datalabelList = datalabelsResponse.data?.data || [];
 
     for (const dl of datalabelList) {
@@ -798,7 +798,7 @@ export async function prefetchAllMetadata(): Promise<void> {
     console.log(`[RxDB] ✅ Cached ${datalabelList.length} datalabels`);
 
     // 2. Fetch entity codes
-    const entityCodesResponse = await apiClient.get('/api/v1/entity/types');
+    const entityCodesResponse = await apiClient.get('/api/v1/entity/codes');
     const entityCodes = Array.isArray(entityCodesResponse.data)
       ? entityCodesResponse.data
       : entityCodesResponse.data?.data || [];

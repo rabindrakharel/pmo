@@ -69,11 +69,6 @@ export async function entityRoutes(fastify: FastifyInstance) {
    *
    * - With :entity_code → Returns single entity metadata (for tabs)
    * - Without :entity_code → Returns all entity metadata (for settings)
-   *
-   * Replaces:
-   * - GET /api/v1/entity/types (removed)
-   * - GET /api/v1/entity/type/:entity_type (removed)
-   * - GET /api/v1/entity/child-tabs/:entity_type/:entity_id (removed)
    */
   fastify.get('/api/v1/entity/codes/:entity_code?', {
     preHandler: [fastify.authenticate],
@@ -204,15 +199,6 @@ export async function entityRoutes(fastify: FastifyInstance) {
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
-
-  // ═══════════════════════════════════════════════════════════════
-  // ✅ REMOVED: GET /api/v1/entity/types
-  // Replaced by GET /api/v1/entity/type (no :entity_type param)
-  // ═══════════════════════════════════════════════════════════════
-  // ═══════════════════════════════════════════════════════════════
-  // ✅ REMOVED: GET /api/v1/entity/child-tabs/:entity_type/:entity_id
-  // Replaced by GET /api/v1/entity/type/:entity_type with enriched child_entities
-  // ═══════════════════════════════════════════════════════════════
 
   /**
    * PUT /api/v1/entity/:code/children

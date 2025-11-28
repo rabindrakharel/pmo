@@ -42,7 +42,6 @@ import {
   useRxEntityCodes,
   useRxGlobalSettings,
   useRxComponentMetadata,
-  cacheComponentMetadata,
   invalidateMetadataCache,
   clearAllMetadataCache,
   type DatalabelOption,
@@ -237,19 +236,13 @@ export function useEntityInstanceList<T = any>(
     ref_data_entityInstance: rxResult.refData,
   }), [rxResult.data, rxResult.metadata, rxResult.total, rxResult.refData, normalizedParams]);
 
-  // Cache metadata in RxDB (v8.6.0)
+  // Cache ref_data_entityInstance for entity reference resolution
+  // Note: Component metadata is cached in replication.ts from raw API response
   useEffect(() => {
-    if (result.metadata) {
-      const componentName = normalizedParams.view || 'entityDataTable';
-      const componentMetadata = (result.metadata as any)[componentName];
-      if (componentMetadata && typeof componentMetadata === 'object') {
-        cacheComponentMetadata(entityCode, componentName, componentMetadata).catch(console.error);
-      }
-    }
     if (result.ref_data_entityInstance) {
       upsertRefDataEntityInstanceCache(queryClient, result.ref_data_entityInstance);
     }
-  }, [result.metadata, result.ref_data_entityInstance, entityCode, normalizedParams.view, queryClient]);
+  }, [result.ref_data_entityInstance, queryClient]);
 
   // Log RxDB cache status
   const prevDataRef = useRef<T[] | undefined>(undefined);

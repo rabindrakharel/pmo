@@ -90,8 +90,8 @@ Settings Overview (/setting/overview)
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| **GET** | `/api/v1/entity/types` | List all entities from `d_entity` |
-| **GET** | `/api/v1/entity/type/:type` | Get entity with child relationships |
+| **GET** | `/api/v1/entity/codes` | List all entities from `d_entity` |
+| **GET** | `/api/v1/entity/codes/:code` | Get entity with child relationships |
 | **PUT** | `/api/v1/entity/:id` | Update entity metadata |
 
 ---

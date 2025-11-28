@@ -632,8 +632,8 @@ CREATE TABLE app.d_entity_rbac (
 
 ```
 # Entity Metadata
-GET    /api/v1/entity/types             # List all entity types
-GET    /api/v1/entity/type/:code        # Get entity type metadata
+GET    /api/v1/entity/codes             # List all entity types
+GET    /api/v1/entity/codes/:code       # Get entity type metadata
 
 # Entity Instances
 GET    /api/v1/entity/instances         # List entity instances

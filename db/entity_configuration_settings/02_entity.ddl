@@ -8,8 +8,8 @@
 -- • Powers tab generation, navigation menus, entity pickers
 --
 -- OPERATIONS:
--- • GET TYPE: GET /api/v1/entity/type/:code
--- • GET ALL: GET /api/v1/entity/types ORDER BY display_order
+-- • GET TYPE: GET /api/v1/entity/codes/:code
+-- • GET ALL: GET /api/v1/entity/codes ORDER BY display_order
 -- • GET CHILDREN: SELECT child_entity_codes WHERE code=$1
 -- • UPSERT: INSERT ... ON CONFLICT (code) DO UPDATE
 --

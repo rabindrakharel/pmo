@@ -44,8 +44,10 @@ Color	Meaning
 
 
 
-Check the below logs for above interaction, and spot any any issues. \
-Find issuse if any! and list the issues only, don't fix but list the issue and propose solution. Don't fix. Where else might we have such issue? Write them. 
+Check the below logs for above interaction, and spot any any issues and do RCA (Root cause analysis).
+Keep analysing until you can be confident of the root cause, Then go on to propose the solution. 
+Don't make the changes, but do proper issue identification, RCA and suggest resolution. Also mention why this issue occured? 
+How can we prevent in the future? Where else might we have such issue? Write them. 
 
 Reference documents: 
 \docs/services/backend-formatter.service.md

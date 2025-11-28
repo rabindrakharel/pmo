@@ -8,6 +8,7 @@ import { Subject, type Subscription } from 'rxjs';
 import { apiClient } from '../../lib/api';
 import { getDatabase, type PMODatabase } from './database';
 import { createEntityId, type EntityDocType } from './schemas/entity.schema';
+import { cacheComponentMetadata } from './hooks/useRxMetadata';
 
 // Get WebSocket URL from environment
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:4001';
@@ -208,6 +209,15 @@ export class ReplicationManager {
       // Upsert into RxDB
       await this.db.entities.upsert(doc);
 
+      // Cache component metadata from raw API response (before any Proxy wrapping)
+      if (metadata) {
+        const componentName = 'entityFormContainer'; // Single entity uses form view
+        const componentMetadata = metadata[componentName];
+        if (componentMetadata && typeof componentMetadata === 'object') {
+          cacheComponentMetadata(entityCode, componentName, componentMetadata).catch(console.error);
+        }
+      }
+
       // Auto-subscribe to updates
       this.subscribe(entityCode, [entityId]);
 
@@ -258,6 +268,16 @@ export class ReplicationManager {
 
         docs.push(doc);
         await this.db.entities.upsert(doc);
+      }
+
+      // Cache component metadata from raw API response (before any Proxy wrapping)
+      if (metadata) {
+        const viewParam = params.view as string | undefined;
+        const componentName = viewParam || 'entityDataTable';
+        const componentMetadata = metadata[componentName];
+        if (componentMetadata && typeof componentMetadata === 'object') {
+          cacheComponentMetadata(entityCode, componentName, componentMetadata).catch(console.error);
+        }
       }
 
       // Auto-subscribe to all loaded entities
