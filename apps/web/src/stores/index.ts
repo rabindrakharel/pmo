@@ -1,38 +1,21 @@
 /**
  * ============================================================================
- * ZUSTAND STORES - BARREL EXPORT (v6.0.0)
+ * ZUSTAND STORES - BARREL EXPORT (v8.6.0)
  * ============================================================================
  *
- * ARCHITECTURE:
- * - React Query: SOLE data cache for entity instances (lists & details)
- * - Zustand: METADATA caching + UI state only
+ * ARCHITECTURE (v8.6.0 - RxDB Unified State):
+ * - RxDB: SOLE data cache for entity instances + metadata
+ * - Zustand: UI state only (useEntityEditStore pending migration)
  *
- * Metadata Stores (1 hour TTL):
- * - globalSettingsMetadataStore: Currency, date, timestamp formatting
- * - datalabelMetadataStore: Dropdown options (dl__* fields)
- * - entityComponentMetadataStore: Field metadata by entityCode:componentName
- * - entityCodeMetadataStore: Entity types for sidebar navigation
+ * MIGRATED TO RxDB (v8.6.0):
+ * - datalabelMetadataStore → useRxDatalabel, getDatalabelSync
+ * - entityCodeMetadataStore → useRxEntityCodes, getEntityCodesSync
+ * - entityComponentMetadataStore → useRxComponentMetadata
+ * - globalSettingsMetadataStore → useRxGlobalSettings, getGlobalSettingsSync
  *
- * UI State Stores (no TTL):
+ * REMAINING (pending migration to useRxDraft):
  * - useEntityEditStore: Entity edit state management (dirty fields, undo/redo)
- *
- * REMOVED (v6.0.0 - Eliminated Dual Cache):
- * - entityInstanceDataStore: Now using React Query only
- * - entityInstanceListDataStore: Now using React Query only
  */
 
-// Metadata stores (1 hour TTL)
-export { useGlobalSettingsMetadataStore } from './globalSettingsMetadataStore';
-export type { GlobalSettings } from './globalSettingsMetadataStore';
-
-export { useDatalabelMetadataStore } from './datalabelMetadataStore';
-export type { DatalabelOption, Datalabel } from './datalabelMetadataStore';
-
-export { useEntityComponentMetadataStore } from './entityComponentMetadataStore';
-export type { ComponentName, ComponentMetadata, ViewFieldMetadata, EditFieldMetadata } from './entityComponentMetadataStore';
-
-export { useEntityCodeMetadataStore } from './entityCodeMetadataStore';
-export type { EntityCodeData } from './entityCodeMetadataStore';
-
-// UI State stores (no persistence)
+// UI State stores (pending migration to useRxDraft)
 export { useEntityEditStore } from './useEntityEditStore';
