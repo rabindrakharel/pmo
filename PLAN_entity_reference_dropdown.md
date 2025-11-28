@@ -100,7 +100,7 @@
 │      }                                                                       │
 │    },                                                                        │
 │    "metadata": {                                                             │
-│      "entityDataTable": {                                                    │
+│      "entityListOfInstancesTable": {                                                    │
 │        "viewType": {                                                         │
 │          "manager__employee_id": {                                          │
 │            "renderType": "entityInstanceId",                                │
@@ -160,7 +160,7 @@
 │                                                                              │
 │    // For each field, check if it's an entity reference                      │
 │    for (const [fieldName, fieldMeta] of Object.entries(                     │
-│      metadata?.entityDataTable?.viewType || {}                              │
+│      metadata?.entityListOfInstancesTable?.viewType || {}                              │
 │    )) {                                                                      │
 │      if (fieldMeta.renderType === 'entityInstanceId') {                     │
 │        const entityCode = fieldMeta.lookupEntity;                           │
@@ -190,7 +190,7 @@
 │  STEP 4: RENDER VIEW MODE                                                    │
 │  ════════════════════════                                                    │
 │                                                                              │
-│  EntityFormContainer renders:                                                │
+│  EntityInstanceFormContainer renders:                                                │
 │                                                                              │
 │  ┌─────────────────────────────────────────┐                                │
 │  │ Manager: James Miller                   │  ← Uses _display field         │
@@ -212,7 +212,7 @@
 │  USER CLICKS "EDIT" BUTTON                                                  │
 │  ═════════════════════════                                                  │
 │                                                                              │
-│  EntityFormContainer switches to edit mode                                   │
+│  EntityInstanceFormContainer switches to edit mode                                   │
 │  Renders EntityInstanceSelectDropdown for manager__employee_id field                 │
 │                                                                              │
 │  ─────────────────────────────────────────────────────────────────────────  │
@@ -515,12 +515,12 @@ function formatEntityResponse(
   queryClient: ReturnType<typeof useQueryClient>
 ) {
   const { data, metadata } = response;
-  if (!data || !metadata?.entityDataTable?.viewType) {
+  if (!data || !metadata?.entityListOfInstancesTable?.viewType) {
     return response;
   }
 
   const formattedData = { ...data };
-  const viewType = metadata.entityDataTable.viewType;
+  const viewType = metadata.entityListOfInstancesTable.viewType;
 
   for (const [fieldName, fieldMeta] of Object.entries(viewType)) {
     const meta = fieldMeta as any;

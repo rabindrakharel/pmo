@@ -192,8 +192,8 @@ export class ReplicationManager {
       const apiResponse = response.data;
       const { data, metadata, ref_data_entityInstance } = apiResponse;
 
-      // Store full metadata structure (API sends { entityDataTable: { viewType, editType } })
-      // Downstream consumers expect metadata.entityDataTable.viewType format
+      // Store full metadata structure (API sends { entityListOfInstancesTable: { viewType, editType } })
+      // Downstream consumers expect metadata.entityListOfInstancesTable.viewType format
       const doc: EntityDocType = {
         _id: createEntityId(entityCode, entityId),
         entityCode,
@@ -211,7 +211,7 @@ export class ReplicationManager {
 
       // Cache component metadata from raw API response (before any Proxy wrapping)
       if (metadata) {
-        const componentName = 'entityFormContainer'; // Single entity uses form view
+        const componentName = 'entityInstanceFormContainer'; // Single entity uses form view
         const componentMetadata = metadata[componentName];
         if (componentMetadata && typeof componentMetadata === 'object') {
           cacheComponentMetadata(entityCode, componentName, componentMetadata).catch(console.error);
@@ -245,8 +245,8 @@ export class ReplicationManager {
       const apiResponse = response.data;
       const { data, metadata, ref_data_entityInstance } = apiResponse;
 
-      // Store full metadata structure (API sends { entityDataTable: { viewType, editType } })
-      // Downstream consumers expect metadata.entityDataTable.viewType format
+      // Store full metadata structure (API sends { entityListOfInstancesTable: { viewType, editType } })
+      // Downstream consumers expect metadata.entityListOfInstancesTable.viewType format
       const docs: EntityDocType[] = [];
       const entityIds: string[] = [];
 
@@ -273,7 +273,7 @@ export class ReplicationManager {
       // Cache component metadata from raw API response (before any Proxy wrapping)
       if (metadata) {
         const viewParam = params.view as string | undefined;
-        const componentName = viewParam || 'entityDataTable';
+        const componentName = viewParam || 'entityListOfInstancesTable';
         const componentMetadata = metadata[componentName];
         if (componentMetadata && typeof componentMetadata === 'object') {
           cacheComponentMetadata(entityCode, componentName, componentMetadata).catch(console.error);

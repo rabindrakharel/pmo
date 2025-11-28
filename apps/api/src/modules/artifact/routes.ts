@@ -152,7 +152,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         page: Type.Optional(Type.Number({ minimum: 1 })),
         artifact_type: Type.Optional(Type.String()),
         active: Type.Optional(Type.Boolean()),
-        view: Type.Optional(Type.String())}),  // 'entityDataTable,kanbanView' or 'entityFormContainer'
+        view: Type.Optional(Type.String())}),  // 'entityListOfInstancesTable,kanbanView' or 'entityInstanceFormContainer'
       response: {
         200: Type.Object({
           data: Type.Array(ArtifactSchema),
@@ -238,7 +238,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const requestedComponents = view
         ? view.split(',').map((v: string) => v.trim())
-        : ['entityDataTable', 'entityFormContainer', 'kanbanView'];
+        : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
 
       // Generate response with metadata for requested components only
       const response = generateEntityResponse(ENTITY_CODE, artifacts, {
@@ -263,7 +263,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       summary: 'Get artifact by ID',
       params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
       querystring: Type.Object({
-        view: Type.Optional(Type.String()),  // 'entityFormContainer' or 'entityDataTable'
+        view: Type.Optional(Type.String()),  // 'entityInstanceFormContainer' or 'entityListOfInstancesTable'
       }),
       response: {
         200: ArtifactWithMetadataSchema,  // ✅ Use metadata-driven schema
@@ -318,7 +318,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const requestedComponents = view
         ? view.split(',').map((v: string) => v.trim())
-        : ['entityFormContainer'];
+        : ['entityInstanceFormContainer'];
 
       const response = generateEntityResponse(ENTITY_CODE, [artifact], {
         components: requestedComponents,

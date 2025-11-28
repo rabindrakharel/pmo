@@ -238,7 +238,7 @@ Based on current `frontEndFormatterService.tsx` and component files:
 | `textarea` | `<InlineEditField>` | `components/shared/view/InlineEditField.tsx` | Long text edit |
 | `tags` | Inline tags editor | `components/shared/ui/EditableTags.tsx` | Array edit |
 | `jsonb` | Modal metadata editor | `components/shared/entity/MetadataTable.tsx` | JSONB edit |
-| `datatable` | Inline data table | `components/shared/ui/EntityDataTable.tsx` | Complex nested data |
+| `datatable` | Inline data table | `components/shared/ui/EntityListOfInstancesTable.tsx` | Complex nested data |
 | `file` | File upload modal | `components/shared/file/DragDropFileUpload.tsx` | File edit |
 | `dag-select` | Inline stage selector | `components/shared/ui/DataLabelSelect.tsx` | Workflow edit |
 

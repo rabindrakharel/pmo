@@ -26,7 +26,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Settings, Check, Eye, EyeOff, RotateCcw } from 'lucide-react';
-import type { Column } from './EntityDataTable';
+import type { Column } from './EntityListOfInstancesTable';
 
 export interface ColumnSelectorProps {
   allColumns: Column[];

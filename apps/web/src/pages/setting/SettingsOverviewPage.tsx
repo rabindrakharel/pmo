@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout, EntityDataTable } from '../../components/shared';
+import { Layout, EntityListOfInstancesTable } from '../../components/shared';
 import { useSettings } from '../../contexts/SettingsContext';
 import { AddDatalabelModal } from '../../components/shared/modals/AddDatalabelModal';
 import { EntityConfigurationModal } from '../../components/settings/EntityConfigurationModal';
@@ -11,7 +11,7 @@ import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterSe
 import { Edit, Trash2 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { getIconComponent } from '../../lib/iconMapping';
-import type { RowAction } from '../../components/shared/ui/EntityDataTable';
+import type { RowAction } from '../../components/shared/ui/EntityListOfInstancesTable';
 import { InlineSpinner } from '../../components/shared/ui/EllipsisBounce';
 
 // Available icons for picker (must match iconMapping.ts)
@@ -926,7 +926,7 @@ export function SettingsOverviewPage() {
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-dark-700" />
                 </div>
               ) : (
-                <EntityDataTable
+                <EntityListOfInstancesTable
                   data={rbacData}
                   metadata={rbacMetadata}
                   loading={rbacLoading}

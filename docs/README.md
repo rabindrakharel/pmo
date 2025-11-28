@@ -89,7 +89,7 @@
 │  │      "employee": { "uuid-james": "James Miller" }                  │      │
 │  │    },                                                              │      │
 │  │    "metadata": {                                                   │      │
-│  │      "entityDataTable": {            // Component-specific         │      │
+│  │      "entityListOfInstancesTable": {            // Component-specific         │      │
 │  │        "viewType": {                 // Display rendering          │      │
 │  │          "manager__employee_id": {                                 │      │
 │  │            "dtype": "uuid",                                        │      │
@@ -109,7 +109,7 @@
 │  │          }                                                         │      │
 │  │        }                                                           │      │
 │  │      },                                                            │      │
-│  │      "entityFormContainer": { "viewType": {...}, "editType": {...} }      │
+│  │      "entityInstanceFormContainer": { "viewType": {...}, "editType": {...} }      │
 │  │    },                                                              │      │
 │  │    "datalabels": { "project_stage": [...] }                        │      │
 │  │  }                                                                 │      │
@@ -157,7 +157,7 @@
 │  │  Component Rendering (Zero Per-Cell Formatting)                     │     │
 │  ├─────────────────────────────────────────────────────────────────────┤     │
 │  │                                                                     │     │
-│  │  EntityDataTable receives FormattedRow[]:                           │     │
+│  │  EntityListOfInstancesTable receives FormattedRow[]:                           │     │
 │  │                                                                     │     │
 │  │    VIEW MODE:  {row.display[key]}      // Pre-formatted string      │     │
 │  │                {row.styles[key]}       // Pre-computed CSS class    │     │
@@ -314,7 +314,7 @@ Entity references are resolved via a response-level lookup table instead of per-
 │                                                                              │
 │  APPLICATION LAYER (Business Logic)                                          │
 │  ─────────────────────────────────────────────────────────────────────────   │
-│  EntityDataTable      │ EntityFormContainer    │ KanbanView                  │
+│  EntityListOfInstancesTable      │ EntityInstanceFormContainer    │ KanbanView                  │
 │  CalendarView         │ GridView               │ DAGVisualizer               │
 │                                                                              │
 │  • Consumes FormattedRow[] from useFormattedEntityList                       │
@@ -354,7 +354,7 @@ Entity references are resolved via a response-level lookup table instead of per-
 │  EntityListOfInstancesPage.tsx:                                              │
 │                                                                              │
 │    const { data, metadata, ref_data_entityInstance } = useFormattedEntityList(       │
-│      'project', { view: 'entityDataTable' }                                  │
+│      'project', { view: 'entityListOfInstancesTable' }                                  │
 │    );                                                                        │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -366,7 +366,7 @@ Entity references are resolved via a response-level lookup table instead of per-
 │                                                                              │
 │  useRxEntityList hook:                                                       │
 │                                                                              │
-│    1. Check RxDB → MISS → fetch GET /api/v1/project?view=entityDataTable     │
+│    1. Check RxDB → MISS → fetch GET /api/v1/project?view=entityListOfInstancesTable     │
 │    2. Cache RAW response + ref_data_entityInstance in RxDB (IndexedDB)       │
 │    3. Store metadata in RxDB metadata collection (auto-cached)               │
 │    4. Datalabels cached in RxDB at login via prefetchAllMetadata()           │
@@ -381,7 +381,7 @@ Entity references are resolved via a response-level lookup table instead of per-
 │  Format-at-read transform (on RxDB query result):                            │
 │                                                                              │
 │    select: (raw) => {                                                        │
-│      const { viewType, editType } = raw.metadata.entityDataTable;            │
+│      const { viewType, editType } = raw.metadata.entityListOfInstancesTable;            │
 │      const refData = raw.ref_data_entityInstance;                                    │
 │      return {                                                                │
 │        ...raw,                                                               │
@@ -403,7 +403,7 @@ Entity references are resolved via a response-level lookup table instead of per-
 │  STEP 4: Component Render                                                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  EntityDataTable receives:                                                   │
+│  EntityListOfInstancesTable receives:                                                   │
 │    data: FormattedRow[]                                                      │
 │    metadata: { viewType, editType }                                          │
 │                                                                              │

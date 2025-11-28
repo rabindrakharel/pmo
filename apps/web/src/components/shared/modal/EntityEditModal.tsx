@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
-import { EntityFormContainer } from '../entity/EntityFormContainer';
+import { EntityInstanceFormContainer } from '../entity/EntityInstanceFormContainer';
 import { getEntityConfig } from '../../../lib/entityConfig';
 import { APIFactory } from '../../../lib/api';
 
@@ -8,7 +8,7 @@ import { APIFactory } from '../../../lib/api';
  * EntityEditModal
  *
  * A reusable modal that displays the entity edit form for any entity type.
- * Uses the same EntityFormContainer as EntitySpecificInstancePage for consistency.
+ * Uses the same EntityInstanceFormContainer as EntitySpecificInstancePage for consistency.
  * Matches EntitySpecificInstancePage styling exactly for consistency.
  *
  * Usage:
@@ -205,7 +205,7 @@ export function EntityEditModal({
               </div>
             ) : (
               <div className="space-y-4">
-                <EntityFormContainer
+                <EntityInstanceFormContainer
                   config={config}
                   data={editedData}
                   isEditing={true}

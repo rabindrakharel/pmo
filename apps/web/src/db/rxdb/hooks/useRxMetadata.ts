@@ -623,7 +623,7 @@ export interface UseRxComponentMetadataResult {
  * This hook is for reading cached metadata.
  *
  * @example
- * const { metadata } = useRxComponentMetadata('project', 'entityDataTable');
+ * const { metadata } = useRxComponentMetadata('project', 'entityListOfInstancesTable');
  */
 export function useRxComponentMetadata(
   entityCode: string,
@@ -680,7 +680,7 @@ export function useRxComponentMetadata(
  * Call this after fetching entity data that includes metadata
  *
  * @example
- * cacheComponentMetadata('project', 'entityDataTable', metadata);
+ * cacheComponentMetadata('project', 'entityListOfInstancesTable', metadata);
  */
 export async function cacheComponentMetadata(
   entityCode: string,

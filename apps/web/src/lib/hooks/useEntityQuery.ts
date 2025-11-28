@@ -203,7 +203,7 @@ export function useEntityInstanceList<T = any>(
 
   // Map view mode to component name for backend metadata filtering
   const viewComponentMap: Record<string, string> = {
-    table: 'entityDataTable',
+    table: 'entityListOfInstancesTable',
     kanban: 'kanbanView',
     grid: 'gridView',
     calendar: 'calendarView',
@@ -211,7 +211,7 @@ export function useEntityInstanceList<T = any>(
     hierarchy: 'hierarchyGraphView',
   };
 
-  const mappedView = params.view ? viewComponentMap[params.view] || params.view : 'entityDataTable';
+  const mappedView = params.view ? viewComponentMap[params.view] || params.view : 'entityListOfInstancesTable';
 
   const normalizedParams = useMemo(() => ({
     ...params,
@@ -422,7 +422,7 @@ export function useFormattedEntityList<T = any>(
 ) {
   // Map view mode to component name for backend metadata filtering
   const viewComponentMap: Record<string, string> = {
-    table: 'entityDataTable',
+    table: 'entityListOfInstancesTable',
     kanban: 'kanbanView',
     grid: 'gridView',
     calendar: 'calendarView',
@@ -430,7 +430,7 @@ export function useFormattedEntityList<T = any>(
     hierarchy: 'hierarchyGraphView',
   };
 
-  const mappedView = params.view ? viewComponentMap[params.view] || params.view : 'entityDataTable';
+  const mappedView = params.view ? viewComponentMap[params.view] || params.view : 'entityListOfInstancesTable';
 
   // Use RxDB-backed base hook
   const rawResult = useEntityInstanceList<T>(entityCode, params, options as any);
@@ -487,7 +487,7 @@ export function useFormattedEntityList<T = any>(
 export function useFormattedEntityInstance<T = any>(
   entityCode: string,
   id: string | undefined,
-  componentName: string = 'entityFormContainer',
+  componentName: string = 'entityInstanceFormContainer',
   options?: Omit<UseQueryOptions<FormattedEntityInstanceResult<T>>, 'queryKey' | 'queryFn' | 'select'>
 ) {
   // Use RxDB-backed base hook
@@ -810,9 +810,9 @@ export function useEntityLookup(entityCode: string) {
  * v8.6.0: Uses RxDB IndexedDB for persistent, offline-first caching
  *
  * @example
- * const { metadata, isLoading } = useEntityMetadata('project', 'entityDataTable');
+ * const { metadata, isLoading } = useEntityMetadata('project', 'entityListOfInstancesTable');
  */
-export function useEntityMetadata(entityCode: string, componentName: string = 'entityDataTable') {
+export function useEntityMetadata(entityCode: string, componentName: string = 'entityListOfInstancesTable') {
   const rxResult = useRxComponentMetadata(entityCode, componentName);
 
   return {
@@ -976,7 +976,7 @@ export function usePrefetch() {
       queryKey: queryKeys.entityInstance(entityCode, id),
       queryFn: async () => {
         const api = APIFactory.getAPI(entityCode);
-        const response = await api.get(id, { view: 'entityFormContainer' });
+        const response = await api.get(id, { view: 'entityInstanceFormContainer' });
         return {
           data: response.data || response,
           metadata: response.metadata || null,

@@ -104,7 +104,7 @@ export interface EditFieldMetadata {
  * ComponentMetadata - The actual structure from backend API
  * Contains both view and edit configurations for a component
  *
- * Backend sends: metadata.entityDataTable = { viewType: {...}, editType: {...} }
+ * Backend sends: metadata.entityListOfInstancesTable = { viewType: {...}, editType: {...} }
  */
 export interface ComponentMetadata {
   viewType: Record<string, ViewFieldMetadata>;

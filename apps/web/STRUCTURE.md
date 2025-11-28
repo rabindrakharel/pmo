@@ -82,7 +82,7 @@ components/shared/
 │   └── FilteredDataTable.tsx
 ├── entity/                    # Entity management components
 │   ├── DynamicChildEntityTabs.tsx
-│   └── EntityFormContainer.tsx
+│   └── EntityInstanceFormContainer.tsx
 ├── search/                    # Search and filter components
 │   ├── GlobalSearch.tsx
 │   └── ScopeFilters.tsx

@@ -28,7 +28,7 @@ export interface ListParams {
   offset?: number;
   search?: string;
   status?: string;
-  view?: string; // Component-aware metadata filtering (e.g., 'entityDataTable,kanbanView')
+  view?: string; // Component-aware metadata filtering (e.g., 'entityListOfInstancesTable,kanbanView')
   [key: string]: any; // Allow entity-specific filters
 }
 
@@ -37,9 +37,9 @@ export interface ListParams {
  * Explicit per-component visibility - backend tells each component what to show
  */
 export interface ComponentVisibility {
-  EntityDataTable: boolean;        // Data table (list view)
+  EntityListOfInstancesTable: boolean;        // Data table (list view)
   EntityDetailView: boolean;        // Detail view (single entity)
-  EntityFormContainer: boolean;     // Create/edit forms
+  EntityInstanceFormContainer: boolean;     // Create/edit forms
   KanbanView: boolean;              // Kanban board
   CalendarView: boolean;            // Calendar view
   GridView: boolean;                // Grid/card view

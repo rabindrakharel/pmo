@@ -66,17 +66,17 @@
 # EXAMPLES:
 #
 #   CORRECT (Native type - no component):
-#     entityDataTable:
+#     entityListOfInstancesTable:
 #       renderType: currency
 #       style: { symbol: "$", decimals: 2 }
 #
 #   CORRECT (Badge for datalabel):
-#     entityDataTable:
+#     entityListOfInstancesTable:
 #       renderType: badge
 #       style: { colorFromData: true }
 #
 #   CORRECT (Entity link):
-#     entityDataTable:
+#     entityListOfInstancesTable:
 #       renderType: entityLink
 #       style: { displayField: name, linkToEntity: true }
 #
@@ -90,7 +90,7 @@
 #   {
 #     "data": [...],
 #     "metadata": {
-#       "entityDataTable": {
+#       "entityListOfInstancesTable": {
 #         "viewType": {                          ← All VIEW metadata here
 #           "budget_allocated_amt": {
 #             "dtype": "float",
@@ -133,11 +133,11 @@
 #     inherit: <other_type>        # Optional - Inherit from another type
 #
 #     # Component-specific definitions (REQUIRED for each supported component):
-#     entityDataTable:
+#     entityListOfInstancesTable:
 #       behavior: { visible, sortable, filterable, searchable }
 #       style: { width, align, symbol, decimals, locale, ... }
 #
-#     entityFormContainer:
+#     entityInstanceFormContainer:
 #       behavior: { visible, editable }
 #       style: { size, showBar, monospace, ... }
 #
@@ -166,18 +166,18 @@
 # CORRECT:
 #   duration:
 #     dtype: int
-#     entityDataTable: { <<: *table_default, style: { width: "100px", unit: minutes } }
-#     entityFormContainer: { <<: *form_default, style: { unit: minutes } }
+#     entityListOfInstancesTable: { <<: *table_default, style: { width: "100px", unit: minutes } }
+#     entityInstanceFormContainer: { <<: *form_default, style: { unit: minutes } }
 #
 # WRONG:
 #   duration:
 #     dtype: int
 #     renderType: duration       # <-- ERROR! Not root-level
 #     width: "100px"             # <-- ERROR! Not root-level
-#     entityDataTable: { ... }
+#     entityListOfInstancesTable: { ... }
 #
 # All display/behavior fields are page-specific and belong INSIDE
-# each component section (entityDataTable, entityFormContainer, etc.)
+# each component section (entityListOfInstancesTable, entityInstanceFormContainer, etc.)
 #
 # ============================================================================
 # ROOT-LEVEL FIELDS (only these!)
@@ -234,8 +234,8 @@
 # │  They are React container components that orchestrate multiple fields.   │
 # │                                                                          │
 # │  Actual files:                                                           │
-# │    - EntityDataTable.tsx      (tables)                                   │
-# │    - EntityFormContainer.tsx  (detail/form views)                        │
+# │    - EntityListOfInstancesTable.tsx      (tables)                                   │
+# │    - EntityInstanceFormContainer.tsx  (detail/form views)                        │
 # │    - KanbanView.tsx           (kanban boards)                            │
 # │    - CalendarView.tsx         (calendar events)                          │
 # │    - DAGVisualizer.tsx        (workflow DAG)                             │
@@ -256,9 +256,9 @@
 #
 #   datalabel:
 #     dtype: str
-#     entityDataTable:       ←── PAGE-LEVEL (container for table columns)
+#     entityListOfInstancesTable:       ←── PAGE-LEVEL (container for table columns)
 #       style: { colorFromData: true }   ←── Inline badge rendering
-#     entityFormContainer:   ←── PAGE-LEVEL (container for detail view)
+#     entityInstanceFormContainer:   ←── PAGE-LEVEL (container for detail view)
 #       viz_container: DAGVisualizer     ←── Triggers DAGVisualizer component
 #     dagView:               ←── PAGE-LEVEL (container for workflow DAG)
 #       behavior: { visible: true }      ←── Node rendered inline by DAGVisualizer
@@ -272,12 +272,12 @@
 # ┌────────────────────┬────────────────────────────────────────────────────┐
 # │ Component Key      │ Description                                        │
 # ├────────────────────┼────────────────────────────────────────────────────┤
-# │ entityDataTable    │ Main entity list table (EntityDataTable.tsx)       │
+# │ entityListOfInstancesTable    │ Main entity list table (EntityListOfInstancesTable.tsx)       │
 # │                    │ Renders sortable/filterable columns with data      │
 # │                    │ Used on: EntityListOfInstancesPage                 │
 # │                    │ Layout: Tabular rows and columns                   │
 # ├────────────────────┼────────────────────────────────────────────────────┤
-# │ entityFormContainer│ Entity detail/form view (EntityFormContainer.tsx)  │
+# │ entityInstanceFormContainer│ Entity detail/form view (EntityInstanceFormContainer.tsx)  │
 # │                    │ Renders Notion-style property list                 │
 # │                    │ Used on: EntitySpecificInstancePage                │
 # │                    │ Layout: Vertical key-value pairs                   │
@@ -372,11 +372,11 @@
 # └─────────────────────────────────────────────────────────────────────────┘
 #
 # ┌─────────────────────────────────────────────────────────────────────────┐
-# │ SPECIAL VISUALIZATION CONTAINERS (EntityFormContainer_viz_container)    │
+# │ SPECIAL VISUALIZATION CONTAINERS (EntityInstanceFormContainer_viz_container)    │
 # ├─────────────────────────────────────────────────────────────────────────┤
 # │                                                                          │
-# │ For datalabel fields with DAG structure, EntityFormContainer checks:    │
-# │   if (field.EntityFormContainer_viz_container === 'DAGVisualizer')      │
+# │ For datalabel fields with DAG structure, EntityInstanceFormContainer checks:    │
+# │   if (field.EntityInstanceFormContainer_viz_container === 'DAGVisualizer')      │
 # │                                                                          │
 # │ Valid values:                                                            │
 # │   DAGVisualizer       - Renders DAG workflow for datalabel stages       │
@@ -397,8 +397,8 @@
 #   &hidden           - Hidden field settings
 #
 # Usage:
-#   entityDataTable: { <<: *table_default, style: { width: "200px" } }
-#   entityFormContainer: { <<: *hidden }
+#   entityListOfInstancesTable: { <<: *table_default, style: { width: "200px" } }
+#   entityInstanceFormContainer: { <<: *hidden }
 #
 # ============================================================================
 # NOTE ON COMPONENT FIELD
@@ -421,20 +421,20 @@
 # Simple text field:
 #   name:
 #     dtype: str
-#     entityDataTable: { <<: *table_default, style: { width: "250px" } }
-#     entityFormContainer: { <<: *form_default }
+#     entityListOfInstancesTable: { <<: *table_default, style: { width: "250px" } }
+#     entityInstanceFormContainer: { <<: *form_default }
 #
 # Currency field:
 #   currency:
 #     dtype: float
-#     entityDataTable: { <<: *table_default, style: { align: right, symbol: "$", decimals: 2 } }
-#     entityFormContainer: { <<: *form_default }
+#     entityListOfInstancesTable: { <<: *table_default, style: { align: right, symbol: "$", decimals: 2 } }
+#     entityInstanceFormContainer: { <<: *form_default }
 #
 # Datalabel with DAG visualization:
 #   datalabel:
 #     dtype: str
-#     entityDataTable: { <<: *table_default, style: { colorFromData: true } }
-#     entityFormContainer: { <<: *form_default, viz_container: DAGVisualizer }
+#     entityListOfInstancesTable: { <<: *table_default, style: { colorFromData: true } }
+#     entityInstanceFormContainer: { <<: *form_default, viz_container: DAGVisualizer }
 #
 # Inherited type:
 #   title:
@@ -448,7 +448,7 @@
 # COMPONENT DEFAULTS (inherited unless overridden)
 # ============================================================================
 defaults:
-  # entityDataTable defaults
+  # entityListOfInstancesTable defaults
   table: &table_default
     visible: true
     sortable: true
@@ -457,7 +457,7 @@ defaults:
     width: auto
     align: left
 
-  # entityFormContainer defaults
+  # entityInstanceFormContainer defaults
   form: &form_default
     visible: true
     editable: true
@@ -495,10 +495,10 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   uuid:
     dtype: uuid
-    entityDataTable:
+    entityListOfInstancesTable:
       renderType: text
       behavior: { visible: false, sortable: false, filterable: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       renderType: text
       behavior: { visible: true }
       style: { monospace: true, truncate: 8 }
@@ -511,11 +511,11 @@ fieldBusinessTypes:
 
   code:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "140px", monospace: true, emptyValue: "—" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       style: { monospace: true, emptyValue: "—", helpText: "Unique identifier code (e.g., PROJ-001)" }
@@ -530,12 +530,12 @@ fieldBusinessTypes:
 
   name:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       behavior: { visible: true, sortable: true, filterable: true, searchable: true, required: true }
       style: { width: "250px", bold: true, linkToDetail: true, emptyValue: "(untitled)" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       behavior: { required: true }
@@ -561,11 +561,11 @@ fieldBusinessTypes:
 
   description:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *hidden
       renderType: text
       style: { truncate: 100 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       style: { multiline: true }
@@ -587,11 +587,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   email:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "200px", linkable: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       style: { linkable: true }
@@ -603,11 +603,11 @@ fieldBusinessTypes:
 
   phone:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "140px", linkable: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       style: { countryCode: CA }
@@ -619,11 +619,11 @@ fieldBusinessTypes:
 
   url:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "200px", truncate: true, linkable: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       style: { linkable: true }
@@ -638,11 +638,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   address:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "250px", singleLine: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       style: { multiline: true }
@@ -656,11 +656,11 @@ fieldBusinessTypes:
 
   country:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "120px" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
     kanbanView: *hidden
@@ -670,11 +670,11 @@ fieldBusinessTypes:
 
   postal_code:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "100px", monospace: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       style: { country: CA }
@@ -686,11 +686,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   currency:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: currency
       style: { align: right, width: "140px", symbol: "$", decimals: 2, locale: en-CA, emptyValue: "$0.00" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: currency
       style: { symbol: "$", decimals: 2, emptyValue: "$0.00", helpText: "Amount in Canadian dollars" }
@@ -704,11 +704,11 @@ fieldBusinessTypes:
 
   currency_cents:
     dtype: int
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: currency
       style: { align: right, width: "120px", symbol: "$", locale: en-CA, cents: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: currency
       style: { cents: true }
@@ -720,11 +720,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   percentage:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: percentage
       style: { align: right, width: "100px", decimals: 0 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: percentage
       style: { showBar: true }
@@ -740,11 +740,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   date:
     dtype: date
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: date
       style: { width: "120px", format: short, locale: en-CA }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: date
       style: { format: medium }
@@ -760,11 +760,11 @@ fieldBusinessTypes:
 
   timestamp:
     dtype: timestamp
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: timestamp
       style: { width: "160px", format: datetime }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: timestamp
     kanbanView: *hidden
@@ -775,12 +775,12 @@ fieldBusinessTypes:
 
   timestamp_readonly:
     dtype: timestamp
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: timestamp
       behavior: { visible: true, sortable: true, filterable: false }
       style: { width: "140px", format: relative }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: timestamp
       style: { showAbsolute: true, format: relative }
@@ -795,11 +795,11 @@ fieldBusinessTypes:
 
   time:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: time
       style: { width: "100px" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: time
     kanbanView: *hidden
@@ -810,11 +810,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   duration:
     dtype: int
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: duration
       style: { width: "100px", unit: minutes }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: duration
       style: { unit: minutes }
@@ -834,11 +834,11 @@ fieldBusinessTypes:
 
   duration_hours:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: duration
       style: { width: "100px", unit: hours }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: duration
       style: { unit: hours }
@@ -847,11 +847,11 @@ fieldBusinessTypes:
 
   duration_seconds:
     dtype: int
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: duration
       style: { width: "100px", unit: seconds }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: duration
       style: { unit: seconds }
@@ -860,11 +860,11 @@ fieldBusinessTypes:
 
   duration_ms:
     dtype: int
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: duration
       style: { width: "100px", unit: ms }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: duration
       style: { unit: ms }
@@ -876,11 +876,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   boolean:
     dtype: bool
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: boolean
       style: { align: center, width: "80px", trueLabel: "Yes", falseLabel: "No", trueColor: green, falseColor: gray }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: boolean
     kanbanView:
@@ -892,11 +892,11 @@ fieldBusinessTypes:
 
   status_flag:
     dtype: bool
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: boolean
       style: { align: center, width: "100px", trueLabel: Active, falseLabel: Inactive, trueColor: green, falseColor: red }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: boolean
       style: { trueLabel: Active, falseLabel: Inactive }
@@ -914,11 +914,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   datalabel:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: badge
       style: { width: "140px", colorFromData: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: badge
       style: { showHierarchy: false }
@@ -937,14 +937,14 @@ fieldBusinessTypes:
 
   # DAG datalabels - hierarchical stage/state/status with parent-child relations
   # Matched by: dl__*_stage, dl__*_state, dl__*_status
-  # Uses DAGVisualizer component for entityFormContainer view
+  # Uses DAGVisualizer component for entityInstanceFormContainer view
   datalabel_dag:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: badge
       style: { width: "140px", colorFromData: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: component
       component: DAGVisualizer
@@ -968,11 +968,11 @@ fieldBusinessTypes:
   # Edit mode: renders EntitySelect component with lookupSource: entityInstance
   entityInstance_Id:
     dtype: uuid
-    entityDataTable:
+    entityListOfInstancesTable:
       renderType: entityInstanceId
       behavior: { visible: true, sortable: false, filterable: false, searchable: false }
       style: { displayField: name, linkToEntity: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       renderType: entityInstanceId
       behavior: { visible: true }
       style: { displayField: name }
@@ -989,11 +989,11 @@ fieldBusinessTypes:
   # Edit mode: renders MultiEntitySelect component with lookupSource: entityInstance
   entityInstance_Ids:
     dtype: array[uuid]
-    entityDataTable:
+    entityListOfInstancesTable:
       renderType: entityInstanceIds
       behavior: { visible: true, sortable: false, filterable: false, searchable: false }
       style: { maxDisplay: 3 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       renderType: entityInstanceIds
       behavior: { visible: true }
       style: { displayField: name }
@@ -1010,11 +1010,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   quantity:
     dtype: int
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: number
       style: { width: "100px", align: right }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: number
     kanbanView: *hidden
@@ -1032,11 +1032,11 @@ fieldBusinessTypes:
 
   sort_order:
     dtype: int
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: number
       style: { width: "80px", align: center }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: number
     kanbanView: *hidden
@@ -1047,11 +1047,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   area_sqft:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: number
       style: { align: right, width: "120px", unit: "sq ft" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: number
       style: { unit: "sq ft" }
@@ -1060,11 +1060,11 @@ fieldBusinessTypes:
 
   volume_m3:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: number
       style: { align: right, width: "120px", unit: "m³" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: number
       style: { unit: "m³" }
@@ -1073,11 +1073,11 @@ fieldBusinessTypes:
 
   dimension_cm:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "120px", unit: "cm" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       style: { unit: "cm" }
@@ -1086,11 +1086,11 @@ fieldBusinessTypes:
 
   weight_kg:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: number
       style: { align: right, width: "100px", unit: kg }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: number
       style: { unit: kg }
@@ -1099,11 +1099,11 @@ fieldBusinessTypes:
 
   file_size:
     dtype: int
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: filesize
       style: { width: "100px", align: right }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: filesize
     kanbanView: *hidden
@@ -1118,11 +1118,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   rating:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: number
       style: { width: "120px", max: 5, suffix: "/5" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: number
       style: { max: 5, suffix: "/5" }
@@ -1135,11 +1135,11 @@ fieldBusinessTypes:
 
   score:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: number
       style: { width: "100px", align: right }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: number
     kanbanView: *hidden
@@ -1150,11 +1150,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   latitude:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: number
       style: { width: "120px", precision: 6 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: number
       style: { precision: 6 }
@@ -1167,8 +1167,8 @@ fieldBusinessTypes:
 
   geolocation:
     dtype: str
-    entityDataTable: *hidden
-    entityFormContainer:
+    entityListOfInstancesTable: *hidden
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       style: { showMap: true }
@@ -1183,11 +1183,11 @@ fieldBusinessTypes:
 
   text_long:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *hidden
       renderType: text
       style: { truncate: 100 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       style: { rows: 4, multiline: true }
@@ -1196,11 +1196,11 @@ fieldBusinessTypes:
 
   rich_text:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *hidden
       renderType: text
       style: { truncate: 100 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       style: { multiline: true }
@@ -1212,11 +1212,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   json:
     dtype: jsonb
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *hidden
       renderType: json
       style: { collapsed: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: component
       component: MetadataTable
@@ -1230,11 +1230,11 @@ fieldBusinessTypes:
 
   tags:
     dtype: array[str]
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *hidden
       renderType: tags
       style: { maxDisplay: 3 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: tags
     kanbanView:
@@ -1250,11 +1250,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   file:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: file
       style: { width: "150px" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: file
     kanbanView: *hidden
@@ -1262,11 +1262,11 @@ fieldBusinessTypes:
 
   image:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: image
       style: { width: "80px", size: thumbnail }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: image
       style: { preview: true }
@@ -1279,11 +1279,11 @@ fieldBusinessTypes:
 
   avatar:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: avatar
       style: { align: center, width: "60px", size: sm }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: avatar
       style: { size: lg }
@@ -1298,8 +1298,8 @@ fieldBusinessTypes:
 
   signature:
     dtype: str
-    entityDataTable: *hidden
-    entityFormContainer:
+    entityListOfInstancesTable: *hidden
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: image
       style: { type: signature }
@@ -1308,8 +1308,8 @@ fieldBusinessTypes:
 
   video:
     dtype: str
-    entityDataTable: *hidden
-    entityFormContainer:
+    entityListOfInstancesTable: *hidden
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: file
       style: { type: video }
@@ -1321,8 +1321,8 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   s3_bucket:
     dtype: str
-    entityDataTable: *hidden
-    entityFormContainer:
+    entityListOfInstancesTable: *hidden
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       behavior: { editable: false }
@@ -1343,8 +1343,8 @@ fieldBusinessTypes:
 
   hash:
     dtype: str
-    entityDataTable: *hidden
-    entityFormContainer:
+    entityListOfInstancesTable: *hidden
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       behavior: { editable: false }
@@ -1354,11 +1354,11 @@ fieldBusinessTypes:
 
   mime_type:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "120px" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       behavior: { editable: false }
@@ -1367,11 +1367,11 @@ fieldBusinessTypes:
 
   file_extension:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "80px" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       behavior: { editable: false }
@@ -1383,11 +1383,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   barcode:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "150px", monospace: true, type: code128 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       style: { monospace: true }
@@ -1399,11 +1399,11 @@ fieldBusinessTypes:
 
   sku:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "120px", monospace: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
     kanbanView: *hidden
@@ -1418,11 +1418,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   color:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: color
       style: { width: "100px", showHex: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: color
     kanbanView:
@@ -1437,11 +1437,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   status:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: badge
       style: { width: "120px" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: badge
     kanbanView:
@@ -1464,11 +1464,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   type:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "120px" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
     kanbanView: *hidden
@@ -1483,8 +1483,8 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   sensitive_id:
     dtype: str
-    entityDataTable: *hidden
-    entityFormContainer:
+    entityListOfInstancesTable: *hidden
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       style: { mask: "***-***-***" }
@@ -1493,11 +1493,11 @@ fieldBusinessTypes:
 
   tax_id:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "140px" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
     kanbanView: *hidden
@@ -1505,11 +1505,11 @@ fieldBusinessTypes:
 
   reference_number:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "140px", monospace: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
     kanbanView: *hidden
@@ -1529,11 +1529,11 @@ fieldBusinessTypes:
 
   tracking_number:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "160px", linkable: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
     kanbanView: *hidden
@@ -1544,11 +1544,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   username:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "140px" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
     kanbanView: *hidden
@@ -1556,15 +1556,15 @@ fieldBusinessTypes:
 
   password_hash:
     dtype: str
-    entityDataTable: *hidden
-    entityFormContainer: *hidden
+    entityListOfInstancesTable: *hidden
+    entityInstanceFormContainer: *hidden
     kanbanView: *hidden
     gridView: *hidden
 
   token:
     dtype: str
-    entityDataTable: *hidden
-    entityFormContainer:
+    entityListOfInstancesTable: *hidden
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       behavior: { editable: false }
@@ -1574,11 +1574,11 @@ fieldBusinessTypes:
 
   ip_address:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
       style: { width: "140px", monospace: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       behavior: { editable: false }
@@ -1587,8 +1587,8 @@ fieldBusinessTypes:
 
   user_agent:
     dtype: str
-    entityDataTable: *hidden
-    entityFormContainer:
+    entityListOfInstancesTable: *hidden
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
       behavior: { editable: false }
@@ -1600,11 +1600,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   icon:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: icon
       style: { width: "80px", align: center }
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: icon
     kanbanView: *hidden
@@ -1619,8 +1619,8 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   version:
     dtype: int
-    entityDataTable: *hidden
-    entityFormContainer:
+    entityListOfInstancesTable: *hidden
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: number
       behavior: { editable: false }
@@ -1633,10 +1633,10 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   text:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *table_default
       renderType: text
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *form_default
       renderType: text
     kanbanView:
@@ -1654,10 +1654,10 @@ fieldBusinessTypes:
 
   systemInternal_ts:
     dtype: timestamp
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *hidden
       renderType: timestamp
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *hidden
       renderType: timestamp
     kanbanView:
@@ -1671,10 +1671,10 @@ fieldBusinessTypes:
 
   systemInternal_flag:
     dtype: bool
-    entityDataTable:
+    entityListOfInstancesTable:
       <<: *hidden
       renderType: boolean
-    entityFormContainer:
+    entityInstanceFormContainer:
       <<: *hidden
       renderType: boolean
     kanbanView:

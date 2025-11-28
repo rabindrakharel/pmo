@@ -324,7 +324,7 @@ Tab 1 (Leader)                    Tab 2 (Follower)
 // Forces IndexedDB reset on next load
 const SCHEMA_VERSION = 'v4';
 
-// v4: Store full metadata structure (metadata.entityDataTable.viewType)
+// v4: Store full metadata structure (metadata.entityListOfInstancesTable.viewType)
 // v3: Fixed metadata storage format
 // v2: Added draft persistence
 // v1: Initial RxDB implementation
@@ -388,8 +388,8 @@ The following files were migrated from Zustand to RxDB:
 | `frontEndFormatterService.tsx` | `getDatalabelSync()` for badge colors |
 | `EntityMetadataContext.tsx` | `useRxEntityCodes()` hook |
 | `DynamicChildEntityTabs.tsx` | `useRxEntityCodes()` hook |
-| `EntityFormContainer.tsx` | `getDatalabelSync()` for dropdowns |
-| `EntityDataTable.tsx` | `getDatalabelSync()` for badges |
+| `EntityInstanceFormContainer.tsx` | `getDatalabelSync()` for dropdowns |
+| `EntityListOfInstancesTable.tsx` | `getDatalabelSync()` for badges |
 | `valueFormatters.ts` | `getDatalabelSync()` for colors |
 | `garbageCollection.ts` | RxDB handles TTL automatically |
 | `useEntityQuery.ts` | RxDB cache invalidation |

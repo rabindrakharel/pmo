@@ -223,10 +223,10 @@ patterns:
 
 ```yaml
 entityInstance_Id:                          # Maps internal → output
-  entityDataTable:
+  entityListOfInstancesTable:
     renderType: entityInstanceId            # Output format (camelCase)
     lookupSource: entityInstance
-  entityFormContainer:
+  entityInstanceFormContainer:
     renderType: entityInstanceId
     lookupSource: entityInstance
 ```
@@ -236,9 +236,9 @@ entityInstance_Id:                          # Maps internal → output
 ```yaml
 entityInstance_Id:
   lookupSource: entityInstance
-  entityDataTable:
+  entityListOfInstancesTable:
     inputType: entityInstanceId             # Output format (camelCase)
-  entityFormContainer:
+  entityInstanceFormContainer:
     inputType: entityInstanceId
 ```
 
@@ -258,7 +258,7 @@ The Backend Formatter Service reads YAML configs and generates field metadata:
 **Output (in API response):**
 
 ```
-metadata.entityDataTable.viewType.manager__employee_id = {
+metadata.entityListOfInstancesTable.viewType.manager__employee_id = {
   dtype: "uuid",
   label: "Manager",
   renderType: "entityInstanceId",
@@ -266,7 +266,7 @@ metadata.entityDataTable.viewType.manager__employee_id = {
   lookupEntity: "employee"
 }
 
-metadata.entityDataTable.editType.manager__employee_id = {
+metadata.entityListOfInstancesTable.editType.manager__employee_id = {
   dtype: "uuid",
   label: "Manager",
   inputType: "entityInstanceId",
@@ -334,7 +334,7 @@ ref_data_entityInstance = {
   },
 
   "metadata": {
-    "entityDataTable": {
+    "entityListOfInstancesTable": {
       "viewType": {
         "manager__employee_id": {
           "dtype": "uuid",
@@ -556,9 +556,9 @@ ref_data_entityInstance = {
 │  │  │                         │          │                         │   │    │
 │  │  │  VIEW MODE              │          │  EDIT MODE              │   │    │
 │  │  │  ──────────             │          │  ─────────              │   │    │
-│  │  │  EntityDataTable        │          │  EntitySelect           │   │    │
+│  │  │  EntityListOfInstancesTable        │          │  EntitySelect           │   │    │
 │  │  │  EntityDetailView       │          │  EntityMultiSelect      │   │    │
-│  │  │  EntityFormContainer    │          │  EntityFormContainer    │   │    │
+│  │  │  EntityInstanceFormContainer    │          │  EntityInstanceFormContainer    │   │    │
 │  │  │                         │          │                         │   │    │
 │  │  │  Displays: "James"      │          │  Shows: [dropdown]      │   │    │
 │  │  └─────────────────────────┘          └─────────────────────────┘   │    │
@@ -576,7 +576,7 @@ ref_data_entityInstance = {
 
 ```
 ┌─────────┐     ┌──────────────┐     ┌──────────────┐     ┌───────────────┐     ┌─────────┐
-│  User   │     │EntityDataTable│    │useFormatted  │     │ Unified Cache │     │ Backend │
+│  User   │     │EntityListOfInstancesTable│    │useFormatted  │     │ Unified Cache │     │ Backend │
 │         │     │              │     │EntityList()  │     │               │     │         │
 └────┬────┘     └──────┬───────┘     └──────┬───────┘     └───────┬───────┘     └────┬────┘
      │                 │                    │                     │                  │
@@ -774,7 +774,7 @@ ref_data_entityInstance = {
 │     │                                                                        │
 │     ▼                                                                        │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │ EntityFormContainer renders form with:                               │   │
+│  │ EntityInstanceFormContainer renders form with:                               │   │
 │  │ • field.type === 'entityInstanceId' (from metadata)                 │   │
 │  │ • field.lookupEntity === 'employee' (from metadata)                 │   │
 │  │                                                                       │   │
@@ -831,8 +831,8 @@ RefData {
 }
 
 EntityMetadata {
-  entityDataTable: ComponentMetadata          // Metadata per component
-  entityFormContainer: ComponentMetadata
+  entityListOfInstancesTable: ComponentMetadata          // Metadata per component
+  entityInstanceFormContainer: ComponentMetadata
   // ... other components
 }
 

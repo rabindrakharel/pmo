@@ -25,7 +25,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import type { Column } from '../../components/shared/ui/EntityDataTable';
+import type { Column } from '../../components/shared/ui/EntityListOfInstancesTable';
 
 const STORAGE_KEY_PREFIX = 'column_visibility_';
 

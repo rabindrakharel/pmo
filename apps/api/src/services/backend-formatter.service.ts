@@ -10,7 +10,7 @@
  *
  * ARCHITECTURE:
  * - Column name → Explicit config check → YAML mappings → Default text field
- * - Separate metadata per component (EntityDataTable, EntityFormContainer, KanbanView)
+ * - Separate metadata per component (EntityListOfInstancesTable, EntityInstanceFormContainer, KanbanView)
  * - Global settings for cross-cutting concerns (currency, date formats, etc.)
  * - Datalabels extracted and fetched separately
  *
@@ -55,7 +55,7 @@
  *         }
  *       }
  *     },
- *     "entityFormContainer": { "viewType": {...}, "editType": {...} },
+ *     "entityInstanceFormContainer": { "viewType": {...}, "editType": {...} },
  *     "kanbanView": { "viewType": {...}, "editType": {...} }
  *   }
  * }
@@ -84,7 +84,7 @@
  *
  * // In route handler
  * const response = generateEntityResponse('project', projects, {
- *   components: ['entityListOfInstancesTable', 'entityFormContainer']
+ *   components: ['entityListOfInstancesTable', 'entityInstanceFormContainer']
  * });
  * return reply.send(response);
  * ```
@@ -106,7 +106,7 @@ const __dirname = dirname(__filename);
 
 export type ComponentName =
   | 'entityListOfInstancesTable'      // Table view for entity lists
-  | 'entityFormContainer'  // Create/edit forms (also used for detail view)
+  | 'entityInstanceFormContainer'  // Create/edit forms (also used for detail view)
   | 'kanbanView'           // Kanban board view
   | 'calendarView'         // Calendar view for events
   | 'gridView'             // Grid/card view
@@ -200,7 +200,7 @@ export interface FieldMetadataBase {
   datalabelKey?: string;
 
   // Component-specific visualization containers
-  EntityFormContainer_viz_container?: 'DAGVisualizer' | 'MetadataTable' | string;
+  EntityInstanceFormContainer_viz_container?: 'DAGVisualizer' | 'MetadataTable' | string;
 }
 
 // Old structure (deprecated)
@@ -224,7 +224,7 @@ export interface ComponentMetadata {
 
 export interface EntityMetadata {
   entityListOfInstancesTable?: ComponentMetadata;
-  entityFormContainer?: ComponentMetadata;
+  entityInstanceFormContainer?: ComponentMetadata;
   kanbanView?: ComponentMetadata;
   calendarView?: ComponentMetadata;
   gridView?: ComponentMetadata;
@@ -347,7 +347,7 @@ interface ViewTypeMappingYaml {
     component?: string;       // NEW: Component name when renderType is 'component'
     inherit?: string;
     entityListOfInstancesTable?: Record<string, any>;
-    entityFormContainer?: Record<string, any>;
+    entityInstanceFormContainer?: Record<string, any>;
     kanbanView?: Record<string, any>;
     gridView?: Record<string, any>;
     calendarView?: Record<string, any>;
@@ -365,7 +365,7 @@ interface EditTypeMappingYaml {
     lookupSource?: 'datalabel' | 'entityInstance';  // Unified lookup source
     loadFromEntity?: boolean;  // For entity references only
     entityListOfInstancesTable?: Record<string, any>;
-    entityFormContainer?: Record<string, any>;
+    entityInstanceFormContainer?: Record<string, any>;
     kanbanView?: Record<string, any>;
     gridView?: Record<string, any>;
     calendarView?: Record<string, any>;
@@ -737,13 +737,13 @@ function convertExplicitConfigToMetadata(
 
   // Determine visibility for this component
   const visibilityMap: Record<ComponentName, boolean> = {
-    entityListOfInstancesTable: config.visible?.EntityDataTable ?? true,
-    entityFormContainer: config.visible?.EntityFormContainer ?? true,
+    entityListOfInstancesTable: config.visible?.EntityListOfInstancesTable ?? true,
+    entityInstanceFormContainer: config.visible?.EntityInstanceFormContainer ?? true,
     kanbanView: config.visible?.KanbanView ?? true,
     calendarView: config.visible?.CalendarView ?? true,
-    gridView: config.visible?.EntityDataTable ?? true,
-    dagView: config.visible?.EntityFormContainer ?? true,
-    hierarchyGraphView: config.visible?.EntityFormContainer ?? true,
+    gridView: config.visible?.EntityListOfInstancesTable ?? true,
+    dagView: config.visible?.EntityInstanceFormContainer ?? true,
+    hierarchyGraphView: config.visible?.EntityInstanceFormContainer ?? true,
   };
 
   // Build view metadata with behavior/style structure
@@ -767,7 +767,7 @@ function convertExplicitConfigToMetadata(
   const edit: EditMetadata = {
     inputType: config.inputType || 'text',
     behavior: {
-      editable: config.editable ?? (component === 'entityFormContainer'),
+      editable: config.editable ?? (component === 'entityInstanceFormContainer'),
     },
     style: {},
     validation: {},
@@ -831,7 +831,7 @@ function generateFieldMetadataForComponent(
     // Build edit metadata with behavior/style/validation structure
     const edit: EditMetadata = editResult?.edit || {
       inputType: fieldBusinessType,
-      behavior: { editable: component === 'entityFormContainer' },
+      behavior: { editable: component === 'entityInstanceFormContainer' },
       style: {},
       validation: {},
     };
@@ -874,7 +874,7 @@ function generateFieldMetadataForComponent(
       renderType: 'text',
       behavior: {
         visible: component === 'entityListOfInstancesTable' ||
-                 component === 'entityFormContainer' ||
+                 component === 'entityInstanceFormContainer' ||
                  component === 'gridView',
         filterable: component === 'entityListOfInstancesTable',
         sortable: component === 'entityListOfInstancesTable',
@@ -884,7 +884,7 @@ function generateFieldMetadataForComponent(
     },
     edit: {
       inputType: 'text',
-      behavior: { editable: component === 'entityFormContainer' },
+      behavior: { editable: component === 'entityInstanceFormContainer' },
       style: {},
       validation: {},
     },
@@ -902,7 +902,7 @@ function generateFieldMetadataForComponent(
  */
 export function generateMetadataForComponents(
   fieldNames: string[],
-  requestedComponents: ComponentName[] = ['entityListOfInstancesTable', 'entityFormContainer', 'kanbanView'],
+  requestedComponents: ComponentName[] = ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'],
   entityCode?: string
 ): EntityMetadata {
   const metadata: EntityMetadata = {};
@@ -971,7 +971,7 @@ export function generateEntityResponse(
   } = {}
 ): EntityResponse {
   const {
-    components = ['entityListOfInstancesTable', 'entityFormContainer', 'kanbanView'],
+    components = ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'],
     total = data.length,
     limit = 20,
     offset = 0

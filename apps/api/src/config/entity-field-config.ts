@@ -23,7 +23,7 @@
  *   inputType: 'currency' | 'date' | 'datetime' | 'checkbox' | 'select' | 'reference' | 'json' | 'text' | 'textarea',
  *   format?: { symbol?: string; decimals?: number; locale?: string }, // for currency
  *   loadFromEntity?: string,       // for reference types (datalabels detected by pattern-mapping.yaml)
- *   visible?: { EntityDataTable?: boolean; EntityDetailView?: boolean; EntityFormContainer?: boolean; KanbanView?: boolean; CalendarView?: boolean },
+ *   visible?: { EntityListOfInstancesTable?: boolean; EntityDetailView?: boolean; EntityInstanceFormContainer?: boolean; KanbanView?: boolean; CalendarView?: boolean },
  *   editable?: boolean,
  *   align?: 'left' | 'center' | 'right',
  *   width?: string,
@@ -43,9 +43,9 @@ export interface FieldConfig {
   // v8.3.2: Datalabels detected by pattern-mapping.yaml (dl__* pattern), no explicit flag needed
   loadFromEntity?: string;
   visible?: {
-    EntityDataTable?: boolean;
+    EntityListOfInstancesTable?: boolean;
     EntityDetailView?: boolean;
-    EntityFormContainer?: boolean;
+    EntityInstanceFormContainer?: boolean;
     KanbanView?: boolean;
     CalendarView?: boolean;
   };
@@ -81,9 +81,9 @@ export const ENTITY_FIELD_CONFIG: AllEntityFieldConfig = {
     // Example: Override visibility for specific field
     // 'internal_notes': {
     //   visible: {
-    //     EntityDataTable: false,
+    //     EntityListOfInstancesTable: false,
     //     EntityDetailView: true,
-    //     EntityFormContainer: true,
+    //     EntityInstanceFormContainer: true,
     //   },
     //   editable: true,
     // },

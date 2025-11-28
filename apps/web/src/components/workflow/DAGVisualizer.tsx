@@ -7,7 +7,7 @@
  * - Professional node styling
  *
  * FORMAT-AT-READ PATTERN:
- * - Receives DAGNode[] from datalabel cache (via EntityFormContainer)
+ * - Receives DAGNode[] from datalabel cache (via EntityInstanceFormContainer)
  * - Transforms to ReactFlow format in useMemo (memoized)
  * - No API calls - pure presentation component
  */

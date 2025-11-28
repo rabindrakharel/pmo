@@ -20,7 +20,7 @@ EntityAttributeInlineDataTable is a **universal, reusable component** for render
 - ✅ Any other JSONB array/object that needs inline editing
 
 **Don't use for:**
-- ❌ Full entity tables (use EntityDataTable)
+- ❌ Full entity tables (use EntityListOfInstancesTable)
 - ❌ Settings/labels management (use LabelsDataTable)
 - ❌ Paginated entity lists (use EntityListOfInstancesPage)
 
@@ -52,7 +52,7 @@ apps/web/src/components/shared/
 └── entity/
     ├── MetadataTable.tsx                   ← Metadata wrapper (existing)
     ├── QuoteItemsRenderer.tsx              ← Quote items wrapper (NEW)
-    └── EntityFormContainer.tsx             ← Renders fields, uses wrappers
+    └── EntityInstanceFormContainer.tsx             ← Renders fields, uses wrappers
 ```
 
 ---
@@ -156,9 +156,9 @@ interface QuoteItem {
 
 ---
 
-### 3. Integration with EntityFormContainer
+### 3. Integration with EntityInstanceFormContainer
 
-**Location:** `/apps/web/src/components/shared/entity/EntityFormContainer.tsx`
+**Location:** `/apps/web/src/components/shared/entity/EntityInstanceFormContainer.tsx`
 
 **Changes Made:**
 
@@ -252,7 +252,7 @@ fields: [
 **To Add Custom Renderer:**
 
 1. Create wrapper component (e.g., `CustomDataRenderer.tsx`)
-2. Import in `EntityFormContainer.tsx`
+2. Import in `EntityInstanceFormContainer.tsx`
 3. Add special case in renderField function:
    ```typescript
    if (field.key === 'custom_data') {
@@ -319,9 +319,9 @@ fields: [
 | **Rendering** | Fixed cell types with color badges | Custom renderCell prop |
 | **Use Case** | Labels/datalabel management | Any JSON attribute |
 
-### vs. EntityDataTable
+### vs. EntityListOfInstancesTable
 
-| Feature | EntityDataTable | EntityAttributeInlineDataTable |
+| Feature | EntityListOfInstancesTable | EntityAttributeInlineDataTable |
 |---------|----------------|-------------------------------|
 | **Data Type** | Full entities | JSON attributes only |
 | **Pagination** | Yes | No (all rows inline) |
@@ -392,9 +392,9 @@ export function MyItemsRenderer({ value, onChange, isEditing }) {
 }
 ```
 
-**Step 3:** Register in EntityFormContainer:
+**Step 3:** Register in EntityInstanceFormContainer:
 ```typescript
-// EntityFormContainer.tsx
+// EntityInstanceFormContainer.tsx
 import { MyItemsRenderer } from './MyItemsRenderer';
 
 // In renderField function:

@@ -25,7 +25,7 @@ export { LabelsDataTableWithFetching, SettingsDataTableWithFetching } from './da
 // ENTITY COMPONENTS
 // ============================================================================
 export { DynamicChildEntityTabs, useDynamicChildEntityTabs } from './entity/DynamicChildEntityTabs';
-export { EntityFormContainer } from './entity/EntityFormContainer';
+export { EntityInstanceFormContainer } from './entity/EntityInstanceFormContainer';
 export { EntityMetadataField, EntityMetadataRow, EntityMetadataSeparator } from './ui/EntitySpecificInstanceMetadataContainer';
 
 // ============================================================================
@@ -75,7 +75,7 @@ export { ModularEditor } from './editor/ModularEditor';
 // ============================================================================
 // UI COMPONENTS
 // ============================================================================
-export { EntityDataTable, DataTable } from './ui/EntityDataTable'; // DataTable = backwards compat
+export { EntityListOfInstancesTable, DataTable } from './ui/EntityListOfInstancesTable'; // DataTable = backwards compat
 export { LabelsDataTable, SettingsDataTable } from './ui/LabelsDataTable';
 // EditableTags component removed - tags field no longer in use
 // export { EditableTags } from './ui/EditableTags';

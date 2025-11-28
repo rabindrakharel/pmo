@@ -11,7 +11,7 @@
  * import { formatDataset, type FormattedRow } from '../lib/formatters';
  *
  * // In fetch hook:
- * const formattedData = formatDataset(response.data, response.metadata?.entityDataTable);
+ * const formattedData = formatDataset(response.data, response.metadata?.entityListOfInstancesTable);
  *
  * // In component:
  * <span>{row.display[key]}</span>

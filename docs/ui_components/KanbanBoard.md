@@ -187,7 +187,7 @@ export function KanbanView({
   const stages = datalabelData?.options || [];
 
   // Get viewType for card field rendering
-  const viewType = extractViewType(metadata?.entityDataTable);
+  const viewType = extractViewType(metadata?.entityListOfInstancesTable);
 
   // Build columns from stages
   const columns = useMemo(() => {
@@ -302,7 +302,7 @@ function TaskKanbanPage() {
 
   // queryResult contains:
   // - formattedData: FormattedRow[] (via select transform)
-  // - metadata: { entityDataTable: { viewType, editType } }
+  // - metadata: { entityListOfInstancesTable: { viewType, editType } }
   const formattedData = queryResult?.formattedData || [];
   const metadata = queryResult?.metadata;
 
@@ -407,7 +407,7 @@ View Kanban Flow
    └── getDatalabel(datalabelKey) → stages array
    │
 4. Get viewType for card rendering:
-   const viewType = extractViewType(metadata.entityDataTable);
+   const viewType = extractViewType(metadata.entityListOfInstancesTable);
    │
 5. KanbanBoard renders:
    ├── Creates column for each stage

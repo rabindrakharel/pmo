@@ -10,7 +10,7 @@ MetadataTable is a reusable component for displaying and editing JSONB metadata 
 
 **Core Principles:**
 - Pure presentation component (no API calls)
-- Receives data via props from EntityFormContainer
+- Receives data via props from EntityInstanceFormContainer
 - Inline editing with automatic type coercion (boolean, number, JSON, string)
 - Backend metadata drives rendering via `renderType: 'component'` + `component: 'MetadataTable'`
 
@@ -38,7 +38,7 @@ MetadataTable is a reusable component for displaying and editing JSONB metadata 
 │  └────────────────────────────────┘  │                                       │
 │                                      │                                       │
 │                                      ▼                                       │
-│          EntityFormContainer_viz_container: {                                │
+│          EntityInstanceFormContainer_viz_container: {                                │
 │            view: "MetadataTable"   ◄── VIEW mode switch                     │
 │          }                                                                   │
 │                                      │                                       │
@@ -144,7 +144,7 @@ interface MetadataTableProps {
 
 ---
 
-## Integration with EntityFormContainer
+## Integration with EntityInstanceFormContainer
 
 ### Data Flow
 
@@ -164,12 +164,12 @@ interface MetadataTableProps {
 │      }                                                                   │
 │    },                                                                    │
 │    metadata: {                                                           │
-│      entityFormContainer: {                                              │
+│      entityInstanceFormContainer: {                                              │
 │        viewType: {                                                       │
 │          metadata: {                                                     │
 │            dtype: "jsonb",                                               │
 │            renderType: "component",                                      │
-│            component: "MetadataTable"  ◄── Tells EntityFormContainer    │
+│            component: "MetadataTable"  ◄── Tells EntityInstanceFormContainer    │
 │          }                                                               │
 │        },                                                                │
 │        editType: {                                                       │
@@ -182,7 +182,7 @@ interface MetadataTableProps {
 │    }                                                                     │
 │  }                                                                       │
 │                                                                          │
-│  EntityFormContainer                                                     │
+│  EntityInstanceFormContainer                                                     │
 │  ───────────────────                                                     │
 │  // VIEW mode check (before field.type === 'jsonb')                      │
 │  if (vizContainer?.view === 'MetadataTable') {                           │
@@ -203,16 +203,16 @@ interface MetadataTableProps {
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### EntityFormContainer Integration (v8.3.2)
+### EntityInstanceFormContainer Integration (v8.3.2)
 
 ```typescript
-// EntityFormContainer.tsx - VIEW mode
+// EntityInstanceFormContainer.tsx - VIEW mode
 // v8.3.2: Check vizContainer.view BEFORE field.type === 'jsonb'
 if (vizContainer?.view === 'MetadataTable') {
   return <MetadataTable value={value || {}} isEditing={false} />;
 }
 
-// EntityFormContainer.tsx - EDIT mode
+// EntityInstanceFormContainer.tsx - EDIT mode
 // v8.3.2: Handle inputType === 'component' case
 case 'component':
   if (vizContainer?.edit === 'MetadataTable') {
@@ -281,14 +281,14 @@ import { MetadataTable } from '@/components/shared/entity/MetadataTable';
 />
 ```
 
-### Via EntityFormContainer (Recommended)
+### Via EntityInstanceFormContainer (Recommended)
 
 ```typescript
 // Backend sends metadata with viewType/editType
-// EntityFormContainer automatically renders MetadataTable
+// EntityInstanceFormContainer automatically renders MetadataTable
 // when vizContainer.view === 'MetadataTable' or vizContainer.edit === 'MetadataTable'
 
-<EntityFormContainer
+<EntityInstanceFormContainer
   data={entityData}
   metadata={apiMetadata}
   isEditing={isEditing}
@@ -317,7 +317,7 @@ import { MetadataTable } from '@/components/shared/entity/MetadataTable';
 
 **Cause:** `field.type` derived from `editMeta.inputType` is `'component'`, not `'jsonb'`. The `field.type === 'jsonb'` check is never reached.
 
-**Fix:** EntityFormContainer must check `vizContainer?.view === 'MetadataTable'` BEFORE checking `field.type`:
+**Fix:** EntityInstanceFormContainer must check `vizContainer?.view === 'MetadataTable'` BEFORE checking `field.type`:
 
 ```typescript
 // CORRECT: Check vizContainer first
@@ -354,6 +354,6 @@ if (field.type === 'jsonb') {
 **Recent Updates:**
 - v1.0.0 (2025-11-27): Initial documentation
   - Documented v8.3.2 metadata-driven rendering pattern
-  - Added integration with EntityFormContainer
+  - Added integration with EntityInstanceFormContainer
   - Documented type coercion logic
   - Added troubleshooting for common issues

@@ -377,7 +377,7 @@ interface DraftDocType {
 const SCHEMA_VERSION = 'v4';
 
 // Bumping this forces IndexedDB reset (used for schema migrations)
-// v4: Store full metadata structure (metadata.entityDataTable.viewType)
+// v4: Store full metadata structure (metadata.entityListOfInstancesTable.viewType)
 ```
 
 ### 5.3 RxDB Hooks

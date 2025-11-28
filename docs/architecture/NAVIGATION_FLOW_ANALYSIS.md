@@ -29,7 +29,7 @@ Users navigate from entity list (DataTable) to detail view for deep inspection a
          ┌───────────────────────────┐
          │ API Call                  │
          │ GET /api/v1/office        │
-         │ ?view=entityDataTable     │
+         │ ?view=entityListOfInstancesTable     │
          │ &page=1&pageSize=100      │
          └───────────┬───────────────┘
                      │
@@ -39,7 +39,7 @@ Users navigate from entity list (DataTable) to detail view for deep inspection a
          │ {                         │
          │   data: [...],            │
          │   metadata: {             │
-         │     entityDataTable: {...}│
+         │     entityListOfInstancesTable: {...}│
          │   },                      │
          │   datalabels: [...]       │
          │ }                         │
@@ -55,7 +55,7 @@ Users navigate from entity list (DataTable) to detail view for deep inspection a
                      │
                      ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│         Render: EntityDataTable (directly from page)             │
+│         Render: EntityListOfInstancesTable (directly from page)             │
 │  - data={data}                                                   │
 │  - metadata={metadata}                                           │
 │  - loading={isLoading}                                           │
@@ -92,7 +92,7 @@ Users navigate from entity list (DataTable) to detail view for deep inspection a
          ┌───────────────────────────┐
          │ API Call (RE-FETCH!)      │
          │ GET /api/v1/office/{id}   │
-         │ ?view=entityFormContainer │
+         │ ?view=entityInstanceFormContainer │
          └───────────┬───────────────┘
                      │
                      ▼
@@ -101,7 +101,7 @@ Users navigate from entity list (DataTable) to detail view for deep inspection a
          │ {                         │
          │   data: {...},            │
          │   metadata: {             │
-         │     entityFormContainer:{}│
+         │     entityInstanceFormContainer:{}│
          │   }                       │
          │ }                         │
          │ (datalabels via dedicated │
@@ -127,7 +127,7 @@ Users navigate from entity list (DataTable) to detail view for deep inspection a
 
 **❌ Problem 2: Metadata Re-generation**
 - Backend re-generates metadata for same entity
-- `entityFormContainer` metadata could have been pre-fetched
+- `entityInstanceFormContainer` metadata could have been pre-fetched
 - Unnecessary compute cost
 
 **✅ Problem 3: Datalabel Caching (RESOLVED)**
@@ -141,7 +141,7 @@ Users navigate from entity list (DataTable) to detail view for deep inspection a
 
 **❌ Problem 5: Action Buttons Trigger Modal/Sheet**
 - Edit action opens modal/sheet
-- Re-fetches `entityFormContainer` metadata
+- Re-fetches `entityInstanceFormContainer` metadata
 - Already had this in detail view response!
 
 ---
@@ -157,7 +157,7 @@ EntityListOfInstancesPage
    ├─ State: data, metadata from queryResult
    │
    ▼
-EntityDataTable (used directly by page)
+EntityListOfInstancesTable (used directly by page)
    │
    ├─ Props: data, metadata, loading
    ├─ Extract: metadata.fields for columns
@@ -193,13 +193,13 @@ EntitySpecificInstancePage
 Edit Action Click
    │
    ├─ Open Modal/Sheet
-   ├─ ❌ ISSUE: Re-fetch entityFormContainer metadata
-   │   (Already in response.metadata.entityFormContainer!)
+   ├─ ❌ ISSUE: Re-fetch entityInstanceFormContainer metadata
+   │   (Already in response.metadata.entityInstanceFormContainer!)
    │
    ▼
-EntityFormContainer
+EntityInstanceFormContainer
    │
-   ├─ Should receive: metadata.entityFormContainer
+   ├─ Should receive: metadata.entityInstanceFormContainer
    ├─ Currently: Fetches again or uses cached schema
 ```
 
@@ -217,7 +217,7 @@ const handleRowClick = (record) => {
   // Cache row data + metadata for fast detail page render
   entityCache.set(record.id, {
     data: record,
-    metadata: metadata,  // Already have entityDataTable metadata
+    metadata: metadata,  // Already have entityListOfInstancesTable metadata
     datalabels: datalabels,
     timestamp: Date.now()
   });
@@ -239,7 +239,7 @@ useEffect(() => {
   // Fetch fresh data with detail-specific metadata in background
   fetchDetail(id).then(response => {
     setData(response.data);
-    setMetadata(response.metadata);  // Get entityFormContainer metadata
+    setMetadata(response.metadata);  // Get entityInstanceFormContainer metadata
     setIsHydrated(true);
   });
 }, [id]);
@@ -260,15 +260,15 @@ const { options: stageOptions } = useDatalabels('dl__project_stage');
 ```typescript
 // EntityListOfInstancesPage - Request metadata for future needs
 const params = {
-  view: 'entityDataTable,entityFormContainer',
+  view: 'entityListOfInstancesTable,entityInstanceFormContainer',
   page, pageSize: 100
 };
 
 const response = await api.list(params);
 
 // Store all metadata segments
-setTableMetadata(response.metadata.entityDataTable);
-setFormMetadata(response.metadata.entityFormContainer);
+setTableMetadata(response.metadata.entityListOfInstancesTable);
+setFormMetadata(response.metadata.entityInstanceFormContainer);
 ```
 
 **Benefits:**
@@ -313,13 +313,13 @@ const officeTypeDatalabel = getDatalabel('dl__office_type');
 ```typescript
 // EntitySpecificInstancePage
 const response = await api.get(id, {
-  view: 'entityFormContainer'
+  view: 'entityInstanceFormContainer'
 });
 
 // Pass form metadata to modal
 <EditModal
   data={data}
-  metadata={response.metadata.entityFormContainer}  // ← Already have it!
+  metadata={response.metadata.entityInstanceFormContainer}  // ← Already have it!
   datalabels={datalabels}
   onSave={handleSave}
 />
@@ -327,7 +327,7 @@ const response = await api.get(id, {
 // EditModal - NO API call needed
 const EditModal = ({ data, metadata, datalabels, onSave }) => {
   return (
-    <EntityFormContainer
+    <EntityInstanceFormContainer
       initialData={data}
       metadata={metadata}  // ← Received via props
       datalabels={datalabels}
@@ -348,8 +348,8 @@ const EditModal = ({ data, metadata, datalabels, onSave }) => {
 
 ```typescript
 // Allow users to control what metadata is fetched
-URL: /office/{id}?view=form    → entityFormContainer only
-URL: /office/{id}?view=table   → entityDataTable only
+URL: /office/{id}?view=form    → entityInstanceFormContainer only
+URL: /office/{id}?view=table   → entityListOfInstancesTable only
 URL: /office/{id}?view=all     → all components
 
 // Smart default based on intent
@@ -372,7 +372,7 @@ navigate(`/office/${id}?view=detail,form`);  // Most common
 
 LIST VIEW
    │
-   ├─ Fetch: ?view=entityDataTable,entityFormContainer
+   ├─ Fetch: ?view=entityListOfInstancesTable,entityInstanceFormContainer
    ├─ Cache: datalabels globally
    ├─ Store: all metadata segments
    │
@@ -392,7 +392,7 @@ DETAIL VIEW
    ▼
 USER CLICKS EDIT
    │
-   ├─ Modal: Use metadata.entityFormContainer (already have!)
+   ├─ Modal: Use metadata.entityInstanceFormContainer (already have!)
    ├─ Render: Instant form
    │
    ▼

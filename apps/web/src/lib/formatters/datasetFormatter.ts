@@ -160,8 +160,8 @@ export function formatRow<T extends Record<string, any>>(
  * @returns Array of formatted rows with raw, display, and styles
  *
  * @example
- * const formattedData = formatDataset(response.data, response.metadata?.entityDataTable, response.ref_data_entityInstance);
- * // metadata.entityDataTable = { viewType: {...}, editType: {...} }
+ * const formattedData = formatDataset(response.data, response.metadata?.entityListOfInstancesTable, response.ref_data_entityInstance);
+ * // metadata.entityListOfInstancesTable = { viewType: {...}, editType: {...} }
  */
 export function formatDataset<T extends Record<string, any>>(
   data: T[],

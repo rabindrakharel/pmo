@@ -32,8 +32,8 @@
  * - EntitySpecificInstancePage for quote_items field
  * - Any other entity with JSONB array attributes
  *
- * Different from EntityDataTable and SettingsDataTable:
- * - EntityDataTable: Full entities with pagination, filters, API calls
+ * Different from EntityListOfInstancesTable and SettingsDataTable:
+ * - EntityListOfInstancesTable: Full entities with pagination, filters, API calls
  * - SettingsDataTable: Fixed schema for settings/datalabel management
  * - EntityAttributeInlineDataTable: Generic JSON attributes, configurable schema
  */

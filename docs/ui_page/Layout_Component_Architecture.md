@@ -21,7 +21,7 @@ The PMO frontend uses a **three-layer component hierarchy** with universal pages
 |                                                                          |
 |  APPLICATION LAYER (Business Logic)                                     |
 |  ----------------------------------------------------------------       |
-|  EntityDataTable, EntityFormContainer, KanbanView, CalendarView,        |
+|  EntityListOfInstancesTable, EntityInstanceFormContainer, KanbanView, CalendarView,        |
 |  GridView, DAGVisualizer, DynamicChildEntityTabs, HierarchyGraphView    |
 |                                                                          |
 |  Props: data (FormattedRow[]), metadata ({ viewType, editType })        |
@@ -106,8 +106,8 @@ interface FormattedRow<T = Record<string, any>> {
 
 | Component | File | Props |
 |-----------|------|-------|
-| `EntityDataTable` | `ui/EntityDataTable.tsx` | `data: FormattedRow[]`, `metadata` |
-| `EntityFormContainer` | `entity/EntityFormContainer.tsx` | `data`, `metadata`, `isEditing` |
+| `EntityListOfInstancesTable` | `ui/EntityListOfInstancesTable.tsx` | `data: FormattedRow[]`, `metadata` |
+| `EntityInstanceFormContainer` | `entity/EntityInstanceFormContainer.tsx` | `data`, `metadata`, `isEditing` |
 | `KanbanView` | `ui/KanbanView.tsx` | `data: FormattedRow[]`, `metadata`, `config.kanban.datalabelKey` |
 | `CalendarView` | `ui/CalendarView.tsx` | `data`, `dateField`, `titleField` |
 | `GridView` | `ui/GridView.tsx` | `data: FormattedRow[]`, `metadata` |
@@ -144,13 +144,13 @@ interface FormattedRow<T = Record<string, any>> {
 ```typescript
 import { extractViewType, extractEditType, isValidComponentMetadata } from '@/lib/formatters';
 
-function EntityDataTable({ data, metadata }) {
+function EntityListOfInstancesTable({ data, metadata }) {
   // Get component-specific metadata
-  const componentMetadata = metadata?.entityDataTable;
+  const componentMetadata = metadata?.entityListOfInstancesTable;
 
   // Validate structure
   if (!componentMetadata || !isValidComponentMetadata(componentMetadata)) {
-    console.error('[EntityDataTable] Invalid metadata');
+    console.error('[EntityListOfInstancesTable] Invalid metadata');
     return null;
   }
 
@@ -221,7 +221,7 @@ if (formattedRecord.styles[column.key]) {
 import { renderEditModeFromMetadata } from '@/lib/frontEndFormatterService';
 
 // Uses backend metadata for input type
-const editType = extractEditType(metadata.entityDataTable);
+const editType = extractEditType(metadata.entityListOfInstancesTable);
 const editMeta = editType[column.key];
 
 renderEditModeFromMetadata(
@@ -262,7 +262,7 @@ switch (metadata.inputType) {
 apps/web/src/components/
 +-- shared/
 |   +-- ui/
-|   |   +-- EntityDataTable.tsx       # Universal data table
+|   |   +-- EntityListOfInstancesTable.tsx       # Universal data table
 |   |   +-- KanbanView.tsx            # Kanban board
 |   |   +-- GridView.tsx              # Card grid
 |   |   +-- CalendarView.tsx          # Event calendar
@@ -274,7 +274,7 @@ apps/web/src/components/
 |   |   +-- Modal.tsx                 # Base modal
 |   |   +-- Button.tsx                # Base button
 |   +-- entity/
-|   |   +-- EntityFormContainer.tsx   # Universal form renderer
+|   |   +-- EntityInstanceFormContainer.tsx   # Universal form renderer
 |   |   +-- DynamicChildEntityTabs.tsx # Child entity tabs
 |   +-- workflow/
 |       +-- DAGVisualizer.tsx         # DAG status visualizer
@@ -305,7 +305,7 @@ apps/web/src/components/
 When implementing a new component that consumes metadata:
 
 - [ ] Import `extractViewType`, `extractEditType` from `@/lib/formatters`
-- [ ] Extract metadata: `const viewType = extractViewType(metadata.entityDataTable)`
+- [ ] Extract metadata: `const viewType = extractViewType(metadata.entityListOfInstancesTable)`
 - [ ] Handle null case: `if (!viewType) return null` with error log
 - [ ] Use `row.display[key]` for view mode rendering
 - [ ] Use `row.styles[key]` for badge CSS classes
@@ -320,7 +320,7 @@ When implementing a new component that consumes metadata:
 | Document | Purpose |
 |----------|---------|
 | `docs/ui_page/PAGE_ARCHITECTURE.md` | Page components and routing |
-| `docs/ui_components/EntityDataTable.md` | EntityDataTable details |
+| `docs/ui_components/EntityListOfInstancesTable.md` | EntityListOfInstancesTable details |
 | `docs/state_management/STATE_MANAGEMENT.md` | State management architecture |
 
 ---

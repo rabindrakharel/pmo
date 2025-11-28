@@ -27,8 +27,8 @@
  * - Routes: /setting/taskStage, /setting/acquisitionChannel, etc.
  * - Entity configs using createSettingsEntityConfig()
  *
- * Different from EntityDataTable:
- * - EntityDataTable: Dynamic columns, filters, pagination, complex entities
+ * Different from EntityListOfInstancesTable:
+ * - EntityListOfInstancesTable: Dynamic columns, filters, pagination, complex entities
  * - LabelsDataTable: Fixed columns, simple sorting, reordering, labels only
  */
 

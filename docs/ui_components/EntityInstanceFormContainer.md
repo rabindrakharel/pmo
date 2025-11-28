@@ -1,6 +1,6 @@
-# EntityFormContainer Component
+# EntityInstanceFormContainer Component
 
-**Version:** 8.6.0 | **Location:** `apps/web/src/components/shared/entity/EntityFormContainer.tsx`
+**Version:** 8.6.0 | **Location:** `apps/web/src/components/shared/entity/EntityInstanceFormContainer.tsx`
 
 > **Note:** As of v8.6.0, all state is managed via RxDB (single source of truth). Entity data, metadata, and drafts are persisted in IndexedDB. Datalabel options accessed via `getDatalabelSync()`.
 
@@ -28,7 +28,7 @@
 │  └────────────────────────────────┘  │                                       │
 │                                      │                                       │
 │                                      ▼                                       │
-│          EntityFormContainer_viz_container: {                                │
+│          EntityInstanceFormContainer_viz_container: {                                │
 │            view: "DAGVisualizer"   ◄── This is the ONLY switch              │
 │          }                                                                   │
 │                                      │                                       │
@@ -52,7 +52,7 @@
 
 ## Semantics
 
-EntityFormContainer is a universal form component for creating and editing entities. It uses the v8.3.2 `{ viewType, editType }` metadata structure, handles entity references via `ref_data_entityInstance`, and supports FormattedRow data.
+EntityInstanceFormContainer is a universal form component for creating and editing entities. It uses the v8.3.2 `{ viewType, editType }` metadata structure, handles entity references via `ref_data_entityInstance`, and supports FormattedRow data.
 
 **Core Principle:** Backend metadata with `{ viewType, editType }` structure controls all form fields. viewType controls WHICH component renders, editType controls WHERE data comes from.
 
@@ -71,7 +71,7 @@ EntityFormContainer is a universal form component for creating and editing entit
 │  │    data: {...},                                                  │    │
 │  │    ref_data_entityInstance: { employee: { "uuid": "James Miller" } },           │    │
 │  │    metadata: {                                                   │    │
-│  │      entityFormContainer: {                                      │    │
+│  │      entityInstanceFormContainer: {                                      │    │
 │  │        viewType: { field: { renderType, component, behavior } }, │    │
 │  │        editType: { field: { inputType, lookupSource, datalabelKey } }│ │
 │  │      }                                                           │    │
@@ -81,10 +81,10 @@ EntityFormContainer is a universal form component for creating and editing entit
 │                              │                                          │
 │                              v                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    EntityFormContainer                           │    │
+│  │                    EntityInstanceFormContainer                           │    │
 │  │                                                                  │    │
-│  │  const viewType = extractViewType(metadata.entityFormContainer); │    │
-│  │  const editType = extractEditType(metadata.entityFormContainer); │    │
+│  │  const viewType = extractViewType(metadata.entityInstanceFormContainer); │    │
+│  │  const editType = extractEditType(metadata.entityInstanceFormContainer); │    │
 │  │                                                                  │    │
 │  │  ┌───────────────────────────────────────────────────────────┐  │    │
 │  │  │  Standard Fields (from viewType/editType)                  │  │    │
@@ -119,7 +119,7 @@ EntityFormContainer is a universal form component for creating and editing entit
 import type { FormattedRow } from '@/lib/formatters';
 import type { RefData } from '@/lib/hooks/useRefData';
 
-interface EntityFormContainerProps {
+interface EntityInstanceFormContainerProps {
   /** Entity configuration (optional - can derive from metadata) */
   config?: EntityConfig;
 
@@ -160,8 +160,8 @@ interface EntityFormContainerProps {
 
 // EntityMetadata from API response (v8.2.0)
 interface EntityMetadata {
-  entityFormContainer: ComponentMetadata;
-  entityDataTable?: ComponentMetadata;
+  entityInstanceFormContainer: ComponentMetadata;
+  entityListOfInstancesTable?: ComponentMetadata;
 }
 
 // ComponentMetadata structure (v8.2.0 - REQUIRED)
@@ -224,7 +224,7 @@ Field Generation Flow
 Backend Metadata                     extractViewType/editType       Form Field
 ────────────────                     ─────────────────────────       ──────────
 
-metadata.entityFormContainer: {  →   viewType = extractViewType()  →  VIEW MODE:
+metadata.entityInstanceFormContainer: {  →   viewType = extractViewType()  →  VIEW MODE:
   viewType: {                        editType = extractEditType()      row.display[key]
     budget_amt: {                                                      or formatted value
       dtype: 'float',                // v8.2.0: REQUIRED
@@ -245,7 +245,7 @@ metadata.entityFormContainer: {  →   viewType = extractViewType()  →  VIEW M
 ref_data_entityInstance Pattern (v8.3.0)
 ─────────────────────────
 
-API Response                         EntityFormContainer
+API Response                         EntityInstanceFormContainer
 ────────────                         ───────────────────
 
 {                                    const { resolveFieldDisplay } = useRefData(ref_data_entityInstance);
@@ -258,7 +258,7 @@ API Response                         EntityFormContainer
     }
   },
   metadata: {
-    entityFormContainer: {
+    entityInstanceFormContainer: {
       viewType: {
         manager__employee_id: {
           lookupEntity: 'employee',  // ← Determines ref_data_entityInstance lookup key
@@ -273,7 +273,7 @@ API Response                         EntityFormContainer
 FormattedRow Support (v8.2.0)
 ─────────────────────────────
 
-API Response         format-at-read          EntityFormContainer
+API Response         format-at-read          EntityInstanceFormContainer
 ────────────         ───────────────         ───────────────────
 
 { data: {...} }  →   FormattedRow = {    →   // Check for FormattedRow
@@ -295,9 +295,9 @@ API Response         format-at-read          EntityFormContainer
 ```typescript
 import { extractViewType, extractEditType, isValidComponentMetadata } from '@/lib/formatters';
 
-function EntityFormContainer({ data, metadata, isEditing, onChange, formattedData }: Props) {
+function EntityInstanceFormContainer({ data, metadata, isEditing, onChange, formattedData }: Props) {
   // Get component-specific metadata
-  const componentMetadata = metadata?.entityFormContainer;
+  const componentMetadata = metadata?.entityInstanceFormContainer;
 
   // v8.2.0: Use extractors to get viewType and editType
   const viewType = extractViewType(componentMetadata);
@@ -306,7 +306,7 @@ function EntityFormContainer({ data, metadata, isEditing, onChange, formattedDat
   // Generate field list from metadata
   const fields = useMemo(() => {
     if (!viewType) {
-      console.error('[EntityFormContainer] No viewType - backend must send { viewType, editType }');
+      console.error('[EntityInstanceFormContainer] No viewType - backend must send { viewType, editType }');
       return [];
     }
 
@@ -450,7 +450,7 @@ function FormField({ field, value, displayValue, isEditing, onChange }) {
     }
   },
   metadata: {
-    entityFormContainer: {
+    entityInstanceFormContainer: {
       viewType: {
         manager__employee_id: {
           lookupEntity: 'employee',
@@ -472,12 +472,12 @@ const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(ref_data_e
 ```typescript
 import { useRefData, type RefData } from '@/lib/hooks/useRefData';
 
-function EntityFormContainer({ ref_data_entityInstance, metadata, ... }) {
+function EntityInstanceFormContainer({ ref_data_entityInstance, metadata, ... }) {
   // Hook provides utilities for entity reference resolution
   const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(ref_data_entityInstance);
 
   // Resolve using metadata (NOT field name pattern detection)
-  const fieldMeta = metadata.entityFormContainer.viewType.manager__employee_id;
+  const fieldMeta = metadata.entityInstanceFormContainer.viewType.manager__employee_id;
   const displayName = resolveFieldDisplay(fieldMeta, uuid);  // → "John Smith"
 }
 ```
@@ -496,7 +496,7 @@ data._IDS = { stakeholder: [...] }; // ❌ Deprecated
 
 ```typescript
 import { useEntityInstance } from '@/lib/hooks/useEntityQuery';
-import { EntityFormContainer } from '@/components/shared/entity/EntityFormContainer';
+import { EntityInstanceFormContainer } from '@/components/shared/entity/EntityInstanceFormContainer';
 
 function ProjectDetailPage({ projectId }) {
   const { data: queryResult, isLoading } = useEntityInstance('project', projectId);
@@ -504,7 +504,7 @@ function ProjectDetailPage({ projectId }) {
   // queryResult contains:
   // - data: raw entity data
   // - ref_data_entityInstance: { entity_code: { uuid: name } } for entity reference resolution
-  // - metadata: { entityFormContainer: { viewType, editType } }
+  // - metadata: { entityInstanceFormContainer: { viewType, editType } }
   const data = queryResult?.data;
   const ref_data_entityInstance = queryResult?.ref_data_entityInstance;
   const metadata = queryResult?.metadata;
@@ -517,7 +517,7 @@ function ProjectDetailPage({ projectId }) {
   };
 
   return (
-    <EntityFormContainer
+    <EntityInstanceFormContainer
       data={isEditing ? editedData : data}
       metadata={metadata}
       ref_data_entityInstance={ref_data_entityInstance}
@@ -540,11 +540,11 @@ Form Load Flow
    │
 2. useEntityInstance returns:
    ├── data: raw entity data
-   └── metadata: { entityFormContainer: { viewType, editType } }
+   └── metadata: { entityInstanceFormContainer: { viewType, editType } }
    │
-3. EntityFormContainer extracts metadata:
-   const viewType = extractViewType(metadata.entityFormContainer);
-   const editType = extractEditType(metadata.entityFormContainer);
+3. EntityInstanceFormContainer extracts metadata:
+   const viewType = extractViewType(metadata.entityInstanceFormContainer);
+   const editType = extractEditType(metadata.entityInstanceFormContainer);
    │
 4. Fields generated from viewType (visible, label, renderType)
    │
@@ -622,7 +622,7 @@ function arePropsEqual(prevProps, nextProps): boolean {
   return true; // if none of the above changed
 }
 
-export const EntityFormContainer = React.memo(EntityFormContainerInner, arePropsEqual);
+export const EntityInstanceFormContainer = React.memo(EntityInstanceFormContainerInner, arePropsEqual);
 ```
 
 **Key insight:** During editing, text inputs use `DebouncedInput`/`DebouncedTextarea` components that manage their own local state. This allows instant typing feedback while debouncing parent updates, preventing re-renders on every keystroke.
@@ -639,7 +639,7 @@ export const EntityFormContainer = React.memo(EntityFormContainerInner, areProps
   - Fixed MetadataTable rendering: check `vizContainer?.view === 'MetadataTable'` BEFORE `field.type === 'jsonb'`
   - Added `case 'component':` in edit mode switch for `inputType: 'component'` fields
   - Added `BadgeDropdownSelect` as explicit `field.type` case in switch statement
-  - `EntityFormContainer_viz_container: { view: string, edit: string }` object structure
+  - `EntityInstanceFormContainer_viz_container: { view: string, edit: string }` object structure
 - v8.3.0 (2025-11-26): **ref_data_entityInstance Pattern**
   - Added `ref_data_entityInstance?: RefData` prop for entity reference resolution
   - Added `useRefData` hook integration for `resolveFieldDisplay`, `isRefField`, `getEntityCode`

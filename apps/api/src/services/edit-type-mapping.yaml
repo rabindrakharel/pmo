@@ -51,7 +51,7 @@
 #   {
 #     "data": [...],
 #     "metadata": {
-#       "entityDataTable": {
+#       "entityListOfInstancesTable": {
 #         "viewType": {                          ← All VIEW metadata here
 #           "budget_allocated_amt": {
 #             "dtype": "float",
@@ -82,7 +82,7 @@
 # ============================================================================
 #
 # This YAML file defines how each fieldBusinessType should render in EDIT mode
-# across different UI components (entityDataTable, entityFormContainer, kanbanView, etc.)
+# across different UI components (entityListOfInstancesTable, entityInstanceFormContainer, kanbanView, etc.)
 #
 # ============================================================================
 # STRUCTURE
@@ -96,14 +96,14 @@
 #     inherit: <other_type>        # Optional - Inherit from another fieldBusinessType
 #
 #     # Component-specific definitions (REQUIRED for each supported component):
-#     entityDataTable:
+#     entityListOfInstancesTable:
 #       inputType: <type>          # REQUIRED - HTML5 input type or "component"
 #       component: <name>          # ONLY when inputType is "component" (NEVER with HTML5 types!)
 #       behavior: { editable, filterable, sortable, visible }
 #       style: { ... }
 #       validation: { ... }
 #
-#     entityFormContainer:
+#     entityInstanceFormContainer:
 #       inputType: <type>
 #       component: <name>          # ONLY when inputType is "component"
 #       behavior: { editable }
@@ -117,20 +117,20 @@
 # !! IMPORTANT !! When inputType is an HTML5 type, you CANNOT specify component!
 #
 # CORRECT (HTML5 input - no component):
-#   entityDataTable:
+#   entityListOfInstancesTable:
 #     inputType: number
 #     behavior: { editable: true, filterable: true, sortable: true, visible: true }
 #     validation: { min: 0 }
 #
 # CORRECT (Custom component):
-#   entityDataTable:
+#   entityListOfInstancesTable:
 #     inputType: component
 #     component: CurrencyInput
 #     behavior: { editable: true, filterable: true, sortable: true, visible: true }
 #     validation: { min: 0 }
 #
 # WRONG (HTML5 input with component - INVALID!):
-#   entityDataTable:
+#   entityListOfInstancesTable:
 #     inputType: number
 #     component: CurrencyInput    # <-- ERROR! Cannot have component with HTML5 inputType
 #     behavior: { editable: true }
@@ -198,12 +198,12 @@
 #   - Examples: DatalabelSelect, EntitySelect, CurrencyInput, RichTextEditor, DAGVisualizer
 #
 # behavior - Field behavior settings (differs by UI component):
-#   For entityDataTable:
+#   For entityListOfInstancesTable:
 #     - editable: bool    : Whether field can be edited inline
 #     - filterable: bool  : Whether field appears in filters
 #     - sortable: bool    : Whether column can be sorted
 #     - visible: bool     : Whether column is visible by default
-#   For entityFormContainer:
+#   For entityInstanceFormContainer:
 #     - editable: bool    : Whether field can be edited
 #   For kanbanView/calendarView/dagView:
 #     - editable: bool    : Whether field can be edited
@@ -216,10 +216,10 @@
 # UI COMPONENTS
 # ============================================================================
 #
-#   entityDataTable:      # Table/grid inline editing
+#   entityListOfInstancesTable:      # Table/grid inline editing
 #     behavior: { editable, filterable, sortable, visible }
 #
-#   entityFormContainer:  # Detail page forms
+#   entityInstanceFormContainer:  # Detail page forms
 #     behavior: { editable }
 #
 #   kanbanView:           # Kanban card editing
@@ -290,7 +290,7 @@
 # 4. DEFINE EACH COMPONENT SEPARATELY
 #    - Each component may have different inputType
 #    - Each component may have different validation strictness
-#    - entityDataTable needs: filterable, sortable, visible in behavior
+#    - entityListOfInstancesTable needs: filterable, sortable, visible in behavior
 #
 # 5. VALIDATION ON BOTH TABLE AND FORM
 #    - Table editing can have validation too (min, max, pattern)
@@ -307,11 +307,11 @@
 # Simple text field (HTML5 - NO component):
 #   name:
 #     dtype: str
-#     entityDataTable:
+#     entityListOfInstancesTable:
 #       inputType: text
 #       behavior: { editable: true, filterable: true, sortable: true, visible: true }
 #       validation: { maxLength: 255 }
-#     entityFormContainer:
+#     entityInstanceFormContainer:
 #       inputType: text
 #       behavior: { editable: true }
 #       validation: { required: true, minLength: 1, maxLength: 255 }
@@ -320,12 +320,12 @@
 # Currency field (HTML5 number with style formatting):
 #   currency:
 #     dtype: float
-#     entityDataTable:
+#     entityListOfInstancesTable:
 #       inputType: number
 #       behavior: { editable: true, filterable: true, sortable: true, visible: true }
 #       style: { step: 0.01 }
 #       validation: { min: 0 }
-#     entityFormContainer:
+#     entityInstanceFormContainer:
 #       inputType: number
 #       behavior: { editable: true }
 #       style: { symbol: "$", decimals: 2, locale: en-CA, step: 0.01 }
@@ -335,11 +335,11 @@
 #   datalabel:
 #     dtype: str
 #     lookupSource: datalabel
-#     entityDataTable:
+#     entityListOfInstancesTable:
 #       inputType: select
 #       component: DatalabelSelect
 #       behavior: { editable: true, filterable: true, sortable: true, visible: true }
-#     entityFormContainer:
+#     entityInstanceFormContainer:
 #       inputType: select
 #       component: DatalabelSelect
 #       behavior: { editable: true }
@@ -348,10 +348,10 @@
 # Readonly field (different behavior per component):
 #   created_ts:
 #     dtype: timestamp
-#     entityDataTable:
+#     entityListOfInstancesTable:
 #       inputType: readonly
 #       behavior: { editable: false, filterable: false, sortable: true, visible: true }
-#     entityFormContainer:
+#     entityInstanceFormContainer:
 #       inputType: readonly
 #       behavior: { editable: false }
 #       style: { showRelative: true }
@@ -368,10 +368,10 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   uuid:
     dtype: uuid
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: readonly
       behavior: { editable: false, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: readonly
       behavior: { editable: false }
       style: { monospace: true }
@@ -381,11 +381,11 @@ fieldBusinessTypes:
 
   code:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: text
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { pattern: "^[A-Za-z0-9-_]+$" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: text
       behavior: { editable: true }
       validation: { required: true, pattern: "^[A-Za-z0-9-_]+$" }
@@ -396,11 +396,11 @@ fieldBusinessTypes:
 
   name:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: text
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { maxLength: 255 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: text
       behavior: { editable: true }
       validation: { required: true, minLength: 1, maxLength: 255 }
@@ -419,10 +419,10 @@ fieldBusinessTypes:
 
   description:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: textarea
       behavior: { editable: true, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: textarea
       behavior: { editable: true }
       style: { rows: 4, resizable: true }
@@ -439,11 +439,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   email:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: email
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { pattern: "^[^@]+@[^@]+\\.[^@]+$" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: email
       behavior: { editable: true }
       validation: { pattern: "^[^@]+@[^@]+\\.[^@]+$" }
@@ -451,21 +451,21 @@ fieldBusinessTypes:
 
   phone:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: tel
       behavior: { editable: true, filterable: true, sortable: false, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: tel
       behavior: { editable: true }
       style: { countryCode: CA, mask: "(###) ###-####" }
 
   url:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: url
       behavior: { editable: true, filterable: false, sortable: false, visible: true }
       validation: { pattern: "^https?://" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: url
       behavior: { editable: true }
       validation: { pattern: "^https?://" }
@@ -476,10 +476,10 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   address:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: text
       behavior: { editable: true, filterable: true, sortable: false, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: textarea
       behavior: { editable: true }
       style: { country: CA, rows: 3 }
@@ -489,21 +489,21 @@ fieldBusinessTypes:
 
   country:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: text
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: text
       behavior: { editable: true }
       style: { defaultValue: CA }
 
   postal_code:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: text
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { pattern: "^[A-Za-z]\\d[A-Za-z][ -]?\\d[A-Za-z]\\d$" }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: text
       behavior: { editable: true }
       validation: { pattern: "^[A-Za-z]\\d[A-Za-z][ -]?\\d[A-Za-z]\\d$" }
@@ -514,11 +514,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   currency:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: number
       behavior: { editable: true }
       style: { symbol: "$", decimals: 2, locale: en-CA, placeholder: "0.00", helpText: "Amount in Canadian dollars" }
@@ -530,11 +530,11 @@ fieldBusinessTypes:
 
   currency_cents:
     dtype: int
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: number
       behavior: { editable: true }
       style: { symbol: "$" }
@@ -545,11 +545,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   percentage:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0, max: 100 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: range
       behavior: { editable: true }
       style: { min: 0, max: 100, step: 1, showValue: true }
@@ -560,10 +560,10 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   date:
     dtype: date
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: date
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: date
       behavior: { editable: true }
       style: { locale: en-CA, clearable: true }
@@ -576,10 +576,10 @@ fieldBusinessTypes:
 
   timestamp:
     dtype: timestamp
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: datetime-local
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: datetime-local
       behavior: { editable: true }
       style: { locale: en-CA, showTimezone: false }
@@ -592,10 +592,10 @@ fieldBusinessTypes:
 
   timestamp_readonly:
     dtype: timestamp
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: readonly
       behavior: { editable: false, filterable: false, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: readonly
       behavior: { editable: false }
     kanbanView:
@@ -604,10 +604,10 @@ fieldBusinessTypes:
 
   time:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: time
       behavior: { editable: true, filterable: false, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: time
       behavior: { editable: true }
       style: { step: 15 }
@@ -617,11 +617,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   duration:
     dtype: int
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: number
       behavior: { editable: true }
       style: { units: [hours, minutes], defaultUnit: minutes }
@@ -636,11 +636,11 @@ fieldBusinessTypes:
 
   duration_hours:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: number
       behavior: { editable: true }
       style: { units: [hours], defaultUnit: hours }
@@ -648,11 +648,11 @@ fieldBusinessTypes:
 
   duration_seconds:
     dtype: int
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: number
       behavior: { editable: true }
       style: { units: [minutes, seconds], defaultUnit: seconds }
@@ -660,11 +660,11 @@ fieldBusinessTypes:
 
   duration_ms:
     dtype: int
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: number
       behavior: { editable: true }
       style: { suffix: ms }
@@ -675,10 +675,10 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   boolean:
     dtype: bool
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: checkbox
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: checkbox
       behavior: { editable: true }
       style: { label: true }
@@ -688,11 +688,11 @@ fieldBusinessTypes:
 
   status_flag:
     dtype: bool
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: checkbox
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       style: { trueLabel: Active, falseLabel: Inactive }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: checkbox
       behavior: { editable: true }
       style: { trueLabel: Active, falseLabel: Inactive }
@@ -707,11 +707,11 @@ fieldBusinessTypes:
   datalabel:
     dtype: str
     lookupSource: datalabel
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: select
       component: DataLabelSelect
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: select
       component: DataLabelSelect
       behavior: { editable: true }
@@ -731,11 +731,11 @@ fieldBusinessTypes:
   datalabel_dag:
     dtype: str
     lookupSource: datalabel
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: select
       component: DataLabelSelect
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: component
       component: BadgeDropdownSelect
       behavior: { editable: true }
@@ -755,10 +755,10 @@ fieldBusinessTypes:
   entityInstance_Id:
     dtype: uuid
     lookupSource: entityInstance
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: entityInstanceId
       behavior: { editable: true, filterable: true, sortable: false, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: entityInstanceId
       behavior: { editable: true }
     kanbanView:
@@ -772,10 +772,10 @@ fieldBusinessTypes:
   entityInstance_Ids:
     dtype: array[uuid]
     lookupSource: entityInstance
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: entityInstanceIds
       behavior: { editable: true, filterable: true, sortable: false, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: entityInstanceIds
       behavior: { editable: true }
     kanbanView:
@@ -787,11 +787,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   quantity:
     dtype: int
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: number
       behavior: { editable: true }
       style: { step: 1 }
@@ -807,11 +807,11 @@ fieldBusinessTypes:
 
   sort_order:
     dtype: int
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: number
       behavior: { editable: true, filterable: false, sortable: true, visible: true }
       validation: { min: 0 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: number
       behavior: { editable: true }
       style: { step: 1 }
@@ -822,11 +822,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   area_sqft:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: number
       behavior: { editable: true }
       style: { unit: "sq ft", decimals: 2 }
@@ -834,11 +834,11 @@ fieldBusinessTypes:
 
   volume_m3:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: number
       behavior: { editable: true }
       style: { unit: "m³", decimals: 3 }
@@ -846,21 +846,21 @@ fieldBusinessTypes:
 
   dimension_cm:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: text
       behavior: { editable: true, filterable: false, sortable: false, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: text
       behavior: { editable: true }
       style: { unit: cm }
 
   weight_kg:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: number
       behavior: { editable: true }
       style: { unit: kg, decimals: 2 }
@@ -868,10 +868,10 @@ fieldBusinessTypes:
 
   file_size:
     dtype: int
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: readonly
       behavior: { editable: false, filterable: false, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: readonly
       behavior: { editable: false }
 
@@ -884,12 +884,12 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   rating:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
       validation: { min: 0, max: 5 }
       style: { step: 0.5 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: number
       behavior: { editable: true }
       style: { max: 5, step: 0.5 }
@@ -897,10 +897,10 @@ fieldBusinessTypes:
 
   score:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: number
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: number
       behavior: { editable: true }
       style: { step: 1 }
@@ -910,11 +910,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   latitude:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: number
       behavior: { editable: true, filterable: false, sortable: false, visible: false }
       validation: { min: -90, max: 90 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: number
       behavior: { editable: true }
       style: { precision: 6, type: latitude }
@@ -922,11 +922,11 @@ fieldBusinessTypes:
 
   longitude:
     dtype: float
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: number
       behavior: { editable: true, filterable: false, sortable: false, visible: false }
       validation: { min: -180, max: 180 }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: number
       behavior: { editable: true }
       style: { precision: 6, type: longitude }
@@ -934,10 +934,10 @@ fieldBusinessTypes:
 
   geolocation:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: text
       behavior: { editable: true, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: text
       behavior: { editable: true }
       style: { showMap: true, allowManual: true }
@@ -950,20 +950,20 @@ fieldBusinessTypes:
 
   text_long:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: textarea
       behavior: { editable: true, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: textarea
       behavior: { editable: true }
       style: { rows: 4, resizable: true }
 
   rich_text:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: textarea
       behavior: { editable: true, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: textarea
       behavior: { editable: true }
       style: { rows: 6, minHeight: 200 }
@@ -973,10 +973,10 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   json:
     dtype: jsonb
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: readonly
       behavior: { editable: false, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: component
       component: MetadataTable
       behavior: { editable: true }
@@ -988,11 +988,11 @@ fieldBusinessTypes:
 
   tags:
     dtype: array[str]
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: select
       component: EditableTags
       behavior: { editable: true, filterable: true, sortable: false, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: select
       component: EditableTags
       behavior: { editable: true }
@@ -1003,44 +1003,44 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   file:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: file
       behavior: { editable: true, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: file
       behavior: { editable: true }
       style: { accept: "*/*", maxSize: 10485760 }
 
   image:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: file
       behavior: { editable: true, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: file
       behavior: { editable: true }
       style: { accept: "image/*", maxSize: 5242880, preview: true }
 
   avatar:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: file
       behavior: { editable: true, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: file
       behavior: { editable: true }
       style: { accept: "image/*", maxSize: 2097152, crop: true, aspectRatio: 1 }
 
   signature:
     dtype: str
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: file
       behavior: { editable: true }
       style: { accept: "image/*", width: 400, height: 200 }
 
   video:
     dtype: str
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: file
       behavior: { editable: true }
       style: { accept: "video/*", maxDuration: 60 }
@@ -1050,19 +1050,19 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   s3_bucket:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: readonly
       behavior: { editable: false, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: readonly
       behavior: { editable: false }
 
   s3_key:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: readonly
       behavior: { editable: false, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: readonly
       behavior: { editable: false }
 
@@ -1072,37 +1072,37 @@ fieldBusinessTypes:
 
   s3_region:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: readonly
       behavior: { editable: false, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: readonly
       behavior: { editable: false }
 
   hash:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: readonly
       behavior: { editable: false, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: readonly
       behavior: { editable: false }
 
   mime_type:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: readonly
       behavior: { editable: false, filterable: true, sortable: true, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: readonly
       behavior: { editable: false }
 
   file_extension:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: readonly
       behavior: { editable: false, filterable: true, sortable: true, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: readonly
       behavior: { editable: false }
 
@@ -1111,20 +1111,20 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   barcode:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: text
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: text
       behavior: { editable: true }
       style: { type: code128 }
 
   sku:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: text
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: text
       behavior: { editable: true }
 
@@ -1137,10 +1137,10 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   color:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: color
       behavior: { editable: true, filterable: true, sortable: false, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: color
       behavior: { editable: true }
       style: { presets: true, outputFormat: hex }
@@ -1150,11 +1150,11 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   status:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: select
       component: StatusSelect
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: select
       component: StatusSelect
       behavior: { editable: true }
@@ -1172,10 +1172,10 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   type:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: text
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: text
       behavior: { editable: true }
 
@@ -1188,26 +1188,26 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   sensitive_id:
     dtype: str
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: text
       behavior: { editable: true }
       style: { mask: "###-###-###", secure: true }
 
   tax_id:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: text
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: text
       behavior: { editable: true }
 
   reference_number:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: text
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: text
       behavior: { editable: true }
 
@@ -1232,46 +1232,46 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   username:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: text
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: text
       behavior: { editable: true }
 
   password_hash:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: hidden
       behavior: { editable: false, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: hidden
       behavior: { editable: false }
 
   token:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: readonly
       behavior: { editable: false, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: readonly
       behavior: { editable: false }
 
   ip_address:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: readonly
       behavior: { editable: false, filterable: true, sortable: true, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: readonly
       behavior: { editable: false }
 
   user_agent:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: readonly
       behavior: { editable: false, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: readonly
       behavior: { editable: false }
 
@@ -1280,7 +1280,7 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   icon:
     dtype: str
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: text
       behavior: { editable: true }
       style: { library: lucide }
@@ -1294,10 +1294,10 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   version:
     dtype: int
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: readonly
       behavior: { editable: false, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: readonly
       behavior: { editable: false }
     kanbanView:
@@ -1309,10 +1309,10 @@ fieldBusinessTypes:
   # --------------------------------------------------------------------------
   text:
     dtype: str
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: text
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: text
       behavior: { editable: true }
     kanbanView:
@@ -1327,10 +1327,10 @@ fieldBusinessTypes:
 
   systemInternal_ts:
     dtype: timestamp
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: readonly
       behavior: { editable: false, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: readonly
       behavior: { editable: false, visible: false }
     kanbanView:
@@ -1345,10 +1345,10 @@ fieldBusinessTypes:
 
   systemInternal_flag:
     dtype: bool
-    entityDataTable:
+    entityListOfInstancesTable:
       inputType: readonly
       behavior: { editable: false, filterable: false, sortable: false, visible: false }
-    entityFormContainer:
+    entityInstanceFormContainer:
       inputType: readonly
       behavior: { editable: false, visible: false }
     kanbanView:

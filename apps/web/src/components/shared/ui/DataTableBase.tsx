@@ -3,7 +3,7 @@
  * DATA TABLE BASE - Shared base component for all data table types
  * ============================================================================
  *
- * Common functionality for EntityDataTable and SettingsDataTable:
+ * Common functionality for EntityListOfInstancesTable and SettingsDataTable:
  * - Table structure (thead, tbody, pagination)
  * - Sorting UI
  * - Inline editing pattern (Edit → Check/Cancel)
