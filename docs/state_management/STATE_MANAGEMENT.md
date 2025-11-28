@@ -449,4 +449,276 @@ App ready for use
 
 ---
 
-**Version:** 9.1.0 | **Updated:** 2025-11-28 | **Status:** Production
+**Version:** 9.1.3 | **Updated:** 2025-11-28 | **Status:** Production
+
+---
+
+## Design Pattern Summary (Bullet Points)
+
+### Core Architecture
+
+- **Single QueryClient**: One `QueryClient` instance from `db/query/queryClient.ts` shared across entire app
+- **TanStack Query**: In-memory server state cache with auto-refetch and stale-while-revalidate
+- **Dexie (IndexedDB)**: Persistent offline storage that survives browser restart
+- **WebSocket Sync**: Real-time cache invalidation via PubSub service (port 4001)
+- **Sync Cache**: In-memory Map/variables for non-hook access (formatters, utilities)
+
+### Data Flow Pattern
+
+1. **App Start** → `hydrateQueryCache()` loads Dexie → TanStack Query
+2. **Login** → `prefetchAllMetadata()` populates all caches
+3. **Component Mount** → `useQuery` checks TanStack cache → Dexie → API
+4. **API Response** → Store in TanStack → Persist to Dexie → Upsert ref_data
+5. **WebSocket INVALIDATE** → `invalidateQueries()` → Auto-refetch → Update Dexie
+
+### Cache Types & TTLs
+
+| Cache | Query Key | Stale Time | GC Time | Persistence |
+|-------|-----------|------------|---------|-------------|
+| Entity Instance (ref_data) | `['ref-data-entity-instance', code]` | 5 min | 30 min | TanStack only |
+| Datalabel | `['datalabel', key]` | 10 min | 1 hour | Dexie + Map |
+| Entity Codes | `['entityCodes']` | 30 min | 1 hour | Dexie + var |
+| Global Settings | `['globalSettings']` | 30 min | 1 hour | Dexie + var |
+| Entity Data | `['entity', code, id]` | 5 min | 30 min | Dexie |
+| Entity List | `['entity-list', code, params]` | 2 min | 30 min | Dexie |
+
+---
+
+## Page & Component Caching Patterns
+
+### EntityListOfInstancesPage (List View)
+
+```
+/project, /employee, /task, etc.
+```
+
+**Cache Pattern:**
+- **Query Key**: `['entity-list', entityCode, { limit, offset, filters }]`
+- **Data Source**: `useEntityList(entityCode, params)` or `useFormattedEntityList()`
+- **Cached Data**: Raw entity rows + metadata + ref_data_entityInstance
+- **Format**: Format-at-read via TanStack Query's `select` option
+- **Upsert**: API response `ref_data_entityInstance` merged into unified cache
+
+**Flow:**
+1. Component mounts → `useEntityList('project', { limit: 50 })`
+2. TanStack checks cache → HIT (instant) or MISS (fetch)
+3. API response includes `ref_data_entityInstance`
+4. `upsertRefDataEntityInstanceCache()` merges into `['ref-data-entity-instance', 'employee']`
+5. Table renders with UUID → Name resolution from cache
+
+### EntitySpecificInstancePage (Detail View)
+
+```
+/project/:id, /employee/:id, etc.
+```
+
+**Cache Pattern:**
+- **Query Key**: `['entity', entityCode, entityId]`
+- **Data Source**: `useEntity(entityCode, entityId)`
+- **Cached Data**: Single entity record + metadata + ref_data
+- **Child Tabs**: Each tab uses `['entity-list', childCode, { parent_id }]`
+
+**Flow:**
+1. Component mounts → `useEntity('project', 'uuid-123')`
+2. Parallel fetch for child entity counts (tabs)
+3. Detail fields render with metadata-driven formatting
+4. Child tabs lazy-load on click
+
+### EntityCreatePage (Create Form)
+
+```
+/project/new, /employee/new, etc.
+```
+
+**Cache Pattern:**
+- **Query Key**: None (new entity)
+- **Data Source**: Empty form with field metadata
+- **Draft Storage**: `useDraft(entityCode, 'new')` → Dexie `drafts` table
+- **Dropdown Data**: `useRefDataEntityInstanceOptions(entityCode)` from unified cache
+
+**Flow:**
+1. Component mounts → Load field metadata from `['entityCodes']`
+2. Dropdowns populated from `['ref-data-entity-instance', lookupEntity]`
+3. User edits → Draft persisted to Dexie (survives refresh)
+4. Submit → POST API → Invalidate list queries → Navigate to detail
+
+### EntitySelect / EntityMultiSelect (Dropdowns)
+
+```
+<EntitySelect entityCode="employee" value={uuid} onChange={...} />
+```
+
+**Cache Pattern:**
+- **Query Key**: `['ref-data-entity-instance', entityCode]`
+- **Data Source**: `useRefDataEntityInstanceOptions(entityCode)`
+- **Data Structure**: `{ uuid: name }` lookup table
+- **Population**: Login prefetch (250+) + API upserts (incremental)
+
+**Flow:**
+1. Dropdown renders → `useRefDataEntityInstanceOptions('employee')`
+2. Cache HIT (from login prefetch) → 250 options instantly
+3. No loading spinner (data already cached)
+
+### BadgeDropdownSelect (Status Fields)
+
+```
+<BadgeDropdownSelect datalabelKey="project_stage" value={id} onChange={...} />
+```
+
+**Cache Pattern:**
+- **Query Key**: `['datalabel', key]`
+- **Data Source**: `useDatalabel(key)`
+- **Data Structure**: `[{ id, name, color_code, sort_order }]`
+- **Population**: Login prefetch via `prefetchAllDatalabels()`
+
+**Flow:**
+1. Dropdown renders → `useDatalabel('project_stage')`
+2. Cache HIT → Options with colors displayed
+3. Non-hook access: `getDatalabelSync('project_stage')` for formatters
+
+### DynamicChildEntityTabs (Child Entity Tabs)
+
+```
+Project detail page with Task, Employee, Artifact tabs
+```
+
+**Cache Pattern:**
+- **Tab List**: From `entity.child_entity_codes` via `['entityCodes']`
+- **Tab Content**: `['entity-list', childCode, { parent_id, parent_code }]`
+- **Lazy Loading**: Each tab fetches on first click
+
+**Flow:**
+1. Parent detail loads → Get `child_entity_codes` from entity metadata
+2. Render tab headers with counts (parallel count queries)
+3. User clicks tab → Fetch child list with parent filter
+4. Child data cached independently
+
+### SettingsDataTable (Datalabel Editor)
+
+```
+/settings/data-labels, /setting/:category
+```
+
+**Cache Pattern:**
+- **Query Key**: `['datalabel', category]` or `['datalabel', 'all']`
+- **Data Source**: `useDatalabel(category)` or `useAllDatalabels()`
+- **Mutations**: Invalidate `['datalabel', key]` on save
+
+**Flow:**
+1. Settings page loads → `useAllDatalabels()` fetches all
+2. User edits → Local state (not draft, immediate save expected)
+3. Save → API PATCH → `invalidateQueries(['datalabel', key])`
+4. Sync cache updated via `setDatalabelSync()`
+
+---
+
+## Key Design Principles
+
+### 1. Single QueryClient (CRITICAL)
+
+- **ONE QueryClient** from `db/query/queryClient.ts`
+- `TanstackCacheProvider` wraps with `QueryClientProvider`
+- All hooks read/write to SAME cache
+- **Anti-pattern**: Creating multiple `QueryClient` instances causes cache isolation
+
+### 2. Upsert Always Merges
+
+```typescript
+// CORRECT: Merge pattern
+queryClient.setQueryData(key, (old) => ({ ...(old || {}), ...new }));
+
+// WRONG: Replace pattern (loses existing data)
+queryClient.setQueryData(key, newData);
+```
+
+### 3. Prefetch is Awaited
+
+```typescript
+// AuthContext.tsx
+await prefetchEntityInstances(queryClient, ['employee', 'project', ...]);
+// Page renders AFTER cache is populated
+```
+
+### 4. Format-at-Read, Not Format-at-Fetch
+
+- Cache stores RAW data (small, canonical)
+- Formatting happens via TanStack Query's `select` option
+- Memoized by React Query
+
+### 5. Sync Cache for Non-Hook Access
+
+```typescript
+// Inside React component (hook)
+const { options } = useDatalabel('project_stage');
+
+// Outside React (formatter, utility)
+const options = getDatalabelSync('project_stage');
+```
+
+### 6. Cache-First, Network-Second
+
+```
+1. Check TanStack Query memory cache
+2. Check Dexie IndexedDB (if hydrated)
+3. Fetch from API (last resort)
+4. Store in both caches
+```
+
+---
+
+## Component → Cache Mapping
+
+| Component | Cache Query Key | Hook |
+|-----------|-----------------|------|
+| `EntityListOfInstancesPage` | `['entity-list', code, params]` | `useEntityList` |
+| `EntitySpecificInstancePage` | `['entity', code, id]` | `useEntity` |
+| `EntityCreatePage` | Dexie `drafts` table | `useDraft` |
+| `EntitySelect` | `['ref-data-entity-instance', code]` | `useRefDataEntityInstanceOptions` |
+| `BadgeDropdownSelect` | `['datalabel', key]` | `useDatalabel` |
+| `DynamicChildEntityTabs` | `['entity-list', childCode, ...]` | `useEntityList` |
+| `SettingsDataTable` | `['datalabel', category]` | `useDatalabel` |
+| `EntityDetailView` | `['entity', code, id]` | `useEntity` |
+| `EntityInstanceFormContainer` | `['entity', code, id]` + drafts | `useEntity` + `useDraft` |
+
+---
+
+## Login Prefetch Sequence
+
+```
+1. User logs in
+   │
+2. Store token in localStorage
+   │
+3. await Promise.all([
+   │   prefetchAllDatalabels(),      // ['datalabel', *] → Dexie + sync Map
+   │   prefetchEntityCodes(),        // ['entityCodes'] → Dexie + sync var
+   │   prefetchGlobalSettings(),     // ['globalSettings'] → Dexie + sync var
+   │ ])
+   │
+4. await prefetchEntityInstances(queryClient, [
+   │   'employee', 'project', 'business', 'office', 'role', 'cust'
+   │ ])
+   │   // ['ref-data-entity-instance', code] → TanStack only (250+ per entity)
+   │
+5. setState({ isAuthenticated: true })
+   │
+6. Page renders with ALL CACHES POPULATED
+```
+
+---
+
+## Console Debugging
+
+```javascript
+// Check ref_data cache
+window.__debugRefDataCache();
+
+// React Query DevTools (in development)
+// Shows all cached queries, stale state, fetch status
+
+// Check Dexie tables
+const db = await import('@/db/dexie/database').then(m => m.db);
+await db.metadata.toArray();  // All metadata
+await db.drafts.toArray();    // All drafts
+await db.entities.toArray();  // All cached entities
+```

@@ -7,7 +7,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer } from 'http';
 import { URL } from 'url';
-import { verifyJwt, isTokenExpiringSoon, getSecondsUntilExpiry } from './auth.js';
+import { verifyJwt, getSecondsUntilExpiry } from './auth.js';
 import { ConnectionManager } from './services/connection-manager.js';
 import { SubscriptionManager } from './services/subscription-manager.js';
 import { LogWatcher } from './services/log-watcher.js';
@@ -147,7 +147,7 @@ wss.on('connection', async (socket: WebSocket, request) => {
   });
 
   // 6. Cleanup on disconnect
-  socket.on('close', async (code, reason) => {
+  socket.on('close', async (code, _reason) => {
     console.log(`[PubSub] Disconnected: user=${userId.slice(0, 8)}... code=${code}`);
     connectionManager.disconnect(connectionId);
     await subscriptionManager.cleanupConnection(connectionId);

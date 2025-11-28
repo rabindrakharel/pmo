@@ -59,7 +59,7 @@ export const refDataEntityInstanceKeys = {
 // ============================================================================
 
 const REF_DATA_CACHE_CONFIG = {
-  STALE_TIME: 15 * 60 * 1000,  // 15 minutes - dropdown data changes infrequently
+  STALE_TIME: 5 * 60 * 1000,   // 5 minutes - used by useQuery hook for background refetch timing
   GC_TIME: 30 * 60 * 1000,     // 30 minutes - keep for session navigation
 } as const;
 
@@ -90,15 +90,25 @@ export function upsertRefDataEntityInstanceCache(
 
     const queryKey = refDataEntityInstanceKeys.byEntity(entityCode);
 
+    // Get current cache to log before/after
+    const before = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
+    const beforeCount = before ? Object.keys(before).length : 0;
+
     queryClient.setQueryData<EntityInstanceLookup>(queryKey, (old) => {
-      const merged = { ...old, ...lookups };
-      console.log(
-        `%c[REF_DATA_CACHE] 📥 Upserted ${Object.keys(lookups).length} entries for ${entityCode}`,
-        'color: #be4bdb',
-        { total: Object.keys(merged).length }
-      );
+      // CRITICAL: Always merge with existing data, never replace
+      const merged = { ...(old || {}), ...lookups };
       return merged;
     });
+
+    // Get updated cache
+    const after = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
+    const afterCount = after ? Object.keys(after).length : 0;
+
+    console.log(
+      `%c[REF_DATA_CACHE] 📥 Upserted ${Object.keys(lookups).length} entries for ${entityCode}`,
+      'color: #be4bdb',
+      { before: beforeCount, added: Object.keys(lookups).length, after: afterCount }
+    );
   }
 }
 
@@ -173,41 +183,50 @@ export async function prefetchEntityInstances(
         { queryKey }
       );
 
-      await queryClient.prefetchQuery({
-        queryKey,
-        queryFn: async () => {
-          const url = `${apiUrl}/api/v1/entity/${entityCode}/entity-instance?active_only=true&limit=${limit}`;
-          console.log(`%c[REF_DATA_CACHE] 🌐 Fetching: ${url}`, 'color: #74c0fc');
+      // v9.1.2: Fetch directly and use setQueryData to ALWAYS set the complete data
+      // This is the authoritative source - it must replace any partial data from upserts
+      const url = `${apiUrl}/api/v1/entity/${entityCode}/entity-instance?active_only=true&limit=${limit}`;
+      console.log(`%c[REF_DATA_CACHE] 🌐 Fetching: ${url}`, 'color: #74c0fc');
 
-          const response = await fetch(url, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-          if (!response.ok) {
-            console.error(`[REF_DATA_CACHE] ❌ HTTP ${response.status} for ${entityCode}`);
-            throw new Error(`Failed to fetch ${entityCode} instances: HTTP ${response.status}`);
-          }
+      if (!response.ok) {
+        console.error(`[REF_DATA_CACHE] ❌ HTTP ${response.status} for ${entityCode}`);
+        throw new Error(`Failed to fetch ${entityCode} instances: HTTP ${response.status}`);
+      }
 
-          const data = await response.json();
-          const items = data.data || data || [];
+      const data = await response.json();
+      const items = data.data || data || [];
 
-          // Transform to lookup format: { uuid: name }
-          const lookup: EntityInstanceLookup = {};
-          for (const item of items) {
-            if (item.id && item.name) {
-              lookup[item.id] = item.name;
-            }
-          }
+      // Transform to lookup format: { uuid: name }
+      const lookup: EntityInstanceLookup = {};
+      for (const item of items) {
+        if (item.id && item.name) {
+          lookup[item.id] = item.name;
+        }
+      }
 
-          console.log(
-            `%c[REF_DATA_CACHE] ✅ Prefetched ${Object.keys(lookup).length} ${entityCode} instances`,
-            'color: #51cf66',
-            { entityCode, count: Object.keys(lookup).length, sampleKeys: Object.keys(lookup).slice(0, 3) }
-          );
+      console.log(
+        `%c[REF_DATA_CACHE] ✅ Prefetched ${Object.keys(lookup).length} ${entityCode} instances`,
+        'color: #51cf66',
+        { entityCode, count: Object.keys(lookup).length, sampleKeys: Object.keys(lookup).slice(0, 3) }
+      );
 
-          return lookup;
-        },
-        staleTime: REF_DATA_CACHE_CONFIG.STALE_TIME,
+      // v9.1.3: Use setQueryData with MERGE to handle race conditions
+      // Prefetch is authoritative for bulk data, but must merge with any existing data
+      // This handles the case where upsert ran before prefetch completed
+      queryClient.setQueryData<EntityInstanceLookup>(queryKey, (old) => {
+        // Merge: prefetch data takes precedence (it's more complete)
+        // but we keep any entries from old that might not be in prefetch
+        const merged = { ...(old || {}), ...lookup };
+        console.log(
+          `%c[REF_DATA_CACHE] 🔀 Merged prefetch data for ${entityCode}`,
+          'color: #51cf66',
+          { oldCount: old ? Object.keys(old).length : 0, prefetchCount: Object.keys(lookup).length, mergedCount: Object.keys(merged).length }
+        );
+        return merged;
       });
 
       // Verify cache was populated
@@ -283,24 +302,38 @@ export function useRefDataEntityInstanceOptions(
   options: { enabled?: boolean; limit?: number } = {}
 ) {
   const { enabled = true, limit = 500 } = options;
+  const queryClient = useQueryClient();
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
-  const query = useQuery<EntityInstanceLookup>({
-    queryKey: refDataEntityInstanceKeys.byEntity(entityCode || ''),
-    queryFn: async () => {
-      if (!entityCode) {
-        return {};
-      }
+  // v9.1.1: Cache-first pattern (per TANSTACK_DEXIE_SYNC_ARCHITECTURE.md)
+  // 1. Check TanStack Query cache (in-memory) → HIT & fresh → return immediately
+  // 2. MISS → fetch from API
+  // Cache is populated by prefetchEntityInstances() at login + upsert from API responses
+  const queryKey = refDataEntityInstanceKeys.byEntity(entityCode || '');
 
+  // Debug: Check cache state before useQuery
+  const existingCache = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
+  const cacheSize = existingCache ? Object.keys(existingCache).length : 0;
+
+  console.log(
+    `%c[REF_DATA_OPTIONS] 🔍 Hook called for: ${entityCode}`,
+    'color: #845ef7',
+    { queryKey, cacheExists: !!existingCache, cacheSize, enabled }
+  );
+
+  const query = useQuery<EntityInstanceLookup>({
+    queryKey,
+    queryFn: async () => {
+      if (!entityCode) return {};
+
+      // This only runs on cache MISS (TanStack Query handles cache-first)
       console.log(
-        `%c[REF_DATA_CACHE] 🔄 Fetching entity instances: ${entityCode}`,
-        'color: #ff6b6b'
+        `%c[REF_DATA_OPTIONS] ⚠️ queryFn executing (cache miss or stale): ${entityCode}`,
+        'color: #ff6b6b; font-weight: bold'
       );
 
       const token = localStorage.getItem('auth_token');
-      if (!token) {
-        throw new Error('No auth token');
-      }
+      if (!token) throw new Error('No auth token');
 
       const response = await fetch(
         `${apiUrl}/api/v1/entity/${entityCode}/entity-instance?active_only=true&limit=${limit}`,
@@ -314,7 +347,6 @@ export function useRefDataEntityInstanceOptions(
       const data = await response.json();
       const items = data.data || data || [];
 
-      // Transform to lookup format: { uuid: name }
       const lookup: EntityInstanceLookup = {};
       for (const item of items) {
         if (item.id && item.name) {
@@ -323,17 +355,31 @@ export function useRefDataEntityInstanceOptions(
       }
 
       console.log(
-        `%c[REF_DATA_CACHE] ✅ Cached ${Object.keys(lookup).length} ${entityCode} instances`,
+        `%c[REF_DATA_OPTIONS] ✅ API returned ${Object.keys(lookup).length} ${entityCode} instances`,
         'color: #51cf66'
       );
 
       return lookup;
     },
     enabled: enabled && !!entityCode,
-    staleTime: REF_DATA_CACHE_CONFIG.STALE_TIME,
+    staleTime: REF_DATA_CACHE_CONFIG.STALE_TIME,  // 5 min - cache is fresh
     gcTime: REF_DATA_CACHE_CONFIG.GC_TIME,
     refetchOnWindowFocus: false,
   });
+
+  // Debug: Log what useQuery returned
+  console.log(
+    `%c[REF_DATA_OPTIONS] 📊 useQuery result for: ${entityCode}`,
+    query.data ? 'color: #51cf66' : 'color: #868e96',
+    {
+      hasData: !!query.data,
+      dataSize: query.data ? Object.keys(query.data).length : 0,
+      isLoading: query.isLoading,
+      isFetching: query.isFetching,
+      isStale: query.isStale,
+      fetchStatus: query.fetchStatus,
+    }
+  );
 
   // Transform lookup to options array for Select component
   const selectOptions = useMemo((): EntityInstanceOption[] => {

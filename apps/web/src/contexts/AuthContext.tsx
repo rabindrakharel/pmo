@@ -86,14 +86,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // v8.3.2: Prefetch common entity instances for dropdown caches
       // This populates the unified ref_data_entityInstance cache
-      prefetchEntityInstances(queryClient, [
+      // v9.1.1: Await prefetch to prevent race condition with API upserts
+      await prefetchEntityInstances(queryClient, [
         'employee',
         'project',
         'business',
         'office',
         'role',
         'cust',
-      ]).catch((err) => console.warn('[Auth] Entity instance prefetch failed:', err));
+      ]);
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -145,14 +146,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await loadMetadata();
 
       // v8.3.2: Prefetch common entity instances for dropdown caches
-      prefetchEntityInstances(queryClient, [
+      // v9.1.1: Await prefetch to prevent race condition with API upserts
+      await prefetchEntityInstances(queryClient, [
         'employee',
         'project',
         'business',
         'office',
         'role',
         'cust',
-      ]).catch((err) => console.warn('[Auth] Entity instance prefetch failed:', err));
+      ]);
     } catch (error) {
       console.error('Failed to refresh user:', error);
       localStorage.removeItem('auth_token');

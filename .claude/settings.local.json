@@ -253,7 +253,12 @@
       "Bash(pnpm why:*)",
       "Bash(pnpm list:*)",
       "Bash(DATABASE_URL=\"postgresql://app:app@localhost:5434/app\" JWT_SECRET=\"dev-secret-key-change-in-production\" timeout 5 pnpm dev:*)",
-      "Bash(corepack enable:*)"
+      "Bash(corepack enable:*)",
+      "Bash(/tmp/test-metadata.sh:*)",
+      "Bash(git -C /home/rabin/projects/pmo log --oneline --all --grep=\"ref_data\")",
+      "Bash(git -C /home/rabin/projects/pmo log --oneline -100)",
+      "Bash(git -C /home/rabin/projects/pmo diff 66bc0f0 HEAD -- apps/web/src/lib/hooks/useEntityQuery.ts)",
+      "Bash(jq:*)"
     ],
     "deny": [],
     "ask": [],

@@ -1,6 +1,5 @@
 import React, { Fragment, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { NavigationHistoryProvider } from './contexts/NavigationHistoryContext';
@@ -15,19 +14,6 @@ import { EllipsisBounce } from './components/shared/ui/EllipsisBounce';
 
 // Garbage Collection for metadata stores
 import { startMetadataGC, stopMetadataGC } from './lib/cache/garbageCollection';
-
-// Create a client for React Query with industry-standard caching
-// Note: Individual hooks can override these defaults for specific data types
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30 * 1000,           // 30 seconds (stale-while-revalidate)
-      gcTime: 5 * 60 * 1000,          // 5 minutes (garbage collection)
-      refetchOnWindowFocus: true,     // Industry standard for data freshness
-      retry: 1,                       // Single retry on failure
-    },
-  },
-});
 
 // Landing & Auth Pages
 import { LandingPage } from './pages/LandingPage';
@@ -364,30 +350,26 @@ function App() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
+    // v9.1.3: TanstackCacheProvider includes QueryClientProvider - no need for outer one
+    // Using single QueryClient from db/query/queryClient.ts for consistency
+    <TanstackCacheProvider>
       <AuthProvider>
-        {/* v9.0.0: TanstackCacheProvider
-            - TanStack Query for server state management
-            - Dexie/IndexedDB for offline persistence
-            - WebSocket for real-time cache invalidation */}
-        <TanstackCacheProvider>
-          <EntityMetadataProvider>
-            <Router>
-              <SidebarProvider>
-                <SettingsProvider>
-                  <NavigationHistoryProvider>
-                    <EntityPreviewProvider>
-                      <AppRoutes />
-                      <EntityPreviewPanel />
-                    </EntityPreviewProvider>
-                  </NavigationHistoryProvider>
-                </SettingsProvider>
-              </SidebarProvider>
-            </Router>
-          </EntityMetadataProvider>
-        </TanstackCacheProvider>
+        <EntityMetadataProvider>
+          <Router>
+            <SidebarProvider>
+              <SettingsProvider>
+                <NavigationHistoryProvider>
+                  <EntityPreviewProvider>
+                    <AppRoutes />
+                    <EntityPreviewPanel />
+                  </EntityPreviewProvider>
+                </NavigationHistoryProvider>
+              </SettingsProvider>
+            </SidebarProvider>
+          </Router>
+        </EntityMetadataProvider>
       </AuthProvider>
-    </QueryClientProvider>
+    </TanstackCacheProvider>
   );
 }
 
