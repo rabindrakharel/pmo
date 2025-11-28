@@ -28,7 +28,7 @@
 │  └────────────────────────────────┘  │                                       │
 │                                      │                                       │
 │                                      ▼                                       │
-│          EntityFormContainer_viz_container: {                                │
+│          EntityInstanceFormContainer_viz_container: {                                │
 │            view: "DAGVisualizer"   ◄── VIEW mode switch                     │
 │          }                                                                   │
 │                                      │                                       │
@@ -88,7 +88,7 @@ app.datalabel_project_stage
 ```yaml
 datalabel_dag:
   dtype: str
-  entityFormContainer:
+  entityInstanceFormContainer:
     renderType: component          # ← Triggers component switch
     component: DAGVisualizer       # ← WHICH component to render
     style: { showHierarchy: true, interactive: false }
@@ -100,7 +100,7 @@ datalabel_dag:
 datalabel_dag:
   dtype: str
   lookupSource: datalabel          # ← WHERE data comes from
-  entityFormContainer:
+  entityInstanceFormContainer:
     inputType: component
     component: BadgeDropdownSelect
     behavior: { editable: true }
@@ -116,7 +116,7 @@ datalabel_dag:
     "dl__project_stage": "Execution"
   },
   "metadata": {
-    "entityFormContainer": {
+    "entityInstanceFormContainer": {
       "viewType": {
         "dl__project_stage": {
           "dtype": "str",
@@ -179,7 +179,7 @@ const options = getDatalabelSync('project_stage');
 
 ## Phase 5: Frontend Rendering
 
-### EntityFormContainer Field Building (lines 155-191)
+### EntityInstanceFormContainer Field Building (lines 155-191)
 
 ```typescript
 const fields = useMemo(() => {
@@ -199,7 +199,7 @@ const fields = useMemo(() => {
       key: fieldKey,
       lookupSource,
       datalabelKey,
-      EntityFormContainer_viz_container: {
+      EntityInstanceFormContainer_viz_container: {
         view: viewVizContainer,   // "DAGVisualizer"
         edit: editVizContainer    // "BadgeDropdownSelect"
       }
@@ -273,7 +273,7 @@ if (hasLabelsMetadata && options.length > 0) {
 | `apps/api/src/services/edit-type-mapping.yaml` | editType metadata per component |
 | `apps/api/src/services/backend-formatter.service.ts` | Generates API response metadata |
 | `apps/web/src/db/rxdb/hooks/useRxMetadata.ts` | RxDB datalabel hooks (v8.6.0) |
-| `apps/web/src/components/shared/entity/EntityFormContainer.tsx` | Field rendering |
+| `apps/web/src/components/shared/entity/EntityInstanceFormContainer.tsx` | Field rendering |
 | `apps/web/src/components/workflow/DAGVisualizer.tsx` | DAG graph component |
 | `apps/web/src/components/shared/ui/BadgeDropdownSelect.tsx` | Colored dropdown |
 

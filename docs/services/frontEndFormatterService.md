@@ -99,7 +99,7 @@ interface FieldMetadata {
   dtype?: string;
 }
 
-// EntityFormContainer_viz_container (v8.3.2)
+// EntityInstanceFormContainer_viz_container (v8.3.2)
 // Supports separate view/edit components for form fields
 interface VizContainer {
   view?: string;   // Component name for view mode (e.g., 'DAGVisualizer')
@@ -196,7 +196,7 @@ interface UseRefDataResult {
 │                       │                                                      │
 │                       ▼ `select` option (ON READ)                            │
 │                                                                              │
-│  2. formatDataset(raw.data, raw.metadata.entityDataTable, raw.ref_data_entityInstance)      │
+│  2. formatDataset(raw.data, raw.metadata.entityListOfInstancesTable, raw.ref_data_entityInstance)      │
 │                       │                                                      │
 │                       ├── Loop: formatRow(row, viewType, refData)            │
 │                       │                                                      │
@@ -263,7 +263,7 @@ interface UseRefDataResult {
 ### View Mode
 
 ```tsx
-// EntityDataTable cell rendering (VIEW MODE)
+// EntityListOfInstancesTable cell rendering (VIEW MODE)
 // Zero function calls per cell - direct property access
 
 const formattedRecord = row as FormattedRow<any>;
@@ -289,7 +289,7 @@ if (formattedRecord.display && formattedRecord.styles !== undefined) {
 ### Edit Mode
 
 ```tsx
-// EntityDataTable cell rendering (EDIT MODE)
+// EntityListOfInstancesTable cell rendering (EDIT MODE)
 // Uses backend metadata for input type
 
 import { renderEditModeFromMetadata } from '../lib/frontEndFormatterService';
@@ -476,7 +476,7 @@ if (formattedData?.display?.[field.key]) {
 
 // ✓ CORRECT: Require metadata, error if missing
 if (!formattedData?.display) {
-  console.error(`[EntityFormContainer] formattedData required for ${field.key}`);
+  console.error(`[EntityInstanceFormContainer] formattedData required for ${field.key}`);
   return <span className="text-red-500">Missing formatted data</span>;
 }
 return <span>{formattedData.display[field.key]}</span>;
@@ -582,6 +582,6 @@ See `docs/caching/RXDB_SYNC_ARCHITECTURE.md` for full sync architecture details.
 - v8.3.2 (2025-11-27):
   - Renamed ColoredDropdown → BadgeDropdownSelect
   - Added `BadgeDropdownSelect` as valid inputType in renderEditModeFromMetadata
-  - `EntityFormContainer_viz_container` is now object `{ view?: string; edit?: string }`
+  - `EntityInstanceFormContainer_viz_container` is now object `{ view?: string; edit?: string }`
 - v8.3.1 (2025-11-26): Removed all pattern detection, enforced metadata as source of truth
 - v8.3.0 (2025-11-26): Added ref_data_entityInstance resolution, useRefData hook

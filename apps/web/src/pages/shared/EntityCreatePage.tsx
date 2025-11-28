@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Save, Upload, CheckCircle, X } from 'lucide-react';
-import { Layout, EntityFormContainer, DragDropFileUpload } from '../../components/shared';
+import { Layout, EntityInstanceFormContainer, DragDropFileUpload } from '../../components/shared';
 import { getEntityConfig } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
 import { APIFactory } from '../../lib/api';
@@ -12,7 +12,7 @@ import { useSidebar } from '../../contexts/SidebarContext';
 /**
  * EntityCreatePage
  *
- * Universal "new" entity creation page that uses EntityFormContainer
+ * Universal "new" entity creation page that uses EntityInstanceFormContainer
  * to render all fields from entityConfig, matching the look and feel
  * of EntitySpecificInstancePage.
  *
@@ -439,10 +439,10 @@ export function EntityCreatePage({ entityCode }: EntityCreatePageProps) {
         )}
 
         {/* Form Container - Uses same component as EntitySpecificInstancePage */}
-        <EntityFormContainer
+        <EntityInstanceFormContainer
           config={config}
           metadata={backendMetadata}  // v4.0 architecture - currently uses config fallback
-          datalabels={[]}             // Empty - EntityFormContainer will use API fallback for DAG fields
+          datalabels={[]}             // Empty - EntityInstanceFormContainer will use API fallback for DAG fields
           data={formData}
           isEditing={true}
           onChange={handleChange}

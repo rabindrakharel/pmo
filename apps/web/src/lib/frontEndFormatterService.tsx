@@ -65,9 +65,9 @@ import { colorCodeToTailwindClass } from './formatters/valueFormatters';
  * Component visibility per view type (backend-provided)
  */
 export interface ComponentVisibility {
-  EntityDataTable: boolean;
+  EntityListOfInstancesTable: boolean;
   EntityDetailView: boolean;
-  EntityFormContainer: boolean;
+  EntityInstanceFormContainer: boolean;
   KanbanView: boolean;
   CalendarView: boolean;
 }
@@ -128,11 +128,11 @@ export interface BackendFieldMetadata {
   component?: string;
 
   // v8.3.2: Component-specific rendering (backend-driven)
-  EntityFormContainer_viz_container?: {
+  EntityInstanceFormContainer_viz_container?: {
     view?: string;
     edit?: string;
   };
-  EntityDataTable_edit_component?: 'BadgeDropdownSelect' | 'select' | 'input';
+  EntityListOfInstancesTable_edit_component?: 'BadgeDropdownSelect' | 'select' | 'input';
 }
 
 /**

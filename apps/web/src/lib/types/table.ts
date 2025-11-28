@@ -5,7 +5,7 @@
  *
  * Single source of truth for all table-related types.
  * Consolidates duplicate Column interfaces from:
- * - EntityDataTable.tsx
+ * - EntityListOfInstancesTable.tsx
  * - DataTableBase.tsx
  * - KanbanBoard.tsx
  * - schema.ts
@@ -111,12 +111,12 @@ export interface BaseColumn {
 }
 
 // ============================================================================
-// UI COLUMN (For EntityDataTable, SettingsDataTable)
+// UI COLUMN (For EntityListOfInstancesTable, SettingsDataTable)
 // ============================================================================
 
 /**
  * UI Column - extends BaseColumn with rendering and editing capabilities
- * Used by EntityDataTable and SettingsDataTable components
+ * Used by EntityListOfInstancesTable and SettingsDataTable components
  */
 export interface UIColumn extends BaseColumn {
   /**

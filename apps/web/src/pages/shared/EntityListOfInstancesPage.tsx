@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, ArrowLeft, Edit, Trash2 } from 'lucide-react';
-import { Layout, ViewSwitcher, EntityDataTable } from '../../components/shared';
+import { Layout, ViewSwitcher, EntityListOfInstancesTable } from '../../components/shared';
 import { EllipsisBounce } from '../../components/shared/ui/EllipsisBounce';
 import { KanbanView } from '../../components/shared/ui/KanbanView';
 import { GridView } from '../../components/shared/ui/GridView';
@@ -15,7 +15,7 @@ import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterSe
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useFormattedEntityList, useEntityMutation } from '../../lib/hooks';
 import { API_CONFIG } from '../../lib/config/api';
-import type { RowAction } from '../../components/shared/ui/EntityDataTable';
+import type { RowAction } from '../../components/shared/ui/EntityListOfInstancesTable';
 
 /**
  * Universal EntityListOfInstancesPage
@@ -140,7 +140,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   const hasMore = queryResult?.hasMore || false;
   const error = queryError?.message || null;
 
-  // Client-side pagination for EntityDataTable rendering
+  // Client-side pagination for EntityListOfInstancesTable rendering
   // v8.1.0: Page size controls how many rows render at once
   const [clientPageSize, setClientPageSize] = useState(1000);
   const pagination = useMemo(() => ({
@@ -351,7 +351,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     }
   }, [config, refetch]);
 
-  // Row actions for EntityDataTable
+  // Row actions for EntityListOfInstancesTable
   const rowActions: RowAction[] = useMemo(() => {
     const actions: RowAction[] = [];
 
@@ -395,7 +395,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   }
 
   const renderContent = () => {
-    // TABLE VIEW (uses EntityDataTable directly - no FilteredDataTable wrapper)
+    // TABLE VIEW (uses EntityListOfInstancesTable directly - no FilteredDataTable wrapper)
     if (view === 'table') {
       if (loading) {
         return (
@@ -413,7 +413,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
         : (formattedData.length > 0 ? formattedData : data);  // Formatted data for viewing
 
       return (
-        <EntityDataTable
+        <EntityListOfInstancesTable
           data={tableData}
           metadata={metadata}
           loading={loading}

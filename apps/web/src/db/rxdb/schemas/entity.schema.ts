@@ -25,7 +25,7 @@ export interface EntityDocType {
   refData?: Record<string, Record<string, string>>;
 
   // Field metadata for rendering (full structure from API)
-  // Structure: { entityDataTable: { viewType, editType }, fields: [...] }
+  // Structure: { entityListOfInstancesTable: { viewType, editType }, fields: [...] }
   metadata?: Record<string, unknown>;
 
   // Sync tracking (no underscore prefix - RxDB reserves _ for internal use)

@@ -71,7 +71,7 @@ export async function getDatabase(): Promise<PMODatabase> {
 
 // Schema version hash - change this when schemas have breaking changes
 // This allows automatic database reset without manual IndexedDB clearing
-// Bumped to v4 to store full metadata structure (metadata.entityDataTable.viewType)
+// Bumped to v4 to store full metadata structure (metadata.entityListOfInstancesTable.viewType)
 const SCHEMA_VERSION = 'v4';
 
 /**

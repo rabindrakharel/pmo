@@ -241,8 +241,8 @@ The compression layer is transparent - response format remains unchanged:
   "data": [...],           // Entity data (array or object)
   "fields": [...],         // Field names
   "metadata": {            // Per-field metadata
-    "entityDataTable": {}, // For list views
-    "entityFormContainer": {} // For detail views
+    "entityListOfInstancesTable": {}, // For list views
+    "entityInstanceFormContainer": {} // For detail views
   },
   "total": 100,           // Pagination info
   "limit": 20,

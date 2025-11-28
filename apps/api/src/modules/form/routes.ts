@@ -111,7 +111,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         page: Type.Optional(Type.Number({ minimum: 1 })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         show_all_versions: Type.Optional(Type.Boolean()),
-        view: Type.Optional(Type.String())}),  // 'entityDataTable,kanbanView' or 'entityFormContainer'
+        view: Type.Optional(Type.String())}),  // 'entityListOfInstancesTable,kanbanView' or 'entityInstanceFormContainer'
       response: {
         200: Type.Object({
           data: Type.Array(FormSchema),
@@ -216,7 +216,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         // ═══════════════════════════════════════════════════════════════
         const requestedComponents = view
           ? view.split(',').map((v: string) => v.trim())
-          : ['entityDataTable', 'entityFormContainer', 'kanbanView'];
+          : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
 
         const response = generateEntityResponse(ENTITY_CODE, forms, {
           components: requestedComponents,
@@ -267,7 +267,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         // ═══════════════════════════════════════════════════════════════
         const requestedComponents = view
           ? view.split(',').map((v: string) => v.trim())
-          : ['entityDataTable', 'entityFormContainer', 'kanbanView'];
+          : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
 
         const response = generateEntityResponse(ENTITY_CODE, forms, {
           components: requestedComponents,
@@ -361,7 +361,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       params: Type.Object({
         id: Type.String()}),
       querystring: Type.Object({
-        view: Type.Optional(Type.String()),  // 'entityFormContainer' or 'entityDataTable'
+        view: Type.Optional(Type.String()),  // 'entityInstanceFormContainer' or 'entityListOfInstancesTable'
       }),
       response: {
         200: FormWithMetadataSchema,  // ✅ Use metadata-driven schema
@@ -423,7 +423,7 @@ export async function formRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const requestedComponents = view
         ? view.split(',').map((v: string) => v.trim())
-        : ['entityFormContainer'];
+        : ['entityInstanceFormContainer'];
 
       const response = generateEntityResponse(ENTITY_CODE, [form], {
         components: requestedComponents,

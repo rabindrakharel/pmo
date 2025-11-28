@@ -23,7 +23,7 @@ export interface DataLabelSelectProps {
  *
  * v8.3.2: Now renders colored badges using BadgeDropdownSelect
  * - Includes color_code from datalabel metadata
- * - Consistent styling with EntityFormContainer edit mode
+ * - Consistent styling with EntityInstanceFormContainer edit mode
  *
  * @example
  * <DataLabelSelect

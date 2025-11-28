@@ -85,7 +85,7 @@ Result: 2-5 seconds render time
 │                                                                  │
 │  React Component Tree                                            │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │ <EntityDataTable>                                          │ │
+│  │ <EntityListOfInstancesTable>                                          │ │
 │  │   ├── <table>                                              │ │
 │  │   │     ├── <thead>                                        │ │
 │  │   │     │     └── <tr> × 1 (header row)                    │ │

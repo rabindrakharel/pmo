@@ -147,7 +147,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
-        view: Type.Optional(Type.String()),  // Component-aware metadata filtering: 'entityDataTable,kanbanView'
+        view: Type.Optional(Type.String()),  // Component-aware metadata filtering: 'entityListOfInstancesTable,kanbanView'
       }),
       response: {
         200: Type.Object({
@@ -222,10 +222,10 @@ export async function officeRoutes(fastify: FastifyInstance) {
       `);
 
       // ✨ Generate component-aware metadata using backend-formatter
-      // Parse requested components from view parameter (e.g., 'entityDataTable,kanbanView')
+      // Parse requested components from view parameter (e.g., 'entityListOfInstancesTable,kanbanView')
       const requestedComponents = view
         ? view.split(',').map((v: string) => v.trim())
-        : ['entityDataTable', 'entityFormContainer', 'kanbanView'];
+        : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
 
       const response = generateEntityResponse(ENTITY_CODE, offices, {
         components: requestedComponents,
@@ -247,7 +247,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
         id: Type.String({ format: 'uuid' }),
       }),
       querystring: Type.Object({
-        view: Type.Optional(Type.String()),  // Component-aware metadata: 'entityFormContainer'
+        view: Type.Optional(Type.String()),  // Component-aware metadata: 'entityInstanceFormContainer'
       }),
       response: {
         200: OfficeWithMetadataSchema,  // ✅ Fixed: Use metadata-driven schema
@@ -299,7 +299,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       // For single entity GET, default to formContainer
       const requestedComponents = view
         ? view.split(',').map((v: string) => v.trim())
-        : ['entityFormContainer'];
+        : ['entityInstanceFormContainer'];
 
       const response = generateEntityResponse(ENTITY_CODE, [office[0]], {
         components: requestedComponents,

@@ -168,7 +168,7 @@ export async function revenueRoutes(fastify: FastifyInstance) {
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
-        view: Type.Optional(Type.String()),  // 'entityDataTable,kanbanView' or 'entityFormContainer'
+        view: Type.Optional(Type.String()),  // 'entityListOfInstancesTable,kanbanView' or 'entityInstanceFormContainer'
       }),
       response: {
         200: Type.Object({
@@ -264,7 +264,7 @@ export async function revenueRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const requestedComponents = view
         ? view.split(',').map((v: string) => v.trim())
-        : ['entityDataTable', 'entityFormContainer', 'kanbanView'];
+        : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
 
       // Generate response with metadata for requested components only
       const response = generateEntityResponse(ENTITY_CODE, revenues, {
@@ -293,7 +293,7 @@ export async function revenueRoutes(fastify: FastifyInstance) {
         id: Type.String()
       }),
       querystring: Type.Object({
-        view: Type.Optional(Type.String()),  // 'entityFormContainer' or 'entityDataTable'
+        view: Type.Optional(Type.String()),  // 'entityInstanceFormContainer' or 'entityListOfInstancesTable'
       }),
       response: {
         200: RevenueWithMetadataSchema,  // ✅ Use metadata-driven schema
@@ -347,7 +347,7 @@ export async function revenueRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const requestedComponents = view
         ? view.split(',').map((v: string) => v.trim())
-        : ['entityFormContainer'];
+        : ['entityInstanceFormContainer'];
 
       const response = generateEntityResponse(ENTITY_CODE, [revenue], {
         components: requestedComponents,

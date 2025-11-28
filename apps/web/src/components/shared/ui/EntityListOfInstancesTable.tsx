@@ -56,7 +56,7 @@ import { BadgeDropdownSelect } from './BadgeDropdownSelect';
 // METADATA-DRIVEN RENDERING (Pure Backend-Driven)
 // ============================================================================
 // v8.2.0: Metadata is REQUIRED from backend - no fallback generation
-// Backend sends: metadata.entityDataTable = { viewType: {...}, editType: {...} }
+// Backend sends: metadata.entityListOfInstancesTable = { viewType: {...}, editType: {...} }
 // ============================================================================
 // ALL field rendering (view + edit modes) driven by backend metadata
 // - View mode: uses FormattedRow.display[key] from format-at-fetch pattern
@@ -77,7 +77,7 @@ function extractSettingsDatalabel(columnKey: string): string {
   }
 
   // v8.2.0: Return as-is if not mapped (backend should provide settingsDatalabel)
-  console.warn(`[EntityDataTable] No datalabel mapping for: ${columnKey}`);
+  console.warn(`[EntityListOfInstancesTable] No datalabel mapping for: ${columnKey}`);
   return columnKey;
 }
 
@@ -124,7 +124,7 @@ export interface RowAction<T = any> {
   variant?: 'default' | 'primary' | 'danger';
 }
 
-export interface EntityDataTableProps<T = any> {
+export interface EntityListOfInstancesTableProps<T = any> {
   data: T[];
   metadata?: EntityMetadata | null;  // Backend metadata (REQUIRED for metadata-driven mode)
   datalabels?: any[];                // Datalabel options from API (for dropdowns and DAG viz)
@@ -179,7 +179,7 @@ export interface EntityDataTableProps<T = any> {
   onRowFocus?: (rowId: string | null) => void;  // Row focus handler
 }
 
-export function EntityDataTable<T = any>({
+export function EntityListOfInstancesTable<T = any>({
   data,
   metadata,  // Backend metadata from API
   datalabels,  // Datalabel options from API response
@@ -218,7 +218,7 @@ export function EntityDataTable<T = any>({
   onCellSave,
   focusedRowId = null,
   onRowFocus
-}: EntityDataTableProps<T>) {
+}: EntityListOfInstancesTableProps<T>) {
   // v8.3.0: useRefData hook for entity reference resolution (future use)
   // Currently ref fields are hidden, but ref_data_entityInstance enables future display of resolved names
   const { resolveFieldDisplay, hasRefData } = useRefData(ref_data_entityInstance);
@@ -229,12 +229,12 @@ export function EntityDataTable<T = any>({
   // Backend sends complete field metadata → Frontend renders exactly as instructed
 
   const columns = useMemo(() => {
-    // v8.2.0: Backend MUST send metadata.entityDataTable = { viewType: {...}, editType: {...} }
-    const componentMetadata = (metadata as any)?.entityDataTable;
+    // v8.2.0: Backend MUST send metadata.entityListOfInstancesTable = { viewType: {...}, editType: {...} }
+    const componentMetadata = (metadata as any)?.entityListOfInstancesTable;
 
-    console.log(`%c[EntityDataTable] 🔍 Metadata received:`, 'color: #69db7c; font-weight: bold', {
+    console.log(`%c[EntityListOfInstancesTable] 🔍 Metadata received:`, 'color: #69db7c; font-weight: bold', {
       hasMetadata: !!metadata,
-      hasEntityDataTable: !!componentMetadata,
+      hasEntityListOfInstancesTable: !!componentMetadata,
       isValid: isValidComponentMetadata(componentMetadata),
       fieldCount: componentMetadata?.viewType ? Object.keys(componentMetadata.viewType).length : 0,
     });
@@ -249,7 +249,7 @@ export function EntityDataTable<T = any>({
     const editType = extractEditType(componentMetadata);
 
     if (!viewType) {
-      console.error('[EntityDataTable] No viewType in metadata - backend must send { viewType, editType }');
+      console.error('[EntityListOfInstancesTable] No viewType in metadata - backend must send { viewType, editType }');
       return [];
     }
 
@@ -2336,5 +2336,5 @@ export function EntityDataTable<T = any>({
 // BACKWARDS COMPATIBILITY EXPORTS
 // ============================================================================
 // For existing code that imports "DataTable" - will be deprecated later
-export const DataTable = EntityDataTable;
-export type DataTableProps<T = any> = EntityDataTableProps<T>;
+export const DataTable = EntityListOfInstancesTable;
+export type DataTableProps<T = any> = EntityListOfInstancesTableProps<T>;

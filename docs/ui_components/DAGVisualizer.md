@@ -73,7 +73,7 @@ const Graph = dagre.graphlib.Graph;  // Extract Graph class
 │  └────────────────────────────────┘  │                                       │
 │                                      │                                       │
 │                                      ▼                                       │
-│          EntityFormContainer_viz_container: {                                │
+│          EntityInstanceFormContainer_viz_container: {                                │
 │            view: "DAGVisualizer"   ◄── VIEW mode switch                     │
 │          }                                                                   │
 │                                      │                                       │
@@ -142,12 +142,12 @@ interface DAGVisualizerProps {
 │     └── TTL: 1 hour                                                      │
 │     └── Persisted across page reloads                                   │
 │                                                                          │
-│  2. COMPONENT MOUNT: EntityFormContainer reads from cache               │
+│  2. COMPONENT MOUNT: EntityInstanceFormContainer reads from cache               │
 │     └── useDatalabelMetadataStore.getState().getDatalabel(key)          │
 │     └── SYNCHRONOUS read (no API call)                                  │
 │     └── Returns: DatalabelOption[] with parent_ids                      │
 │                                                                          │
-│  3. TRANSFORMATION: EntityFormContainer transforms to DAGNode[]         │
+│  3. TRANSFORMATION: EntityInstanceFormContainer transforms to DAGNode[]         │
 │     └── useMemo for memoization                                         │
 │     └── Stored in dagNodes Map<string, DAGNode[]>                       │
 │                                                                          │
@@ -164,10 +164,10 @@ DAGVisualizer does **NOT** use React Query directly. The data flow is:
 
 1. **Entity data** fetched via `useFormattedEntityInstance()` (React Query)
 2. **Datalabel options** read from Zustand store (pre-cached at login)
-3. **DAGVisualizer** receives transformed props from EntityFormContainer
+3. **DAGVisualizer** receives transformed props from EntityInstanceFormContainer
 
 ```typescript
-// EntityFormContainer.tsx - useMemo for datalabel → DAGNode transformation
+// EntityInstanceFormContainer.tsx - useMemo for datalabel → DAGNode transformation
 const { labelsMetadata, dagNodes } = useMemo(() => {
   const dagNodesMap = new Map<string, DAGNode[]>();
 
@@ -313,13 +313,13 @@ dagNodes.forEach((node) => {
 
 ---
 
-## Integration with EntityFormContainer
+## Integration with EntityInstanceFormContainer
 
 ```typescript
-// EntityFormContainer.tsx
+// EntityInstanceFormContainer.tsx
 
 // 1. Check if field uses DAGVisualizer (metadata-driven)
-const vizContainer = field.EntityFormContainer_viz_container;
+const vizContainer = field.EntityInstanceFormContainer_viz_container;
 if (vizContainer?.view === 'DAGVisualizer' && dagNodes.has(field.key)) {
 
   // 2. Get pre-transformed nodes from dagNodes Map
@@ -422,5 +422,5 @@ fitViewOptions={{
   - editType controls WHERE data comes from (`lookupSource: 'datalabel'` + `datalabelKey`)
 - v2.1.0 (2025-11-27):
   - Changed `renderType: 'dag'` → `renderType: 'component'` + `component: 'DAGVisualizer'`
-  - `EntityFormContainer_viz_container` now object `{ view?: string; edit?: string }`
+  - `EntityInstanceFormContainer_viz_container` now object `{ view?: string; edit?: string }`
   - Edit mode uses `BadgeDropdownSelect` (inputType in YAML)

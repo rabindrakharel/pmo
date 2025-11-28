@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Edit2, Save, X, Palette, Download, Share2, Link as LinkIcon, Undo2, Redo2, Edit, Trash2 } from 'lucide-react';
-import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityFormContainer, EntityDataTable, FilePreview, DragDropFileUpload, EntityMetadataField, EntityMetadataRow, EntityMetadataSeparator } from '../../components/shared';
+import { Layout, DynamicChildEntityTabs, useDynamicChildEntityTabs, EntityInstanceFormContainer, EntityListOfInstancesTable, FilePreview, DragDropFileUpload, EntityMetadataField, EntityMetadataRow, EntityMetadataSeparator } from '../../components/shared';
 import { ExitButton } from '../../components/shared/button/ExitButton';
 import { ShareModal } from '../../components/shared/modal';
 import { UnifiedLinkageModal } from '../../components/shared/modal/UnifiedLinkageModal';
@@ -21,7 +21,7 @@ import { useRxDraft } from '../../db/rxdb';
 import { useKeyboardShortcuts, useShortcutHints } from '../../lib/hooks/useKeyboardShortcuts';
 import { API_CONFIG } from '../../lib/config/api';
 import { EllipsisBounce, InlineSpinner } from '../../components/shared/ui/EllipsisBounce';
-import type { RowAction } from '../../components/shared/ui/EntityDataTable';
+import type { RowAction } from '../../components/shared/ui/EntityListOfInstancesTable';
 
 /**
  * Universal EntitySpecificInstancePage
@@ -67,7 +67,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     isLoading: loading,
     error: queryError,
     refetch,
-  } = useFormattedEntityInstance(entityCode, id, 'entityFormContainer');
+  } = useFormattedEntityInstance(entityCode, id, 'entityInstanceFormContainer');
 
   // Extract data from React Query result
   // queryResult.data = raw data (for editing)
@@ -216,7 +216,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   const isOverviewTab = !currentChildEntity;
 
   // ============================================================================
-  // CHILD ENTITY DATA & STATE (Direct EntityDataTable - no FilteredDataTable)
+  // CHILD ENTITY DATA & STATE (Direct EntityListOfInstancesTable - no FilteredDataTable)
   // ============================================================================
   const childConfig = currentChildEntity ? getEntityConfig(currentChildEntity) : null;
 
@@ -1253,8 +1253,8 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
           ) : (
             // Standard Entity Details (Notion-style minimalistic design)
             <div className="space-y-3">
-              {/* Metadata Block - EntityFormContainer */}
-              <EntityFormContainer
+              {/* Metadata Block - EntityInstanceFormContainer */}
+              <EntityInstanceFormContainer
                 config={config}
                 metadata={backendMetadata}  // v7.0.0: Backend metadata is required
                 data={isEditing ? editedData : data}
@@ -1320,13 +1320,13 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
             />
           </div>
         ) : (
-          // Child Entity Tab - Direct EntityDataTable (no FilteredDataTable/Outlet)
+          // Child Entity Tab - Direct EntityListOfInstancesTable (no FilteredDataTable/Outlet)
           childLoading ? (
             <div className="flex items-center justify-center h-64">
               <EllipsisBounce size="lg" text="Processing" />
             </div>
           ) : (
-            <EntityDataTable
+            <EntityListOfInstancesTable
               data={childDisplayData}
               metadata={childMetadata}
               loading={childLoading}

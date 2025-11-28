@@ -390,7 +390,7 @@ fastify.get('/api/v1/project', async (request, reply) => {
     "employee": { "uuid-james": "James Miller" }
   },
   "metadata": {
-    "entityDataTable": {
+    "entityListOfInstancesTable": {
       "viewType": {
         "budget_allocated_amt": {
           "dtype": "float",
@@ -510,7 +510,7 @@ export function useFormattedEntityList(entityCode: string, params: Params) {
     // select transforms raw → formatted ON READ (memoized)
     select: (response) => ({
       ...response,
-      data: formatDataset(response.data, response.metadata?.entityDataTable)
+      data: formatDataset(response.data, response.metadata?.entityListOfInstancesTable)
     })
   });
 }
@@ -544,7 +544,7 @@ interface FormattedRow<T> {
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  EntityListOfInstancesPage.tsx                               │
-│  ├── EntityDataTable (list/grid view)                       │
+│  ├── EntityListOfInstancesTable (list/grid view)                       │
 │  ├── KanbanBoard (kanban view)                              │
 │  └── CalendarView (calendar view)                           │
 │                                                              │
@@ -553,7 +553,7 @@ interface FormattedRow<T> {
 │  └── DynamicChildEntityTabs (child entities)                │
 │                                                              │
 │  EntityFormPage.tsx                                          │
-│  └── EntityFormContainer (auto-generated form)              │
+│  └── EntityInstanceFormContainer (auto-generated form)              │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -562,9 +562,9 @@ interface FormattedRow<T> {
 
 | Use Case | Component | Data Source |
 |----------|-----------|-------------|
-| Entity lists | `EntityDataTable` | API + metadata |
+| Entity lists | `EntityListOfInstancesTable` | API + metadata |
 | Entity details | `EntityDetailView` | API + metadata |
-| Forms | `EntityFormContainer` | API + metadata |
+| Forms | `EntityInstanceFormContainer` | API + metadata |
 | Workflows | `DAGVisualizer` | `dl__*_stage` fields |
 | Child tabs | `DynamicChildEntityTabs` | `entity.child_entity_codes` |
 | Kanban | `KanbanBoard` | Status field grouping |
@@ -746,7 +746,7 @@ RxDB unified state architecture (v8.6.0). Single source of truth for all data (e
 
 Comprehensive page and component architecture documentation. Used by LLMs when implementing new pages, understanding navigation flow, or modifying existing components.
 
-**Keywords:** `EntityListOfInstancesPage`, `EntitySpecificInstancePage`, `EntityCreatePage`, `EntityChildListPage`, `SettingsOverviewPage`, `SettingDetailPage`, `WikiViewPage`, `WikiEditorPage`, `FormBuilderPage`, `FilteredDataTable`, `EntityFormContainer`, `SettingsDataTable`, `WikiDesigner`, `DynamicChildEntityTabs`, `Layout`, `ViewSwitcher`, `KanbanView`, `GridView`, `CalendarView`, `FilePreview`, `DragDropFileUpload`, `InteractiveForm`, `entityConfig.ts`, `universal pages`, `config-driven`, `Create-Link-Redirect`, `parent context`, `child entity tabs`, `datalabel URL conversion`, `position-based IDs`, `block editor`, `Notion-style`
+**Keywords:** `EntityListOfInstancesPage`, `EntitySpecificInstancePage`, `EntityCreatePage`, `EntityChildListPage`, `SettingsOverviewPage`, `SettingDetailPage`, `WikiViewPage`, `WikiEditorPage`, `FormBuilderPage`, `FilteredDataTable`, `EntityInstanceFormContainer`, `SettingsDataTable`, `WikiDesigner`, `DynamicChildEntityTabs`, `Layout`, `ViewSwitcher`, `KanbanView`, `GridView`, `CalendarView`, `FilePreview`, `DragDropFileUpload`, `InteractiveForm`, `entityConfig.ts`, `universal pages`, `config-driven`, `Create-Link-Redirect`, `parent context`, `child entity tabs`, `datalabel URL conversion`, `position-based IDs`, `block editor`, `Notion-style`
 
 ---
 

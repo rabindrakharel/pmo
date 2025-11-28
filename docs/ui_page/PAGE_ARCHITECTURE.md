@@ -56,7 +56,7 @@ EntityListOfInstancesPage
 ├── Layout                         // App shell with sidebar
 ├── ViewSwitcher                   // Toggle between view modes
 ├── useRxEntityList()              // RxDB hook (offline-first data)
-├── EntityDataTable                // Table view (default)
+├── EntityListOfInstancesTable                // Table view (default)
 │   ├── Pagination                 // Server-side pagination
 │   └── InlineEdit                 // Direct cell editing
 ├── KanbanView                     // Kanban board
@@ -96,7 +96,7 @@ EntitySpecificInstancePage
 │   └── EntityMetadataField[]      // Copyable inline fields (debounced)
 ├── DynamicChildEntityTabs         // Tab navigation
 │   └── useDynamicChildEntityTabs()// Fetch tabs from API
-├── EntityFormContainer            // Overview tab content
+├── EntityInstanceFormContainer            // Overview tab content
 │   └── frontEndFormatterService   // Field renderers
 ├── WikiContentRenderer            // Wiki entity special view
 ├── InteractiveForm                // Form entity special view
@@ -137,8 +137,8 @@ useKeyboardShortcuts({
 ```
 
 **Tab System:**
-1. Overview tab (always first) → Shows `EntityFormContainer`
-2. Child tabs from `child_entity_codes` → Shows `EntityDataTable` directly (inline rendering)
+1. Overview tab (always first) → Shows `EntityInstanceFormContainer`
+2. Child tabs from `child_entity_codes` → Shows `EntityListOfInstancesTable` directly (inline rendering)
 3. Special tabs for form entity (`Form Data`, `Edit Submission`)
 
 ---
@@ -155,7 +155,7 @@ EntityCreatePage
 ├── Layout
 ├── DragDropFileUpload             // For artifact/cost/revenue
 │   └── useS3Upload()              // Presigned URL upload
-├── EntityFormContainer            // Form fields from config
+├── EntityInstanceFormContainer            // Form fields from config
 │   └── Fields auto-generated      // Based on entityConfig.fields
 └── Button (Save/Cancel)
 ```
@@ -213,7 +213,7 @@ SettingsOverviewPage
 │   ├── Roles Management card → /role
 │   ├── Employee-Role Assignment card
 │   ├── Permission Management card
-│   ├── EntityDataTable (rbac entity)
+│   ├── EntityListOfInstancesTable (rbac entity)
 │   └── RBAC Architecture Overview
 ├── Modals
 │   ├── AddDatalabelModal          // Create new datalabel type
@@ -248,7 +248,7 @@ PUT /api/v1/entity/:code/children → { child_entity_codes: [...], mode: 'append
 | **Entity Mapping** | Configuration cards | Navigate to linkage page |
 | **Secrets Vault** | Feature list (placeholder) | Credential management |
 | **Integrations** | Feature list (placeholder) | External service connections |
-| **Access Control** | RBAC cards + EntityDataTable | Role/permission management |
+| **Access Control** | RBAC cards + EntityListOfInstancesTable | Role/permission management |
 
 ---
 
@@ -513,7 +513,7 @@ InteractiveForm
 ```
 FormDataPreviewPage
 ├── Layout
-├── EntityDataTable                // Submissions list
+├── EntityListOfInstancesTable                // Submissions list
 │   ├── Columns from form_schema
 │   ├── Submission timestamp
 │   ├── Submitter info
@@ -598,11 +598,11 @@ Every page wraps content in `<Layout>`:
 - User menu
 - Responsive container
 
-### 6.2 EntityDataTable Component
+### 6.2 EntityListOfInstancesTable Component
 
 Primary data display component (used directly by pages):
 ```typescript
-<EntityDataTable
+<EntityListOfInstancesTable
   data={data}                     // Entity records from API
   metadata={backendMetadata}      // Field metadata from API response
   loading={isLoading}             // Loading state
@@ -618,11 +618,11 @@ Primary data display component (used directly by pages):
 />
 ```
 
-### 6.3 EntityFormContainer Component
+### 6.3 EntityInstanceFormContainer Component
 
 Universal form renderer:
 ```typescript
-<EntityFormContainer
+<EntityInstanceFormContainer
   config={config}                  // From entityConfig.ts
   metadata={backendMetadata}       // Backend field metadata
   data={isEditing ? editedData : data}
@@ -735,7 +735,7 @@ User clicks sidebar → EntityListOfInstancesPage (/:entityCode)
        │
        ├── [Row Click] → EntitySpecificInstancePage (/:entityCode/:id)
        │                        │
-       │                        ├── [Tab Click] → EntityDataTable (inline, same page)
+       │                        ├── [Tab Click] → EntityListOfInstancesTable (inline, same page)
        │                        │                        │
        │                        │                        └── [Create] → Create-Link-Redirect
        │                        │
@@ -750,15 +750,15 @@ User clicks sidebar → EntityListOfInstancesPage (/:entityCode)
 
 | Page | Primary Components | View Modes |
 |------|-------------------|------------|
-| EntityListOfInstancesPage | EntityDataTable, KanbanView, GridView, CalendarView | table, kanban, grid, calendar, graph |
-| EntitySpecificInstancePage | EntityFormContainer, DynamicChildEntityTabs, EntityDataTable (child tabs) | - |
-| EntityCreatePage | EntityFormContainer, DragDropFileUpload | - |
-| SettingsOverviewPage | Entity table, EntityDataTable (rbac), Modals | 5 tabs |
+| EntityListOfInstancesPage | EntityListOfInstancesTable, KanbanView, GridView, CalendarView | table, kanban, grid, calendar, graph |
+| EntitySpecificInstancePage | EntityInstanceFormContainer, DynamicChildEntityTabs, EntityListOfInstancesTable (child tabs) | - |
+| EntityCreatePage | EntityInstanceFormContainer, DragDropFileUpload | - |
+| SettingsOverviewPage | Entity table, EntityListOfInstancesTable (rbac), Modals | 5 tabs |
 | SettingDetailPage | LabelsDataTable (drag-to-reorder) | - |
 | WikiViewPage | Cover, Article, Action buttons | - |
 | WikiEditorPage | WikiDesigner (block editor), ShareModal, LinkageModal | - |
 | FormBuilderPage | FormBuilder, Toolbar, Canvas, Properties Panel | - |
-| FormDataPreviewPage | EntityDataTable, FormSubmissionEditor | - |
+| FormDataPreviewPage | EntityListOfInstancesTable, FormSubmissionEditor | - |
 
 ---
 

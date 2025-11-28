@@ -169,7 +169,7 @@ export function DevelopersPage() {
         },
         {
           title: 'Component Library',
-          description: 'Reusable components: Layout, FilteredDataTable, EntityFormContainer'
+          description: 'Reusable components: Layout, FilteredDataTable, EntityInstanceFormContainer'
         },
         {
           title: 'Form Builder',

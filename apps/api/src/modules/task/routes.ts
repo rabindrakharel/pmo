@@ -242,7 +242,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         page: Type.Optional(Type.Number({ minimum: 1 })),
         parent_type: Type.Optional(Type.String()),
         parent_id: Type.Optional(Type.String({ format: 'uuid' })),
-        view: Type.Optional(Type.String())  // 'entityDataTable,kanbanView' or 'entityFormContainer'
+        view: Type.Optional(Type.String())  // 'entityListOfInstancesTable,kanbanView' or 'entityInstanceFormContainer'
       }),
       response: {
         200: Type.Object({
@@ -401,7 +401,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const requestedComponents = view
         ? view.split(',').map((v: string) => v.trim())
-        : ['entityDataTable', 'entityFormContainer', 'kanbanView'];
+        : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
 
       // Generate response with metadata for requested components only
       const response = generateEntityResponse(ENTITY_CODE, tasks, {
@@ -427,7 +427,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         id: Type.String({ format: 'uuid' })
       }),
       querystring: Type.Object({
-        view: Type.Optional(Type.String()),  // 'entityFormContainer' or 'entityDataTable'
+        view: Type.Optional(Type.String()),  // 'entityInstanceFormContainer' or 'entityListOfInstancesTable'
       }),
       response: {
         200: TaskWithMetadataSchema,  // ✅ Fixed: Use metadata-driven schema
@@ -523,7 +523,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       const requestedComponents = view
         ? view.split(',').map((v: string) => v.trim())
-        : ['entityFormContainer'];
+        : ['entityInstanceFormContainer'];
 
       const response = generateEntityResponse(ENTITY_CODE, [filterUniversalColumns(task[0], userPermissions)], {
         components: requestedComponents,

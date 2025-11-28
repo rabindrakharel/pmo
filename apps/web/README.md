@@ -117,7 +117,7 @@ apps/web/src/
 │   │   │   └── Layout.tsx               # Main app layout with sidebar
 │   │   ├── entity/
 │   │   │   ├── DynamicChildEntityTabs.tsx  # Dynamic tab system
-│   │   │   ├── EntityFormContainer.tsx     # Form rendering
+│   │   │   ├── EntityInstanceFormContainer.tsx     # Form rendering
 │   │   │   └── TaskDataContainer.tsx       # Task-specific container
 │   │   ├── data-table/
 │   │   │   ├── DataTable.tsx            # Base table with sorting/filtering
@@ -432,7 +432,7 @@ export function EntitySpecificInstancePage({ entityType }: { entityType: string 
       <DynamicChildEntityTabs tabs={tabs} />
 
       {isOverviewTab ? (
-        <EntityFormContainer fields={config.fields} data={data} />
+        <EntityInstanceFormContainer fields={config.fields} data={data} />
       ) : (
         <Outlet />  {/* Renders EntityChildListPage */}
       )}

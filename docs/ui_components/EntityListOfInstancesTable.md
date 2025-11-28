@@ -1,12 +1,12 @@
-# EntityDataTable Component
+# EntityListOfInstancesTable Component
 
-**Version:** 8.6.0 | **Location:** `apps/web/src/components/shared/ui/EntityDataTable.tsx` | **Updated:** 2025-11-28
+**Version:** 8.6.0 | **Location:** `apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx` | **Updated:** 2025-11-28
 
 ---
 
 ## Overview
 
-EntityDataTable is a universal data table component with **virtualized rendering**, inline editing, sorting, filtering, and pagination. It uses the `{ viewType, editType }` metadata structure from the backend to determine column configuration and rendering.
+EntityListOfInstancesTable is a universal data table component with **virtualized rendering**, inline editing, sorting, filtering, and pagination. It uses the `{ viewType, editType }` metadata structure from the backend to determine column configuration and rendering.
 
 **Core Principle:** Backend metadata with `{ viewType, editType }` structure controls all columns, rendering, and edit behavior. Frontend is a pure renderer using `extractViewType()` and `extractEditType()` helpers.
 
@@ -33,10 +33,10 @@ EntityDataTable is a universal data table component with **virtualized rendering
 │                              │                                              │
 │                              v                                              │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                    EntityDataTable                                   │    │
+│  │                    EntityListOfInstancesTable                                   │    │
 │  │                                                                      │    │
-│  │  const viewType = extractViewType(metadata.entityDataTable);        │    │
-│  │  const editType = extractEditType(metadata.entityDataTable);        │    │
+│  │  const viewType = extractViewType(metadata.entityListOfInstancesTable);        │    │
+│  │  const editType = extractEditType(metadata.entityListOfInstancesTable);        │    │
 │  │                                                                      │    │
 │  │  ┌─────────────────────────────────────────────────────────────┐    │    │
 │  │  │  Header Row (Sticky)                                         │    │    │
@@ -79,11 +79,11 @@ EntityDataTable is a universal data table component with **virtualized rendering
 ```typescript
 import type { FormattedRow } from '@/lib/formatters';
 
-export interface EntityDataTableProps<T = any> {
+export interface EntityListOfInstancesTableProps<T = any> {
   /** Entity records (FormattedRow[] or raw T[]) */
   data: T[];
 
-  /** Backend metadata with { entityDataTable: { viewType, editType } } (REQUIRED) */
+  /** Backend metadata with { entityListOfInstancesTable: { viewType, editType } } (REQUIRED) */
   metadata?: EntityMetadata | null;
 
   /** Reference data for entity lookups (from API response) */
@@ -125,8 +125,8 @@ export interface EntityDataTableProps<T = any> {
 
 // Metadata structure from API (v8.5.0)
 interface EntityMetadata {
-  entityDataTable: ComponentMetadata;
-  entityFormContainer?: ComponentMetadata;
+  entityListOfInstancesTable: ComponentMetadata;
+  entityInstanceFormContainer?: ComponentMetadata;
   fields?: string[];  // Field ordering
 }
 
@@ -197,8 +197,8 @@ interface EditFieldMetadata {
 Backend Metadata                     extractViewType()           Processed Columns
 ────────────────                     ─────────────────           ─────────────────
 
-metadata.entityDataTable: {    →    viewType = extractViewType   →   columns: [
-  viewType: {                         (metadata.entityDataTable)       {
+metadata.entityListOfInstancesTable: {    →    viewType = extractViewType   →   columns: [
+  viewType: {                         (metadata.entityListOfInstancesTable)       {
     budget_amt: {                                                        key: 'budget_amt',
       dtype: 'float',                 // REQUIRED                        title: 'Budget',
       label: 'Budget',                // Returns viewType or null        render: () =>
@@ -338,7 +338,7 @@ const columnStylesMap = useMemo(() => {
 
 ```typescript
 import { useRxEntityList } from '@/db/rxdb/hooks/useRxEntity';
-import { EntityDataTable } from '@/components/shared/ui/EntityDataTable';
+import { EntityListOfInstancesTable } from '@/components/shared/ui/EntityListOfInstancesTable';
 import { formatDataset } from '@/lib/formatters';
 
 function ProjectListPage() {
@@ -354,11 +354,11 @@ function ProjectListPage() {
   // Format data for display
   const formattedData = useMemo(() => {
     if (!data.length) return [];
-    return formatDataset(data, metadata?.entityDataTable);
+    return formatDataset(data, metadata?.entityListOfInstancesTable);
   }, [data, metadata]);
 
   return (
-    <EntityDataTable
+    <EntityListOfInstancesTable
       data={formattedData}
       metadata={metadata}
       refData={refData}
@@ -391,7 +391,7 @@ function ProjectListPage() {
   });
 
   return (
-    <EntityDataTable
+    <EntityListOfInstancesTable
       data={formattedData}
       metadata={metadata}
       loading={isLoading}
@@ -441,10 +441,10 @@ Table Load Flow (v8.5.0)
    │
 6. formatDataset() transforms to FormattedRow[]
    │
-7. EntityDataTable receives FormattedRow[] + metadata
+7. EntityListOfInstancesTable receives FormattedRow[] + metadata
    │
-8. const viewType = extractViewType(metadata.entityDataTable)
-   const editType = extractEditType(metadata.entityDataTable)
+8. const viewType = extractViewType(metadata.entityListOfInstancesTable)
+   const editType = extractEditType(metadata.entityListOfInstancesTable)
    │
 9. Columns built from viewType (visible, sortable, label, etc.)
    │
@@ -489,8 +489,8 @@ Inline Edit Flow
 
 | Anti-Pattern | Correct Approach |
 |--------------|------------------|
-| Direct `metadata.viewType` access | Use `extractViewType(metadata.entityDataTable)` |
-| Direct `metadata.editType` access | Use `extractEditType(metadata.entityDataTable)` |
+| Direct `metadata.viewType` access | Use `extractViewType(metadata.entityListOfInstancesTable)` |
+| Direct `metadata.editType` access | Use `extractEditType(metadata.entityListOfInstancesTable)` |
 | Frontend pattern detection | Backend sends complete metadata |
 | Custom render per field | Use `row.display[key]` from FormattedRow |
 | Hardcoded columns | Use `viewType` from backend |

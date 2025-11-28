@@ -6,7 +6,7 @@
  * v8.3.2: Renamed from ColoredDropdown to BadgeDropdownSelect
  *
  * Purpose: Reusable dropdown for datalabel fields with colored badges
- * Used by: EntityDataTable, EntityFormContainer, SettingsDataTable
+ * Used by: EntityListOfInstancesTable, EntityInstanceFormContainer, SettingsDataTable
  *
  * Key Features:
  * - Portal rendering (avoids table overflow clipping)

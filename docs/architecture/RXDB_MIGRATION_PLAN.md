@@ -66,8 +66,8 @@ Migrate all frontend state management to RxDB (IndexedDB) as the **single source
 | `frontEndFormatterService.tsx` | `useDatalabelMetadataStore` | Use RxDB metadata hook |
 | `useKeyboardShortcuts.ts` | `useEntityEditStore` | Use `useRxDraft` |
 | `DynamicChildEntityTabs.tsx` | `useEntityCodeMetadataStore` | Use RxDB metadata hook |
-| `EntityFormContainer.tsx` | Multiple stores | Use RxDB metadata hooks |
-| `EntityDataTable.tsx` | `useEntityComponentMetadataStore` | Use RxDB metadata hook |
+| `EntityInstanceFormContainer.tsx` | Multiple stores | Use RxDB metadata hooks |
+| `EntityListOfInstancesTable.tsx` | `useEntityComponentMetadataStore` | Use RxDB metadata hook |
 
 ### 3. React Query to Remove (7 files)
 
@@ -173,8 +173,8 @@ export function useRxComponentMetadata(
 |----------|------------------|--------|
 | P0 | `useEntityQuery.ts` | High - core hook |
 | P0 | `frontEndFormatterService.tsx` | Medium - formatting |
-| P1 | `EntityDataTable.tsx` | Medium |
-| P1 | `EntityFormContainer.tsx` | Medium |
+| P1 | `EntityListOfInstancesTable.tsx` | Medium |
+| P1 | `EntityInstanceFormContainer.tsx` | Medium |
 | P1 | `DynamicChildEntityTabs.tsx` | Low |
 | P2 | `EntityMetadataContext.tsx` | Low - may remove |
 | P2 | `AuthContext.tsx` | Low |
@@ -266,8 +266,8 @@ apps/web/src/db/rxdb/RxDBProvider.tsx             # Add metadata init
 apps/web/src/db/rxdb/replication.ts               # Add metadata sync
 apps/web/src/lib/hooks/useEntityQuery.ts          # Replace stores
 apps/web/src/lib/frontEndFormatterService.tsx     # Replace stores
-apps/web/src/components/shared/ui/EntityDataTable.tsx
-apps/web/src/components/shared/entity/EntityFormContainer.tsx
+apps/web/src/components/shared/ui/EntityListOfInstancesTable.tsx
+apps/web/src/components/shared/entity/EntityInstanceFormContainer.tsx
 apps/web/src/components/shared/entity/DynamicChildEntityTabs.tsx
 apps/web/src/pages/shared/EntitySpecificInstancePage.tsx
 apps/web/src/contexts/AuthContext.tsx
@@ -361,8 +361,8 @@ All consumers migrated to RxDB hooks:
 | `frontEndFormatterService.tsx` | `getDatalabelSync()` for badge colors |
 | `EntityMetadataContext.tsx` | `useRxEntityCodes()` hook |
 | `DynamicChildEntityTabs.tsx` | `useRxEntityCodes()` hook |
-| `EntityFormContainer.tsx` | `getDatalabelSync()` for dropdowns |
-| `EntityDataTable.tsx` | `getDatalabelSync()` for badges |
+| `EntityInstanceFormContainer.tsx` | `getDatalabelSync()` for dropdowns |
+| `EntityListOfInstancesTable.tsx` | `getDatalabelSync()` for badges |
 | `valueFormatters.ts` | `getDatalabelSync()` for colors |
 | `useKeyboardShortcuts.ts` | Accepts draft state via options |
 | `EntitySpecificInstancePage.tsx` | `useRxDraft` for edit state |

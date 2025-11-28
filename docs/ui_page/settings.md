@@ -5,7 +5,7 @@
 [![Version](https://img.shields.io/badge/version-4.0-blue.svg)](https://github.com/yourusername/pmo)
 [![Status](https://img.shields.io/badge/status-production-success.svg)](http://localhost:5173)
 
-**Related:** [LabelsDataTable](./settings_EntityDataTable.md) • [EntityDataTable](./entity_EntityDataTable.md) • [Overview](./data_table.md)
+**Related:** [LabelsDataTable](./settings_EntityListOfInstancesTable.md) • [EntityListOfInstancesTable](./entity_EntityListOfInstancesTable.md) • [Overview](./data_table.md)
 
 **v4.0:** Runtime datalabel creation • Entity validation • Icon picker • Auto-navigation • Empty metadata support
 

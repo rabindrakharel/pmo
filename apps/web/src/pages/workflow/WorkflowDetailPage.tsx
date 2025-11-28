@@ -40,7 +40,7 @@ import { useParams } from 'react-router-dom';
 import { Layout } from '../../components/shared';
 import { ExitButton } from '../../components/shared/button/ExitButton';
 import { DAGVisualizer, type DAGNode } from '../../components/workflow/DAGVisualizer';
-import { EntityFormContainer } from '../../components/shared';
+import { EntityInstanceFormContainer } from '../../components/shared';
 import { getEntityConfig } from '../../lib/entityConfig';
 import { APIFactory } from '../../lib/api';
 import { GitBranch, Loader2, Copy } from 'lucide-react';
@@ -491,7 +491,7 @@ export function WorkflowDetailPage() {
               )}
 
               {selectedEntityData && getEntityConfig(selectedEntity.entity_name) && (
-                <EntityFormContainer
+                <EntityInstanceFormContainer
                   data={selectedEntityData}
                   config={getEntityConfig(selectedEntity.entity_name)!}
                   onChange={() => {}}

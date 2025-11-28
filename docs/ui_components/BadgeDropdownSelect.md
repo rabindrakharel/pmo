@@ -35,7 +35,7 @@ In enterprise applications, status/stage/priority fields require:
 │                                                                              │
 │  Before v8.3.2:                                                              │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
-│  │ EntityDataTable │  │ EntityForm      │  │ LabelsDataTable │             │
+│  │ EntityListOfInstancesTable │  │ EntityForm      │  │ LabelsDataTable │             │
 │  │ (own dropdown)  │  │ (own dropdown)  │  │ (own dropdown)  │             │
 │  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘             │
 │           │                    │                    │                       │
@@ -44,7 +44,7 @@ In enterprise applications, status/stage/priority fields require:
 │                                                                              │
 │  After v8.3.2 (DRY):                                                         │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
-│  │ EntityDataTable │  │ EntityForm      │  │ LabelsDataTable │             │
+│  │ EntityListOfInstancesTable │  │ EntityForm      │  │ LabelsDataTable │             │
 │  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘             │
 │           │                    │                    │                       │
 │           └────────────────────┼────────────────────┘                       │
@@ -61,8 +61,8 @@ In enterprise applications, status/stage/priority fields require:
 
 | Consumer | Context | Use Case |
 |----------|---------|----------|
-| **EntityDataTable** | Inline table editing | Edit `dl__project_stage` in entity list |
-| **EntityFormContainer** | Form fields | Edit datalabel fields in entity detail page |
+| **EntityListOfInstancesTable** | Inline table editing | Edit `dl__project_stage` in entity list |
+| **EntityInstanceFormContainer** | Form fields | Edit datalabel fields in entity detail page |
 | **LabelsDataTable** | Settings admin | Select `color_code` for datalabel options |
 | **KanbanView** | Card editing | Change status/stage via dropdown |
 
@@ -163,10 +163,10 @@ Each option renders as a colored badge using Tailwind classes:
 
 ## Integration Patterns
 
-### With EntityDataTable (Inline Editing)
+### With EntityListOfInstancesTable (Inline Editing)
 
 ```typescript
-// EntityDataTable.tsx - Inline cell editing
+// EntityListOfInstancesTable.tsx - Inline cell editing
 case 'select':
   if (hasLabelsMetadata) {
     return (
@@ -183,10 +183,10 @@ case 'select':
   }
 ```
 
-### With EntityFormContainer (Form Fields)
+### With EntityInstanceFormContainer (Form Fields)
 
 ```typescript
-// EntityFormContainer.tsx - Form field rendering
+// EntityInstanceFormContainer.tsx - Form field rendering
 case 'BadgeDropdownSelect':
 case 'select':
   if (hasLabelsMetadata && options.length > 0) {
@@ -237,7 +237,7 @@ case 'color_code':
 │     └── TTL: 1 hour                                                          │
 │                                                                              │
 │  2. API RESPONSE:                                                            │
-│     metadata.entityFormContainer.editType.dl__project_stage = {             │
+│     metadata.entityInstanceFormContainer.editType.dl__project_stage = {             │
 │       inputType: "component",                                                │
 │       component: "BadgeDropdownSelect",                                      │
 │       lookupSource: "datalabel",                                             │
@@ -274,21 +274,21 @@ Backend metadata configures BadgeDropdownSelect via `edit-type-mapping.yaml`:
 datalabel_standard:
   dtype: str
   lookupSource: datalabel
-  entityDataTable:
+  entityListOfInstancesTable:
     renderType: badge
     inputType: select  # Falls back to BadgeDropdownSelect when hasLabelsMetadata
     behavior: { editable: true, filterable: true }
-  entityFormContainer:
+  entityInstanceFormContainer:
     inputType: select  # Uses BadgeDropdownSelect for datalabel fields
 
 # DAG datalabels (stage/state/status with parent-child)
 datalabel_dag:
   dtype: str
   lookupSource: datalabel
-  entityDataTable:
+  entityListOfInstancesTable:
     renderType: component
     component: DAGVisualizer
-  entityFormContainer:
+  entityInstanceFormContainer:
     inputType: component
     component: BadgeDropdownSelect  # Edit mode uses dropdown, not DAG
 ```
@@ -409,6 +409,6 @@ export function colorCodeToTailwindClass(colorCode: string): string {
 **Last Updated:** 2025-11-27 | **Version:** 1.0.0 | **Status:** Production Ready
 
 **Related Documentation:**
-- [EntityFormContainer.md](./EntityFormContainer.md) - Form field rendering
+- [EntityInstanceFormContainer.md](./EntityInstanceFormContainer.md) - Form field rendering
 - [DAGVisualizer.md](./DAGVisualizer.md) - Stage visualization (view mode)
 - [Layout_Component_Architecture.md](./Layout_Component_Architecture.md) - Component hierarchy

@@ -45,7 +45,7 @@ function renderFieldBadge(fieldKey: string, value: string): React.ReactNode {
 
 
 /**
- * EntityFormContainer
+ * EntityInstanceFormContainer
  *
  * A reusable form container component that renders form fields based on entityConfig.
  * Used by both EntitySpecificInstancePage (edit mode) and EntityCreatePage (create mode).
@@ -57,7 +57,7 @@ function renderFieldBadge(fieldKey: string, value: string): React.ReactNode {
  * - Handles field validation
  */
 
-interface EntityFormContainerProps {
+interface EntityInstanceFormContainerProps {
   config?: EntityConfig;              // Now optional - can be auto-generated
   data: Record<string, any>;
   isEditing: boolean;
@@ -73,7 +73,7 @@ interface EntityFormContainerProps {
    * Zero frontend pattern detection
    *
    * @example
-   * <EntityFormContainer data={project} metadata={metadata} isEditing onChange={handleChange} />
+   * <EntityInstanceFormContainer data={project} metadata={metadata} isEditing onChange={handleChange} />
    */
   metadata?: EntityMetadata;
 
@@ -82,7 +82,7 @@ interface EntityFormContainerProps {
    * Eliminates N+1 API calls by providing datalabel options upfront
    *
    * @example
-   * <EntityFormContainer data={project} datalabels={datalabels} isEditing onChange={handleChange} />
+   * <EntityInstanceFormContainer data={project} datalabels={datalabels} isEditing onChange={handleChange} />
    */
   datalabels?: DatalabelData[];
 
@@ -99,7 +99,7 @@ interface EntityFormContainerProps {
    * Structure: { entity_code: { uuid: name } }
    *
    * @example
-   * <EntityFormContainer
+   * <EntityInstanceFormContainer
    *   data={project}
    *   ref_data_entityInstance={{ employee: { "uuid-123": "James Miller" } }}
    *   isEditing={false}
@@ -113,7 +113,7 @@ interface EntityFormContainerProps {
 const EMPTY_DATALABELS: DatalabelData[] = [];
 
 // ✅ FIX: Wrap with React.memo to prevent re-renders when props haven't changed
-function EntityFormContainerInner({
+function EntityInstanceFormContainerInner({
   config,
   data,
   isEditing,
@@ -123,7 +123,7 @@ function EntityFormContainerInner({
   datalabels = EMPTY_DATALABELS,  // ✅ Stable default reference
   formattedData,                // v7.0.0: Pre-formatted data for instant rendering
   ref_data_entityInstance                      // v8.3.0: Entity reference lookup table
-}: EntityFormContainerProps) {
+}: EntityInstanceFormContainerProps) {
   // v8.3.0: useRefData hook for entity reference resolution
   const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(ref_data_entityInstance);
   // ============================================================================
@@ -132,8 +132,8 @@ function EntityFormContainerInner({
   // v8.2.0: Backend metadata is REQUIRED. Only { viewType, editType } structure supported.
 
   const fields = useMemo(() => {
-    // v8.2.0: Backend MUST return: metadata.entityFormContainer = { viewType: {...}, editType: {...} }
-    const componentMetadata = metadata?.entityFormContainer;
+    // v8.2.0: Backend MUST return: metadata.entityInstanceFormContainer = { viewType: {...}, editType: {...} }
+    const componentMetadata = metadata?.entityInstanceFormContainer;
 
     // Explicit config fields override (for special cases)
     if (config?.fields && config.fields.length > 0) {
@@ -145,7 +145,7 @@ function EntityFormContainerInner({
     const editType = extractEditType(componentMetadata);
 
     if (!viewType) {
-      console.error('[EntityFormContainer] No viewType in metadata - backend must send { viewType, editType }');
+      console.error('[EntityInstanceFormContainer] No viewType in metadata - backend must send { viewType, editType }');
       return [];
     }
 
@@ -183,7 +183,7 @@ function EntityFormContainerInner({
           lookupSource,
           lookupEntity,
           datalabelKey,
-          EntityFormContainer_viz_container: {
+          EntityInstanceFormContainer_viz_container: {
             view: viewVizContainer,
             edit: editVizContainer
           },
@@ -263,7 +263,7 @@ function EntityFormContainerInner({
 
         // Load DAG nodes for fields with DAG visualization (backend-driven)
         // v8.3.2: Check if either view or edit mode uses DAGVisualizer
-        const vizContainer = field.EntityFormContainer_viz_container;
+        const vizContainer = field.EntityInstanceFormContainer_viz_container;
         if (vizContainer?.view === 'DAGVisualizer' || vizContainer?.edit === 'DAGVisualizer') {
           const nodes = transformDatalabelToDAGNodes(cachedOptions);
           dagNodesMap.set(field.key, nodes);
@@ -285,7 +285,7 @@ function EntityFormContainerInner({
       ? labelsMetadata.get(field.key)!
       : field.options || [];
     // v8.3.2: Check view or edit mode based on isEditing
-    const vizContainer = field.EntityFormContainer_viz_container;
+    const vizContainer = field.EntityInstanceFormContainer_viz_container;
     const isSequentialField = field.type === 'select'
       && hasLabelsMetadata
       && (vizContainer?.view === 'DAGVisualizer' || vizContainer?.edit === 'DAGVisualizer')
@@ -893,8 +893,8 @@ function EntityFormContainerInner({
 // Prevents re-renders when only `data` values change (not keys) during editing
 // The component uses local state for text inputs, so data changes shouldn't trigger re-renders
 function arePropsEqual(
-  prevProps: EntityFormContainerProps,
-  nextProps: EntityFormContainerProps
+  prevProps: EntityInstanceFormContainerProps,
+  nextProps: EntityInstanceFormContainerProps
 ): boolean {
   // If editing state changes, must re-render
   if (prevProps.isEditing !== nextProps.isEditing) return false;
@@ -931,4 +931,4 @@ function arePropsEqual(
 
 // Export memoized component with custom comparison
 // This prevents re-renders during typing while maintaining proper updates
-export const EntityFormContainer = React.memo(EntityFormContainerInner, arePropsEqual);
+export const EntityInstanceFormContainer = React.memo(EntityInstanceFormContainerInner, arePropsEqual);

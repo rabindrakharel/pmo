@@ -164,7 +164,7 @@ active_flag, created_ts, updated_ts
 ### Component Hierarchy
 ```
 EntitySpecificInstancePage
-  └── EntityFormContainer
+  └── EntityInstanceFormContainer
         ├── QuoteItemsRenderer (for quote_items field)
         │     └── EntityAttributeInlineDataTable (generic JSONB table)
         └── MetadataTable (for metadata field)
@@ -307,7 +307,7 @@ export const FIELD_TO_SETTING_MAP: Record<string, string> = {
 Type | Code | Description | Qty | Rate | Disc% | Subtotal | Tax% | Total
 ```
 
-**Usage in EntityFormContainer:**
+**Usage in EntityInstanceFormContainer:**
 ```typescript
 // View mode (line 333-340)
 if (field.key === 'quote_items') {
@@ -728,9 +728,9 @@ APIFactory.register('quote', quoteApi);  // ← Add this
 
 **Symptom:** quote_items shows as raw JSON textarea
 
-**Solution:** Add special renderer in EntityFormContainer
+**Solution:** Add special renderer in EntityInstanceFormContainer
 ```typescript
-// EntityFormContainer.tsx
+// EntityInstanceFormContainer.tsx
 if (field.key === 'quote_items') {
   return <QuoteItemsRenderer value={value} onChange={...} isEditing={isEditing} />;
 }
@@ -760,7 +760,7 @@ Frontend Config:
 
 Frontend Components:
   /apps/web/src/pages/shared/EntitySpecificInstancePage.tsx
-  /apps/web/src/components/shared/entity/EntityFormContainer.tsx  ← Field rendering logic
+  /apps/web/src/components/shared/entity/EntityInstanceFormContainer.tsx  ← Field rendering logic
   /apps/web/src/components/shared/entity/QuoteItemsRenderer.tsx   ← Quote-specific table
   /apps/web/src/components/shared/ui/EntityAttributeInlineDataTable.tsx ← Generic JSONB table
 
