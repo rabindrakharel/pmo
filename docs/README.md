@@ -378,7 +378,7 @@ Entity references are resolved via a response-level lookup table instead of per-
 │  STEP 3: Format-at-Read (select transform)                                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  React Query select option:                                                  │
+│  Format-at-read transform (on RxDB query result):                            │
 │                                                                              │
 │    select: (raw) => {                                                        │
 │      const { viewType, editType } = raw.metadata.entityDataTable;            │
