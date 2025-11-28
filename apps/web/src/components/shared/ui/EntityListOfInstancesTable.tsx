@@ -39,8 +39,8 @@ import {
   type BackendFieldMetadata
 } from '../../../lib/frontEndFormatterService';
 import { colorCodeToTailwindClass } from '../../../lib/formatters/valueFormatters';
-// v8.6.0: Use RxDB sync cache for datalabel options
-import { getDatalabelSync } from '../../../db/rxdb/hooks/useRxMetadata';
+// v9.0.0: Use Dexie sync cache for datalabel options
+import { getDatalabelSync } from '../../../db/tanstack-hooks';
 import type { EntityMetadata } from '../../../lib/api';
 
 // v8.2.0: Format-at-fetch with required nested metadata structure

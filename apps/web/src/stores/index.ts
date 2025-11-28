@@ -1,21 +1,20 @@
 /**
  * ============================================================================
- * ZUSTAND STORES - ALL MIGRATED TO RxDB (v8.6.0)
+ * ZUSTAND STORES - ALL MIGRATED TO TANSTACK QUERY + DEXIE (v9.0.0)
  * ============================================================================
  *
- * All Zustand stores have been migrated to RxDB:
+ * All Zustand stores have been migrated to TanStack Query + Dexie:
  *
  * MIGRATED METADATA STORES:
- * - datalabelMetadataStore → useRxDatalabel, getDatalabelSync
- * - entityCodeMetadataStore → useRxEntityCodes, getEntityCodesSync
- * - entityComponentMetadataStore → useRxComponentMetadata
- * - globalSettingsMetadataStore → useRxGlobalSettings, getGlobalSettingsSync
+ * - datalabelMetadataStore → useDatalabel, getDatalabelSync
+ * - entityCodeMetadataStore → useEntityCodes, getEntityCodesSync
+ * - globalSettingsMetadataStore → useGlobalSettings, getGlobalSettingsSync
  *
  * MIGRATED UI STATE STORES:
- * - useEntityEditStore → useRxDraft (persistent drafts in IndexedDB)
+ * - useEntityEditStore → useDraft (persistent drafts in IndexedDB via Dexie)
  *
  * This file is kept for backwards compatibility but exports nothing.
- * New code should import directly from '@/db/rxdb'.
+ * New code should import directly from '@/db/tanstack-hooks'.
  */
 
-// No exports - all stores migrated to RxDB
+// No exports - all stores migrated to TanStack Query + Dexie

@@ -15,6 +15,9 @@
  * - Draft persistence: Unsaved edits survive refresh
  * - Reactive: UI auto-updates via RxJS observables
  * - Unified: Single cache system (no Zustand, no React Query for data)
+ *
+ * NOTE: TanStack Query + Dexie migration in progress.
+ * New consumer code should use hooks from db/tanstack-hooks.
  */
 
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
@@ -31,6 +34,7 @@ import { getEntityLimit, PAGINATION_CONFIG } from '../pagination.config';
 import { upsertRefDataEntityInstanceCache } from './useRefDataEntityInstanceCache';
 
 // v8.6.0: RxDB hooks - SINGLE SOURCE OF TRUTH
+// NOTE: Migration to TanStack Query + Dexie in progress. See db/tanstack-hooks for new implementation.
 import {
   useRxEntity,
   useRxEntityList,

@@ -51,8 +51,8 @@ import React from 'react';
 import { Copy, Check } from 'lucide-react';
 import { formatters } from './config/locale';
 import { DebouncedInput, DebouncedTextarea } from '../components/shared/ui/DebouncedInput';
-// v8.6.0: Use RxDB sync cache for non-hook datalabel access
-import { getDatalabelSync } from '../db/rxdb/hooks/useRxMetadata';
+// v9.0.0: Use Dexie sync cache for non-hook datalabel access
+import { getDatalabelSync } from '../db/tanstack-hooks';
 import { BadgeDropdownSelect, type BadgeDropdownSelectOption } from '../components/shared/ui/BadgeDropdownSelect';
 import { EntitySelect } from '../components/shared/ui/EntitySelect';
 import { colorCodeToTailwindClass } from './formatters/valueFormatters';

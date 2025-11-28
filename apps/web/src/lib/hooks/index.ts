@@ -3,18 +3,17 @@
  *
  * Centralized export for all custom React hooks
  *
- * v8.5.0: RxDB Offline-First Architecture
- * - Entity data stored in IndexedDB via RxDB
- * - Real-time sync via WebSocket
- * - Draft persistence with undo/redo
- * - Multi-tab coordination via LeaderElection
+ * v9.0.0: Hybrid RxDB + TanStack Query + Dexie Architecture
+ * - RxDB: Existing entity data hooks (useEntityQuery.ts)
+ * - TanStack Query + Dexie: New hooks for metadata and drafts
+ * - Migration in progress - both systems available
  */
 
 export { useColumnVisibility } from './useColumnVisibility';
 export type { UseColumnVisibilityReturn } from './useColumnVisibility';
 
-// Entity Query Hooks (RxDB + React Query integration)
-// v8.6.0: RxDB offline-first pattern - all data persisted in IndexedDB
+// Entity Query Hooks (RxDB integration - existing implementation)
+// These hooks use RxDB internally for entity data storage
 export {
   // Raw data hooks (for editing, exports, mutations)
   useEntityInstanceList,
@@ -49,7 +48,7 @@ export type {
   RefData,
 } from './useEntityQuery';
 
-// v8.5.0: RxDB hooks for direct database access
+// v8.5.0: RxDB hooks for direct database access (legacy - still in use)
 export {
   useRxEntity,
   useRxEntityList,
@@ -59,7 +58,7 @@ export {
   useRxDB,
   useRxDBReady,
   useReplicationStatus,
-  // v8.6.0: RxDB metadata hooks (replaces Zustand stores)
+  // v8.6.0: RxDB metadata hooks
   useRxDatalabel,
   useRxAllDatalabels,
   useRxEntityCodes,
@@ -78,6 +77,36 @@ export type {
   GlobalSettings,
   ComponentMetadata,
 } from '../../db/rxdb';
+
+// v9.0.0: NEW TanStack + Dexie hooks (for consumer files that have migrated)
+export {
+  // Entity hooks
+  useEntity,
+  useEntityList,
+  // Offline-first hooks (Dexie-only, no network)
+  useOfflineEntity,
+  useOfflineEntityList,
+  isEntityCached,
+  getCachedEntity,
+  // Draft persistence (survives page refresh)
+  useDraft,
+  useRecoverDrafts,
+  // Sync cache accessors (for non-hook contexts)
+  getDatalabelSync,
+  getEntityCodesSync,
+  getEntityByCodeSync,
+  getGlobalSettingsSync,
+  getSettingSync,
+  // Prefetch functions (used by AuthContext)
+  prefetchAllDatalabels,
+  prefetchEntityCodes,
+  prefetchGlobalSettings,
+} from '../../db/tanstack-hooks';
+
+export type {
+  UseDraftResult,
+  DraftInfo,
+} from '../../db/tanstack-hooks';
 
 // v8.3.1: RefData Resolution Hooks (metadata-based, no pattern matching)
 export {

@@ -19,18 +19,26 @@ interface UseDraftOptions {
 }
 
 export interface UseDraftResult<T> {
+  /** Whether a draft exists (in edit mode) */
+  hasDraft: boolean;
   /** Current edited data */
   currentData: T;
+  /** Set of fields that have been modified */
+  dirtyFields: Set<string>;
   /** Has unsaved changes */
   hasChanges: boolean;
   /** Can undo */
   canUndo: boolean;
   /** Can redo */
   canRedo: boolean;
+  /** Start editing with original data */
+  startEdit: (originalData: T) => Promise<void>;
   /** Update a single field */
   updateField: (field: string, value: unknown) => Promise<void>;
   /** Update multiple fields at once */
-  updateFields: (updates: Partial<T>) => Promise<void>;
+  updateMultipleFields: (updates: Partial<T>) => Promise<void>;
+  /** Get only the changed fields */
+  getChanges: () => Partial<T>;
   /** Undo last change */
   undo: () => Promise<void>;
   /** Redo last undone change */
@@ -38,9 +46,9 @@ export interface UseDraftResult<T> {
   /** Reset to original data */
   reset: () => Promise<void>;
   /** Discard draft entirely */
-  discard: () => Promise<void>;
+  discardDraft: () => Promise<void>;
   /** Loading draft from IndexedDB */
-  isDraftLoading: boolean;
+  isLoading: boolean;
 }
 
 // ============================================================================
@@ -92,67 +100,125 @@ export function useDraft<T extends Record<string, unknown>>(
     [draftId]
   );
 
+  // Whether a draft exists (in edit mode)
+  const hasDraft = !!draft;
+
   // Current data is draft data or original
   const currentData = useMemo(
-    () => (draft?.currentData ?? originalData) as T,
+    () => (draft?.currentData ?? originalData ?? {}) as T,
     [draft, originalData]
   );
 
+  // Calculate dirty fields by comparing current with original
+  const dirtyFields = useMemo(() => {
+    const dirty = new Set<string>();
+    if (!draft?.currentData || !draft?.originalData) return dirty;
+
+    const original = draft.originalData as Record<string, unknown>;
+    const current = draft.currentData as Record<string, unknown>;
+
+    for (const key of Object.keys(current)) {
+      if (JSON.stringify(current[key]) !== JSON.stringify(original[key])) {
+        dirty.add(key);
+      }
+    }
+    return dirty;
+  }, [draft]);
+
   // Check for changes by comparing with original
   const hasChanges = useMemo(() => {
-    if (!draft || !originalData) return false;
-    return JSON.stringify(draft.currentData) !== JSON.stringify(originalData);
-  }, [draft, originalData]);
+    if (!draft) return false;
+    return JSON.stringify(draft.currentData) !== JSON.stringify(draft.originalData);
+  }, [draft]);
 
-  // Update a single field
-  const updateField = useCallback(
-    async (field: string, value: unknown): Promise<void> => {
-      if (!draftId || !originalData) return;
+  // Get only the changed fields
+  const getChanges = useCallback((): Partial<T> => {
+    if (!draft?.currentData || !draft?.originalData) return {} as Partial<T>;
 
-      const existing = await db.drafts.get(draftId);
-      const prevData = existing?.currentData ?? originalData;
-      const newData = { ...prevData, [field]: value };
+    const original = draft.originalData as Record<string, unknown>;
+    const current = draft.currentData as Record<string, unknown>;
+    const changes: Record<string, unknown> = {};
 
-      // Limit undo stack size
-      const undoStack = [...(existing?.undoStack ?? []), prevData].slice(-maxUndoStack);
+    for (const key of Object.keys(current)) {
+      if (JSON.stringify(current[key]) !== JSON.stringify(original[key])) {
+        changes[key] = current[key];
+      }
+    }
+    return changes as Partial<T>;
+  }, [draft]);
+
+  // Start editing with original data (creates a new draft)
+  const startEdit = useCallback(
+    async (data: T): Promise<void> => {
+      if (!draftId) return;
 
       await db.drafts.put({
         _id: draftId,
         entityCode,
         entityId: entityId!,
-        originalData: originalData as Record<string, unknown>,
+        originalData: data as Record<string, unknown>,
+        currentData: data as Record<string, unknown>,
+        undoStack: [],
+        redoStack: [],
+        updatedAt: Date.now(),
+      });
+    },
+    [draftId, entityCode, entityId]
+  );
+
+  // Update a single field
+  const updateField = useCallback(
+    async (field: string, value: unknown): Promise<void> => {
+      if (!draftId) return;
+
+      const existing = await db.drafts.get(draftId);
+      if (!existing) {
+        console.warn('[useDraft] No draft exists. Call startEdit first.');
+        return;
+      }
+
+      const prevData = existing.currentData;
+      const newData = { ...prevData, [field]: value };
+
+      // Limit undo stack size
+      const undoStack = [...existing.undoStack, prevData].slice(-maxUndoStack);
+
+      await db.drafts.put({
+        ...existing,
         currentData: newData,
         undoStack,
         redoStack: [], // Clear redo on new change
         updatedAt: Date.now(),
       });
     },
-    [draftId, entityCode, entityId, originalData, maxUndoStack]
+    [draftId, maxUndoStack]
   );
 
   // Update multiple fields at once
-  const updateFields = useCallback(
+  const updateMultipleFields = useCallback(
     async (updates: Partial<T>): Promise<void> => {
-      if (!draftId || !originalData) return;
+      if (!draftId) return;
 
       const existing = await db.drafts.get(draftId);
-      const prevData = existing?.currentData ?? originalData;
+      if (!existing) {
+        console.warn('[useDraft] No draft exists. Call startEdit first.');
+        return;
+      }
+
+      const prevData = existing.currentData;
       const newData = { ...prevData, ...updates };
 
-      const undoStack = [...(existing?.undoStack ?? []), prevData].slice(-maxUndoStack);
+      const undoStack = [...existing.undoStack, prevData].slice(-maxUndoStack);
 
       await db.drafts.put({
-        _id: draftId,
-        entityCode,
-        entityId: entityId!,
-        originalData: originalData as Record<string, unknown>,
+        ...existing,
         currentData: newData,
         undoStack,
         redoStack: [],
         updatedAt: Date.now(),
       });
     },
-    [draftId, entityCode, entityId, originalData, maxUndoStack]
+    [draftId, maxUndoStack]
   );
 
   // Undo last change
@@ -208,24 +274,28 @@ export function useDraft<T extends Record<string, unknown>>(
   }, [draftId, originalData]);
 
   // Discard draft entirely (remove from IndexedDB)
-  const discard = useCallback(async (): Promise<void> => {
+  const discardDraft = useCallback(async (): Promise<void> => {
     if (draftId) {
       await db.drafts.delete(draftId);
     }
   }, [draftId]);
 
   return {
+    hasDraft,
     currentData,
+    dirtyFields,
     hasChanges,
     canUndo: (draft?.undoStack.length ?? 0) > 0,
     canRedo: (draft?.redoStack.length ?? 0) > 0,
+    startEdit,
     updateField,
-    updateFields,
+    updateMultipleFields,
+    getChanges,
     undo,
     redo,
     reset,
-    discard,
-    isDraftLoading: draft === undefined,
+    discardDraft,
+    isLoading: draft === undefined,
   };
 }
 
