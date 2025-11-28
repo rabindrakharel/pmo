@@ -10,10 +10,13 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
       // Dedupe React to avoid multiple copies
       'react': path.resolve(__dirname, './node_modules/react'),
-      'react-dom': path.resolve(__dirname, './node_modules/react-dom')
+      'react-dom': path.resolve(__dirname, './node_modules/react-dom'),
+      // Resolve dexie packages for pnpm compatibility
+      'dexie': path.resolve(__dirname, './node_modules/dexie'),
+      'dexie-react-hooks': path.resolve(__dirname, './node_modules/dexie-react-hooks')
     },
-    preserveSymlinks: true,
-    dedupe: ['react', 'react-dom']
+    preserveSymlinks: false,
+    dedupe: ['react', 'react-dom', 'dexie']
   },
   server: {
     port: 5173,
