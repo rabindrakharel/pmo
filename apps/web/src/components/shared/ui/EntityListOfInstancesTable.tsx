@@ -383,11 +383,10 @@ export function EntityListOfInstancesTable<T = any>({
   // Ref for click-outside detection
   const editingCellRef = useRef<HTMLDivElement | null>(null);
 
-  // Slow-click tracking for inline edit (industry standard pattern)
-  // Click → pause (300-800ms) → click same cell = enter edit mode
-  const lastClickRef = useRef<{ rowId: string; columnKey: string; timestamp: number } | null>(null);
-  const SLOW_CLICK_MIN_DELAY = 300;  // Minimum delay to distinguish from double-click
-  const SLOW_CLICK_MAX_DELAY = 1500; // Maximum delay for slow-click to register
+  // Long-press tracking for inline edit (click and hold pattern)
+  // Hold mouse down for 500ms → enter edit mode
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const LONG_PRESS_DELAY = 500; // 500ms hold to enter edit mode
 
   // Check if a specific cell is being edited
   const isCellEditing = useCallback((rowId: string, columnKey: string) => {
@@ -420,8 +419,46 @@ export function EntityListOfInstancesTable<T = any>({
     }
   }, [onCellClick, onInlineEdit]);
 
-  // Handle cell click - implements slow-click pattern (industry standard)
-  // First click: track cell, Second click on same cell after 300-1500ms: enter edit mode
+  // Cancel long-press timer
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  // Handle cell mouse down - start long-press timer
+  const handleCellMouseDown = useCallback((
+    e: React.MouseEvent,
+    rowId: string,
+    columnKey: string,
+    record: T,
+    isEditable: boolean
+  ) => {
+    if (!inlineEditable || !isEditable) return;
+    if (isCellEditing(rowId, columnKey)) return;
+
+    // Cancel any existing timer
+    cancelLongPress();
+
+    // Start long-press timer
+    longPressTimerRef.current = setTimeout(() => {
+      enterEditMode(rowId, columnKey, record);
+      longPressTimerRef.current = null;
+    }, LONG_PRESS_DELAY);
+  }, [inlineEditable, isCellEditing, enterEditMode, cancelLongPress, LONG_PRESS_DELAY]);
+
+  // Handle cell mouse up - cancel long-press timer
+  const handleCellMouseUp = useCallback(() => {
+    cancelLongPress();
+  }, [cancelLongPress]);
+
+  // Handle cell mouse leave - cancel long-press timer
+  const handleCellMouseLeave = useCallback(() => {
+    cancelLongPress();
+  }, [cancelLongPress]);
+
+  // Handle cell click - just prevent propagation, long-press handles edit mode
   const handleCellClick = useCallback((
     e: React.MouseEvent,
     rowId: string,
@@ -430,53 +467,7 @@ export function EntityListOfInstancesTable<T = any>({
     isEditable: boolean
   ) => {
     e.stopPropagation(); // Prevent row click navigation
-
-    if (!inlineEditable || !isEditable) return;
-
-    // If already editing this cell, do nothing
-    if (isCellEditing(rowId, columnKey)) return;
-
-    const now = Date.now();
-    const lastClick = lastClickRef.current;
-
-    // Check for slow-click pattern: same cell, within time window
-    if (lastClick &&
-        lastClick.rowId === rowId &&
-        lastClick.columnKey === columnKey) {
-      const elapsed = now - lastClick.timestamp;
-
-      if (elapsed >= SLOW_CLICK_MIN_DELAY && elapsed <= SLOW_CLICK_MAX_DELAY) {
-        // Slow-click detected - enter edit mode
-        lastClickRef.current = null;
-        enterEditMode(rowId, columnKey, record);
-        return;
-      }
-    }
-
-    // First click or different cell - track for potential slow-click
-    lastClickRef.current = { rowId, columnKey, timestamp: now };
-  }, [inlineEditable, isCellEditing, enterEditMode, SLOW_CLICK_MIN_DELAY, SLOW_CLICK_MAX_DELAY]);
-
-  // Handle double-click - immediately enter edit mode (alternative to slow-click)
-  const handleCellDoubleClick = useCallback((
-    e: React.MouseEvent,
-    rowId: string,
-    columnKey: string,
-    record: T,
-    isEditable: boolean
-  ) => {
-    e.stopPropagation();
-    e.preventDefault();
-
-    if (!inlineEditable || !isEditable) return;
-    if (isCellEditing(rowId, columnKey)) return;
-
-    // Clear slow-click tracking
-    lastClickRef.current = null;
-
-    // Enter edit mode immediately
-    enterEditMode(rowId, columnKey, record);
-  }, [inlineEditable, isCellEditing, enterEditMode]);
+  }, []);
 
   // Handle cell value change
   const handleCellValueChange = useCallback((rowId: string, columnKey: string, value: any) => {
@@ -556,7 +547,11 @@ export function EntityListOfInstancesTable<T = any>({
       onCellSave(lastEdit.rowId, lastEdit.columnKey, lastEdit.oldValue, lastEdit.record);
     } else if (onInlineEdit && onSaveInlineEdit) {
       onInlineEdit(lastEdit.rowId, lastEdit.columnKey, lastEdit.oldValue);
-      onSaveInlineEdit(lastEdit.record);
+      // FIX: Update record with reverted value before saving
+      const formattedRecord = lastEdit.record as FormattedRow<any>;
+      const rawRecord = formattedRecord.raw || lastEdit.record;
+      const revertedRecord = { ...rawRecord, [lastEdit.columnKey]: lastEdit.oldValue };
+      onSaveInlineEdit(revertedRecord as T);
     }
 
     // Show notification
@@ -1101,10 +1096,14 @@ export function EntityListOfInstancesTable<T = any>({
 
       // Save current cell first
       const valueToSave = localCellValue ?? editedData[columnKey];
+      const formattedRec = record as FormattedRow<any>;
+      const rawRec = formattedRec.raw || record;
       if (onCellSave) {
         onCellSave(rowId, columnKey, valueToSave, record);
       } else if (onSaveInlineEdit) {
-        onSaveInlineEdit(record);
+        // FIX: Update record with new value before saving
+        const updatedRecord = { ...rawRec, [columnKey]: valueToSave };
+        onSaveInlineEdit(updatedRecord as T);
       }
 
       // Find next editable cell
@@ -1833,8 +1832,12 @@ export function EntityListOfInstancesTable<T = any>({
                                       e.stopPropagation();
                                       if (activeEditingCell) {
                                         handleCellSave(recordId, activeEditingCell.columnKey, record);
-                                      } else {
-                                        onSaveInlineEdit?.(record);
+                                      } else if (onSaveInlineEdit) {
+                                        // FIX: Merge editedData into record before saving
+                                        const formattedRec = record as FormattedRow<any>;
+                                        const rawRec = formattedRec.raw || record;
+                                        const updatedRecord = { ...rawRec, ...editedData };
+                                        onSaveInlineEdit(updatedRecord as T);
                                       }
                                     }}
                                     className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
@@ -1916,11 +1919,13 @@ export function EntityListOfInstancesTable<T = any>({
                               handleCellClick(e, recordId, column.key, record, fieldEditable);
                             }
                           }}
-                          onDoubleClick={(e) => {
+                          onMouseDown={(e) => {
                             if (fieldEditable && inlineEditable) {
-                              handleCellDoubleClick(e, recordId, column.key, record, fieldEditable);
+                              handleCellMouseDown(e, recordId, column.key, record, fieldEditable);
                             }
                           }}
+                          onMouseUp={handleCellMouseUp}
+                          onMouseLeave={handleCellMouseLeave}
                         >
                           {/* v8.4.0: Cell editing - show edit field if THIS cell is being edited OR row-level editing */}
                           {(isCellBeingEdited || (isEditing && fieldEditable)) ? (
@@ -2081,8 +2086,12 @@ export function EntityListOfInstancesTable<T = any>({
                                       e.stopPropagation();
                                       if (activeEditingCell) {
                                         handleCellSave(recordId, activeEditingCell.columnKey, record);
-                                      } else {
-                                        onSaveInlineEdit?.(record);
+                                      } else if (onSaveInlineEdit) {
+                                        // FIX: Merge editedData into record before saving
+                                        const formattedRec = record as FormattedRow<any>;
+                                        const rawRec = formattedRec.raw || record;
+                                        const updatedRecord = { ...rawRec, ...editedData };
+                                        onSaveInlineEdit(updatedRecord as T);
                                       }
                                     }}
                                     className="p-1.5 text-dark-700 hover:text-dark-600 hover:bg-dark-100 rounded transition-colors"
@@ -2164,11 +2173,13 @@ export function EntityListOfInstancesTable<T = any>({
                               handleCellClick(e, recordId, column.key, record, fieldEditable);
                             }
                           }}
-                          onDoubleClick={(e) => {
+                          onMouseDown={(e) => {
                             if (fieldEditable && inlineEditable) {
-                              handleCellDoubleClick(e, recordId, column.key, record, fieldEditable);
+                              handleCellMouseDown(e, recordId, column.key, record, fieldEditable);
                             }
                           }}
+                          onMouseUp={handleCellMouseUp}
+                          onMouseLeave={handleCellMouseLeave}
                         >
                           {/* v8.4.0: Cell editing - show edit field if THIS cell is being edited OR row-level editing */}
                           {(isCellBeingEdited || (isEditing && fieldEditable)) ? (
