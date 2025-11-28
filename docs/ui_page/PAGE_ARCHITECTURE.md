@@ -649,17 +649,51 @@ Universal form renderer:
 
 ---
 
-## 8. Data Fetching Patterns
+## 8. Data Fetching Patterns (v8.5.0)
 
-### React Query Hooks
+### RxDB Hooks (Offline-First)
 
-| Hook | Purpose | Cache TTL |
-|------|---------|-----------|
-| `useEntityInstanceList()` | Fetch entity list | 5 min |
-| `useEntityInstance()` | Fetch single entity | 5 min |
-| `useEntityMutation()` | PATCH/DELETE with cache invalidation | - |
-| `useDynamicChildEntityTabs()` | Fetch child tabs from entity.child_entity_codes | 5 min |
-| `useDatalabels()` | Fetch dropdown options | 30 min |
+| Hook | Purpose | Storage | Survives Refresh |
+|------|---------|---------|------------------|
+| `useRxEntityList()` | Query entity list from RxDB | IndexedDB | ✅ Yes |
+| `useRxEntity()` | Query single entity from RxDB | IndexedDB | ✅ Yes |
+| `useRxDraft()` | Persist unsaved edits | IndexedDB | ✅ Yes |
+
+### Data Flow Summary
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PAGE DATA FLOW (v8.5.0)                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  1. Page mounts → useRxEntityList('project')                                │
+│     └── RxDB queries IndexedDB (instant if cached)                          │
+│     └── If empty/stale → ReplicationManager.fetchEntityList()               │
+│                                                                              │
+│  2. API response → ReplicationManager stores in RxDB                        │
+│     └── db.entities.upsert(doc) for each entity                             │
+│     └── WebSocket SUBSCRIBE sent for loaded entity IDs                      │
+│                                                                              │
+│  3. RxDB reactive query emits → UI auto-updates                             │
+│     └── No manual setState needed                                           │
+│                                                                              │
+│  4. Another user edits → WebSocket INVALIDATE received                      │
+│     └── ReplicationManager.fetchEntity() → RxDB upsert → UI updates         │
+│                                                                              │
+│  5. User edits → useRxDraft() creates draft in IndexedDB                   │
+│     └── Survives page refresh!                                              │
+│     └── Only dirty fields sent in PATCH                                     │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Metadata Hooks (Zustand + React Query)
+
+| Hook | Purpose | Storage |
+|------|---------|---------|
+| `useDatalabels()` | Fetch dropdown options | Zustand (memory) |
+| `useDynamicChildEntityTabs()` | Fetch child tabs from entity.child_entity_codes | React Query |
+| `useEntityMetadata()` | Entity type configurations | Zustand (memory) |
 
 ### Prefetching
 
@@ -720,4 +754,9 @@ User clicks sidebar → EntityListOfInstancesPage (/:entityCode)
 
 ---
 
-**Last Updated:** 2025-11-22 | **Status:** Production Ready
+**Version:** 8.5.0 | **Last Updated:** 2025-11-27 | **Status:** Production Ready
+
+**Recent Updates:**
+- v8.5.0 (2025-11-27): RxDB offline-first architecture with IndexedDB persistent storage
+- v8.4.0 (2025-11-27): WebSocket real-time sync via PubSub service
+- v8.3.0 (2025-11-26): ref_data_entityInstance pattern for entity reference resolution
