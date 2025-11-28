@@ -5,8 +5,9 @@ import { InlineSpinner } from './EllipsisBounce';
 
 export interface EntityMultiSelectProps {
   entityCode: string;
-  values: any[];           // Array of { entity_code, *__*_id, label }
-  labelField: string;      // The label field name (e.g., "stakeholder")
+  uuidField: string;        // The UUID field name from metadata (e.g., "stakeholder__employee_id")
+  values: any[];            // Array of { entity_code, [uuidField]: uuid, label }
+  labelField: string;       // The label field name (e.g., "stakeholder")
   onAdd: (uuid: string, label: string) => void;
   onRemove: (uuid: string) => void;
   disabled?: boolean;
@@ -14,7 +15,7 @@ export interface EntityMultiSelectProps {
 }
 
 /**
- * Domain component for entity array references (v8.3.2)
+ * Domain component for entity array references (v9.1.1)
  * Used for all entity array fields (_IDS fields)
  *
  * Uses the unified ref_data_entityInstance cache which:
@@ -22,9 +23,12 @@ export interface EntityMultiSelectProps {
  * - Auto-populated from API response ref_data_entityInstance
  * - On-demand fetch with 15-min TTL for dropdown population
  *
+ * IMPORTANT: uuidField must be provided from backend metadata - no pattern detection
+ *
  * @example
  * <EntityMultiSelect
  *   entityCode="employee"
+ *   uuidField="stakeholder__employee_id"  // From metadata.lookupEntity
  *   values={[{ entity_code: "employee", stakeholder__employee_id: "uuid", stakeholder: "Name" }]}
  *   labelField="stakeholder"
  *   onAdd={(uuid, label) => handleAdd(uuid, label)}
@@ -33,6 +37,7 @@ export interface EntityMultiSelectProps {
  */
 export function EntityMultiSelect({
   entityCode,
+  uuidField,
   values,
   labelField,
   onAdd,
@@ -44,11 +49,10 @@ export function EntityMultiSelect({
   // Options already in SelectOption format: [{ value: uuid, label: name }]
   const { options, isLoading } = useRefDataEntityInstanceOptions(entityCode);
 
-  // Extract current UUIDs from values array
-  const selectedUuids = values.map((value) => {
-    const uuidField = Object.keys(value).find(k => k.endsWith('_id'));
-    return uuidField ? value[uuidField] : null;
-  }).filter(Boolean) as string[];
+  // Extract current UUIDs from values array using explicit field name from metadata
+  const selectedUuids = values
+    .map((value) => value[uuidField])
+    .filter(Boolean) as string[];
 
   // Handle selection change
   const handleChange = (newUuids: string[]) => {
