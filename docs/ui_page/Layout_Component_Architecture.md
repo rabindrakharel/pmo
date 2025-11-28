@@ -16,77 +16,334 @@ The PMO frontend uses a **three-layer component architecture** (Base → Domain 
 
 ---
 
-## End-to-End Data Flow (v8.2.0)
+## End-to-End Data Request Flow (v8.4.0)
+
+The following diagrams show the complete data flow from user action through the system and back.
+
+### 1. Initial Page Load (Cold Start)
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      END-TO-END DATA FLOW (v8.2.0)                           │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  1. BACKEND BFF (generateEntityResponse)                                     │
-│     ─────────────────────────────────────────────────────────────────────    │
-│     API: GET /api/v1/project?limit=1000                                      │
-│                       │                                                      │
-│                       ▼                                                      │
-│     Response: {                                                              │
-│       data: [{ id, name, budget_allocated_amt, dl__project_stage }],        │
-│       fields: ['id', 'name', 'budget_allocated_amt', 'dl__project_stage'],  │
-│       metadata: {                                                            │
-│         entityDataTable: {                                                   │
-│           viewType: {                                                        │
-│             budget_allocated_amt: { renderType: 'currency', ... },          │
-│             dl__project_stage: { renderType: 'badge', datalabelKey: '...' } │
-│           },                                                                 │
-│           editType: {                                                        │
-│             budget_allocated_amt: { inputType: 'number', ... },             │
-│             dl__project_stage: { inputType: 'select', ... }                 │
-│           }                                                                  │
-│         }                                                                    │
-│       },                                                                     │
-│       datalabels: { project_stage: [...] }                                  │
-│     }                                                                        │
-│                       │                                                      │
-│                       ▼ HTTP Response                                        │
-│                                                                              │
-│  2. REACT QUERY CACHE (RAW data only)                                        │
-│     ─────────────────────────────────────────────────────────────────────    │
-│     queryKey: ['entity-list', 'project', { limit: 1000 }]                   │
-│     data: { data: [...], metadata: {...} }  // Stored as-is                  │
-│                       │                                                      │
-│                       ▼ select transform (ON READ - memoized)                │
-│                                                                              │
-│  3. FORMAT-AT-READ (formatDataset)                                           │
-│     ─────────────────────────────────────────────────────────────────────    │
-│     select: (response) => {                                                  │
-│       const viewType = extractViewType(response.metadata.entityDataTable);  │
-│       return formatDataset(response.data, { viewType });                    │
-│     }                                                                        │
-│                       │                                                      │
-│                       ▼                                                      │
-│     FormattedRow[] = [                                                       │
-│       {                                                                      │
-│         raw: { budget_allocated_amt: 50000, dl__project_stage: 'planning' },│
-│         display: { budget_allocated_amt: '$50,000.00', dl__project_stage: 'Planning' },
-│         styles: { dl__project_stage: 'bg-blue-100 text-blue-700' }          │
-│       }                                                                      │
-│     ]                                                                        │
-│                       │                                                      │
-│                       ▼                                                      │
-│                                                                              │
-│  4. COMPONENT RENDERING                                                      │
-│     ─────────────────────────────────────────────────────────────────────    │
-│     const viewType = extractViewType(metadata.entityDataTable);             │
-│     const editType = extractEditType(metadata.entityDataTable);             │
-│                                                                              │
-│     VIEW MODE:                                                               │
-│       <span>{row.display[key]}</span>                                        │
-│       if (row.styles[key]) <Badge className={row.styles[key]}>{...}</Badge> │
-│                                                                              │
-│     EDIT MODE:                                                               │
-│       renderEditModeFromMetadata(row.raw[key], editType[key], onChange)     │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                         INITIAL LOAD (No Cache)                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+User visits /projects
+        │
+        ▼
+┌──────────────────┐
+│ ProjectListPage  │
+│                  │
+│ useFormattedList │
+│ ('project')      │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ useEntityInstanceList Hook                                                        │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                   │
+│  1. queryFn: apiClient.get('/api/v1/project', { params })                        │
+│     ─────────────────────────────────────────────────────────────────────►       │
+│                                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────┘
+         │
+         │  HTTP GET /api/v1/project?limit=50
+         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ Fastify API Server (Port 4000)                                                    │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                   │
+│  1. JWT Auth middleware → Extract userId                                         │
+│                                                                                   │
+│  2. RBAC Check:                                                                  │
+│     entityInfra.get_entity_rbac_where_condition(userId, 'project', VIEW)         │
+│                                                                                   │
+│  3. Query PostgreSQL:                                                            │
+│     SELECT * FROM app.project WHERE {rbacCondition} LIMIT 50                     │
+│                                                                                   │
+│  4. Build ref_data_entityInstance:                                               │
+│     entityInfra.build_ref_data_entityInstance(data, 'project')                   │
+│     └── { employee: { "uuid-1": "James Miller", "uuid-2": "..." } }              │
+│                                                                                   │
+│  5. Generate metadata:                                                           │
+│     getEntityMetadata('project', data[0])                                        │
+│     └── { entityDataTable: { viewType: {...}, editType: {...} } }                │
+│                                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────┘
+         │
+         │  HTTP 200 Response
+         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ API Response                                                                      │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│  {                                                                                │
+│    "data": [                                                                      │
+│      { "id": "uuid-1", "name": "Kitchen Renovation", "budget_allocated_amt": 50000,
+│        "manager__employee_id": "uuid-james" }                                    │
+│    ],                                                                             │
+│    "ref_data_entityInstance": {                                                  │
+│      "employee": { "uuid-james": "James Miller" }                                │
+│    },                                                                             │
+│    "metadata": {                                                                  │
+│      "entityDataTable": {                                                        │
+│        "viewType": {                                                             │
+│          "budget_allocated_amt": { "renderType": "currency", ... },              │
+│          "manager__employee_id": { "renderType": "entityInstanceId",             │
+│                                     "lookupEntity": "employee" }                 │
+│        },                                                                        │
+│        "editType": { ... }                                                       │
+│      }                                                                           │
+│    },                                                                             │
+│    "total": 25, "limit": 50, "offset": 0                                         │
+│  }                                                                                │
+└──────────────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ React Query Cache + WebSocket Subscribe                                           │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                   │
+│  1. Cache RAW response:                                                          │
+│     queryClient.setQueryData(['entity-instance-list', 'project', params], data)  │
+│                                                                                   │
+│  2. useAutoSubscribe sends WebSocket SUBSCRIBE:                                  │
+│     ws.send({ type: 'SUBSCRIBE', payload: { entityCode: 'project',               │
+│                                              entityIds: ['uuid-1', ...] } })      │
+│     ─────────────────────────────────────────────────────────────────────►       │
+│     PubSub stores in app.rxdb_subscription table                                 │
+│                                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ Format-at-Read (select transform)                                                 │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                   │
+│  select: (response) => formatDataset(response.data, response.metadata,           │
+│                                       response.ref_data_entityInstance)          │
+│                       │                                                          │
+│                       ▼                                                          │
+│  FormattedRow[] = [                                                              │
+│    {                                                                             │
+│      raw: { budget_allocated_amt: 50000, manager__employee_id: 'uuid-james' },   │
+│      display: { budget_allocated_amt: '$50,000.00',                              │
+│                 manager__employee_id: 'James Miller' },  // ← Resolved via refData
+│      styles: { dl__project_stage: 'bg-blue-100 text-blue-700' }                  │
+│    }                                                                             │
+│  ]                                                                               │
+│                                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────┐
+│ Component        │
+│ re-renders with  │
+│ formattedData[]  │
+│ isLoading: false │
+└──────────────────┘
 ```
+
+### 2. Subsequent Load (Warm Cache)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                         SUBSEQUENT LOAD (Cached)                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+User returns to /projects (or navigates from another page)
+        │
+        ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ React Query Cache Check                                                           │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                   │
+│  queryClient.getQueryData(['entity-instance-list', 'project', params])           │
+│                                                                                   │
+│  Cache Status Check:                                                             │
+│  ├── Data Age < 30s (staleTime): Return cached, no refetch                       │
+│  └── Data Age > 30s: Return cached immediately, refetch in background            │
+│                                                                                   │
+│  ✓ INSTANT UI render (no loading spinner!)                                       │
+│  ✓ Background refetch if stale                                                   │
+│                                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────┐
+│ UI renders       │
+│ IMMEDIATELY      │ ◄─── Stale-while-revalidate pattern
+│ with cached data │
+└──────────────────┘
+```
+
+### 3. Real-Time Update (Another User Edits)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                         REAL-TIME SYNC (WebSocket)                               │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+User B edits project "Kitchen Renovation" (while User A is viewing)
+        │
+        ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ User B's Browser                                                                  │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                   │
+│  PATCH /api/v1/project/uuid-1                                                    │
+│  Body: { "budget_allocated_amt": 75000 }                                         │
+│                                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ Fastify API Server                                                                │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                   │
+│  1. RBAC Check (EDIT permission)                                                 │
+│  2. entityInfra.update_entity({ entity_code: 'project', ... })                   │
+│                                                                                   │
+│  3. TRANSACTION:                                                                 │
+│     ├── UPDATE app.project SET budget_allocated_amt = 75000                      │
+│     ├── UPDATE app.entity_instance (sync display name if changed)                │
+│     └── Database TRIGGER fires:                                                  │
+│         INSERT INTO app.logging (entity_code, entity_id, action, sync_status)   │
+│         VALUES ('project', 'uuid-1', 1, 'pending')  -- action=1 is EDIT          │
+│                                                                                   │
+│  4. Return 200 OK to User B                                                      │
+│                                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────┘
+         │
+         │ (up to 60 seconds later)
+         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ PubSub Service - LogWatcher (Port 4001)                                           │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                   │
+│  1. Poll app.logging (every 60s):                                                │
+│     SELECT * FROM app.logging WHERE sync_status = 'pending' AND action != 0     │
+│     └── Found: { entity_code: 'project', entity_id: 'uuid-1', action: 1 }        │
+│                                                                                   │
+│  2. Query subscribers:                                                           │
+│     SELECT * FROM app.rxdb_subscription                                          │
+│     WHERE entity_code = 'project' AND entity_id = 'uuid-1'                       │
+│     └── Found: User A (connection_id: 'conn-abc')                                │
+│                                                                                   │
+│  3. Push INVALIDATE via WebSocket:                                               │
+│     connectionManager.getSocket('conn-abc').send(...)                            │
+│                                                                                   │
+│  4. Mark logs as sent:                                                           │
+│     UPDATE app.logging SET sync_status = 'sent' WHERE id = ...                   │
+│                                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────┘
+         │
+         │  WebSocket message
+         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ User A's Browser - SyncProvider                                                   │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                   │
+│  WebSocket receives:                                                             │
+│  {                                                                                │
+│    "type": "INVALIDATE",                                                         │
+│    "payload": {                                                                   │
+│      "entityCode": "project",                                                    │
+│      "changes": [{ "entityId": "uuid-1", "action": "UPDATE", "version": 2 }]    │
+│    }                                                                              │
+│  }                                                                                │
+│                                                                                   │
+│  handleInvalidate():                                                             │
+│  1. Check version (skip if already processed)                                    │
+│  2. queryClient.invalidateQueries({                                              │
+│       queryKey: ['entity-instance', 'project', 'uuid-1']                         │
+│     })                                                                           │
+│  3. queryClient.invalidateQueries({                                              │
+│       queryKey: ['entity-instance-list', 'project'],                             │
+│       exact: false  // Invalidate all project list queries                       │
+│     })                                                                           │
+│                                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────┘
+         │
+         │  React Query auto-refetch
+         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ REST API Refetch → Format-at-Read → Re-render                                     │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                   │
+│  1. GET /api/v1/project → Fresh data with budget = 75000                         │
+│  2. Cache updated with new RAW data                                              │
+│  3. select: formatDataset() transforms to FormattedRow[]                         │
+│  4. Component re-renders automatically                                           │
+│                                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────┐
+│ User A's UI      │
+│ auto-updates!    │ ◄─── Budget now shows $75,000
+│ No refresh needed│
+└──────────────────┘
+```
+
+### 4. Complete System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              COMPLETE DATA FLOW                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+    ┌─────────────┐         ┌─────────────┐         ┌─────────────┐
+    │   User A    │         │   User B    │         │   User C    │
+    │  (Browser)  │         │  (Browser)  │         │  (Browser)  │
+    └──────┬──────┘         └──────┬──────┘         └──────┬──────┘
+           │                       │                       │
+    ┌──────▼──────┐         ┌──────▼──────┐         ┌──────▼──────┐
+    │ React Query │         │ React Query │         │ React Query │
+    │  (In-Memory │         │  (In-Memory │         │  (In-Memory │
+    │   Cache)    │         │   Cache)    │         │   Cache)    │
+    │             │         │             │         │             │
+    │ + Zustand   │         │ + Zustand   │         │ + Zustand   │
+    │  (metadata) │         │  (metadata) │         │  (metadata) │
+    └──────┬──────┘         └──────┬──────┘         └──────┬──────┘
+           │                       │                       │
+           │ WebSocket             │ REST API              │ WebSocket
+           │                       │                       │
+           ▼                       ▼                       ▼
+    ┌─────────────────────────────────────────────────────────────────┐
+    │                     PubSub Service (4001)                        │
+    │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐          │
+    │  │ Connection  │    │ Subscription│    │ LogWatcher  │          │
+    │  │ Manager     │◄──►│ Manager     │◄──►│ (60s poll)  │          │
+    │  └─────────────┘    └─────────────┘    └──────┬──────┘          │
+    └─────────────────────────────────────────────────┼────────────────┘
+                                                      │
+    ┌─────────────────────────────────────────────────┼────────────────┐
+    │                      REST API (4000)            │                │
+    │  ┌─────────────┐    ┌─────────────┐    ┌───────▼───────┐        │
+    │  │ Auth        │───►│ RBAC Check  │───►│ Entity Routes │        │
+    │  │ Middleware  │    │             │    │               │        │
+    │  └─────────────┘    └─────────────┘    └───────┬───────┘        │
+    └─────────────────────────────────────────────────┼────────────────┘
+                                                      │
+    ┌─────────────────────────────────────────────────▼────────────────┐
+    │                        PostgreSQL                                 │
+    │  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐   │
+    │  │ app.project │    │ app.logging │    │ app.rxdb_subscription│   │
+    │  │ app.task    │    │ (triggers)  │    │ (live subscriptions) │   │
+    │  │ app.employee│    │             │    │                      │   │
+    │  └─────────────┘    └─────────────┘    └─────────────────────┘   │
+    └──────────────────────────────────────────────────────────────────┘
+```
+
+### 5. Cache TTL Configuration
+
+| Layer | TTL | Purpose |
+|-------|-----|---------|
+| **Tier 2 - Reference Data** | 1 hour | Entity types, datalabels, global settings |
+| **Tier 3 - Metadata** | 15 min | Field definitions, component schemas |
+| **Tier 4 - Entity Lists** | 30s stale, 5m gc | Stale-while-revalidate for lists |
+| **Tier 5 - Entity Details** | 10s stale, 2m gc | Near real-time for active editing |
+| **Tier 6 - Reference Lookups** | 1 hour | ref_data_entityInstance name lookups |
 
 ---
 
