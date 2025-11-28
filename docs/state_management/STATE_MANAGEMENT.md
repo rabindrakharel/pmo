@@ -1,31 +1,37 @@
 # State Management Architecture
 
-**Version:** 8.6.0 | **Updated:** 2025-11-28
+**Version:** 9.1.0 | **Updated:** 2025-11-28
 
 ---
 
 ## Overview
 
-The PMO frontend uses **RxDB as the sole state management layer**. All data (entity instances, metadata, drafts) is stored in IndexedDB via RxDB, providing offline-first, persistent storage with reactive queries.
+The PMO frontend uses **TanStack Query + Dexie** for state management. TanStack Query manages server state with automatic background refetching, while Dexie (IndexedDB) provides offline-first persistent storage.
 
 ```
 +-------------------------------------------------------------------------+
-|                    STATE MANAGEMENT (v8.6.0 - RxDB Only)                 |
+|               STATE MANAGEMENT (v9.1.0 - TanStack Query + Dexie)         |
 +-------------------------------------------------------------------------+
 |                                                                          |
-|  RxDB (IndexedDB) - Single Source of Truth                              |
-|  ----------------------------------------------------------------       |
-|  - Entity instances (project, task, employee, etc.)                     |
-|  - Metadata (field definitions, component schemas)                      |
-|  - Reference data (datalabels, entity types)                            |
-|  - Drafts (unsaved edits with undo/redo)                                |
+|   TanStack Query (In-Memory)         Dexie (IndexedDB)                  |
+|   -------------------------          ------------------                  |
+|   - Server state management          - Persistent storage               |
+|   - Automatic background refetch     - Survives browser restart         |
+|   - Stale-while-revalidate          - Offline-first access             |
+|   - Cache invalidation              - Multi-tab sync                    |
 |                                                                          |
-|  Features:                                                               |
-|  - Persistent: Survives browser restart                                 |
-|  - Offline-first: Works without network                                 |
-|  - Reactive: UI auto-updates via RxJS observables                       |
-|  - Multi-tab sync: LeaderElection coordinates tabs                      |
-|  - Draft persistence: Unsaved edits survive page refresh                |
+|   +-----------------------+         +------------------------+          |
+|   |  useEntity()         |<------->|  entities table        |          |
+|   |  useEntityList()     |         |  entityLists table     |          |
+|   |  useDatalabel()      |         |  metadata table        |          |
+|   |  useDraft()          |         |  drafts table          |          |
+|   +-----------------------+         +------------------------+          |
+|                                                                          |
+|   WebSocket Manager                                                     |
+|   -----------------                                                     |
+|   - Receives INVALIDATE messages from PubSub (port 4001)               |
+|   - Triggers queryClient.invalidateQueries()                            |
+|   - TanStack Query auto-refetches -> Updates Dexie                     |
 |                                                                          |
 +-------------------------------------------------------------------------+
 ```
@@ -34,60 +40,86 @@ The PMO frontend uses **RxDB as the sole state management layer**. All data (ent
 
 ## Data Storage Summary
 
-| Data Type | Collection | TTL | Persists Refresh | Multi-Tab |
-|-----------|------------|-----|------------------|-----------|
-| **Entity instances** | `entities` | 30s stale | Yes | Yes |
-| **Drafts (unsaved edits)** | `drafts` | Until saved | Yes | Yes |
-| **Field metadata** | `metadata` | 15 min | Yes | Yes |
-| **Datalabels** | `metadata` | 1 hour | Yes | Yes |
-| **Entity types** | `metadata` | 1 hour | Yes | Yes |
+| Data Type | Storage | TTL | Persists Refresh | Multi-Tab |
+|-----------|---------|-----|------------------|-----------|
+| **Entity instances** | TanStack Query + Dexie | 5 min stale | Yes | Yes |
+| **Entity lists** | TanStack Query + Dexie | 2 min stale | Yes | Yes |
+| **Drafts (unsaved edits)** | Dexie only | Until saved | Yes | Yes |
+| **Datalabels** | TanStack Query + Dexie | 10 min | Yes | Yes |
+| **Entity codes** | TanStack Query + Dexie | 30 min | Yes | Yes |
+| **Global settings** | TanStack Query + Dexie | 30 min | Yes | Yes |
 
 ---
 
-## RxDB Collections
+## Dexie Tables (IndexedDB)
 
-| Collection | Purpose | Schema |
-|------------|---------|--------|
-| `entities` | All entity instances | `{ entityCode, id, data, refData, metadata, version, syncedAt }` |
-| `drafts` | Unsaved edits | `{ entityCode, entityId, originalData, currentData, undoStack, redoStack }` |
-| `metadata` | Cached metadata | `{ type, key, data, cachedAt, ttl }` |
+| Table | Purpose | Primary Key | Indexes |
+|-------|---------|-------------|---------|
+| `entities` | Cached entity data | `_id` (entityCode:entityId) | entityCode, syncedAt, isDeleted |
+| `entityLists` | Cached list query results | `_id` (entityCode:queryHash) | entityCode, syncedAt |
+| `metadata` | Datalabels, entity codes, settings | `_id` (type:key) | type, key |
+| `drafts` | Unsaved form edits | `_id` (draft:entityCode:entityId) | entityCode, entityId, updatedAt |
 
 ---
 
-## RxDB Hooks
+## Hooks
+
+### Entity Data Hooks
 
 ```typescript
-// Direct RxDB hooks (apps/web/src/db/rxdb/hooks/)
 import {
-  useRxEntity,           // Single entity with reactive updates
-  useRxEntityList,       // Entity list with reactive updates
-  useRxEntityMutation,   // Create/Update/Delete operations
-  useRxDraft,            // Draft persistence with undo/redo
-  useRecoverDraft,       // Check for existing draft on page load
-} from '@/db/rxdb';
+  useEntity,           // Single entity with auto-refetch
+  useEntityList,       // Paginated list
+  useEntityMutation,   // Create/Update/Delete
+  useOfflineEntity,    // Dexie-only (no network)
+} from '@/db/tanstack-index';
+```
+
+### Metadata Hooks
+
+```typescript
+import {
+  useDatalabel,        // Dropdown options
+  useEntityCodes,      // Entity type definitions
+  useGlobalSettings,   // App settings
+} from '@/db/tanstack-index';
+
+// Sync cache for non-hook access (formatters, utilities)
+import {
+  getDatalabelSync,
+  getEntityCodesSync,
+  getGlobalSettingsSync,
+} from '@/db/tanstack-index';
+```
+
+### Draft Persistence Hook
+
+```typescript
+import { useDraft, useRecoverDrafts } from '@/db/tanstack-index';
 ```
 
 ---
 
-## useRxEntityList Example
+## useEntityList Example
 
 ```typescript
 function ProjectList() {
   const {
-    data,           // T[] - Entity data from IndexedDB
-    refData,        // Reference lookups from API
-    metadata,       // Field metadata from API
+    data,           // Project[] from TanStack Query
+    metadata,       // Field definitions for rendering
+    refData,        // Reference lookups (entity names)
     isLoading,      // True during initial fetch
-    isStale,        // True if cached data > 30s old
+    isFetching,     // True during any fetch (including background)
+    isStale,        // True if data needs refresh
     total,          // Total count from API
     refetch,        // Manual refresh function
-  } = useRxEntityList<Project>('project', { limit: 50 });
+  } = useEntityList<Project>('project', { limit: 50 });
 
-  // Data available immediately from IndexedDB (if cached)
-  // Background refresh happens automatically if stale
+  // Data available immediately from Dexie (if cached)
+  // TanStack Query handles background refresh automatically
   return (
     <ul>
-      {data.map(project => (
+      {data?.map(project => (
         <li key={project.id}>{project.name}</li>
       ))}
     </ul>
@@ -97,19 +129,19 @@ function ProjectList() {
 
 ---
 
-## useRxDraft Example (Draft Persistence)
+## useDraft Example (Draft Persistence)
 
 ```typescript
 function ProjectEditor({ projectId }: { projectId: string }) {
-  const { data } = useRxEntity<Project>('project', projectId);
-  const draft = useRxDraft('project', projectId);
+  const { data } = useEntity<Project>('project', projectId);
+  const draft = useDraft<Project>('project', projectId);
 
-  // Start editing - creates draft in IndexedDB
+  // Start editing - creates draft in Dexie
   const handleStartEdit = () => {
     if (data) draft.startEdit(data);
   };
 
-  // Field change - persisted to IndexedDB immediately!
+  // Field change - persisted to Dexie immediately!
   const handleFieldChange = (field: string, value: unknown) => {
     draft.updateField(field, value);
     // Survives page refresh!
@@ -146,28 +178,26 @@ function ProjectEditor({ projectId }: { projectId: string }) {
 User visits /project
     |
     v
-useRxEntityList('project')
+useEntityList('project')
     |
-    +-- RxDB query: db.entities.find({ entityCode: 'project' })
-    |   Result: [] (empty)
+    +-- TanStack Query: check memory cache
+    |   Result: MISS
     |
-    +-- Trigger fetch: ReplicationManager.fetchEntityList('project')
-    |       |
-    |       v
-    |   GET /api/v1/project?limit=50
+    +-- hydrateQueryCache(): check Dexie
+    |   Result: [] (empty IndexedDB)
+    |
+    +-- Fetch from API: GET /api/v1/project?limit=50
     |       |
     |       v
     |   API Response:
     |   { data: [...], ref_data_entityInstance: {...}, metadata: {...} }
     |       |
     |       v
-    |   ReplicationManager stores in RxDB:
-    |   db.entities.bulkUpsert([...docs])
-    |       |
-    |       v
-    |   WebSocket SUBSCRIBE sent for loaded entity IDs
+    |   1. Set TanStack Query cache
+    |   2. Persist to Dexie (db.entities.bulkPut)
+    |   3. WebSocket SUBSCRIBE for loaded entity IDs
     |
-    +-- RxDB reactive query emits new value
+    +-- TanStack Query cache updated
     |
     v
 Component re-renders with data
@@ -179,14 +209,17 @@ Component re-renders with data
 User returns to /project
     |
     v
-useRxEntityList('project')
+useEntityList('project')
     |
-    +-- RxDB query: db.entities.find({ entityCode: 'project' })
-    |   Result: [cached docs from IndexedDB]
+    +-- App startup: hydrateQueryCache()
+    |   -> Loads Dexie -> TanStack Query
+    |
+    +-- TanStack Query: check memory cache
+    |   Result: HIT (hydrated from Dexie)
     |   isLoading = false (instant!)
     |
-    +-- Check staleness: (Date.now() - syncedAt) > 30s?
-    |   If stale -> background refresh (non-blocking)
+    +-- Check staleness: staleTime > 2 min?
+    |   If stale -> isFetching=true, background refetch
     |
     v
 Component renders IMMEDIATELY with cached data
@@ -212,13 +245,15 @@ PubSub LogWatcher polls app.logging
     +-- Push INVALIDATE via WebSocket to User A
     |
     v
-User A's ReplicationManager receives INVALIDATE
+User A's WebSocketManager receives INVALIDATE
     |
-    +-- Refetch: GET /api/v1/project/:id
-    +-- RxDB upsert with fresh data
+    +-- queryClient.invalidateQueries(['entity', 'project', id])
+    +-- TanStack Query auto-refetches (if observers mounted)
+    +-- GET /api/v1/project/:id
+    +-- Update Dexie with fresh data
     |
     v
-RxDB reactive query emits -> UI auto-updates
+Component auto-updates (TanStack Query reactivity)
 ```
 
 ### Pattern 4: Draft Persistence
@@ -227,28 +262,29 @@ RxDB reactive query emits -> UI auto-updates
 User starts editing
     |
     v
-useRxDraft('project', projectId)
+useDraft('project', projectId)
     |
-    +-- Create draft in RxDB drafts collection
+    +-- Create draft in Dexie drafts table
     |   { originalData, currentData, undoStack: [], redoStack: [] }
     |
     v
 User modifies field
     |
     +-- draft.updateField('budget_amt', 75000)
-    +-- RxDB upsert (persisted to IndexedDB immediately!)
+    +-- Dexie upsert (persisted to IndexedDB immediately!)
     |
     v
 User refreshes page (or browser restarts!)
     |
     v
-useRecoverDraft('project', projectId)
+useRecoverDrafts()
     |
-    +-- Query RxDB: db.drafts.findOne({ entityCode, entityId })
-    +-- Found! Prompt user: "Recover unsaved changes?"
+    +-- Query Dexie: db.drafts.toArray()
+    +-- Found! hasDrafts = true
+    +-- Show: "Recover unsaved changes?"
     |
-    +-- Yes: Restore draft.currentData
-    +-- No: draft.discardDraft()
+    +-- Yes: Navigate to draft entity
+    +-- No: discardAllDrafts()
 ```
 
 ---
@@ -256,19 +292,24 @@ useRecoverDraft('project', projectId)
 ## File Structure
 
 ```
-apps/web/src/
-+-- db/rxdb/                          # RxDB implementation
-|   +-- database.ts                   # Database creation + schema version
-|   +-- replication.ts                # WebSocket sync (ReplicationManager)
-|   +-- RxDBProvider.tsx              # React context provider
-|   +-- index.ts                      # Module exports
-|   +-- schemas/
-|   |   +-- entity.schema.ts          # Entity collection schema
-|   |   +-- draft.schema.ts           # Draft collection schema
-|   |   +-- metadata.schema.ts        # Metadata collection schema
-|   +-- hooks/
-|       +-- useRxEntity.ts            # useRxEntity, useRxEntityList
-|       +-- useRxDraft.ts             # useRxDraft, useRecoverDraft
+apps/web/src/db/
++-- TanstackCacheProvider.tsx        # React context provider
++-- tanstack-index.ts                # Public API exports
++-- dexie/
+|   +-- database.ts                  # Dexie schema + helpers
++-- query/
+|   +-- queryClient.ts               # TanStack Query config + hydration
++-- tanstack-hooks/
+|   +-- index.ts                     # Hook exports
+|   +-- useEntity.ts                 # Single entity + mutations
+|   +-- useEntityList.ts             # Paginated list queries
+|   +-- useDatalabel.ts              # Dropdown options + sync cache
+|   +-- useEntityCodes.ts            # Entity type definitions
+|   +-- useGlobalSettings.ts         # App settings
+|   +-- useDraft.ts                  # Draft persistence + undo/redo
+|   +-- useOfflineEntity.ts          # Dexie-only access
++-- tanstack-sync/
+    +-- WebSocketManager.ts          # WebSocket + cache invalidation
 ```
 
 ---
@@ -277,17 +318,20 @@ apps/web/src/
 
 ```tsx
 // App.tsx
-import { RxDBProvider } from '@/db/rxdb/RxDBProvider';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient, TanstackCacheProvider } from '@/db/tanstack-index';
 
 function App() {
   return (
-    <RxDBProvider>
-      <AuthProvider>
-        <Router>
-          {/* App routes */}
-        </Router>
-      </AuthProvider>
-    </RxDBProvider>
+    <QueryClientProvider client={queryClient}>
+      <TanstackCacheProvider>
+        <AuthProvider>
+          <Router>
+            {/* App routes */}
+          </Router>
+        </AuthProvider>
+      </TanstackCacheProvider>
+    </QueryClientProvider>
   );
 }
 ```
@@ -296,39 +340,102 @@ function App() {
 
 ## Multi-Tab Sync
 
-RxDB's LeaderElection plugin ensures only one tab manages replication:
+Dexie uses shared IndexedDB storage for multi-tab sync:
 
 ```
-Tab 1 (Leader)                    Tab 2 (Follower)
----------------------------------------------------
-+---------------+                  +---------------+
-| RxDB + WS     | ---IndexedDB---> |    RxDB       |
-| Replication   |                  |  (reactive)   |
-+---------------+                  +---------------+
-       |                                 |
-       +---- Both see same data ---------+
+Tab 1                                 Tab 2
+-----                                 -----
++---------------+                     +---------------+
+| TanStack Query|                     | TanStack Query|
+|   + Dexie     |<---IndexedDB--->   |   + Dexie     |
++---------------+                     +---------------+
+       |                                    |
+       |  WebSocket (leader tab)            |
+       +---> wsManager receives INVALIDATE  |
+       |     invalidates both tabs' caches  |
+       |                                    |
+       +-------- Both see same data --------+
 ```
 
-- Leader tab handles WebSocket connection
-- All tabs share IndexedDB storage
-- Changes in one tab instantly visible in others
+- Any tab can fetch and update Dexie
+- TanStack Query cache is per-tab (in-memory)
+- Hydration from Dexie syncs state on startup
 
 ---
 
-## Schema Version Management
+## Sync Cache Pattern (Non-Hook Access)
+
+For non-hook contexts (formatters, utilities), use sync cache functions:
 
 ```typescript
-// apps/web/src/db/rxdb/database.ts
+import {
+  getDatalabelSync,
+  getEntityCodesSync,
+  getGlobalSettingsSync,
+  getEntityByCodeSync,
+} from '@/db/tanstack-index';
 
-// Bump this when schemas have breaking changes
-// Forces IndexedDB reset on next load
-const SCHEMA_VERSION = 'v4';
-
-// v4: Store full metadata structure (metadata.entityListOfInstancesTable.viewType)
-// v3: Fixed metadata storage format
-// v2: Added draft persistence
-// v1: Initial RxDB implementation
+// Returns cached data or null
+// (populated at login via prefetchAllMetadata)
+const options = getDatalabelSync('project_stage');
+const entityCodes = getEntityCodesSync();
+const settings = getGlobalSettingsSync();
+const projectDef = getEntityByCodeSync('project');
 ```
+
+---
+
+## Initialization Flow
+
+```
+App Start
+    |
+    v
+TanstackCacheProvider mounts
+    |
+    +-- hydrateQueryCache()
+    |   -> Load entities from Dexie
+    |   -> Set TanStack Query cache
+    |   -> isHydrated = true
+    |
+    v
+User logs in (AuthContext)
+    |
+    +-- connectWebSocket(token)
+    |   -> wsManager.connect(token)
+    |   -> Flush pending subscriptions
+    |
+    +-- prefetchAllMetadata()
+        +-- prefetchAllDatalabels()  -> Dexie + sync cache
+        +-- prefetchEntityCodes()    -> Dexie + sync cache
+        +-- prefetchGlobalSettings() -> Dexie + sync cache
+        -> isMetadataLoaded = true
+    |
+    v
+App ready for use
+```
+
+---
+
+## Cache Invalidation Strategies
+
+| Trigger | Action | Result |
+|---------|--------|--------|
+| WebSocket INVALIDATE | `invalidateEntityQueries()` | Auto-refetch if observers mounted |
+| Manual refetch | `refetch()` from hook | Immediate fetch + cache update |
+| Mutation success | `invalidateQueries()` in onSuccess | Related queries refetched |
+| Logout | `clearAllCaches()` | TanStack + Dexie cleared |
+| Stale timeout | Automatic | Background refetch on next access |
+
+---
+
+## Bundle Size Comparison
+
+| Solution | Bundle Size | Notes |
+|----------|-------------|-------|
+| TanStack Query + Dexie | ~25KB | Production (v9.1.0) |
+| RxDB | ~150KB | Previous (v8.x) |
+| Redux + RTK Query | ~30KB | Alternative considered |
 
 ---
 
@@ -336,74 +443,10 @@ const SCHEMA_VERSION = 'v4';
 
 | Document | Purpose |
 |----------|---------|
-| `docs/caching/RXDB_SYNC_ARCHITECTURE.md` | WebSocket sync + PubSub architecture |
-| `docs/ui_page/PAGE_ARCHITECTURE.md` | Page components and routing |
+| `docs/caching/TANSTACK_DEXIE_SYNC_ARCHITECTURE.md` | WebSocket sync + PubSub architecture |
+| `docs/services/entity-infrastructure.service.md` | Entity CRUD patterns |
 | `CLAUDE.md` | Main codebase reference |
 
 ---
 
-## Migration from Zustand (v8.6.0)
-
-### Completed: Metadata Store Migration
-
-All **metadata stores** have been migrated from Zustand to RxDB:
-
-| Former Zustand Store | RxDB Replacement | Status |
-|---------------------|------------------|--------|
-| `datalabelMetadataStore` | `useRxDatalabel`, `getDatalabelSync` | ✅ Complete |
-| `entityCodeMetadataStore` | `useRxEntityCodes`, `getEntityCodesSync` | ✅ Complete |
-| `globalSettingsMetadataStore` | `useRxGlobalSettings`, `getGlobalSettingsSync` | ✅ Complete |
-| `entityComponentMetadataStore` | `useRxComponentMetadata`, `cacheComponentMetadata` | ✅ Complete |
-| `useEntityEditStore` | `useRxDraft` | ✅ Complete |
-
-### Sync Cache Pattern (Non-Hook Access)
-
-For non-hook contexts (formatters, utilities), RxDB provides sync cache functions:
-
-```typescript
-// apps/web/src/db/rxdb/hooks/useRxMetadata.ts
-
-// Sync access (for non-hook contexts like formatters)
-import { getDatalabelSync, getEntityCodesSync, getGlobalSettingsSync } from '@/db/rxdb';
-
-// Returns cached data or null (populated at login via prefetchAllMetadata)
-const options = getDatalabelSync('project_stage');
-const entityCodes = getEntityCodesSync();
-const settings = getGlobalSettingsSync();
-
-// Hook access (for React components)
-import { useRxDatalabel, useRxEntityCodes, useRxGlobalSettings } from '@/db/rxdb';
-
-// React hooks with loading states
-const { data: options, isLoading } = useRxDatalabel('project_stage');
-```
-
-### Consumer Files Updated
-
-The following files were migrated from Zustand to RxDB:
-
-| File | Change |
-|------|--------|
-| `AuthContext.tsx` | `prefetchAllMetadata()` replaces Zustand hydration |
-| `frontEndFormatterService.tsx` | `getDatalabelSync()` for badge colors |
-| `EntityMetadataContext.tsx` | `useRxEntityCodes()` hook |
-| `DynamicChildEntityTabs.tsx` | `useRxEntityCodes()` hook |
-| `EntityInstanceFormContainer.tsx` | `getDatalabelSync()` for dropdowns |
-| `EntityListOfInstancesTable.tsx` | `getDatalabelSync()` for badges |
-| `valueFormatters.ts` | `getDatalabelSync()` for colors |
-| `garbageCollection.ts` | RxDB handles TTL automatically |
-| `useEntityQuery.ts` | RxDB cache invalidation |
-
-### Zustand Migration Complete
-
-All Zustand stores have been migrated to RxDB. The `stores/` directory is empty except for `index.ts` which documents the migration.
-
-**Files Updated (v8.6.0 final):**
-| File | Change |
-|------|--------|
-| `useKeyboardShortcuts.ts` | Accepts draft state via options (no store dependency) |
-| `EntitySpecificInstancePage.tsx` | Uses `useRxDraft` for edit state |
-
----
-
-**Version:** 8.6.0 | **Updated:** 2025-11-28 | **Status:** Production
+**Version:** 9.1.0 | **Updated:** 2025-11-28 | **Status:** Production
