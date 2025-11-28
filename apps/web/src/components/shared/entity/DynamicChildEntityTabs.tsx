@@ -1,8 +1,8 @@
 import React from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { getIconComponent } from '../../../lib/iconMapping';
-// v8.6.0: Use RxDB for entity codes
-import { useRxEntityCodes } from '../../../db/rxdb';
+// v9.0.0: Use TanStack Query + Dexie for entity codes
+import { useEntityCodes } from '../../../db/tanstack-hooks';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
@@ -94,16 +94,16 @@ export function DynamicChildEntityTabs({
 }
 
 // Hook for generating tabs from centralized entity metadata API
-// v8.6.0: Uses RxDB cache (IndexedDB) for offline-first entity codes
+// v9.0.0: Uses TanStack Query + Dexie cache (IndexedDB) for offline-first entity codes
 export function useDynamicChildEntityTabs(parentType: string, parentId: string) {
   const [tabs, setTabs] = React.useState<HeaderTab[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  // v8.6.0: Use RxDB hook for entity codes
-  const { getEntityByCode, isLoading: isEntityCodesLoading } = useRxEntityCodes();
+  // v9.0.0: Use TanStack Query hook for entity codes
+  const { getEntityByCode, isLoading: isEntityCodesLoading } = useEntityCodes();
 
   React.useEffect(() => {
-    // Wait for RxDB entity codes to load
+    // Wait for entity codes to load
     if (isEntityCodesLoading) {
       return;
     }
@@ -127,10 +127,10 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
           return;
         }
 
-        // v8.6.0: Check RxDB cache first (offline-first)
+        // v9.0.0: Check Dexie cache first (offline-first)
         const cachedEntity = getEntityByCode(parentType);
         if (cachedEntity && cachedEntity.child_entity_codes) {
-          console.log(`%c[DynamicChildEntityTabs] RxDB Cache HIT for ${parentType}`, 'color: #51cf66; font-weight: bold');
+          console.log(`%c[DynamicChildEntityTabs] Dexie Cache HIT for ${parentType}`, 'color: #51cf66; font-weight: bold');
 
           // Build enriched child_entities from cached entity codes
           const enrichedChildEntities = cachedEntity.child_entity_codes
@@ -159,7 +159,7 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
           return;
         }
 
-        // CACHE MISS: Fetch from API (should rarely happen as RxDB is populated at login)
+        // CACHE MISS: Fetch from API (should rarely happen as Dexie is populated at login)
         console.log(`%c[DynamicChildEntityTabs] Cache MISS for ${parentType}, fetching from API`, 'color: #fcc419');
         const response = await fetch(`${API_BASE_URL}/api/v1/entity/codes/${parentType}`, {
           headers: {

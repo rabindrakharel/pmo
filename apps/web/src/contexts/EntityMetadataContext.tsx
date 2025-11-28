@@ -2,8 +2,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useMe
 import { getIconComponent } from '../lib/iconMapping';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from './AuthContext';
-// v8.6.0: Use RxDB for entity codes (sync cache for non-hook access)
-import { getEntityCodesSync, useRxEntityCodes } from '../db/rxdb';
+// v9.0.0: Use TanStack Query + Dexie for entity codes (sync cache for non-hook access)
+import { useEntityCodes, getEntityCodesSync } from '../db/tanstack-hooks';
 
 interface EntityMetadata {
   code: string;
@@ -43,14 +43,14 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
 
   // ============================================================================
-  // v8.6.0: RxDB CACHE INTEGRATION
+  // v9.0.0: TANSTACK QUERY + DEXIE CACHE INTEGRATION
   // ============================================================================
-  // Entity types are cached in RxDB IndexedDB via prefetchAllMetadata (login)
-  // This provides offline-first caching and multi-tab sync
+  // Entity types are cached in Dexie IndexedDB via prefetchEntityCodes (login)
+  // This provides offline-first caching with TanStack Query's stale-while-revalidate
   // ============================================================================
 
-  // Use RxDB hook for entity codes
-  const { entityCodes, isLoading: isEntityCodesLoading } = useRxEntityCodes();
+  // Use TanStack Query hook for entity codes
+  const { entityCodes, isLoading: isEntityCodesLoading } = useEntityCodes();
 
   useEffect(() => {
     // Wait for auth validation to complete
@@ -65,17 +65,17 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
       return;
     }
 
-    // Check if entity codes are loaded from RxDB
+    // Check if entity codes are loaded from TanStack Query
     if (isEntityCodesLoading) {
-      console.log('[EntityMetadataContext] Waiting for RxDB entity codes...');
+      console.log('[EntityMetadataContext] Waiting for entity codes...');
       return;
     }
 
-    // Use entity codes from RxDB (populated via prefetchAllMetadata at login)
+    // Use entity codes from TanStack Query (populated via prefetchEntityCodes at login)
     const cachedTypes = entityCodes || getEntityCodesSync();
 
     if (cachedTypes && cachedTypes.length > 0) {
-      console.log('[EntityMetadataContext] Using entity types from RxDB cache');
+      console.log('[EntityMetadataContext] Using entity types from Dexie cache');
       console.log('[EntityMetadataContext] Cached entity codes:', cachedTypes.map((e: any) => e.code));
 
       const entityMap = new Map<string, EntityMetadata>();
@@ -95,7 +95,7 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
       setEntities(entityMap);
       setLoading(false);
     } else {
-      console.warn('[EntityMetadataContext] No entity codes in RxDB cache');
+      console.warn('[EntityMetadataContext] No entity codes in Dexie cache');
       setLoading(false);
     }
   }, [isAuthenticated, isAuthLoading, entityCodes, isEntityCodesLoading]);

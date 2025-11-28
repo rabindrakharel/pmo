@@ -17,7 +17,8 @@ import { useS3Upload } from '../../lib/hooks/useS3Upload';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../contexts/NavigationHistoryContext';
 import { useEntityInstance, useFormattedEntityInstance, useEntityMutation, useCacheInvalidation, useEntityInstanceList } from '../../lib/hooks';
-import { useRxDraft } from '../../db/rxdb';
+// v9.0.0: Use TanStack Query + Dexie draft hook
+import { useDraft } from '../../db/tanstack-hooks';
 import { useKeyboardShortcuts, useShortcutHints } from '../../lib/hooks/useKeyboardShortcuts';
 import { API_CONFIG } from '../../lib/config/api';
 import { EllipsisBounce, InlineSpinner } from '../../components/shared/ui/EllipsisBounce';
@@ -49,10 +50,10 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   const { pushEntity, updateCurrentEntityName, updateCurrentEntityActiveTab } = useNavigationHistory();
 
   // ============================================================================
-  // RxDB DRAFT + REACT QUERY INTEGRATION (v8.6.0)
+  // DEXIE DRAFT + REACT QUERY INTEGRATION (v9.0.0)
   // ============================================================================
   // Use React Query for data fetching with automatic caching (5 min TTL)
-  // Use RxDB draft for field-level change tracking with undo/redo (persistent)
+  // Use Dexie draft for field-level change tracking with undo/redo (persistent)
   // Keyboard shortcuts integrated for save/undo/redo
   // ============================================================================
 
@@ -81,7 +82,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   const { updateEntity, isUpdating } = useEntityMutation(entityCode);
   const { invalidateEntity } = useCacheInvalidation();
 
-  // RxDB draft for field-level tracking (v8.6.0 - replaces Zustand)
+  // Dexie draft for field-level tracking (v9.0.0)
   // Drafts persist across page refresh and browser restart
   const {
     hasDraft: isEditing,
@@ -98,9 +99,9 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     canUndo,
     canRedo,
     isLoading: isDraftLoading,
-  } = useRxDraft(entityCode, id);
+  } = useDraft(entityCode, id);
 
-  // Local state for save operations (RxDB draft doesn't handle API calls)
+  // Local state for save operations (Dexie draft doesn't handle API calls)
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 

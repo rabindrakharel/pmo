@@ -423,6 +423,12 @@ importers:
       axios:
         specifier: ^1.11.0
         version: 1.11.0
+      dexie:
+        specifier: ^4.2.1
+        version: 4.2.1
+      dexie-react-hooks:
+        specifier: ^4.2.0
+        version: 4.2.0(@types/react@19.1.12)(dexie@4.2.1)(react@19.1.1)
       highlight.js:
         specifier: ^11.11.1
         version: 11.11.1
@@ -7569,8 +7575,24 @@ packages:
       dequal: 2.0.3
     dev: false
 
+  /dexie-react-hooks@4.2.0(@types/react@19.1.12)(dexie@4.2.1)(react@19.1.1):
+    resolution: {integrity: sha512-u7KqTX9JpBQK8+tEyA9X0yMGXlSCsbm5AU64N6gjvGk/IutYDpLBInMYEAEC83s3qhIvryFS+W+sqLZUBEvePQ==}
+    peerDependencies:
+      '@types/react': '>=16'
+      dexie: '>=4.2.0-alpha.1 <5.0.0'
+      react: '>=16'
+    dependencies:
+      '@types/react': 19.1.12
+      dexie: 4.2.1
+      react: 19.1.1
+    dev: false
+
   /dexie@4.0.10:
     resolution: {integrity: sha512-eM2RzuR3i+M046r2Q0Optl3pS31qTWf8aFuA7H9wnsHTwl8EPvroVLwvQene/6paAs39Tbk6fWZcn2aZaHkc/w==}
+    dev: false
+
+  /dexie@4.2.1:
+    resolution: {integrity: sha512-Ckej0NS6jxQ4Po3OrSQBFddayRhTCic2DoCAG5zacOfOVB9P2Q5Xc5uL/nVa7ZVs+HdMnvUPzLFCB/JwpB6Csg==}
     dev: false
 
   /didyoumean@1.2.2:

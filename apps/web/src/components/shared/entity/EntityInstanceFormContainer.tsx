@@ -21,8 +21,8 @@ import {
 import { colorCodeToTailwindClass } from '../../../lib/formatters/valueFormatters';
 import type { FormattedRow } from '../../../lib/formatters';
 import { extractViewType, extractEditType, isValidComponentMetadata } from '../../../lib/formatters';
-// v8.6.0: Use RxDB sync cache for datalabel options
-import { getDatalabelSync } from '../../../db/rxdb/hooks/useRxMetadata';
+// v9.0.0: Use Dexie sync cache for datalabel options
+import { getDatalabelSync } from '../../../db/tanstack-hooks';
 // v8.3.0: RefData for entity reference resolution
 import { useRefData, type RefData } from '../../../lib/hooks/useRefData';
 

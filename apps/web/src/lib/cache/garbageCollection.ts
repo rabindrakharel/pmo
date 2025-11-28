@@ -1,20 +1,20 @@
 /**
- * Garbage Collection Service (v8.6.0 - RxDB)
+ * Garbage Collection Service (v9.0.0 - TanStack Query + Dexie)
  *
- * v8.6.0: RxDB has built-in TTL-based caching. This module provides
+ * v9.0.0: TanStack Query handles TTL-based caching. This module provides
  * minimal GC functions for backwards compatibility.
  *
- * RxDB metadata cleanup:
- * - TTL is checked on read via `isMetadataValid()`
+ * TanStack Query + Dexie metadata cleanup:
+ * - staleTime and gcTime are set on query options
  * - Stale entries trigger fresh fetch and cache update
  * - IndexedDB storage is persistent and efficient
  *
  * @example
  * // No longer needed to start/stop GC
- * // RxDB handles cache expiry automatically
+ * // TanStack Query handles cache expiry automatically
  */
 
-import { clearAllMetadataCache } from '../../db/rxdb';
+import { clearAllCaches } from '../../db/query/queryClient';
 
 // ============================================================================
 // Configuration (kept for backwards compatibility)
@@ -31,13 +31,13 @@ let gcIntervalId: ReturnType<typeof setInterval> | null = null;
 let isRunning = false;
 
 // ============================================================================
-// GC Functions (v8.6.0 - RxDB handles TTL automatically)
+// GC Functions (v9.0.0 - TanStack Query handles TTL automatically)
 // ============================================================================
 
 /**
- * Run garbage collection (v8.6.0: RxDB handles TTL automatically)
+ * Run garbage collection (v9.0.0: TanStack Query handles TTL automatically)
  *
- * @deprecated RxDB has built-in TTL-based caching. This is a no-op.
+ * @deprecated TanStack Query has built-in TTL-based caching. This is a no-op.
  */
 export function runGarbageCollection(): {
   globalSettingsCleared: boolean;
@@ -45,9 +45,9 @@ export function runGarbageCollection(): {
   entityCodesCleared: boolean;
   componentMetadataCleared: number;
 } {
-  // RxDB handles TTL automatically - no manual GC needed
+  // TanStack Query handles TTL automatically - no manual GC needed
   if (DEBUG) {
-    console.log('%c[GC] RxDB handles TTL automatically - no manual GC needed', 'color: #868e96');
+    console.log('%c[GC] TanStack Query handles TTL automatically - no manual GC needed', 'color: #868e96');
   }
 
   return {
@@ -59,9 +59,9 @@ export function runGarbageCollection(): {
 }
 
 /**
- * Start the garbage collection interval (v8.6.0: RxDB handles TTL automatically)
+ * Start the garbage collection interval (v9.0.0: TanStack Query handles TTL automatically)
  *
- * @deprecated RxDB has built-in TTL-based caching. This is kept for backwards compatibility.
+ * @deprecated TanStack Query has built-in TTL-based caching. This is kept for backwards compatibility.
  */
 export function startMetadataGC(): void {
   if (isRunning) {
@@ -69,13 +69,13 @@ export function startMetadataGC(): void {
   }
 
   isRunning = true;
-  console.log('%c[GC] RxDB handles TTL automatically - metadata GC is passive', 'color: #51cf66');
+  console.log('%c[GC] TanStack Query handles TTL automatically - metadata GC is passive', 'color: #51cf66');
 }
 
 /**
- * Stop the garbage collection interval (v8.6.0: RxDB handles TTL automatically)
+ * Stop the garbage collection interval (v9.0.0: TanStack Query handles TTL automatically)
  *
- * @deprecated RxDB has built-in TTL-based caching. This is kept for backwards compatibility.
+ * @deprecated TanStack Query has built-in TTL-based caching. This is kept for backwards compatibility.
  */
 export function stopMetadataGC(): void {
   if (gcIntervalId) {
@@ -95,17 +95,17 @@ export function isGCRunning(): boolean {
 /**
  * Force clear all metadata stores (use on logout)
  *
- * v8.6.0: Uses RxDB clearAllMetadataCache() instead of Zustand stores
+ * v9.0.0: Uses TanStack Query + Dexie clearAllCaches() instead of RxDB
  */
 export async function clearAllMetadataStores(): Promise<void> {
-  await clearAllMetadataCache();
-  console.log('%c[GC] All RxDB metadata cache cleared', 'color: #ff6b6b');
+  await clearAllCaches();
+  console.log('%c[GC] All Dexie + TanStack Query cache cleared', 'color: #ff6b6b');
 }
 
 /**
- * Get current cache statistics (v8.6.0: Simplified for RxDB)
+ * Get current cache statistics (v9.0.0: Simplified for TanStack Query)
  *
- * @deprecated Cache stats are now managed by RxDB internally
+ * @deprecated Cache stats are now managed by TanStack Query internally
  */
 export function getMetadataCacheStats(): {
   globalSettings: { hasData: boolean; isExpired: boolean };
@@ -113,7 +113,7 @@ export function getMetadataCacheStats(): {
   datalabels: { count: number };
   componentMetadata: { count: number };
 } {
-  // RxDB manages cache internally - return placeholder values
+  // TanStack Query manages cache internally - return placeholder values
   return {
     globalSettings: { hasData: false, isExpired: false },
     entityCodes: { count: 0, isExpired: false },

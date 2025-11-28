@@ -10,8 +10,8 @@
  * at fetch time, not render time.
  */
 
-// v8.6.0: Use RxDB sync cache for non-hook datalabel access
-import { getDatalabelSync } from '../../db/rxdb/hooks/useRxMetadata';
+// v9.0.0: Use Dexie sync cache for non-hook datalabel access
+import { getDatalabelSync } from '../../db/tanstack-hooks';
 import type { FieldMetadata, FormattedValue } from './types';
 
 /**
@@ -84,7 +84,7 @@ export function formatBadge(
   const displayValue = String(value);
   let color = 'bg-gray-100 text-gray-600'; // Default
 
-  // v8.6.0: Look up color from RxDB sync cache (populated at login via prefetchAllMetadata)
+  // v9.0.0: Look up color from Dexie sync cache (populated at login via prefetchAllDatalabels)
   if (metadata?.datalabelKey) {
     const options = getDatalabelSync(metadata.datalabelKey);
     if (options) {

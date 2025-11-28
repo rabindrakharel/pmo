@@ -3,8 +3,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { authApi, User } from '../lib/api';
 import { clearNormalizedStore } from '../lib/cache/normalizedCache';
 import { prefetchEntityInstances } from '../lib/hooks';
-// v8.6.0: RxDB handles metadata caching - import cache clearing utility
-import { clearAllMetadataCache, prefetchAllMetadata } from '../db/rxdb';
+// v9.0.0: TanStack Query + Dexie handles metadata caching
+import { clearAllCaches, hydrateQueryCache } from '../db/query/queryClient';
+import {
+  prefetchAllDatalabels,
+  prefetchEntityCodes,
+  prefetchGlobalSettings,
+} from '../db/tanstack-hooks';
 
 interface AuthState {
   user: User | null;
@@ -36,13 +41,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAuthenticated: false,
   });
 
-  // v8.6.0: RxDB handles metadata caching via RxDBProvider.
-  // This is a backup prefetch in case RxDBProvider hasn't finished yet.
+  // v9.0.0: TanStack Query + Dexie handles metadata caching
+  // Prefetch all metadata (datalabels, entity codes, global settings)
   const loadMetadata = async () => {
     try {
-      console.log('%c[Auth] Ensuring metadata is loaded...', 'color: #845ef7; font-weight: bold');
-      await prefetchAllMetadata();
-      console.log('%c[Auth] ✓ Metadata loaded', 'color: #51cf66; font-weight: bold');
+      console.log('%c[Auth] Prefetching metadata...', 'color: #845ef7; font-weight: bold');
+
+      // Prefetch all metadata in parallel
+      const [datalabelCount, entityCodeCount, settingsOk] = await Promise.all([
+        prefetchAllDatalabels(),
+        prefetchEntityCodes(),
+        prefetchGlobalSettings(),
+      ]);
+
+      console.log(
+        '%c[Auth] ✓ Metadata loaded: %d datalabels, %d entity codes, settings: %s',
+        'color: #51cf66; font-weight: bold',
+        datalabelCount,
+        entityCodeCount,
+        settingsOk ? 'OK' : 'cached'
+      );
     } catch (error) {
       console.error('[Auth] Failed to load metadata:', error);
       // Don't throw - metadata is enhancement, not critical for auth
@@ -63,7 +81,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isAuthenticated: true,
       });
 
-      // v8.6.0: Load and cache all metadata after successful login (RxDB)
+      // v9.0.0: Load and cache all metadata after successful login (Dexie + TanStack Query)
       await loadMetadata();
 
       // v8.3.2: Prefetch common entity instances for dropdown caches
@@ -92,10 +110,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       localStorage.removeItem('auth_token');
 
-      // v8.6.0: Clear all caches on logout for security and memory hygiene
-      await clearAllMetadataCache();        // RxDB metadata cache
+      // v9.0.0: Clear all caches on logout for security and memory hygiene
+      await clearAllCaches();               // Dexie IndexedDB + TanStack Query cache
       clearNormalizedStore(queryClient);    // Normalized entity cache
-      queryClient.clear();                  // React Query cache
+      queryClient.clear();                  // React Query cache (redundant but safe)
 
       setState({
         user: null,
@@ -123,7 +141,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoading: false,
       });
 
-      // v8.6.0: Load and cache metadata (RxDB - will use cache if valid)
+      // v9.0.0: Load and cache metadata (Dexie + TanStack Query - will use cache if valid)
       await loadMetadata();
 
       // v8.3.2: Prefetch common entity instances for dropdown caches
