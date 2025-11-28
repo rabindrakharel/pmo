@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useMe
 import { getIconComponent } from '../lib/iconMapping';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from './AuthContext';
-import { useEntityCodeMetadataStore } from '../stores/entityCodeMetadataStore';
+// v8.6.0: Use RxDB for entity codes (sync cache for non-hook access)
+import { getEntityCodesSync, useRxEntityCodes } from '../db/rxdb';
 
 interface EntityMetadata {
   code: string;
@@ -42,103 +43,62 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
 
   // ============================================================================
-  // ZUSTAND CACHE INTEGRATION
+  // v8.6.0: RxDB CACHE INTEGRATION
   // ============================================================================
-  // Entity types are cached in entityCodeMetadataStore with 30-minute TTL
-  // This provides cross-component cache sharing and persistence
-  // ✅ INDUSTRY STANDARD: Use getState() to avoid store subscription re-renders
+  // Entity types are cached in RxDB IndexedDB via prefetchAllMetadata (login)
+  // This provides offline-first caching and multi-tab sync
   // ============================================================================
+
+  // Use RxDB hook for entity codes
+  const { entityCodes, isLoading: isEntityCodesLoading } = useRxEntityCodes();
 
   useEffect(() => {
-    const fetchEntityMetadata = async () => {
-      try {
-        // Wait for auth validation to complete before fetching
-        if (isAuthLoading) {
-          console.log('[EntityMetadataContext] Waiting for auth validation...');
-          return;
-        }
+    // Wait for auth validation to complete
+    if (isAuthLoading) {
+      console.log('[EntityMetadataContext] Waiting for auth validation...');
+      return;
+    }
 
-        if (!isAuthenticated) {
-          console.warn('[EntityMetadataContext] Not authenticated, skipping fetch');
-          setLoading(false);
-          return;
-        }
+    if (!isAuthenticated) {
+      console.warn('[EntityMetadataContext] Not authenticated, skipping entity metadata load');
+      setLoading(false);
+      return;
+    }
 
-        const token = localStorage.getItem('auth_token');
-        if (!token) {
-          console.warn('[EntityMetadataContext] No auth token in localStorage');
-          setLoading(false);
-          return;
-        }
+    // Check if entity codes are loaded from RxDB
+    if (isEntityCodesLoading) {
+      console.log('[EntityMetadataContext] Waiting for RxDB entity codes...');
+      return;
+    }
 
-        // Check Zustand cache first (30-minute TTL) - use getState() to avoid subscription
-        const cachedTypes = useEntityCodeMetadataStore.getState().getEntityCodes();
-        console.log('[EntityMetadataContext] Cached types:', cachedTypes?.length || 0);
-        if (cachedTypes && cachedTypes.length > 0) {
-          console.log('[EntityMetadataContext] Using cached entity types from entityCodeMetadataStore');
-          console.log('[EntityMetadataContext] Cached entity codes:', cachedTypes.map((e: any) => e.code));
-          const entityMap = new Map<string, EntityMetadata>();
-          cachedTypes.forEach((entity: any) => {
-            entityMap.set(entity.code, {
-              code: entity.code,
-              name: entity.name,
-              ui_label: entity.label,
-              ui_icon: entity.icon,
-              icon: getIconComponent(entity.icon),
-              display_order: entity.display_order || 0,
-              active_flag: entity.active_flag,
-            });
-          });
-          console.log('[EntityMetadataContext] Entity map size:', entityMap.size);
-          console.log('[EntityMetadataContext] Entity map keys:', Array.from(entityMap.keys()));
-          setEntities(entityMap);
-          setLoading(false);
-          return;
-        }
+    // Use entity codes from RxDB (populated via prefetchAllMetadata at login)
+    const cachedTypes = entityCodes || getEntityCodesSync();
 
-        console.log('[EntityMetadataContext] Fetching entity metadata from API...');
+    if (cachedTypes && cachedTypes.length > 0) {
+      console.log('[EntityMetadataContext] Using entity types from RxDB cache');
+      console.log('[EntityMetadataContext] Cached entity codes:', cachedTypes.map((e: any) => e.code));
 
-        // Fetch from API if cache miss
-        const response = await fetch(`${API_BASE_URL}/api/v1/entity/codes`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+      const entityMap = new Map<string, EntityMetadata>();
+      cachedTypes.forEach((entity: any) => {
+        entityMap.set(entity.code, {
+          code: entity.code,
+          name: entity.name,
+          ui_label: entity.label,
+          ui_icon: entity.icon,
+          icon: getIconComponent(entity.icon),
+          display_order: entity.display_order || 0,
+          active_flag: entity.active_flag,
         });
+      });
 
-        if (response.ok) {
-          const data = await response.json();
-          const entityMap = new Map<string, EntityMetadata>();
-
-          data.forEach((entity: any) => {
-            entityMap.set(entity.code, {
-              code: entity.code,
-              name: entity.name,
-              ui_label: entity.ui_label || entity.label,
-              ui_icon: entity.ui_icon || entity.icon,
-              icon: getIconComponent(entity.ui_icon || entity.icon),
-              display_order: entity.display_order || 0,
-              active_flag: entity.active_flag,
-            });
-          });
-
-          // Cache in entityCodeMetadataStore (30-minute TTL) - use getState() inside callback
-          useEntityCodeMetadataStore.getState().setEntityCodes(data);
-
-          setEntities(entityMap);
-          console.log(`[EntityMetadataContext] Loaded ${entityMap.size} entity types from API`);
-        } else {
-          console.error('[EntityMetadataContext] Failed to fetch entity types:', response.status);
-        }
-      } catch (error) {
-        console.error('[EntityMetadataContext] Error fetching entity metadata:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEntityMetadata();
-  }, [isAuthenticated, isAuthLoading]); // Re-fetch when auth state changes
+      console.log('[EntityMetadataContext] Entity map size:', entityMap.size);
+      setEntities(entityMap);
+      setLoading(false);
+    } else {
+      console.warn('[EntityMetadataContext] No entity codes in RxDB cache');
+      setLoading(false);
+    }
+  }, [isAuthenticated, isAuthLoading, entityCodes, isEntityCodesLoading]);
 
   const getEntityMetadata = (entityCode: string): EntityMetadata | undefined => {
     return entities.get(entityCode);

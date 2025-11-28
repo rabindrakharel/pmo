@@ -21,7 +21,8 @@ import {
 import { colorCodeToTailwindClass } from '../../../lib/formatters/valueFormatters';
 import type { FormattedRow } from '../../../lib/formatters';
 import { extractViewType, extractEditType, isValidComponentMetadata } from '../../../lib/formatters';
-import { useDatalabelMetadataStore } from '../../../stores/datalabelMetadataStore';
+// v8.6.0: Use RxDB sync cache for datalabel options
+import { getDatalabelSync } from '../../../db/rxdb/hooks/useRxMetadata';
 // v8.3.0: RefData for entity reference resolution
 import { useRefData, type RefData } from '../../../lib/hooks/useRefData';
 
@@ -236,12 +237,12 @@ function EntityFormContainerInner({
       field => field.lookupSource === 'datalabel' || field.datalabelKey
     );
 
-    // Use datalabels from datalabelMetadataStore cache (NO API CALLS)
+    // v8.6.0: Use datalabels from RxDB sync cache (populated at login, NO API CALLS)
     fieldsNeedingSettings.forEach((field) => {
-      // Fetch from datalabelMetadataStore cache
+      // Fetch from RxDB sync cache
       // v8.3.2: Use datalabelKey from backend metadata as primary key, fallback to field.key
       const lookupKey = field.datalabelKey || field.key;
-      const cachedOptions = useDatalabelMetadataStore.getState().getDatalabel(lookupKey);
+      const cachedOptions = getDatalabelSync(lookupKey);
 
       if (cachedOptions && cachedOptions.length > 0) {
         // Transform datalabel options to LabelMetadata format for select/multiselect

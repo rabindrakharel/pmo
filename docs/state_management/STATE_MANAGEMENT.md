@@ -1,6 +1,6 @@
 # State Management Architecture
 
-**Version:** 8.5.0 | **Updated:** 2025-11-28
+**Version:** 8.6.0 | **Updated:** 2025-11-28
 
 ---
 
@@ -10,7 +10,7 @@ The PMO frontend uses **RxDB as the sole state management layer**. All data (ent
 
 ```
 +-------------------------------------------------------------------------+
-|                    STATE MANAGEMENT (v8.5.0 - RxDB Only)                 |
+|                    STATE MANAGEMENT (v8.6.0 - RxDB Only)                 |
 +-------------------------------------------------------------------------+
 |                                                                          |
 |  RxDB (IndexedDB) - Single Source of Truth                              |
@@ -342,4 +342,66 @@ const SCHEMA_VERSION = 'v4';
 
 ---
 
-**Version:** 8.5.0 | **Updated:** 2025-11-28 | **Status:** Production
+## Migration from Zustand (v8.6.0)
+
+### Completed: Metadata Store Migration
+
+All **metadata stores** have been migrated from Zustand to RxDB:
+
+| Former Zustand Store | RxDB Replacement | Status |
+|---------------------|------------------|--------|
+| `datalabelMetadataStore` | `useRxDatalabel`, `getDatalabelSync` | ✅ Complete |
+| `entityCodeMetadataStore` | `useRxEntityCodes`, `getEntityCodesSync` | ✅ Complete |
+| `globalSettingsMetadataStore` | `useRxGlobalSettings`, `getGlobalSettingsSync` | ✅ Complete |
+| `entityComponentMetadataStore` | `useRxComponentMetadata`, `cacheComponentMetadata` | ✅ Complete |
+| `useEntityEditStore` | `useRxDraft` (partial) | 🔄 Pending |
+
+### Sync Cache Pattern (Non-Hook Access)
+
+For non-hook contexts (formatters, utilities), RxDB provides sync cache functions:
+
+```typescript
+// apps/web/src/db/rxdb/hooks/useRxMetadata.ts
+
+// Sync access (for non-hook contexts like formatters)
+import { getDatalabelSync, getEntityCodesSync, getGlobalSettingsSync } from '@/db/rxdb';
+
+// Returns cached data or null (populated at login via prefetchAllMetadata)
+const options = getDatalabelSync('project_stage');
+const entityCodes = getEntityCodesSync();
+const settings = getGlobalSettingsSync();
+
+// Hook access (for React components)
+import { useRxDatalabel, useRxEntityCodes, useRxGlobalSettings } from '@/db/rxdb';
+
+// React hooks with loading states
+const { data: options, isLoading } = useRxDatalabel('project_stage');
+```
+
+### Consumer Files Updated
+
+The following files were migrated from Zustand to RxDB:
+
+| File | Change |
+|------|--------|
+| `AuthContext.tsx` | `prefetchAllMetadata()` replaces Zustand hydration |
+| `frontEndFormatterService.tsx` | `getDatalabelSync()` for badge colors |
+| `EntityMetadataContext.tsx` | `useRxEntityCodes()` hook |
+| `DynamicChildEntityTabs.tsx` | `useRxEntityCodes()` hook |
+| `EntityFormContainer.tsx` | `getDatalabelSync()` for dropdowns |
+| `EntityDataTable.tsx` | `getDatalabelSync()` for badges |
+| `valueFormatters.ts` | `getDatalabelSync()` for colors |
+| `garbageCollection.ts` | RxDB handles TTL automatically |
+| `useEntityQuery.ts` | RxDB cache invalidation |
+
+### Remaining Zustand Usage
+
+`useEntityEditStore` is still used for global edit state (UI toggle, not data):
+- `apps/web/src/lib/hooks/useKeyboardShortcuts.ts`
+- `apps/web/src/pages/entity/EntitySpecificInstancePage.tsx`
+
+This will be migrated to `useRxDraft` in a future update when entity-specific context is available.
+
+---
+
+**Version:** 8.6.0 | **Updated:** 2025-11-28 | **Status:** Production

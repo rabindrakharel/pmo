@@ -14,7 +14,7 @@ export { useColumnVisibility } from './useColumnVisibility';
 export type { UseColumnVisibilityReturn } from './useColumnVisibility';
 
 // Entity Query Hooks (RxDB + React Query integration)
-// v8.5.0: RxDB offline-first pattern - data persisted in IndexedDB
+// v8.6.0: RxDB offline-first pattern - all data persisted in IndexedDB
 export {
   // Raw data hooks (for editing, exports, mutations)
   useEntityInstanceList,
@@ -26,6 +26,11 @@ export {
   useEntityCodes,
   useEntityMutation,
   useDatalabels,
+  useAllDatalabels,
+  useGlobalSettings,
+  useEntityMetadata,
+  useDatalabelMutation,
+  useEntityLookup,
   useCacheInvalidation,
   usePrefetch,
   queryKeys,
@@ -54,6 +59,24 @@ export {
   useRxDB,
   useRxDBReady,
   useReplicationStatus,
+  // v8.6.0: RxDB metadata hooks (replaces Zustand stores)
+  useRxDatalabel,
+  useRxAllDatalabels,
+  useRxEntityCodes,
+  useRxGlobalSettings,
+  useRxComponentMetadata,
+  useMetadataLoaded,
+  cacheComponentMetadata,
+  invalidateMetadataCache,
+  clearAllMetadataCache,
+  prefetchAllMetadata,
+} from '../../db/rxdb';
+
+export type {
+  DatalabelOption,
+  EntityCodeData,
+  GlobalSettings,
+  ComponentMetadata,
 } from '../../db/rxdb';
 
 // v8.3.1: RefData Resolution Hooks (metadata-based, no pattern matching)

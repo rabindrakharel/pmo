@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { authApi, settingApi, User } from '../lib/api';
-import { clearAllMetadataStores } from '../lib/cache/garbageCollection';
+import { authApi, User } from '../lib/api';
 import { clearNormalizedStore } from '../lib/cache/normalizedCache';
-import { useDatalabelMetadataStore } from '../stores/datalabelMetadataStore';
 import { prefetchEntityInstances } from '../lib/hooks';
+// v8.6.0: RxDB handles metadata caching - import cache clearing utility
+import { clearAllMetadataCache, prefetchAllMetadata } from '../db/rxdb';
 
 interface AuthState {
   user: User | null;
@@ -36,38 +36,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAuthenticated: false,
   });
 
-  // Helper function to load and cache datalabels
-  const loadDatalabels = async () => {
+  // v8.6.0: RxDB handles metadata caching via RxDBProvider.
+  // This is a backup prefetch in case RxDBProvider hasn't finished yet.
+  const loadMetadata = async () => {
     try {
-      const store = useDatalabelMetadataStore.getState();
-
-      // Check if we have valid cached datalabels
-      const cachedDatalabels = store.getAllDatalabels();
-
-      if (cachedDatalabels && Object.keys(cachedDatalabels).length > 0) {
-        console.log(
-          `%c[Auth] ✓ Using cached datalabels (${Object.keys(cachedDatalabels).length} items)`,
-          'color: #51cf66; font-weight: bold'
-        );
-        return;
-      }
-
-      // Cache is empty or expired - fetch fresh data
-      console.log('%c[Auth] Fetching all datalabels...', 'color: #845ef7; font-weight: bold');
-      const response = await settingApi.getAll();
-      const datalabels = response.data || [];
-
-      // Cache all datalabels in the store (persisted to localStorage)
-      store.setAllDatalabels(datalabels);
-
-      console.log(
-        `%c[Auth] ✓ Cached ${datalabels.length} datalabels`,
-        'color: #51cf66; font-weight: bold',
-        { count: datalabels.length }
-      );
+      console.log('%c[Auth] Ensuring metadata is loaded...', 'color: #845ef7; font-weight: bold');
+      await prefetchAllMetadata();
+      console.log('%c[Auth] ✓ Metadata loaded', 'color: #51cf66; font-weight: bold');
     } catch (error) {
-      console.error('[Auth] Failed to load datalabels:', error);
-      // Don't throw - datalabels are enhancement, not critical for auth
+      console.error('[Auth] Failed to load metadata:', error);
+      // Don't throw - metadata is enhancement, not critical for auth
     }
   };
 
@@ -85,8 +63,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isAuthenticated: true,
       });
 
-      // Load and cache all datalabels after successful login
-      await loadDatalabels();
+      // v8.6.0: Load and cache all metadata after successful login (RxDB)
+      await loadMetadata();
 
       // v8.3.2: Prefetch common entity instances for dropdown caches
       // This populates the unified ref_data_entityInstance cache
@@ -114,10 +92,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       localStorage.removeItem('auth_token');
 
-      // Clear all caches on logout for security and memory hygiene
-      clearAllMetadataStores();           // Zustand metadata stores
-      clearNormalizedStore(queryClient);   // Normalized entity cache
-      queryClient.clear();                 // React Query cache
+      // v8.6.0: Clear all caches on logout for security and memory hygiene
+      await clearAllMetadataCache();        // RxDB metadata cache
+      clearNormalizedStore(queryClient);    // Normalized entity cache
+      queryClient.clear();                  // React Query cache
 
       setState({
         user: null,
@@ -145,8 +123,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoading: false,
       });
 
-      // Load and cache datalabels (will use cache if valid)
-      await loadDatalabels();
+      // v8.6.0: Load and cache metadata (RxDB - will use cache if valid)
+      await loadMetadata();
 
       // v8.3.2: Prefetch common entity instances for dropdown caches
       prefetchEntityInstances(queryClient, [

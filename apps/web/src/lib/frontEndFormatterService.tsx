@@ -51,7 +51,8 @@ import React from 'react';
 import { Copy, Check } from 'lucide-react';
 import { formatters } from './config/locale';
 import { DebouncedInput, DebouncedTextarea } from '../components/shared/ui/DebouncedInput';
-import { useDatalabelMetadataStore } from '../stores/datalabelMetadataStore';
+// v8.6.0: Use RxDB sync cache for non-hook datalabel access
+import { getDatalabelSync } from '../db/rxdb/hooks/useRxMetadata';
 import { BadgeDropdownSelect, type BadgeDropdownSelectOption } from '../components/shared/ui/BadgeDropdownSelect';
 import { EntitySelect } from '../components/shared/ui/EntitySelect';
 import { colorCodeToTailwindClass } from './formatters/valueFormatters';
@@ -491,8 +492,8 @@ export function renderEditModeFromMetadata(
       if (metadata.datalabelKey || metadata.lookupSource === 'datalabel') {
         const datalabelKey = metadata.datalabelKey || metadata.key;
 
-        // Load options from datalabelMetadataStore (cached at login)
-        const datalabelOptions = useDatalabelMetadataStore.getState().getDatalabel(datalabelKey);
+        // v8.6.0: Load options from RxDB sync cache (cached at login via prefetchAllMetadata)
+        const datalabelOptions = getDatalabelSync(datalabelKey);
 
         if (datalabelOptions && datalabelOptions.length > 0) {
           // Convert datalabel options to BadgeDropdownSelect format with Tailwind color classes
