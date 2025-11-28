@@ -673,7 +673,7 @@ fastify.addHook('preHandler', fastify.authenticate)
 **RBAC Middleware:**
 ```
 - Checks entity_rbac for permissions
-- Permission array: [0:view, 1:edit, 2:share, 3:delete, 4:create]
+- Permission levels: [0:view, 1:comment, 2:contribute, 3:edit, 4:share, 5:delete, 6:create, 7:owner]
 - entity_id='all' grants type-wide access
 - Specific UUIDs scope to individual records
 ```

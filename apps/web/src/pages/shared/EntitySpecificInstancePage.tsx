@@ -17,8 +17,7 @@ import { useS3Upload } from '../../lib/hooks/useS3Upload';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../contexts/NavigationHistoryContext';
 import { useEntityInstance, useFormattedEntityInstance, useEntityMutation, useCacheInvalidation, useEntityInstanceList } from '../../lib/hooks';
-import { useEntityEditStore } from '../../stores/useEntityEditStore';
-import { useShallow } from 'zustand/react/shallow';
+import { useRxDraft } from '../../db/rxdb';
 import { useKeyboardShortcuts, useShortcutHints } from '../../lib/hooks/useKeyboardShortcuts';
 import { API_CONFIG } from '../../lib/config/api';
 import { EllipsisBounce, InlineSpinner } from '../../components/shared/ui/EllipsisBounce';
@@ -50,10 +49,10 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   const { pushEntity, updateCurrentEntityName, updateCurrentEntityActiveTab } = useNavigationHistory();
 
   // ============================================================================
-  // ZUSTAND + REACT QUERY INTEGRATION
+  // RxDB DRAFT + REACT QUERY INTEGRATION (v8.6.0)
   // ============================================================================
   // Use React Query for data fetching with automatic caching (5 min TTL)
-  // Use Zustand edit store for field-level change tracking with undo/redo
+  // Use RxDB draft for field-level change tracking with undo/redo (persistent)
   // Keyboard shortcuts integrated for save/undo/redo
   // ============================================================================
 
@@ -82,42 +81,28 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   const { updateEntity, isUpdating } = useEntityMutation(entityCode);
   const { invalidateEntity } = useCacheInvalidation();
 
-  // Zustand edit store for field-level tracking
-  // ✅ FIX: Use useShallow to combine selectors and prevent excessive re-renders
-  // This reduces re-renders from 16+ to ~3 by batching state selections
+  // RxDB draft for field-level tracking (v8.6.0 - replaces Zustand)
+  // Drafts persist across page refresh and browser restart
   const {
-    isEditing,
+    hasDraft: isEditing,
     currentData: editedData,
-    isSaving,
-    saveError,
     dirtyFields,
-    startEdit,
-    updateField,
-    updateMultipleFields,
-    saveChanges: storesSaveChanges,
-    cancelEdit,
     hasChanges,
+    startEdit: startDraft,
+    updateField: updateDraftField,
+    updateMultipleFields: updateDraftMultipleFields,
+    discardDraft,
+    getChanges,
     undo,
     redo,
     canUndo,
     canRedo,
-  } = useEntityEditStore(useShallow(state => ({
-    isEditing: state.isEditing,
-    currentData: state.currentData,
-    isSaving: state.isSaving,
-    saveError: state.saveError,
-    dirtyFields: state.dirtyFields,
-    startEdit: state.startEdit,
-    updateField: state.updateField,
-    updateMultipleFields: state.updateMultipleFields,
-    saveChanges: state.saveChanges,
-    cancelEdit: state.cancelEdit,
-    hasChanges: state.hasChanges,
-    undo: state.undo,
-    redo: state.redo,
-    canUndo: state.canUndo,
-    canRedo: state.canRedo,
-  })));
+    isLoading: isDraftLoading,
+  } = useRxDraft(entityCode, id);
+
+  // Local state for save operations (RxDB draft doesn't handle API calls)
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Local UI state
   const [formDataRefreshKey, setFormDataRefreshKey] = useState(0);
@@ -145,19 +130,49 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // ============================================================================
   // KEYBOARD SHORTCUTS (Ctrl+Z, Ctrl+Shift+Z, Ctrl+S, Escape)
   // ============================================================================
+  // v8.6.0: Pass draft state to keyboard shortcuts (no store dependency)
   const handleCustomSave = useCallback(async () => {
-    if (!hasChanges()) return;
-    const success = await storesSaveChanges();
-    if (success) {
-      // Invalidate cache to refetch fresh data
+    if (!hasChanges) return;
+
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      const changes = getChanges();
+      if (Object.keys(changes).length === 0) {
+        await discardDraft();
+        return;
+      }
+
+      // PATCH to API
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/${entityCode}/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+        body: JSON.stringify(changes),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to save changes');
+      }
+
+      // Success - discard draft and invalidate cache
+      await discardDraft();
       invalidateEntity(entityCode, id);
       refetch();
+    } catch (err: any) {
+      setSaveError(err.message || 'Failed to save changes');
+    } finally {
+      setIsSaving(false);
     }
-  }, [hasChanges, storesSaveChanges, invalidateEntity, entityCode, id, refetch]);
+  }, [hasChanges, getChanges, discardDraft, entityCode, id, invalidateEntity, refetch]);
 
-  const handleCustomCancel = useCallback(() => {
-    cancelEdit();
-  }, [cancelEdit]);
+  const handleCustomCancel = useCallback(async () => {
+    await discardDraft();
+  }, [discardDraft]);
 
   useKeyboardShortcuts({
     enableUndo: true,
@@ -166,6 +181,12 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     enableEscape: true,
     onSave: handleCustomSave,
     onCancel: handleCustomCancel,
+    onUndo: undo,
+    onRedo: redo,
+    isEditing,
+    canUndo,
+    canRedo,
+    hasChanges,
     activeWhenEditing: true,
   });
 
@@ -438,8 +459,8 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   useEffect(() => {
     const locationState = location.state as any;
     if (locationState?.autoEdit && data && !loading && !isEditing) {
-      // Start edit mode using Zustand store
-      startEdit(entityCode, id!, data);
+      // Start edit mode using RxDB draft (v8.6.0)
+      startDraft(data);
       // Clear the state to prevent re-entering edit mode on subsequent navigations
       window.history.replaceState({}, document.title);
     }
@@ -492,13 +513,16 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   }, [currentChildEntity]); // updateCurrentEntityActiveTab removed from deps
 
   // ============================================================================
-  // ZUSTAND STORE SAVE HANDLER
+  // RxDB DRAFT SAVE HANDLER (v8.6.0)
   // ============================================================================
-  // Uses Zustand edit store for save with automatic cache invalidation
+  // Uses RxDB draft for save with automatic cache invalidation
   // Special handling preserved for artifact versioning and task assignees
   // ============================================================================
 
   const handleSave = async () => {
+    setIsSaving(true);
+    setSaveError(null);
+
     try {
       // Special handling for artifact with new file upload (create new version)
       if (entityCode === 'artifact' && uploadedObjectKey && selectedFile) {
@@ -534,6 +558,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
         alert(`New version created: v${result.newArtifact.version}`);
 
         // Navigate to the new version
+        await discardDraft();
         navigate(`/artifact/${result.newArtifact.id}`);
         return;
       }
@@ -541,29 +566,52 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
       // Special handling for cost/revenue with new file upload (replace attachment)
       if ((entityCode === 'cost' || entityCode === 'revenue') && uploadedObjectKey) {
         const attachmentField = entityCode === 'cost' ? 'invoice_attachment' : 'sales_receipt_attachment';
-        updateField(attachmentField, `s3://cohuron-attachments-prod-957207443425/${uploadedObjectKey}`);
+        await updateDraftField(attachmentField, `s3://cohuron-attachments-prod-957207443425/${uploadedObjectKey}`);
         setSelectedFile(null);
         setUploadedObjectKey(null);
       }
 
-      // Use Zustand store to save changes
-      // The store handles: field-level change tracking, PATCH optimization
-      const success = await storesSaveChanges();
+      // Get changed fields from RxDB draft
+      const changes = getChanges();
 
-      if (success) {
-        // Handle task assignees separately (special case)
-        if (entityCode === 'task' && editedData?.assignee_employee_ids !== undefined) {
-          const assigneeIds = editedData.assignee_employee_ids;
-          await updateTaskAssignees(id!, assigneeIds);
-        }
-
-        // Invalidate cache and refetch to ensure fresh data
-        invalidateEntity(entityCode, id);
-        refetch();
+      if (Object.keys(changes).length === 0) {
+        // No changes to save
+        await discardDraft();
+        return;
       }
+
+      // PATCH to API
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/${entityCode}/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+        body: JSON.stringify(changes),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to save changes');
+      }
+
+      // Handle task assignees separately (special case)
+      if (entityCode === 'task' && editedData?.assignee_employee_ids !== undefined) {
+        const assigneeIds = editedData.assignee_employee_ids;
+        await updateTaskAssignees(id!, assigneeIds);
+      }
+
+      // Success - discard draft and invalidate cache
+      await discardDraft();
+      invalidateEntity(entityCode, id);
+      refetch();
     } catch (err) {
       console.error(`Failed to update ${entityCode}:`, err);
-      alert(err instanceof Error ? err.message : 'Failed to update');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update';
+      setSaveError(errorMessage);
+      alert(errorMessage);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -654,17 +702,17 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   };
 
   // ============================================================================
-  // ZUSTAND STORE INTEGRATION FOR EDITING
+  // RxDB DRAFT INTEGRATION FOR EDITING (v8.6.0)
   // ============================================================================
-  // handleCancel and handleFieldChange now use the Zustand edit store
-  // This enables field-level change tracking, undo/redo, and optimistic updates
+  // handleCancel and handleFieldChange now use RxDB draft
+  // This enables field-level change tracking, undo/redo, and persistent drafts
   // ============================================================================
 
-  const handleCancel = useCallback(() => {
-    cancelEdit();
-  }, [cancelEdit]);
+  const handleCancel = useCallback(async () => {
+    await discardDraft();
+  }, [discardDraft]);
 
-  // Use refs for debouncing field updates (Zustand store handles state)
+  // Use refs for debouncing field updates (RxDB draft handles state)
   const updateTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const handleFieldChange = useCallback((fieldName: string, value: any, inputType?: string) => {
@@ -679,14 +727,14 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
 
     if (isImmediate) {
       // Update immediately for non-text fields
-      updateField(fieldName, value);
+      updateDraftField(fieldName, value);
     } else {
       // Debounce text field updates (1 second)
       updateTimeoutRef.current = setTimeout(() => {
-        updateField(fieldName, value);
+        updateDraftField(fieldName, value);
       }, 1000);
     }
-  }, [updateField]);
+  }, [updateDraftField]);
 
   const handleTabClick = (tabPath: string) => {
     if (tabPath === 'overview') {
@@ -754,8 +802,8 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
         setUploadedObjectKey(objectKey);
         // Auto-populate file metadata immediately for the new version
         const fileExtension = selectedFile.name.split('.').pop() || 'unknown';
-        // Use Zustand store for field updates
-        updateMultipleFields({
+        // Use RxDB draft for field updates (v8.6.0)
+        await updateDraftMultipleFields({
           attachment_format: fileExtension,
           attachment_size_bytes: selectedFile.size
         });
@@ -768,11 +816,11 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     }
   };
 
-  const handleRemoveFile = () => {
+  const handleRemoveFile = async () => {
     setSelectedFile(null);
     setUploadedObjectKey(null);
-    // Restore original file metadata from current version using Zustand store
-    updateMultipleFields({
+    // Restore original file metadata from current version using RxDB draft (v8.6.0)
+    await updateDraftMultipleFields({
       attachment_format: data?.attachment_format || '',
       attachment_size_bytes: data?.attachment_size_bytes || 0
     });
@@ -811,8 +859,8 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
       const result = await response.json();
       const shareUrl = result.sharedUrl || result.shared_url;
 
-      // Update Zustand store with new share URL
-      updateField('shared_url', shareUrl);
+      // Update RxDB draft with new share URL (v8.6.0)
+      await updateDraftField('shared_url', shareUrl);
 
       // Invalidate cache to ensure fresh data on next load
       invalidateEntity(entityCode, id);
@@ -1046,8 +1094,8 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                     } else if (entityCode === 'marketing') {
                       navigate(`/marketing/${id}/design`);
                     } else {
-                      // Start edit mode using Zustand store
-                      startEdit(entityCode, id!, data);
+                      // Start edit mode using RxDB draft (v8.6.0)
+                      startDraft(data);
                     }
                   }}
                   className="p-2 hover:bg-gray-50 rounded-md transition-colors"
@@ -1061,9 +1109,9 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                 {/* Undo button */}
                 <button
                   onClick={undo}
-                  disabled={!canUndo()}
+                  disabled={!canUndo}
                   className={`p-2 rounded-md transition-colors ${
-                    canUndo()
+                    canUndo
                       ? 'text-gray-600 hover:bg-gray-50'
                       : 'text-gray-300 cursor-not-allowed'
                   }`}
@@ -1075,9 +1123,9 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                 {/* Redo button */}
                 <button
                   onClick={redo}
-                  disabled={!canRedo()}
+                  disabled={!canRedo}
                   className={`p-2 rounded-md transition-colors ${
-                    canRedo()
+                    canRedo
                       ? 'text-gray-600 hover:bg-gray-50'
                       : 'text-gray-300 cursor-not-allowed'
                   }`}
@@ -1100,9 +1148,9 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
                 {/* Save button */}
                 <button
                   onClick={handleSave}
-                  disabled={isSaving || !hasChanges()}
+                  disabled={isSaving || !hasChanges}
                   className={`p-2 rounded-md transition-colors ${
-                    hasChanges()
+                    hasChanges
                       ? 'bg-gray-900 hover:bg-gray-800 text-white'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                   }`}

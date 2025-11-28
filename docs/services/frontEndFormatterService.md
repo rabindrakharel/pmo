@@ -239,8 +239,8 @@ interface UseRefDataResult {
 │  formatBadge('planning', viewType.dl__project_stage)                         │
 │                       │                                                      │
 │                       ▼                                                      │
-│  datalabelMetadataStore.getDatalabel('project_stage')                        │
-│    → { options: [{ name: 'planning', label: 'Planning', color_code: 'blue' }] }
+│  getDatalabelSync('project_stage')   // From RxDB sync cache (v8.6.0)        │
+│    → [{ name: 'planning', label: 'Planning', color_code: 'blue' }]           │
 │                       │                                                      │
 │                       ▼                                                      │
 │  colorCodeToTailwindClass('blue')                                            │
@@ -554,15 +554,16 @@ function getEntityCodeFromMetadata(fieldMeta: FieldMetadata | undefined): string
 
 ---
 
-## Integration with Real-Time Sync (v8.4.0)
+## Integration with Real-Time Sync (v8.6.0)
 
-The frontend formatter integrates seamlessly with the WebSocket sync system:
+The frontend formatter integrates seamlessly with the WebSocket sync system via RxDB:
 
-1. **WebSocket INVALIDATE** → SyncProvider invalidates React Query cache
-2. **Cache Invalidation** → React Query marks query as stale
-3. **Auto-Refetch** → Fresh RAW data fetched from REST API
-4. **Format-at-Read** → `select` transform applies formatDataset() on read
-5. **Component Re-render** → Updated FormattedRow[] displayed
+1. **WebSocket INVALIDATE** → ReplicationManager receives message
+2. **RxDB Refetch** → `fetchEntity()` fetches fresh data from REST API
+3. **RxDB Upsert** → `db.entities.upsert()` updates IndexedDB
+4. **RxJS Observable** → Reactive query emits new value
+5. **Format-at-Read** → formatDataset() applies during render
+6. **Component Re-render** → Updated FormattedRow[] displayed automatically
 
 This ensures that when another user modifies an entity, subscribers see fresh, correctly formatted data within ~60 seconds (LogWatcher polling interval).
 

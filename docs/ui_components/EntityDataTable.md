@@ -1,6 +1,6 @@
 # EntityDataTable Component
 
-**Version:** 8.5.0 | **Location:** `apps/web/src/components/shared/ui/EntityDataTable.tsx` | **Updated:** 2025-11-28
+**Version:** 8.6.0 | **Location:** `apps/web/src/components/shared/ui/EntityDataTable.tsx` | **Updated:** 2025-11-28
 
 ---
 
@@ -10,7 +10,7 @@ EntityDataTable is a universal data table component with **virtualized rendering
 
 **Core Principle:** Backend metadata with `{ viewType, editType }` structure controls all columns, rendering, and edit behavior. Frontend is a pure renderer using `extractViewType()` and `extractEditType()` helpers.
 
-**v8.5.0 Key Change:** Data is now provided via RxDB (IndexedDB) through `useRxEntityList` or `useEntityInstanceList` hooks, enabling offline-first storage with instant cache hits.
+**v8.6.0 Key Change:** All metadata (datalabels, entity codes) is now cached in RxDB alongside entity data. Access via `getDatalabelSync()` for badge colors. Draft state managed via `useRxDraft`.
 
 ---
 
@@ -18,7 +18,7 @@ EntityDataTable is a universal data table component with **virtualized rendering
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                     ENTITY DATA TABLE ARCHITECTURE (v8.5.0)                   │
+│                     ENTITY DATA TABLE ARCHITECTURE (v8.6.0)                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │

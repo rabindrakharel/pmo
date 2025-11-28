@@ -354,7 +354,7 @@ All **metadata stores** have been migrated from Zustand to RxDB:
 | `entityCodeMetadataStore` | `useRxEntityCodes`, `getEntityCodesSync` | ✅ Complete |
 | `globalSettingsMetadataStore` | `useRxGlobalSettings`, `getGlobalSettingsSync` | ✅ Complete |
 | `entityComponentMetadataStore` | `useRxComponentMetadata`, `cacheComponentMetadata` | ✅ Complete |
-| `useEntityEditStore` | `useRxDraft` (partial) | 🔄 Pending |
+| `useEntityEditStore` | `useRxDraft` | ✅ Complete |
 
 ### Sync Cache Pattern (Non-Hook Access)
 
@@ -394,13 +394,15 @@ The following files were migrated from Zustand to RxDB:
 | `garbageCollection.ts` | RxDB handles TTL automatically |
 | `useEntityQuery.ts` | RxDB cache invalidation |
 
-### Remaining Zustand Usage
+### Zustand Migration Complete
 
-`useEntityEditStore` is still used for global edit state (UI toggle, not data):
-- `apps/web/src/lib/hooks/useKeyboardShortcuts.ts`
-- `apps/web/src/pages/entity/EntitySpecificInstancePage.tsx`
+All Zustand stores have been migrated to RxDB. The `stores/` directory is empty except for `index.ts` which documents the migration.
 
-This will be migrated to `useRxDraft` in a future update when entity-specific context is available.
+**Files Updated (v8.6.0 final):**
+| File | Change |
+|------|--------|
+| `useKeyboardShortcuts.ts` | Accepts draft state via options (no store dependency) |
+| `EntitySpecificInstancePage.tsx` | Uses `useRxDraft` for edit state |
 
 ---
 

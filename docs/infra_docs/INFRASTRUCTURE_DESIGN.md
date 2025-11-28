@@ -563,12 +563,15 @@ PGPASSWORD=app psql -h localhost -p 5434 -U app -d app < backup.sql
 
 **RBAC System:**
 ```sql
--- Permission levels (0-4)
+-- Permission levels (0-7)
 0 = View
-1 = Edit
-2 = Share
-3 = Delete
-4 = Create
+1 = Comment
+2 = Contribute
+3 = Edit
+4 = Share
+5 = Delete
+6 = Create
+7 = Owner
 
 -- Entity-level permissions
 entity='project', entity_id='all' → Full project access

@@ -1,6 +1,6 @@
 # RxDB Migration Plan: Unified State Management
 
-**Version:** 8.6.0 (Planned) | **Created:** 2025-11-28
+**Version:** 8.6.0 (COMPLETE) | **Updated:** 2025-11-28
 
 ---
 
@@ -315,7 +315,7 @@ apps/web/src/lib/cache/garbageCollection.ts
 
 ---
 
-**Status:** Phase 2 Complete | **Estimated Effort:** 3-5 days | **Breaking Changes:** None in Phase 1-2
+**Status:** ✅ MIGRATION COMPLETE (v8.6.0) | **Completed:** 2025-11-28
 
 ---
 
@@ -351,17 +351,29 @@ apps/web/src/lib/cache/garbageCollection.ts
 - [x] Added dual-write: metadata cached in both RxDB and Zustand
 - [x] Exported new hooks from `lib/hooks/index.ts`
 
-### Phase 3: Migrate Consumers ⏳ PENDING
+### Phase 3: Migrate Consumers ✅ COMPLETE
 
-Consumers can now be migrated file-by-file by:
-1. Replacing `useEntityCodes` with `useEntityCodesV2`
-2. Replacing `useDatalabels` with `useDatalabelsV2`
-3. Replacing `useGlobalSettings` with `useGlobalSettingsV2`
-4. Replacing `useEntityMetadata` with `useEntityMetadataV2`
+All consumers migrated to RxDB hooks:
 
-### Phase 4: Remove Deprecated Code ⏳ PENDING
+| File | Migration |
+|------|-----------|
+| `AuthContext.tsx` | `prefetchAllMetadata()` replaces Zustand hydration |
+| `frontEndFormatterService.tsx` | `getDatalabelSync()` for badge colors |
+| `EntityMetadataContext.tsx` | `useRxEntityCodes()` hook |
+| `DynamicChildEntityTabs.tsx` | `useRxEntityCodes()` hook |
+| `EntityFormContainer.tsx` | `getDatalabelSync()` for dropdowns |
+| `EntityDataTable.tsx` | `getDatalabelSync()` for badges |
+| `valueFormatters.ts` | `getDatalabelSync()` for colors |
+| `useKeyboardShortcuts.ts` | Accepts draft state via options |
+| `EntitySpecificInstancePage.tsx` | `useRxDraft` for edit state |
 
-After all consumers are migrated:
-1. Remove Zustand stores
-2. Remove React Query wrapper (keep for entity reference cache only)
-3. Rename V2 hooks to original names
+### Phase 4: Remove Deprecated Code ✅ COMPLETE
+
+All Zustand stores deleted:
+- ~~`datalabelMetadataStore.ts`~~ (deleted)
+- ~~`entityCodeMetadataStore.ts`~~ (deleted)
+- ~~`entityComponentMetadataStore.ts`~~ (deleted)
+- ~~`globalSettingsMetadataStore.ts`~~ (deleted)
+- ~~`useEntityEditStore.ts`~~ (deleted)
+
+`stores/index.ts` now exports nothing and documents the migration.

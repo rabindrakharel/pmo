@@ -156,7 +156,7 @@ Result: 2-5 seconds render time
 ┌───────────────────────────────────────────────────────────────┐
 │                    JAVASCRIPT MEMORY                           │
 │  ┌─────────────────────────────────────────────────────────┐  │
-│  │  React Query Cache                                      │  │
+│  │  RxDB (IndexedDB) - Single Source of Truth              │  │
 │  │  ┌───────────────────────────────────────────────────┐  │  │
 │  │  │  Raw Data: Row[]  (1000 items)                    │  │  │
 │  │  │  Metadata: FieldMetadata[]                        │  │  │
@@ -534,7 +534,7 @@ canvas.addEventListener('click', (e: MouseEvent) => {
 │  2. Remove DOM overlay                                          │
 │  3. Re-render canvas (shows updated value)                      │
 │  4. API call: PATCH /api/v1/{entity}/{id}                       │
-│  5. Invalidate React Query cache                                │
+│  5. Invalidate RxDB cache                                       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -586,7 +586,7 @@ canvas.addEventListener('click', (e: MouseEvent) => {
 |---------|----------------|
 | All data operations | Same JavaScript logic |
 | API integration | Same hooks/fetching |
-| State management | Same Zustand/React Query |
+| State management | Same RxDB (IndexedDB) |
 | Format-at-read | Same formatters |
 | Metadata-driven rendering | Same backend metadata |
 | Datalabel badges | Paint with colors from API |

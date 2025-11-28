@@ -33,7 +33,7 @@ The PMO frontend uses a **three-layer component hierarchy** with universal pages
 |  BadgeDropdownSelect, EntitySelectDropdown                               |
 |                                                                          |
 |  Props: Uses editType.lookupSource, editType.datalabelKey               |
-|  Data: datalabelMetadataStore, entity-instance API                       |
+|  Data: RxDB (getDatalabelSync()), entity-instance API                    |
 |                                                                          |
 |  BASE LAYER (No Data Dependencies)                                      |
 |  ----------------------------------------------------------------       |

@@ -1,8 +1,8 @@
 # Datalabel System - End-to-End Data Flow
 
-**Version:** 8.5.0 | **Updated:** 2025-11-28
+**Version:** 8.6.0 | **Updated:** 2025-11-28
 
-> **Note:** As of v8.5.0, datalabel data is cached in Zustand stores (memory) while entity data uses RxDB (IndexedDB) for offline-first storage.
+> **Note:** As of v8.6.0, datalabel data is cached in RxDB (IndexedDB) along with all other metadata. Access via `useRxDatalabel()` hook or `getDatalabelSync()` for non-hook contexts.
 
 ---
 
@@ -144,16 +144,26 @@ datalabel_dag:
 
 ---
 
-## Phase 4: Login-Time Caching
+## Phase 4: Login-Time Caching (v8.6.0 - RxDB)
 
 ```typescript
 // AuthContext.tsx - On successful login
-const response = await api.get('/api/v1/datalabels/all');
+import { prefetchAllMetadata } from '@/db/rxdb';
 
-// Store in Zustand with localStorage persistence
-useDatalabelMetadataStore.getState().setAllDatalabels(response.data);
+// Prefetch ALL metadata into RxDB (IndexedDB) + sync cache
+await prefetchAllMetadata();
 
-// Cache structure:
+// This populates:
+// 1. RxDB metadata collection (persistent in IndexedDB)
+// 2. Sync cache (in-memory for non-hook access)
+
+// Access in components via hook:
+const { options } = useRxDatalabel('project_stage');
+
+// Access in formatters/utilities via sync cache:
+const options = getDatalabelSync('project_stage');
+
+// Cache structure (same as before):
 {
   "dl__project_stage": [
     { id: 1, name: "Initiation", parent_ids: [], color_code: "gray" },
@@ -262,7 +272,7 @@ if (hasLabelsMetadata && options.length > 0) {
 | `apps/api/src/services/view-type-mapping.yaml` | viewType metadata per component |
 | `apps/api/src/services/edit-type-mapping.yaml` | editType metadata per component |
 | `apps/api/src/services/backend-formatter.service.ts` | Generates API response metadata |
-| `apps/web/src/stores/datalabelMetadataStore.ts` | Datalabel cache (Zustand + localStorage) |
+| `apps/web/src/db/rxdb/hooks/useRxMetadata.ts` | RxDB datalabel hooks (v8.6.0) |
 | `apps/web/src/components/shared/entity/EntityFormContainer.tsx` | Field rendering |
 | `apps/web/src/components/workflow/DAGVisualizer.tsx` | DAG graph component |
 | `apps/web/src/components/shared/ui/BadgeDropdownSelect.tsx` | Colored dropdown |
@@ -280,4 +290,4 @@ if (hasLabelsMetadata && options.length > 0) {
 
 ---
 
-**Version:** 8.3.2 | **Updated:** 2025-11-27 | **Status:** Production Ready
+**Version:** 8.6.0 | **Updated:** 2025-11-28 | **Status:** Production Ready

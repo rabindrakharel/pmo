@@ -174,8 +174,8 @@ CREATE TABLE app.logging (
     entity_id UUID,
 
     -- Action (HOW)
-    action SMALLINT CHECK (action >= 0 AND action <= 5),
-    -- 0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER
+    action SMALLINT CHECK (action >= 0 AND action <= 7),
+    -- 0=VIEW, 1=COMMENT, 2=CONTRIBUTE, 3=EDIT, 4=SHARE, 5=DELETE, 6=CREATE, 7=OWNER
 
     -- Timestamps
     updated TIMESTAMPTZ DEFAULT now(),
