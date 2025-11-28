@@ -48,9 +48,6 @@ export interface LabelRecord {
   position?: number;  // Array position from backend
 }
 
-// Backward compatibility alias
-export type SettingsRecord = LabelRecord;
-
 export interface LabelsDataTableProps {
   data: LabelRecord[];
   onRowUpdate?: (id: string | number, updates: Partial<LabelRecord>) => void;
@@ -62,9 +59,6 @@ export interface LabelsDataTableProps {
   allowDelete?: boolean;
   allowReorder?: boolean;
 }
-
-// Backward compatibility alias
-export type SettingsDataTableProps = LabelsDataTableProps;
 
 /**
  * Main Labels Data Table Component
@@ -379,6 +373,3 @@ export function LabelsDataTable({
     />
   );
 }
-
-// Backward compatibility alias
-export const SettingsDataTable = LabelsDataTable;

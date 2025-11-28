@@ -19,7 +19,7 @@ export { RBACButton } from './button/RBACButton';
 // DATA TABLE COMPONENTS
 // ============================================================================
 export { EntityAssignmentDataTable } from './dataTable/EntityAssignmentDataTable';
-export { LabelsDataTableWithFetching, SettingsDataTableWithFetching } from './dataTable/LabelsDataTableWithFetching';
+export { LabelsDataTableWithFetching } from './dataTable/LabelsDataTableWithFetching';
 
 // ============================================================================
 // ENTITY COMPONENTS
@@ -76,7 +76,7 @@ export { ModularEditor } from './editor/ModularEditor';
 // UI COMPONENTS
 // ============================================================================
 export { EntityListOfInstancesTable, DataTable } from './ui/EntityListOfInstancesTable'; // DataTable = backwards compat
-export { LabelsDataTable, SettingsDataTable } from './ui/LabelsDataTable';
+export { LabelsDataTable } from './ui/LabelsDataTable';
 // EditableTags component removed - tags field no longer in use
 // export { EditableTags } from './ui/EditableTags';
 export { GridView } from './ui/GridView';

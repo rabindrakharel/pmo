@@ -457,7 +457,9 @@ export function EntityListOfInstancesTable<T = any>({
         onCellSave(rowId, columnKey, valueToSave, record);
       } else if (onSaveInlineEdit) {
         // Fallback to row-level save for compatibility
-        onSaveInlineEdit(record);
+        // FIX: Update record with new value before saving
+        const updatedRecord = { ...rawRecord, [columnKey]: valueToSave };
+        onSaveInlineEdit(updatedRecord as T);
       }
     }
 

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Tag, Search, ChevronDown, X, Wrench } from 'lucide-react';
 import { Layout } from '../../components/shared';
-import { SettingsDataTableWithFetching } from '../../components/shared/dataTable/LabelsDataTableWithFetching';
+import { LabelsDataTableWithFetching } from '../../components/shared/dataTable/LabelsDataTableWithFetching';
 import { ENTITY_ICONS, ENTITY_GROUPS } from '../../lib/entityIcons';
 
 type SettingTab =
@@ -289,7 +289,7 @@ export function DataLabelPage() {
 
                       {/* Data Table */}
                       <div className="p-4">
-                        <SettingsDataTableWithFetching
+                        <LabelsDataTableWithFetching
                           entityCode={settingId}
                           inlineEditable={true}
                           allowAddRow={true}

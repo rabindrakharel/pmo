@@ -29,20 +29,6 @@ export interface UnifiedAbilities {
   employeeId: string;
 }
 
-// Legacy interface for backward compatibility
-export interface Abilities {
-  app: Set<Action>;
-  scopes: {
-    project?: { ids: string[]; actions: Set<Action> };
-    task?: { ids: string[]; actions: Set<Action> };
-    location?: { ids: string[]; actions: Set<Action> };
-    business?: { ids: string[]; actions: Set<Action> };
-    hr?: { ids: string[]; actions: Set<Action> };
-    worksite?: { ids: string[]; actions: Set<Action> };
-  };
-  isAdmin: boolean;
-}
-
 /**
  * Permission levels as defined in rel_employee_scope_unified.resource_permission
  * [0=Read, 1=Create, 2=Update, 3=Delete, 4=Execute]
@@ -88,51 +74,6 @@ export function authorizeUnified(scopeType: ScopeType, action: Action, scopeId?:
     return reply.status(403).send({ 
       error: 'Access denied', 
       details: `Cannot ${action} on ${scopeType}${scopeId ? ` (${scopeId})` : ''}` 
-    });
-  };
-}
-
-// Legacy authorization middleware (for backward compatibility during transition)
-export function authorize(resource: string, action: Action) {
-  return async (req: FastifyRequest, reply: FastifyReply) => {
-    const abilities = (req as any).unifiedAbilities as UnifiedAbilities;
-    
-    if (!abilities) {
-      return reply.status(401).send({ error: 'Abilities not resolved' });
-    }
-
-    // Admin override - admins can do everything
-    if (abilities.isAdmin) {
-      return; // Continue to handler
-    }
-
-    // Map legacy resource types to scope types
-    const scopeTypeMapping: Record<string, ScopeType> = {
-      project: 'project',
-      task: 'task',
-      location: 'location', 
-      business: 'business',
-      hr: 'hr',
-      worksite: 'worksite',
-    };
-
-    const scopeType = scopeTypeMapping[resource];
-    if (!scopeType) {
-      return reply.status(403).send({ 
-        error: 'Unknown resource type', 
-        details: `Resource ${resource} not supported` 
-      });
-    }
-
-    const hasPermission = checkUnifiedPermission(abilities, scopeType, action);
-    if (hasPermission) {
-      return; // Continue to handler
-    }
-
-    // Access denied
-    return reply.status(403).send({ 
-      error: 'Access denied', 
-      details: `Cannot ${action} ${resource}` 
     });
   };
 }
@@ -239,32 +180,6 @@ export function applyUnifiedScopeFilter(
   `;
 }
 
-// Legacy scope filter for backward compatibility
-export function applyScopeFilter<T extends Record<string, any>>(
-  queryBuilder: any, 
-  abilities: UnifiedAbilities, 
-  scopeType: ScopeType,
-  entityTable: string
-): any {
-  // Admins see everything
-  if (abilities.isAdmin) {
-    return queryBuilder;
-  }
-
-  // Apply unified scope-based filtering for non-admin users
-  const accessibleIds = Array.from(abilities.scopes.values())
-    .filter(scope => scope.scopeType === scopeType)
-    .map(scope => scope.referenceId);
-  
-  if (accessibleIds.length === 0) {
-    // No access - return empty result
-    return queryBuilder.where(sql`false`);
-  }
-  
-  // Filter by accessible IDs
-  return queryBuilder.where(sql`${sql.identifier(entityTable + '.id')} = ANY(${accessibleIds})`);
-}
-
 /**
  * Resolve user unified abilities from rel_employee_scope_unified table
  */
@@ -347,11 +262,6 @@ export async function resolveUnifiedAbilities(userId: string): Promise<UnifiedAb
       employeeId: userId,
     };
   }
-}
-
-// Legacy function for backward compatibility
-export async function resolveAbilities(userId: string): Promise<UnifiedAbilities> {
-  return resolveUnifiedAbilities(userId);
 }
 
 // Helper functions for common permission checks

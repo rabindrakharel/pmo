@@ -152,20 +152,6 @@ export const dEmployee = pgTable('employee', {
   securityClearance: text('security_clearance'),
   emergencyContact: jsonb('emergency_contact').default('{}')});
 
-// Role (deprecated - use unified scope system)
-export const dRole = pgTable('role', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  name: text('name').notNull(),
-  descr: text('descr'),
-  tags: jsonb('tags').notNull().default('[]'),
-  fromTs: timestamp('from_ts', { withTimezone: true }).notNull().defaultNow(),
-  toTs: timestamp('to_ts', { withTimezone: true }),
-  activeFlag: boolean('active_flag').notNull().default(true),
-  permissions: jsonb('permissions').notNull().default('[]'),
-  attr: jsonb('attr').notNull().default('{}'),
-  createdTs: timestamp('created_ts', { withTimezone: true }).notNull().defaultNow(),
-  updatedTs: timestamp('updated_ts', { withTimezone: true }).notNull().defaultNow()});
-
 // Customer
 export const dCust = pgTable('d_cust', {
   id: uuid('id').primaryKey().defaultRandom(),

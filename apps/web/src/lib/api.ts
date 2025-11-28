@@ -1031,9 +1031,6 @@ export const entityInstanceApi = {
   },
 };
 
-// Backwards compatibility alias (deprecated - use entityInstanceApi)
-export const entityOptionsApi = entityInstanceApi;
-
 // ========================================
 // GENERIC ENTITY API FACTORY
 // ========================================
