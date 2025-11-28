@@ -2,9 +2,9 @@
 
 > **React 19, TypeScript, Backend-Driven Metadata, Zero Pattern Detection**
 > Universal page system with 3 pages handling 27+ entity types dynamically
-> Real-time sync via WebSocket invalidation (v8.4.0)
+> **Offline-first architecture** with RxDB (IndexedDB) + WebSocket real-time sync (v8.5.0)
 
-**Version:** 8.4.0 | **Last Updated:** 2025-11-27
+**Version:** 8.5.0 | **Last Updated:** 2025-11-27
 
 ---
 
@@ -16,15 +16,27 @@ The PMO frontend uses a **three-layer component architecture** (Base → Domain 
 
 ---
 
-## End-to-End Data Request Flow (v8.4.0)
+## End-to-End Data Request Flow (v8.5.0)
 
-The following diagrams show the complete data flow from user action through the system and back.
+The PMO platform uses an **offline-first architecture** with RxDB (IndexedDB) for persistent client-side storage and WebSocket-based real-time sync.
+
+### Flow Summary
+
+| Scenario | Flow |
+|----------|------|
+| **Initial Load (Cold)** | User → RxDB (empty) → API → PostgreSQL → RxDB → UI |
+| **Subsequent Load (Warm)** | User → RxDB (IndexedDB) → UI (instant) → background refresh if stale |
+| **Real-Time Update** | User B edits → PostgreSQL trigger → LogWatcher → WebSocket → User A's RxDB → UI |
+| **Draft Persistence** | User edits → RxDB drafts → survives refresh → recover on reload |
+
+---
 
 ### 1. Initial Page Load (Cold Start)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                         INITIAL LOAD (No Cache)                                  │
+│                         User → RxDB → API → PostgreSQL → RxDB → UI              │
 └─────────────────────────────────────────────────────────────────────────────────┘
 
 User visits /projects
@@ -33,17 +45,25 @@ User visits /projects
 ┌──────────────────┐
 │ ProjectListPage  │
 │                  │
-│ useFormattedList │
+│ useRxEntityList  │
 │ ('project')      │
 └────────┬─────────┘
          │
          ▼
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│ useEntityInstanceList Hook                                                        │
+│ useRxEntityList Hook                                                              │
 ├──────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                   │
-│  1. queryFn: apiClient.get('/api/v1/project', { params })                        │
-│     ─────────────────────────────────────────────────────────────────────►       │
+│  1. getDatabase() → RxDB (IndexedDB)                                             │
+│                                                                                   │
+│  2. db.entities.find({ entityCode: 'project' }).$ → Observable                   │
+│     └── Subscribe to reactive query                                              │
+│                                                                                   │
+│  3. RxDB query result: [] (empty - first load)                                   │
+│     └── isLoading = true                                                         │
+│                                                                                   │
+│  4. Trigger fetch from server:                                                   │
+│     getReplicationManager().fetchEntityList('project', params)                   │
 │                                                                                   │
 └──────────────────────────────────────────────────────────────────────────────────┘
          │
@@ -100,87 +120,111 @@ User visits /projects
          │
          ▼
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│ React Query Cache + WebSocket Subscribe                                           │
+│ ReplicationManager.fetchEntityList() - Store in RxDB                              │
 ├──────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                   │
-│  1. Cache RAW response:                                                          │
-│     queryClient.setQueryData(['entity-instance-list', 'project', params], data)  │
+│  For each entity in response.data:                                               │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐ │
+│  │ const doc = {                                                                │ │
+│  │   _id: 'project:uuid-1',           // Composite key                          │ │
+│  │   entityCode: 'project',                                                     │ │
+│  │   id: 'uuid-1',                                                              │ │
+│  │   data: { name: 'Kitchen...', budget_allocated_amt: 50000 },                 │ │
+│  │   refData: { employee: { 'uuid-james': 'James Miller' } },                   │ │
+│  │   metadata: { viewType: {...}, editType: {...} },                            │ │
+│  │   _version: 1,                                                               │ │
+│  │   _syncedAt: Date.now(),            // Staleness tracking                    │ │
+│  │   _deleted: false                                                            │ │
+│  │ };                                                                           │ │
+│  │                                                                              │ │
+│  │ await db.entities.upsert(doc);     // Store in IndexedDB (persistent!)       │ │
+│  └─────────────────────────────────────────────────────────────────────────────┘ │
 │                                                                                   │
-│  2. useAutoSubscribe sends WebSocket SUBSCRIBE:                                  │
-│     ws.send({ type: 'SUBSCRIBE', payload: { entityCode: 'project',               │
-│                                              entityIds: ['uuid-1', ...] } })      │
-│     ─────────────────────────────────────────────────────────────────────►       │
-│     PubSub stores in app.rxdb_subscription table                                 │
+│  Auto-subscribe to WebSocket updates:                                            │
+│  this.subscribe('project', ['uuid-1', 'uuid-2', ...])                            │
+│  ─────────────────────────────────────────────────────────────────────►          │
+│  WebSocket: { type: 'SUBSCRIBE', payload: { entityCode, entityIds } }            │
 │                                                                                   │
 └──────────────────────────────────────────────────────────────────────────────────┘
          │
          ▼
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│ Format-at-Read (select transform)                                                 │
+│ RxDB Reactive Query Update                                                        │
 ├──────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                   │
-│  select: (response) => formatDataset(response.data, response.metadata,           │
-│                                       response.ref_data_entityInstance)          │
-│                       │                                                          │
-│                       ▼                                                          │
-│  FormattedRow[] = [                                                              │
-│    {                                                                             │
-│      raw: { budget_allocated_amt: 50000, manager__employee_id: 'uuid-james' },   │
-│      display: { budget_allocated_amt: '$50,000.00',                              │
-│                 manager__employee_id: 'James Miller' },  // ← Resolved via refData
-│      styles: { dl__project_stage: 'bg-blue-100 text-blue-700' }                  │
-│    }                                                                             │
-│  ]                                                                               │
+│  db.entities.find({ entityCode: 'project' }).$ emits new value!                  │
+│                                                                                   │
+│  useRxEntityList receives:                                                       │
+│  └── docs = [RxDocument, RxDocument, ...]                                        │
+│  └── setDocs(docs)                                                               │
+│  └── setIsLoading(false)                                                         │
 │                                                                                   │
 └──────────────────────────────────────────────────────────────────────────────────┘
          │
          ▼
 ┌──────────────────┐
-│ Component        │
+│ ProjectListPage  │
 │ re-renders with  │
-│ formattedData[]  │
+│ data: [...]      │
 │ isLoading: false │
 └──────────────────┘
 ```
 
-### 2. Subsequent Load (Warm Cache)
+---
+
+### 2. Subsequent Load (Warm Cache - Offline-First)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                         SUBSEQUENT LOAD (Cached)                                 │
+│                         SUBSEQUENT LOAD (Cached - Offline-First)                 │
+│                         User → RxDB (IndexedDB) → UI (instant)                   │
 └─────────────────────────────────────────────────────────────────────────────────┘
 
-User returns to /projects (or navigates from another page)
+User returns to /projects (or refreshes page - data survives!)
         │
         ▼
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│ React Query Cache Check                                                           │
+│ RxDB Query (IndexedDB - Persistent!)                                              │
 ├──────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                   │
-│  queryClient.getQueryData(['entity-instance-list', 'project', params])           │
+│  db.entities.find({ entityCode: 'project' }).$                                   │
 │                                                                                   │
-│  Cache Status Check:                                                             │
-│  ├── Data Age < 30s (staleTime): Return cached, no refetch                       │
-│  └── Data Age > 30s: Return cached immediately, refetch in background            │
+│  IMMEDIATE result from IndexedDB:                                                │
+│  └── docs = [{ id: 'uuid-1', data: {...} }, { id: 'uuid-2', ... }]              │
+│  └── isLoading = false (instant!)                                                │
 │                                                                                   │
-│  ✓ INSTANT UI render (no loading spinner!)                                       │
-│  ✓ Background refetch if stale                                                   │
+│  Check staleness:                                                                │
+│  └── isStale = (Date.now() - doc._syncedAt) > 30000 (30 seconds)                │
+│                                                                                   │
+│  If stale → Background refresh (non-blocking):                                   │
+│  └── getReplicationManager().fetchEntityList('project', params)                  │
+│  └── UI already rendered! User sees data immediately                            │
 │                                                                                   │
 └──────────────────────────────────────────────────────────────────────────────────┘
          │
          ▼
 ┌──────────────────┐
 │ UI renders       │
-│ IMMEDIATELY      │ ◄─── Stale-while-revalidate pattern
-│ with cached data │
+│ IMMEDIATELY      │ ◄─── No loading spinner! Data from IndexedDB
+│ with cached data │     (persists across page refresh, browser restart)
 └──────────────────┘
 ```
+
+**Key Benefits of RxDB/IndexedDB:**
+- ✅ Data survives page refresh
+- ✅ Data survives browser restart
+- ✅ Works offline (shows cached data)
+- ✅ Multi-tab sync (LeaderElection plugin)
+- ✅ Reactive queries auto-update UI
+
+---
 
 ### 3. Real-Time Update (Another User Edits)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                         REAL-TIME SYNC (WebSocket)                               │
+│     User B edits → PostgreSQL trigger → LogWatcher → WebSocket → User A's RxDB  │
 └─────────────────────────────────────────────────────────────────────────────────┘
 
 User B edits project "Kitchen Renovation" (while User A is viewing)
@@ -240,7 +284,7 @@ User B edits project "Kitchen Renovation" (while User A is viewing)
          │  WebSocket message
          ▼
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│ User A's Browser - SyncProvider                                                   │
+│ User A's Browser - ReplicationManager                                             │
 ├──────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                   │
 │  WebSocket receives:                                                             │
@@ -253,39 +297,104 @@ User B edits project "Kitchen Renovation" (while User A is viewing)
 │  }                                                                                │
 │                                                                                   │
 │  handleInvalidate():                                                             │
-│  1. Check version (skip if already processed)                                    │
-│  2. queryClient.invalidateQueries({                                              │
-│       queryKey: ['entity-instance', 'project', 'uuid-1']                         │
-│     })                                                                           │
-│  3. queryClient.invalidateQueries({                                              │
-│       queryKey: ['entity-instance-list', 'project'],                             │
-│       exact: false  // Invalidate all project list queries                       │
-│     })                                                                           │
+│  1. Check version (skip if stale/already processed)                              │
+│  2. Re-fetch from server:                                                        │
+│     await this.fetchEntity('project', 'uuid-1')                                  │
 │                                                                                   │
 └──────────────────────────────────────────────────────────────────────────────────┘
          │
-         │  React Query auto-refetch
+         │  GET /api/v1/project/uuid-1
          ▼
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│ REST API Refetch → Format-at-Read → Re-render                                     │
+│ RxDB Update                                                                       │
 ├──────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                   │
-│  1. GET /api/v1/project → Fresh data with budget = 75000                         │
-│  2. Cache updated with new RAW data                                              │
-│  3. select: formatDataset() transforms to FormattedRow[]                         │
-│  4. Component re-renders automatically                                           │
+│  db.entities.upsert({                                                            │
+│    _id: 'project:uuid-1',                                                        │
+│    data: { budget_allocated_amt: 75000, ... },  // Updated!                      │
+│    _version: 2,                                                                  │
+│    _syncedAt: Date.now()                                                         │
+│  });                                                                              │
+│                                                                                   │
+│  Reactive query emits new value automatically!                                   │
+│  └── db.entities.find({ entityCode: 'project' }).$ → new docs                   │
 │                                                                                   │
 └──────────────────────────────────────────────────────────────────────────────────┘
          │
          ▼
 ┌──────────────────┐
 │ User A's UI      │
-│ auto-updates!    │ ◄─── Budget now shows $75,000
+│ auto-updates!    │ ◄─── Budget now shows $75,000 (no refresh needed)
 │ No refresh needed│
 └──────────────────┘
 ```
 
-### 4. Complete System Architecture
+---
+
+### 4. Draft Persistence (Edit Mode)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                         DRAFT PERSISTENCE (survives refresh!)                    │
+│                         User edits → RxDB drafts collection → IndexedDB          │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+User starts editing entity
+        │
+        ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ useRxDraft('project', 'uuid-1')                                                   │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                   │
+│  Creates draft in RxDB drafts collection:                                        │
+│  {                                                                                │
+│    _id: 'draft:project:uuid-1',                                                  │
+│    entityCode: 'project',                                                        │
+│    entityId: 'uuid-1',                                                           │
+│    originalData: { budget_allocated_amt: 50000, ... },  // Snapshot at edit start│
+│    currentData: { budget_allocated_amt: 75000, ... },   // Current with changes  │
+│    dirtyFields: ['budget_allocated_amt'],               // Modified fields       │
+│    undoStack: [{ field, oldValue, newValue }],          // For undo              │
+│    redoStack: [],                                       // For redo              │
+│    createdAt: Date.now()                                                         │
+│  }                                                                                │
+│                                                                                   │
+│  Each field change → draft.updateField(field, value):                            │
+│  └── Draft persisted to IndexedDB immediately                                    │
+│  └── Survives page refresh!                                                      │
+│                                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────┘
+         │
+         │ User refreshes page
+         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ Draft Recovery                                                                    │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                   │
+│  useRecoverDraft() detects existing draft in RxDB:                               │
+│  └── db.drafts.findOne({ entityCode: 'project', entityId: 'uuid-1' })            │
+│                                                                                   │
+│  Prompt user: "Recover unsaved changes?"                                         │
+│  └── Yes: Restore currentData from draft                                         │
+│  └── No: Delete draft, use fresh server data                                     │
+│                                                                                   │
+│  On save:                                                                        │
+│  └── draft.getChanges() returns only dirty fields for PATCH                      │
+│  └── PATCH /api/v1/project/uuid-1 { budget_allocated_amt: 75000 }               │
+│  └── Delete draft after successful save                                          │
+│                                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Draft Features:**
+- ✅ Unsaved edits survive page refresh
+- ✅ Undo/redo with full history
+- ✅ Only dirty fields sent in PATCH
+- ✅ Conflict detection (server changed while editing)
+
+---
+
+### 5. Complete System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
@@ -298,12 +407,14 @@ User B edits project "Kitchen Renovation" (while User A is viewing)
     └──────┬──────┘         └──────┬──────┘         └──────┬──────┘
            │                       │                       │
     ┌──────▼──────┐         ┌──────▼──────┐         ┌──────▼──────┐
-    │ React Query │         │ React Query │         │ React Query │
-    │  (In-Memory │         │  (In-Memory │         │  (In-Memory │
-    │   Cache)    │         │   Cache)    │         │   Cache)    │
+    │   RxDB      │         │   RxDB      │         │   RxDB      │
+    │ (IndexedDB) │         │ (IndexedDB) │         │ (IndexedDB) │
     │             │         │             │         │             │
-    │ + Zustand   │         │ + Zustand   │         │ + Zustand   │
-    │  (metadata) │         │  (metadata) │         │  (metadata) │
+    │ • entities  │         │ • entities  │         │ • entities  │
+    │ • drafts    │         │ • drafts    │         │ • drafts    │
+    │ • metadata  │         │ • metadata  │         │ • metadata  │
+    │             │         │             │         │             │
+    │ Persistent! │         │ Persistent! │         │ Persistent! │
     └──────┬──────┘         └──────┬──────┘         └──────┬──────┘
            │                       │                       │
            │ WebSocket             │ REST API              │ WebSocket
@@ -335,15 +446,29 @@ User B edits project "Kitchen Renovation" (while User A is viewing)
     └──────────────────────────────────────────────────────────────────┘
 ```
 
-### 5. Cache TTL Configuration
+---
 
-| Layer | TTL | Purpose |
-|-------|-----|---------|
-| **Tier 2 - Reference Data** | 1 hour | Entity types, datalabels, global settings |
-| **Tier 3 - Metadata** | 15 min | Field definitions, component schemas |
-| **Tier 4 - Entity Lists** | 30s stale, 5m gc | Stale-while-revalidate for lists |
-| **Tier 5 - Entity Details** | 10s stale, 2m gc | Near real-time for active editing |
-| **Tier 6 - Reference Lookups** | 1 hour | ref_data_entityInstance name lookups |
+### 6. Component Summary
+
+| Layer | Component | Responsibility |
+|-------|-----------|----------------|
+| **Browser** | `useRxEntity` / `useRxEntityList` | Query RxDB, trigger fetch if missing |
+| **Browser** | RxDB (IndexedDB) | Persistent cache, reactive queries |
+| **Browser** | ReplicationManager | WebSocket connection, fetch & upsert |
+| **Browser** | `useRxDraft` | Draft persistence with undo/redo |
+| **Server** | REST API (4000) | CRUD, RBAC, metadata generation |
+| **Server** | PubSub (4001) | WebSocket, LogWatcher, subscriptions |
+| **Database** | PostgreSQL | Entity data, triggers → app.logging |
+| **Database** | app.rxdb_subscription | Who subscribes to what |
+
+### 7. Cache Configuration
+
+| Layer | Storage | TTL | Survives Refresh |
+|-------|---------|-----|------------------|
+| **RxDB entities** | IndexedDB | 30s stale | ✅ Yes |
+| **RxDB drafts** | IndexedDB | Until saved | ✅ Yes |
+| **RxDB metadata** | IndexedDB | 15 min | ✅ Yes |
+| **Zustand stores** | Memory | Session | ❌ No |
 
 ---
 

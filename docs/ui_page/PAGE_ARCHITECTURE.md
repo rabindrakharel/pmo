@@ -1,6 +1,6 @@
 # Page Architecture
 
-**Version:** 5.0.0 | **Location:** `apps/web/src/pages/`
+**Version:** 8.5.0 | **Location:** `apps/web/src/pages/` | **Updated:** 2025-11-27
 
 ---
 
@@ -8,7 +8,10 @@
 
 The PMO platform uses **3 universal pages** to handle 27+ entity types dynamically. This architecture eliminates entity-specific page code.
 
-**Core Principle:** Config-driven, not code-driven. All entity-specific behavior defined in `entityConfig.ts`.
+**Core Principles:**
+- **Config-driven, not code-driven** - All entity-specific behavior defined in `entityConfig.ts`
+- **Offline-first** - RxDB (IndexedDB) for persistent client-side storage
+- **Real-time sync** - WebSocket invalidation via PubSub service
 
 ---
 
