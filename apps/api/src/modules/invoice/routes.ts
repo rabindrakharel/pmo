@@ -34,24 +34,45 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
         page: Type.Optional(Type.Number({ minimum: 1 })),
         invoice_status: Type.Optional(Type.String()),
         payment_status: Type.Optional(Type.String()),
-        search: Type.Optional(Type.String())})}}, async (request, reply) => {
+        search: Type.Optional(Type.String()),
+        parent_entity_code: Type.Optional(Type.String()),
+        parent_entity_instance_id: Type.Optional(Type.String({ format: 'uuid' })),
+      })}}, async (request, reply) => {
     const userId = (request as any).user?.sub;
     if (!userId) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    const { limit = 20, offset: queryOffset, page } = request.query as any;
+    const { limit = 20, offset: queryOffset, page, parent_entity_code, parent_entity_instance_id } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // BUILD JOINs - Parent filtering via entity_instance_link
+      // ═══════════════════════════════════════════════════════════════
+      const joins: SQL[] = [];
+
+      if (parent_entity_code && parent_entity_instance_id) {
+        joins.push(sql`
+          INNER JOIN app.entity_instance_link eil
+            ON eil.child_entity_code = ${ENTITY_CODE}
+            AND eil.child_entity_instance_id = ${sql.raw(TABLE_ALIAS)}.id
+            AND eil.entity_code = ${parent_entity_code}
+            AND eil.entity_instance_id = ${parent_entity_instance_id}::uuid
+        `);
+      }
+
       // Build WHERE conditions array
       const conditions: SQL[] = [];
 
-      // OPTIONAL: RBAC filtering (if invoice entity has permissions configured)
-      // Uncomment if entity_rbac has entries for invoice
-      // const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(//   userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
-      // );
-      // conditions.push(rbacWhereClause);
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC filtering
+      // Only return invoices user has VIEW permission for
+      // ═══════════════════════════════════════════════════════════════
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(
+        userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
+      );
+      conditions.push(rbacWhereClause);
 
       // ✨ UNIVERSAL AUTO-FILTER SYSTEM
       // Automatically builds filters from ANY query parameter based on field naming conventions
@@ -61,23 +82,26 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
       });
       conditions.push(...autoFilters);
 
-      // Build WHERE clause
+      // Compose JOIN and WHERE clauses
+      const joinClause = joins.length > 0 ? sql.join(joins, sql` `) : sql``;
       const whereClause = conditions.length > 0
         ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
         : sql``;
 
       // Count query
       const countResult = await db.execute(sql`
-        SELECT COUNT(*) as count
+        SELECT COUNT(DISTINCT ${sql.raw(TABLE_ALIAS)}.id) as count
         FROM app.f_invoice ${sql.raw(TABLE_ALIAS)}
+        ${joinClause}
         ${whereClause}
       `);
       const total = Number(countResult[0]?.count || 0);
 
       // Data query
       const rows = await db.execute(sql`
-        SELECT *
+        SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
         FROM app.f_invoice ${sql.raw(TABLE_ALIAS)}
+        ${joinClause}
         ${whereClause}
         ORDER BY ${sql.raw(TABLE_ALIAS)}.invoice_date DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -107,12 +131,14 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     const { id } = request.params as any;
 
     try {
-      // OPTIONAL: RBAC check (if invoice entity has permissions configured)
-      // Uncomment if entity_rbac has entries for invoice
-      // const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
-      // if (!canView) {
-      //   return reply.status(403).send({ error: 'No permission to view this invoice' });
-      // }
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+      // Check: Can user VIEW this invoice?
+      // ═══════════════════════════════════════════════════════════════
+      const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
+      if (!canView) {
+        return reply.status(403).send({ error: 'No permission to view this invoice' });
+      }
 
       const result = await db.execute(sql`
         SELECT *
@@ -144,12 +170,14 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     const data = request.body as any;
 
     try {
-      // OPTIONAL: RBAC CHECK (if invoice entity has permissions configured)
-      // Uncomment if entity_rbac has entries for invoice
-      // const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE);
-      // if (!canCreate) {
-      //   return reply.status(403).send({ error: 'No permission to create invoices' });
-      // }
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user CREATE invoices?
+      // ═══════════════════════════════════════════════════════════════
+      const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE);
+      if (!canCreate) {
+        return reply.status(403).send({ error: 'No permission to create invoices' });
+      }
 
       const invoiceNumber = data.invoice_number || `INV-${Date.now()}`;
       const invoiceDate = data.invoice_date || new Date().toISOString().split('T')[0];
@@ -205,12 +233,14 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     const data = request.body as any;
 
     try {
-      // OPTIONAL: RBAC CHECK (if invoice entity has permissions configured)
-      // Uncomment if entity_rbac has entries for invoice
-      // const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
-      // if (!canEdit) {
-      //   return reply.status(403).send({ error: 'No permission to edit this invoice' });
-      // }
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user EDIT this invoice?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit this invoice' });
+      }
 
       // Build update fields
       const updateFields: SQL[] = [];
@@ -273,12 +303,14 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'User not authenticated' });
       }
 
-      // OPTIONAL: Check RBAC permission using entity infrastructure service
-      // Uncomment if entity_rbac has entries for invoice
-      // const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE);
-      // if (!canCreate) {
-      //   return reply.code(403).send({ error: 'Permission denied to upload invoice attachments' });
-      // }
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user CREATE invoices (upload attachments)?
+      // ═══════════════════════════════════════════════════════════════
+      const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE);
+      if (!canCreate) {
+        return reply.code(403).send({ error: 'Permission denied to upload invoice attachments' });
+      }
 
       // Generate presigned upload URL using s3AttachmentService
       const result = await s3AttachmentService.generatePresignedUploadUrl({
@@ -316,12 +348,14 @@ export async function invoiceRoutes(fastify: FastifyInstance) {
     const { id } = request.params as any;
 
     try {
-      // OPTIONAL: RBAC CHECK (if invoice entity has permissions configured)
-      // Uncomment if entity_rbac has entries for invoice
-      // const canDelete = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.DELETE);
-      // if (!canDelete) {
-      //   return reply.status(403).send({ error: 'No permission to delete this invoice' });
-      // }
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user DELETE this invoice?
+      // ═══════════════════════════════════════════════════════════════
+      const canDelete = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.DELETE);
+      if (!canDelete) {
+        return reply.status(403).send({ error: 'No permission to delete this invoice' });
+      }
 
       const result = await db.execute(sql`
         DELETE FROM app.f_invoice

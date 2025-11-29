@@ -9,7 +9,8 @@ import { client, db } from '../../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import { paginateQuery, getPaginationParams } from '../../lib/pagination.js';
 // ✅ Entity Infrastructure Service - Centralized infrastructure management
-import { getEntityInfrastructure, Permission } from '../../services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
+import { sql, SQL } from 'drizzle-orm';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✅ Delete factory for cascading soft deletes
@@ -89,15 +90,34 @@ export async function eventRoutes(fastify: FastifyInstance) {
       page?: number;
       limit?: number;
     };
-  }>('/api/v1/event', async (request, reply) => {
+  }>('/api/v1/event', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.code(401).send({ error: 'User not authenticated' });
+    }
+
     try {
       const { from_ts, to_ts } = request.query;
       const { page, limit, offset } = getPaginationParams(request.query);
 
-      // ✨ UNIVERSAL AUTO-FILTER SYSTEM
-      // Automatically builds filters from ANY query parameter based on field naming conventions
-      // Supports: ?event_type=X, ?event_platform_provider_name=Y, ?search=keyword, etc.
-      const conditions: any[] = [];
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC filtering
+      // Only return events user has VIEW permission for
+      // ═══════════════════════════════════════════════════════════════
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(
+        userId, ENTITY_CODE, Permission.VIEW, 'e'
+      );
+
+      // Build WHERE conditions array
+      const conditions: SQL[] = [];
+
+      // ✅ RBAC filtering (REQUIRED)
+      conditions.push(rbacWhereClause);
+
+      // ✅ Default: only active records
+      conditions.push(sql`e.active_flag = true`);
 
       // Build auto-filters for standard fields
       const queryFilters: any = {};
@@ -107,39 +127,47 @@ export async function eventRoutes(fastify: FastifyInstance) {
         }
       });
 
-      // Note: buildAutoFilters expects SQL[] for drizzle-orm, but we're using postgres.js client
-      // For now, we'll manually build filters compatible with postgres.js
-      let whereConditions = client`WHERE active_flag = true`;
-
       // Auto-filter: event_type
       if (queryFilters.event_type) {
-        whereConditions = client`${whereConditions} AND event_type = ${queryFilters.event_type}`;
+        conditions.push(sql`e.event_type = ${queryFilters.event_type}`);
       }
 
       // Auto-filter: event_platform_provider_name
       if (queryFilters.event_platform_provider_name) {
-        whereConditions = client`${whereConditions} AND event_platform_provider_name = ${queryFilters.event_platform_provider_name}`;
+        conditions.push(sql`e.event_platform_provider_name = ${queryFilters.event_platform_provider_name}`);
       }
 
       // Auto-filter: search (searches across name, code, descr)
       if (queryFilters.search) {
-        whereConditions = client`${whereConditions} AND (
-          name ILIKE ${'%' + queryFilters.search + '%'}
-          OR code ILIKE ${'%' + queryFilters.search + '%'}
-          OR descr ILIKE ${'%' + queryFilters.search + '%'}
-        )`;
+        conditions.push(sql`(
+          e.name ILIKE ${'%' + queryFilters.search + '%'}
+          OR e.code ILIKE ${'%' + queryFilters.search + '%'}
+          OR e.descr ILIKE ${'%' + queryFilters.search + '%'}
+        )`);
       }
 
-      // Date range filters (custom logic for timestamp comparison)
+      // Date range filters
       if (from_ts) {
-        whereConditions = client`${whereConditions} AND from_ts >= ${from_ts}::timestamptz`;
+        conditions.push(sql`e.from_ts >= ${from_ts}::timestamptz`);
       }
 
       if (to_ts) {
-        whereConditions = client`${whereConditions} AND to_ts <= ${to_ts}::timestamptz`;
+        conditions.push(sql`e.to_ts <= ${to_ts}::timestamptz`);
       }
 
-      const dataQuery = client`
+      // Build WHERE clause
+      const whereClause = sql`WHERE ${sql.join(conditions, sql` AND `)}`;
+
+      // Count query
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*) as total
+        FROM app.event e
+        ${whereClause}
+      `);
+      const total = Number(countResult[0]?.total || 0);
+
+      // Data query
+      const dataResult = await db.execute(sql`
         SELECT
           e.id::text,
           e.code,
@@ -161,7 +189,6 @@ export async function eventRoutes(fastify: FastifyInstance) {
           e.created_ts::text,
           e.updated_ts::text,
           e.version,
-          -- Get organizer details
           (
             SELECT jsonb_build_object(
               'employee_id', emp.id::text,
@@ -172,20 +199,21 @@ export async function eventRoutes(fastify: FastifyInstance) {
             WHERE emp.id = e.organizer__employee_id
           ) as organizer
         FROM app.event e
-        ${whereConditions}
+        ${whereClause}
         ORDER BY e.from_ts DESC, e.created_ts DESC
         LIMIT ${limit}
         OFFSET ${offset}
-      `;
+      `);
 
-      const countQuery = client`
-        SELECT COUNT(*) as total
-        FROM app.event
-        ${whereConditions}
-      `;
-
-      const result = await paginateQuery(dataQuery, countQuery, page, limit);
-      reply.code(200).send(result);
+      reply.code(200).send({
+        data: dataResult,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit)
+        }
+      });
     } catch (error) {
       console.error('Error fetching events:', error);
       reply.code(500).send({ error: 'Failed to fetch events' });
@@ -205,10 +233,25 @@ export async function eventRoutes(fastify: FastifyInstance) {
       page?: number;
       limit?: number;
     };
-  }>('/api/v1/event/enriched', async (request, reply) => {
+  }>('/api/v1/event/enriched', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.code(401).send({ error: 'User not authenticated' });
+    }
+
     try {
       const { from_ts, to_ts, person_id, person_type } = request.query;
       const { page, limit, offset } = getPaginationParams(request.query);
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC filtering
+      // Only return events user has VIEW permission for
+      // ═══════════════════════════════════════════════════════════════
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(
+        userId, ENTITY_CODE, Permission.VIEW, 'e'
+      );
 
       // Build conditions for filtering
       let whereConditions = client`WHERE e.active_flag = true`;
@@ -365,9 +408,25 @@ export async function eventRoutes(fastify: FastifyInstance) {
    */
   fastify.get<{
     Params: { id: string };
-  }>('/api/v1/event/:id', async (request, reply) => {
+  }>('/api/v1/event/:id', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.code(401).send({ error: 'User not authenticated' });
+    }
+
     try {
       const { id } = request.params;
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+      // Check: Can user VIEW this event?
+      // ═══════════════════════════════════════════════════════════════
+      const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
+      if (!canView) {
+        return reply.code(403).send({ error: 'No permission to view this event' });
+      }
 
       // Get event details
       const eventQuery = client`
@@ -455,11 +514,27 @@ export async function eventRoutes(fastify: FastifyInstance) {
    */
   fastify.post<{
     Body: CreateEventRequest;
-  }>('/api/v1/event', async (request, reply) => {
+  }>('/api/v1/event', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.code(401).send({ error: 'User not authenticated' });
+    }
+
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user CREATE events?
+      // ═══════════════════════════════════════════════════════════════
+      const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE);
+      if (!canCreate) {
+        return reply.code(403).send({ error: 'No permission to create events' });
+      }
+
       const eventData = request.body;
       const eventId = uuidv4();
-      const creatorEmpId = request.user?.sub;
+      const creatorEmpId = userId;
       const organizerEmpId = eventData.organizer__employee_id || creatorEmpId;
 
       // Create event
@@ -630,9 +705,26 @@ export async function eventRoutes(fastify: FastifyInstance) {
   fastify.patch<{
     Params: { id: string };
     Body: UpdateEventRequest;
-  }>('/api/v1/event/:id', async (request, reply) => {
+  }>('/api/v1/event/:id', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.code(401).send({ error: 'User not authenticated' });
+    }
+
     try {
       const { id } = request.params;
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user EDIT this event?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
+      if (!canEdit) {
+        return reply.code(403).send({ error: 'No permission to edit this event' });
+      }
+
       const updates = request.body;
 
       const updateQuery = client`
@@ -683,9 +775,26 @@ export async function eventRoutes(fastify: FastifyInstance) {
   fastify.put<{
     Params: { id: string };
     Body: UpdateEventRequest;
-  }>('/api/v1/event/:id', async (request, reply) => {
+  }>('/api/v1/event/:id', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.code(401).send({ error: 'User not authenticated' });
+    }
+
     try {
       const { id } = request.params;
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user EDIT this event?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
+      if (!canEdit) {
+        return reply.code(403).send({ error: 'No permission to edit this event' });
+      }
+
       const updates = request.body;
 
       const updateQuery = client`
@@ -738,9 +847,25 @@ export async function eventRoutes(fastify: FastifyInstance) {
    */
   fastify.get<{
     Params: { id: string };
-  }>('/api/v1/event/:id/attendees', async (request, reply) => {
+  }>('/api/v1/event/:id/attendees', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.code(401).send({ error: 'User not authenticated' });
+    }
+
     try {
       const { id } = request.params;
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user VIEW this event?
+      // ═══════════════════════════════════════════════════════════════
+      const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
+      if (!canView) {
+        return reply.code(403).send({ error: 'No permission to view this event' });
+      }
 
       // Check if event exists
       const eventCheck = await client`
@@ -804,9 +929,25 @@ export async function eventRoutes(fastify: FastifyInstance) {
    */
   fastify.get<{
     Params: { id: string };
-  }>('/api/v1/event/:id/entities', async (request, reply) => {
+  }>('/api/v1/event/:id/entities', {
+    preHandler: [fastify.authenticate],
+  }, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.code(401).send({ error: 'User not authenticated' });
+    }
+
     try {
       const { id } = request.params;
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user VIEW this event?
+      // ═══════════════════════════════════════════════════════════════
+      const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
+      if (!canView) {
+        return reply.code(403).send({ error: 'No permission to view this event' });
+      }
 
       // Check if event exists
       const eventCheck = await client`

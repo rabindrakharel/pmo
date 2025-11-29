@@ -29,6 +29,12 @@ import {
   prefetchGlobalSettings,
   clearGlobalSettingsCache,
 } from './tanstack-hooks/useGlobalSettings';
+import {
+  hydrateNormalizedCache,
+  prefetchNormalizedCache,
+  clearNormalizedCacheMemory,
+} from './tanstack-hooks/useNormalizedCache';
+import { clearNormalizedCache as clearNormalizedCacheDexie } from './dexie/database';
 
 // ============================================================================
 // Context
@@ -92,10 +98,19 @@ export function TanstackCacheProvider({ children }: TanstackCacheProviderProps) 
 
   // Hydrate from Dexie on mount
   useEffect(() => {
-    hydrateQueryCache()
-      .then((count) => {
+    Promise.all([
+      hydrateQueryCache(),
+      hydrateNormalizedCache(),
+    ])
+      .then(([legacyCount, normalizedStats]) => {
         setIsHydrated(true);
-        console.log(`[CacheProvider] Hydrated ${count} entities from IndexedDB`);
+        console.log(
+          `[CacheProvider] Hydrated from IndexedDB:`,
+          `${legacyCount} legacy entities,`,
+          `${normalizedStats.entityTypes} types,`,
+          `${normalizedStats.entityInstances} instances,`,
+          `${normalizedStats.linksForward} forward links`
+        );
       })
       .catch((error) => {
         console.error('[CacheProvider] Hydration failed:', error);
@@ -122,7 +137,11 @@ export function TanstackCacheProvider({ children }: TanstackCacheProviderProps) 
     clearDatalabelCache();
     clearEntityCodesCache();
     clearGlobalSettingsCache();
-    await clearAllCaches();
+    clearNormalizedCacheMemory();
+    await Promise.all([
+      clearAllCaches(),
+      clearNormalizedCacheDexie(),
+    ]);
     setIsMetadataLoaded(false);
   }, []);
 
@@ -204,6 +223,12 @@ export function disconnectWebSocket(): void {
  * Prefetch all metadata after login
  * Call this after successful authentication
  *
+ * Includes:
+ * - 4-layer normalized cache (entity types, instances, links, names)
+ * - Datalabels (dropdowns)
+ * - Entity codes (legacy - for backward compatibility)
+ * - Global settings
+ *
  * @returns Promise that resolves when all metadata is loaded
  */
 export async function prefetchAllMetadata(): Promise<void> {
@@ -211,6 +236,9 @@ export async function prefetchAllMetadata(): Promise<void> {
 
   try {
     await Promise.all([
+      // 4-Layer Normalized Cache (NEW)
+      prefetchNormalizedCache(),
+      // Legacy metadata
       prefetchAllDatalabels(),
       prefetchEntityCodes(),
       prefetchGlobalSettings(),

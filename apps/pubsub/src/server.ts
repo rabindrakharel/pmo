@@ -2,6 +2,7 @@
 // PubSub Service - WebSocket Server
 // ============================================================================
 // Standalone WebSocket server for real-time entity sync
+// Uses PostgreSQL NOTIFY/LISTEN for instant push (replaces 60s polling)
 // ============================================================================
 
 import { WebSocketServer, WebSocket } from 'ws';
@@ -10,7 +11,7 @@ import { URL } from 'url';
 import { verifyJwt, getSecondsUntilExpiry } from './auth.js';
 import { ConnectionManager } from './services/connection-manager.js';
 import { SubscriptionManager } from './services/subscription-manager.js';
-import { LogWatcher } from './services/log-watcher.js';
+import { PgListener } from './services/pg-listener.js';
 import { db } from './db.js';
 import type { ClientMessage } from './types.js';
 
@@ -21,7 +22,11 @@ const STALE_CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour
 // Initialize services
 const connectionManager = new ConnectionManager();
 const subscriptionManager = new SubscriptionManager(db);
-const logWatcher = new LogWatcher(db, connectionManager, subscriptionManager);
+const pgListener = new PgListener(
+  process.env.DATABASE_URL!,
+  connectionManager,
+  subscriptionManager
+);
 
 // Create HTTP server for WebSocket upgrade + health check
 const server = createServer((req, res) => {
@@ -32,7 +37,7 @@ const server = createServer((req, res) => {
       status: 'ok',
       uptime: process.uptime(),
       ...connectionManager.getStats(),
-      logWatcherRunning: logWatcher.isRunning(),
+      pgListenerRunning: pgListener.isRunning(),
     }));
     return;
   }
@@ -189,7 +194,8 @@ setInterval(async () => {
 export function startServer(): void {
   server.listen(PORT, () => {
     console.log(`[PubSub] WebSocket server running on port ${PORT}`);
-    logWatcher.start();
+    console.log('[PubSub] Using real-time PostgreSQL NOTIFY/LISTEN (sub-100ms latency)');
+    pgListener.start();
   });
 }
 
@@ -200,8 +206,8 @@ async function shutdown(signal: string): Promise<void> {
   // Stop accepting new connections
   wss.close();
 
-  // Stop log watcher
-  logWatcher.stop();
+  // Stop PostgreSQL listener
+  await pgListener.stop();
 
   // Close all WebSocket connections
   for (const connId of connectionManager.getAllConnectionIds()) {
@@ -225,4 +231,4 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
 // Export for testing
-export { wss, connectionManager, subscriptionManager, logWatcher };
+export { wss, connectionManager, subscriptionManager, pgListener };
