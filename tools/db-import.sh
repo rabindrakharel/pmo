@@ -195,8 +195,8 @@ validate_all_ddls() {
         "31_form_data.ddl"
         "32_wiki.ddl"
         "33_wiki_data.ddl"
-        "37_industry_workflow_graph_head.ddl"
-        "38_industry_workflow_graph_data.ddl"
+        "37_workflow.ddl"
+        "38_workflow_data.ddl"
         "39_industry_workflow_events.ddl"
         "40_orchestrator_session.ddl"
         "41_orchestrator_state.ddl"
@@ -331,8 +331,8 @@ import_ddls() {
 
     # ===== AUTOMATION & WORKFLOW (37-44) =====
     print_status $CYAN "  ⚙️  Automation & Workflow (8 entities)..."
-    execute_sql "$DB_PATH/37_industry_workflow_graph_head.ddl" "37: Industry workflow template"
-    execute_sql "$DB_PATH/38_industry_workflow_graph_data.ddl" "38: Industry workflow instance data"
+    execute_sql "$DB_PATH/37_workflow.ddl" "37: Workflow template"
+    execute_sql "$DB_PATH/38_workflow_data.ddl" "38: Workflow instance data"
     execute_sql "$DB_PATH/39_industry_workflow_events.ddl" "39: Workflow events fact table"
     execute_sql "$DB_PATH/40_orchestrator_session.ddl" "40: AI orchestrator session state"
     execute_sql "$DB_PATH/41_orchestrator_state.ddl" "41: AI orchestrator state KV store"

@@ -2,23 +2,23 @@
 -- Then create corresponding unique entity records
 
 -- First, update the workflow data with unique entity IDs
-UPDATE app.d_industry_workflow_graph_data
+UPDATE app.workflow_data
 SET entity_id = 'bbbbbbbb-0000-0000-0002-222222222222'
 WHERE id = '660e8400-e29b-41d4-a716-446655440003'; -- State 2: Quote Approved
 
-UPDATE app.d_industry_workflow_graph_data
+UPDATE app.workflow_data
 SET entity_id = 'aaaaaaaa-1111-1111-1111-111111111111'
 WHERE id = '660e8400-e29b-41d4-a716-446655440005'; -- State 4: Task Created
 
-UPDATE app.d_industry_workflow_graph_data
+UPDATE app.workflow_data
 SET entity_id = 'aaaaaaaa-1111-1111-1111-111111111112'
 WHERE id = '660e8400-e29b-41d4-a716-446655440006'; -- State 5: Task In Progress
 
-UPDATE app.d_industry_workflow_graph_data
+UPDATE app.workflow_data
 SET entity_id = 'cccccccc-0000-0000-0002-222222222222'
 WHERE id = '660e8400-e29b-41d4-a716-446655440007'; -- State 6: Work Order Completed
 
-UPDATE app.d_industry_workflow_graph_data
+UPDATE app.workflow_data
 SET entity_id = 'dddddddd-0000-0000-0002-222222222222'
 WHERE id = '660e8400-e29b-41d4-a716-446655440009'; -- State 8: Invoice Paid
 

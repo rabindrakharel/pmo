@@ -451,16 +451,16 @@ VALUES (
   200
 );
 
--- Workflow entity type (leaf node - no children)
+-- Workflow entity type (workflow templates - has workflow_data as child)
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'workflow',
   'Workflow',
   'Workflows',
   'GitBranch',
-  'workflow_automation',
-  'd',
-  '[]'::jsonb,
+  'workflow',
+  'fh',
+  '["workflow_data"]'::jsonb,
   205
 );
 
@@ -748,41 +748,20 @@ VALUES (
   updated_ts = now();
 
 -- =====================================================
--- WORKFLOW ENTITIES (Industry Workflow Graph)
+-- WORKFLOW ENTITIES (Workflow Graph)
 -- =====================================================
 
--- Industry Workflow Graph entity type (workflow templates)
+-- Workflow Data entity type (workflow instances - child of workflow)
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
-  'industry_workflow_graph',
-  'Industry Workflow Graph',
-  'Industry Workflow Graphs',
-  'Workflow',
-  'industry_workflow_graph_head',
-  'fh',
-  '["industry_workflow_graph_data"]'::jsonb,
-  285
-) ON CONFLICT (code) DO UPDATE SET
-  name = EXCLUDED.name,
-  ui_label = EXCLUDED.ui_label,
-  ui_icon = EXCLUDED.ui_icon,
-  db_table = EXCLUDED.db_table,
-  db_model_type = EXCLUDED.db_model_type,
-  child_entity_codes = EXCLUDED.child_entity_codes,
-  display_order = EXCLUDED.display_order,
-  updated_ts = now();
-
--- Industry Workflow Graph Data entity type (workflow nodes/steps)
-INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
-VALUES (
-  'industry_workflow_graph_data',
-  'Industry Workflow Graph Data',
-  'Workflow Nodes',
+  'workflow_data',
+  'Workflow Data',
+  'Workflow Instances',
   'GitCommit',
-  'industry_workflow_graph_data',
+  'workflow_data',
   'fd',
   '[]'::jsonb,
-  286
+  206
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
   ui_label = EXCLUDED.ui_label,
@@ -793,17 +772,17 @@ VALUES (
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
--- Industry Workflow Events entity type (workflow event triggers)
+-- Workflow Events entity type (workflow event triggers)
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
-  'industry_workflow_events',
-  'Industry Workflow Events',
+  'workflow_events',
+  'Workflow Events',
   'Workflow Events',
   'Zap',
   'industry_workflow_events',
   'f',
   '[]'::jsonb,
-  287
+  207
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
   ui_label = EXCLUDED.ui_label,
@@ -1053,7 +1032,7 @@ UPDATE app.entity e SET
     updated_ts = now()
 FROM app.d_domain d
 WHERE d.code = 'automation_workflow'
-  AND e.code IN ('workflow', 'workflow_automation', 'industry_workflow_graph', 'industry_workflow_graph_data', 'industry_workflow_events');
+  AND e.code IN ('workflow', 'workflow_automation', 'workflow_data', 'workflow_events');
 
 -- DOMAIN 10: EVENT & CALENDAR
 -- Purpose: Events, appointments, scheduling, person calendars, RSVP tracking

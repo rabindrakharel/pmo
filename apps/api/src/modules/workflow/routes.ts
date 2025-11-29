@@ -90,8 +90,8 @@ export async function workflowRoutes(fastify: FastifyInstance) {
       // Get total count
       const countQuery = sql`
         SELECT COUNT(*) as total
-        FROM app.d_industry_workflow_graph_data w
-        LEFT JOIN app.d_industry_workflow_graph_head wh ON w.workflow_head_id = wh.id
+        FROM app.workflow_data w
+        LEFT JOIN app.workflow wh ON w.workflow_head_id = wh.id
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
       `;
       const countResult = await db.execute(countQuery);
@@ -114,8 +114,8 @@ export async function workflowRoutes(fastify: FastifyInstance) {
           w.terminal_state_flag,
           w.created_ts,
           w.updated_ts
-        FROM app.d_industry_workflow_graph_data w
-        LEFT JOIN app.d_industry_workflow_graph_head wh ON w.workflow_head_id = wh.id
+        FROM app.workflow_data w
+        LEFT JOIN app.workflow wh ON w.workflow_head_id = wh.id
         ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
         ORDER BY w.created_ts DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -175,8 +175,8 @@ export async function workflowRoutes(fastify: FastifyInstance) {
           w.terminal_state_flag,
           w.created_ts,
           w.updated_ts
-        FROM app.d_industry_workflow_graph_data w
-        LEFT JOIN app.d_industry_workflow_graph_head wh ON w.workflow_head_id = wh.id
+        FROM app.workflow_data w
+        LEFT JOIN app.workflow wh ON w.workflow_head_id = wh.id
         WHERE w.workflow_instance_id = ${instance_id}
           AND w.active_flag = true
         LIMIT 1
@@ -231,8 +231,8 @@ export async function workflowRoutes(fastify: FastifyInstance) {
           wh.name as workflow_template_name,
           wh.workflow_graph,
           wh.industry_sector
-        FROM app.d_industry_workflow_graph_data w
-        INNER JOIN app.d_industry_workflow_graph_head wh ON w.workflow_head_id = wh.id
+        FROM app.workflow_data w
+        INNER JOIN app.workflow wh ON w.workflow_head_id = wh.id
         WHERE w.workflow_instance_id = ${instance_id}
           AND w.active_flag = true
           AND wh.active_flag = true
@@ -288,7 +288,7 @@ export async function workflowRoutes(fastify: FastifyInstance) {
           wh.name as workflow_template_name,
           wh.workflow_graph,
           wh.industry_sector
-        FROM app.d_industry_workflow_graph_head wh
+        FROM app.workflow wh
         WHERE wh.id = ${head_id}::uuid
           AND wh.active_flag = true
         LIMIT 1

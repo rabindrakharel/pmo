@@ -15,8 +15,8 @@
 -- - Enables SLA compliance monitoring and exception reporting
 --
 -- RELATIONSHIPS:
--- - Links to d_industry_workflow_graph_head (workflow template)
--- - Links to d_industry_workflow_graph_data (workflow instance dimension)
+-- - Links to workflow (workflow template)
+-- - Links to workflow_data (workflow instance dimension)
 -- - Links to entity tables (customer, quote, work_order, task, invoice) via entity_id
 -- - Links to app.employee (who performed action)
 --
