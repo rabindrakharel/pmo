@@ -222,11 +222,12 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   const childConfig = currentChildEntity ? getEntityConfig(currentChildEntity) : null;
 
   // Fetch child entity data when on a child tab
+  // NOTE: Use snake_case for API query params (backend convention)
   const childQueryParams = useMemo(() => ({
     page: 1,
     pageSize: 100,
-    parentType: entityCode,
-    parentId: id,
+    parent_type: entityCode,
+    parent_id: id,
   }), [entityCode, id]);
 
   const {
