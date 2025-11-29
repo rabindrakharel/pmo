@@ -214,64 +214,22 @@ PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app
 
 ### System Infrastructure Tables (db/system/)
 
-| Table | DDL File | Purpose |
-|-------|----------|---------|
-| `system_logging` | `system/system_logging.ddl` | Audit trail with PubSub sync tracking |
-| `system_cache_subscription` | `system/system_cache_subscription.ddl` | WebSocket subscription registry |
+System tables support real-time sync and audit functionality without impacting core business entities.
 
-#### system_logging
+| Table | Purpose | Key Semantics |
+|-------|---------|---------------|
+| `system_logging` | Audit trail + sync tracking | WHO did WHAT to which entity, with PubSub sync status |
+| `system_cache_subscription` | WebSocket subscriptions | Tracks which users are watching which entities for cache invalidation |
 
-Tracks all entity changes for audit trail and real-time cache invalidation via PubSub service.
+**system_logging** - Captures all entity changes for:
+- **Audit Trail**: Who (person), What (entity), When (timestamp), How (action type)
+- **Real-Time Sync**: `sync_status` column tracks PubSub notification delivery (pending → sent)
+- **Action Codes**: Aligned with Permission enum (0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER)
 
-```sql
-CREATE TABLE app.system_logging (
-    id UUID DEFAULT gen_random_uuid(),
-    -- Actor (WHO)
-    person_id UUID,
-    fname VARCHAR(100),
-    lname VARCHAR(100),
-    username VARCHAR(255),
-    person_type VARCHAR(50),  -- 'employee', 'customer', 'system', 'guest'
-    -- Target Entity (WHAT)
-    entity_code VARCHAR(100) NOT NULL,
-    entity_id UUID NOT NULL,
-    -- Action (HOW) - aligned with Permission enum
-    action SMALLINT NOT NULL CHECK (action BETWEEN 0 AND 5),
-    -- Timestamps
-    created_ts TIMESTAMPTZ DEFAULT now(),
-    updated_ts TIMESTAMPTZ DEFAULT now(),
-    -- PubSub Sync Tracking
-    sync_status VARCHAR(20) DEFAULT 'pending',  -- 'pending', 'sent', 'failed'
-    sync_processed_ts TIMESTAMPTZ
-);
-
--- LogWatcher polls this index every 60s
-CREATE INDEX idx_system_logging_sync_status
-    ON app.system_logging(sync_status) WHERE sync_status = 'pending';
-```
-
-#### system_cache_subscription
-
-Tracks live WebSocket subscriptions for cache invalidation. Database-backed (no Redis needed).
-
-```sql
-CREATE TABLE app.system_cache_subscription (
-    user_id UUID NOT NULL,
-    entity_code VARCHAR(100) NOT NULL,
-    entity_id UUID NOT NULL,
-    connection_id VARCHAR(50) NOT NULL,
-    subscribed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (user_id, entity_code, entity_id)
-);
-
--- LogWatcher query: "Who subscribes to this entity?"
-CREATE INDEX idx_system_cache_subscription_entity
-    ON app.system_cache_subscription(entity_code, entity_id);
-
--- Cleanup on WebSocket disconnect
-CREATE INDEX idx_system_cache_subscription_connection
-    ON app.system_cache_subscription(connection_id);
-```
+**system_cache_subscription** - Manages live WebSocket connections for:
+- **Entity Subscriptions**: Users subscribe to specific entities they're viewing
+- **Cache Invalidation**: LogWatcher queries this to find who needs INVALIDATE messages
+- **Connection Cleanup**: Subscriptions removed on WebSocket disconnect
 
 ---
 
