@@ -45,6 +45,15 @@ export async function orderRoutes(fastify: FastifyInstance) {
       // Build WHERE conditions array
       const conditions: SQL[] = [];
 
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC filtering
+      // Only return orders user has VIEW permission for
+      // ═══════════════════════════════════════════════════════════════
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(
+        userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
+      );
+      conditions.push(rbacWhereClause);
+
       // ✨ UNIVERSAL AUTO-FILTER SYSTEM
       // Automatically builds filters from ANY query parameter based on field naming conventions
       // Supports: ?order_status=X, ?search=keyword, etc.
@@ -99,6 +108,15 @@ export async function orderRoutes(fastify: FastifyInstance) {
     const { id } = request.params as any;
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+      // Check: Can user VIEW this order?
+      // ═══════════════════════════════════════════════════════════════
+      const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
+      if (!canView) {
+        return reply.status(403).send({ error: 'No permission to view this order' });
+      }
+
       const result = await db.execute(sql`
         SELECT *
         FROM app.f_order
@@ -129,6 +147,15 @@ export async function orderRoutes(fastify: FastifyInstance) {
     const data = request.body as any;
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user CREATE orders?
+      // ═══════════════════════════════════════════════════════════════
+      const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE);
+      if (!canCreate) {
+        return reply.status(403).send({ error: 'No permission to create orders' });
+      }
+
       const orderNumber = data.order_number || `ORD-${Date.now()}`;
       const orderDate = data.order_date || new Date().toISOString().split('T')[0];
 
@@ -175,6 +202,15 @@ export async function orderRoutes(fastify: FastifyInstance) {
     const data = request.body as any;
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user EDIT this order?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit this order' });
+      }
+
       // Build update fields
       const updateFields: SQL[] = [];
       if (data.order_status !== undefined) updateFields.push(sql`order_status = ${data.order_status}`);
@@ -220,6 +256,15 @@ export async function orderRoutes(fastify: FastifyInstance) {
     const { id } = request.params as any;
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user DELETE this order?
+      // ═══════════════════════════════════════════════════════════════
+      const canDelete = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.DELETE);
+      if (!canDelete) {
+        return reply.status(403).send({ error: 'No permission to delete this order' });
+      }
+
       const result = await db.execute(sql`
         DELETE FROM app.f_order
         WHERE id = ${id}

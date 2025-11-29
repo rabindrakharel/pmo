@@ -133,6 +133,7 @@ export async function custRoutes(fastify: FastifyInstance) {
 
   // List customers with filtering
   fastify.get('/api/v1/cust', {
+    preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         active: Type.Optional(Type.Boolean()),
@@ -150,57 +151,78 @@ export async function custRoutes(fastify: FastifyInstance) {
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number()
-        })
+        }),
+        401: Type.Object({ error: Type.String() }),
+        500: Type.Object({ error: Type.String() })
       }}}, async (request, reply) => {
     const { active, search, cust_type, biz_id, page, limit = 20, offset } = request.query as any;
+    const userId = (request as any).user?.sub;
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
 
     // Calculate offset from page if page is provided
     const actualOffset = page !== undefined ? (page - 1) * limit : (offset || 0);
 
 
     try {
-      const conditions = [];
+      const conditions: SQL[] = [];
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC filtering
+      // Only return customers user has VIEW permission for
+      // ═══════════════════════════════════════════════════════════════
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(
+        userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
+      );
+      conditions.push(rbacWhereClause);
 
       if (active !== undefined) {
-        conditions.push(sql`c.active_flag = ${active}`);
+        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = ${active}`);
       }
 
       if (search) {
         conditions.push(sql`(
-          c.name ILIKE ${`%${search}%`} OR
-          c."descr" ILIKE ${`%${search}%`} OR
-          c.cust_number ILIKE ${`%${search}%`} OR
-          c.primary_contact_name ILIKE ${`%${search}%`} OR
-          c.primary_email ILIKE ${`%${search}%`}
+          ${sql.raw(TABLE_ALIAS)}.name ILIKE ${`%${search}%`} OR
+          ${sql.raw(TABLE_ALIAS)}."descr" ILIKE ${`%${search}%`} OR
+          ${sql.raw(TABLE_ALIAS)}.cust_number ILIKE ${`%${search}%`} OR
+          ${sql.raw(TABLE_ALIAS)}.primary_contact_name ILIKE ${`%${search}%`} OR
+          ${sql.raw(TABLE_ALIAS)}.primary_email ILIKE ${`%${search}%`}
         )`);
       }
 
       // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
       // Can be overridden with ?active=false to show inactive records
       if (!('active' in (request.query as any))) {
-        conditions.push(sql`c.active_flag = true`);
+        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = true`);
       }
+
+      // Build WHERE clause
+      const whereClause = conditions.length > 0
+        ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
+        : sql``;
 
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
-        FROM app.cust c
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        FROM app.cust ${sql.raw(TABLE_ALIAS)}
+        ${whereClause}
       `);
       const total = Number(countResult[0]?.total || 0);
 
       const customers = await db.execute(sql`
         SELECT
-          c.id, c.code, c.name, c."descr", c.metadata, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts, c.version,
-          c.cust_number, c.cust_type, c.cust_status,
-          c.primary_address, c.city, c.province, c.postal_code, c.country, c.geo_coordinates,
-          c.business_legal_name, c.business_type, c.gst_hst_number, c.business_number,
-          c.dl__customer_opportunity_funnel, c.dl__customer_industry_sector, c.dl__customer_acquisition_channel, c.dl__customer_tier,
-          c.primary_contact_name, c.primary_email, c.primary_phone,
-          c.secondary_contact_name, c.secondary_email, c.secondary_phone,
-          c.entities
-        FROM app.cust c
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY c.name ASC NULLS LAST, c.created_ts DESC
+          ${sql.raw(TABLE_ALIAS)}.id, ${sql.raw(TABLE_ALIAS)}.code, ${sql.raw(TABLE_ALIAS)}.name, ${sql.raw(TABLE_ALIAS)}."descr", ${sql.raw(TABLE_ALIAS)}.metadata, ${sql.raw(TABLE_ALIAS)}.from_ts, ${sql.raw(TABLE_ALIAS)}.to_ts, ${sql.raw(TABLE_ALIAS)}.active_flag, ${sql.raw(TABLE_ALIAS)}.created_ts, ${sql.raw(TABLE_ALIAS)}.updated_ts, ${sql.raw(TABLE_ALIAS)}.version,
+          ${sql.raw(TABLE_ALIAS)}.cust_number, ${sql.raw(TABLE_ALIAS)}.cust_type, ${sql.raw(TABLE_ALIAS)}.cust_status,
+          ${sql.raw(TABLE_ALIAS)}.primary_address, ${sql.raw(TABLE_ALIAS)}.city, ${sql.raw(TABLE_ALIAS)}.province, ${sql.raw(TABLE_ALIAS)}.postal_code, ${sql.raw(TABLE_ALIAS)}.country, ${sql.raw(TABLE_ALIAS)}.geo_coordinates,
+          ${sql.raw(TABLE_ALIAS)}.business_legal_name, ${sql.raw(TABLE_ALIAS)}.business_type, ${sql.raw(TABLE_ALIAS)}.gst_hst_number, ${sql.raw(TABLE_ALIAS)}.business_number,
+          ${sql.raw(TABLE_ALIAS)}.dl__customer_opportunity_funnel, ${sql.raw(TABLE_ALIAS)}.dl__customer_industry_sector, ${sql.raw(TABLE_ALIAS)}.dl__customer_acquisition_channel, ${sql.raw(TABLE_ALIAS)}.dl__customer_tier,
+          ${sql.raw(TABLE_ALIAS)}.primary_contact_name, ${sql.raw(TABLE_ALIAS)}.primary_email, ${sql.raw(TABLE_ALIAS)}.primary_phone,
+          ${sql.raw(TABLE_ALIAS)}.secondary_contact_name, ${sql.raw(TABLE_ALIAS)}.secondary_email, ${sql.raw(TABLE_ALIAS)}.secondary_phone,
+          ${sql.raw(TABLE_ALIAS)}.entities
+        FROM app.cust ${sql.raw(TABLE_ALIAS)}
+        ${whereClause}
+        ORDER BY ${sql.raw(TABLE_ALIAS)}.name ASC NULLS LAST, ${sql.raw(TABLE_ALIAS)}.created_ts DESC
         LIMIT ${limit} OFFSET ${actualOffset}
       `);
 
@@ -231,13 +253,27 @@ export async function custRoutes(fastify: FastifyInstance) {
         id: Type.String({ format: 'uuid' })}),
       response: {
         200: CustWithMetadataSchema,
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
+    const userId = (request as any).user?.sub;
 
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+      // Check: Can user VIEW this customer?
+      // ═══════════════════════════════════════════════════════════════
+      const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
+      if (!canView) {
+        return reply.status(403).send({ error: 'No permission to view this customer' });
+      }
+
       const customer = await db.execute(sql`
         SELECT
           c.id, c.code, c.name, c."descr", c.metadata, c.from_ts, c.to_ts, c.active_flag, c.created_ts, c.updated_ts, c.version,
@@ -282,13 +318,26 @@ export async function custRoutes(fastify: FastifyInstance) {
           customer: CustSchema,
           parent: Type.Optional(CustSchema),
           children: Type.Array(CustSchema)}),
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
     const { id } = request.params as { id: string };
+    const userId = (request as any).user?.sub;
 
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+      // Check: Can user VIEW this customer?
+      // ═══════════════════════════════════════════════════════════════
+      const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
+      if (!canView) {
+        return reply.status(403).send({ error: 'No permission to view this customer' });
+      }
       // Get the customer
       const customerResult = await db.execute(sql`
         SELECT
