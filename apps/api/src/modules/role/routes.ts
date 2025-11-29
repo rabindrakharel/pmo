@@ -224,7 +224,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       body: CreateRoleSchema,
       querystring: Type.Object({
         parent_entity_code: Type.Optional(Type.String()),
-        parent_entity_id: Type.Optional(Type.String({ format: 'uuid' }))}),
+        parent_entity_instance_id: Type.Optional(Type.String({ format: 'uuid' }))}),
       response: {
         201: RoleSchema,
         403: Type.Object({ error: Type.String() }),
@@ -235,7 +235,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    const { parent_entity_code, parent_entity_id } = request.query as any;
+    const { parent_entity_code, parent_entity_instance_id } = request.query as any;
     const data = request.body as any;
 
     try {
@@ -252,8 +252,8 @@ export async function roleRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 2
       // Check: If linking to parent, can user EDIT parent?
       // ═══════════════════════════════════════════════════════════════
-      if (parent_entity_code && parent_entity_id) {
-        const canEditParent = await entityInfra.check_entity_rbac(userId, parent_entity_code, parent_entity_id, Permission.EDIT);
+      if (parent_entity_code && parent_entity_instance_id) {
+        const canEditParent = await entityInfra.check_entity_rbac(userId, parent_entity_code, parent_entity_instance_id, Permission.EDIT);
         if (!canEditParent) {
           return reply.status(403).send({ error: `No permission to link role to this ${parent_entity_code}` });
         }
@@ -315,10 +315,10 @@ export async function roleRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Link to parent (if provided)
       // ═══════════════════════════════════════════════════════════════
-      if (parent_entity_code && parent_entity_id) {
+      if (parent_entity_code && parent_entity_instance_id) {
         await entityInfra.set_entity_instance_link({
           parent_entity_code: parent_entity_code,
-          parent_entity_id: parent_entity_id,
+          parent_entity_id: parent_entity_instance_id,
           child_entity_code: ENTITY_CODE,
           child_entity_id: roleId,
           relationship_type: 'contains'

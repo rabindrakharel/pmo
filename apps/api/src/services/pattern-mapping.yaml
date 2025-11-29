@@ -113,7 +113,7 @@
 #   → Matches: *__*_id (wildcard)
 #   → fieldBusinessType: entityInstance_Id
 #   → Then: view-type-mapping → EntityLookupCell
-#   → Then: edit-type-mapping → EntitySelect
+#   → Then: edit-type-mapping → EntityInstanceNameLookup
 #
 # ============================================================================
 

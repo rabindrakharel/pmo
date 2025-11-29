@@ -247,7 +247,7 @@ const entityInfra = getEntityInfrastructure(db);
 ```typescript
 fastify.post('/api/v1/project', async (request, reply) => {
   const userId = request.user.sub;
-  const { parent_code, parent_id } = request.query;
+  const { parent_entity_code, parent_entity_instance_id } = request.query;
   const data = request.body;
 
   // Step 1: RBAC Check - Can user CREATE?
@@ -257,9 +257,9 @@ fastify.post('/api/v1/project', async (request, reply) => {
   if (!canCreate) return reply.status(403).send({ error: 'Forbidden' });
 
   // Step 2: RBAC Check - Can user EDIT parent? (if linking)
-  if (parent_code && parent_id) {
+  if (parent_entity_code && parent_entity_instance_id) {
     const canEditParent = await entityInfra.check_entity_rbac(
-      userId, parent_code, parent_id, Permission.EDIT
+      userId, parent_entity_code, parent_entity_instance_id, Permission.EDIT
     );
     if (!canEditParent) return reply.status(403).send({ error: 'Forbidden' });
   }
@@ -268,8 +268,8 @@ fastify.post('/api/v1/project', async (request, reply) => {
   const result = await entityInfra.create_entity({
     entity_code: ENTITY_CODE,
     creator_id: userId,
-    parent_entity_code: parent_code,
-    parent_entity_id: parent_id,
+    parent_entity_code: parent_entity_code,
+    parent_entity_id: parent_entity_instance_id,  // API param → service param
     primary_table: 'app.project',
     primary_data: {
       code: data.code,

@@ -86,7 +86,7 @@ export async function entityInstanceLookupRoutes(fastify: FastifyInstance) {
    * Returns list of {id, name} for a given entity code
    * Filtered by RBAC permissions
    *
-   * Used by EntitySelectDropdown and EntityMultiSelectTags for dropdown options
+   * Used by EntityInstanceNameLookup and EntityMultiSelectTags for dropdown options
    */
   fastify.get('/api/v1/entity/:entityCode/entity-instance', {
     preHandler: [fastify.authenticate],

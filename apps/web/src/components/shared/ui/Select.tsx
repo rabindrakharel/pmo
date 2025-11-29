@@ -17,7 +17,7 @@ export interface SelectProps {
 
 /**
  * Generic base Select component
- * Foundation for all dropdown variants (EntitySelect, DataLabelSelect, etc.)
+ * Foundation for all dropdown variants (EntityInstanceNameLookup, DataLabelSelect, etc.)
  *
  * @example
  * <Select

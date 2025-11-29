@@ -304,7 +304,7 @@ const result = await entityInfra.delete_entity({
 
 ```typescript
 fastify.post('/api/v1/project', async (request, reply) => {
-  const { parent_code, parent_id } = request.query;
+  const { parent_entity_code, parent_entity_instance_id } = request.query;
   const data = request.body;
   const userId = request.user.sub;
 
@@ -315,9 +315,9 @@ fastify.post('/api/v1/project', async (request, reply) => {
   if (!canCreate) return reply.status(403).send({ error: 'Forbidden' });
 
   // Step 2: RBAC - If linking to parent, can user EDIT parent?
-  if (parent_code && parent_id) {
+  if (parent_entity_code && parent_entity_instance_id) {
     const canEditParent = await entityInfra.check_entity_rbac(
-      userId, parent_code, parent_id, Permission.EDIT
+      userId, parent_entity_code, parent_entity_instance_id, Permission.EDIT
     );
     if (!canEditParent) return reply.status(403).send({ error: 'Forbidden' });
   }
@@ -338,10 +338,10 @@ fastify.post('/api/v1/project', async (request, reply) => {
   await entityInfra.set_entity_rbac_owner(userId, ENTITY_CODE, project.id);
 
   // Step 6: Link to parent (if provided)
-  if (parent_code && parent_id) {
+  if (parent_entity_code && parent_entity_instance_id) {
     await entityInfra.set_entity_instance_link({
-      parent_entity_code: parent_code,
-      parent_entity_id: parent_id,
+      parent_entity_code: parent_entity_code,
+      parent_entity_id: parent_entity_instance_id,  // API param → service param
       child_entity_code: ENTITY_CODE,
       child_entity_id: project.id
     });

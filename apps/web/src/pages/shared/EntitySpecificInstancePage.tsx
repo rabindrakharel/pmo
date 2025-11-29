@@ -227,7 +227,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     page: 1,
     pageSize: 100,
     parent_entity_code: entityCode,
-    parent_entity_id: id,
+    parent_entity_instance_id: id,
   }), [entityCode, id]);
 
   const {

@@ -356,7 +356,7 @@
 # │   Select              - Basic select dropdown                           │
 # │   MultiSelect         - Multi-select dropdown                           │
 # │   DataLabelSelect     - Datalabel-specific select                       │
-# │   EntitySelect        - Entity reference select                          │
+# │   EntityInstanceNameLookup - Searchable entity reference select          │
 # │   EditableTags        - Tag input/editing                                │
 # │                                                                          │
 # │ DISPLAY COMPONENTS                                                       │
@@ -963,9 +963,9 @@ fieldBusinessTypes:
       behavior: { visible: true }
 
   # Entity reference fields - single UUID reference to another entity
-  # Frontend uses entityInstanceId for both view and edit mode (context switches)
+  # Frontend uses entityInstanceNameLookup for both view and edit mode (context switches)
   # View mode: resolves UUID to display name via ref_data_entityInstance, renders as clickable link
-  # Edit mode: renders EntitySelect component with lookupSource: entityInstance
+  # Edit mode: renders EntityInstanceNameLookup component with lookupSource: entityInstance
   entityInstance_Id:
     dtype: uuid
     entityListOfInstancesTable:

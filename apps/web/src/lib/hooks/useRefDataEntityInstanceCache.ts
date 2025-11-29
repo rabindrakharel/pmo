@@ -286,7 +286,7 @@ if (typeof window !== 'undefined') {
 /**
  * Hook to get entity instance options for dropdown population
  *
- * Fetches and caches entity instances for use in EntitySelect dropdowns.
+ * Fetches and caches entity instances for use in EntityInstanceNameLookup dropdowns.
  * Uses the unified ref-data-entity-instance cache.
  *
  * @param entityCode - Entity type code (e.g., 'employee', 'project')
