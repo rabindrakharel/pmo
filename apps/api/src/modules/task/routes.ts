@@ -240,8 +240,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100000 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
-        parent_type: Type.Optional(Type.String()),
-        parent_id: Type.Optional(Type.String({ format: 'uuid' })),
+        parent_entity_code: Type.Optional(Type.String()),
+        parent_entity_id: Type.Optional(Type.String({ format: 'uuid' })),
         view: Type.Optional(Type.String())  // 'entityListOfInstancesTable,kanbanView' or 'entityInstanceFormContainer'
       }),
       response: {
@@ -262,7 +262,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     const {
       project_id, assigned_to__employee_id, dl__task_stage, task_type, task_category,
       worksite_id, client_id, active, search, limit = getEntityLimit(ENTITY_CODE), offset: queryOffset, page,
-      parent_type, parent_id, view
+      parent_entity_code, parent_entity_id, view
     } = request.query as any;
 
     // Support both page (new standard) and offset (legacy) - NO fallback to unlimited
@@ -282,14 +282,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const joins: SQL[] = [];
 
       // GATE 2: PARENT-CHILD FILTERING (MANDATORY when parent context provided)
-      if (parent_type && parent_id) {
+      if (parent_entity_code && parent_entity_id) {
         const parentJoin = sql`
         INNER JOIN app.entity_instance_link eil
           ON eil.child_entity_code = ${ENTITY_CODE}
           AND eil.child_entity_instance_id = ${sql.raw(TABLE_ALIAS
          || 'TABLE_ALIAS')}.id
-          AND eil.entity_code = ${parent_type}
-          AND eil.entity_instance_id = ${parent_id}
+          AND eil.entity_code = ${parent_entity_code}
+          AND eil.entity_instance_id = ${parent_entity_id}
       `;
         joins.push(parentJoin);
       }
