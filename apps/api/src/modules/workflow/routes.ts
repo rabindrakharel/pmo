@@ -1,7 +1,16 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
+// ✅ Centralized unified data gate - loosely coupled API
+// ✨ Entity Infrastructure Service - centralized infrastructure operations
+import { getEntityInfrastructure, Permission } from '../../services/entity-infrastructure.service.js';
+
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_CODE = 'workflow';
+const TABLE_ALIAS = 'w';
 
 // Schema for workflow instance (JSONB structure)
 const WorkflowInstanceSchema = Type.Object({
@@ -29,6 +38,9 @@ const WorkflowGraphNodeSchema = Type.Object({
 });
 
 export async function workflowRoutes(fastify: FastifyInstance) {
+  // ✨ Initialize Entity Infrastructure Service
+  const entityInfra = getEntityInfrastructure(db);
+
   // List workflow instances (JSONB structure)
   fastify.get('/api/v1/workflow', {
     preHandler: [fastify.authenticate],
@@ -64,25 +76,34 @@ export async function workflowRoutes(fastify: FastifyInstance) {
 
     try {
       // Build base query - get workflow instances
-      const conditions = [];
+      const conditions: SQL[] = [];
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC filtering
+      // Only return workflow instances user has VIEW permission for
+      // ═══════════════════════════════════════════════════════════════
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(
+        userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
+      );
+      conditions.push(rbacWhereClause);
 
       if (active !== undefined) {
-        conditions.push(sql`w.active_flag = ${active}`);
+        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = ${active}`);
       }
 
       if (workflow_head_id) {
-        conditions.push(sql`w.workflow_head_id = ${workflow_head_id}::uuid`);
+        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.workflow_head_id = ${workflow_head_id}::uuid`);
       }
 
       if (terminal_only) {
-        conditions.push(sql`w.terminal_state_flag = true`);
+        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.terminal_state_flag = true`);
       }
 
       if (search) {
         conditions.push(sql`(
-          w.workflow_instance_id ILIKE ${`%${search}%`} OR
-          w.name ILIKE ${`%${search}%`} OR
-          w.code ILIKE ${`%${search}%`} OR
+          ${sql.raw(TABLE_ALIAS)}.workflow_instance_id ILIKE ${`%${search}%`} OR
+          ${sql.raw(TABLE_ALIAS)}.name ILIKE ${`%${search}%`} OR
+          ${sql.raw(TABLE_ALIAS)}.code ILIKE ${`%${search}%`} OR
           wh.name ILIKE ${`%${search}%`}
         )`);
       }
@@ -158,6 +179,22 @@ export async function workflowRoutes(fastify: FastifyInstance) {
     }
 
     try {
+      // First get the workflow id for RBAC check
+      const idLookup = await db.execute(sql`
+        SELECT id FROM app.workflow_data WHERE workflow_instance_id = ${instance_id} LIMIT 1
+      `);
+
+      if (idLookup.length > 0) {
+        // ═══════════════════════════════════════════════════════════════
+        // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+        // Check: Can user VIEW this workflow?
+        // ═══════════════════════════════════════════════════════════════
+        const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, idLookup[0].id, Permission.VIEW);
+        if (!canView) {
+          return reply.status(403).send({ error: 'No permission to view this workflow' });
+        }
+      }
+
       // Get workflow instance
       const workflowQuery = sql`
         SELECT
@@ -223,6 +260,22 @@ export async function workflowRoutes(fastify: FastifyInstance) {
     }
 
     try {
+      // First get the workflow id for RBAC check
+      const idLookup = await db.execute(sql`
+        SELECT id FROM app.workflow_data WHERE workflow_instance_id = ${instance_id} LIMIT 1
+      `);
+
+      if (idLookup.length > 0) {
+        // ═══════════════════════════════════════════════════════════════
+        // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+        // Check: Can user VIEW this workflow?
+        // ═══════════════════════════════════════════════════════════════
+        const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, idLookup[0].id, Permission.VIEW);
+        if (!canView) {
+          return reply.status(403).send({ error: 'No permission to view this workflow' });
+        }
+      }
+
       // Get workflow template from instance
       const templateQuery = sql`
         SELECT
