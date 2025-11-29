@@ -749,20 +749,20 @@ fieldBusinessTypes:
       behavior: { editable: true }
 
   # Entity reference fields - single UUID reference to another entity
-  # Frontend uses entityInstanceId for both view and edit mode (context switches)
+  # Frontend uses entityInstanceNameLookup for both view and edit mode (context switches)
   # View mode: resolves UUID to display name via ref_data_entityInstance, renders as clickable link
-  # Edit mode: renders EntitySelect component with lookupSource: entityInstance
+  # Edit mode: renders EntityInstanceNameLookup component with lookupSource: entityInstance
   entityInstance_Id:
     dtype: uuid
     lookupSource: entityInstance
     entityListOfInstancesTable:
-      inputType: entityInstanceId
+      inputType: entityInstanceNameLookup
       behavior: { editable: true, filterable: true, sortable: false, visible: true }
     entityInstanceFormContainer:
-      inputType: entityInstanceId
+      inputType: entityInstanceNameLookup
       behavior: { editable: true }
     kanbanView:
-      inputType: entityInstanceId
+      inputType: entityInstanceNameLookup
       behavior: { editable: true }
 
   # Entity reference fields - array of UUIDs referencing multiple entities

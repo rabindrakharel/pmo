@@ -90,7 +90,7 @@ export interface EditFieldMetadata {
     maxLength?: number;             // Max string length
     pattern?: string;               // Regex pattern
   };
-  component?: string;               // Special component: 'DAGVisualizer', 'EntitySelect', etc.
+  component?: string;               // Special component: 'DAGVisualizer', 'EntityInstanceNameLookup', etc.
   lookupSource?: 'datalabel' | 'entityInstance';  // Where to load options
   lookupEntity?: string;            // Entity code for entityInstance lookup
   datalabelKey?: string;            // Datalabel key for datalabel lookup

@@ -744,7 +744,7 @@ export function useDatalabelMutation(datalabelName: string) {
 /**
  * Hook for fetching entity lookup options with proper caching
  *
- * Used by EntitySelect and other reference dropdowns.
+ * Used by EntityInstanceNameLookup and other reference dropdowns.
  * Uses React Query for fetching with 5-min TTL.
  *
  * @example

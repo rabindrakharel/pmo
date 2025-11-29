@@ -7,7 +7,7 @@ import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
 import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
 import { DebouncedInput, DebouncedTextarea } from '../ui/DebouncedInput';
 import { BadgeDropdownSelect } from '../ui/BadgeDropdownSelect';
-import { EntitySelect } from '../ui/EntitySelect';
+import { EntityInstanceNameLookup } from '../ui/EntityInstanceNameLookup';
 import {
   formatRelativeTime,
   formatFriendlyDate,
@@ -773,9 +773,9 @@ function EntityInstanceFormContainerInner({
             {value ? formatRelativeTime(value) : '-'}
           </span>
         );
-      // v8.3.2: Entity instance dropdown (foreign key reference fields)
-      case 'entityInstanceId': {
-        // Entity reference fields use EntitySelect with unified ref_data cache
+      // v9.2.0: Entity instance searchable dropdown (foreign key reference fields)
+      case 'entityInstanceNameLookup': {
+        // Entity reference fields use EntityInstanceNameLookup with unified ref_data cache
         const entityCode = field.lookupEntity;
 
         if (!entityCode) {
@@ -793,7 +793,7 @@ function EntityInstanceFormContainerInner({
         }
 
         return (
-          <EntitySelect
+          <EntityInstanceNameLookup
             entityCode={entityCode}
             value={value ?? ''}
             onChange={(uuid, _label) => handleFieldChange(field.key, uuid)}
