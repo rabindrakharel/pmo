@@ -324,7 +324,7 @@ Entity references are resolved via a response-level lookup table instead of per-
 │                       ▼                                                      │
 │  DOMAIN LAYER (Data-Aware Components)                                        │
 │  ─────────────────────────────────────────────────────────────────────────   │
-│  EntitySelect         │ EntityMultiSelect      │ DataLabelSelect             │
+│  EntityInstanceNameLookup │ EntityMultiSelect  │ DataLabelSelect             │
 │  BadgeDropdownSelect  │                        │                             │
 │                                                                              │
 │  • Fetch lookup data via dedicated hooks                                     │

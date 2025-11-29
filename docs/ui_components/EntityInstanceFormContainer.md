@@ -95,7 +95,7 @@ EntityInstanceFormContainer is a universal form component for creating and editi
 │  │  ┌───────────────────────────────────────────────────────────┐  │    │
 │  │  │  Entity References                                         │  │    │
 │  │  │  Uses editType[key].lookupSource === 'entityInstance'     │  │    │
-│  │  │  <EntitySelect entityCode={editType[key].lookupEntity} /> │  │    │
+│  │  │  <EntityInstanceNameLookup entityCode={editType[key].lookupEntity} /> │  │    │
 │  │  └───────────────────────────────────────────────────────────┘  │    │
 │  │                                                                  │    │
 │  │  ┌───────────────────────────────────────────────────────────┐  │    │
@@ -379,7 +379,7 @@ function FormField({ field, value, displayValue, isEditing, onChange }) {
   // Special handling for entity references
   if (field.lookupSource === 'entityInstance') {
     return (
-      <EntitySelect
+      <EntityInstanceNameLookup
         entityCode={field.lookupEntity}
         value={value}
         onChange={onChange}
@@ -414,7 +414,7 @@ function FormField({ field, value, displayValue, isEditing, onChange }) {
 | `component` | `DAGVisualizer` | DAGVisualizer graph | `select` | Interactive `<DAGVisualizer>` or `<BadgeDropdownSelect>` |
 | `date` | - | `Jan 15, 2025` | `date` | `<input type="date">` |
 | `boolean` | - | Check/X icon | `checkbox` | `<input type="checkbox">` |
-| `reference` | - | Entity name (via ref_data_entityInstance) | `select` | `<EntitySelect>` |
+| `reference` | - | Entity name (via ref_data_entityInstance) | `entityInstanceNameLookup` | `<EntityInstanceNameLookup>` |
 | `text` | - | Plain text | `text` | `<DebouncedInput type="text">` |
 | `textarea` | - | Multi-line text | `textarea` | `<DebouncedTextarea>` |
 | `jsonb` | `MetadataTable` | JSON viewer | `jsonb` | `<MetadataTable isEditing={true}>` |
@@ -593,7 +593,7 @@ Edit Flow
 | Direct `metadata.viewType` access | Use `extractViewType(metadata)` |
 | Frontend pattern detection (e.g., `_id` suffix) | Backend sends `lookupEntity` in metadata |
 | Hardcoded field list | Use `viewType` from backend |
-| Manual entity reference dropdowns | Use `EntitySelect` with `editType.lookupEntity` |
+| Manual entity reference dropdowns | Use `EntityInstanceNameLookup` with `editType.lookupEntity` |
 | Fallback metadata generation | Backend MUST send metadata |
 | Using `_ID`/`_IDS` embedded objects | Use `ref_data_entityInstance` lookup table |
 | Pattern detection for DAG fields | Use `viewType.renderType === 'component'` + `viewType.component` |
