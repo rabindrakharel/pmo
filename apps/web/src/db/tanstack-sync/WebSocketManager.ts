@@ -6,8 +6,17 @@
 // ============================================================================
 
 import { queryClient, invalidateEntityQueries } from '../query/queryClient';
-import { db, createEntityKey } from '../dexie/database';
+import { db, createEntityKey, createEntityInstanceKey } from '../dexie/database';
 import { apiClient } from '../../lib/api';
+import {
+  ENTITY_TYPES_KEY,
+  ENTITY_INSTANCES_KEY,
+  ENTITY_LINKS_KEY,
+  invalidateEntityLinks,
+  addLinkToCache,
+  removeLinkFromCache,
+  type EntityLink,
+} from '../tanstack-hooks/useNormalizedCache';
 
 // ============================================================================
 // Constants
@@ -34,8 +43,21 @@ interface InvalidatePayload {
   }>;
 }
 
+/**
+ * Payload for normalized cache table invalidations
+ */
+interface NormalizedInvalidatePayload {
+  table: 'entity' | 'entity_instance' | 'entity_instance_link';
+  action: 'INSERT' | 'UPDATE' | 'DELETE';
+  entity_code?: string;
+  entity_instance_id?: string;
+  child_entity_code?: string;
+  child_entity_instance_id?: string;
+  relationship_type?: string;
+}
+
 interface WebSocketMessage {
-  type: 'INVALIDATE' | 'SUBSCRIBED' | 'PONG' | 'TOKEN_EXPIRING_SOON' | 'ERROR';
+  type: 'INVALIDATE' | 'NORMALIZED_INVALIDATE' | 'LINK_CHANGE' | 'SUBSCRIBED' | 'PONG' | 'TOKEN_EXPIRING_SOON' | 'ERROR';
   payload?: unknown;
 }
 
@@ -245,6 +267,14 @@ class WebSocketManager {
         this.handleInvalidate(message.payload as InvalidatePayload);
         break;
 
+      case 'NORMALIZED_INVALIDATE':
+        this.handleNormalizedInvalidate(message.payload as NormalizedInvalidatePayload);
+        break;
+
+      case 'LINK_CHANGE':
+        this.handleLinkChange(message.payload as NormalizedInvalidatePayload);
+        break;
+
       case 'SUBSCRIBED':
         console.log('[WebSocket] Subscription confirmed:', message.payload);
         break;
@@ -262,6 +292,89 @@ class WebSocketManager {
         console.error('[WebSocket] Server error:', message.payload);
         break;
     }
+  }
+
+  /**
+   * Handle invalidation messages for 4-layer normalized cache
+   */
+  private async handleNormalizedInvalidate(payload: NormalizedInvalidatePayload): Promise<void> {
+    const { table, action, entity_code, entity_instance_id } = payload;
+
+    console.log(
+      `%c[WebSocket] NORMALIZED_INVALIDATE: ${table} (${action})`,
+      'color: #ff922b; font-weight: bold',
+      entity_code ? `entity_code=${entity_code}` : '',
+      entity_instance_id ? `entity_instance_id=${entity_instance_id}` : ''
+    );
+
+    switch (table) {
+      case 'entity':
+        // Rare: admin changed entity configuration
+        queryClient.invalidateQueries({ queryKey: ENTITY_TYPES_KEY });
+        break;
+
+      case 'entity_instance':
+        if (action === 'DELETE' && entity_code && entity_instance_id) {
+          // Mark as deleted in Dexie
+          const key = createEntityInstanceKey(entity_code, entity_instance_id);
+          try {
+            await db.entityInstances.update(key, { isDeleted: true });
+          } catch {
+            // May not exist
+          }
+        }
+        // Invalidate entity instances cache - will auto-refetch
+        queryClient.invalidateQueries({ queryKey: ENTITY_INSTANCES_KEY });
+        break;
+
+      case 'entity_instance_link':
+        // Handled by LINK_CHANGE for more granular updates
+        invalidateEntityLinks();
+        break;
+    }
+  }
+
+  /**
+   * Handle link change events for optimistic updates
+   */
+  private handleLinkChange(payload: NormalizedInvalidatePayload): void {
+    const {
+      action,
+      entity_code,
+      entity_instance_id,
+      child_entity_code,
+      child_entity_instance_id,
+      relationship_type,
+    } = payload;
+
+    if (!entity_code || !entity_instance_id || !child_entity_code || !child_entity_instance_id) {
+      console.warn('[WebSocket] LINK_CHANGE missing required fields:', payload);
+      return;
+    }
+
+    console.log(
+      `%c[WebSocket] LINK_CHANGE: ${action}`,
+      'color: #20c997; font-weight: bold',
+      `${entity_code}:${entity_instance_id} → ${child_entity_code}:${child_entity_instance_id}`
+    );
+
+    const link: EntityLink = {
+      id: '', // Not needed for cache operations
+      entity_code,
+      entity_instance_id,
+      child_entity_code,
+      child_entity_instance_id,
+      relationship_type: relationship_type || 'contains',
+    };
+
+    if (action === 'INSERT') {
+      addLinkToCache(link);
+    } else if (action === 'DELETE') {
+      removeLinkFromCache(link);
+    }
+
+    // Also invalidate to ensure consistency with server
+    queryClient.invalidateQueries({ queryKey: ENTITY_LINKS_KEY });
   }
 
   private async handleInvalidate(payload: InvalidatePayload): Promise<void> {

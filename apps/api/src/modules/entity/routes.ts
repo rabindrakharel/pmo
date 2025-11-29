@@ -63,6 +63,314 @@ export async function entityRoutes(fastify: FastifyInstance) {
   // Initialize Entity Infrastructure Service
   const entityInfra = getEntityInfrastructure(db);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 4-LAYER NORMALIZED CACHE ENDPOINTS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * GET /api/v1/entity/types
+   *
+   * Layer 1: Entity Type Metadata Cache
+   * Fetched at login, persisted for session.
+   *
+   * Returns all entity types with complete metadata for cache layer:
+   * - code, name, ui_label, ui_icon, db_table, db_model_type
+   * - child_entity_codes (JSONB array of child entity codes)
+   * - display_order, domain_code, column_metadata
+   *
+   * Used by:
+   * - Navigation menus (sidebar)
+   * - Tab generation (child_entity_codes)
+   * - Entity pickers and dropdowns
+   * - Icon/label resolution
+   */
+  fastify.get('/api/v1/entity/types', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      response: {
+        200: Type.Object({
+          data: Type.Array(Type.Object({
+            code: Type.String(),
+            name: Type.String(),
+            ui_label: Type.String(),
+            ui_icon: Type.Optional(Type.String()),
+            db_table: Type.Optional(Type.String()),
+            db_model_type: Type.Optional(Type.String()),
+            child_entity_codes: Type.Array(Type.String()),
+            display_order: Type.Number(),
+            domain_code: Type.Optional(Type.String()),
+            column_metadata: Type.Optional(Type.Array(Type.Any())),
+            active_flag: Type.Boolean(),
+          })),
+          syncedAt: Type.Number(),
+        }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      // Fetch all entity types with complete metadata
+      const result = await db.execute(sql`
+        SELECT
+          code,
+          name,
+          ui_label,
+          ui_icon,
+          db_table,
+          db_model_type,
+          child_entity_codes,
+          display_order,
+          dl_entity_domain as domain_code,
+          column_metadata,
+          active_flag
+        FROM app.entity
+        WHERE active_flag = true
+        ORDER BY display_order ASC, name ASC
+      `);
+
+      const entities = result.map((row: any) => ({
+        code: row.code,
+        name: row.name,
+        ui_label: row.ui_label,
+        ui_icon: row.ui_icon,
+        db_table: row.db_table,
+        db_model_type: row.db_model_type,
+        child_entity_codes: typeof row.child_entity_codes === 'string'
+          ? JSON.parse(row.child_entity_codes)
+          : (row.child_entity_codes || []),
+        display_order: row.display_order,
+        domain_code: row.domain_code,
+        column_metadata: typeof row.column_metadata === 'string'
+          ? JSON.parse(row.column_metadata)
+          : (row.column_metadata || []),
+        active_flag: row.active_flag,
+      }));
+
+      return {
+        data: entities,
+        syncedAt: Date.now(),
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching entity types:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * GET /api/v1/entity-instance/all
+   *
+   * Layer 2: Entity Instance Registry Cache
+   * Fetched at login, supports delta sync via 'since' parameter.
+   *
+   * Returns all entity instances from entity_instance table:
+   * - entity_code, entity_instance_id, entity_instance_name, code
+   * - order_id for sorting
+   *
+   * Query params:
+   * - since: Unix timestamp (ms) - only return records updated after this time
+   * - limit: Max records per entity type (default 5000)
+   *
+   * Used by:
+   * - Global search
+   * - Entity existence validation
+   * - Dropdown options
+   * - Name resolution
+   */
+  fastify.get('/api/v1/entity-instance/all', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      querystring: Type.Object({
+        since: Type.Optional(Type.Number({ minimum: 0 })),
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 10000, default: 5000 })),
+      }),
+      response: {
+        200: Type.Object({
+          data: Type.Array(Type.Object({
+            entity_code: Type.String(),
+            entity_instance_id: Type.String(),
+            entity_instance_name: Type.String(),
+            code: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+            order_id: Type.Optional(Type.Number()),
+            updated_ts: Type.Optional(Type.String()),
+          })),
+          syncedAt: Type.Number(),
+          hasMore: Type.Boolean(),
+        }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { since, limit = 5000 } = request.query as { since?: number; limit?: number };
+
+    try {
+      let result;
+
+      if (since && since > 0) {
+        // Delta sync: only records updated since timestamp
+        const sinceDate = new Date(since);
+        result = await db.execute(sql`
+          SELECT
+            entity_code,
+            entity_instance_id::text,
+            entity_instance_name,
+            code,
+            order_id,
+            updated_ts
+          FROM app.entity_instance
+          WHERE updated_ts > ${sinceDate}
+          ORDER BY entity_code, order_id ASC
+          LIMIT ${limit + 1}
+        `);
+      } else {
+        // Full sync: all records
+        result = await db.execute(sql`
+          SELECT
+            entity_code,
+            entity_instance_id::text,
+            entity_instance_name,
+            code,
+            order_id,
+            updated_ts
+          FROM app.entity_instance
+          ORDER BY entity_code, order_id ASC
+          LIMIT ${limit + 1}
+        `);
+      }
+
+      // Check if there are more records
+      const hasMore = result.length > limit;
+      const data = hasMore ? result.slice(0, limit) : result;
+
+      return {
+        data: data.map((row: any) => ({
+          entity_code: row.entity_code,
+          entity_instance_id: row.entity_instance_id,
+          entity_instance_name: row.entity_instance_name,
+          code: row.code,
+          order_id: row.order_id,
+          updated_ts: row.updated_ts?.toISOString(),
+        })),
+        syncedAt: Date.now(),
+        hasMore,
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching entity instances:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * GET /api/v1/entity-instance-link/all
+   *
+   * Layer 3: Entity Instance Link (Relationship Graph) Cache
+   * Fetched at login, supports delta sync via 'since' parameter.
+   *
+   * Returns all links from entity_instance_link table:
+   * - entity_code, entity_instance_id (parent)
+   * - child_entity_code, child_entity_instance_id
+   * - relationship_type
+   *
+   * Query params:
+   * - since: Unix timestamp (ms) - only return records updated after this time
+   * - limit: Max records (default 10000)
+   *
+   * Used by:
+   * - Parent-child filtering (derive filtered lists from cache)
+   * - Tab counts
+   * - Navigation (get parents of entity)
+   * - Orphan detection
+   */
+  fastify.get('/api/v1/entity-instance-link/all', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      querystring: Type.Object({
+        since: Type.Optional(Type.Number({ minimum: 0 })),
+        limit: Type.Optional(Type.Number({ minimum: 1, maximum: 50000, default: 10000 })),
+      }),
+      response: {
+        200: Type.Object({
+          data: Type.Array(Type.Object({
+            id: Type.String(),
+            entity_code: Type.String(),
+            entity_instance_id: Type.String(),
+            child_entity_code: Type.String(),
+            child_entity_instance_id: Type.String(),
+            relationship_type: Type.String(),
+            updated_ts: Type.Optional(Type.String()),
+          })),
+          syncedAt: Type.Number(),
+          hasMore: Type.Boolean(),
+        }),
+        500: Type.Object({ error: Type.String() }),
+      },
+    },
+  }, async (request, reply) => {
+    const { since, limit = 10000 } = request.query as { since?: number; limit?: number };
+
+    try {
+      let result;
+
+      if (since && since > 0) {
+        // Delta sync: only records updated since timestamp
+        const sinceDate = new Date(since);
+        result = await db.execute(sql`
+          SELECT
+            id::text,
+            entity_code,
+            entity_instance_id::text,
+            child_entity_code,
+            child_entity_instance_id::text,
+            relationship_type,
+            updated_ts
+          FROM app.entity_instance_link
+          WHERE updated_ts > ${sinceDate}
+          ORDER BY entity_code, entity_instance_id, child_entity_code ASC
+          LIMIT ${limit + 1}
+        `);
+      } else {
+        // Full sync: all records
+        result = await db.execute(sql`
+          SELECT
+            id::text,
+            entity_code,
+            entity_instance_id::text,
+            child_entity_code,
+            child_entity_instance_id::text,
+            relationship_type,
+            updated_ts
+          FROM app.entity_instance_link
+          ORDER BY entity_code, entity_instance_id, child_entity_code ASC
+          LIMIT ${limit + 1}
+        `);
+      }
+
+      // Check if there are more records
+      const hasMore = result.length > limit;
+      const data = hasMore ? result.slice(0, limit) : result;
+
+      return {
+        data: data.map((row: any) => ({
+          id: row.id,
+          entity_code: row.entity_code,
+          entity_instance_id: row.entity_instance_id,
+          child_entity_code: row.child_entity_code,
+          child_entity_instance_id: row.child_entity_instance_id,
+          relationship_type: row.relationship_type,
+          updated_ts: row.updated_ts?.toISOString(),
+        })),
+        syncedAt: Date.now(),
+        hasMore,
+      };
+    } catch (error) {
+      fastify.log.error('Error fetching entity instance links:', error);
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // END 4-LAYER NORMALIZED CACHE ENDPOINTS
+  // ═══════════════════════════════════════════════════════════════════════════
+
   /**
    * GET /api/v1/entity/codes/:entity_code?
    * UNIFIED ENDPOINT - Serves both Settings page and DynamicChildEntityTabs
