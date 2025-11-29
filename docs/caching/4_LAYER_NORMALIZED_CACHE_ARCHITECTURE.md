@@ -131,8 +131,8 @@ interface EntityCache {
 
 ### Fetch Strategy
 ```typescript
-// At login - fetch all entity types
-const prefetchEntityTypes = async () => {
+// At login - fetch all entity codes
+const prefetchEntityCodes = async () => {
   const response = await api.get('/api/v1/entity/types');
 
   // Store as single list
@@ -950,8 +950,8 @@ const hydrateFromDexie = async () => {
 
 export const prefetchAllMetadata = async () => {
   await Promise.all([
-    // Layer 1: Entity types (always fresh at login)
-    prefetchEntityTypes(),
+    // Layer 1: Entity codes (always fresh at login)
+    prefetchEntityCodes(),
 
     // Layer 2: Entity instances (delta sync if large)
     prefetchEntityInstances(),
@@ -965,7 +965,7 @@ export const prefetchAllMetadata = async () => {
   ]);
 };
 
-const prefetchEntityTypes = async () => {
+const prefetchEntityCodes = async () => {
   const response = await api.get('/api/v1/entity/types');
 
   for (const entity of response.data) {

@@ -5,7 +5,7 @@
 // Decoupled, modular, DRY implementation
 //
 // Usage:
-//   import { useEntityTypes, useNormalizedEntityList, ... } from '@/db/normalized-cache';
+//   import { useEntityCodes, useNormalizedEntityList, ... } from '@/db/normalized-cache';
 //
 // Configuration:
 //   Wrap app with CacheConfigProvider to enable/disable cache layers
@@ -22,7 +22,7 @@
 
 // Types
 export type {
-  EntityType,
+  EntityCode,
   EntityInstance,
   EntityLink,
   LinkForwardIndex,
@@ -35,7 +35,7 @@ export type {
   CacheConfig,
   CacheStrategy,
   DataSourceResult,
-  EntityTypesDataSource,
+  EntityCodesDataSource,
   EntityInstancesDataSource,
   EntityLinksDataSource,
   EntityInstanceNamesDataSource,
@@ -58,7 +58,7 @@ export {
 
 // Stores (for advanced usage)
 export {
-  entityTypesStore,
+  entityCodesStore,
   entityInstancesStore,
   entityLinksStore,
   entityInstanceNamesStore,
@@ -81,12 +81,12 @@ export {
 
 // Hooks
 export {
-  // Layer 1: Entity Types
-  useEntityTypes,
-  getEntityTypeSync,
-  getAllEntityTypesSync,
+  // Layer 1: Entity Codes
+  useEntityCodes,
+  getEntityCodeSync,
+  getAllEntityCodesSync,
   getChildEntityCodesSync,
-  prefetchEntityTypes,
+  prefetchEntityCodes,
 
   // Layer 2: Entity Instances
   useEntityInstances,
@@ -125,7 +125,7 @@ export {
 
 // Re-export query keys for external usage
 export {
-  QUERY_KEYS as ENTITY_TYPES_KEY,
+  QUERY_KEYS as ENTITY_CODES_KEY,
   QUERY_KEYS as ENTITY_INSTANCES_KEY,
   QUERY_KEYS as ENTITY_LINKS_KEY,
   QUERY_KEYS as ENTITY_INSTANCE_NAMES_KEY,

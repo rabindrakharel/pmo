@@ -15,14 +15,14 @@ import {
 } from '../../dexie/database';
 import { BaseDataSourceAdapter } from './base';
 import {
-  entityTypesStore,
+  entityCodesStore,
   entityInstancesStore,
   entityLinksStore,
   entityInstanceNamesStore,
   clearAllStores,
 } from '../stores';
 import type {
-  EntityType,
+  EntityCode,
   EntityInstance,
   EntityLink,
   DataSourceResult,
@@ -35,7 +35,7 @@ import { getCacheConfig } from '../config';
 // ============================================================================
 
 export const QUERY_KEYS = {
-  ENTITY_TYPES: ['entity', 'types'] as const,
+  ENTITY_CODES: ['entity', 'codes'] as const,
   ENTITY_INSTANCES: ['entity_instance', 'all'] as const,
   ENTITY_LINKS: ['entity_instance_link', 'all'] as const,
   ENTITY_INSTANCE_NAMES: (entityCode: string) => ['entity_instance_name', entityCode] as const,
@@ -53,14 +53,14 @@ export class CacheDataSourceAdapter extends BaseDataSourceAdapter {
   }
 
   // ========================================
-  // Layer 1: Entity Types
+  // Layer 1: Entity Codes
   // ========================================
 
-  async fetchEntityTypes(): Promise<DataSourceResult<EntityType[]>> {
+  async fetchEntityCodes(): Promise<DataSourceResult<EntityCode[]>> {
     const config = getCacheConfig();
-    this.log('Fetching entity types...');
+    this.log('Fetching entity codes...');
 
-    const response = await apiClient.get<{ data: EntityType[]; syncedAt: number }>(
+    const response = await apiClient.get<{ data: EntityCode[]; syncedAt: number }>(
       '/api/v1/entity/types'
     );
 
@@ -68,10 +68,10 @@ export class CacheDataSourceAdapter extends BaseDataSourceAdapter {
     const now = Date.now();
 
     // Update TanStack Query cache
-    queryClient.setQueryData(QUERY_KEYS.ENTITY_TYPES, entities);
+    queryClient.setQueryData(QUERY_KEYS.ENTITY_CODES, entities);
 
     // Update sync store
-    entityTypesStore.set(entities);
+    entityCodesStore.set(entities);
 
     // Persist to Dexie if enabled
     if (config.persistToIndexedDB) {
@@ -84,20 +84,20 @@ export class CacheDataSourceAdapter extends BaseDataSourceAdapter {
       );
     }
 
-    this.log(`Fetched ${entities.length} entity types`);
+    this.log(`Fetched ${entities.length} entity codes`);
     return { data: entities, source: 'api', syncedAt: now };
   }
 
-  getEntityTypeSync(code: string): EntityType | null {
-    return entityTypesStore.getByCode(code);
+  getEntityCodeSync(code: string): EntityCode | null {
+    return entityCodesStore.getByCode(code);
   }
 
-  getAllEntityTypesSync(): EntityType[] | null {
-    return entityTypesStore.getAll();
+  getAllEntityCodesSync(): EntityCode[] | null {
+    return entityCodesStore.getAll();
   }
 
   getChildEntityCodesSync(parentCode: string): string[] {
-    return entityTypesStore.getChildCodes(parentCode);
+    return entityCodesStore.getChildCodes(parentCode);
   }
 
   // ========================================
@@ -244,7 +244,7 @@ export class CacheDataSourceAdapter extends BaseDataSourceAdapter {
 
   getTabCountsSync(parentCode: string, parentId: string): Record<string, number> {
     return entityLinksStore.getTabCounts(parentCode, parentId, (code) =>
-      entityTypesStore.getChildCodes(code)
+      entityCodesStore.getChildCodes(code)
     );
   }
 
@@ -301,10 +301,10 @@ export class CacheDataSourceAdapter extends BaseDataSourceAdapter {
     this.log('Hydrating from Dexie...');
     const startTime = Date.now();
 
-    // Layer 1: Entity Types
-    const entityTypes = await db.entityTypes.toArray();
-    if (entityTypes.length > 0) {
-      const types = entityTypes.map(et => ({
+    // Layer 1: Entity Codes
+    const entityCodes = await db.entityTypes.toArray();
+    if (entityCodes.length > 0) {
+      const codes = entityCodes.map(et => ({
         code: et.code,
         name: et.name,
         ui_label: et.ui_label,
@@ -317,8 +317,8 @@ export class CacheDataSourceAdapter extends BaseDataSourceAdapter {
         column_metadata: et.column_metadata,
         active_flag: et.active_flag,
       }));
-      queryClient.setQueryData(QUERY_KEYS.ENTITY_TYPES, types);
-      entityTypesStore.set(types);
+      queryClient.setQueryData(QUERY_KEYS.ENTITY_CODES, codes);
+      entityCodesStore.set(codes);
     }
 
     // Layer 2: Entity Instances
@@ -374,7 +374,7 @@ export class CacheDataSourceAdapter extends BaseDataSourceAdapter {
     this.ready = true;
     this.log(
       `Hydrated in ${Date.now() - startTime}ms:`,
-      `${entityTypes.length} types,`,
+      `${entityCodes.length} codes,`,
       `${entityInstances.length} instances,`,
       `${forwardRecords.length} forward links,`,
       `${reverseRecords.length} reverse links,`,
@@ -394,7 +394,7 @@ export class CacheDataSourceAdapter extends BaseDataSourceAdapter {
     const linksSince = linksSyncRecord?.data as number | undefined;
 
     await Promise.all([
-      this.fetchEntityTypes(),
+      this.fetchEntityCodes(),
       this.fetchEntityInstances(instanceSince),
       this.fetchEntityLinks(linksSince),
     ]);
@@ -408,7 +408,7 @@ export class CacheDataSourceAdapter extends BaseDataSourceAdapter {
     clearAllStores();
 
     // Clear TanStack Query cache
-    queryClient.removeQueries({ queryKey: QUERY_KEYS.ENTITY_TYPES });
+    queryClient.removeQueries({ queryKey: QUERY_KEYS.ENTITY_CODES });
     queryClient.removeQueries({ queryKey: QUERY_KEYS.ENTITY_INSTANCES });
     queryClient.removeQueries({ queryKey: QUERY_KEYS.ENTITY_LINKS });
     queryClient.removeQueries({ queryKey: ['entity_instance_name'] });

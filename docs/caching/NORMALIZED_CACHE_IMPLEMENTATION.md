@@ -30,7 +30,7 @@ This document describes the implementation of the 4-layer normalized cache archi
 │                      │     Sync Stores       │                     │
 │                      │  (In-Memory Cache)    │                     │
 │                      │                       │                     │
-│                      │  • entityTypesStore   │                     │
+│                      │  • entityCodesStore   │                     │
 │                      │  • entityInstancesStore│                    │
 │                      │  • entityLinksStore   │                     │
 │                      │  • entityNamesStore   │                     │
@@ -39,7 +39,7 @@ This document describes the implementation of the 4-layer normalized cache archi
 │                      ┌───────────▼───────────┐                     │
 │                      │      React Hooks      │                     │
 │                      │                       │                     │
-│                      │  • useEntityTypes     │                     │
+│                      │  • useEntityCodes     │                     │
 │                      │  • useEntityInstances │                     │
 │                      │  • useEntityLinks     │                     │
 │                      │  • useNormalizedList  │                     │
@@ -69,10 +69,10 @@ apps/web/src/db/normalized-cache/
 ### Basic Usage (Default Configuration)
 
 ```typescript
-import { useEntityTypes, useNormalizedEntityList } from '@/db/normalized-cache';
+import { useEntityCodes, useNormalizedEntityList } from '@/db/normalized-cache';
 
 function MyComponent() {
-  const { data: entityTypes, isLoading } = useEntityTypes();
+  const { data: entityCodes, isLoading } = useEntityCodes();
   const { data: tasks, isFromCache } = useNormalizedEntityList('task', {
     parentEntityCode: 'project',
     parentEntityInstanceId: projectId,
@@ -92,7 +92,7 @@ function App() {
       enabled: true,           // Enable cache globally
       strategy: 'cache-first', // Try cache first, fall back to API
       layers: {
-        entityTypes: true,
+        entityCodes: true,
         entityInstances: true,
         entityLinks: true,
         entityInstanceNames: true,
@@ -257,15 +257,15 @@ handler({
 
 ## Hooks Reference
 
-### Layer 1: Entity Types
+### Layer 1: Entity Codes
 
 ```typescript
 // Hook
-const { data, isLoading, getByCode, getChildCodes } = useEntityTypes();
+const { data, isLoading, getByCode, getChildCodes } = useEntityCodes();
 
 // Sync access
-const entityType = getEntityTypeSync('project');
-const allTypes = getAllEntityTypesSync();
+const entityCode = getEntityCodeSync('project');
+const allCodes = getAllEntityCodesSync();
 const childCodes = getChildEntityCodesSync('project');
 ```
 
@@ -359,10 +359,10 @@ The new modular architecture is backward compatible. Existing imports from `useN
 
 ```typescript
 // Still works (re-exports from new module)
-import { useEntityTypes } from '@/db/tanstack-hooks/useNormalizedCache';
+import { useEntityCodes } from '@/db/tanstack-hooks/useNormalizedCache';
 
 // Recommended: Import from normalized-cache directly
-import { useEntityTypes } from '@/db/normalized-cache';
+import { useEntityCodes } from '@/db/normalized-cache';
 ```
 
 New features available:

@@ -5,9 +5,9 @@
 // ============================================================================
 
 /**
- * Layer 1: Entity Type Metadata
+ * Layer 1: Entity Code Metadata (Entity Type Registry)
  */
-export interface EntityType {
+export interface EntityCode {
   code: string;
   name: string;
   ui_label: string;
@@ -133,14 +133,14 @@ export interface CacheConfig {
   strategy: CacheStrategy;
   /** Layer-specific overrides */
   layers: {
-    entityTypes: boolean;
+    entityCodes: boolean;
     entityInstances: boolean;
     entityLinks: boolean;
     entityInstanceNames: boolean;
   };
   /** Stale times per layer (ms) */
   staleTimes: {
-    entityTypes: number;
+    entityCodes: number;
     entityInstances: number;
     entityLinks: number;
     entityInstanceNames: number;
@@ -160,13 +160,13 @@ export const DEFAULT_CACHE_CONFIG: CacheConfig = {
   enabled: true,
   strategy: 'cache-first',
   layers: {
-    entityTypes: true,
+    entityCodes: true,
     entityInstances: true,
     entityLinks: true,
     entityInstanceNames: true,
   },
   staleTimes: {
-    entityTypes: 30 * 60 * 1000,      // 30 minutes
+    entityCodes: 30 * 60 * 1000,      // 30 minutes
     entityInstances: 5 * 60 * 1000,   // 5 minutes
     entityLinks: 5 * 60 * 1000,       // 5 minutes
     entityInstanceNames: 10 * 60 * 1000, // 10 minutes
@@ -190,11 +190,11 @@ export interface DataSourceResult<T> {
 }
 
 /**
- * Entity types data source interface
+ * Entity codes data source interface
  */
-export interface EntityTypesDataSource {
-  getAll(): Promise<DataSourceResult<EntityType[]>>;
-  getByCode(code: string): EntityType | null;
+export interface EntityCodesDataSource {
+  getAll(): Promise<DataSourceResult<EntityCode[]>>;
+  getByCode(code: string): EntityCode | null;
   getChildCodes(parentCode: string): string[];
 }
 
@@ -233,7 +233,7 @@ export interface EntityInstanceNamesDataSource {
  * Unified data source interface
  */
 export interface DataSource {
-  entityTypes: EntityTypesDataSource;
+  entityCodes: EntityCodesDataSource;
   entityInstances: EntityInstancesDataSource;
   entityLinks: EntityLinksDataSource;
   entityInstanceNames: EntityInstanceNamesDataSource;

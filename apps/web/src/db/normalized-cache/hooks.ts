@@ -10,11 +10,11 @@ import { apiClient } from '@/lib/api';
 import { queryClient } from '../query/queryClient';
 import { createEntityInstanceKey, type EntityLinkForwardRecord } from '../dexie/database';
 
-import type { EntityType, EntityInstance, EntityLink, ListQueryParams } from './types';
+import type { EntityCode, EntityInstance, EntityLink, ListQueryParams } from './types';
 import { getCacheConfig, isCacheEnabled, getStaleTime, isLayerEnabledSync } from './config';
 import { cacheAdapter, apiAdapter, QUERY_KEYS } from './adapters';
 import {
-  entityTypesStore,
+  entityCodesStore,
   entityInstancesStore,
   entityLinksStore,
   entityInstanceNamesStore,
@@ -32,28 +32,28 @@ function getAdapter() {
 }
 
 // ============================================================================
-// Layer 1: Entity Types Hook
+// Layer 1: Entity Codes Hook
 // ============================================================================
 
-export function useEntityTypes(): UseQueryResult<EntityType[]> & {
-  getByCode: (code: string) => EntityType | undefined;
+export function useEntityCodes(): UseQueryResult<EntityCode[]> & {
+  getByCode: (code: string) => EntityCode | undefined;
   getChildCodes: (code: string) => string[];
 } {
   const query = useQuery({
-    queryKey: QUERY_KEYS.ENTITY_TYPES,
+    queryKey: QUERY_KEYS.ENTITY_CODES,
     queryFn: async () => {
       const adapter = getAdapter();
-      const result = await adapter.fetchEntityTypes();
+      const result = await adapter.fetchEntityCodes();
       return result.data;
     },
-    staleTime: getStaleTime('entityTypes'),
+    staleTime: getStaleTime('entityCodes'),
     gcTime: 60 * 60 * 1000, // 1 hour
   });
 
   // Update sync store when data changes
   useMemo(() => {
     if (query.data) {
-      entityTypesStore.set(query.data);
+      entityCodesStore.set(query.data);
     }
   }, [query.data]);
 
@@ -90,12 +90,12 @@ export function useEntityInstances(): UseQueryResult<Map<string, EntityInstance[
 
       // Return grouped map from store
       const grouped = new Map<string, EntityInstance[]>();
-      const allTypes = entityTypesStore.getAll() ?? [];
+      const allCodes = entityCodesStore.getAll() ?? [];
 
-      for (const type of allTypes) {
-        const instances = entityInstancesStore.getByCode(type.code);
+      for (const entityCode of allCodes) {
+        const instances = entityInstancesStore.getByCode(entityCode.code);
         if (instances.length > 0) {
-          grouped.set(type.code, instances);
+          grouped.set(entityCode.code, instances);
         }
       }
 
@@ -166,7 +166,7 @@ export function useEntityLinks(): {
 
   const getTabCounts = useCallback((parentCode: string, parentId: string): Record<string, number> => {
     return entityLinksStore.getTabCounts(parentCode, parentId, (code) =>
-      entityTypesStore.getChildCodes(code)
+      entityCodesStore.getChildCodes(code)
     );
   }, []);
 
@@ -406,16 +406,16 @@ export function useNormalizedEntityList<T = EntityInstance>(
 // ============================================================================
 
 // Layer 1
-export function getEntityTypeSync(code: string): EntityType | null {
-  return entityTypesStore.getByCode(code);
+export function getEntityCodeSync(code: string): EntityCode | null {
+  return entityCodesStore.getByCode(code);
 }
 
-export function getAllEntityTypesSync(): EntityType[] | null {
-  return entityTypesStore.getAll();
+export function getAllEntityCodesSync(): EntityCode[] | null {
+  return entityCodesStore.getAll();
 }
 
 export function getChildEntityCodesSync(parentCode: string): string[] {
-  return entityTypesStore.getChildCodes(parentCode);
+  return entityCodesStore.getChildCodes(parentCode);
 }
 
 // Layer 2
@@ -501,9 +501,9 @@ export function removeLinkFromCache(link: EntityLink): void {
 // Prefetch Functions
 // ============================================================================
 
-export async function prefetchEntityTypes(): Promise<number> {
+export async function prefetchEntityCodes(): Promise<number> {
   const adapter = getAdapter();
-  const result = await adapter.fetchEntityTypes();
+  const result = await adapter.fetchEntityCodes();
   return result.data.length;
 }
 

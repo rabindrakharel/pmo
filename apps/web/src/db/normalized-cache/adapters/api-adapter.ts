@@ -8,7 +8,7 @@
 import { apiClient } from '@/lib/api';
 import { BaseDataSourceAdapter } from './base';
 import type {
-  EntityType,
+  EntityCode,
   EntityInstance,
   EntityLink,
   DataSourceResult,
@@ -20,8 +20,8 @@ import type {
 
 // These are minimal stores just for sync access functions
 // They don't persist to IndexedDB - just hold data from last API call
-const memoryEntityTypes = new Map<string, EntityType>();
-let memoryAllEntityTypes: EntityType[] | null = null;
+const memoryEntityCodes = new Map<string, EntityCode>();
+let memoryAllEntityCodes: EntityCode[] | null = null;
 
 const memoryEntityInstances = new Map<string, Map<string, EntityInstance>>();
 
@@ -42,39 +42,39 @@ export class APIDataSourceAdapter extends BaseDataSourceAdapter {
   }
 
   // ========================================
-  // Layer 1: Entity Types
+  // Layer 1: Entity Codes
   // ========================================
 
-  async fetchEntityTypes(): Promise<DataSourceResult<EntityType[]>> {
-    this.log('Fetching entity types from API...');
+  async fetchEntityCodes(): Promise<DataSourceResult<EntityCode[]>> {
+    this.log('Fetching entity codes from API...');
 
-    const response = await apiClient.get<{ data: EntityType[]; syncedAt: number }>(
+    const response = await apiClient.get<{ data: EntityCode[]; syncedAt: number }>(
       '/api/v1/entity/types'
     );
 
     const entities = response.data;
 
     // Store in memory for sync access
-    memoryAllEntityTypes = entities;
-    memoryEntityTypes.clear();
+    memoryAllEntityCodes = entities;
+    memoryEntityCodes.clear();
     for (const entity of entities) {
-      memoryEntityTypes.set(entity.code, entity);
+      memoryEntityCodes.set(entity.code, entity);
     }
 
-    this.log(`Fetched ${entities.length} entity types`);
+    this.log(`Fetched ${entities.length} entity codes`);
     return { data: entities, source: 'api', syncedAt: Date.now() };
   }
 
-  getEntityTypeSync(code: string): EntityType | null {
-    return memoryEntityTypes.get(code) ?? null;
+  getEntityCodeSync(code: string): EntityCode | null {
+    return memoryEntityCodes.get(code) ?? null;
   }
 
-  getAllEntityTypesSync(): EntityType[] | null {
-    return memoryAllEntityTypes;
+  getAllEntityCodesSync(): EntityCode[] | null {
+    return memoryAllEntityCodes;
   }
 
   getChildEntityCodesSync(parentCode: string): string[] {
-    return memoryEntityTypes.get(parentCode)?.child_entity_codes ?? [];
+    return memoryEntityCodes.get(parentCode)?.child_entity_codes ?? [];
   }
 
   // ========================================
@@ -202,15 +202,15 @@ export class APIDataSourceAdapter extends BaseDataSourceAdapter {
   }
 
   async prefetch(): Promise<void> {
-    // Only fetch entity types in API-only mode
+    // Only fetch entity codes in API-only mode
     // Other data is fetched on-demand
-    this.log('Prefetching entity types only in API-only mode...');
-    await this.fetchEntityTypes();
+    this.log('Prefetching entity codes only in API-only mode...');
+    await this.fetchEntityCodes();
   }
 
   clear(): void {
-    memoryEntityTypes.clear();
-    memoryAllEntityTypes = null;
+    memoryEntityCodes.clear();
+    memoryAllEntityCodes = null;
     memoryEntityInstances.clear();
     memoryForwardLinks.clear();
     memoryEntityInstanceNames.clear();

@@ -10,16 +10,16 @@
 // Re-export everything from the modular architecture
 export {
   // Types
-  type EntityType,
+  type EntityCode,
   type EntityInstance,
   type EntityLink,
 
-  // Layer 1: Entity Types
-  useEntityTypes,
-  getEntityTypeSync,
-  getAllEntityTypesSync,
+  // Layer 1: Entity Codes
+  useEntityCodes,
+  getEntityCodeSync,
+  getAllEntityCodesSync,
   getChildEntityCodesSync,
-  prefetchEntityTypes,
+  prefetchEntityCodes,
 
   // Layer 2: Entity Instances
   useEntityInstances,
@@ -57,7 +57,7 @@ export {
 // Re-export query keys for backward compatibility
 import { QUERY_KEYS } from '../normalized-cache/adapters/cache-adapter';
 
-export const ENTITY_TYPES_KEY = QUERY_KEYS.ENTITY_TYPES;
+export const ENTITY_CODES_KEY = QUERY_KEYS.ENTITY_CODES;
 export const ENTITY_INSTANCES_KEY = QUERY_KEYS.ENTITY_INSTANCES;
 export const ENTITY_LINKS_KEY = QUERY_KEYS.ENTITY_LINKS;
 export const ENTITY_INSTANCE_NAMES_KEY = QUERY_KEYS.ENTITY_INSTANCE_NAMES;

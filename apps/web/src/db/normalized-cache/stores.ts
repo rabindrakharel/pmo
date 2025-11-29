@@ -6,7 +6,7 @@
 // ============================================================================
 
 import type {
-  EntityType,
+  EntityCode,
   EntityInstance,
   LinkForwardIndex,
   LinkReverseIndex,
@@ -14,26 +14,26 @@ import type {
 import type { EntityLinkForwardRecord, EntityLinkReverseRecord } from '../dexie/database';
 
 // ============================================================================
-// Layer 1: Entity Types Store
+// Layer 1: Entity Codes Store
 // ============================================================================
 
-class EntityTypesStore {
-  private byCode = new Map<string, EntityType>();
-  private all: EntityType[] | null = null;
+class EntityCodesStore {
+  private byCode = new Map<string, EntityCode>();
+  private all: EntityCode[] | null = null;
 
-  set(types: EntityType[]): void {
-    this.all = types;
+  set(codes: EntityCode[]): void {
+    this.all = codes;
     this.byCode.clear();
-    for (const type of types) {
-      this.byCode.set(type.code, type);
+    for (const entityCode of codes) {
+      this.byCode.set(entityCode.code, entityCode);
     }
   }
 
-  getByCode(code: string): EntityType | null {
+  getByCode(code: string): EntityCode | null {
     return this.byCode.get(code) ?? null;
   }
 
-  getAll(): EntityType[] | null {
+  getAll(): EntityCode[] | null {
     return this.all;
   }
 
@@ -363,7 +363,7 @@ class EntityInstanceNamesStore {
 // Singleton Instances
 // ============================================================================
 
-export const entityTypesStore = new EntityTypesStore();
+export const entityCodesStore = new EntityCodesStore();
 export const entityInstancesStore = new EntityInstancesStore();
 export const entityLinksStore = new EntityLinksStore();
 export const entityInstanceNamesStore = new EntityInstanceNamesStore();
@@ -376,7 +376,7 @@ export const entityInstanceNamesStore = new EntityInstanceNamesStore();
  * Clear all stores
  */
 export function clearAllStores(): void {
-  entityTypesStore.clear();
+  entityCodesStore.clear();
   entityInstancesStore.clear();
   entityLinksStore.clear();
   entityInstanceNamesStore.clear();
@@ -386,14 +386,14 @@ export function clearAllStores(): void {
  * Get store statistics
  */
 export function getStoreStats(): {
-  entityTypes: number;
+  entityCodes: number;
   entityInstances: number;
   linksForward: number;
   linksReverse: number;
   entityInstanceNames: number;
 } {
   return {
-    entityTypes: entityTypesStore.size(),
+    entityCodes: entityCodesStore.size(),
     entityInstances: entityInstancesStore.size(),
     linksForward: entityLinksStore.forwardSize(),
     linksReverse: entityLinksStore.reverseSize(),

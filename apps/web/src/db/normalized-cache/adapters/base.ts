@@ -6,7 +6,7 @@
 // ============================================================================
 
 import type {
-  EntityType,
+  EntityCode,
   EntityInstance,
   EntityLink,
   DataSourceResult,
@@ -30,12 +30,12 @@ export abstract class BaseDataSourceAdapter {
   }
 
   // ========================================
-  // Layer 1: Entity Types
+  // Layer 1: Entity Codes
   // ========================================
 
-  abstract fetchEntityTypes(): Promise<DataSourceResult<EntityType[]>>;
-  abstract getEntityTypeSync(code: string): EntityType | null;
-  abstract getAllEntityTypesSync(): EntityType[] | null;
+  abstract fetchEntityCodes(): Promise<DataSourceResult<EntityCode[]>>;
+  abstract getEntityCodeSync(code: string): EntityCode | null;
+  abstract getAllEntityCodesSync(): EntityCode[] | null;
   abstract getChildEntityCodesSync(parentCode: string): string[];
 
   // ========================================
