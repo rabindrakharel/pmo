@@ -7,16 +7,16 @@
 
 import { queryClient, invalidateEntityQueries } from '../query/queryClient';
 import { db, createEntityKey, createEntityInstanceKey } from '../dexie/database';
-import { apiClient } from '../../lib/api';
 import {
-  ENTITY_TYPES_KEY,
-  ENTITY_INSTANCES_KEY,
-  ENTITY_LINKS_KEY,
+  cacheAdapter,
+  createInvalidationHandler,
+  QUERY_KEYS,
+  type WebSocketInvalidation,
+  type EntityLink,
   invalidateEntityLinks,
   addLinkToCache,
   removeLinkFromCache,
-  type EntityLink,
-} from '../tanstack-hooks/useNormalizedCache';
+} from '../normalized-cache';
 
 // ============================================================================
 // Constants
@@ -296,9 +296,10 @@ class WebSocketManager {
 
   /**
    * Handle invalidation messages for 4-layer normalized cache
+   * Uses granular invalidation per entity_instance_id for efficiency
    */
   private async handleNormalizedInvalidate(payload: NormalizedInvalidatePayload): Promise<void> {
-    const { table, action, entity_code, entity_instance_id } = payload;
+    const { table, action, entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type } = payload;
 
     console.log(
       `%c[WebSocket] NORMALIZED_INVALIDATE: ${table} (${action})`,
@@ -307,30 +308,30 @@ class WebSocketManager {
       entity_instance_id ? `entity_instance_id=${entity_instance_id}` : ''
     );
 
-    switch (table) {
-      case 'entity':
-        // Rare: admin changed entity configuration
-        queryClient.invalidateQueries({ queryKey: ENTITY_TYPES_KEY });
-        break;
+    // Use the adapter's granular invalidation handler
+    const invalidation: WebSocketInvalidation = {
+      action,
+      table: table as WebSocketInvalidation['table'],
+      entity_code: entity_code || '',
+      entity_instance_id,
+      child_entity_code,
+      child_entity_instance_id,
+      relationship_type,
+      timestamp: Date.now(),
+    };
 
-      case 'entity_instance':
-        if (action === 'DELETE' && entity_code && entity_instance_id) {
-          // Mark as deleted in Dexie
-          const key = createEntityInstanceKey(entity_code, entity_instance_id);
-          try {
-            await db.entityInstances.update(key, { isDeleted: true });
-          } catch {
-            // May not exist
-          }
-        }
-        // Invalidate entity instances cache - will auto-refetch
-        queryClient.invalidateQueries({ queryKey: ENTITY_INSTANCES_KEY });
-        break;
+    // Create handler and invoke
+    const handler = createInvalidationHandler(cacheAdapter);
+    handler(invalidation);
 
-      case 'entity_instance_link':
-        // Handled by LINK_CHANGE for more granular updates
-        invalidateEntityLinks();
-        break;
+    // Additional Dexie cleanup for DELETE
+    if (table === 'entity_instance' && action === 'DELETE' && entity_code && entity_instance_id) {
+      const key = createEntityInstanceKey(entity_code, entity_instance_id);
+      try {
+        await db.entityInstances.update(key, { isDeleted: true });
+      } catch {
+        // May not exist
+      }
     }
   }
 
@@ -374,7 +375,7 @@ class WebSocketManager {
     }
 
     // Also invalidate to ensure consistency with server
-    queryClient.invalidateQueries({ queryKey: ENTITY_LINKS_KEY });
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ENTITY_LINKS });
   }
 
   private async handleInvalidate(payload: InvalidatePayload): Promise<void> {

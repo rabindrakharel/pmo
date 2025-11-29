@@ -1,35 +1,147 @@
 # 4-Layer Normalized Cache - Implementation Guide
 
-> **Implementation Status:** Complete
-> **Version:** 1.0.0
+> **Implementation Status:** Complete - Modular Architecture
+> **Version:** 2.0.0
 > **Date:** 2025-11-29
 
 ## Overview
 
-This document describes the implementation of the 4-layer normalized cache architecture for the PMO Enterprise Platform. The architecture mirrors the database infrastructure tables directly in the frontend cache.
+This document describes the implementation of the 4-layer normalized cache architecture for the PMO Enterprise Platform. The architecture is **decoupled, modular, and DRY** - cache can be enabled/disabled via configuration.
 
-## Files Changed/Created
+## Architecture
 
-### Backend (API)
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Modular Cache Architecture                        │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌──────────────────┐   ┌──────────────────┐   ┌─────────────────┐ │
+│  │  CacheConfig     │   │  DataSource      │   │  WebSocket      │ │
+│  │  Provider        │   │  Adapters        │   │  Invalidation   │ │
+│  │                  │   │                  │   │                 │ │
+│  │  • enabled       │   │  • CacheAdapter  │   │  • Granular     │ │
+│  │  • strategy      │   │  • APIAdapter    │   │  • Per-instance │ │
+│  │  • layers        │   │                  │   │                 │ │
+│  └────────┬─────────┘   └────────┬─────────┘   └────────┬────────┘ │
+│           │                      │                      │          │
+│           └──────────────────────┼──────────────────────┘          │
+│                                  │                                  │
+│                      ┌───────────▼───────────┐                     │
+│                      │     Sync Stores       │                     │
+│                      │  (In-Memory Cache)    │                     │
+│                      │                       │                     │
+│                      │  • entityTypesStore   │                     │
+│                      │  • entityInstancesStore│                    │
+│                      │  • entityLinksStore   │                     │
+│                      │  • entityNamesStore   │                     │
+│                      └───────────┬───────────┘                     │
+│                                  │                                  │
+│                      ┌───────────▼───────────┐                     │
+│                      │      React Hooks      │                     │
+│                      │                       │                     │
+│                      │  • useEntityTypes     │                     │
+│                      │  • useEntityInstances │                     │
+│                      │  • useEntityLinks     │                     │
+│                      │  • useNormalizedList  │                     │
+│                      └───────────────────────┘                     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
-| File | Changes |
-|------|---------|
-| `apps/api/src/modules/entity/routes.ts` | Added 3 new endpoints for cache layers |
+## Files Structure
 
-**New Endpoints:**
-- `GET /api/v1/entity/types` - Layer 1: All entity type metadata
-- `GET /api/v1/entity-instance/all` - Layer 2: All entity instances with delta sync
-- `GET /api/v1/entity-instance-link/all` - Layer 3: All links with delta sync
+```
+apps/web/src/db/normalized-cache/
+├── types.ts           # All shared types and interfaces
+├── config.ts          # CacheConfigProvider and context
+├── stores.ts          # In-memory sync caches
+├── hooks.ts           # All React hooks
+├── index.ts           # Public API exports
+└── adapters/
+    ├── base.ts        # Base adapter interface
+    ├── cache-adapter.ts  # Cache implementation (Dexie + TanStack)
+    ├── api-adapter.ts    # API-only implementation
+    └── index.ts       # Adapter exports
+```
 
-### Frontend (Web)
+## Usage
 
-| File | Changes |
-|------|---------|
-| `apps/web/src/db/dexie/database.ts` | Complete rewrite to v3 schema with 4 layers |
-| `apps/web/src/db/tanstack-hooks/useNormalizedCache.ts` | **NEW** - All 4 layer hooks and utilities |
-| `apps/web/src/db/tanstack-hooks/index.ts` | Added exports for new hooks |
-| `apps/web/src/db/TanstackCacheProvider.tsx` | Integrated normalized cache hydration/prefetch |
-| `apps/web/src/db/tanstack-sync/WebSocketManager.ts` | Added handlers for new invalidation types |
+### Basic Usage (Default Configuration)
+
+```typescript
+import { useEntityTypes, useNormalizedEntityList } from '@/db/normalized-cache';
+
+function MyComponent() {
+  const { data: entityTypes, isLoading } = useEntityTypes();
+  const { data: tasks, isFromCache } = useNormalizedEntityList('task', {
+    parentEntityCode: 'project',
+    parentEntityInstanceId: projectId,
+  });
+}
+```
+
+### Enable/Disable Cache
+
+```typescript
+import { CacheConfigProvider } from '@/db/normalized-cache';
+
+// Wrap app with provider
+function App() {
+  return (
+    <CacheConfigProvider initialConfig={{
+      enabled: true,           // Enable cache globally
+      strategy: 'cache-first', // Try cache first, fall back to API
+      layers: {
+        entityTypes: true,
+        entityInstances: true,
+        entityLinks: true,
+        entityInstanceNames: true,
+      },
+    }}>
+      <MyApp />
+    </CacheConfigProvider>
+  );
+}
+
+// Disable cache entirely
+<CacheConfigProvider initialConfig={{ enabled: false }}>
+  <MyApp />
+</CacheConfigProvider>
+```
+
+### Cache Strategies
+
+| Strategy | Behavior |
+|----------|----------|
+| `cache-first` | Try cache first, API fallback if miss (default) |
+| `api-first` | Always fetch from API, update cache |
+| `cache-only` | Never call API, use only cached data |
+| `api-only` | Never use cache, always fetch from API |
+
+### Runtime Configuration
+
+```typescript
+import { useCacheConfig } from '@/db/normalized-cache';
+
+function SettingsPanel() {
+  const { config, setEnabled, setLayerEnabled, setStrategy } = useCacheConfig();
+
+  return (
+    <div>
+      <Toggle
+        label="Enable Cache"
+        checked={config.enabled}
+        onChange={setEnabled}
+      />
+      <Select
+        value={config.strategy}
+        onChange={setStrategy}
+        options={['cache-first', 'api-first', 'cache-only', 'api-only']}
+      />
+    </div>
+  );
+}
+```
 
 ## API Endpoints
 
@@ -45,13 +157,8 @@ This document describes the implementation of the 4-layer normalized cache archi
       "code": "project",
       "name": "Project",
       "ui_label": "Projects",
-      "ui_icon": "FolderOpen",
-      "db_table": "project",
-      "db_model_type": "d",
-      "child_entity_codes": ["task", "wiki", "artifact"],
-      "display_order": 1,
-      "domain_code": "operations",
-      "active_flag": true
+      "child_entity_codes": ["task", "wiki"],
+      "display_order": 1
     }
   ],
   "syncedAt": 1732900000000
@@ -64,7 +171,6 @@ This document describes the implementation of the 4-layer normalized cache archi
 
 **Query Parameters:**
 - `since` (optional): Unix timestamp for delta sync
-- `limit` (optional): Max records (default 5000)
 
 **Response:**
 ```json
@@ -74,9 +180,7 @@ This document describes the implementation of the 4-layer normalized cache archi
       "entity_code": "project",
       "entity_instance_id": "uuid-here",
       "entity_instance_name": "Kitchen Renovation",
-      "code": "PROJ-001",
-      "order_id": 1,
-      "updated_ts": "2025-11-29T00:00:00Z"
+      "code": "PROJ-001"
     }
   ],
   "syncedAt": 1732900000000,
@@ -88,10 +192,6 @@ This document describes the implementation of the 4-layer normalized cache archi
 
 **Purpose:** Layer 3 - Relationship graph
 
-**Query Parameters:**
-- `since` (optional): Unix timestamp for delta sync
-- `limit` (optional): Max records (default 10000)
-
 **Response:**
 ```json
 {
@@ -102,52 +202,60 @@ This document describes the implementation of the 4-layer normalized cache archi
       "entity_instance_id": "project-uuid",
       "child_entity_code": "task",
       "child_entity_instance_id": "task-uuid",
-      "relationship_type": "contains",
-      "updated_ts": "2025-11-29T00:00:00Z"
+      "relationship_type": "contains"
     }
   ],
-  "syncedAt": 1732900000000,
-  "hasMore": false
+  "syncedAt": 1732900000000
 }
 ```
 
-## Dexie Schema (v3)
+## WebSocket Invalidation
+
+### Granular Invalidation
+
+The WebSocket service sends granular invalidation messages based on `system_logging` and `system_subscription` tables:
+
+```json
+{
+  "type": "NORMALIZED_INVALIDATE",
+  "payload": {
+    "table": "entity_instance",
+    "action": "UPDATE",
+    "entity_code": "project",
+    "entity_instance_id": "specific-uuid"
+  }
+}
+```
+
+### Invalidation Handler
+
+The `createInvalidationHandler` function provides granular cache invalidation:
 
 ```typescript
-// Database name: pmo-cache-v3
-{
-  // Layer 1: Entity Types
-  entityTypes: '_id, code, display_order, domain_code',
+import { createInvalidationHandler, cacheAdapter } from '@/db/normalized-cache';
 
-  // Layer 2: Entity Instances
-  entityInstances: '_id, entity_code, entity_instance_id, [entity_code+entity_instance_id], isDeleted, syncedAt',
+const handler = createInvalidationHandler(cacheAdapter);
 
-  // Layer 3: Entity Links
-  entityLinksForward: '_id, parentCode, parentId, childCode, [parentCode+parentId+childCode]',
-  entityLinksReverse: '_id, childCode, childId, [childCode+childId]',
-  entityLinksRaw: '_id, entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, syncedAt',
-
-  // Layer 4: Entity Instance Names
-  entityInstanceNames: '_id, entityCode, entityInstanceId, [entityCode+entityInstanceId]',
-
-  // Legacy Tables
-  entities: '_id, entityCode, entityId, syncedAt, isDeleted',
-  entityLists: '_id, entityCode, queryHash, syncedAt',
-  metadata: '_id, type, key',
-  drafts: '_id, entityCode, entityId, updatedAt',
-}
+// On WebSocket message
+handler({
+  action: 'UPDATE',
+  table: 'entity_instance',
+  entity_code: 'project',
+  entity_instance_id: 'uuid',
+  timestamp: Date.now(),
+});
 ```
 
-## TanStack Query Keys
+### Invalidation Behavior
 
-| Layer | Query Key | Purpose |
-|-------|-----------|---------|
-| 1 | `['entity', 'types']` | All entity types |
-| 2 | `['entity_instance', 'all']` | All entity instances |
-| 3 | `['entity_instance_link', 'all']` | Link graph loaded marker |
-| 4 | `['entity_instance_name', entityCode]` | Names per entity type |
+| Table | Action | Behavior |
+|-------|--------|----------|
+| `entity_instance` | `UPDATE` | Invalidate specific entity_instance_id |
+| `entity_instance` | `DELETE` | Remove from cache, mark deleted in Dexie |
+| `entity_instance` | `INSERT` | Invalidate entity type to trigger refetch |
+| `entity_instance_link` | `INSERT/DELETE` | Optimistic update + invalidate links |
 
-## Hooks
+## Hooks Reference
 
 ### Layer 1: Entity Types
 
@@ -159,9 +267,6 @@ const { data, isLoading, getByCode, getChildCodes } = useEntityTypes();
 const entityType = getEntityTypeSync('project');
 const allTypes = getAllEntityTypesSync();
 const childCodes = getChildEntityCodesSync('project');
-
-// Prefetch
-await prefetchEntityTypes();
 ```
 
 ### Layer 2: Entity Instances
@@ -173,9 +278,6 @@ const { data, isLoading, getByCode, getInstance } = useEntityInstances();
 // Sync access
 const instances = getEntityInstancesSync('project');
 const instance = getEntityInstanceSync('project', 'uuid');
-
-// Prefetch
-await prefetchEntityInstances();
 ```
 
 ### Layer 3: Entity Links
@@ -187,9 +289,6 @@ const { isLoading, getChildIds, getParents, getTabCounts } = useEntityLinks();
 // Sync access (O(1) - no API call!)
 const taskIds = getChildIdsSync('project', 'project-uuid', 'task');
 const parents = getParentsSync('task', 'task-uuid');
-
-// Prefetch
-await prefetchEntityLinks();
 ```
 
 ### Layer 4: Entity Instance Names
@@ -201,57 +300,19 @@ const { data, isLoading, getName } = useEntityInstanceNames('employee');
 // Sync access
 const name = getEntityInstanceNameSync('employee', 'uuid');
 const allNames = getEntityInstanceNamesForTypeSync('employee');
-
-// Merge from API response
-mergeEntityInstanceNames(response.entity_instance_name);
 ```
 
 ### Derived Queries
 
 ```typescript
-// Get filtered list from cache (no API call!)
+// Get filtered list - tries cache first, falls back to API
 const { data, total, isLoading, isFromCache } = useNormalizedEntityList<Task>('task', {
   parentEntityCode: 'project',
   parentEntityInstanceId: 'project-uuid',
   limit: 50,
   offset: 0,
+  skipCache: false, // Force API call if true
 });
-```
-
-## WebSocket Message Types
-
-### NORMALIZED_INVALIDATE
-
-For table-level invalidations:
-
-```json
-{
-  "type": "NORMALIZED_INVALIDATE",
-  "payload": {
-    "table": "entity" | "entity_instance" | "entity_instance_link",
-    "action": "INSERT" | "UPDATE" | "DELETE",
-    "entity_code": "project",
-    "entity_instance_id": "uuid"
-  }
-}
-```
-
-### LINK_CHANGE
-
-For optimistic link updates:
-
-```json
-{
-  "type": "LINK_CHANGE",
-  "payload": {
-    "action": "INSERT" | "DELETE",
-    "entity_code": "project",
-    "entity_instance_id": "project-uuid",
-    "child_entity_code": "task",
-    "child_entity_instance_id": "task-uuid",
-    "relationship_type": "contains"
-  }
-}
 ```
 
 ## Lifecycle
@@ -259,48 +320,53 @@ For optimistic link updates:
 ### App Startup
 
 1. `TanstackCacheProvider` mounts
-2. `hydrateQueryCache()` loads legacy entities from Dexie
-3. `hydrateNormalizedCache()` loads all 4 layers from Dexie
-4. App renders (isReady = true)
+2. `hydrateNormalizedCache()` loads all 4 layers from Dexie
+3. App renders (isReady = true)
 
 ### Login
 
 1. User authenticates
 2. `connectWebSocket(token)` connects to PubSub (port 4001)
-3. `prefetchAllMetadata()` runs:
-   - `prefetchNormalizedCache()` - fetches all 4 layers
-   - `prefetchAllDatalabels()` - dropdowns
-   - `prefetchEntityCodes()` - legacy
-   - `prefetchGlobalSettings()` - settings
+3. `prefetchNormalizedCache()` runs - fetches all layers
 
 ### Runtime
 
-1. Components use hooks (`useEntityTypes`, `useEntityInstances`, etc.)
-2. Derived queries use `useNormalizedEntityList` - O(1) from cache
-3. Mutations trigger WebSocket invalidation
-4. WebSocket handlers update caches
+1. Components use hooks
+2. Derived queries use cache for O(1) lookups
+3. API fallback when cache misses
+4. WebSocket invalidations update cache granularly
 
 ### Logout
 
-1. `clearCache()` called
+1. `clearNormalizedCacheMemory()` called
 2. WebSocket disconnects
-3. All sync caches cleared
+3. All sync stores cleared
 4. TanStack Query cache cleared
-5. Dexie normalized tables cleared
 
 ## Benefits
 
-| Metric | Before | After |
-|--------|--------|-------|
-| API calls for parent-child query | 1 per navigation | 0 (cache hit) |
-| Memory for 100 tasks across 10 projects | 1000 entries | 100 + 10 indexes |
-| Tab count calculation | API call | `getTabCounts()` |
+| Metric | Without Cache | With Cache |
+|--------|---------------|------------|
+| API calls per navigation | 1+ | 0 (cache hit) |
+| Tab count calculation | API call | O(1) from index |
 | Name resolution | Per-row lookup | O(1) from cache |
-| Offline support | Per-query | Full entity graph |
+| Offline support | None | Full entity graph |
+| Bundle flexibility | N/A | Enable/disable per feature |
 
-## Migration Notes
+## Migration from v1.0
 
-- Legacy tables (`entities`, `entityLists`) are preserved for backward compatibility
-- Old hooks (`useEntity`, `useEntityList`) continue to work
-- New components should prefer `useNormalizedEntityList` for filtered queries
-- API responses can use either `entity_instance_name` or `ref_data_entityInstance`
+The new modular architecture is backward compatible. Existing imports from `useNormalizedCache` continue to work:
+
+```typescript
+// Still works (re-exports from new module)
+import { useEntityTypes } from '@/db/tanstack-hooks/useNormalizedCache';
+
+// Recommended: Import from normalized-cache directly
+import { useEntityTypes } from '@/db/normalized-cache';
+```
+
+New features available:
+- `CacheConfigProvider` for enable/disable control
+- `useCacheConfig` for runtime configuration
+- Adapter pattern for custom implementations
+- Granular invalidation per entity_instance_id
