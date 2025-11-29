@@ -91,8 +91,8 @@ const READONLY_FIELDS = new Set([
   'updated_by',
   'from_ts',
   'to_ts',
-  'parent_id',
-  'parent_type',
+  'parent_entity_id',
+  'parent_entity_code',
   'parent_name',
   'child_count'
 ]);

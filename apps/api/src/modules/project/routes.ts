@@ -38,8 +38,8 @@
  * ─────────────────────────────────────────────────────────
  * Instead of nested creation endpoints, we use:
  *   1. Create entity independently: POST /api/v1/project
- *   2. Link to parent via entity_instance_link (automatic if parent_type/parent_id provided)
- *   3. Edit/view in context: GET /api/v1/project?parent_type=business&parent_id={id}
+ *   2. Link to parent via entity_instance_link (automatic if parent_entity_code/parent_entity_id provided)
+ *   3. Edit/view in context: GET /api/v1/project?parent_entity_code=business&parent_entity_id={id}
  *
  * Benefits:
  *   • Entities exist independently (no orphans when parent deleted)
@@ -125,7 +125,7 @@
  *   4. Returns only projects user can view
  *
  * Example 2: Create Project in Business Context
- *   1. User requests POST /api/v1/project?parent_type=business&parent_id={id}
+ *   1. User requests POST /api/v1/project?parent_entity_code=business&parent_entity_id={id}
  *   2. Check: Can user CREATE projects? (type-level permission)
  *   3. Check: Can user EDIT parent business? (required to link child)
  *   4. Create project in project table
@@ -246,8 +246,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100000 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
-        parent_type: Type.Optional(Type.String()),
-        parent_id: Type.Optional(Type.String({ format: 'uuid' })),
+        parent_entity_code: Type.Optional(Type.String()),
+        parent_entity_id: Type.Optional(Type.String({ format: 'uuid' })),
         view: Type.Optional(Type.String()),  // 'entityListOfInstancesTable,kanbanView' or 'entityInstanceFormContainer'
       }),
       response: {
@@ -267,7 +267,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      search, limit = getEntityLimit(ENTITY_CODE), offset: queryOffset, page, parent_type, parent_id, view
+      search, limit = getEntityLimit(ENTITY_CODE), offset: queryOffset, page, parent_entity_code, parent_entity_id, view
     } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
@@ -285,14 +285,14 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const joins: SQL[] = [];
 
       // GATE 2: PARENT-CHILD FILTERING (MANDATORY when parent context provided)
-      if (parent_type && parent_id) {
+      if (parent_entity_code && parent_entity_id) {
         const parentJoin = sql`
         INNER JOIN app.entity_instance_link eil
           ON eil.child_entity_code = ${ENTITY_CODE}
           AND eil.child_entity_instance_id = ${sql.raw(TABLE_ALIAS
          || 'TABLE_ALIAS')}.id
-          AND eil.entity_code = ${parent_type}
-          AND eil.entity_instance_id = ${parent_id}
+          AND eil.entity_code = ${parent_entity_code}
+          AND eil.entity_instance_id = ${parent_entity_id}
       `;
         joins.push(parentJoin);
       }
@@ -583,8 +583,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
-        parent_type: Type.Optional(Type.String()),
-        parent_id: Type.Optional(Type.String({ format: 'uuid' })),
+        parent_entity_code: Type.Optional(Type.String()),
+        parent_entity_id: Type.Optional(Type.String({ format: 'uuid' })),
       }),
       body: CreateProjectSchema,
       response: {
@@ -597,7 +597,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const userId = (request as any).user?.sub;
-    const { parent_type, parent_id } = request.query as any;
+    const { parent_entity_code, parent_entity_id } = request.query as any;
     const data = request.body as any;
 
     if (!userId) {
@@ -618,10 +618,10 @@ export async function projectRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 2
       // Check: If linking to parent, can user EDIT parent?
       // ═══════════════════════════════════════════════════════════════
-      if (parent_type && parent_id) {
-        const canEditParent = await entityInfra.check_entity_rbac(userId, parent_type, parent_id, Permission.EDIT);
+      if (parent_entity_code && parent_entity_id) {
+        const canEditParent = await entityInfra.check_entity_rbac(userId, parent_entity_code, parent_entity_id, Permission.EDIT);
         if (!canEditParent) {
-          return reply.status(403).send({ error: `No permission to link project to this ${parent_type}` });
+          return reply.status(403).send({ error: `No permission to link project to this ${parent_entity_code}` });
         }
       }
     } catch (err: any) {
@@ -660,8 +660,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const result = await entityInfra.create_entity({
         entity_code: ENTITY_CODE,
         creator_id: userId,
-        parent_entity_code: parent_type,
-        parent_entity_id: parent_id,
+        parent_entity_code: parent_entity_code,
+        parent_entity_id: parent_entity_id,
         primary_table: 'app.project',
         primary_data: {
           code: data.code || `PROJ-${Date.now()}`,

@@ -206,8 +206,8 @@ export async function empRoutes(fastify: FastifyInstance) {
         employee_type: Type.Optional(Type.String()),
         department: Type.Optional(Type.String()),
         remote_work_eligible: Type.Optional(Type.Boolean()),
-        parent_type: Type.Optional(Type.String()),
-        parent_id: Type.Optional(Type.String({ format: 'uuid' })),
+        parent_entity_code: Type.Optional(Type.String()),
+        parent_entity_id: Type.Optional(Type.String({ format: 'uuid' })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100000 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 }))}),
@@ -221,7 +221,7 @@ export async function empRoutes(fastify: FastifyInstance) {
           offset: Type.Number()}),
         403: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
-    const { active_flag, search, employee_type, department, remote_work_eligible, parent_type, parent_id, limit = 50, offset: queryOffset, page } = request.query as any;
+    const { active_flag, search, employee_type, department, remote_work_eligible, parent_entity_code, parent_entity_id, limit = 50, offset: queryOffset, page } = request.query as any;
 
     // Support both page (new) and offset (legacy) parameters
     const offset = page ? (page - 1) * limit : (queryOffset || 0);
@@ -237,9 +237,9 @@ export async function empRoutes(fastify: FastifyInstance) {
       const conditions = [];
 
       // Parent filtering (create-link-edit pattern)
-      if (parent_type && parent_id) {
-        conditions.push(sql`eim.parent_entity_type = ${parent_type}`);
-        conditions.push(sql`eim.parent_entity_id = ${parent_id}`);
+      if (parent_entity_code && parent_entity_id) {
+        conditions.push(sql`eim.parent_entity_type = ${parent_entity_code}`);
+        conditions.push(sql`eim.parent_entity_id = ${parent_entity_id}`);
         conditions.push(sql`eim.child_entity_type = 'employee'`);
         conditions.push(sql`eim.active_flag = true`);
       }
@@ -282,7 +282,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       let countResult;
       let employees;
 
-      if (parent_type && parent_id) {
+      if (parent_entity_code && parent_entity_id) {
         // Query WITH JOIN for parent filtering
         countResult = await db.execute(sql`
           SELECT COUNT(*) as total
@@ -433,8 +433,8 @@ export async function empRoutes(fastify: FastifyInstance) {
     schema: {
       body: CreateEmployeeSchema,
       querystring: Type.Object({
-        parent_type: Type.Optional(Type.String()),
-        parent_id: Type.Optional(Type.String({ format: 'uuid' }))
+        parent_entity_code: Type.Optional(Type.String()),
+        parent_entity_id: Type.Optional(Type.String({ format: 'uuid' }))
       }),
       response: {
         201: Type.Any(),
@@ -450,7 +450,7 @@ export async function empRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    const { parent_type, parent_id } = request.query as any;
+    const { parent_entity_code, parent_entity_id } = request.query as any;
     const data = request.body as any;
     fastify.log.info('CREATE EMPLOYEE ENDPOINT CALLED with data:', data);
 
@@ -473,16 +473,16 @@ export async function empRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 2
       // Check: If linking to parent, can user EDIT parent?
       // ═══════════════════════════════════════════════════════════════
-      if (parent_type && parent_id) {
+      if (parent_entity_code && parent_entity_id) {
         const canEditParent = await entityInfra.check_entity_rbac(
           userId,
-          parent_type,
-          parent_id,
+          parent_entity_code,
+          parent_entity_id,
           Permission.EDIT
         );
         if (!canEditParent) {
           return reply.status(403).send({
-            error: `No permission to link employee to this ${parent_type}`
+            error: `No permission to link employee to this ${parent_entity_code}`
           });
         }
       }
@@ -595,10 +595,10 @@ export async function empRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Link to parent (if provided)
       // ═══════════════════════════════════════════════════════════════
-      if (parent_type && parent_id) {
+      if (parent_entity_code && parent_entity_id) {
         await entityInfra.set_entity_instance_link({
-          parent_entity_code: parent_type,
-          parent_entity_id: parent_id,
+          parent_entity_code: parent_entity_code,
+          parent_entity_id: parent_entity_id,
           child_entity_code: ENTITY_CODE,
           child_entity_id: employeeId,
           relationship_type: 'contains'

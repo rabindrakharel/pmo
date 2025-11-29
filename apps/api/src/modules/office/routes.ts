@@ -63,7 +63,7 @@ import { generateEntityResponse } from '../../services/backend-formatter.service
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
 
 // Schema based on actual d_office table structure (physical locations only)
-// NOTE: Hierarchy fields (parent_id, dl__office_hierarchy_level) are in d_office_hierarchy
+// NOTE: Hierarchy fields (parent_entity_id, dl__office_hierarchy_level) are in d_office_hierarchy
 // Use /api/v1/office-hierarchy for organizational hierarchy management
 const OfficeSchema = Type.Object({
   id: Type.String(),
@@ -358,8 +358,8 @@ export async function officeRoutes(fastify: FastifyInstance) {
     schema: {
       body: CreateOfficeSchema,
       querystring: Type.Object({
-        parent_type: Type.Optional(Type.String()),
-        parent_id: Type.Optional(Type.String({ format: 'uuid' }))
+        parent_entity_code: Type.Optional(Type.String()),
+        parent_entity_id: Type.Optional(Type.String({ format: 'uuid' }))
       }),
       response: {
         201: OfficeSchema,
@@ -374,7 +374,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    const { parent_type, parent_id } = request.query as any;
+    const { parent_entity_code, parent_entity_id } = request.query as any;
     const data = request.body as any;
 
     try {
@@ -396,16 +396,16 @@ export async function officeRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 2
       // Check: If linking to parent, can user EDIT parent?
       // ═══════════════════════════════════════════════════════════════
-      if (parent_type && parent_id) {
+      if (parent_entity_code && parent_entity_id) {
         const canEditParent = await entityInfra.check_entity_rbac(
           userId,
-          parent_type,
-          parent_id,
+          parent_entity_code,
+          parent_entity_id,
           Permission.EDIT
         );
         if (!canEditParent) {
           return reply.status(403).send({
-            error: `No permission to link office to this ${parent_type}`
+            error: `No permission to link office to this ${parent_entity_code}`
           });
         }
       }
@@ -474,10 +474,10 @@ export async function officeRoutes(fastify: FastifyInstance) {
       // ═══════════════════════════════════════════════════════════════
       // ✨ ENTITY INFRASTRUCTURE SERVICE - Link to parent (if provided)
       // ═══════════════════════════════════════════════════════════════
-      if (parent_type && parent_id) {
+      if (parent_entity_code && parent_entity_id) {
         await entityInfra.set_entity_instance_link({
-          parent_entity_code: parent_type,
-          parent_entity_id: parent_id,
+          parent_entity_code: parent_entity_code,
+          parent_entity_id: parent_entity_id,
           child_entity_code: ENTITY_CODE,
           child_entity_id: officeId,
           relationship_type: 'contains'

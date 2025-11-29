@@ -37,8 +37,8 @@
  * ─────────────────────────────────────────────────────────
  * Instead of nested creation endpoints, we use:
  *   1. Create entity independently: POST /api/v1/business
- *   2. Link to parent via entity_instance_link (automatic if parent_type/parent_id provided)
- *   3. Edit/view in context: GET /api/v1/business?parent_type=office&parent_id={id}
+ *   2. Link to parent via entity_instance_link (automatic if parent_entity_code/parent_entity_id provided)
+ *   3. Edit/view in context: GET /api/v1/business?parent_entity_code=office&parent_entity_id={id}
  *
  * Benefits:
  *   • Entities exist independently (no orphans when parent deleted)
@@ -83,7 +83,7 @@
  *   DELETE /api/v1/business/:id                - Soft delete business (factory endpoint)
  *
  * PARENT-FILTERED QUERIES:
- *   GET    /api/v1/business?parent_type=office&parent_id={id}  - Businesses in specific office
+ *   GET    /api/v1/business?parent_entity_code=office&parent_entity_id={id}  - Businesses in specific office
  *
  * ============================================================================
  * PERMISSION FLOW EXAMPLES
@@ -96,7 +96,7 @@
  *   4. Returns only businesses user can view
  *
  * Example 2: Create Business in Office Context
- *   1. User requests POST /api/v1/business?parent_type=office&parent_id={id}
+ *   1. User requests POST /api/v1/business?parent_entity_code=office&parent_entity_id={id}
  *   2. Check: Can user CREATE businesses? (type-level permission via entity_rbac)
  *   3. Check: Can user EDIT parent office? (required to link child)
  *   4. Create business in business table
@@ -105,7 +105,7 @@
  *   7. Auto-grant OWNER permission via entityInfra.set_entity_rbac_owner()
  *
  * Example 3: Filter Businesses by Parent Office
- *   1. User requests GET /api/v1/business?parent_type=office&parent_id={id}
+ *   1. User requests GET /api/v1/business?parent_entity_code=office&parent_entity_id={id}
  *   2. RBAC filtering via entityInfra.get_entity_rbac_where_condition()
  *   3. Parent-child filtering via SQL JOIN with entity_instance_link table
  *   4. Returns intersection: businesses user can see AND linked to office
@@ -181,7 +181,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
   // List Business Units (Main Page or Child Tab)
   // ============================================================================
   // URL: GET /api/v1/business
-  // URL: GET /api/v1/business?parent_type=office&parent_id={id}
+  // URL: GET /api/v1/business?parent_entity_code=office&parent_entity_id={id}
   // ============================================================================
 
   fastify.get('/api/v1/business', {
@@ -189,8 +189,8 @@ export async function businessRoutes(fastify: FastifyInstance) {
     schema: {
       querystring: Type.Object({
         // Parent filtering (create-link-edit pattern)
-        parent_type: Type.Optional(Type.String()),
-        parent_id: Type.Optional(Type.String({ format: 'uuid' })),
+        parent_entity_code: Type.Optional(Type.String()),
+        parent_entity_id: Type.Optional(Type.String({ format: 'uuid' })),
 
         // Standard filters
         active_flag: Type.Optional(Type.Boolean()),
@@ -231,8 +231,8 @@ export async function businessRoutes(fastify: FastifyInstance) {
     }
 
     const {
-      parent_type,
-      parent_id,
+      parent_entity_code,
+      parent_entity_id,
       active_flag,
       search,
       operational_status,
@@ -280,13 +280,13 @@ export async function businessRoutes(fastify: FastifyInstance) {
       const joins: SQL[] = [];
 
       // GATE 2: PARENT-CHILD FILTERING (OPTIONAL when parent context provided)
-      if (parent_type && parent_id) {
+      if (parent_entity_code && parent_entity_id) {
         const parentJoin = sql`
           INNER JOIN app.entity_instance_link eil
             ON eil.child_entity_code = ${ENTITY_CODE}
             AND eil.child_entity_instance_id = ${sql.raw(TABLE_ALIAS)}.id
-            AND eil.entity_code = ${parent_type}
-            AND eil.entity_instance_id = ${parent_id}
+            AND eil.entity_code = ${parent_entity_code}
+            AND eil.entity_instance_id = ${parent_entity_id}
         `;
         joins.push(parentJoin);
       }
@@ -347,7 +347,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
       // Add applied filters for debugging
       (response as any).appliedFilters = {
         rbac: true,
-        parent: Boolean(parent_type && parent_id),
+        parent: Boolean(parent_entity_code && parent_entity_id),
         search: Boolean(search),
         active: Boolean(active_flag)
       };
@@ -364,7 +364,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
   // NOTE: /api/v1/business/:id/project endpoint REMOVED
   // ============================================================================
   // Use create-link-edit pattern instead:
-  // GET /api/v1/project?parent_type=business&parent_id={id}
+  // GET /api/v1/project?parent_entity_code=business&parent_entity_id={id}
   // ============================================================================
 
   // ============================================================================
@@ -541,15 +541,15 @@ export async function businessRoutes(fastify: FastifyInstance) {
   // Create Business Unit
   // ============================================================================
   // URL: POST /api/v1/business
-  // URL: POST /api/v1/business?parent_type=office&parent_id={id}
+  // URL: POST /api/v1/business?parent_entity_code=office&parent_entity_id={id}
   // ============================================================================
 
   fastify.post('/api/v1/business', {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
-        parent_type: Type.Optional(Type.String()),
-        parent_id: Type.Optional(Type.String({ format: 'uuid' }))
+        parent_entity_code: Type.Optional(Type.String()),
+        parent_entity_id: Type.Optional(Type.String({ format: 'uuid' }))
       }),
       body: CreateBizSchema,
       response: {
@@ -560,7 +560,7 @@ export async function businessRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const userId = (request as any).user?.sub;
-    const { parent_type, parent_id } = request.query as any;
+    const { parent_entity_code, parent_entity_id } = request.query as any;
     const bizData = request.body as any;
 
     if (!userId) {
@@ -581,10 +581,10 @@ export async function businessRoutes(fastify: FastifyInstance) {
       // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK 2
       // Check: If linking to parent, can user EDIT parent?
       // ═══════════════════════════════════════════════════════════════
-      if (parent_type && parent_id) {
-        const canEditParent = await entityInfra.check_entity_rbac(userId, parent_type, parent_id, Permission.EDIT);
+      if (parent_entity_code && parent_entity_id) {
+        const canEditParent = await entityInfra.check_entity_rbac(userId, parent_entity_code, parent_entity_id, Permission.EDIT);
         if (!canEditParent) {
-          return reply.status(403).send({ error: `No permission to link business to this ${parent_type}` });
+          return reply.status(403).send({ error: `No permission to link business to this ${parent_entity_code}` });
         }
       }
 
@@ -595,8 +595,8 @@ export async function businessRoutes(fastify: FastifyInstance) {
       const result = await entityInfra.create_entity({
         entity_code: ENTITY_CODE,
         creator_id: userId,
-        parent_entity_code: parent_type,
-        parent_entity_id: parent_id,
+        parent_entity_code: parent_entity_code,
+        parent_entity_id: parent_entity_id,
         primary_table: 'app.business',
         primary_data: {
           code: bizData.code,
