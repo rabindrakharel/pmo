@@ -37,7 +37,7 @@ The **Workflow Automation System** provides two complementary automation capabil
 - When task status = "completed" → Notify project manager
 - When project status = "planning" → Create default planning tasks
 
-### 2. Industry Workflow Templates (`d_industry_workflow_graph_head`)
+### 2. Industry Workflow Templates (`workflow`)
 **Purpose:** Industry-specific business process lifecycle definitions (DAG structure)
 **Pattern:** Define complete business process flow as directed acyclic graph (DAG)
 **Use Cases:** Home services workflows, construction workflows, HVAC/plumbing processes
@@ -75,7 +75,7 @@ The **Workflow Automation System** provides two complementary automation capabil
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │         Workflow Instance & Event Tracking               │  │
 │  │                                                            │  │
-│  │  d_industry_workflow_graph_data (Instances)              │  │
+│  │  workflow_data (Instances)              │  │
 │  │  f_industry_workflow_events (Event Log)                  │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                                                                   │
@@ -288,14 +288,14 @@ INSERT INTO app.d_workflow_automation (
 
 ## Industry Workflow Templates (DAG)
 
-### Table: `d_industry_workflow_graph_head`
+### Table: `workflow`
 
 **Purpose:** Define industry-specific business process lifecycle templates as directed acyclic graphs (DAGs)
 
 ### Schema
 
 ```sql
-CREATE TABLE app.d_industry_workflow_graph_head (
+CREATE TABLE app.workflow (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(50) UNIQUE NOT NULL,
     name TEXT NOT NULL,
@@ -458,14 +458,14 @@ CREATE TABLE app.d_industry_workflow_graph_head (
 
 ## Workflow Instances
 
-### Table: `d_industry_workflow_graph_data`
+### Table: `workflow_data`
 
 **Purpose:** Store workflow instances with actual entity IDs and current state
 
 ### Schema
 
 ```sql
-CREATE TABLE app.d_industry_workflow_graph_data (
+CREATE TABLE app.workflow_data (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workflow_instance_id TEXT UNIQUE NOT NULL,
     code VARCHAR(50) UNIQUE NOT NULL,
@@ -678,16 +678,16 @@ INSERT INTO app.f_industry_workflow_events (
 | DDL File | Table | Purpose |
 |----------|-------|---------|
 | **XXIII_d_workflow_automation.ddl** | `d_workflow_automation` | Trigger-action automation rules |
-| **XXIV_d_industry_workflow_graph_head.ddl** | `d_industry_workflow_graph_head` | Industry workflow templates (DAG) |
-| **XXV_d_industry_workflow_graph_data.ddl** | `d_industry_workflow_graph_data` | Workflow instances |
+| **XXIV_workflow.ddl** | `workflow` | Industry workflow templates (DAG) |
+| **XXV_workflow_data.ddl** | `workflow_data` | Workflow instances |
 | **XXXII_f_industry_workflow_events.ddl** | `f_industry_workflow_events` | Workflow event log (fact table) |
 
 ### Relationships
 
 ```
-d_industry_workflow_graph_head (Template)
+workflow (Template)
          ↓ (workflow_head_id)
-d_industry_workflow_graph_data (Instance)
+workflow_data (Instance)
          ↓ (workflow_instance_id)
 f_industry_workflow_events (Events)
 ```
@@ -932,7 +932,7 @@ async updateProject(id: string, data: any) {
 **Template Definition:**
 
 ```sql
-INSERT INTO app.d_industry_workflow_graph_head (
+INSERT INTO app.workflow (
     code,
     name,
     industry_sector,
@@ -1116,16 +1116,16 @@ WHERE id = 'rule-uuid';
 ```sql
 -- Check current state
 SELECT current_state_id, terminal_state_flag, workflow_graph_data
-FROM app.d_industry_workflow_graph_data
+FROM app.workflow_data
 WHERE workflow_instance_id = 'WFI-2024-001';
 
 -- Find next valid states
 SELECT workflow_graph->(current_state_id)
-FROM app.d_industry_workflow_graph_head
-WHERE id = (SELECT workflow_head_id FROM app.d_industry_workflow_graph_data WHERE id = 'instance-uuid');
+FROM app.workflow
+WHERE id = (SELECT workflow_head_id FROM app.workflow_data WHERE id = 'instance-uuid');
 
 -- Manually advance state if needed
-UPDATE app.d_industry_workflow_graph_data
+UPDATE app.workflow_data
 SET current_state_id = 5, updated_ts = now()
 WHERE id = 'instance-uuid';
 ```
@@ -1178,7 +1178,7 @@ SELECT
   code,
   jsonb_typeof(workflow_graph) AS type,
   jsonb_array_length(workflow_graph) AS node_count
-FROM app.d_industry_workflow_graph_head
+FROM app.workflow
 WHERE code = 'HS_STD';
 
 -- Check for required fields
@@ -1188,7 +1188,7 @@ SELECT
   elem->>'entity_name' AS entity,
   elem->>'parent_ids' AS parents,
   elem->>'child_ids' AS children
-FROM app.d_industry_workflow_graph_head,
+FROM app.workflow,
 LATERAL jsonb_array_elements(workflow_graph) AS elem
 WHERE code = 'HS_STD';
 ```
@@ -1208,8 +1208,8 @@ WHERE code = 'HS_STD';
 
 **Database Tables:**
 - `d_workflow_automation` - Automation rules (XXIII)
-- `d_industry_workflow_graph_head` - Workflow templates (XXIV)
-- `d_industry_workflow_graph_data` - Workflow instances (XXV)
+- `workflow` - Workflow templates (XXIV)
+- `workflow_data` - Workflow instances (XXV)
 - `f_industry_workflow_events` - Event log (XXXII)
 
 **Performance Metrics:**

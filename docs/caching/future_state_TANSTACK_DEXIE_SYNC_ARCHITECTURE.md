@@ -60,7 +60,7 @@ This architecture implements **offline-first, persistent storage** using **TanSt
 | Persistent Storage | Dexie (IndexedDB) | Offline-first, survives browser restart |
 | Sync Strategy | Invalidation-based | Reuse REST API, RBAC checked on refetch |
 | Subscription Storage | PostgreSQL table | Persistent, multi-pod support, no Redis |
-| Change Detection | Polling (60s) via `app.logging` | Simple, reliable, low overhead |
+| Change Detection | Polling (60s) via `app.system_logging` | Simple, reliable, low overhead |
 | Bundle Size | ~25KB | TanStack Query + Dexie vs ~150KB RxDB |
 
 ### Key Benefits
@@ -113,7 +113,7 @@ This architecture implements **offline-first, persistent storage** using **TanSt
 |  |                      |   |                                     |       |
 |  |  * GET/POST/PATCH/DEL|   |  +--------------+  +-----------+   |       |
 |  |  * /api/v1/*         |   |  | WebSocket Srv|  | LogWatcher|   |       |
-|  |  * Writes app.logging|   |  | (connections)|  | (60s poll)|   |       |
+|  |  * Writes app.system_logging|   |  | (connections)|  | (60s poll)|   |       |
 |  |    via DB triggers   |   |  +------+-------+  +-----+-----+   |       |
 |  |                      |   |         |               |          |       |
 |  |  Port: 4000          |   |         v               |          |       |
@@ -131,7 +131,7 @@ This architecture implements **offline-first, persistent storage** using **TanSt
 |  |                     POSTGRESQL (Shared Database)                    |   |
 |  |                                                                     |   |
 |  |  +---------------+  +---------------+  +---------------------+     |   |
-|  |  |  Entity Tables|  |  app.logging  |  | app.rxdb_subscription|     |   |
+|  |  |  Entity Tables|  |  app.system_logging  |  | app.system_cache_subscription|     |   |
 |  |  |               |  |               |  |                     |     |   |
 |  |  |  app.project  |  |  * entity_code|  |  * user_id          |     |   |
 |  |  |  app.task     |  |  * entity_id  |  |  * entity_code      |     |   |
@@ -150,7 +150,7 @@ This architecture implements **offline-first, persistent storage** using **TanSt
 
 | Process | Port | Responsibility |
 |---------|------|----------------|
-| **REST API** | 4000 | CRUD operations, business logic, writes to `app.logging` |
+| **REST API** | 4000 | CRUD operations, business logic, writes to `app.system_logging` |
 | **PubSub Service** | 4001 | WebSocket connections, subscription management, push notifications |
 | **PostgreSQL** | 5434 | Data storage, shared by both services |
 
@@ -158,14 +158,14 @@ This architecture implements **offline-first, persistent storage** using **TanSt
 
 ## 3. Database Tables
 
-### 3.1 Logging Table (`app.logging`)
+### 3.1 Logging Table (`app.system_logging`)
 
 **Purpose**: Audit trail of all entity changes. LogWatcher polls this for sync.
 
 **DDL**: `db/04_logging.ddl`
 
 ```sql
-CREATE TABLE app.logging (
+CREATE TABLE app.system_logging (
     id UUID DEFAULT gen_random_uuid(),
 
     -- Actor (WHO)
@@ -193,16 +193,16 @@ CREATE TABLE app.logging (
 
 -- Index for LogWatcher polling
 CREATE INDEX idx_logging_sync_status
-    ON app.logging(sync_status)
+    ON app.system_logging(sync_status)
     WHERE sync_status = 'pending';
 ```
 
-### 3.2 Subscription Table (`app.rxdb_subscription`)
+### 3.2 Subscription Table (`app.system_cache_subscription`)
 
 **Purpose**: Track live WebSocket subscriptions. Database-backed (no Redis needed).
 
 ```sql
-CREATE TABLE app.rxdb_subscription (
+CREATE TABLE app.system_cache_subscription (
     user_id UUID NOT NULL,
     entity_code VARCHAR(100) NOT NULL,
     entity_id UUID NOT NULL,
@@ -213,12 +213,12 @@ CREATE TABLE app.rxdb_subscription (
 );
 
 -- LogWatcher query: "Who subscribes to this entity?"
-CREATE INDEX idx_rxdb_subscription_entity
-    ON app.rxdb_subscription(entity_code, entity_id);
+CREATE INDEX idx_system_cache_subscription_entity
+    ON app.system_cache_subscription(entity_code, entity_id);
 
 -- Cleanup on disconnect
-CREATE INDEX idx_rxdb_subscription_connection
-    ON app.rxdb_subscription(connection_id);
+CREATE INDEX idx_system_cache_subscription_connection
+    ON app.system_cache_subscription(connection_id);
 ```
 
 ---
@@ -239,16 +239,16 @@ apps/pubsub/
     +-- services/
         +-- connection-manager.ts    # In-memory WebSocket tracking
         +-- subscription-manager.ts  # Database subscription CRUD
-        +-- log-watcher.ts           # Polls app.logging, pushes INVALIDATE
+        +-- log-watcher.ts           # Polls app.system_logging, pushes INVALIDATE
 ```
 
 ### LogWatcher Flow (Every 60s)
 
 ```
-1. Poll app.logging for pending changes
+1. Poll app.system_logging for pending changes
    SELECT DISTINCT ON (entity_code, entity_id)
      id, entity_code, entity_id, action
-   FROM app.logging
+   FROM app.system_logging
    WHERE sync_status = 'pending' AND action != 0
    ORDER BY entity_code, entity_id, created_ts DESC
    LIMIT 1000
@@ -260,7 +260,7 @@ apps/pubsub/
 
 4. Push INVALIDATE via WebSocket (filtered per user)
 
-5. Mark logs as processed: UPDATE app.logging SET sync_status = 'sent'
+5. Mark logs as processed: UPDATE app.system_logging SET sync_status = 'sent'
 ```
 
 ---
@@ -454,7 +454,7 @@ User A (Editor)                                     User B (Viewer)
    |
 2. API updates app.project
    |
-3. DB trigger inserts to app.logging
+3. DB trigger inserts to app.system_logging
    { entity_code: 'project', entity_id: '123',
      action: 1, sync_status: 'pending' }
    |
@@ -462,9 +462,9 @@ User A (Editor)                                     User B (Viewer)
 
 --------------- 60 seconds later ---------------
 
-5. LogWatcher polls app.logging
+5. LogWatcher polls app.system_logging
    |
-6. Queries app.rxdb_subscription:
+6. Queries app.system_cache_subscription:
    "Who subscribes to project/123?"
    |
 7. Finds User B is subscribed                      <-
@@ -530,7 +530,7 @@ CLIENT              PUBSUB              DATABASE            REST API
   |                   |                    |                   |
   |                   |  8. bulk_subscribe |                   |
   |                   |  INSERT INTO       |                   |
-  |                   |  rxdb_subscription |                   |
+  |                   |  system_cache_subscription |                   |
   |                   |------------------->|                   |
   |                   |                    |                   |
   |  9. SUBSCRIBED    |                    |                   |

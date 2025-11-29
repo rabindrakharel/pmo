@@ -719,7 +719,7 @@ Request → RBAC Check (DELETE) → TRANSACTION {
 
 TanStack Query + Dexie offline-first architecture with WebSocket real-time sync. Used when implementing caching, understanding invalidation flow, or troubleshooting sync issues.
 
-**Keywords:** `TanStack Query`, `Dexie`, `IndexedDB`, `WebSocket`, `PubSub`, `WebSocketManager`, `INVALIDATE`, `SUBSCRIBE`, `LogWatcher`, `app.logging`, `app.rxdb_subscription`, `real-time sync`, `cache invalidation`, `queryClient.invalidateQueries`, `hydrateQueryCache`, `port 4001`
+**Keywords:** `TanStack Query`, `Dexie`, `IndexedDB`, `WebSocket`, `PubSub`, `WebSocketManager`, `INVALIDATE`, `SUBSCRIBE`, `LogWatcher`, `app.system_logging`, `app.system_cache_subscription`, `real-time sync`, `cache invalidation`, `queryClient.invalidateQueries`, `hydrateQueryCache`, `port 4001`
 
 ### 1. RBAC_INFRASTRUCTURE.md
 
@@ -767,8 +767,8 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
   - See: `docs/state_management/STATE_MANAGEMENT.md` for full architecture
 - v8.4.0 (2025-11-27): **WebSocket Real-Time Sync**
   - Added PubSub service (port 4001) for WebSocket-based cache invalidation
-  - Database tables: `app.logging` (triggers) + `app.rxdb_subscription` (subscriptions)
-  - LogWatcher polls `app.logging` every 60s for pending changes
+  - Database tables: `app.system_logging` (triggers) + `app.system_cache_subscription` (subscriptions)
+  - LogWatcher polls `app.system_logging` every 60s for pending changes
 - v8.3.2 (2025-11-27): **Component-Driven Rendering + BadgeDropdownSelect**
   - Added `BadgeDropdownSelect` component for colored datalabel dropdowns
   - viewType controls WHICH component renders (`renderType: 'component'` + `component`)

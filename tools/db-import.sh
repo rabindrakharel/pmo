@@ -155,13 +155,14 @@ validate_all_ddls() {
         "06_entity_rbac.ddl"
     )
 
-    # Infrastructure files (db/ root 03-04 + XXXVI)
+    # Infrastructure files (db/ root 03-04 + system/)
     local infrastructure_files=(
         "03_datalabel.ddl"
         "04_logging.ddl"
         "04a_person.ddl"
         "04b_attachment.ddl"
-        "XXXVI_rxdb_subscription.ddl"
+        "system/system_logging.ddl"
+        "system/system_cache_subscription.ddl"
     )
 
     # Business Entity files (db/ root 05-49)
@@ -183,7 +184,7 @@ validate_all_ddls() {
         "18_quote.ddl"
         "19_order.ddl"
         "20_shipment.ddl"
-        "21a_invoice_head.ddl"
+        "21a_invoice.ddl"
         "21b_invoice_data.ddl"
         "23_revenue.ddl"
         "24_expense.ddl"
@@ -195,8 +196,8 @@ validate_all_ddls() {
         "31_form_data.ddl"
         "32_wiki.ddl"
         "33_wiki_data.ddl"
-        "37_industry_workflow_graph_head.ddl"
-        "38_industry_workflow_graph_data.ddl"
+        "37_workflow.ddl"
+        "38_workflow_data.ddl"
         "39_industry_workflow_events.ddl"
         "40_orchestrator_session.ddl"
         "41_orchestrator_state.ddl"
@@ -271,13 +272,14 @@ import_ddls() {
     execute_sql "$DB_PATH/entity_configuration_settings/05_entity_instance_link.ddl" "05: Entity instance relationships"
     execute_sql "$DB_PATH/entity_configuration_settings/06_entity_rbac.ddl" "06: Entity RBAC permissions"
 
-    # ===== INFRASTRUCTURE (03-04 + XXXVI) =====
-    print_status $CYAN "  🔧 Infrastructure (5 files)..."
+    # ===== INFRASTRUCTURE (03-04 + system/) =====
+    print_status $CYAN "  🔧 Infrastructure (6 files)..."
     execute_sql "$DB_PATH/03_datalabel.ddl" "03: Unified data label settings"
     execute_sql "$DB_PATH/04_logging.ddl" "04: Central audit logging"
     execute_sql "$DB_PATH/04a_person.ddl" "04a: Person entities"
     execute_sql "$DB_PATH/04b_attachment.ddl" "04b: Attachment entities"
-    execute_sql "$DB_PATH/XXXVI_rxdb_subscription.ddl" "XXXVI: RxDB live subscription tracking"
+    execute_sql "$DB_PATH/system/system_logging.ddl" "system: System logging with sync tracking"
+    execute_sql "$DB_PATH/system/system_cache_subscription.ddl" "system: Cache subscription tracking"
 
     # ===== CUSTOMER 360 DOMAIN (05-10) =====
     print_status $CYAN "  🏢 Customer 360 (7 entities)..."
@@ -307,7 +309,7 @@ import_ddls() {
     execute_sql "$DB_PATH/18_quote.ddl" "18: Quote fact table"
     execute_sql "$DB_PATH/19_order.ddl" "19: Order fact table"
     execute_sql "$DB_PATH/20_shipment.ddl" "20: Shipment fact table"
-    execute_sql "$DB_PATH/21a_invoice_head.ddl" "21a: Invoice head entities"
+    execute_sql "$DB_PATH/21a_invoice.ddl" "21a: Invoice entities"
     execute_sql "$DB_PATH/21b_invoice_data.ddl" "21b: Invoice data entities"
 
     # ===== FINANCIAL MANAGEMENT (23-24) =====
@@ -331,8 +333,8 @@ import_ddls() {
 
     # ===== AUTOMATION & WORKFLOW (37-44) =====
     print_status $CYAN "  ⚙️  Automation & Workflow (8 entities)..."
-    execute_sql "$DB_PATH/37_industry_workflow_graph_head.ddl" "37: Industry workflow template"
-    execute_sql "$DB_PATH/38_industry_workflow_graph_data.ddl" "38: Industry workflow instance data"
+    execute_sql "$DB_PATH/37_workflow.ddl" "37: Workflow template"
+    execute_sql "$DB_PATH/38_workflow_data.ddl" "38: Workflow instance data"
     execute_sql "$DB_PATH/39_industry_workflow_events.ddl" "39: Workflow events fact table"
     execute_sql "$DB_PATH/40_orchestrator_session.ddl" "40: AI orchestrator session state"
     execute_sql "$DB_PATH/41_orchestrator_state.ddl" "41: AI orchestrator state KV store"

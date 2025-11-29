@@ -1,13 +1,13 @@
--- db/XXXV_logging.ddl
+-- db/system/system_logging.ddl
 -- ============================================================================
--- Audit Logging Table with Sync Status Tracking
+-- System Logging Table with Sync Status Tracking
 -- ============================================================================
 -- Captures all entity changes for:
 -- 1. Audit trail (who changed what, when)
 -- 2. PubSub sync (LogWatcher polls pending changes)
 -- ============================================================================
 
-CREATE TABLE app.logging (
+CREATE TABLE app.system_logging (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     -- ========================================================================
@@ -69,36 +69,36 @@ CREATE TABLE app.logging (
 
 -- Primary index for LogWatcher polling
 -- Only pending changes that aren't VIEW actions
-CREATE INDEX idx_logging_sync_pending
-    ON app.logging(created_ts)
+CREATE INDEX idx_system_logging_sync_pending
+    ON app.system_logging(created_ts)
     WHERE sync_status = 'pending' AND action != 0;
 
 -- Fast lookup for entity history (audit queries)
-CREATE INDEX idx_logging_entity
-    ON app.logging(entity_code, entity_id, created_ts DESC);
+CREATE INDEX idx_system_logging_entity
+    ON app.system_logging(entity_code, entity_id, created_ts DESC);
 
 -- Fast lookup for user activity (audit queries)
-CREATE INDEX idx_logging_person
-    ON app.logging(person_id, created_ts DESC)
+CREATE INDEX idx_system_logging_person
+    ON app.system_logging(person_id, created_ts DESC)
     WHERE person_id IS NOT NULL;
 
 -- ============================================================================
 -- Comments
 -- ============================================================================
 
-COMMENT ON TABLE app.logging IS
+COMMENT ON TABLE app.system_logging IS
     'Audit log capturing entity changes. Used for audit trail and PubSub sync.';
 
-COMMENT ON COLUMN app.logging.entity_code IS
+COMMENT ON COLUMN app.system_logging.entity_code IS
     'Entity type code (project, task, employee, etc.)';
 
-COMMENT ON COLUMN app.logging.entity_id IS
+COMMENT ON COLUMN app.system_logging.entity_id IS
     'UUID of the entity instance that was changed';
 
-COMMENT ON COLUMN app.logging.action IS
+COMMENT ON COLUMN app.system_logging.action IS
     'Action type: 0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER';
 
-COMMENT ON COLUMN app.logging.sync_status IS
+COMMENT ON COLUMN app.system_logging.sync_status IS
     'PubSub sync status: pending (not yet pushed), sent (pushed to subscribers), skipped (no subscribers)';
 
 -- ============================================================================
@@ -122,7 +122,7 @@ BEGIN
     v_person_id := NULLIF(current_setting('app.current_user_id', true), '')::UUID;
 
     -- Insert log entry
-    INSERT INTO app.logging (
+    INSERT INTO app.system_logging (
         person_id,
         entity_code,
         entity_id,
@@ -195,7 +195,7 @@ RETURNS INTEGER AS $$
 DECLARE
     deleted_count INTEGER;
 BEGIN
-    DELETE FROM app.logging
+    DELETE FROM app.system_logging
     WHERE created_ts < now() - (p_days || ' days')::INTERVAL;
 
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
@@ -224,7 +224,7 @@ BEGIN
         COUNT(*) as count,
         MIN(l.created_ts) as oldest_ts,
         MAX(l.created_ts) as newest_ts
-    FROM app.logging l
+    FROM app.system_logging l
     GROUP BY l.sync_status
     ORDER BY count DESC;
 END;

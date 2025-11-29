@@ -11,10 +11,10 @@
 -- - Records all billable items (products, services, labor, expenses)
 -- - Supports revenue analysis by product, category, margin
 -- - Enables detailed profitability reporting
--- - Links to invoice_head via invoice_number (no FK)
+-- - Links to invoice via invoice_number (no FK)
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- - Links to invoice_head via invoice_number (no FK, loose coupling)
+-- - Links to invoice via invoice_number (no FK, loose coupling)
 -- - Links to product via product_id (no FK)
 -- - Links to order via order_id (no FK)
 --
@@ -25,7 +25,7 @@ CREATE TABLE app.invoice_data (
     id uuid DEFAULT gen_random_uuid(),
 
     -- Invoice Reference
-    invoice_number varchar(50),                         -- References invoice_head.invoice_number
+    invoice_number varchar(50),                         -- References invoice.invoice_number
     invoice_line_number integer DEFAULT 1,              -- Line item sequence within invoice
 
     -- Product/Service Dimension
@@ -85,7 +85,7 @@ CREATE TABLE app.invoice_data (
 
 COMMENT ON TABLE app.invoice_data IS 'Invoice line item detail table with one row per line item';
 COMMENT ON COLUMN app.invoice_data.id IS 'Unique identifier (UUID)';
-COMMENT ON COLUMN app.invoice_data.invoice_number IS 'References invoice_head.invoice_number (no FK, loose coupling)';
+COMMENT ON COLUMN app.invoice_data.invoice_number IS 'References invoice.invoice_number (no FK, loose coupling)';
 COMMENT ON COLUMN app.invoice_data.invoice_line_number IS 'Line item sequence within invoice';
 COMMENT ON COLUMN app.invoice_data.line_item_type IS 'Type of line item: product, labor, service, expense, discount, tax';
 COMMENT ON COLUMN app.invoice_data.qty_billed IS 'Quantity billed on this line';

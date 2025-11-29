@@ -3,10 +3,10 @@
 -- Customer: John Smith (aaaaaaaa-0000-0000-0001-111111111111)
 
 -- Delete existing workflow instance data
-DELETE FROM app.d_industry_workflow_graph_data WHERE workflow_instance_id = 'WFI-2024-001';
+DELETE FROM app.workflow_data WHERE workflow_instance_id = 'WFI-2024-001';
 
 -- State 0: Customer (Root)
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id, code, name, descr,
     workflow_instance_id, workflow_template_id,
     state_id, state_name, entity_name, entity_id,
@@ -29,7 +29,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
 );
 
 -- State 1: Site Assessment
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id, code, name, descr,
     workflow_instance_id, workflow_template_id,
     state_id, state_name, entity_name, entity_id,
@@ -52,7 +52,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
 );
 
 -- State 2: Quote
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id, code, name, descr,
     workflow_instance_id, workflow_template_id,
     state_id, state_name, entity_name, entity_id,
@@ -75,7 +75,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
 );
 
 -- State 3: Material Procurement (Parallel Path 1)
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id, code, name, descr,
     workflow_instance_id, workflow_template_id,
     state_id, state_name, entity_name, entity_id,
@@ -98,7 +98,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
 );
 
 -- State 4: Schedule Planning (Parallel Path 2)
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id, code, name, descr,
     workflow_instance_id, workflow_template_id,
     state_id, state_name, entity_name, entity_id,
@@ -121,7 +121,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
 );
 
 -- State 5: Work Order (CONVERGENCE POINT - depends on states 3 & 4)
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id, code, name, descr,
     workflow_instance_id, workflow_template_id,
     state_id, state_name, entity_name, entity_id,
@@ -144,7 +144,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
 );
 
 -- State 6: Installation HVAC (Parallel Task 1)
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id, code, name, descr,
     workflow_instance_id, workflow_template_id,
     state_id, state_name, entity_name, entity_id,
@@ -167,7 +167,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
 );
 
 -- State 7: Electrical Work (Parallel Task 2)
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id, code, name, descr,
     workflow_instance_id, workflow_template_id,
     state_id, state_name, entity_name, entity_id,
@@ -190,7 +190,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
 );
 
 -- State 8: Final Touches (Parallel Task 3)
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id, code, name, descr,
     workflow_instance_id, workflow_template_id,
     state_id, state_name, entity_name, entity_id,
@@ -213,7 +213,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
 );
 
 -- State 9: Inspection (CONVERGENCE POINT - depends on states 6, 7, 8)
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id, code, name, descr,
     workflow_instance_id, workflow_template_id,
     state_id, state_name, entity_name, entity_id,
@@ -236,7 +236,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
 );
 
 -- State 10: Invoice
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id, code, name, descr,
     workflow_instance_id, workflow_template_id,
     state_id, state_name, entity_name, entity_id,
@@ -259,7 +259,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
 );
 
 -- State 11: Completed (Terminal)
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id, code, name, descr,
     workflow_instance_id, workflow_template_id,
     state_id, state_name, entity_name, entity_id,

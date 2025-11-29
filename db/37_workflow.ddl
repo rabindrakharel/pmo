@@ -1,5 +1,5 @@
 -- =====================================================
--- WORKFLOW TEMPLATE ENTITY (d_industry_workflow_graph_head) - CORE ENTITY
+-- WORKFLOW TEMPLATE ENTITY (workflow) - CORE ENTITY
 -- Industry-specific workflow state graph templates for business process lifecycles
 -- =====================================================
 --
@@ -16,8 +16,8 @@
 -- • LIST: GET /api/v1/workflow-template, filters by industry_sector/active_workflow_flag, RBAC enforced
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Referenced by: d_industry_workflow_graph_data (workflow instances)
--- • Referenced by: f_industry_workflow_events (event tracking)
+-- • Referenced by: workflow_data (workflow instances)
+-- • Referenced by: industry_workflow_events (event tracking)
 -- • Semantic link to: datalabel (industry_sector values)
 --
 -- WORKFLOW_GRAPH STRUCTURE (JSONB):
@@ -34,7 +34,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.industry_workflow_graph_head (
+CREATE TABLE app.workflow (
     -- Standard identity fields
     id uuid DEFAULT gen_random_uuid(),
     code varchar(50),
@@ -76,7 +76,7 @@ CREATE TABLE app.industry_workflow_graph_head (
 -- =====================================================
 
 -- Home Services Standard Workflow
-INSERT INTO app.d_industry_workflow_graph_head (
+INSERT INTO app.workflow (
     id,
     code,
     name,
@@ -115,7 +115,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
 );
 
 -- HVAC Emergency Service Workflow
-INSERT INTO app.d_industry_workflow_graph_head (
+INSERT INTO app.workflow (
     id,
     code,
     name,
@@ -230,7 +230,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
 );
 
 -- Construction - New Home Build Workflow
-INSERT INTO app.d_industry_workflow_graph_head (
+INSERT INTO app.workflow (
     id,
     code,
     name,
@@ -381,7 +381,7 @@ INSERT INTO app.d_industry_workflow_graph_head (
 );
 
 -- Plumbing - Standard Service Call
-INSERT INTO app.d_industry_workflow_graph_head (
+INSERT INTO app.workflow (
     id,
     code,
     name,

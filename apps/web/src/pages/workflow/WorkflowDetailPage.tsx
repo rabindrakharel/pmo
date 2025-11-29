@@ -7,14 +7,14 @@
  * CORE PRINCIPLE: Only ENTITIES can be nodes in the workflow DAG.
  * Each entity manages its own stage through its dl__%stage field.
  *
- * 1. WORKFLOW TEMPLATE (d_industry_workflow_graph_head.workflow_graph)
+ * 1. WORKFLOW TEMPLATE (workflow.workflow_graph)
  *    - Defines workflow structure: sequence of entity types only
  *    - Each node = one entity type (cust, quote, work_order, task, invoice)
  *    - JSONB array: [{id, entity_name, parent_ids}, ...]
  *    - Example: {id: 0, entity_name: "cust", parent_ids: []}
  *               {id: 1, entity_name: "quote", parent_ids: [0]}
  *
- * 2. WORKFLOW INSTANCE (d_industry_workflow_graph_data.workflow_graph_data)
+ * 2. WORKFLOW INSTANCE (workflow_data.workflow_graph_data)
  *    - ONE row per workflow instance
  *    - All entities stored in workflow_graph_data JSONB array
  *    - Mirrors template structure with actual entity data:
@@ -45,7 +45,7 @@ import { getEntityConfig } from '../../lib/entityConfig';
 import { APIFactory } from '../../lib/api';
 import { GitBranch, Loader2, Copy } from 'lucide-react';
 
-// Workflow template node from d_industry_workflow_graph_head
+// Workflow template node from workflow table
 // SIMPLIFIED: Only contains entity type and structure
 interface WorkflowTemplateNode {
   id: number;              // State ID in workflow

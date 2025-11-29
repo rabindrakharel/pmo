@@ -21,8 +21,8 @@ The Automation & Workflow Domain provides sophisticated workflow orchestration c
 | Entity | DDL File | Table | Purpose |
 |--------|----------|-------|---------|
 | **Workflow Automation** | XXIII_d_workflow_automation.ddl | `d_workflow_automation` | Trigger-action automation rules with conditional logic and multi-action execution |
-| **Industry Workflow Graph Head** | XXIV_d_industry_workflow_graph_head.ddl | `d_industry_workflow_graph_head` | Workflow template DAG definitions for industry-specific business processes |
-| **Industry Workflow Graph Data** | XXV_d_industry_workflow_graph_data.ddl | `d_industry_workflow_graph_data` | Workflow instance data tracking actual execution state and entity creation |
+| **Industry Workflow Graph Head** | XXIV_workflow.ddl | `workflow` | Workflow template DAG definitions for industry-specific business processes |
+| **Industry Workflow Graph Data** | XXV_workflow_data.ddl | `workflow_data` | Workflow instance data tracking actual execution state and entity creation |
 | **Workflow Events** | XXXII_f_industry_workflow_events.ddl | `f_industry_workflow_events` | Event log for workflow state transitions and milestone tracking |
 | **Orchestrator Session** | XXXVII_orchestrator_session.ddl | `orchestrator_session` | AI orchestration session tracking for multi-agent workflows |
 | **Orchestrator State** | XXXVIII_orchestrator_state.ddl | `orchestrator_state` | State management for orchestrator sessions |
@@ -554,7 +554,7 @@ When workflow instance progresses:
 1. Sales Rep creates Customer (Lead status)
 2. System creates workflow instance:
    ```sql
-   INSERT INTO d_industry_workflow_graph_data (workflow_head_id, current_state_id)
+   INSERT INTO workflow_data (workflow_head_id, current_state_id)
    VALUES ('hs-standard-workflow-id', 0);  -- State 0: Lead Generation
    ```
 3. Sales Rep qualifies lead → Customer status = "Qualified"
@@ -665,7 +665,7 @@ CREATE TABLE app.d_workflow_automation (
 );
 
 -- Industry Workflow Graph Head (Template)
-CREATE TABLE app.d_industry_workflow_graph_head (
+CREATE TABLE app.workflow (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     code varchar(50) UNIQUE NOT NULL,              -- 'HS_STD', 'HVAC_EMERG'
     name text NOT NULL,                             -- 'Home Services - Standard'
@@ -678,7 +678,7 @@ CREATE TABLE app.d_industry_workflow_graph_head (
 );
 
 -- Industry Workflow Graph Data (Instance)
-CREATE TABLE app.d_industry_workflow_graph_data (
+CREATE TABLE app.workflow_data (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     workflow_head_id uuid NOT NULL,                 -- FK to template
     current_state_id integer,                       -- Current state in DAG
@@ -784,7 +784,7 @@ GET    /api/v1/orchestrator/session/:id/logs  # Get agent logs
 
 ```sql
 CREATE INDEX idx_workflow_auto_trigger ON app.d_workflow_automation(trigger_entity_code, trigger_action_type);
-CREATE INDEX idx_workflow_data_head ON app.d_industry_workflow_graph_data(workflow_head_id);
+CREATE INDEX idx_workflow_data_head ON app.workflow_data(workflow_head_id);
 CREATE INDEX idx_workflow_events_data ON app.f_industry_workflow_events(workflow_data_id);
 CREATE INDEX idx_orchestrator_session_status ON app.orchestrator_session(session_status);
 ```

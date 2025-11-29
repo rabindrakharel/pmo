@@ -107,7 +107,7 @@ ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111'  // Type-level permissi
 **Key Points:**
 - **Hard delete only** - No `active_flag` column
 - Synced automatically when entity name/code changes
-- Used by `resolve_entity_references()` for UUID → name lookups
+- Used by `build_ref_data_entityInstance()` for UUID → name lookups
 
 ### 2.3 entity_instance_link (Relationships)
 

@@ -1,6 +1,6 @@
 # PMO Platform Data Model
 
-**Version:** 4.0.0 | **Schema:** `app` | **Tables:** 50+ | **DDL Files:** 50 | **Last Updated:** 2025-11-21
+**Version:** 5.0.0 | **Schema:** `app` | **Tables:** 50+ | **DDL Files:** 50 | **Last Updated:** 2025-11-29
 
 ---
 
@@ -47,7 +47,13 @@ The PMO Platform uses a PostgreSQL schema with Roman numeral prefixed DDL files 
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
 │  │                    SETTINGS TABLE                                │    │
-│  │  datalabel (all dropdowns/workflows)                    │    │
+│  │  datalabel (all dropdowns/workflows)                             │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │                    SYSTEM TABLES (db/system/)                    │    │
+│  │  system_logging (audit trail + PubSub sync tracking)             │    │
+│  │  system_cache_subscription (WebSocket subscription registry)     │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -97,7 +103,8 @@ Action: EDIT              employee_id: emp-uuid
 | XXVI-XXXIII | Facts | `f_order`, `f_invoice`, `f_inventory` |
 | XXXIV-XLIII | Events & Messaging | `d_event`, `d_message_schema` |
 | XLIV-XLIX | Entity Infrastructure | `entity`, `entity_instance_link`, `entity_rbac` |
-| L-LI | Operations | `d_cost`, `f_logging` |
+| L-LI | Operations | `d_cost`, `logging` (audit trail) |
+| system/ | System Infrastructure | `system_logging`, `system_cache_subscription` |
 
 ### Core Tables Summary
 
@@ -205,6 +212,25 @@ PGPASSWORD='app' psql -h localhost -p 5434 -U app -d app
 | 4 | CREATE | Create access |
 | 5 | OWNER | Full control |
 
+### System Infrastructure Tables (db/system/)
+
+System tables support real-time sync and audit functionality without impacting core business entities.
+
+| Table | Purpose | Key Semantics |
+|-------|---------|---------------|
+| `system_logging` | Audit trail + sync tracking | WHO did WHAT to which entity, with PubSub sync status |
+| `system_cache_subscription` | WebSocket subscriptions | Tracks which users are watching which entities for cache invalidation |
+
+**system_logging** - Captures all entity changes for:
+- **Audit Trail**: Who (person), What (entity), When (timestamp), How (action type)
+- **Real-Time Sync**: `sync_status` column tracks PubSub notification delivery (pending → sent)
+- **Action Codes**: Aligned with Permission enum (0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER)
+
+**system_cache_subscription** - Manages live WebSocket connections for:
+- **Entity Subscriptions**: Users subscribe to specific entities they're viewing
+- **Cache Invalidation**: LogWatcher queries this to find who needs INVALIDATE messages
+- **Connection Cleanup**: Subscriptions removed on WebSocket disconnect
+
 ---
 
 ## User Interaction Flow
@@ -298,4 +324,4 @@ Query with RBAC
 
 ---
 
-**Last Updated:** 2025-11-21 | **Status:** Production Ready
+**Last Updated:** 2025-11-29 | **Status:** Production Ready

@@ -2410,9 +2410,3 @@ export function EntityListOfInstancesTable<T = any>({
   );
 }
 
-// ============================================================================
-// BACKWARDS COMPATIBILITY EXPORTS
-// ============================================================================
-// For existing code that imports "DataTable" - will be deprecated later
-export const DataTable = EntityListOfInstancesTable;
-export type DataTableProps<T = any> = EntityListOfInstancesTableProps<T>;

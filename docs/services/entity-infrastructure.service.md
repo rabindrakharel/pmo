@@ -534,7 +534,6 @@ async set_entity_instance_link(params: {
 | Direct UPDATE + update_entity_instance_registry() | `update_entity()` |
 | delete_all_entity_infrastructure() | `delete_entity()` |
 | Per-row `_ID` embedded objects | `build_ref_data_entityInstance()` (v8.3.0) |
-| `resolve_entity_references()` | `build_ref_data_entityInstance()` (deprecated v8.3.0) |
 
 ---
 

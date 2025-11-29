@@ -1,13 +1,13 @@
--- db/XXXVI_rxdb_subscription.ddl
+-- db/system/system_cache_subscription.ddl
 -- ============================================================================
--- RxDB Live Subscription Tracking
+-- System Cache Subscription Tracking
 -- ============================================================================
 -- Tracks which entity instances each connected user is subscribed to.
 -- This table is EPHEMERAL - cleared on server restart or user disconnect.
 -- Replaces in-memory Map with database table for multi-pod support.
 -- ============================================================================
 
-CREATE TABLE app.rxdb_subscription (
+CREATE TABLE app.system_cache_subscription (
     -- Composite primary key
     user_id UUID NOT NULL,
     entity_code VARCHAR(100) NOT NULL,
@@ -28,37 +28,37 @@ CREATE TABLE app.rxdb_subscription (
 -- ============================================================================
 
 -- Fast lookup: "Who is subscribed to this entity?" (used by LogWatcher)
-CREATE INDEX idx_rxdb_subscription_entity
-    ON app.rxdb_subscription(entity_code, entity_id);
+CREATE INDEX idx_system_cache_subscription_entity
+    ON app.system_cache_subscription(entity_code, entity_id);
 
 -- Fast cleanup: "Remove all subscriptions for this user" (on disconnect)
-CREATE INDEX idx_rxdb_subscription_user
-    ON app.rxdb_subscription(user_id);
+CREATE INDEX idx_system_cache_subscription_user
+    ON app.system_cache_subscription(user_id);
 
 -- Fast cleanup: "Remove all subscriptions for this connection" (on disconnect)
-CREATE INDEX idx_rxdb_subscription_connection
-    ON app.rxdb_subscription(connection_id);
+CREATE INDEX idx_system_cache_subscription_connection
+    ON app.system_cache_subscription(connection_id);
 
 -- ============================================================================
 -- Comments
 -- ============================================================================
 
-COMMENT ON TABLE app.rxdb_subscription IS
-    'Ephemeral table tracking live WebSocket subscriptions for RxDB sync. Cleared on disconnect.';
+COMMENT ON TABLE app.system_cache_subscription IS
+    'Ephemeral table tracking live WebSocket subscriptions for cache sync. Cleared on disconnect.';
 
-COMMENT ON COLUMN app.rxdb_subscription.user_id IS
+COMMENT ON COLUMN app.system_cache_subscription.user_id IS
     'The user (employee) who is subscribed';
 
-COMMENT ON COLUMN app.rxdb_subscription.entity_code IS
+COMMENT ON COLUMN app.system_cache_subscription.entity_code IS
     'Entity type code (project, task, employee, etc.)';
 
-COMMENT ON COLUMN app.rxdb_subscription.entity_id IS
+COMMENT ON COLUMN app.system_cache_subscription.entity_id IS
     'Specific entity instance UUID the user is watching';
 
-COMMENT ON COLUMN app.rxdb_subscription.connection_id IS
+COMMENT ON COLUMN app.system_cache_subscription.connection_id IS
     'WebSocket connection ID - allows cleanup when connection drops';
 
-COMMENT ON COLUMN app.rxdb_subscription.subscribed_at IS
+COMMENT ON COLUMN app.system_cache_subscription.subscribed_at IS
     'When the subscription was created';
 
 -- ============================================================================
@@ -71,7 +71,7 @@ RETURNS INTEGER AS $$
 DECLARE
     deleted_count INTEGER;
 BEGIN
-    DELETE FROM app.rxdb_subscription
+    DELETE FROM app.system_cache_subscription
     WHERE user_id = p_user_id;
 
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
@@ -85,7 +85,7 @@ RETURNS INTEGER AS $$
 DECLARE
     deleted_count INTEGER;
 BEGIN
-    DELETE FROM app.rxdb_subscription
+    DELETE FROM app.system_cache_subscription
     WHERE connection_id = p_connection_id;
 
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
@@ -99,7 +99,7 @@ RETURNS INTEGER AS $$
 DECLARE
     deleted_count INTEGER;
 BEGIN
-    DELETE FROM app.rxdb_subscription
+    DELETE FROM app.system_cache_subscription
     WHERE subscribed_at < now() - (p_hours || ' hours')::INTERVAL;
 
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
@@ -122,7 +122,7 @@ RETURNS INTEGER AS $$
 DECLARE
     inserted_count INTEGER;
 BEGIN
-    INSERT INTO app.rxdb_subscription (user_id, entity_code, entity_id, connection_id)
+    INSERT INTO app.system_cache_subscription (user_id, entity_code, entity_id, connection_id)
     SELECT p_user_id, p_entity_code, unnest(p_entity_ids), p_connection_id
     ON CONFLICT (user_id, entity_code, entity_id)
     DO UPDATE SET
@@ -144,7 +144,7 @@ RETURNS INTEGER AS $$
 DECLARE
     deleted_count INTEGER;
 BEGIN
-    DELETE FROM app.rxdb_subscription
+    DELETE FROM app.system_cache_subscription
     WHERE user_id = p_user_id
       AND entity_code = p_entity_code
       AND entity_id = ANY(p_entity_ids);
@@ -167,7 +167,7 @@ RETURNS TABLE(user_id UUID, connection_id VARCHAR) AS $$
 BEGIN
     RETURN QUERY
     SELECT s.user_id, s.connection_id
-    FROM app.rxdb_subscription s
+    FROM app.system_cache_subscription s
     WHERE s.entity_code = p_entity_code
       AND s.entity_id = p_entity_id;
 END;
@@ -190,7 +190,7 @@ BEGIN
         s.user_id,
         s.connection_id,
         array_agg(s.entity_id) as subscribed_entity_ids
-    FROM app.rxdb_subscription s
+    FROM app.system_cache_subscription s
     WHERE s.entity_code = p_entity_code
       AND s.entity_id = ANY(p_entity_ids)
     GROUP BY s.user_id, s.connection_id;
@@ -216,7 +216,7 @@ BEGIN
         COUNT(DISTINCT s.entity_id) as unique_entities,
         COUNT(DISTINCT s.user_id) as unique_users,
         COUNT(*) as total_subscriptions
-    FROM app.rxdb_subscription s
+    FROM app.system_cache_subscription s
     GROUP BY s.entity_code
     ORDER BY total_subscriptions DESC;
 END;

@@ -2,10 +2,10 @@
 -- Each entity tracks its own internal stage
 
 -- Delete old workflow instance data
-DELETE FROM app.d_industry_workflow_graph_data WHERE workflow_instance_id = 'WFI-2024-001';
+DELETE FROM app.workflow_data WHERE workflow_instance_id = 'WFI-2024-001';
 
 -- State 0: Customer
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id,
     code,
     name,
@@ -46,7 +46,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
 );
 
 -- State 1: Quote
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id,
     code,
     name,
@@ -87,7 +87,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
 );
 
 -- State 2: Work Order
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id,
     code,
     name,
@@ -128,7 +128,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
 );
 
 -- State 3: Task
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id,
     code,
     name,
@@ -169,7 +169,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
 );
 
 -- State 4: Invoice
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id,
     code,
     name,
@@ -210,7 +210,7 @@ INSERT INTO app.d_industry_workflow_graph_data (
 );
 
 -- State 5: Completed (Terminal)
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id,
     code,
     name,

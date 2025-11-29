@@ -65,7 +65,7 @@ export class LogWatcher {
       const logs = await this.db.execute<LogEntry>(`
         SELECT DISTINCT ON (entity_code, entity_id)
           id, entity_code, entity_id, action
-        FROM app.logging
+        FROM app.system_logging
         WHERE sync_status = 'pending'
           AND action != 0  -- Skip VIEW actions
         ORDER BY entity_code, entity_id, created_ts DESC
@@ -136,7 +136,7 @@ export class LogWatcher {
       const logIdsArray = logIds.map(id => `'${id}'::uuid`).join(',');
 
       await this.db.execute(`
-        UPDATE app.logging
+        UPDATE app.system_logging
         SET sync_status = 'sent', sync_processed_ts = now()
         WHERE id = ANY(ARRAY[${logIdsArray}])
       `);

@@ -1,5 +1,5 @@
 -- Seed data for workflow entities referenced in WFI-2024-001 and WFI-2024-002
--- These UUIDs match the entity_id values in d_industry_workflow_graph_data
+-- These UUIDs match the entity_id values in workflow_data
 
 -- 1. Customer (d_cust) - aaaaaaaa-0000-0000-0001-111111111111
 INSERT INTO app.d_cust (

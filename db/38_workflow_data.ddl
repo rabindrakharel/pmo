@@ -1,5 +1,5 @@
 -- =====================================================
--- WORKFLOW INSTANCE DATA (d_industry_workflow_graph_data) - CORE ENTITY
+-- WORKFLOW INSTANCE DATA (workflow_data) - CORE ENTITY
 -- Stores workflow instances with entity graph in JSONB format
 -- =====================================================
 --
@@ -15,9 +15,9 @@
 -- • LIST: GET /api/v1/workflow-instance, filters by workflow_head_id/terminal_state_flag, RBAC enforced
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):
--- • Links to: d_industry_workflow_graph_head (workflow_head_id)
+-- • Links to: workflow (workflow_head_id)
 -- • Links to: actual entity tables via entities in workflow_graph_data
--- • Referenced by: f_industry_workflow_events (workflow instance tracking)
+-- • Referenced by: industry_workflow_events (workflow instance tracking)
 --
 -- WORKFLOW_GRAPH_DATA STRUCTURE (JSONB):
 -- Array of entity nodes following template structure but with actual entity IDs:
@@ -45,7 +45,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.industry_workflow_graph_data (
+CREATE TABLE app.workflow_data (
     -- Standard identity fields
     id uuid DEFAULT gen_random_uuid(),
     workflow_instance_id text,
@@ -83,7 +83,7 @@ CREATE TABLE app.industry_workflow_graph_data (
 
 -- Home Services Workflow Instance 1: Complete residential service cycle
 -- Uses actual customer and task from database
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id,
     workflow_instance_id,
     code,
@@ -131,7 +131,7 @@ LIMIT 1;
 
 -- Home Services Workflow Instance 2: Commercial Service
 -- Uses actual customer and task from database
-INSERT INTO app.d_industry_workflow_graph_data (
+INSERT INTO app.workflow_data (
     id,
     workflow_instance_id,
     code,
