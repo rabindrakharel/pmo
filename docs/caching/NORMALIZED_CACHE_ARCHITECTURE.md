@@ -403,31 +403,37 @@ type EntityInstanceNameMap = Record<string, string>;
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### WebSocket Invalidation
+### WebSocket Invalidation (Real-Time via PostgreSQL NOTIFY/LISTEN)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│               WEBSOCKET INVALIDATION FLOW                        │
+│          REAL-TIME WEBSOCKET INVALIDATION FLOW                   │
+│              (Sub-100ms latency via pg_notify)                   │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  Server: CRUD operation on entity_instance                      │
 │                    ↓                                             │
 │  Database Trigger: INSERT INTO system_logging                   │
 │                    ↓                                             │
-│  LogWatcher: Polls every 60s, sends to WebSocket clients        │
+│  NOTIFY Trigger: pg_notify('entity_changes', payload)           │
+│                    ↓ (instant - sub-100ms)                       │
+│  PgListener: LISTEN entity_changes → receives notification      │
 │                    ↓                                             │
-│  WebSocket Message:                                              │
+│  WebSocket Push to Subscribers:                                  │
 │  {                                                               │
-│    "type": "NORMALIZED_INVALIDATE",                             │
+│    "type": "INVALIDATE",                                        │
 │    "payload": {                                                  │
-│      "table": "entity_instance",                                │
-│      "action": "UPDATE",                                        │
-│      "entity_code": "project",                                  │
-│      "entity_instance_id": "uuid"                               │
+│      "entityCode": "project",                                   │
+│      "changes": [{                                              │
+│        "entityId": "uuid",                                      │
+│        "action": "UPDATE",                                      │
+│        "version": 0                                             │
+│      }],                                                        │
+│      "timestamp": "2025-11-29T12:00:00Z"                       │
 │    }                                                             │
 │  }                                                               │
 │                    ↓                                             │
-│  WebSocketManager.handleNormalizedInvalidate()                  │
+│  WebSocketManager.handleInvalidate()                            │
 │                    ↓                                             │
 │  createInvalidationHandler(cacheAdapter)(invalidation)          │
 │                    ↓                                             │
@@ -441,6 +447,40 @@ type EntityInstanceNameMap = Record<string, string>;
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+#### PostgreSQL NOTIFY/LISTEN Architecture
+
+```
+┌────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  Entity Table  │────▶│ system_logging  │────▶│  NOTIFY Trigger │
+│  (project,     │     │  (audit trail)  │     │  pg_notify()    │
+│   task, etc)   │     │                 │     │                 │
+└────────────────┘     └─────────────────┘     └────────┬────────┘
+                                                        │
+                                          channel: 'entity_changes'
+                                                        │
+                                               ┌────────▼────────┐
+                                               │   PgListener    │
+                                               │  (LISTEN)       │
+                                               │                 │
+                                               │  • Dedicated    │
+                                               │    connection   │
+                                               │  • Auto-        │
+                                               │    reconnect    │
+                                               └────────┬────────┘
+                                                        │
+                                               ┌────────▼────────┐
+                                               │  WebSocket      │
+                                               │  Push to        │
+                                               │  Subscribers    │
+                                               └─────────────────┘
+```
+
+**Benefits over Polling:**
+- **Latency:** Sub-100ms vs 60 seconds
+- **Database Load:** Zero polling queries
+- **Scalability:** Works with PostgreSQL replication
+- **Reliability:** Auto-reconnect with exponential backoff
 
 ---
 
