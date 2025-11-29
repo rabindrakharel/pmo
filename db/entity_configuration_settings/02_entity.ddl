@@ -99,7 +99,7 @@ VALUES (
   30
 );
 
--- Task entity type (has 4 child types)
+-- Task entity type (has 5 child types)
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'task',
@@ -108,7 +108,7 @@ VALUES (
   'CheckSquare',
   'task',
   'f',
-  '["form", "artifact", "expense", "revenue"]'::jsonb,
+  '["task_data", "form", "artifact", "expense", "revenue"]'::jsonb,
   40
 );
 
@@ -138,7 +138,7 @@ VALUES (
   60
 );
 
--- Form entity type (has 1 child type) - Fact Head
+-- Form entity type (has 2 child types) - Fact Head
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'form',
@@ -147,7 +147,7 @@ VALUES (
   'FileText',
   'form',
   'fh',
-  '["artifact"]'::jsonb,
+  '["form_data", "artifact"]'::jsonb,
   70
 );
 
@@ -185,7 +185,7 @@ VALUES (
   display_order = EXCLUDED.display_order,
   updated_ts = now();
 
--- Wiki entity type (leaf node - no children)
+-- Wiki entity type (has 1 child type for content blocks)
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'wiki',
@@ -193,8 +193,8 @@ VALUES (
   'Wiki Pages',
   'BookOpen',
   'wiki',
-  'f',
-  '[]'::jsonb,
+  'fh',
+  '["wiki_data"]'::jsonb,
   90
 );
 
@@ -399,7 +399,7 @@ VALUES (
   160
 );
 
--- Invoice entity type (leaf node - no children)
+-- Invoice entity type (has 1 child type for line items)
 INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
 VALUES (
   'invoice',
@@ -407,8 +407,8 @@ VALUES (
   'Invoices',
   'Receipt',
   'invoice',
-  'f',
-  '[]'::jsonb,
+  'fh',
+  '["invoice_data"]'::jsonb,
   170
 );
 
@@ -473,7 +473,7 @@ VALUES (
   'Calendar',
   'event',
   'f',
-  '["task", "project", "service", "cust", "employee", "business"]'::jsonb,
+  '["booking", "task", "project", "service", "cust", "employee", "business"]'::jsonb,
   215
 ) ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
@@ -633,6 +633,234 @@ VALUES (
   updated_ts = now();
 
 -- =====================================================
+-- FACT DATA ENTITIES (Transactional Detail Records)
+-- =====================================================
+-- These entities store line-item or detail data for their parent fact head entities
+-- Pattern: {parent}_data contains child records linked via {parent}_id or {parent}_number
+
+-- Form Data entity type (form submissions - child of form)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+VALUES (
+  'form_data',
+  'Form Data',
+  'Form Submissions',
+  'FileInput',
+  'form_data',
+  'fd',
+  '[]'::jsonb,
+  71
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  db_table = EXCLUDED.db_table,
+  db_model_type = EXCLUDED.db_model_type,
+  child_entity_codes = EXCLUDED.child_entity_codes,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- Task Data entity type (task checklist items - child of task)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+VALUES (
+  'task_data',
+  'Task Data',
+  'Task Items',
+  'ListChecks',
+  'task_data',
+  'fd',
+  '[]'::jsonb,
+  41
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  db_table = EXCLUDED.db_table,
+  db_model_type = EXCLUDED.db_model_type,
+  child_entity_codes = EXCLUDED.child_entity_codes,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- Wiki Data entity type (wiki content blocks - child of wiki)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+VALUES (
+  'wiki_data',
+  'Wiki Data',
+  'Wiki Blocks',
+  'FileCode',
+  'wiki_data',
+  'fd',
+  '[]'::jsonb,
+  91
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  db_table = EXCLUDED.db_table,
+  db_model_type = EXCLUDED.db_model_type,
+  child_entity_codes = EXCLUDED.child_entity_codes,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- Invoice Data entity type (invoice line items - child of invoice)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+VALUES (
+  'invoice_data',
+  'Invoice Data',
+  'Invoice Line Items',
+  'ListOrdered',
+  'invoice_data',
+  'fd',
+  '[]'::jsonb,
+  171
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  db_table = EXCLUDED.db_table,
+  db_model_type = EXCLUDED.db_model_type,
+  child_entity_codes = EXCLUDED.child_entity_codes,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- =====================================================
+-- EVENT & CALENDAR ENTITIES
+-- =====================================================
+
+-- Booking entity type (event RSVP/booking records)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+VALUES (
+  'booking',
+  'Booking',
+  'Bookings',
+  'CalendarCheck',
+  'entity_event_person_calendar',
+  'f',
+  '[]'::jsonb,
+  216
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  db_table = EXCLUDED.db_table,
+  db_model_type = EXCLUDED.db_model_type,
+  child_entity_codes = EXCLUDED.child_entity_codes,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- =====================================================
+-- WORKFLOW ENTITIES (Industry Workflow Graph)
+-- =====================================================
+
+-- Industry Workflow Graph entity type (workflow templates)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+VALUES (
+  'industry_workflow_graph',
+  'Industry Workflow Graph',
+  'Industry Workflow Graphs',
+  'Workflow',
+  'industry_workflow_graph_head',
+  'fh',
+  '["industry_workflow_graph_data"]'::jsonb,
+  285
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  db_table = EXCLUDED.db_table,
+  db_model_type = EXCLUDED.db_model_type,
+  child_entity_codes = EXCLUDED.child_entity_codes,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- Industry Workflow Graph Data entity type (workflow nodes/steps)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+VALUES (
+  'industry_workflow_graph_data',
+  'Industry Workflow Graph Data',
+  'Workflow Nodes',
+  'GitCommit',
+  'industry_workflow_graph_data',
+  'fd',
+  '[]'::jsonb,
+  286
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  db_table = EXCLUDED.db_table,
+  db_model_type = EXCLUDED.db_model_type,
+  child_entity_codes = EXCLUDED.child_entity_codes,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- Industry Workflow Events entity type (workflow event triggers)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+VALUES (
+  'industry_workflow_events',
+  'Industry Workflow Events',
+  'Workflow Events',
+  'Zap',
+  'industry_workflow_events',
+  'f',
+  '[]'::jsonb,
+  287
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  db_table = EXCLUDED.db_table,
+  db_model_type = EXCLUDED.db_model_type,
+  child_entity_codes = EXCLUDED.child_entity_codes,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- =====================================================
+-- CONFIGURATION ENTITIES (Settings & Lookup Tables)
+-- =====================================================
+
+-- Domain entity type (domain definitions for entity grouping)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+VALUES (
+  'domain',
+  'Domain',
+  'Domains',
+  'Layers',
+  'd_domain',
+  'd',
+  '[]'::jsonb,
+  895
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  db_table = EXCLUDED.db_table,
+  db_model_type = EXCLUDED.db_model_type,
+  child_entity_codes = EXCLUDED.child_entity_codes,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- Datalabel entity type (settings/lookup labels)
+INSERT INTO app.entity (code, name, ui_label, ui_icon, db_table, db_model_type, child_entity_codes, display_order)
+VALUES (
+  'datalabel',
+  'Data Label',
+  'Data Labels',
+  'Tag',
+  'datalabel',
+  'd',
+  '[]'::jsonb,
+  896
+) ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  ui_label = EXCLUDED.ui_label,
+  ui_icon = EXCLUDED.ui_icon,
+  db_table = EXCLUDED.db_table,
+  db_model_type = EXCLUDED.db_model_type,
+  child_entity_codes = EXCLUDED.child_entity_codes,
+  display_order = EXCLUDED.display_order,
+  updated_ts = now();
+
+-- =====================================================
 -- META-ENTITIES: Self-Describing Infrastructure
 -- =====================================================
 -- Infrastructure tables registered as entities themselves
@@ -748,7 +976,7 @@ UPDATE app.entity e SET
     updated_ts = now()
 FROM app.d_domain d
 WHERE d.code = 'operations'
-  AND e.code IN ('project', 'task', 'work_order', 'service');
+  AND e.code IN ('project', 'task', 'task_data', 'work_order', 'service');
 
 -- DOMAIN 3: PRODUCT & INVENTORY
 -- Purpose: Products, stock, consumables, materials
@@ -770,7 +998,7 @@ UPDATE app.entity e SET
     updated_ts = now()
 FROM app.d_domain d
 WHERE d.code = 'order_fulfillment'
-  AND e.code IN ('quote', 'order', 'shipment', 'invoice');
+  AND e.code IN ('quote', 'order', 'shipment', 'invoice', 'invoice_data');
 
 -- DOMAIN 5: FINANCIAL MANAGEMENT
 -- Purpose: Cost control, profitability, billing metrics
@@ -803,7 +1031,7 @@ UPDATE app.entity e SET
     updated_ts = now()
 FROM app.d_domain d
 WHERE d.code = 'knowledge_documentation'
-  AND e.code IN ('wiki', 'artifact', 'form', 'reports');
+  AND e.code IN ('wiki', 'wiki_data', 'artifact', 'form', 'form_data', 'reports');
 
 -- DOMAIN 8: IDENTITY & ACCESS CONTROL
 -- Purpose: RBAC, entity definitions, polymorphism, IDs
@@ -814,7 +1042,7 @@ UPDATE app.entity e SET
     updated_ts = now()
 FROM app.d_domain d
 WHERE d.code = 'identity_access_control'
-  AND e.code IN ('rbac');
+  AND e.code IN ('rbac', 'domain', 'datalabel', 'entity', 'entity_instance', 'entity_instance_link', 'entity_rbac');
 
 -- DOMAIN 9: AUTOMATION & WORKFLOW
 -- Purpose: DAG workflows, industry workflow packs, automation engine
@@ -825,7 +1053,7 @@ UPDATE app.entity e SET
     updated_ts = now()
 FROM app.d_domain d
 WHERE d.code = 'automation_workflow'
-  AND e.code IN ('workflow', 'workflow_automation');
+  AND e.code IN ('workflow', 'workflow_automation', 'industry_workflow_graph', 'industry_workflow_graph_data', 'industry_workflow_events');
 
 -- DOMAIN 10: EVENT & CALENDAR
 -- Purpose: Events, appointments, scheduling, person calendars, RSVP tracking
@@ -836,7 +1064,7 @@ UPDATE app.entity e SET
     updated_ts = now()
 FROM app.d_domain d
 WHERE d.code = 'event_calendar'
-  AND e.code IN ('event', 'calendar');
+  AND e.code IN ('event', 'calendar', 'booking');
 
 -- Handle hierarchies (assign to Customer 360 as organizational structures)
 UPDATE app.entity e SET
