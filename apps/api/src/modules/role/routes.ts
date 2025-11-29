@@ -75,6 +75,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
 
   // List roles
   fastify.get('/api/v1/role', {
+    preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         active: Type.Optional(Type.Boolean()),
@@ -89,59 +90,78 @@ export async function roleRoutes(fastify: FastifyInstance) {
           total: Type.Number(),
           limit: Type.Number(),
           offset: Type.Number()}),
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
     const { active, limit = 20, offset: queryOffset, page } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
-
     try {
       // Build query conditions
-      const conditions = [];
+      const conditions: SQL[] = [];
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC filtering
+      // Only return roles user has VIEW permission for
+      // ═══════════════════════════════════════════════════════════════
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(
+        userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
+      );
+      conditions.push(rbacWhereClause);
 
       if (active !== undefined) {
-        conditions.push(sql`active_flag = ${active}`);
+        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = ${active}`);
       }
 
       // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
       // Can be overridden with ?active=false to show inactive records
       if (!('active' in (request.query as any))) {
-        conditions.push(sql`active_flag = true`);
+        conditions.push(sql`${sql.raw(TABLE_ALIAS)}.active_flag = true`);
       }
+
+      // Build WHERE clause
+      const whereClause = conditions.length > 0
+        ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
+        : sql``;
 
       // Get total count
       const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total 
-        FROM app.role 
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        SELECT COUNT(*) as total
+        FROM app.role ${sql.raw(TABLE_ALIAS)}
+        ${whereClause}
       `);
       const total = Number(countResult[0]?.total || 0);
 
       // Get paginated results
       const roles = await db.execute(sql`
         SELECT
-          id,
-          name,
-          "descr",
-          role_code,
-          role_category,
-          reporting_level,
-          required_experience_years,
-          management_role_flag,
-          client_facing_flag,
-          safety_critical_flag,
-          background_check_required_flag,
-          bonding_required_flag,
-          licensing_required_flag,
-          active_flag,
-          from_ts,
-          to_ts,
-          created_ts,
-          updated_ts,
-          metadata
-        FROM app.role
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY name ASC
+          ${sql.raw(TABLE_ALIAS)}.id,
+          ${sql.raw(TABLE_ALIAS)}.name,
+          ${sql.raw(TABLE_ALIAS)}."descr",
+          ${sql.raw(TABLE_ALIAS)}.role_code,
+          ${sql.raw(TABLE_ALIAS)}.role_category,
+          ${sql.raw(TABLE_ALIAS)}.reporting_level,
+          ${sql.raw(TABLE_ALIAS)}.required_experience_years,
+          ${sql.raw(TABLE_ALIAS)}.management_role_flag,
+          ${sql.raw(TABLE_ALIAS)}.client_facing_flag,
+          ${sql.raw(TABLE_ALIAS)}.safety_critical_flag,
+          ${sql.raw(TABLE_ALIAS)}.background_check_required_flag,
+          ${sql.raw(TABLE_ALIAS)}.bonding_required_flag,
+          ${sql.raw(TABLE_ALIAS)}.licensing_required_flag,
+          ${sql.raw(TABLE_ALIAS)}.active_flag,
+          ${sql.raw(TABLE_ALIAS)}.from_ts,
+          ${sql.raw(TABLE_ALIAS)}.to_ts,
+          ${sql.raw(TABLE_ALIAS)}.created_ts,
+          ${sql.raw(TABLE_ALIAS)}.updated_ts,
+          ${sql.raw(TABLE_ALIAS)}.metadata
+        FROM app.role ${sql.raw(TABLE_ALIAS)}
+        ${whereClause}
+        ORDER BY ${sql.raw(TABLE_ALIAS)}.name ASC
         LIMIT ${limit} OFFSET ${offset}
       `);
 

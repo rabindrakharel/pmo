@@ -7,8 +7,16 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
-import { sql } from 'drizzle-orm';
+import { sql, SQL } from 'drizzle-orm';
 import type { Interaction, CreateInteractionRequest, UpdateInteractionRequest } from './types.js';
+// ✅ Entity Infrastructure Service - Centralized infrastructure management
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
+
+// ============================================================================
+// Module-level constants (DRY - used across all endpoints)
+// ============================================================================
+const ENTITY_CODE = 'interaction';
+const TABLE_ALIAS = 'i';
 
 // Schema definitions
 const InteractionSchema = Type.Object({
@@ -68,11 +76,17 @@ const UpdateInteractionSchema = Type.Partial(CreateInteractionSchema);
  * Register interaction routes
  */
 export async function interactionRoutes(fastify: FastifyInstance) {
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ ENTITY INFRASTRUCTURE SERVICE - Initialize service instance
+  // ═══════════════════════════════════════════════════════════════
+  const entityInfra = getEntityInfrastructure(db);
+
   /**
    * GET /api/v1/interaction
    * List all interactions with filtering
    */
   fastify.get('/api/v1/interaction', {
+    preHandler: [fastify.authenticate],
     schema: {
       querystring: Type.Object({
         interaction_type: Type.Optional(Type.String()),
@@ -85,6 +99,11 @@ export async function interactionRoutes(fastify: FastifyInstance) {
         page: Type.Optional(Type.Number({ minimum: 1 })),
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 }))})}}, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
     const {
       interaction_type,
       channel,
@@ -101,7 +120,18 @@ export async function interactionRoutes(fastify: FastifyInstance) {
     const actualOffset = page !== undefined ? (page - 1) * limit : (offset || 0);
 
     try {
-      const conditions = [sql`deleted_ts IS NULL`];
+      const conditions: SQL[] = [];
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC filtering
+      // Only return interactions user has VIEW permission for
+      // ═══════════════════════════════════════════════════════════════
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(
+        userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
+      );
+      conditions.push(rbacWhereClause);
+
+      conditions.push(sql`${sql.raw(TABLE_ALIAS)}.deleted_ts IS NULL`);
 
       if (interaction_type) {
         conditions.push(sql`interaction_type = ${interaction_type}`);
@@ -222,14 +252,31 @@ export async function interactionRoutes(fastify: FastifyInstance) {
   fastify.get<{
     Params: { id: string };
   }>('/api/v1/interaction/:id', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })}),
       response: {
         200: InteractionSchema,
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
     try {
       const { id } = request.params;
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC check
+      // Check: Can user VIEW this interaction?
+      // ═══════════════════════════════════════════════════════════════
+      const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
+      if (!canView) {
+        return reply.status(403).send({ error: 'No permission to view this interaction' });
+      }
 
       const result = await db.execute(sql`
         SELECT
@@ -307,11 +354,28 @@ export async function interactionRoutes(fastify: FastifyInstance) {
   fastify.post<{
     Body: CreateInteractionRequest;
   }>('/api/v1/interaction', {
+    preHandler: [fastify.authenticate],
     schema: {
       body: CreateInteractionSchema,
       response: {
-        201: InteractionSchema}}}, async (request, reply) => {
+        201: InteractionSchema,
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user CREATE interactions?
+      // ═══════════════════════════════════════════════════════════════
+      const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE);
+      if (!canCreate) {
+        return reply.status(403).send({ error: 'No permission to create interactions' });
+      }
+
       const interaction = request.body;
 
       const result = await db.execute(sql`
@@ -402,15 +466,33 @@ export async function interactionRoutes(fastify: FastifyInstance) {
     Params: { id: string };
     Body: UpdateInteractionRequest;
   }>('/api/v1/interaction/:id', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })}),
       body: UpdateInteractionSchema,
       response: {
         200: InteractionSchema,
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
     try {
       const { id } = request.params;
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user EDIT this interaction?
+      // ═══════════════════════════════════════════════════════════════
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
+      if (!canEdit) {
+        return reply.status(403).send({ error: 'No permission to edit this interaction' });
+      }
+
       const updates = request.body;
 
       // Build dynamic update query
@@ -496,14 +578,31 @@ export async function interactionRoutes(fastify: FastifyInstance) {
   fastify.delete<{
     Params: { id: string };
   }>('/api/v1/interaction/:id', {
+    preHandler: [fastify.authenticate],
     schema: {
       params: Type.Object({
         id: Type.String({ format: 'uuid' })}),
       response: {
         200: Type.Object({ success: Type.Boolean(), message: Type.String() }),
+        401: Type.Object({ error: Type.String() }),
+        403: Type.Object({ error: Type.String() }),
         404: Type.Object({ error: Type.String() })}}}, async (request, reply) => {
+    const userId = (request as any).user?.sub;
+    if (!userId) {
+      return reply.status(401).send({ error: 'User not authenticated' });
+    }
+
     try {
       const { id } = request.params;
+
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC CHECK
+      // Check: Can user DELETE this interaction?
+      // ═══════════════════════════════════════════════════════════════
+      const canDelete = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.DELETE);
+      if (!canDelete) {
+        return reply.status(403).send({ error: 'No permission to delete this interaction' });
+      }
 
       const result = await db.execute(sql`
         UPDATE app.f_customer_interaction
