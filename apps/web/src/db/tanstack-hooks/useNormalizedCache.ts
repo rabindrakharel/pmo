@@ -635,10 +635,15 @@ export function mergeEntityInstanceNames(
 // ============================================================================
 
 /**
- * Get filtered entity list from cache (no API call)
+ * Get filtered entity list - tries cache first, falls back to API
+ *
+ * Strategy:
+ * 1. If cache has data → derive filtered list in O(1)
+ * 2. If cache is empty → fall back to API call
+ * 3. API response updates cache for future queries
  *
  * Before: GET /api/v1/task?parent_entity_code=project&parent_entity_instance_id=123
- * After: Derive from cache in O(1)
+ * After: Derive from cache in O(1), or API if cache miss
  */
 export function useNormalizedEntityList<T = EntityInstance>(
   entityCode: string,
@@ -647,55 +652,177 @@ export function useNormalizedEntityList<T = EntityInstance>(
     parentEntityInstanceId?: string;
     limit?: number;
     offset?: number;
+    /** Force API call even if cache has data */
+    skipCache?: boolean;
   } = {}
 ): {
   data: T[];
   total: number;
   isLoading: boolean;
+  isFetching: boolean;
   isFromCache: boolean;
+  error: Error | null;
+  refetch: () => void;
 } {
-  const { parentEntityCode, parentEntityInstanceId, limit = 100, offset = 0 } = options;
-  const canDeriveFromCache = parentEntityCode && parentEntityInstanceId;
+  const { parentEntityCode, parentEntityInstanceId, limit = 100, offset = 0, skipCache = false } = options;
+  const hasParentFilter = !!(parentEntityCode && parentEntityInstanceId);
 
   const { data: instances, isLoading: instancesLoading } = useEntityInstances();
   const { isLoading: linksLoading } = useEntityLinks();
 
-  const result = useMemo(() => {
-    if (!canDeriveFromCache || !instances || instancesLoading || linksLoading) {
-      // Return all instances of this type if no parent filter
-      const allInstances = instances?.get(entityCode) ?? [];
+  // Check if we can derive from cache
+  const cacheResult = useMemo(() => {
+    if (skipCache || instancesLoading || linksLoading || !instances) {
+      return null; // Cache not ready
+    }
+
+    const allInstances = instances.get(entityCode) ?? [];
+
+    // If no instances in cache for this type, we need to fetch
+    if (allInstances.length === 0) {
+      return null; // Cache miss - need API
+    }
+
+    if (!hasParentFilter) {
+      // No parent filter - return all instances of this type
       return {
         data: allInstances.slice(offset, offset + limit) as T[],
         total: allInstances.length,
-        isFromCache: true,
       };
     }
 
     // Get child IDs from link graph
-    const childIds = getChildIdsSync(parentEntityCode, parentEntityInstanceId, entityCode);
+    const childIds = getChildIdsSync(parentEntityCode!, parentEntityInstanceId!, entityCode);
 
-    if (childIds.length === 0) {
-      return { data: [], total: 0, isFromCache: true };
+    // Check if link graph is populated for this parent
+    const linkKey = `${parentEntityCode}:${parentEntityInstanceId}:${entityCode}`;
+    const hasLinkData = entityLinksForwardCache.has(linkKey);
+
+    if (!hasLinkData) {
+      // Link graph not populated for this parent - need API
+      return null;
     }
 
-    // Resolve child IDs to full instances
+    // Derive filtered list from cache
     const childIdSet = new Set(childIds);
-    const allInstances = instances.get(entityCode) ?? [];
     const filtered = allInstances.filter(i => childIdSet.has(i.entity_instance_id));
-
-    // Apply pagination
     const paginated = filtered.slice(offset, offset + limit);
 
     return {
       data: paginated as T[],
       total: filtered.length,
-      isFromCache: true,
     };
-  }, [entityCode, parentEntityCode, parentEntityInstanceId, instances, instancesLoading, linksLoading, limit, offset, canDeriveFromCache]);
+  }, [entityCode, parentEntityCode, parentEntityInstanceId, instances, instancesLoading, linksLoading, limit, offset, hasParentFilter, skipCache]);
+
+  // API fallback query - only runs when cache misses
+  const apiQuery = useQuery({
+    queryKey: ['normalized-entity-list', entityCode, parentEntityCode, parentEntityInstanceId, limit, offset],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set('limit', String(limit));
+      params.set('offset', String(offset));
+      if (parentEntityCode) params.set('parent_entity_code', parentEntityCode);
+      if (parentEntityInstanceId) params.set('parent_entity_instance_id', parentEntityInstanceId);
+
+      const response = await apiClient.get<{
+        data: T[];
+        total: number;
+        metadata?: Record<string, unknown>;
+        ref_data_entityInstance?: Record<string, Record<string, string>>;
+        entity_instance_name?: Record<string, Record<string, string>>;
+      }>(`/api/v1/${entityCode}?${params}`);
+
+      // Merge entity instance names into cache (handles both key names)
+      const refData = response.entity_instance_name || response.ref_data_entityInstance;
+      if (refData) {
+        mergeEntityInstanceNames(refData);
+      }
+
+      // Update entity instances cache with returned data
+      const now = Date.now();
+      for (const entity of response.data as any[]) {
+        if (entity.id && entity.name) {
+          const instanceKey = createEntityInstanceKey(entityCode, entity.id);
+          const instance: EntityInstance = {
+            entity_code: entityCode,
+            entity_instance_id: entity.id,
+            entity_instance_name: entity.name,
+            code: entity.code,
+          };
+
+          // Update sync cache
+          if (!entityInstancesCache.has(entityCode)) {
+            entityInstancesCache.set(entityCode, new Map());
+          }
+          entityInstancesCache.get(entityCode)!.set(entity.id, instance);
+
+          // Persist to Dexie (async)
+          db.entityInstances.put({
+            _id: instanceKey,
+            ...instance,
+            syncedAt: now,
+          }).catch(() => {});
+        }
+      }
+
+      // Update link graph if parent filter was used
+      if (hasParentFilter && response.data.length > 0) {
+        const childIds = (response.data as any[]).map(e => e.id).filter(Boolean);
+        const linkKey = createLinkForwardKey(parentEntityCode!, parentEntityInstanceId!, entityCode);
+
+        const forwardRecord: EntityLinkForwardRecord = {
+          _id: linkKey,
+          parentCode: parentEntityCode!,
+          parentId: parentEntityInstanceId!,
+          childCode: entityCode,
+          childIds,
+          relationships: {},
+          syncedAt: now,
+        };
+
+        entityLinksForwardCache.set(linkKey, forwardRecord);
+
+        // Persist to Dexie (async)
+        db.entityLinksForward.put(forwardRecord).catch(() => {});
+      }
+
+      return {
+        data: response.data,
+        total: response.total,
+      };
+    },
+    // Only run API query when cache misses
+    enabled: cacheResult === null && !instancesLoading && !linksLoading,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  });
+
+  // Return cache result if available, otherwise API result
+  if (cacheResult !== null) {
+    return {
+      data: cacheResult.data,
+      total: cacheResult.total,
+      isLoading: false,
+      isFetching: false,
+      isFromCache: true,
+      error: null,
+      refetch: () => {
+        // Force refetch by invalidating
+        queryClient.invalidateQueries({
+          queryKey: ['normalized-entity-list', entityCode, parentEntityCode, parentEntityInstanceId],
+        });
+      },
+    };
+  }
 
   return {
-    ...result,
-    isLoading: instancesLoading || linksLoading,
+    data: (apiQuery.data?.data ?? []) as T[],
+    total: apiQuery.data?.total ?? 0,
+    isLoading: instancesLoading || linksLoading || apiQuery.isLoading,
+    isFetching: apiQuery.isFetching,
+    isFromCache: false,
+    error: apiQuery.error as Error | null,
+    refetch: () => apiQuery.refetch(),
   };
 }
 
