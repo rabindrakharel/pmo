@@ -139,8 +139,8 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
               if (childEntity) {
                 return {
                   entity: childEntity.code,
-                  ui_label: childEntity.label || childEntity.name,
-                  ui_icon: childEntity.icon,
+                  ui_label: childEntity.ui_label || childEntity.name,
+                  ui_icon: childEntity.ui_icon,
                   order: 999
                 };
               }
@@ -151,7 +151,7 @@ export function useDynamicChildEntityTabs(parentType: string, parentId: string) 
           // Build data object with enriched child_entities
           const enrichedData = {
             ...cachedEntity,
-            ui_icon: cachedEntity.icon,
+            ui_icon: cachedEntity.ui_icon,
             child_entities: enrichedChildEntities
           };
 

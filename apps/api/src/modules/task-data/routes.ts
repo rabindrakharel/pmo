@@ -61,10 +61,9 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
       // Check if user has view permission on the task
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-          AND rbac.entity_name = 'task'
-          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
+        WHERE rbac.person_code = 'employee' AND rbac.person_id = ${userId}::uuid
+          AND rbac.entity_code = 'task'
+          AND (rbac.entity_instance_id = ${taskId}::uuid OR rbac.entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
           AND rbac.permission >= 0
         LIMIT 1
@@ -140,10 +139,9 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
       // Check if user has edit permission on the task
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-          AND rbac.entity_name = 'task'
-          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
+        WHERE rbac.person_code = 'employee' AND rbac.person_id = ${userId}::uuid
+          AND rbac.entity_code = 'task'
+          AND (rbac.entity_instance_id = ${taskId}::uuid OR rbac.entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
           AND rbac.permission >= 1
         LIMIT 1
@@ -238,10 +236,9 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
       // Check permission
       const hasPermission = await db.execute(sql`
         SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-          AND rbac.entity_name = 'task'
-          AND (rbac.entity_id = ${taskId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
+        WHERE rbac.person_code = 'employee' AND rbac.person_id = ${userId}::uuid
+          AND rbac.entity_code = 'task'
+          AND (rbac.entity_instance_id = ${taskId}::uuid OR rbac.entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid)
           AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
           AND rbac.permission >= 0
         LIMIT 1

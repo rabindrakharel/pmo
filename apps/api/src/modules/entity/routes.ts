@@ -120,7 +120,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
           db_model_type,
           child_entity_codes,
           display_order,
-          dl_entity_domain as domain_code,
+          domain_code,
           column_metadata,
           active_flag
         FROM app.entity

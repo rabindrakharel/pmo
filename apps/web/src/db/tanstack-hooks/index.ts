@@ -1,10 +1,31 @@
 // ============================================================================
 // TanStack + Dexie Hooks - Public API
 // ============================================================================
-// Re-exports all hooks and utilities for clean imports
+// Re-exports from normalized-cache module (4-layer architecture)
 // ============================================================================
 
-// Entity hooks (legacy)
+import type { EntityCode } from '../normalized-cache';
+import { getAllEntityCodesSync, getEntityCodeSync } from '../normalized-cache';
+
+// Legacy type alias for backward compatibility
+export type EntityCodeData = EntityCode & {
+  /** @deprecated Use ui_label instead */
+  label?: string;
+  /** @deprecated Use ui_icon instead */
+  icon?: string | null;
+  /** @deprecated */
+  descr?: string;
+  /** @deprecated */
+  parent_entity_codes?: string[];
+};
+
+// Legacy function aliases for backward compatibility
+/** @deprecated Use getAllEntityCodesSync instead */
+export const getEntityCodesSync = getAllEntityCodesSync;
+/** @deprecated Use getEntityCodeSync instead */
+export const getEntityByCodeSync = getEntityCodeSync;
+
+// Entity hooks
 export {
   useEntity,
   useEntityMutation,
@@ -30,7 +51,7 @@ export {
   type UseOfflineEntityListResult,
 } from './useOfflineEntity';
 
-// Metadata hooks
+// Datalabel hooks
 export {
   useDatalabel,
   useAllDatalabels,
@@ -43,16 +64,7 @@ export {
   type UseAllDatalabelsResult,
 } from './useDatalabel';
 
-export {
-  useEntityCodes,
-  getEntityCodesSync,
-  getEntityByCodeSync,
-  clearEntityCodesCache,
-  prefetchEntityCodes,
-  type EntityCodeData,
-  type UseEntityCodesResult,
-} from './useEntityCodes';
-
+// Global settings hooks
 export {
   useGlobalSettings,
   getGlobalSettingsSync,
@@ -73,10 +85,7 @@ export {
 } from './useDraft';
 
 // ============================================================================
-// 4-LAYER NORMALIZED CACHE HOOKS (Modular Architecture)
-// ============================================================================
-// Re-exports from normalized-cache module for backward compatibility
-// New code should import directly from '@/db/normalized-cache'
+// 4-LAYER NORMALIZED CACHE (Primary Architecture)
 // ============================================================================
 
 export {
@@ -138,14 +147,7 @@ export {
   QUERY_KEYS,
 } from '../normalized-cache';
 
-// Legacy query key exports for backward compatibility
-import { QUERY_KEYS } from '../normalized-cache';
-export const ENTITY_CODES_KEY = QUERY_KEYS.ENTITY_CODES;
-export const ENTITY_INSTANCES_KEY = QUERY_KEYS.ENTITY_INSTANCES;
-export const ENTITY_LINKS_KEY = QUERY_KEYS.ENTITY_LINKS;
-export const ENTITY_INSTANCE_NAMES_KEY = QUERY_KEYS.ENTITY_INSTANCE_NAMES;
-
-// Cache utilities (re-exported from queryClient)
+// Cache utilities
 export {
   invalidateMetadataCache,
   clearAllMetadataCache,

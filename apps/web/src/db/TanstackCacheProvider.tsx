@@ -22,10 +22,6 @@ import {
   clearDatalabelCache,
 } from './tanstack-hooks/useDatalabel';
 import {
-  prefetchEntityCodes,
-  clearEntityCodesCache,
-} from './tanstack-hooks/useEntityCodes';
-import {
   prefetchGlobalSettings,
   clearGlobalSettingsCache,
 } from './tanstack-hooks/useGlobalSettings';
@@ -33,7 +29,8 @@ import {
   hydrateNormalizedCache,
   prefetchNormalizedCache,
   clearNormalizedCacheMemory,
-} from './tanstack-hooks/useNormalizedCache';
+  prefetchEntityCodes,
+} from './normalized-cache';
 import { clearNormalizedCache as clearNormalizedCacheDexie } from './dexie/database';
 
 // ============================================================================
@@ -102,14 +99,10 @@ export function TanstackCacheProvider({ children }: TanstackCacheProviderProps) 
       hydrateQueryCache(),
       hydrateNormalizedCache(),
     ])
-      .then(([legacyCount, normalizedStats]) => {
+      .then(([legacyCount]) => {
         setIsHydrated(true);
         console.log(
-          `[CacheProvider] Hydrated from IndexedDB:`,
-          `${legacyCount} legacy entities,`,
-          `${normalizedStats.entityTypes} types,`,
-          `${normalizedStats.entityInstances} instances,`,
-          `${normalizedStats.linksForward} forward links`
+          `[CacheProvider] Hydrated from IndexedDB: ${legacyCount} legacy entities`
         );
       })
       .catch((error) => {
@@ -135,9 +128,8 @@ export function TanstackCacheProvider({ children }: TanstackCacheProviderProps) 
   const clearCache = useCallback(async () => {
     wsManager.disconnect();
     clearDatalabelCache();
-    clearEntityCodesCache();
     clearGlobalSettingsCache();
-    clearNormalizedCacheMemory();
+    clearNormalizedCacheMemory(); // Clears entity codes + all normalized cache layers
     await Promise.all([
       clearAllCaches(),
       clearNormalizedCacheDexie(),

@@ -64,7 +64,8 @@ export class CacheDataSourceAdapter extends BaseDataSourceAdapter {
       '/api/v1/entity/types'
     );
 
-    const entities = response.data;
+    // response.data is the axios response body: { data: EntityCode[], syncedAt: number }
+    const entities = response.data.data;
     const now = Date.now();
 
     // Update TanStack Query cache
@@ -118,7 +119,8 @@ export class CacheDataSourceAdapter extends BaseDataSourceAdapter {
       hasMore: boolean;
     }>(url);
 
-    const instances = response.data;
+    // response.data is the axios response body: { data: EntityInstance[], syncedAt, hasMore }
+    const instances = response.data.data;
     const now = Date.now();
 
     // Group by entity_code
@@ -186,7 +188,8 @@ export class CacheDataSourceAdapter extends BaseDataSourceAdapter {
       hasMore: boolean;
     }>(url);
 
-    const links = response.data;
+    // response.data is the axios response body: { data: EntityLink[], syncedAt, hasMore }
+    const links = response.data.data;
     const now = Date.now();
 
     // Store raw links in Dexie if enabled

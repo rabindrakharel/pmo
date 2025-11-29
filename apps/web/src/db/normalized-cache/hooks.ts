@@ -36,7 +36,7 @@ function getAdapter() {
 // ============================================================================
 
 export function useEntityCodes(): UseQueryResult<EntityCode[]> & {
-  getByCode: (code: string) => EntityCode | undefined;
+  getEntityByCode: (code: string) => EntityCode | undefined;
   getChildCodes: (code: string) => string[];
 } {
   const query = useQuery({
@@ -57,7 +57,7 @@ export function useEntityCodes(): UseQueryResult<EntityCode[]> & {
     }
   }, [query.data]);
 
-  const getByCode = useCallback((code: string) => {
+  const getEntityByCode = useCallback((code: string) => {
     return query.data?.find(e => e.code === code);
   }, [query.data]);
 
@@ -67,7 +67,7 @@ export function useEntityCodes(): UseQueryResult<EntityCode[]> & {
 
   return {
     ...query,
-    getByCode,
+    getEntityByCode,
     getChildCodes,
   };
 }
