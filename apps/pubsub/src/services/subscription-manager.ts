@@ -54,7 +54,7 @@ export class SubscriptionManager {
     if (entityIds && entityIds.length > 0) {
       const entityIdsArray = entityIds.map(id => `'${id}'::uuid`).join(',');
       query = `
-        DELETE FROM app.rxdb_subscription
+        DELETE FROM app.system_cache_subscription
         WHERE user_id = $1::uuid
           AND entity_code = $2
           AND entity_id = ANY(ARRAY[${entityIdsArray}])
@@ -62,7 +62,7 @@ export class SubscriptionManager {
       params = [userId, entityCode];
     } else {
       query = `
-        DELETE FROM app.rxdb_subscription
+        DELETE FROM app.system_cache_subscription
         WHERE user_id = $1::uuid
           AND entity_code = $2
       `;
@@ -80,7 +80,7 @@ export class SubscriptionManager {
    */
   async unsubscribeAll(userId: string): Promise<number> {
     const result = await this.db.executeWithCount(`
-      DELETE FROM app.rxdb_subscription
+      DELETE FROM app.system_cache_subscription
       WHERE user_id = $1::uuid
     `, [userId]);
 
@@ -94,7 +94,7 @@ export class SubscriptionManager {
    */
   async cleanupConnection(connectionId: string): Promise<number> {
     const result = await this.db.executeWithCount(`
-      DELETE FROM app.rxdb_subscription
+      DELETE FROM app.system_cache_subscription
       WHERE connection_id = $1
     `, [connectionId]);
 

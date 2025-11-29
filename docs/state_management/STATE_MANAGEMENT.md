@@ -241,7 +241,7 @@ API Server:
     v
 PubSub LogWatcher polls app.logging
     |
-    +-- Query app.rxdb_subscription for subscribers
+    +-- Query app.system_cache_subscription for subscribers
     +-- Push INVALIDATE via WebSocket to User A
     |
     v

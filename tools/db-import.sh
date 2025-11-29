@@ -155,13 +155,14 @@ validate_all_ddls() {
         "06_entity_rbac.ddl"
     )
 
-    # Infrastructure files (db/ root 03-04 + XXXVI)
+    # Infrastructure files (db/ root 03-04 + system/)
     local infrastructure_files=(
         "03_datalabel.ddl"
         "04_logging.ddl"
         "04a_person.ddl"
         "04b_attachment.ddl"
-        "XXXVI_rxdb_subscription.ddl"
+        "system/system_logging.ddl"
+        "system/system_cache_subscription.ddl"
     )
 
     # Business Entity files (db/ root 05-49)
@@ -271,13 +272,14 @@ import_ddls() {
     execute_sql "$DB_PATH/entity_configuration_settings/05_entity_instance_link.ddl" "05: Entity instance relationships"
     execute_sql "$DB_PATH/entity_configuration_settings/06_entity_rbac.ddl" "06: Entity RBAC permissions"
 
-    # ===== INFRASTRUCTURE (03-04 + XXXVI) =====
-    print_status $CYAN "  🔧 Infrastructure (5 files)..."
+    # ===== INFRASTRUCTURE (03-04 + system/) =====
+    print_status $CYAN "  🔧 Infrastructure (6 files)..."
     execute_sql "$DB_PATH/03_datalabel.ddl" "03: Unified data label settings"
     execute_sql "$DB_PATH/04_logging.ddl" "04: Central audit logging"
     execute_sql "$DB_PATH/04a_person.ddl" "04a: Person entities"
     execute_sql "$DB_PATH/04b_attachment.ddl" "04b: Attachment entities"
-    execute_sql "$DB_PATH/XXXVI_rxdb_subscription.ddl" "XXXVI: RxDB live subscription tracking"
+    execute_sql "$DB_PATH/system/system_logging.ddl" "system: System logging with sync tracking"
+    execute_sql "$DB_PATH/system/system_cache_subscription.ddl" "system: Cache subscription tracking"
 
     # ===== CUSTOMER 360 DOMAIN (05-10) =====
     print_status $CYAN "  🏢 Customer 360 (7 entities)..."

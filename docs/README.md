@@ -51,7 +51,7 @@
 │  └────────┬────────┘     └────────┬────────┘     └────────┬────────┘        │
 │           │                       │                       │                  │
 │           │  DB Trigger writes    │  LogWatcher polls     │  Subscribe to   │
-│           │  to app.logging       │  every 60s            │  loaded IDs     │
+│           │  to app.system_logging│  every 60s            │  loaded IDs     │
 │           │───────────────────────│                       │                  │
 │           │                       │──INVALIDATE──────────>│                  │
 │           │                       │                       │                  │
@@ -183,9 +183,9 @@
 ├───────────────────────┼─────────────────────────────────────────────────────┤
 │                       │                                                      │
 │  PubSub Service       │  • WebSocket server for real-time sync (port 4001)  │
-│  (v8.4.0)             │  • LogWatcher polls app.logging (60s interval)       │
+│  (v8.4.0)             │  • LogWatcher polls app.system_logging (60s interval)│
 │                       │  • Push INVALIDATE messages to subscribers           │
-│                       │  • Manage subscriptions in app.rxdb_subscription     │
+│                       │  • Manage subscriptions in app.system_cache_subscription│
 │                       │                                                      │
 ├───────────────────────┼─────────────────────────────────────────────────────┤
 │                       │                                                      │
