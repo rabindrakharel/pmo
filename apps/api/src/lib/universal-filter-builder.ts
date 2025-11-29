@@ -194,7 +194,7 @@ export function buildAutoFilters(
     'order_by',
     'order_dir',
     'parent_entity_code',
-    'parent_entity_id',
+    'parent_entity_instance_id',
     'view'         // Component view type for metadata generation (backend-formatter service)
   ];
 
