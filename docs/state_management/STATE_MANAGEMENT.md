@@ -234,12 +234,12 @@ User B edits project
 API Server:
 1. RBAC check (EDIT permission)
 2. UPDATE app.project SET ...
-3. DB trigger -> INSERT app.logging (sync_status='pending')
+3. DB trigger -> INSERT app.system_logging (sync_status='pending')
 4. Return 200 OK to User B
     |
     | (up to 60s later)
     v
-PubSub LogWatcher polls app.logging
+PubSub LogWatcher polls app.system_logging
     |
     +-- Query app.system_cache_subscription for subscribers
     +-- Push INVALIDATE via WebSocket to User A
