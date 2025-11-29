@@ -1,5 +1,5 @@
 -- =====================================================
--- Invoice Head Table (invoice_head)
+-- Invoice Head Table (invoice)
 -- =====================================================
 --
 -- SEMANTICS:
@@ -21,7 +21,7 @@
 --
 -- =====================================================
 
-CREATE TABLE app.invoice_head (
+CREATE TABLE app.invoice (
     -- Primary Key
     id uuid DEFAULT gen_random_uuid(),
     code varchar(100),
@@ -121,14 +121,14 @@ CREATE TABLE app.invoice_head (
     terms_and_conditions text                           -- T&C text (snapshot)
 );
 
-COMMENT ON TABLE app.invoice_head IS 'Invoice header table with one row per invoice, includes artifact fields for invoice PDF';
-COMMENT ON COLUMN app.invoice_head.id IS 'Unique identifier (UUID)';
-COMMENT ON COLUMN app.invoice_head.code IS 'Unique invoice code';
-COMMENT ON COLUMN app.invoice_head.invoice_number IS 'Human-readable invoice number (e.g., INV-2025-00123)';
-COMMENT ON COLUMN app.invoice_head.invoice_type IS 'Invoice type: standard, progress, final, credit_memo, debit_memo';
-COMMENT ON COLUMN app.invoice_head.dl__artifact_type IS 'Artifact type classification for the invoice document';
-COMMENT ON COLUMN app.invoice_head.attachment IS 'Full S3 URI for invoice PDF (s3://bucket/key)';
-COMMENT ON COLUMN app.invoice_head.attachment_format IS 'File extension of invoice document (pdf, png, jpg)';
-COMMENT ON COLUMN app.invoice_head.attachment_size_bytes IS 'File size of invoice document in bytes';
-COMMENT ON COLUMN app.invoice_head.attachment_object_bucket IS 'S3 bucket name for invoice document';
-COMMENT ON COLUMN app.invoice_head.attachment_object_key IS 'S3 object key/path for invoice document';
+COMMENT ON TABLE app.invoice IS 'Invoice header table with one row per invoice, includes artifact fields for invoice PDF';
+COMMENT ON COLUMN app.invoice.id IS 'Unique identifier (UUID)';
+COMMENT ON COLUMN app.invoice.code IS 'Unique invoice code';
+COMMENT ON COLUMN app.invoice.invoice_number IS 'Human-readable invoice number (e.g., INV-2025-00123)';
+COMMENT ON COLUMN app.invoice.invoice_type IS 'Invoice type: standard, progress, final, credit_memo, debit_memo';
+COMMENT ON COLUMN app.invoice.dl__artifact_type IS 'Artifact type classification for the invoice document';
+COMMENT ON COLUMN app.invoice.attachment IS 'Full S3 URI for invoice PDF (s3://bucket/key)';
+COMMENT ON COLUMN app.invoice.attachment_format IS 'File extension of invoice document (pdf, png, jpg)';
+COMMENT ON COLUMN app.invoice.attachment_size_bytes IS 'File size of invoice document in bytes';
+COMMENT ON COLUMN app.invoice.attachment_object_bucket IS 'S3 bucket name for invoice document';
+COMMENT ON COLUMN app.invoice.attachment_object_key IS 'S3 object key/path for invoice document';

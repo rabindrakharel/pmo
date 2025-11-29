@@ -183,7 +183,7 @@ validate_all_ddls() {
         "18_quote.ddl"
         "19_order.ddl"
         "20_shipment.ddl"
-        "21a_invoice_head.ddl"
+        "21a_invoice.ddl"
         "21b_invoice_data.ddl"
         "23_revenue.ddl"
         "24_expense.ddl"
@@ -307,7 +307,7 @@ import_ddls() {
     execute_sql "$DB_PATH/18_quote.ddl" "18: Quote fact table"
     execute_sql "$DB_PATH/19_order.ddl" "19: Order fact table"
     execute_sql "$DB_PATH/20_shipment.ddl" "20: Shipment fact table"
-    execute_sql "$DB_PATH/21a_invoice_head.ddl" "21a: Invoice head entities"
+    execute_sql "$DB_PATH/21a_invoice.ddl" "21a: Invoice entities"
     execute_sql "$DB_PATH/21b_invoice_data.ddl" "21b: Invoice data entities"
 
     # ===== FINANCIAL MANAGEMENT (23-24) =====

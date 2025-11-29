@@ -14,7 +14,7 @@ import { PAGINATION_CONFIG } from './pagination.js';
  * Convention: Most entities use direct mapping (entity code = table name), with these exceptions:
  * - 'form' → 'form' (form has head/data split)
  * - 'wiki' → 'wiki' (wiki has head/data split, head table is just 'wiki')
- * - 'invoice' → 'invoice_head' (invoice has head/data split)
+ * - 'invoice' → 'invoice' (invoice table, invoice_data for line items)
  * - 'biz' (legacy) → 'business'
  */
 export const ENTITY_TABLE_MAP: Record<string, string> = {
@@ -41,7 +41,7 @@ export const ENTITY_TABLE_MAP: Record<string, string> = {
 
   // Entities with head/data split
   form: 'form',
-  invoice: 'invoice_head',
+  invoice: 'invoice',
   message: 'message_data',
 
   // Hierarchy entities
