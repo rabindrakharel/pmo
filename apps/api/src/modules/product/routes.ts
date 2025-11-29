@@ -69,6 +69,8 @@ export async function productRoutes(fastify: FastifyInstance) {
         limit: Type.Optional(Type.Number({ minimum: 1, maximum: 100 })),
         offset: Type.Optional(Type.Number({ minimum: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
+        parent_entity_code: Type.Optional(Type.String()),
+        parent_entity_instance_id: Type.Optional(Type.String({ format: 'uuid' })),
       }),
       response: {
         200: Type.Object({
@@ -80,7 +82,7 @@ export async function productRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { limit = 20, offset: queryOffset, page } = request.query as any;
+    const { limit = 20, offset: queryOffset, page, parent_entity_code, parent_entity_instance_id } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
     const userId = (request as any).user?.sub;
 
@@ -89,12 +91,29 @@ export async function productRoutes(fastify: FastifyInstance) {
     }
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // BUILD JOINs - Parent filtering via entity_instance_link
+      // ═══════════════════════════════════════════════════════════════
+      const joins: SQL[] = [];
+
+      if (parent_entity_code && parent_entity_instance_id) {
+        joins.push(sql`
+          INNER JOIN app.entity_instance_link eil
+            ON eil.child_entity_code = ${ENTITY_CODE}
+            AND eil.child_entity_instance_id = ${sql.raw(TABLE_ALIAS)}.id
+            AND eil.entity_code = ${parent_entity_code}
+            AND eil.entity_instance_id = ${parent_entity_instance_id}::uuid
+        `);
+      }
+
       // Build WHERE conditions array
       const conditions: SQL[] = [];
 
-      // ✨ UNIFIED RBAC - Use centralized RBAC gate for permission filtering
-      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
-      );
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ ENTITY INFRASTRUCTURE SERVICE - RBAC filtering
+      // Only return products user has VIEW permission for
+      // ═══════════════════════════════════════════════════════════════
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS);
       conditions.push(rbacWhereClause);
 
       // ✨ UNIVERSAL AUTO-FILTER SYSTEM
@@ -105,18 +124,24 @@ export async function productRoutes(fastify: FastifyInstance) {
       });
       conditions.push(...autoFilters);
 
+      // Compose JOIN and WHERE clauses
+      const joinClause = joins.length > 0 ? sql.join(joins, sql` `) : sql``;
+      const whereClause = conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
+
       const countResult = await db.execute(sql`
-        SELECT COUNT(*) as total
-        FROM app.product p
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+        SELECT COUNT(DISTINCT ${sql.raw(TABLE_ALIAS)}.id) as total
+        FROM app.product ${sql.raw(TABLE_ALIAS)}
+        ${joinClause}
+        ${whereClause}
       `);
       const total = Number(countResult[0]?.total || 0);
 
       const products = await db.execute(sql`
-        SELECT *
-        FROM app.product p
-        ${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-        ORDER BY p.name ASC NULLS LAST
+        SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
+        FROM app.product ${sql.raw(TABLE_ALIAS)}
+        ${joinClause}
+        ${whereClause}
+        ORDER BY ${sql.raw(TABLE_ALIAS)}.name ASC NULLS LAST
         LIMIT ${limit} OFFSET ${offset}
       `);
 

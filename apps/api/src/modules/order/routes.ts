@@ -32,16 +32,34 @@ export async function orderRoutes(fastify: FastifyInstance) {
         offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
         page: Type.Optional(Type.Number({ minimum: 1 })),
         order_status: Type.Optional(Type.String()),
-        search: Type.Optional(Type.String())})}}, async (request, reply) => {
+        search: Type.Optional(Type.String()),
+        parent_entity_code: Type.Optional(Type.String()),
+        parent_entity_instance_id: Type.Optional(Type.String({ format: 'uuid' })),
+      })}}, async (request, reply) => {
     const userId = (request as any).user?.sub;
     if (!userId) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    const { limit = 20, offset: queryOffset, page } = request.query as any;
+    const { limit = 20, offset: queryOffset, page, parent_entity_code, parent_entity_instance_id } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
     try {
+      // ═══════════════════════════════════════════════════════════════
+      // BUILD JOINs - Parent filtering via entity_instance_link
+      // ═══════════════════════════════════════════════════════════════
+      const joins: SQL[] = [];
+
+      if (parent_entity_code && parent_entity_instance_id) {
+        joins.push(sql`
+          INNER JOIN app.entity_instance_link eil
+            ON eil.child_entity_code = ${ENTITY_CODE}
+            AND eil.child_entity_instance_id = ${sql.raw(TABLE_ALIAS)}.id
+            AND eil.entity_code = ${parent_entity_code}
+            AND eil.entity_instance_id = ${parent_entity_instance_id}::uuid
+        `);
+      }
+
       // Build WHERE conditions array
       const conditions: SQL[] = [];
 
@@ -62,23 +80,26 @@ export async function orderRoutes(fastify: FastifyInstance) {
       });
       conditions.push(...autoFilters);
 
-      // Build WHERE clause
+      // Compose JOIN and WHERE clauses
+      const joinClause = joins.length > 0 ? sql.join(joins, sql` `) : sql``;
       const whereClause = conditions.length > 0
         ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
         : sql``;
 
       // Count query
       const countResult = await db.execute(sql`
-        SELECT COUNT(*) as count
+        SELECT COUNT(DISTINCT ${sql.raw(TABLE_ALIAS)}.id) as count
         FROM app.f_order ${sql.raw(TABLE_ALIAS)}
+        ${joinClause}
         ${whereClause}
       `);
       const total = Number(countResult[0]?.count || 0);
 
       // Data query
       const rows = await db.execute(sql`
-        SELECT *
+        SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
         FROM app.f_order ${sql.raw(TABLE_ALIAS)}
+        ${joinClause}
         ${whereClause}
         ORDER BY ${sql.raw(TABLE_ALIAS)}.order_date DESC
         LIMIT ${limit} OFFSET ${offset}
