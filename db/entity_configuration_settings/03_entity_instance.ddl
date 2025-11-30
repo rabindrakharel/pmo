@@ -6,7 +6,8 @@
 -- BUSINESS PURPOSE:
 -- Maintains a central registry of all entity instances across the system for unified operations,
 -- global search, cross-entity relationships, and dashboard statistics. Acts as the authoritative
--- source of truth for entity instance existence, metadata, and active status.
+-- source of truth for entity instance existence and metadata. This is a TRANSACTIONAL TABLE with
+-- HARD DELETE semantics - records are physically deleted when the source entity is deleted.
 --
 -- API SEMANTICS & LIFECYCLE:
 --
@@ -25,18 +26,17 @@
 --      - Maintains referential consistency across entity_instance_link and entity_rbac
 --    • Business Rule: Automatic sync via database triggers on entity table UPDATEs
 --
--- 3. DEACTIVATE ENTITY INSTANCE (Auto-synced on Soft Delete)
---    • Trigger: When source entity is soft deleted (UPDATE project.active_flag=false)
---    • Database: UPDATE entity_instance SET active_flag=false, updated_ts=now() WHERE entity_code=$1 AND entity_instance_id=$2
---    • Business Rule: Maintains referential integrity; preserves registry for audit
---    • Cascade Effect: Does NOT cascade delete (preserves entity_instance_link and RBAC entries)
+-- 3. DELETE ENTITY INSTANCE (Hard Delete on Source Entity Delete)
+--    • Trigger: When source entity is deleted (DELETE from d_project, d_task, etc.)
+--    • Database: DELETE FROM entity_instance WHERE entity_code=$1 AND entity_instance_id=$2
+--    • Business Rule: Transactional table with hard delete; no audit trail in registry
+--    • Cascade Effect: Cascades delete to entity_instance_link and entity_rbac entries
 --
 -- 4. GLOBAL SEARCH ACROSS ENTITY INSTANCES
 --    • Endpoint: GET /api/v1/search?q=landscaping&entity_type=project,task&limit=20
 --    • Database:
 --      SELECT e.* FROM entity_instance e
---      WHERE e.active_flag=true
---        AND e.entity_code = ANY($entity_types)
+--      WHERE e.entity_code = ANY($entity_types)
 --        AND to_tsvector('english', e.entity_instance_name) @@ plainto_tsquery('english', $query)
 --      ORDER BY ts_rank(to_tsvector('english', e.entity_instance_name), plainto_tsquery('english', $query)) DESC
 --      LIMIT $1
@@ -44,31 +44,32 @@
 --    • Frontend: GlobalSearchBar renders unified results across entity types
 --
 -- 5. LIST ENTITY INSTANCES BY TYPE
---    • Endpoint: GET /api/v1/entity?entity_code=project&active_flag=true&limit=50
+--    • Endpoint: GET /api/v1/entity?entity_code=project&limit=50
 --    • Database:
 --      SELECT e.* FROM entity_instance e
 --      WHERE e.entity_code=$1
---        AND e.active_flag=$2
 --      ORDER BY e.updated_ts DESC
---      LIMIT $3 OFFSET $4
+--      LIMIT $2 OFFSET $3
 --    • Business Rule: Used for entity pickers, dropdown lists, and reference lookups
+--    • Note: No active_flag filter needed - registry uses hard delete (records exist = active)
 --
 -- 6. VALIDATE ENTITY INSTANCE EXISTENCE
 --    • Endpoint: GET /api/v1/entity/:entity_type/:entity_instance_id/exists
---    • Database: SELECT EXISTS(SELECT 1 FROM entity_instance WHERE entity_code=$1 AND entity_instance_id=$2 AND active_flag=true)
+--    • Database: SELECT EXISTS(SELECT 1 FROM entity_instance WHERE entity_code=$1 AND entity_instance_id=$2)
 --    • Business Rule: Used before creating entity_instance_link relationships to ensure referential integrity
 --    • Example: Before linking task to project, validate project exists in entity_instance
+--    • Note: No active_flag check needed - registry uses hard delete (existence = active)
 --
 -- 7. GET ENTITY INSTANCE TYPE COUNTS (Dashboard Stats)
 --    • Endpoint: GET /api/v1/entity/stats
 --    • Database:
 --      SELECT entity_code, COUNT(*) AS count
 --      FROM entity_instance
---      WHERE active_flag=true
 --      GROUP BY entity_code
 --      ORDER BY count DESC
 --    • Business Rule: Powers dashboard statistics and system health monitoring
 --    • Frontend: DashboardStatCard displays entity counts
+--    • Note: No active_flag filter needed - registry uses hard delete (all records are active)
 --
 -- NOTE: For parent-child entity TYPE relationships and metadata (icons, labels),
 --       see entity.ddl which stores entity TYPE definitions
