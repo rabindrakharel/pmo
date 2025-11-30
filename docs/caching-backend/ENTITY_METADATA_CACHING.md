@@ -2,9 +2,9 @@
 
 > Backend caching strategy for entity field metadata using Redis + PostgreSQL result descriptors
 
-**Version**: 1.1.0
+**Version**: 2.0.0
 **Last Updated**: 2025-11-30
-**Status**: ✅ Implemented
+**Status**: ✅ Fully Implemented
 
 ---
 
@@ -12,14 +12,15 @@
 
 1. [Problem Statement](#problem-statement)
 2. [Solution Overview](#solution-overview)
-3. [Architecture](#architecture)
-4. [Flow Diagrams](#flow-diagrams)
-5. [Implementation Details](#implementation-details)
-6. [Cache Configuration](#cache-configuration)
-7. [API Response Structure](#api-response-structure)
-8. [Error Handling](#error-handling)
-9. [Cache Invalidation](#cache-invalidation)
-10. [Related Documentation](#related-documentation)
+3. [Content Parameter API](#content-parameter-api) ← NEW
+4. [Architecture](#architecture)
+5. [Flow Diagrams](#flow-diagrams)
+6. [Implementation Details](#implementation-details)
+7. [Cache Configuration](#cache-configuration)
+8. [API Response Structure](#api-response-structure)
+9. [Error Handling](#error-handling)
+10. [Cache Invalidation](#cache-invalidation)
+11. [Related Documentation](#related-documentation)
 
 ---
 
@@ -101,6 +102,118 @@ const fieldNames = result.fields.map(f => f.name);
 ```
 
 This is the `PGresult` structure from libpq - the field descriptor is populated during query preparation, not result fetching.
+
+---
+
+## Content Parameter API
+
+### Unified Entity Endpoint (v2.0.0)
+
+The same entity endpoint now serves both data and metadata requests via the `content` query parameter:
+
+```
+GET /api/v1/{entityCode}                    # Normal: returns data + metadata
+GET /api/v1/{entityCode}?content=metadata   # Metadata-only: data=[], fields populated
+```
+
+### Benefits
+
+| Benefit | Description |
+|---------|-------------|
+| **No Data Query** | Backend skips SQL data query entirely for `content=metadata` |
+| **Uses Redis Cache** | Field names fetched from `entity:fields:{entityCode}` cache |
+| **Same Response Structure** | Frontend receives consistent response format |
+| **Efficient Child Tabs** | Empty child entity tabs can fetch metadata without data transfer |
+
+### Backend Implementation
+
+```typescript
+// apps/api/src/modules/{entity}/routes.ts
+
+fastify.get('/api/v1/project', async (request, reply) => {
+  const { content, view, ...filters } = request.query;
+
+  // Metadata-only mode - skip data query entirely
+  if (content === 'metadata') {
+    const response = await generateEntityResponse('project', [], {
+      components: requestedComponents,
+      metadataOnly: true  // Uses Redis field cache
+    });
+    return reply.send(response);
+  }
+
+  // Normal mode - execute data query
+  const data = await db.execute(sql`SELECT * FROM app.project ...`);
+  // ...
+});
+```
+
+### generateEntityResponse with metadataOnly
+
+```typescript
+// apps/api/src/services/backend-formatter.service.ts
+
+export async function generateEntityResponse(
+  entityCode: string,
+  data: any[],
+  options: {
+    metadataOnly?: boolean;           // NEW: Skip data, use Redis cache
+    ref_data_entityInstance?: Record<string, Record<string, string>>;
+    // ...other options
+  }
+): Promise<EntityResponse> {
+  // When metadataOnly=true:
+  // - Returns data: []
+  // - Returns ref_data_entityInstance: {}
+  // - Returns fields: [...] from Redis cache
+  // - Returns metadata: {...} generated from cached fields
+}
+```
+
+### Frontend Hook (useEntityMetadata)
+
+```typescript
+// apps/web/src/db/tanstack-hooks/useEntityList.ts
+
+export function useEntityMetadata(entityCode: string) {
+  return useQuery({
+    queryKey: ['entityInstanceMetadata', entityCode],
+    queryFn: async () => {
+      // Try Dexie cache first (30 min TTL)
+      const cached = await db.entityInstanceMetadata.get(entityCode);
+      if (cached && Date.now() - cached.syncedAt < 30 * 60 * 1000) {
+        return cached;
+      }
+
+      // Fetch metadata-only from API (no data transferred)
+      const response = await apiClient.get(`/api/v1/${entityCode}`, {
+        params: { content: 'metadata' }
+      });
+
+      // Store in Dexie cache
+      const record = {
+        _id: entityCode,
+        entityCode,
+        fields: response.data.fields || [],
+        viewType: response.data.metadata?.entityListOfInstancesTable?.viewType ?? {},
+        editType: response.data.metadata?.entityListOfInstancesTable?.editType ?? {},
+        syncedAt: Date.now(),
+      };
+      await db.entityInstanceMetadata.put(record);
+      return record;
+    },
+    staleTime: 30 * 60 * 1000,
+  });
+}
+```
+
+### Routes with content=metadata Support
+
+| Route | Support |
+|-------|---------|
+| `GET /api/v1/project` | ✅ Implemented |
+| `GET /api/v1/{parent}/:id/{child}` | ✅ All child entity routes via factory |
+| Other entity LIST endpoints | ⏳ Add pattern to remaining routes |
 
 ---
 
@@ -824,6 +937,14 @@ Verified end-to-end flow for:
 
 ---
 
-**Document Version**: 1.1.0
+**Document Version**: 2.0.0
 **Author**: Claude (AI Assistant)
-**Review Status**: ✅ Implemented
+**Review Status**: ✅ Fully Implemented
+
+### Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0.0 | 2025-11-30 | Initial implementation with Redis field caching |
+| 1.1.0 | 2025-11-30 | Added resultFields fallback for empty data |
+| 2.0.0 | 2025-11-30 | Added `content=metadata` API parameter for metadata-only requests |

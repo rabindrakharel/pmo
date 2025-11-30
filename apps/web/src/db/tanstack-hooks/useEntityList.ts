@@ -2,11 +2,17 @@
 // useEntityList Hook
 // ============================================================================
 // Fetches entity list with TanStack Query + Dexie persistence
+// Stores data and metadata separately for efficiency
 // ============================================================================
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import { db, createEntityKey, createQueryHash } from '../dexie/database';
+import {
+  db,
+  createEntityInstanceKey,
+  createEntityInstanceDataKey,
+  createQueryHash,
+} from '../dexie/database';
 import { wsManager } from '../tanstack-sync/WebSocketManager';
 import { apiClient } from '../../lib/api';
 
@@ -81,12 +87,16 @@ export interface UseEntityListResult<T> {
 /**
  * Hook for fetching and subscribing to an entity list
  *
+ * TanStack Query Key: ['entityInstanceData', entityCode, params]
+ * Dexie Tables: entityInstanceData (data), entityInstanceMetadata (fields), entityInstance (names)
+ *
  * Features:
  * - Automatic pagination support
  * - Filtering and search via params
  * - Persistence to IndexedDB via Dexie
  * - Real-time updates via WebSocket subscription
  * - Auto-subscribe to all loaded entity IDs
+ * - Separates data and metadata storage
  *
  * @example
  * const { data, total, isLoading } = useEntityList<Project>('project', {
@@ -107,7 +117,7 @@ export function useEntityList<T = Record<string, unknown>>(
   const queryHash = useMemo(() => createQueryHash(params), [params]);
 
   const query = useQuery<EntityListResponse<T>, Error>({
-    queryKey: ['entity-list', entityCode, params],
+    queryKey: ['entityInstanceData', entityCode, params],
     queryFn: async () => {
       // Fetch from API
       const response = await apiClient.get(`/api/v1/${entityCode}`, { params });
@@ -115,34 +125,50 @@ export function useEntityList<T = Record<string, unknown>>(
 
       const items = apiData.data || [];
       const entityIds: string[] = [];
+      const now = Date.now();
 
-      // Persist individual entities to Dexie
-      for (const item of items as Array<{ id: string; version?: number }>) {
-        entityIds.push(item.id);
-
-        await db.entities.put({
-          _id: createEntityKey(entityCode, item.id),
+      // Store metadata ONCE per entity type (not per record)
+      if (apiData.metadata?.entityListOfInstancesTable) {
+        const metadataTable = apiData.metadata.entityListOfInstancesTable;
+        await db.entityInstanceMetadata.put({
+          _id: entityCode,
           entityCode,
-          entityId: item.id,
-          data: item,
-          metadata: apiData.metadata,
-          refData: apiData.ref_data_entityInstance,
-          version: item.version || Date.now(),
-          syncedAt: Date.now(),
-          isDeleted: false,
+          fields: Object.keys(metadataTable.viewType || {}),
+          viewType: metadataTable.viewType || {},
+          editType: metadataTable.editType || {},
+          syncedAt: now,
         });
       }
 
-      // Persist list query result
-      await db.entityLists.put({
-        _id: `${entityCode}:${queryHash}`,
+      // Collect entity IDs
+      for (const item of items as Array<{ id: string }>) {
+        entityIds.push(item.id);
+      }
+
+      // Persist entity instance names from ref_data_entityInstance
+      if (apiData.ref_data_entityInstance) {
+        for (const [refEntityCode, names] of Object.entries(apiData.ref_data_entityInstance)) {
+          for (const [id, name] of Object.entries(names as Record<string, string>)) {
+            await db.entityInstance.put({
+              _id: createEntityInstanceKey(refEntityCode, id),
+              entityCode: refEntityCode,
+              entityInstanceId: id,
+              entityInstanceName: name,
+              syncedAt: now,
+            });
+          }
+        }
+      }
+
+      // Persist list query result to entityInstanceData
+      await db.entityInstanceData.put({
+        _id: createEntityInstanceDataKey(entityCode, params),
         entityCode,
         queryHash,
         params,
-        entityIds,
+        data: items,
         total: apiData.total || items.length,
-        metadata: apiData.metadata,
-        syncedAt: Date.now(),
+        syncedAt: now,
       });
 
       return {
@@ -192,10 +218,78 @@ export function useEntityList<T = Record<string, unknown>>(
 }
 
 // ============================================================================
-// Infinite Query Hook (for load more patterns)
+// Entity Metadata Hook (for getting field metadata without data)
 // ============================================================================
 
-import { useInfiniteQuery } from '@tanstack/react-query';
+export interface UseEntityMetadataResult {
+  /** Field names */
+  fields: string[];
+  /** View type metadata */
+  viewType: Record<string, unknown>;
+  /** Edit type metadata */
+  editType: Record<string, unknown>;
+  /** Loading state */
+  isLoading: boolean;
+  /** Error state */
+  isError: boolean;
+}
+
+/**
+ * Hook for fetching entity field metadata only
+ *
+ * TanStack Query Key: ['entityInstanceMetadata', entityCode]
+ * Dexie Table: entityInstanceMetadata
+ *
+ * Uses content=metadata API parameter to get metadata without data transfer.
+ * This is more efficient than limit=1 as it skips the data query entirely.
+ */
+export function useEntityMetadata(entityCode: string): UseEntityMetadataResult {
+  const query = useQuery({
+    queryKey: ['entityInstanceMetadata', entityCode],
+    queryFn: async () => {
+      // Try Dexie cache first (30 min TTL)
+      const cached = await db.entityInstanceMetadata.get(entityCode);
+      if (cached && Date.now() - cached.syncedAt < 30 * 60 * 1000) {
+        return cached;
+      }
+
+      // Fetch metadata-only from API (no data transferred)
+      // Uses content=metadata parameter - skips data query on backend
+      const response = await apiClient.get(`/api/v1/${entityCode}`, {
+        params: { content: 'metadata' }
+      });
+
+      // Response always has same structure: data=[], fields, metadata, ref_data_entityInstance={}
+      const metadata = response.data.metadata?.entityListOfInstancesTable;
+      const fields = response.data.fields || [];
+
+      const record = {
+        _id: entityCode,
+        entityCode,
+        fields: fields.length > 0 ? fields : Object.keys(metadata?.viewType || {}),
+        viewType: metadata?.viewType || {},
+        editType: metadata?.editType || {},
+        syncedAt: Date.now(),
+      };
+
+      await db.entityInstanceMetadata.put(record);
+      return record;
+    },
+    staleTime: 30 * 60 * 1000, // 30 minutes
+  });
+
+  return {
+    fields: query.data?.fields ?? [],
+    viewType: query.data?.viewType ?? {},
+    editType: query.data?.editType ?? {},
+    isLoading: query.isLoading,
+    isError: query.isError,
+  };
+}
+
+// ============================================================================
+// Infinite Query Hook (for load more patterns)
+// ============================================================================
 
 export interface UseEntityInfiniteListResult<T> {
   /** Flattened array of all loaded pages */
@@ -240,24 +334,40 @@ export function useEntityInfiniteList<T = Record<string, unknown>>(
   const limit = params.limit || 20;
 
   const query = useInfiniteQuery<EntityListResponse<T>, Error>({
-    queryKey: ['entity-list-infinite', entityCode, params],
+    queryKey: ['entityInstanceData-infinite', entityCode, params],
     queryFn: async ({ pageParam = 0 }) => {
       const response = await apiClient.get(`/api/v1/${entityCode}`, {
         params: { ...params, limit, offset: pageParam },
       });
       const apiData = response.data;
+      const now = Date.now();
 
-      // Persist individual entities
-      for (const item of apiData.data || []) {
-        await db.entities.put({
-          _id: createEntityKey(entityCode, item.id),
+      // Store metadata ONCE per entity type (first page only)
+      if (apiData.metadata?.entityListOfInstancesTable && pageParam === 0) {
+        const metadataTable = apiData.metadata.entityListOfInstancesTable;
+        await db.entityInstanceMetadata.put({
+          _id: entityCode,
           entityCode,
-          entityId: item.id,
-          data: item,
-          version: item.version || Date.now(),
-          syncedAt: Date.now(),
-          isDeleted: false,
+          fields: Object.keys(metadataTable.viewType || {}),
+          viewType: metadataTable.viewType || {},
+          editType: metadataTable.editType || {},
+          syncedAt: now,
         });
+      }
+
+      // Store entity instance names
+      if (apiData.ref_data_entityInstance) {
+        for (const [refEntityCode, names] of Object.entries(apiData.ref_data_entityInstance)) {
+          for (const [id, name] of Object.entries(names as Record<string, string>)) {
+            await db.entityInstance.put({
+              _id: createEntityInstanceKey(refEntityCode, id),
+              entityCode: refEntityCode,
+              entityInstanceId: id,
+              entityInstanceName: name,
+              syncedAt: now,
+            });
+          }
+        }
       }
 
       return {

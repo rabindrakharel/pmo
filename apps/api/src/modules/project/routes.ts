@@ -144,7 +144,7 @@
 
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { db } from '@/db/index.js';
+import { db, client } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
 import {
   getUniversalColumnMetadata,
@@ -249,6 +249,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         parent_entity_code: Type.Optional(Type.String()),
         parent_entity_instance_id: Type.Optional(Type.String({ format: 'uuid' })),
         view: Type.Optional(Type.String()),  // 'entityListOfInstancesTable,kanbanView' or 'entityInstanceFormContainer'
+        content: Type.Optional(Type.String()),  // 'metadata' for metadata-only response (no data query)
       }),
       response: {
         200: Type.Object({
@@ -267,7 +268,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      search, limit = getEntityLimit(ENTITY_CODE), offset: queryOffset, page, parent_entity_code, parent_entity_instance_id, view
+      search, limit = getEntityLimit(ENTITY_CODE), offset: queryOffset, page, parent_entity_code, parent_entity_instance_id, view, content
     } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
@@ -278,7 +279,36 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
     try {
       // ═══════════════════════════════════════════════════════════════
-      // NEW PATTERN: Route builds SQL, gates augment it
+      // METADATA-ONLY MODE: Same query structure with WHERE 1=0
+      // Uses postgres.js .columns to get field metadata from query result
+      // ═══════════════════════════════════════════════════════════════
+      if (content === 'metadata') {
+        // Execute same query structure with 1=0 to get columns without data
+        const metadataQuery = `
+          SELECT DISTINCT ${TABLE_ALIAS}.*
+          FROM app.${ENTITY_CODE} ${TABLE_ALIAS}
+          WHERE 1=0
+        `;
+        const columnsResult = await client.unsafe(metadataQuery);
+        const resultFields = columnsResult.columns?.map((col: any) => ({ name: col.name })) || [];
+
+        // Parse requested components
+        const requestedComponents = view
+          ? view.split(',').map((v: string) => v.trim())
+          : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
+
+        // Generate metadata-only response
+        const response = await generateEntityResponse(ENTITY_CODE, [], {
+          components: requestedComponents,
+          metadataOnly: true,
+          resultFields
+        });
+
+        return reply.send(response);
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // NORMAL MODE: Route builds SQL, gates augment it
       // ═══════════════════════════════════════════════════════════════
 
       // Build JOINs array
@@ -366,26 +396,17 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(projects as Record<string, any>[]);
 
       // ═══════════════════════════════════════════════════════════════
-      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
-      // Parse requested view (convert view names to component names)
+      // ✨ BACKEND FORMATTER SERVICE - Normal mode returns data without metadata
       // ═══════════════════════════════════════════════════════════════
-      const requestedComponents = view
-        ? view.split(',').map((v: string) => v.trim())
-        : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
-
-      // Generate response with metadata for requested components only
       const response = await generateEntityResponse(ENTITY_CODE, projects, {
-        components: requestedComponents,
         total,
         limit,
-        offset
+        offset,
+        ref_data_entityInstance,
+        metadataOnly: false  // Normal mode: return data, metadata: {}
       });
 
-      // v8.3.0: Include ref_data_entityInstance in response for O(1) entity name lookups
-      return {
-        ...response,
-        ref_data_entityInstance,
-      };
+      return response;
     } catch (error) {
       fastify.log.error('Error fetching projects:', error as any);
       console.error('Full error details:', error);

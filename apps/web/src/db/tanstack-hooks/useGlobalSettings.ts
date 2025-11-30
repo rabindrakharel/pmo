@@ -7,7 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useCallback } from 'react';
-import { db, createMetadataKey } from '../dexie/database';
+import { db } from '../dexie/database';
 import { apiClient } from '../../lib/api';
 
 // ============================================================================
@@ -154,19 +154,22 @@ const DEFAULT_SETTINGS: GlobalSettings = {
  * const { settings, getSetting, isLoading } = useGlobalSettings();
  * const currencySymbol = getSetting('currency.symbol', '$');
  */
+/**
+ * TanStack Query Key: ['globalSetting']
+ * Dexie Table: globalSetting
+ */
 export function useGlobalSettings(): UseGlobalSettingsResult {
   const query = useQuery<GlobalSettings, Error>({
-    queryKey: ['globalSettings'],
+    queryKey: ['globalSetting'],
     queryFn: async () => {
       // Fetch from API
       const response = await apiClient.get('/api/v1/settings/global');
       const settings = response.data || DEFAULT_SETTINGS;
 
-      // Persist to Dexie
-      await db.metadata.put({
-        _id: createMetadataKey('globalSettings'),
-        type: 'globalSettings',
-        data: settings,
+      // Persist to Dexie globalSetting table
+      await db.globalSetting.put({
+        _id: 'settings',
+        settings,
         syncedAt: Date.now(),
       });
 
@@ -227,11 +230,10 @@ export async function prefetchGlobalSettings(): Promise<boolean> {
     const response = await apiClient.get('/api/v1/settings/global');
     const settings = response.data || DEFAULT_SETTINGS;
 
-    // Persist to Dexie
-    await db.metadata.put({
-      _id: createMetadataKey('globalSettings'),
-      type: 'globalSettings',
-      data: settings,
+    // Persist to Dexie globalSetting table
+    await db.globalSetting.put({
+      _id: 'settings',
+      settings,
       syncedAt: Date.now(),
     });
 
@@ -248,9 +250,9 @@ export async function prefetchGlobalSettings(): Promise<boolean> {
     console.error('[GlobalSettings] Prefetch failed:', error);
 
     // Fallback: Load from Dexie cache
-    const cached = await db.metadata.get(createMetadataKey('globalSettings'));
+    const cached = await db.globalSetting.get('settings');
     if (cached) {
-      globalSettingsSyncCache = cached.data as GlobalSettings;
+      globalSettingsSyncCache = cached.settings as GlobalSettings;
       return true;
     }
 

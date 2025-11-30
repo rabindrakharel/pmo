@@ -5,33 +5,16 @@
 // Includes sync cache for non-hook access
 // ============================================================================
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
-import { db, createMetadataKey } from '../dexie/database';
+import { db, createDatalabelKey, type DatalabelOption } from '../dexie/database';
 import { apiClient } from '../../lib/api';
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export interface DatalabelOption {
-  /** Unique ID */
-  id: number;
-  /** Display name */
-  name: string;
-  /** Description */
-  descr?: string;
-  /** Parent ID for hierarchical datalabels */
-  parent_id?: number | null;
-  /** Parent IDs for multi-level hierarchy */
-  parent_ids?: number[];
-  /** Display order */
-  sort_order: number;
-  /** Badge color code */
-  color_code?: string;
-  /** Active status */
-  active_flag?: boolean;
-}
+export type { DatalabelOption };
 
 export interface UseDatalabelResult {
   /** Array of datalabel options */
@@ -70,7 +53,7 @@ const datalabelSyncCache = new Map<string, DatalabelOption[]>();
  * const stages = getDatalabelSync('dl__project_stage'); // Same result
  */
 export function getDatalabelSync(key: string): DatalabelOption[] | null {
-  const normalizedKey = key.startsWith('dl__') ? key.slice(4) : key;
+  const normalizedKey = createDatalabelKey(key);
   return datalabelSyncCache.get(normalizedKey) ?? null;
 }
 
@@ -79,7 +62,7 @@ export function getDatalabelSync(key: string): DatalabelOption[] | null {
  * Called internally when data is fetched
  */
 export function setDatalabelSync(key: string, options: DatalabelOption[]): void {
-  const normalizedKey = key.startsWith('dl__') ? key.slice(4) : key;
+  const normalizedKey = createDatalabelKey(key);
   datalabelSyncCache.set(normalizedKey, options);
 }
 
@@ -98,6 +81,9 @@ export function clearDatalabelCache(): void {
 /**
  * Hook for fetching datalabel options
  *
+ * TanStack Query Key: ['datalabel', key]
+ * Dexie Table: datalabel
+ *
  * @param datalabelKey - Key like 'project_stage' or 'dl__project_stage'
  *
  * @example
@@ -108,7 +94,7 @@ export function useDatalabel(datalabelKey: string | null): UseDatalabelResult {
   // Normalize key (remove dl__ prefix)
   const normalizedKey = useMemo(() => {
     if (!datalabelKey) return null;
-    return datalabelKey.startsWith('dl__') ? datalabelKey.slice(4) : datalabelKey;
+    return createDatalabelKey(datalabelKey);
   }, [datalabelKey]);
 
   const query = useQuery<DatalabelOption[], Error>({
@@ -120,12 +106,11 @@ export function useDatalabel(datalabelKey: string | null): UseDatalabelResult {
       const response = await apiClient.get(`/api/v1/datalabel?name=${normalizedKey}`);
       const options = response.data?.data || response.data || [];
 
-      // Persist to Dexie
-      await db.metadata.put({
-        _id: createMetadataKey('datalabel', normalizedKey),
-        type: 'datalabel',
+      // Persist to Dexie datalabel table
+      await db.datalabel.put({
+        _id: normalizedKey,
         key: normalizedKey,
-        data: options,
+        options,
         syncedAt: Date.now(),
       });
 
@@ -195,12 +180,11 @@ export async function prefetchAllDatalabels(): Promise<number> {
       const key = dl.name;
       const options = dl.options || [];
 
-      // Persist to Dexie
-      await db.metadata.put({
-        _id: createMetadataKey('datalabel', key),
-        type: 'datalabel',
+      // Persist to Dexie datalabel table
+      await db.datalabel.put({
+        _id: key,
         key,
-        data: options,
+        options,
         syncedAt: now,
       });
 
@@ -218,15 +202,10 @@ export async function prefetchAllDatalabels(): Promise<number> {
     console.error('[Datalabel] Prefetch failed:', error);
 
     // Fallback: Load from Dexie cache
-    const cached = await db.metadata
-      .where('type')
-      .equals('datalabel')
-      .toArray();
+    const cached = await db.datalabel.toArray();
 
     for (const item of cached) {
-      if (item.key) {
-        setDatalabelSync(item.key, item.data as DatalabelOption[]);
-      }
+      setDatalabelSync(item.key, item.options);
     }
 
     return cached.length;
@@ -270,12 +249,11 @@ export function useAllDatalabels(): UseAllDatalabelsResult {
         const options = dl.options || [];
         result[key] = options;
 
-        // Persist to Dexie
-        await db.metadata.put({
-          _id: createMetadataKey('datalabel', key),
-          type: 'datalabel',
+        // Persist to Dexie datalabel table
+        await db.datalabel.put({
+          _id: key,
           key,
-          data: options,
+          options,
           syncedAt: now,
         });
 
@@ -291,7 +269,7 @@ export function useAllDatalabels(): UseAllDatalabelsResult {
 
   const getDatalabel = useCallback(
     (key: string): DatalabelOption[] | null => {
-      const normalizedKey = key.startsWith('dl__') ? key.slice(4) : key;
+      const normalizedKey = createDatalabelKey(key);
       return query.data?.[normalizedKey] ?? null;
     },
     [query.data]

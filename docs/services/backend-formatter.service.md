@@ -1,8 +1,8 @@
 # Backend Formatter Service (BFF)
 
-**Version:** 9.2.0 | **Location:** `apps/api/src/services/backend-formatter.service.ts` | **Updated:** 2025-11-30
+**Version:** 9.3.0 | **Location:** `apps/api/src/services/backend-formatter.service.ts` | **Updated:** 2025-11-30
 
-> **Note:** The backend formatter generates metadata consumed by the TanStack Query + Dexie frontend (v9.1.0). Field names are cached in Redis (24-hour TTL) to ensure metadata generation works even for empty result sets.
+> **Note:** The backend formatter generates metadata consumed by the TanStack Query + Dexie frontend (v9.3.0). Field names are cached in Redis (24-hour TTL) to ensure metadata generation works even for empty result sets. Supports `content=metadata` API parameter for metadata-only requests.
 
 ---
 
@@ -45,6 +45,55 @@ The Backend Formatter Service generates **component-aware field metadata** from 
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Unified API Response Structure (v9.3.0)
+
+The backend serves **both data and metadata from the same endpoint**. The response structure is **always identical** regardless of mode - only the values differ.
+
+### Single Endpoint, Two Modes
+
+| Mode | Request | Use Case |
+|------|---------|----------|
+| **Normal** | `GET /api/v1/project` | Full data + metadata |
+| **Metadata-only** | `GET /api/v1/project?content=metadata` | Field definitions only |
+
+### Response Structure (Always the Same)
+
+```typescript
+interface EntityAPIResponse {
+  data: any[];                    // Entity records ([] for metadata-only)
+  fields: string[];               // Field names (always populated)
+  metadata: {                     // Field definitions (always populated)
+    entityListOfInstancesTable: { viewType: {...}, editType: {...} },
+    entityInstanceFormContainer: { viewType: {...}, editType: {...} }
+  };
+  ref_data_entityInstance: Record<string, Record<string, string>>;  // Entity lookups ({} for metadata-only)
+  total: number;                  // Record count (0 for metadata-only)
+  limit: number;                  // Page size (0 for metadata-only)
+  offset: number;                 // Page offset (0 for metadata-only)
+}
+```
+
+### Comparison: Normal vs Metadata-Only
+
+| Field | Normal Mode | Metadata-Only Mode |
+|-------|-------------|-------------------|
+| `data` | `[{id: "...", name: "..."}]` | `[]` |
+| `fields` | `["id", "name", "code", ...]` | `["id", "name", "code", ...]` |
+| `metadata` | Full viewType/editType | Full viewType/editType |
+| `ref_data_entityInstance` | `{employee: {"uuid": "Name"}}` | `{}` |
+| `total` | `100` | `0` |
+| `limit` | `20` | `0` |
+| `offset` | `0` | `0` |
+
+### Why Same Structure?
+
+1. **Frontend simplicity**: Same TypeScript interface for both modes
+2. **Cache compatibility**: TanStack Query stores same shape
+3. **Graceful degradation**: Empty data still has metadata for table headers
+4. **Progressive loading**: Metadata first, data second
 
 ---
 
@@ -327,6 +376,82 @@ await clearAllFieldCache();
 
 ---
 
+## Content Parameter API (v9.3.0)
+
+The `content=metadata` query parameter allows frontend to request metadata-only responses without triggering data queries. This is used by `useEntityMetadata` hook for prefetching field metadata.
+
+### Request
+
+```
+GET /api/v1/project?content=metadata
+GET /api/v1/project?content=metadata&view=entityListOfInstancesTable,entityInstanceFormContainer
+```
+
+### Response Structure
+
+When `content=metadata` is specified, the response contains full metadata but empty data:
+
+```json
+{
+  "data": [],
+  "fields": ["id", "name", "code", "budget_allocated_amt", "dl__project_stage", "manager__employee_id"],
+  "ref_data_entityInstance": {},
+  "metadata": {
+    "entityListOfInstancesTable": {
+      "viewType": { ... },
+      "editType": { ... }
+    }
+  },
+  "total": 0,
+  "limit": 0,
+  "offset": 0
+}
+```
+
+### Route Implementation
+
+```typescript
+fastify.get('/api/v1/project', async (request, reply) => {
+  const { content, view } = request.query;
+
+  // Metadata-only mode - skip data query
+  if (content === 'metadata') {
+    const requestedComponents = view
+      ? view.split(',').map((v: string) => v.trim())
+      : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
+
+    const response = await generateEntityResponse(ENTITY_CODE, [], {
+      components: requestedComponents,
+      metadataOnly: true
+    });
+    return reply.send(response);
+  }
+
+  // Normal data fetch continues...
+});
+```
+
+### Frontend Hook Usage
+
+```typescript
+// apps/web/src/db/tanstack-hooks/useEntityList.ts
+export function useEntityMetadata(entityCode: string) {
+  return useQuery({
+    queryKey: ['entityInstanceMetadata', entityCode],
+    queryFn: async () => {
+      // Uses content=metadata - no data query on backend
+      const response = await apiClient.get(`/api/v1/${entityCode}`, {
+        params: { content: 'metadata' }
+      });
+      return response.data.metadata?.entityListOfInstancesTable;
+    },
+    staleTime: 30 * 60 * 1000,  // 30-minute TTL
+  });
+}
+```
+
+---
+
 ## Usage in Routes
 
 ### Standard Pattern with ref_data_entityInstance
@@ -391,7 +516,7 @@ const response = await generateEntityResponse(entityCode, Array.from(data), {
 
 ## Key Functions
 
-### generateEntityResponse (async - v9.2.0)
+### generateEntityResponse (async - v9.3.0)
 
 ```typescript
 async function generateEntityResponse(
@@ -403,8 +528,10 @@ async function generateEntityResponse(
     limit?: number;
     offset?: number;
     resultFields?: Array<{ name: string }>;  // PostgreSQL columns fallback
+    metadataOnly?: boolean;                   // Return metadata only (v9.3.0)
+    ref_data_entityInstance?: Record<string, Record<string, string>>;  // Entity references
   }
-): Promise<EntityResponse> {
+): Promise<EntityResponse & { ref_data_entityInstance: Record<string, Record<string, string>> }> {
   // Step 1: Check Redis cache
   const cachedFields = await getCachedFieldNames(entityCode);
 
@@ -426,8 +553,21 @@ async function generateEntityResponse(
     }
   }
 
+  // Metadata-only mode (v9.3.0)
+  if (metadataOnly) {
+    return {
+      data: [],
+      fields: fieldNames,
+      metadata,
+      ref_data_entityInstance: {},
+      total: 0,
+      limit: 0,
+      offset: 0
+    };
+  }
+
   const metadata = generateMetadataForComponents(fieldNames, components, entityCode);
-  return { data, fields: fieldNames, metadata, total, limit, offset };
+  return { data, fields: fieldNames, metadata, ref_data_entityInstance, total, limit, offset };
 }
 ```
 
@@ -581,9 +721,14 @@ This renders a dropdown with colored badges matching the datalabel options, usin
 
 ---
 
-**Version:** 9.2.0 | **Updated:** 2025-11-30
+**Version:** 9.3.0 | **Updated:** 2025-11-30
 
 **Recent Updates:**
+- v9.3.0 (2025-11-30):
+  - **`content=metadata` API parameter** - Metadata-only responses without data query
+  - **`metadataOnly` option** - Skip data in `generateEntityResponse()`
+  - **`useEntityMetadata` hook support** - Frontend uses 30-min TTL for metadata
+  - `ref_data_entityInstance` now included in return type signature
 - v9.2.0 (2025-11-30):
   - **Redis field name caching** - 24-hour TTL cache for entity field names
   - **`generateEntityResponse()` is now async** - all callers must use `await`

@@ -5,7 +5,7 @@
 // ============================================================================
 
 import { QueryClient } from '@tanstack/react-query';
-import { db, type CachedEntity } from '../dexie/database';
+import { db } from '../dexie/database';
 
 // ============================================================================
 // Query Client Instance
@@ -50,42 +50,79 @@ export const queryClient = new QueryClient({
 export async function hydrateQueryCache(): Promise<number> {
   const maxAge = 30 * 60 * 1000; // 30 minutes
   const now = Date.now();
+  let hydratedCount = 0;
 
   try {
-    // Hydrate entity cache - only non-stale, non-deleted entries
-    const entities = await db.entities
-      .filter((e) => !e.isDeleted && now - e.syncedAt < maxAge)
+    // Hydrate entity instance names (for reference lookups)
+    const entityInstances = await db.entityInstance
+      .filter((e) => now - e.syncedAt < maxAge)
       .toArray();
 
-    for (const entity of entities) {
-      queryClient.setQueryData(
-        ['entity', entity.entityCode, entity.entityId],
-        {
-          data: entity.data,
-          metadata: entity.metadata,
-          ref_data_entityInstance: entity.refData,
-        }
-      );
+    // Group by entityCode for efficient hydration
+    const instancesByCode = new Map<string, Record<string, string>>();
+    for (const instance of entityInstances) {
+      if (!instancesByCode.has(instance.entityCode)) {
+        instancesByCode.set(instance.entityCode, {});
+      }
+      instancesByCode.get(instance.entityCode)![instance.entityInstanceId] =
+        instance.entityInstanceName;
     }
 
-    // Hydrate metadata cache
-    const metadata = await db.metadata.toArray();
-    for (const meta of metadata) {
-      if (meta.type === 'datalabel' && meta.key) {
-        queryClient.setQueryData(['datalabel', meta.key], meta.data);
-      } else if (meta.type === 'entityCodes') {
-        queryClient.setQueryData(['entityCodes'], meta.data);
-      } else if (meta.type === 'globalSettings') {
-        queryClient.setQueryData(['globalSettings'], meta.data);
+    // Hydrate as entityInstance query data
+    for (const [entityCode, names] of instancesByCode.entries()) {
+      queryClient.setQueryData(['entityInstance', entityCode], names);
+    }
+    hydratedCount += entityInstances.length;
+
+    // Hydrate datalabels
+    const datalabels = await db.datalabel
+      .filter((d) => now - d.syncedAt < maxAge)
+      .toArray();
+
+    for (const datalabel of datalabels) {
+      queryClient.setQueryData(['datalabel', datalabel.key], datalabel.options);
+    }
+    hydratedCount += datalabels.length;
+
+    // Hydrate entity codes
+    const entityCodes = await db.entityCode.toArray();
+    if (entityCodes.length > 0) {
+      // Assuming single record with all entity codes
+      const allCodes = entityCodes[0];
+      if (allCodes?.codes) {
+        queryClient.setQueryData(['entityCode'], allCodes.codes);
       }
     }
 
+    // Hydrate global settings
+    const globalSettings = await db.globalSetting.toArray();
+    if (globalSettings.length > 0) {
+      const settings = globalSettings[0];
+      if (settings?.settings) {
+        queryClient.setQueryData(['globalSetting'], settings.settings);
+      }
+    }
+
+    // Hydrate entity instance metadata (field definitions per entity type)
+    const entityMetadata = await db.entityInstanceMetadata
+      .filter((m) => now - m.syncedAt < maxAge)
+      .toArray();
+
+    for (const meta of entityMetadata) {
+      queryClient.setQueryData(['entityInstanceMetadata', meta.entityCode], {
+        fields: meta.fields,
+        viewType: meta.viewType,
+        editType: meta.editType,
+      });
+    }
+    hydratedCount += entityMetadata.length;
+
     console.log(
-      `%c[QueryClient] Hydrated ${entities.length} entities, ${metadata.length} metadata from Dexie`,
+      `%c[QueryClient] Hydrated ${hydratedCount} records from Dexie (${entityInstances.length} instances, ${datalabels.length} datalabels, ${entityMetadata.length} metadata)`,
       'color: #51cf66; font-weight: bold'
     );
 
-    return entities.length;
+    return hydratedCount;
   } catch (error) {
     console.error('[QueryClient] Hydration failed:', error);
     return 0;
@@ -104,12 +141,16 @@ export async function clearAllCaches(): Promise<void> {
   // Clear TanStack Query cache
   queryClient.clear();
 
-  // Clear Dexie cache
+  // Clear Dexie cache (all tables except draft - drafts survive logout)
   await Promise.all([
-    db.entities.clear(),
-    db.entityLists.clear(),
-    db.metadata.clear(),
-    // Note: Drafts are NOT cleared - they survive logout
+    db.datalabel.clear(),
+    db.entityCode.clear(),
+    db.globalSetting.clear(),
+    db.entityInstanceData.clear(),
+    db.entityInstanceMetadata.clear(),
+    db.entityInstance.clear(),
+    db.entityLink.clear(),
+    // Note: draft table is NOT cleared - drafts survive logout
   ]);
 
   console.log('[QueryClient] All caches cleared');
@@ -124,16 +165,16 @@ export function invalidateEntityQueries(
   entityId?: string
 ): void {
   if (entityId) {
-    // Invalidate specific entity
+    // Invalidate specific entity instance
     queryClient.invalidateQueries({
-      queryKey: ['entity', entityCode, entityId],
+      queryKey: ['entityInstance', entityCode, entityId],
       refetchType: 'active',
     });
   }
 
   // Always invalidate list queries for this entity type
   queryClient.invalidateQueries({
-    queryKey: ['entity-list', entityCode],
+    queryKey: ['entityInstanceData', entityCode],
     refetchType: 'active',
   });
 }
@@ -148,7 +189,7 @@ export async function prefetchEntity(
   fetchFn: () => Promise<unknown>
 ): Promise<void> {
   await queryClient.prefetchQuery({
-    queryKey: ['entity', entityCode, entityId],
+    queryKey: ['entityInstance', entityCode, entityId],
     queryFn: fetchFn,
     staleTime: 5 * 60 * 1000,
   });
@@ -163,7 +204,7 @@ export function getCachedEntity<T = unknown>(
   entityId: string
 ): T | undefined {
   const data = queryClient.getQueryData<{ data: T }>([
-    'entity',
+    'entityInstance',
     entityCode,
     entityId,
   ]);
@@ -179,7 +220,7 @@ export function setCachedEntity<T = unknown>(
   entityId: string,
   data: T
 ): void {
-  queryClient.setQueryData(['entity', entityCode, entityId], { data });
+  queryClient.setQueryData(['entityInstance', entityCode, entityId], { data });
 }
 
 /**
@@ -188,7 +229,7 @@ export function setCachedEntity<T = unknown>(
  */
 export function removeCachedEntity(entityCode: string, entityId: string): void {
   queryClient.removeQueries({
-    queryKey: ['entity', entityCode, entityId],
+    queryKey: ['entityInstance', entityCode, entityId],
   });
 }
 
@@ -200,47 +241,69 @@ export function removeCachedEntity(entityCode: string, entityId: string): void {
  * Invalidate metadata cache by type
  * Used when datalabels, entity codes, or settings are updated
  *
- * @param type - Type of metadata: 'datalabel' | 'entity' | 'settings' | 'component'
- * @param key - Optional key for specific item (e.g., datalabel name)
+ * @param type - Type of metadata: 'datalabel' | 'entityCode' | 'globalSetting' | 'entityInstanceMetadata'
+ * @param key - Optional key for specific item (e.g., datalabel name or entity code)
  */
 export async function invalidateMetadataCache(
-  type: 'datalabel' | 'entity' | 'settings' | 'component',
+  type: 'datalabel' | 'entityCode' | 'globalSetting' | 'entityInstanceMetadata',
   key?: string
 ): Promise<void> {
   switch (type) {
     case 'datalabel':
       if (key) {
-        queryClient.invalidateQueries({ queryKey: ['datalabel', key], refetchType: 'active' });
+        queryClient.invalidateQueries({
+          queryKey: ['datalabel', key],
+          refetchType: 'active',
+        });
         // Remove from Dexie
-        await db.metadata.delete(`datalabel:${key}`);
+        await db.datalabel.delete(key);
       } else {
-        queryClient.invalidateQueries({ queryKey: ['datalabel'], refetchType: 'active' });
+        queryClient.invalidateQueries({
+          queryKey: ['datalabel'],
+          refetchType: 'active',
+        });
         // Remove all datalabels from Dexie
-        await db.metadata.where('type').equals('datalabel').delete();
+        await db.datalabel.clear();
       }
       break;
 
-    case 'entity':
-      queryClient.invalidateQueries({ queryKey: ['entityCodes'], refetchType: 'active' });
-      await db.metadata.delete('entityCodes');
+    case 'entityCode':
+      queryClient.invalidateQueries({
+        queryKey: ['entityCode'],
+        refetchType: 'active',
+      });
+      await db.entityCode.clear();
       break;
 
-    case 'settings':
-      queryClient.invalidateQueries({ queryKey: ['globalSettings'], refetchType: 'active' });
-      await db.metadata.delete('globalSettings');
+    case 'globalSetting':
+      queryClient.invalidateQueries({
+        queryKey: ['globalSetting'],
+        refetchType: 'active',
+      });
+      await db.globalSetting.clear();
       break;
 
-    case 'component':
+    case 'entityInstanceMetadata':
       if (key) {
-        // Invalidate component metadata for specific entity
-        queryClient.invalidateQueries({ queryKey: ['componentMetadata', key], refetchType: 'active' });
+        queryClient.invalidateQueries({
+          queryKey: ['entityInstanceMetadata', key],
+          refetchType: 'active',
+        });
+        await db.entityInstanceMetadata.delete(key);
       } else {
-        queryClient.invalidateQueries({ queryKey: ['componentMetadata'], refetchType: 'active' });
+        queryClient.invalidateQueries({
+          queryKey: ['entityInstanceMetadata'],
+          refetchType: 'active',
+        });
+        await db.entityInstanceMetadata.clear();
       }
       break;
   }
 
-  console.log(`%c[QueryClient] Metadata cache invalidated: ${type}${key ? `:${key}` : ''}`, 'color: #ff6b6b');
+  console.log(
+    `%c[QueryClient] Metadata cache invalidated: ${type}${key ? `:${key}` : ''}`,
+    'color: #ff6b6b'
+  );
 }
 
 /**
@@ -250,12 +313,20 @@ export async function invalidateMetadataCache(
 export async function clearAllMetadataCache(): Promise<void> {
   // Clear TanStack Query metadata caches
   queryClient.invalidateQueries({ queryKey: ['datalabel'], refetchType: 'all' });
-  queryClient.invalidateQueries({ queryKey: ['entityCodes'], refetchType: 'all' });
-  queryClient.invalidateQueries({ queryKey: ['globalSettings'], refetchType: 'all' });
-  queryClient.invalidateQueries({ queryKey: ['componentMetadata'], refetchType: 'all' });
+  queryClient.invalidateQueries({ queryKey: ['entityCode'], refetchType: 'all' });
+  queryClient.invalidateQueries({ queryKey: ['globalSetting'], refetchType: 'all' });
+  queryClient.invalidateQueries({
+    queryKey: ['entityInstanceMetadata'],
+    refetchType: 'all',
+  });
 
-  // Clear Dexie metadata table
-  await db.metadata.clear();
+  // Clear Dexie metadata tables
+  await Promise.all([
+    db.datalabel.clear(),
+    db.entityCode.clear(),
+    db.globalSetting.clear(),
+    db.entityInstanceMetadata.clear(),
+  ]);
 
   console.log('%c[QueryClient] All metadata caches cleared', 'color: #ff6b6b');
 }

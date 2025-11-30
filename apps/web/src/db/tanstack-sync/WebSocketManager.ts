@@ -6,7 +6,7 @@
 // ============================================================================
 
 import { queryClient, invalidateEntityQueries } from '../query/queryClient';
-import { db, createEntityKey, createEntityInstanceKey } from '../dexie/database';
+import { db, createEntityInstanceKey } from '../dexie/database';
 import {
   cacheAdapter,
   createInvalidationHandler,
@@ -328,7 +328,8 @@ class WebSocketManager {
     if (table === 'entity_instance' && action === 'DELETE' && entity_code && entity_instance_id) {
       const key = createEntityInstanceKey(entity_code, entity_instance_id);
       try {
-        await db.entityInstances.update(key, { isDeleted: true });
+        // Hard delete from entityInstance table (no isDeleted flag in new schema)
+        await db.entityInstance.delete(key);
       } catch {
         // May not exist
       }
@@ -426,21 +427,21 @@ class WebSocketManager {
   }
 
   private async handleDelete(entityCode: string, entityId: string): Promise<void> {
-    const cacheKey = createEntityKey(entityCode, entityId);
+    const cacheKey = createEntityInstanceKey(entityCode, entityId);
 
-    // Mark as deleted in Dexie
+    // Hard delete from Dexie entityInstance table (name lookup)
     try {
-      await db.entities.update(cacheKey, { isDeleted: true });
+      await db.entityInstance.delete(cacheKey);
     } catch {
       // Entity might not exist in Dexie
     }
 
     // Remove from TanStack Query cache
     queryClient.removeQueries({
-      queryKey: ['entity', entityCode, entityId],
+      queryKey: ['entityInstance', entityCode, entityId],
     });
 
-    // Invalidate list queries
+    // Invalidate list queries (uses new unified key)
     invalidateEntityQueries(entityCode);
   }
 

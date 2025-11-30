@@ -1049,6 +1049,10 @@ export function extractDatalabelKeys(metadata: EntityMetadata): string[] {
  * 4. Hydrate cache with field names
  * 5. Generate metadata
  *
+ * Supports two modes:
+ * - Normal mode: Returns data + fields + metadata + ref_data_entityInstance
+ * - Metadata-only mode (metadataOnly: true): Returns data=[] + fields + metadata + ref_data_entityInstance={}
+ *
  * @param entityCode - Entity type code
  * @param data - Array of entity data rows
  * @param options - Configuration options
@@ -1057,6 +1061,8 @@ export function extractDatalabelKeys(metadata: EntityMetadata): string[] {
  * @param options.limit - Page size
  * @param options.offset - Page offset
  * @param options.resultFields - PostgreSQL result columns (for empty data fallback)
+ * @param options.metadataOnly - If true, return empty data array with full metadata
+ * @param options.ref_data_entityInstance - Reference data for entity instance lookups
  */
 export async function generateEntityResponse(
   entityCode: string,
@@ -1067,50 +1073,53 @@ export async function generateEntityResponse(
     limit?: number;
     offset?: number;
     resultFields?: Array<{ name: string }>;
+    metadataOnly?: boolean;
+    ref_data_entityInstance?: Record<string, Record<string, string>>;
   } = {}
-): Promise<EntityResponse> {
+): Promise<EntityResponse & { ref_data_entityInstance: Record<string, Record<string, string>> }> {
   const {
     components = ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'],
     total = data.length,
     limit = 20,
     offset = 0,
-    resultFields = []
+    resultFields = [],
+    metadataOnly = false,
+    ref_data_entityInstance = {}
   } = options;
 
-  let fieldNames: string[];
+  // ═══════════════════════════════════════════════════════════════
+  // METADATA-ONLY MODE: Return fields + metadata, data = []
+  // Field names come from resultFields (query columns via postgres.js)
+  // ═══════════════════════════════════════════════════════════════
+  if (metadataOnly) {
+    // Extract field names from resultFields (postgres.js query columns)
+    const fieldNames = resultFields.length > 0
+      ? resultFields.map(f => f.name)
+      : [];
 
-  // Step 1: Check Redis cache
-  const cachedFields = await getCachedFieldNames(entityCode);
+    // Generate metadata for requested components
+    const metadata = generateMetadataForComponents(fieldNames, components, entityCode);
 
-  if (cachedFields) {
-    // Cache hit - use cached field names
-    fieldNames = cachedFields;
-  } else {
-    // Cache miss - extract field names
-    if (data.length > 0) {
-      // Extract from first data row
-      fieldNames = Object.keys(data[0]);
-    } else if (resultFields.length > 0) {
-      // Extract from PostgreSQL result columns (empty data case)
-      fieldNames = resultFields.map(f => f.name);
-    } else {
-      // Fallback - no fields available
-      fieldNames = [];
-    }
-
-    // Hydrate cache (only if we have field names)
-    if (fieldNames.length > 0) {
-      await cacheFieldNames(entityCode, fieldNames);
-    }
+    return {
+      data: [],
+      fields: fieldNames,
+      metadata,
+      ref_data_entityInstance: {},
+      total: 0,
+      limit: 0,
+      offset: 0
+    };
   }
 
-  // Step 2: Generate metadata for requested components
-  const metadata = generateMetadataForComponents(fieldNames, components, entityCode);
-
+  // ═══════════════════════════════════════════════════════════════
+  // NORMAL DATA MODE: Return data, metadata = {}, fields = []
+  // Data endpoint should NOT return metadata
+  // ═══════════════════════════════════════════════════════════════
   return {
     data,
-    fields: fieldNames,
-    metadata,
+    fields: [],
+    metadata: {},
+    ref_data_entityInstance,
     total,
     limit,
     offset

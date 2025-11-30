@@ -11,7 +11,17 @@ import type {
   LinkForwardIndex,
   LinkReverseIndex,
 } from './types';
-import type { EntityLinkForwardRecord, EntityLinkReverseRecord } from '../dexie/database';
+
+// In-memory link record types (includes metadata for cache management)
+interface LinkForwardRecord extends LinkForwardIndex {
+  _id: string;
+  syncedAt: number;
+}
+
+interface LinkReverseRecord extends LinkReverseIndex {
+  _id: string;
+  syncedAt: number;
+}
 
 // ============================================================================
 // Layer 1: Entity Codes Store
@@ -115,22 +125,22 @@ class EntityInstancesStore {
 // ============================================================================
 
 class EntityLinksStore {
-  private forward = new Map<string, EntityLinkForwardRecord>();
-  private reverse = new Map<string, EntityLinkReverseRecord>();
+  private forward = new Map<string, LinkForwardRecord>();
+  private reverse = new Map<string, LinkReverseRecord>();
 
   // Forward index operations
-  setForward(key: string, record: EntityLinkForwardRecord): void {
+  setForward(key: string, record: LinkForwardRecord): void {
     this.forward.set(key, record);
   }
 
-  setForwardBulk(records: EntityLinkForwardRecord[]): void {
+  setForwardBulk(records: LinkForwardRecord[]): void {
     this.forward.clear();
     for (const record of records) {
       this.forward.set(record._id, record);
     }
   }
 
-  getForward(key: string): EntityLinkForwardRecord | null {
+  getForward(key: string): LinkForwardRecord | null {
     return this.forward.get(key) ?? null;
   }
 
@@ -144,18 +154,18 @@ class EntityLinksStore {
   }
 
   // Reverse index operations
-  setReverse(key: string, record: EntityLinkReverseRecord): void {
+  setReverse(key: string, record: LinkReverseRecord): void {
     this.reverse.set(key, record);
   }
 
-  setReverseBulk(records: EntityLinkReverseRecord[]): void {
+  setReverseBulk(records: LinkReverseRecord[]): void {
     this.reverse.clear();
     for (const record of records) {
       this.reverse.set(record._id, record);
     }
   }
 
-  getReverse(key: string): EntityLinkReverseRecord | null {
+  getReverse(key: string): LinkReverseRecord | null {
     return this.reverse.get(key) ?? null;
   }
 
