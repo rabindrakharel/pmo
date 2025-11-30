@@ -1,120 +1,632 @@
 # Entity Infrastructure Service
 
-**Version:** 9.3.0 | **Location:** `apps/api/src/services/entity-infrastructure.service.ts`
+> Complete reference for transactional CRUD, RBAC enforcement, entity reference resolution, and infrastructure table management. Central service for all entity operations.
 
-> **Note:** The entity infrastructure service generates `ref_data_entityInstance` lookup tables that are cached in TanStack Query + Dexie v4 (IndexedDB) on the frontend for offline entity reference resolution. Frontend uses `entityInstance` table in Dexie for persistence.
-
----
-
-## Semantics
-
-The Entity Infrastructure Service provides **transactional CRUD operations** and centralized management of the 4 infrastructure tables that support all entities. All multi-step operations are wrapped in database transactions to ensure atomicity.
-
-**Core Principle:** All infrastructure operations (CREATE, UPDATE, DELETE) execute in a single transaction. If ANY step fails, ALL changes roll back.
+**Version**: 5.0.0
+**Location**: `apps/api/src/services/entity-infrastructure.service.ts`
+**Last Updated**: 2025-11-30
+**Status**: Production Ready
 
 ---
 
-## System Design Diagram
+## Table of Contents
+
+1. [Architecture Overview](#architecture-overview)
+2. [End-to-End Data Flow](#end-to-end-data-flow)
+3. [Infrastructure Tables](#infrastructure-tables)
+4. [Transactional CRUD](#transactional-crud)
+5. [RBAC System](#rbac-system)
+6. [Entity Reference Resolution](#entity-reference-resolution)
+7. [Use Case Matrix](#use-case-matrix)
+8. [API Reference](#api-reference)
+9. [Integration Patterns](#integration-patterns)
+10. [Error Handling](#error-handling)
+
+---
+
+## Architecture Overview
+
+### System Design Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    ENTITY INFRASTRUCTURE SERVICE                         │
-│                     (Transactional CRUD Pattern)                         │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                   4 Infrastructure Tables                        │    │
-│  ├─────────────┬──────────────────┬──────────────────┬─────────────┤    │
-│  │   entity    │ entity_instance  │ entity_instance  │ entity_rbac │    │
-│  │  (types)    │    (registry)    │     _link        │ (permissions│    │
-│  │             │                  │  (relationships) │             │    │
-│  └─────────────┴──────────────────┴──────────────────┴─────────────┘    │
-│         │                │                 │                │            │
-│         v                v                 v                v            │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │               Transactional Service Methods                      │    │
-│  │  ┌───────────────┐ ┌───────────────┐ ┌───────────────┐          │    │
-│  │  │ create_entity │ │ update_entity │ │ delete_entity │          │    │
-│  │  │ (4 ops in 1)  │ │ (2 ops in 1)  │ │ (4 ops in 1)  │          │    │
-│  │  └───────────────┘ └───────────────┘ └───────────────┘          │    │
-│  │                                                                  │    │
-│  │  ┌───────────────────────────────────────────────────────────┐  │    │
-│  │  │ build_ref_data_entityInstance() - Entity reference resolution (v8.3.0)   │  │    │
-│  │  └───────────────────────────────────────────────────────────┘  │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                              │                                          │
-└──────────────────────────────│──────────────────────────────────────────┘
-                               │
-                               v
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         ROUTE HANDLERS                                   │
-│              (Call Transactional Methods)                                │
-├─────────────────────────────────────────────────────────────────────────┤
-│  POST   → create_entity()   (INSERT + registry + RBAC + link)           │
-│  PATCH  → update_entity()   (UPDATE + registry sync)                    │
-│  DELETE → delete_entity()   (DELETE + registry + links + RBAC)          │
-│  GET    → check_entity_rbac() + get_entity_rbac_where_condition()       │
-│        → build_ref_data_entityInstance()   (Entity reference lookup table)             │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    ENTITY INFRASTRUCTURE SERVICE                             │
+│                     (Transactional CRUD Pattern)                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │                   4 INFRASTRUCTURE TABLES                                ││
+│  ├──────────────────┬───────────────────┬──────────────────┬───────────────┤│
+│  │     entity       │  entity_instance  │ entity_instance  │  entity_rbac  ││
+│  │   (type meta)    │    (registry)     │     _link        │ (permissions) ││
+│  │                  │                   │  (relationships) │               ││
+│  │  HAS active_flag │  NO active_flag   │  NO active_flag  │ NO active_flag││
+│  │  (soft delete)   │  (HARD DELETE)    │  (HARD DELETE)   │ (HARD DELETE) ││
+│  └──────────────────┴───────────────────┴──────────────────┴───────────────┘│
+│                                     │                                        │
+│                                     ▼                                        │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │                    TRANSACTIONAL SERVICE METHODS                         ││
+│  ├─────────────────────────────────────────────────────────────────────────┤│
+│  │                                                                          ││
+│  │   create_entity()          update_entity()          delete_entity()      ││
+│  │   ───────────────          ───────────────          ───────────────      ││
+│  │   • INSERT primary         • UPDATE primary         • DELETE/deactivate  ││
+│  │   • INSERT registry        • SYNC registry          • DELETE registry    ││
+│  │   • INSERT OWNER RBAC      • (tx wrapper)           • DELETE all links   ││
+│  │   • INSERT link (parent)                            • DELETE all RBAC    ││
+│  │   • (ALL in 1 transaction)                          • (ALL in 1 tx)      ││
+│  │                                                                          ││
+│  │   ─────────────────────────────────────────────────────────────────────  ││
+│  │                                                                          ││
+│  │   build_ref_data_entityInstance()    check_entity_rbac()                 ││
+│  │   ─────────────────────────────────  ────────────────────                ││
+│  │   • Scan rows for *_id fields        • Check user permission             ││
+│  │   • Batch resolve from registry      • 4-source resolution               ││
+│  │   • Return {entity: {uuid: name}}    • Return boolean                    ││
+│  │                                                                          ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                     │                                        │
+└─────────────────────────────────────│────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           ROUTE HANDLERS                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  POST   /api/v1/{entity}    → create_entity()                               │
+│  PATCH  /api/v1/{entity}/:id → update_entity()                              │
+│  DELETE /api/v1/{entity}/:id → delete_entity()                              │
+│  GET    /api/v1/{entity}     → get_entity_rbac_where_condition()            │
+│                             → build_ref_data_entityInstance()                │
+│  GET    /api/v1/{entity}/:id → check_entity_rbac()                          │
+│                             → build_ref_data_entityInstance()                │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Core Design Principles
+
+| Principle | Description |
+|-----------|-------------|
+| **Transactional Safety** | All multi-step operations execute in ONE transaction |
+| **No Orphan Records** | If ANY step fails, ALL changes roll back |
+| **Hard Delete Infrastructure** | `entity_instance`, `entity_instance_link`, `entity_rbac` always HARD delete |
+| **Soft Delete Primary** | Primary entity tables use `active_flag` for soft delete |
+| **No Foreign Keys** | All relationships via `entity_instance_link` (not FK constraints) |
+| **ref_data_entityInstance Pattern** | Entity references resolved via batch lookup, not per-row |
+
+---
+
+## End-to-End Data Flow
+
+### CREATE Operation Flow
+
+```
+┌──────────┐     ┌───────────────┐     ┌────────────────────┐     ┌──────────┐
+│  Client  │     │ Route Handler │     │ Entity Infra Svc   │     │ Database │
+└────┬─────┘     └───────┬───────┘     └──────────┬─────────┘     └────┬─────┘
+     │                   │                        │                    │
+     │ POST /api/v1/project                       │                    │
+     │   { name, code, parent_id }                │                    │
+     │──────────────────>│                        │                    │
+     │                   │                        │                    │
+     │                   │ check_entity_rbac(CREATE)                   │
+     │                   │───────────────────────>│                    │
+     │                   │                        │  Query entity_rbac │
+     │                   │                        │───────────────────>│
+     │                   │                        │    true/false      │
+     │                   │<───────────────────────│<───────────────────│
+     │                   │                        │                    │
+     │                   │ (if parent) check_entity_rbac(EDIT parent)  │
+     │                   │───────────────────────>│                    │
+     │                   │<───────────────────────│                    │
+     │                   │                        │                    │
+     │                   │ create_entity({...})   │                    │
+     │                   │───────────────────────>│                    │
+     │                   │                        │                    │
+     │                   │                        │  BEGIN TRANSACTION │
+     │                   │                        │───────────────────>│
+     │                   │                        │                    │
+     │                   │                        │ 1. INSERT project  │
+     │                   │                        │───────────────────>│
+     │                   │                        │                    │
+     │                   │                        │ 2. INSERT entity_instance
+     │                   │                        │───────────────────>│
+     │                   │                        │                    │
+     │                   │                        │ 3. INSERT entity_rbac (OWNER)
+     │                   │                        │───────────────────>│
+     │                   │                        │                    │
+     │                   │                        │ 4. INSERT entity_link (if parent)
+     │                   │                        │───────────────────>│
+     │                   │                        │                    │
+     │                   │                        │  COMMIT            │
+     │                   │                        │───────────────────>│
+     │                   │                        │                    │
+     │                   │     { entity, rbac_granted, link_created }  │
+     │                   │<───────────────────────│                    │
+     │                   │                        │                    │
+     │ 201 Created { id, name, code, ... }        │                    │
+     │<──────────────────│                        │                    │
+```
+
+### DELETE Operation Flow
+
+```
+┌──────────┐     ┌───────────────┐     ┌────────────────────┐     ┌──────────┐
+│  Client  │     │ Route Handler │     │ Entity Infra Svc   │     │ Database │
+└────┬─────┘     └───────┬───────┘     └──────────┬─────────┘     └────┬─────┘
+     │                   │                        │                    │
+     │ DELETE /api/v1/project/:id                 │                    │
+     │──────────────────>│                        │                    │
+     │                   │                        │                    │
+     │                   │ delete_entity({        │                    │
+     │                   │   entity_code, id,     │                    │
+     │                   │   user_id,             │                    │
+     │                   │   hard_delete: false   │                    │
+     │                   │ })                     │                    │
+     │                   │───────────────────────>│                    │
+     │                   │                        │                    │
+     │                   │                        │ check_entity_rbac(DELETE)
+     │                   │                        │───────────────────>│
+     │                   │                        │<───────────────────│
+     │                   │                        │                    │
+     │                   │                        │  BEGIN TRANSACTION │
+     │                   │                        │───────────────────>│
+     │                   │                        │                    │
+     │                   │                        │ 1. UPDATE project SET active_flag=false
+     │                   │                        │    (soft delete primary)
+     │                   │                        │───────────────────>│
+     │                   │                        │                    │
+     │                   │                        │ 2. DELETE FROM entity_instance
+     │                   │                        │    (HARD delete)
+     │                   │                        │───────────────────>│
+     │                   │                        │                    │
+     │                   │                        │ 3. DELETE FROM entity_instance_link
+     │                   │                        │    WHERE parent OR child
+     │                   │                        │    (HARD delete all links)
+     │                   │                        │───────────────────>│
+     │                   │                        │                    │
+     │                   │                        │ 4. DELETE FROM entity_rbac
+     │                   │                        │    (HARD delete all permissions)
+     │                   │                        │───────────────────>│
+     │                   │                        │                    │
+     │                   │                        │  COMMIT            │
+     │                   │                        │───────────────────>│
+     │                   │                        │                    │
+     │                   │     { success: true, linkages_deleted: 3 }  │
+     │                   │<───────────────────────│                    │
+     │                   │                        │                    │
+     │ 200 OK { success: true }                   │                    │
+     │<──────────────────│                        │                    │
+```
+
+### LIST with RBAC + ref_data Flow
+
+```
+┌──────────┐     ┌───────────────┐     ┌────────────────────┐     ┌──────────┐
+│  Client  │     │ Route Handler │     │ Entity Infra Svc   │     │ Database │
+└────┬─────┘     └───────┬───────┘     └──────────┬─────────┘     └────┬─────┘
+     │                   │                        │                    │
+     │ GET /api/v1/project                        │                    │
+     │──────────────────>│                        │                    │
+     │                   │                        │                    │
+     │                   │ get_entity_rbac_where_condition(           │
+     │                   │   userId, 'project', VIEW, 'e'              │
+     │                   │ )                      │                    │
+     │                   │───────────────────────>│                    │
+     │                   │                        │ Build RBAC SQL     │
+     │                   │                        │ (4 source join)    │
+     │                   │     SQL<WHERE clause>  │                    │
+     │                   │<───────────────────────│                    │
+     │                   │                        │                    │
+     │                   │ SELECT * FROM project WHERE {rbac} AND active_flag
+     │                   │─────────────────────────────────────────────>
+     │                   │                        │                    │
+     │                   │                        │     [rows]         │
+     │                   │<─────────────────────────────────────────────
+     │                   │                        │                    │
+     │                   │ build_ref_data_entityInstance(rows)         │
+     │                   │───────────────────────>│                    │
+     │                   │                        │ Extract *_id UUIDs │
+     │                   │                        │ Batch query registry
+     │                   │                        │───────────────────>│
+     │                   │                        │                    │
+     │                   │                        │ {employee:{...}}   │
+     │                   │<───────────────────────│<───────────────────│
+     │                   │                        │                    │
+     │ { data: [...], ref_data_entityInstance: {...} }                 │
+     │<──────────────────│                        │                    │
 ```
 
 ---
 
-## Entity Reference Resolution (v8.3.0)
+## Infrastructure Tables
+
+### Table Schema Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         INFRASTRUCTURE TABLES                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  entity (type metadata)                                                      │
+│  ──────────────────────                                                      │
+│  ┌─────────────┬─────────────┬────────────────────────────────────────────┐ │
+│  │ Column      │ Type        │ Description                                │ │
+│  ├─────────────┼─────────────┼────────────────────────────────────────────┤ │
+│  │ id          │ UUID        │ Primary key                                │ │
+│  │ code        │ VARCHAR(50) │ Entity type code ('project', 'task')       │ │
+│  │ name        │ VARCHAR(255)│ Display name                               │ │
+│  │ icon        │ VARCHAR(50) │ UI icon name                               │ │
+│  │ child_entity_codes │ JSONB│ Allowed child types ["task","artifact"]    │ │
+│  │ active_flag │ BOOLEAN     │ Soft delete flag                           │ │
+│  └─────────────┴─────────────┴────────────────────────────────────────────┘ │
+│                                                                              │
+│  entity_instance (registry)                           NO active_flag!       │
+│  ──────────────────────────                                                  │
+│  ┌─────────────────────────┬────────────┬────────────────────────────────┐  │
+│  │ Column                  │ Type       │ Description                    │  │
+│  ├─────────────────────────┼────────────┼────────────────────────────────┤  │
+│  │ id                      │ UUID       │ Primary key                    │  │
+│  │ entity_code             │ VARCHAR    │ Entity type code               │  │
+│  │ entity_instance_id      │ UUID       │ References primary table row   │  │
+│  │ entity_instance_name    │ VARCHAR    │ Cached display name            │  │
+│  │ instance_code           │ VARCHAR    │ Cached business code           │  │
+│  └─────────────────────────┴────────────┴────────────────────────────────┘  │
+│                                                                              │
+│  entity_instance_link (relationships)                 NO active_flag!       │
+│  ────────────────────────────────────                                        │
+│  ┌─────────────────────────────┬────────────┬────────────────────────────┐  │
+│  │ Column                      │ Type       │ Description                │  │
+│  ├─────────────────────────────┼────────────┼────────────────────────────┤  │
+│  │ id                          │ UUID       │ Primary key                │  │
+│  │ entity_code                 │ VARCHAR    │ Parent entity type         │  │
+│  │ entity_instance_id          │ UUID       │ Parent entity UUID         │  │
+│  │ child_entity_code           │ VARCHAR    │ Child entity type          │  │
+│  │ child_entity_instance_id    │ UUID       │ Child entity UUID          │  │
+│  │ relationship_type           │ VARCHAR    │ 'contains', 'references'   │  │
+│  └─────────────────────────────┴────────────┴────────────────────────────┘  │
+│                                                                              │
+│  entity_rbac (permissions)                            NO active_flag!       │
+│  ─────────────────────────                                                   │
+│  ┌─────────────────────────┬────────────┬────────────────────────────────┐  │
+│  │ Column                  │ Type       │ Description                    │  │
+│  ├─────────────────────────┼────────────┼────────────────────────────────┤  │
+│  │ id                      │ UUID       │ Primary key                    │  │
+│  │ person_id               │ UUID       │ User or role UUID              │  │
+│  │ person_code             │ VARCHAR    │ 'employee' or 'role'           │  │
+│  │ entity_code             │ VARCHAR    │ Entity type code               │  │
+│  │ entity_instance_id      │ UUID       │ Specific entity or ALL_ENTITIES_ID│
+│  │ permission              │ INTEGER    │ 0-7 permission level           │  │
+│  └─────────────────────────┴────────────┴────────────────────────────────┘  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Delete Semantics Matrix
+
+| Table | Delete Type | Mechanism | Reason |
+|-------|-------------|-----------|--------|
+| `entity` | Soft delete | `active_flag = false` | Type metadata preserved for audit |
+| `entity_instance` | **HARD DELETE** | `DELETE FROM` | Registry must stay in sync |
+| `entity_instance_link` | **HARD DELETE** | `DELETE FROM` | Orphan links break queries |
+| `entity_rbac` | **HARD DELETE** | `DELETE FROM` | Orphan permissions cause security issues |
+| Primary tables (project, task, etc.) | Soft delete | `active_flag = false` | Business data preserved |
+
+---
+
+## Transactional CRUD
+
+### Transaction Guarantees
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      TRANSACTION ATOMICITY                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  create_entity() Transaction:                                                │
+│  ─────────────────────────────                                               │
+│  BEGIN                                                                       │
+│  ├── 1. INSERT INTO app.project (...) RETURNING *                           │
+│  │       → Get new entity ID                                                 │
+│  │                                                                           │
+│  ├── 2. INSERT INTO app.entity_instance (...)                               │
+│  │       → Register in global lookup                                         │
+│  │                                                                           │
+│  ├── 3. INSERT INTO app.entity_rbac (...) permission = OWNER                │
+│  │       → Grant creator full control                                        │
+│  │                                                                           │
+│  └── 4. INSERT INTO app.entity_instance_link (...) IF parent provided       │
+│          → Link to parent entity                                             │
+│  COMMIT                                                                      │
+│                                                                              │
+│  If ANY step fails → ROLLBACK ALL → No partial state                        │
+│                                                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  delete_entity() Transaction:                                                │
+│  ─────────────────────────────                                               │
+│  BEGIN                                                                       │
+│  ├── 1. UPDATE app.project SET active_flag = false (or DELETE if hard)      │
+│  │       → Deactivate primary record                                         │
+│  │                                                                           │
+│  ├── 2. DELETE FROM app.entity_instance WHERE entity_instance_id = :id      │
+│  │       → Remove from global lookup (HARD DELETE)                           │
+│  │                                                                           │
+│  ├── 3. DELETE FROM app.entity_instance_link                                │
+│  │       WHERE (entity_instance_id = :id) OR (child_entity_instance_id = :id)
+│  │       → Remove as parent AND as child (HARD DELETE)                       │
+│  │                                                                           │
+│  └── 4. DELETE FROM app.entity_rbac WHERE entity_instance_id = :id          │
+│          → Remove all permissions (HARD DELETE)                              │
+│  COMMIT                                                                      │
+│                                                                              │
+│  If ANY step fails → ROLLBACK ALL → Entity preserved                        │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Method Signatures
+
+```typescript
+// ═══════════════════════════════════════════════════════════════════════════
+// create_entity - Transactional CREATE
+// ═══════════════════════════════════════════════════════════════════════════
+
+async create_entity<T>(params: {
+  entity_code: string;           // Entity TYPE code ('project', 'task')
+  creator_id: string;            // User UUID
+  parent_entity_code?: string;   // Parent entity TYPE code
+  parent_entity_id?: string;     // Parent entity UUID
+  relationship_type?: string;    // Default: 'contains'
+  primary_table: string;         // e.g., 'app.project'
+  primary_data: T;               // Data to insert
+  name_field?: string;           // Default: 'name' - field for display name
+  code_field?: string;           // Default: 'code' - field for business code
+}): Promise<{
+  entity: T & { id: string };
+  entity_instance: EntityInstance;
+  rbac_granted: boolean;
+  link_created: boolean;
+  link?: EntityLink;
+}>
+
+// ═══════════════════════════════════════════════════════════════════════════
+// update_entity - Transactional UPDATE
+// ═══════════════════════════════════════════════════════════════════════════
+
+async update_entity<T>(params: {
+  entity_code: string;           // Entity TYPE code
+  entity_id: string;             // Entity instance UUID
+  primary_table: string;         // e.g., 'app.project'
+  primary_updates: Partial<T>;   // Fields to update
+  name_field?: string;           // Default: 'name' - syncs to registry
+  code_field?: string;           // Default: 'code' - syncs to registry
+}): Promise<{
+  entity: T & { id: string };
+  registry_synced: boolean;
+}>
+
+// ═══════════════════════════════════════════════════════════════════════════
+// delete_entity - Transactional DELETE
+// ═══════════════════════════════════════════════════════════════════════════
+
+async delete_entity(params: {
+  entity_code: string;           // Entity TYPE code
+  entity_id: string;             // Entity instance UUID
+  user_id: string;               // User UUID for RBAC check
+  primary_table: string;         // e.g., 'app.project'
+  hard_delete?: boolean;         // Default: false (soft delete PRIMARY only)
+  skip_rbac_check?: boolean;     // Default: false
+}): Promise<{
+  success: boolean;
+  entity_deleted: boolean;
+  registry_deleted: boolean;      // Always HARD DELETE
+  linkages_deleted: number;       // Always HARD DELETE
+  rbac_entries_deleted: number;   // Always HARD DELETE
+}>
+```
+
+---
+
+## RBAC System
+
+### Permission Levels
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PERMISSION HIERARCHY                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Level  Name        Description                 Implies                     │
+│  ─────  ────        ───────────                 ───────                     │
+│    0    VIEW        Read-only access            -                           │
+│    1    COMMENT     Add comments                VIEW                        │
+│    2    CONTRIBUTE  Insert form data            COMMENT, VIEW               │
+│    3    EDIT        Modify entity               CONTRIBUTE, COMMENT, VIEW   │
+│    4    SHARE       Share with others           EDIT + below                │
+│    5    DELETE      Soft delete                 SHARE + below               │
+│    6    CREATE      Create new (type-level)     DELETE + below              │
+│    7    OWNER       Full control                ALL                         │
+│                                                                              │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  Permission Check: hasPermission(user, required) = user.level >= required   │
+│                                                                              │
+│  Example: User has EDIT (3)                                                 │
+│    ✓ Can VIEW (0)                                                           │
+│    ✓ Can COMMENT (1)                                                        │
+│    ✓ Can CONTRIBUTE (2)                                                     │
+│    ✓ Can EDIT (3)                                                           │
+│    ✗ Cannot SHARE (4)                                                       │
+│    ✗ Cannot DELETE (5)                                                      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Permission Resolution (4 Sources)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    PERMISSION RESOLUTION FLOW                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  check_entity_rbac(userId, 'project', projectId, Permission.EDIT)           │
+│                                      │                                       │
+│                                      ▼                                       │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │               QUERY 4 PERMISSION SOURCES                              │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                      │                                       │
+│     ┌────────────────────────────────┼────────────────────────────────┐     │
+│     │                                │                                │     │
+│     ▼                                ▼                                ▼     │
+│  ┌─────────────────┐   ┌─────────────────────┐   ┌─────────────────────┐   │
+│  │ SOURCE 1:       │   │ SOURCE 2:           │   │ SOURCE 3:           │   │
+│  │ Direct Employee │   │ Role-Based          │   │ Parent-VIEW         │   │
+│  │ Permissions     │   │ Permissions         │   │ Inheritance         │   │
+│  ├─────────────────┤   ├─────────────────────┤   ├─────────────────────┤   │
+│  │ entity_rbac     │   │ entity_rbac         │   │ entity_instance_link│   │
+│  │ WHERE           │   │ WHERE               │   │ → parent's RBAC     │   │
+│  │ person_code =   │   │ person_code = 'role'│   │                     │   │
+│  │   'employee'    │   │ AND person_id IN    │   │ If parent has VIEW  │   │
+│  │ AND person_id   │   │   (user's roles)    │   │ → child has VIEW    │   │
+│  │   = userId      │   │                     │   │                     │   │
+│  └────────┬────────┘   └──────────┬──────────┘   └──────────┬──────────┘   │
+│           │                       │                          │              │
+│           └───────────────────────┼──────────────────────────┘              │
+│                                   │                                         │
+│                                   ▼                                         │
+│                         ┌─────────────────────┐                             │
+│                         │ SOURCE 4:           │                             │
+│                         │ Parent-CREATE       │                             │
+│                         │ Inheritance         │                             │
+│                         ├─────────────────────┤                             │
+│                         │ If parent has CREATE│                             │
+│                         │ → child has CREATE  │                             │
+│                         │ (type-level only)   │                             │
+│                         └──────────┬──────────┘                             │
+│                                    │                                        │
+│                                    ▼                                        │
+│                         ┌─────────────────────┐                             │
+│                         │ RESULT: MAX level   │                             │
+│                         │ from all 4 sources  │                             │
+│                         │ >= required level?  │                             │
+│                         └─────────────────────┘                             │
+│                                    │                                        │
+│                          ┌─────────┴─────────┐                              │
+│                          ▼                   ▼                              │
+│                       true                false                             │
+│                    (allowed)            (forbidden)                         │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### RBAC WHERE Condition
+
+```typescript
+// Generate SQL WHERE clause for list queries
+const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
+  userId,           // User UUID
+  'project',        // Entity type code
+  Permission.VIEW,  // Required permission level
+  'e'               // Table alias
+);
+
+// Use in query
+const projects = await db.execute(sql`
+  SELECT e.* FROM app.project e
+  WHERE ${rbacCondition}
+    AND e.active_flag = true
+  ORDER BY e.created_ts DESC
+`);
+```
+
+### Special Constants
+
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `ALL_ENTITIES_ID` | `'11111111-1111-1111-1111-111111111111'` | Type-level permissions (e.g., CREATE any project) |
+| `Permission.VIEW` | 0 | Read-only access |
+| `Permission.COMMENT` | 1 | Add comments |
+| `Permission.CONTRIBUTE` | 2 | Insert form data |
+| `Permission.EDIT` | 3 | Modify entity |
+| `Permission.SHARE` | 4 | Share with others |
+| `Permission.DELETE` | 5 | Soft delete |
+| `Permission.CREATE` | 6 | Create new (type-level) |
+| `Permission.OWNER` | 7 | Full control |
+
+---
+
+## Entity Reference Resolution
 
 ### build_ref_data_entityInstance()
 
-Generates a lookup table for resolving entity reference UUIDs to display names. Used by API routes to include `ref_data_entityInstance` in responses for O(1) frontend lookups.
+Generates a lookup table for resolving entity reference UUIDs to display names. Used in API responses for O(1) frontend lookups.
 
 ```typescript
 /**
  * Build ref_data_entityInstance lookup table for entity references
  *
- * Scans rows for *_id/*_ids fields, batch resolves from entity_instance table.
+ * Scans rows for *_id and *_ids fields, batch resolves from entity_instance.
  *
  * @param rows - Data rows to scan for entity reference UUIDs
- * @returns { [entityCode]: { [uuid]: name } }
- *
- * @example
- * const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(projects);
- * // Returns: {
- * //   employee: { "uuid-james": "James Miller" },
- * //   business: { "uuid-huron": "Huron Home Services" }
- * // }
+ * @returns { [entityCode]: { [uuid]: displayName } }
  */
 async build_ref_data_entityInstance(
   rows: Record<string, any>[]
 ): Promise<Record<string, Record<string, string>>>
 ```
 
-### Usage in Routes
+### Resolution Flow
 
-```typescript
-import { getEntityInfrastructure } from '@/services/entity-infrastructure.service.js';
-
-const entityInfra = getEntityInfrastructure(db);
-
-fastify.get('/api/v1/project', async (request, reply) => {
-  const projects = await db.execute(sql`SELECT * FROM app.project...`);
-
-  // Build ref_data_entityInstance for entity reference fields
-  const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(projects);
-
-  return reply.send({
-    data: projects,
-    ref_data_entityInstance,  // Include in response
-    metadata: { ... }
-  });
-});
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    build_ref_data_entityInstance() FLOW                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Input: [                                                                    │
+│    { id: "p1", manager__employee_id: "uuid-james", business_id: "uuid-biz" }│
+│    { id: "p2", manager__employee_id: "uuid-sarah", business_id: "uuid-biz" }│
+│  ]                                                                           │
+│                                                                              │
+│  Step 1: Scan for *_id / *_ids fields                                       │
+│  ─────────────────────────────────────                                       │
+│  • manager__employee_id → entity: employee, UUIDs: [uuid-james, uuid-sarah] │
+│  • business_id → entity: business, UUIDs: [uuid-biz]                        │
+│                                                                              │
+│  Step 2: Batch query entity_instance                                        │
+│  ─────────────────────────────────────                                       │
+│  SELECT entity_code, entity_instance_id, entity_instance_name               │
+│  FROM app.entity_instance                                                    │
+│  WHERE (entity_code, entity_instance_id) IN (                               │
+│    ('employee', 'uuid-james'),                                              │
+│    ('employee', 'uuid-sarah'),                                              │
+│    ('business', 'uuid-biz')                                                 │
+│  )                                                                           │
+│                                                                              │
+│  Step 3: Build lookup table                                                  │
+│  ─────────────────────────────                                               │
+│  Output: {                                                                   │
+│    "employee": {                                                            │
+│      "uuid-james": "James Miller",                                          │
+│      "uuid-sarah": "Sarah Chen"                                             │
+│    },                                                                        │
+│    "business": {                                                            │
+│      "uuid-biz": "Huron Home Services"                                      │
+│    }                                                                         │
+│  }                                                                           │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### ref_data_entityInstance Response Structure
+### Response Structure
 
 ```json
 {
   "data": [
     {
       "id": "proj-1",
+      "name": "Kitchen Renovation",
       "manager__employee_id": "uuid-james",
       "business_id": "uuid-huron"
     }
@@ -126,426 +638,326 @@ fastify.get('/api/v1/project', async (request, reply) => {
     "business": {
       "uuid-huron": "Huron Home Services"
     }
-  }
+  },
+  "metadata": { ... }
+}
+```
+
+### Frontend Usage
+
+```typescript
+// Frontend resolves UUID → display name in O(1)
+const displayName = ref_data_entityInstance[metadata.lookupEntity]?.[uuid];
+// "James Miller"
+```
+
+---
+
+## Use Case Matrix
+
+### Operation Matrix
+
+| Operation | Method | RBAC Check | Transaction Steps |
+|-----------|--------|------------|-------------------|
+| Create entity | `create_entity()` | CREATE (type-level) + EDIT (parent) | INSERT primary, registry, RBAC, link |
+| Update entity | `update_entity()` | EDIT (instance) | UPDATE primary, sync registry |
+| Delete entity | `delete_entity()` | DELETE (instance) | Soft/hard primary, HARD registry/links/RBAC |
+| List entities | `get_entity_rbac_where_condition()` | VIEW (filtered) | SQL WHERE clause |
+| Get single | `check_entity_rbac()` | VIEW (instance) | Boolean check |
+| Resolve refs | `build_ref_data_entityInstance()` | - | Batch lookup |
+
+### Delete Type Matrix
+
+| Scenario | Primary Table | entity_instance | entity_instance_link | entity_rbac |
+|----------|---------------|-----------------|----------------------|-------------|
+| `hard_delete: false` | `active_flag = false` | HARD DELETE | HARD DELETE | HARD DELETE |
+| `hard_delete: true` | `DELETE FROM` | HARD DELETE | HARD DELETE | HARD DELETE |
+
+### Permission Matrix
+
+| Action | Required Permission | Check Type |
+|--------|---------------------|------------|
+| View entity list | VIEW (0) | WHERE condition |
+| View single entity | VIEW (0) | Instance check |
+| Add comment | COMMENT (1) | Instance check |
+| Submit form data | CONTRIBUTE (2) | Instance check |
+| Edit entity | EDIT (3) | Instance check |
+| Share entity | SHARE (4) | Instance check |
+| Delete entity | DELETE (5) | Instance check |
+| Create entity | CREATE (6) | Type-level check |
+| Manage permissions | OWNER (7) | Instance check |
+
+---
+
+## API Reference
+
+### Core Methods
+
+```typescript
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '@/services/entity-infrastructure.service.js';
+
+const entityInfra = getEntityInfrastructure(db);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRANSACTIONAL CRUD
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Create with all infrastructure
+const result = await entityInfra.create_entity({
+  entity_code: 'project',
+  creator_id: userId,
+  parent_entity_code: 'business',
+  parent_entity_id: businessId,
+  primary_table: 'app.project',
+  primary_data: { name: 'New Project', code: 'PROJ-001' }
+});
+
+// Update with registry sync
+const result = await entityInfra.update_entity({
+  entity_code: 'project',
+  entity_id: projectId,
+  primary_table: 'app.project',
+  primary_updates: { name: 'Updated Name' }
+});
+
+// Delete with cleanup
+const result = await entityInfra.delete_entity({
+  entity_code: 'project',
+  entity_id: projectId,
+  user_id: userId,
+  primary_table: 'app.project',
+  hard_delete: false
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RBAC CHECKS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Check specific permission
+const canEdit = await entityInfra.check_entity_rbac(
+  userId, 'project', projectId, Permission.EDIT
+);
+
+// Get SQL WHERE clause
+const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
+  userId, 'project', Permission.VIEW, 'e'
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ENTITY REFERENCE RESOLUTION
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Build lookup table for entity references
+const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(rows);
+```
+
+### Helper Methods
+
+```typescript
+// ═══════════════════════════════════════════════════════════════════════════
+// REGISTRY OPERATIONS (for edge cases)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Register entity in global lookup
+await entityInfra.set_entity_instance_registry({
+  entity_code: 'project',
+  entity_id: projectId,
+  entity_name: 'Project Name',
+  instance_code: 'PROJ-001'
+});
+
+// Update registry
+await entityInfra.update_entity_instance_registry(
+  'project', projectId, { entity_name: 'New Name' }
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LINKAGE OPERATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Create parent-child link
+await entityInfra.set_entity_instance_link({
+  parent_entity_code: 'project',
+  parent_entity_id: projectId,
+  child_entity_code: 'task',
+  child_entity_id: taskId,
+  relationship_type: 'contains'
+});
+
+// Get child entity tabs
+const tabs = await entityInfra.get_dynamic_child_entity_tabs('project', projectId);
+```
+
+---
+
+## Integration Patterns
+
+### Standard Route Pattern
+
+```typescript
+// apps/api/src/modules/{entity}/routes.ts
+
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '@/services/entity-infrastructure.service.js';
+import { generateEntityResponse } from '@/services/backend-formatter.service.js';
+import { createEntityDeleteEndpoint } from '@/lib/entity-delete-route-factory.js';
+import { db } from '@/db/index.js';
+import { sql } from 'drizzle-orm';
+
+const ENTITY_CODE = 'project';
+const TABLE_ALIAS = 'e';
+const entityInfra = getEntityInfrastructure(db);
+
+export default async function projectRoutes(fastify: FastifyInstance) {
+
+  // ═══════════════════════════════════════════════════════════════
+  // LIST - RBAC filtered
+  // ═══════════════════════════════════════════════════════════════
+  fastify.get('/api/v1/project', async (request, reply) => {
+    const userId = request.user.sub;
+    const { limit = 20, offset = 0 } = request.query;
+
+    const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
+      userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
+    );
+
+    const projects = await db.execute(sql`
+      SELECT ${sql.raw(TABLE_ALIAS)}.* FROM app.project ${sql.raw(TABLE_ALIAS)}
+      WHERE ${rbacCondition} AND ${sql.raw(TABLE_ALIAS)}.active_flag = true
+      ORDER BY ${sql.raw(TABLE_ALIAS)}.created_ts DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+
+    const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(
+      Array.from(projects)
+    );
+
+    const response = await generateEntityResponse(ENTITY_CODE, Array.from(projects), {
+      total: projects.length,
+      limit,
+      offset,
+      ref_data_entityInstance
+    });
+
+    return reply.send(response);
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // CREATE - Transactional
+  // ═══════════════════════════════════════════════════════════════
+  fastify.post('/api/v1/project', async (request, reply) => {
+    const userId = request.user.sub;
+    const { parent_entity_code, parent_entity_instance_id } = request.query;
+    const data = request.body;
+
+    // RBAC: Can user CREATE?
+    const canCreate = await entityInfra.check_entity_rbac(
+      userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE
+    );
+    if (!canCreate) return reply.status(403).send({ error: 'Forbidden' });
+
+    // RBAC: Can user EDIT parent?
+    if (parent_entity_code && parent_entity_instance_id) {
+      const canEditParent = await entityInfra.check_entity_rbac(
+        userId, parent_entity_code, parent_entity_instance_id, Permission.EDIT
+      );
+      if (!canEditParent) return reply.status(403).send({ error: 'Forbidden' });
+    }
+
+    // Transactional CREATE
+    const result = await entityInfra.create_entity({
+      entity_code: ENTITY_CODE,
+      creator_id: userId,
+      parent_entity_code,
+      parent_entity_id: parent_entity_instance_id,
+      primary_table: 'app.project',
+      primary_data: data
+    });
+
+    return reply.status(201).send(result.entity);
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // UPDATE - Transactional
+  // ═══════════════════════════════════════════════════════════════
+  fastify.patch('/api/v1/project/:id', async (request, reply) => {
+    const userId = request.user.sub;
+    const { id } = request.params;
+    const updates = request.body;
+
+    // RBAC: Can user EDIT?
+    const canEdit = await entityInfra.check_entity_rbac(
+      userId, ENTITY_CODE, id, Permission.EDIT
+    );
+    if (!canEdit) return reply.status(403).send({ error: 'Forbidden' });
+
+    // Transactional UPDATE
+    const result = await entityInfra.update_entity({
+      entity_code: ENTITY_CODE,
+      entity_id: id,
+      primary_table: 'app.project',
+      primary_updates: updates
+    });
+
+    return reply.send(result.entity);
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // DELETE - Factory-generated (recommended)
+  // ═══════════════════════════════════════════════════════════════
+  createEntityDeleteEndpoint(fastify, ENTITY_CODE);
 }
 ```
 
 ---
 
-## Data Flow Diagram
+## Error Handling
 
+### Transaction Rollback
+
+```typescript
+// All transactional methods auto-rollback on error
+try {
+  const result = await entityInfra.create_entity({...});
+} catch (error) {
+  // Transaction already rolled back - no cleanup needed
+  console.error('Create failed:', error);
+  return reply.status(500).send({ error: 'Failed to create entity' });
+}
 ```
-CREATE Operation Flow (Transactional)
-─────────────────────────────────────
 
-User Request ──> Route Handler ──> RBAC Check (CREATE permission)
-                      │
-                      v
-              RBAC Check (EDIT parent if linking)
-                      │
-                      v
-              ┌─────────────────────────────────────┐
-              │     create_entity() TRANSACTION     │
-              │  ┌─────────────────────────────┐   │
-              │  │ 1. INSERT into primary table │   │
-              │  │ 2. INSERT into entity_instance│   │
-              │  │ 3. INSERT OWNER permission   │   │
-              │  │ 4. INSERT link (if parent)   │   │
-              │  └─────────────────────────────┘   │
-              │  If ANY fails → ROLLBACK ALL       │
-              └─────────────────────────────────────┘
-                      │
-                      v
-              Return created entity
+### Common Error Scenarios
 
-
-DELETE Operation Flow (Transactional)
-─────────────────────────────────────
-
-User Request ──> Route Handler ──> RBAC Check (DELETE permission)
-                      │
-                      v
-              ┌─────────────────────────────────────┐
-              │     delete_entity() TRANSACTION     │
-              │  ┌─────────────────────────────┐   │
-              │  │ 1. DELETE/deactivate primary │   │
-              │  │ 2. DELETE from entity_instance│  │
-              │  │ 3. DELETE from entity_links  │   │
-              │  │ 4. DELETE from entity_rbac   │   │
-              │  └─────────────────────────────┘   │
-              │  If ANY fails → ROLLBACK ALL       │
-              └─────────────────────────────────────┘
-                      │
-                      v
-              Return success result
-```
+| Error | Cause | Result |
+|-------|-------|--------|
+| Primary INSERT fails | Constraint violation | All 4 ops rolled back |
+| Registry INSERT fails | Duplicate key | All 4 ops rolled back |
+| RBAC INSERT fails | Invalid user ID | All 4 ops rolled back |
+| Link INSERT fails | Invalid parent | All 4 ops rolled back |
+| RBAC check fails | No permission | 403 Forbidden (no DB changes) |
 
 ---
 
-## Architecture Overview
+## Related Documentation
 
-### Infrastructure Tables
-
-| Table | Purpose | Key Fields | Delete Semantics |
-|-------|---------|------------|------------------|
-| `entity` | Entity type metadata | code, name, icon, child_entity_codes | Soft delete (`active_flag`) |
-| `entity_instance` | Instance registry | entity_code, entity_instance_id, entity_instance_name, code | **HARD DELETE** (no active_flag) |
-| `entity_instance_link` | Parent-child relationships | entity_code (parent), entity_instance_id (parent), child_entity_code, child_entity_instance_id | **HARD DELETE** (no active_flag) |
-| `entity_rbac` | Permissions | person_id, entity_code, entity_instance_id, permission | **HARD DELETE** (no active_flag) |
-
-### Permission Levels
-
-| Level | Name | Description | Inherits |
-|-------|------|-------------|----------|
-| 0 | VIEW | Read access to entity data | - |
-| 1 | COMMENT | Add comments on entities | VIEW |
-| 2 | CONTRIBUTE | Insert data in forms, collaborate on wiki | COMMENT, VIEW |
-| 3 | EDIT | Modify entity fields, descriptions, details | CONTRIBUTE, COMMENT, VIEW |
-| 4 | SHARE | Share entity with others | EDIT, CONTRIBUTE, COMMENT, VIEW |
-| 5 | DELETE | Soft delete entity | SHARE, EDIT, CONTRIBUTE, COMMENT, VIEW |
-| 6 | CREATE | Create new entities (type-level only) | All lower |
-| 7 | OWNER | Full control including permission management | All |
-
-### Transactional Methods (Primary API)
-
-| Method | Purpose | Operations in Transaction |
-|--------|---------|---------------------------|
-| `create_entity()` | Create entity with all infrastructure | INSERT primary + registry + RBAC + link |
-| `update_entity()` | Update entity with registry sync | UPDATE primary + registry sync |
-| `delete_entity()` | Delete entity with cleanup | DELETE/deactivate + registry + links + RBAC |
-
-### Reference Resolution Methods (v8.3.0)
-
-| Method | Purpose | Use Case |
-|--------|---------|----------|
-| `build_ref_data_entityInstance()` | Build UUID→name lookup table | LIST/GET responses |
-
-### Helper Methods (For Edge Cases)
-
-| Method | Purpose | Use Case |
-|--------|---------|----------|
-| `check_entity_rbac()` | Check permission | All operations |
-| `get_entity_rbac_where_condition()` | RBAC SQL fragment | LIST queries |
-| `set_entity_instance_link()` | Manual linkage | Linkage API |
-| `get_dynamic_child_entity_tabs()` | Get child tabs | Detail pages |
+| Document | Path | Description |
+|----------|------|-------------|
+| Entity Metadata Caching | `docs/caching-backend/ENTITY_METADATA_CACHING.md` | Redis caching |
+| Backend Formatter Service | `docs/services/backend-formatter.service.md` | Metadata generation |
+| RBAC Infrastructure | `docs/rbac/RBAC_INFRASTRUCTURE.md` | Full RBAC details |
+| State Management | `docs/state_management/STATE_MANAGEMENT.md` | Frontend cache |
 
 ---
 
-## Tooling Overview
+**Document Version**: 5.0.0
+**Last Updated**: 2025-11-30
+**Status**: Production Ready
 
-### Standard Import Block
+### Version History
 
-```typescript
-import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '@/services/entity-infrastructure.service.js';
-
-const ENTITY_CODE = 'project';
-const entityInfra = getEntityInfrastructure(db);
-```
-
-### CREATE Pattern (Transactional)
-
-```typescript
-fastify.post('/api/v1/project', async (request, reply) => {
-  const userId = request.user.sub;
-  const { parent_entity_code, parent_entity_instance_id } = request.query;
-  const data = request.body;
-
-  // Step 1: RBAC Check - Can user CREATE?
-  const canCreate = await entityInfra.check_entity_rbac(
-    userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE
-  );
-  if (!canCreate) return reply.status(403).send({ error: 'Forbidden' });
-
-  // Step 2: RBAC Check - Can user EDIT parent? (if linking)
-  if (parent_entity_code && parent_entity_instance_id) {
-    const canEditParent = await entityInfra.check_entity_rbac(
-      userId, parent_entity_code, parent_entity_instance_id, Permission.EDIT
-    );
-    if (!canEditParent) return reply.status(403).send({ error: 'Forbidden' });
-  }
-
-  // Step 3: Transactional CREATE (all 4 ops in ONE transaction)
-  const result = await entityInfra.create_entity({
-    entity_code: ENTITY_CODE,
-    creator_id: userId,
-    parent_entity_code: parent_entity_code,
-    parent_entity_id: parent_entity_instance_id,  // API param → service param
-    primary_table: 'app.project',
-    primary_data: {
-      code: data.code,
-      name: data.name,
-      descr: data.descr,
-      budget_allocated_amt: data.budget_allocated_amt
-    }
-  });
-
-  return reply.status(201).send(result.entity);
-});
-```
-
-### UPDATE Pattern (Transactional)
-
-```typescript
-fastify.patch('/api/v1/project/:id', async (request, reply) => {
-  const userId = request.user.sub;
-  const { id } = request.params;
-  const updates = request.body;
-
-  // Step 1: RBAC Check - Can user EDIT?
-  const canEdit = await entityInfra.check_entity_rbac(
-    userId, ENTITY_CODE, id, Permission.EDIT
-  );
-  if (!canEdit) return reply.status(403).send({ error: 'Forbidden' });
-
-  // Step 2: Transactional UPDATE (UPDATE + registry sync in ONE transaction)
-  const result = await entityInfra.update_entity({
-    entity_code: ENTITY_CODE,
-    entity_id: id,
-    primary_table: 'app.project',
-    primary_updates: updates
-  });
-
-  return reply.send(result.entity);
-});
-```
-
-### DELETE Pattern (Transactional)
-
-```typescript
-// Using entity-delete-route-factory (recommended)
-createEntityDeleteEndpoint(fastify, 'project');
-
-// Or manual implementation:
-fastify.delete('/api/v1/project/:id', async (request, reply) => {
-  const userId = request.user.sub;
-  const { id } = request.params;
-
-  // Transactional DELETE (all 4 ops in ONE transaction)
-  const result = await entityInfra.delete_entity({
-    entity_code: ENTITY_CODE,
-    entity_id: id,
-    user_id: userId,
-    primary_table: 'app.project',
-    hard_delete: false  // Soft delete for PRIMARY TABLE only (active_flag = false)
-  });
-  // NOTE: entity_instance, entity_instance_link, entity_rbac are ALWAYS hard-deleted
-  // The hard_delete param only affects the primary table (e.g., app.project)
-
-  return reply.send(result);
-});
-```
-
-### LIST with RBAC + ref_data_entityInstance Pattern (v8.3.0)
-
-```typescript
-fastify.get('/api/v1/project', async (request, reply) => {
-  const userId = request.user.sub;
-
-  // Get RBAC WHERE condition
-  const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
-    userId, ENTITY_CODE, Permission.VIEW, 'e'
-  );
-
-  // Route owns the query structure
-  const projects = await db.execute(sql`
-    SELECT e.*, b.name as business_name
-    FROM app.project e
-    LEFT JOIN app.business b ON e.business_id = b.id
-    WHERE ${rbacCondition}
-      AND e.active_flag = true
-    ORDER BY e.created_ts DESC
-    LIMIT ${limit} OFFSET ${offset}
-  `);
-
-  // Build ref_data_entityInstance for entity reference fields (v8.3.0)
-  const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(projects);
-
-  return reply.send({
-    data: projects,
-    ref_data_entityInstance,  // Frontend uses for O(1) UUID→name resolution
-    metadata: { ... }
-  });
-});
-```
-
----
-
-## Method Signatures
-
-### create_entity()
-
-```typescript
-async create_entity<T>(params: {
-  entity_code: string;           // Entity TYPE code, e.g., 'project', 'task'
-  creator_id: string;            // User UUID
-  parent_entity_code?: string;   // Parent entity TYPE code (if linking)
-  parent_entity_id?: string;     // Parent entity UUID (if linking)
-  relationship_type?: string;    // Default: 'contains'
-  primary_table: string;         // e.g., 'app.project'
-  primary_data: T;               // Data to insert
-  name_field?: string;           // Default: 'name' - field for entity_instance_name
-  code_field?: string;           // Default: 'code' - field for instance_code
-}): Promise<{
-  entity: T & { id: string };
-  entity_instance: EntityInstance;
-  rbac_granted: boolean;
-  link_created: boolean;
-  link?: EntityLink;
-}>
-```
-
-### update_entity()
-
-```typescript
-async update_entity<T>(params: {
-  entity_code: string;           // Entity TYPE code, e.g., 'project'
-  entity_id: string;             // Entity instance UUID
-  primary_table: string;         // e.g., 'app.project'
-  primary_updates: Partial<T>;   // Fields to update
-  name_field?: string;           // Default: 'name' - syncs entity_instance_name
-  code_field?: string;           // Default: 'code' - syncs instance_code
-}): Promise<{
-  entity: T & { id: string };
-  registry_synced: boolean;
-}>
-```
-
-### delete_entity()
-
-```typescript
-async delete_entity(params: {
-  entity_code: string;           // Entity TYPE code, e.g., 'project'
-  entity_id: string;             // Entity instance UUID
-  user_id: string;               // User UUID (for RBAC check)
-  primary_table: string;         // e.g., 'app.project'
-  hard_delete?: boolean;         // Default: false (soft delete PRIMARY TABLE only)
-  skip_rbac_check?: boolean;     // Default: false
-}): Promise<{
-  success: boolean;
-  entity_deleted: boolean;
-  registry_deleted: boolean;      // Always hard delete
-  linkages_deleted: number;       // Always hard delete
-  rbac_entries_deleted: number;   // Always hard delete
-}>
-// NOTE: hard_delete param ONLY affects primary_table
-// entity_instance, entity_instance_link, entity_rbac are ALWAYS hard-deleted
-```
-
-### build_ref_data_entityInstance() (v8.3.0)
-
-```typescript
-async build_ref_data_entityInstance(
-  rows: Record<string, any>[]
-): Promise<Record<string, Record<string, string>>>
-```
-
-### Helper Methods (for edge cases)
-
-```typescript
-// Register entity in global registry
-async set_entity_instance_registry(params: {
-  entity_code: string;           // Entity TYPE code, e.g., 'project'
-  entity_id: string;             // Entity instance UUID
-  entity_name: string;           // Display name for lookups
-  instance_code?: string | null; // Record code, e.g., 'PROJ-001'
-}): Promise<EntityInstance>
-
-// Update registry when name/code changes
-async update_entity_instance_registry(
-  entity_code: string,           // Entity TYPE code
-  entity_id: string,             // Entity instance UUID
-  updates: {
-    entity_name?: string;        // New display name
-    instance_code?: string | null; // New record code
-  }
-): Promise<EntityInstance | null>
-
-// Create parent-child linkage
-async set_entity_instance_link(params: {
-  parent_entity_code: string;       // Parent entity TYPE code
-  parent_entity_id: string;         // Parent entity UUID
-  child_entity_code: string;        // Child entity TYPE code
-  child_entity_id: string;          // Child entity UUID
-  relationship_type?: string;       // Default: 'contains'
-}): Promise<EntityLink>
-```
-
----
-
-## Database/API/UI Mapping
-
-### Entity Table to Infrastructure Mapping
-
-| Primary Table | entity_instance | entity_instance_link | entity_rbac |
-|---------------|-----------------|----------------------|-------------|
-| project | Registered on create | Links to office, business | Permissions per user |
-| task | Registered on create | Links to project | Permissions per user |
-| employee | Registered on create | Links to office, role | Permissions per user |
-| artifact | Registered on create | Links to project, task | Permissions per user |
-
-### API Endpoints Using Service
-
-| Endpoint | Service Method |
-|----------|----------------|
-| `POST /api/v1/{entity}` | `create_entity()` |
-| `PATCH /api/v1/{entity}/:id` | `update_entity()` |
-| `DELETE /api/v1/{entity}/:id` | `delete_entity()` |
-| `GET /api/v1/{entity}` | `get_entity_rbac_where_condition()` + `build_ref_data_entityInstance()` |
-| `GET /api/v1/{entity}/:id` | `check_entity_rbac()` + `build_ref_data_entityInstance()` |
-| `GET /api/v1/{parent}/:id/{child}` | `get_entity_rbac_where_condition()` |
-
----
-
-## Critical Considerations
-
-### Design Principles
-
-1. **Transactional Safety** - All multi-step operations in one transaction
-2. **No Orphan Records** - If any step fails, all changes roll back
-3. **Consistent Naming** - `entity_code` matches data model column names
-4. **No Foreign Keys** - All relationships via entity_instance_link
-5. **Hard Delete Infrastructure** - `entity_instance`, `entity_instance_link`, `entity_rbac` use **hard delete** (no active_flag)
-6. **Soft Delete Primary** - Primary entity tables (project, task, etc.) use `active_flag`
-7. **ref_data_entityInstance for References** - Use `build_ref_data_entityInstance()` instead of per-row embedded objects (v8.3.0)
-
-### Naming Convention
-
-| Parameter | Meaning | Example |
-|-----------|---------|---------|
-| `entity_code` | Entity TYPE code | 'project', 'task', 'employee' |
-| `entity_id` | Entity instance UUID | 'uuid-here' |
-| `parent_entity_code` | Parent entity TYPE | 'business', 'office' |
-| `child_entity_code` | Child entity TYPE | 'task', 'artifact' |
-
-### Special Constants
-
-| Constant | Value | Purpose |
-|----------|-------|---------|
-| `ALL_ENTITIES_ID` | `'11111111-1111-1111-1111-111111111111'` | Type-level permissions |
-| `Permission.VIEW` | 0 | Read access |
-| `Permission.COMMENT` | 1 | Add comments |
-| `Permission.CONTRIBUTE` | 2 | Insert data, collaborate |
-| `Permission.EDIT` | 3 | Modify entity |
-| `Permission.SHARE` | 4 | Share access |
-| `Permission.DELETE` | 5 | Delete access |
-| `Permission.CREATE` | 6 | Create access (type-level only) |
-| `Permission.OWNER` | 7 | Full control |
-
-### Migration from Old Pattern
-
-| Old Pattern | New Pattern |
-|-------------|-------------|
-| Direct INSERT + set_entity_instance_registry() + set_entity_rbac_owner() + set_entity_instance_link() | `create_entity()` |
-| Direct UPDATE + update_entity_instance_registry() | `update_entity()` |
-| delete_all_entity_infrastructure() | `delete_entity()` |
-| Per-row `_ID` embedded objects | `build_ref_data_entityInstance()` (v8.3.0) |
-
----
-
-**Last Updated:** 2025-11-30 | **Version:** 9.3.0 | **Status:** Production Ready
-
-**Recent Updates:**
-- v9.3.0 (2025-11-30): Updated for Dexie v4 schema with `entityInstance` table
-- v9.2.0 (2025-11-30): Updated to reflect TanStack Query + Dexie frontend (RxDB removed)
-- v8.3.0 (2025-11-26): Added `build_ref_data_entityInstance()` for entity reference resolution
-- v5.0.0 (2025-11-22): Added transactional CRUD methods
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0.0 | 2025-11-20 | Initial infrastructure service |
+| 2.0.0 | 2025-11-22 | Added transactional CRUD |
+| 3.0.0 | 2025-11-26 | Added `build_ref_data_entityInstance()` |
+| 4.0.0 | 2025-11-28 | Updated for TanStack Query + Dexie |
+| 5.0.0 | 2025-11-30 | Complete rewrite with end-to-end architecture, sequence diagrams |
