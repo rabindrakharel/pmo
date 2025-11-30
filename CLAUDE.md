@@ -11,7 +11,7 @@
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4
 - **State Management**: TanStack Query + Dexie (offline-first IndexedDB) - server state + persistence
 - **Infrastructure**: AWS EC2/S3/Lambda, Terraform, Docker
-- **Version**: 9.2.0 (Redis Field Caching + TanStack Query + Dexie)
+- **Version**: 9.3.0 (Dexie v4 Schema + content=metadata API)
 
 ## Critical Operations
 
@@ -512,6 +512,7 @@ const { updateEntity, deleteEntity } = useEntityMutation('project');
 const { options, isLoading } = useDatalabel('project_stage');
 const { entityCodes, getEntityByCode } = useEntityCodes();
 const { settings } = useGlobalSettings();
+const { fields, viewType, editType } = useEntityMetadata('project'); // Uses content=metadata API
 
 // Non-hook access (sync cache - for formatters, utilities)
 import { getDatalabelSync, getEntityCodesSync } from '@/db/tanstack-index';
@@ -736,7 +737,8 @@ Request → RBAC Check (DELETE) → TRANSACTION {
 | Document | Path | Purpose |
 |----------|------|---------|
 | **TANSTACK_DEXIE_SYNC_ARCHITECTURE.md** | `docs/caching/` | TanStack Query + Dexie + WebSocket sync |
-| **ENTITY_METADATA_CACHING.md** | `docs/caching-backend/` | Redis field name caching for empty data |
+| **ENTITY_METADATA_CACHING.md** | `docs/caching-backend/` | Redis field name caching + content=metadata API |
+| **DEXIE_SCHEMA_REFACTORING.md** | `docs/migrations/` | Dexie v4 schema with unified TanStack naming |
 | **RBAC_INFRASTRUCTURE.md** | `docs/rbac/` | RBAC tables, permissions, patterns |
 | **entity-infrastructure.service.md** | `docs/services/` | Entity infrastructure service API + build_ref_data_entityInstance |
 | **STATE_MANAGEMENT.md** | `docs/state_management/` | TanStack Query + Dexie state architecture |
@@ -751,11 +753,17 @@ TanStack Query + Dexie offline-first architecture with WebSocket real-time sync.
 
 **Keywords:** `TanStack Query`, `Dexie`, `IndexedDB`, `WebSocket`, `PubSub`, `WebSocketManager`, `INVALIDATE`, `SUBSCRIBE`, `LogWatcher`, `app.system_logging`, `app.system_cache_subscription`, `real-time sync`, `cache invalidation`, `queryClient.invalidateQueries`, `hydrateQueryCache`, `port 4001`
 
-### 0.5. ENTITY_METADATA_CACHING.md (v9.2.0)
+### 0.5. ENTITY_METADATA_CACHING.md (v2.0.0)
 
-Redis caching strategy for entity field names in backend-formatter.service. Solves the "empty child entity tabs show no columns" problem by caching field names with 24-hour TTL.
+Redis caching strategy for entity field names + `content=metadata` API parameter. Solves the "empty child entity tabs show no columns" problem by caching field names with 24-hour TTL and providing metadata-only API responses.
 
-**Keywords:** `Redis`, `field cache`, `entity:fields:`, `generateEntityResponse`, `resultFields`, `postgres.js columns`, `empty data`, `child entity tabs`, `metadata generation`, `getCachedFieldNames`, `cacheFieldNames`, `invalidateFieldCache`, `clearAllFieldCache`, `24-hour TTL`, `graceful degradation`
+**Keywords:** `Redis`, `field cache`, `entity:fields:`, `generateEntityResponse`, `resultFields`, `postgres.js columns`, `empty data`, `child entity tabs`, `metadata generation`, `getCachedFieldNames`, `cacheFieldNames`, `invalidateFieldCache`, `clearAllFieldCache`, `24-hour TTL`, `graceful degradation`, `content=metadata`, `metadataOnly`, `useEntityMetadata`
+
+### 0.6. DEXIE_SCHEMA_REFACTORING.md (v4)
+
+Dexie IndexedDB schema v4 with unified naming between TanStack Query cache keys and Dexie tables. 8 tables replacing previous 14-table schema with clearer separation of concerns.
+
+**Keywords:** `Dexie`, `IndexedDB`, `schema v4`, `pmo-cache-v4`, `datalabel`, `entityCode`, `globalSetting`, `entityInstanceData`, `entityInstanceMetadata`, `entityInstance`, `entityLink`, `draft`, `unified naming`, `TanStack Query keys`, `createDatalabelKey`, `createEntityInstanceKey`, `createEntityInstanceDataKey`, `createEntityLinkKey`, `createDraftKey`
 
 ### 1. RBAC_INFRASTRUCTURE.md
 
@@ -783,9 +791,16 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
 
 ---
 
-**Version**: 9.2.0 | **Updated**: 2025-11-30 | **Pattern**: TanStack Query + Dexie (Offline-First) + Redis Field Cache
+**Version**: 9.3.0 | **Updated**: 2025-11-30 | **Pattern**: TanStack Query + Dexie v4 (Offline-First) + Redis Field Cache
 
 **Recent Updates**:
+- v9.3.0 (2025-11-30): **Dexie v4 Schema + content=metadata API**
+  - Dexie schema v4: 8 unified tables with TanStack Query key alignment
+  - Tables: `datalabel`, `entityCode`, `globalSetting`, `entityInstanceData`, `entityInstanceMetadata`, `entityInstance`, `entityLink`, `draft`
+  - Added `content=metadata` API parameter for metadata-only requests (no data query)
+  - `useEntityMetadata` hook uses `content=metadata` with 30-min TTL
+  - Unified naming: TanStack Query keys match Dexie table names
+  - See: `docs/migrations/DEXIE_SCHEMA_REFACTORING.md`
 - v9.2.0 (2025-11-30): **Redis Entity Field Caching**
   - Added Redis caching for entity field names (24-hour TTL)
   - `generateEntityResponse()` is now async with `resultFields` fallback
