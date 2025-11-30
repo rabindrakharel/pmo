@@ -240,43 +240,40 @@ export interface UseEntityMetadataResult {
  * TanStack Query Key: ['entityInstanceMetadata', entityCode]
  * Dexie Table: entityInstanceMetadata
  *
- * Use when you need metadata without fetching data (e.g., empty child tabs)
+ * Uses content=metadata API parameter to get metadata without data transfer.
+ * This is more efficient than limit=1 as it skips the data query entirely.
  */
 export function useEntityMetadata(entityCode: string): UseEntityMetadataResult {
   const query = useQuery({
     queryKey: ['entityInstanceMetadata', entityCode],
     queryFn: async () => {
-      // Try Dexie first
+      // Try Dexie cache first (30 min TTL)
       const cached = await db.entityInstanceMetadata.get(entityCode);
-      if (cached) {
+      if (cached && Date.now() - cached.syncedAt < 30 * 60 * 1000) {
         return cached;
       }
 
-      // Fetch from API with limit=1 to get metadata
-      const response = await apiClient.get(`/api/v1/${entityCode}`, { params: { limit: 1 } });
+      // Fetch metadata-only from API (no data transferred)
+      // Uses content=metadata parameter - skips data query on backend
+      const response = await apiClient.get(`/api/v1/${entityCode}`, {
+        params: { content: 'metadata' }
+      });
+
+      // Response always has same structure: data=[], fields, metadata, ref_data_entityInstance={}
       const metadata = response.data.metadata?.entityListOfInstancesTable;
+      const fields = response.data.fields || [];
 
-      if (metadata) {
-        const record = {
-          _id: entityCode,
-          entityCode,
-          fields: Object.keys(metadata.viewType || {}),
-          viewType: metadata.viewType || {},
-          editType: metadata.editType || {},
-          syncedAt: Date.now(),
-        };
-        await db.entityInstanceMetadata.put(record);
-        return record;
-      }
-
-      return {
+      const record = {
         _id: entityCode,
         entityCode,
-        fields: [],
-        viewType: {},
-        editType: {},
+        fields: fields.length > 0 ? fields : Object.keys(metadata?.viewType || {}),
+        viewType: metadata?.viewType || {},
+        editType: metadata?.editType || {},
         syncedAt: Date.now(),
       };
+
+      await db.entityInstanceMetadata.put(record);
+      return record;
     },
     staleTime: 30 * 60 * 1000, // 30 minutes
   });
