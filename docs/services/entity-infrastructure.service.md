@@ -186,12 +186,12 @@ User Request ──> Route Handler ──> RBAC Check (DELETE permission)
 
 ### Infrastructure Tables
 
-| Table | Purpose | Key Fields |
-|-------|---------|------------|
-| `entity` | Entity type metadata | code, name, icon, child_entity_codes |
-| `entity_instance` | Instance registry | entity_code, entity_instance_id, entity_instance_name, code |
-| `entity_instance_link` | Parent-child relationships | entity_code (parent), entity_instance_id (parent), child_entity_code, child_entity_instance_id |
-| `entity_rbac` | Permissions | person_id, entity_code, entity_instance_id, permission |
+| Table | Purpose | Key Fields | Delete Semantics |
+|-------|---------|------------|------------------|
+| `entity` | Entity type metadata | code, name, icon, child_entity_codes | Soft delete (`active_flag`) |
+| `entity_instance` | Instance registry | entity_code, entity_instance_id, entity_instance_name, code | **HARD DELETE** (no active_flag) |
+| `entity_instance_link` | Parent-child relationships | entity_code (parent), entity_instance_id (parent), child_entity_code, child_entity_instance_id | **HARD DELETE** (no active_flag) |
+| `entity_rbac` | Permissions | person_id, entity_code, entity_instance_id, permission | **HARD DELETE** (no active_flag) |
 
 ### Permission Levels
 
@@ -326,8 +326,10 @@ fastify.delete('/api/v1/project/:id', async (request, reply) => {
     entity_id: id,
     user_id: userId,
     primary_table: 'app.project',
-    hard_delete: false  // soft delete (active_flag = false)
+    hard_delete: false  // Soft delete for PRIMARY TABLE only (active_flag = false)
   });
+  // NOTE: entity_instance, entity_instance_link, entity_rbac are ALWAYS hard-deleted
+  // The hard_delete param only affects the primary table (e.g., app.project)
 
   return reply.send(result);
 });
@@ -416,15 +418,17 @@ async delete_entity(params: {
   entity_id: string;             // Entity instance UUID
   user_id: string;               // User UUID (for RBAC check)
   primary_table: string;         // e.g., 'app.project'
-  hard_delete?: boolean;         // Default: false (soft delete)
+  hard_delete?: boolean;         // Default: false (soft delete PRIMARY TABLE only)
   skip_rbac_check?: boolean;     // Default: false
 }): Promise<{
   success: boolean;
   entity_deleted: boolean;
-  registry_deleted: boolean;
-  linkages_deleted: number;
-  rbac_entries_deleted: number;
+  registry_deleted: boolean;      // Always hard delete
+  linkages_deleted: number;       // Always hard delete
+  rbac_entries_deleted: number;   // Always hard delete
 }>
+// NOTE: hard_delete param ONLY affects primary_table
+// entity_instance, entity_instance_link, entity_rbac are ALWAYS hard-deleted
 ```
 
 ### build_ref_data_entityInstance() (v8.3.0)
@@ -500,8 +504,9 @@ async set_entity_instance_link(params: {
 2. **No Orphan Records** - If any step fails, all changes roll back
 3. **Consistent Naming** - `entity_code` matches data model column names
 4. **No Foreign Keys** - All relationships via entity_instance_link
-5. **Hard Delete Links** - entity_instance_link uses hard delete (no active_flag)
-6. **ref_data_entityInstance for References** - Use `build_ref_data_entityInstance()` instead of per-row embedded objects (v8.3.0)
+5. **Hard Delete Infrastructure** - `entity_instance`, `entity_instance_link`, `entity_rbac` use **hard delete** (no active_flag)
+6. **Soft Delete Primary** - Primary entity tables (project, task, etc.) use `active_flag`
+7. **ref_data_entityInstance for References** - Use `build_ref_data_entityInstance()` instead of per-row embedded objects (v8.3.0)
 
 ### Naming Convention
 

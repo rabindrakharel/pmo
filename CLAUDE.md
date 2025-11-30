@@ -36,11 +36,15 @@
 ### 4 Infrastructure Tables
 
 ```sql
-entity                   -- Entity type metadata (icons, labels, child_entity_codes)
-entity_instance          -- Instance registry (entity_instance_name, code cache)
-entity_instance_link     -- Parent-child relationships (hard delete only)
-entity_rbac              -- Permissions (0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER)
+entity                   -- Entity type metadata (icons, labels, child_entity_codes) - HAS active_flag
+entity_instance          -- Instance registry (entity_instance_name, code cache) - HARD DELETE, NO active_flag
+entity_instance_link     -- Parent-child relationships - HARD DELETE, NO active_flag
+entity_rbac              -- Permissions (0=VIEW, 1=EDIT, 2=SHARE, 3=DELETE, 4=CREATE, 5=OWNER) - HARD DELETE, NO active_flag
 ```
+
+**Delete Semantics**:
+- `entity` (type metadata): Soft delete with `active_flag`
+- `entity_instance`, `entity_instance_link`, `entity_rbac`: **Hard delete** (transactional tables, no `active_flag`)
 
 ### Transactional Methods (Primary API)
 
@@ -135,8 +139,10 @@ fastify.delete('/api/v1/project/:id', async (request, reply) => {
     entity_id: id,
     user_id: userId,
     primary_table: 'app.project',
-    hard_delete: false  // soft delete
+    hard_delete: false  // soft delete for PRIMARY table only
   });
+  // NOTE: entity_instance, entity_instance_link, entity_rbac are ALWAYS hard-deleted
+  // The hard_delete param only affects the primary table (e.g., app.project)
   return reply.send(result);
 });
 ```

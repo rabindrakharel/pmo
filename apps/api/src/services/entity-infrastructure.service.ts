@@ -5,10 +5,15 @@
  *
  * PURPOSE:
  * Centralized, self-contained service for managing entity infrastructure:
- *   • entity (entity type metadata)
- *   • entity_instance (instance registry)
- *   • entity_instance_link (relationships/linkages)
- *   • entity_rbac (permissions + RBAC logic)
+ *   • entity (entity type metadata) - HAS active_flag (soft delete)
+ *   • entity_instance (instance registry) - HARD DELETE (no active_flag)
+ *   • entity_instance_link (relationships/linkages) - HARD DELETE (no active_flag)
+ *   • entity_rbac (permissions + RBAC logic) - HARD DELETE (no active_flag)
+ *
+ * DELETE SEMANTICS:
+ *   • entity_instance, entity_instance_link, entity_rbac are ALWAYS hard-deleted
+ *   • Primary entity tables (project, task, etc.) use soft delete (active_flag)
+ *   • The hard_delete option in delete_entity() only affects primary tables
  *
  * DESIGN PATTERN: Add-On Helper
  *   ✅ Service ONLY manages infrastructure tables
@@ -84,9 +89,9 @@ export interface EntityLink {
 
 export interface DeleteEntityOptions {
   user_id: string;
-  hard_delete?: boolean;              // NOTE: entity_instance and entity_instance_link are always hard-deleted (no active_flag). This parameter only affects primary_table_callback behavior
+  hard_delete?: boolean;              // NOTE: entity_instance, entity_instance_link, and entity_rbac are always hard-deleted (no active_flag). This parameter only affects primary_table_callback behavior
   cascade_delete_children?: boolean;  // Delete child entities recursively
-  remove_rbac_entries?: boolean;      // Remove permission entries
+  remove_rbac_entries?: boolean;      // Remove permission entries (always hard delete)
   skip_rbac_check?: boolean;          // Skip permission validation
   primary_table_callback?: (db: Database, entity_id: string) => Promise<void>;
 }

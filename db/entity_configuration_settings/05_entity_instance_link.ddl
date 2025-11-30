@@ -9,15 +9,15 @@
 --
 -- WHY NO FOREIGN KEYS:
 -- • Flexible cross-schema linking without constraints
--- • Soft deletes: parent deletion preserves children
--- • Temporal versioning (from_ts/to_ts)
+-- • Hard delete: when parent/child is deleted, linkage is removed
 -- • Performance: no FK validation on inserts
+-- • Transactional table: records exist = relationship exists
 --
 -- OPERATIONS:
 -- • LINK: INSERT (entity_code, entity_instance_id, child_entity_code, child_entity_instance_id)
 -- • QUERY: JOIN to filter children by parent + type
 -- • COUNT: GROUP BY child_entity_code for tab badges
--- • UNLINK: DELETE or set archived flag (child remains)
+-- • UNLINK: DELETE record (hard delete - child remains independent)
 -- • REASSIGN: UPDATE entity_instance_id to move child
 --
 -- RELATIONSHIPS (NO FOREIGN KEYS):

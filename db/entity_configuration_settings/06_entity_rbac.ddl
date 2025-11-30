@@ -2,6 +2,11 @@
 -- ENTITY ID RBAC MAP - PERSON-BASED PERMISSION CONTROL SYSTEM
 -- ============================================================================
 --
+-- TABLE TYPE: TRANSACTIONAL - HARD DELETE
+-- This table uses HARD DELETE semantics (no active_flag column).
+-- When permissions are revoked, records are physically deleted.
+-- Record existence = permission granted. No record = no permission.
+--
 -- SEMANTICS:
 -- Row-level RBAC system supporting BOTH role-based and employee-specific permissions.
 -- Uses simple INTEGER permission level (0-5) with automatic hierarchical inheritance.

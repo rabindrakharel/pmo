@@ -154,6 +154,11 @@ ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111'  // Type-level permissi
 | `permission` | int | Permission level (0-7) |
 | `expires_ts` | timestamp | Optional expiration |
 
+**Key Points:**
+- **Hard delete only** - No `active_flag` column
+- Revoking permissions = DELETE record
+- Expired permissions can be cleaned up with scheduled job
+
 **Permission Grant Types:**
 ```sql
 -- Type-level: Can VIEW all projects
@@ -291,9 +296,12 @@ const result = await entityInfra.delete_entity({
   entity_id: projectId,
   user_id: userId,
   primary_table: 'app.project',
-  hard_delete: false  // soft delete (active_flag = false)
+  hard_delete: false  // soft delete for PRIMARY TABLE only (active_flag = false)
 });
 // Returns: { success, entity_deleted, registry_deleted, linkages_deleted, rbac_entries_deleted }
+
+// NOTE: entity_instance, entity_instance_link, entity_rbac are ALWAYS hard-deleted
+// The hard_delete parameter ONLY affects the primary table behavior
 ```
 
 ---
@@ -423,8 +431,9 @@ WHERE link.entity_code = 'role'
 | Principle | Implementation |
 |-----------|----------------|
 | **No Foreign Keys** | All relationships via entity_instance_link |
-| **Hard Delete** | entity_instance and entity_instance_link use hard delete |
-| **Soft Delete** | Primary tables use active_flag |
+| **Hard Delete (Infra)** | `entity_instance`, `entity_instance_link`, `entity_rbac` use **hard delete** (no active_flag) |
+| **Soft Delete (Type)** | `entity` (type metadata) uses active_flag |
+| **Soft Delete (Primary)** | Primary entity tables (project, task, etc.) use active_flag |
 | **Idempotent** | Link operations safe to call multiple times |
 | **Permission Inheritance** | Higher level implies all lower levels |
 | **Type-Level Permissions** | ALL_ENTITIES_ID grants access to all instances |
