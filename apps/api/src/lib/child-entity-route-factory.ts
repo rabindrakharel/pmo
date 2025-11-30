@@ -165,17 +165,38 @@ export async function createChildEntityEndpointsFromMetadata(
           }),
           querystring: Type.Object({
             page: Type.Optional(Type.Integer({ minimum: 1 })),
-            limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
+            limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+            content: Type.Optional(Type.String()),  // 'metadata' for metadata-only response
+            view: Type.Optional(Type.String())      // Component names for metadata
           })
         }
       }, async (request, reply) => {
         try {
           const { id: parentId } = request.params as { id: string };
-          const { page = 1, limit = PAGINATION_CONFIG.CHILD_ENTITY_LIMIT } = request.query as any;
+          const { page = 1, limit = PAGINATION_CONFIG.CHILD_ENTITY_LIMIT, content, view } = request.query as any;
           const userId = request.user?.sub;
 
           if (!userId) {
             return reply.status(401).send({ error: 'User not authenticated' });
+          }
+
+          // ═══════════════════════════════════════════════════════════════
+          // METADATA-ONLY MODE: Return fields + metadata without data query
+          // Used by frontend to get field definitions for empty child tabs
+          // ═══════════════════════════════════════════════════════════════
+          if (content === 'metadata') {
+            // Parse requested components
+            const requestedComponents = view
+              ? view.split(',').map((v: string) => v.trim())
+              : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
+
+            // Generate metadata-only response (no data query, uses Redis field cache)
+            const response = await generateEntityResponse(childEntity, [], {
+              components: requestedComponents,
+              metadataOnly: true
+            });
+
+            return reply.send(response);
           }
 
           const entityInfra = getEntityInfrastructure(db);

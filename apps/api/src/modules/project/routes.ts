@@ -249,6 +249,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         parent_entity_code: Type.Optional(Type.String()),
         parent_entity_instance_id: Type.Optional(Type.String({ format: 'uuid' })),
         view: Type.Optional(Type.String()),  // 'entityListOfInstancesTable,kanbanView' or 'entityInstanceFormContainer'
+        content: Type.Optional(Type.String()),  // 'metadata' for metadata-only response (no data query)
       }),
       response: {
         200: Type.Object({
@@ -267,7 +268,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const {
-      search, limit = getEntityLimit(ENTITY_CODE), offset: queryOffset, page, parent_entity_code, parent_entity_instance_id, view
+      search, limit = getEntityLimit(ENTITY_CODE), offset: queryOffset, page, parent_entity_code, parent_entity_instance_id, view, content
     } = request.query as any;
     const offset = page ? (page - 1) * limit : (queryOffset !== undefined ? queryOffset : 0);
 
@@ -278,7 +279,26 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
     try {
       // ═══════════════════════════════════════════════════════════════
-      // NEW PATTERN: Route builds SQL, gates augment it
+      // METADATA-ONLY MODE: Return fields + metadata without data query
+      // Used by frontend to get field definitions for empty child tabs
+      // ═══════════════════════════════════════════════════════════════
+      if (content === 'metadata') {
+        // Parse requested components
+        const requestedComponents = view
+          ? view.split(',').map((v: string) => v.trim())
+          : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
+
+        // Generate metadata-only response (no data query, uses Redis field cache)
+        const response = await generateEntityResponse(ENTITY_CODE, [], {
+          components: requestedComponents,
+          metadataOnly: true
+        });
+
+        return reply.send(response);
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // NORMAL MODE: Route builds SQL, gates augment it
       // ═══════════════════════════════════════════════════════════════
 
       // Build JOINs array
@@ -374,18 +394,16 @@ export async function projectRoutes(fastify: FastifyInstance) {
         : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
 
       // Generate response with metadata for requested components only
+      // v8.3.0: Include ref_data_entityInstance in response for O(1) entity name lookups
       const response = await generateEntityResponse(ENTITY_CODE, projects, {
         components: requestedComponents,
         total,
         limit,
-        offset
+        offset,
+        ref_data_entityInstance,
       });
 
-      // v8.3.0: Include ref_data_entityInstance in response for O(1) entity name lookups
-      return {
-        ...response,
-        ref_data_entityInstance,
-      };
+      return response;
     } catch (error) {
       fastify.log.error('Error fetching projects:', error as any);
       console.error('Full error details:', error);

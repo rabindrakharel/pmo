@@ -1049,6 +1049,10 @@ export function extractDatalabelKeys(metadata: EntityMetadata): string[] {
  * 4. Hydrate cache with field names
  * 5. Generate metadata
  *
+ * Supports two modes:
+ * - Normal mode: Returns data + fields + metadata + ref_data_entityInstance
+ * - Metadata-only mode (metadataOnly: true): Returns data=[] + fields + metadata + ref_data_entityInstance={}
+ *
  * @param entityCode - Entity type code
  * @param data - Array of entity data rows
  * @param options - Configuration options
@@ -1057,6 +1061,8 @@ export function extractDatalabelKeys(metadata: EntityMetadata): string[] {
  * @param options.limit - Page size
  * @param options.offset - Page offset
  * @param options.resultFields - PostgreSQL result columns (for empty data fallback)
+ * @param options.metadataOnly - If true, return empty data array with full metadata
+ * @param options.ref_data_entityInstance - Reference data for entity instance lookups
  */
 export async function generateEntityResponse(
   entityCode: string,
@@ -1067,19 +1073,23 @@ export async function generateEntityResponse(
     limit?: number;
     offset?: number;
     resultFields?: Array<{ name: string }>;
+    metadataOnly?: boolean;
+    ref_data_entityInstance?: Record<string, Record<string, string>>;
   } = {}
-): Promise<EntityResponse> {
+): Promise<EntityResponse & { ref_data_entityInstance: Record<string, Record<string, string>> }> {
   const {
     components = ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'],
     total = data.length,
     limit = 20,
     offset = 0,
-    resultFields = []
+    resultFields = [],
+    metadataOnly = false,
+    ref_data_entityInstance = {}
   } = options;
 
   let fieldNames: string[];
 
-  // Step 1: Check Redis cache
+  // Step 1: Check Redis cache for field names
   const cachedFields = await getCachedFieldNames(entityCode);
 
   if (cachedFields) {
@@ -1107,10 +1117,26 @@ export async function generateEntityResponse(
   // Step 2: Generate metadata for requested components
   const metadata = generateMetadataForComponents(fieldNames, components, entityCode);
 
+  // Step 3: Build response based on mode
+  if (metadataOnly) {
+    // Metadata-only mode: return empty data with full metadata
+    return {
+      data: [],
+      fields: fieldNames,
+      metadata,
+      ref_data_entityInstance: {},
+      total: 0,
+      limit: 0,
+      offset: 0
+    };
+  }
+
+  // Normal mode: return data with metadata
   return {
     data,
     fields: fieldNames,
     metadata,
+    ref_data_entityInstance,
     total,
     limit,
     offset
