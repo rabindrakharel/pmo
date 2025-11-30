@@ -2,9 +2,9 @@
 
 > Backend caching strategy for entity field metadata using Redis + PostgreSQL result descriptors
 
-**Version**: 1.0.0
-**Last Updated**: 2025-01-29
-**Status**: Design Document
+**Version**: 1.1.0
+**Last Updated**: 2025-11-30
+**Status**: ✅ Implemented
 
 ---
 
@@ -780,6 +780,50 @@ interface FieldInfo {
 
 ---
 
-**Document Version**: 1.0.0
+## Implementation Notes (2025-11-30)
+
+This design was fully implemented in commit `9a71df6`. Key implementation details:
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `apps/api/src/services/backend-formatter.service.ts` | Added Redis caching functions, made `generateEntityResponse()` async |
+| `apps/api/src/lib/child-entity-route-factory.ts` | Added `resultFields` fallback for empty data |
+| `apps/api/src/modules/*/routes.ts` (13 files) | Updated to use `await generateEntityResponse()` |
+
+### Key Implementation Decisions
+
+1. **postgres.js `columns` property** - Used `client.unsafe()` to get column metadata from empty queries
+2. **Graceful degradation** - All Redis operations wrapped in try/catch to continue without cache
+3. **Cache key pattern** - `entity:fields:{entityCode}` for clear namespace separation
+4. **24-hour TTL** - Balance between cache freshness and reducing DB load
+
+### Exported Functions
+
+```typescript
+// Cache management (exported)
+export async function invalidateFieldCache(entityCode: string): Promise<void>
+export async function clearAllFieldCache(): Promise<void>
+
+// Main function (async)
+export async function generateEntityResponse(
+  entityCode: string,
+  data: any[],
+  options: { resultFields?: Array<{ name: string }>; ... }
+): Promise<EntityResponse>
+```
+
+### Testing
+
+Verified end-to-end flow for:
+- Cache miss with data → Extract from `data[0]` → Hydrate cache
+- Cache miss without data → Extract from `resultFields` → Hydrate cache
+- Cache hit → Use cached field names
+- Redis unavailable → Graceful fallback to direct extraction
+
+---
+
+**Document Version**: 1.1.0
 **Author**: Claude (AI Assistant)
-**Review Status**: Pending Implementation
+**Review Status**: ✅ Implemented
