@@ -2,9 +2,152 @@
 
 > Unified cache naming for TanStack Query + Dexie
 
-**Version**: 3.0.0
-**Status**: Ready for Implementation
+**Version**: 4.0.0
+**Status**: Implemented (Schema) + Pending (API content=metadata)
 **Created**: 2025-11-30
+**Updated**: 2025-11-30
+
+---
+
+## API Design: Unified Entity Endpoint
+
+The same entity endpoint serves both data and metadata requests via the `content` query parameter:
+
+### Endpoint Pattern
+```
+GET /api/v1/{entityCode}                    # Normal: returns data + metadata
+GET /api/v1/{entityCode}?content=metadata   # Metadata-only: data=[], fields populated
+```
+
+### Unified Response Structure (Always Same)
+```typescript
+interface EntityResponse {
+  // Always present, same structure
+  data: Record<string, unknown>[];           // [] for metadata-only
+  fields: string[];                          // Always populated
+  ref_data_entityInstance: Record<string, Record<string, string>>;  // {} for metadata-only
+  metadata: {
+    entityListOfInstancesTable: {
+      viewType: Record<string, ViewFieldMetadata>;
+      editType: Record<string, EditFieldMetadata>;
+    };
+  };
+
+  // Pagination (for data requests)
+  total?: number;
+  limit?: number;
+  offset?: number;
+}
+```
+
+### Request Examples
+
+**Normal Data Request:**
+```bash
+GET /api/v1/project?limit=20&offset=0
+
+Response:
+{
+  "data": [{ "id": "uuid-1", "name": "Project A", ... }, ...],
+  "fields": ["id", "name", "code", "dl__project_stage", ...],
+  "ref_data_entityInstance": {
+    "employee": { "uuid-james": "James Miller" }
+  },
+  "metadata": {
+    "entityListOfInstancesTable": {
+      "viewType": { "name": { "dtype": "str", "label": "Name", ... } },
+      "editType": { "name": { "dtype": "str", "inputType": "text", ... } }
+    }
+  },
+  "total": 150,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+**Metadata-Only Request:**
+```bash
+GET /api/v1/project?content=metadata
+
+Response:
+{
+  "data": [],
+  "fields": ["id", "name", "code", "dl__project_stage", ...],
+  "ref_data_entityInstance": {},
+  "metadata": {
+    "entityListOfInstancesTable": {
+      "viewType": { "name": { "dtype": "str", "label": "Name", ... } },
+      "editType": { "name": { "dtype": "str", "inputType": "text", ... } }
+    }
+  }
+}
+```
+
+### Frontend Hook Updates
+
+```typescript
+// useEntityMetadata.ts - Uses content=metadata parameter
+export function useEntityMetadata(entityCode: string) {
+  return useQuery({
+    queryKey: ['entityInstanceMetadata', entityCode],
+    queryFn: async () => {
+      // Try Dexie cache first
+      const cached = await db.entityInstanceMetadata.get(entityCode);
+      if (cached && Date.now() - cached.syncedAt < 30 * 60 * 1000) {
+        return cached;
+      }
+
+      // Fetch metadata-only from API (no data transferred)
+      const response = await apiClient.get(`/api/v1/${entityCode}`, {
+        params: { content: 'metadata' }
+      });
+
+      const record = {
+        _id: entityCode,
+        entityCode,
+        fields: response.data.fields,
+        viewType: response.data.metadata?.entityListOfInstancesTable?.viewType ?? {},
+        editType: response.data.metadata?.entityListOfInstancesTable?.editType ?? {},
+        syncedAt: Date.now(),
+      };
+
+      await db.entityInstanceMetadata.put(record);
+      return record;
+    },
+    staleTime: 30 * 60 * 1000,
+  });
+}
+```
+
+### Backend Implementation (Pending)
+
+```typescript
+// apps/api/src/modules/{entity}/routes.ts
+
+fastify.get('/api/v1/project', async (request, reply) => {
+  const { content, limit = 20, offset = 0, ...filters } = request.query;
+
+  // Metadata-only mode
+  if (content === 'metadata') {
+    const response = await generateEntityResponse('project', [], {
+      total: 0,
+      limit: 0,
+      offset: 0,
+      metadataOnly: true  // New flag for backend-formatter
+    });
+    return reply.send(response);
+  }
+
+  // Normal data mode
+  const data = await db.execute(sql`SELECT * FROM app.project ...`);
+  const response = await generateEntityResponse('project', Array.from(data), {
+    total: count,
+    limit,
+    offset
+  });
+  return reply.send(response);
+});
+```
 
 ---
 
@@ -18,7 +161,6 @@
 | Entity Data | `['entityInstanceData', code, params]` | `entityInstanceData` | `code:hash` |
 | Entity Metadata | `['entityInstanceMetadata', code]` | `entityInstanceMetadata` | `code` |
 | Entity Instance | `['entityInstance', code, id]` | `entityInstance` | `code:id` |
-| Entity Types | `['entityType']` | `entityType` | `code` |
 | Entity Links | `['entityLink', parent, id, child]` | `entityLink` | `parent:id:child` |
 | Drafts | `['draft', code, id]` | `draft` | `code:id` |
 
@@ -126,21 +268,6 @@ export interface EntityInstanceRecord {
   syncedAt: number;
 }
 
-// Entity Type (mirrors app.entity)
-export interface EntityTypeRecord {
-  _id: string;                    // 'project'
-  code: string;
-  name: string;
-  ui_label: string;
-  ui_icon?: string;
-  db_table?: string;
-  child_entity_codes: string[];
-  display_order: number;
-  domain_code?: string;
-  active_flag: boolean;
-  syncedAt: number;
-}
-
 // Entity Link (forward index: parent → children)
 export interface EntityLinkRecord {
   _id: string;                    // 'project:uuid-1:task'
@@ -179,8 +306,7 @@ export class PMODatabase extends Dexie {
   entityInstanceMetadata!: Table<EntityInstanceMetadataRecord, string>;
   entityInstance!: Table<EntityInstanceRecord, string>;
 
-  // Entity infrastructure
-  entityType!: Table<EntityTypeRecord, string>;
+  // Entity links
   entityLink!: Table<EntityLinkRecord, string>;
 
   // Drafts
@@ -200,8 +326,7 @@ export class PMODatabase extends Dexie {
       entityInstanceMetadata: '_id, entityCode',
       entityInstance: '_id, entityCode, entityInstanceId, [entityCode+entityInstanceId]',
 
-      // Entity infrastructure
-      entityType: '_id, code, display_order, domain_code',
+      // Entity links
       entityLink: '_id, parentCode, parentId, childCode, [parentCode+parentId+childCode]',
 
       // Drafts
@@ -258,7 +383,6 @@ export async function clearAllData(): Promise<void> {
     db.entityInstanceData.clear(),
     db.entityInstanceMetadata.clear(),
     db.entityInstance.clear(),
-    db.entityType.clear(),
     db.entityLink.clear(),
     db.draft.clear(),
   ]);
@@ -268,7 +392,7 @@ export async function getDatabaseStats(): Promise<Record<string, number>> {
   const [
     datalabel, entityCode, globalSetting,
     entityInstanceData, entityInstanceMetadata, entityInstance,
-    entityType, entityLink, draft
+    entityLink, draft
   ] = await Promise.all([
     db.datalabel.count(),
     db.entityCode.count(),
@@ -276,7 +400,6 @@ export async function getDatabaseStats(): Promise<Record<string, number>> {
     db.entityInstanceData.count(),
     db.entityInstanceMetadata.count(),
     db.entityInstance.count(),
-    db.entityType.count(),
     db.entityLink.count(),
     db.draft.count(),
   ]);
@@ -284,7 +407,7 @@ export async function getDatabaseStats(): Promise<Record<string, number>> {
   return {
     datalabel, entityCode, globalSetting,
     entityInstanceData, entityInstanceMetadata, entityInstance,
-    entityType, entityLink, draft
+    entityLink, draft
   };
 }
 ```
@@ -393,33 +516,35 @@ export function useEntityList<T>(entityCode: string, params: Record<string, unkn
   });
 }
 
-// Separate hook for metadata only
+// Separate hook for metadata only - uses content=metadata API param
 export function useEntityMetadata(entityCode: string) {
   return useQuery({
     queryKey: ['entityInstanceMetadata', entityCode],
     queryFn: async () => {
-      // Try Dexie first
+      // Try Dexie cache first (30 min TTL)
       const cached = await db.entityInstanceMetadata.get(entityCode);
-      if (cached) return cached;
-
-      // Fetch from API if not cached
-      const response = await apiClient.get(`/api/v1/${entityCode}`, { params: { limit: 1 } });
-      const metadata = response.data.metadata;
-
-      if (metadata) {
-        const record = {
-          _id: entityCode,
-          entityCode,
-          fields: response.data.fields || [],
-          viewType: metadata.entityListOfInstancesTable?.viewType ?? {},
-          editType: metadata.entityListOfInstancesTable?.editType ?? {},
-          syncedAt: Date.now(),
-        };
-        await db.entityInstanceMetadata.put(record);
-        return record;
+      if (cached && Date.now() - cached.syncedAt < 30 * 60 * 1000) {
+        return cached;
       }
 
-      return null;
+      // Fetch metadata-only from API (no data transferred)
+      // Same endpoint, different content param
+      const response = await apiClient.get(`/api/v1/${entityCode}`, {
+        params: { content: 'metadata' }
+      });
+
+      // Response always has same structure: data=[], fields, metadata, ref_data_entityInstance={}
+      const record = {
+        _id: entityCode,
+        entityCode,
+        fields: response.data.fields || [],
+        viewType: response.data.metadata?.entityListOfInstancesTable?.viewType ?? {},
+        editType: response.data.metadata?.entityListOfInstancesTable?.editType ?? {},
+        syncedAt: Date.now(),
+      };
+
+      await db.entityInstanceMetadata.put(record);
+      return record;
     },
     staleTime: 30 * 60 * 1000,
   });
@@ -569,7 +694,8 @@ export function invalidateEntityQueries(entityCode: string, entityId?: string): 
 | `entities` table | `entityInstanceData` |
 | `entityLists` table | `entityInstanceData` |
 | `entityInstanceNames` table | `entityInstance` |
-| `entityTypes` table | `entityType` |
+| `entityTypes` table | `entityCode` (consolidated) |
+| `entityType` table | (removed - consolidated into `entityCode`) |
 | `entityLinksForward` table | `entityLink` |
 | `entityLinksReverse` table | (removed - derive from entityLink) |
 | `entityLinksRaw` table | (removed - not needed) |
@@ -596,17 +722,56 @@ export function invalidateEntityQueries(entityCode: string, entityId?: string): 
 │  ['entityInstanceData', ...]     ←→    entityInstanceData                   │
 │  ['entityInstanceMetadata', ...]  ←→    entityInstanceMetadata              │
 │  ['entityInstance', ...]         ←→    entityInstance                       │
-│  ['entityType']                  ←→    entityType                           │
 │  ['entityLink', ...]             ←→    entityLink                           │
 │  ['draft', ...]                  ←→    draft                                │
 │                                                                              │
-│  Total: 9 tables (down from 14)                                             │
+│  Total: 8 tables (down from 14)                                             │
 │  Metadata stored ONCE per entity type (not per record)                      │
 │  Unified naming between TanStack Query and Dexie                            │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                   UNIFIED ENTITY API (content parameter)                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  GET /api/v1/{entity}                  → Normal data + metadata response    │
+│  GET /api/v1/{entity}?content=metadata → Metadata-only (data=[], fields=[]) │
+│                                                                              │
+│  Response Structure (ALWAYS SAME):                                          │
+│  ─────────────────────────────────                                          │
+│  {                                                                           │
+│    data: [],                    // [] for metadata-only, [...] for normal   │
+│    fields: [...],               // Always populated from Redis cache        │
+│    ref_data_entityInstance: {}, // {} for metadata-only, {...} for normal   │
+│    metadata: {                  // Always present                           │
+│      entityListOfInstancesTable: { viewType, editType }                     │
+│    },                                                                        │
+│    total?, limit?, offset?      // Pagination (normal mode only)            │
+│  }                                                                           │
+│                                                                              │
+│  Benefits:                                                                   │
+│  • Single endpoint serves both data and metadata                            │
+│  • Child tabs can fetch metadata without data transfer                      │
+│  • Consistent response structure simplifies frontend parsing                │
+│  • Redis field cache ensures metadata works for empty results               │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-**Version**: 3.0.0 | **Status**: Ready for Implementation
+## Implementation Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Dexie Schema v4 | ✅ Done | 8 tables, unified naming |
+| TanStack hooks | ✅ Done | useEntityList, useEntityMetadata, useDatalabel, etc. |
+| queryClient hydration | ✅ Done | Hydrates from new tables |
+| WebSocketManager | ✅ Done | Uses new table names, hard delete |
+| Backend `content=metadata` | ⏳ Pending | Add query param support to entity routes |
+| Backend formatter update | ⏳ Pending | Handle metadataOnly flag |
+
+---
+
+**Version**: 4.0.0 | **Status**: Schema Implemented, API Update Pending
