@@ -180,25 +180,6 @@ export async function createChildEntityEndpointsFromMetadata(
             return reply.status(401).send({ error: 'User not authenticated' });
           }
 
-          // ═══════════════════════════════════════════════════════════════
-          // METADATA-ONLY MODE: Return fields + metadata without data query
-          // Used by frontend to get field definitions for empty child tabs
-          // ═══════════════════════════════════════════════════════════════
-          if (content === 'metadata') {
-            // Parse requested components
-            const requestedComponents = view
-              ? view.split(',').map((v: string) => v.trim())
-              : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
-
-            // Generate metadata-only response (no data query, uses Redis field cache)
-            const response = await generateEntityResponse(childEntity, [], {
-              components: requestedComponents,
-              metadataOnly: true
-            });
-
-            return reply.send(response);
-          }
-
           const entityInfra = getEntityInfrastructure(db);
 
           // ✅ ENTITY INFRASTRUCTURE SERVICE: RBAC check for child entity access
@@ -211,6 +192,52 @@ export async function createChildEntityEndpointsFromMetadata(
           );
 
           // ✅ Parent-child filtering (mandatory for child entity listing)
+          const parentJoinClause = `
+            INNER JOIN app.entity_instance_link eil
+              ON eil.child_entity_code = '${childEntity}'
+              AND eil.child_entity_instance_id = c.id
+              AND eil.entity_code = '${parentEntity}'
+              AND eil.entity_instance_id = '${parentId}'
+          `;
+
+          // ═══════════════════════════════════════════════════════════════
+          // METADATA-ONLY MODE: Same query structure with WHERE 1=0
+          // Uses postgres.js .columns to get field metadata from query result
+          // ═══════════════════════════════════════════════════════════════
+          if (content === 'metadata') {
+            // Execute same query structure with 1=0 to get columns without data
+            const metadataQuery = `
+              SELECT c.*, COALESCE(c.name, 'Untitled') as name, c.descr
+              FROM app.${childTable} c
+              ${parentJoinClause}
+              WHERE 1=0
+            `;
+            const columnsResult = await client.unsafe(metadataQuery);
+            const resultFields = columnsResult.columns?.map((col: any) => ({ name: col.name })) || [];
+
+            // Parse requested components
+            const requestedComponents = view
+              ? view.split(',').map((v: string) => v.trim())
+              : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
+
+            // Generate metadata-only response
+            const response = await generateEntityResponse(childEntity, [], {
+              components: requestedComponents,
+              metadataOnly: true,
+              resultFields
+            });
+
+            return reply.send(response);
+          }
+
+          // ═══════════════════════════════════════════════════════════════
+          // NORMAL DATA MODE: Execute full query, return data without metadata
+          // ═══════════════════════════════════════════════════════════════
+
+          // Universal child entity query pattern
+          const offsetVal = (page - 1) * limit;
+
+          // Use drizzle sql template for parameterized query
           const parentJoin = sql`
             INNER JOIN app.entity_instance_link eil
               ON eil.child_entity_code = ${childEntity}
@@ -218,9 +245,6 @@ export async function createChildEntityEndpointsFromMetadata(
               AND eil.entity_code = ${parentEntity}
               AND eil.entity_instance_id = ${parentId}
           `;
-
-          // Universal child entity query pattern
-          const offsetVal = (page - 1) * limit;
 
           const data = await db.execute(sql`
             SELECT c.*, COALESCE(c.name, 'Untitled') as name, c.descr
@@ -241,22 +265,12 @@ export async function createChildEntityEndpointsFromMetadata(
               AND c.active_flag = true
           `);
 
-          // For empty data, fetch column metadata using LIMIT 0 query
-          // This gets us the column names without returning any data
-          let resultFields: Array<{ name: string }> = [];
-          if (data.length === 0) {
-            const columnsResult = await client.unsafe(
-              `SELECT * FROM app.${childTable} WHERE 1=0`
-            );
-            resultFields = columnsResult.columns?.map((col: any) => ({ name: col.name })) || [];
-          }
-
-          // Generate response with metadata caching + column fallback
+          // Generate response - normal mode returns data without metadata
           const response = await generateEntityResponse(childEntity, Array.from(data), {
             total: Number(countResult[0]?.total || 0),
             limit,
             offset: offsetVal,
-            resultFields
+            metadataOnly: false
           });
 
           return {

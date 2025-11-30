@@ -144,7 +144,7 @@
 
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { db } from '@/db/index.js';
+import { db, client } from '@/db/index.js';
 import { sql, SQL } from 'drizzle-orm';
 import {
   getUniversalColumnMetadata,
@@ -279,19 +279,29 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
     try {
       // ═══════════════════════════════════════════════════════════════
-      // METADATA-ONLY MODE: Return fields + metadata without data query
-      // Used by frontend to get field definitions for empty child tabs
+      // METADATA-ONLY MODE: Same query structure with WHERE 1=0
+      // Uses postgres.js .columns to get field metadata from query result
       // ═══════════════════════════════════════════════════════════════
       if (content === 'metadata') {
+        // Execute same query structure with 1=0 to get columns without data
+        const metadataQuery = `
+          SELECT DISTINCT ${TABLE_ALIAS}.*
+          FROM app.${ENTITY_CODE} ${TABLE_ALIAS}
+          WHERE 1=0
+        `;
+        const columnsResult = await client.unsafe(metadataQuery);
+        const resultFields = columnsResult.columns?.map((col: any) => ({ name: col.name })) || [];
+
         // Parse requested components
         const requestedComponents = view
           ? view.split(',').map((v: string) => v.trim())
           : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
 
-        // Generate metadata-only response (no data query, uses Redis field cache)
+        // Generate metadata-only response
         const response = await generateEntityResponse(ENTITY_CODE, [], {
           components: requestedComponents,
-          metadataOnly: true
+          metadataOnly: true,
+          resultFields
         });
 
         return reply.send(response);
@@ -386,21 +396,14 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(projects as Record<string, any>[]);
 
       // ═══════════════════════════════════════════════════════════════
-      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
-      // Parse requested view (convert view names to component names)
+      // ✨ BACKEND FORMATTER SERVICE - Normal mode returns data without metadata
       // ═══════════════════════════════════════════════════════════════
-      const requestedComponents = view
-        ? view.split(',').map((v: string) => v.trim())
-        : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
-
-      // Generate response with metadata for requested components only
-      // v8.3.0: Include ref_data_entityInstance in response for O(1) entity name lookups
       const response = await generateEntityResponse(ENTITY_CODE, projects, {
-        components: requestedComponents,
         total,
         limit,
         offset,
         ref_data_entityInstance,
+        metadataOnly: false  // Normal mode: return data, metadata: {}
       });
 
       return response;

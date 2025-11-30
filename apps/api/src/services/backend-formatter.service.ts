@@ -1087,39 +1087,19 @@ export async function generateEntityResponse(
     ref_data_entityInstance = {}
   } = options;
 
-  let fieldNames: string[];
-
-  // Step 1: Check Redis cache for field names
-  const cachedFields = await getCachedFieldNames(entityCode);
-
-  if (cachedFields) {
-    // Cache hit - use cached field names
-    fieldNames = cachedFields;
-  } else {
-    // Cache miss - extract field names
-    if (data.length > 0) {
-      // Extract from first data row
-      fieldNames = Object.keys(data[0]);
-    } else if (resultFields.length > 0) {
-      // Extract from PostgreSQL result columns (empty data case)
-      fieldNames = resultFields.map(f => f.name);
-    } else {
-      // Fallback - no fields available
-      fieldNames = [];
-    }
-
-    // Hydrate cache (only if we have field names)
-    if (fieldNames.length > 0) {
-      await cacheFieldNames(entityCode, fieldNames);
-    }
-  }
-
-  // Step 2: Generate metadata for requested components
-  const metadata = generateMetadataForComponents(fieldNames, components, entityCode);
-
-  // Step 3: Build response based on mode
+  // ═══════════════════════════════════════════════════════════════
+  // METADATA-ONLY MODE: Return fields + metadata, data = []
+  // Field names come from resultFields (query columns via postgres.js)
+  // ═══════════════════════════════════════════════════════════════
   if (metadataOnly) {
-    // Metadata-only mode: return empty data with full metadata
+    // Extract field names from resultFields (postgres.js query columns)
+    const fieldNames = resultFields.length > 0
+      ? resultFields.map(f => f.name)
+      : [];
+
+    // Generate metadata for requested components
+    const metadata = generateMetadataForComponents(fieldNames, components, entityCode);
+
     return {
       data: [],
       fields: fieldNames,
@@ -1131,11 +1111,14 @@ export async function generateEntityResponse(
     };
   }
 
-  // Normal mode: return data with metadata
+  // ═══════════════════════════════════════════════════════════════
+  // NORMAL DATA MODE: Return data, metadata = {}, fields = []
+  // Data endpoint should NOT return metadata
+  // ═══════════════════════════════════════════════════════════════
   return {
     data,
-    fields: fieldNames,
-    metadata,
+    fields: [],
+    metadata: {},
     ref_data_entityInstance,
     total,
     limit,
