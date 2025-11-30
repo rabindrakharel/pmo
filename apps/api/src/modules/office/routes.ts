@@ -227,7 +227,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
         ? view.split(',').map((v: string) => v.trim())
         : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
 
-      const response = generateEntityResponse(ENTITY_CODE, offices, {
+      const response = await generateEntityResponse(ENTITY_CODE, offices, {
         components: requestedComponents,
         total, limit, offset
       });
@@ -301,7 +301,7 @@ export async function officeRoutes(fastify: FastifyInstance) {
         ? view.split(',').map((v: string) => v.trim())
         : ['entityInstanceFormContainer'];
 
-      const response = generateEntityResponse(ENTITY_CODE, [office[0]], {
+      const response = await generateEntityResponse(ENTITY_CODE, [office[0]], {
         components: requestedComponents,
         total: 1, limit: 1, offset: 0
       });

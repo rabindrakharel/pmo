@@ -11,7 +11,7 @@
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4
 - **State Management**: TanStack Query + Dexie (offline-first IndexedDB) - server state + persistence
 - **Infrastructure**: AWS EC2/S3/Lambda, Terraform, Docker
-- **Version**: 9.1.0 (TanStack Query + Dexie - RxDB Removed)
+- **Version**: 9.2.0 (Redis Field Caching + TanStack Query + Dexie)
 
 ## Critical Operations
 
@@ -345,6 +345,22 @@ fastify.get('/api/v1/project', async (request, reply) => {
 
 **Purpose**: Generate complete field metadata from database column names using 35+ pattern rules. **Backend is single source of truth** for all field rendering.
 
+### Redis Field Name Caching (v9.2.0)
+
+Field names are cached in Redis to ensure metadata generation works even for empty result sets (e.g., child entity tabs with no data):
+
+```
+Cache Key: entity:fields:{entityCode}  (e.g., entity:fields:task)
+TTL: 24 hours
+Fallback: PostgreSQL result columns via postgres.js 'columns' property
+```
+
+| Tier | Source | When Used |
+|------|--------|-----------|
+| 1 | Redis Cache | Cache hit - fastest path |
+| 2 | Data Row | Cache miss + data exists |
+| 3 | PostgreSQL Columns | Cache miss + data empty |
+
 ### Pattern Detection Rules
 
 | Pattern | renderType | inputType | Example |
@@ -359,24 +375,31 @@ fastify.get('/api/v1/project', async (request, reply) => {
 | `*_pct` | `percentage` | `number` | Percentage |
 | `tags` | `array` | `tags` | Tag input |
 
-### Usage in Routes
+### Usage in Routes (async - v9.2.0)
 
 ```typescript
-import { getEntityMetadata } from '@/services/backend-formatter.service.js';
+import { generateEntityResponse } from '@/services/backend-formatter.service.js';
+import { db, client } from '@/db/index.js';
 
 fastify.get('/api/v1/project', async (request, reply) => {
   const projects = await db.execute(sql`SELECT * FROM app.project...`);
 
-  // Generate metadata from first row
-  const fieldMetadata = projects.length > 0
-    ? getEntityMetadata('project', projects[0])
-    : getEntityMetadata('project');
+  // Get column metadata for empty data fallback
+  let resultFields: Array<{ name: string }> = [];
+  if (projects.length === 0) {
+    const cols = await client.unsafe(`SELECT * FROM app.project WHERE 1=0`);
+    resultFields = cols.columns?.map((c: any) => ({ name: c.name })) || [];
+  }
 
-  return {
-    data: projects,
-    metadata: fieldMetadata,  // Frontend uses this to render
-    total, limit, offset
-  };
+  // Generate response with Redis-cached metadata (async)
+  const response = await generateEntityResponse('project', Array.from(projects), {
+    total: count,
+    limit: 20,
+    offset: 0,
+    resultFields  // PostgreSQL columns fallback
+  });
+
+  return reply.send(response);
 });
 ```
 
@@ -713,11 +736,12 @@ Request → RBAC Check (DELETE) → TRANSACTION {
 | Document | Path | Purpose |
 |----------|------|---------|
 | **TANSTACK_DEXIE_SYNC_ARCHITECTURE.md** | `docs/caching/` | TanStack Query + Dexie + WebSocket sync |
+| **ENTITY_METADATA_CACHING.md** | `docs/caching-backend/` | Redis field name caching for empty data |
 | **RBAC_INFRASTRUCTURE.md** | `docs/rbac/` | RBAC tables, permissions, patterns |
 | **entity-infrastructure.service.md** | `docs/services/` | Entity infrastructure service API + build_ref_data_entityInstance |
 | **STATE_MANAGEMENT.md** | `docs/state_management/` | TanStack Query + Dexie state architecture |
 | **PAGE_ARCHITECTURE.md** | `docs/pages/` | Page components and routing |
-| **backend-formatter.service.md** | `docs/services/` | Backend metadata generation (BFF) |
+| **backend-formatter.service.md** | `docs/services/` | Backend metadata generation (BFF) + Redis field cache |
 | **frontEndFormatterService.md** | `docs/services/` | Frontend rendering (pure renderer) |
 | **RefData README.md** | `docs/refData/` | Entity reference resolution pattern |
 
@@ -726,6 +750,12 @@ Request → RBAC Check (DELETE) → TRANSACTION {
 TanStack Query + Dexie offline-first architecture with WebSocket real-time sync. Used when implementing caching, understanding invalidation flow, or troubleshooting sync issues.
 
 **Keywords:** `TanStack Query`, `Dexie`, `IndexedDB`, `WebSocket`, `PubSub`, `WebSocketManager`, `INVALIDATE`, `SUBSCRIBE`, `LogWatcher`, `app.system_logging`, `app.system_cache_subscription`, `real-time sync`, `cache invalidation`, `queryClient.invalidateQueries`, `hydrateQueryCache`, `port 4001`
+
+### 0.5. ENTITY_METADATA_CACHING.md (v9.2.0)
+
+Redis caching strategy for entity field names in backend-formatter.service. Solves the "empty child entity tabs show no columns" problem by caching field names with 24-hour TTL.
+
+**Keywords:** `Redis`, `field cache`, `entity:fields:`, `generateEntityResponse`, `resultFields`, `postgres.js columns`, `empty data`, `child entity tabs`, `metadata generation`, `getCachedFieldNames`, `cacheFieldNames`, `invalidateFieldCache`, `clearAllFieldCache`, `24-hour TTL`, `graceful degradation`
 
 ### 1. RBAC_INFRASTRUCTURE.md
 
@@ -753,9 +783,15 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
 
 ---
 
-**Version**: 9.1.0 | **Updated**: 2025-11-28 | **Pattern**: TanStack Query + Dexie (Offline-First)
+**Version**: 9.2.0 | **Updated**: 2025-11-30 | **Pattern**: TanStack Query + Dexie (Offline-First) + Redis Field Cache
 
 **Recent Updates**:
+- v9.2.0 (2025-11-30): **Redis Entity Field Caching**
+  - Added Redis caching for entity field names (24-hour TTL)
+  - `generateEntityResponse()` is now async with `resultFields` fallback
+  - Solves "empty child entity tabs show no columns" problem
+  - Graceful degradation when Redis unavailable
+  - See: `docs/caching-backend/ENTITY_METADATA_CACHING.md`
 - v9.1.0 (2025-11-28): **RxDB Completely Removed**
   - Removed `rxdb` and `rxjs` dependencies from package.json
   - Updated vite.config.ts to optimize for TanStack Query + Dexie

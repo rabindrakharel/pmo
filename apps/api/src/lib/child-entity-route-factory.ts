@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { db } from '@/db/index.js';
+import { db, client } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
 import { getEntityInfrastructure, Permission } from '../services/entity-infrastructure.service.js';
 import { PAGINATION_CONFIG } from './pagination.js';
+import { generateEntityResponse } from '../services/backend-formatter.service.js';
 
 /**
  * Entity-to-Table Mapping
@@ -198,7 +199,7 @@ export async function createChildEntityEndpointsFromMetadata(
           `;
 
           // Universal child entity query pattern
-          const offset = (page - 1) * limit;
+          const offsetVal = (page - 1) * limit;
 
           const data = await db.execute(sql`
             SELECT c.*, COALESCE(c.name, 'Untitled') as name, c.descr
@@ -207,10 +208,10 @@ export async function createChildEntityEndpointsFromMetadata(
             WHERE ${rbacWhereClause}
               AND c.active_flag = true
             ORDER BY c.created_ts DESC
-            LIMIT ${limit} OFFSET ${offset}
+            LIMIT ${limit} OFFSET ${offsetVal}
           `);
 
-          // Universal count query pattern with entity infrastructure service
+          // Count query
           const countResult = await db.execute(sql`
             SELECT COUNT(*) as total
             FROM app.${sql.raw(childTable)} c
@@ -219,11 +220,27 @@ export async function createChildEntityEndpointsFromMetadata(
               AND c.active_flag = true
           `);
 
-          return {
-            data,
+          // For empty data, fetch column metadata using LIMIT 0 query
+          // This gets us the column names without returning any data
+          let resultFields: Array<{ name: string }> = [];
+          if (data.length === 0) {
+            const columnsResult = await client.unsafe(
+              `SELECT * FROM app.${childTable} WHERE 1=0`
+            );
+            resultFields = columnsResult.columns?.map((col: any) => ({ name: col.name })) || [];
+          }
+
+          // Generate response with metadata caching + column fallback
+          const response = await generateEntityResponse(childEntity, Array.from(data), {
             total: Number(countResult[0]?.total || 0),
-            page,
-            limit
+            limit,
+            offset: offsetVal,
+            resultFields
+          });
+
+          return {
+            ...response,
+            page
           };
         } catch (error: any) {
           fastify.log.error({

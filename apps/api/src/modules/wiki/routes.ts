@@ -208,7 +208,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       }));
 
       // ✨ Generate component-aware metadata using Backend Formatter Service
-      const metadataResponse = generateEntityResponse(ENTITY_CODE, parsedRows);
+      const metadataResponse = await generateEntityResponse(ENTITY_CODE, parsedRows);
 
       // ✅ Explicitly return all fields (Fastify strips fields not in schema)
       return {
@@ -322,7 +322,7 @@ export async function wikiRoutes(fastify: FastifyInstance) {
       };
 
       // ✨ Generate component-aware metadata using Backend Formatter Service
-      const response = generateEntityResponse(ENTITY_CODE, [parsedWiki]);
+      const response = await generateEntityResponse(ENTITY_CODE, [parsedWiki]);
 
       // ✅ Explicitly return all fields (Fastify strips fields not in schema)
       return {

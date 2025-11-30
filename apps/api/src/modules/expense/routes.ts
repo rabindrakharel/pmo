@@ -270,7 +270,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       const total = Number(countResult[0]?.total || 0);
 
       // ✨ Generate component-aware metadata using Backend Formatter Service
-      const response = generateEntityResponse(ENTITY_CODE, dataResult);
+      const response = await generateEntityResponse(ENTITY_CODE, dataResult);
 
       // ✅ Explicitly return all fields (Fastify strips fields not in schema)
       return reply.send({
@@ -342,7 +342,7 @@ export async function expenseRoutes(fastify: FastifyInstance) {
       }
 
       // ✨ Generate component-aware metadata using Backend Formatter Service
-      const response = generateEntityResponse(ENTITY_CODE, result);
+      const response = await generateEntityResponse(ENTITY_CODE, result);
 
       // ✅ Explicitly return all fields (Fastify strips fields not in schema)
       return reply.send({

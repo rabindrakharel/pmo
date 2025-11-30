@@ -218,7 +218,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           ? view.split(',').map((v: string) => v.trim())
           : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
 
-        const response = generateEntityResponse(ENTITY_CODE, forms, {
+        const response = await generateEntityResponse(ENTITY_CODE, forms, {
           components: requestedComponents,
           total,
           limit,
@@ -269,7 +269,7 @@ export async function formRoutes(fastify: FastifyInstance) {
           ? view.split(',').map((v: string) => v.trim())
           : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
 
-        const response = generateEntityResponse(ENTITY_CODE, forms, {
+        const response = await generateEntityResponse(ENTITY_CODE, forms, {
           components: requestedComponents,
           total,
           limit,
@@ -425,7 +425,7 @@ export async function formRoutes(fastify: FastifyInstance) {
         ? view.split(',').map((v: string) => v.trim())
         : ['entityInstanceFormContainer'];
 
-      const response = generateEntityResponse(ENTITY_CODE, [form], {
+      const response = await generateEntityResponse(ENTITY_CODE, [form], {
         components: requestedComponents,
         total: 1,
         limit: 1,

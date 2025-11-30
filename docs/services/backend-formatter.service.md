@@ -1,8 +1,8 @@
 # Backend Formatter Service (BFF)
 
-**Version:** 8.5.0 | **Location:** `apps/api/src/services/backend-formatter.service.ts` | **Updated:** 2025-11-28
+**Version:** 9.2.0 | **Location:** `apps/api/src/services/backend-formatter.service.ts` | **Updated:** 2025-11-30
 
-> **Note:** The backend formatter generates metadata consumed by the RxDB-based frontend (v8.5.0). Data is stored in IndexedDB via RxDB, with metadata cached for formatting on read.
+> **Note:** The backend formatter generates metadata consumed by the TanStack Query + Dexie frontend (v9.1.0). Field names are cached in Redis (24-hour TTL) to ensure metadata generation works even for empty result sets.
 
 ---
 
@@ -248,6 +248,85 @@ patterns:
 
 ---
 
+## Redis Field Name Caching (v9.2.0)
+
+The service caches entity field names in Redis to solve the "empty data" problem where child entity tabs show no columns when there's no existing data.
+
+### Cache Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        FIELD NAME CACHING FLOW                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Request → generateEntityResponse()                                          │
+│                     │                                                        │
+│                     ▼                                                        │
+│           ┌─────────────────────┐                                            │
+│           │  Check Redis Cache  │                                            │
+│           │  entity:fields:{code}│                                           │
+│           └─────────┬───────────┘                                            │
+│                     │                                                        │
+│           ┌─────────┴─────────┐                                              │
+│           │                   │                                              │
+│      CACHE HIT           CACHE MISS                                          │
+│           │                   │                                              │
+│           ▼                   ▼                                              │
+│    Use cached fields    Extract from:                                        │
+│                         1. data[0] (if data exists)                          │
+│                         2. resultFields (PostgreSQL columns)                 │
+│                                   │                                          │
+│                                   ▼                                          │
+│                         Hydrate Redis Cache (TTL: 24h)                       │
+│                                   │                                          │
+│           └───────────────────────┘                                          │
+│                     │                                                        │
+│                     ▼                                                        │
+│           generateMetadataForComponents(fieldNames)                          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Cache Configuration
+
+| Setting | Value | Description |
+|---------|-------|-------------|
+| Key Pattern | `entity:fields:{entityCode}` | e.g., `entity:fields:task` |
+| TTL | 86400 seconds (24 hours) | Schema changes are rare |
+| Storage | JSON array of field names | `["id","name","code","..."]` |
+
+### Graceful Degradation
+
+If Redis is unavailable, the service continues without caching:
+
+```typescript
+async function getCachedFieldNames(entityCode: string): Promise<string[] | null> {
+  try {
+    const redis = getRedisClient();
+    const cached = await redis.get(`entity:fields:${entityCode}`);
+    return cached ? JSON.parse(cached) : null;
+  } catch (error) {
+    // Redis unavailable - continue without cache
+    console.warn(`[FieldCache] Redis error, falling back:`, error);
+    return null;
+  }
+}
+```
+
+### Cache Invalidation
+
+```typescript
+import { invalidateFieldCache, clearAllFieldCache } from '@/services/backend-formatter.service.js';
+
+// Invalidate single entity (e.g., after schema change)
+await invalidateFieldCache('task');
+
+// Clear all field caches (e.g., after DDL migration)
+await clearAllFieldCache();
+```
+
+---
+
 ## Usage in Routes
 
 ### Standard Pattern with ref_data_entityInstance
@@ -264,8 +343,8 @@ fastify.get('/api/v1/project', async (request, reply) => {
   // Build ref_data_entityInstance lookup table for entity references
   const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(projects);
 
-  // Generate complete response with metadata
-  const response = generateEntityResponse('project', projects, {
+  // Generate complete response with metadata (async - uses Redis cache)
+  const response = await generateEntityResponse('project', Array.from(projects), {
     components: ['entityListOfInstancesTable', 'entityInstanceFormContainer'],
     total: count,
     limit: 20,
@@ -279,14 +358,43 @@ fastify.get('/api/v1/project', async (request, reply) => {
 });
 ```
 
+### Child Entity Pattern with resultFields Fallback
+
+For child entity tabs that may return empty data, pass `resultFields` from PostgreSQL:
+
+```typescript
+import { db, client } from '@/db/index.js';
+import { generateEntityResponse } from '@/services/backend-formatter.service.js';
+
+// Query with drizzle-orm
+const data = await db.execute(sql`SELECT * FROM app.task...`);
+
+// Get column metadata for empty data fallback
+let resultFields: Array<{ name: string }> = [];
+if (data.length === 0) {
+  const columnsResult = await client.unsafe(
+    `SELECT * FROM app.${tableName} WHERE 1=0`
+  );
+  resultFields = columnsResult.columns?.map((col: any) => ({ name: col.name })) || [];
+}
+
+// Generate response with resultFields fallback
+const response = await generateEntityResponse(entityCode, Array.from(data), {
+  total: count,
+  limit,
+  offset,
+  resultFields  // PostgreSQL columns for empty data
+});
+```
+
 ---
 
 ## Key Functions
 
-### generateEntityResponse
+### generateEntityResponse (async - v9.2.0)
 
 ```typescript
-function generateEntityResponse(
+async function generateEntityResponse(
   entityCode: string,
   data: any[],
   options: {
@@ -294,11 +402,31 @@ function generateEntityResponse(
     total?: number;
     limit?: number;
     offset?: number;
+    resultFields?: Array<{ name: string }>;  // PostgreSQL columns fallback
   }
-): EntityResponse {
-  const fieldNames = data.length > 0 ? Object.keys(data[0]) : [];
-  const metadata = generateMetadataForComponents(fieldNames, components, entityCode);
+): Promise<EntityResponse> {
+  // Step 1: Check Redis cache
+  const cachedFields = await getCachedFieldNames(entityCode);
 
+  let fieldNames: string[];
+  if (cachedFields) {
+    fieldNames = cachedFields;  // Cache hit
+  } else {
+    // Cache miss - extract from data or resultFields
+    if (data.length > 0) {
+      fieldNames = Object.keys(data[0]);
+    } else if (resultFields.length > 0) {
+      fieldNames = resultFields.map(f => f.name);
+    } else {
+      fieldNames = [];
+    }
+    // Hydrate cache
+    if (fieldNames.length > 0) {
+      await cacheFieldNames(entityCode, fieldNames);
+    }
+  }
+
+  const metadata = generateMetadataForComponents(fieldNames, components, entityCode);
   return { data, fields: fieldNames, metadata, total, limit, offset };
 }
 ```
@@ -453,9 +581,16 @@ This renders a dropdown with colored badges matching the datalabel options, usin
 
 ---
 
-**Version:** 11.0.0 | **Updated:** 2025-11-27
+**Version:** 9.2.0 | **Updated:** 2025-11-30
 
 **Recent Updates:**
+- v9.2.0 (2025-11-30):
+  - **Redis field name caching** - 24-hour TTL cache for entity field names
+  - **`generateEntityResponse()` is now async** - all callers must use `await`
+  - **`resultFields` parameter** - PostgreSQL column metadata fallback for empty data
+  - Solves "empty child entity tabs show no columns" problem
+  - Graceful degradation when Redis unavailable
+  - Exported `invalidateFieldCache()` and `clearAllFieldCache()` for cache management
 - v11.0.0 (2025-11-27):
   - **Removed legacy PATTERN_RULES** (~900 lines) - YAML is now sole source of truth
   - Standardized naming: `entityInstanceId` (camelCase) for both `renderType` and `inputType`

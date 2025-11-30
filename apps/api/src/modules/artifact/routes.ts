@@ -241,7 +241,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
 
       // Generate response with metadata for requested components only
-      const response = generateEntityResponse(ENTITY_CODE, artifacts, {
+      const response = await generateEntityResponse(ENTITY_CODE, artifacts, {
         components: requestedComponents,
         total,
         limit,
@@ -320,7 +320,7 @@ export async function artifactRoutes(fastify: FastifyInstance) {
         ? view.split(',').map((v: string) => v.trim())
         : ['entityInstanceFormContainer'];
 
-      const response = generateEntityResponse(ENTITY_CODE, [artifact], {
+      const response = await generateEntityResponse(ENTITY_CODE, [artifact], {
         components: requestedComponents,
         total: 1,
         limit: 1,
