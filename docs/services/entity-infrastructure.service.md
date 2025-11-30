@@ -1,8 +1,8 @@
 # Entity Infrastructure Service
 
-**Version:** 9.2.0 | **Location:** `apps/api/src/services/entity-infrastructure.service.ts`
+**Version:** 9.3.0 | **Location:** `apps/api/src/services/entity-infrastructure.service.ts`
 
-> **Note:** The entity infrastructure service generates `ref_data_entityInstance` lookup tables that are cached in TanStack Query + Dexie (IndexedDB) on the frontend for offline entity reference resolution.
+> **Note:** The entity infrastructure service generates `ref_data_entityInstance` lookup tables that are cached in TanStack Query + Dexie v4 (IndexedDB) on the frontend for offline entity reference resolution. Frontend uses `entityInstance` table in Dexie for persistence.
 
 ---
 
@@ -542,9 +542,10 @@ async set_entity_instance_link(params: {
 
 ---
 
-**Last Updated:** 2025-11-30 | **Version:** 9.2.0 | **Status:** Production Ready
+**Last Updated:** 2025-11-30 | **Version:** 9.3.0 | **Status:** Production Ready
 
 **Recent Updates:**
+- v9.3.0 (2025-11-30): Updated for Dexie v4 schema with `entityInstance` table
 - v9.2.0 (2025-11-30): Updated to reflect TanStack Query + Dexie frontend (RxDB removed)
 - v8.3.0 (2025-11-26): Added `build_ref_data_entityInstance()` for entity reference resolution
 - v5.0.0 (2025-11-22): Added transactional CRUD methods

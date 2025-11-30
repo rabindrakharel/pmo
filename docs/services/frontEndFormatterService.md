@@ -1,8 +1,8 @@
 # Frontend Formatter Service
 
-**Version:** 8.5.0 | **Location:** `apps/web/src/lib/` | **Updated:** 2025-11-28
+**Version:** 9.3.0 | **Location:** `apps/web/src/lib/` | **Updated:** 2025-11-30
 
-> **Note:** As of v8.5.0, the frontend uses RxDB (IndexedDB) for offline-first data storage. The formatter service works with data from RxDB reactive queries, formatting on read for display.
+> **Note:** As of v9.3.0, the frontend uses TanStack Query + Dexie v4 (IndexedDB) for offline-first data storage. The formatter service works with data from TanStack Query, formatting on read via `select` transform. Dexie v4 schema uses 8 unified tables with TanStack Query key alignment.
 
 ---
 
@@ -12,7 +12,7 @@ The frontend formatter is a **pure renderer** that executes backend instructions
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  FRONTEND FORMATTER ARCHITECTURE (v8.3.1)                                    │
+│  FRONTEND FORMATTER ARCHITECTURE (v9.3.0)                                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  Backend Metadata                      Frontend Renderer                     │
@@ -185,14 +185,14 @@ interface UseRefDataResult {
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  FORMAT-AT-READ FLOW (v8.4.0 - includes WebSocket sync)                      │
+│  FORMAT-AT-READ FLOW (v9.3.0 - TanStack Query + Dexie v4)                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  1. React Query Cache (RAW + ref_data_entityInstance)                        │
-│     queryKey: ['entity-list', 'project', params]                             │
+│  1. TanStack Query Cache (RAW + ref_data_entityInstance)                     │
+│     queryKey: ['entityInstanceData', 'project', params]                      │
 │     data: { data: [...], ref_data_entityInstance: {...}, metadata: {...} }   │
 │                       │                                                      │
-│                       │ ← WebSocket INVALIDATE triggers refetch (v8.4.0)     │
+│                       │ ← WebSocket INVALIDATE triggers refetch (v9.3.0)     │
 │                       │                                                      │
 │                       ▼ `select` option (ON READ)                            │
 │                                                                              │
@@ -239,7 +239,7 @@ interface UseRefDataResult {
 │  formatBadge('planning', viewType.dl__project_stage)                         │
 │                       │                                                      │
 │                       ▼                                                      │
-│  getDatalabelSync('project_stage')   // From RxDB sync cache (v8.6.0)        │
+│  getDatalabelSync('project_stage')   // From Dexie sync cache (v9.3.0)       │
 │    → [{ name: 'planning', label: 'Planning', color_code: 'blue' }]           │
 │                       │                                                      │
 │                       ▼                                                      │
@@ -554,31 +554,48 @@ function getEntityCodeFromMetadata(fieldMeta: FieldMetadata | undefined): string
 
 ---
 
-## Integration with Real-Time Sync (v8.6.0)
+## Integration with Real-Time Sync (v9.3.0)
 
-The frontend formatter integrates seamlessly with the WebSocket sync system via RxDB:
+The frontend formatter integrates seamlessly with the WebSocket sync system via TanStack Query + Dexie:
 
-1. **WebSocket INVALIDATE** → ReplicationManager receives message
-2. **RxDB Refetch** → `fetchEntity()` fetches fresh data from REST API
-3. **RxDB Upsert** → `db.entities.upsert()` updates IndexedDB
-4. **RxJS Observable** → Reactive query emits new value
-5. **Format-at-Read** → formatDataset() applies during render
+1. **WebSocket INVALIDATE** → WebSocketManager receives message
+2. **TanStack Invalidate** → `queryClient.invalidateQueries()` marks stale
+3. **Auto Refetch** → TanStack Query fetches fresh data from REST API
+4. **Dexie Update** → `db.entityInstance.put()` updates IndexedDB
+5. **Format-at-Read** → formatDataset() applies via `select` transform
 6. **Component Re-render** → Updated FormattedRow[] displayed automatically
 
 This ensures that when another user modifies an entity, subscribers see fresh, correctly formatted data within ~60 seconds (LogWatcher polling interval).
 
-See `docs/caching/RXDB_SYNC_ARCHITECTURE.md` for full sync architecture details.
+See `docs/caching/TANSTACK_DEXIE_SYNC_ARCHITECTURE.md` for full sync architecture details.
+
+### Dexie v4 Tables Used
+
+| Table | Purpose | TanStack Query Key |
+|-------|---------|-------------------|
+| `entityInstanceData` | Entity list data | `['entityInstanceData', entityCode, params]` |
+| `entityInstanceMetadata` | Field metadata | `['entityInstanceMetadata', entityCode]` |
+| `entityInstance` | Single entity records | `['entityInstance', entityCode, id]` |
+| `datalabel` | Badge/dropdown options | `['datalabel', key]` |
 
 ---
 
-**Version:** 11.0.0 | **Updated:** 2025-11-27
+**Version:** 9.3.0 | **Updated:** 2025-11-30
 
 **Recent Updates:**
+- v9.3.0 (2025-11-30):
+  - **TanStack Query + Dexie v4** - Replaced RxDB with TanStack Query + Dexie
+  - Updated data flow diagrams for new architecture
+  - Added Dexie v4 table reference (8 unified tables)
+  - `useEntityMetadata` hook for metadata-only requests
+  - WebSocketManager replaces ReplicationManager
+- v9.1.0 (2025-11-28):
+  - Removed RxDB completely (TanStack Query + Dexie migration)
+  - Updated all RxDB references to Dexie
 - v11.0.0 (2025-11-27):
   - Standardized naming: `entityInstanceId` (camelCase) for both `renderType` and `inputType`
   - Removed `viewType`/`editType` field properties - use `renderType`/`inputType` instead
   - Aligned with backend v11.0.0 (PATTERN_RULES removal)
-  - Added integration notes for WebSocket sync (v8.4.0)
 - v8.3.2 (2025-11-27):
   - Renamed ColoredDropdown → BadgeDropdownSelect
   - Added `BadgeDropdownSelect` as valid inputType in renderEditModeFromMetadata
