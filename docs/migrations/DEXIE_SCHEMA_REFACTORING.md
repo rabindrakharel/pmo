@@ -119,31 +119,37 @@ export function useEntityMetadata(entityCode: string) {
 }
 ```
 
-### Backend Implementation (Pending)
+### Backend Implementation (Done)
 
 ```typescript
 // apps/api/src/modules/{entity}/routes.ts
 
 fastify.get('/api/v1/project', async (request, reply) => {
-  const { content, limit = 20, offset = 0, ...filters } = request.query;
+  const { content, limit = 20, offset = 0, view, ...filters } = request.query;
 
-  // Metadata-only mode
+  // Metadata-only mode - returns fields + metadata without data query
   if (content === 'metadata') {
+    const requestedComponents = view
+      ? view.split(',').map((v: string) => v.trim())
+      : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
+
     const response = await generateEntityResponse('project', [], {
-      total: 0,
-      limit: 0,
-      offset: 0,
-      metadataOnly: true  // New flag for backend-formatter
+      components: requestedComponents,
+      metadataOnly: true  // Uses Redis field cache, returns data=[], ref_data_entityInstance={}
     });
     return reply.send(response);
   }
 
   // Normal data mode
   const data = await db.execute(sql`SELECT * FROM app.project ...`);
+  const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(data);
+
   const response = await generateEntityResponse('project', Array.from(data), {
+    components: requestedComponents,
     total: count,
     limit,
-    offset
+    offset,
+    ref_data_entityInstance
   });
   return reply.send(response);
 });
@@ -769,9 +775,9 @@ export function invalidateEntityQueries(entityCode: string, entityId?: string): 
 | TanStack hooks | ✅ Done | useEntityList, useEntityMetadata, useDatalabel, etc. |
 | queryClient hydration | ✅ Done | Hydrates from new tables |
 | WebSocketManager | ✅ Done | Uses new table names, hard delete |
-| Backend `content=metadata` | ⏳ Pending | Add query param support to entity routes |
-| Backend formatter update | ⏳ Pending | Handle metadataOnly flag |
+| Backend `content=metadata` | ✅ Done | project/routes.ts, child-entity-route-factory.ts |
+| Backend formatter update | ✅ Done | metadataOnly option in generateEntityResponse() |
 
 ---
 
-**Version**: 4.0.0 | **Status**: Schema Implemented, API Update Pending
+**Version**: 4.0.0 | **Status**: Fully Implemented
