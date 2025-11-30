@@ -48,6 +48,55 @@ The Backend Formatter Service generates **component-aware field metadata** from 
 
 ---
 
+## Unified API Response Structure (v9.3.0)
+
+The backend serves **both data and metadata from the same endpoint**. The response structure is **always identical** regardless of mode - only the values differ.
+
+### Single Endpoint, Two Modes
+
+| Mode | Request | Use Case |
+|------|---------|----------|
+| **Normal** | `GET /api/v1/project` | Full data + metadata |
+| **Metadata-only** | `GET /api/v1/project?content=metadata` | Field definitions only |
+
+### Response Structure (Always the Same)
+
+```typescript
+interface EntityAPIResponse {
+  data: any[];                    // Entity records ([] for metadata-only)
+  fields: string[];               // Field names (always populated)
+  metadata: {                     // Field definitions (always populated)
+    entityListOfInstancesTable: { viewType: {...}, editType: {...} },
+    entityInstanceFormContainer: { viewType: {...}, editType: {...} }
+  };
+  ref_data_entityInstance: Record<string, Record<string, string>>;  // Entity lookups ({} for metadata-only)
+  total: number;                  // Record count (0 for metadata-only)
+  limit: number;                  // Page size (0 for metadata-only)
+  offset: number;                 // Page offset (0 for metadata-only)
+}
+```
+
+### Comparison: Normal vs Metadata-Only
+
+| Field | Normal Mode | Metadata-Only Mode |
+|-------|-------------|-------------------|
+| `data` | `[{id: "...", name: "..."}]` | `[]` |
+| `fields` | `["id", "name", "code", ...]` | `["id", "name", "code", ...]` |
+| `metadata` | Full viewType/editType | Full viewType/editType |
+| `ref_data_entityInstance` | `{employee: {"uuid": "Name"}}` | `{}` |
+| `total` | `100` | `0` |
+| `limit` | `20` | `0` |
+| `offset` | `0` | `0` |
+
+### Why Same Structure?
+
+1. **Frontend simplicity**: Same TypeScript interface for both modes
+2. **Cache compatibility**: TanStack Query stores same shape
+3. **Graceful degradation**: Empty data still has metadata for table headers
+4. **Progressive loading**: Metadata first, data second
+
+---
+
 ## API Response Structure (v8.3.1)
 
 ```json
