@@ -233,18 +233,17 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       // Get all action entities of the specified type that are children of this parent
       let childEntityIds: string[] = [];
 
-      // First, try to find relationships via hierarchy mapping table
+      // First, try to find relationships via entity_instance_link table
       const hierarchyResult = await db.execute(sql`
-        SELECT DISTINCT child_entity_id
-        FROM app.entity_id_map
-        WHERE parent_entity_type = ${parentEntity}
-          AND parent_entity_id = ${parentEntityId}
-          AND child_entity_type = ${actionEntity}
-          AND active_flag = true
+        SELECT DISTINCT child_entity_instance_id
+        FROM app.entity_instance_link
+        WHERE entity_code = ${parentEntity}
+          AND entity_instance_id = ${parentEntityId}
+          AND child_entity_code = ${actionEntity}
       `);
 
       if (hierarchyResult.length > 0) {
-        childEntityIds = hierarchyResult.map(row => row.child_entity_id as string);
+        childEntityIds = hierarchyResult.map(row => row.child_entity_instance_id as string);
       } else {
         // If no results from hierarchy mapping, try direct foreign key relationships
         if (parentEntity === 'project' && actionEntity === 'task') {
@@ -430,20 +429,20 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       body: Type.Object({
-        person_entity_name: Type.Union([Type.Literal('role'), Type.Literal('employee')]),
+        person_code: Type.Union([Type.Literal('role'), Type.Literal('employee')]),
         person_id: Type.String({ format: 'uuid' }),
-        entity_name: Type.String(),
-        entity_id: Type.String(), // 'all' or specific UUID
+        entity_code: Type.String(),
+        entity_instance_id: Type.String(), // ALL_ENTITIES_ID or specific UUID
         permission: Type.Number({ minimum: 0, maximum: 5 }),
         expires_ts: Type.Optional(Type.Union([Type.String({ format: 'date-time' }), Type.Null()])),
       }),
       response: {
         201: Type.Object({
           id: Type.String(),
-          person_entity_name: Type.String(),
+          person_code: Type.String(),
           person_id: Type.String(),
-          entity_name: Type.String(),
-          entity_id: Type.String(),
+          entity_code: Type.String(),
+          entity_instance_id: Type.String(),
           permission: Type.Number(),
           granted_by__employee_id: Type.String(),
           granted_ts: Type.String(),
@@ -457,7 +456,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { person_entity_name, person_id, entity_name, entity_id, permission, expires_ts } = request.body as any;
+    const { person_code, person_id, entity_code, entity_instance_id, permission, expires_ts } = request.body as any;
     const userId = (request as any).user?.sub;
 
     if (!userId) {
@@ -466,14 +465,14 @@ export async function rbacRoutes(fastify: FastifyInstance) {
 
     try {
       // Verify the person exists
-      if (person_entity_name === 'role') {
+      if (person_code === 'role') {
         const roleExists = await db.execute(sql`
           SELECT id FROM app.role WHERE id = ${person_id} AND active_flag = true
         `);
         if (roleExists.length === 0) {
           return reply.status(400).send({ error: 'Role not found or inactive' });
         }
-      } else if (person_entity_name === 'employee') {
+      } else if (person_code === 'employee') {
         const employeeExists = await db.execute(sql`
           SELECT id FROM app.employee WHERE id = ${person_id} AND active_flag = true
         `);
@@ -482,12 +481,13 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         }
       }
 
-      // Verify entity_id if not 'all'
-      if (entity_id !== 'all') {
+      // Verify entity_instance_id if not ALL_ENTITIES_ID
+      const ALL_ENTITIES_ID = '11111111-1111-1111-1111-111111111111';
+      if (entity_instance_id !== ALL_ENTITIES_ID) {
         // Validate UUID format
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(entity_id)) {
-          return reply.status(400).send({ error: 'Invalid entity_id format. Must be UUID or "all"' });
+        if (!uuidRegex.test(entity_instance_id)) {
+          return reply.status(400).send({ error: 'Invalid entity_instance_id format. Must be UUID or ALL_ENTITIES_ID' });
         }
       }
 
@@ -495,11 +495,10 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       const existingPermission = await db.execute(sql`
         SELECT id, permission
         FROM app.entity_rbac
-        WHERE person_entity_name = ${person_entity_name}
+        WHERE person_code = ${person_code}
           AND person_id = ${person_id}
-          AND entity_name = ${entity_name}
-          AND entity_id = ${entity_id}
-          AND active_flag = true
+          AND entity_code = ${entity_code}
+          AND entity_instance_id = ${entity_instance_id}
       `);
 
       let result;
@@ -513,33 +512,31 @@ export async function rbacRoutes(fastify: FastifyInstance) {
               expires_ts = ${expires_ts || null},
               updated_ts = NOW()
           WHERE id = ${existingPermission[0].id}
-          RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by__employee_id, granted_ts, expires_ts
+          RETURNING id, person_code, person_id, entity_code, entity_instance_id, permission, granted_by__employee_id, granted_ts, expires_ts
         `);
       } else {
         // Insert new permission
         result = await db.execute(sql`
           INSERT INTO app.entity_rbac (
-            person_entity_name,
+            person_code,
             person_id,
-            entity_name,
-            entity_id,
+            entity_code,
+            entity_instance_id,
             permission,
             granted_by__employee_id,
             granted_ts,
-            expires_ts,
-            active_flag
+            expires_ts
           ) VALUES (
-            ${person_entity_name},
+            ${person_code},
             ${person_id},
-            ${entity_name},
-            ${entity_id},
+            ${entity_code},
+            ${entity_instance_id},
             ${permission},
             ${userId},
             NOW(),
-            ${expires_ts || null},
-            true
+            ${expires_ts || null}
           )
-          RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by__employee_id, granted_ts, expires_ts
+          RETURNING id, person_code, person_id, entity_code, entity_instance_id, permission, granted_by__employee_id, granted_ts, expires_ts
         `);
       }
 
@@ -550,10 +547,10 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       const granted = result[0];
       return reply.status(201).send({
         id: granted.id,
-        person_entity_name: granted.person_entity_name,
+        person_code: granted.person_code,
         person_id: granted.person_id,
-        entity_name: granted.entity_name,
-        entity_id: granted.entity_id,
+        entity_code: granted.entity_code,
+        entity_instance_id: granted.entity_instance_id,
         permission: granted.permission,
         granted_by__employee_id: granted.granted_by__employee_id,
         granted_ts: granted.granted_ts,
@@ -580,7 +577,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           person_id: Type.String(),
           permissions: Type.Array(Type.Object({
             id: Type.String(),
-            entity_name: Type.String(),
+            entity_code: Type.String(),
             entity_id: Type.String(),
             permission: Type.Number(),
             granted_by__employee_id: Type.Optional(Type.String()),
@@ -604,17 +601,16 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       const permissions = await db.execute(sql`
         SELECT
           id,
-          entity_name,
-          entity_id,
+          entity_code,
+          entity_instance_id as entity_id,
           permission,
           granted_by__employee_id,
           granted_ts,
           expires_ts
         FROM app.entity_rbac
-        WHERE person_entity_name = ${personType}
+        WHERE person_code = ${personType}
           AND person_id = ${personId}
-          AND active_flag = true
-        ORDER BY entity_name ASC, entity_id ASC
+        ORDER BY entity_code ASC, entity_instance_id ASC
       `);
 
       return {
@@ -655,18 +651,16 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     try {
       // Check if permission exists
       const permissionExists = await db.execute(sql`
-        SELECT id FROM app.entity_rbac WHERE id = ${permissionId} AND active_flag = true
+        SELECT id FROM app.entity_rbac WHERE id = ${permissionId}
       `);
 
       if (permissionExists.length === 0) {
-        return reply.status(404).send({ error: 'Permission not found or already revoked' });
+        return reply.status(404).send({ error: 'Permission not found' });
       }
 
-      // Soft delete the permission
+      // Hard delete the permission (entity_rbac uses hard delete)
       await db.execute(sql`
-        UPDATE app.entity_rbac
-        SET active_flag = false, updated_ts = NOW()
-        WHERE id = ${permissionId}
+        DELETE FROM app.entity_rbac WHERE id = ${permissionId}
       `);
 
       return { message: 'Permission revoked successfully' };
@@ -692,19 +686,18 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         200: Type.Object({
           data: Type.Array(Type.Object({
             id: Type.String(),
-            person_entity_name: Type.String(),
+            person_code: Type.String(),
             person_id: Type.String(),
             person_name: Type.String(),
             entity_type: Type.String(),
             entity_id: Type.String(),
-            entity_name: Type.String(),
+            entity_code: Type.String(),
             permission: Type.Number(),
             permission_label: Type.String(),
             granted_by__employee_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
             granted_by_name: Type.String(),
             granted_ts: Type.String(),
             expires_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-            active_flag: Type.Boolean(),
             created_ts: Type.String(),
             updated_ts: Type.String(),
           })),
@@ -727,19 +720,19 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       const records = await db.execute(sql`
         SELECT
           rbac.id,
-          rbac.person_entity_name,
+          rbac.person_code,
           rbac.person_id,
           CASE
-            WHEN rbac.person_entity_name = 'employee' THEN COALESCE(emp.name, emp.email, 'Unknown Employee')
-            WHEN rbac.person_entity_name = 'role' THEN COALESCE(role.name, 'Unknown Role')
+            WHEN rbac.person_code = 'employee' THEN COALESCE(emp.name, emp.email, 'Unknown Employee')
+            WHEN rbac.person_code = 'role' THEN COALESCE(role.name, 'Unknown Role')
             ELSE 'Unknown'
           END AS person_name,
-          rbac.entity_name AS entity_type,
-          rbac.entity_id,
+          rbac.entity_code AS entity_type,
+          rbac.entity_instance_id,
           CASE
-            WHEN rbac.entity_id = '11111111-1111-1111-1111-111111111111' THEN 'ALL (Type-level)'
-            ELSE COALESCE(entity_inst.entity_name, entity_inst.entity_code, rbac.entity_id::text)
-          END AS entity_name,
+            WHEN rbac.entity_instance_id = '11111111-1111-1111-1111-111111111111' THEN 'ALL (Type-level)'
+            ELSE COALESCE(entity_inst.entity_code, entity_inst.entity_code, rbac.entity_instance_id::text)
+          END AS entity_code,
           rbac.permission,
           CASE rbac.permission
             WHEN 0 THEN 'View'
@@ -754,18 +747,16 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           COALESCE(granter.name, granter.email, 'System') AS granted_by_name,
           rbac.granted_ts,
           rbac.expires_ts,
-          rbac.active_flag,
           rbac.created_ts,
           rbac.updated_ts
         FROM app.entity_rbac rbac
-        LEFT JOIN app.employee emp ON rbac.person_entity_name = 'employee' AND rbac.person_id = emp.id
-        LEFT JOIN app.role role ON rbac.person_entity_name = 'role' AND rbac.person_id = role.id
+        LEFT JOIN app.employee emp ON rbac.person_code = 'employee' AND rbac.person_id = emp.id
+        LEFT JOIN app.role role ON rbac.person_code = 'role' AND rbac.person_id = role.id
         LEFT JOIN app.employee granter ON rbac.granted_by__employee_id = granter.id
-        -- Centralized entity name resolution using entity_instance_id registry
+        -- Centralized entity name resolution using entity_instance registry
         LEFT JOIN app.entity_instance entity_inst
-          ON rbac.entity_name = entity_inst.entity_type
-          AND rbac.entity_id = entity_inst.entity_id
-        WHERE rbac.active_flag = true
+          ON rbac.entity_code = entity_inst.entity_code
+          AND rbac.entity_instance_id = entity_inst.entity_id
         ORDER BY rbac.created_ts DESC
         LIMIT ${limit}
         OFFSET ${offset}
@@ -775,7 +766,6 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as count
         FROM app.entity_rbac
-        WHERE active_flag = true
       `);
 
       return {
@@ -801,15 +791,14 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       response: {
         200: Type.Object({
           id: Type.String(),
-          person_entity_name: Type.String(),
+          person_code: Type.String(),
           person_id: Type.String(),
-          entity_name: Type.String(),
+          entity_code: Type.String(),
           entity_id: Type.String(),
           permission: Type.Number(),
           granted_by__employee_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
           granted_ts: Type.String(),
           expires_ts: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-          active_flag: Type.Boolean(),
           created_ts: Type.String(),
           updated_ts: Type.String(),
         }),
@@ -830,19 +819,18 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       const records = await db.execute(sql`
         SELECT
           id,
-          person_entity_name,
+          person_code,
           person_id,
-          entity_name,
-          entity_id,
+          entity_code,
+          entity_instance_id as entity_id,
           permission,
           granted_by__employee_id,
           granted_ts,
           expires_ts,
-          active_flag,
           created_ts,
           updated_ts
         FROM app.entity_rbac
-        WHERE id = ${id} AND active_flag = true
+        WHERE id = ${id}
       `);
 
       if (records.length === 0) {
@@ -861,9 +849,9 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       body: Type.Object({
-        person_entity_name: Type.Union([Type.Literal('role'), Type.Literal('employee')]),
+        person_code: Type.Union([Type.Literal('role'), Type.Literal('employee')]),
         person_id: Type.String({ format: 'uuid' }),
-        entity_name: Type.String(),
+        entity_code: Type.String(),
         entity_id: Type.String(), // 'all' or specific UUID
         permission: Type.Number({ minimum: 0, maximum: 5 }),
         expires_ts: Type.Optional(Type.Union([Type.String({ format: 'date-time' }), Type.Null()])),
@@ -871,9 +859,9 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       response: {
         201: Type.Object({
           id: Type.String(),
-          person_entity_name: Type.String(),
+          person_code: Type.String(),
           person_id: Type.String(),
-          entity_name: Type.String(),
+          entity_code: Type.String(),
           entity_id: Type.String(),
           permission: Type.Number(),
           granted_by__employee_id: Type.String(),
@@ -887,7 +875,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { person_entity_name, person_id, entity_name, entity_id, permission, expires_ts } = request.body as any;
+    const { person_code, person_id, entity_code, entity_id, permission, expires_ts } = request.body as any;
     const userId = (request as any).user?.sub;
 
     if (!userId) {
@@ -896,14 +884,14 @@ export async function rbacRoutes(fastify: FastifyInstance) {
 
     try {
       // Verify the person exists
-      if (person_entity_name === 'role') {
+      if (person_code === 'role') {
         const roleExists = await db.execute(sql`
           SELECT id FROM app.role WHERE id = ${person_id} AND active_flag = true
         `);
         if (roleExists.length === 0) {
           return reply.status(400).send({ error: 'Role not found or inactive' });
         }
-      } else if (person_entity_name === 'employee') {
+      } else if (person_code === 'employee') {
         const employeeExists = await db.execute(sql`
           SELECT id FROM app.employee WHERE id = ${person_id} AND active_flag = true
         `);
@@ -924,11 +912,10 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       const existingPermission = await db.execute(sql`
         SELECT id, permission
         FROM app.entity_rbac
-        WHERE person_entity_name = ${person_entity_name}
+        WHERE person_code = ${person_code}
           AND person_id = ${person_id}
-          AND entity_name = ${entity_name}
-          AND entity_id = ${entity_id}
-          AND active_flag = true
+          AND entity_code = ${entity_code}
+          AND entity_instance_id = ${entity_id}
       `);
 
       let result;
@@ -942,33 +929,31 @@ export async function rbacRoutes(fastify: FastifyInstance) {
               expires_ts = ${expires_ts || null},
               updated_ts = NOW()
           WHERE id = ${existingPermission[0].id}
-          RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by__employee_id, granted_ts, expires_ts
+          RETURNING id, person_code, person_id, entity_code, entity_instance_id, permission, granted_by__employee_id, granted_ts, expires_ts
         `);
       } else {
         // Insert new permission
         result = await db.execute(sql`
           INSERT INTO app.entity_rbac (
-            person_entity_name,
+            person_code,
             person_id,
-            entity_name,
-            entity_id,
+            entity_code,
+            entity_instance_id,
             permission,
             granted_by__employee_id,
             granted_ts,
-            expires_ts,
-            active_flag
+            expires_ts
           ) VALUES (
-            ${person_entity_name},
+            ${person_code},
             ${person_id},
-            ${entity_name},
+            ${entity_code},
             ${entity_id},
             ${permission},
             ${userId},
             NOW(),
-            ${expires_ts || null},
-            true
+            ${expires_ts || null}
           )
-          RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by__employee_id, granted_ts, expires_ts
+          RETURNING id, person_code, person_id, entity_code, entity_instance_id, permission, granted_by__employee_id, granted_ts, expires_ts
         `);
       }
 
@@ -979,10 +964,10 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       const created = result[0];
       return reply.status(201).send({
         id: created.id,
-        person_entity_name: created.person_entity_name,
+        person_code: created.person_code,
         person_id: created.person_id,
-        entity_name: created.entity_name,
-        entity_id: created.entity_id,
+        entity_code: created.entity_code,
+        entity_id: created.entity_instance_id,
         permission: created.permission,
         granted_by__employee_id: created.granted_by__employee_id,
         granted_ts: created.granted_ts,
@@ -1009,9 +994,9 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       response: {
         200: Type.Object({
           id: Type.String(),
-          person_entity_name: Type.String(),
+          person_code: Type.String(),
           person_id: Type.String(),
-          entity_name: Type.String(),
+          entity_code: Type.String(),
           entity_id: Type.String(),
           permission: Type.Number(),
           granted_by__employee_id: Type.Optional(Type.Union([Type.String(), Type.Null()])),
@@ -1036,7 +1021,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     try {
       // Check if record exists
       const existing = await db.execute(sql`
-        SELECT id FROM app.entity_rbac WHERE id = ${id} AND active_flag = true
+        SELECT id FROM app.entity_rbac WHERE id = ${id}
       `);
 
       if (existing.length === 0) {
@@ -1075,7 +1060,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             expires_ts = ${expires_ts !== undefined ? expires_ts : sql`expires_ts`},
             updated_ts = NOW()
         WHERE id = ${id}
-        RETURNING id, person_entity_name, person_id, entity_name, entity_id, permission, granted_by__employee_id, granted_ts, expires_ts
+        RETURNING id, person_code, person_id, entity_code, entity_instance_id, permission, granted_by__employee_id, granted_ts, expires_ts
       `);
 
       if (result.length === 0) {
@@ -1085,10 +1070,10 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       const updated = result[0];
       return {
         id: updated.id,
-        person_entity_name: updated.person_entity_name,
+        person_code: updated.person_code,
         person_id: updated.person_id,
-        entity_name: updated.entity_name,
-        entity_id: updated.entity_id,
+        entity_code: updated.entity_code,
+        entity_id: updated.entity_instance_id,
         permission: updated.permission,
         granted_by__employee_id: updated.granted_by__employee_id,
         granted_ts: updated.granted_ts,
@@ -1128,18 +1113,16 @@ export async function rbacRoutes(fastify: FastifyInstance) {
     try {
       // Check if permission exists
       const permissionExists = await db.execute(sql`
-        SELECT id FROM app.entity_rbac WHERE id = ${id} AND active_flag = true
+        SELECT id FROM app.entity_rbac WHERE id = ${id}
       `);
 
       if (permissionExists.length === 0) {
-        return reply.status(404).send({ error: 'RBAC record not found or already deleted' });
+        return reply.status(404).send({ error: 'RBAC record not found' });
       }
 
-      // Soft delete the permission
+      // Hard delete the permission (entity_rbac uses hard delete)
       await db.execute(sql`
-        UPDATE app.entity_rbac
-        SET active_flag = false, updated_ts = NOW()
-        WHERE id = ${id}
+        DELETE FROM app.entity_rbac WHERE id = ${id}
       `);
 
       return { message: 'RBAC record deleted successfully' };
@@ -1168,7 +1151,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             person_name: Type.String(),
             person_code: Type.Optional(Type.String()),
             permissions: Type.Array(Type.Object({
-              entity_name: Type.String(),
+              entity_code: Type.String(),
               entity_id: Type.String(),
               entity_display: Type.String(),
               permission_level: Type.Number(),
@@ -1178,7 +1161,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
             })),
           })),
           permissions_by_entity: Type.Array(Type.Object({
-            entity_name: Type.String(),
+            entity_code: Type.String(),
             permissions: Type.Array(Type.Object({
               person_type: Type.String(),
               person_id: Type.String(),
@@ -1205,35 +1188,34 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       const rbacRecords = await db.execute(sql`
         SELECT
           rbac.id,
-          rbac.person_entity_name,
+          rbac.person_code,
           rbac.person_id,
-          rbac.entity_name,
-          rbac.entity_id,
+          rbac.entity_code,
+          rbac.entity_instance_id,
           rbac.permission,
           rbac.granted_ts,
           rbac.expires_ts,
           CASE
-            WHEN rbac.person_entity_name = 'employee' THEN COALESCE(emp.name, emp.first_name || ' ' || emp.last_name, emp.email)
-            WHEN rbac.person_entity_name = 'role' THEN role.name
+            WHEN rbac.person_code = 'employee' THEN COALESCE(emp.name, emp.first_name || ' ' || emp.last_name, emp.email)
+            WHEN rbac.person_code = 'role' THEN role.name
             ELSE NULL
           END AS person_name,
           CASE
-            WHEN rbac.person_entity_name = 'employee' THEN emp.code
-            WHEN rbac.person_entity_name = 'role' THEN role.code
+            WHEN rbac.person_code = 'employee' THEN emp.code
+            WHEN rbac.person_code = 'role' THEN role.code
             ELSE NULL
           END AS person_code
         FROM app.entity_rbac rbac
-        LEFT JOIN app.employee emp ON rbac.person_entity_name = 'employee' AND rbac.person_id = emp.id
-        LEFT JOIN app.role role ON rbac.person_entity_name = 'role' AND rbac.person_id = role.id
-        WHERE rbac.active_flag = true
+        LEFT JOIN app.employee emp ON rbac.person_code = 'employee' AND rbac.person_id = emp.id
+        LEFT JOIN app.role role ON rbac.person_code = 'role' AND rbac.person_id = role.id
         ORDER BY
-          rbac.person_entity_name,
+          rbac.person_code,
           CASE
-            WHEN rbac.person_entity_name = 'employee' THEN COALESCE(emp.name, emp.first_name || ' ' || emp.last_name, emp.email)
-            WHEN rbac.person_entity_name = 'role' THEN role.name
+            WHEN rbac.person_code = 'employee' THEN COALESCE(emp.name, emp.first_name || ' ' || emp.last_name, emp.email)
+            WHEN rbac.person_code = 'role' THEN role.name
             ELSE NULL
           END,
-          rbac.entity_name,
+          rbac.entity_code,
           rbac.permission DESC
       `);
 
@@ -1259,11 +1241,11 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       let employeeCount = 0;
 
       for (const record of rbacRecords) {
-        const personKey = `${record.person_entity_name}:${record.person_id}`;
+        const personKey = `${record.person_code}:${record.person_id}`;
         uniquePersons.add(personKey);
-        uniqueEntities.add(record.entity_name);
+        uniqueEntities.add(record.entity_code);
 
-        if (record.person_entity_name === 'role') {
+        if (record.person_code === 'role') {
           roleBasedCount++;
         } else {
           employeeCount++;
@@ -1272,7 +1254,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         // Group by person
         if (!personMap.has(personKey)) {
           personMap.set(personKey, {
-            person_type: record.person_entity_name,
+            person_type: record.person_code,
             person_id: record.person_id,
             person_name: record.person_name || 'Unknown',
             person_code: record.person_code,
@@ -1280,13 +1262,13 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           });
         }
 
-        const entity_display = record.entity_id === '11111111-1111-1111-1111-111111111111'
+        const entity_display = record.entity_instance_id === '11111111-1111-1111-1111-111111111111'
           ? 'ALL (Type-level)'
-          : record.entity_id;
+          : record.entity_instance_id;
 
         personMap.get(personKey).permissions.push({
-          entity_name: record.entity_name,
-          entity_id: record.entity_id,
+          entity_code: record.entity_code,
+          entity_id: record.entity_instance_id,
           entity_display: entity_display,
           permission_level: record.permission,
           permission_label: getPermissionLabel(record.permission),
@@ -1295,18 +1277,18 @@ export async function rbacRoutes(fastify: FastifyInstance) {
         });
 
         // Group by entity
-        if (!entityMap.has(record.entity_name)) {
-          entityMap.set(record.entity_name, {
-            entity_name: record.entity_name,
+        if (!entityMap.has(record.entity_code)) {
+          entityMap.set(record.entity_code, {
+            entity_code: record.entity_code,
             permissions: [],
           });
         }
 
-        entityMap.get(record.entity_name).permissions.push({
-          person_type: record.person_entity_name,
+        entityMap.get(record.entity_code).permissions.push({
+          person_type: record.person_code,
           person_id: record.person_id,
           person_name: record.person_name || 'Unknown',
-          entity_id: record.entity_id,
+          entity_id: record.entity_instance_id,
           permission_level: record.permission,
           permission_label: getPermissionLabel(record.permission),
         });
@@ -1376,9 +1358,9 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       // Get base schema from database introspection
       const baseSchema = await buildEntitySchema(db, 'rbac');
 
-      // Rename entity_name column to entity_type and ensure all base columns are present
+      // Rename entity_code column to entity_type and ensure all base columns are present
       const enhancedColumns = baseSchema.columns.map(col => {
-        if (col.key === 'entity_name') {
+        if (col.key === 'entity_code') {
           return {
             ...col,
             key: 'entity_type',
@@ -1414,7 +1396,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
           align: 'left' as const
         },
         {
-          key: 'entity_name',
+          key: 'entity_code',
           title: 'Entity Name',
           dataType: 'character varying',
           visible: true,
@@ -1532,11 +1514,11 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       // Reorder columns to match data endpoint order and insert computed columns
       const columnOrder = [
         'id',
-        'person_entity_name',
+        'person_code',
         'person_name', // computed
         'person_id',
         'entity_type',
-        'entity_name', // computed
+        'entity_code', // computed
         'entity_id',
         'permission',
         'permission_label', // computed
@@ -1552,7 +1534,7 @@ export async function rbacRoutes(fastify: FastifyInstance) {
       // Add computed columns to the map
       const computedColumnMap = new Map([
         ['person_name', computedColumns[0]],
-        ['entity_name', computedColumns[1]],
+        ['entity_code', computedColumns[1]],
         ['permission_label', computedColumns[2]],
         ['granted_by_name', computedColumns[3]]
       ]);

@@ -305,33 +305,16 @@ export function createMinimalChildEntityEndpoint(
         return reply.status(401).send({ error: 'User not authenticated' });
       }
 
-      // Check parent access permission
-      const parentAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-          AND rbac.entity_name = ${parentEntity}
-          AND (rbac.entity_id = ${parentId}::uuid OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 0
-      `);
-
-      if (parentAccess.length === 0) {
+      // Check parent VIEW permission using DRY pattern
+      const entityInfra = getEntityInfrastructure(db);
+      const canViewParent = await entityInfra.check_entity_rbac(userId, parentEntity, parentId, Permission.VIEW);
+      if (!canViewParent) {
         return reply.status(403).send({ error: `Access denied for this ${parentEntity}` });
       }
 
-      // Check child entity create permission
-      const createAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_entity_id = ${userId}
-          AND rbac.entity_name = ${childEntity}
-          AND rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 4
-      `);
-
-      if (createAccess.length === 0) {
+      // Check child entity CREATE permission using DRY pattern
+      const canCreate = await entityInfra.check_entity_rbac(userId, childEntity, '11111111-1111-1111-1111-111111111111', Permission.CREATE);
+      if (!canCreate) {
         return reply.status(403).send({ error: `Insufficient permissions to create ${childEntity}` });
       }
 

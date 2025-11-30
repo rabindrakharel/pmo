@@ -3,7 +3,7 @@ import { Type } from '@sinclair/typebox';
 import { setupCollabConnection, startHeartbeat, getActiveUsers } from './wiki-collab-handler.js';
 import { logger } from '@/lib/logger.js';
 import { db } from '@/db/index.js';
-import { sql } from 'drizzle-orm';
+import { getEntityInfrastructure, Permission } from '@/services/entity-infrastructure.service.js';
 
 /**
  * Collaborative Editing Routes
@@ -13,6 +13,8 @@ import { sql } from 'drizzle-orm';
  */
 
 export async function collabRoutes(fastify: FastifyInstance) {
+  const entityInfra = getEntityInfrastructure(db);
+
   // Start heartbeat for detecting dead connections
   startHeartbeat();
 
@@ -49,18 +51,9 @@ export async function collabRoutes(fastify: FastifyInstance) {
       const userId = decoded.sub;
       const userName = decoded.name || decoded.email || 'Unknown User';
 
-      // Verify user has access to this wiki
-      const accessCheck = await db.execute(sql`
-        SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-          AND rbac.entity_name = 'wiki'
-          AND (rbac.entity_id = ${wikiId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 1
-      `);
-
-      if (accessCheck.length === 0) {
+      // Verify user has EDIT permission for collaborative editing (DRY pattern)
+      const canEdit = await entityInfra.check_entity_rbac(userId, 'wiki', wikiId, Permission.EDIT);
+      if (!canEdit) {
         logger.warn(`User ${userId} denied access to wiki ${wikiId}`);
         connection.socket.close(1008, 'Insufficient permissions');
         return;
@@ -112,18 +105,9 @@ export async function collabRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
-    // Verify user has access to this wiki
-    const accessCheck = await db.execute(sql`
-      SELECT 1 FROM app.entity_rbac rbac
-      WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-        AND rbac.entity_name = 'wiki'
-        AND (rbac.entity_id = ${wikiId} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-        AND rbac.active_flag = true
-        AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-        AND rbac.permission >= 0
-    `);
-
-    if (accessCheck.length === 0) {
+    // Verify user has VIEW permission (DRY pattern)
+    const canView = await entityInfra.check_entity_rbac(userId, 'wiki', wikiId, Permission.VIEW);
+    if (!canView) {
       return reply.status(403).send({ error: 'Insufficient permissions' });
     }
 

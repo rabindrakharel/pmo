@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db, client } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
-import { getEntityInfrastructure } from '@/services/entity-infrastructure.service.js';
+import { getEntityInfrastructure, Permission } from '@/services/entity-infrastructure.service.js';
 
 /**
  * Entity Metadata Routes
@@ -1159,18 +1159,9 @@ export async function entityRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // First, verify user has access to the parent entity
-      const parentAccess = await db.execute(sql`
-        SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-          AND rbac.entity_name = ${normalizedEntityType}
-          AND (rbac.entity_id = ${entity_id}::text OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND rbac.active_flag = true
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 0
-      `);
-
-      if (parentAccess.length === 0) {
+      // Verify user has VIEW permission on the parent entity (DRY pattern)
+      const canView = await entityInfra.check_entity_rbac(userId, normalizedEntityType, entity_id, Permission.VIEW);
+      if (!canView) {
         return reply.status(403).send({ error: 'Access denied' });
       }
 

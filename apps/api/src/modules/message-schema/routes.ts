@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '@/services/entity-infrastructure.service.js';
 
 // Response schema matching message schema database structure
 const MessageSchemaResponseSchema = Type.Object({
@@ -51,6 +52,9 @@ const CreateMessageSchemaSchema = Type.Object({
 const UpdateMessageSchemaSchema = Type.Partial(CreateMessageSchemaSchema);
 
 export async function messageSchemaRoutes(fastify: FastifyInstance) {
+  const entityInfra = getEntityInfrastructure(db);
+  const ENTITY_CODE = 'message_schema';
+
   // List message schemas with RBAC filtering
   fastify.get('/api/v1/message-schema', {
     preHandler: [fastify.authenticate],
@@ -91,21 +95,11 @@ export async function messageSchemaRoutes(fastify: FastifyInstance) {
 
       const offset = (page - 1) * limit;
 
-      // Build WHERE conditions
-      const conditions: any[] = [
-        // RBAC check - user must have view permission (0) on marketing entity
-        sql`(
-          EXISTS (
-            SELECT 1 FROM app.entity_rbac rbac
-            WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-              AND rbac.entity_name = 'marketing'
-              AND (rbac.entity_id = ms.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-              AND rbac.active_flag = true
-              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND rbac.permission >= 0
-          )
-        )`
-      ];
+      // Build WHERE conditions using DRY RBAC pattern
+      const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
+        userId, ENTITY_CODE, Permission.VIEW, 'ms'
+      );
+      const conditions: any[] = [rbacCondition];
 
       if (active_flag !== undefined) {
         conditions.push(sql`ms.active_flag = ${active_flag}`);
@@ -205,6 +199,12 @@ export async function messageSchemaRoutes(fastify: FastifyInstance) {
 
       const { id } = request.params as any;
 
+      // Check VIEW permission using DRY pattern
+      const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
+      if (!canView) {
+        return reply.status(403).send({ error: 'Access denied' });
+      }
+
       const result = await db.execute(sql`
         SELECT
           ms.id,
@@ -232,15 +232,6 @@ export async function messageSchemaRoutes(fastify: FastifyInstance) {
         FROM app.d_message_schema ms
         WHERE ms.id = ${id}
           AND ms.active_flag = true
-          AND EXISTS (
-            SELECT 1 FROM app.entity_rbac rbac
-            WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}
-              AND rbac.entity_name = 'marketing'
-              AND (rbac.entity_id = ${id} OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-              AND rbac.active_flag = true
-              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND rbac.permission >= 0
-          )
       `);
 
       if (result.length === 0) {
@@ -271,18 +262,9 @@ export async function messageSchemaRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      // Check if user has create permission
-      const rbacCheck = await db.execute(sql`
-        SELECT 1 FROM app.entity_rbac
-        WHERE person_entity_name = 'employee' AND person_id = ${userId}
-          AND entity = 'marketing'
-          AND entity_id = 'all'
-          AND active_flag = true
-          AND (expires_ts IS NULL OR expires_ts > NOW())
-          AND permission >= 4
-      `);
-
-      if (rbacCheck.length === 0) {
+      // Check CREATE permission using DRY pattern
+      const canCreate = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, ALL_ENTITIES_ID, Permission.CREATE);
+      if (!canCreate) {
         return reply.status(403).send({ error: 'Insufficient permissions to create message schemas' });
       }
 
@@ -387,18 +369,9 @@ export async function messageSchemaRoutes(fastify: FastifyInstance) {
 
       const { id } = request.params as any;
 
-      // Check if user has edit permission
-      const rbacCheck = await db.execute(sql`
-        SELECT 1 FROM app.entity_rbac
-        WHERE person_entity_name = 'employee' AND person_id = ${userId}
-          AND entity = 'marketing'
-          AND (entity_id = ${id} OR entity_id = 'all')
-          AND active_flag = true
-          AND (expires_ts IS NULL OR expires_ts > NOW())
-          AND permission >= 1
-      `);
-
-      if (rbacCheck.length === 0) {
+      // Check EDIT permission using DRY pattern
+      const canEdit = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.EDIT);
+      if (!canEdit) {
         return reply.status(403).send({ error: 'Insufficient permissions to update message schema' });
       }
 
@@ -498,18 +471,9 @@ export async function messageSchemaRoutes(fastify: FastifyInstance) {
 
       const { id } = request.params as any;
 
-      // Check if user has delete permission
-      const rbacCheck = await db.execute(sql`
-        SELECT 1 FROM app.entity_rbac
-        WHERE person_entity_name = 'employee' AND person_id = ${userId}
-          AND entity = 'marketing'
-          AND (entity_id = ${id} OR entity_id = 'all')
-          AND active_flag = true
-          AND (expires_ts IS NULL OR expires_ts > NOW())
-          AND permission >= 3
-      `);
-
-      if (rbacCheck.length === 0) {
+      // Check DELETE permission using DRY pattern
+      const canDelete = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.DELETE);
+      if (!canDelete) {
         return reply.status(403).send({ error: 'Insufficient permissions to delete message schema' });
       }
 

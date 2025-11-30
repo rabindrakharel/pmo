@@ -9,6 +9,7 @@ import {
   createPaginatedResponse
 } from '../../lib/universal-schema-metadata.js';
 import { createEntityDeleteEndpoint } from '../../lib/entity-delete-route-factory.js';
+import { getEntityInfrastructure, Permission } from '@/services/entity-infrastructure.service.js';
 
 // Product Hierarchy Schema (4-level: Division → Department → Class → Sub-Class)
 const ProductHierarchySchema = Type.Object({
@@ -40,6 +41,10 @@ const CreateProductHierarchySchema = Type.Object({
 const UpdateProductHierarchySchema = Type.Partial(CreateProductHierarchySchema);
 
 export async function productHierarchyRoutes(fastify: FastifyInstance) {
+  const entityInfra = getEntityInfrastructure(db);
+  const ENTITY_CODE = 'product_hierarchy';
+  const TABLE_ALIAS = 'ph';
+
   // List product hierarchy nodes
   fastify.get('/api/v1/product-hierarchy', {
     preHandler: [fastify.authenticate],
@@ -77,22 +82,11 @@ export async function productHierarchyRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // RBAC filtering
-      const baseConditions = [
-        sql`(
-          EXISTS (
-            SELECT 1 FROM app.entity_rbac rbac
-            WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}::uuid
-              AND rbac.entity_name = 'product_hierarchy'
-              AND (rbac.entity_id = ph.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-              AND rbac.active_flag = true
-              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND rbac.permission >= 0
-          )
-        )`
-      ];
-
-      const conditions = [...baseConditions];
+      // RBAC filtering using DRY pattern
+      const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
+        userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
+      );
+      const conditions = [rbacCondition];
 
       if (active_flag !== undefined) {
         conditions.push(sql`ph.active_flag = ${active_flag}`);
@@ -169,6 +163,12 @@ export async function productHierarchyRoutes(fastify: FastifyInstance) {
     }
 
     try {
+      // Check VIEW permission using DRY pattern
+      const canView = await entityInfra.check_entity_rbac(userId, ENTITY_CODE, id, Permission.VIEW);
+      if (!canView) {
+        return reply.status(403).send({ error: 'Access denied' });
+      }
+
       const results = await db.execute(sql`
         SELECT
           ph.id, ph.code, ph.name, ph."descr", ph.metadata,
@@ -178,15 +178,6 @@ export async function productHierarchyRoutes(fastify: FastifyInstance) {
         FROM app.d_product_hierarchy ph
         LEFT JOIN app.d_product_hierarchy parent ON ph.parent_id = parent.id
         WHERE ph.id = ${id}::uuid
-          AND EXISTS (
-            SELECT 1 FROM app.entity_rbac rbac
-            WHERE rbac.person_entity_name = 'employee' AND rbac.person_id = ${userId}::uuid
-              AND rbac.entity_name = 'product_hierarchy'
-              AND (rbac.entity_id = ph.id OR rbac.entity_id = '11111111-1111-1111-1111-111111111111'::uuid)
-              AND rbac.active_flag = true
-              AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-              AND rbac.permission >= 0
-          )
       `);
 
       if (results.length === 0) {

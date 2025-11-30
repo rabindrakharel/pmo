@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { db } from '@/db/index.js';
 import { sql } from 'drizzle-orm';
+import { getEntityInfrastructure, Permission } from '@/services/entity-infrastructure.service.js';
 
 // Task Data Schema
 const TaskDataSchema = Type.Object({
@@ -34,6 +35,8 @@ const CreateTaskDataSchema = Type.Object({
 });
 
 export async function taskDataRoutes(fastify: FastifyInstance) {
+  const entityInfra = getEntityInfrastructure(db);
+
   // Get all updates for a task
   fastify.get('/api/v1/task/:taskId/data', {
     preHandler: [fastify.authenticate],
@@ -58,18 +61,9 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
 
       const { taskId } = request.params as { taskId: string };
 
-      // Check if user has view permission on the task
-      const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_code = 'employee' AND rbac.person_id = ${userId}::uuid
-          AND rbac.entity_code = 'task'
-          AND (rbac.entity_instance_id = ${taskId}::uuid OR rbac.entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 0
-        LIMIT 1
-      `);
-
-      if (hasPermission.length === 0) {
+      // Check if user has view permission on the task (DRY pattern)
+      const canView = await entityInfra.check_entity_rbac(userId, 'task', taskId, Permission.VIEW);
+      if (!canView) {
         return reply.status(403).send({ error: 'No permission to view task updates' });
       }
 
@@ -136,18 +130,9 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'Task ID mismatch' });
       }
 
-      // Check if user has edit permission on the task
-      const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_code = 'employee' AND rbac.person_id = ${userId}::uuid
-          AND rbac.entity_code = 'task'
-          AND (rbac.entity_instance_id = ${taskId}::uuid OR rbac.entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 1
-        LIMIT 1
-      `);
-
-      if (hasPermission.length === 0) {
+      // Check if user has edit permission on the task (DRY pattern)
+      const canEdit = await entityInfra.check_entity_rbac(userId, 'task', taskId, Permission.EDIT);
+      if (!canEdit) {
         return reply.status(403).send({ error: 'No permission to update this task' });
       }
 
@@ -233,18 +218,9 @@ export async function taskDataRoutes(fastify: FastifyInstance) {
 
       const { taskId, dataId } = request.params as { taskId: string; dataId: string };
 
-      // Check permission
-      const hasPermission = await db.execute(sql`
-        SELECT 1 FROM app.entity_rbac rbac
-        WHERE rbac.person_code = 'employee' AND rbac.person_id = ${userId}::uuid
-          AND rbac.entity_code = 'task'
-          AND (rbac.entity_instance_id = ${taskId}::uuid OR rbac.entity_instance_id = '11111111-1111-1111-1111-111111111111'::uuid)
-          AND (rbac.expires_ts IS NULL OR rbac.expires_ts > NOW())
-          AND rbac.permission >= 0
-        LIMIT 1
-      `);
-
-      if (hasPermission.length === 0) {
+      // Check permission (DRY pattern)
+      const canView = await entityInfra.check_entity_rbac(userId, 'task', taskId, Permission.VIEW);
+      if (!canView) {
         return reply.status(403).send({ error: 'No permission to view task updates' });
       }
 
