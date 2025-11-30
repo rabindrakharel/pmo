@@ -267,7 +267,7 @@ export async function revenueRoutes(fastify: FastifyInstance) {
         : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
 
       // Generate response with metadata for requested components only
-      const response = generateEntityResponse(ENTITY_CODE, revenues, {
+      const response = await generateEntityResponse(ENTITY_CODE, revenues, {
         components: requestedComponents,
         total,
         limit,
@@ -349,7 +349,7 @@ export async function revenueRoutes(fastify: FastifyInstance) {
         ? view.split(',').map((v: string) => v.trim())
         : ['entityInstanceFormContainer'];
 
-      const response = generateEntityResponse(ENTITY_CODE, [revenue], {
+      const response = await generateEntityResponse(ENTITY_CODE, [revenue], {
         components: requestedComponents,
         total: 1,
         limit: 1,

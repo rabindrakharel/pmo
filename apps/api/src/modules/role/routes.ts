@@ -166,7 +166,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       `);
 
       // ✨ Generate component-aware metadata using Backend Formatter Service
-      const response = generateEntityResponse(ENTITY_CODE, roles);
+      const response = await generateEntityResponse(ENTITY_CODE, roles);
 
       // ✅ Explicitly return all fields (Fastify strips fields not in schema)
       return {
@@ -223,7 +223,7 @@ export async function roleRoutes(fastify: FastifyInstance) {
       }
 
       // ✨ Generate component-aware metadata using Backend Formatter Service
-      const response = generateEntityResponse(ENTITY_CODE, role);
+      const response = await generateEntityResponse(ENTITY_CODE, role);
 
       // ✅ Explicitly return all fields (Fastify strips fields not in schema)
       return {

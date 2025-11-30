@@ -95,6 +95,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import yaml from 'js-yaml';
 import { getFieldConfig, hasExplicitConfig, type FieldConfig } from '../config/entity-field-config.js';
+import { getRedisClient } from '../lib/redis.js';
 
 // Get current directory for YAML file paths
 const __filename = fileURLToPath(import.meta.url);
@@ -405,6 +406,87 @@ function loadEditTypeMapping(): EditTypeMappingYaml {
     _editTypeMapping = yaml.load(content) as EditTypeMappingYaml;
   }
   return _editTypeMapping;
+}
+
+// ============================================================================
+// REDIS FIELD CACHE
+// ============================================================================
+
+const FIELD_CACHE_PREFIX = 'entity:fields:';
+const FIELD_CACHE_TTL = 86400; // 24 hours in seconds
+
+/**
+ * Get cached field names for an entity
+ * @param entityCode - Entity type code (e.g., 'task', 'project')
+ * @returns Cached field names or null if not cached
+ */
+async function getCachedFieldNames(entityCode: string): Promise<string[] | null> {
+  try {
+    const redis = getRedisClient();
+    const cacheKey = `${FIELD_CACHE_PREFIX}${entityCode}`;
+    const cached = await redis.get(cacheKey);
+
+    if (cached) {
+      console.log(`[FieldCache] HIT for ${entityCode}`);
+      return JSON.parse(cached);
+    }
+
+    console.log(`[FieldCache] MISS for ${entityCode}`);
+    return null;
+  } catch (error) {
+    console.warn(`[FieldCache] Redis read error for ${entityCode}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Cache field names for an entity
+ * @param entityCode - Entity type code
+ * @param fieldNames - Array of field names to cache
+ */
+async function cacheFieldNames(entityCode: string, fieldNames: string[]): Promise<void> {
+  try {
+    const redis = getRedisClient();
+    const cacheKey = `${FIELD_CACHE_PREFIX}${entityCode}`;
+    await redis.setex(cacheKey, FIELD_CACHE_TTL, JSON.stringify(fieldNames));
+    console.log(`[FieldCache] Cached ${fieldNames.length} fields for ${entityCode}`);
+  } catch (error) {
+    console.warn(`[FieldCache] Redis write error for ${entityCode}:`, error);
+  }
+}
+
+/**
+ * Invalidate field cache for an entity
+ * Call this when entity schema changes (DDL updates, migrations)
+ */
+export async function invalidateFieldCache(entityCode: string): Promise<void> {
+  try {
+    const redis = getRedisClient();
+    const cacheKey = `${FIELD_CACHE_PREFIX}${entityCode}`;
+    await redis.del(cacheKey);
+    console.log(`[FieldCache] Invalidated cache for ${entityCode}`);
+  } catch (error) {
+    console.warn(`[FieldCache] Invalidation error for ${entityCode}:`, error);
+  }
+}
+
+/**
+ * Clear all entity field caches
+ * Useful for bulk schema updates or maintenance
+ */
+export async function clearAllFieldCache(): Promise<void> {
+  try {
+    const redis = getRedisClient();
+    const pattern = `${FIELD_CACHE_PREFIX}*`;
+    const keys = await redis.keys(pattern);
+
+    if (keys.length > 0) {
+      await redis.del(...keys);
+      console.log(`[FieldCache] Cleared ${keys.length} cache entries`);
+    }
+  } catch (error) {
+    console.warn('[FieldCache] Clear all error:', error);
+  }
 }
 
 /**
@@ -958,9 +1040,25 @@ export function extractDatalabelKeys(metadata: EntityMetadata): string[] {
 }
 
 /**
- * Generate complete entity response
+ * Generate complete entity response with cached metadata support
+ *
+ * Flow:
+ * 1. Check Redis cache for field names
+ * 2. If cache hit: use cached field names
+ * 3. If cache miss: extract from data or resultFields (PGresult columns)
+ * 4. Hydrate cache with field names
+ * 5. Generate metadata
+ *
+ * @param entityCode - Entity type code
+ * @param data - Array of entity data rows
+ * @param options - Configuration options
+ * @param options.components - Components to generate metadata for
+ * @param options.total - Total count for pagination
+ * @param options.limit - Page size
+ * @param options.offset - Page offset
+ * @param options.resultFields - PostgreSQL result columns (for empty data fallback)
  */
-export function generateEntityResponse(
+export async function generateEntityResponse(
   entityCode: string,
   data: any[],
   options: {
@@ -968,19 +1066,45 @@ export function generateEntityResponse(
     total?: number;
     limit?: number;
     offset?: number;
+    resultFields?: Array<{ name: string }>;
   } = {}
-): EntityResponse {
+): Promise<EntityResponse> {
   const {
     components = ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'],
     total = data.length,
     limit = 20,
-    offset = 0
+    offset = 0,
+    resultFields = []
   } = options;
 
-  // Extract field names from first row
-  const fieldNames = data.length > 0 ? Object.keys(data[0]) : [];
+  let fieldNames: string[];
 
-  // Generate metadata for requested components (pass entityCode for explicit config lookup)
+  // Step 1: Check Redis cache
+  const cachedFields = await getCachedFieldNames(entityCode);
+
+  if (cachedFields) {
+    // Cache hit - use cached field names
+    fieldNames = cachedFields;
+  } else {
+    // Cache miss - extract field names
+    if (data.length > 0) {
+      // Extract from first data row
+      fieldNames = Object.keys(data[0]);
+    } else if (resultFields.length > 0) {
+      // Extract from PostgreSQL result columns (empty data case)
+      fieldNames = resultFields.map(f => f.name);
+    } else {
+      // Fallback - no fields available
+      fieldNames = [];
+    }
+
+    // Hydrate cache (only if we have field names)
+    if (fieldNames.length > 0) {
+      await cacheFieldNames(entityCode, fieldNames);
+    }
+  }
+
+  // Step 2: Generate metadata for requested components
   const metadata = generateMetadataForComponents(fieldNames, components, entityCode);
 
   return {
