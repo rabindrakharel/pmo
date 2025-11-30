@@ -159,8 +159,8 @@ import { createChildEntityEndpointsFromMetadata } from '../../lib/child-entity-r
 import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../services/entity-infrastructure.service.js';
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
-// ✨ Backend Formatter Service - component-aware metadata generation
-import { generateEntityResponse } from '../../services/backend-formatter.service.js';
+// ✨ Backend Formatter Service - component-aware metadata generation + Redis caching
+import { generateEntityResponse, getCachedMetadataResponse, cacheMetadataResponse } from '../../services/backend-formatter.service.js';
 // ✨ Centralized Pagination Config
 import { PAGINATION_CONFIG, getEntityLimit } from '../../lib/pagination.js';
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
@@ -262,6 +262,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
           limit: Type.Number(),
           offset: Type.Number(),
         }),
+        401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
         500: Type.Object({ error: Type.String() }),
       },
@@ -277,38 +278,12 @@ export async function projectRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
 
+    // Determine if this is a metadata-only request
+    const metadataOnly = content === 'metadata';
+
     try {
       // ═══════════════════════════════════════════════════════════════
-      // METADATA-ONLY MODE: Same query structure with WHERE 1=0
-      // Uses postgres.js .columns to get field metadata from query result
-      // ═══════════════════════════════════════════════════════════════
-      if (content === 'metadata') {
-        // Execute same query structure with 1=0 to get columns without data
-        const metadataQuery = `
-          SELECT DISTINCT ${TABLE_ALIAS}.*
-          FROM app.${ENTITY_CODE} ${TABLE_ALIAS}
-          WHERE 1=0
-        `;
-        const columnsResult = await client.unsafe(metadataQuery);
-        const resultFields = columnsResult.columns?.map((col: any) => ({ name: col.name })) || [];
-
-        // Parse requested components
-        const requestedComponents = view
-          ? view.split(',').map((v: string) => v.trim())
-          : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
-
-        // Generate metadata-only response
-        const response = await generateEntityResponse(ENTITY_CODE, [], {
-          components: requestedComponents,
-          metadataOnly: true,
-          resultFields
-        });
-
-        return reply.send(response);
-      }
-
-      // ═══════════════════════════════════════════════════════════════
-      // NORMAL MODE: Route builds SQL, gates augment it
+      // UNIFIED QUERY BUILDING - Same structure for both data and metadata
       // ═══════════════════════════════════════════════════════════════
 
       // Build JOINs array
@@ -319,8 +294,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         const parentJoin = sql`
         INNER JOIN app.entity_instance_link eil
           ON eil.child_entity_code = ${ENTITY_CODE}
-          AND eil.child_entity_instance_id = ${sql.raw(TABLE_ALIAS
-         || 'TABLE_ALIAS')}.id
+          AND eil.child_entity_instance_id = ${sql.raw(TABLE_ALIAS)}.id
           AND eil.entity_code = ${parent_entity_code}
           AND eil.entity_instance_id = ${parent_entity_instance_id}
       `;
@@ -331,8 +305,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const conditions: SQL[] = [];
 
       // GATE 1: RBAC - Apply security filtering (REQUIRED)
-      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
-      );
+      const rbacWhereClause = await entityInfra.get_entity_rbac_where_condition(userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS);
       conditions.push(rbacWhereClause);
 
       // ✅ DEFAULT FILTER: Only show active records (not soft-deleted)
@@ -360,6 +333,62 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const whereClause = conditions.length > 0
         ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
         : sql``;
+
+      // Parse requested components (used for both modes)
+      const requestedComponents = view
+        ? view.split(',').map((v: string) => v.trim())
+        : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
+
+      // ═══════════════════════════════════════════════════════════════
+      // METADATA-ONLY MODE: Redis cached, same query with WHERE 1=0
+      // Cache key: /api/v1/project?content=metadata
+      // ═══════════════════════════════════════════════════════════════
+      if (metadataOnly) {
+        // Build cache key from request URL
+        const cacheKey = `/api/v1/${ENTITY_CODE}?content=metadata`;
+
+        // Check Redis cache first
+        const cachedResponse = await getCachedMetadataResponse(cacheKey);
+        if (cachedResponse) {
+          return reply.send(cachedResponse);
+        }
+
+        // Cache miss - execute query to get column metadata
+        // Build WHERE clause with 1=0 prepended for instant short-circuit
+        // PostgreSQL evaluates 1=0 first, skips all other conditions
+        const metadataWhereClause = conditions.length > 0
+          ? sql`WHERE 1=0 AND ${sql.join(conditions, sql` AND `)}`
+          : sql`WHERE 1=0`;
+
+        // Same query structure as data query, but with 1=0 short-circuit
+        const metadataQuery = sql`
+          SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
+          FROM app.${sql.raw(ENTITY_CODE)} ${sql.raw(TABLE_ALIAS)}
+          ${joinClause}
+          ${metadataWhereClause}
+        `;
+
+        // Execute with drizzle to get columns metadata
+        const columnsResult = await db.execute(metadataQuery);
+        // Access columns from the result (postgres.js exposes this)
+        const resultFields = (columnsResult as any).columns?.map((col: any) => ({ name: col.name })) || [];
+
+        // Generate metadata-only response
+        const response = await generateEntityResponse(ENTITY_CODE, [], {
+          components: requestedComponents,
+          metadataOnly: true,
+          resultFields
+        });
+
+        // Cache the response in Redis
+        await cacheMetadataResponse(cacheKey, response);
+
+        return reply.send(response);
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // NORMAL DATA MODE: Execute full query with pagination
+      // ═══════════════════════════════════════════════════════════════
 
       // Count query
       const countQuery = sql`
@@ -396,14 +425,16 @@ export async function projectRoutes(fastify: FastifyInstance) {
       const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(projects as Record<string, any>[]);
 
       // ═══════════════════════════════════════════════════════════════
-      // ✨ BACKEND FORMATTER SERVICE - Normal mode returns data without metadata
+      // ✨ BACKEND FORMATTER SERVICE - Returns data + fields + metadata
+      // Consistent response structure for all endpoints
       // ═══════════════════════════════════════════════════════════════
       const response = await generateEntityResponse(ENTITY_CODE, projects, {
+        components: requestedComponents,
         total,
         limit,
         offset,
         ref_data_entityInstance,
-        metadataOnly: false  // Normal mode: return data, metadata: {}
+        metadataOnly: false
       });
 
       return response;

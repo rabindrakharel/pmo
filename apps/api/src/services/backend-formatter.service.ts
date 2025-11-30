@@ -489,6 +489,96 @@ export async function clearAllFieldCache(): Promise<void> {
   }
 }
 
+// ============================================================================
+// REDIS METADATA RESPONSE CACHE
+// ============================================================================
+
+const METADATA_CACHE_PREFIX = 'api:metadata:';
+const METADATA_CACHE_TTL = 86400; // 24 hours in seconds
+
+/**
+ * Get cached metadata response for an API endpoint
+ * Cache key is the full API path: /api/v1/project?content=metadata
+ *
+ * @param apiPath - Full API path (e.g., '/api/v1/project?content=metadata')
+ * @returns Cached response or null if not cached
+ */
+export async function getCachedMetadataResponse(apiPath: string): Promise<EntityResponse | null> {
+  try {
+    const redis = getRedisClient();
+    const cacheKey = `${METADATA_CACHE_PREFIX}${apiPath}`;
+    const cached = await redis.get(cacheKey);
+
+    if (cached) {
+      console.log(`[MetadataCache] HIT for ${apiPath}`);
+      return JSON.parse(cached);
+    }
+
+    console.log(`[MetadataCache] MISS for ${apiPath}`);
+    return null;
+  } catch (error) {
+    console.warn(`[MetadataCache] Redis read error for ${apiPath}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Cache metadata response for an API endpoint
+ *
+ * @param apiPath - Full API path (e.g., '/api/v1/project?content=metadata')
+ * @param response - The metadata response to cache
+ */
+export async function cacheMetadataResponse(apiPath: string, response: EntityResponse): Promise<void> {
+  try {
+    const redis = getRedisClient();
+    const cacheKey = `${METADATA_CACHE_PREFIX}${apiPath}`;
+    await redis.setex(cacheKey, METADATA_CACHE_TTL, JSON.stringify(response));
+    console.log(`[MetadataCache] Cached response for ${apiPath}`);
+  } catch (error) {
+    console.warn(`[MetadataCache] Redis write error for ${apiPath}:`, error);
+  }
+}
+
+/**
+ * Invalidate metadata cache for a specific entity
+ * Call this when entity schema changes (DDL updates, migrations)
+ *
+ * @param entityCode - Entity type code (e.g., 'project', 'task')
+ */
+export async function invalidateMetadataCache(entityCode: string): Promise<void> {
+  try {
+    const redis = getRedisClient();
+    const pattern = `${METADATA_CACHE_PREFIX}/api/v1/${entityCode}*`;
+    const keys = await redis.keys(pattern);
+
+    if (keys.length > 0) {
+      await redis.del(...keys);
+      console.log(`[MetadataCache] Invalidated ${keys.length} cache entries for ${entityCode}`);
+    }
+  } catch (error) {
+    console.warn(`[MetadataCache] Invalidation error for ${entityCode}:`, error);
+  }
+}
+
+/**
+ * Clear all metadata caches
+ * Useful for bulk schema updates or maintenance
+ */
+export async function clearAllMetadataCache(): Promise<void> {
+  try {
+    const redis = getRedisClient();
+    const pattern = `${METADATA_CACHE_PREFIX}*`;
+    const keys = await redis.keys(pattern);
+
+    if (keys.length > 0) {
+      await redis.del(...keys);
+      console.log(`[MetadataCache] Cleared ${keys.length} cache entries`);
+    }
+  } catch (error) {
+    console.warn('[MetadataCache] Clear all error:', error);
+  }
+}
+
 /**
  * Match field name against pattern (supports * wildcard at start or end)
  */
@@ -1112,8 +1202,8 @@ export async function generateEntityResponse(
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // NORMAL DATA MODE: Return data, metadata = {}, fields = []
-  // Data endpoint should NOT return metadata
+  // NORMAL DATA MODE: Return data + ref_data only (no metadata overhead)
+  // Use ?content=metadata for fields and metadata
   // ═══════════════════════════════════════════════════════════════
   return {
     data,

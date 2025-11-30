@@ -184,7 +184,7 @@ export function buildAutoFilters(
 ): any[] {
   const conditions: any[] = [];
 
-  // Default excluded parameters (pagination, sorting, search)
+  // Default excluded parameters (pagination, sorting, search, system params)
   const excludeParams = options?.excludeParams || [
     'limit',
     'offset',
@@ -195,7 +195,8 @@ export function buildAutoFilters(
     'order_dir',
     'parent_entity_code',
     'parent_entity_instance_id',
-    'view'         // Component view type for metadata generation (backend-formatter service)
+    'view',        // Component view type for metadata generation (backend-formatter service)
+    'content'      // Response content type: 'metadata' for metadata-only response
   ];
 
   // Handle search separately (multi-field OR condition)
