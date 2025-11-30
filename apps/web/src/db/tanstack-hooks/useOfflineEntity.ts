@@ -6,27 +6,21 @@
 // ============================================================================
 
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, createEntityKey } from '../dexie/database';
+import { db, createEntityInstanceKey } from '../dexie/database';
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export interface UseOfflineEntityResult<T> {
-  /** Entity data from cache */
-  data: T | undefined;
-  /** Field metadata */
-  metadata: Record<string, unknown> | undefined;
-  /** Reference data */
-  refData: Record<string, Record<string, string>> | undefined;
+  /** Entity instance name from cache */
+  entityName: string | undefined;
   /** Loading from IndexedDB */
   isLoading: boolean;
   /** Data is older than staleTime */
   isStale: boolean;
   /** When data was last synced */
   syncedAt: number | undefined;
-  /** Data version */
-  version: number | undefined;
 }
 
 export interface UseOfflineEntityListResult<T> {
@@ -43,17 +37,17 @@ export interface UseOfflineEntityListResult<T> {
 // ============================================================================
 
 /**
- * Offline-first hook that reads directly from Dexie/IndexedDB
+ * Offline-first hook that reads entity instance name from Dexie/IndexedDB
  *
  * Use this when:
  * - You need reactive updates from local cache only
  * - Network is unavailable
- * - You want instant display of cached data
+ * - You want instant display of cached entity names
  *
  * Note: This does NOT fetch from server. Use useEntity for network + cache.
  *
  * @example
- * const { data, isStale, syncedAt } = useOfflineEntity<Project>('project', projectId);
+ * const { entityName, isStale, syncedAt } = useOfflineEntity<Project>('project', projectId);
  * if (isStale) {
  *   // Data is old, might want to trigger refresh
  * }
@@ -66,8 +60,7 @@ export function useOfflineEntity<T = Record<string, unknown>>(
   const cached = useLiveQuery(
     async () => {
       if (!entityId) return null;
-      const entity = await db.entities.get(createEntityKey(entityCode, entityId));
-      return entity?.isDeleted ? null : entity;
+      return db.entityInstance.get(createEntityInstanceKey(entityCode, entityId));
     },
     [entityCode, entityId]
   );
@@ -79,13 +72,10 @@ export function useOfflineEntity<T = Record<string, unknown>>(
     : true;
 
   return {
-    data: cached?.data as T | undefined,
-    metadata: cached?.metadata as Record<string, unknown> | undefined,
-    refData: cached?.refData,
+    entityName: cached?.entityInstanceName,
     isLoading: cached === undefined,
     isStale,
     syncedAt: cached?.syncedAt,
-    version: cached?.version,
   };
 }
 
@@ -94,10 +84,10 @@ export function useOfflineEntity<T = Record<string, unknown>>(
 // ============================================================================
 
 /**
- * Offline-first list hook - reads all entities of a type from Dexie
+ * Offline-first list hook - reads all entity instance names of a type from Dexie
  *
- * Note: This returns ALL cached entities of this type, not paginated.
- * For paginated/filtered data, use useEntityList instead.
+ * Note: This returns ALL cached entity names of this type, not data.
+ * For full data, use useEntityList instead.
  *
  * @example
  * const { data, count } = useOfflineEntityList<Task>('task');
@@ -108,17 +98,16 @@ export function useOfflineEntityList<T = Record<string, unknown>>(
   // Reactive query - auto-updates when IndexedDB changes
   const items = useLiveQuery(
     async () => {
-      return db.entities
+      return db.entityInstance
         .where('entityCode')
         .equals(entityCode)
-        .and((item) => !item.isDeleted)
         .sortBy('syncedAt');
     },
     [entityCode]
   );
 
   return {
-    data: items?.map((i) => i.data) as T[] | undefined,
+    data: items?.map((i) => ({ id: i.entityInstanceId, name: i.entityInstanceName })) as T[] | undefined,
     isLoading: items === undefined,
     count: items?.length ?? 0,
   };
@@ -129,7 +118,7 @@ export function useOfflineEntityList<T = Record<string, unknown>>(
 // ============================================================================
 
 /**
- * Check if an entity exists in local cache
+ * Check if an entity instance exists in local cache
  *
  * @example
  * const exists = await isEntityCached('project', projectId);
@@ -138,8 +127,8 @@ export async function isEntityCached(
   entityCode: string,
   entityId: string
 ): Promise<boolean> {
-  const entity = await db.entities.get(createEntityKey(entityCode, entityId));
-  return !!entity && !entity.isDeleted;
+  const entity = await db.entityInstance.get(createEntityInstanceKey(entityCode, entityId));
+  return !!entity;
 }
 
 // ============================================================================
@@ -147,17 +136,17 @@ export async function isEntityCached(
 // ============================================================================
 
 /**
- * Get cached entity synchronously (returns promise)
+ * Get cached entity instance name (returns promise)
  * For use in non-hook contexts like formatters
  *
  * @example
- * const project = await getCachedEntity('project', projectId);
+ * const projectName = await getCachedEntity('project', projectId);
  */
 export async function getCachedEntity<T = Record<string, unknown>>(
   entityCode: string,
   entityId: string
-): Promise<T | null> {
-  const entity = await db.entities.get(createEntityKey(entityCode, entityId));
-  if (!entity || entity.isDeleted) return null;
-  return entity.data as T;
+): Promise<{ id: string; name: string } | null> {
+  const entity = await db.entityInstance.get(createEntityInstanceKey(entityCode, entityId));
+  if (!entity) return null;
+  return { id: entity.entityInstanceId, name: entity.entityInstanceName };
 }

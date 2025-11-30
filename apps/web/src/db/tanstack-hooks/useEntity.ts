@@ -6,7 +6,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { db, createEntityKey } from '../dexie/database';
+import { db, createEntityInstanceKey } from '../dexie/database';
 import { wsManager } from '../tanstack-sync/WebSocketManager';
 import { apiClient } from '../../lib/api';
 
@@ -85,18 +85,48 @@ export function useEntity<T = Record<string, unknown>>(
       const response = await apiClient.get(`/api/v1/${entityCode}/${entityId}`);
       const apiData = response.data;
 
-      // Persist to Dexie for offline access
-      await db.entities.put({
-        _id: createEntityKey(entityCode, entityId),
-        entityCode,
-        entityId,
-        data: apiData.data || apiData,
-        metadata: apiData.metadata,
-        refData: apiData.ref_data_entityInstance,
-        version: apiData.data?.version || Date.now(),
-        syncedAt: Date.now(),
-        isDeleted: false,
-      });
+      const now = Date.now();
+
+      // Persist entity instance name if available
+      const entityData = apiData.data || apiData;
+      if (entityData.name) {
+        await db.entityInstance.put({
+          _id: createEntityInstanceKey(entityCode, entityId),
+          entityCode,
+          entityInstanceId: entityId,
+          entityInstanceName: entityData.name,
+          instanceCode: entityData.code,
+          syncedAt: now,
+        });
+      }
+
+      // Store entity instance names from ref_data_entityInstance
+      if (apiData.ref_data_entityInstance) {
+        for (const [refEntityCode, names] of Object.entries(apiData.ref_data_entityInstance)) {
+          for (const [id, name] of Object.entries(names as Record<string, string>)) {
+            await db.entityInstance.put({
+              _id: createEntityInstanceKey(refEntityCode, id),
+              entityCode: refEntityCode,
+              entityInstanceId: id,
+              entityInstanceName: name,
+              syncedAt: now,
+            });
+          }
+        }
+      }
+
+      // Store metadata ONCE per entity type
+      if (apiData.metadata?.entityListOfInstancesTable) {
+        const metadataTable = apiData.metadata.entityListOfInstancesTable;
+        await db.entityInstanceMetadata.put({
+          _id: entityCode,
+          entityCode,
+          fields: Object.keys(metadataTable.viewType || {}),
+          viewType: metadataTable.viewType || {},
+          editType: metadataTable.editType || {},
+          syncedAt: now,
+        });
+      }
 
       return {
         data: apiData.data || apiData,
@@ -177,12 +207,17 @@ export function useEntityMutation(entityCode: string): UseEntityMutationResult {
 
     const updatedData = response.data?.data || response.data;
 
-    // Update Dexie cache
-    await db.entities.update(createEntityKey(entityCode, entityId), {
-      data: updatedData,
-      version: updatedData.version || Date.now(),
-      syncedAt: Date.now(),
-    });
+    // Update entity instance name if name changed
+    if (updatedData.name) {
+      await db.entityInstance.put({
+        _id: createEntityInstanceKey(entityCode, entityId),
+        entityCode,
+        entityInstanceId: entityId,
+        entityInstanceName: updatedData.name,
+        instanceCode: updatedData.code,
+        syncedAt: Date.now(),
+      });
+    }
 
     // Update TanStack Query cache
     queryClient.setQueryData(['entity', entityCode, entityId], (old: unknown) => ({
@@ -192,7 +227,7 @@ export function useEntityMutation(entityCode: string): UseEntityMutationResult {
 
     // Invalidate list queries
     queryClient.invalidateQueries({
-      queryKey: ['entity-list', entityCode],
+      queryKey: ['entityInstanceData', entityCode],
       refetchType: 'active',
     });
 
@@ -203,20 +238,21 @@ export function useEntityMutation(entityCode: string): UseEntityMutationResult {
     const response = await apiClient.post(`/api/v1/${entityCode}`, data);
     const newEntity = response.data?.data || response.data;
 
-    // Cache the new entity
-    await db.entities.put({
-      _id: createEntityKey(entityCode, newEntity.id),
-      entityCode,
-      entityId: newEntity.id,
-      data: newEntity,
-      version: newEntity.version || Date.now(),
-      syncedAt: Date.now(),
-      isDeleted: false,
-    });
+    // Cache the new entity instance name
+    if (newEntity.name) {
+      await db.entityInstance.put({
+        _id: createEntityInstanceKey(entityCode, newEntity.id),
+        entityCode,
+        entityInstanceId: newEntity.id,
+        entityInstanceName: newEntity.name,
+        instanceCode: newEntity.code,
+        syncedAt: Date.now(),
+      });
+    }
 
     // Invalidate list queries to include new entity
     queryClient.invalidateQueries({
-      queryKey: ['entity-list', entityCode],
+      queryKey: ['entityInstanceData', entityCode],
       refetchType: 'active',
     });
 
@@ -226,10 +262,8 @@ export function useEntityMutation(entityCode: string): UseEntityMutationResult {
   const deleteEntity = async (entityId: string): Promise<void> => {
     await apiClient.delete(`/api/v1/${entityCode}/${entityId}`);
 
-    // Mark as deleted in Dexie
-    await db.entities.update(createEntityKey(entityCode, entityId), {
-      isDeleted: true,
-    });
+    // Remove entity instance name from Dexie
+    await db.entityInstance.delete(createEntityInstanceKey(entityCode, entityId));
 
     // Remove from TanStack Query cache
     queryClient.removeQueries({
@@ -238,7 +272,7 @@ export function useEntityMutation(entityCode: string): UseEntityMutationResult {
 
     // Invalidate list queries
     queryClient.invalidateQueries({
-      queryKey: ['entity-list', entityCode],
+      queryKey: ['entityInstanceData', entityCode],
       refetchType: 'active',
     });
   };

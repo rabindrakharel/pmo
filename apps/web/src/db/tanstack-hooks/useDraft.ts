@@ -7,7 +7,7 @@
 
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCallback, useMemo } from 'react';
-import { db, createDraftKey, type CachedDraft } from '../dexie/database';
+import { db, createDraftKey, type DraftRecord } from '../dexie/database';
 
 // ============================================================================
 // Types
@@ -95,7 +95,7 @@ export function useDraft<T extends Record<string, unknown>>(
   const draft = useLiveQuery(
     async () => {
       if (!draftId) return null;
-      return db.drafts.get(draftId);
+      return db.draft.get(draftId);
     },
     [draftId]
   );
@@ -152,7 +152,7 @@ export function useDraft<T extends Record<string, unknown>>(
     async (data: T): Promise<void> => {
       if (!draftId) return;
 
-      await db.drafts.put({
+      await db.draft.put({
         _id: draftId,
         entityCode,
         entityId: entityId!,
@@ -171,7 +171,7 @@ export function useDraft<T extends Record<string, unknown>>(
     async (field: string, value: unknown): Promise<void> => {
       if (!draftId) return;
 
-      const existing = await db.drafts.get(draftId);
+      const existing = await db.draft.get(draftId);
       if (!existing) {
         console.warn('[useDraft] No draft exists. Call startEdit first.');
         return;
@@ -183,7 +183,7 @@ export function useDraft<T extends Record<string, unknown>>(
       // Limit undo stack size
       const undoStack = [...existing.undoStack, prevData].slice(-maxUndoStack);
 
-      await db.drafts.put({
+      await db.draft.put({
         ...existing,
         currentData: newData,
         undoStack,
@@ -199,7 +199,7 @@ export function useDraft<T extends Record<string, unknown>>(
     async (updates: Partial<T>): Promise<void> => {
       if (!draftId) return;
 
-      const existing = await db.drafts.get(draftId);
+      const existing = await db.draft.get(draftId);
       if (!existing) {
         console.warn('[useDraft] No draft exists. Call startEdit first.');
         return;
@@ -210,7 +210,7 @@ export function useDraft<T extends Record<string, unknown>>(
 
       const undoStack = [...existing.undoStack, prevData].slice(-maxUndoStack);
 
-      await db.drafts.put({
+      await db.draft.put({
         ...existing,
         currentData: newData,
         undoStack,
@@ -225,12 +225,12 @@ export function useDraft<T extends Record<string, unknown>>(
   const undo = useCallback(async (): Promise<void> => {
     if (!draftId) return;
 
-    const existing = await db.drafts.get(draftId);
+    const existing = await db.draft.get(draftId);
     if (!existing?.undoStack.length) return;
 
     const prevData = existing.undoStack[existing.undoStack.length - 1];
 
-    await db.drafts.put({
+    await db.draft.put({
       ...existing,
       currentData: prevData,
       undoStack: existing.undoStack.slice(0, -1),
@@ -243,12 +243,12 @@ export function useDraft<T extends Record<string, unknown>>(
   const redo = useCallback(async (): Promise<void> => {
     if (!draftId) return;
 
-    const existing = await db.drafts.get(draftId);
+    const existing = await db.draft.get(draftId);
     if (!existing?.redoStack.length) return;
 
     const nextData = existing.redoStack[existing.redoStack.length - 1];
 
-    await db.drafts.put({
+    await db.draft.put({
       ...existing,
       currentData: nextData,
       undoStack: [...existing.undoStack, existing.currentData],
@@ -261,10 +261,10 @@ export function useDraft<T extends Record<string, unknown>>(
   const reset = useCallback(async (): Promise<void> => {
     if (!draftId || !originalData) return;
 
-    const existing = await db.drafts.get(draftId);
+    const existing = await db.draft.get(draftId);
     if (!existing) return;
 
-    await db.drafts.put({
+    await db.draft.put({
       ...existing,
       currentData: originalData as Record<string, unknown>,
       undoStack: [...existing.undoStack, existing.currentData],
@@ -276,7 +276,7 @@ export function useDraft<T extends Record<string, unknown>>(
   // Discard draft entirely (remove from IndexedDB)
   const discardDraft = useCallback(async (): Promise<void> => {
     if (draftId) {
-      await db.drafts.delete(draftId);
+      await db.draft.delete(draftId);
     }
   }, [draftId]);
 
@@ -317,7 +317,7 @@ export interface UseRecoverDraftsResult {
   /** Has any drafts */
   hasDrafts: boolean;
   /** Get a specific draft */
-  getDraft: (entityCode: string, entityId: string) => Promise<CachedDraft | undefined>;
+  getDraft: (entityCode: string, entityId: string) => Promise<DraftRecord | undefined>;
   /** Discard a specific draft */
   discardDraft: (entityCode: string, entityId: string) => Promise<void>;
   /** Discard all drafts */
@@ -342,7 +342,7 @@ export interface UseRecoverDraftsResult {
 export function useRecoverDrafts(): UseRecoverDraftsResult {
   // Reactive list of all drafts
   const allDrafts = useLiveQuery(
-    () => db.drafts.orderBy('updatedAt').reverse().toArray()
+    () => db.draft.orderBy('updatedAt').reverse().toArray()
   );
 
   // Map to DraftInfo for simpler display
@@ -361,21 +361,21 @@ export function useRecoverDrafts(): UseRecoverDraftsResult {
   );
 
   const getDraft = useCallback(
-    async (entityCode: string, entityId: string): Promise<CachedDraft | undefined> => {
-      return db.drafts.get(createDraftKey(entityCode, entityId));
+    async (entityCode: string, entityId: string): Promise<DraftRecord | undefined> => {
+      return db.draft.get(createDraftKey(entityCode, entityId));
     },
     []
   );
 
   const discardDraft = useCallback(
     async (entityCode: string, entityId: string): Promise<void> => {
-      await db.drafts.delete(createDraftKey(entityCode, entityId));
+      await db.draft.delete(createDraftKey(entityCode, entityId));
     },
     []
   );
 
   const discardAllDrafts = useCallback(async (): Promise<void> => {
-    await db.drafts.clear();
+    await db.draft.clear();
   }, []);
 
   return {

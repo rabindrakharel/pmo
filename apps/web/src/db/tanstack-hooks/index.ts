@@ -36,9 +36,11 @@ export {
 export {
   useEntityList,
   useEntityInfiniteList,
+  useEntityMetadata,
   type UseEntityListParams,
   type UseEntityListResult,
   type UseEntityInfiniteListResult,
+  type UseEntityMetadataResult,
 } from './useEntityList';
 
 // Offline-first hooks

@@ -11,17 +11,42 @@
 export {
   db,
   PMODatabase,
-  createEntityKey,
+  // Key generators
+  createDatalabelKey,
+  createEntityInstanceKey,
+  createEntityInstanceDataKey,
+  createEntityLinkKey,
   createDraftKey,
-  createMetadataKey,
   createQueryHash,
+  // Cache management
   clearAllData,
   clearStaleData,
   getDatabaseStats,
-  type CachedEntity,
-  type CachedEntityList,
-  type CachedMetadata,
-  type CachedDraft,
+  // Entity helpers
+  getChildIdsFromCache,
+  getEntityInstanceNameFromCache,
+  getEntityInstanceNamesForType,
+  addLinkToCache,
+  removeLinkFromCache,
+  getEntityCodeFromCache,
+  getAllEntityCodesFromCache,
+  getChildEntityCodesFromCache,
+  // Types
+  type DatalabelOption,
+  type DatalabelRecord,
+  type EntityCodeDefinition,
+  type EntityCodeRecord,
+  type GlobalSettingRecord,
+  type EntityInstanceDataRecord,
+  type ViewFieldMetadata,
+  type EditFieldMetadata,
+  type EntityInstanceMetadataRecord,
+  type EntityInstanceRecord,
+  type EntityLinkRecord,
+  type DraftRecord,
+  // Legacy aliases (deprecated)
+  createEntityKey,
+  createMetadataKey,
 } from './dexie/database';
 
 // ============================================================================
