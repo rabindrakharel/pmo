@@ -55,6 +55,8 @@ import { DebouncedInput, DebouncedTextarea } from '../components/shared/ui/Debou
 import { getDatalabelSync } from '../db/tanstack-index';
 import { BadgeDropdownSelect, type BadgeDropdownSelectOption } from '../components/shared/ui/BadgeDropdownSelect';
 import { EntityInstanceNameSelect } from '../components/shared/ui/EntityInstanceNameSelect';
+// v9.4.0: Multi-select for array of entity references (_IDS fields)
+import { EntityInstanceNameMultiSelect } from '../components/shared/ui/EntityInstanceNameMultiSelect';
 import { colorCodeToTailwindClass } from './formatters/valueFormatters';
 import {
   formatRelativeTime as formatRelativeTimeUtil,
@@ -458,6 +460,45 @@ export function renderEditModeFromMetadata(
           entityCode={entityCode}
           value={value ?? ''}
           onChange={(uuid, _label) => onChange(uuid)}
+          disabled={disabled}
+          required={required}
+          placeholder={metadata.placeholder || `Select ${entityCode}...`}
+          className={className}
+        />
+      );
+    }
+
+    // v9.4.0: EntityInstanceNameMultiSelect - multi-select entity reference (edit mode)
+    // Backend: inputType: EntityInstanceNameMultiSelect
+    // Used for _IDS fields (arrays of entity UUIDs like stakeholder__employee_ids)
+    case 'EntityInstanceNameMultiSelect': {
+      const entityCode = metadata.lookupEntity;
+
+      if (!entityCode) {
+        console.warn(`[EDIT] Missing lookupEntity for field ${metadata.key}`);
+        return (
+          <DebouncedInput
+            type="text"
+            value={Array.isArray(value) ? value.join(', ') : (value ?? '')}
+            onChange={(val) => onChange(val)}
+            debounceMs={300}
+            onBlurCommit={true}
+            required={required}
+            disabled={disabled}
+            placeholder={metadata.placeholder || 'Missing entity configuration'}
+            className={`px-2 py-1 border rounded ${className}`}
+          />
+        );
+      }
+
+      // Ensure value is an array
+      const arrayValue = Array.isArray(value) ? value : (value ? [value] : []);
+
+      return (
+        <EntityInstanceNameMultiSelect
+          entityCode={entityCode}
+          value={arrayValue}
+          onChange={(uuids) => onChange(uuids)}
           disabled={disabled}
           required={required}
           placeholder={metadata.placeholder || `Select ${entityCode}...`}
