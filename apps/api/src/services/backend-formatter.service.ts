@@ -204,11 +204,6 @@ export interface FieldMetadataBase {
   EntityInstanceFormContainer_viz_container?: 'DAGVisualizer' | 'MetadataTable' | string;
 }
 
-// Old structure (deprecated)
-export interface ComponentMetadataLegacy {
-  [fieldName: string]: FieldMetadataBase;
-}
-
 // New structure: viewType and editType as top-level containers
 export interface ViewTypeMetadata {
   [fieldName: string]: ViewMetadata & { dtype: string; label: string };

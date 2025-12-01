@@ -296,24 +296,6 @@ export function createQueryHash(params: Record<string, unknown>): string {
 }
 
 // ============================================================================
-// LEGACY KEY GENERATORS (for backward compatibility during transition)
-// ============================================================================
-
-/**
- * @deprecated Use createEntityInstanceKey instead
- */
-export function createEntityKey(entityCode: string, entityId: string): string {
-  return `${entityCode}:${entityId}`;
-}
-
-/**
- * @deprecated Use createDatalabelKey instead
- */
-export function createMetadataKey(type: string, key?: string): string {
-  return key ? `${type}:${key}` : type;
-}
-
-// ============================================================================
 // CACHE MANAGEMENT FUNCTIONS
 // ============================================================================
 
