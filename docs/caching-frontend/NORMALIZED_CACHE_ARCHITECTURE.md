@@ -77,7 +77,7 @@ apps/web/src/db/
 │
 ├── persistence/              # PERSISTENCE LAYER
 │   ├── index.ts              # Persistence exports
-│   ├── schema.ts             # Dexie v5 schema (8 tables)
+│   ├── schema.ts             # Dexie v5 schema (9 tables)
 │   ├── hydrate.ts            # Dexie → TanStack hydration
 │   └── operations.ts         # Clear/cleanup operations
 │
@@ -294,7 +294,7 @@ export const ONDEMAND_STORE_CONFIG = {
 
 ### 3.1 Dexie Schema (v5)
 
-8 tables with unified naming aligned to TanStack Query keys.
+9 tables with unified naming aligned to TanStack Query keys.
 
 ```typescript
 // db/persistence/schema.ts
@@ -303,22 +303,22 @@ import Dexie from 'dexie';
 export const db = new Dexie('pmo-cache-v5');
 
 db.version(1).stores({
-  // Session-level stores
-  globalSettings: 'id',                                    // Single record
-  datalabel: 'key',                                        // dl__project_stage
-  entityCodes: 'code',                                     // entity type metadata
-  entityInstanceNames: '[entityCode+entityId]',            // name resolution
+  // Session-level stores (6)
+  globalSettings: '_id',                                                      // Single record ('settings')
+  datalabel: '_id, key',                                                      // dl__project_stage
+  entityCodes: '_id',                                                         // entity type metadata ('all')
+  entityInstanceNames: '_id, entityCode, entityInstanceId, [entityCode+entityInstanceId]',  // name resolution
+  entityInstanceMetadata: '_id, entityCode',                                  // field metadata per entity type
 
-  // On-demand stores
-  entityInstanceData: 'hash, entityCode',                  // list data cache
-  entityInstanceMetadata: 'entityCode',                    // field metadata
+  // On-demand stores (1)
+  entityInstanceData: '_id, entityCode, queryHash, syncedAt',                 // list data cache
 
-  // Relationship stores
-  entityLinkForward: '[parentCode+parentId+childCode]',    // parent → children
-  entityLinkReverse: '[childCode+childId]',                // child → parents
+  // Relationship stores (2)
+  entityLinkForward: '_id, parentCode, parentId, childCode, [parentCode+parentId+childCode]',  // parent → children
+  entityLinkReverse: '_id, childCode, childId, [childCode+childId]',                           // child → parents
 
-  // User data
-  draft: '[entityCode+entityId]',                          // form drafts
+  // User data (1)
+  draft: '_id, entityCode, entityId, updatedAt',                              // form drafts
 });
 
 // Type-safe table accessors

@@ -736,16 +736,16 @@ Request → RBAC Check (DELETE) → TRANSACTION {
 
 | Document | Path | Purpose |
 |----------|------|---------|
-| **TANSTACK_DEXIE_SYNC_ARCHITECTURE.md** | `docs/caching/` | TanStack Query + Dexie + WebSocket sync |
+| **NORMALIZED_CACHE_ARCHITECTURE.md** | `docs/caching-frontend/` | Unified 3-layer cache architecture (v3.0) |
+| **TANSTACK_DEXIE_SYNC_ARCHITECTURE.md** | `docs/caching-frontend/` | TanStack Query + Dexie + WebSocket sync |
 | **ENTITY_METADATA_CACHING.md** | `docs/caching-backend/` | Redis field name caching + content=metadata API |
-| **DEXIE_SCHEMA_REFACTORING.md** | `docs/migrations/` | Dexie v4 schema with unified TanStack naming |
+| **DEXIE_SCHEMA_REFACTORING.md** | `docs/migrations/` | Dexie v5 schema with unified TanStack naming |
 | **RBAC_INFRASTRUCTURE.md** | `docs/rbac/` | RBAC tables, permissions, patterns |
 | **entity-infrastructure.service.md** | `docs/services/` | Entity infrastructure service API + build_ref_data_entityInstance |
 | **STATE_MANAGEMENT.md** | `docs/state_management/` | TanStack Query + Dexie state architecture |
-| **PAGE_ARCHITECTURE.md** | `docs/pages/` | Page components and routing |
+| **PAGE_ARCHITECTURE.md** | `docs/pages/` | Universal pages, components, and routing |
 | **backend-formatter.service.md** | `docs/services/` | Backend metadata generation (BFF) + Redis field cache |
 | **frontEndFormatterService.md** | `docs/services/` | Frontend rendering (pure renderer) |
-| **RefData README.md** | `docs/refData/` | Entity reference resolution pattern |
 
 ### 0. TANSTACK_DEXIE_SYNC_ARCHITECTURE.md
 
@@ -759,11 +759,11 @@ Redis caching strategy for entity field names + `content=metadata` API parameter
 
 **Keywords:** `Redis`, `field cache`, `entity:fields:`, `generateEntityResponse`, `resultFields`, `postgres.js columns`, `empty data`, `child entity tabs`, `metadata generation`, `getCachedFieldNames`, `cacheFieldNames`, `invalidateFieldCache`, `clearAllFieldCache`, `24-hour TTL`, `graceful degradation`, `content=metadata`, `metadataOnly`, `useEntityMetadata`
 
-### 0.6. DEXIE_SCHEMA_REFACTORING.md (v4)
+### 0.6. DEXIE_SCHEMA_REFACTORING.md (v5)
 
-Dexie IndexedDB schema v4 with unified naming between TanStack Query cache keys and Dexie tables. 8 tables replacing previous 14-table schema with clearer separation of concerns.
+Dexie IndexedDB schema v5 with unified naming between TanStack Query cache keys and Dexie tables. 9 tables with clearer separation of concerns.
 
-**Keywords:** `Dexie`, `IndexedDB`, `schema v4`, `pmo-cache-v4`, `datalabel`, `entityCode`, `globalSetting`, `entityInstanceData`, `entityInstanceMetadata`, `entityInstance`, `entityLink`, `draft`, `unified naming`, `TanStack Query keys`, `createDatalabelKey`, `createEntityInstanceKey`, `createEntityInstanceDataKey`, `createEntityLinkKey`, `createDraftKey`
+**Keywords:** `Dexie`, `IndexedDB`, `schema v5`, `pmo-cache-v5`, `globalSettings`, `datalabel`, `entityCodes`, `entityInstanceNames`, `entityLinkForward`, `entityLinkReverse`, `entityInstanceMetadata`, `entityInstanceData`, `draft`, `unified naming`, `TanStack Query keys`, `CacheDatabase`
 
 ### 1. RBAC_INFRASTRUCTURE.md
 
@@ -779,9 +779,9 @@ Core service documentation for centralized entity infrastructure management. Use
 
 ### 3. STATE_MANAGEMENT.md
 
-TanStack Query + Dexie state architecture (v9.1.0). TanStack Query for server state, Dexie for IndexedDB persistence. WebSocket sync via WebSocketManager.
+TanStack Query + Dexie state architecture (v9.3.0) with unified 3-layer architecture. All imports from `@/db/tanstack-index`.
 
-**Keywords:** `TanStack Query`, `Dexie`, `IndexedDB`, `offline-first`, `useEntity`, `useEntityList`, `useDraft`, `useDatalabel`, `useEntityCodes`, `useGlobalSettings`, `getDatalabelSync`, `getEntityCodesSync`, `prefetchAllMetadata`, `sync cache`, `WebSocketManager`, `TanstackCacheProvider`, `hydrateQueryCache`
+**Keywords:** `TanStack Query`, `Dexie`, `IndexedDB`, `offline-first`, `db/cache/`, `db/persistence/`, `db/realtime/`, `useEntity`, `useEntityInstanceData`, `useDraft`, `useDatalabel`, `useEntityCodes`, `useEntityInstanceNames`, `useEntityLinks`, `getDatalabelSync`, `getEntityCodesSync`, `prefetchAllMetadata`, `sync stores`, `wsManager`, `TanstackCacheProvider`, `hydrateFromDexie`
 
 ### 4. PAGE_ARCHITECTURE.md
 
@@ -791,16 +791,17 @@ Comprehensive page and component architecture documentation. Used by LLMs when i
 
 ---
 
-**Version**: 9.3.0 | **Updated**: 2025-11-30 | **Pattern**: TanStack Query + Dexie v4 (Offline-First) + Redis Field Cache
+**Version**: 9.3.0 | **Updated**: 2025-12-01 | **Pattern**: TanStack Query + Dexie v5 (Unified Cache Architecture)
 
 **Recent Updates**:
-- v9.3.0 (2025-11-30): **Dexie v4 Schema + content=metadata API**
-  - Dexie schema v4: 8 unified tables with TanStack Query key alignment
-  - Tables: `datalabel`, `entityCode`, `globalSetting`, `entityInstanceData`, `entityInstanceMetadata`, `entityInstance`, `entityLink`, `draft`
-  - Added `content=metadata` API parameter for metadata-only requests (no data query)
-  - `useEntityMetadata` hook uses `content=metadata` with 30-min TTL
-  - Unified naming: TanStack Query keys match Dexie table names
-  - See: `docs/migrations/DEXIE_SCHEMA_REFACTORING.md`
+- v9.3.0 (2025-12-01): **Unified Cache Architecture + Dexie v5**
+  - 3-layer architecture: cache/ (TanStack Query), persistence/ (Dexie), realtime/ (WebSocket)
+  - Single import point: `@/db/tanstack-index` for all cache operations
+  - Dexie schema v5: 9 tables with TanStack Query key alignment
+  - Tables: `globalSettings`, `datalabel`, `entityCodes`, `entityInstanceNames`, `entityLinkForward`, `entityLinkReverse`, `entityInstanceMetadata`, `entityInstanceData`, `draft`
+  - Sync stores for non-hook access: `getDatalabelSync()`, `getEntityCodesSync()`, etc.
+  - Session-level stores (prefetched at login) vs On-demand stores (fetched on mount)
+  - See: `docs/caching-frontend/NORMALIZED_CACHE_ARCHITECTURE.md`
 - v9.2.0 (2025-11-30): **Redis Entity Field Caching**
   - Added Redis caching for entity field names (24-hour TTL)
   - `generateEntityResponse()` is now async with `resultFields` fallback

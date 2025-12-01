@@ -2,9 +2,9 @@
 
 > Comprehensive guide to offline-first storage with WebSocket real-time synchronization
 
-**Version**: 9.1.0
-**Date**: 2025-11-28
-**Status**: Production (v9.1.0 - TanStack Query + Dexie)
+**Version**: 9.3.0
+**Date**: 2025-12-01
+**Status**: Production (Unified Cache Architecture)
 **Deployment**: Single-pod (<500 concurrent users)
 
 ---
@@ -360,16 +360,18 @@ export function invalidateEntityQueries(
 ### 5.3 Hooks
 
 ```typescript
-// apps/web/src/db/tanstack-hooks/
+// apps/web/src/db/cache/hooks/
 
-// Single entity (reactive, auto-refetches on invalidation)
+// Session-level hooks (prefetched at login)
+const { data: entityCodes } = useEntityCodes();
+const { data: options } = useDatalabel('project_stage');
+const { data: settings } = useGlobalSettings();
+const { data: names } = useEntityInstanceNames('employee');
+
+// On-demand hooks (fetched when components mount)
 const { data, isLoading, refetch } = useEntity<Project>('project', projectId);
-
-// Entity list with pagination
-const { data: projects, total } = useEntityList<Project>('project', { limit: 20 });
-
-// Mutations
-const { updateEntity, deleteEntity } = useEntityMutation('project');
+const { data: projects, total } = useEntityInstanceData<Project>('project', { limit: 20 });
+const { data: links } = useEntityLinks(parentCode, parentId);
 
 // Draft persistence (survives page refresh)
 const {
@@ -378,9 +380,10 @@ const {
   undo, redo, canUndo, canRedo
 } = useDraft('project', projectId);
 
-// Metadata (with sync cache for non-hook access)
-const { options } = useDatalabel('project_stage');
-const stages = getDatalabelSync('project_stage');  // For formatters
+// Sync cache for non-hook access (formatters, utilities)
+const stages = getDatalabelSync('project_stage');
+const entityCode = getEntityCodeSync('project');
+const name = getEntityInstanceNameSync('employee', uuid);
 ```
 
 ### 5.4 Data Flow
@@ -652,26 +655,38 @@ Key methods:
 - `subscribe(entityCode, entityIds)` - Subscribe to entities
 - `refreshToken(newToken)` - Update JWT
 
-### 9.3 Key File Locations
+### 9.3 Key File Locations (v3.0 Unified Architecture)
 
 ```
 apps/web/src/db/
-+-- TanstackCacheProvider.tsx     # React context provider
-+-- tanstack-index.ts             # Public API exports
-+-- dexie/
-|   +-- database.ts               # Dexie schema + helpers
-+-- query/
-|   +-- queryClient.ts            # TanStack Query config
-+-- tanstack-hooks/
-|   +-- useEntity.ts              # Single entity + mutations
-|   +-- useEntityList.ts          # Paginated list queries
-|   +-- useDatalabel.ts           # Dropdown options + sync cache
-|   +-- useEntityCodes.ts         # Entity type definitions
-|   +-- useGlobalSettings.ts      # App settings
-|   +-- useDraft.ts               # Draft persistence + undo/redo
-|   +-- useOfflineEntity.ts       # Dexie-only access
-+-- tanstack-sync/
-    +-- WebSocketManager.ts       # WebSocket + cache invalidation
+├── tanstack-index.ts              # PUBLIC API - single entry point
+├── TanstackCacheProvider.tsx      # React context provider
+├── index.ts                       # Module exports
+│
+├── cache/                         # CACHE LAYER
+│   ├── client.ts                  # TanStack Query client + invalidation
+│   ├── constants.ts               # Stale times, GC times, TTLs
+│   ├── keys.ts                    # QUERY_KEYS, DEXIE_KEYS
+│   ├── stores.ts                  # In-memory sync stores
+│   ├── types.ts                   # Type definitions
+│   └── hooks/                     # React hooks
+│       ├── useDatalabel.ts        # Dropdown options
+│       ├── useDraft.ts            # Draft persistence + undo/redo
+│       ├── useEntity.ts           # Single entity
+│       ├── useEntityCodes.ts      # Entity type metadata
+│       ├── useEntityInstanceData.ts  # Entity list data
+│       ├── useEntityInstanceNames.ts # Name resolution
+│       ├── useEntityLinks.ts      # Parent-child relationships
+│       ├── useGlobalSettings.ts   # App settings
+│       └── useOfflineEntity.ts    # Dexie-only access
+│
+├── persistence/                   # PERSISTENCE LAYER
+│   ├── schema.ts                  # Dexie v5 schema (9 tables)
+│   ├── hydrate.ts                 # Dexie → TanStack hydration
+│   └── operations.ts              # Clear/cleanup operations
+│
+└── realtime/                      # REAL-TIME LAYER
+    └── manager.ts                 # WebSocket manager
 ```
 
 ---
@@ -730,4 +745,4 @@ curl http://localhost:4001/health
 
 ---
 
-**Version**: 9.1.0 | **Updated**: 2025-11-28 | **Status**: Production (TanStack Query + Dexie)
+**Version**: 9.3.0 | **Updated**: 2025-12-01 | **Status**: Production (Unified Cache Architecture)

@@ -1,37 +1,36 @@
 # State Management Architecture
 
-**Version:** 9.1.0 | **Updated:** 2025-11-28
+**Version:** 9.3.0 | **Updated:** 2025-12-01
 
 ---
 
 ## Overview
 
-The PMO frontend uses **TanStack Query + Dexie** for state management. TanStack Query manages server state with automatic background refetching, while Dexie (IndexedDB) provides offline-first persistent storage.
+The PMO frontend uses **TanStack Query + Dexie** for state management with a **unified 3-layer architecture**. All cache operations are accessed through a single entry point: `@/db/tanstack-index`.
 
 ```
 +-------------------------------------------------------------------------+
-|               STATE MANAGEMENT (v9.1.0 - TanStack Query + Dexie)         |
+|               STATE MANAGEMENT (v9.3.0 - Unified Cache Architecture)    |
 +-------------------------------------------------------------------------+
 |                                                                          |
-|   TanStack Query (In-Memory)         Dexie (IndexedDB)                  |
-|   -------------------------          ------------------                  |
-|   - Server state management          - Persistent storage               |
-|   - Automatic background refetch     - Survives browser restart         |
-|   - Stale-while-revalidate          - Offline-first access             |
-|   - Cache invalidation              - Multi-tab sync                    |
+|   PUBLIC API: db/tanstack-index.ts                                      |
+|   ═══════════════════════════════                                       |
+|   Single import point for all cache operations                          |
 |                                                                          |
-|   +-----------------------+         +------------------------+          |
-|   |  useEntity()         |<------->|  entities table        |          |
-|   |  useEntityList()     |         |  entityLists table     |          |
-|   |  useDatalabel()      |         |  metadata table        |          |
-|   |  useDraft()          |         |  drafts table          |          |
-|   +-----------------------+         +------------------------+          |
+|   ┌────────────────────┬────────────────────┬────────────────────────┐  |
+|   │   CACHE LAYER      │  PERSISTENCE LAYER │  REAL-TIME LAYER       │  |
+|   │   (db/cache/)      │  (db/persistence/) │  (db/realtime/)        │  |
+|   │                    │                    │                        │  |
+|   │   • TanStack Query │  • Dexie v5        │  • WebSocket Manager   │  |
+|   │   • Sync Stores    │  • IndexedDB       │  • Cache Invalidation  │  |
+|   │   • React Hooks    │  • 9 Tables        │  • Real-time Sync      │  |
+|   └────────────────────┴────────────────────┴────────────────────────┘  |
 |                                                                          |
-|   WebSocket Manager                                                     |
-|   -----------------                                                     |
-|   - Receives INVALIDATE messages from PubSub (port 4001)               |
-|   - Triggers queryClient.invalidateQueries()                            |
-|   - TanStack Query auto-refetches -> Updates Dexie                     |
+|   Dexie Tables (pmo-cache-v5):                                          |
+|   ─────────────────────────────                                         |
+|   globalSettings, datalabel, entityCodes, entityInstanceNames,          |
+|   entityLinkForward, entityLinkReverse, entityInstanceMetadata,         |
+|   entityInstanceData, draft                                             |
 |                                                                          |
 +-------------------------------------------------------------------------+
 ```
@@ -51,14 +50,19 @@ The PMO frontend uses **TanStack Query + Dexie** for state management. TanStack 
 
 ---
 
-## Dexie Tables (IndexedDB)
+## Dexie Tables (IndexedDB) - pmo-cache-v5
 
 | Table | Purpose | Primary Key | Indexes |
 |-------|---------|-------------|---------|
-| `entities` | Cached entity data | `_id` (entityCode:entityId) | entityCode, syncedAt, isDeleted |
-| `entityLists` | Cached list query results | `_id` (entityCode:queryHash) | entityCode, syncedAt |
-| `metadata` | Datalabels, entity codes, settings | `_id` (type:key) | type, key |
-| `drafts` | Unsaved form edits | `_id` (draft:entityCode:entityId) | entityCode, entityId, updatedAt |
+| `globalSettings` | App-wide settings | `_id` ('settings') | - |
+| `datalabel` | Dropdown options | `_id` (key) | key |
+| `entityCodes` | Entity type definitions | `_id` ('all') | - |
+| `entityInstanceNames` | UUID → name lookups | `_id` (code:id) | entityCode, entityInstanceId |
+| `entityLinkForward` | Parent → children index | `_id` (parent:id:child) | parentCode, parentId, childCode |
+| `entityLinkReverse` | Child → parents index | `_id` (child:id) | childCode, childId |
+| `entityInstanceMetadata` | Field definitions per entity | `_id` (entityCode) | entityCode |
+| `entityInstanceData` | Query results with pagination | `_id` (code:hash) | entityCode, queryHash, syncedAt |
+| `draft` | Unsaved form edits | `_id` (draft:code:id) | entityCode, entityId, updatedAt |
 
 ---
 
@@ -289,27 +293,42 @@ useRecoverDrafts()
 
 ---
 
-## File Structure
+## File Structure (v3.0 Unified Architecture)
 
 ```
 apps/web/src/db/
-+-- TanstackCacheProvider.tsx        # React context provider
-+-- tanstack-index.ts                # Public API exports
-+-- dexie/
-|   +-- database.ts                  # Dexie schema + helpers
-+-- query/
-|   +-- queryClient.ts               # TanStack Query config + hydration
-+-- tanstack-hooks/
-|   +-- index.ts                     # Hook exports
-|   +-- useEntity.ts                 # Single entity + mutations
-|   +-- useEntityList.ts             # Paginated list queries
-|   +-- useDatalabel.ts              # Dropdown options + sync cache
-|   +-- useEntityCodes.ts            # Entity type definitions
-|   +-- useGlobalSettings.ts         # App settings
-|   +-- useDraft.ts                  # Draft persistence + undo/redo
-|   +-- useOfflineEntity.ts          # Dexie-only access
-+-- tanstack-sync/
-    +-- WebSocketManager.ts          # WebSocket + cache invalidation
+├── tanstack-index.ts              # PUBLIC API - single entry point for all imports
+├── TanstackCacheProvider.tsx      # React context provider
+├── index.ts                       # Module exports
+│
+├── cache/                         # CACHE LAYER - TanStack Query + Sync Stores
+│   ├── index.ts                   # Cache exports
+│   ├── client.ts                  # TanStack Query client + invalidation
+│   ├── constants.ts               # Stale times, GC times, TTLs
+│   ├── keys.ts                    # Query keys (QUERY_KEYS, DEXIE_KEYS)
+│   ├── stores.ts                  # In-memory sync stores (for formatters)
+│   ├── types.ts                   # Type definitions
+│   └── hooks/                     # React hooks
+│       ├── index.ts               # Hook exports
+│       ├── useDatalabel.ts        # Datalabel dropdown options
+│       ├── useDraft.ts            # Draft persistence + undo/redo
+│       ├── useEntity.ts           # Single entity data
+│       ├── useEntityCodes.ts      # Entity type metadata
+│       ├── useEntityInstanceData.ts  # Entity list data
+│       ├── useEntityInstanceNames.ts # Entity name resolution
+│       ├── useEntityLinks.ts      # Parent-child relationships
+│       ├── useGlobalSettings.ts   # App settings
+│       └── useOfflineEntity.ts    # Offline-only access
+│
+├── persistence/                   # PERSISTENCE LAYER - Dexie (IndexedDB)
+│   ├── index.ts                   # Persistence exports
+│   ├── schema.ts                  # Dexie v5 schema (9 tables)
+│   ├── hydrate.ts                 # Dexie → TanStack hydration
+│   └── operations.ts              # Clear/cleanup operations
+│
+└── realtime/                      # REAL-TIME LAYER - WebSocket
+    ├── index.ts                   # Realtime exports
+    └── manager.ts                 # WebSocket manager
 ```
 
 ---
@@ -449,7 +468,7 @@ App ready for use
 
 ---
 
-**Version:** 9.1.3 | **Updated:** 2025-11-28 | **Status:** Production
+**Version:** 9.3.0 | **Updated:** 2025-12-01 | **Status:** Production (Unified Cache Architecture)
 
 ---
 
