@@ -44,9 +44,6 @@ export {
   type EntityInstanceRecord,
   type EntityLinkRecord,
   type DraftRecord,
-  // Legacy aliases (deprecated)
-  createEntityKey,
-  createMetadataKey,
 } from './dexie/database';
 
 // ============================================================================
