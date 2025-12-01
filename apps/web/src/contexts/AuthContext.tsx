@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useQueryClient } from '@tanstack/react-query';
 import { authApi, User } from '../lib/api';
 import { clearNormalizedStore } from '../lib/cache/normalizedCache';
-import { prefetchEntityInstances } from '../lib/hooks';
+import { prefetchRefDataEntityInstances } from '../lib/hooks';
 // v9.0.0: TanStack Query + Dexie handles metadata caching
 import {
   clearAllCaches,
@@ -87,7 +87,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // v8.3.2: Prefetch common entity instances for dropdown caches
       // This populates the unified ref_data_entityInstance cache
       // v9.1.1: Await prefetch to prevent race condition with API upserts
-      await prefetchEntityInstances(queryClient, [
+      await prefetchRefDataEntityInstances(queryClient, [
         'employee',
         'project',
         'business',
@@ -147,7 +147,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // v8.3.2: Prefetch common entity instances for dropdown caches
       // v9.1.1: Await prefetch to prevent race condition with API upserts
-      await prefetchEntityInstances(queryClient, [
+      await prefetchRefDataEntityInstances(queryClient, [
         'employee',
         'project',
         'business',

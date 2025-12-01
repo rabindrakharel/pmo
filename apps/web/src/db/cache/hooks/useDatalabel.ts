@@ -114,7 +114,7 @@ export function useAllDatalabels(): {
     queryFn: async () => {
       const response = await apiClient.get<{
         data: Record<string, DatalabelOption[]>;
-      }>('/api/v1/datalabel');
+      }>('/api/v1/datalabel/all');
 
       const allDatalabels = response.data?.data || {};
 
@@ -149,7 +149,7 @@ export async function prefetchAllDatalabels(): Promise<number> {
   try {
     const response = await apiClient.get<{
       data: Record<string, DatalabelOption[]>;
-    }>('/api/v1/datalabel');
+    }>('/api/v1/datalabel/all');
 
     const allDatalabels = response.data?.data || {};
     const { queryClient } = await import('../client');

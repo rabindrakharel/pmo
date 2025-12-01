@@ -5,7 +5,8 @@ import { useSettings } from '../../contexts/SettingsContext';
 import { AddDatalabelModal } from '../../components/shared/modals/AddDatalabelModal';
 import { EntityConfigurationModal } from '../../components/settings/EntityConfigurationModal';
 import { PermissionManagementModal } from '../../components/settings/PermissionManagementModal';
-import { useEntityInstanceList } from '../../lib/hooks';
+// v9.1.0: Use canonical hook from @/db/tanstack-index
+import { useEntityInstanceData } from '../../db/tanstack-index';
 import { API_CONFIG } from '../../lib/config/api';
 import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
 import { Edit, Trash2 } from 'lucide-react';
@@ -111,16 +112,15 @@ export function SettingsOverviewPage() {
   const [rbacEditingRow, setRbacEditingRow] = useState<string | null>(null);
   const [rbacEditedData, setRbacEditedData] = useState<any>({});
 
-  // Fetch RBAC data
+  // Fetch RBAC data - v9.1.0: Use canonical useEntityInstanceData
+  const rbacQueryParams = useMemo(() => ({ limit: 100, offset: 0 }), []);
   const {
-    data: rbacQueryResult,
+    data: rbacData,
+    metadata: rbacMetadata,
+    total: rbacTotal,
     isLoading: rbacLoading,
     refetch: refetchRbac,
-  } = useEntityInstanceList('rbac', { page: 1, pageSize: 100 }, { enabled: activeMainTab === 'rbac' });
-
-  const rbacData = rbacQueryResult?.data || [];
-  const rbacMetadata = rbacQueryResult?.metadata || null;
-  const rbacTotal = rbacQueryResult?.total || 0;
+  } = useEntityInstanceData('rbac', rbacQueryParams);
 
   const rbacPagination = useMemo(() => ({
     current: 1,

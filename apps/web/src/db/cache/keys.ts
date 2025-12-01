@@ -42,12 +42,16 @@ export const QUERY_KEYS = {
   entityLinksByParent: (parentCode: string, parentId: string) =>
     ['entityLinks', parentCode, parentId] as const,
 
-  /** Entity instance metadata query key for specific entity type */
-  entityInstanceMetadata: (entityCode: string) =>
-    ['entityInstanceMetadata', entityCode] as const,
+  /** Entity instance metadata query key for specific entity type and component */
+  entityInstanceMetadata: (entityCode: string, component: string = 'entityListOfInstancesTable') =>
+    ['entityInstanceMetadata', entityCode, component] as const,
 
   /** Entity instance metadata query key (for invalidation of all types) */
   entityInstanceMetadataAll: () => ['entityInstanceMetadata'] as const,
+
+  /** Entity instance metadata query key by entity code (for invalidation of all components) */
+  entityInstanceMetadataByCode: (entityCode: string) =>
+    ['entityInstanceMetadata', entityCode] as const,
 
   // ────────────────────────────────────────────────────────────────────────
   // On-Demand Store
@@ -119,8 +123,9 @@ export const DEXIE_KEYS = {
   entityLinkReverse: (childCode: string, childId: string) =>
     `${childCode}:${childId}`,
 
-  /** Entity instance metadata key */
-  entityInstanceMetadata: (entityCode: string) => entityCode,
+  /** Entity instance metadata key (per entity per component) */
+  entityInstanceMetadata: (entityCode: string, component: string = 'entityListOfInstancesTable') =>
+    `${entityCode}:${component}`,
 
   // ────────────────────────────────────────────────────────────────────────
   // On-Demand Store

@@ -229,12 +229,17 @@ export function EntityListOfInstancesTable<T = any>({
   // Backend sends complete field metadata → Frontend renders exactly as instructed
 
   const columns = useMemo(() => {
-    // v8.2.0: Backend MUST send metadata.entityListOfInstancesTable = { viewType: {...}, editType: {...} }
-    const componentMetadata = (metadata as any)?.entityListOfInstancesTable;
+    // v9.2.0: Support both direct and nested metadata structures
+    // - Direct: metadata = { viewType, editType } (from useEntityInstanceData which already extracts)
+    // - Nested: metadata = { entityListOfInstancesTable: { viewType, editType } } (legacy/direct API)
+    const componentMetadata = isValidComponentMetadata(metadata)
+      ? metadata
+      : (metadata as any)?.entityListOfInstancesTable;
 
     console.log(`%c[EntityListOfInstancesTable] 🔍 Metadata received:`, 'color: #69db7c; font-weight: bold', {
       hasMetadata: !!metadata,
-      hasEntityListOfInstancesTable: !!componentMetadata,
+      isDirect: isValidComponentMetadata(metadata),
+      isNested: !!(metadata as any)?.entityListOfInstancesTable,
       isValid: isValidComponentMetadata(componentMetadata),
       fieldCount: componentMetadata?.viewType ? Object.keys(componentMetadata.viewType).length : 0,
     });

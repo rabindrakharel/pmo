@@ -258,7 +258,8 @@
       "Bash(git -C /home/rabin/projects/pmo log --oneline --all --grep=\"ref_data\")",
       "Bash(git -C /home/rabin/projects/pmo log --oneline -100)",
       "Bash(git -C /home/rabin/projects/pmo diff 66bc0f0 HEAD -- apps/web/src/lib/hooks/useEntityQuery.ts)",
-      "Bash(jq:*)"
+      "Bash(jq:*)",
+      "Bash(git -C /home/rabin/projects/pmo mv apps/web/src/lib/hooks/useEntityQuery.ts apps/web/src/lib/hooks/useEntityFormatters.ts)"
     ],
     "deny": [],
     "ask": [],

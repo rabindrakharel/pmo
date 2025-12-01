@@ -210,6 +210,19 @@ export interface Draft {
 }
 
 // ============================================================================
+// RefData Type (Entity Instance Name Resolution)
+// ============================================================================
+
+/**
+ * RefData - Response-level entity reference lookup table
+ * Structure: { entity_code: { uuid: name } }
+ *
+ * Used for O(1) entity instance name resolution in views.
+ * Backend builds this from all entity reference fields in the response.
+ */
+export type RefData = Record<string, Record<string, string>>;
+
+// ============================================================================
 // API Response Types
 // ============================================================================
 

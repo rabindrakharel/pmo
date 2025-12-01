@@ -475,7 +475,7 @@ App ready for use
 
 | Cache | Query Key | Stale Time | GC Time | Persistence |
 |-------|-----------|------------|---------|-------------|
-| Entity Instance (ref_data) | `['ref-data-entity-instance', code]` | 5 min | 30 min | TanStack only |
+| Entity Instance (ref_data) | `['ref_data_entityInstance', code]` | 5 min | 30 min | TanStack only |
 | Datalabel | `['datalabel', key]` | 10 min | 1 hour | Dexie + Map |
 | Entity Codes | `['entityCodes']` | 30 min | 1 hour | Dexie + var |
 | Global Settings | `['globalSettings']` | 30 min | 1 hour | Dexie + var |
@@ -503,7 +503,7 @@ App ready for use
 1. Component mounts → `useEntityList('project', { limit: 50 })`
 2. TanStack checks cache → HIT (instant) or MISS (fetch)
 3. API response includes `ref_data_entityInstance`
-4. `upsertRefDataEntityInstanceCache()` merges into `['ref-data-entity-instance', 'employee']`
+4. `upsertRefDataEntityInstance()` merges into `['ref_data_entityInstance', 'employee']`
 5. Table renders with UUID → Name resolution from cache
 
 ### EntitySpecificInstancePage (Detail View)
@@ -538,7 +538,7 @@ App ready for use
 
 **Flow:**
 1. Component mounts → Load field metadata from `['entityCodes']`
-2. Dropdowns populated from `['ref-data-entity-instance', lookupEntity]`
+2. Dropdowns populated from `['ref_data_entityInstance', lookupEntity]`
 3. User edits → Draft persisted to Dexie (survives refresh)
 4. Submit → POST API → Invalidate list queries → Navigate to detail
 
@@ -549,7 +549,7 @@ App ready for use
 ```
 
 **Cache Pattern:**
-- **Query Key**: `['ref-data-entity-instance', entityCode]`
+- **Query Key**: `['ref_data_entityInstance', entityCode]`
 - **Data Source**: `useRefDataEntityInstanceOptions(entityCode)`
 - **Data Structure**: `{ uuid: name }` lookup table
 - **Population**: Login prefetch (250+) + API upserts (incremental)
@@ -635,7 +635,7 @@ queryClient.setQueryData(key, newData);
 
 ```typescript
 // AuthContext.tsx
-await prefetchEntityInstances(queryClient, ['employee', 'project', ...]);
+await prefetchRefDataEntityInstances(queryClient, ['employee', 'project', ...]);
 // Page renders AFTER cache is populated
 ```
 
@@ -673,7 +673,7 @@ const options = getDatalabelSync('project_stage');
 | `EntityListOfInstancesPage` | `['entity-list', code, params]` | `useEntityList` |
 | `EntitySpecificInstancePage` | `['entity', code, id]` | `useEntity` |
 | `EntityCreatePage` | Dexie `drafts` table | `useDraft` |
-| `EntitySelect` | `['ref-data-entity-instance', code]` | `useRefDataEntityInstanceOptions` |
+| `EntitySelect` | `['ref_data_entityInstance', code]` | `useRefDataEntityInstanceOptions` |
 | `BadgeDropdownSelect` | `['datalabel', key]` | `useDatalabel` |
 | `DynamicChildEntityTabs` | `['entity-list', childCode, ...]` | `useEntityList` |
 | `SettingsDataTable` | `['datalabel', category]` | `useDatalabel` |
@@ -695,10 +695,10 @@ const options = getDatalabelSync('project_stage');
    │   prefetchGlobalSettings(),     // ['globalSettings'] → Dexie + sync var
    │ ])
    │
-4. await prefetchEntityInstances(queryClient, [
+4. await prefetchRefDataEntityInstances(queryClient, [
    │   'employee', 'project', 'business', 'office', 'role', 'cust'
    │ ])
-   │   // ['ref-data-entity-instance', code] → TanStack only (250+ per entity)
+   │   // ['ref_data_entityInstance', code] → TanStack only (250+ per entity)
    │
 5. setState({ isAuthenticated: true })
    │

@@ -41,8 +41,7 @@ export {
   useEntityCodes,
   // Entity Instance Data (On-Demand)
   useEntityInstanceData,
-  useEntityList, // Deprecated alias
-  useEntityMetadata,
+  useEntityInstanceMetadata,
   useEntityInfiniteList,
   // Single Entity
   useEntity,

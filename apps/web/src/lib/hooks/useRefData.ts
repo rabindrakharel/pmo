@@ -19,7 +19,7 @@
  */
 
 import { useMemo, useCallback } from 'react';
-import type { RefData } from './useEntityQuery';
+import type { RefData } from '@/db/tanstack-index';
 import {
   resolveEntityName,
   resolveEntityNames,

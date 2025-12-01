@@ -187,7 +187,7 @@ export async function clearEntityInstanceDataCache(
 // Entity Metadata Hook (for getting field metadata without data)
 // ============================================================================
 
-export interface UseEntityMetadataResult {
+export interface UseEntityInstanceMetadataResult {
   /** Field names */
   fields: string[];
   /** View type metadata */
@@ -210,7 +210,7 @@ export interface UseEntityMetadataResult {
  * Uses content=metadata API parameter to get metadata without data transfer.
  * This is more efficient than limit=1 as it skips the data query entirely.
  */
-export function useEntityMetadata(entityCode: string): UseEntityMetadataResult {
+export function useEntityInstanceMetadata(entityCode: string): UseEntityInstanceMetadataResult {
   const query = useQuery({
     queryKey: QUERY_KEYS.entityInstanceMetadata(entityCode),
     queryFn: async () => {
@@ -412,11 +412,3 @@ export function useEntityInfiniteList<T = Record<string, unknown>>(
   };
 }
 
-// ============================================================================
-// Alias for backward compatibility
-// ============================================================================
-
-/**
- * @deprecated Use useEntityInstanceData instead
- */
-export const useEntityList = useEntityInstanceData;

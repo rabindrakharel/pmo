@@ -243,10 +243,11 @@ export interface EntityInstanceMetadataWithTimestamp {
 }
 
 export async function getEntityInstanceMetadata(
-  entityCode: string
+  entityCode: string,
+  component: string = 'entityListOfInstancesTable'
 ): Promise<EntityInstanceMetadataWithTimestamp | null> {
   const record = await db.entityInstanceMetadata.get(
-    DEXIE_KEYS.entityInstanceMetadata(entityCode)
+    DEXIE_KEYS.entityInstanceMetadata(entityCode, component)
   );
   if (!record) return null;
   return {
@@ -261,23 +262,34 @@ export async function getEntityInstanceMetadata(
 
 export async function setEntityInstanceMetadata(
   entityCode: string,
+  component: string,
   fields: string[],
   viewType: Record<string, unknown>,
   editType: Record<string, unknown>
 ): Promise<void> {
   await db.entityInstanceMetadata.put({
-    _id: DEXIE_KEYS.entityInstanceMetadata(entityCode),
+    _id: DEXIE_KEYS.entityInstanceMetadata(entityCode, component),
     entityCode,
     metadata: { fields, viewType, editType },
     syncedAt: Date.now(),
   });
 }
 
-export async function clearEntityInstanceMetadata(entityCode?: string): Promise<void> {
-  if (entityCode) {
+export async function clearEntityInstanceMetadata(
+  entityCode?: string,
+  component?: string
+): Promise<void> {
+  if (entityCode && component) {
     await db.entityInstanceMetadata.delete(
-      DEXIE_KEYS.entityInstanceMetadata(entityCode)
+      DEXIE_KEYS.entityInstanceMetadata(entityCode, component)
     );
+  } else if (entityCode) {
+    // Clear all components for this entity
+    const records = await db.entityInstanceMetadata
+      .where('entityCode')
+      .equals(entityCode)
+      .toArray();
+    await db.entityInstanceMetadata.bulkDelete(records.map(r => r._id));
   } else {
     await db.entityInstanceMetadata.clear();
   }

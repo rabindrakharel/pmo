@@ -75,7 +75,7 @@ Migrate all frontend state management to RxDB (IndexedDB) as the **single source
 |------|-------------------|-----------------|
 | `App.tsx` | `QueryClientProvider` wrapper | Remove wrapper |
 | `useEntityQuery.ts` | `useQuery`, `useMutation`, `useQueryClient` | Replace with RxDB hooks |
-| `useRefDataEntityInstanceCache.ts` | `useQuery`, `useQueryClient` | Replace with RxDB |
+| `useRefDataEntityInstance.ts` | `useQuery`, `useQueryClient` | Replace with RxDB |
 | `useEntityEditStore.ts` | `useQueryClient` for cache invalidation | Use RxDB reactive queries |
 | `AuthContext.tsx` | `useQueryClient` | Remove |
 | `db/sync/SyncProvider.tsx` | `useQueryClient` | Use RxDB directly |

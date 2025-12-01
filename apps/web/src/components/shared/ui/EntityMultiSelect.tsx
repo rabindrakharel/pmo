@@ -1,5 +1,5 @@
 import React from 'react';
-import { useRefDataEntityInstanceOptions } from '@/lib/hooks/useRefDataEntityInstanceCache';
+import { useRefDataEntityInstanceOptions } from '@/lib/hooks/useRefDataEntityInstance';
 import { SearchableMultiSelect } from './SearchableMultiSelect';
 import { InlineSpinner } from './EllipsisBounce';
 

@@ -13,7 +13,8 @@ import { getEntityConfig, type ViewMode } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
 import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
 import { useSidebar } from '../../contexts/SidebarContext';
-import { useFormattedEntityList, useEntityMutation } from '../../lib/hooks';
+import { useEntityInstanceData, useEntityMutation, useEntityInstanceMetadata } from '@/db/tanstack-index';
+import { formatDataset, type ComponentMetadata } from '../../lib/formatters';
 import { API_CONFIG } from '../../lib/config/api';
 import type { RowAction } from '../../components/shared/ui/EntityListOfInstancesTable';
 
@@ -74,26 +75,48 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   }, [view, entityCode]);
 
   // ============================================================================
-  // v8.0.0: FORMAT AT READ PATTERN
+  // v9.0.0: CANONICAL HOOKS + FORMAT AT READ
   // ============================================================================
-  // Raw data is cached in React Query, formatting happens on READ via select
-  // Benefits: Smaller cache, fresh formatting with latest datalabel colors
+  // Uses useEntityInstanceData from @/db/tanstack-index (single source of truth)
+  // Formatting happens inline via useMemo for fresh datalabel colors
   // ============================================================================
+
+  // Map view mode to component name for backend metadata filtering
+  const viewComponentMap: Record<string, string> = {
+    table: 'entityListOfInstancesTable',
+    kanban: 'kanbanView',
+    grid: 'gridView',
+    calendar: 'calendarView',
+    dag: 'dagView',
+    hierarchy: 'hierarchyGraphView',
+  };
+  const mappedView = view ? viewComponentMap[view] || view : 'entityListOfInstancesTable';
 
   const queryParams = useMemo(() => ({
-    page: currentPage,
-    pageSize: 20000,
-    view: view,
-  }), [currentPage, view]);
+    limit: 20000,
+    offset: (currentPage - 1) * 20000,
+    view: mappedView,
+  }), [currentPage, mappedView]);
 
   const {
-    data: queryResult,
+    data: rawData,
+    metadata,
+    refData,
+    total: totalRecords,
     isLoading: loading,
+    isError,
     error: queryError,
     refetch,
-  } = useFormattedEntityList(entityCode, queryParams, {
+  } = useEntityInstanceData(entityCode, queryParams, {
     enabled: !!config,
   });
+
+  // Format data on read (memoized) - formatting happens HERE, not in hook
+  const formattedData = useMemo(() => {
+    if (!rawData || rawData.length === 0) return [];
+    const componentMetadata = (metadata as any)?.[mappedView] as ComponentMetadata | null;
+    return formatDataset(rawData, componentMetadata, refData);
+  }, [rawData, metadata, mappedView, refData]);
 
   // ============================================================================
   // INLINE EDIT STATE MANAGEMENT
@@ -103,30 +126,16 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   const [isAddingRow, setIsAddingRow] = useState(false);
   const [localData, setLocalData] = useState<any[]>([]);
 
-  // ============================================================================
-  // v8.0.0: DATA EXTRACTION - Format at Read
-  // ============================================================================
-  // queryResult.data = raw data (for editing, mutations)
-  // queryResult.formattedData = formatted data (for display via select transform)
-  // ============================================================================
-
-  // Raw data for editing operations
-  const rawData = useMemo(() => {
-    if (!queryResult) return appendedData;
+  // Combine raw data with any appended data from pagination
+  const combinedRawData = useMemo(() => {
     if (currentPage > 1 && appendedData.length > 0) {
-      return [...appendedData, ...queryResult.data];
+      return [...appendedData, ...(rawData || [])];
     }
-    return queryResult.data;
-  }, [queryResult, appendedData, currentPage]);
+    return rawData || [];
+  }, [rawData, appendedData, currentPage]);
 
-  // Formatted data for display (from select transform)
-  const formattedData = useMemo(() => {
-    if (!queryResult?.formattedData) return [];
-    return queryResult.formattedData;
-  }, [queryResult]);
-
-  // Use localData only when actively editing, otherwise use rawData
-  const data = localData.length > 0 ? localData : rawData;
+  // Use localData only when actively editing, otherwise use raw data
+  const data = localData.length > 0 ? localData : combinedRawData;
 
   // Reset localData when exiting edit mode or entity changes
   useEffect(() => {
@@ -135,9 +144,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     }
   }, [editingRow, isAddingRow, entityCode]);
 
-  const metadata = queryResult?.metadata || null;
-  const totalRecords = queryResult?.total || 0;
-  const hasMore = queryResult?.hasMore || false;
+  const hasMore = (rawData?.length || 0) === 20000;
   const error = queryError?.message || null;
 
   // Client-side pagination for EntityListOfInstancesTable rendering
@@ -416,6 +423,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
         <EntityListOfInstancesTable
           data={tableData}
           metadata={metadata}
+          ref_data_entityInstance={refData}
           loading={loading}
           pagination={pagination}
           onRowClick={handleRowClick}

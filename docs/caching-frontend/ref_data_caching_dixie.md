@@ -86,7 +86,7 @@ This pattern combines three architectural concepts:
 │  │  LAYER 4: UNIFIED CACHE (Frontend React Query)                      │    │
 │  │                                                                      │    │
 │  │  Single cache serves both view mode and edit mode:                  │    │
-│  │  ['ref-data-entity-instance', 'employee'] = { uuid: name }          │    │
+│  │  ['ref_data_entityInstance', 'employee'] = { uuid: name }          │    │
 │  │                                                                      │    │
 │  │  Cache population sources:                                          │    │
 │  │  • Login prefetch (common entities)                                 │    │
@@ -143,7 +143,7 @@ One cache serves both display and dropdown population:
 │  ┌─────────────┐  ┌─────────────┐        ┌─────────────────────────────┐  │
 │  │ View Cache  │  │ Edit Cache  │        │      Unified Cache          │  │
 │  │             │  │             │        │                             │  │
-│  │ per-response│  │ useEntity   │   ──▶  │ ['ref-data-entity-instance']│  │
+│  │ per-response│  │ useEntity   │   ──▶  │ ['ref_data_entityInstance']│  │
 │  │ ref_data    │  │ Lookup()    │        │                             │  │
 │  └─────────────┘  └─────────────┘        └─────────────────────────────┘  │
 │                                                                            │
@@ -382,16 +382,16 @@ ref_data_entityInstance = {
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
 │  │  UNIFIED REFERENCE CACHE                                            │    │
-│  │  Cache Key: ['ref-data-entity-instance', entityCode]                │    │
+│  │  Cache Key: ['ref_data_entityInstance', entityCode]                 │    │
 │  │  TTL: gcTime=30min                                                  │    │
 │  │                                                                      │    │
-│  │  ['ref-data-entity-instance', 'employee']                           │    │
+│  │  ['ref_data_entityInstance', 'employee']                            │    │
 │  │    = { "uuid-james": "James Miller", "uuid-sarah": "Sarah" }        │    │
 │  │                                                                      │    │
-│  │  ['ref-data-entity-instance', 'business']                           │    │
+│  │  ['ref_data_entityInstance', 'business']                            │    │
 │  │    = { "uuid-huron": "Huron Home Services" }                        │    │
 │  │                                                                      │    │
-│  │  ['ref-data-entity-instance', 'project']                            │    │
+│  │  ['ref_data_entityInstance', 'project']                             │    │
 │  │    = { "uuid-proj1": "Kitchen Renovation" }                         │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 │                                                                              │
@@ -425,7 +425,7 @@ ref_data_entityInstance = {
 │  AuthContext.login()                                                         │
 │       │                                                                      │
 │       ▼                                                                      │
-│  await prefetchEntityInstances(queryClient, [                                │
+│  await prefetchRefDataEntityInstances(queryClient, [                         │
 │    'employee', 'project', 'business', 'office', 'role', 'cust'             │
 │  ])                                                                          │
 │       │                                                                      │
@@ -448,12 +448,12 @@ ref_data_entityInstance = {
 │  Response includes ref_data_entityInstance                                   │
 │       │                                                                      │
 │       ▼                                                                      │
-│  upsertRefDataEntityInstanceCache(queryClient, ref_data)                     │
+│  upsertRefDataEntityInstance(queryClient, ref_data)                          │
 │       │                                                                      │
 │       ▼                                                                      │
 │  FOR EACH entityCode IN ref_data:                                            │
 │    queryClient.setQueryData(                                                 │
-│      ['ref-data-entity-instance', entityCode],                               │
+│      ['ref_data_entityInstance', entityCode],                                │
 │      (existing) => ({ ...existing, ...newLookups })  // MERGE                │
 │    )                                                                         │
 │                                                                              │
@@ -470,7 +470,7 @@ ref_data_entityInstance = {
 │  useRefDataEntityInstanceOptions('worksite')                                 │
 │       │                                                                      │
 │       ▼                                                                      │
-│  Check cache: ['ref-data-entity-instance', 'worksite']                       │
+│  Check cache: ['ref_data_entityInstance', 'worksite']                       │
 │       │                                                                      │
 │       ▼                                                                      │
 │  CACHE MISS                                                                  │
@@ -526,7 +526,7 @@ ref_data_entityInstance = {
 │  │  │  REACT QUERY CACHE LAYER                                    │    │    │
 │  │  │                                                              │    │    │
 │  │  │  Entity Query Cache          Unified Reference Cache         │    │    │
-│  │  │  ['entity-list', ...]        ['ref-data-entity-instance', *] │    │    │
+│  │  │  ['entity-list', ...]        ['ref_data_entityInstance', *] │    │    │
 │  │  │          │                              ▲                    │    │    │
 │  │  │          │    upsertRefDataCache()      │                    │    │    │
 │  │  │          └──────────────────────────────┘                    │    │    │
@@ -739,9 +739,9 @@ ref_data_entityInstance = {
 │  │ AuthContext prefetches common entities:                              │   │
 │  │ employee, project, business, office, role, cust                     │   │
 │  │                                                                       │   │
-│  │ Cache: ['ref-data-entity-instance', 'employee'] = { populated }      │   │
-│  │ Cache: ['ref-data-entity-instance', 'project'] = { populated }       │   │
-│  │ Cache: ['ref-data-entity-instance', 'business'] = { populated }      │   │
+│  │ Cache: ['ref_data_entityInstance', 'employee'] = { populated }      │   │
+│  │ Cache: ['ref_data_entityInstance', 'project'] = { populated }       │   │
+│  │ Cache: ['ref_data_entityInstance', 'business'] = { populated }      │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
 │     │                                                                        │
 │     ▼                                                                        │
@@ -789,7 +789,7 @@ ref_data_entityInstance = {
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
 │  │ EntitySelect uses useRefDataEntityInstanceOptions('employee')        │   │
 │  │                                                                       │   │
-│  │ Check cache: ['ref-data-entity-instance', 'employee']               │   │
+│  │ Check cache: ['ref_data_entityInstance', 'employee']               │   │
 │  │ → CACHE HIT (from login prefetch + API response upsert)             │   │
 │  │                                                                       │   │
 │  │ Instant dropdown population with employee names                      │   │
@@ -924,7 +924,7 @@ A race condition occurred where dropdowns showed only 1 employee instead of 250+
 │  T1: Login completes                                                         │
 │       │                                                                      │
 │       ▼                                                                      │
-│  T2: prefetchEntityInstances() starts (fire-and-forget, NOT awaited)         │
+│  T2: prefetchRefDataEntityInstances() starts (fire-and-forget, NOT awaited)  │
 │       │                                                                      │
 │       │  ← Page starts rendering before prefetch completes                   │
 │       │                                                                      │
@@ -934,9 +934,9 @@ A race condition occurred where dropdowns showed only 1 employee instead of 250+
 │  T4: API response includes ref_data_entityInstance: { employee: { 1 uuid } } │
 │       │                                                                      │
 │       ▼                                                                      │
-│  T5: upsertRefDataEntityInstanceCache() sets cache to 1 employee             │
+│  T5: upsertRefDataEntityInstance() sets cache to 1 employee                  │
 │       │                                                                      │
-│  T6: prefetchEntityInstances() completes with 250 employees                  │
+│  T6: prefetchRefDataEntityInstances() completes with 250 employees           │
 │       │                                                                      │
 │       │  ← But fetchQuery sees existing data and returns cached 1 employee   │
 │       │  ← The 250 employees are never stored in cache!                      │
@@ -952,7 +952,7 @@ A race condition occurred where dropdowns showed only 1 employee instead of 250+
 
 Two issues combined:
 
-1. **Fire-and-forget prefetch**: `prefetchEntityInstances()` was not awaited in AuthContext
+1. **Fire-and-forget prefetch**: `prefetchRefDataEntityInstances()` was not awaited in AuthContext
 2. **fetchQuery skips fetch**: When cache has data, `fetchQuery` may return cached data without fetching
 
 ### Solution (v9.1.2)
@@ -970,7 +970,7 @@ Two issues combined:
 │    // ... login logic ...                                                    │
 │                                                                              │
 │    // v9.1.2: AWAIT prefetch to prevent race condition                       │
-│    await prefetchEntityInstances(queryClient, [                              │
+│    await prefetchRefDataEntityInstances(queryClient, [                       │
 │      'employee', 'project', 'business', 'office', 'role', 'cust'           │
 │    ]);                                                                       │
 │  };                                                                          │
@@ -980,7 +980,7 @@ Two issues combined:
 │  FIX 2: Use setQueryData instead of fetchQuery (v9.1.2)                      │
 │  ───────────────────────────────────────────────────────                     │
 │                                                                              │
-│  // useRefDataEntityInstanceCache.ts - prefetchEntityInstances()             │
+│  // useRefDataEntityInstance.ts - prefetchRefDataEntityInstances()           │
 │  // Fetch directly and use setQueryData to ALWAYS set complete data          │
 │  const response = await fetch(url, { headers: { Authorization: token } });   │
 │  const lookup = transformToLookup(await response.json());                    │
@@ -1003,7 +1003,7 @@ Two issues combined:
 
 | Principle | Implementation |
 |-----------|----------------|
-| **Await prefetch at auth boundaries** | `await prefetchEntityInstances()` in login/refresh |
+| **Await prefetch at auth boundaries** | `await prefetchRefDataEntityInstances()` in login/refresh |
 | **Prefetch uses setQueryData** | Always sets complete authoritative data |
 | **Upsert always merges** | `{ ...old, ...new }` never replaces |
 | **Log before/after counts** | Debug cache mutations with `{ before, added, after }` |
@@ -1058,7 +1058,7 @@ This section documents the standard cache patterns for all ref_data types in the
 
 ### 12.2 Entity Instance Cache Pattern
 
-**File**: `apps/web/src/lib/hooks/useRefDataEntityInstanceCache.ts`
+**File**: `apps/web/src/lib/hooks/useRefDataEntityInstance.ts`
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -1066,7 +1066,7 @@ This section documents the standard cache patterns for all ref_data types in the
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  PURPOSE: UUID → Name resolution for entity references                       │
-│  QUERY KEY: ['ref-data-entity-instance', entityCode]                        │
+│  QUERY KEY: ['ref_data_entityInstance', entityCode]                        │
 │  DATA STRUCTURE: { [uuid: string]: string }                                  │
 │  STALE TIME: 5 minutes                                                       │
 │  GC TIME: 30 minutes                                                         │
@@ -1079,7 +1079,7 @@ This section documents the standard cache patterns for all ref_data types in the
 │  1. Login Prefetch (AWAITED - bulk population)                               │
 │     ┌────────────────────────────────────────┐                               │
 │     │ // AuthContext.tsx                     │                               │
-│     │ await prefetchEntityInstances(         │                               │
+│     │ await prefetchRefDataEntityInstances(  │                               │
 │     │   queryClient,                         │                               │
 │     │   ['employee', 'project', 'business',  │                               │
 │     │    'office', 'role', 'cust']          │                               │
@@ -1094,7 +1094,7 @@ This section documents the standard cache patterns for all ref_data types in the
 │  2. API Response Upsert (incremental population)                             │
 │     ┌────────────────────────────────────────┐                               │
 │     │ // On every API response with ref_data │                               │
-│     │ upsertRefDataEntityInstanceCache(      │                               │
+│     │ upsertRefDataEntityInstance(           │                               │
 │     │   queryClient,                         │                               │
 │     │   response.ref_data_entityInstance     │                               │
 │     │ );                                     │                               │
@@ -1142,10 +1142,10 @@ This section documents the standard cache patterns for all ref_data types in the
 
 #### Upsert Function Implementation
 
-The `upsertRefDataEntityInstanceCache` function is the core of the Entity Instance cache pattern. It is called on **every API response** that includes `ref_data_entityInstance`:
+The `upsertRefDataEntityInstance` function is the core of the Entity Instance cache pattern. It is called on **every API response** that includes `ref_data_entityInstance`:
 
 ```typescript
-// File: apps/web/src/lib/hooks/useRefDataEntityInstanceCache.ts
+// File: apps/web/src/lib/hooks/useRefDataEntityInstance.ts
 
 /**
  * Upsert ref_data_entityInstance from API response into cache
@@ -1154,7 +1154,7 @@ The `upsertRefDataEntityInstanceCache` function is the core of the Entity Instan
  * This ensures that prefetched data (250 employees) is not overwritten
  * by API response data (1 employee from current page).
  */
-export function upsertRefDataEntityInstanceCache(
+export function upsertRefDataEntityInstance(
   queryClient: QueryClient,
   refData: RefData
 ): void {
@@ -1164,7 +1164,7 @@ export function upsertRefDataEntityInstanceCache(
     if (!lookups || typeof lookups !== 'object') continue;
 
     const queryKey = refDataEntityInstanceKeys.byEntity(entityCode);
-    // queryKey = ['ref-data-entity-instance', 'employee']
+    // queryKey = ['ref_data_entityInstance', 'employee']
 
     // Get current cache state for logging
     const before = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
@@ -1203,7 +1203,7 @@ const { data } = useQuery({
 
     // UPSERT: Merge ref_data into unified cache
     if (response.ref_data_entityInstance) {
-      upsertRefDataEntityInstanceCache(queryClient, response.ref_data_entityInstance);
+      upsertRefDataEntityInstance(queryClient, response.ref_data_entityInstance);
     }
 
     return response;
@@ -1433,7 +1433,7 @@ const { data } = useQuery({
 
 | Cache Type | Query Key | Stale Time | GC Time | Persistence | Sync Access |
 |------------|-----------|------------|---------|-------------|-------------|
-| **Entity Instance** | `['ref-data-entity-instance', code]` | 5 min | 30 min | TanStack only | No |
+| **Entity Instance** | `['ref_data_entityInstance', code]` | 5 min | 30 min | TanStack only | No |
 | **Datalabel** | `['datalabel', key]` | 10 min | 1 hour | Dexie + Map | `getDatalabelSync()` |
 | **Entity Codes** | `['entityCodes']` | 30 min | 1 hour | Dexie + var | `getEntityCodesSync()` |
 | **Global Settings** | `['globalSettings']` | 30 min | 1 hour | Dexie + var | `getGlobalSettingsSync()` |
@@ -1455,7 +1455,7 @@ const login = async (email: string, password: string) => {
   ]);
 
   // 3. Prefetch entity instances (AWAITED - prevents race condition)
-  await prefetchEntityInstances(queryClient, [
+  await prefetchRefDataEntityInstances(queryClient, [
     'employee', 'project', 'business', 'office', 'role', 'cust',
   ]);
 
@@ -1475,7 +1475,7 @@ const login = async (email: string, password: string) => {
 | **Backend Config** | `apps/api/src/services/edit-type-mapping.yaml` | Business type → edit metadata |
 | **Backend Service** | `apps/api/src/services/backend-formatter.service.ts` | Metadata generation |
 | **Backend Service** | `apps/api/src/services/entity-infrastructure.service.ts` | build_ref_data_entityInstance() |
-| **Frontend Cache** | `apps/web/src/lib/hooks/useRefDataEntityInstanceCache.ts` | Unified cache hooks |
+| **Frontend Cache** | `apps/web/src/lib/hooks/useRefDataEntityInstance.ts` | Unified cache hooks |
 | **Frontend Hook** | `apps/web/src/lib/hooks/useRefData.ts` | Per-response resolution |
 | **Frontend Hook** | `apps/web/src/lib/hooks/useEntityQuery.ts` | Entity queries + cache upsert |
 | **Frontend Util** | `apps/web/src/lib/refDataResolver.ts` | Resolution utilities |
@@ -1610,7 +1610,7 @@ const login = async (email: string, password: string) => {
      │                 │ PHASE 2: Prefetch Entity Instances (AWAITED)               │
      │                 │════════════════════════════════════════════════════════════ │
      │                 │                    │                     │                  │
-     │                 │ await prefetchEntityInstances(           │                  │
+     │                 │ await prefetchRefDataEntityInstances(    │                  │
      │                 │   queryClient,     │                     │                  │
      │                 │   ['employee', 'project', ...]           │                  │
      │                 │ )                  │                     │                  │
@@ -1662,7 +1662,7 @@ const login = async (email: string, password: string) => {
 │  AuthContext.login()                                                         │
 │       │                                                                      │
 │       ▼                                                                      │
-│  await prefetchEntityInstances(queryClient, ['employee', ...])               │
+│  await prefetchRefDataEntityInstances(queryClient, ['employee', ...])               │
 │       │                                                                      │
 │       ├──────────────────────────────────────────────────────────────────┐   │
 │       │                           Per Entity (parallel)                  │   │
@@ -1675,7 +1675,7 @@ const login = async (email: string, password: string) => {
 │  │      │                                                               ││   │
 │  │      ▼                                                               ││   │
 │  │ queryClient.setQueryData(                                           ││   │
-│  │   ['ref-data-entity-instance', entityCode],                         ││   │
+│  │   ['ref_data_entityInstance', entityCode],                         ││   │
 │  │   (old) => ({ ...(old || {}), ...lookup })  // MERGE               ││   │
 │  │ )                                                                    ││   │
 │  └─────────────────────────────────────────────────────────────────────┘│   │
@@ -1708,13 +1708,13 @@ const login = async (email: string, password: string) => {
 │  }                                                                           │
 │       │                                                                      │
 │       ▼                                                                      │
-│  upsertRefDataEntityInstanceCache(queryClient, ref_data)                     │
+│  upsertRefDataEntityInstance(queryClient, ref_data)                     │
 │       │                                                                      │
 │       ▼                                                                      │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
 │  │ For each entityCode in ref_data:                                    │    │
 │  │   queryClient.setQueryData(                                         │    │
-│  │     ['ref-data-entity-instance', entityCode],                       │    │
+│  │     ['ref_data_entityInstance', entityCode],                        │    │
 │  │     (old) => ({ ...(old || {}), ...lookups })  // ALWAYS MERGE     │    │
 │  │   )                                                                 │    │
 │  │                                                                     │    │
@@ -1732,7 +1732,7 @@ const login = async (email: string, password: string) => {
 │  useRefDataEntityInstanceOptions('supplier')                                 │
 │       │                                                                      │
 │       ▼                                                                      │
-│  Check cache: ['ref-data-entity-instance', 'supplier']                       │
+│  Check cache: ['ref_data_entityInstance', 'supplier']                       │
 │       │                                                                      │
 │       ▼                                                                      │
 │  CACHE MISS (no data for 'supplier')                                         │
@@ -1809,7 +1809,7 @@ const login = async (email: string, password: string) => {
 │  AuthContext.tsx:                                                            │
 │  ───────────────                                                             │
 │  const queryClient = useQueryClient();  ◄─── Gets SAME queryClient           │
-│  await prefetchEntityInstances(queryClient, [...]);  ◄─── Writes here        │
+│  await prefetchRefDataEntityInstances(queryClient, [...]);  ◄─── Writes here        │
 │                                                                              │
 │  EntitySelect.tsx:                                                           │
 │  ─────────────────                                                           │
@@ -1842,7 +1842,7 @@ const login = async (email: string, password: string) => {
 │  ─────────                                                                   │
 │  AuthContext.tsx:                                                            │
 │  const queryClient = useQueryClient();  ◄─── Gets queryClient #1 (outer)     │
-│  prefetchEntityInstances(queryClient);  ◄─── Writes to #1                    │
+│  prefetchRefDataEntityInstances(queryClient);  ◄─── Writes to #1                    │
 │                                                                              │
 │  EntitySelect.tsx:                                                           │
 │  useQuery({...});  ◄─── Inside Provider #2, reads from queryClient #2        │

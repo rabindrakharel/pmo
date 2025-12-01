@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronDown, Search, Check } from 'lucide-react';
-import { useRefDataEntityInstanceOptions } from '@/lib/hooks/useRefDataEntityInstanceCache';
+import { useRefDataEntityInstanceOptions } from '@/lib/hooks/useRefDataEntityInstance';
 import { InlineSpinner } from './EllipsisBounce';
 
 export interface EntityInstanceNameLookupProps {

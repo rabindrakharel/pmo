@@ -57,13 +57,20 @@ export type {
   UseEntityInstanceDataResult,
   ConnectionStatus,
   InvalidatePayload,
+  RefData,
 } from './cache/types';
 
 // Cache keys
 export { QUERY_KEYS, DEXIE_KEYS, createQueryHash } from './cache/keys';
 
 // Query client
-export { queryClient, invalidateStore, invalidateEntityQueries } from './cache/client';
+export {
+  queryClient,
+  invalidateStore,
+  invalidateEntityQueries,
+  invalidateMetadataCache,
+  clearAllMetadataCache,
+} from './cache/client';
 
 // ============================================================================
 // Persistence Layer

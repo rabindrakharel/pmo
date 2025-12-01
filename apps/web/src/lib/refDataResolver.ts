@@ -20,7 +20,7 @@
  * }
  */
 
-import type { RefData } from './hooks/useEntityQuery';
+import type { RefData } from '@/db/tanstack-index';
 
 // ============================================================================
 // Types

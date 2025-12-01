@@ -16,9 +16,15 @@ import { Button } from '../../components/shared/button/Button';
 import { useS3Upload } from '../../lib/hooks/useS3Upload';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../contexts/NavigationHistoryContext';
-import { useEntityInstance, useFormattedEntityInstance, useEntityMutation, useCacheInvalidation, useEntityInstanceList } from '../../lib/hooks';
-// v9.0.0: Use TanStack Query + Dexie draft hook
-import { useDraft } from '../../db/tanstack-index';
+// v9.1.0: Use canonical hooks from @/db/tanstack-index (no wrapper layer)
+import {
+  useEntity,
+  useEntityInstanceData,
+  useEntityMutation,
+  useDraft,
+  invalidateEntityQueries,
+} from '../../db/tanstack-index';
+import { formatRow, type ComponentMetadata } from '../../lib/formatters';
 import { useKeyboardShortcuts, useShortcutHints } from '../../lib/hooks/useKeyboardShortcuts';
 import { API_CONFIG } from '../../lib/config/api';
 import { EllipsisBounce, InlineSpinner } from '../../components/shared/ui/EllipsisBounce';
@@ -58,29 +64,39 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // ============================================================================
 
   // ============================================================================
-  // v8.0.0: FORMAT AT READ PATTERN
+  // v9.1.0: CANONICAL HOOKS + FORMAT AT READ
   // ============================================================================
-  // Use useFormattedEntityInstance for detail view - formats on READ via select
-  // Raw data cached in React Query, formatting happens when reading from cache
+  // useEntity returns raw data; formatting happens in useMemo (format-at-read)
   // ============================================================================
   const {
-    data: queryResult,
+    data: rawData,
+    metadata: rawMetadata,
+    refData,
     isLoading: loading,
+    isError,
     error: queryError,
     refetch,
-  } = useFormattedEntityInstance(entityCode, id, 'entityInstanceFormContainer');
+  } = useEntity(entityCode, id);
 
-  // Extract data from React Query result
-  // queryResult.data = raw data (for editing)
-  // queryResult.formattedData = formatted data (for view mode via select transform)
-  const data = queryResult?.data || null;
-  const formattedData = queryResult?.formattedData || null;  // v8.0.0: Formatted via select
-  const backendMetadata = queryResult?.metadata || null;
+  // Format data on read (memoized) - formatting happens HERE, not in hook
+  const formattedData = useMemo(() => {
+    if (!rawData) return null;
+    const componentMetadata = rawMetadata as ComponentMetadata | null;
+    return formatRow(rawData, componentMetadata, refData);
+  }, [rawData, rawMetadata, refData]);
+
+  // Extract data for editing (raw) and display (formatted)
+  const data = rawData || null;
+  const backendMetadata = rawMetadata || null;
   const error = queryError?.message || null;
 
   // Entity mutation for updates
-  const { updateEntity, isUpdating } = useEntityMutation(entityCode);
-  const { invalidateEntity } = useCacheInvalidation();
+  const { updateEntity, isLoading: isUpdating } = useEntityMutation(entityCode);
+
+  // Cache invalidation helper
+  const invalidateEntity = useCallback(async (code: string, entityId?: string) => {
+    await invalidateEntityQueries(code, entityId);
+  }, []);
 
   // Dexie draft for field-level tracking (v9.0.0)
   // Drafts persist across page refresh and browser restart
@@ -224,25 +240,28 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // Fetch child entity data when on a child tab
   // NOTE: Use snake_case matching entity_instance_link DDL convention
   const childQueryParams = useMemo(() => ({
-    page: 1,
-    pageSize: 100,
+    limit: 100,
+    offset: 0,
     parent_entity_code: entityCode,
     parent_entity_instance_id: id,
   }), [entityCode, id]);
 
+  // v9.1.0: Use canonical useEntityInstanceData hook
   const {
-    data: childQueryResult,
+    data: childRawData,
+    metadata: childRawMetadata,
+    refData: childRefData,
+    total: childTotal,
     isLoading: childLoading,
     refetch: refetchChild,
-  } = useEntityInstanceList(currentChildEntity || '', childQueryParams, {
-    enabled: !isOverviewTab && !!currentChildEntity && !!id,
-  });
+  } = useEntityInstanceData(currentChildEntity || '', childQueryParams);
 
-  // ✅ FIX: Use useMemo to prevent new array reference on each render
-  // Empty array fallback must be stable to prevent useEffect re-runs
-  const childData = useMemo(() => childQueryResult?.data || [], [childQueryResult?.data]);
-  const childMetadata = childQueryResult?.metadata || null;
-  const childTotal = childQueryResult?.total || 0;
+  // Only enable query when on child tab
+  const childData = useMemo(() => {
+    if (isOverviewTab || !currentChildEntity || !id) return [];
+    return childRawData || [];
+  }, [childRawData, isOverviewTab, currentChildEntity, id]);
+  const childMetadata = childRawMetadata || null;
 
   // Child entity inline edit state
   const [childEditingRow, setChildEditingRow] = useState<string | null>(null);
@@ -1331,6 +1350,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
             <EntityListOfInstancesTable
               data={childDisplayData}
               metadata={childMetadata}
+              ref_data_entityInstance={childRefData}
               loading={childLoading}
               pagination={childPagination}
               onRowClick={handleChildRowClick}

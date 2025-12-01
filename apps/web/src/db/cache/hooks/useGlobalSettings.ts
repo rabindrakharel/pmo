@@ -51,7 +51,7 @@ export function useGlobalSettings(): UseGlobalSettingsResult {
       // Layer 3: Fetch from API
       try {
         const response = await apiClient.get<{ data: GlobalSettings }>(
-          '/api/v1/settings'
+          '/api/v1/settings/global'
         );
         const settings = response.data?.data || DEFAULT_SETTINGS;
 
@@ -106,7 +106,7 @@ export function useGlobalSettings(): UseGlobalSettingsResult {
 export async function prefetchGlobalSettings(): Promise<void> {
   try {
     const response = await apiClient.get<{ data: GlobalSettings }>(
-      '/api/v1/settings'
+      '/api/v1/settings/global'
     );
     const settings = response.data?.data || DEFAULT_SETTINGS;
 

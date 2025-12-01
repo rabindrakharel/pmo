@@ -801,42 +801,45 @@ function ProjectForm({ projectId }: { projectId: string }) {
 
 ### 8.1 Store Types & Data Flow
 
-| Store | Type | TanStack Query Key | Dexie Table | Hydration Source | API Endpoint |
-|-------|------|-------------------|-------------|------------------|--------------|
-| `globalSettingsStore` | Session | `globalSettings` | `globalSettings` | Dexie → TanStack at app start | `GET /api/v1/settings` |
-| `datalabelStore` | Session | `['datalabel', key]` | `datalabel` | Dexie → TanStack at app start | `GET /api/v1/datalabel/{key}` |
-| `entityCodesStore` | Session | `entityCodes` | `entityCodes` | Dexie → TanStack at app start | `GET /api/v1/entity/types` |
-| `entityInstanceNamesStore` | Session | `['entityInstanceNames', code]` | `entityInstanceNames` | Dexie → TanStack at app start | `GET /api/v1/entity-instance/names` |
-| `entityLinksStore` | On-Demand | `['entityLinks', parent, id]` | `entityLinkForward`, `entityLinkReverse` | API on first access | `GET /api/v1/entity-instance-link` |
-| `entityInstanceMetadataStore` | On-Demand | `['entityInstanceMetadata', code]` | `entityInstanceMetadata` | API on first access | `GET /api/v1/{entity}?content=metadata` |
-| Entity Data (no store) | On-Demand | `['entityInstanceData', code, params]` | `entityInstanceData` | API on component mount | `GET /api/v1/{entity}` |
-| Drafts (no store) | User Data | `['draft', code, id]` | `draft` | Dexie only (never API) | N/A (local only) |
+| Store                          | Type      | TanStack Query Key                      | Dexie Table                             | Hydration Source              | API Endpoint                           |
+|--------------------------------|-----------|-----------------------------------------|-----------------------------------------|-------------------------------|----------------------------------------|
+| `globalSettingsStore`          | Session   | `globalSettings`                        | `globalSettings`                        | Dexie → TanStack at app start | `GET /api/v1/settings`                 |
+| `datalabelStore`               | Session   | `['datalabel', key]`                    | `datalabel`                             | Dexie → TanStack at app start | `GET /api/v1/datalabel/{key}`          |
+| `entityCodesStore`             | Session   | `entityCodes`                           | `entityCodes`                           | Dexie → TanStack at app start | `GET /api/v1/entity/types`             |
+| `entityInstanceNamesStore`     | Session   | `['entityInstanceNames', code]`         | `entityInstanceNames`                   | Dexie → TanStack at app start | `GET /api/v1/entity-instance/names`    |
+| `entityLinksStore`             | On-Demand | `['entityLinks', parent, id]`           | `entityLinkForward`, `entityLinkReverse`| API on first access           | `GET /api/v1/entity-instance-link`     |
+| `entityInstanceMetadataStore`  | On-Demand | `['entityInstanceMetadata', code]`      | `entityInstanceMetadata`                | API on first access           | `GET /api/v1/{entity}?content=metadata`|
+| `entityInstance` (no store)    | On-Demand | `['entity', code, id]`                  | `entityInstanceData`                    | API on component mount        | `GET /api/v1/{entity}/{id}`            |
+| `entityInstanceData` (no store)| On-Demand | `['entityInstanceData', code, params]`  | `entityInstanceData`                    | API on component mount        | `GET /api/v1/{entity}`                 |
+| `draft` (no store)             | User Data | `['draft', code, id]`                   | `draft`                                 | Dexie only (never API)        | N/A (local only)                       |
 
 ### 8.2 Lifecycle & Timing
 
-| Store | When Hydrated | When API Called | Stale Time | Persist TTL |
-|-------|---------------|-----------------|------------|-------------|
-| `globalSettingsStore` | App startup | Login (`prefetchAllMetadata`) | 30 min | 24 hours |
-| `datalabelStore` | App startup | Login (`prefetchAllMetadata`) | 10 min | 24 hours |
-| `entityCodesStore` | App startup | Login (`prefetchAllMetadata`) | 30 min | 24 hours |
-| `entityInstanceNamesStore` | App startup | Login (`prefetchAllMetadata`) | 10 min | 24 hours |
-| `entityLinksStore` | Never (on-demand) | Component mounts | 10 min | 24 hours |
-| `entityInstanceMetadataStore` | Never (on-demand) | Component mounts | 30 min | 24 hours |
-| Entity Data | Never (on-demand) | Component mounts | 5 min | 24 hours |
-| Drafts | App startup | Never | N/A | Until saved |
+| Store                          | When Hydrated       | When API Called              | Stale Time | Persist TTL |
+|--------------------------------|---------------------|------------------------------|------------|-------------|
+| `globalSettingsStore`          | App startup         | Login (`prefetchAllMetadata`)| 30 min     | 24 hours    |
+| `datalabelStore`               | App startup         | Login (`prefetchAllMetadata`)| 10 min     | 24 hours    |
+| `entityCodesStore`             | App startup         | Login (`prefetchAllMetadata`)| 30 min     | 24 hours    |
+| `entityInstanceNamesStore`     | App startup         | Login (`prefetchAllMetadata`)| 10 min     | 24 hours    |
+| `entityLinksStore`             | Never (on-demand)   | Component mounts             | 10 min     | 24 hours    |
+| `entityInstanceMetadataStore`  | Never (on-demand)   | Component mounts             | 30 min     | 24 hours    |
+| `entityInstance`               | Never (on-demand)   | Component mounts             | 5 min      | 24 hours    |
+| `entityInstanceData`           | Never (on-demand)   | Component mounts             | 5 min      | 24 hours    |
+| `draft`                        | App startup         | Never                        | N/A        | Until saved |
 
 ### 8.3 Access Patterns
 
-| Store | React Hook | Sync Function (non-React) | Use Case |
-|-------|-----------|---------------------------|----------|
-| `globalSettingsStore` | `useGlobalSettings()` | `getGlobalSettingsSync()` | App configuration |
-| `datalabelStore` | `useDatalabel(key)` | `getDatalabelSync(key)` | Dropdown options, badge colors |
-| `entityCodesStore` | `useEntityCodes()` | `getEntityCodeSync(code)`, `getEntityCodesSync()`, `getChildEntityCodesSync(code)` | Navigation, child tabs |
-| `entityInstanceNamesStore` | `useEntityInstanceNames(code)` | `getEntityInstanceNameSync(code, id)`, `getEntityInstanceNamesForTypeSync(code)` | UUID → display name |
-| `entityLinksStore` | `useEntityLinks(parent, id)` | `getChildIdsSync(parent, parentId, child)`, `getParentsSync(child, childId)` | Parent-child navigation |
-| `entityInstanceMetadataStore` | `useEntityMetadata(code)` | N/A | Field metadata for forms/tables |
-| Entity Data | `useEntity(code, id)`, `useEntityInstanceData(code, params)` | N/A | List/detail views |
-| Drafts | `useDraft(code, id)` | N/A | Form editing with undo/redo |
+| Store                          | React Hook                                                  | Sync Function (non-React)                                                              | Use Case                       |
+|--------------------------------|-------------------------------------------------------------|----------------------------------------------------------------------------------------|--------------------------------|
+| `globalSettingsStore`          | `useGlobalSettings()`                                       | `getGlobalSettingsSync()`                                                              | App configuration              |
+| `datalabelStore`               | `useDatalabel(key)`                                         | `getDatalabelSync(key)`                                                                | Dropdown options, badge colors |
+| `entityCodesStore`             | `useEntityCodes()`                                          | `getEntityCodeSync(code)`, `getEntityCodesSync()`, `getChildEntityCodesSync(code)`     | Navigation, child tabs         |
+| `entityInstanceNamesStore`     | `useEntityInstanceNames(code)`                              | `getEntityInstanceNameSync(code, id)`, `getEntityInstanceNamesForTypeSync(code)`       | UUID → display name            |
+| `entityLinksStore`             | `useEntityLinks(parent, id)`                                | `getChildIdsSync(parent, parentId, child)`, `getParentsSync(child, childId)`           | Parent-child navigation        |
+| `entityInstanceMetadataStore`  | `useEntityMetadata(code)`                                   | N/A                                                                                    | Field metadata for forms/tables|
+| `entityInstance`               | `useEntity(code, id)`                                       | N/A                                                                                    | Single entity detail view      |
+| `entityInstanceData`           | `useEntityInstanceData(code, params)`                       | N/A                                                                                    | Entity list views              |
+| `draft`                        | `useDraft(code, id)`                                        | N/A                                                                                    | Form editing with undo/redo    |
 
 ### 8.4 Cache Data Flow Diagram
 

@@ -36,12 +36,11 @@ export {
 // Entity Instance Data (On-Demand)
 export {
   useEntityInstanceData,
-  useEntityList, // Deprecated alias
-  useEntityMetadata,
+  useEntityInstanceMetadata,
   useEntityInfiniteList,
   clearEntityInstanceDataCache,
   type UseEntityInstanceDataResult,
-  type UseEntityMetadataResult,
+  type UseEntityInstanceMetadataResult,
   type UseEntityInfiniteListResult,
 } from './useEntityInstanceData';
 

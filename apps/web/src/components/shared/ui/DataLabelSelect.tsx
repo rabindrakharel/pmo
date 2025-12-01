@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useDatalabels } from '@/lib/hooks/useEntityQuery';
+import { useDatalabel } from '@/db/tanstack-index';
 import { BadgeDropdownSelect, type BadgeDropdownSelectOption } from './BadgeDropdownSelect';
 import { InlineSpinner } from './EllipsisBounce';
 import { colorCodeToTailwindClass } from '@/lib/formatters/valueFormatters';
@@ -16,10 +16,10 @@ export interface DataLabelSelectProps {
  * Domain component for datalabel/settings dropdowns
  * Used for all dl__* fields (stages, priorities, statuses, etc.)
  *
- * Uses the centralized useDatalabels hook which:
- * - Fetches via React Query with 30-min TTL
- * - Caches in Zustand datalabelMetadataStore
- * - Proper cache invalidation on mutations
+ * Uses the canonical useDatalabel hook from @/db/tanstack-index which:
+ * - TanStack Query for server state
+ * - Dexie for IndexedDB persistence
+ * - Proper cache invalidation via WebSocket
  *
  * v8.3.2: Now renders colored badges using BadgeDropdownSelect
  * - Includes color_code from datalabel metadata
@@ -38,8 +38,8 @@ export function DataLabelSelect({
   onChange,
   disabled = false
 }: DataLabelSelectProps) {
-  // Use centralized hook that syncs with Zustand store
-  const { data: rawOptions, isLoading } = useDatalabels(datalabel);
+  // Use canonical hook from @/db/tanstack-index
+  const { options: rawOptions, isLoading } = useDatalabel(datalabel);
 
   // Transform to BadgeDropdownSelectOption format with Tailwind color classes
   // Type assertion needed due to React Query's complex generic types

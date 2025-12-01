@@ -1,13 +1,13 @@
 /**
- * useRefDataEntityInstanceCache Hook (v8.3.2)
+ * useRefDataEntityInstance Hook (v9.1.0)
  *
- * Unified React Query cache for entity instance lookups.
+ * Unified React Query cache for ref_data_entityInstance lookups.
  * Used by both:
  * - View mode: Resolving UUIDs to display names
  * - Edit mode: Populating entity reference dropdowns
  *
  * Architecture:
- * - Single cache per entity type: ['ref-data-entity-instance', entityCode]
+ * - Single cache per entity type: ['ref_data_entityInstance', entityCode]
  * - Structure: { uuid: name } for O(1) lookups
  * - Populated from:
  *   1. API response ref_data_entityInstance (upsert on fetch)
@@ -15,9 +15,16 @@
  *   3. Optional bulk prefetch (login-time)
  *
  * Cache Strategy:
- * - 15-minute stale time (dropdown data changes infrequently)
+ * - 5-minute stale time (dropdown data changes infrequently)
  * - 30-minute gc time
  * - Upsert from API responses extends cache coverage
+ *
+ * Naming Convention:
+ * - API field: ref_data_entityInstance (snake_case prefix + camelCase)
+ * - Type: RefData (PascalCase)
+ * - Variable: refData (camelCase)
+ * - Hooks: useRefDataEntityInstance* (camelCase)
+ * - Cache key: ['ref_data_entityInstance', entityCode]
  *
  * @example
  * // Get dropdown options
@@ -30,7 +37,7 @@
 
 import { useQuery, useQueryClient, QueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
-import type { RefData } from './useEntityQuery';
+import type { RefData } from '@/db/tanstack-index';
 
 // ============================================================================
 // Types
@@ -46,19 +53,19 @@ export interface EntityInstanceOption {
 }
 
 // ============================================================================
-// Query Keys
+// Query Keys - Uses ref_data_entityInstance naming
 // ============================================================================
 
-export const refDataEntityInstanceKeys = {
-  all: ['ref-data-entity-instance'] as const,
-  byEntity: (entityCode: string) => ['ref-data-entity-instance', entityCode] as const,
+export const ref_data_entityInstanceKeys = {
+  all: ['ref_data_entityInstance'] as const,
+  byEntity: (entityCode: string) => ['ref_data_entityInstance', entityCode] as const,
 };
 
 // ============================================================================
 // Cache Configuration
 // ============================================================================
 
-const REF_DATA_CACHE_CONFIG = {
+const REF_DATA_ENTITYINSTANCE_CONFIG = {
   STALE_TIME: 5 * 60 * 1000,   // 5 minutes - used by useQuery hook for background refetch timing
   GC_TIME: 30 * 60 * 1000,     // 30 minutes - keep for session navigation
 } as const;
@@ -74,12 +81,12 @@ const REF_DATA_CACHE_CONFIG = {
  * Merges new data with existing cache (doesn't replace).
  *
  * @example
- * // Inside useEntityInstanceList queryFn:
+ * // Inside useEntityInstanceData queryFn:
  * if (response.ref_data_entityInstance) {
- *   upsertRefDataEntityInstanceCache(queryClient, response.ref_data_entityInstance);
+ *   upsertRefDataEntityInstance(queryClient, response.ref_data_entityInstance);
  * }
  */
-export function upsertRefDataEntityInstanceCache(
+export function upsertRefDataEntityInstance(
   queryClient: QueryClient,
   refData: RefData
 ): void {
@@ -88,7 +95,7 @@ export function upsertRefDataEntityInstanceCache(
   for (const [entityCode, lookups] of Object.entries(refData)) {
     if (!lookups || typeof lookups !== 'object') continue;
 
-    const queryKey = refDataEntityInstanceKeys.byEntity(entityCode);
+    const queryKey = ref_data_entityInstanceKeys.byEntity(entityCode);
 
     // Get current cache to log before/after
     const before = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
@@ -105,7 +112,7 @@ export function upsertRefDataEntityInstanceCache(
     const afterCount = after ? Object.keys(after).length : 0;
 
     console.log(
-      `%c[REF_DATA_CACHE] 📥 Upserted ${Object.keys(lookups).length} entries for ${entityCode}`,
+      `%c[ref_data_entityInstance] 📥 Upserted ${Object.keys(lookups).length} entries for ${entityCode}`,
       'color: #be4bdb',
       { before: beforeCount, added: Object.keys(lookups).length, after: afterCount }
     );
@@ -113,39 +120,39 @@ export function upsertRefDataEntityInstanceCache(
 }
 
 /**
- * Get cached entity instance lookup for an entity type
+ * Get cached ref_data_entityInstance lookup for an entity type
  *
  * @example
- * const employeeCache = getRefDataEntityInstanceCache(queryClient, 'employee');
+ * const employeeCache = getRefDataEntityInstance(queryClient, 'employee');
  * const name = employeeCache?.['uuid-123'];
  */
-export function getRefDataEntityInstanceCache(
+export function getRefDataEntityInstance(
   queryClient: QueryClient,
   entityCode: string
 ): EntityInstanceLookup | undefined {
   return queryClient.getQueryData<EntityInstanceLookup>(
-    refDataEntityInstanceKeys.byEntity(entityCode)
+    ref_data_entityInstanceKeys.byEntity(entityCode)
   );
 }
 
 /**
- * Resolve a single UUID to name using cache
+ * Resolve a single UUID to name using ref_data_entityInstance cache
  *
  * @example
- * const name = resolveFromCache(queryClient, 'employee', 'uuid-123');
+ * const name = resolveFromRefDataEntityInstance(queryClient, 'employee', 'uuid-123');
  */
-export function resolveFromCache(
+export function resolveFromRefDataEntityInstance(
   queryClient: QueryClient,
   entityCode: string,
   uuid: string | null | undefined
 ): string | undefined {
   if (!uuid) return undefined;
-  const cache = getRefDataEntityInstanceCache(queryClient, entityCode);
+  const cache = getRefDataEntityInstance(queryClient, entityCode);
   return cache?.[uuid];
 }
 
 /**
- * Prefetch entity instances for multiple entity types
+ * Prefetch ref_data_entityInstance for multiple entity types
  *
  * Use sparingly - prefer lazy loading. Good for:
  * - Entities frequently used in dropdowns (employee, project)
@@ -153,9 +160,9 @@ export function resolveFromCache(
  *
  * @example
  * // Prefetch common entities after login
- * await prefetchEntityInstances(queryClient, ['employee', 'project', 'client']);
+ * await prefetchRefDataEntityInstances(queryClient, ['employee', 'project', 'client']);
  */
-export async function prefetchEntityInstances(
+export async function prefetchRefDataEntityInstances(
   queryClient: QueryClient,
   entityCodes: string[],
   options: { limit?: number } = {}
@@ -165,35 +172,34 @@ export async function prefetchEntityInstances(
   const token = localStorage.getItem('auth_token');
 
   if (!token) {
-    console.warn('[REF_DATA_CACHE] No auth token, skipping prefetch');
+    console.warn('[ref_data_entityInstance] No auth token, skipping prefetch');
     return;
   }
 
   console.log(
-    `%c[REF_DATA_CACHE] 🔄 Prefetching entity instances for: ${entityCodes.join(', ')}`,
+    `%c[ref_data_entityInstance] 🔄 Prefetching for: ${entityCodes.join(', ')}`,
     'color: #ff6b6b'
   );
 
   const promises = entityCodes.map(async (entityCode) => {
     try {
-      const queryKey = refDataEntityInstanceKeys.byEntity(entityCode);
+      const queryKey = ref_data_entityInstanceKeys.byEntity(entityCode);
       console.log(
-        `%c[REF_DATA_CACHE] 📡 Starting prefetch for: ${entityCode}`,
+        `%c[ref_data_entityInstance] 📡 Starting prefetch for: ${entityCode}`,
         'color: #74c0fc',
         { queryKey }
       );
 
-      // v9.1.2: Fetch directly and use setQueryData to ALWAYS set the complete data
-      // This is the authoritative source - it must replace any partial data from upserts
+      // Fetch directly and use setQueryData to ALWAYS set the complete data
       const url = `${apiUrl}/api/v1/entity/${entityCode}/entity-instance?active_only=true&limit=${limit}`;
-      console.log(`%c[REF_DATA_CACHE] 🌐 Fetching: ${url}`, 'color: #74c0fc');
+      console.log(`%c[ref_data_entityInstance] 🌐 Fetching: ${url}`, 'color: #74c0fc');
 
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
-        console.error(`[REF_DATA_CACHE] ❌ HTTP ${response.status} for ${entityCode}`);
+        console.error(`[ref_data_entityInstance] ❌ HTTP ${response.status} for ${entityCode}`);
         throw new Error(`Failed to fetch ${entityCode} instances: HTTP ${response.status}`);
       }
 
@@ -209,20 +215,16 @@ export async function prefetchEntityInstances(
       }
 
       console.log(
-        `%c[REF_DATA_CACHE] ✅ Prefetched ${Object.keys(lookup).length} ${entityCode} instances`,
+        `%c[ref_data_entityInstance] ✅ Prefetched ${Object.keys(lookup).length} ${entityCode} instances`,
         'color: #51cf66',
         { entityCode, count: Object.keys(lookup).length, sampleKeys: Object.keys(lookup).slice(0, 3) }
       );
 
-      // v9.1.3: Use setQueryData with MERGE to handle race conditions
-      // Prefetch is authoritative for bulk data, but must merge with any existing data
-      // This handles the case where upsert ran before prefetch completed
+      // Use setQueryData with MERGE to handle race conditions
       queryClient.setQueryData<EntityInstanceLookup>(queryKey, (old) => {
-        // Merge: prefetch data takes precedence (it's more complete)
-        // but we keep any entries from old that might not be in prefetch
         const merged = { ...(old || {}), ...lookup };
         console.log(
-          `%c[REF_DATA_CACHE] 🔀 Merged prefetch data for ${entityCode}`,
+          `%c[ref_data_entityInstance] 🔀 Merged prefetch data for ${entityCode}`,
           'color: #51cf66',
           { oldCount: old ? Object.keys(old).length : 0, prefetchCount: Object.keys(lookup).length, mergedCount: Object.keys(merged).length }
         );
@@ -232,7 +234,7 @@ export async function prefetchEntityInstances(
       // Verify cache was populated
       const cachedData = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
       console.log(
-        `%c[REF_DATA_CACHE] 🔍 Cache verification for ${entityCode}:`,
+        `%c[ref_data_entityInstance] 🔍 Cache verification for ${entityCode}:`,
         cachedData ? 'color: #51cf66' : 'color: #ff6b6b',
         {
           entityCode,
@@ -242,7 +244,7 @@ export async function prefetchEntityInstances(
         }
       );
     } catch (error) {
-      console.error(`[REF_DATA_CACHE] ❌ Failed to prefetch ${entityCode}:`, error);
+      console.error(`[ref_data_entityInstance] ❌ Failed to prefetch ${entityCode}:`, error);
     }
   });
 
@@ -250,11 +252,11 @@ export async function prefetchEntityInstances(
 
   // Final summary log
   console.log(
-    `%c[REF_DATA_CACHE] 📊 Prefetch complete. Cache summary:`,
+    `%c[ref_data_entityInstance] 📊 Prefetch complete. Cache summary:`,
     'color: #be4bdb; font-weight: bold'
   );
   entityCodes.forEach((entityCode) => {
-    const queryKey = refDataEntityInstanceKeys.byEntity(entityCode);
+    const queryKey = ref_data_entityInstanceKeys.byEntity(entityCode);
     const cachedData = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
     console.log(
       `  ${cachedData ? '✅' : '❌'} ${entityCode}: ${cachedData ? Object.keys(cachedData).length : 0} items`
@@ -264,15 +266,14 @@ export async function prefetchEntityInstances(
 
 /**
  * Debug utility - call from browser console to inspect cache state
- * Usage: window.__debugRefDataCache()
+ * Usage: window.__debugRefDataEntityInstance()
  */
 if (typeof window !== 'undefined') {
-  (window as any).__debugRefDataCache = () => {
-    console.log('%c[REF_DATA_CACHE DEBUG] Inspecting cache...', 'color: #be4bdb; font-weight: bold');
+  (window as any).__debugRefDataEntityInstance = () => {
+    console.log('%c[ref_data_entityInstance DEBUG] Inspecting cache...', 'color: #be4bdb; font-weight: bold');
     const entityCodes = ['employee', 'project', 'business', 'office', 'role', 'cust', 'task', 'worksite'];
     entityCodes.forEach((entityCode) => {
-      const queryKey = refDataEntityInstanceKeys.byEntity(entityCode);
-      // We need queryClient - this won't work without it, so just log the key structure
+      const queryKey = ref_data_entityInstanceKeys.byEntity(entityCode);
       console.log(`  Query key for ${entityCode}:`, queryKey);
     });
     console.log('To check cache, use React Query DevTools or call this in a component with useQueryClient()');
@@ -286,8 +287,8 @@ if (typeof window !== 'undefined') {
 /**
  * Hook to get entity instance options for dropdown population
  *
- * Fetches and caches entity instances for use in EntityInstanceNameLookup dropdowns.
- * Uses the unified ref-data-entity-instance cache.
+ * Fetches and caches ref_data_entityInstance for use in EntityInstanceNameLookup dropdowns.
+ * Uses the unified ref_data_entityInstance cache.
  *
  * @param entityCode - Entity type code (e.g., 'employee', 'project')
  * @param options - Query options
@@ -305,18 +306,14 @@ export function useRefDataEntityInstanceOptions(
   const queryClient = useQueryClient();
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
-  // v9.1.1: Cache-first pattern (per TANSTACK_DEXIE_SYNC_ARCHITECTURE.md)
-  // 1. Check TanStack Query cache (in-memory) → HIT & fresh → return immediately
-  // 2. MISS → fetch from API
-  // Cache is populated by prefetchEntityInstances() at login + upsert from API responses
-  const queryKey = refDataEntityInstanceKeys.byEntity(entityCode || '');
+  const queryKey = ref_data_entityInstanceKeys.byEntity(entityCode || '');
 
   // Debug: Check cache state before useQuery
   const existingCache = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
   const cacheSize = existingCache ? Object.keys(existingCache).length : 0;
 
   console.log(
-    `%c[REF_DATA_OPTIONS] 🔍 Hook called for: ${entityCode}`,
+    `%c[ref_data_entityInstance] 🔍 Hook called for: ${entityCode}`,
     'color: #845ef7',
     { queryKey, cacheExists: !!existingCache, cacheSize, enabled }
   );
@@ -328,7 +325,7 @@ export function useRefDataEntityInstanceOptions(
 
       // This only runs on cache MISS (TanStack Query handles cache-first)
       console.log(
-        `%c[REF_DATA_OPTIONS] ⚠️ queryFn executing (cache miss or stale): ${entityCode}`,
+        `%c[ref_data_entityInstance] ⚠️ queryFn executing (cache miss or stale): ${entityCode}`,
         'color: #ff6b6b; font-weight: bold'
       );
 
@@ -355,21 +352,21 @@ export function useRefDataEntityInstanceOptions(
       }
 
       console.log(
-        `%c[REF_DATA_OPTIONS] ✅ API returned ${Object.keys(lookup).length} ${entityCode} instances`,
+        `%c[ref_data_entityInstance] ✅ API returned ${Object.keys(lookup).length} ${entityCode} instances`,
         'color: #51cf66'
       );
 
       return lookup;
     },
     enabled: enabled && !!entityCode,
-    staleTime: REF_DATA_CACHE_CONFIG.STALE_TIME,  // 5 min - cache is fresh
-    gcTime: REF_DATA_CACHE_CONFIG.GC_TIME,
+    staleTime: REF_DATA_ENTITYINSTANCE_CONFIG.STALE_TIME,
+    gcTime: REF_DATA_ENTITYINSTANCE_CONFIG.GC_TIME,
     refetchOnWindowFocus: false,
   });
 
   // Debug: Log what useQuery returned
   console.log(
-    `%c[REF_DATA_OPTIONS] 📊 useQuery result for: ${entityCode}`,
+    `%c[ref_data_entityInstance] 📊 useQuery result for: ${entityCode}`,
     query.data ? 'color: #51cf66' : 'color: #868e96',
     {
       hasData: !!query.data,
@@ -407,9 +404,9 @@ export function useRefDataEntityInstanceOptions(
 }
 
 /**
- * Hook for resolving entity UUIDs to names using the unified cache
+ * Hook for resolving entity UUIDs to names using the unified ref_data_entityInstance cache
  *
- * Provides resolution utilities that use the ref-data-entity-instance cache.
+ * Provides resolution utilities that use the ref_data_entityInstance cache.
  * For view mode display of entity references.
  *
  * @example
@@ -429,7 +426,7 @@ export function useRefDataEntityInstanceResolver() {
    */
   const resolveName = useCallback(
     (entityCode: string, uuid: string | null | undefined): string | undefined => {
-      return resolveFromCache(queryClient, entityCode, uuid);
+      return resolveFromRefDataEntityInstance(queryClient, entityCode, uuid);
     },
     [queryClient]
   );
@@ -441,7 +438,7 @@ export function useRefDataEntityInstanceResolver() {
     (entityCode: string, uuids: string[] | null | undefined): string[] => {
       if (!uuids || !Array.isArray(uuids)) return [];
       return uuids
-        .map((uuid) => resolveFromCache(queryClient, entityCode, uuid))
+        .map((uuid) => resolveFromRefDataEntityInstance(queryClient, entityCode, uuid))
         .filter((name): name is string => !!name);
     },
     [queryClient]
@@ -456,7 +453,7 @@ export function useRefDataEntityInstanceResolver() {
       uuid: string | null | undefined,
       fallback: 'uuid' | 'empty' | 'unknown' = 'uuid'
     ): string => {
-      const name = resolveFromCache(queryClient, entityCode, uuid);
+      const name = resolveFromRefDataEntityInstance(queryClient, entityCode, uuid);
       if (name) return name;
 
       switch (fallback) {
@@ -474,11 +471,11 @@ export function useRefDataEntityInstanceResolver() {
   );
 
   /**
-   * Check if entity type has cached data
+   * Check if entity type has cached ref_data_entityInstance
    */
   const hasCachedData = useCallback(
     (entityCode: string): boolean => {
-      const cache = getRefDataEntityInstanceCache(queryClient, entityCode);
+      const cache = getRefDataEntityInstance(queryClient, entityCode);
       return !!cache && Object.keys(cache).length > 0;
     },
     [queryClient]
@@ -489,7 +486,7 @@ export function useRefDataEntityInstanceResolver() {
    */
   const getCacheSize = useCallback(
     (entityCode: string): number => {
-      const cache = getRefDataEntityInstanceCache(queryClient, entityCode);
+      const cache = getRefDataEntityInstance(queryClient, entityCode);
       return cache ? Object.keys(cache).length : 0;
     },
     [queryClient]
@@ -507,7 +504,7 @@ export function useRefDataEntityInstanceResolver() {
 /**
  * Hook to upsert ref_data_entityInstance from API responses
  *
- * Returns a function that can be called to merge new ref_data into the cache.
+ * Returns a function that can be called to merge new ref_data_entityInstance into the cache.
  * Use this in components that receive ref_data_entityInstance from API.
  *
  * @example
@@ -526,9 +523,10 @@ export function useRefDataEntityInstanceUpsert() {
   return useCallback(
     (refData: RefData | undefined) => {
       if (refData) {
-        upsertRefDataEntityInstanceCache(queryClient, refData);
+        upsertRefDataEntityInstance(queryClient, refData);
       }
     },
     [queryClient]
   );
 }
+

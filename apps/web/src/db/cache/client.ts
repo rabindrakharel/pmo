@@ -135,6 +135,20 @@ export async function invalidateMetadataCache(
 }
 
 /**
+ * Clear all metadata caches (datalabels, entity codes, global settings, entity metadata)
+ * Used for full cache refresh
+ */
+export async function clearAllMetadataCache(): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ['datalabel'], refetchType: 'active' }),
+    queryClient.invalidateQueries({ queryKey: ['entityCodes'], refetchType: 'active' }),
+    queryClient.invalidateQueries({ queryKey: ['globalSettings'], refetchType: 'active' }),
+    queryClient.invalidateQueries({ queryKey: ['entityInstanceMetadata'], refetchType: 'active' }),
+    queryClient.invalidateQueries({ queryKey: ['entityInstanceNames'], refetchType: 'active' }),
+  ]);
+}
+
+/**
  * Clear all TanStack Query cache
  * Used on logout
  */

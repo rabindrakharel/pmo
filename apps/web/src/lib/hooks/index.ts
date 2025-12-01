@@ -3,56 +3,38 @@
  *
  * Centralized export for all custom React hooks
  *
- * v9.0.0: TanStack Query + Dexie Architecture
+ * v9.1.0: TanStack Query + Dexie Architecture (No Wrapper Layer)
  * - TanStack Query: Server state management with automatic caching
  * - Dexie: IndexedDB persistence for offline-first
  * - WebSocket: Real-time cache invalidation via PubSub service
+ *
+ * CANONICAL HOOKS (from @/db/tanstack-index - see NORMALIZED_CACHE_ARCHITECTURE.md):
+ * - useEntity, useEntityInstanceData, useDatalabel, useEntityCodes, etc.
+ *
+ * FORMAT-AT-READ: Formatting happens in components via useMemo, not in hooks
  */
 
 export { useColumnVisibility } from './useColumnVisibility';
 export type { UseColumnVisibilityReturn } from './useColumnVisibility';
 
-// Entity Query Hooks (TanStack Query + Dexie - v9.0.0)
-// These hooks use TanStack Query + Dexie internally for entity data storage
+// ============================================================================
+// CANONICAL HOOKS - From @/db/tanstack-index (SINGLE SOURCE OF TRUTH)
+// ============================================================================
 export {
-  // Raw data hooks (for editing, exports, mutations)
-  useEntityInstanceList,
-  useEntityInstance,
-  // Formatted data hooks (for display)
-  useFormattedEntityList,
-  useFormattedEntityInstance,
-  // Utility hooks
-  useEntityCodes,
-  useEntityMutation,
-  useDatalabels,
-  useAllDatalabels,
-  useGlobalSettings,
-  useEntityMetadata,
-  useDatalabelMutation,
-  useEntityLookup,
-  useCacheInvalidation,
-  usePrefetch,
-  queryKeys,
-  CACHE_TTL,
-} from './useEntityQuery';
-
-export type {
-  EntityInstanceListParams,
-  // Raw result types
-  EntityInstanceListResult,
-  EntityInstanceResult,
-  // Formatted result types
-  FormattedEntityInstanceListResult,
-  FormattedEntityInstanceResult,
-  // RefData type
-  RefData,
-} from './useEntityQuery';
-
-// v9.0.0: TanStack + Dexie hooks - SINGLE SOURCE OF TRUTH
-export {
-  // Entity hooks (direct access)
+  // Entity data hooks
   useEntity,
-  useEntityList,
+  useEntityInstanceData,
+  useEntityMutation,
+  // Metadata hooks
+  useDatalabel,
+  useAllDatalabels,
+  useEntityCodes,
+  useEntityInstanceMetadata,
+  useGlobalSettings,
+  // Entity instance names
+  useEntityInstanceNames,
+  // Entity links
+  useEntityLinks,
   // Offline-first hooks (Dexie-only, no network)
   useOfflineEntity,
   useOfflineEntityList,
@@ -64,15 +46,18 @@ export {
   // Sync cache accessors (for non-hook contexts)
   getDatalabelSync,
   getEntityCodesSync,
-  getEntityByCodeSync,
+  getEntityCodeSync,
   getGlobalSettingsSync,
   getSettingSync,
+  getEntityInstanceNameSync,
+  getChildIdsSync,
   // Prefetch functions (used by AuthContext)
   prefetchAllDatalabels,
   prefetchEntityCodes,
   prefetchGlobalSettings,
   // Cache invalidation
   invalidateMetadataCache,
+  invalidateEntityQueries,
   clearAllMetadataCache,
 } from '../../db/tanstack-index';
 
@@ -82,9 +67,12 @@ export type {
   DatalabelOption,
   EntityCodeData,
   GlobalSettings,
+  RefData,
 } from '../../db/tanstack-index';
 
-// v8.3.1: RefData Resolution Hooks (metadata-based, no pattern matching)
+// ============================================================================
+// RefData Resolution Hooks (metadata-based, no pattern matching)
+// ============================================================================
 export {
   useRefData,
   useMergedRefData,
@@ -99,25 +87,29 @@ export {
 
 export type { UseRefDataResult, FieldMetadata } from './useRefData';
 
-// v8.3.2: Unified Entity Instance Cache (dropdown + view resolution)
+// ============================================================================
+// ref_data_entityInstance Cache (dropdown + view resolution)
+// ============================================================================
 export {
   // React Hooks
   useRefDataEntityInstanceOptions,
   useRefDataEntityInstanceResolver,
   useRefDataEntityInstanceUpsert,
   // Utility Functions (for use outside components)
-  upsertRefDataEntityInstanceCache,
-  getRefDataEntityInstanceCache,
-  resolveFromCache,
-  prefetchEntityInstances,
+  upsertRefDataEntityInstance,
+  getRefDataEntityInstance,
+  resolveFromRefDataEntityInstance,
+  prefetchRefDataEntityInstances,
   // Query Keys
-  refDataEntityInstanceKeys,
-} from './useRefDataEntityInstanceCache';
+  ref_data_entityInstanceKeys,
+} from './useRefDataEntityInstance';
 
 export type {
   EntityInstanceLookup,
   EntityInstanceOption,
-} from './useRefDataEntityInstanceCache';
+} from './useRefDataEntityInstance';
 
-// Keyboard Shortcuts Hook
+// ============================================================================
+// UI Utility Hooks
+// ============================================================================
 export { useKeyboardShortcuts } from './useKeyboardShortcuts';
