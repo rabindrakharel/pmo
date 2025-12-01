@@ -51,6 +51,28 @@ import {
 import { wsManager } from '../../realtime/manager';
 
 // ============================================================================
+// Stable Empty State (Module-Level Constant)
+// ============================================================================
+// Prevents reference changes that cause infinite re-renders
+// Frozen to prevent accidental mutation
+const EMPTY_ARRAY: readonly unknown[] = Object.freeze([]);
+
+// Stable disabled result - returned when query is disabled
+// This prevents unnecessary object allocations on each render
+const DISABLED_RESULT = Object.freeze({
+  data: EMPTY_ARRAY,
+  total: 0,
+  metadata: undefined,
+  refData: undefined,
+  isLoading: false,
+  isFetching: false,
+  isStale: false,
+  isError: false,
+  error: null,
+  refetch: async () => {},
+});
+
+// ============================================================================
 // Hook Implementation
 // ============================================================================
 
@@ -66,9 +88,11 @@ import { wsManager } from '../../realtime/manager';
  * - Supports pagination, search, and filtering
  * - Returns metadata for field definitions
  * - Returns refData for entity instance name lookups
+ * - INVARIANT: Returns stable empty state when entityCode is empty (fail-safe)
  *
- * @param entityCode - Entity type code (e.g., 'project', 'task')
+ * @param entityCode - Entity type code (e.g., 'project', 'task'). MUST be non-empty.
  * @param params - Query parameters (limit, offset, search, filters)
+ * @param options.enabled - Whether to enable the query (default: true)
  */
 export function useEntityInstanceData<T = Record<string, unknown>>(
   entityCode: string,
@@ -77,17 +101,33 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
 ): UseEntityInstanceDataResult<T> {
   const { enabled = true } = options;
 
-  // Pre-subscribe to WebSocket to close race window
+  // ============================================================================
+  // INVARIANT: entityCode must be non-empty for query to run
+  // ============================================================================
+  // This is the fail-safe layer - hook should NEVER make invalid API requests.
+  // Even if caller forgets to pass enabled:false, we protect against empty entityCode.
+  const isValidEntityCode = Boolean(entityCode && entityCode.trim());
+  const isQueryEnabled = enabled && isValidEntityCode;
+
+  // Development warning for misconfiguration
+  if (process.env.NODE_ENV === 'development' && enabled && !isValidEntityCode) {
+    console.warn(
+      `[useEntityInstanceData] Called with empty entityCode="${entityCode}". ` +
+        `Pass { enabled: false } or provide a valid entityCode to prevent invalid API calls.`
+    );
+  }
+
+  // Pre-subscribe to WebSocket to close race window (only when enabled)
   const hasSubscribedRef = useRef(false);
   useEffect(() => {
-    if (enabled && !hasSubscribedRef.current) {
+    if (isQueryEnabled && !hasSubscribedRef.current) {
       wsManager.subscribe(entityCode, []);
       hasSubscribedRef.current = true;
     }
     return () => {
       hasSubscribedRef.current = false;
     };
-  }, [entityCode, enabled]);
+  }, [entityCode, isQueryEnabled]);
 
   const queryHash = useMemo(() => createQueryHash(params), [params]);
 
@@ -199,10 +239,24 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
     },
     staleTime: ONDEMAND_STORE_CONFIG.staleTime,
     gcTime: ONDEMAND_STORE_CONFIG.gcTime,
-    enabled,
+    enabled: isQueryEnabled,  // Use combined check (caller enabled + valid entityCode)
   });
 
+  // ============================================================================
+  // EARLY RETURN: Stable disabled result when query is not enabled
+  // ============================================================================
+  // This returns a frozen, module-level constant to prevent reference changes
+  // that would cause infinite re-renders in consuming components.
+  if (!isQueryEnabled) {
+    return DISABLED_RESULT as UseEntityInstanceDataResult<T>;
+  }
+
   const refetch = async (): Promise<void> => {
+    // Guard against refetch when disabled
+    if (!isQueryEnabled) {
+      debugCache('⚠️ refetch() called but query is disabled - ignoring', { entityCode });
+      return;
+    }
     // Clear Dexie cache for this entity before refetching to ensure fresh data
     // This is critical after PATCH/POST operations to avoid returning stale cached data
     debugCache('🔄 refetch() called - clearing Dexie cache before API fetch', { entityCode, params });
@@ -216,7 +270,7 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
   const result = query.data as QueryResult | undefined;
 
   return {
-    data: result?.data ?? [],
+    data: result?.data ?? (EMPTY_ARRAY as T[]),
     total: result?.total ?? 0,
     metadata: result?.metadata,
     refData: result?.refData,

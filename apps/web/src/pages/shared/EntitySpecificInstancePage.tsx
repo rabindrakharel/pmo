@@ -18,9 +18,11 @@ import { useSidebar } from '../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../contexts/NavigationHistoryContext';
 // v9.1.0: Use canonical hooks from @/db/tanstack-index (no wrapper layer)
 // v9.5.0: Added useOptimisticMutation for instant UI feedback
+// v9.6.0: Added useEntityInstanceMetadata for form metadata (content=metadata API)
 import {
   useEntity,
   useEntityInstanceData,
+  useEntityInstanceMetadata,
   useDraft,
   useOptimisticMutation,
   invalidateEntityQueries,
@@ -71,7 +73,6 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // ============================================================================
   const {
     data: rawData,
-    metadata: rawMetadata,
     refData,
     isLoading: loading,
     isError,
@@ -79,16 +80,41 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     refetch,
   } = useEntity(entityCode, id);
 
+  // ============================================================================
+  // v9.6.0: METADATA FETCHED SEPARATELY (content=metadata API)
+  // ============================================================================
+  // Backend returns data + ref_data in normal mode, metadata fetched separately
+  // This enables 30-min metadata caching independent of data freshness
+  const {
+    viewType: formViewType,
+    editType: formEditType,
+    isLoading: metadataLoading,
+  } = useEntityInstanceMetadata(entityCode, 'entityInstanceFormContainer');
+
+  // Construct metadata object from separate viewType/editType
+  // NOTE: EntityInstanceFormContainer expects { entityInstanceFormContainer: { viewType, editType } }
+  // formatRow expects { viewType, editType } directly
+  const backendMetadata = useMemo(() => {
+    if (!formViewType || Object.keys(formViewType).length === 0) return null;
+    return {
+      entityInstanceFormContainer: { viewType: formViewType, editType: formEditType }
+    } as unknown as ComponentMetadata;
+  }, [formViewType, formEditType]);
+
+  // For formatRow, we need the flat structure
+  const formatMetadata = useMemo(() => {
+    if (!formViewType || Object.keys(formViewType).length === 0) return null;
+    return { viewType: formViewType, editType: formEditType } as ComponentMetadata;
+  }, [formViewType, formEditType]);
+
   // Format data on read (memoized) - formatting happens HERE, not in hook
   const formattedData = useMemo(() => {
     if (!rawData) return null;
-    const componentMetadata = rawMetadata as ComponentMetadata | null;
-    return formatRow(rawData, componentMetadata, refData);
-  }, [rawData, rawMetadata, refData]);
+    return formatRow(rawData, formatMetadata, refData);
+  }, [rawData, formatMetadata, refData]);
 
   // Extract data for editing (raw) and display (formatted)
   const data = rawData || null;
-  const backendMetadata = rawMetadata || null;
   const error = queryError?.message || null;
 
   // ============================================================================
@@ -232,6 +258,20 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // ============================================================================
   const childConfig = currentChildEntity ? getEntityConfig(currentChildEntity) : null;
 
+  // ============================================================================
+  // EXPLICIT ENABLEMENT: Query only runs when ALL conditions are met
+  // ============================================================================
+  // This follows the industry-standard pattern for conditional data fetching:
+  // 1. We're on a child tab (not overview)
+  // 2. We have a valid child entity code
+  // 3. We have a valid parent entity ID
+  // The hook also has internal fail-safe validation for empty entityCode.
+  const shouldFetchChildData = Boolean(
+    currentChildEntity &&
+    id &&
+    !isOverviewTab
+  );
+
   // Fetch child entity data when on a child tab
   // NOTE: Use snake_case matching entity_instance_link DDL convention
   const childQueryParams = useMemo(() => ({
@@ -241,39 +281,46 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     parent_entity_instance_id: id,
   }), [entityCode, id]);
 
-  // v9.1.0: Use canonical useEntityInstanceData hook
+  // v9.6.0: Use canonical useEntityInstanceData hook with EXPLICIT enabled flag
+  // The hook returns a stable frozen empty state when disabled, preventing infinite loops
   const {
-    data: childRawData,
-    metadata: childRawMetadata,
+    data: childData,  // Use directly - no intermediate state needed
+    metadata: childMetadata,
     refData: childRefData,
     total: childTotal,
     isLoading: childLoading,
     refetch: refetchChild,
-  } = useEntityInstanceData(currentChildEntity || '', childQueryParams);
+  } = useEntityInstanceData(
+    currentChildEntity || '',
+    childQueryParams,
+    { enabled: shouldFetchChildData }  // EXPLICIT: Query only runs when on child tab
+  );
 
-  // Only enable query when on child tab
-  const childData = useMemo(() => {
-    if (isOverviewTab || !currentChildEntity || !id) return [];
-    return childRawData || [];
-  }, [childRawData, isOverviewTab, currentChildEntity, id]);
-  const childMetadata = childRawMetadata || null;
-
-  // Child entity inline edit state
+  // ============================================================================
+  // CHILD ENTITY INLINE EDIT STATE
+  // ============================================================================
+  // Local state for inline editing operations ONLY (not for sync)
+  // The problematic useEffect sync pattern was REMOVED - it caused infinite loops
   const [childEditingRow, setChildEditingRow] = useState<string | null>(null);
   const [childEditedData, setChildEditedData] = useState<any>({});
   const [childIsAddingRow, setChildIsAddingRow] = useState(false);
-  const [childLocalData, setChildLocalData] = useState<any[]>([]);
+  // Local data for optimistic add row (temp rows before API save)
+  const [childLocalAdditions, setChildLocalAdditions] = useState<any[]>([]);
 
-  // Sync child local data
+  // Clear local additions when switching tabs or when child entity changes
   useEffect(() => {
-    if (childData && childData.length > 0) {
-      setChildLocalData(childData);
-    } else {
-      setChildLocalData([]);
-    }
-  }, [childData]);
+    setChildLocalAdditions([]);
+    setChildEditingRow(null);
+    setChildEditedData({});
+    setChildIsAddingRow(false);
+  }, [currentChildEntity]);
 
-  const childDisplayData = childLocalData.length > 0 ? childLocalData : childData;
+  // Combine server data with local additions for display
+  // Note: childData is stable (frozen empty array when disabled)
+  const childDisplayData = useMemo(() => {
+    if (childLocalAdditions.length === 0) return childData;
+    return [...childData, ...childLocalAdditions];
+  }, [childData, childLocalAdditions]);
 
   // Child pagination
   const childPagination = useMemo(() => ({
@@ -326,6 +373,8 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
             })
           });
           await refetchChild();
+          // Clear local additions after successful save - server data now includes the new row
+          setChildLocalAdditions([]);
           setChildEditingRow(null);
           setChildEditedData({});
           setChildIsAddingRow(false);
@@ -355,7 +404,8 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
 
   const handleChildCancelInlineEdit = useCallback(() => {
     if (childIsAddingRow && childEditingRow) {
-      setChildLocalData(prev => prev.filter(row => row.id !== childEditingRow));
+      // Remove the temp row from local additions
+      setChildLocalAdditions(prev => prev.filter(row => row.id !== childEditingRow));
       setChildIsAddingRow(false);
     }
     setChildEditingRow(null);
@@ -363,7 +413,8 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   }, [childIsAddingRow, childEditingRow]);
 
   const handleChildAddRow = useCallback((newRow: any) => {
-    setChildLocalData(prev => [...prev, newRow]);
+    // Add temp row to local additions (will be cleared on successful save + refetch)
+    setChildLocalAdditions(prev => [...prev, newRow]);
     setChildEditingRow(newRow.id);
     setChildEditedData(newRow);
     setChildIsAddingRow(true);

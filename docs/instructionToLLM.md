@@ -43,6 +43,8 @@ Color	Meaning
 🔵 Cyan #74c0fc	Field change events
 
 
+What's the industry standard robust engineered fix, not band aid solution?
+
 
 Check the below logs for above interaction, and spot any any issues and do RCA (Root cause analysis).
 Keep analysing until you can be confident of the root cause, Then go on to propose the solution. 

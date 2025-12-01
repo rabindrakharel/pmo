@@ -857,6 +857,67 @@ EntitySpecificInstancePage
 └── UnifiedLinkageModal            // Entity relationships
 ```
 
+**Key Code Pattern (v9.6.0 - Two-Query Architecture):**
+```typescript
+// EntitySpecificInstancePage.tsx
+
+// ============================================================================
+// QUERY 1: ENTITY DATA (5-min cache)
+// ============================================================================
+const {
+  data: rawData,
+  refData,
+  isLoading: dataLoading,
+  error: queryError,
+  refetch,
+} = useEntity(entityCode, id);
+
+// ============================================================================
+// QUERY 2: FORM METADATA (30-min cache)
+// ============================================================================
+const {
+  viewType: formViewType,
+  editType: formEditType,
+  isLoading: metadataLoading,
+} = useEntityInstanceMetadata(entityCode, 'entityInstanceFormContainer');
+
+// Construct wrapped metadata for EntityInstanceFormContainer
+// NOTE: Component expects { entityInstanceFormContainer: { viewType, editType } }
+const backendMetadata = useMemo(() => {
+  if (!formViewType || Object.keys(formViewType).length === 0) return null;
+  return {
+    entityInstanceFormContainer: { viewType: formViewType, editType: formEditType }
+  };
+}, [formViewType, formEditType]);
+
+// Construct flat metadata for formatRow
+const formatMetadata = useMemo(() => {
+  if (!formViewType || Object.keys(formViewType).length === 0) return null;
+  return { viewType: formViewType, editType: formEditType };
+}, [formViewType, formEditType]);
+
+// Format data on read (memoized)
+const formattedData = useMemo(() => {
+  if (!rawData) return null;
+  return formatRow(rawData, formatMetadata, refData);
+}, [rawData, formatMetadata, refData]);
+
+// ============================================================================
+// CHILD ENTITY DATA (5-min cache, enabled only when tab is selected)
+// ============================================================================
+const shouldFetchChildData = Boolean(
+  currentChildEntity &&
+  id &&
+  !isOverviewTab
+);
+
+const { data: childData, ... } = useEntityInstanceData(
+  currentChildEntity || '',
+  childQueryParams,
+  { enabled: shouldFetchChildData }  // Prevents invalid API calls
+);
+```
+
 **Edit Mode Integration (Dexie Drafts):**
 ```typescript
 const {
@@ -1618,13 +1679,14 @@ apps/web/src/
 
 ---
 
-**Version:** 9.5.1
+**Version:** 9.6.0
 **Last Updated:** 2025-12-01
 **Status:** Production Ready
 
 **Version History:**
 | Version | Date | Changes |
 |---------|------|---------|
+| 9.6.0 | 2025-12-01 | **EntitySpecificInstancePage two-query architecture**: Metadata fetched separately via `useEntityInstanceMetadata`, wrapped for `EntityInstanceFormContainer` |
 | 9.5.1 | 2025-12-01 | **Optimistic mutations v2**: `updateAllListCaches` finds ALL matching caches by entity code (works from any page) |
 | 9.5.0 | 2025-12-01 | Added `useOptimisticMutation` hook for instant UI feedback |
 | 9.4.0 | 2025-12-01 | Two-query architecture (metadata + data separate) |

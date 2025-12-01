@@ -1,8 +1,8 @@
 # Frontend Formatter Service
 
-**Version:** 9.3.0 | **Location:** `apps/web/src/lib/` | **Updated:** 2025-11-30
+**Version:** 9.6.0 | **Location:** `apps/web/src/lib/` | **Updated:** 2025-12-01
 
-> **Note:** As of v9.3.0, the frontend uses TanStack Query + Dexie v4 (IndexedDB) for offline-first data storage. The formatter service works with data from TanStack Query, formatting on read via `select` transform. Dexie v4 schema uses 8 unified tables with TanStack Query key alignment.
+> **Note:** As of v9.6.0, the frontend uses TanStack Query + Dexie v4 (IndexedDB) for offline-first data storage. Metadata and data are fetched separately (two-query architecture). The formatter service works with data from TanStack Query hooks, formatting on read via `useMemo`. Pages construct appropriate metadata structures for each component.
 
 ---
 
@@ -12,32 +12,37 @@ The frontend formatter is a **pure renderer** that executes backend instructions
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  FRONTEND FORMATTER ARCHITECTURE (v9.3.0)                                    │
+│  FRONTEND FORMATTER ARCHITECTURE (v9.6.0)                                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  Backend Metadata                      Frontend Renderer                     │
-│  ─────────────────                     ─────────────────                     │
+│  TWO-QUERY ARCHITECTURE                                                      │
+│  ──────────────────────                                                      │
+│  Query 1: useEntityInstanceData() → { data, refData }  (5-min cache)        │
+│  Query 2: useEntityInstanceMetadata() → { viewType, editType } (30-min)     │
 │                                                                              │
-│  { viewType: {                         formatDataset(data, metadata, refData)│
-│      budget: {                          └── formatRow(row, metadata)         │
-│        renderType: 'currency',              └── formatValue()                │
-│        style: { decimals: 2 }                   └── formatCurrency(50000)    │
-│      },                                             └── "$50,000.00"         │
-│      manager__employee_id: {                                                 │
-│        renderType: 'entityInstanceId', useRefData() → resolveFieldDisplay() │
-│        lookupEntity: 'employee'        └── ref_data_entityInstance.employee[uuid]
-│      }                                     └── "James Miller"                │
-│    },                                                                        │
-│    editType: {                         renderEditModeFromMetadata()          │
-│      budget: {                          └── switch(editType[key].inputType)  │
-│        inputType: 'number'                  └── <input type="number" />      │
-│      },                                                                      │
-│      manager__employee_id: {                                                 │
-│        inputType: 'entityInstanceId',   └── <EntityDropdown                  │
-│        lookupEntity: 'employee'               entityCode="employee" />       │
-│      }                                                                       │
-│    }                                                                         │
-│  }                                                                           │
+│  PAGE CONSTRUCTS METADATA STRUCTURES:                                        │
+│  ────────────────────────────────────                                        │
+│  For EntityListOfInstancesTable:                                             │
+│    metadata = { viewType, editType }                                         │
+│                                                                              │
+│  For EntityInstanceFormContainer:                                            │
+│    backendMetadata = { entityInstanceFormContainer: { viewType, editType } } │
+│                                                                              │
+│  FORMATTER FUNCTIONS (Pure Renderers):                                       │
+│  ─────────────────────────────────────                                       │
+│  formatDataset(data, metadata, refData) → FormattedRow[]                    │
+│    └── formatRow(row, viewType, refData)                                    │
+│        └── formatValue(value, key, viewType[key])                           │
+│            └── switch on renderType                                          │
+│                └── 'currency' → formatCurrency()                            │
+│                └── 'badge' → formatBadge() + getDatalabelSync()             │
+│                └── 'entityInstanceId' → refData[lookupEntity][uuid]         │
+│                                                                              │
+│  renderEditModeFromMetadata(value, editType[key], onChange)                 │
+│    └── switch on inputType                                                   │
+│        └── 'number' → <input type="number" />                               │
+│        └── 'BadgeDropdownSelect' → <BadgeDropdownSelect />                  │
+│        └── 'entityInstanceId' → <EntityInstanceNameLookup />                │
 │                                                                              │
 │  ✗ NO pattern detection (_id suffix, _amt suffix, etc.)                      │
 │  ✓ All decisions from metadata.renderType/inputType/lookupEntity             │
@@ -185,40 +190,45 @@ interface UseRefDataResult {
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  FORMAT-AT-READ FLOW (v9.3.0 - TanStack Query + Dexie v4)                    │
+│  FORMAT-AT-READ FLOW (v9.6.0 - Two-Query Architecture)                       │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  1. TanStack Query Cache (RAW + ref_data_entityInstance)                     │
-│     queryKey: ['entityInstanceData', 'project', params]                      │
-│     data: { data: [...], ref_data_entityInstance: {...}, metadata: {...} }   │
-│                       │                                                      │
-│                       │ ← WebSocket INVALIDATE triggers refetch (v9.3.0)     │
-│                       │                                                      │
-│                       ▼ `select` option (ON READ)                            │
+│  PAGE LEVEL (EntityListOfInstancesPage or EntitySpecificInstancePage)        │
+│  ─────────────────────────────────────────────────────────────────────────  │
 │                                                                              │
-│  2. formatDataset(raw.data, raw.metadata.entityListOfInstancesTable, raw.ref_data_entityInstance)      │
-│                       │                                                      │
-│                       ├── Loop: formatRow(row, viewType, refData)            │
-│                       │                                                      │
-│                       ├── Per field: formatValue(value, key, viewType[key])  │
-│                       │    └── Switch on viewType[key].renderType            │
-│                       │        ├── 'currency' → formatCurrency()             │
-│                       │        ├── 'date' → formatDate()                     │
-│                       │        ├── 'badge' → formatBadge() + style lookup    │
-│                       │        └── 'text' → String(value)                    │
-│                       │                                                      │
-│                       ├── For entity refs: Check viewType[key].renderType    │
-│                       │    └── 'entityInstanceId' → use lookupEntity         │
-│                       │        └── ref_data_entityInstance[lookupEntity][uuid]              │
-│                       │                                                      │
-│                       └── Returns: FormattedRow[]                            │
+│  // QUERY 1: Metadata (30-min cache)                                         │
+│  const { viewType, editType } = useEntityInstanceMetadata(entityCode);      │
+│  const metadata = useMemo(() => ({ viewType, editType }), [...]);           │
 │                                                                              │
-│  3. Component receives FormattedRow[]                                        │
-│     {                                                                        │
-│       raw: { budget: 50000, manager__employee_id: 'uuid-james' },            │
-│       display: { budget: '$50,000.00', manager__employee_id: 'James Miller'},│
-│       styles: {}                                                             │
-│     }                                                                        │
+│  // QUERY 2: Data (5-min cache)                                              │
+│  const { data: rawData, refData } = useEntityInstanceData(entityCode);      │
+│                                                                              │
+│  // FORMAT-AT-READ (via useMemo, NOT select)                                 │
+│  const formattedData = useMemo(() => {                                      │
+│    return formatDataset(rawData, metadata, refData);                        │
+│  }, [rawData, metadata, refData]);                                          │
+│                                                                              │
+│  FORMATTER EXECUTION:                                                        │
+│  ────────────────────                                                        │
+│  formatDataset(rawData, metadata, refData)                                  │
+│    └── Loop: formatRow(row, viewType, refData)                              │
+│        └── Per field: formatValue(value, key, viewType[key])                │
+│            └── Switch on viewType[key].renderType                            │
+│                ├── 'currency' → formatCurrency()                            │
+│                ├── 'date' → formatDate()                                    │
+│                ├── 'badge' → formatBadge() + getDatalabelSync()             │
+│                ├── 'entityInstanceId' → refData[lookupEntity][uuid]         │
+│                └── 'text' → String(value)                                   │
+│                                                                              │
+│  COMPONENT RECEIVES FormattedRow[]:                                          │
+│  ──────────────────────────────────                                          │
+│  {                                                                           │
+│    raw: { budget: 50000, manager__employee_id: 'uuid-james' },              │
+│    display: { budget: '$50,000.00', manager__employee_id: 'James Miller'},  │
+│    styles: { dl__project_stage: 'bg-blue-100 text-blue-700' }               │
+│  }                                                                           │
+│                                                                              │
+│  WebSocket INVALIDATE → TanStack invalidates → auto-refetch → useMemo runs  │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -580,25 +590,26 @@ See `docs/caching/TANSTACK_DEXIE_SYNC_ARCHITECTURE.md` for full sync architectur
 
 ---
 
-**Version:** 9.3.0 | **Updated:** 2025-11-30
+**Version:** 9.6.0 | **Updated:** 2025-12-01
 
 **Recent Updates:**
+- v9.6.0 (2025-12-01):
+  - **Two-Query Architecture** - Metadata and data fetched separately
+  - `useEntityInstanceMetadata()` returns `{ viewType, editType }` directly (30-min cache)
+  - `useEntityInstanceData()` returns `{ data, refData }` (5-min cache)
+  - Page constructs metadata structure for each component:
+    - `EntityListOfInstancesTable`: `{ viewType, editType }`
+    - `EntityInstanceFormContainer`: `{ entityInstanceFormContainer: { viewType, editType } }`
+  - Format-at-read via `useMemo` at page level (not TanStack `select`)
+  - Updated architecture diagrams
 - v9.3.0 (2025-11-30):
   - **TanStack Query + Dexie v4** - Replaced RxDB with TanStack Query + Dexie
-  - Updated data flow diagrams for new architecture
   - Added Dexie v4 table reference (8 unified tables)
-  - `useEntityMetadata` hook for metadata-only requests
   - WebSocketManager replaces ReplicationManager
 - v9.1.0 (2025-11-28):
   - Removed RxDB completely (TanStack Query + Dexie migration)
-  - Updated all RxDB references to Dexie
-- v11.0.0 (2025-11-27):
-  - Standardized naming: `entityInstanceId` (camelCase) for both `renderType` and `inputType`
-  - Removed `viewType`/`editType` field properties - use `renderType`/`inputType` instead
-  - Aligned with backend v11.0.0 (PATTERN_RULES removal)
 - v8.3.2 (2025-11-27):
   - Renamed ColoredDropdown → BadgeDropdownSelect
-  - Added `BadgeDropdownSelect` as valid inputType in renderEditModeFromMetadata
-  - `EntityInstanceFormContainer_viz_container` is now object `{ view?: string; edit?: string }`
+  - Added `BadgeDropdownSelect` as valid inputType
 - v8.3.1 (2025-11-26): Removed all pattern detection, enforced metadata as source of truth
 - v8.3.0 (2025-11-26): Added ref_data_entityInstance resolution, useRefData hook
