@@ -1000,29 +1000,34 @@ function EntityCell({ value, fieldName, metadata, refData }) {
 │                         CACHING LAYERS                                       │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  LAYER 1: Redis Response Cache (24h TTL)                                    │
-│  ───────────────────────────────────────                                    │
+│  LAYER 1: Redis Response Cache (Backend - 24h TTL)                          │
+│  ─────────────────────────────────────────────────                          │
 │  • Key: api:metadata:/api/v1/{entity}?content=metadata                      │
 │  • Value: Complete EntityResponse JSON                                      │
-│  • Purpose: Skip ALL processing on cache hit                                │
+│  • Purpose: Skip ALL backend processing on cache hit                        │
 │                                                                              │
-│  LAYER 2: Redis Field Name Cache (24h TTL)                                  │
-│  ─────────────────────────────────────────                                  │
+│  LAYER 2: Redis Field Name Cache (Backend - 24h TTL)                        │
+│  ───────────────────────────────────────────────────                        │
 │  • Key: entity:fields:{entityCode}                                          │
 │  • Value: ["id", "name", "code", ...]                                       │
 │  • Purpose: Fallback when data is empty                                     │
 │                                                                              │
-│  LAYER 3: Frontend TanStack Query Cache (30m staleTime)                     │
+│  LAYER 3: TanStack Query Cache (Frontend - 30m staleTime)                   │
 │  ─────────────────────────────────────────────────────                      │
-│  • Key: ['entityInstanceMetadata', entityCode]                              │
+│  • Key: [QUERY_KEYS.ENTITY_INSTANCE_METADATA, entityCode]                   │
 │  • Value: { fields, viewType, editType }                                    │
+│  • Access: import { useEntityMetadata } from '@/db/tanstack-index'          │
 │  • Purpose: In-memory cache for current session                             │
 │                                                                              │
-│  LAYER 4: Frontend Dexie IndexedDB (persistent)                             │
-│  ──────────────────────────────────────────────                             │
+│  LAYER 4: Dexie IndexedDB (Frontend - persistent)                           │
+│  ─────────────────────────────────────────────────                          │
 │  • Table: entityInstanceMetadata                                            │
 │  • Key: entityCode                                                          │
+│  • Access: import { db } from '@/db/tanstack-index'                         │
 │  • Purpose: Offline-first, survives browser restart                         │
+│                                                                              │
+│  NOTE: All frontend cache imports from single entry point:                  │
+│        import { ... } from '@/db/tanstack-index';                           │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -1068,12 +1073,13 @@ Metadata Request Arrives
 | Entity Metadata Caching | `docs/caching-backend/ENTITY_METADATA_CACHING.md` | Redis caching architecture |
 | Entity Infrastructure Service | `docs/services/entity-infrastructure.service.md` | CRUD + ref_data_entityInstance |
 | Frontend Formatter Service | `docs/services/frontEndFormatterService.md` | Frontend rendering (pure renderer) |
-| State Management | `docs/state_management/STATE_MANAGEMENT.md` | TanStack Query + Dexie |
+| Unified Cache Architecture | `docs/caching-frontend/NORMALIZED_CACHE_ARCHITECTURE.md` | TanStack Query + Dexie unified cache |
+| State Management | `docs/state_management/STATE_MANAGEMENT.md` | Frontend state management overview |
 
 ---
 
-**Document Version**: 4.0.0
-**Last Updated**: 2025-11-30
+**Document Version**: 4.1.0
+**Last Updated**: 2025-12-01
 **Status**: Production Ready
 
 ### Version History
@@ -1084,3 +1090,4 @@ Metadata Request Arrives
 | 2.0.0 | 2025-11-25 | Added viewType/editType separation |
 | 3.0.0 | 2025-11-28 | Added ref_data_entityInstance integration |
 | 4.0.0 | 2025-11-30 | Complete rewrite with end-to-end architecture, cache integration |
+| 4.1.0 | 2025-12-01 | Updated frontend cache references to unified tanstack-index.ts |

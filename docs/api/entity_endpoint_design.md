@@ -484,25 +484,68 @@ CREATE TABLE app.system_cache_subscription (
 
 ## 11. Frontend Integration
 
-### 4-Layer Normalized Cache
+### Unified Cache Architecture (v9.4.0)
 
 ```
-Layer 1: Entity Codes     → Entity type metadata (icon, label, children)
-Layer 2: Entity Instances → Instance registry (id → name lookup)
-Layer 3: Entity Links     → Parent-child relationship graph
-Layer 4: Entity Names     → ref_data_entityInstance for O(1) name resolution
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    UNIFIED CACHE ARCHITECTURE                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  PUBLIC API: db/tanstack-index.ts                                           │
+│  ─────────────────────────────────                                           │
+│  • Single entry point for all cache operations                              │
+│  • Exports hooks, stores, constants, types, and utilities                   │
+│                                                                              │
+│  LAYERS:                                                                    │
+│  ┌─────────────────────┐  ┌─────────────────────┐  ┌────────────────────┐  │
+│  │  TanStack Query     │  │  Sync Stores        │  │  Dexie (IndexedDB) │  │
+│  │  (In-Memory)        │  │  (Non-Hook Access)  │  │  (Persistent)      │  │
+│  │                     │  │                     │  │                    │  │
+│  │  • useEntity        │  │  • getDatalabelSync │  │  • Offline-first   │  │
+│  │  • useEntityList    │  │  • getEntityCodesSync│  │  • Survives restart│  │
+│  │  • useDatalabel     │  │  • getSettingSync   │  │  • Multi-tab sync  │  │
+│  │  • useEntityCodes   │  │                     │  │                    │  │
+│  └─────────────────────┘  └─────────────────────┘  └────────────────────┘  │
+│                                                                              │
+│  REAL-TIME: WebSocket Manager (port 4001)                                   │
+│  ────────────────────────────────────────                                    │
+│  • INVALIDATE messages → queryClient.invalidateQueries()                    │
+│  • Auto-refetch stale data                                                  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### React Hooks
 
 ```typescript
-// TanStack Query + Dexie (IndexedDB)
+// All imports from unified entry point
+import {
+  // Data hooks
+  useEntity,
+  useEntityList,
+  useEntityMutation,
+  useDraft,
+
+  // Metadata hooks
+  useDatalabel,
+  useEntityCodes,
+  useGlobalSettings,
+  useEntityMetadata,
+
+  // Sync cache (non-hook access for formatters)
+  getDatalabelSync,
+  getEntityCodesSync,
+  getSettingSync,
+
+  // Prefetch functions
+  prefetchAllDatalabels,
+  prefetchEntityCodes,
+} from '@/db/tanstack-index';
+
+// Usage examples
 const { data, isLoading } = useEntity('project', projectId);
 const { data: projects, total } = useEntityList('project', { limit: 50 });
 const { updateEntity, deleteEntity } = useEntityMutation('project');
-
-// Sync cache (non-hook access)
-import { getDatalabelSync, getEntityCodesSync } from '@/db/tanstack-index';
 ```
 
 ---
