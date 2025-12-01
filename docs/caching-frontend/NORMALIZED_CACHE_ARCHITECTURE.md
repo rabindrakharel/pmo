@@ -797,7 +797,79 @@ function ProjectForm({ projectId }: { projectId: string }) {
 
 ---
 
-## 8. Benefits Summary
+## 8. Quick Reference Tables
+
+### 8.1 Store Types & Data Flow
+
+| Store | Type | TanStack Query Key | Dexie Table | Hydration Source | API Endpoint |
+|-------|------|-------------------|-------------|------------------|--------------|
+| `globalSettingsStore` | Session | `globalSettings` | `globalSettings` | Dexie → TanStack at app start | `GET /api/v1/settings` |
+| `datalabelStore` | Session | `['datalabel', key]` | `datalabel` | Dexie → TanStack at app start | `GET /api/v1/datalabel/{key}` |
+| `entityCodesStore` | Session | `entityCodes` | `entityCodes` | Dexie → TanStack at app start | `GET /api/v1/entity/types` |
+| `entityInstanceNamesStore` | Session | `['entityInstanceNames', code]` | `entityInstanceNames` | Dexie → TanStack at app start | `GET /api/v1/entity-instance/names` |
+| `entityLinksStore` | On-Demand | `['entityLinks', parent, id]` | `entityLinkForward`, `entityLinkReverse` | API on first access | `GET /api/v1/entity-instance-link` |
+| `entityInstanceMetadataStore` | On-Demand | `['entityInstanceMetadata', code]` | `entityInstanceMetadata` | API on first access | `GET /api/v1/{entity}?content=metadata` |
+| Entity Data (no store) | On-Demand | `['entityInstanceData', code, params]` | `entityInstanceData` | API on component mount | `GET /api/v1/{entity}` |
+| Drafts (no store) | User Data | `['draft', code, id]` | `draft` | Dexie only (never API) | N/A (local only) |
+
+### 8.2 Lifecycle & Timing
+
+| Store | When Hydrated | When API Called | Stale Time | Persist TTL |
+|-------|---------------|-----------------|------------|-------------|
+| `globalSettingsStore` | App startup | Login (`prefetchAllMetadata`) | 30 min | 24 hours |
+| `datalabelStore` | App startup | Login (`prefetchAllMetadata`) | 10 min | 24 hours |
+| `entityCodesStore` | App startup | Login (`prefetchAllMetadata`) | 30 min | 24 hours |
+| `entityInstanceNamesStore` | App startup | Login (`prefetchAllMetadata`) | 10 min | 24 hours |
+| `entityLinksStore` | Never (on-demand) | Component mounts | 10 min | 24 hours |
+| `entityInstanceMetadataStore` | Never (on-demand) | Component mounts | 30 min | 24 hours |
+| Entity Data | Never (on-demand) | Component mounts | 5 min | 24 hours |
+| Drafts | App startup | Never | N/A | Until saved |
+
+### 8.3 Access Patterns
+
+| Store | React Hook | Sync Function (non-React) | Use Case |
+|-------|-----------|---------------------------|----------|
+| `globalSettingsStore` | `useGlobalSettings()` | `getGlobalSettingsSync()` | App configuration |
+| `datalabelStore` | `useDatalabel(key)` | `getDatalabelSync(key)` | Dropdown options, badge colors |
+| `entityCodesStore` | `useEntityCodes()` | `getEntityCodeSync(code)`, `getEntityCodesSync()`, `getChildEntityCodesSync(code)` | Navigation, child tabs |
+| `entityInstanceNamesStore` | `useEntityInstanceNames(code)` | `getEntityInstanceNameSync(code, id)`, `getEntityInstanceNamesForTypeSync(code)` | UUID → display name |
+| `entityLinksStore` | `useEntityLinks(parent, id)` | `getChildIdsSync(parent, parentId, child)`, `getParentsSync(child, childId)` | Parent-child navigation |
+| `entityInstanceMetadataStore` | `useEntityMetadata(code)` | N/A | Field metadata for forms/tables |
+| Entity Data | `useEntity(code, id)`, `useEntityInstanceData(code, params)` | N/A | List/detail views |
+| Drafts | `useDraft(code, id)` | N/A | Form editing with undo/redo |
+
+### 8.4 Cache Data Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         CACHE DATA FLOW                                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  APP STARTUP                           LOGIN                                 │
+│  ──────────                            ─────                                 │
+│  1. TanstackCacheProvider mounts       1. prefetchAllMetadata()              │
+│  2. hydrateFromDexie()                 2. Parallel API calls:                │
+│     ↓                                     • /api/v1/entity/types             │
+│  Dexie → Sync Stores → TanStack           • /api/v1/datalabel/all           │
+│                                           • /api/v1/settings                 │
+│                                           • /api/v1/entity-instance/names    │
+│                                        3. Update Sync Stores + Dexie         │
+│                                                                              │
+│  COMPONENT MOUNT (On-Demand)           WEBSOCKET INVALIDATE                  │
+│  ───────────────────────────           ────────────────────                  │
+│  1. useEntityInstanceData('task')      1. wsManager receives INVALIDATE      │
+│  2. Check TanStack cache               2. invalidateEntityQueries()          │
+│  3. If STALE/MISS → API call           3. TanStack marks queries stale       │
+│  4. Update TanStack + Dexie            4. Active components auto-refetch     │
+│  5. Update entityInstanceNamesStore    5. Dexie updated in background        │
+│     from ref_data_entityInstance                                             │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 9. Performance Benefits
 
 | Metric | Without Cache | With Cache |
 |--------|---------------|------------|
@@ -810,9 +882,9 @@ function ProjectForm({ projectId }: { projectId: string }) {
 
 ---
 
-## 9. Migration from Previous Architecture
+## 10. Migration from Previous Architecture
 
-### 9.1 Import Changes
+### 10.1 Import Changes
 
 ```typescript
 // OLD (v2.0 - deleted directories)
@@ -828,7 +900,7 @@ import {
 } from '@/db/tanstack-index';
 ```
 
-### 9.2 Removed Features
+### 10.2 Removed Features
 
 - `CacheConfigProvider` - Cache is always enabled
 - `useCacheConfig` - No runtime cache configuration
@@ -836,7 +908,7 @@ import {
 - `normalized-cache/` directory - Consolidated into `cache/`
 - `tanstack-hooks/` directory - Consolidated into `cache/hooks/`
 
-### 9.3 New Features
+### 10.3 New Features
 
 - Single public API entry point
 - Unified query keys (`QUERY_KEYS`, `DEXIE_KEYS`)
@@ -846,7 +918,7 @@ import {
 
 ---
 
-**Version:** 3.0.0
+**Version:** 3.1.0
 **Last Updated:** 2025-12-01
 **Status:** Implementation Complete
 
@@ -857,3 +929,4 @@ import {
 | 1.0.0 | 2025-11-25 | Initial 4-layer normalized cache |
 | 2.0.0 | 2025-11-29 | Added adapters, configuration, WebSocket |
 | 3.0.0 | 2025-12-01 | Unified architecture with single entry point |
+| 3.1.0 | 2025-12-01 | Added quick reference tables (stores, lifecycle, access patterns) |
