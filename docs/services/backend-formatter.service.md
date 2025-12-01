@@ -1,154 +1,556 @@
-# Backend Formatter Service (BFF)
+# Backend Formatter Service
 
-**Version:** 9.3.0 | **Location:** `apps/api/src/services/backend-formatter.service.ts` | **Updated:** 2025-11-30
+> Complete reference for field metadata generation, YAML pattern matching, and API response formatting. Backend is the single source of truth for all field rendering.
 
-> **Note:** The backend formatter generates metadata consumed by the TanStack Query + Dexie frontend (v9.3.0). Field names are cached in Redis (24-hour TTL) to ensure metadata generation works even for empty result sets. Supports `content=metadata` API parameter for metadata-only requests.
+**Version**: 4.0.0
+**Location**: `apps/api/src/services/backend-formatter.service.ts`
+**Last Updated**: 2025-11-30
+**Status**: Production Ready
 
 ---
 
-## Overview
+## Table of Contents
 
-The Backend Formatter Service generates **component-aware field metadata** from database column names. It is the **single source of truth** for all field rendering and editing behavior.
+1. [Architecture Overview](#architecture-overview)
+2. [End-to-End Data Flow](#end-to-end-data-flow)
+3. [Pattern Detection System](#pattern-detection-system)
+4. [Response Generation](#response-generation)
+5. [Metadata Structure](#metadata-structure)
+6. [Use Case Matrix](#use-case-matrix)
+7. [API Reference](#api-reference)
+8. [YAML Configuration](#yaml-configuration)
+9. [Integration Patterns](#integration-patterns)
+10. [Caching Layer](#caching-layer)
 
-**Core Principle:** Backend decides HOW every field is displayed and edited. Frontend executes without pattern detection.
+---
+
+## Architecture Overview
+
+### System Design Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  BFF METADATA GENERATION                                                     │
+│                    BACKEND IS SINGLE SOURCE OF TRUTH                         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  Column Name: "manager__employee_id"                                         │
-│                       │                                                      │
-│                       ▼                                                      │
-│  ┌─────────────────────────────────────────────────────────────────────┐     │
-│  │  STEP 1: Pattern Detection (Backend Only)                           │     │
-│  │  Match: "*__*_id" → fieldBusinessType: "entity_reference"           │     │
-│  │  Extract entity: "employee"                                          │     │
-│  └─────────────────────────────────────────────────────────────────────┘     │
-│                       │                                                      │
-│           ┌───────────┴───────────┐                                          │
-│           ▼                       ▼                                          │
-│  ┌─────────────────┐   ┌─────────────────┐                                   │
-│  │ renderType:     │   │ inputType:      │                                   │
-│  │  'entityInstance│   │  'entityInstance│                                   │
-│  │      Id'        │   │      Id'        │                                   │
-│  │ lookupEntity:   │   │ lookupEntity:   │                                   │
-│  │  'employee'     │   │  'employee'     │                                   │
-│  └─────────────────┘   └─────────────────┘                                   │
-│                       │                                                      │
-│                       ▼                                                      │
-│  API Response includes:                                                      │
-│  • metadata.entityListOfInstancesTable.viewType.manager__employee_id                    │
-│  • ref_data_entityInstance.employee = { "uuid-1": "James Miller", ... }                     │
+│  ┌───────────────────┐    ┌───────────────────┐    ┌───────────────────┐   │
+│  │   DATABASE        │ →  │  BACKEND SERVICE  │ →  │   FRONTEND        │   │
+│  │                   │    │                   │    │                   │   │
+│  │  Column names     │    │  YAML patterns    │    │  Pure renderer    │   │
+│  │  • budget_amt     │    │  • *_amt → $      │    │  • No detection   │   │
+│  │  • dl__status     │    │  • dl__* → badge  │    │  • Consume only   │   │
+│  │  • manager_id     │    │  • *_id → entity  │    │  • Render meta    │   │
+│  └───────────────────┘    └───────────────────┘    └───────────────────┘   │
 │                                                                              │
-│  Frontend uses metadata.lookupEntity (NO pattern matching)                   │
+│  ANTI-PATTERN: Frontend pattern detection (parsing column names on client)  │
+│  CORRECT: Frontend consumes metadata.viewType/editType from backend         │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Component Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       BACKEND FORMATTER SERVICE                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │                         ENTRY POINTS                                     ││
+│  ├─────────────────────────────────────────────────────────────────────────┤│
+│  │                                                                          ││
+│  │  generateEntityResponse()         Primary API for routes                 ││
+│  │  ─────────────────────────        ────────────────────                   ││
+│  │  • Accepts entity code + data     • Returns unified response             ││
+│  │  • Handles metadata-only mode     • Builds ref_data from entity-infra    ││
+│  │  • Caches metadata in Redis       • Supports all components              ││
+│  │                                                                          ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                     │                                        │
+│                                     ▼                                        │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │                      METADATA GENERATION                                 ││
+│  ├─────────────────────────────────────────────────────────────────────────┤│
+│  │                                                                          ││
+│  │  generateMetadataForComponents()   generateViewTypeMetadata()            ││
+│  │  ───────────────────────────────   ──────────────────────────           ││
+│  │  • For each component type         • YAML pattern matching               ││
+│  │  • Generates viewType + editType   • Field-to-renderType mapping        ││
+│  │  • entityListOfInstancesTable      • behavior + style generation        ││
+│  │  • entityInstanceFormContainer                                           ││
+│  │                                                                          ││
+│  │  generateEditTypeMetadata()        detectFieldType()                     ││
+│  │  ──────────────────────────        ─────────────────                    ││
+│  │  • YAML pattern matching           • Column name → dtype                 ││
+│  │  • Field-to-inputType mapping      • uuid, str, float, bool, etc.       ││
+│  │  • lookupSource detection          • Pattern-based detection             ││
+│  │                                                                          ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                     │                                        │
+│                                     ▼                                        │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │                         YAML MAPPINGS                                    ││
+│  ├─────────────────────────────────────────────────────────────────────────┤│
+│  │                                                                          ││
+│  │  pattern-mapping.yaml      view-type-mapping.yaml   edit-type-mapping.yaml
+│  │  ────────────────────      ──────────────────────   ─────────────────────
+│  │  • Column patterns         • renderType mappings    • inputType mappings ││
+│  │  • dl__* → datalabel       • currency, badge, date  • text, select, date││
+│  │  • *_amt → currency        • entityInstanceId       • entityInstanceId  ││
+│  │  • *__*_id → entity ref    • behavior defaults      • validation rules  ││
+│  │                                                                          ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Unified API Response Structure (v9.3.0)
+## End-to-End Data Flow
 
-The backend serves **both data and metadata from the same endpoint**. The response structure is **always identical** regardless of mode - only the values differ.
+### Normal Data Mode
 
-### Single Endpoint, Two Modes
-
-| Mode | Request | Use Case |
-|------|---------|----------|
-| **Normal** | `GET /api/v1/project` | Full data + metadata |
-| **Metadata-only** | `GET /api/v1/project?content=metadata` | Field definitions only |
-
-### Response Structure (Always the Same)
-
-```typescript
-interface EntityAPIResponse {
-  data: any[];                    // Entity records ([] for metadata-only)
-  fields: string[];               // Field names (always populated)
-  metadata: {                     // Field definitions (always populated)
-    entityListOfInstancesTable: { viewType: {...}, editType: {...} },
-    entityInstanceFormContainer: { viewType: {...}, editType: {...} }
-  };
-  ref_data_entityInstance: Record<string, Record<string, string>>;  // Entity lookups ({} for metadata-only)
-  total: number;                  // Record count (0 for metadata-only)
-  limit: number;                  // Page size (0 for metadata-only)
-  offset: number;                 // Page offset (0 for metadata-only)
-}
+```
+┌──────────┐     ┌───────────────┐     ┌────────────────────┐     ┌──────────┐
+│  Client  │     │ Route Handler │     │ Backend Formatter  │     │ Entity   │
+│          │     │               │     │ Service            │     │ Infra    │
+└────┬─────┘     └───────┬───────┘     └──────────┬─────────┘     └────┬─────┘
+     │                   │                        │                    │
+     │ GET /api/v1/project                        │                    │
+     │──────────────────>│                        │                    │
+     │                   │                        │                    │
+     │                   │ Query PostgreSQL       │                    │
+     │                   │ (full data query)      │                    │
+     │                   │                        │                    │
+     │                   │ build_ref_data_entityInstance(rows)         │
+     │                   │─────────────────────────────────────────────>
+     │                   │                        │                    │
+     │                   │                        │     ref_data       │
+     │                   │<─────────────────────────────────────────────
+     │                   │                        │                    │
+     │                   │ generateEntityResponse(entityCode, rows,    │
+     │                   │   { ref_data_entityInstance })              │
+     │                   │───────────────────────>│                    │
+     │                   │                        │                    │
+     │                   │     { data, ref_data_entityInstance,        │
+     │                   │       fields: [], metadata: {} }            │
+     │                   │<───────────────────────│                    │
+     │                   │                        │                    │
+     │ Response with data + ref_data              │                    │
+     │<──────────────────│                        │                    │
 ```
 
-### Comparison: Normal vs Metadata-Only
+### Metadata-Only Mode
 
-| Field | Normal Mode | Metadata-Only Mode |
-|-------|-------------|-------------------|
-| `data` | `[{id: "...", name: "..."}]` | `[]` |
-| `fields` | `["id", "name", "code", ...]` | `["id", "name", "code", ...]` |
-| `metadata` | Full viewType/editType | Full viewType/editType |
-| `ref_data_entityInstance` | `{employee: {"uuid": "Name"}}` | `{}` |
-| `total` | `100` | `0` |
-| `limit` | `20` | `0` |
-| `offset` | `0` | `0` |
+```
+┌──────────┐     ┌───────────────┐     ┌────────────────────┐     ┌──────────┐
+│  Client  │     │ Route Handler │     │ Backend Formatter  │     │  Redis   │
+│          │     │               │     │ Service            │     │          │
+└────┬─────┘     └───────┬───────┘     └──────────┬─────────┘     └────┬─────┘
+     │                   │                        │                    │
+     │ GET /api/v1/project?content=metadata       │                    │
+     │──────────────────>│                        │                    │
+     │                   │                        │                    │
+     │                   │ getCachedMetadataResponse()                 │
+     │                   │─────────────────────────────────────────────>
+     │                   │                        │                    │
+     │                   │                        │     CACHE HIT      │
+     │                   │<─────────────────────────────────────────────
+     │                   │                        │                    │
+     │ { data: [], fields: [...], metadata: {...} }                    │
+     │<──────────────────│                        │                    │
 
-### Why Same Structure?
 
-1. **Frontend simplicity**: Same TypeScript interface for both modes
-2. **Cache compatibility**: TanStack Query stores same shape
-3. **Graceful degradation**: Empty data still has metadata for table headers
-4. **Progressive loading**: Metadata first, data second
+                    CACHE MISS FLOW
+                    ───────────────
+
+     │ GET /api/v1/project?content=metadata       │                    │
+     │──────────────────>│                        │                    │
+     │                   │                        │                    │
+     │                   │ getCachedMetadataResponse()                 │
+     │                   │─────────────────────────────────────────────>
+     │                   │                        │     null (MISS)    │
+     │                   │<─────────────────────────────────────────────
+     │                   │                        │                    │
+     │                   │ Query: SELECT * FROM table WHERE 1=0       │
+     │                   │ (instant - no data, just column metadata)   │
+     │                   │                        │                    │
+     │                   │ generateEntityResponse(entityCode, [],      │
+     │                   │   { metadataOnly: true, resultFields })     │
+     │                   │───────────────────────>│                    │
+     │                   │                        │                    │
+     │                   │   generateMetadataForComponents()           │
+     │                   │   (YAML pattern matching)                   │
+     │                   │                        │                    │
+     │                   │     { data: [], fields, metadata }          │
+     │                   │<───────────────────────│                    │
+     │                   │                        │                    │
+     │                   │ cacheMetadataResponse()                     │
+     │                   │─────────────────────────────────────────────>
+     │                   │                        │                    │
+     │ { data: [], fields: [...], metadata: {...} }                    │
+     │<──────────────────│                        │                    │
+```
 
 ---
 
-## API Response Structure (v8.3.1)
+## Pattern Detection System
+
+### Column Name → Field Type Mapping
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       PATTERN DETECTION PIPELINE                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Column Name                Pattern Match               Field Configuration │
+│  ───────────                ─────────────               ─────────────────── │
+│                                                                              │
+│  budget_allocated_amt  ──>  *_amt                  ──>  dtype: float        │
+│                                                         renderType: currency│
+│                                                         inputType: number   │
+│                                                         style: {symbol:'$'} │
+│                                                                              │
+│  dl__project_stage     ──>  dl__*                  ──>  dtype: str          │
+│                                                         renderType: badge   │
+│                                                         inputType: select   │
+│                                                         lookupSource:datalabel
+│                                                         datalabelKey: dl__project_stage
+│                                                                              │
+│  manager__employee_id  ──>  {label}__{entity}_id   ──>  dtype: uuid         │
+│                                                         renderType: entityInstanceId
+│                                                         inputType: entityInstanceId
+│                                                         lookupEntity: employee
+│                                                         lookupSource: entityInstance
+│                                                                              │
+│  business_id           ──>  {entity}_id            ──>  dtype: uuid         │
+│                                                         renderType: entityInstanceId
+│                                                         lookupEntity: business │
+│                                                                              │
+│  start_date            ──>  *_date                 ──>  dtype: date         │
+│                                                         renderType: date    │
+│                                                         inputType: date     │
+│                                                                              │
+│  created_ts            ──>  *_ts                   ──>  dtype: timestamp    │
+│                                                         renderType: timestamp
+│                                                         inputType: datetime │
+│                                                                              │
+│  is_active             ──>  is_*                   ──>  dtype: bool         │
+│                                                         renderType: boolean │
+│                                                         inputType: checkbox │
+│                                                                              │
+│  active_flag           ──>  *_flag                 ──>  dtype: bool         │
+│                                                         renderType: boolean │
+│                                                                              │
+│  completion_pct        ──>  *_pct                  ──>  dtype: float        │
+│                                                         renderType: percentage
+│                                                                              │
+│  tags                  ──>  tags                   ──>  dtype: array        │
+│                                                         renderType: array   │
+│                                                         inputType: tags     │
+│                                                                              │
+│  metadata              ──>  metadata               ──>  dtype: jsonb        │
+│                                                         renderType: json    │
+│                                                         inputType: json     │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Pattern Detection Priority Order
+
+| Priority | Pattern | Example | Detection Logic |
+|----------|---------|---------|-----------------|
+| 1 | `{label}__{entity}_ids` | `stakeholder__employee_ids` | Labeled multi-entity reference |
+| 2 | `{label}__{entity}_id` | `manager__employee_id` | Labeled single entity reference |
+| 3 | `{entity}_ids` | `tag_ids` | Simple multi-entity reference |
+| 4 | `{entity}_id` | `business_id` | Simple single entity reference |
+| 5 | `dl__*` | `dl__project_stage` | Datalabel dropdown |
+| 6 | `*_amt`, `*_price`, `*_cost` | `budget_allocated_amt` | Currency field |
+| 7 | `*_date` | `start_date` | Date field |
+| 8 | `*_ts`, `*_at` | `created_ts`, `updated_at` | Timestamp field |
+| 9 | `is_*`, `*_flag` | `is_active`, `active_flag` | Boolean field |
+| 10 | `*_pct` | `completion_pct` | Percentage field |
+| 11 | `tags` | `tags` | Tag array field |
+| 12 | `metadata` | `metadata` | JSON field |
+| 13 | `id`, `code`, `name`, `descr` | Standard fields | Text fields |
+| 14 | Default | Any other | String text field |
+
+### Entity Reference Pattern Details
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    ENTITY REFERENCE PATTERNS                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Pattern Type                Example                  Parsed Components      │
+│  ────────────                ───────                  ─────────────────      │
+│                                                                              │
+│  LABELED SINGLE              manager__employee_id     label: "manager"       │
+│  {label}__{entity}_id                                 entity: "employee"     │
+│                                                       type: single           │
+│                                                                              │
+│  LABELED ARRAY               stakeholder__employee_ids label: "stakeholder" │
+│  {label}__{entity}_ids                                entity: "employee"     │
+│                                                       type: array            │
+│                                                                              │
+│  SIMPLE SINGLE               business_id              entity: "business"     │
+│  {entity}_id                                          type: single           │
+│                                                       label: (auto-gen)      │
+│                                                                              │
+│  SIMPLE ARRAY                tag_ids                  entity: "tag"          │
+│  {entity}_ids                                         type: array            │
+│                                                       label: (auto-gen)      │
+│                                                                              │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  METADATA OUTPUT:                                                            │
+│                                                                              │
+│  manager__employee_id: {                                                     │
+│    dtype: "uuid",                                                            │
+│    label: "Manager Employee Name",  // label + entity + "Name"               │
+│    renderType: "entityInstanceId",                                           │
+│    lookupEntity: "employee",                                                 │
+│    lookupSource: "entityInstance"                                            │
+│  }                                                                           │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Response Generation
+
+### generateEntityResponse() Flow
+
+```typescript
+// Primary entry point for all entity routes
+
+export async function generateEntityResponse(
+  entityCode: string,
+  data: any[],
+  options: {
+    components?: ComponentName[];        // Default: ['entityListOfInstancesTable']
+    total?: number;                       // For pagination
+    limit?: number;
+    offset?: number;
+    resultFields?: Array<{ name: string }>;  // PostgreSQL column descriptors
+    metadataOnly?: boolean;               // Skip data, return metadata only
+    ref_data_entityInstance?: Record<string, Record<string, string>>;
+  } = {}
+): Promise<EntityResponse>
+```
+
+### Response Structure by Mode
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         RESPONSE STRUCTURES                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  DATA MODE (content=undefined)           METADATA MODE (content=metadata)   │
+│  ─────────────────────────────           ────────────────────────────────   │
+│                                                                              │
+│  {                                       {                                   │
+│    data: [                                 data: [],                         │
+│      { id, name, budget_amt, ... },                                         │
+│      { id, name, budget_amt, ... }         fields: [                        │
+│    ],                                        "id",                           │
+│                                              "name",                         │
+│    fields: [],                               "budget_allocated_amt",         │
+│                                              "dl__project_stage",            │
+│    metadata: {},                             "manager__employee_id"          │
+│                                            ],                                │
+│    ref_data_entityInstance: {                                               │
+│      employee: {                           metadata: {                       │
+│        "uuid-james": "James Miller"          entityListOfInstancesTable: {  │
+│      },                                        viewType: { ... },           │
+│      business: {                               editType: { ... }            │
+│        "uuid-bus": "Huron Home"              }                               │
+│      }                                       },                              │
+│    },                                                                        │
+│                                            ref_data_entityInstance: {},      │
+│    total: 100,                                                               │
+│    limit: 20,                              total: 0,                         │
+│    offset: 0                               limit: 0,                         │
+│  }                                         offset: 0                         │
+│                                          }                                   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Metadata Structure
+
+### viewType Schema
+
+```typescript
+interface ViewTypeMetadata {
+  [fieldName: string]: {
+    // Core type information
+    dtype: 'uuid' | 'str' | 'int' | 'float' | 'bool' | 'date' | 'timestamp' | 'array' | 'jsonb';
+    label: string;                    // Human-readable label
+    renderType: RenderType;           // Component to use for rendering
+
+    // Entity reference fields
+    lookupEntity?: string;            // Entity code for lookups (e.g., 'employee')
+    lookupSource?: 'entityInstance' | 'datalabel';
+
+    // Datalabel fields
+    datalabelKey?: string;            // Key for datalabel lookup (e.g., 'dl__project_stage')
+
+    // Behavior configuration
+    behavior: {
+      visible: boolean;               // Show in list/table view
+      sortable: boolean;              // Allow column sorting
+      filterable: boolean;            // Show in filter dropdown
+      searchable: boolean;            // Include in search
+    };
+
+    // Style configuration (renderType-specific)
+    style?: {
+      symbol?: string;                // Currency symbol ('$')
+      decimals?: number;              // Decimal places (2)
+      align?: 'left' | 'center' | 'right';
+      format?: string;                // Date/time format
+    };
+  };
+}
+```
+
+### editType Schema
+
+```typescript
+interface EditTypeMetadata {
+  [fieldName: string]: {
+    // Core type information
+    dtype: 'uuid' | 'str' | 'int' | 'float' | 'bool' | 'date' | 'timestamp' | 'array' | 'jsonb';
+    label: string;
+    inputType: InputType;             // Form input component to use
+
+    // Entity reference fields
+    lookupEntity?: string;
+    lookupSource?: 'entityInstance' | 'datalabel';
+
+    // Datalabel fields
+    datalabelKey?: string;
+
+    // Behavior configuration
+    behavior: {
+      editable: boolean;              // Can be edited
+      required?: boolean;             // Validation required
+      readonly?: boolean;             // Display-only in edit mode
+    };
+
+    // Validation rules
+    validation?: {
+      min?: number;                   // Minimum value
+      max?: number;                   // Maximum value
+      minLength?: number;             // String min length
+      maxLength?: number;             // String max length
+      pattern?: string;               // Regex pattern
+    };
+  };
+}
+```
+
+### Full Metadata Response Example
 
 ```json
 {
-  "data": [
-    {
-      "id": "uuid-123",
-      "name": "Kitchen Renovation",
-      "budget_allocated_amt": 50000,
-      "manager__employee_id": "uuid-james",
-      "dl__project_stage": "planning"
-    }
-  ],
-  "fields": ["id", "name", "budget_allocated_amt", "manager__employee_id", "dl__project_stage"],
-  "ref_data_entityInstance": {
-    "employee": {
-      "uuid-james": "James Miller"
-    }
-  },
   "metadata": {
     "entityListOfInstancesTable": {
       "viewType": {
+        "id": {
+          "dtype": "uuid",
+          "label": "Id",
+          "renderType": "text",
+          "behavior": { "visible": false, "sortable": false, "filterable": false, "searchable": false }
+        },
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "renderType": "text",
+          "behavior": { "visible": true, "sortable": true, "filterable": true, "searchable": true }
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "renderType": "text",
+          "behavior": { "visible": true, "sortable": true, "filterable": true, "searchable": true }
+        },
         "budget_allocated_amt": {
           "dtype": "float",
           "label": "Budget Allocated",
           "renderType": "currency",
-          "behavior": { "visible": true, "sortable": true },
+          "behavior": { "visible": true, "sortable": true, "filterable": false, "searchable": false },
           "style": { "symbol": "$", "decimals": 2, "align": "right" }
-        },
-        "manager__employee_id": {
-          "dtype": "uuid",
-          "label": "Manager Employee Name",
-          "renderType": "entityInstanceId",
-          "lookupSource": "entityInstance",
-          "lookupEntity": "employee",
-          "behavior": { "visible": true, "filterable": true }
         },
         "dl__project_stage": {
           "dtype": "str",
           "label": "Project Stage",
           "renderType": "badge",
-          "datalabelKey": "project_stage",
-          "behavior": { "visible": true, "filterable": true }
+          "datalabelKey": "dl__project_stage",
+          "behavior": { "visible": true, "sortable": false, "filterable": true, "searchable": false }
+        },
+        "manager__employee_id": {
+          "dtype": "uuid",
+          "label": "Manager Employee Name",
+          "renderType": "entityInstanceId",
+          "lookupEntity": "employee",
+          "lookupSource": "entityInstance",
+          "behavior": { "visible": true, "sortable": false, "filterable": true, "searchable": false }
+        },
+        "start_date": {
+          "dtype": "date",
+          "label": "Start Date",
+          "renderType": "date",
+          "behavior": { "visible": true, "sortable": true, "filterable": true, "searchable": false },
+          "style": { "format": "MMM d, yyyy" }
+        },
+        "active_flag": {
+          "dtype": "bool",
+          "label": "Active",
+          "renderType": "boolean",
+          "behavior": { "visible": false, "sortable": false, "filterable": true, "searchable": false }
+        },
+        "created_ts": {
+          "dtype": "timestamp",
+          "label": "Created",
+          "renderType": "timestamp",
+          "behavior": { "visible": true, "sortable": true, "filterable": false, "searchable": false },
+          "style": { "format": "MMM d, yyyy HH:mm" }
         }
       },
       "editType": {
+        "name": {
+          "dtype": "str",
+          "label": "Name",
+          "inputType": "text",
+          "behavior": { "editable": true, "required": true },
+          "validation": { "minLength": 1, "maxLength": 255 }
+        },
+        "code": {
+          "dtype": "str",
+          "label": "Code",
+          "inputType": "text",
+          "behavior": { "editable": true },
+          "validation": { "maxLength": 50 }
+        },
         "budget_allocated_amt": {
           "dtype": "float",
           "label": "Budget Allocated",
           "inputType": "number",
           "behavior": { "editable": true },
           "validation": { "min": 0 }
+        },
+        "dl__project_stage": {
+          "dtype": "str",
+          "label": "Project Stage",
+          "inputType": "select",
+          "lookupSource": "datalabel",
+          "datalabelKey": "dl__project_stage",
+          "behavior": { "editable": true }
         },
         "manager__employee_id": {
           "dtype": "uuid",
@@ -158,554 +560,492 @@ interface EntityAPIResponse {
           "lookupEntity": "employee",
           "behavior": { "editable": true }
         },
-        "dl__project_stage": {
-          "dtype": "str",
-          "label": "Project Stage",
-          "inputType": "select",
-          "lookupSource": "datalabel",
-          "datalabelKey": "project_stage",
+        "start_date": {
+          "dtype": "date",
+          "label": "Start Date",
+          "inputType": "date",
           "behavior": { "editable": true }
         }
       }
     }
-  },
-  "datalabels": {
-    "project_stage": [
-      { "name": "planning", "label": "Planning", "color_code": "blue" },
-      { "name": "in_progress", "label": "In Progress", "color_code": "yellow" }
-    ]
-  },
-  "total": 100,
-  "limit": 20,
-  "offset": 0
+  }
 }
 ```
 
 ---
 
-## Entity Reference Fields (v8.3.0)
+## Use Case Matrix
 
-### ref_data_entityInstance Pattern
+### Field Type Mapping Matrix
 
-Entity reference fields (`*_id`, `*__entity_id`) are resolved via `ref_data_entityInstance` lookup table instead of per-row embedded objects:
+| Column Pattern | dtype | renderType | inputType | lookupSource | Example |
+|----------------|-------|------------|-----------|--------------|---------|
+| `id` | uuid | text | - | - | Primary key |
+| `name` | str | text | text | - | Display name |
+| `code` | str | text | text | - | Business code |
+| `descr` | str | text | textarea | - | Description |
+| `*_amt`, `*_price`, `*_cost` | float | currency | number | - | `budget_amt` |
+| `*_date` | date | date | date | - | `start_date` |
+| `*_ts`, `*_at` | timestamp | timestamp | datetime | - | `created_ts` |
+| `is_*`, `*_flag` | bool | boolean | checkbox | - | `is_active` |
+| `*_pct` | float | percentage | number | - | `completion_pct` |
+| `dl__*` | str | badge | select | datalabel | `dl__status` |
+| `{label}__{entity}_id` | uuid | entityInstanceId | entityInstanceId | entityInstance | `manager__employee_id` |
+| `{entity}_id` | uuid | entityInstanceId | entityInstanceId | entityInstance | `business_id` |
+| `{label}__{entity}_ids` | array | entityInstanceIds | multiselect | entityInstance | `stakeholder__employee_ids` |
+| `{entity}_ids` | array | entityInstanceIds | multiselect | entityInstance | `tag_ids` |
+| `tags` | array | array | tags | - | Tag array |
+| `metadata` | jsonb | json | json | - | JSON object |
+
+### Behavior Matrix by Field Type
+
+| Field Type | visible | sortable | filterable | searchable | editable |
+|------------|---------|----------|------------|------------|----------|
+| `id` | false | false | false | false | false |
+| `name` | true | true | true | true | true |
+| `code` | true | true | true | true | true |
+| `descr` | true | false | false | true | true |
+| Currency (`*_amt`) | true | true | false | false | true |
+| Date (`*_date`) | true | true | true | false | true |
+| Timestamp (`*_ts`) | true | true | false | false | false |
+| Boolean (`is_*`) | varies | false | true | false | true |
+| `active_flag` | false | false | true | false | false |
+| Datalabel (`dl__*`) | true | false | true | false | true |
+| Entity ref (`*_id`) | true | false | true | false | true |
+| Array (`*_ids`) | true | false | false | false | true |
+
+---
+
+## API Reference
+
+### Core Functions
 
 ```typescript
-// Backend generates ref_data_entityInstance for all entity reference fields
-const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(data);
+// ═══════════════════════════════════════════════════════════════════════════
+// generateEntityResponse - Primary entry point for routes
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Response includes ref_data_entityInstance
-return {
-  data: projects,
-  ref_data_entityInstance,  // { employee: { "uuid-1": "James Miller" }, business: {...} }
-  metadata: { ... }
-};
+export async function generateEntityResponse(
+  entityCode: string,
+  data: any[],
+  options?: {
+    components?: ComponentName[];
+    total?: number;
+    limit?: number;
+    offset?: number;
+    resultFields?: Array<{ name: string }>;
+    metadataOnly?: boolean;
+    ref_data_entityInstance?: Record<string, Record<string, string>>;
+  }
+): Promise<EntityResponse>;
+
+// Usage in routes:
+const response = await generateEntityResponse('project', Array.from(projects), {
+  total: count,
+  limit,
+  offset,
+  ref_data_entityInstance
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// generateMetadataForComponents - Generate metadata for specific components
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function generateMetadataForComponents(
+  fieldNames: string[],
+  components?: ComponentName[],
+  entityCode?: string
+): Record<ComponentName, ComponentMetadata>;
+
+// Usage:
+const metadata = generateMetadataForComponents(
+  ['id', 'name', 'budget_amt', 'dl__status'],
+  ['entityListOfInstancesTable', 'entityInstanceFormContainer'],
+  'project'
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// detectFieldType - Determine dtype from column name
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function detectFieldType(fieldName: string): FieldDType;
+
+// Examples:
+detectFieldType('id')                    // 'uuid'
+detectFieldType('name')                  // 'str'
+detectFieldType('budget_amt')            // 'float'
+detectFieldType('start_date')            // 'date'
+detectFieldType('created_ts')            // 'timestamp'
+detectFieldType('is_active')             // 'bool'
+detectFieldType('dl__status')            // 'str'
+detectFieldType('manager__employee_id')  // 'uuid'
+detectFieldType('metadata')              // 'jsonb'
 ```
 
-### Field Metadata for References
-
-Backend automatically sets `lookupEntity` for all reference fields:
-
-| Field Pattern | lookupEntity | Example |
-|---------------|--------------|---------|
-| `*__employee_id` | `employee` | `manager__employee_id` |
-| `*__project_id` | `project` | `parent__project_id` |
-| `business_id` | `business` | Simple reference |
-| `*__employee_ids` | `employee` | Array reference |
-
-### Frontend Resolution (v8.3.1)
-
-Frontend uses `metadata.lookupEntity` - **NO pattern matching**:
+### Cache Functions
 
 ```typescript
-// Frontend code (v8.3.1)
-import { isEntityReferenceField, getEntityCodeFromMetadata } from '@/lib/refDataResolver';
+// ═══════════════════════════════════════════════════════════════════════════
+// Redis Metadata Response Cache
+// ═══════════════════════════════════════════════════════════════════════════
 
-const fieldMeta = metadata.viewType.manager__employee_id;
+export async function getCachedMetadataResponse(
+  apiPath: string
+): Promise<EntityResponse | null>;
 
-// Check using metadata, NOT field name pattern
-if (isEntityReferenceField(fieldMeta)) {
-  const entityCode = getEntityCodeFromMetadata(fieldMeta);  // "employee"
-  const displayName = ref_data_entityInstance[entityCode][uuid];  // "James Miller"
-}
+export async function cacheMetadataResponse(
+  apiPath: string,
+  response: EntityResponse
+): Promise<void>;
 
-// ✗ WRONG: Pattern detection (removed in v8.3.1)
-// if (fieldName.endsWith('_id')) { ... }
+export async function invalidateMetadataCache(
+  entityCode: string
+): Promise<void>;
+
+export async function clearAllMetadataCache(): Promise<void>;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Redis Field Name Cache
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function getCachedFieldNames(
+  entityCode: string
+): Promise<string[] | null>;
+
+export async function cacheFieldNames(
+  entityCode: string,
+  fieldNames: string[]
+): Promise<void>;
+
+export async function invalidateFieldCache(
+  entityCode: string
+): Promise<void>;
+
+export async function clearAllFieldCache(): Promise<void>;
 ```
 
 ---
 
-## Pattern Matching (Backend Only)
+## YAML Configuration
 
-### pattern-mapping.yaml Examples
+### pattern-mapping.yaml
 
 ```yaml
+# Field pattern to type mapping
 patterns:
   # Currency fields
   - pattern: "*_amt"
-    fieldBusinessType: "currency"
+    dtype: float
+    renderType: currency
+    inputType: number
+    style:
+      symbol: "$"
+      decimals: 2
+
   - pattern: "*_price"
-    fieldBusinessType: "currency"
+    dtype: float
+    renderType: currency
+    inputType: number
+
   - pattern: "*_cost"
-    fieldBusinessType: "currency"
+    dtype: float
+    renderType: currency
+    inputType: number
 
   # Date/Time fields
   - pattern: "*_date"
-    fieldBusinessType: "date"
+    dtype: date
+    renderType: date
+    inputType: date
+
   - pattern: "*_ts"
-    fieldBusinessType: "timestamp"
-  - pattern: "created_at"
-    fieldBusinessType: "timestamp"
+    dtype: timestamp
+    renderType: timestamp
+    inputType: datetime
+
+  - pattern: "*_at"
+    dtype: timestamp
+    renderType: timestamp
+    inputType: datetime
 
   # Boolean fields
   - pattern: "is_*"
-    fieldBusinessType: "boolean"
+    dtype: bool
+    renderType: boolean
+    inputType: checkbox
+
   - pattern: "*_flag"
-    fieldBusinessType: "boolean"
+    dtype: bool
+    renderType: boolean
+    inputType: checkbox
 
-  # Datalabel/Settings fields
+  # Datalabel dropdown
   - pattern: "dl__*"
-    fieldBusinessType: "datalabel"
+    dtype: str
+    renderType: badge
+    inputType: select
+    lookupSource: datalabel
 
-  # Entity reference fields (v8.3.0)
-  - pattern: "*__*_id"
-    fieldBusinessType: "entity_reference"
-  - pattern: "*_id"
-    fieldBusinessType: "entity_reference"
-  - pattern: "*__*_ids"
-    fieldBusinessType: "entity_reference_array"
-  - pattern: "*_ids"
-    fieldBusinessType: "entity_reference_array"
+  # Percentage
+  - pattern: "*_pct"
+    dtype: float
+    renderType: percentage
+    inputType: number
 
   # Special fields
-  - pattern: "metadata"
-    fieldBusinessType: "json"
   - pattern: "tags"
-    fieldBusinessType: "array"
-  - pattern: "*_pct"
-    fieldBusinessType: "percentage"
+    dtype: array
+    renderType: array
+    inputType: tags
+
+  - pattern: "metadata"
+    dtype: jsonb
+    renderType: json
+    inputType: json
 ```
 
-### Priority Order
+### view-type-mapping.yaml
 
-```
-1. Explicit Config (entity-field-config.ts)  → Highest priority
-2. YAML Mappings (pattern → view/edit YAML)  → Standard method
-3. Default (plain text)                       → Lowest priority
-```
+```yaml
+# RenderType to component mapping
+renderTypes:
+  text:
+    component: TextRenderer
+    defaultBehavior:
+      visible: true
+      sortable: true
+      filterable: true
+      searchable: true
 
-> **Note:** Legacy PATTERN_RULES was removed in v11.0.0. YAML mappings are now the sole source of truth.
+  currency:
+    component: CurrencyRenderer
+    defaultBehavior:
+      visible: true
+      sortable: true
+      filterable: false
+      searchable: false
+    defaultStyle:
+      symbol: "$"
+      decimals: 2
+      align: right
+
+  badge:
+    component: BadgeRenderer
+    defaultBehavior:
+      visible: true
+      sortable: false
+      filterable: true
+      searchable: false
+
+  entityInstanceId:
+    component: EntityLinkRenderer
+    defaultBehavior:
+      visible: true
+      sortable: false
+      filterable: true
+      searchable: false
+
+  date:
+    component: DateRenderer
+    defaultBehavior:
+      visible: true
+      sortable: true
+      filterable: true
+      searchable: false
+    defaultStyle:
+      format: "MMM d, yyyy"
+
+  timestamp:
+    component: TimestampRenderer
+    defaultBehavior:
+      visible: true
+      sortable: true
+      filterable: false
+      searchable: false
+    defaultStyle:
+      format: "MMM d, yyyy HH:mm"
+
+  boolean:
+    component: BooleanRenderer
+    defaultBehavior:
+      visible: true
+      sortable: false
+      filterable: true
+      searchable: false
+
+  percentage:
+    component: PercentageRenderer
+    defaultBehavior:
+      visible: true
+      sortable: true
+      filterable: false
+      searchable: false
+```
 
 ---
 
-## Redis Field Name Caching (v9.2.0)
+## Integration Patterns
 
-The service caches entity field names in Redis to solve the "empty data" problem where child entity tabs show no columns when there's no existing data.
+### Route Handler Pattern
+
+```typescript
+// apps/api/src/modules/{entity}/routes.ts
+
+import { generateEntityResponse, getCachedMetadataResponse, cacheMetadataResponse } from '@/services/backend-formatter.service.js';
+import { getEntityInfrastructure, Permission } from '@/services/entity-infrastructure.service.js';
+import { db, client } from '@/db/index.js';
+
+const ENTITY_CODE = 'project';
+const TABLE_ALIAS = 'e';
+const entityInfra = getEntityInfrastructure(db);
+
+export default async function projectRoutes(fastify: FastifyInstance) {
+  fastify.get('/api/v1/project', async (request, reply) => {
+    const { content, limit = 20, offset = 0, ...filters } = request.query;
+    const userId = request.user.sub;
+
+    // ═══════════════════════════════════════════════════════════════
+    // METADATA-ONLY MODE
+    // ═══════════════════════════════════════════════════════════════
+    if (content === 'metadata') {
+      const cacheKey = `/api/v1/${ENTITY_CODE}?content=metadata`;
+
+      // Check Redis cache
+      const cached = await getCachedMetadataResponse(cacheKey);
+      if (cached) return reply.send(cached);
+
+      // Query for column names only (instant - no data)
+      const columnsResult = await client.unsafe(
+        `SELECT * FROM app.${ENTITY_CODE} WHERE 1=0`
+      );
+      const resultFields = columnsResult.columns?.map((c: any) => ({ name: c.name })) || [];
+
+      // Generate metadata
+      const response = await generateEntityResponse(ENTITY_CODE, [], {
+        metadataOnly: true,
+        resultFields
+      });
+
+      // Cache for 24 hours
+      await cacheMetadataResponse(cacheKey, response);
+
+      return reply.send(response);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // NORMAL DATA MODE
+    // ═══════════════════════════════════════════════════════════════
+    const rbacCondition = await entityInfra.get_entity_rbac_where_condition(
+      userId, ENTITY_CODE, Permission.VIEW, TABLE_ALIAS
+    );
+
+    const projects = await db.execute(sql`
+      SELECT ${TABLE_ALIAS}.* FROM app.${sql.raw(ENTITY_CODE)} ${sql.raw(TABLE_ALIAS)}
+      WHERE ${rbacCondition} AND ${sql.raw(TABLE_ALIAS)}.active_flag = true
+      ORDER BY ${sql.raw(TABLE_ALIAS)}.created_ts DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+
+    const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(
+      Array.from(projects)
+    );
+
+    const response = await generateEntityResponse(ENTITY_CODE, Array.from(projects), {
+      total: count,
+      limit,
+      offset,
+      ref_data_entityInstance
+    });
+
+    return reply.send(response);
+  });
+}
+```
+
+### Frontend Consumption Pattern
+
+```typescript
+// apps/web/src/lib/frontEndFormatterService.tsx
+
+import { renderViewModeFromMetadata, renderEditModeFromMetadata } from '@/lib/frontEndFormatterService';
+
+// The frontend is a PURE RENDERER - no pattern detection
+function EntityCell({ value, fieldName, metadata, refData }) {
+  const fieldMeta = metadata?.viewType?.[fieldName];
+
+  if (!fieldMeta) {
+    // Fallback to raw value if no metadata
+    return <span>{String(value ?? '')}</span>;
+  }
+
+  // For entity references, resolve from ref_data_entityInstance
+  if (fieldMeta.renderType === 'entityInstanceId' && fieldMeta.lookupEntity) {
+    const displayName = refData?.[fieldMeta.lookupEntity]?.[value];
+    return renderViewModeFromMetadata(displayName ?? value, fieldMeta);
+  }
+
+  // Use metadata to render - NO pattern detection on frontend
+  return renderViewModeFromMetadata(value, fieldMeta);
+}
+```
+
+---
+
+## Caching Layer
 
 ### Cache Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                        FIELD NAME CACHING FLOW                               │
+│                         CACHING LAYERS                                       │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  Request → generateEntityResponse()                                          │
-│                     │                                                        │
-│                     ▼                                                        │
-│           ┌─────────────────────┐                                            │
-│           │  Check Redis Cache  │                                            │
-│           │  entity:fields:{code}│                                           │
-│           └─────────┬───────────┘                                            │
-│                     │                                                        │
-│           ┌─────────┴─────────┐                                              │
-│           │                   │                                              │
-│      CACHE HIT           CACHE MISS                                          │
-│           │                   │                                              │
-│           ▼                   ▼                                              │
-│    Use cached fields    Extract from:                                        │
-│                         1. data[0] (if data exists)                          │
-│                         2. resultFields (PostgreSQL columns)                 │
-│                                   │                                          │
-│                                   ▼                                          │
-│                         Hydrate Redis Cache (TTL: 24h)                       │
-│                                   │                                          │
-│           └───────────────────────┘                                          │
-│                     │                                                        │
-│                     ▼                                                        │
-│           generateMetadataForComponents(fieldNames)                          │
+│  LAYER 1: Redis Response Cache (24h TTL)                                    │
+│  ───────────────────────────────────────                                    │
+│  • Key: api:metadata:/api/v1/{entity}?content=metadata                      │
+│  • Value: Complete EntityResponse JSON                                      │
+│  • Purpose: Skip ALL processing on cache hit                                │
+│                                                                              │
+│  LAYER 2: Redis Field Name Cache (24h TTL)                                  │
+│  ─────────────────────────────────────────                                  │
+│  • Key: entity:fields:{entityCode}                                          │
+│  • Value: ["id", "name", "code", ...]                                       │
+│  • Purpose: Fallback when data is empty                                     │
+│                                                                              │
+│  LAYER 3: Frontend TanStack Query Cache (30m staleTime)                     │
+│  ─────────────────────────────────────────────────────                      │
+│  • Key: ['entityInstanceMetadata', entityCode]                              │
+│  • Value: { fields, viewType, editType }                                    │
+│  • Purpose: In-memory cache for current session                             │
+│                                                                              │
+│  LAYER 4: Frontend Dexie IndexedDB (persistent)                             │
+│  ──────────────────────────────────────────────                             │
+│  • Table: entityInstanceMetadata                                            │
+│  • Key: entityCode                                                          │
+│  • Purpose: Offline-first, survives browser restart                         │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Cache Configuration
-
-| Setting | Value | Description |
-|---------|-------|-------------|
-| Key Pattern | `entity:fields:{entityCode}` | e.g., `entity:fields:task` |
-| TTL | 86400 seconds (24 hours) | Schema changes are rare |
-| Storage | JSON array of field names | `["id","name","code","..."]` |
-
-### Graceful Degradation
-
-If Redis is unavailable, the service continues without caching:
-
-```typescript
-async function getCachedFieldNames(entityCode: string): Promise<string[] | null> {
-  try {
-    const redis = getRedisClient();
-    const cached = await redis.get(`entity:fields:${entityCode}`);
-    return cached ? JSON.parse(cached) : null;
-  } catch (error) {
-    // Redis unavailable - continue without cache
-    console.warn(`[FieldCache] Redis error, falling back:`, error);
-    return null;
-  }
-}
-```
-
-### Cache Invalidation
-
-```typescript
-import { invalidateFieldCache, clearAllFieldCache } from '@/services/backend-formatter.service.js';
-
-// Invalidate single entity (e.g., after schema change)
-await invalidateFieldCache('task');
-
-// Clear all field caches (e.g., after DDL migration)
-await clearAllFieldCache();
-```
-
----
-
-## Content Parameter API (v9.3.0)
-
-The `content=metadata` query parameter allows frontend to request metadata-only responses without triggering data queries. This is used by `useEntityMetadata` hook for prefetching field metadata.
-
-### Request
+### Cache Flow Decision Tree
 
 ```
-GET /api/v1/project?content=metadata
-GET /api/v1/project?content=metadata&view=entityListOfInstancesTable,entityInstanceFormContainer
+Metadata Request Arrives
+│
+├── Check Redis Response Cache
+│   ├── HIT → Return cached response (0 DB queries, 0 processing)
+│   │
+│   └── MISS → Continue
+│       │
+│       ├── Query PostgreSQL with WHERE 1=0
+│       │   └── Extract column names from postgres.js columns
+│       │
+│       ├── Generate metadata via YAML pattern matching
+│       │
+│       ├── Cache complete response in Redis (24h TTL)
+│       │
+│       └── Return response
 ```
-
-### Response Structure
-
-When `content=metadata` is specified, the response contains full metadata but empty data:
-
-```json
-{
-  "data": [],
-  "fields": ["id", "name", "code", "budget_allocated_amt", "dl__project_stage", "manager__employee_id"],
-  "ref_data_entityInstance": {},
-  "metadata": {
-    "entityListOfInstancesTable": {
-      "viewType": { ... },
-      "editType": { ... }
-    }
-  },
-  "total": 0,
-  "limit": 0,
-  "offset": 0
-}
-```
-
-### Route Implementation
-
-```typescript
-fastify.get('/api/v1/project', async (request, reply) => {
-  const { content, view } = request.query;
-
-  // Metadata-only mode - skip data query
-  if (content === 'metadata') {
-    const requestedComponents = view
-      ? view.split(',').map((v: string) => v.trim())
-      : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
-
-    const response = await generateEntityResponse(ENTITY_CODE, [], {
-      components: requestedComponents,
-      metadataOnly: true
-    });
-    return reply.send(response);
-  }
-
-  // Normal data fetch continues...
-});
-```
-
-### Frontend Hook Usage
-
-```typescript
-// apps/web/src/db/tanstack-hooks/useEntityList.ts
-export function useEntityMetadata(entityCode: string) {
-  return useQuery({
-    queryKey: ['entityInstanceMetadata', entityCode],
-    queryFn: async () => {
-      // Uses content=metadata - no data query on backend
-      const response = await apiClient.get(`/api/v1/${entityCode}`, {
-        params: { content: 'metadata' }
-      });
-      return response.data.metadata?.entityListOfInstancesTable;
-    },
-    staleTime: 30 * 60 * 1000,  // 30-minute TTL
-  });
-}
-```
-
----
-
-## Usage in Routes
-
-### Standard Pattern with ref_data_entityInstance
-
-```typescript
-import { generateEntityResponse } from '@/services/backend-formatter.service.js';
-import { getEntityInfrastructure } from '@/services/entity-infrastructure.service.js';
-
-const entityInfra = getEntityInfrastructure(db);
-
-fastify.get('/api/v1/project', async (request, reply) => {
-  const projects = await db.execute(sql`SELECT * FROM app.project...`);
-
-  // Build ref_data_entityInstance lookup table for entity references
-  const ref_data_entityInstance = await entityInfra.build_ref_data_entityInstance(projects);
-
-  // Generate complete response with metadata (async - uses Redis cache)
-  const response = await generateEntityResponse('project', Array.from(projects), {
-    components: ['entityListOfInstancesTable', 'entityInstanceFormContainer'],
-    total: count,
-    limit: 20,
-    offset: 0
-  });
-
-  return reply.send({
-    ...response,
-    ref_data_entityInstance  // Include ref_data_entityInstance in response
-  });
-});
-```
-
-### Child Entity Pattern with resultFields Fallback
-
-For child entity tabs that may return empty data, pass `resultFields` from PostgreSQL:
-
-```typescript
-import { db, client } from '@/db/index.js';
-import { generateEntityResponse } from '@/services/backend-formatter.service.js';
-
-// Query with drizzle-orm
-const data = await db.execute(sql`SELECT * FROM app.task...`);
-
-// Get column metadata for empty data fallback
-let resultFields: Array<{ name: string }> = [];
-if (data.length === 0) {
-  const columnsResult = await client.unsafe(
-    `SELECT * FROM app.${tableName} WHERE 1=0`
-  );
-  resultFields = columnsResult.columns?.map((col: any) => ({ name: col.name })) || [];
-}
-
-// Generate response with resultFields fallback
-const response = await generateEntityResponse(entityCode, Array.from(data), {
-  total: count,
-  limit,
-  offset,
-  resultFields  // PostgreSQL columns for empty data
-});
-```
-
----
-
-## Key Functions
-
-### generateEntityResponse (async - v9.3.0)
-
-```typescript
-async function generateEntityResponse(
-  entityCode: string,
-  data: any[],
-  options: {
-    components?: ComponentName[];
-    total?: number;
-    limit?: number;
-    offset?: number;
-    resultFields?: Array<{ name: string }>;  // PostgreSQL columns fallback
-    metadataOnly?: boolean;                   // Return metadata only (v9.3.0)
-    ref_data_entityInstance?: Record<string, Record<string, string>>;  // Entity references
-  }
-): Promise<EntityResponse & { ref_data_entityInstance: Record<string, Record<string, string>> }> {
-  // Step 1: Check Redis cache
-  const cachedFields = await getCachedFieldNames(entityCode);
-
-  let fieldNames: string[];
-  if (cachedFields) {
-    fieldNames = cachedFields;  // Cache hit
-  } else {
-    // Cache miss - extract from data or resultFields
-    if (data.length > 0) {
-      fieldNames = Object.keys(data[0]);
-    } else if (resultFields.length > 0) {
-      fieldNames = resultFields.map(f => f.name);
-    } else {
-      fieldNames = [];
-    }
-    // Hydrate cache
-    if (fieldNames.length > 0) {
-      await cacheFieldNames(entityCode, fieldNames);
-    }
-  }
-
-  // Metadata-only mode (v9.3.0)
-  if (metadataOnly) {
-    return {
-      data: [],
-      fields: fieldNames,
-      metadata,
-      ref_data_entityInstance: {},
-      total: 0,
-      limit: 0,
-      offset: 0
-    };
-  }
-
-  const metadata = generateMetadataForComponents(fieldNames, components, entityCode);
-  return { data, fields: fieldNames, metadata, ref_data_entityInstance, total, limit, offset };
-}
-```
-
-### generateMetadataForComponents
-
-```typescript
-function generateMetadataForComponents(
-  fieldNames: string[],
-  components: ComponentName[],
-  entityCode: string
-): EntityMetadata {
-  const metadata: EntityMetadata = {};
-
-  for (const component of components) {
-    const viewTypeMetadata = {};
-    const editTypeMetadata = {};
-
-    for (const fieldName of fieldNames) {
-      const fieldMeta = generateFieldMetadataForComponent(fieldName, component, entityCode);
-      if (fieldMeta) {
-        // Includes lookupEntity for reference fields
-        viewTypeMetadata[fieldName] = { dtype, label, ...fieldMeta.view };
-        editTypeMetadata[fieldName] = { dtype, label, ...fieldMeta.edit };
-      }
-    }
-
-    metadata[component] = { viewType: viewTypeMetadata, editType: editTypeMetadata };
-  }
-
-  return metadata;
-}
-```
-
-### detectEntityFromFieldName (Backend Internal)
-
-```typescript
-// Backend function - NOT used in frontend
-function detectEntityFromFieldName(fieldName: string): string | null {
-  // Pattern: *__entity_id → entity
-  const match1 = fieldName.match(/^.*__(\w+)_id$/);
-  if (match1) return match1[1];
-
-  // Pattern: *__entity_ids → entity
-  const match1b = fieldName.match(/^.*__(\w+)_ids$/);
-  if (match1b) return match1b[1];
-
-  // Pattern: entity_id → entity
-  const match2 = fieldName.match(/^(\w+)_id$/);
-  if (match2 && match2[1] !== 'id') return match2[1];
-
-  // Pattern: entity_ids → entity
-  const match2b = fieldName.match(/^(\w+)_ids$/);
-  if (match2b) return match2b[1];
-
-  return null;
-}
-```
-
----
-
-## Metadata Structure Types
-
-### ViewFieldMetadata
-
-```typescript
-interface ViewFieldMetadata {
-  dtype: 'str' | 'float' | 'int' | 'bool' | 'uuid' | 'date' | 'timestamp' | 'jsonb';
-  label: string;
-  renderType?: string;           // 'text', 'currency', 'date', 'badge', 'boolean', 'entityInstanceId'
-  component?: string;            // Custom component name
-  behavior: {
-    visible?: boolean;
-    sortable?: boolean;
-    filterable?: boolean;
-    searchable?: boolean;
-  };
-  style: Record<string, any>;    // width, align, symbol, decimals
-  datalabelKey?: string;         // For badge fields
-  lookupSource?: 'entityInstance' | 'datalabel';  // (v8.3.0)
-  lookupEntity?: string;         // Entity code for reference fields (v8.3.0)
-}
-```
-
-### EditFieldMetadata
-
-```typescript
-interface EditFieldMetadata {
-  dtype: string;
-  label: string;
-  inputType?: string;            // 'text', 'number', 'select', 'date', 'checkbox', 'entityInstanceId'
-  component?: string;            // Custom input component
-  behavior: {
-    editable?: boolean;
-  };
-  style: Record<string, any>;
-  validation: Record<string, any>;  // required, min, max, pattern
-  lookupSource?: 'entityInstance' | 'datalabel';  // (v8.3.0)
-  lookupEntity?: string;         // Entity code for reference fields (v8.3.0)
-  datalabelKey?: string;         // Datalabel key for select fields
-}
-```
-
----
-
-## Component-Specific Metadata
-
-Different components receive different metadata for the same field:
-
-### Example: dl__project_stage
-
-| Component | viewType.renderType | viewType.component | editType.inputType |
-|-----------|--------------------|--------------------|---------------------|
-| entityListOfInstancesTable | `badge` | - | `select` |
-| entityInstanceFormContainer | `component` | `DAGVisualizer` | `BadgeDropdownSelect` |
-| kanbanView | `badge` | - | `select` |
-
-### BadgeDropdownSelect inputType (v8.3.2)
-
-For datalabel fields that need colored badge rendering in edit mode, use `inputType: BadgeDropdownSelect`:
-
-```yaml
-# edit-type-mapping.yaml
-datalabel_dag:
-  entityInstanceFormContainer:
-    inputType: BadgeDropdownSelect
-    lookupSource: datalabel
-    behavior: { editable: true }
-```
-
-This renders a dropdown with colored badges matching the datalabel options, using portal rendering to avoid overflow clipping.
-
-### Example: manager__employee_id (v8.3.0)
-
-| Component | renderType | inputType | lookupEntity |
-|-----------|------------|-----------|--------------|
-| entityListOfInstancesTable | `entityInstanceId` | `entityInstanceId` | `employee` |
-| entityInstanceFormContainer | `entityInstanceId` | `entityInstanceId` | `employee` |
-| kanbanView | `entityInstanceId` | `entityInstanceId` | `employee` |
 
 ---
 
@@ -721,28 +1061,26 @@ This renders a dropdown with colored badges matching the datalabel options, usin
 
 ---
 
-**Version:** 9.3.0 | **Updated:** 2025-11-30
+## Related Documentation
 
-**Recent Updates:**
-- v9.3.0 (2025-11-30):
-  - **`content=metadata` API parameter** - Metadata-only responses without data query
-  - **`metadataOnly` option** - Skip data in `generateEntityResponse()`
-  - **`useEntityMetadata` hook support** - Frontend uses 30-min TTL for metadata
-  - `ref_data_entityInstance` now included in return type signature
-- v9.2.0 (2025-11-30):
-  - **Redis field name caching** - 24-hour TTL cache for entity field names
-  - **`generateEntityResponse()` is now async** - all callers must use `await`
-  - **`resultFields` parameter** - PostgreSQL column metadata fallback for empty data
-  - Solves "empty child entity tabs show no columns" problem
-  - Graceful degradation when Redis unavailable
-  - Exported `invalidateFieldCache()` and `clearAllFieldCache()` for cache management
-- v11.0.0 (2025-11-27):
-  - **Removed legacy PATTERN_RULES** (~900 lines) - YAML is now sole source of truth
-  - Standardized naming: `entityInstanceId` (camelCase) for both `renderType` and `inputType`
-  - Removed `viewType`/`editType` field properties - use `renderType`/`inputType` instead
-- v8.3.2 (2025-11-27):
-  - Added `BadgeDropdownSelect` as valid inputType for datalabel fields
-  - DAG fields use `renderType: 'component'` + `component: 'DAGVisualizer'` (not `renderType: 'dag'`)
-  - EntityInstanceFormContainer uses separate view/edit component metadata
-- v8.3.1 (2025-11-26): Enforced backend metadata as single source of truth
-- v8.3.0 (2025-11-26): Added `lookupEntity`, `lookupSource` for reference fields
+| Document | Path | Description |
+|----------|------|-------------|
+| Entity Metadata Caching | `docs/caching-backend/ENTITY_METADATA_CACHING.md` | Redis caching architecture |
+| Entity Infrastructure Service | `docs/services/entity-infrastructure.service.md` | CRUD + ref_data_entityInstance |
+| Frontend Formatter Service | `docs/services/frontEndFormatterService.md` | Frontend rendering (pure renderer) |
+| State Management | `docs/state_management/STATE_MANAGEMENT.md` | TanStack Query + Dexie |
+
+---
+
+**Document Version**: 4.0.0
+**Last Updated**: 2025-11-30
+**Status**: Production Ready
+
+### Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0.0 | 2025-11-20 | Initial YAML pattern matching |
+| 2.0.0 | 2025-11-25 | Added viewType/editType separation |
+| 3.0.0 | 2025-11-28 | Added ref_data_entityInstance integration |
+| 4.0.0 | 2025-11-30 | Complete rewrite with end-to-end architecture, cache integration |
