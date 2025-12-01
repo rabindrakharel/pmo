@@ -3,13 +3,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { authApi, User } from '../lib/api';
 import { clearNormalizedStore } from '../lib/cache/normalizedCache';
 import { prefetchEntityInstances } from '../lib/hooks';
-// v9.0.0: TanStack Query + Dexie handles metadata caching
-import { clearAllCaches, hydrateQueryCache } from '../db/query/queryClient';
+// v10.0.0: Unified 7-store cache architecture
 import {
-  prefetchAllDatalabels,
-  prefetchEntityCodes,
-  prefetchGlobalSettings,
-} from '../db/tanstack-hooks';
+  clearAllCaches,
+  prefetchSessionStores,
+  useCacheContext,
+} from '../db';
 
 interface AuthState {
   user: User | null;
@@ -41,28 +40,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAuthenticated: false,
   });
 
-  // v9.0.0: TanStack Query + Dexie handles metadata caching
-  // Prefetch all metadata (datalabels, entity codes, global settings)
+  // v10.0.0: Unified cache handles session store prefetching
   const loadMetadata = async () => {
     try {
-      console.log('%c[Auth] Prefetching metadata...', 'color: #845ef7; font-weight: bold');
-
-      // Prefetch all metadata in parallel
-      const [datalabelCount, entityCodeCount, settingsOk] = await Promise.all([
-        prefetchAllDatalabels(),
-        prefetchEntityCodes(),
-        prefetchGlobalSettings(),
-      ]);
-
-      console.log(
-        '%c[Auth] ✓ Metadata loaded: %d datalabels, %d entity codes, settings: %s',
-        'color: #51cf66; font-weight: bold',
-        datalabelCount,
-        entityCodeCount,
-        settingsOk ? 'OK' : 'cached'
-      );
+      console.log('%c[Auth] Prefetching session stores...', 'color: #845ef7; font-weight: bold');
+      await prefetchSessionStores(queryClient);
+      console.log('%c[Auth] ✓ Session stores loaded', 'color: #51cf66; font-weight: bold');
     } catch (error) {
-      console.error('[Auth] Failed to load metadata:', error);
+      console.error('[Auth] Failed to load session stores:', error);
       // Don't throw - metadata is enhancement, not critical for auth
     }
   };
@@ -111,10 +96,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       localStorage.removeItem('auth_token');
 
-      // v9.0.0: Clear all caches on logout for security and memory hygiene
-      await clearAllCaches();               // Dexie IndexedDB + TanStack Query cache
-      clearNormalizedStore(queryClient);    // Normalized entity cache
-      queryClient.clear();                  // React Query cache (redundant but safe)
+      // v10.0.0: Clear all caches on logout
+      await clearAllCaches(queryClient);     // Unified cache + Dexie + TanStack Query
+      clearNormalizedStore(queryClient);     // Legacy normalized entity cache
 
       setState({
         user: null,

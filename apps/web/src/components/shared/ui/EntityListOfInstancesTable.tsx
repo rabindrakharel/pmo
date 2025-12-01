@@ -40,7 +40,7 @@ import {
 } from '../../../lib/frontEndFormatterService';
 import { colorCodeToTailwindClass } from '../../../lib/formatters/valueFormatters';
 // v9.0.0: Use Dexie sync cache for datalabel options
-import { getDatalabelSync } from '../../../db/tanstack-hooks';
+import { getDatalabelSync } from '../../../db';
 import type { EntityMetadata } from '../../../lib/api';
 
 // v8.2.0: Format-at-fetch with required nested metadata structure

@@ -1,40 +1,20 @@
 // ============================================================================
 // WebSocket Manager for Cache Invalidation
 // ============================================================================
-// Connects to PubSub service (port 4001) for real-time sync
-// Triggers TanStack Query cache invalidation on INVALIDATE messages
+// Connects to PubSub service for real-time sync
+// Triggers cache invalidation on INVALIDATE messages
 // ============================================================================
 
-import { queryClient, invalidateEntityQueries } from '../query/queryClient';
-import { db, createEntityInstanceKey } from '../dexie/database';
-import {
-  cacheAdapter,
-  createInvalidationHandler,
-  QUERY_KEYS,
-  type WebSocketInvalidation,
-  type EntityLink,
-  invalidateEntityLinks,
-  addLinkToCache,
-  removeLinkFromCache,
-} from '../normalized-cache';
+import { WS_CONFIG } from '../cache/constants';
+import type { InvalidationHandler } from './handlers';
 
 // ============================================================================
-// Constants
-// ============================================================================
-
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:4001';
-const MAX_RECONNECT_ATTEMPTS = 10;
-const INITIAL_RECONNECT_DELAY = 1000;
-const MAX_RECONNECT_DELAY = 30000;
-const PING_INTERVAL = 30000;
-
-// ============================================================================
-// Types
+// TYPES
 // ============================================================================
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
-interface InvalidatePayload {
+export interface InvalidatePayload {
   entityCode: string;
   changes: Array<{
     entityId: string;
@@ -43,10 +23,7 @@ interface InvalidatePayload {
   }>;
 }
 
-/**
- * Payload for normalized cache table invalidations
- */
-interface NormalizedInvalidatePayload {
+export interface NormalizedInvalidatePayload {
   table: 'entity' | 'entity_instance' | 'entity_instance_link';
   action: 'INSERT' | 'UPDATE' | 'DELETE';
   entity_code?: string;
@@ -56,8 +33,24 @@ interface NormalizedInvalidatePayload {
   relationship_type?: string;
 }
 
+export interface LinkChangePayload {
+  action: 'INSERT' | 'DELETE';
+  entity_code: string;
+  entity_instance_id: string;
+  child_entity_code: string;
+  child_entity_instance_id: string;
+  relationship_type?: string;
+}
+
 interface WebSocketMessage {
-  type: 'INVALIDATE' | 'NORMALIZED_INVALIDATE' | 'LINK_CHANGE' | 'SUBSCRIBED' | 'PONG' | 'TOKEN_EXPIRING_SOON' | 'ERROR';
+  type:
+    | 'INVALIDATE'
+    | 'NORMALIZED_INVALIDATE'
+    | 'LINK_CHANGE'
+    | 'SUBSCRIBED'
+    | 'PONG'
+    | 'TOKEN_EXPIRING_SOON'
+    | 'ERROR';
   payload?: unknown;
 }
 
@@ -65,7 +58,7 @@ type StatusListener = (status: ConnectionStatus) => void;
 type TokenExpiryListener = (expiresIn: number) => void;
 
 // ============================================================================
-// WebSocket Manager Class
+// WEBSOCKET MANAGER CLASS
 // ============================================================================
 
 class WebSocketManager {
@@ -80,15 +73,27 @@ class WebSocketManager {
   private pendingSubscriptions = new Map<string, Set<string>>();
   private activeSubscriptions = new Map<string, Set<string>>();
 
-  // Version tracking for out-of-order message handling
-  // Issue #5 fix: Added max size and periodic cleanup to prevent memory leak
+  // Version tracking with cleanup (prevents memory leak)
   private processedVersions = new Map<string, { version: number; timestamp: number }>();
-  private static readonly MAX_VERSION_ENTRIES = 1000;
-  private static readonly VERSION_ENTRY_TTL = 10 * 60 * 1000; // 10 minutes
 
   // Event listeners
   private statusListeners = new Set<StatusListener>();
   private tokenExpiryListeners = new Set<TokenExpiryListener>();
+
+  // Invalidation handler (injected)
+  private invalidationHandler: InvalidationHandler | null = null;
+
+  // ========================================
+  // Configuration
+  // ========================================
+
+  /**
+   * Set the invalidation handler
+   * Must be called before processing messages
+   */
+  setInvalidationHandler(handler: InvalidationHandler): void {
+    this.invalidationHandler = handler;
+  }
 
   // ========================================
   // Connection Management
@@ -107,7 +112,7 @@ class WebSocketManager {
     this.setStatus('connecting');
 
     try {
-      this.ws = new WebSocket(`${WS_URL}?token=${token}`);
+      this.ws = new WebSocket(`${WS_CONFIG.url}?token=${token}`);
       this.setupEventHandlers();
     } catch (error) {
       console.error('[WebSocket] Connection error:', error);
@@ -124,7 +129,7 @@ class WebSocketManager {
     this.token = null;
     this.activeSubscriptions.clear();
     this.pendingSubscriptions.clear();
-    this.processedVersions.clear(); // Issue #5 fix: Clear version tracking on disconnect
+    this.processedVersions.clear();
 
     if (this.ws) {
       this.ws.close(1000, 'Client disconnect');
@@ -151,16 +156,13 @@ class WebSocketManager {
 
   /**
    * Subscribe to entity updates
-   *
-   * Pass empty entityIds array to subscribe to ALL updates for an entity type.
-   * This is useful for pre-subscribing before data is loaded (Issue #3 fix).
+   * Pass empty entityIds array to subscribe to ALL updates for an entity type
    */
   subscribe(entityCode: string, entityIds: string[]): void {
     if (this.status !== 'connected') {
       // Queue for later
       const pending = this.pendingSubscriptions.get(entityCode) || new Set();
       if (entityIds.length === 0) {
-        // Mark as type-level subscription with special marker
         pending.add('__TYPE_LEVEL__');
       } else {
         entityIds.forEach((id) => pending.add(id));
@@ -169,17 +171,16 @@ class WebSocketManager {
       return;
     }
 
-    // Track active subscriptions
     const active = this.activeSubscriptions.get(entityCode) || new Set();
 
-    // Handle type-level subscription (empty array = subscribe to all for this type)
+    // Type-level subscription
     if (entityIds.length === 0) {
       if (!active.has('__TYPE_LEVEL__')) {
         active.add('__TYPE_LEVEL__');
         this.activeSubscriptions.set(entityCode, active);
         this.send({
           type: 'SUBSCRIBE',
-          payload: { entityCode, entityIds: [] }, // Empty = all updates for type
+          payload: { entityCode, entityIds: [] },
         });
       }
       return;
@@ -226,7 +227,7 @@ class WebSocketManager {
 
   onStatusChange(listener: StatusListener): () => void {
     this.statusListeners.add(listener);
-    listener(this.status); // Immediately call with current status
+    listener(this.status);
     return () => this.statusListeners.delete(listener);
   }
 
@@ -295,7 +296,7 @@ class WebSocketManager {
         break;
 
       case 'LINK_CHANGE':
-        this.handleLinkChange(message.payload as NormalizedInvalidatePayload);
+        this.handleLinkChange(message.payload as LinkChangePayload);
         break;
 
       case 'SUBSCRIBED':
@@ -317,100 +318,18 @@ class WebSocketManager {
     }
   }
 
-  /**
-   * Handle invalidation messages for 4-layer normalized cache
-   * Uses granular invalidation per entity_instance_id for efficiency
-   */
-  private async handleNormalizedInvalidate(payload: NormalizedInvalidatePayload): Promise<void> {
-    const { table, action, entity_code, entity_instance_id, child_entity_code, child_entity_instance_id, relationship_type } = payload;
-
-    console.log(
-      `%c[WebSocket] NORMALIZED_INVALIDATE: ${table} (${action})`,
-      'color: #ff922b; font-weight: bold',
-      entity_code ? `entity_code=${entity_code}` : '',
-      entity_instance_id ? `entity_instance_id=${entity_instance_id}` : ''
-    );
-
-    // Use the adapter's granular invalidation handler
-    const invalidation: WebSocketInvalidation = {
-      action,
-      table: table as WebSocketInvalidation['table'],
-      entity_code: entity_code || '',
-      entity_instance_id,
-      child_entity_code,
-      child_entity_instance_id,
-      relationship_type,
-      timestamp: Date.now(),
-    };
-
-    // Create handler and invoke
-    const handler = createInvalidationHandler(cacheAdapter);
-    handler(invalidation);
-
-    // Additional Dexie cleanup for DELETE
-    if (table === 'entity_instance' && action === 'DELETE' && entity_code && entity_instance_id) {
-      const key = createEntityInstanceKey(entity_code, entity_instance_id);
-      try {
-        // Hard delete from entityInstance table (no isDeleted flag in new schema)
-        await db.entityInstance.delete(key);
-      } catch {
-        // May not exist
-      }
-    }
-  }
-
-  /**
-   * Handle link change events for optimistic updates
-   */
-  private handleLinkChange(payload: NormalizedInvalidatePayload): void {
-    const {
-      action,
-      entity_code,
-      entity_instance_id,
-      child_entity_code,
-      child_entity_instance_id,
-      relationship_type,
-    } = payload;
-
-    if (!entity_code || !entity_instance_id || !child_entity_code || !child_entity_instance_id) {
-      console.warn('[WebSocket] LINK_CHANGE missing required fields:', payload);
+  private handleInvalidate(payload: InvalidatePayload): void {
+    if (!this.invalidationHandler) {
+      console.warn('[WebSocket] No invalidation handler set');
       return;
     }
 
-    console.log(
-      `%c[WebSocket] LINK_CHANGE: ${action}`,
-      'color: #20c997; font-weight: bold',
-      `${entity_code}:${entity_instance_id} → ${child_entity_code}:${child_entity_instance_id}`
-    );
-
-    const link: EntityLink = {
-      id: '', // Not needed for cache operations
-      entity_code,
-      entity_instance_id,
-      child_entity_code,
-      child_entity_instance_id,
-      relationship_type: relationship_type || 'contains',
-    };
-
-    if (action === 'INSERT') {
-      addLinkToCache(link);
-    } else if (action === 'DELETE') {
-      removeLinkFromCache(link);
-    }
-
-    // Also invalidate to ensure consistency with server
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ENTITY_LINKS });
-  }
-
-  private async handleInvalidate(payload: InvalidatePayload): Promise<void> {
     const { entityCode, changes } = payload;
     console.log(
       `%c[WebSocket] INVALIDATE: ${entityCode} (${changes.length} changes)`,
       'color: #845ef7; font-weight: bold'
     );
 
-    const entitiesToRefetch: string[] = [];
-    const entitiesToDelete: string[] = [];
     const now = Date.now();
 
     for (const change of changes) {
@@ -418,90 +337,90 @@ class WebSocketManager {
       const entry = this.processedVersions.get(versionKey);
       const lastVersion = entry?.version || 0;
 
-      // Skip stale updates (version tracking)
+      // Skip stale updates
       if (change.version <= lastVersion) {
         console.log(`[WebSocket] Skipping stale update: ${versionKey}`);
         continue;
       }
 
-      // Issue #5 fix: Store version with timestamp for cleanup
       this.processedVersions.set(versionKey, { version: change.version, timestamp: now });
 
-      if (change.action === 'DELETE') {
-        entitiesToDelete.push(change.entityId);
-      } else {
-        entitiesToRefetch.push(change.entityId);
-      }
+      // Delegate to handler
+      this.invalidationHandler.onEntityChange({
+        entityCode,
+        entityId: change.entityId,
+        action: change.action,
+      });
     }
 
-    // Issue #5 fix: Cleanup old version entries to prevent memory leak
     this.cleanupVersionEntries();
-
-    // Handle deletions
-    for (const entityId of entitiesToDelete) {
-      await this.handleDelete(entityCode, entityId);
-    }
-
-    // Handle updates/creates - invalidate TanStack Query cache
-    // TanStack Query will auto-refetch if there are active observers
-    if (entitiesToRefetch.length > 0) {
-      // Invalidate individual entity queries
-      for (const entityId of entitiesToRefetch) {
-        await invalidateEntityQueries(entityCode, entityId);
-      }
-
-      // Invalidate list queries for this entity type
-      await invalidateEntityQueries(entityCode);
-    }
   }
 
-  /**
-   * Issue #5 fix: Cleanup old version entries to prevent memory leak
-   * Removes entries older than VERSION_ENTRY_TTL and enforces MAX_VERSION_ENTRIES
-   */
+  private handleNormalizedInvalidate(payload: NormalizedInvalidatePayload): void {
+    if (!this.invalidationHandler) return;
+
+    console.log(
+      `%c[WebSocket] NORMALIZED_INVALIDATE: ${payload.table} (${payload.action})`,
+      'color: #ff922b; font-weight: bold'
+    );
+
+    this.invalidationHandler.onNormalizedChange(payload);
+  }
+
+  private handleLinkChange(payload: LinkChangePayload): void {
+    if (!this.invalidationHandler) return;
+
+    if (
+      !payload.entity_code ||
+      !payload.entity_instance_id ||
+      !payload.child_entity_code ||
+      !payload.child_entity_instance_id
+    ) {
+      console.warn('[WebSocket] LINK_CHANGE missing required fields:', payload);
+      return;
+    }
+
+    console.log(
+      `%c[WebSocket] LINK_CHANGE: ${payload.action}`,
+      'color: #20c997; font-weight: bold',
+      `${payload.entity_code}:${payload.entity_instance_id} → ${payload.child_entity_code}:${payload.child_entity_instance_id}`
+    );
+
+    this.invalidationHandler.onLinkChange({
+      action: payload.action,
+      parentCode: payload.entity_code,
+      parentId: payload.entity_instance_id,
+      childCode: payload.child_entity_code,
+      childId: payload.child_entity_instance_id,
+      relationshipType: payload.relationship_type || 'contains',
+    });
+  }
+
   private cleanupVersionEntries(): void {
     const now = Date.now();
 
     // Remove expired entries
     for (const [key, entry] of this.processedVersions.entries()) {
-      if (now - entry.timestamp > WebSocketManager.VERSION_ENTRY_TTL) {
+      if (now - entry.timestamp > WS_CONFIG.versionEntryTTL) {
         this.processedVersions.delete(key);
       }
     }
 
-    // If still over limit, remove oldest entries
-    if (this.processedVersions.size > WebSocketManager.MAX_VERSION_ENTRIES) {
-      const entries = Array.from(this.processedVersions.entries())
-        .sort((a, b) => a[1].timestamp - b[1].timestamp);
+    // Enforce max size
+    if (this.processedVersions.size > WS_CONFIG.maxVersionEntries) {
+      const entries = Array.from(this.processedVersions.entries()).sort(
+        (a, b) => a[1].timestamp - b[1].timestamp
+      );
 
-      const toRemove = entries.slice(0, entries.length - WebSocketManager.MAX_VERSION_ENTRIES);
+      const toRemove = entries.slice(0, entries.length - WS_CONFIG.maxVersionEntries);
       for (const [key] of toRemove) {
         this.processedVersions.delete(key);
       }
 
       console.log(
-        `[WebSocket] Cleaned up ${toRemove.length} version entries (max: ${WebSocketManager.MAX_VERSION_ENTRIES})`
+        `[WebSocket] Cleaned up ${toRemove.length} version entries (max: ${WS_CONFIG.maxVersionEntries})`
       );
     }
-  }
-
-  private async handleDelete(entityCode: string, entityId: string): Promise<void> {
-    const cacheKey = createEntityInstanceKey(entityCode, entityId);
-
-    // Hard delete from Dexie entityInstance table (name lookup)
-    try {
-      await db.entityInstance.delete(cacheKey);
-    } catch {
-      // Entity might not exist in Dexie
-    }
-
-    // Remove from TanStack Query cache
-    queryClient.removeQueries({
-      queryKey: ['entityInstance', entityCode, entityId],
-    });
-
-    // Invalidate list queries (uses new unified key)
-    invalidateEntityQueries(entityCode);
   }
 
   private flushPendingSubscriptions(): void {
@@ -528,7 +447,7 @@ class WebSocketManager {
     this.stopPingInterval();
     this.pingInterval = setInterval(() => {
       this.send({ type: 'PING' });
-    }, PING_INTERVAL);
+    }, WS_CONFIG.pingInterval);
   }
 
   private stopPingInterval(): void {
@@ -540,15 +459,15 @@ class WebSocketManager {
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer) return;
-    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    if (this.reconnectAttempts >= WS_CONFIG.maxReconnectAttempts) {
       console.error('[WebSocket] Max reconnect attempts reached');
       this.setStatus('error');
       return;
     }
 
     const delay = Math.min(
-      INITIAL_RECONNECT_DELAY * Math.pow(2, this.reconnectAttempts),
-      MAX_RECONNECT_DELAY
+      WS_CONFIG.initialReconnectDelay * Math.pow(2, this.reconnectAttempts),
+      WS_CONFIG.maxReconnectDelay
     );
     this.reconnectAttempts++;
 
@@ -574,7 +493,7 @@ class WebSocketManager {
 }
 
 // ============================================================================
-// Singleton Instance
+// SINGLETON INSTANCE
 // ============================================================================
 
 export const wsManager = new WebSocketManager();

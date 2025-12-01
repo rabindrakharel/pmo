@@ -11,7 +11,7 @@
  */
 
 // v9.0.0: Use Dexie sync cache for non-hook datalabel access
-import { getDatalabelSync } from '../../db/tanstack-hooks';
+import { getDatalabelSync } from '../../db';
 import type { FieldMetadata, FormattedValue } from './types';
 
 /**
