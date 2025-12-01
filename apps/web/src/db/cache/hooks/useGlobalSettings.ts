@@ -53,7 +53,7 @@ export function useGlobalSettings(): UseGlobalSettingsResult {
         const response = await apiClient.get<{ data: GlobalSettings }>(
           '/api/v1/settings'
         );
-        const settings = response.data || DEFAULT_SETTINGS;
+        const settings = response.data?.data || DEFAULT_SETTINGS;
 
         // Persist to Dexie
         await persistToGlobalSettings(settings);
@@ -108,7 +108,7 @@ export async function prefetchGlobalSettings(): Promise<void> {
     const response = await apiClient.get<{ data: GlobalSettings }>(
       '/api/v1/settings'
     );
-    const settings = response.data || DEFAULT_SETTINGS;
+    const settings = response.data?.data || DEFAULT_SETTINGS;
 
     // Set in query cache
     const { queryClient } = await import('../client');

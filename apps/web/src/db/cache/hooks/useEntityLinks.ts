@@ -68,7 +68,7 @@ export function useEntityLinks(): UseEntityLinksResult {
       const response = await apiClient.get<{ data: EntityLink[] }>(
         '/api/v1/entity-instance-link'
       );
-      const links = response.data || [];
+      const links = response.data?.data || [];
 
       // Build forward and reverse indexes
       const forwardMap = new Map<
@@ -207,7 +207,7 @@ export async function prefetchEntityLinks(): Promise<{
     const response = await apiClient.get<{ data: EntityLink[] }>(
       '/api/v1/entity-instance-link'
     );
-    const links = response.data || [];
+    const links = response.data?.data || [];
 
     // Build indexes and persist (same logic as hook)
     const forwardMap = new Map<
