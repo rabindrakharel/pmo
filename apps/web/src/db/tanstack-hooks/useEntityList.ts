@@ -6,7 +6,7 @@
 // ============================================================================
 
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   db,
   createEntityInstanceKey,
@@ -15,6 +15,10 @@ import {
 } from '../dexie/database';
 import { wsManager } from '../tanstack-sync/WebSocketManager';
 import { apiClient } from '../../lib/api';
+import {
+  CACHE_STALE_TIME_LIST,
+  CACHE_STALE_TIME_METADATA,
+} from '../query/queryClient';
 
 // ============================================================================
 // Types
@@ -111,10 +115,25 @@ export function useEntityList<T = Record<string, unknown>>(
   params: UseEntityListParams = {},
   options: UseEntityListOptions = {}
 ): UseEntityListResult<T> {
-  const { enabled = true, staleTime = 2 * 60 * 1000, refetchOnMount = true } = options;
+  const { enabled = true, staleTime = CACHE_STALE_TIME_LIST, refetchOnMount = true } = options;
 
   // Stable query hash for caching list results
   const queryHash = useMemo(() => createQueryHash(params), [params]);
+
+  // Track if we've subscribed to avoid race condition (Issue #3 fix)
+  // Subscribe BEFORE query starts, not after data arrives
+  const hasSubscribedRef = useRef(false);
+  useEffect(() => {
+    if (enabled && !hasSubscribedRef.current) {
+      // Pre-subscribe to entity type for any updates
+      // This closes the race window between fetch start and subscription
+      wsManager.subscribe(entityCode, []);
+      hasSubscribedRef.current = true;
+    }
+    return () => {
+      hasSubscribedRef.current = false;
+    };
+  }, [entityCode, enabled]);
 
   const query = useQuery<EntityListResponse<T>, Error>({
     queryKey: ['entityInstanceData', entityCode, params],
@@ -247,9 +266,9 @@ export function useEntityMetadata(entityCode: string): UseEntityMetadataResult {
   const query = useQuery({
     queryKey: ['entityInstanceMetadata', entityCode],
     queryFn: async () => {
-      // Try Dexie cache first (30 min TTL)
+      // Try Dexie cache first (uses centralized TTL constant)
       const cached = await db.entityInstanceMetadata.get(entityCode);
-      if (cached && Date.now() - cached.syncedAt < 30 * 60 * 1000) {
+      if (cached && Date.now() - cached.syncedAt < CACHE_STALE_TIME_METADATA) {
         return cached;
       }
 
@@ -275,7 +294,7 @@ export function useEntityMetadata(entityCode: string): UseEntityMetadataResult {
       await db.entityInstanceMetadata.put(record);
       return record;
     },
-    staleTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: CACHE_STALE_TIME_METADATA,
   });
 
   return {
@@ -330,8 +349,20 @@ export function useEntityInfiniteList<T = Record<string, unknown>>(
   params: Omit<UseEntityListParams, 'offset'> = {},
   options: UseEntityListOptions = {}
 ): UseEntityInfiniteListResult<T> {
-  const { enabled = true, staleTime = 2 * 60 * 1000 } = options;
+  const { enabled = true, staleTime = CACHE_STALE_TIME_LIST } = options;
   const limit = params.limit || 20;
+
+  // Pre-subscribe to entity type (Issue #3 fix - close race window)
+  const hasSubscribedRef = useRef(false);
+  useEffect(() => {
+    if (enabled && !hasSubscribedRef.current) {
+      wsManager.subscribe(entityCode, []);
+      hasSubscribedRef.current = true;
+    }
+    return () => {
+      hasSubscribedRef.current = false;
+    };
+  }, [entityCode, enabled]);
 
   const query = useInfiniteQuery<EntityListResponse<T>, Error>({
     queryKey: ['entityInstanceData-infinite', entityCode, params],

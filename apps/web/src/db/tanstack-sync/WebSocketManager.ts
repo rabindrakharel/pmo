@@ -81,7 +81,11 @@ class WebSocketManager {
   private activeSubscriptions = new Map<string, Set<string>>();
 
   // Version tracking for out-of-order message handling
-  private processedVersions = new Map<string, number>();
+  // Issue #5 fix: Added max size and periodic cleanup to prevent memory leak
+  private processedVersions = new Map<string, { version: number; timestamp: number }>();
+  private static readonly MAX_VERSION_ENTRIES = 1000;
+  private static readonly VERSION_ENTRY_TTL = 10 * 60 * 1000; // 10 minutes
+  private versionCleanupInterval: ReturnType<typeof setInterval> | null = null;
 
   // Event listeners
   private statusListeners = new Set<StatusListener>();
@@ -121,6 +125,7 @@ class WebSocketManager {
     this.token = null;
     this.activeSubscriptions.clear();
     this.pendingSubscriptions.clear();
+    this.processedVersions.clear(); // Issue #5 fix: Clear version tracking on disconnect
 
     if (this.ws) {
       this.ws.close(1000, 'Client disconnect');
@@ -147,22 +152,41 @@ class WebSocketManager {
 
   /**
    * Subscribe to entity updates
+   *
+   * Pass empty entityIds array to subscribe to ALL updates for an entity type.
+   * This is useful for pre-subscribing before data is loaded (Issue #3 fix).
    */
   subscribe(entityCode: string, entityIds: string[]): void {
-    if (entityIds.length === 0) return;
-
     if (this.status !== 'connected') {
       // Queue for later
       const pending = this.pendingSubscriptions.get(entityCode) || new Set();
-      entityIds.forEach((id) => pending.add(id));
+      if (entityIds.length === 0) {
+        // Mark as type-level subscription with special marker
+        pending.add('__TYPE_LEVEL__');
+      } else {
+        entityIds.forEach((id) => pending.add(id));
+      }
       this.pendingSubscriptions.set(entityCode, pending);
       return;
     }
 
     // Track active subscriptions
     const active = this.activeSubscriptions.get(entityCode) || new Set();
-    const newIds = entityIds.filter((id) => !active.has(id));
 
+    // Handle type-level subscription (empty array = subscribe to all for this type)
+    if (entityIds.length === 0) {
+      if (!active.has('__TYPE_LEVEL__')) {
+        active.add('__TYPE_LEVEL__');
+        this.activeSubscriptions.set(entityCode, active);
+        this.send({
+          type: 'SUBSCRIBE',
+          payload: { entityCode, entityIds: [] }, // Empty = all updates for type
+        });
+      }
+      return;
+    }
+
+    const newIds = entityIds.filter((id) => !active.has(id));
     if (newIds.length === 0) return;
 
     newIds.forEach((id) => active.add(id));
@@ -388,10 +412,12 @@ class WebSocketManager {
 
     const entitiesToRefetch: string[] = [];
     const entitiesToDelete: string[] = [];
+    const now = Date.now();
 
     for (const change of changes) {
       const versionKey = `${entityCode}:${change.entityId}`;
-      const lastVersion = this.processedVersions.get(versionKey) || 0;
+      const entry = this.processedVersions.get(versionKey);
+      const lastVersion = entry?.version || 0;
 
       // Skip stale updates (version tracking)
       if (change.version <= lastVersion) {
@@ -399,7 +425,8 @@ class WebSocketManager {
         continue;
       }
 
-      this.processedVersions.set(versionKey, change.version);
+      // Issue #5 fix: Store version with timestamp for cleanup
+      this.processedVersions.set(versionKey, { version: change.version, timestamp: now });
 
       if (change.action === 'DELETE') {
         entitiesToDelete.push(change.entityId);
@@ -407,6 +434,9 @@ class WebSocketManager {
         entitiesToRefetch.push(change.entityId);
       }
     }
+
+    // Issue #5 fix: Cleanup old version entries to prevent memory leak
+    this.cleanupVersionEntries();
 
     // Handle deletions
     for (const entityId of entitiesToDelete) {
@@ -418,11 +448,41 @@ class WebSocketManager {
     if (entitiesToRefetch.length > 0) {
       // Invalidate individual entity queries
       for (const entityId of entitiesToRefetch) {
-        invalidateEntityQueries(entityCode, entityId);
+        await invalidateEntityQueries(entityCode, entityId);
       }
 
       // Invalidate list queries for this entity type
-      invalidateEntityQueries(entityCode);
+      await invalidateEntityQueries(entityCode);
+    }
+  }
+
+  /**
+   * Issue #5 fix: Cleanup old version entries to prevent memory leak
+   * Removes entries older than VERSION_ENTRY_TTL and enforces MAX_VERSION_ENTRIES
+   */
+  private cleanupVersionEntries(): void {
+    const now = Date.now();
+
+    // Remove expired entries
+    for (const [key, entry] of this.processedVersions.entries()) {
+      if (now - entry.timestamp > WebSocketManager.VERSION_ENTRY_TTL) {
+        this.processedVersions.delete(key);
+      }
+    }
+
+    // If still over limit, remove oldest entries
+    if (this.processedVersions.size > WebSocketManager.MAX_VERSION_ENTRIES) {
+      const entries = Array.from(this.processedVersions.entries())
+        .sort((a, b) => a[1].timestamp - b[1].timestamp);
+
+      const toRemove = entries.slice(0, entries.length - WebSocketManager.MAX_VERSION_ENTRIES);
+      for (const [key] of toRemove) {
+        this.processedVersions.delete(key);
+      }
+
+      console.log(
+        `[WebSocket] Cleaned up ${toRemove.length} version entries (max: ${WebSocketManager.MAX_VERSION_ENTRIES})`
+      );
     }
   }
 

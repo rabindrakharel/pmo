@@ -8,6 +8,30 @@ import { QueryClient } from '@tanstack/react-query';
 import { db } from '../dexie/database';
 
 // ============================================================================
+// Cache Timing Constants (Centralized - Single Source of Truth)
+// ============================================================================
+// These values are used across TanStack Query, Dexie hydration, and hooks.
+// Changing a value here updates the behavior everywhere.
+
+/** How long before data is considered stale and background refetch triggers */
+export const CACHE_STALE_TIME = 5 * 60 * 1000; // 5 minutes
+
+/** How long before data is considered stale for entity lists (matches default) */
+export const CACHE_STALE_TIME_LIST = 5 * 60 * 1000; // 5 minutes (was 2 min - now consistent)
+
+/** How long before metadata is considered stale (less frequent updates) */
+export const CACHE_STALE_TIME_METADATA = 30 * 60 * 1000; // 30 minutes
+
+/** How long to keep data in memory after last use (garbage collection) */
+export const CACHE_GC_TIME = 30 * 60 * 1000; // 30 minutes
+
+/** Max age for Dexie hydration - data older than this is not loaded into TanStack */
+export const DEXIE_HYDRATION_MAX_AGE = 30 * 60 * 1000; // 30 minutes
+
+/** Max age for Dexie data to be considered valid (for offline scenarios) */
+export const DEXIE_DATA_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
+
+// ============================================================================
 // Query Client Instance
 // ============================================================================
 
@@ -15,10 +39,10 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       // Data becomes stale after 5 minutes
-      staleTime: 5 * 60 * 1000,
+      staleTime: CACHE_STALE_TIME,
 
       // Keep in cache for 30 minutes after last use
-      gcTime: 30 * 60 * 1000,
+      gcTime: CACHE_GC_TIME,
 
       // Don't refetch on window focus (we have WebSocket for real-time)
       refetchOnWindowFocus: false,
@@ -48,7 +72,7 @@ export const queryClient = new QueryClient({
  * while TanStack Query handles background refresh.
  */
 export async function hydrateQueryCache(): Promise<number> {
-  const maxAge = 30 * 60 * 1000; // 30 minutes
+  const maxAge = DEXIE_HYDRATION_MAX_AGE;
   const now = Date.now();
   let hydratedCount = 0;
 
@@ -159,17 +183,29 @@ export async function clearAllCaches(): Promise<void> {
 /**
  * Invalidate queries for a specific entity type
  * Called by WebSocket manager on INVALIDATE messages
+ *
+ * IMPORTANT: Also clears Dexie entityInstanceData to prevent stale hydration.
+ * This ensures that on next page load, fresh data is fetched instead of
+ * loading outdated cached data from IndexedDB.
  */
-export function invalidateEntityQueries(
+export async function invalidateEntityQueries(
   entityCode: string,
   entityId?: string
-): void {
+): Promise<void> {
   if (entityId) {
     // Invalidate specific entity instance
     queryClient.invalidateQueries({
       queryKey: ['entityInstance', entityCode, entityId],
       refetchType: 'active',
     });
+
+    // Also clear from Dexie entityInstance (name lookup)
+    try {
+      const key = `${entityCode}:${entityId}`;
+      await db.entityInstance.delete(key);
+    } catch {
+      // May not exist - ignore
+    }
   }
 
   // Always invalidate list queries for this entity type
@@ -177,6 +213,17 @@ export function invalidateEntityQueries(
     queryKey: ['entityInstanceData', entityCode],
     refetchType: 'active',
   });
+
+  // Clear stale Dexie entityInstanceData for this entity type
+  // This prevents hydrating outdated data on next page load
+  try {
+    await db.entityInstanceData
+      .where('entityCode')
+      .equals(entityCode)
+      .delete();
+  } catch (error) {
+    console.warn(`[QueryClient] Failed to clear Dexie cache for ${entityCode}:`, error);
+  }
 }
 
 /**
