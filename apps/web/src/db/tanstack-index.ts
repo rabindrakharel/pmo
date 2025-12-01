@@ -59,6 +59,16 @@ export {
   getCachedEntity as getQueryCachedEntity,
   setCachedEntity,
   removeCachedEntity,
+  // Cache timing constants (centralized - use these instead of hardcoded values)
+  CACHE_STALE_TIME,
+  CACHE_STALE_TIME_LIST,
+  CACHE_STALE_TIME_METADATA,
+  CACHE_STALE_TIME_DATALABEL,
+  CACHE_STALE_TIME_ENTITY_CODES,
+  CACHE_STALE_TIME_ENTITY_LINKS,
+  CACHE_GC_TIME,
+  DEXIE_HYDRATION_MAX_AGE,
+  DEXIE_DATA_MAX_AGE,
 } from './query/queryClient';
 
 // ============================================================================

@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { db } from '../dexie/database';
 import { apiClient } from '../../lib/api';
+import { CACHE_STALE_TIME_METADATA } from '../query/queryClient';
 
 // ============================================================================
 // Types
@@ -178,8 +179,8 @@ export function useGlobalSettings(): UseGlobalSettingsResult {
 
       return settings;
     },
-    staleTime: 30 * 60 * 1000, // 30 minutes
-    gcTime: 60 * 60 * 1000, // 1 hour
+    staleTime: CACHE_STALE_TIME_METADATA,
+    gcTime: 60 * 60 * 1000, // 1 hour (longer for static settings)
     // Provide default settings while loading
     placeholderData: DEFAULT_SETTINGS,
   });

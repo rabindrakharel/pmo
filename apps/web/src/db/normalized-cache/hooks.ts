@@ -7,7 +7,7 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useMemo, useCallback } from 'react';
 import { apiClient } from '@/lib/api';
-import { queryClient } from '../query/queryClient';
+import { queryClient, CACHE_STALE_TIME_LIST, CACHE_GC_TIME } from '../query/queryClient';
 import { createEntityInstanceKey, type EntityLinkForwardRecord } from '../dexie/database';
 
 import type { EntityCode, EntityInstance, EntityLink, ListQueryParams } from './types';
@@ -103,7 +103,7 @@ export function useEntityInstances(): UseQueryResult<Map<string, EntityInstance[
     },
     enabled: isEnabled,
     staleTime: getStaleTime('entityInstances'),
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    gcTime: CACHE_GC_TIME,
   });
 
   // Update sync store when data changes
@@ -153,7 +153,7 @@ export function useEntityLinks(): {
     },
     enabled: isEnabled,
     staleTime: getStaleTime('entityLinks'),
-    gcTime: 30 * 60 * 1000,
+    gcTime: CACHE_GC_TIME,
   });
 
   const getChildIds = useCallback((parentCode: string, parentId: string, childCode: string): string[] => {
@@ -205,7 +205,7 @@ export function useEntityInstanceNames(entityCode: string): UseQueryResult<Recor
     },
     enabled: isEnabled,
     staleTime: getStaleTime('entityInstanceNames'),
-    gcTime: 30 * 60 * 1000,
+    gcTime: CACHE_GC_TIME,
   });
 
   // Update sync store when data changes
@@ -369,8 +369,8 @@ export function useNormalizedEntityList<T = EntityInstance>(
     },
     // Only run when cache misses
     enabled: cacheResult === null && !instancesLoading && !linksLoading,
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: CACHE_STALE_TIME_LIST,
+    gcTime: CACHE_GC_TIME,
   });
 
   // Return cache result if available

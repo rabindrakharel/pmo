@@ -153,8 +153,17 @@ export interface CacheConfig {
   debug: boolean;
 }
 
+// Import centralized cache timing constants
+import {
+  CACHE_STALE_TIME,
+  CACHE_STALE_TIME_DATALABEL,
+  CACHE_STALE_TIME_ENTITY_CODES,
+  CACHE_STALE_TIME_ENTITY_LINKS,
+} from '../query/queryClient';
+
 /**
  * Default cache configuration
+ * Uses centralized constants from queryClient.ts for consistency
  */
 export const DEFAULT_CACHE_CONFIG: CacheConfig = {
   enabled: true,
@@ -166,10 +175,10 @@ export const DEFAULT_CACHE_CONFIG: CacheConfig = {
     entityInstanceNames: true,
   },
   staleTimes: {
-    entityCodes: 30 * 60 * 1000,      // 30 minutes
-    entityInstances: 5 * 60 * 1000,   // 5 minutes
-    entityLinks: 5 * 60 * 1000,       // 5 minutes
-    entityInstanceNames: 10 * 60 * 1000, // 10 minutes
+    entityCodes: CACHE_STALE_TIME_ENTITY_CODES,      // 30 minutes
+    entityInstances: CACHE_STALE_TIME,              // 5 minutes
+    entityLinks: CACHE_STALE_TIME_ENTITY_LINKS,     // 5 minutes
+    entityInstanceNames: CACHE_STALE_TIME_DATALABEL, // 10 minutes
   },
   deltaSync: true,
   persistToIndexedDB: true,

@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { db, createDatalabelKey, type DatalabelOption } from '../dexie/database';
 import { apiClient } from '../../lib/api';
+import { CACHE_STALE_TIME_DATALABEL, CACHE_GC_TIME } from '../query/queryClient';
 
 // ============================================================================
 // Types
@@ -120,8 +121,8 @@ export function useDatalabel(datalabelKey: string | null): UseDatalabelResult {
       return options;
     },
     enabled: !!normalizedKey,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 60 * 60 * 1000, // 1 hour
+    staleTime: CACHE_STALE_TIME_DATALABEL,
+    gcTime: 60 * 60 * 1000, // 1 hour (longer for static datalabels)
   });
 
   // Helper functions
@@ -263,8 +264,8 @@ export function useAllDatalabels(): UseAllDatalabelsResult {
 
       return result;
     },
-    staleTime: 10 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
+    staleTime: CACHE_STALE_TIME_DATALABEL,
+    gcTime: 60 * 60 * 1000, // 1 hour (longer for static datalabels)
   });
 
   const getDatalabel = useCallback(
