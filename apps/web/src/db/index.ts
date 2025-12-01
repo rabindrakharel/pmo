@@ -39,18 +39,42 @@ export {
   useDatalabel,
   useAllDatalabels,
   useEntityCodes,
-  // On-Demand Store
+  // Entity Instance Data (On-Demand)
   useEntityInstanceData,
   useEntityList, // Deprecated alias
+  useEntityMetadata,
+  useEntityInfiniteList,
+  // Single Entity
+  useEntity,
+  useEntityMutation,
+  // Offline Entity
+  useOfflineEntity,
+  useOfflineEntityList,
+  isEntityCached,
+  getCachedEntity,
+  // Entity Links
+  useEntityLinks,
+  // Entity Instance Names
+  useEntityInstanceNames,
+  mergeEntityInstanceNames,
+  // Drafts
+  useDraft,
+  useRecoverDrafts,
   // Prefetch Functions
   prefetchGlobalSettings,
   prefetchAllDatalabels,
   prefetchEntityCodes,
+  prefetchEntityLinks,
   // Clear Functions
   clearGlobalSettingsCache,
   clearDatalabelCache,
   clearEntityCodesCache,
   clearEntityInstanceDataCache,
+  clearEntityLinksCache,
+  clearEntityInstanceNamesCache,
+  // Link manipulation
+  addLinkToCache,
+  removeLinkFromCache,
   // Sync Access
   getGlobalSettingsSync,
   getSettingSync,
@@ -93,6 +117,8 @@ export {
   ONDEMAND_STORES,
   SPECIAL_STORES,
   STORE_STALE_TIMES,
+  STORE_GC_TIMES,
+  STORE_PERSIST_TTL,
   // Legacy aliases
   CACHE_STALE_TIME,
   CACHE_STALE_TIME_LIST,
@@ -103,6 +129,11 @@ export {
   CACHE_GC_TIME,
   DEXIE_HYDRATION_MAX_AGE,
   DEXIE_DATA_MAX_AGE,
+  // Store types
+  type SessionStore,
+  type OndemandStore,
+  type SpecialStore,
+  type StoreName,
 } from './cache/constants';
 
 // Keys
@@ -139,6 +170,11 @@ export {
   closeDatabase,
   // Hydration
   hydrateFromDexie,
+  persistToGlobalSettings,
+  persistToDatalabel,
+  persistToEntityCodes,
+  persistToEntityInstanceNames,
+  persistToEntityInstanceData,
   // Operations
   clearAllExceptDrafts,
   clearAllStores,
@@ -190,13 +226,22 @@ export type {
   // Config Types
   CacheStrategy,
   CacheConfig,
-  SessionStore,
-  OndemandStore,
-  SpecialStore,
-  StoreName,
 } from './cache/types';
 
 export type { HydrationResult } from './persistence/hydrate';
+
+// Persistence record types
+export type {
+  GlobalSettingsRecord,
+  DatalabelRecord,
+  EntityCodesRecord,
+  EntityInstanceNameRecord,
+  EntityLinkForwardRecord,
+  EntityLinkReverseRecord,
+  EntityInstanceMetadataRecord,
+  EntityInstanceDataRecord,
+  DraftRecord,
+} from './persistence/schema';
 
 // ============================================================================
 // Legacy Re-exports (for backward compatibility during migration)

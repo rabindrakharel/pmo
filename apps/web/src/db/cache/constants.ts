@@ -115,6 +115,26 @@ export const STORE_STALE_TIMES = {
   entityInstanceData: ONDEMAND_STORE_CONFIG.staleTime,
 } as const;
 
+export const STORE_GC_TIMES = {
+  globalSettings: SESSION_STORE_CONFIG.gcTime,
+  datalabel: SESSION_STORE_CONFIG.gcTime,
+  entityCodes: SESSION_STORE_CONFIG.gcTime,
+  entityInstanceNames: SESSION_STORE_CONFIG.gcTime,
+  entityLinks: SESSION_STORE_CONFIG.gcTime,
+  entityInstanceMetadata: SESSION_STORE_CONFIG.gcTime,
+  entityInstanceData: ONDEMAND_STORE_CONFIG.gcTime,
+} as const;
+
+export const STORE_PERSIST_TTL = {
+  globalSettings: SESSION_STORE_CONFIG.persistMaxAge,
+  datalabel: SESSION_STORE_CONFIG.persistMaxAge,
+  entityCodes: SESSION_STORE_CONFIG.persistMaxAge,
+  entityInstanceNames: SESSION_STORE_CONFIG.persistMaxAge,
+  entityLinks: SESSION_STORE_CONFIG.persistMaxAge,
+  entityInstanceMetadata: SESSION_STORE_CONFIG.persistMaxAge,
+  entityInstanceData: ONDEMAND_STORE_CONFIG.persistMaxAge,
+} as const;
+
 // ============================================================================
 // Legacy Constant Aliases (for backward compatibility during migration)
 // ============================================================================

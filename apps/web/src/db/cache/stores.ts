@@ -135,8 +135,22 @@ class EntityCodesStore {
 class EntityInstanceNamesStore {
   private byType = new Map<string, Record<string, string>>();
 
-  set(entityCode: string, names: Record<string, string>): void {
-    this.byType.set(entityCode, names);
+  set(entityCode: string, entityInstanceId: string, name: string): void;
+  set(entityCode: string, names: Record<string, string>): void;
+  set(
+    entityCode: string,
+    entityInstanceIdOrNames: string | Record<string, string>,
+    name?: string
+  ): void {
+    if (typeof entityInstanceIdOrNames === 'string') {
+      // Single name mode
+      const existing = this.byType.get(entityCode) ?? {};
+      existing[entityInstanceIdOrNames] = name!;
+      this.byType.set(entityCode, existing);
+    } else {
+      // Batch mode - replace all
+      this.byType.set(entityCode, entityInstanceIdOrNames);
+    }
   }
 
   merge(entityCode: string, names: Record<string, string>): void {
@@ -158,7 +172,22 @@ class EntityInstanceNamesStore {
     return this.byType.get(entityCode)?.[entityInstanceId] ?? null;
   }
 
+  delete(entityCode: string, entityInstanceId: string): void {
+    const existing = this.byType.get(entityCode);
+    if (existing) {
+      delete existing[entityInstanceId];
+    }
+  }
+
   clear(): void {
+    this.byType.clear();
+  }
+
+  clearByCode(entityCode: string): void {
+    this.byType.delete(entityCode);
+  }
+
+  clearAll(): void {
     this.byType.clear();
   }
 
@@ -254,6 +283,67 @@ class EntityLinksStore {
     }
 
     return counts;
+  }
+
+  // Convenience methods for link manipulation
+  addForwardChild(
+    forwardKey: string,
+    childId: string,
+    relationshipType: string
+  ): void {
+    const existing = this.forward.get(forwardKey);
+    if (existing) {
+      if (!existing.childIds.includes(childId)) {
+        existing.childIds.push(childId);
+      }
+      existing.relationships[childId] = relationshipType;
+      existing.syncedAt = Date.now();
+    }
+  }
+
+  addReverseParent(
+    reverseKey: string,
+    parent: {
+      entity_code: string;
+      entity_instance_id: string;
+      relationship_type: string;
+    }
+  ): void {
+    const existing = this.reverse.get(reverseKey);
+    if (existing) {
+      const parentExists = existing.parents.some(
+        (p) =>
+          p.entity_code === parent.entity_code &&
+          p.entity_instance_id === parent.entity_instance_id
+      );
+      if (!parentExists) {
+        existing.parents.push(parent);
+        existing.syncedAt = Date.now();
+      }
+    }
+  }
+
+  removeForwardChild(forwardKey: string, childId: string): void {
+    const existing = this.forward.get(forwardKey);
+    if (existing) {
+      existing.childIds = existing.childIds.filter((id) => id !== childId);
+      delete existing.relationships[childId];
+      if (existing.childIds.length === 0) {
+        this.forward.delete(forwardKey);
+      }
+    }
+  }
+
+  removeReverseParent(reverseKey: string, parentInstanceId: string): void {
+    const existing = this.reverse.get(reverseKey);
+    if (existing) {
+      existing.parents = existing.parents.filter(
+        (p) => p.entity_instance_id !== parentInstanceId
+      );
+      if (existing.parents.length === 0) {
+        this.reverse.delete(reverseKey);
+      }
+    }
   }
 
   // Add/remove link operations (for optimistic updates)

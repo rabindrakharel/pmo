@@ -5,11 +5,11 @@
 // On-demand store - 5 min staleTime, never prefetch
 // ============================================================================
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useMemo } from 'react';
 import { apiClient } from '@/lib/api';
 import { QUERY_KEYS, createQueryHash } from '../keys';
-import { ONDEMAND_STORE_CONFIG } from '../constants';
+import { ONDEMAND_STORE_CONFIG, SESSION_STORE_CONFIG } from '../constants';
 import { entityInstanceNamesStore } from '../stores';
 import type {
   EntityInstanceDataParams,
@@ -20,6 +20,8 @@ import type {
 import {
   getEntityInstanceData,
   setEntityInstanceData,
+  getEntityInstanceMetadata,
+  setEntityInstanceMetadata,
   clearEntityInstanceData as clearEntityInstanceDataDexie,
 } from '../../persistence/operations';
 import {
@@ -171,6 +173,231 @@ export async function clearEntityInstanceDataCache(
     queryClient.removeQueries({ queryKey: ['entityInstanceData'] });
     await clearEntityInstanceDataDexie();
   }
+}
+
+// ============================================================================
+// Entity Metadata Hook (for getting field metadata without data)
+// ============================================================================
+
+export interface UseEntityMetadataResult {
+  /** Field names */
+  fields: string[];
+  /** View type metadata */
+  viewType: Record<string, unknown>;
+  /** Edit type metadata */
+  editType: Record<string, unknown>;
+  /** Loading state */
+  isLoading: boolean;
+  /** Error state */
+  isError: boolean;
+}
+
+/**
+ * Hook for fetching entity field metadata only
+ *
+ * STORE: entityInstanceMetadata
+ * LAYER: Session-level (30 min staleTime)
+ * PERSISTENCE: Dexie IndexedDB
+ *
+ * Uses content=metadata API parameter to get metadata without data transfer.
+ * This is more efficient than limit=1 as it skips the data query entirely.
+ */
+export function useEntityMetadata(entityCode: string): UseEntityMetadataResult {
+  const query = useQuery({
+    queryKey: QUERY_KEYS.entityInstanceMetadata(entityCode),
+    queryFn: async () => {
+      // Try Dexie cache first
+      const cached = await getEntityInstanceMetadata(entityCode);
+      if (cached && Date.now() - cached.syncedAt < SESSION_STORE_CONFIG.staleTime) {
+        return cached;
+      }
+
+      // Fetch metadata-only from API (no data transferred)
+      // Uses content=metadata parameter - skips data query on backend
+      const response = await apiClient.get(`/api/v1/${entityCode}`, {
+        params: { content: 'metadata' },
+      });
+
+      // Response always has same structure: data=[], fields, metadata, ref_data_entityInstance={}
+      const metadata = response.data.metadata?.entityListOfInstancesTable;
+      const fields = response.data.fields || [];
+
+      const record = {
+        _id: entityCode,
+        entityCode,
+        fields: fields.length > 0 ? fields : Object.keys(metadata?.viewType || {}),
+        viewType: metadata?.viewType || {},
+        editType: metadata?.editType || {},
+        syncedAt: Date.now(),
+      };
+
+      await setEntityInstanceMetadata(
+        entityCode,
+        record.fields,
+        record.viewType,
+        record.editType
+      );
+      return record;
+    },
+    staleTime: SESSION_STORE_CONFIG.staleTime,
+    gcTime: SESSION_STORE_CONFIG.gcTime,
+  });
+
+  return {
+    fields: query.data?.fields ?? [],
+    viewType: query.data?.viewType ?? {},
+    editType: query.data?.editType ?? {},
+    isLoading: query.isLoading,
+    isError: query.isError,
+  };
+}
+
+// ============================================================================
+// Infinite Query Hook (for load more patterns)
+// ============================================================================
+
+export interface UseEntityInfiniteListResult<T> {
+  /** Flattened array of all loaded pages */
+  data: T[] | undefined;
+  /** Total count from server */
+  total: number;
+  /** Field metadata */
+  metadata: EntityInstanceMetadata | undefined;
+  /** Reference data */
+  refData: Record<string, Record<string, string>> | undefined;
+  /** Initial loading */
+  isLoading: boolean;
+  /** Loading more pages */
+  isFetchingNextPage: boolean;
+  /** Has more pages to load */
+  hasNextPage: boolean;
+  /** Error occurred */
+  isError: boolean;
+  /** Error object */
+  error: Error | null;
+  /** Load next page */
+  fetchNextPage: () => Promise<void>;
+  /** Manual refetch all */
+  refetch: () => Promise<void>;
+}
+
+/**
+ * Hook for infinite scrolling entity lists
+ *
+ * @example
+ * const { data, hasNextPage, fetchNextPage } = useEntityInfiniteList<Task>('task', {
+ *   limit: 20,
+ *   dl__task_stage: 'in_progress'
+ * });
+ */
+export function useEntityInfiniteList<T = Record<string, unknown>>(
+  entityCode: string,
+  params: Omit<EntityInstanceDataParams, 'offset'> = {},
+  options: { enabled?: boolean; staleTime?: number } = {}
+): UseEntityInfiniteListResult<T> {
+  const { enabled = true, staleTime = ONDEMAND_STORE_CONFIG.staleTime } = options;
+  const limit = params.limit || 20;
+
+  // Pre-subscribe to entity type (close race window)
+  const hasSubscribedRef = useRef(false);
+  useEffect(() => {
+    if (enabled && !hasSubscribedRef.current) {
+      wsManager.subscribe(entityCode, []);
+      hasSubscribedRef.current = true;
+    }
+    return () => {
+      hasSubscribedRef.current = false;
+    };
+  }, [entityCode, enabled]);
+
+  const query = useInfiniteQuery<EntityListResponse<T>, Error>({
+    queryKey: QUERY_KEYS.entityInstanceDataInfinite(entityCode, params),
+    queryFn: async ({ pageParam = 0 }) => {
+      const searchParams = new URLSearchParams();
+      Object.entries({ ...params, limit, offset: pageParam }).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.set(key, String(value));
+        }
+      });
+
+      const response = await apiClient.get<EntityListResponse<T>>(
+        `/api/v1/${entityCode}?${searchParams}`
+      );
+
+      const now = Date.now();
+
+      // Store metadata ONCE per entity type (first page only)
+      if (response.metadata?.entityListOfInstancesTable && pageParam === 0) {
+        const metadataTable = response.metadata.entityListOfInstancesTable;
+        await setEntityInstanceMetadata(
+          entityCode,
+          Object.keys(metadataTable.viewType || {}),
+          metadataTable.viewType || {},
+          metadataTable.editType || {}
+        );
+      }
+
+      // Store entity instance names
+      if (response.ref_data_entityInstance) {
+        for (const [refEntityCode, names] of Object.entries(response.ref_data_entityInstance)) {
+          await persistToEntityInstanceNames(refEntityCode, names);
+          entityInstanceNamesStore.merge(refEntityCode, names);
+        }
+      }
+
+      return {
+        data: response.data || [],
+        total: response.total || 0,
+        limit: response.limit || limit,
+        offset: pageParam as number,
+        metadata: response.metadata,
+        ref_data_entityInstance: response.ref_data_entityInstance,
+      };
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => {
+      const nextOffset = lastPage.offset + lastPage.limit;
+      return nextOffset < lastPage.total ? nextOffset : undefined;
+    },
+    enabled,
+    staleTime,
+  });
+
+  // Flatten all pages into single array
+  const flatData = useMemo(() => {
+    return query.data?.pages.flatMap((page) => page.data) ?? [];
+  }, [query.data]);
+
+  // Get metadata from first page
+  const metadata = query.data?.pages[0]?.metadata?.entityListOfInstancesTable;
+  const refData = query.data?.pages[0]?.ref_data_entityInstance;
+  const total = query.data?.pages[0]?.total ?? 0;
+
+  // Auto-subscribe to all loaded entity IDs
+  useEffect(() => {
+    if (flatData.length > 0) {
+      const entityIds = (flatData as Array<{ id: string }>).map((d) => d.id);
+      wsManager.subscribe(entityCode, entityIds);
+    }
+  }, [entityCode, flatData]);
+
+  return {
+    data: flatData as T[],
+    total,
+    metadata,
+    refData,
+    isLoading: query.isLoading,
+    isFetchingNextPage: query.isFetchingNextPage,
+    hasNextPage: query.hasNextPage ?? false,
+    isError: query.isError,
+    error: query.error,
+    fetchNextPage: async () => {
+      await query.fetchNextPage();
+    },
+    refetch: async () => {
+      await query.refetch();
+    },
+  };
 }
 
 // ============================================================================

@@ -172,6 +172,9 @@ export async function clearEntityInstanceNames(entityCode?: string): Promise<voi
   }
 }
 
+// Convenience alias
+export const setEntityInstance = setEntityInstanceName;
+
 // ============================================================================
 // Entity Link Operations
 // ============================================================================
@@ -230,23 +233,42 @@ export async function clearEntityLinks(): Promise<void> {
 // Entity Instance Metadata Operations
 // ============================================================================
 
+export interface EntityInstanceMetadataWithTimestamp {
+  _id: string;
+  entityCode: string;
+  fields: string[];
+  viewType: Record<string, unknown>;
+  editType: Record<string, unknown>;
+  syncedAt: number;
+}
+
 export async function getEntityInstanceMetadata(
   entityCode: string
-): Promise<EntityInstanceMetadata | null> {
+): Promise<EntityInstanceMetadataWithTimestamp | null> {
   const record = await db.entityInstanceMetadata.get(
     DEXIE_KEYS.entityInstanceMetadata(entityCode)
   );
-  return record?.metadata ?? null;
+  if (!record) return null;
+  return {
+    _id: record._id,
+    entityCode: record.entityCode,
+    fields: record.metadata?.fields ?? [],
+    viewType: record.metadata?.viewType ?? {},
+    editType: record.metadata?.editType ?? {},
+    syncedAt: record.syncedAt,
+  };
 }
 
 export async function setEntityInstanceMetadata(
   entityCode: string,
-  metadata: EntityInstanceMetadata
+  fields: string[],
+  viewType: Record<string, unknown>,
+  editType: Record<string, unknown>
 ): Promise<void> {
   await db.entityInstanceMetadata.put({
     _id: DEXIE_KEYS.entityInstanceMetadata(entityCode),
     entityCode,
-    metadata,
+    metadata: { fields, viewType, editType },
     syncedAt: Date.now(),
   });
 }

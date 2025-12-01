@@ -15,23 +15,26 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import { queryClient, hydrateQueryCache, clearAllCaches } from './query/queryClient';
-import { wsManager, type ConnectionStatus } from './tanstack-sync/WebSocketManager';
+
+// Import from new unified cache structure
+import { queryClient } from './cache/client';
+import { clearAllSyncStores } from './cache/stores';
+import type { ConnectionStatus } from './cache/types';
 import {
   prefetchAllDatalabels,
   clearDatalabelCache,
-} from './tanstack-hooks/useDatalabel';
-import {
   prefetchGlobalSettings,
   clearGlobalSettingsCache,
-} from './tanstack-hooks/useGlobalSettings';
-import {
-  hydrateNormalizedCache,
-  prefetchNormalizedCache,
-  clearNormalizedCacheMemory,
   prefetchEntityCodes,
-} from './normalized-cache';
-import { clearNormalizedCache as clearNormalizedCacheDexie } from './dexie/database';
+  clearEntityCodesCache,
+  prefetchEntityLinks,
+  clearEntityLinksCache,
+  clearEntityInstanceNamesCache,
+  clearEntityInstanceDataCache,
+} from './cache/hooks';
+import { hydrateFromDexie } from './persistence/hydrate';
+import { clearAllExceptDrafts } from './persistence/operations';
+import { wsManager } from './realtime/manager';
 
 // ============================================================================
 // Context
@@ -95,14 +98,12 @@ export function TanstackCacheProvider({ children }: TanstackCacheProviderProps) 
 
   // Hydrate from Dexie on mount
   useEffect(() => {
-    Promise.all([
-      hydrateQueryCache(),
-      hydrateNormalizedCache(),
-    ])
-      .then(([legacyCount]) => {
+    hydrateFromDexie()
+      .then((stats) => {
         setIsHydrated(true);
         console.log(
-          `[CacheProvider] Hydrated from IndexedDB: ${legacyCount} legacy entities`
+          `[CacheProvider] Hydrated from IndexedDB:`,
+          stats
         );
       })
       .catch((error) => {
@@ -127,13 +128,21 @@ export function TanstackCacheProvider({ children }: TanstackCacheProviderProps) 
   // Clear all caches (for logout)
   const clearCache = useCallback(async () => {
     wsManager.disconnect();
-    clearDatalabelCache();
-    clearGlobalSettingsCache();
-    clearNormalizedCacheMemory(); // Clears entity codes + all normalized cache layers
-    await Promise.all([
-      clearAllCaches(),
-      clearNormalizedCacheDexie(),
-    ]);
+
+    // Clear TanStack Query caches
+    await clearDatalabelCache();
+    await clearGlobalSettingsCache();
+    await clearEntityCodesCache();
+    await clearEntityLinksCache();
+    await clearEntityInstanceNamesCache();
+    await clearEntityInstanceDataCache();
+
+    // Clear sync stores
+    clearAllSyncStores();
+
+    // Clear Dexie (except drafts)
+    await clearAllExceptDrafts();
+
     setIsMetadataLoaded(false);
   }, []);
 
@@ -216,9 +225,9 @@ export function disconnectWebSocket(): void {
  * Call this after successful authentication
  *
  * Includes:
- * - 4-layer normalized cache (entity types, instances, links, names)
+ * - Entity codes (types, icons, child relationships)
+ * - Entity links (parent-child relationships)
  * - Datalabels (dropdowns)
- * - Entity codes (legacy - for backward compatibility)
  * - Global settings
  *
  * @returns Promise that resolves when all metadata is loaded
@@ -227,18 +236,22 @@ export async function prefetchAllMetadata(): Promise<void> {
   console.log('%c[CacheProvider] Prefetching all metadata...', 'color: #74c0fc');
 
   try {
-    await Promise.all([
-      // 4-Layer Normalized Cache (NEW)
-      prefetchNormalizedCache(),
-      // Legacy metadata
-      prefetchAllDatalabels(),
+    const results = await Promise.all([
       prefetchEntityCodes(),
+      prefetchEntityLinks(),
+      prefetchAllDatalabels(),
       prefetchGlobalSettings(),
     ]);
 
     console.log(
       '%c[CacheProvider] Metadata prefetch complete',
-      'color: #51cf66; font-weight: bold'
+      'color: #51cf66; font-weight: bold',
+      {
+        entityCodes: results[0],
+        entityLinks: results[1],
+        datalabels: results[2],
+        globalSettings: results[3] ? 'loaded' : 'empty',
+      }
     );
   } catch (error) {
     console.error('[CacheProvider] Metadata prefetch failed:', error);
