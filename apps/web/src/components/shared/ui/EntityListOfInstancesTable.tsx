@@ -77,7 +77,6 @@ function extractSettingsDatalabel(columnKey: string): string {
   }
 
   // v8.2.0: Return as-is if not mapped (backend should provide settingsDatalabel)
-  console.warn(`[EntityListOfInstancesTable] No datalabel mapping for: ${columnKey}`);
   return columnKey;
 }
 
@@ -236,14 +235,6 @@ export function EntityListOfInstancesTable<T = any>({
       ? metadata
       : (metadata as any)?.entityListOfInstancesTable;
 
-    console.log(`%c[EntityListOfInstancesTable] 🔍 Metadata received:`, 'color: #69db7c; font-weight: bold', {
-      hasMetadata: !!metadata,
-      isDirect: isValidComponentMetadata(metadata),
-      isNested: !!(metadata as any)?.entityListOfInstancesTable,
-      isValid: isValidComponentMetadata(componentMetadata),
-      fieldCount: componentMetadata?.viewType ? Object.keys(componentMetadata.viewType).length : 0,
-    });
-
     // Explicit columns override (for special cases)
     if (initialColumns && initialColumns.length > 0) {
       return initialColumns;
@@ -254,7 +245,6 @@ export function EntityListOfInstancesTable<T = any>({
     const editType = extractEditType(componentMetadata);
 
     if (!viewType) {
-      console.error('[EntityListOfInstancesTable] No viewType in metadata - backend must send { viewType, editType }');
       return [];
     }
 

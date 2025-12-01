@@ -17,11 +17,12 @@ import { useS3Upload } from '../../lib/hooks/useS3Upload';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../contexts/NavigationHistoryContext';
 // v9.1.0: Use canonical hooks from @/db/tanstack-index (no wrapper layer)
+// v9.5.0: Added useOptimisticMutation for instant UI feedback
 import {
   useEntity,
   useEntityInstanceData,
-  useEntityMutation,
   useDraft,
+  useOptimisticMutation,
   invalidateEntityQueries,
 } from '../../db/tanstack-index';
 import { formatRow, type ComponentMetadata } from '../../lib/formatters';
@@ -90,8 +91,15 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   const backendMetadata = rawMetadata || null;
   const error = queryError?.message || null;
 
-  // Entity mutation for updates
-  const { updateEntity, isLoading: isUpdating } = useEntityMutation(entityCode);
+  // ============================================================================
+  // v9.5.0: OPTIMISTIC MUTATIONS - Instant UI feedback with automatic rollback
+  // ============================================================================
+  const { updateEntity: optimisticUpdateEntity } = useOptimisticMutation(entityCode, {
+    onError: (error) => {
+      setSaveError(error.message);
+      alert(`Operation failed: ${error.message}`);
+    },
+  });
 
   // Cache invalidation helper
   const invalidateEntity = useCallback(async (code: string, entityId?: string) => {
@@ -147,9 +155,9 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // ============================================================================
   // KEYBOARD SHORTCUTS (Ctrl+Z, Ctrl+Shift+Z, Ctrl+S, Escape)
   // ============================================================================
-  // v8.6.0: Pass draft state to keyboard shortcuts (no store dependency)
+  // v9.5.0: Updated to use optimistic updates for instant UI feedback
   const handleCustomSave = useCallback(async () => {
-    if (!hasChanges) return;
+    if (!hasChanges || !id) return;
 
     setIsSaving(true);
     setSaveError(null);
@@ -161,31 +169,18 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
         return;
       }
 
-      // PATCH to API
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/${entityCode}/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
-        },
-        body: JSON.stringify(changes),
-      });
+      // v9.5.0: Use optimistic update - UI updates immediately
+      await optimisticUpdateEntity(id, changes);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to save changes');
-      }
-
-      // Success - discard draft and invalidate cache
+      // Success - discard draft (cache already updated by optimistic mutation)
       await discardDraft();
-      invalidateEntity(entityCode, id);
-      refetch();
     } catch (err: any) {
+      // Error handling done by useOptimisticMutation onError callback
       setSaveError(err.message || 'Failed to save changes');
     } finally {
       setIsSaving(false);
     }
-  }, [hasChanges, getChanges, discardDraft, entityCode, id, invalidateEntity, refetch]);
+  }, [hasChanges, getChanges, discardDraft, id, optimisticUpdateEntity]);
 
   const handleCustomCancel = useCallback(async () => {
     await discardDraft();
@@ -540,12 +535,18 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // Special handling preserved for artifact versioning and task assignees
   // ============================================================================
 
+  // ============================================================================
+  // v9.5.0: OPTIMISTIC SAVE HANDLER - UI updates instantly, API syncs in background
+  // ============================================================================
   const handleSave = async () => {
+    if (!id) return;
+
     setIsSaving(true);
     setSaveError(null);
 
     try {
       // Special handling for artifact with new file upload (create new version)
+      // NOTE: Artifact versioning requires POST to create new record, not optimistic update
       if (entityCode === 'artifact' && uploadedObjectKey && selectedFile) {
         const token = localStorage.getItem('auth_token');
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
@@ -601,36 +602,21 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
         return;
       }
 
-      // PATCH to API
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/v1/${entityCode}/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
-        },
-        body: JSON.stringify(changes),
-      });
+      // v9.5.0: Use optimistic update - UI updates immediately, API syncs in background
+      await optimisticUpdateEntity(id, changes);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to save changes');
-      }
-
-      // Handle task assignees separately (special case)
+      // Handle task assignees separately (special case - linkage API)
       if (entityCode === 'task' && editedData?.assignee_employee_ids !== undefined) {
         const assigneeIds = editedData.assignee_employee_ids;
-        await updateTaskAssignees(id!, assigneeIds);
+        await updateTaskAssignees(id, assigneeIds);
       }
 
-      // Success - discard draft and invalidate cache
+      // Success - discard draft (cache already updated by optimistic mutation)
       await discardDraft();
-      invalidateEntity(entityCode, id);
-      refetch();
     } catch (err) {
-      console.error(`Failed to update ${entityCode}:`, err);
+      // Error handling done by useOptimisticMutation onError callback
       const errorMessage = err instanceof Error ? err.message : 'Failed to update';
       setSaveError(errorMessage);
-      alert(errorMessage);
     } finally {
       setIsSaving(false);
     }

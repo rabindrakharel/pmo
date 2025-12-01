@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Check, X, Edit2, Calendar, Hash, DollarSign, Percent } from 'lucide-react';
+import { formatFriendlyDate } from '../../../lib/utils/dateUtils';
 
 /**
  * Inline Editing Components
@@ -503,14 +504,9 @@ export function InlineDate({
     setIsEditing(false);
   };
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+  // Use centralized date-fns utility for formatting
+  const formatDateDisplay = (dateString: string) => {
+    return formatFriendlyDate(dateString, '');
   };
 
   if (isEditing && !disabled) {
@@ -551,7 +547,7 @@ export function InlineDate({
           !value ? 'text-dark-600 italic' : ''
         }`}
       >
-        {value ? formatDate(value) : placeholder}
+        {value ? formatDateDisplay(value) : placeholder}
       </span>
       {!disabled && (
         <Edit2 className="h-3 w-3 text-dark-600 opacity-0 group-hover:opacity-100 transition-opacity" />

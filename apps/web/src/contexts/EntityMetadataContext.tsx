@@ -57,19 +57,16 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
   useEffect(() => {
     // Wait for auth validation to complete
     if (isAuthLoading) {
-      console.log('[EntityMetadataContext] Waiting for auth validation...');
       return;
     }
 
     if (!isAuthenticated) {
-      console.warn('[EntityMetadataContext] Not authenticated, skipping entity metadata load');
       setLoading(false);
       return;
     }
 
     // Check if entity codes are loaded from TanStack Query
     if (isEntityCodesLoading) {
-      console.log('[EntityMetadataContext] Waiting for entity codes...');
       return;
     }
 
@@ -77,9 +74,6 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
     const cachedTypes = entityCodes || getEntityCodesSync();
 
     if (cachedTypes && cachedTypes.length > 0) {
-      console.log('[EntityMetadataContext] Using entity types from Dexie cache');
-      console.log('[EntityMetadataContext] Cached entity codes:', cachedTypes.map((e: any) => e.code));
-
       const entityMap = new Map<string, EntityMetadata>();
       cachedTypes.forEach((entity: any) => {
         entityMap.set(entity.code, {
@@ -93,11 +87,9 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
         });
       });
 
-      console.log('[EntityMetadataContext] Entity map size:', entityMap.size);
       setEntities(entityMap);
       setLoading(false);
     } else {
-      console.warn('[EntityMetadataContext] No entity codes in Dexie cache');
       setLoading(false);
     }
   }, [isAuthenticated, isAuthLoading, entityCodes, isEntityCodesLoading]);

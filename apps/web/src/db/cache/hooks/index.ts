@@ -52,6 +52,14 @@ export {
   type UseEntityMutationResult,
 } from './useEntity';
 
+// Optimistic Mutations (v9.5.0)
+export {
+  useOptimisticMutation,
+  type OptimisticMutationContext,
+  type UseOptimisticMutationOptions,
+  type UseOptimisticMutationResult,
+} from './useOptimisticMutation';
+
 // Offline Entity (Dexie-only)
 export {
   useOfflineEntity,

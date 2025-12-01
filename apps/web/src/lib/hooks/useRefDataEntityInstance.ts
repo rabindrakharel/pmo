@@ -40,6 +40,17 @@ import { useCallback, useMemo } from 'react';
 import type { RefData } from '@/db/tanstack-index';
 
 // ============================================================================
+// DEBUG LOGGING - Set to true for ref_data_entityInstance cache diagnostics
+// ============================================================================
+const DEBUG_REF_DATA = false;
+
+const debugRefData = (message: string, data?: Record<string, unknown>) => {
+  if (DEBUG_REF_DATA) {
+    console.log(`%c[ref_data_entityInstance] ${message}`, 'color: #be4bdb; font-weight: bold', data || '');
+  }
+};
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -111,11 +122,11 @@ export function upsertRefDataEntityInstance(
     const after = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
     const afterCount = after ? Object.keys(after).length : 0;
 
-    console.log(
-      `%c[ref_data_entityInstance] 📥 Upserted ${Object.keys(lookups).length} entries for ${entityCode}`,
-      'color: #be4bdb',
-      { before: beforeCount, added: Object.keys(lookups).length, after: afterCount }
-    );
+    debugRefData(`📥 Upserted ${Object.keys(lookups).length} entries for ${entityCode}`, {
+      before: beforeCount,
+      added: Object.keys(lookups).length,
+      after: afterCount,
+    });
   }
 }
 
@@ -172,34 +183,25 @@ export async function prefetchRefDataEntityInstances(
   const token = localStorage.getItem('auth_token');
 
   if (!token) {
-    console.warn('[ref_data_entityInstance] No auth token, skipping prefetch');
+    debugRefData('⚠️ No auth token, skipping prefetch');
     return;
   }
 
-  console.log(
-    `%c[ref_data_entityInstance] 🔄 Prefetching for: ${entityCodes.join(', ')}`,
-    'color: #ff6b6b'
-  );
+  debugRefData(`🔄 Prefetching for: ${entityCodes.join(', ')}`);
 
   const promises = entityCodes.map(async (entityCode) => {
     try {
       const queryKey = ref_data_entityInstanceKeys.byEntity(entityCode);
-      console.log(
-        `%c[ref_data_entityInstance] 📡 Starting prefetch for: ${entityCode}`,
-        'color: #74c0fc',
-        { queryKey }
-      );
+      debugRefData(`📡 Starting prefetch for: ${entityCode}`, { queryKey });
 
       // Fetch directly and use setQueryData to ALWAYS set the complete data
       const url = `${apiUrl}/api/v1/entity/${entityCode}/entity-instance?active_only=true&limit=${limit}`;
-      console.log(`%c[ref_data_entityInstance] 🌐 Fetching: ${url}`, 'color: #74c0fc');
 
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
-        console.error(`[ref_data_entityInstance] ❌ HTTP ${response.status} for ${entityCode}`);
         throw new Error(`Failed to fetch ${entityCode} instances: HTTP ${response.status}`);
       }
 
@@ -214,54 +216,24 @@ export async function prefetchRefDataEntityInstances(
         }
       }
 
-      console.log(
-        `%c[ref_data_entityInstance] ✅ Prefetched ${Object.keys(lookup).length} ${entityCode} instances`,
-        'color: #51cf66',
-        { entityCode, count: Object.keys(lookup).length, sampleKeys: Object.keys(lookup).slice(0, 3) }
-      );
+      debugRefData(`✅ Prefetched ${Object.keys(lookup).length} ${entityCode} instances`, {
+        entityCode,
+        count: Object.keys(lookup).length,
+      });
 
       // Use setQueryData with MERGE to handle race conditions
       queryClient.setQueryData<EntityInstanceLookup>(queryKey, (old) => {
         const merged = { ...(old || {}), ...lookup };
-        console.log(
-          `%c[ref_data_entityInstance] 🔀 Merged prefetch data for ${entityCode}`,
-          'color: #51cf66',
-          { oldCount: old ? Object.keys(old).length : 0, prefetchCount: Object.keys(lookup).length, mergedCount: Object.keys(merged).length }
-        );
         return merged;
       });
-
-      // Verify cache was populated
-      const cachedData = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
-      console.log(
-        `%c[ref_data_entityInstance] 🔍 Cache verification for ${entityCode}:`,
-        cachedData ? 'color: #51cf66' : 'color: #ff6b6b',
-        {
-          entityCode,
-          queryKey,
-          isCached: !!cachedData,
-          cacheSize: cachedData ? Object.keys(cachedData).length : 0,
-        }
-      );
     } catch (error) {
-      console.error(`[ref_data_entityInstance] ❌ Failed to prefetch ${entityCode}:`, error);
+      debugRefData(`❌ Failed to prefetch ${entityCode}`, { error: String(error) });
     }
   });
 
   await Promise.all(promises);
 
-  // Final summary log
-  console.log(
-    `%c[ref_data_entityInstance] 📊 Prefetch complete. Cache summary:`,
-    'color: #be4bdb; font-weight: bold'
-  );
-  entityCodes.forEach((entityCode) => {
-    const queryKey = ref_data_entityInstanceKeys.byEntity(entityCode);
-    const cachedData = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
-    console.log(
-      `  ${cachedData ? '✅' : '❌'} ${entityCode}: ${cachedData ? Object.keys(cachedData).length : 0} items`
-    );
-  });
+  debugRefData('📊 Prefetch complete');
 }
 
 /**
@@ -308,26 +280,12 @@ export function useRefDataEntityInstanceOptions(
 
   const queryKey = ref_data_entityInstanceKeys.byEntity(entityCode || '');
 
-  // Debug: Check cache state before useQuery
-  const existingCache = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
-  const cacheSize = existingCache ? Object.keys(existingCache).length : 0;
-
-  console.log(
-    `%c[ref_data_entityInstance] 🔍 Hook called for: ${entityCode}`,
-    'color: #845ef7',
-    { queryKey, cacheExists: !!existingCache, cacheSize, enabled }
-  );
-
   const query = useQuery<EntityInstanceLookup>({
     queryKey,
     queryFn: async () => {
       if (!entityCode) return {};
 
-      // This only runs on cache MISS (TanStack Query handles cache-first)
-      console.log(
-        `%c[ref_data_entityInstance] ⚠️ queryFn executing (cache miss or stale): ${entityCode}`,
-        'color: #ff6b6b; font-weight: bold'
-      );
+      debugRefData(`⚠️ queryFn executing (cache miss or stale): ${entityCode}`);
 
       const token = localStorage.getItem('auth_token');
       if (!token) throw new Error('No auth token');
@@ -351,10 +309,7 @@ export function useRefDataEntityInstanceOptions(
         }
       }
 
-      console.log(
-        `%c[ref_data_entityInstance] ✅ API returned ${Object.keys(lookup).length} ${entityCode} instances`,
-        'color: #51cf66'
-      );
+      debugRefData(`✅ API returned ${Object.keys(lookup).length} ${entityCode} instances`);
 
       return lookup;
     },
@@ -363,20 +318,6 @@ export function useRefDataEntityInstanceOptions(
     gcTime: REF_DATA_ENTITYINSTANCE_CONFIG.GC_TIME,
     refetchOnWindowFocus: false,
   });
-
-  // Debug: Log what useQuery returned
-  console.log(
-    `%c[ref_data_entityInstance] 📊 useQuery result for: ${entityCode}`,
-    query.data ? 'color: #51cf66' : 'color: #868e96',
-    {
-      hasData: !!query.data,
-      dataSize: query.data ? Object.keys(query.data).length : 0,
-      isLoading: query.isLoading,
-      isFetching: query.isFetching,
-      isStale: query.isStale,
-      fetchStatus: query.fetchStatus,
-    }
-  );
 
   // Transform lookup to options array for Select component
   const selectOptions = useMemo((): EntityInstanceOption[] => {

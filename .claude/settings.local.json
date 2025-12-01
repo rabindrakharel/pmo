@@ -259,7 +259,11 @@
       "Bash(git -C /home/rabin/projects/pmo log --oneline -100)",
       "Bash(git -C /home/rabin/projects/pmo diff 66bc0f0 HEAD -- apps/web/src/lib/hooks/useEntityQuery.ts)",
       "Bash(jq:*)",
-      "Bash(git -C /home/rabin/projects/pmo mv apps/web/src/lib/hooks/useEntityQuery.ts apps/web/src/lib/hooks/useEntityFormatters.ts)"
+      "Bash(git -C /home/rabin/projects/pmo mv apps/web/src/lib/hooks/useEntityQuery.ts apps/web/src/lib/hooks/useEntityFormatters.ts)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0NjA1NzEyLCJleHAiOjE3NjQ2OTIxMTJ9.vXUM-Lq4fUbJX7G_nTm5CQLkSeOxgqYXgys0YmnLmh4\" curl -s \"http://localhost:4000/api/v1/project?code=CSE-2024-001\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0NjA1NzEyLCJleHAiOjE3NjQ2OTIxMTJ9.vXUM-Lq4fUbJX7G_nTm5CQLkSeOxgqYXgys0YmnLmh4\" curl -s \"http://localhost:4000/api/v1/project?limit=10\" -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0NjA1NzEyLCJleHAiOjE3NjQ2OTIxMTJ9.vXUM-Lq4fUbJX7G_nTm5CQLkSeOxgqYXgys0YmnLmh4\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjYwYjFiMC01ZWZjLTQ2MTEtYWQzMy1lZTc2YzBjZjdmMTMiLCJlbWFpbCI6ImphbWVzLm1pbGxlckBodXJvbmhvbWUuY2EiLCJuYW1lIjoiSmFtZXMgTWlsbGVyIiwiaWF0IjoxNzY0NjA1NzEyLCJleHAiOjE3NjQ2OTIxMTJ9.vXUM-Lq4fUbJX7G_nTm5CQLkSeOxgqYXgys0YmnLmh4\" curl -s \"http://localhost:4000/api/v1/project?limit=5\" -H \"Authorization: Bearer $TOKEN\")"
     ],
     "deny": [],
     "ask": [],

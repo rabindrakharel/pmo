@@ -346,6 +346,147 @@ export async function clearStaleEntityInstanceData(maxAgeMs: number): Promise<nu
   return count;
 }
 
+/**
+ * Update a single item in ALL cached entity instance data records for an entity type
+ * Used for optimistic updates to keep Dexie in sync with TanStack Query
+ *
+ * @param entityCode - Entity type code (e.g., 'project')
+ * @param entityId - ID of the entity to update
+ * @param updater - Function to update the item
+ * @returns Number of cache entries updated
+ */
+export async function updateEntityInstanceDataItem<T extends { id: string }>(
+  entityCode: string,
+  entityId: string,
+  updater: (item: T) => T
+): Promise<number> {
+  // Get all cached data for this entity type
+  const records = await db.entityInstanceData
+    .where('entityCode')
+    .equals(entityCode)
+    .toArray();
+
+  let updatedCount = 0;
+
+  for (const record of records) {
+    const data = record.data as T[];
+    const index = data.findIndex((item) => item.id === entityId);
+
+    if (index !== -1) {
+      // Update the item
+      const updatedData = [...data];
+      updatedData[index] = updater(data[index]);
+
+      // Write back to Dexie
+      await db.entityInstanceData.put({
+        ...record,
+        data: updatedData,
+        syncedAt: Date.now(),
+      });
+      updatedCount++;
+    }
+  }
+
+  return updatedCount;
+}
+
+/**
+ * Delete a single item from ALL cached entity instance data records for an entity type
+ * Used for optimistic deletes to keep Dexie in sync with TanStack Query
+ *
+ * @param entityCode - Entity type code (e.g., 'project')
+ * @param entityId - ID of the entity to delete
+ * @returns Number of cache entries updated
+ */
+export async function deleteEntityInstanceDataItem(
+  entityCode: string,
+  entityId: string
+): Promise<number> {
+  // Get all cached data for this entity type
+  const records = await db.entityInstanceData
+    .where('entityCode')
+    .equals(entityCode)
+    .toArray();
+
+  let updatedCount = 0;
+
+  for (const record of records) {
+    const data = record.data as Array<{ id: string }>;
+    const filteredData = data.filter((item) => item.id !== entityId);
+
+    if (filteredData.length !== data.length) {
+      // Item was removed, write back to Dexie
+      await db.entityInstanceData.put({
+        ...record,
+        data: filteredData,
+        total: Math.max(0, (record.total || 0) - 1),
+        syncedAt: Date.now(),
+      });
+      updatedCount++;
+    }
+  }
+
+  return updatedCount;
+}
+
+/**
+ * Add a new item to ALL cached entity instance data records for an entity type
+ * Used for optimistic creates to keep Dexie in sync with TanStack Query
+ *
+ * @param entityCode - Entity type code (e.g., 'project')
+ * @param newItem - The new item to add
+ * @param prepend - Whether to add at the beginning (default: true)
+ * @returns Number of cache entries updated
+ */
+export async function addEntityInstanceDataItem<T extends { id: string }>(
+  entityCode: string,
+  newItem: T,
+  prepend: boolean = true
+): Promise<number> {
+  // Get all cached data for this entity type
+  const records = await db.entityInstanceData
+    .where('entityCode')
+    .equals(entityCode)
+    .toArray();
+
+  let updatedCount = 0;
+
+  for (const record of records) {
+    const data = record.data as T[];
+
+    // Add the item
+    const updatedData = prepend ? [newItem, ...data] : [...data, newItem];
+
+    // Write back to Dexie
+    await db.entityInstanceData.put({
+      ...record,
+      data: updatedData,
+      total: (record.total || 0) + 1,
+      syncedAt: Date.now(),
+    });
+    updatedCount++;
+  }
+
+  return updatedCount;
+}
+
+/**
+ * Replace a temp item with a real item in ALL cached entity instance data records
+ * Used after optimistic create when server returns the real entity with ID
+ *
+ * @param entityCode - Entity type code
+ * @param tempId - Temporary ID to replace
+ * @param realItem - The real item from server
+ * @returns Number of cache entries updated
+ */
+export async function replaceEntityInstanceDataItem<T extends { id: string }>(
+  entityCode: string,
+  tempId: string,
+  realItem: T
+): Promise<number> {
+  return updateEntityInstanceDataItem<T>(entityCode, tempId, () => realItem);
+}
+
 // ============================================================================
 // Draft Operations
 // ============================================================================
@@ -429,7 +570,6 @@ export async function clearAllExceptDrafts(): Promise<void> {
     db.entityInstanceData.clear(),
     // Note: draft is NOT cleared
   ]);
-  console.log('[Persistence] All stores cleared (drafts preserved)');
 }
 
 /**
@@ -447,7 +587,6 @@ export async function clearAllStores(): Promise<void> {
     db.entityInstanceData.clear(),
     db.draft.clear(),
   ]);
-  console.log('[Persistence] All stores cleared (including drafts)');
 }
 
 /**
@@ -471,10 +610,6 @@ export async function clearStaleData(maxAgeMs: number = 30 * 60 * 1000): Promise
     .count();
   await db.datalabel.filter((d) => d.syncedAt < cutoff).delete();
   count += staleDatalabels;
-
-  if (count > 0) {
-    console.log(`[Persistence] Cleared ${count} stale entries`);
-  }
 
   return count;
 }

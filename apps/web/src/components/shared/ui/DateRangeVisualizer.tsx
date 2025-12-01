@@ -1,6 +1,7 @@
 import React from 'react';
 import { Calendar } from 'lucide-react';
 import { formatFriendlyDate } from '../../../lib/frontEndFormatterService';
+import { parseDateSafe } from '../../../lib/utils/dateUtils';
 
 // Inline calculateDateRangeProgress (UI-specific utility)
 function calculateDateRangeProgress(
@@ -9,8 +10,11 @@ function calculateDateRangeProgress(
 ) {
   if (!startDateString || !endDateString) return null;
 
-  const startDate = typeof startDateString === 'string' ? new Date(startDateString) : startDateString;
-  const endDate = typeof endDateString === 'string' ? new Date(endDateString) : endDateString;
+  // Use date-fns parseISO for safe date parsing (handles YYYY-MM-DD as local dates)
+  const startDate = parseDateSafe(startDateString);
+  const endDate = parseDateSafe(endDateString);
+  if (!startDate || !endDate) return null;
+
   const today = new Date();
 
   startDate.setHours(0, 0, 0, 0);

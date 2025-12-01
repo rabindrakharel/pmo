@@ -62,7 +62,6 @@ export function clearNormalizedStore(queryClient: QueryClient): void {
   const store = getNormalizedStore(queryClient);
   store.entities = {};
   store.lastUpdated = {};
-  console.log('%c[NormalizedCache] Store cleared', 'color: #868e96');
 }
 
 // ============================================================================
@@ -74,7 +73,6 @@ export function clearNormalizedStore(queryClient: QueryClient): void {
  */
 export function normalizeEntity(entity: any, entityType: string): NormalizedEntity {
   if (!entity || !entity.id) {
-    console.warn('[NormalizedCache] Cannot normalize entity without id:', entity);
     return entity;
   }
 
@@ -112,11 +110,6 @@ export function normalizeListResponse(
       store.lastUpdated[`${entityType}:${entity.id}`] = Date.now();
       ids.push(entity.id);
     }
-  });
-
-  console.log(`%c[NormalizedCache] Stored ${ids.length} ${entityType} entities`, 'color: #4dabf7', {
-    ids: ids.slice(0, 5),
-    hasMore: ids.length > 5,
   });
 
   return {
@@ -195,10 +188,6 @@ export function updateNormalizedEntity(
 
   store.lastUpdated[`${entityType}:${entityId}`] = Date.now();
 
-  console.log(`%c[NormalizedCache] Updated ${entityType}:${entityId}`, 'color: #51cf66', {
-    updates: Object.keys(updates),
-  });
-
   return store.entities[entityType][entityId];
 }
 
@@ -215,8 +204,6 @@ export function removeNormalizedEntity(
   if (store.entities[entityType]?.[entityId]) {
     delete store.entities[entityType][entityId];
     delete store.lastUpdated[`${entityType}:${entityId}`];
-
-    console.log(`%c[NormalizedCache] Removed ${entityType}:${entityId}`, 'color: #ff6b6b');
     return true;
   }
 
@@ -232,7 +219,6 @@ export function addNormalizedEntity(
   entity: any
 ): NormalizedEntity | null {
   if (!entity || !entity.id) {
-    console.warn('[NormalizedCache] Cannot add entity without id:', entity);
     return null;
   }
 
@@ -246,8 +232,6 @@ export function addNormalizedEntity(
   const normalized = normalizeEntity(entity, entityType);
   store.entities[entityType][entity.id] = normalized;
   store.lastUpdated[`${entityType}:${entity.id}`] = Date.now();
-
-  console.log(`%c[NormalizedCache] Added ${entityType}:${entity.id}`, 'color: #51cf66');
 
   return normalized;
 }
@@ -275,8 +259,6 @@ export function invalidateEntityQueries(
       queryKey: ['entity-instance', entityType, entityId],
     });
   }
-
-  console.log(`%c[NormalizedCache] Invalidated queries for ${entityType}${entityId ? ':' + entityId : ''}`, 'color: #fcc419');
 }
 
 /**

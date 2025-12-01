@@ -45,24 +45,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Prefetch all metadata (datalabels, entity codes, global settings)
   const loadMetadata = async () => {
     try {
-      console.log('%c[Auth] Prefetching metadata...', 'color: #845ef7; font-weight: bold');
-
       // Prefetch all metadata in parallel
-      const [datalabelCount, entityCodeCount, settingsOk] = await Promise.all([
+      await Promise.all([
         prefetchAllDatalabels(),
         prefetchEntityCodes(),
         prefetchGlobalSettings(),
       ]);
-
-      console.log(
-        '%c[Auth] ✓ Metadata loaded: %d datalabels, %d entity codes, settings: %s',
-        'color: #51cf66; font-weight: bold',
-        datalabelCount,
-        entityCodeCount,
-        settingsOk ? 'OK' : 'cached'
-      );
     } catch (error) {
-      console.error('[Auth] Failed to load metadata:', error);
       // Don't throw - metadata is enhancement, not critical for auth
     }
   };

@@ -99,15 +99,10 @@ export function TanstackCacheProvider({ children }: TanstackCacheProviderProps) 
   // Hydrate from Dexie on mount
   useEffect(() => {
     hydrateFromDexie()
-      .then((stats) => {
+      .then(() => {
         setIsHydrated(true);
-        console.log(
-          `[CacheProvider] Hydrated from IndexedDB:`,
-          stats
-        );
       })
-      .catch((error) => {
-        console.error('[CacheProvider] Hydration failed:', error);
+      .catch(() => {
         setIsHydrated(true); // Continue anyway
       });
   }, []);
@@ -119,8 +114,7 @@ export function TanstackCacheProvider({ children }: TanstackCacheProviderProps) 
 
   // Handle token expiry warnings
   useEffect(() => {
-    return wsManager.onTokenExpiring((expiresIn) => {
-      console.log(`[CacheProvider] Token expiring in ${expiresIn}s`);
+    return wsManager.onTokenExpiring(() => {
       // Could trigger token refresh here
     });
   }, []);
@@ -233,28 +227,14 @@ export function disconnectWebSocket(): void {
  * @returns Promise that resolves when all metadata is loaded
  */
 export async function prefetchAllMetadata(): Promise<void> {
-  console.log('%c[CacheProvider] Prefetching all metadata...', 'color: #74c0fc');
-
   try {
-    const results = await Promise.all([
+    await Promise.all([
       prefetchEntityCodes(),
       prefetchEntityLinks(),
       prefetchAllDatalabels(),
       prefetchGlobalSettings(),
     ]);
-
-    console.log(
-      '%c[CacheProvider] Metadata prefetch complete',
-      'color: #51cf66; font-weight: bold',
-      {
-        entityCodes: results[0],
-        entityLinks: results[1],
-        datalabels: results[2],
-        globalSettings: 'loaded',
-      }
-    );
-  } catch (error) {
-    console.error('[CacheProvider] Metadata prefetch failed:', error);
+  } catch {
     // Don't throw - app can continue with partial metadata
   }
 }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CreditCard, Download, Calendar, DollarSign, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Layout } from '../../components/shared';
+import { formatLocalizedDate } from '../../lib/utils/dateUtils';
 
 interface Invoice {
   id: string;
@@ -166,7 +167,7 @@ export function BillingPage() {
                             </div>
                             <div className="text-sm text-dark-700">{invoice.description}</div>
                             <div className="text-xs text-dark-600">
-                              {new Date(invoice.date).toLocaleDateString()}
+                              {formatLocalizedDate(invoice.date)}
                             </div>
                           </div>
                         </div>

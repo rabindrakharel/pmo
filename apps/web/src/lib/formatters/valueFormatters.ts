@@ -12,6 +12,7 @@
 
 // v9.0.0: Use Dexie sync cache for non-hook datalabel access
 import { getDatalabelSync } from '../../db/tanstack-index';
+import { formatLocalizedDate, formatRelativeTime as formatRelativeTimeUtil, parseDateSafe } from '../utils/dateUtils';
 import type { FieldMetadata, FormattedValue } from './types';
 
 /**
@@ -105,7 +106,10 @@ export function formatBadge(
 }
 
 /**
- * Format date values
+ * Format date values using date-fns
+ *
+ * Uses parseISO from date-fns which correctly interprets date-only strings
+ * (YYYY-MM-DD) as LOCAL dates, avoiding the UTC timezone shift issue.
  */
 export function formatDate(
   value: any,
@@ -115,21 +119,12 @@ export function formatDate(
     return { display: '—' };
   }
 
-  try {
-    const date = new Date(value);
-    if (isNaN(date.getTime())) {
-      return { display: '—' };
-    }
-
-    const locale = metadata?.locale || 'en-CA';
-    return { display: date.toLocaleDateString(locale) };
-  } catch {
-    return { display: String(value) };
-  }
+  const locale = metadata?.locale || 'en-CA';
+  return { display: formatLocalizedDate(value, locale, '—') };
 }
 
 /**
- * Format timestamp as relative time
+ * Format timestamp as relative time using date-fns
  */
 export function formatRelativeTime(
   value: any,
@@ -139,31 +134,7 @@ export function formatRelativeTime(
     return { display: '—' };
   }
 
-  try {
-    const date = new Date(value);
-    if (isNaN(date.getTime())) {
-      return { display: '—' };
-    }
-
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffSec = Math.floor(diffMs / 1000);
-    const diffMin = Math.floor(diffSec / 60);
-    const diffHour = Math.floor(diffMin / 60);
-    const diffDay = Math.floor(diffHour / 24);
-    const diffWeek = Math.floor(diffDay / 7);
-    const diffMonth = Math.floor(diffDay / 30);
-
-    if (diffSec < 60) return { display: 'just now' };
-    if (diffMin < 60) return { display: `${diffMin}m ago` };
-    if (diffHour < 24) return { display: `${diffHour}h ago` };
-    if (diffDay < 7) return { display: `${diffDay}d ago` };
-    if (diffWeek < 4) return { display: `${diffWeek}w ago` };
-    if (diffMonth < 12) return { display: `${diffMonth}mo ago` };
-    return { display: date.toLocaleDateString('en-CA') };
-  } catch {
-    return { display: String(value) };
-  }
+  return { display: formatRelativeTimeUtil(value, '—') };
 }
 
 /**

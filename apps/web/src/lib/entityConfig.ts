@@ -244,10 +244,10 @@ export interface EntityConfig {
 // ============================================================================
 
 import { formatRelativeTime, formatFriendlyDate } from './frontEndFormatterService';
+import { formatLocalizedDate } from './utils/dateUtils';
 
 export const formatDate = (dateString?: string) => {
-  if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('en-CA');
+  return formatLocalizedDate(dateString, 'en-CA', '-');
 };
 
 // Centralized date/timestamp renderers

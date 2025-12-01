@@ -13,9 +13,8 @@ import { getEntityConfig, type ViewMode } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
 import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
 import { useSidebar } from '../../contexts/SidebarContext';
-import { useEntityInstanceData, useEntityInstanceMetadata, useEntityMutation } from '@/db/tanstack-index';
+import { useEntityInstanceData, useEntityInstanceMetadata, useOptimisticMutation } from '@/db/tanstack-index';
 import { formatDataset, type ComponentMetadata } from '../../lib/formatters';
-import { API_CONFIG } from '../../lib/config/api';
 import type { RowAction } from '../../components/shared/ui/EntityListOfInstancesTable';
 
 // ============================================================================
@@ -202,8 +201,27 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     }
   }), [currentPage, totalRecords, clientPageSize]);
 
-  // Entity mutation for updates (kanban card moves, etc.)
-  const { updateEntity } = useEntityMutation(entityCode);
+  // ============================================================================
+  // v9.5.0: OPTIMISTIC MUTATIONS - Instant UI feedback with automatic rollback
+  // ============================================================================
+  // Pattern: Update TanStack + Dexie immediately → Background API call
+  // On success: cache already correct
+  // On error: automatic rollback to previous state
+  // ============================================================================
+  const {
+    updateEntity,
+    createEntity,
+    deleteEntity,
+  } = useOptimisticMutation(entityCode, {
+    listQueryParams: queryParams,
+    onSuccess: () => {
+      debugCache('Optimistic mutation: Success', { entityCode });
+    },
+    onError: (error) => {
+      debugCache('Optimistic mutation: FAILED - rollback triggered', { entityCode, error: error.message });
+      alert(`Operation failed: ${error.message}`);
+    },
+  });
 
   // Legacy loadData function for compatibility (now just triggers refetch)
   const loadData = useCallback(async (page: number = 1, append: boolean = false) => {
@@ -224,11 +242,6 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     const rawItem = item.raw || item;
     const idField = config.detailPageIdField || 'id';
     const id = rawItem[idField];
-    console.log(
-      `%c[NAVIGATION] 🚀 Row clicked - navigating to detail page`,
-      'color: #f783ac; font-weight: bold',
-      { entityCode, id, itemName: rawItem.name || rawItem.code, from: 'EntityListOfInstancesPage' }
-    );
     navigate(`/${entityCode}/${id}`);
   }, [config, entityCode, navigate]);
 
@@ -241,23 +254,23 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   }, [currentPage, loadData]);
 
   // ============================================================================
-  // OPTIMISTIC UPDATES WITH ZUSTAND MUTATION
+  // v9.5.0: OPTIMISTIC KANBAN CARD MOVE
   // ============================================================================
-  // Kanban card moves use optimistic updates via useEntityMutation
-  // On error, React Query automatically refetches to restore correct state
+  // Card moves update cache immediately, API syncs in background
+  // On error: automatic rollback to previous column
   // ============================================================================
 
   const handleCardMove = useCallback(async (itemId: string, fromColumn: string, toColumn: string) => {
     if (!config?.kanban) return;
 
-    console.log(`Moving ${entityCode} ${itemId} from ${fromColumn} to ${toColumn}`);
+    debugCache('Optimistic card move: Starting', { entityCode, itemId, fromColumn, toColumn });
 
     try {
-      // Use mutation hook with automatic optimistic update and error rollback
       await updateEntity(itemId, { [config.kanban.groupByField]: toColumn });
+      debugCache('Optimistic card move: Completed', { entityCode, itemId });
     } catch (err) {
-      console.error(`Failed to update ${entityCode}:`, err);
-      // React Query will automatically refetch on error
+      // Error handling and rollback handled by useOptimisticMutation onError callback
+      debugCache('Optimistic card move: Failed', { entityCode, itemId, error: String(err) });
     }
   }, [config, entityCode, updateEntity]);
 
@@ -275,73 +288,50 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   const handleSaveInlineEdit = useCallback(async (record: any) => {
     if (!config) return;
 
-    try {
-      const token = localStorage.getItem('auth_token');
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
+    // Handle both FormattedRow and raw data
+    const rawRecord = record.raw || record;
+    const recordId = rawRecord.id;
 
-      // Handle both FormattedRow and raw data
-      const rawRecord = record.raw || record;
-      const recordId = rawRecord.id;
+    const isNewRow = isAddingRow || recordId?.toString().startsWith('temp_') || rawRecord._isNew;
+    const transformedData = transformForApi(editedData, rawRecord);
 
-      const isNewRow = isAddingRow || recordId?.toString().startsWith('temp_') || rawRecord._isNew;
-      const transformedData = transformForApi(editedData, rawRecord);
-
-      // Remove temporary fields
-      delete transformedData._isNew;
-      if (isNewRow) {
-        delete transformedData.id;
-      }
-
-      let response;
-      if (isNewRow) {
-        // POST - Create new entity
-        console.log(`Creating new ${entityCode}:`, transformedData);
-        response = await fetch(`${API_CONFIG.BASE_URL}${config.apiEndpoint}`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(transformedData)
-        });
-
-        if (response.ok) {
-          console.log(`✅ Created ${entityCode}`);
-          await refetch();
-          setEditingRow(null);
-          setEditedData({});
-          setIsAddingRow(false);
-        } else {
-          const errorText = await response.text();
-          console.error(`❌ Failed to create ${entityCode}:`, response.statusText, errorText);
-          alert(`Failed to create ${entityCode}: ${response.statusText}`);
-        }
-      } else {
-        // PATCH - Update existing entity
-        console.log(`Updating ${entityCode}:`, transformedData);
-        response = await fetch(`${API_CONFIG.BASE_URL}${config.apiEndpoint}/${recordId}`, {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify(transformedData)
-        });
-
-        if (response.ok) {
-          console.log(`✅ Updated ${entityCode}`);
-          await refetch();
-          setEditingRow(null);
-          setEditedData({});
-          setIsAddingRow(false);
-        } else {
-          const errorText = await response.text();
-          console.error(`Failed to update record:`, response.statusText, errorText);
-          alert(`Failed to update record: ${response.statusText}`);
-        }
-      }
-    } catch (error) {
-      console.error('Error saving record:', error);
-      alert('An error occurred while saving. Please try again.');
+    // Remove temporary fields
+    delete transformedData._isNew;
+    if (isNewRow) {
+      delete transformedData.id;
     }
-  }, [config, entityCode, editedData, isAddingRow, refetch]);
+
+    try {
+      if (isNewRow) {
+        // ============================================================================
+        // v9.5.0: OPTIMISTIC CREATE - UI updates immediately, API syncs in background
+        // ============================================================================
+        debugCache('Optimistic create: Starting', { entityCode, data: transformedData });
+        await createEntity(transformedData);
+        debugCache('Optimistic create: Completed', { entityCode });
+      } else {
+        // ============================================================================
+        // v9.5.0: OPTIMISTIC UPDATE - UI updates immediately, API syncs in background
+        // ============================================================================
+        debugCache('Optimistic update: Starting', { entityCode, recordId, data: transformedData });
+        await updateEntity(recordId, transformedData);
+        debugCache('Optimistic update: Completed', { entityCode, recordId });
+      }
+
+      // Clear edit state after successful mutation
+      setEditingRow(null);
+      setEditedData({});
+      setIsAddingRow(false);
+      setLocalData([]);
+    } catch (error) {
+      // Error handling is done in onError callback of useOptimisticMutation
+      // Rollback happens automatically - just clear edit state
+      setEditingRow(null);
+      setEditedData({});
+      setIsAddingRow(false);
+      setLocalData([]);
+    }
+  }, [config, entityCode, editedData, isAddingRow, createEntity, updateEntity]);
 
   const handleCancelInlineEdit = useCallback(() => {
     if (isAddingRow && editingRow) {
@@ -366,31 +356,18 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     // v8.0.0: Handle FormattedRow objects
     const rawRecord = record.raw || record;
 
+    // ============================================================================
+    // v9.5.0: OPTIMISTIC DELETE - Row removed immediately, API syncs in background
+    // ============================================================================
+    debugCache('Optimistic delete: Starting', { entityCode, recordId: rawRecord.id });
     try {
-      const token = localStorage.getItem('auth_token');
-      const headers: HeadersInit = {};
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
-      const response = await fetch(`${API_CONFIG.BASE_URL}${config.apiEndpoint}/${rawRecord.id}`, {
-        method: 'DELETE',
-        headers
-      });
-
-      if (response.ok) {
-        console.log('✅ Record deleted successfully');
-        await refetch();
-      } else {
-        const errorText = await response.text();
-        console.error('Failed to delete record:', response.statusText, errorText);
-        alert(`Failed to delete record: ${response.statusText}`);
-      }
+      await deleteEntity(rawRecord.id);
+      debugCache('Optimistic delete: Completed', { entityCode, recordId: rawRecord.id });
     } catch (error) {
-      console.error('Error deleting record:', error);
-      alert('An error occurred while deleting. Please try again.');
+      // Error handling and rollback handled by useOptimisticMutation onError callback
+      debugCache('Optimistic delete: Failed', { entityCode, recordId: rawRecord.id });
     }
-  }, [config, refetch]);
+  }, [config, entityCode, deleteEntity]);
 
   // Row actions for EntityListOfInstancesTable
   const rowActions: RowAction[] = useMemo(() => {

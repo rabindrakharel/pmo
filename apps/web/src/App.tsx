@@ -97,24 +97,15 @@ function AppRoutes() {
   // 2. Not in customRouteEntities list
   // 3. Have a config in entityConfigs (silently skips entities without configs)
   const generateEntityRoutes = () => {
-    console.log('[DEBUG] generateEntityRoutes called');
-    console.log('[DEBUG] entities.size:', entities.size);
-    console.log('[DEBUG] entities:', Array.from(entities.keys()));
-
     const entityCodes = Array.from(entities.values())
       .filter(entity => {
         // Filter: active, not custom, and has config
         const hasConfig = !!entityConfigs[entity.code];
         const isActive = entity.active_flag;
         const isNotCustom = !customRouteEntities.includes(entity.code);
-
-        console.log(`[DEBUG] Entity: ${entity.code}, active: ${isActive}, notCustom: ${isNotCustom}, hasConfig: ${hasConfig}`);
-
         return isActive && isNotCustom && hasConfig;
       })
       .map(entity => entity.code);
-
-    console.log('[DEBUG] Generated routes for entities:', entityCodes);
 
     return entityCodes.map(entityCode => {
       const config = entityConfigs[entityCode];

@@ -21,7 +21,7 @@ import type {
   FormattedRow,
   FormattedValue,
 } from './types';
-import { extractViewType, isValidComponentMetadata } from './types';
+import { extractViewType } from './types';
 import {
   formatCurrency,
   formatBadge,
@@ -172,26 +172,7 @@ export function formatDataset<T extends Record<string, any>>(
     return [];
   }
 
-  // Extract viewType once for logging and validation
-  const viewType = extractViewType(metadata);
-
-  console.log(`%c[FORMAT] Formatting ${data.length} rows`, 'color: #be4bdb; font-weight: bold', {
-    hasMetadata: !!metadata,
-    isValid: isValidComponentMetadata(metadata),
-    hasViewType: !!viewType,
-    fieldCount: viewType ? Object.keys(viewType).length : 0,
-    hasRefData: !!refData,
-    refDataEntities: refData ? Object.keys(refData) : [],
-  });
-
-  const startTime = performance.now();
-
-  const result = data.map(row => formatRow(row, metadata, refData));
-
-  const duration = performance.now() - startTime;
-  console.log(`%c[FORMAT] Formatted in ${duration.toFixed(2)}ms`, 'color: #be4bdb');
-
-  return result;
+  return data.map(row => formatRow(row, metadata, refData));
 }
 
 /**

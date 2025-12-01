@@ -116,21 +116,12 @@ export async function hydrateFromDexie(): Promise<HydrationResult> {
       counts.entityInstanceNames +
       counts.entityInstanceMetadata;
 
-    if (counts.total > 0) {
-      console.log(
-        `%c[Hydration] Hydrated ${counts.total} records from Dexie`,
-        'color: #51cf66; font-weight: bold',
-        counts
-      );
-    }
-
     return {
       success: errors.length === 0,
       counts,
       errors,
     };
   } catch (error) {
-    console.error('[Hydration] Failed:', error);
     return {
       success: false,
       counts,

@@ -11,6 +11,23 @@ import { apiClient } from '@/lib/api';
 import { QUERY_KEYS, createQueryHash } from '../keys';
 import { ONDEMAND_STORE_CONFIG, SESSION_STORE_CONFIG } from '../constants';
 import { entityInstanceNamesStore } from '../stores';
+
+// ============================================================================
+// DEBUG LOGGING - Cache Layer Diagnostics
+// ============================================================================
+// Set to true to enable detailed cache debugging for staleness issues
+const DEBUG_CACHE = true;
+
+const debugCache = (message: string, data?: Record<string, unknown>) => {
+  if (DEBUG_CACHE) {
+    const timestamp = new Date().toISOString().split('T')[1].slice(0, 12);
+    console.log(
+      `%c[${timestamp}] [DATA-FETCH] ${message}`,
+      'color: #10b981; font-weight: bold',
+      data || ''
+    );
+  }
+};
 import type {
   EntityInstanceDataParams,
   EntityListResponse,
@@ -85,16 +102,40 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
   const query = useQuery({
     queryKey: QUERY_KEYS.entityInstanceData(entityCode, params),
     queryFn: async () => {
-      // Layer 2: Check Dexie
+      debugCache(`🔍 queryFn called - checking Dexie (IndexedDB)...`, {
+        entityCode,
+        params,
+        queryKey: JSON.stringify(QUERY_KEYS.entityInstanceData(entityCode, params)),
+      });
+
+      // Layer 2: Check Dexie (with TTL validation)
       const cached = await getEntityInstanceData(entityCode, params);
       if (cached) {
-        // Return cached data but trigger background refresh
-        return {
-          data: cached.data as T[],
-          total: cached.total,
-          metadata: cached.metadata,
-          refData: cached.refData,
-        };
+        const cacheAgeMs = Date.now() - (cached.syncedAt || 0);
+        const isStale = cacheAgeMs > ONDEMAND_STORE_CONFIG.staleTime;
+
+        debugCache(isStale ? '⏰ Dexie cache STALE - will fetch from API' : '✅ Dexie cache HIT - returning cached data', {
+          entityCode,
+          cacheAgeMs: `${Math.round(cacheAgeMs / 1000)}s`,
+          staleTimeMs: `${ONDEMAND_STORE_CONFIG.staleTime / 1000}s`,
+          isStale,
+          rowCount: cached.data?.length,
+          firstRowBudget: (cached.data?.[0] as any)?.budget_allocated_amt,
+          firstRowUpdatedTs: (cached.data?.[0] as any)?.updated_ts,
+        });
+
+        // Only return cached data if within TTL
+        if (!isStale) {
+          return {
+            data: cached.data as T[],
+            total: cached.total,
+            metadata: cached.metadata,
+            refData: cached.refData,
+          };
+        }
+        // Cache is stale, fall through to API fetch
+      } else {
+        debugCache('❌ Dexie cache MISS - will fetch from API', { entityCode, params });
       }
 
       // Layer 3: Fetch from API
@@ -104,6 +145,8 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
           searchParams.set(key, String(value));
         }
       });
+
+      debugCache(`📡 Fetching from API...`, { entityCode, url: `/api/v1/${entityCode}?${searchParams}` });
 
       const response = await apiClient.get<EntityListResponse<T>>(
         `/api/v1/${entityCode}?${searchParams}`
@@ -117,7 +160,17 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
         refData: apiData.ref_data_entityInstance,
       };
 
+      debugCache('📥 API response received - persisting to Dexie', {
+        entityCode,
+        rowCount: result.data.length,
+        total: result.total,
+        firstRowBudget: (result.data[0] as any)?.budget_allocated_amt,
+        firstRowVersion: (result.data[0] as any)?.version,
+        firstRowUpdatedTs: (result.data[0] as any)?.updated_ts,
+      });
+
       // Persist to Dexie
+      debugCache(`💾 Persisting to Dexie (IndexedDB)...`, { entityCode, queryHash });
       await persistToEntityInstanceData(
         entityCode,
         queryHash,
@@ -127,6 +180,7 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
         result.metadata,
         result.refData
       );
+      debugCache(`✅ Dexie persistence complete`, { entityCode });
 
       // Persist entity instance names from refData
       if (result.refData) {
@@ -137,6 +191,10 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
         }
       }
 
+      debugCache(`✅ queryFn complete - returning fresh data`, {
+        entityCode,
+        rowCount: result.data.length,
+      });
       return result;
     },
     staleTime: ONDEMAND_STORE_CONFIG.staleTime,
@@ -145,7 +203,13 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
   });
 
   const refetch = async (): Promise<void> => {
+    // Clear Dexie cache for this entity before refetching to ensure fresh data
+    // This is critical after PATCH/POST operations to avoid returning stale cached data
+    debugCache('🔄 refetch() called - clearing Dexie cache before API fetch', { entityCode, params });
+    await clearEntityInstanceDataDexie(entityCode);
+    debugCache('🗑️ Dexie cache cleared - now calling query.refetch()', { entityCode });
     await query.refetch();
+    debugCache('✅ refetch() complete', { entityCode });
   };
 
   // Type assertion for query result

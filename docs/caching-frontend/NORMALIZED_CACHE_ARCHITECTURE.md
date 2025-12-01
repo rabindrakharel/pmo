@@ -1,6 +1,6 @@
 # Unified Cache Architecture
 
-> **Version:** 3.0.0 | PMO Enterprise Platform
+> **Version:** 3.2.0 | PMO Enterprise Platform
 > **Status:** Implementation Complete
 > **Date:** 2025-12-01
 
@@ -11,6 +11,7 @@ This document describes the **unified cache architecture** that consolidates Tan
 ### Key Benefits
 
 - **Single Entry Point** - All imports from `@/db/tanstack-index`
+- **Dual-Cache Optimistic Updates** - Immediate write to both TanStack Query AND Dexie
 - **Zero redundant API calls** - Filtered queries derive from cached graph
 - **Instant parent-child navigation** - Link graph enables O(1) lookups
 - **Single source of truth** - Each entity stored once, referenced everywhere
@@ -25,14 +26,14 @@ This document describes the **unified cache architecture** that consolidates Tan
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                      UNIFIED CACHE ARCHITECTURE (v3.0)                       │
+│                      UNIFIED CACHE ARCHITECTURE (v3.2)                       │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  PUBLIC API: db/tanstack-index.ts                                           │
 │  ════════════════════════════════                                           │
 │  • Single import point for all cache operations                             │
 │  • Exports hooks, stores, constants, types, utilities                       │
-│  • Backward-compatible legacy aliases                                        │
+│  • Dual-cache optimistic mutations (TanStack + Dexie)                       │
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────────┐│
 │  │                         THREE LAYERS                                     ││
@@ -73,13 +74,14 @@ apps/web/src/db/
 │       ├── useEntityInstanceNames.ts # Entity name resolution
 │       ├── useEntityLinks.ts # Parent-child relationships
 │       ├── useGlobalSettings.ts # App settings
-│       └── useOfflineEntity.ts # Offline-only access
+│       ├── useOfflineEntity.ts # Offline-only access
+│       └── useOptimisticMutation.ts # Dual-cache optimistic updates
 │
 ├── persistence/              # PERSISTENCE LAYER
 │   ├── index.ts              # Persistence exports
 │   ├── schema.ts             # Dexie v5 schema (8 tables)
 │   ├── hydrate.ts            # Dexie → TanStack hydration
-│   └── operations.ts         # Clear/cleanup operations
+│   └── operations.ts         # Clear, cleanup, and granular update operations
 │
 └── realtime/                 # REAL-TIME LAYER
     ├── index.ts              # Realtime exports
@@ -212,6 +214,19 @@ const { data: draft, updateField, undo, redo, hasChanges, save, discard } = useD
 
 // Offline-only access
 const { data, isStale } = useOfflineEntity<Project>('project', projectId);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// OPTIMISTIC MUTATION HOOK (v9.5.2 - dual-cache updates)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Optimistic mutations with dual-cache (TanStack + Dexie)
+const { updateEntity, deleteEntity, isUpdating, isDeleting } = useOptimisticMutation<Project>('project');
+
+// Update: Immediate UI + IndexedDB update, then API call
+updateEntity({ entityId: projectId, changes: { name: 'New Name' } });
+
+// Delete: Immediate removal from both caches, then API call
+deleteEntity({ entityId: projectId });
 ```
 
 ### 2.4 Query Keys
@@ -379,10 +394,14 @@ export async function persistToEntityInstanceNames(entityCode: string, names: Ma
 export async function persistToEntityInstanceData(hash: string, entityCode: string, data: any[], total: number): Promise<void>;
 ```
 
-### 3.3 Cleanup Operations
+### 3.3 Persistence Operations
 
 ```typescript
 // db/persistence/operations.ts
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CLEANUP OPERATIONS
+// ═══════════════════════════════════════════════════════════════════════════
 
 // Clear all data except drafts (logout)
 export async function clearAllExceptDrafts(): Promise<void>;
@@ -392,6 +411,40 @@ export async function clearAllStores(): Promise<void>;
 
 // Clear stale data (background cleanup)
 export async function clearStaleData(maxAge: number): Promise<void>;
+
+// Clear entity-specific data (for error recovery)
+export async function clearEntityInstanceData(entityCode: string): Promise<void>;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GRANULAR UPDATE OPERATIONS (v9.5.2 - for optimistic mutations)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Update single item across all cached lists for an entity type
+export async function updateEntityInstanceDataItem<T extends { id: string }>(
+  entityCode: string,
+  entityId: string,
+  updater: (item: T) => T
+): Promise<number>;
+
+// Delete single item from all cached lists
+export async function deleteEntityInstanceDataItem(
+  entityCode: string,
+  entityId: string
+): Promise<number>;
+
+// Add new item to all cached lists (prepend or append)
+export async function addEntityInstanceDataItem<T extends { id: string }>(
+  entityCode: string,
+  newItem: T,
+  prepend?: boolean  // default: true
+): Promise<number>;
+
+// Replace temp item with real item (for CREATE success)
+export async function replaceEntityInstanceDataItem<T extends { id: string }>(
+  entityCode: string,
+  tempId: string,
+  realItem: T
+): Promise<number>;
 ```
 
 ---
@@ -475,6 +528,116 @@ export const wsManager = {
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### 4.3 Optimistic Mutation Pattern (v9.5.2)
+
+Dual-cache optimistic updates write to both TanStack Query AND Dexie immediately during mutations.
+
+```typescript
+// db/cache/hooks/useOptimisticMutation.ts
+
+export function useOptimisticMutation<T extends { id: string }>(entityCode: string) {
+  const queryClient = useQueryClient();
+
+  const updateMutation = useMutation({
+    mutationFn: (params: { entityId: string; changes: Partial<T> }) =>
+      api.patch(`/api/v1/${entityCode}/${params.entityId}`, params.changes),
+
+    onMutate: async ({ entityId, changes }) => {
+      // 1. Cancel in-flight queries
+      await queryClient.cancelQueries({
+        queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
+      });
+
+      // 2. Snapshot previous TanStack state (for rollback)
+      const previousData = queryClient.getQueriesData({
+        queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
+      });
+
+      // 3. IMMEDIATE: Update TanStack Query (in-memory) - UI updates instantly
+      queryClient.setQueriesData(
+        { queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode) },
+        (old: EntityListResponse<T> | undefined) => {
+          if (!old?.data) return old;
+          return {
+            ...old,
+            data: old.data.map((item) =>
+              item.id === entityId ? { ...item, ...changes } : item
+            ),
+          };
+        }
+      );
+
+      // 4. IMMEDIATE: Update Dexie (IndexedDB) in parallel
+      updateEntityInstanceDataItem<T>(entityCode, entityId, (item) => ({
+        ...item,
+        ...changes,
+      })).catch(() => clearEntityInstanceData(entityCode));
+
+      return { previousData };
+    },
+
+    onError: (_err, _vars, context) => {
+      // Rollback TanStack on error
+      context?.previousData?.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data);
+      });
+      // Clear Dexie to ensure consistency (will repopulate on next fetch)
+      clearEntityInstanceData(entityCode);
+    },
+
+    onSettled: () => {
+      // Refetch to get server-confirmed data
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
+      });
+    },
+  });
+
+  return { updateEntity: updateMutation.mutate };
+}
+```
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    OPTIMISTIC MUTATION FLOW (v9.5.2)                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  User Action (e.g., inline edit)                                            │
+│                    ↓                                                         │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │  onMutate (IMMEDIATE - before API call)                              │   │
+│  │                                                                       │   │
+│  │  1. Cancel in-flight queries                                         │   │
+│  │  2. Snapshot TanStack state (for rollback)                           │   │
+│  │  3. Update TanStack Query (in-memory) → UI renders instantly         │   │
+│  │  4. Update Dexie (IndexedDB) in parallel → Survives page refresh     │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                    ↓                                                         │
+│  API Call: PATCH /api/v1/{entity}/{id}                                      │
+│                    ↓                                                         │
+│  ┌────────────────────────────────────────────────────────────┐             │
+│  │  onSuccess                        │  onError               │             │
+│  │  ───────────                      │  ───────               │             │
+│  │  • Server confirmed               │  • Rollback TanStack   │             │
+│  │  • Invalidate queries             │  • Clear Dexie         │             │
+│  │  • Refetch for fresh data         │  • Refetch stale data  │             │
+│  └────────────────────────────────────────────────────────────┘             │
+│                                                                              │
+│  Result: User sees update instantly, persists across refresh                │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Benefits of Dual-Cache Optimistic Updates:**
+
+| Scenario | TanStack Only | TanStack + Dexie |
+|----------|---------------|------------------|
+| User edits inline | Instant UI update | Instant UI update |
+| Page refresh during API call | Shows stale data | Shows optimistic data |
+| API succeeds | Refetch confirms | Refetch confirms |
+| API fails | Rollback to stale | Rollback + clear Dexie |
+| Offline edit | Not supported | Persists in IndexedDB |
 
 ---
 
@@ -585,6 +748,7 @@ import {
   useEntityLinks,           // Parent-child relationships
   useDraft,                 // Form drafts with undo/redo
   useOfflineEntity,         // Offline-only access
+  useOptimisticMutation,    // Dual-cache optimistic updates (v9.5.2)
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SYNC ACCESS (for formatters/utilities - outside React)
@@ -628,6 +792,13 @@ import {
   clearAllExceptDrafts,
   clearAllStores,
   clearStaleData,
+  clearEntityInstanceData,  // Clear entity-specific data
+
+  // Granular update operations (v9.5.2 - for optimistic mutations)
+  updateEntityInstanceDataItem,  // Update single item in all cached lists
+  deleteEntityInstanceDataItem,  // Remove single item from all cached lists
+  addEntityInstanceDataItem,     // Add new item to all cached lists
+  replaceEntityInstanceDataItem, // Replace temp item with real item
 
   // ═══════════════════════════════════════════════════════════════════════════
   // REAL-TIME
@@ -756,7 +927,50 @@ function formatProjectStage(stageCode: string): { label: string; color: string }
 }
 ```
 
-### 7.3 Draft Persistence with Undo/Redo
+### 7.3 Optimistic Mutations (v9.5.2)
+
+```typescript
+import { useOptimisticMutation } from '@/db/tanstack-index';
+
+function ProjectTable() {
+  const { updateEntity, deleteEntity, isUpdating } = useOptimisticMutation<Project>('project');
+
+  const handleInlineEdit = (projectId: string, field: string, value: any) => {
+    // Instantly updates both TanStack (UI) and Dexie (IndexedDB)
+    // Then calls API in background
+    updateEntity({
+      entityId: projectId,
+      changes: { [field]: value },
+    });
+  };
+
+  const handleDelete = (projectId: string) => {
+    // Instantly removes from both caches
+    // Then calls API in background
+    deleteEntity({ entityId: projectId });
+  };
+
+  return (
+    <table>
+      {projects.map((project) => (
+        <tr key={project.id}>
+          <td>
+            <InlineEdit
+              value={project.name}
+              onSave={(value) => handleInlineEdit(project.id, 'name', value)}
+            />
+          </td>
+          <td>
+            <button onClick={() => handleDelete(project.id)}>Delete</button>
+          </td>
+        </tr>
+      ))}
+    </table>
+  );
+}
+```
+
+### 7.4 Draft Persistence with Undo/Redo
 
 ```typescript
 import { useDraft } from '@/db/tanstack-index';
@@ -885,43 +1099,56 @@ function ProjectForm({ projectId }: { projectId: string }) {
 
 ---
 
-## 10. Migration from Previous Architecture
+## 10. Implementation Notes
 
-### 10.1 Import Changes
+### 10.1 Public API Import
 
 ```typescript
-// OLD (v2.0 - deleted directories)
-import { useEntityCodes } from '@/db/normalized-cache';
-import { useEntity } from '@/db/tanstack-hooks';
-import { queryClient } from '@/db/query/queryClient';
-
-// NEW (v3.0 - unified)
+// All cache operations from single entry point
 import {
+  // Hooks
   useEntityCodes,
   useEntity,
+  useEntityInstanceData,
+  useDatalabel,
+  useOptimisticMutation,
+  useDraft,
+
+  // Sync access (outside React)
+  getEntityCodeSync,
+  getDatalabelSync,
+  getEntityInstanceNameSync,
+
+  // Query client
   queryClient,
+  invalidateEntityQueries,
+
+  // Persistence operations
+  updateEntityInstanceDataItem,
+  deleteEntityInstanceDataItem,
+  addEntityInstanceDataItem,
+  clearEntityInstanceData,
 } from '@/db/tanstack-index';
 ```
 
-### 10.2 Removed Features
+### 10.2 Architecture Decisions
 
-- `CacheConfigProvider` - Cache is always enabled
-- `useCacheConfig` - No runtime cache configuration
-- Adapter pattern - Single implementation
-- `normalized-cache/` directory - Consolidated into `cache/`
-- `tanstack-hooks/` directory - Consolidated into `cache/hooks/`
+- **Single entry point** - All imports from `@/db/tanstack-index`
+- **Unified query keys** - `QUERY_KEYS` and `DEXIE_KEYS` for consistency
+- **Dual-cache optimistic mutations** - Write to both TanStack and Dexie immediately
+- **Granular Dexie updates** - Item-level operations instead of full cache clears
+- **Error recovery** - Falls back to clearing Dexie on update failures
 
-### 10.3 New Features
+### 10.3 Design Principles
 
-- Single public API entry point
-- Unified query keys (`QUERY_KEYS`, `DEXIE_KEYS`)
-- Consolidated hook structure
-- Improved type safety
-- Legacy aliases for backward compatibility
+- **TanStack Query** for server state management (in-memory, auto-refetch)
+- **Dexie (IndexedDB)** for persistence (offline-first, survives refresh)
+- **WebSocket** for real-time cache invalidation
+- **Sync stores** for O(1) access outside React components
 
 ---
 
-**Version:** 3.1.0
+**Version:** 3.2.0
 **Last Updated:** 2025-12-01
 **Status:** Implementation Complete
 
@@ -933,3 +1160,4 @@ import {
 | 2.0.0 | 2025-11-29 | Added adapters, configuration, WebSocket |
 | 3.0.0 | 2025-12-01 | Unified architecture with single entry point |
 | 3.1.0 | 2025-12-01 | Added quick reference tables (stores, lifecycle, access patterns) |
+| 3.2.0 | 2025-12-01 | **Dual-cache optimistic updates (v9.5.2)**: Write to both TanStack Query AND Dexie immediately during mutations. Added granular Dexie operations: `updateEntityInstanceDataItem`, `deleteEntityInstanceDataItem`, `addEntityInstanceDataItem`, `replaceEntityInstanceDataItem`. Removed legacy references. |
