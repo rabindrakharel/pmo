@@ -43,7 +43,7 @@ import {
   type DatalabelOption,
   type EntityCodeData,
   type GlobalSettings,
-} from '../../db/tanstack-hooks';
+} from '../../db/tanstack-index';
 
 // ============================================================================
 // Cache Configuration

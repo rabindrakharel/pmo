@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { getIconComponent } from '../../../lib/iconMapping';
 // v9.0.0: Use TanStack Query + Dexie for entity codes
-import { useEntityCodes } from '../../../db/tanstack-hooks';
+import { useEntityCodes } from '../../../db/tanstack-index';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 

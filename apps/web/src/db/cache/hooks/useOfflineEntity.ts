@@ -6,7 +6,9 @@
 // ============================================================================
 
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, createEntityInstanceKey } from '../dexie/database';
+import { db } from '../../persistence/schema';
+import { DEXIE_KEYS } from '../keys';
+import { ONDEMAND_STORE_CONFIG } from '../constants';
 
 // ============================================================================
 // Types
@@ -39,6 +41,10 @@ export interface UseOfflineEntityListResult<T> {
 /**
  * Offline-first hook that reads entity instance name from Dexie/IndexedDB
  *
+ * STORE: entityInstance (Dexie only)
+ * LAYER: Dexie persistence layer
+ * PERSISTENCE: IndexedDB via Dexie
+ *
  * Use this when:
  * - You need reactive updates from local cache only
  * - Network is unavailable
@@ -60,15 +66,14 @@ export function useOfflineEntity<T = Record<string, unknown>>(
   const cached = useLiveQuery(
     async () => {
       if (!entityId) return null;
-      return db.entityInstance.get(createEntityInstanceKey(entityCode, entityId));
+      return db.entityInstance.get(DEXIE_KEYS.entityInstance(entityCode, entityId));
     },
     [entityCode, entityId]
   );
 
-  // Consider data stale after 5 minutes
-  const STALE_THRESHOLD = 5 * 60 * 1000;
+  // Use centralized stale threshold from constants
   const isStale = cached
-    ? Date.now() - cached.syncedAt > STALE_THRESHOLD
+    ? Date.now() - cached.syncedAt > ONDEMAND_STORE_CONFIG.staleTime
     : true;
 
   return {
@@ -87,7 +92,7 @@ export function useOfflineEntity<T = Record<string, unknown>>(
  * Offline-first list hook - reads all entity instance names of a type from Dexie
  *
  * Note: This returns ALL cached entity names of this type, not data.
- * For full data, use useEntityList instead.
+ * For full data, use useEntityInstanceData instead.
  *
  * @example
  * const { data, count } = useOfflineEntityList<Task>('task');
@@ -107,7 +112,10 @@ export function useOfflineEntityList<T = Record<string, unknown>>(
   );
 
   return {
-    data: items?.map((i) => ({ id: i.entityInstanceId, name: i.entityInstanceName })) as T[] | undefined,
+    data: items?.map((i) => ({
+      id: i.entityInstanceId,
+      name: i.entityInstanceName,
+    })) as T[] | undefined,
     isLoading: items === undefined,
     count: items?.length ?? 0,
   };
@@ -127,7 +135,9 @@ export async function isEntityCached(
   entityCode: string,
   entityId: string
 ): Promise<boolean> {
-  const entity = await db.entityInstance.get(createEntityInstanceKey(entityCode, entityId));
+  const entity = await db.entityInstance.get(
+    DEXIE_KEYS.entityInstance(entityCode, entityId)
+  );
   return !!entity;
 }
 
@@ -146,7 +156,9 @@ export async function getCachedEntity<T = Record<string, unknown>>(
   entityCode: string,
   entityId: string
 ): Promise<{ id: string; name: string } | null> {
-  const entity = await db.entityInstance.get(createEntityInstanceKey(entityCode, entityId));
+  const entity = await db.entityInstance.get(
+    DEXIE_KEYS.entityInstance(entityCode, entityId)
+  );
   if (!entity) return null;
   return { id: entity.entityInstanceId, name: entity.entityInstanceName };
 }

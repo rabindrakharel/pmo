@@ -4,12 +4,12 @@ import { authApi, User } from '../lib/api';
 import { clearNormalizedStore } from '../lib/cache/normalizedCache';
 import { prefetchEntityInstances } from '../lib/hooks';
 // v9.0.0: TanStack Query + Dexie handles metadata caching
-import { clearAllCaches, hydrateQueryCache } from '../db/query/queryClient';
 import {
+  clearAllCaches,
   prefetchAllDatalabels,
   prefetchEntityCodes,
   prefetchGlobalSettings,
-} from '../db/tanstack-hooks';
+} from '../db/tanstack-index';
 
 interface AuthState {
   user: User | null;

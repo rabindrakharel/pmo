@@ -2,12 +2,14 @@
 // useDraft Hook
 // ============================================================================
 // Persists form edits in Dexie with undo/redo support
-// Survives page refresh for draft recovery
+// Survives page refresh and logout for draft recovery
 // ============================================================================
 
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCallback, useMemo } from 'react';
-import { db, createDraftKey, type DraftRecord } from '../dexie/database';
+import { db } from '../../persistence/schema';
+import { DEXIE_KEYS } from '../keys';
+import type { DraftRecord } from '../../persistence/schema';
 
 // ============================================================================
 // Types
@@ -58,9 +60,13 @@ export interface UseDraftResult<T> {
 /**
  * Hook for persisting form edits with undo/redo
  *
+ * STORE: draft
+ * LAYER: Special (survives logout)
+ * PERSISTENCE: Dexie IndexedDB
+ *
  * Features:
  * - Persists edits to IndexedDB via Dexie
- * - Survives page refresh
+ * - Survives page refresh AND logout
  * - Undo/redo support with configurable stack size
  * - Reactive updates via useLiveQuery
  *
@@ -89,7 +95,7 @@ export function useDraft<T extends Record<string, unknown>>(
   options: UseDraftOptions = {}
 ): UseDraftResult<T> {
   const { maxUndoStack = 50 } = options;
-  const draftId = entityId ? createDraftKey(entityCode, entityId) : undefined;
+  const draftId = entityId ? DEXIE_KEYS.draft(entityCode, entityId) : undefined;
 
   // Reactive draft from Dexie - auto-updates when IndexedDB changes
   const draft = useLiveQuery(
@@ -128,7 +134,9 @@ export function useDraft<T extends Record<string, unknown>>(
   // Check for changes by comparing with original
   const hasChanges = useMemo(() => {
     if (!draft) return false;
-    return JSON.stringify(draft.currentData) !== JSON.stringify(draft.originalData);
+    return (
+      JSON.stringify(draft.currentData) !== JSON.stringify(draft.originalData)
+    );
   }, [draft]);
 
   // Get only the changed fields
@@ -150,12 +158,12 @@ export function useDraft<T extends Record<string, unknown>>(
   // Start editing with original data (creates a new draft)
   const startEdit = useCallback(
     async (data: T): Promise<void> => {
-      if (!draftId) return;
+      if (!draftId || !entityId) return;
 
       await db.draft.put({
         _id: draftId,
         entityCode,
-        entityId: entityId!,
+        entityId,
         originalData: data as Record<string, unknown>,
         currentData: data as Record<string, unknown>,
         undoStack: [],
@@ -317,7 +325,10 @@ export interface UseRecoverDraftsResult {
   /** Has any drafts */
   hasDrafts: boolean;
   /** Get a specific draft */
-  getDraft: (entityCode: string, entityId: string) => Promise<DraftRecord | undefined>;
+  getDraft: (
+    entityCode: string,
+    entityId: string
+  ) => Promise<DraftRecord | undefined>;
   /** Discard a specific draft */
   discardDraft: (entityCode: string, entityId: string) => Promise<void>;
   /** Discard all drafts */
@@ -341,8 +352,8 @@ export interface UseRecoverDraftsResult {
  */
 export function useRecoverDrafts(): UseRecoverDraftsResult {
   // Reactive list of all drafts
-  const allDrafts = useLiveQuery(
-    () => db.draft.orderBy('updatedAt').reverse().toArray()
+  const allDrafts = useLiveQuery(() =>
+    db.draft.orderBy('updatedAt').reverse().toArray()
   );
 
   // Map to DraftInfo for simpler display
@@ -361,15 +372,18 @@ export function useRecoverDrafts(): UseRecoverDraftsResult {
   );
 
   const getDraft = useCallback(
-    async (entityCode: string, entityId: string): Promise<DraftRecord | undefined> => {
-      return db.draft.get(createDraftKey(entityCode, entityId));
+    async (
+      entityCode: string,
+      entityId: string
+    ): Promise<DraftRecord | undefined> => {
+      return db.draft.get(DEXIE_KEYS.draft(entityCode, entityId));
     },
     []
   );
 
   const discardDraft = useCallback(
     async (entityCode: string, entityId: string): Promise<void> => {
-      await db.draft.delete(createDraftKey(entityCode, entityId));
+      await db.draft.delete(DEXIE_KEYS.draft(entityCode, entityId));
     },
     []
   );

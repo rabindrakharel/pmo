@@ -941,15 +941,17 @@ try {
 
 | Document | Path | Description |
 |----------|------|-------------|
-| Entity Metadata Caching | `docs/caching-backend/ENTITY_METADATA_CACHING.md` | Redis caching |
+| Entity Metadata Caching | `docs/caching-backend/ENTITY_METADATA_CACHING.md` | Redis caching for metadata |
 | Backend Formatter Service | `docs/services/backend-formatter.service.md` | Metadata generation |
 | RBAC Infrastructure | `docs/rbac/RBAC_INFRASTRUCTURE.md` | Full RBAC details |
-| State Management | `docs/state_management/STATE_MANAGEMENT.md` | Frontend cache |
+| Unified Cache Architecture | `docs/caching-frontend/NORMALIZED_CACHE_ARCHITECTURE.md` | TanStack Query + Dexie unified cache |
+| State Management | `docs/state_management/STATE_MANAGEMENT.md` | Frontend state management overview |
+| Entity Endpoint Design | `docs/api/entity_endpoint_design.md` | API endpoint patterns |
 
 ---
 
-**Document Version**: 5.0.0
-**Last Updated**: 2025-11-30
+**Document Version**: 5.1.0
+**Last Updated**: 2025-12-01
 **Status**: Production Ready
 
 ### Version History
@@ -961,3 +963,4 @@ try {
 | 3.0.0 | 2025-11-26 | Added `build_ref_data_entityInstance()` |
 | 4.0.0 | 2025-11-28 | Updated for TanStack Query + Dexie |
 | 5.0.0 | 2025-11-30 | Complete rewrite with end-to-end architecture, sequence diagrams |
+| 5.1.0 | 2025-12-01 | Updated related documentation references for unified cache |

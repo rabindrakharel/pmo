@@ -1,8 +1,8 @@
 // ============================================================================
-// TanStack Cache Provider
+// Cache Provider - Unified Provider Component
 // ============================================================================
-// Main provider component for TanStack Query + Dexie caching
-// Handles initialization, WebSocket connection, and metadata prefetch
+// Main provider for the unified cache architecture
+// Handles initialization, hydration, WebSocket, and prefetch
 // ============================================================================
 
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -15,26 +15,17 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-
-// Import from new unified cache structure
-import { queryClient } from './cache/client';
+import { queryClient, clearQueryCache } from './cache/client';
 import { clearAllSyncStores } from './cache/stores';
-import type { ConnectionStatus } from './cache/types';
-import {
-  prefetchAllDatalabels,
-  clearDatalabelCache,
-  prefetchGlobalSettings,
-  clearGlobalSettingsCache,
-  prefetchEntityCodes,
-  clearEntityCodesCache,
-  prefetchEntityLinks,
-  clearEntityLinksCache,
-  clearEntityInstanceNamesCache,
-  clearEntityInstanceDataCache,
-} from './cache/hooks';
-import { hydrateFromDexie } from './persistence/hydrate';
+import { hydrateFromDexie, type HydrationResult } from './persistence/hydrate';
 import { clearAllExceptDrafts } from './persistence/operations';
 import { wsManager } from './realtime/manager';
+import type { ConnectionStatus } from './cache/types';
+import {
+  prefetchGlobalSettings,
+  prefetchAllDatalabels,
+  prefetchEntityCodes,
+} from './cache/hooks';
 
 // ============================================================================
 // Context
@@ -45,65 +36,86 @@ interface CacheContextValue {
   syncStatus: ConnectionStatus;
   /** IndexedDB hydration complete */
   isHydrated: boolean;
+  /** Hydration result details */
+  hydrationResult: HydrationResult | null;
   /** Metadata prefetch complete */
   isMetadataLoaded: boolean;
   /** App is ready to render */
   isReady: boolean;
   /** Clear all caches (for logout) */
   clearCache: () => Promise<void>;
+  /** Connect WebSocket with token */
+  connect: (token: string) => void;
+  /** Disconnect WebSocket */
+  disconnect: () => void;
+  /** Prefetch all metadata */
+  prefetch: () => Promise<void>;
 }
 
 const CacheContext = createContext<CacheContextValue>({
   syncStatus: 'disconnected',
   isHydrated: false,
+  hydrationResult: null,
   isMetadataLoaded: false,
   isReady: false,
   clearCache: async () => {},
+  connect: () => {},
+  disconnect: () => {},
+  prefetch: async () => {},
 });
 
 // ============================================================================
 // Provider Component
 // ============================================================================
 
-interface TanstackCacheProviderProps {
+interface CacheProviderProps {
   children: ReactNode;
+  /** Show React Query DevTools in development */
+  showDevTools?: boolean;
 }
 
 /**
- * Main provider for TanStack Query + Dexie caching system
+ * Unified Cache Provider
  *
  * Features:
  * - Initializes TanStack Query client
  * - Hydrates cache from IndexedDB on startup
- * - Connects WebSocket when authenticated
- * - Prefetches metadata on login
- * - Provides React Query DevTools in development
+ * - Manages WebSocket connection
+ * - Provides prefetch functions
+ * - Handles cache clearing on logout
  *
  * @example
  * // In App.tsx
  * function App() {
  *   return (
- *     <TanstackCacheProvider>
+ *     <CacheProvider>
  *       <AuthProvider>
  *         <Router>...</Router>
  *       </AuthProvider>
- *     </TanstackCacheProvider>
+ *     </CacheProvider>
  *   );
  * }
  */
-export function TanstackCacheProvider({ children }: TanstackCacheProviderProps) {
+export function CacheProvider({
+  children,
+  showDevTools = import.meta.env.DEV,
+}: CacheProviderProps) {
   const [syncStatus, setSyncStatus] = useState<ConnectionStatus>('disconnected');
   const [isHydrated, setIsHydrated] = useState(false);
+  const [hydrationResult, setHydrationResult] = useState<HydrationResult | null>(
+    null
+  );
   const [isMetadataLoaded, setIsMetadataLoaded] = useState(false);
 
   // Hydrate from Dexie on mount
   useEffect(() => {
     hydrateFromDexie()
-      .then((stats) => {
+      .then((result) => {
+        setHydrationResult(result);
         setIsHydrated(true);
         console.log(
-          `[CacheProvider] Hydrated from IndexedDB:`,
-          stats
+          `%c[CacheProvider] Hydrated from IndexedDB: ${result.counts.total} records`,
+          'color: #51cf66; font-weight: bold'
         );
       })
       .catch((error) => {
@@ -125,25 +137,46 @@ export function TanstackCacheProvider({ children }: TanstackCacheProviderProps) 
     });
   }, []);
 
+  // Connect WebSocket
+  const connect = useCallback((token: string) => {
+    wsManager.connect(token);
+  }, []);
+
+  // Disconnect WebSocket
+  const disconnect = useCallback(() => {
+    wsManager.disconnect();
+  }, []);
+
+  // Prefetch all metadata
+  const prefetch = useCallback(async () => {
+    console.log('%c[CacheProvider] Prefetching all metadata...', 'color: #74c0fc');
+
+    try {
+      await Promise.all([
+        prefetchGlobalSettings(),
+        prefetchAllDatalabels(),
+        prefetchEntityCodes(),
+      ]);
+
+      setIsMetadataLoaded(true);
+      console.log(
+        '%c[CacheProvider] Metadata prefetch complete',
+        'color: #51cf66; font-weight: bold'
+      );
+    } catch (error) {
+      console.error('[CacheProvider] Metadata prefetch failed:', error);
+      // Don't throw - app can continue with partial metadata
+    }
+  }, []);
+
   // Clear all caches (for logout)
   const clearCache = useCallback(async () => {
     wsManager.disconnect();
-
-    // Clear TanStack Query caches
-    await clearDatalabelCache();
-    await clearGlobalSettingsCache();
-    await clearEntityCodesCache();
-    await clearEntityLinksCache();
-    await clearEntityInstanceNamesCache();
-    await clearEntityInstanceDataCache();
-
-    // Clear sync stores
+    clearQueryCache();
     clearAllSyncStores();
-
-    // Clear Dexie (except drafts)
     await clearAllExceptDrafts();
-
     setIsMetadataLoaded(false);
+    console.log('[CacheProvider] All caches cleared');
   }, []);
 
   const isReady = isHydrated;
@@ -151,9 +184,13 @@ export function TanstackCacheProvider({ children }: TanstackCacheProviderProps) 
   const contextValue: CacheContextValue = {
     syncStatus,
     isHydrated,
+    hydrationResult,
     isMetadataLoaded,
     isReady,
     clearCache,
+    connect,
+    disconnect,
+    prefetch,
   };
 
   return (
@@ -161,13 +198,13 @@ export function TanstackCacheProvider({ children }: TanstackCacheProviderProps) 
       <CacheContext.Provider value={contextValue}>
         {children}
       </CacheContext.Provider>
-      {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+      {showDevTools && <ReactQueryDevtools initialIsOpen={false} />}
     </QueryClientProvider>
   );
 }
 
 // ============================================================================
-// Hooks
+// Context Hooks
 // ============================================================================
 
 /**
@@ -198,63 +235,35 @@ export function useIsMetadataLoaded(): boolean {
   return useContext(CacheContext).isMetadataLoaded;
 }
 
+/**
+ * Get hydration result
+ */
+export function useHydrationResult(): HydrationResult | null {
+  return useContext(CacheContext).hydrationResult;
+}
+
 // ============================================================================
-// Auth Integration Helpers
+// Legacy Exports (for backward compatibility)
 // ============================================================================
 
-/**
- * Connect WebSocket with auth token
- * Call this after successful login
- *
- * @param token - JWT token
- */
+/** @deprecated Use CacheProvider instead */
+export const TanstackCacheProvider = CacheProvider;
+
+/** @deprecated Use connect from useCacheContext instead */
 export function connectWebSocket(token: string): void {
   wsManager.connect(token);
 }
 
-/**
- * Disconnect WebSocket
- * Call this on logout
- */
+/** @deprecated Use disconnect from useCacheContext instead */
 export function disconnectWebSocket(): void {
   wsManager.disconnect();
 }
 
-/**
- * Prefetch all metadata after login
- * Call this after successful authentication
- *
- * Includes:
- * - Entity codes (types, icons, child relationships)
- * - Entity links (parent-child relationships)
- * - Datalabels (dropdowns)
- * - Global settings
- *
- * @returns Promise that resolves when all metadata is loaded
- */
+/** @deprecated Use prefetch from useCacheContext instead */
 export async function prefetchAllMetadata(): Promise<void> {
-  console.log('%c[CacheProvider] Prefetching all metadata...', 'color: #74c0fc');
-
-  try {
-    const results = await Promise.all([
-      prefetchEntityCodes(),
-      prefetchEntityLinks(),
-      prefetchAllDatalabels(),
-      prefetchGlobalSettings(),
-    ]);
-
-    console.log(
-      '%c[CacheProvider] Metadata prefetch complete',
-      'color: #51cf66; font-weight: bold',
-      {
-        entityCodes: results[0],
-        entityLinks: results[1],
-        datalabels: results[2],
-        globalSettings: 'loaded',
-      }
-    );
-  } catch (error) {
-    console.error('[CacheProvider] Metadata prefetch failed:', error);
-    // Don't throw - app can continue with partial metadata
-  }
+  await Promise.all([
+    prefetchGlobalSettings(),
+    prefetchAllDatalabels(),
+    prefetchEntityCodes(),
+  ]);
 }

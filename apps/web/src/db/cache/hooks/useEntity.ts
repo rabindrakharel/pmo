@@ -6,9 +6,16 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { db, createEntityInstanceKey } from '../dexie/database';
-import { wsManager } from '../tanstack-sync/WebSocketManager';
-import { apiClient } from '../../lib/api';
+import { apiClient } from '@/lib/api';
+import { QUERY_KEYS } from '../keys';
+import { ONDEMAND_STORE_CONFIG } from '../constants';
+import { entityInstanceNamesStore } from '../stores';
+import type { EntityInstanceMetadata } from '../types';
+import {
+  setEntityInstance,
+  setEntityInstanceMetadata,
+} from '../../persistence/operations';
+import { wsManager } from '../../realtime/manager';
 
 // ============================================================================
 // Types
@@ -25,7 +32,9 @@ interface UseEntityOptions {
 
 interface EntityResponse<T> {
   data: T;
-  metadata?: Record<string, unknown>;
+  metadata?: {
+    entityListOfInstancesTable?: EntityInstanceMetadata;
+  };
   ref_data_entityInstance?: Record<string, Record<string, string>>;
 }
 
@@ -33,7 +42,7 @@ export interface UseEntityResult<T> {
   /** Entity data */
   data: T | undefined;
   /** Field metadata for rendering */
-  metadata: Record<string, unknown> | undefined;
+  metadata: EntityInstanceMetadata | undefined;
   /** Reference data for entity lookups */
   refData: Record<string, Record<string, string>> | undefined;
   /** Initial loading state */
@@ -57,6 +66,10 @@ export interface UseEntityResult<T> {
 /**
  * Hook for fetching and subscribing to a single entity
  *
+ * STORE: entity (single instance)
+ * LAYER: On-demand (5 min staleTime)
+ * PERSISTENCE: Dexie IndexedDB
+ *
  * Features:
  * - Automatic caching via TanStack Query
  * - Persistence to IndexedDB via Dexie
@@ -71,11 +84,10 @@ export function useEntity<T = Record<string, unknown>>(
   entityId: string | undefined,
   options: UseEntityOptions = {}
 ): UseEntityResult<T> {
-  const queryClient = useQueryClient();
   const { enabled = true, staleTime, refetchOnMount = true } = options;
 
   const query = useQuery<EntityResponse<T>, Error>({
-    queryKey: ['entity', entityCode, entityId],
+    queryKey: QUERY_KEYS.entityInstance(entityCode, entityId ?? ''),
     queryFn: async () => {
       if (!entityId) {
         throw new Error('Entity ID is required');
@@ -85,32 +97,20 @@ export function useEntity<T = Record<string, unknown>>(
       const response = await apiClient.get(`/api/v1/${entityCode}/${entityId}`);
       const apiData = response.data;
 
-      const now = Date.now();
-
       // Persist entity instance name if available
       const entityData = apiData.data || apiData;
       if (entityData.name) {
-        await db.entityInstance.put({
-          _id: createEntityInstanceKey(entityCode, entityId),
-          entityCode,
-          entityInstanceId: entityId,
-          entityInstanceName: entityData.name,
-          instanceCode: entityData.code,
-          syncedAt: now,
-        });
+        await setEntityInstance(entityCode, entityId, entityData.name, entityData.code);
+        // Update sync store
+        entityInstanceNamesStore.set(entityCode, entityId, entityData.name);
       }
 
       // Store entity instance names from ref_data_entityInstance
       if (apiData.ref_data_entityInstance) {
         for (const [refEntityCode, names] of Object.entries(apiData.ref_data_entityInstance)) {
           for (const [id, name] of Object.entries(names as Record<string, string>)) {
-            await db.entityInstance.put({
-              _id: createEntityInstanceKey(refEntityCode, id),
-              entityCode: refEntityCode,
-              entityInstanceId: id,
-              entityInstanceName: name,
-              syncedAt: now,
-            });
+            await setEntityInstance(refEntityCode, id, name);
+            entityInstanceNamesStore.set(refEntityCode, id, name);
           }
         }
       }
@@ -118,14 +118,12 @@ export function useEntity<T = Record<string, unknown>>(
       // Store metadata ONCE per entity type
       if (apiData.metadata?.entityListOfInstancesTable) {
         const metadataTable = apiData.metadata.entityListOfInstancesTable;
-        await db.entityInstanceMetadata.put({
-          _id: entityCode,
+        await setEntityInstanceMetadata(
           entityCode,
-          fields: Object.keys(metadataTable.viewType || {}),
-          viewType: metadataTable.viewType || {},
-          editType: metadataTable.editType || {},
-          syncedAt: now,
-        });
+          Object.keys(metadataTable.viewType || {}),
+          metadataTable.viewType || {},
+          metadataTable.editType || {}
+        );
       }
 
       return {
@@ -135,7 +133,8 @@ export function useEntity<T = Record<string, unknown>>(
       };
     },
     enabled: enabled && !!entityId,
-    staleTime,
+    staleTime: staleTime ?? ONDEMAND_STORE_CONFIG.staleTime,
+    gcTime: ONDEMAND_STORE_CONFIG.gcTime,
     refetchOnMount,
     // Return previous data while refetching
     placeholderData: (previousData) => previousData,
@@ -146,9 +145,6 @@ export function useEntity<T = Record<string, unknown>>(
     if (entityId && query.isSuccess) {
       wsManager.subscribe(entityCode, [entityId]);
     }
-
-    // Unsubscribe on unmount is optional - keeping subscriptions
-    // allows updates even when component unmounts temporarily
   }, [entityCode, entityId, query.isSuccess]);
 
   // Wrap refetch to return void
@@ -158,7 +154,7 @@ export function useEntity<T = Record<string, unknown>>(
 
   return {
     data: query.data?.data,
-    metadata: query.data?.metadata,
+    metadata: query.data?.metadata?.entityListOfInstancesTable,
     refData: query.data?.ref_data_entityInstance,
     isLoading: query.isLoading,
     isFetching: query.isFetching,
@@ -209,25 +205,19 @@ export function useEntityMutation(entityCode: string): UseEntityMutationResult {
 
     // Update entity instance name if name changed
     if (updatedData.name) {
-      await db.entityInstance.put({
-        _id: createEntityInstanceKey(entityCode, entityId),
-        entityCode,
-        entityInstanceId: entityId,
-        entityInstanceName: updatedData.name,
-        instanceCode: updatedData.code,
-        syncedAt: Date.now(),
-      });
+      await setEntityInstance(entityCode, entityId, updatedData.name, updatedData.code);
+      entityInstanceNamesStore.set(entityCode, entityId, updatedData.name);
     }
 
     // Update TanStack Query cache
-    queryClient.setQueryData(['entity', entityCode, entityId], (old: unknown) => ({
+    queryClient.setQueryData(QUERY_KEYS.entityInstance(entityCode, entityId), (old: unknown) => ({
       ...(old as object),
       data: updatedData,
     }));
 
     // Invalidate list queries
     queryClient.invalidateQueries({
-      queryKey: ['entityInstanceData', entityCode],
+      queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
       refetchType: 'active',
     });
 
@@ -240,19 +230,13 @@ export function useEntityMutation(entityCode: string): UseEntityMutationResult {
 
     // Cache the new entity instance name
     if (newEntity.name) {
-      await db.entityInstance.put({
-        _id: createEntityInstanceKey(entityCode, newEntity.id),
-        entityCode,
-        entityInstanceId: newEntity.id,
-        entityInstanceName: newEntity.name,
-        instanceCode: newEntity.code,
-        syncedAt: Date.now(),
-      });
+      await setEntityInstance(entityCode, newEntity.id, newEntity.name, newEntity.code);
+      entityInstanceNamesStore.set(entityCode, newEntity.id, newEntity.name);
     }
 
     // Invalidate list queries to include new entity
     queryClient.invalidateQueries({
-      queryKey: ['entityInstanceData', entityCode],
+      queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
       refetchType: 'active',
     });
 
@@ -262,17 +246,17 @@ export function useEntityMutation(entityCode: string): UseEntityMutationResult {
   const deleteEntity = async (entityId: string): Promise<void> => {
     await apiClient.delete(`/api/v1/${entityCode}/${entityId}`);
 
-    // Remove entity instance name from Dexie
-    await db.entityInstance.delete(createEntityInstanceKey(entityCode, entityId));
+    // Remove entity instance name from sync store
+    entityInstanceNamesStore.delete(entityCode, entityId);
 
     // Remove from TanStack Query cache
     queryClient.removeQueries({
-      queryKey: ['entity', entityCode, entityId],
+      queryKey: QUERY_KEYS.entityInstance(entityCode, entityId),
     });
 
     // Invalidate list queries
     queryClient.invalidateQueries({
-      queryKey: ['entityInstanceData', entityCode],
+      queryKey: QUERY_KEYS.entityInstanceDataByCode(entityCode),
       refetchType: 'active',
     });
   };
@@ -281,7 +265,7 @@ export function useEntityMutation(entityCode: string): UseEntityMutationResult {
     updateEntity,
     createEntity,
     deleteEntity,
-    isLoading: false, // TODO: Track mutation state if needed
+    isLoading: false,
     error: null,
   };
 }

@@ -18,7 +18,7 @@ import { useSidebar } from '../../contexts/SidebarContext';
 import { useNavigationHistory } from '../../contexts/NavigationHistoryContext';
 import { useEntityInstance, useFormattedEntityInstance, useEntityMutation, useCacheInvalidation, useEntityInstanceList } from '../../lib/hooks';
 // v9.0.0: Use TanStack Query + Dexie draft hook
-import { useDraft } from '../../db/tanstack-hooks';
+import { useDraft } from '../../db/tanstack-index';
 import { useKeyboardShortcuts, useShortcutHints } from '../../lib/hooks/useKeyboardShortcuts';
 import { API_CONFIG } from '../../lib/config/api';
 import { EllipsisBounce, InlineSpinner } from '../../components/shared/ui/EllipsisBounce';
