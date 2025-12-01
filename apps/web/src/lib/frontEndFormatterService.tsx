@@ -52,7 +52,7 @@ import { Copy, Check } from 'lucide-react';
 import { formatters } from './config/locale';
 import { DebouncedInput, DebouncedTextarea } from '../components/shared/ui/DebouncedInput';
 // v9.0.0: Use Dexie sync cache for non-hook datalabel access
-import { getDatalabelSync } from '../db/tanstack-hooks';
+import { getDatalabelSync } from '../db/tanstack-index';
 import { BadgeDropdownSelect, type BadgeDropdownSelectOption } from '../components/shared/ui/BadgeDropdownSelect';
 import { EntityInstanceNameLookup } from '../components/shared/ui/EntityInstanceNameLookup';
 import { colorCodeToTailwindClass } from './formatters/valueFormatters';

@@ -3,7 +3,7 @@ import { getIconComponent } from '../lib/iconMapping';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from './AuthContext';
 // v9.0.0: Use TanStack Query + Dexie for entity codes (sync cache for non-hook access)
-import { useEntityCodes, getEntityCodesSync } from '../db/tanstack-hooks';
+import { useEntityCodes, getEntityCodesSync } from '../db/tanstack-index';
 
 interface EntityMetadata {
   code: string;

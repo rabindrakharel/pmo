@@ -74,7 +74,7 @@ export {
   // Cache invalidation
   invalidateMetadataCache,
   clearAllMetadataCache,
-} from '../../db/tanstack-hooks';
+} from '../../db/tanstack-index';
 
 export type {
   UseDraftResult,
@@ -82,7 +82,7 @@ export type {
   DatalabelOption,
   EntityCodeData,
   GlobalSettings,
-} from '../../db/tanstack-hooks';
+} from '../../db/tanstack-index';
 
 // v8.3.1: RefData Resolution Hooks (metadata-based, no pattern matching)
 export {
