@@ -205,17 +205,23 @@ export interface UseEntityInstanceMetadataResult {
  *
  * STORE: entityInstanceMetadata
  * LAYER: Session-level (30 min staleTime)
- * PERSISTENCE: Dexie IndexedDB
+ * PERSISTENCE: Dexie IndexedDB (per entity + component)
  *
  * Uses content=metadata API parameter to get metadata without data transfer.
  * This is more efficient than limit=1 as it skips the data query entirely.
+ *
+ * @param entityCode - Entity type code (e.g., 'project', 'task')
+ * @param component - Component view type (default: 'entityListOfInstancesTable')
  */
-export function useEntityInstanceMetadata(entityCode: string): UseEntityInstanceMetadataResult {
+export function useEntityInstanceMetadata(
+  entityCode: string,
+  component: string = 'entityListOfInstancesTable'
+): UseEntityInstanceMetadataResult {
   const query = useQuery({
-    queryKey: QUERY_KEYS.entityInstanceMetadata(entityCode),
+    queryKey: QUERY_KEYS.entityInstanceMetadata(entityCode, component),
     queryFn: async () => {
-      // Try Dexie cache first
-      const cached = await getEntityInstanceMetadata(entityCode);
+      // Try Dexie cache first (per entity + component)
+      const cached = await getEntityInstanceMetadata(entityCode, component);
       if (cached && Date.now() - cached.syncedAt < SESSION_STORE_CONFIG.staleTime) {
         return cached;
       }
@@ -226,21 +232,23 @@ export function useEntityInstanceMetadata(entityCode: string): UseEntityInstance
         params: { content: 'metadata' },
       });
 
-      // Response always has same structure: data=[], fields, metadata, ref_data_entityInstance={}
-      const metadata = response.data.metadata?.entityListOfInstancesTable;
+      // Response structure: { data: [], fields: [], metadata: { [component]: { viewType, editType } } }
+      const componentMetadata = response.data.metadata?.[component];
       const fields = response.data.fields || [];
 
       const record = {
-        _id: entityCode,
+        _id: `${entityCode}:${component}`,
         entityCode,
-        fields: fields.length > 0 ? fields : Object.keys(metadata?.viewType || {}),
-        viewType: metadata?.viewType || {},
-        editType: metadata?.editType || {},
+        fields: fields.length > 0 ? fields : Object.keys(componentMetadata?.viewType || {}),
+        viewType: componentMetadata?.viewType || {},
+        editType: componentMetadata?.editType || {},
         syncedAt: Date.now(),
       };
 
+      // Persist to Dexie with component key
       await setEntityInstanceMetadata(
         entityCode,
+        component,
         record.fields,
         record.viewType,
         record.editType
@@ -338,6 +346,7 @@ export function useEntityInfiniteList<T = Record<string, unknown>>(
         const metadataTable = apiData.metadata.entityListOfInstancesTable;
         await setEntityInstanceMetadata(
           entityCode,
+          'entityListOfInstancesTable',
           Object.keys(metadataTable.viewType || {}),
           metadataTable.viewType || {},
           metadataTable.editType || {}
