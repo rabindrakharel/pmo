@@ -1,6 +1,6 @@
 # PMO Platform - End-to-End Architecture
 
-**Version:** 8.6.0 | **Last Updated:** 2025-11-28
+**Version:** 9.3.0 | **Last Updated:** 2025-12-01
 
 ---
 
@@ -9,7 +9,7 @@
 | Layer | Technology | Purpose |
 |-------|------------|---------|
 | **Frontend** | React 19, TypeScript, Vite, Tailwind CSS v4 | UI rendering |
-| **State** | RxDB (IndexedDB) | Offline-first persistent cache |
+| **State** | TanStack Query + Dexie (IndexedDB) | Offline-first persistent cache |
 | **Real-Time Sync** | WebSocket + PubSub Service (port 4001) | Cache invalidation |
 | **Backend** | Fastify v5, TypeScript ESM | REST API + BFF |
 | **Database** | PostgreSQL 14+ (50 tables) | Persistence |
@@ -28,9 +28,9 @@
 
 | Doc | Path | Purpose |
 |-----|------|---------|
-| RXDB_SYNC_ARCHITECTURE.md | `docs/caching/` | WebSocket real-time sync |
-| STATE_MANAGEMENT.md | `docs/state_management/` | RxDB offline-first architecture |
-| frontEndFormatterService.md | `docs/services/` | Frontend rendering |
+| TANSTACK_DEXIE_SYNC_ARCHITECTURE.md | `docs/caching/` | WebSocket real-time sync |
+| STATE_MANAGEMENT.md | `docs/state_management/` | TanStack + Dexie offline-first architecture |
+| frontend_datasetFormatter.md | `docs/services/` | Frontend rendering |
 | backend-formatter.service.md | `docs/services/` | BFF metadata |
 | entity-infrastructure.service.md | `docs/services/` | Entity CRUD + ref_data_entityInstance |
 | RBAC_INFRASTRUCTURE.md | `docs/rbac/` | Permissions |

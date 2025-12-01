@@ -1197,8 +1197,8 @@ export async function generateEntityResponse(
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // NORMAL DATA MODE: Return data + ref_data only (no metadata overhead)
-  // Use ?content=metadata for fields and metadata
+  // NORMAL DATA MODE: Return data + ref_data only
+  // Metadata fetched separately via ?content=metadata (30-min cache)
   // ═══════════════════════════════════════════════════════════════
   return {
     data,

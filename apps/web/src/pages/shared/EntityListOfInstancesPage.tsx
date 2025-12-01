@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, ArrowLeft, Edit, Trash2 } from 'lucide-react';
 import { Layout, ViewSwitcher, EntityListOfInstancesTable } from '../../components/shared';
@@ -13,10 +13,22 @@ import { getEntityConfig, type ViewMode } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
 import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
 import { useSidebar } from '../../contexts/SidebarContext';
-import { useEntityInstanceData, useEntityMutation } from '@/db/tanstack-index';
+import { useEntityInstanceData, useEntityInstanceMetadata, useEntityMutation } from '@/db/tanstack-index';
 import { formatDataset, type ComponentMetadata } from '../../lib/formatters';
 import { API_CONFIG } from '../../lib/config/api';
 import type { RowAction } from '../../components/shared/ui/EntityListOfInstancesTable';
+
+// ============================================================================
+// DEBUG LOGGING - Cache & Data Flow Diagnostics
+// ============================================================================
+// Set to true to enable detailed cache debugging
+const DEBUG_CACHE = false;
+
+const debugCache = (message: string, data?: Record<string, unknown>) => {
+  if (DEBUG_CACHE) {
+    console.log(`%c[CACHE] ${message}`, 'color: #f59e0b; font-weight: bold', data || '');
+  }
+};
 
 /**
  * Universal EntityListOfInstancesPage
@@ -36,22 +48,11 @@ interface EntityListOfInstancesPageProps {
   defaultView?: ViewMode;
 }
 
-// ============================================================================
-// DEBUG: Render counter for tracking re-renders
-// ============================================================================
-let entityListRenderCount = 0;
-
 export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityListOfInstancesPageProps) {
-  // DEBUG: Track renders
-  entityListRenderCount++;
-  const renderIdRef = React.useRef(entityListRenderCount);
-  console.log(
-    `%c[RENDER #${renderIdRef.current}] 🖼️ EntityListOfInstancesPage: ${entityCode}`,
-    'color: #748ffc; font-weight: bold',
-    { entityCode, defaultView, timestamp: new Date().toLocaleTimeString() }
-  );
-
   const navigate = useNavigate();
+
+  // Track previous rawData reference for cache debugging
+  const prevRawDataRef = useRef<unknown[] | null>(null);
   const config = getEntityConfig(entityCode);
   const [view, setView] = useViewMode(entityCode, defaultView);
   const [currentPage, setCurrentPage] = useState(1);
@@ -75,10 +76,11 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   }, [view, entityCode]);
 
   // ============================================================================
-  // v9.0.0: CANONICAL HOOKS + FORMAT AT READ
+  // v9.4.0: TWO-QUERY ARCHITECTURE - Metadata first, then Data
   // ============================================================================
-  // Uses useEntityInstanceData from @/db/tanstack-index (single source of truth)
-  // Formatting happens inline via useMemo for fresh datalabel colors
+  // 1. useEntityInstanceMetadata - fetches metadata (30-min cache) → renders columns
+  // 2. useEntityInstanceData - fetches data (5-min cache) → populates rows
+  // Render sequence: metadata loading → columns render → data loading → rows render
   // ============================================================================
 
   // Map view mode to component name for backend metadata filtering
@@ -92,18 +94,35 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
   };
   const mappedView = view ? viewComponentMap[view] || view : 'entityListOfInstancesTable';
 
+  // ============================================================================
+  // QUERY 1: METADATA (30-min cache) - renders table columns first
+  // ============================================================================
+  const {
+    viewType,
+    editType,
+    fields: metadataFields,
+    isLoading: metadataLoading,
+  } = useEntityInstanceMetadata(entityCode, mappedView);
+
+  // Combine viewType and editType into metadata structure for EntityListOfInstancesTable
+  const metadata = useMemo(() => {
+    if (!viewType || Object.keys(viewType).length === 0) return undefined;
+    return { viewType, editType };
+  }, [viewType, editType]);
+
+  // ============================================================================
+  // QUERY 2: DATA (5-min cache) - populates rows after metadata ready
+  // ============================================================================
   const queryParams = useMemo(() => ({
     limit: 20000,
     offset: (currentPage - 1) * 20000,
-    view: mappedView,
-  }), [currentPage, mappedView]);
+  }), [currentPage]);
 
   const {
     data: rawData,
-    metadata,
     refData,
     total: totalRecords,
-    isLoading: loading,
+    isLoading: dataLoading,
     isError,
     error: queryError,
     refetch,
@@ -111,12 +130,30 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
     enabled: !!config,
   });
 
+  // ============================================================================
+  // CACHE DEBUG: Detect when rawData reference changes (indicates fresh fetch)
+  // ============================================================================
+  useEffect(() => {
+    if (rawData && rawData !== prevRawDataRef.current) {
+      const isNewReference = prevRawDataRef.current !== null;
+      debugCache(isNewReference ? 'Data reference changed (refetch occurred)' : 'Initial data load', {
+        entityCode,
+        rowCount: rawData.length,
+        firstRowId: rawData[0]?.id,
+        firstRowUpdatedTs: rawData[0]?.updated_ts,
+      });
+      prevRawDataRef.current = rawData;
+    }
+  }, [rawData, entityCode]);
+
+  // Combined loading state: show skeleton until metadata is ready
+  const loading = metadataLoading;
+
   // Format data on read (memoized) - formatting happens HERE, not in hook
   const formattedData = useMemo(() => {
     if (!rawData || rawData.length === 0) return [];
-    const componentMetadata = (metadata as any)?.[mappedView] as ComponentMetadata | null;
-    return formatDataset(rawData, componentMetadata, refData);
-  }, [rawData, metadata, mappedView, refData]);
+    return formatDataset(rawData, metadata as ComponentMetadata | undefined, refData);
+  }, [rawData, metadata, refData]);
 
   // ============================================================================
   // INLINE EDIT STATE MANAGEMENT

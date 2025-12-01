@@ -1072,7 +1072,7 @@ Metadata Request Arrives
 |----------|------|-------------|
 | Entity Metadata Caching | `docs/caching-backend/ENTITY_METADATA_CACHING.md` | Redis caching architecture |
 | Entity Infrastructure Service | `docs/services/entity-infrastructure.service.md` | CRUD + ref_data_entityInstance |
-| Frontend Formatter Service | `docs/services/frontEndFormatterService.md` | Frontend rendering (pure renderer) |
+| Frontend Formatter Service | `docs/services/frontend_datasetFormatter.md` | Frontend rendering (pure renderer) |
 | Unified Cache Architecture | `docs/caching-frontend/NORMALIZED_CACHE_ARCHITECTURE.md` | TanStack Query + Dexie unified cache |
 | State Management | `docs/state_management/STATE_MANAGEMENT.md` | Frontend state management overview |
 
