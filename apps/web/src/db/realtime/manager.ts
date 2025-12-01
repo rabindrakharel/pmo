@@ -22,7 +22,8 @@ import { clearEntityInstanceData } from '../persistence/operations';
 // Constants
 // ============================================================================
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:4001';
+export const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:4001';
+export const WS_RECONNECT_DELAY = WEBSOCKET_CONFIG.initialReconnectDelay;
 
 // ============================================================================
 // Types
