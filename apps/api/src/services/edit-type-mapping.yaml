@@ -749,37 +749,33 @@ fieldBusinessTypes:
       behavior: { editable: true }
 
   # Entity reference fields - single UUID reference to another entity
-  # Frontend uses entityInstanceNameLookup for both view and edit mode (context switches)
-  # View mode: resolves UUID to display name via ref_data_entityInstance, renders as clickable link
-  # Edit mode: renders EntityInstanceNameLookup component with lookupSource: entityInstance
+  # Edit mode: renders EntityInstanceNameSelect component (searchable dropdown)
   entityInstance_Id:
     dtype: uuid
     lookupSource: entityInstance
     entityListOfInstancesTable:
-      inputType: entityInstanceNameLookup
+      inputType: EntityInstanceNameSelect
       behavior: { editable: true, filterable: true, sortable: false, visible: true }
     entityInstanceFormContainer:
-      inputType: entityInstanceNameLookup
+      inputType: EntityInstanceNameSelect
       behavior: { editable: true }
     kanbanView:
-      inputType: entityInstanceNameLookup
+      inputType: EntityInstanceNameSelect
       behavior: { editable: true }
 
   # Entity reference fields - array of UUIDs referencing multiple entities
-  # Frontend uses entityInstanceIds for both view and edit mode (context switches)
-  # View mode: resolves UUIDs to display names via ref_data_entityInstance, renders as chip list
-  # Edit mode: renders MultiEntitySelect component with lookupSource: entityInstance
+  # Edit mode: renders EntityInstanceNameMultiSelect component (multi-select with chips)
   entityInstance_Ids:
     dtype: array[uuid]
     lookupSource: entityInstance
     entityListOfInstancesTable:
-      inputType: entityInstanceIds
+      inputType: EntityInstanceNameMultiSelect
       behavior: { editable: true, filterable: true, sortable: false, visible: true }
     entityInstanceFormContainer:
-      inputType: entityInstanceIds
+      inputType: EntityInstanceNameMultiSelect
       behavior: { editable: true }
     kanbanView:
-      inputType: entityInstanceIds
+      inputType: EntityInstanceNameMultiSelect
       behavior: { editable: true }
 
   # --------------------------------------------------------------------------

@@ -1,18 +1,18 @@
 # EntityInstanceFormContainer Component
 
-**Version:** 9.6.0 | **Location:** `apps/web/src/components/shared/entity/EntityInstanceFormContainer.tsx`
+**Version:** 9.7.0 | **Location:** `apps/web/src/components/shared/entity/EntityInstanceFormContainer.tsx`
 
-> **Note:** As of v9.6.0, metadata and data are fetched separately (two-query architecture). The page fetches metadata via `useEntityInstanceMetadata()` and constructs the expected structure before passing to this component.
+> **Note:** As of v9.7.0, metadata and data are fetched separately (two-query architecture). This applies to both parent entity detail pages AND child entity tabs. The page fetches metadata via `useEntityInstanceMetadata()` and constructs the expected structure before passing to components.
 
 ---
 
-## Architectural Truth (v9.6.0)
+## Architectural Truth (v9.7.0)
 
 **Two-Query Architecture for Detail Pages:**
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  EntitySpecificInstancePage (v9.6.0)                                         │
+│  EntitySpecificInstancePage (v9.7.0)                                         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  QUERY 1: DATA                           QUERY 2: METADATA                   │
@@ -40,6 +40,211 @@
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Entity List Data Flow (v9.7.0) - Main vs Child Entity Tabs
+
+**Two-Query Architecture applies to BOTH main entity lists AND child entity tabs:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                    ENTITY LIST DATA FLOW (v9.7.0)                                    │
+│                    Two-Query Architecture + Parent Filtering                         │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│  CASE 1: MAIN ENTITY LIST (/task)                                                   │
+│  ════════════════════════════════                                                   │
+│                                                                                      │
+│  ┌─────────────────────┐                                                            │
+│  │ EntityListOfInstancesPage        │                                               │
+│  │ entityCode = 'task' │                                                            │
+│  └──────────┬──────────┘                                                            │
+│             │                                                                        │
+│             ├──────────────────────────────────────────────────────────────────┐    │
+│             │                                                                  │    │
+│             ▼                                                                  ▼    │
+│  ┌──────────────────────────────┐                    ┌─────────────────────────────┐│
+│  │ useEntityInstanceData('task')│                    │ useEntityInstanceMetadata   ││
+│  │ params: { limit, offset }    │                    │ ('task', 'entityListOf...') ││
+│  └──────────────┬───────────────┘                    └──────────────┬──────────────┘│
+│                 │                                                   │               │
+│                 ▼                                                   ▼               │
+│  ┌──────────────────────────────┐                    ┌─────────────────────────────┐│
+│  │ GET /api/v1/task?limit=100   │                    │ GET /api/v1/task            ││
+│  │                              │                    │     ?content=metadata       ││
+│  │ Returns:                     │                    │                             ││
+│  │ { data: [...], metadata: {} }│                    │ Returns:                    ││
+│  │                              │                    │ { metadata: {               ││
+│  │ Cache: 5-min staleTime       │                    │   entityListOfInstancesTable: {     ││
+│  └──────────────┬───────────────┘                    │     viewType: {...},        ││
+│                 │                                    │     editType: {...}         ││
+│                 │                                    │   }                         ││
+│                 │                                    │ }}                          ││
+│                 │                                    │                             ││
+│                 │                                    │ Cache: 30-min staleTime     ││
+│                 │                                    └──────────────┬──────────────┘│
+│                 │                                                   │               │
+│                 └───────────────────┬───────────────────────────────┘               │
+│                                     │                                               │
+│                                     ▼                                               │
+│                      ┌──────────────────────────────┐                               │
+│                      │ Page constructs metadata:    │                               │
+│                      │ const metadata = useMemo(() =>│                              │
+│                      │   ({ viewType, editType })   │                               │
+│                      │ , [viewType, editType]);     │                               │
+│                      └──────────────┬───────────────┘                               │
+│                                     │                                               │
+│                                     ▼                                               │
+│                      ┌──────────────────────────────┐                               │
+│                      │ <EntityListOfInstancesTable  │                               │
+│                      │   data={data}                │                               │
+│                      │   metadata={metadata}        │                               │
+│                      │   ref_data_entityInstance={} │                               │
+│                      │ />                           │                               │
+│                      └──────────────────────────────┘                               │
+│                                                                                      │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│  CASE 2: CHILD ENTITY TAB (/project/:id/task)                                       │
+│  ════════════════════════════════════════════                                       │
+│                                                                                      │
+│  ┌─────────────────────────────────────┐                                            │
+│  │ EntitySpecificInstancePage          │                                            │
+│  │ entityCode = 'project'              │                                            │
+│  │ id = '61203bac-...'                 │                                            │
+│  │ currentChildEntity = 'task'         │ ◄── From URL: /project/:id/task            │
+│  └──────────────┬──────────────────────┘                                            │
+│                 │                                                                    │
+│                 │  shouldFetchChildData = true (on child tab)                       │
+│                 │                                                                    │
+│                 ├──────────────────────────────────────────────────────────────┐    │
+│                 │                                                              │    │
+│                 ▼                                                              ▼    │
+│  ┌──────────────────────────────────────┐          ┌─────────────────────────────┐ │
+│  │ useEntityInstanceData('task', {      │          │ useEntityInstanceMetadata   │ │
+│  │   parent_entity_code: 'project',     │          │ ('task', 'entityListOf...') │ │
+│  │   parent_entity_instance_id: '...',  │          │                             │ │
+│  │   limit: 100                         │          │ ◄── Same as CASE 1!         │ │
+│  │ })                                   │          │     Metadata is entity-type │ │
+│  └──────────────┬───────────────────────┘          │     level, not parent-      │ │
+│                 │                                  │     dependent               │ │
+│                 ▼                                  └──────────────┬──────────────┘ │
+│  ┌──────────────────────────────────────┐                        │                 │
+│  │ GET /api/v1/task                     │                        │                 │
+│  │   ?parent_entity_code=project        │                        │                 │
+│  │   &parent_entity_instance_id=...     │                        │                 │
+│  │   &limit=100                         │                        │                 │
+│  │                                      │                        │                 │
+│  │ Backend (task/routes.ts):            │                        │                 │
+│  │ ┌────────────────────────────────┐   │                        │                 │
+│  │ │ if (parent_entity_code &&      │   │                        │                 │
+│  │ │     parent_entity_instance_id) │   │                        │                 │
+│  │ │   joins.push(sql`              │   │                        │                 │
+│  │ │     INNER JOIN                 │   │                        │                 │
+│  │ │       entity_instance_link eil │   │                        │                 │
+│  │ │     ON eil.child_entity_code   │   │                        │                 │
+│  │ │        = 'task'                │   │                        │                 │
+│  │ │     AND eil.entity_code        │   │                        │                 │
+│  │ │        = 'project'             │   │                        │                 │
+│  │ │     AND eil.entity_instance_id │   │                        │                 │
+│  │ │        = :parentId             │   │                        │                 │
+│  │ │   `);                          │   │                        │                 │
+│  │ └────────────────────────────────┘   │                        │                 │
+│  │                                      │                        │                 │
+│  │ Returns: { data: [filtered], ... }   │                        │                 │
+│  └──────────────┬───────────────────────┘                        │                 │
+│                 │                                                │                 │
+│                 └────────────────────┬───────────────────────────┘                 │
+│                                      │                                             │
+│                                      ▼                                             │
+│                       ┌──────────────────────────────┐                             │
+│                       │ const childMetadata = useMemo│                             │
+│                       │   (() => ({                  │                             │
+│                       │     viewType: childViewType, │                             │
+│                       │     editType: childEditType  │                             │
+│                       │   }), [...]);                │                             │
+│                       └──────────────┬───────────────┘                             │
+│                                      │                                             │
+│                                      ▼                                             │
+│                       ┌──────────────────────────────┐                             │
+│                       │ <EntityListOfInstancesTable  │                             │
+│                       │   data={childData}           │                             │
+│                       │   metadata={childMetadata}   │                             │
+│                       │   loading={childLoading ||   │                             │
+│                       │           childMetadataLoading}│                           │
+│                       │ />                           │                             │
+│                       └──────────────────────────────┘                             │
+│                                                                                      │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│  KEY INSIGHT: SAME METADATA, DIFFERENT DATA FILTERING                               │
+│  ════════════════════════════════════════════════════                               │
+│                                                                                      │
+│  ┌────────────────────────────────────────────────────────────────────────────────┐ │
+│  │                                                                                │ │
+│  │   METADATA QUERY (both cases):                                                 │ │
+│  │   ─────────────────────────────                                                │ │
+│  │   GET /api/v1/task?content=metadata                                            │ │
+│  │   → Returns viewType/editType for ALL task fields                              │ │
+│  │   → 30-min cache (entity-type level, not instance-dependent)                   │ │
+│  │                                                                                │ │
+│  │   DATA QUERY (differs by context):                                             │ │
+│  │   ──────────────────────────────                                               │ │
+│  │                                                                                │ │
+│  │   CASE 1: GET /api/v1/task?limit=100                                           │ │
+│  │           → Returns ALL tasks user can see (RBAC filtered)                     │ │
+│  │                                                                                │ │
+│  │   CASE 2: GET /api/v1/task?parent_entity_code=project                          │ │
+│  │                          &parent_entity_instance_id=uuid                       │ │
+│  │                          &limit=100                                            │ │
+│  │           → Returns ONLY tasks linked to that specific project                 │ │
+│  │           → Uses INNER JOIN with entity_instance_link                          │ │
+│  │                                                                                │ │
+│  └────────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                      │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│  CACHE KEY STRUCTURE                                                                │
+│  ═══════════════════                                                                │
+│                                                                                      │
+│  TanStack Query Keys:                                                               │
+│  ┌────────────────────────────────────────────────────────────────────────────────┐ │
+│  │                                                                                │ │
+│  │  Metadata (shared):                                                            │ │
+│  │  ['entityInstanceMetadata', 'task', 'entityListOfInstancesTable']              │ │
+│  │                                                                                │ │
+│  │  Data (CASE 1 - no parent):                                                    │ │
+│  │  ['entityInstanceData', 'task', { limit: 100, offset: 0 }]                     │ │
+│  │                                                                                │ │
+│  │  Data (CASE 2 - with parent):                                                  │ │
+│  │  ['entityInstanceData', 'task', {                                              │ │
+│  │    limit: 100,                                                                 │ │
+│  │    offset: 0,                                                                  │ │
+│  │    parent_entity_code: 'project',                                              │ │
+│  │    parent_entity_instance_id: '61203bac-...'                                   │ │
+│  │  }]                                                                            │ │
+│  │                                                                                │ │
+│  │  ▲ Different cache keys = independent caches                                   │ │
+│  │  ▲ Metadata shared between both views (same columns)                           │ │
+│  │                                                                                │ │
+│  └────────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**File References:**
+
+| Component | File | Lines |
+|-----------|------|-------|
+| Main entity list page | `apps/web/src/pages/shared/EntityListOfInstancesPage.tsx` | - |
+| Child entity data hook | `apps/web/src/pages/shared/EntitySpecificInstancePage.tsx` | 284-296 |
+| Child entity metadata hook | `apps/web/src/pages/shared/EntitySpecificInstancePage.tsx` | 298-314 |
+| API URL construction | `apps/web/src/db/cache/hooks/useEntityInstanceData.ts` | 181-196 |
+| Backend parent filtering | `apps/api/src/modules/task/routes.ts` | 290-301 |
+| Metadata-only API | `apps/api/src/modules/task/routes.ts` | 356-397 |
+
+---
 
 **Metadata properties control datalabel field rendering:**
 

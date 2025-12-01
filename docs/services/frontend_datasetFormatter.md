@@ -1,8 +1,10 @@
 # Frontend Formatter Service
 
-**Version:** 9.6.0 | **Location:** `apps/web/src/lib/` | **Updated:** 2025-12-01
+**Version:** 9.8.0 | **Location:** `apps/web/src/lib/` | **Updated:** 2025-12-01
 
-> **Note:** As of v9.6.0, the frontend uses TanStack Query + Dexie v4 (IndexedDB) for offline-first data storage. Metadata and data are fetched separately (two-query architecture). The formatter service works with data from TanStack Query hooks, formatting on read via `useMemo`. Pages construct appropriate metadata structures for each component.
+> **Note:** As of v9.7.0, the frontend uses TanStack Query + Dexie v4 (IndexedDB) for offline-first data storage. Metadata and data are fetched separately (two-query architecture). The formatter service works with data from TanStack Query hooks, formatting on read via `useMemo`. Pages construct appropriate metadata structures for each component.
+>
+> **v9.7.0 Update:** Child entity tabs now use the same two-query architecture: `useEntityInstanceData()` for filtered data + `useEntityInstanceMetadata()` for metadata. Backend routes filter child data via INNER JOIN with `entity_instance_link` using `parent_entity_code` and `parent_entity_instance_id` query params.
 
 ---
 
@@ -36,13 +38,15 @@ The frontend formatter is a **pure renderer** that executes backend instructions
 │            └── switch on renderType                                          │
 │                └── 'currency' → formatCurrency()                            │
 │                └── 'badge' → formatBadge() + getDatalabelSync()             │
-│                └── 'entityInstanceId' → refData[lookupEntity][uuid]         │
+│                └── 'EntityInstanceName' → refData[lookupEntity][uuid]       │
+│                └── 'EntityInstanceNames' → refData[lookupEntity][uuids]     │
 │                                                                              │
 │  renderEditModeFromMetadata(value, editType[key], onChange)                 │
 │    └── switch on inputType                                                   │
 │        └── 'number' → <input type="number" />                               │
 │        └── 'BadgeDropdownSelect' → <BadgeDropdownSelect />                  │
-│        └── 'entityInstanceId' → <EntityInstanceNameLookup />                │
+│        └── 'EntityInstanceNameSelect' → <EntityInstanceNameSelect />        │
+│        └── 'EntityInstanceNameMultiSelect' → <EntityInstanceNameMultiSelect/>                │
 │                                                                              │
 │  ✗ NO pattern detection (_id suffix, _amt suffix, etc.)                      │
 │  ✓ All decisions from metadata.renderType/inputType/lookupEntity             │
@@ -64,6 +68,8 @@ The frontend formatter is a **pure renderer** that executes backend instructions
 | `lib/refDataResolver.ts` | Entity reference resolution utilities (v8.3.1) |
 | `lib/hooks/useRefData.ts` | Reference resolution hook (v8.3.0) |
 | `components/shared/ui/BadgeDropdownSelect.tsx` | Badge dropdown component for datalabel fields (v8.3.2) |
+| `components/shared/ui/EntityInstanceNameSelect.tsx` | Single entity reference dropdown (v9.8.0) |
+| `components/shared/ui/EntityInstanceNameMultiSelect.tsx` | Multi-select entity reference dropdown (v9.8.0) |
 
 ---
 
@@ -80,7 +86,8 @@ interface ComponentMetadata {
 interface ViewFieldMetadata {
   dtype: string;
   label: string;
-  renderType?: string;              // 'entityInstanceId' for references
+  renderType?: string;              // 'component' for entity references (v9.8.0)
+  component?: string;               // 'EntityInstanceName' or 'EntityInstanceNames' (v9.8.0)
   lookupSource?: 'entityInstance' | 'datalabel';
   lookupEntity?: string;            // Entity code (e.g., 'employee')
   behavior: { visible?: boolean; sortable?: boolean };
@@ -190,11 +197,11 @@ interface UseRefDataResult {
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  FORMAT-AT-READ FLOW (v9.6.0 - Two-Query Architecture)                       │
+│  FORMAT-AT-READ FLOW (v9.7.0 - Two-Query Architecture)                       │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  PAGE LEVEL (EntityListOfInstancesPage or EntitySpecificInstancePage)        │
-│  ─────────────────────────────────────────────────────────────────────────  │
+│  CASE 1: Main Entity List Page (EntityListOfInstancesPage)                   │
+│  ──────────────────────────────────────────────────────────                  │
 │                                                                              │
 │  // QUERY 1: Metadata (30-min cache)                                         │
 │  const { viewType, editType } = useEntityInstanceMetadata(entityCode);      │
@@ -203,13 +210,41 @@ interface UseRefDataResult {
 │  // QUERY 2: Data (5-min cache)                                              │
 │  const { data: rawData, refData } = useEntityInstanceData(entityCode);      │
 │                                                                              │
-│  // FORMAT-AT-READ (via useMemo, NOT select)                                 │
-│  const formattedData = useMemo(() => {                                      │
-│    return formatDataset(rawData, metadata, refData);                        │
-│  }, [rawData, metadata, refData]);                                          │
 │                                                                              │
-│  FORMATTER EXECUTION:                                                        │
-│  ────────────────────                                                        │
+│  CASE 2: Child Entity Tab (EntitySpecificInstancePage) - v9.7.0             │
+│  ───────────────────────────────────────────────────────────────            │
+│  Route: /project/:id/task                                                    │
+│                                                                              │
+│  // QUERY 1: Child Data (5-min cache) - with parent filtering               │
+│  const { data: childData, refData: childRefData } = useEntityInstanceData(  │
+│    'task',                                                                   │
+│    {                                                                         │
+│      parent_entity_code: 'project',                                         │
+│      parent_entity_instance_id: projectId,                                  │
+│      limit: 50                                                               │
+│    }                                                                         │
+│  );                                                                          │
+│  // Backend: GET /api/v1/task?parent_entity_code=project&parent_entity...   │
+│  // Returns: { data: [...tasks], ref_data_entityInstance, metadata: {} }    │
+│                                                                              │
+│  // QUERY 2: Child Metadata (30-min cache) - separate query                 │
+│  const { viewType: childViewType, editType: childEditType }                 │
+│    = useEntityInstanceMetadata('task', 'entityListOfInstancesTable');       │
+│  // Backend: GET /api/v1/task?content=metadata                              │
+│  // Returns: { fields: [...], metadata: { viewType, editType } }            │
+│                                                                              │
+│  // Construct metadata for EntityListOfInstancesTable                       │
+│  const childMetadata = useMemo(() =>                                        │
+│    ({ viewType: childViewType, editType: childEditType }), [...]);          │
+│                                                                              │
+│  // FORMAT-AT-READ (via useMemo)                                             │
+│  const formattedData = useMemo(() => {                                      │
+│    return formatDataset(childData, childMetadata, childRefData);            │
+│  }, [childData, childMetadata, childRefData]);                              │
+│                                                                              │
+│                                                                              │
+│  FORMATTER EXECUTION (both cases):                                           │
+│  ─────────────────────────────────                                           │
 │  formatDataset(rawData, metadata, refData)                                  │
 │    └── Loop: formatRow(row, viewType, refData)                              │
 │        └── Per field: formatValue(value, key, viewType[key])                │
@@ -308,13 +343,24 @@ const editType = extractEditType(metadata);  // { viewType, editType } → editT
 const fieldMeta = editType[key];
 
 // Check if it's an entity reference using metadata (NOT pattern)
-if (fieldMeta.inputType === 'entityInstanceId') {
+// v9.8.0: inputType is now EntityInstanceNameSelect or EntityInstanceNameMultiSelect
+if (fieldMeta.inputType === 'EntityInstanceNameSelect') {
   const entityCode = fieldMeta.lookupEntity;  // 'employee'
   return (
-    <EntityDropdown
+    <EntityInstanceNameSelect
       entityCode={entityCode}
       value={row.raw[key]}
-      onChange={(val) => onChange(id, key, val)}
+      onChange={(uuid, label) => onChange(id, key, uuid)}
+    />
+  );
+}
+if (fieldMeta.inputType === 'EntityInstanceNameMultiSelect') {
+  const entityCode = fieldMeta.lookupEntity;  // 'employee'
+  return (
+    <EntityInstanceNameMultiSelect
+      entityCode={entityCode}
+      value={row.raw[key] || []}
+      onChange={(uuids) => onChange(id, key, uuids)}
     />
   );
 }
@@ -354,10 +400,14 @@ switch (metadata.inputType) {
   case 'textarea':
     return <textarea />;
 
-  // Entity reference (v8.3.0)
-  case 'entityInstanceId':
+  // Entity reference (v9.8.0 - renamed from entityInstanceId)
+  case 'EntityInstanceNameSelect':
     const entityCode = metadata.lookupEntity;
-    return <EntityDropdown entityCode={entityCode} />;
+    return <EntityInstanceNameSelect entityCode={entityCode} />;
+
+  case 'EntityInstanceNameMultiSelect':
+    const entityCodeMulti = metadata.lookupEntity;
+    return <EntityInstanceNameMultiSelect entityCode={entityCodeMulti} />;
 
   // Badge dropdown for datalabel fields (v8.3.2)
   case 'BadgeDropdownSelect':
@@ -387,11 +437,20 @@ function formatValue(
     return { display: String(value ?? ''), style: '' };
   }
 
-  // Entity reference (v8.3.1 - uses metadata, not pattern)
-  if (metadata.renderType === 'entityInstanceId' && metadata.lookupEntity && refData) {
+  // Entity reference (v9.8.0 - uses component-based rendering)
+  // Single entity reference: renderType='component', component='EntityInstanceName'
+  if (metadata.renderType === 'component' && metadata.component === 'EntityInstanceName' && refData) {
     const entityCode = metadata.lookupEntity;
     const resolved = refData[entityCode]?.[value];
     return { display: resolved ?? value ?? '', style: '' };
+  }
+
+  // Array entity reference: renderType='component', component='EntityInstanceNames'
+  if (metadata.renderType === 'component' && metadata.component === 'EntityInstanceNames' && refData) {
+    const entityCode = metadata.lookupEntity;
+    const values = Array.isArray(value) ? value : [];
+    const resolved = values.map(v => refData[entityCode]?.[v] ?? v).join(', ');
+    return { display: resolved, style: '' };
   }
 
   switch (metadata.renderType) {
@@ -461,10 +520,14 @@ if (field.key.includes('_amt') || field.key.includes('_price')) {
   return formatCurrency(value);
 }
 
-// ✓ CORRECT: Use backend metadata
-if (metadata.renderType === 'entityInstanceId') {
+// ✓ CORRECT: Use backend metadata (v9.8.0 - component-based)
+if (metadata.renderType === 'component' && metadata.component === 'EntityInstanceName') {
   const entityCode = metadata.lookupEntity;  // Backend tells us
   return refData[entityCode][value];
+}
+if (metadata.renderType === 'component' && metadata.component === 'EntityInstanceNames') {
+  const entityCode = metadata.lookupEntity;
+  return value.map(v => refData[entityCode][v]).join(', ');
 }
 if (metadata.renderType === 'currency') {
   return formatCurrency(value);
@@ -532,12 +595,14 @@ function extractEditType(metadata: ComponentMetadata | null): Record<string, Edi
   return metadata.editType;
 }
 
-// Check if field is entity reference (v8.3.1 - metadata-based)
+// Check if field is entity reference (v9.8.0 - component-based)
 function isEntityReferenceField(fieldMeta: FieldMetadata | undefined): boolean {
   if (!fieldMeta) return false;
   return (
-    fieldMeta.renderType === 'entityInstanceId' ||
-    fieldMeta.inputType === 'entityInstanceId' ||
+    (fieldMeta.renderType === 'component' &&
+      (fieldMeta.component === 'EntityInstanceName' || fieldMeta.component === 'EntityInstanceNames')) ||
+    fieldMeta.inputType === 'EntityInstanceNameSelect' ||
+    fieldMeta.inputType === 'EntityInstanceNameMultiSelect' ||
     fieldMeta.lookupSource === 'entityInstance'
   );
 }
@@ -590,9 +655,16 @@ See `docs/caching/TANSTACK_DEXIE_SYNC_ARCHITECTURE.md` for full sync architectur
 
 ---
 
-**Version:** 9.6.0 | **Updated:** 2025-12-01
+**Version:** 9.8.0 | **Updated:** 2025-12-01
 
 **Recent Updates:**
+- v9.7.0 (2025-12-01):
+  - **Child entity tabs two-query architecture** - Child tabs now use:
+    - `useEntityInstanceData()` with `parent_entity_code` + `parent_entity_instance_id` params for filtered data
+    - `useEntityInstanceMetadata()` for metadata (separate query, 30-min cache)
+  - Backend filters child data via INNER JOIN with `entity_instance_link`
+  - Data endpoints return `metadata: {}` by design - metadata must be fetched separately
+  - Updated data flow diagram with CASE 1 (main list) and CASE 2 (child tab)
 - v9.6.0 (2025-12-01):
   - **Two-Query Architecture** - Metadata and data fetched separately
   - `useEntityInstanceMetadata()` returns `{ viewType, editType }` directly (30-min cache)
@@ -608,6 +680,13 @@ See `docs/caching/TANSTACK_DEXIE_SYNC_ARCHITECTURE.md` for full sync architectur
   - WebSocketManager replaces ReplicationManager
 - v9.1.0 (2025-11-28):
   - Removed RxDB completely (TanStack Query + Dexie migration)
+- v9.8.0 (2025-12-01):
+  - **Standardized entity reference components**:
+    - VIEW: `renderType: 'component'` + `component: 'EntityInstanceName'` (single) / `'EntityInstanceNames'` (array)
+    - EDIT: `inputType: 'EntityInstanceNameSelect'` (single) / `'EntityInstanceNameMultiSelect'` (array)
+  - Removed legacy `entityInstanceId` renderType/inputType
+  - Renamed `EntityInstanceNameLookup` → `EntityInstanceNameSelect`
+  - Added `EntityInstanceNameMultiSelect` for array entity references
 - v8.3.2 (2025-11-27):
   - Renamed ColoredDropdown → BadgeDropdownSelect
   - Added `BadgeDropdownSelect` as valid inputType

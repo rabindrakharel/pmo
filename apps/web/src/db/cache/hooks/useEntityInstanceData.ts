@@ -179,6 +179,8 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
       }
 
       // Layer 3: Fetch from API
+      // All params (including parent_entity_code, parent_entity_instance_id) are passed as query params
+      // The backend routes handle parent-child filtering via INNER JOIN with entity_instance_link
       const searchParams = new URLSearchParams();
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
@@ -186,11 +188,11 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
         }
       });
 
-      debugCache(`📡 Fetching from API...`, { entityCode, url: `/api/v1/${entityCode}?${searchParams}` });
+      const apiUrl = `/api/v1/${entityCode}?${searchParams}`;
 
-      const response = await apiClient.get<EntityListResponse<T>>(
-        `/api/v1/${entityCode}?${searchParams}`
-      );
+      debugCache(`📡 Fetching from API...`, { entityCode, url: apiUrl });
+
+      const response = await apiClient.get<EntityListResponse<T>>(apiUrl);
       const apiData = response.data;
 
       const result = {

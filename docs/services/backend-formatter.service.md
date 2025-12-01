@@ -142,6 +142,12 @@
 
 ### Metadata-Only Mode
 
+> **v9.7.0 Note:** This mode is critical for the frontend's two-query architecture. For child entity tabs (e.g., `/project/:id/task`), the frontend fetches data and metadata separately:
+> - **Data query**: `GET /api/v1/task?parent_entity_code=project&parent_entity_instance_id=:id` → returns `metadata: {}`
+> - **Metadata query**: `GET /api/v1/task?content=metadata` → returns full metadata for rendering
+>
+> Data endpoints return `metadata: {}` by design to keep responses smaller. The frontend's `useEntityInstanceMetadata()` hook fetches metadata separately with 30-min caching.
+
 ```
 ┌──────────┐     ┌───────────────┐     ┌────────────────────┐     ┌──────────┐
 │  Client  │     │ Route Handler │     │ Backend Formatter  │     │  Redis   │
@@ -218,13 +224,15 @@
 │                                                         datalabelKey: dl__project_stage
 │                                                                              │
 │  manager__employee_id  ──>  {label}__{entity}_id   ──>  dtype: uuid         │
-│                                                         renderType: entityInstanceId
-│                                                         inputType: entityInstanceId
+│                                                         renderType: component
+│                                                         component: EntityInstanceName
+│                                                         inputType: EntityInstanceNameSelect
 │                                                         lookupEntity: employee
 │                                                         lookupSource: entityInstance
 │                                                                              │
 │  business_id           ──>  {entity}_id            ──>  dtype: uuid         │
-│                                                         renderType: entityInstanceId
+│                                                         renderType: component
+│                                                         component: EntityInstanceName
 │                                                         lookupEntity: business │
 │                                                                              │
 │  start_date            ──>  *_date                 ──>  dtype: date         │
@@ -308,7 +316,17 @@
 │  manager__employee_id: {                                                     │
 │    dtype: "uuid",                                                            │
 │    label: "Manager Employee Name",  // label + entity + "Name"               │
-│    renderType: "entityInstanceId",                                           │
+│    renderType: "component",         // v9.8.0: component-based rendering     │
+│    component: "EntityInstanceName", // v9.8.0: standardized component name   │
+│    lookupEntity: "employee",                                                 │
+│    lookupSource: "entityInstance"                                            │
+│  }                                                                           │
+│                                                                              │
+│  stakeholder__employee_ids: {       // v9.8.0: Array reference               │
+│    dtype: "array[uuid]",                                                     │
+│    label: "Stakeholder Employees",                                           │
+│    renderType: "component",                                                  │
+│    component: "EntityInstanceNames", // Plural for arrays                    │
 │    lookupEntity: "employee",                                                 │
 │    lookupSource: "entityInstance"                                            │
 │  }                                                                           │
@@ -496,7 +514,8 @@ interface EditTypeMetadata {
         "manager__employee_id": {
           "dtype": "uuid",
           "label": "Manager Employee Name",
-          "renderType": "entityInstanceId",
+          "renderType": "component",
+          "component": "EntityInstanceName",
           "lookupEntity": "employee",
           "lookupSource": "entityInstance",
           "behavior": { "visible": true, "sortable": false, "filterable": true, "searchable": false }
@@ -555,7 +574,7 @@ interface EditTypeMetadata {
         "manager__employee_id": {
           "dtype": "uuid",
           "label": "Manager Employee Name",
-          "inputType": "entityInstanceId",
+          "inputType": "EntityInstanceNameSelect",
           "lookupSource": "entityInstance",
           "lookupEntity": "employee",
           "behavior": { "editable": true }
@@ -590,10 +609,10 @@ interface EditTypeMetadata {
 | `is_*`, `*_flag` | bool | boolean | checkbox | - | `is_active` |
 | `*_pct` | float | percentage | number | - | `completion_pct` |
 | `dl__*` | str | badge | select | datalabel | `dl__status` |
-| `{label}__{entity}_id` | uuid | entityInstanceId | entityInstanceId | entityInstance | `manager__employee_id` |
-| `{entity}_id` | uuid | entityInstanceId | entityInstanceId | entityInstance | `business_id` |
-| `{label}__{entity}_ids` | array | entityInstanceIds | multiselect | entityInstance | `stakeholder__employee_ids` |
-| `{entity}_ids` | array | entityInstanceIds | multiselect | entityInstance | `tag_ids` |
+| `{label}__{entity}_id` | uuid | component (EntityInstanceName) | EntityInstanceNameSelect | entityInstance | `manager__employee_id` |
+| `{entity}_id` | uuid | component (EntityInstanceName) | EntityInstanceNameSelect | entityInstance | `business_id` |
+| `{label}__{entity}_ids` | array | component (EntityInstanceNames) | EntityInstanceNameMultiSelect | entityInstance | `stakeholder__employee_ids` |
+| `{entity}_ids` | array | component (EntityInstanceNames) | EntityInstanceNameMultiSelect | entityInstance | `tag_ids` |
 | `tags` | array | array | tags | - | Tag array |
 | `metadata` | jsonb | json | json | - | JSON object |
 
@@ -837,13 +856,10 @@ renderTypes:
       filterable: true
       searchable: false
 
-  entityInstanceId:
-    component: EntityLinkRenderer
-    defaultBehavior:
-      visible: true
-      sortable: false
-      filterable: true
-      searchable: false
+  # v9.8.0: Entity references now use component-based rendering
+  # For _ID fields: renderType: component, component: EntityInstanceName
+  # For _IDS fields: renderType: component, component: EntityInstanceNames
+  # Frontend components: EntityInstanceNameSelect, EntityInstanceNameMultiSelect
 
   date:
     component: DateRenderer
@@ -979,7 +995,8 @@ function EntityCell({ value, fieldName, metadata, refData }) {
   }
 
   // For entity references, resolve from ref_data_entityInstance
-  if (fieldMeta.renderType === 'entityInstanceId' && fieldMeta.lookupEntity) {
+  // v9.8.0: Uses component-based rendering with EntityInstanceName/EntityInstanceNames
+  if (fieldMeta.renderType === 'component' && fieldMeta.component === 'EntityInstanceName') {
     const displayName = refData?.[fieldMeta.lookupEntity]?.[value];
     return renderViewModeFromMetadata(displayName ?? value, fieldMeta);
   }
@@ -1059,7 +1076,7 @@ Metadata Request Arrives
 | Anti-Pattern | Problem | Solution |
 |--------------|---------|----------|
 | Frontend pattern detection | Duplicates logic | Backend sends `lookupEntity` |
-| Field name `_id` checking | Maintenance burden | Use `renderType === 'entityInstanceId'` |
+| Field name `_id` checking | Maintenance burden | Use `renderType === 'component'` + `component: 'EntityInstanceName'` |
 | Hardcoded field configs | Maintenance burden | Use YAML mappings |
 | Same metadata for all components | Limited flexibility | Component-specific viewType/editType |
 | Per-row `_ID` embedded objects | N+1 performance | Use `ref_data_entityInstance` lookup table |
@@ -1078,7 +1095,7 @@ Metadata Request Arrives
 
 ---
 
-**Document Version**: 4.1.0
+**Document Version**: 4.2.0
 **Last Updated**: 2025-12-01
 **Status**: Production Ready
 
@@ -1091,3 +1108,5 @@ Metadata Request Arrives
 | 3.0.0 | 2025-11-28 | Added ref_data_entityInstance integration |
 | 4.0.0 | 2025-11-30 | Complete rewrite with end-to-end architecture, cache integration |
 | 4.1.0 | 2025-12-01 | Updated frontend cache references to unified tanstack-index.ts |
+| 4.2.0 | 2025-12-01 | **v9.7.0 Note**: Added clarification that `content=metadata` mode is critical for frontend's two-query architecture. Child entity tabs fetch data + metadata separately (data endpoints return `metadata: {}` by design). |
+| 4.3.0 | 2025-12-01 | **v9.8.0**: Standardized entity reference component naming - VIEW: `renderType: component` + `component: EntityInstanceName/EntityInstanceNames`, EDIT: `inputType: EntityInstanceNameSelect/EntityInstanceNameMultiSelect`. Removed legacy `entityInstanceId` renderType. |

@@ -1,6 +1,6 @@
 # Unified Cache Architecture
 
-> **Version:** 3.2.0 | PMO Enterprise Platform
+> **Version:** 3.3.0 | PMO Enterprise Platform
 > **Status:** Implementation Complete
 > **Date:** 2025-12-01
 
@@ -704,8 +704,8 @@ export function useOptimisticMutation<T extends { id: string }>(entityCode: stri
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  Component: useEntityInstanceData('task', {                                 │
-│    parentEntityCode: 'project',                                             │
-│    parentEntityInstanceId: projectId                                        │
+│    parent_entity_code: 'project',                                           │
+│    parent_entity_instance_id: projectId                                     │
 │  })                                                                          │
 │                    ↓                                                         │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
@@ -720,6 +720,66 @@ export function useOptimisticMutation<T extends { id: string }>(entityCode: stri
 │  │                                                                       │   │
 │  │  3. Return data to component                                          │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 5.4 Child Entity Tabs (Two-Query Architecture v9.7.0)
+
+Child entity tabs (e.g., `/project/:id/task`) use a two-query pattern where metadata
+and data are fetched separately. This is required because data endpoints return
+`metadata: {}` by design.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│               CHILD ENTITY TAB - TWO-QUERY PATTERN (v9.7.0)                  │
+│               Route: /project/:id/task                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  QUERY 1: Data (5-min cache)                                                │
+│  ────────────────────────────                                                │
+│  useEntityInstanceData('task', {                                            │
+│    parent_entity_code: 'project',                                           │
+│    parent_entity_instance_id: projectId                                     │
+│  })                                                                          │
+│                    ↓                                                         │
+│  Backend: GET /api/v1/task?parent_entity_code=project&parent_entity_...     │
+│                    ↓                                                         │
+│  SQL: SELECT FROM task t                                                    │
+│       INNER JOIN entity_instance_link eil ON ...                            │
+│       WHERE eil.entity_code = 'project'                                     │
+│         AND eil.entity_instance_id = :projectId                             │
+│                    ↓                                                         │
+│  Returns: { data: [...tasks], ref_data_entityInstance: {...}, metadata: {} }│
+│                                                                              │
+│                                                                              │
+│  QUERY 2: Metadata (30-min cache)                                           │
+│  ─────────────────────────────────                                           │
+│  useEntityInstanceMetadata('task', 'entityListOfInstancesTable')            │
+│                    ↓                                                         │
+│  Backend: GET /api/v1/task?content=metadata                                 │
+│                    ↓                                                         │
+│  Returns: { fields: [...], metadata: { viewType: {...}, editType: {...} } } │
+│                                                                              │
+│                                                                              │
+│  PAGE COMBINES:                                                              │
+│  ─────────────                                                               │
+│  childData (from Query 1) + childMetadata (from Query 2)                    │
+│                    ↓                                                         │
+│  <EntityListOfInstancesTable                                                 │
+│    data={childDisplayData}                                                   │
+│    metadata={childMetadata}       ← From separate metadata query            │
+│    ref_data_entityInstance={childRefData}                                   │
+│    loading={childLoading || childMetadataLoading}                           │
+│  />                                                                          │
+│                                                                              │
+│  KEY POINTS:                                                                 │
+│  ───────────                                                                 │
+│  • Metadata is entity-TYPE level (same for all tasks, regardless of parent) │
+│  • Data is filtered by parent context (different for each parent)           │
+│  • Different cache lifetimes: metadata 30-min, data 5-min                   │
+│  • Data endpoint returns metadata: {} by design - must fetch separately     │
+│  • TanStack Query cache keys differ: data includes parent params            │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -1148,7 +1208,7 @@ import {
 
 ---
 
-**Version:** 3.2.0
+**Version:** 3.3.0
 **Last Updated:** 2025-12-01
 **Status:** Implementation Complete
 
@@ -1161,3 +1221,4 @@ import {
 | 3.0.0 | 2025-12-01 | Unified architecture with single entry point |
 | 3.1.0 | 2025-12-01 | Added quick reference tables (stores, lifecycle, access patterns) |
 | 3.2.0 | 2025-12-01 | **Dual-cache optimistic updates (v9.5.2)**: Write to both TanStack Query AND Dexie immediately during mutations. Added granular Dexie operations: `updateEntityInstanceDataItem`, `deleteEntityInstanceDataItem`, `addEntityInstanceDataItem`, `replaceEntityInstanceDataItem`. Removed legacy references. |
+| 3.3.0 | 2025-12-01 | **Child entity tabs two-query pattern (v9.7.0)**: Added section 5.4 documenting how child entity tabs use separate queries for data (with `parent_entity_code`/`parent_entity_instance_id` params) and metadata (`content=metadata`). Data endpoints return `metadata: {}` by design - metadata must be fetched separately. |

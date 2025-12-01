@@ -201,6 +201,8 @@
 
 ### LIST with RBAC + ref_data Flow
 
+> **v9.7.0 Note:** This pattern is used for both main entity lists (`GET /api/v1/task`) and child entity tabs (`GET /api/v1/task?parent_entity_code=project&parent_entity_instance_id=:id`). The frontend's two-query architecture fetches data via this endpoint with parent filtering query params, while metadata is fetched separately via `content=metadata`.
+
 ```
 ┌──────────┐     ┌───────────────┐     ┌────────────────────┐     ┌──────────┐
 │  Client  │     │ Route Handler │     │ Entity Infra Svc   │     │ Database │
@@ -950,7 +952,7 @@ try {
 
 ---
 
-**Document Version**: 5.1.0
+**Document Version**: 5.2.0
 **Last Updated**: 2025-12-01
 **Status**: Production Ready
 
@@ -964,3 +966,4 @@ try {
 | 4.0.0 | 2025-11-28 | Updated for TanStack Query + Dexie |
 | 5.0.0 | 2025-11-30 | Complete rewrite with end-to-end architecture, sequence diagrams |
 | 5.1.0 | 2025-12-01 | Updated related documentation references for unified cache |
+| 5.2.0 | 2025-12-01 | **v9.7.0 Note**: Added clarification that LIST endpoints support parent filtering via `parent_entity_code`/`parent_entity_instance_id` query params, used by frontend's two-query architecture for child entity tabs |

@@ -54,7 +54,7 @@ import { DebouncedInput, DebouncedTextarea } from '../components/shared/ui/Debou
 // v9.0.0: Use Dexie sync cache for non-hook datalabel access
 import { getDatalabelSync } from '../db/tanstack-index';
 import { BadgeDropdownSelect, type BadgeDropdownSelectOption } from '../components/shared/ui/BadgeDropdownSelect';
-import { EntityInstanceNameLookup } from '../components/shared/ui/EntityInstanceNameLookup';
+import { EntityInstanceNameSelect } from '../components/shared/ui/EntityInstanceNameSelect';
 import { colorCodeToTailwindClass } from './formatters/valueFormatters';
 import {
   formatRelativeTime as formatRelativeTimeUtil,
@@ -431,9 +431,9 @@ export function renderEditModeFromMetadata(
         />
       );
 
-    // v9.2.0: Entity instance searchable dropdown (foreign key reference fields)
-    case 'entityInstanceNameLookup': {
-      // Entity reference fields use EntityInstanceNameLookup with unified ref_data cache
+    // v9.8.0: EntityInstanceNameSelect - single entity reference (edit mode)
+    // Backend: inputType: EntityInstanceNameSelect
+    case 'EntityInstanceNameSelect': {
       const entityCode = metadata.lookupEntity;
 
       if (!entityCode) {
@@ -454,7 +454,7 @@ export function renderEditModeFromMetadata(
       }
 
       return (
-        <EntityInstanceNameLookup
+        <EntityInstanceNameSelect
           entityCode={entityCode}
           value={value ?? ''}
           onChange={(uuid, _label) => onChange(uuid)}

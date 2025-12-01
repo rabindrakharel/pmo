@@ -285,7 +285,6 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
   // The hook returns a stable frozen empty state when disabled, preventing infinite loops
   const {
     data: childData,  // Use directly - no intermediate state needed
-    metadata: childMetadata,
     refData: childRefData,
     total: childTotal,
     isLoading: childLoading,
@@ -295,6 +294,24 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     childQueryParams,
     { enabled: shouldFetchChildData }  // EXPLICIT: Query only runs when on child tab
   );
+
+  // v9.7.0: Fetch child entity metadata separately (two-query architecture)
+  // Metadata is entity-type level (same for all tasks), cached 30-min
+  // This fixes the "empty columns" issue where metadata wasn't returned in data response
+  const {
+    viewType: childViewType,
+    editType: childEditType,
+    isLoading: childMetadataLoading,
+  } = useEntityInstanceMetadata(
+    currentChildEntity || '',
+    'entityListOfInstancesTable'
+  );
+
+  // Construct child metadata in expected format for EntityListOfInstancesTable
+  const childMetadata = useMemo(() => {
+    if (!childViewType || Object.keys(childViewType).length === 0) return undefined;
+    return { viewType: childViewType, editType: childEditType };
+  }, [childViewType, childEditType]);
 
   // ============================================================================
   // CHILD ENTITY INLINE EDIT STATE
@@ -1379,7 +1396,8 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
           </div>
         ) : (
           // Child Entity Tab - Direct EntityListOfInstancesTable (no FilteredDataTable/Outlet)
-          childLoading ? (
+          // v9.7.0: Check both data loading AND metadata loading (two-query architecture)
+          (childLoading || childMetadataLoading) ? (
             <div className="flex items-center justify-center h-64">
               <EllipsisBounce size="lg" text="Processing" />
             </div>
@@ -1388,7 +1406,7 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
               data={childDisplayData}
               metadata={childMetadata}
               ref_data_entityInstance={childRefData}
-              loading={childLoading}
+              loading={childLoading || childMetadataLoading}
               pagination={childPagination}
               onRowClick={handleChildRowClick}
               searchable={true}

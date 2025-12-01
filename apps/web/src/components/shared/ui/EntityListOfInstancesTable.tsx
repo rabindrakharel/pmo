@@ -51,6 +51,8 @@ import { EllipsisBounce, InlineSpinner } from './EllipsisBounce';
 import { useRefData, type RefData } from '../../../lib/hooks/useRefData';
 // v8.3.2: Shared badge dropdown for datalabel fields (DRY principle)
 import { BadgeDropdownSelect } from './BadgeDropdownSelect';
+// v9.8.0: Reusable Chip component for filter chips
+import { Chip } from './Chip';
 
 // ============================================================================
 // METADATA-DRIVEN RENDERING (Pure Backend-Driven)
@@ -1688,23 +1690,18 @@ export function EntityListOfInstancesTable<T = any>({
 
                     const chipColorClass = colorCode ? colorCodeToTailwindClass(colorCode) : 'bg-dark-100 text-dark-600';
 
+                    // v9.8.0: Use reusable Chip component
                     return (
-                      <div
+                      <Chip
                         key={`${columnKey}-${value}`}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${chipColorClass}`}
-                      >
-                        <span className="opacity-75">{getColumnTitle(columnKey)}:</span>
-                        <span className="max-w-32 truncate" title={value}>
-                          {value}
-                        </span>
-                        <button
-                          onClick={() => removeFilterChip(columnKey, value)}
-                          className="ml-1 hover:bg-black/10 rounded-full p-0.5 transition-colors"
-                          title={`Remove ${value} filter`}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
+                        label={value}
+                        prefix={`${getColumnTitle(columnKey)}:`}
+                        colorClass={chipColorClass}
+                        size="md"
+                        maxWidth="128px"
+                        removable
+                        onRemove={() => removeFilterChip(columnKey, value)}
+                      />
                     );
                   })
                 )}

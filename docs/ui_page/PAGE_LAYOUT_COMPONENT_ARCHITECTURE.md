@@ -857,7 +857,7 @@ EntitySpecificInstancePage
 └── UnifiedLinkageModal            // Entity relationships
 ```
 
-**Key Code Pattern (v9.6.0 - Two-Query Architecture):**
+**Key Code Pattern (v9.7.0 - Two-Query Architecture with Child Entity Metadata):**
 ```typescript
 // EntitySpecificInstancePage.tsx
 
@@ -904,6 +904,7 @@ const formattedData = useMemo(() => {
 
 // ============================================================================
 // CHILD ENTITY DATA (5-min cache, enabled only when tab is selected)
+// Uses main entity endpoint with parent_entity_code & parent_entity_instance_id
 // ============================================================================
 const shouldFetchChildData = Boolean(
   currentChildEntity &&
@@ -911,11 +912,80 @@ const shouldFetchChildData = Boolean(
   !isOverviewTab
 );
 
+// Pass parent context as query params - backend filters via INNER JOIN
 const { data: childData, ... } = useEntityInstanceData(
   currentChildEntity || '',
-  childQueryParams,
-  { enabled: shouldFetchChildData }  // Prevents invalid API calls
+  {
+    ...childQueryParams,
+    parent_entity_code: entityCode,
+    parent_entity_instance_id: id,
+  },
+  { enabled: shouldFetchChildData }
 );
+
+// ============================================================================
+// QUERY 3: CHILD ENTITY METADATA (30-min cache) - v9.7.0
+// Fetched separately because data endpoint returns metadata: {}
+// ============================================================================
+const {
+  viewType: childViewType,
+  editType: childEditType,
+  isLoading: childMetadataLoading,
+} = useEntityInstanceMetadata(
+  currentChildEntity || '',
+  'entityListOfInstancesTable'
+);
+
+// Construct child metadata for EntityListOfInstancesTable
+const childMetadata = useMemo(() => {
+  if (!childViewType || Object.keys(childViewType).length === 0) return undefined;
+  return { viewType: childViewType, editType: childEditType };
+}, [childViewType, childEditType]);
+```
+
+**v9.7.0 Data Flow - Child Entity Tabs:**
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  CHILD ENTITY TAB DATA FLOW (v9.7.0)                                         │
+│  Route: /project/:id/task                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  QUERY 1: useEntityInstanceData('task', {                                   │
+│    parent_entity_code: 'project',                                           │
+│    parent_entity_instance_id: projectId                                      │
+│  })                                                                          │
+│  ↓                                                                           │
+│  Backend: GET /api/v1/task?parent_entity_code=project&parent_entity_...     │
+│  ↓                                                                           │
+│  Returns: { data: [...tasks], ref_data_entityInstance: {...}, metadata: {} }│
+│           ↑                                                                  │
+│           │ metadata: {} is INTENTIONAL - data endpoints return empty       │
+│                                                                              │
+│  QUERY 2: useEntityInstanceMetadata('task', 'entityListOfInstancesTable')   │
+│  ↓                                                                           │
+│  Backend: GET /api/v1/task?content=metadata                                 │
+│  ↓                                                                           │
+│  Returns: { fields: [...], metadata: { viewType: {...}, editType: {...} } } │
+│                                                                              │
+│  PAGE COMBINES:                                                              │
+│  ─────────────                                                               │
+│  childData (from Query 1) + childMetadata (from Query 2)                    │
+│  ↓                                                                           │
+│  <EntityListOfInstancesTable                                                 │
+│    data={childDisplayData}                                                   │
+│    metadata={childMetadata}       ← From separate metadata query            │
+│    ref_data_entityInstance={childRefData}                                   │
+│    loading={childLoading || childMetadataLoading}                           │
+│  />                                                                          │
+│                                                                              │
+│  WHY SEPARATE QUERIES?                                                       │
+│  ─────────────────────                                                       │
+│  1. Metadata is entity-TYPE level (same for all tasks, regardless of parent)│
+│  2. Metadata has 30-min cache, data has 5-min cache (different lifetimes)  │
+│  3. Backend data responses return metadata: {} by design                    │
+│  4. Keeps cache normalized (metadata cached once per entity type)           │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Edit Mode Integration (Dexie Drafts):**
@@ -1679,13 +1749,14 @@ apps/web/src/
 
 ---
 
-**Version:** 9.6.0
+**Version:** 9.7.0
 **Last Updated:** 2025-12-01
 **Status:** Production Ready
 
 **Version History:**
 | Version | Date | Changes |
 |---------|------|---------|
+| 9.7.0 | 2025-12-01 | **Child entity tabs two-query architecture**: Child tabs use `useEntityInstanceMetadata()` for metadata (30-min cache) + `useEntityInstanceData()` with `parent_entity_code/parent_entity_instance_id` params for data (5-min cache). Backend filters via INNER JOIN. |
 | 9.6.0 | 2025-12-01 | **EntitySpecificInstancePage two-query architecture**: Metadata fetched separately via `useEntityInstanceMetadata`, wrapped for `EntityInstanceFormContainer` |
 | 9.5.1 | 2025-12-01 | **Optimistic mutations v2**: `updateAllListCaches` finds ALL matching caches by entity code (works from any page) |
 | 9.5.0 | 2025-12-01 | Added `useOptimisticMutation` hook for instant UI feedback |

@@ -77,6 +77,14 @@ export { ModularEditor } from './editor/ModularEditor';
 // ============================================================================
 export { EntityListOfInstancesTable } from './ui/EntityListOfInstancesTable';
 export { LabelsDataTable } from './ui/LabelsDataTable';
+// v9.8.0: Reusable Chip and ChipList components
+export { Chip, ChipList } from './ui/Chip';
+export type { ChipProps, ChipListProps, ChipListItem } from './ui/Chip';
+// v9.8.0: Entity instance name components (metadata-driven)
+export { EntityInstanceNameSelect } from './ui/EntityInstanceNameSelect';
+export type { EntityInstanceNameSelectProps } from './ui/EntityInstanceNameSelect';
+export { EntityInstanceNameMultiSelect } from './ui/EntityInstanceNameMultiSelect';
+export type { EntityInstanceNameMultiSelectProps } from './ui/EntityInstanceNameMultiSelect';
 // EditableTags component removed - tags field no longer in use
 // export { EditableTags } from './ui/EditableTags';
 export { GridView } from './ui/GridView';

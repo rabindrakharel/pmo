@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, ChevronDown, Search } from 'lucide-react';
+import { ChevronDown, Search } from 'lucide-react';
+// v9.8.0: Reusable Chip component
+import { Chip } from './Chip';
 
 interface Option {
   value: string;
@@ -95,27 +97,19 @@ export function SearchableMultiSelect({
         {selectedOptions.length === 0 ? (
           <span className="text-gray-500 text-sm py-0.5">{placeholder}</span>
         ) : (
+          // v9.8.0: Use reusable Chip component
           selectedOptions.map(option => (
-            <span
+            <Chip
               key={option.value}
-              className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-300 rounded text-xs font-medium group hover:bg-slate-200 transition-colors"
+              label={option.label}
               title={showTooltips ? option.label : undefined}
-            >
-              <span className="truncate max-w-[150px]">{option.label}</span>
-              {!disabled && !readonly && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeItem(option.value);
-                  }}
-                  className="hover:bg-red-100 rounded-full p-0.5 transition-colors group-hover:text-red-600"
-                  title={`Remove ${option.label}`}
-                >
-                  <X className="w-2.5 h-2.5" />
-                </button>
-              )}
-            </span>
+              size="sm"
+              maxWidth="150px"
+              colorClass="bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200"
+              removable={!disabled && !readonly}
+              onRemove={() => removeItem(option.value)}
+              disabled={disabled}
+            />
           ))
         )}
         <div className="ml-auto">

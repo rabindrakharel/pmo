@@ -153,7 +153,7 @@ import { getEntityInfrastructure, Permission, ALL_ENTITIES_ID } from '../../serv
 // ✨ Universal auto-filter builder - zero-config query filtering
 import { buildAutoFilters } from '../../lib/universal-filter-builder.js';
 // ✨ Backend Formatter Service - component-aware metadata generation
-import { generateEntityResponse } from '../../services/backend-formatter.service.js';
+import { generateEntityResponse, getCachedMetadataResponse, cacheMetadataResponse } from '../../services/backend-formatter.service.js';
 // ✨ Centralized Pagination Config
 import { PAGINATION_CONFIG, getEntityLimit } from '../../lib/pagination.js';
 // ✨ Datalabel Service - fetch datalabel options for dropdowns and DAG visualization
@@ -242,16 +242,19 @@ export async function taskRoutes(fastify: FastifyInstance) {
         page: Type.Optional(Type.Number({ minimum: 1 })),
         parent_entity_code: Type.Optional(Type.String()),
         parent_entity_instance_id: Type.Optional(Type.String({ format: 'uuid' })),
-        view: Type.Optional(Type.String())  // 'entityListOfInstancesTable,kanbanView' or 'entityInstanceFormContainer'
+        view: Type.Optional(Type.String()),  // 'entityListOfInstancesTable,kanbanView' or 'entityInstanceFormContainer'
+        content: Type.Optional(Type.String()),  // 'metadata' for metadata-only response (no data query)
       }),
       response: {
         200: Type.Object({
           data: Type.Array(TaskSchema),
           fields: Type.Array(Type.String()),
           metadata: Type.Any(),  // EntityMetadata - component-specific field metadata
+          datalabels: Type.Optional(Type.Any()),  // Datalabel options with colors for badge rendering
+          ref_data_entityInstance: Type.Optional(Type.Record(Type.String(), Type.Record(Type.String(), Type.String()))),  // v8.3.0: Entity reference lookup { entityCode: { uuid: name } }
           total: Type.Number(),
           limit: Type.Number(),
-          offset: Type.Number()
+          offset: Type.Number(),
         }),
         401: Type.Object({ error: Type.String() }),
         403: Type.Object({ error: Type.String() }),
@@ -262,7 +265,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     const {
       project_id, assigned_to__employee_id, dl__task_stage, task_type, task_category,
       worksite_id, client_id, active, search, limit = getEntityLimit(ENTITY_CODE), offset: queryOffset, page,
-      parent_entity_code, parent_entity_instance_id, view
+      parent_entity_code, parent_entity_instance_id, view, content
     } = request.query as any;
 
     // Support both page (new standard) and offset (legacy) - NO fallback to unlimited
@@ -272,6 +275,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
     if (!userId) {
       return reply.status(401).send({ error: 'User not authenticated' });
     }
+
+    // Determine if this is a metadata-only request
+    const metadataOnly = content === 'metadata';
 
     try {
       // ═══════════════════════════════════════════════════════════════
@@ -335,6 +341,65 @@ export async function taskRoutes(fastify: FastifyInstance) {
       // Compose JOIN clause
       const joinClause = joins.length > 0 ? sql.join(joins, sql` `) : sql``;
 
+      // ═══════════════════════════════════════════════════════════════
+      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
+      // Parse requested view (convert view names to component names)
+      // ═══════════════════════════════════════════════════════════════
+      const requestedComponents = view
+        ? view.split(',').map((v: string) => v.trim())
+        : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
+
+      // ═══════════════════════════════════════════════════════════════
+      // METADATA-ONLY MODE: Redis cached, same query with WHERE 1=0
+      // Cache key: /api/v1/task?content=metadata
+      // ═══════════════════════════════════════════════════════════════
+      if (metadataOnly) {
+        // Build cache key from request URL
+        const cacheKey = `/api/v1/${ENTITY_CODE}?content=metadata`;
+
+        // Check Redis cache first
+        const cachedResponse = await getCachedMetadataResponse(cacheKey);
+        if (cachedResponse) {
+          return reply.send(cachedResponse);
+        }
+
+        // Cache miss - execute query to get column metadata
+        // Build WHERE clause with 1=0 prepended for instant short-circuit
+        // PostgreSQL evaluates 1=0 first, skips all other conditions
+        const metadataWhereClause = conditions.length > 0
+          ? sql`WHERE 1=0 AND ${sql.join(conditions, sql` AND `)}`
+          : sql`WHERE 1=0`;
+
+        // Same query structure as data query, but with 1=0 short-circuit
+        const metadataQuery = sql`
+          SELECT DISTINCT ${sql.raw(TABLE_ALIAS)}.*
+          FROM app.${sql.raw(ENTITY_CODE)} ${sql.raw(TABLE_ALIAS)}
+          ${joinClause}
+          ${metadataWhereClause}
+        `;
+
+        // Execute with drizzle to get columns metadata
+        const columnsResult = await db.execute(metadataQuery);
+        // Access columns from the result (postgres.js exposes this)
+        const resultFields = (columnsResult as any).columns?.map((col: any) => ({ name: col.name })) || [];
+
+        // Generate metadata-only response
+        const response = await generateEntityResponse(ENTITY_CODE, [], {
+          components: requestedComponents,
+          metadataOnly: true,
+          resultFields
+        });
+
+        // Cache the response in Redis
+        await cacheMetadataResponse(cacheKey, response);
+
+        return reply.send(response);
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // NORMAL DATA MODE: Execute full query with pagination
+      // ═══════════════════════════════════════════════════════════════
+
       // Get total count
       const countResult = await db.execute(sql`
         SELECT COUNT(*) as total
@@ -395,20 +460,13 @@ export async function taskRoutes(fastify: FastifyInstance) {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      // ═══════════════════════════════════════════════════════════════
-      // ✨ BACKEND FORMATTER SERVICE V5.0 - Component-aware metadata
-      // Parse requested view (convert view names to component names)
-      // ═══════════════════════════════════════════════════════════════
-      const requestedComponents = view
-        ? view.split(',').map((v: string) => v.trim())
-        : ['entityListOfInstancesTable', 'entityInstanceFormContainer', 'kanbanView'];
-
       // Generate response with metadata for requested components only
       const response = await generateEntityResponse(ENTITY_CODE, tasks, {
         components: requestedComponents,
         total,
         limit,
-        offset
+        offset,
+        metadataOnly: false
       });
 
       return response;

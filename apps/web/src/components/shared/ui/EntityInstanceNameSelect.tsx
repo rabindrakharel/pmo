@@ -3,7 +3,7 @@ import { ChevronDown, Search, Check } from 'lucide-react';
 import { useRefDataEntityInstanceOptions } from '@/lib/hooks/useRefDataEntityInstance';
 import { InlineSpinner } from './EllipsisBounce';
 
-export interface EntityInstanceNameLookupProps {
+export interface EntityInstanceNameSelectProps {
   entityCode: string;       // e.g., "employee", "project", "client"
   value: string;            // Current UUID
   currentLabel?: string;    // Current display label (for backwards compatibility)
@@ -16,9 +16,10 @@ export interface EntityInstanceNameLookupProps {
 }
 
 /**
- * EntityInstanceNameLookup - Searchable single-select dropdown for entity references (v9.2.0)
+ * EntityInstanceNameSelect - Searchable single-select dropdown for entity references
  *
  * Used for all entity foreign key fields (_ID fields like manager__employee_id)
+ * Metadata-driven: inputType: EntityInstanceNameSelect
  *
  * Features:
  * - Type-to-search filtering
@@ -28,13 +29,13 @@ export interface EntityInstanceNameLookupProps {
  * - Uses ref_data_entityInstance cache (single source of truth)
  *
  * @example
- * <EntityInstanceNameLookup
+ * <EntityInstanceNameSelect
  *   entityCode="employee"
  *   value="uuid-123"
  *   onChange={(uuid, label) => handleChange(uuid, label)}
  * />
  */
-export function EntityInstanceNameLookup({
+export function EntityInstanceNameSelect({
   entityCode,
   value,
   currentLabel,
@@ -44,7 +45,7 @@ export function EntityInstanceNameLookup({
   placeholder,
   className = '',
   autoFocus = false
-}: EntityInstanceNameLookupProps) {
+}: EntityInstanceNameSelectProps) {
   const [isOpen, setIsOpen] = useState(autoFocus);
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(-1);

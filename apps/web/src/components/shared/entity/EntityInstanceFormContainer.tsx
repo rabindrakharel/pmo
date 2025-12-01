@@ -7,7 +7,11 @@ import { SearchableMultiSelect } from '../ui/SearchableMultiSelect';
 import { DateRangeVisualizer } from '../ui/DateRangeVisualizer';
 import { DebouncedInput, DebouncedTextarea } from '../ui/DebouncedInput';
 import { BadgeDropdownSelect } from '../ui/BadgeDropdownSelect';
-import { EntityInstanceNameLookup } from '../ui/EntityInstanceNameLookup';
+// v9.8.0: Entity instance name components (metadata-driven)
+import { EntityInstanceNameSelect } from '../ui/EntityInstanceNameSelect';
+import { EntityInstanceNameMultiSelect } from '../ui/EntityInstanceNameMultiSelect';
+// v9.8.0: Reusable ChipList for EntityInstanceNames view mode
+import { ChipList } from '../ui/Chip';
 import {
   formatRelativeTime,
   formatFriendlyDate,
@@ -471,14 +475,41 @@ function EntityInstanceFormContainerInner({
         );
       }
 
-      // v8.3.2: Entity reference fields - resolve UUID to name using ref_data
-      if (field.type === 'entityInstanceId') {
+      // v9.8.0: EntityInstanceName - single entity reference (view mode)
+      // Backend: renderType: component, component: EntityInstanceName
+      if (vizContainer?.view === 'EntityInstanceName') {
         // Use pre-formatted value from formatDataset which uses ref_data_entityInstance
         const displayValue = formattedData?.display?.[field.key] ?? value;
         return (
           <span className="text-dark-600 text-base tracking-tight">
             {displayValue || '-'}
           </span>
+        );
+      }
+
+      // v9.8.0: EntityInstanceNames - array of entity references (view mode)
+      // Backend: renderType: component, component: EntityInstanceNames
+      if (vizContainer?.view === 'EntityInstanceNames') {
+        const rawValues = Array.isArray(value) ? value : [];
+        const entityCode = field.lookupEntity;
+
+        // Resolve UUIDs to names using ref_data_entityInstance
+        const items = rawValues.map((uuid: string) => {
+          const resolvedName = ref_data_entityInstance?.[entityCode || '']?.[uuid] || uuid.substring(0, 8) + '...';
+          return {
+            id: uuid,
+            label: resolvedName,
+            href: entityCode ? `/${entityCode}/${uuid}` : undefined,
+          };
+        });
+
+        return (
+          <ChipList
+            items={items}
+            size="sm"
+            gap="xs"
+            emptyText="-"
+          />
         );
       }
 
@@ -773,14 +804,13 @@ function EntityInstanceFormContainerInner({
             {value ? formatRelativeTime(value) : '-'}
           </span>
         );
-      // v9.2.0: Entity instance searchable dropdown (foreign key reference fields)
-      case 'entityInstanceNameLookup': {
-        // Entity reference fields use EntityInstanceNameLookup with unified ref_data cache
+      // v9.8.0: EntityInstanceNameSelect - single entity reference (edit mode)
+      // Backend: inputType: EntityInstanceNameSelect
+      case 'EntityInstanceNameSelect': {
         const entityCode = field.lookupEntity;
 
         if (!entityCode) {
           console.warn(`[EDIT] Missing lookupEntity for field ${field.key}`);
-          // Fallback to showing current value with resolved name
           const resolvedName = resolveFieldDisplay(
             { lookupEntity: undefined } as any,
             value
@@ -793,10 +823,37 @@ function EntityInstanceFormContainerInner({
         }
 
         return (
-          <EntityInstanceNameLookup
+          <EntityInstanceNameSelect
             entityCode={entityCode}
             value={value ?? ''}
             onChange={(uuid, _label) => handleFieldChange(field.key, uuid)}
+            disabled={field.disabled || field.readonly}
+            required={field.required}
+            placeholder={field.placeholder || `Select ${entityCode}...`}
+          />
+        );
+      }
+      // v9.8.0: EntityInstanceNameMultiSelect - array of entity references (edit mode)
+      // Backend: inputType: EntityInstanceNameMultiSelect
+      case 'EntityInstanceNameMultiSelect': {
+        const entityCode = field.lookupEntity;
+
+        if (!entityCode) {
+          console.warn(`[EDIT] Missing lookupEntity for EntityInstanceNameMultiSelect field ${field.key}`);
+          return (
+            <span className="text-dark-600 text-base tracking-tight">
+              {Array.isArray(value) ? value.join(', ') : '-'}
+            </span>
+          );
+        }
+
+        const arrayValue = Array.isArray(value) ? value : [];
+
+        return (
+          <EntityInstanceNameMultiSelect
+            entityCode={entityCode}
+            value={arrayValue}
+            onChange={(uuids) => handleFieldChange(field.key, uuids)}
             disabled={field.disabled || field.readonly}
             required={field.required}
             placeholder={field.placeholder || `Select ${entityCode}...`}
