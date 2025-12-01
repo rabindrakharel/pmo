@@ -22,6 +22,15 @@ export const CACHE_STALE_TIME_LIST = 5 * 60 * 1000; // 5 minutes (was 2 min - no
 /** How long before metadata is considered stale (less frequent updates) */
 export const CACHE_STALE_TIME_METADATA = 30 * 60 * 1000; // 30 minutes
 
+/** How long before datalabel options are considered stale */
+export const CACHE_STALE_TIME_DATALABEL = 10 * 60 * 1000; // 10 minutes
+
+/** How long before entity codes are considered stale */
+export const CACHE_STALE_TIME_ENTITY_CODES = 30 * 60 * 1000; // 30 minutes
+
+/** How long before entity links are considered stale */
+export const CACHE_STALE_TIME_ENTITY_LINKS = 5 * 60 * 1000; // 5 minutes
+
 /** How long to keep data in memory after last use (garbage collection) */
 export const CACHE_GC_TIME = 30 * 60 * 1000; // 30 minutes
 
@@ -238,7 +247,7 @@ export async function prefetchEntity(
   await queryClient.prefetchQuery({
     queryKey: ['entityInstance', entityCode, entityId],
     queryFn: fetchFn,
-    staleTime: 5 * 60 * 1000,
+    staleTime: CACHE_STALE_TIME,
   });
 }
 

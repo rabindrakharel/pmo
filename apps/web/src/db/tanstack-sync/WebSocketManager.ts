@@ -85,7 +85,6 @@ class WebSocketManager {
   private processedVersions = new Map<string, { version: number; timestamp: number }>();
   private static readonly MAX_VERSION_ENTRIES = 1000;
   private static readonly VERSION_ENTRY_TTL = 10 * 60 * 1000; // 10 minutes
-  private versionCleanupInterval: ReturnType<typeof setInterval> | null = null;
 
   // Event listeners
   private statusListeners = new Set<StatusListener>();
