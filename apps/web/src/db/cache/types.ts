@@ -235,12 +235,11 @@ export interface EntityListResponse<T = Record<string, unknown>> {
   limit?: number;
   /** Offset used */
   offset?: number;
+  /** Field names */
+  fields?: string[];
   /** Field metadata */
   metadata?: {
-    entityListOfInstancesTable?: {
-      viewType: Record<string, ViewFieldMetadata>;
-      editType: Record<string, EditFieldMetadata>;
-    };
+    entityListOfInstancesTable?: EntityInstanceMetadata;
   };
   /** Entity instance name lookups */
   ref_data_entityInstance?: Record<string, Record<string, string>>;
@@ -288,10 +287,14 @@ export interface UseDatalabelResult {
 
 export interface UseEntityCodesResult {
   codes: EntityCode[];
+  /** Alias for codes (backward compatibility) */
+  entityCodes: EntityCode[];
   isLoading: boolean;
   isError: boolean;
   error: Error | null;
   getByCode: (code: string) => EntityCode | undefined;
+  /** Alias for getByCode (backward compatibility) */
+  getEntityByCode: (code: string) => EntityCode | undefined;
   getChildCodes: (code: string) => string[];
 }
 

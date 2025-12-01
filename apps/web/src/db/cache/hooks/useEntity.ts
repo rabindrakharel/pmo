@@ -120,7 +120,8 @@ export function useEntity<T = Record<string, unknown>>(
         const metadataTable = apiData.metadata.entityListOfInstancesTable;
         await setEntityInstanceMetadata(
           entityCode,
-          Object.keys(metadataTable.viewType || {}),
+          'entityListOfInstancesTable',
+          metadataTable.fields || Object.keys(metadataTable.viewType || {}),
           metadataTable.viewType || {},
           metadataTable.editType || {}
         );

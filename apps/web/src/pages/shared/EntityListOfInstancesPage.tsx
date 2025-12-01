@@ -13,7 +13,7 @@ import { getEntityConfig, type ViewMode } from '../../lib/entityConfig';
 import { getEntityIcon } from '../../lib/entityIcons';
 import { transformForApi, transformFromApi } from '../../lib/frontEndFormatterService';
 import { useSidebar } from '../../contexts/SidebarContext';
-import { useEntityInstanceData, useEntityMutation, useEntityInstanceMetadata } from '@/db/tanstack-index';
+import { useEntityInstanceData, useEntityMutation } from '@/db/tanstack-index';
 import { formatDataset, type ComponentMetadata } from '../../lib/formatters';
 import { API_CONFIG } from '../../lib/config/api';
 import type { RowAction } from '../../components/shared/ui/EntityListOfInstancesTable';
@@ -217,10 +217,7 @@ export function EntityListOfInstancesPage({ entityCode, defaultView }: EntityLis
 
     try {
       // Use mutation hook with automatic optimistic update and error rollback
-      await updateEntity({
-        id: itemId,
-        data: { [config.kanban.groupByField]: toColumn }
-      });
+      await updateEntity(itemId, { [config.kanban.groupByField]: toColumn });
     } catch (err) {
       console.error(`Failed to update ${entityCode}:`, err);
       // React Query will automatically refetch on error

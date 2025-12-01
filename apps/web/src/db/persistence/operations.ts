@@ -6,13 +6,10 @@
 
 import { db } from './schema';
 import type {
-  GlobalSettingsRecord,
   DatalabelRecord,
-  EntityCodesRecord,
   EntityInstanceNameRecord,
   EntityLinkForwardRecord,
   EntityLinkReverseRecord,
-  EntityInstanceMetadataRecord,
   EntityInstanceDataRecord,
   DraftRecord,
 } from './schema';
@@ -21,6 +18,8 @@ import type {
   DatalabelOption,
   EntityCode,
   EntityInstanceMetadata,
+  ViewFieldMetadata,
+  EditFieldMetadata,
   Draft,
 } from '../cache/types';
 import { DEXIE_KEYS, createQueryHash } from '../cache/keys';
@@ -237,8 +236,8 @@ export interface EntityInstanceMetadataWithTimestamp {
   _id: string;
   entityCode: string;
   fields: string[];
-  viewType: Record<string, unknown>;
-  editType: Record<string, unknown>;
+  viewType: Record<string, ViewFieldMetadata>;
+  editType: Record<string, EditFieldMetadata>;
   syncedAt: number;
 }
 
@@ -264,8 +263,8 @@ export async function setEntityInstanceMetadata(
   entityCode: string,
   component: string,
   fields: string[],
-  viewType: Record<string, unknown>,
-  editType: Record<string, unknown>
+  viewType: Record<string, ViewFieldMetadata>,
+  editType: Record<string, EditFieldMetadata>
 ): Promise<void> {
   await db.entityInstanceMetadata.put({
     _id: DEXIE_KEYS.entityInstanceMetadata(entityCode, component),

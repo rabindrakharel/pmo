@@ -16,6 +16,8 @@ import type {
   EntityListResponse,
   EntityInstanceMetadata,
   UseEntityInstanceDataResult,
+  ViewFieldMetadata,
+  EditFieldMetadata,
 } from '../types';
 // Re-export type for consumers
 export type { UseEntityInstanceDataResult } from '../types';
@@ -53,19 +55,22 @@ import { wsManager } from '../../realtime/manager';
  */
 export function useEntityInstanceData<T = Record<string, unknown>>(
   entityCode: string,
-  params: EntityInstanceDataParams = {}
+  params: EntityInstanceDataParams = {},
+  options: { enabled?: boolean } = {}
 ): UseEntityInstanceDataResult<T> {
+  const { enabled = true } = options;
+
   // Pre-subscribe to WebSocket to close race window
   const hasSubscribedRef = useRef(false);
   useEffect(() => {
-    if (!hasSubscribedRef.current) {
+    if (enabled && !hasSubscribedRef.current) {
       wsManager.subscribe(entityCode, []);
       hasSubscribedRef.current = true;
     }
     return () => {
       hasSubscribedRef.current = false;
     };
-  }, [entityCode]);
+  }, [entityCode, enabled]);
 
   const queryHash = useMemo(() => createQueryHash(params), [params]);
 
@@ -136,6 +141,7 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
     },
     staleTime: ONDEMAND_STORE_CONFIG.staleTime,
     gcTime: ONDEMAND_STORE_CONFIG.gcTime,
+    enabled,
   });
 
   const refetch = async (): Promise<void> => {
@@ -217,7 +223,17 @@ export function useEntityInstanceMetadata(
   entityCode: string,
   component: string = 'entityListOfInstancesTable'
 ): UseEntityInstanceMetadataResult {
-  const query = useQuery({
+  // Define the record type for query
+  interface MetadataRecord {
+    _id: string;
+    entityCode: string;
+    fields: string[];
+    viewType: Record<string, ViewFieldMetadata>;
+    editType: Record<string, EditFieldMetadata>;
+    syncedAt: number;
+  }
+
+  const query = useQuery<MetadataRecord>({
     queryKey: QUERY_KEYS.entityInstanceMetadata(entityCode, component),
     queryFn: async () => {
       // Try Dexie cache first (per entity + component)
@@ -233,10 +249,13 @@ export function useEntityInstanceMetadata(
       });
 
       // Response structure: { data: [], fields: [], metadata: { [component]: { viewType, editType } } }
-      const componentMetadata = response.data.metadata?.[component];
-      const fields = response.data.fields || [];
+      const componentMetadata = response.data.metadata?.[component] as {
+        viewType?: Record<string, ViewFieldMetadata>;
+        editType?: Record<string, EditFieldMetadata>;
+      } | undefined;
+      const fields = (response.data.fields || []) as string[];
 
-      const record = {
+      const record: MetadataRecord = {
         _id: `${entityCode}:${component}`,
         entityCode,
         fields: fields.length > 0 ? fields : Object.keys(componentMetadata?.viewType || {}),

@@ -33,8 +33,12 @@ import { persistToEntityCodes } from '../../persistence/hydrate';
  * - Returns all entity type definitions
  * - Helper methods for lookup by code
  * - Child entity codes for tabs
+ *
+ * @param options.enabled - Whether to enable the query (default: true)
  */
-export function useEntityCodes(): UseEntityCodesResult {
+export function useEntityCodes(options: { enabled?: boolean } = {}): UseEntityCodesResult {
+  const { enabled = true } = options;
+
   const query = useQuery<EntityCode[]>({
     queryKey: QUERY_KEYS.entityCodes(),
     queryFn: async () => {
@@ -63,6 +67,7 @@ export function useEntityCodes(): UseEntityCodesResult {
     staleTime: STORE_STALE_TIMES.entityCodes,
     gcTime: SESSION_STORE_CONFIG.gcTime,
     placeholderData: [],
+    enabled,
   });
 
   // Update sync store when data changes
@@ -88,10 +93,14 @@ export function useEntityCodes(): UseEntityCodesResult {
 
   return {
     codes: query.data ?? [],
+    // Alias for backward compatibility
+    entityCodes: query.data ?? [],
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,
     getByCode,
+    // Alias for backward compatibility
+    getEntityByCode: getByCode,
     getChildCodes,
   };
 }

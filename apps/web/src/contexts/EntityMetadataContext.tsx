@@ -49,8 +49,10 @@ export function EntityMetadataProvider({ children }: EntityMetadataProviderProps
   // This provides offline-first caching with TanStack Query's stale-while-revalidate
   // ============================================================================
 
-  // Use TanStack Query hook for entity codes
-  const { entityCodes, isLoading: isEntityCodesLoading } = useEntityCodes();
+  // Use TanStack Query hook for entity codes (only fetch when authenticated)
+  const { entityCodes, isLoading: isEntityCodesLoading } = useEntityCodes({
+    enabled: isAuthenticated && !isAuthLoading,
+  });
 
   useEffect(() => {
     // Wait for auth validation to complete
