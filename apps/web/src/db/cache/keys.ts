@@ -65,6 +65,10 @@ export const QUERY_KEYS = {
   entityInstance: (entityCode: string, entityId: string) =>
     ['entityInstance', entityCode, entityId] as const,
 
+  /** Entity instance data infinite query key (for load more patterns) */
+  entityInstanceDataInfinite: (entityCode: string, params: Record<string, unknown>) =>
+    ['entityInstanceDataInfinite', entityCode, params] as const,
+
   // ────────────────────────────────────────────────────────────────────────
   // Draft Store
   // ────────────────────────────────────────────────────────────────────────

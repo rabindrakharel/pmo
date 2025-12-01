@@ -13,13 +13,14 @@ import { ONDEMAND_STORE_CONFIG, SESSION_STORE_CONFIG } from '../constants';
 import { entityInstanceNamesStore } from '../stores';
 import type {
   EntityInstanceDataParams,
-  UseEntityInstanceDataResult,
   EntityListResponse,
   EntityInstanceMetadata,
+  UseEntityInstanceDataResult,
 } from '../types';
+// Re-export type for consumers
+export type { UseEntityInstanceDataResult } from '../types';
 import {
   getEntityInstanceData,
-  setEntityInstanceData,
   getEntityInstanceMetadata,
   setEntityInstanceMetadata,
   clearEntityInstanceData as clearEntityInstanceDataDexie,
@@ -68,12 +69,15 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
 
   const queryHash = useMemo(() => createQueryHash(params), [params]);
 
-  const query = useQuery<{
+  // Define result type
+  type QueryResult = {
     data: T[];
     total: number;
     metadata?: EntityInstanceMetadata;
     refData?: Record<string, Record<string, string>>;
-  }>({
+  };
+
+  const query = useQuery({
     queryKey: QUERY_KEYS.entityInstanceData(entityCode, params),
     queryFn: async () => {
       // Layer 2: Check Dexie
@@ -99,12 +103,13 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
       const response = await apiClient.get<EntityListResponse<T>>(
         `/api/v1/${entityCode}?${searchParams}`
       );
+      const apiData = response.data;
 
       const result = {
-        data: response.data || [],
-        total: response.total || 0,
-        metadata: response.metadata?.entityListOfInstancesTable,
-        refData: response.ref_data_entityInstance,
+        data: apiData.data || [],
+        total: apiData.total || 0,
+        metadata: apiData.metadata?.entityListOfInstancesTable,
+        refData: apiData.ref_data_entityInstance,
       };
 
       // Persist to Dexie
@@ -137,11 +142,14 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
     await query.refetch();
   };
 
+  // Type assertion for query result
+  const result = query.data as QueryResult | undefined;
+
   return {
-    data: query.data?.data ?? [],
-    total: query.data?.total ?? 0,
-    metadata: query.data?.metadata,
-    refData: query.data?.refData,
+    data: result?.data ?? [],
+    total: result?.total ?? 0,
+    metadata: result?.metadata,
+    refData: result?.refData,
     isLoading: query.isLoading,
     isFetching: query.isFetching,
     isStale: query.isStale,
@@ -323,12 +331,11 @@ export function useEntityInfiniteList<T = Record<string, unknown>>(
       const response = await apiClient.get<EntityListResponse<T>>(
         `/api/v1/${entityCode}?${searchParams}`
       );
-
-      const now = Date.now();
+      const apiData = response.data;
 
       // Store metadata ONCE per entity type (first page only)
-      if (response.metadata?.entityListOfInstancesTable && pageParam === 0) {
-        const metadataTable = response.metadata.entityListOfInstancesTable;
+      if (apiData.metadata?.entityListOfInstancesTable && pageParam === 0) {
+        const metadataTable = apiData.metadata.entityListOfInstancesTable;
         await setEntityInstanceMetadata(
           entityCode,
           Object.keys(metadataTable.viewType || {}),
@@ -338,40 +345,45 @@ export function useEntityInfiniteList<T = Record<string, unknown>>(
       }
 
       // Store entity instance names
-      if (response.ref_data_entityInstance) {
-        for (const [refEntityCode, names] of Object.entries(response.ref_data_entityInstance)) {
-          await persistToEntityInstanceNames(refEntityCode, names);
-          entityInstanceNamesStore.merge(refEntityCode, names);
+      if (apiData.ref_data_entityInstance) {
+        for (const [refEntityCode, names] of Object.entries(apiData.ref_data_entityInstance)) {
+          await persistToEntityInstanceNames(refEntityCode, names as Record<string, string>);
+          entityInstanceNamesStore.merge(refEntityCode, names as Record<string, string>);
         }
       }
 
       return {
-        data: response.data || [],
-        total: response.total || 0,
-        limit: response.limit || limit,
+        data: apiData.data || [],
+        total: apiData.total || 0,
+        limit: apiData.limit || limit,
         offset: pageParam as number,
-        metadata: response.metadata,
-        ref_data_entityInstance: response.ref_data_entityInstance,
+        metadata: apiData.metadata,
+        ref_data_entityInstance: apiData.ref_data_entityInstance,
       };
     },
     initialPageParam: 0,
-    getNextPageParam: (lastPage) => {
-      const nextOffset = lastPage.offset + lastPage.limit;
-      return nextOffset < lastPage.total ? nextOffset : undefined;
+    getNextPageParam: (lastPage: EntityListResponse<T> & { offset: number; limit: number }) => {
+      const nextOffset = (lastPage.offset ?? 0) + (lastPage.limit ?? limit);
+      return nextOffset < (lastPage.total ?? 0) ? nextOffset : undefined;
     },
     enabled,
     staleTime,
   });
 
+  // Type for page result
+  type PageResult = EntityListResponse<T> & { offset: number; limit: number };
+
   // Flatten all pages into single array
   const flatData = useMemo(() => {
-    return query.data?.pages.flatMap((page) => page.data) ?? [];
+    const pages = query.data?.pages as PageResult[] | undefined;
+    return pages?.flatMap((page) => page.data) ?? [];
   }, [query.data]);
 
   // Get metadata from first page
-  const metadata = query.data?.pages[0]?.metadata?.entityListOfInstancesTable;
-  const refData = query.data?.pages[0]?.ref_data_entityInstance;
-  const total = query.data?.pages[0]?.total ?? 0;
+  const pages = query.data?.pages as PageResult[] | undefined;
+  const metadata = pages?.[0]?.metadata?.entityListOfInstancesTable;
+  const refData = pages?.[0]?.ref_data_entityInstance;
+  const total = pages?.[0]?.total ?? 0;
 
   // Auto-subscribe to all loaded entity IDs
   useEffect(() => {

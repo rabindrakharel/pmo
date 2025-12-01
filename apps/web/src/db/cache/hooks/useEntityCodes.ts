@@ -14,7 +14,6 @@ import { entityCodesStore } from '../stores';
 import type { EntityCode, UseEntityCodesResult } from '../types';
 import {
   getEntityCodes,
-  setEntityCodes,
   clearEntityCodes,
 } from '../../persistence/operations';
 import { persistToEntityCodes } from '../../persistence/hydrate';
@@ -47,7 +46,7 @@ export function useEntityCodes(): UseEntityCodesResult {
         const response = await apiClient.get<{ data: EntityCode[] }>(
           '/api/v1/entity/types'
         );
-        const codes = response.data || [];
+        const codes = response.data?.data || [];
 
         // Persist to Dexie
         await persistToEntityCodes(codes);
@@ -110,7 +109,7 @@ export async function prefetchEntityCodes(): Promise<number> {
     const response = await apiClient.get<{ data: EntityCode[] }>(
       '/api/v1/entity/types'
     );
-    const codes = response.data || [];
+    const codes = response.data?.data || [];
 
     // Set in query cache
     const { queryClient } = await import('../client');

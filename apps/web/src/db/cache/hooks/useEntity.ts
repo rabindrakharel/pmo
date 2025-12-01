@@ -7,7 +7,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { apiClient } from '@/lib/api';
-import { QUERY_KEYS, DEXIE_KEYS } from '../keys';
+import { QUERY_KEYS } from '../keys';
 import { ONDEMAND_STORE_CONFIG } from '../constants';
 import { entityInstanceNamesStore } from '../stores';
 import type { EntityInstanceMetadata } from '../types';
@@ -87,7 +87,7 @@ export function useEntity<T = Record<string, unknown>>(
   const { enabled = true, staleTime, refetchOnMount = true } = options;
 
   const query = useQuery<EntityResponse<T>, Error>({
-    queryKey: QUERY_KEYS.entity(entityCode, entityId ?? ''),
+    queryKey: QUERY_KEYS.entityInstance(entityCode, entityId ?? ''),
     queryFn: async () => {
       if (!entityId) {
         throw new Error('Entity ID is required');
@@ -96,8 +96,6 @@ export function useEntity<T = Record<string, unknown>>(
       // Fetch from API
       const response = await apiClient.get(`/api/v1/${entityCode}/${entityId}`);
       const apiData = response.data;
-
-      const now = Date.now();
 
       // Persist entity instance name if available
       const entityData = apiData.data || apiData;
@@ -212,7 +210,7 @@ export function useEntityMutation(entityCode: string): UseEntityMutationResult {
     }
 
     // Update TanStack Query cache
-    queryClient.setQueryData(QUERY_KEYS.entity(entityCode, entityId), (old: unknown) => ({
+    queryClient.setQueryData(QUERY_KEYS.entityInstance(entityCode, entityId), (old: unknown) => ({
       ...(old as object),
       data: updatedData,
     }));
@@ -253,7 +251,7 @@ export function useEntityMutation(entityCode: string): UseEntityMutationResult {
 
     // Remove from TanStack Query cache
     queryClient.removeQueries({
-      queryKey: QUERY_KEYS.entity(entityCode, entityId),
+      queryKey: QUERY_KEYS.entityInstance(entityCode, entityId),
     });
 
     // Invalidate list queries

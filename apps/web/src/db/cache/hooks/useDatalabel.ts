@@ -10,7 +10,7 @@ import { useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api';
 import { QUERY_KEYS, DEXIE_KEYS } from '../keys';
 import { SESSION_STORE_CONFIG, STORE_STALE_TIMES } from '../constants';
-import { datalabelStore, getDatalabelSync, setDatalabelSync } from '../stores';
+import { datalabelStore, setDatalabelSync } from '../stores';
 import type { DatalabelOption, UseDatalabelResult } from '../types';
 import {
   getDatalabel,
@@ -46,7 +46,7 @@ export function useDatalabel(key: string): UseDatalabelResult {
         const response = await apiClient.get<{ data: DatalabelOption[] }>(
           `/api/v1/datalabel/${normalizedKey}`
         );
-        const options = response.data || [];
+        const options = response.data?.data || [];
 
         // Persist to Dexie
         await setDatalabel(normalizedKey, options);
@@ -116,7 +116,7 @@ export function useAllDatalabels(): {
         data: Record<string, DatalabelOption[]>;
       }>('/api/v1/datalabel');
 
-      const allDatalabels = response.data || {};
+      const allDatalabels = response.data?.data || {};
 
       // Persist each datalabel to Dexie and sync store
       for (const [key, options] of Object.entries(allDatalabels)) {
@@ -151,7 +151,7 @@ export async function prefetchAllDatalabels(): Promise<number> {
       data: Record<string, DatalabelOption[]>;
     }>('/api/v1/datalabel');
 
-    const allDatalabels = response.data || {};
+    const allDatalabels = response.data?.data || {};
     const { queryClient } = await import('../client');
 
     let count = 0;

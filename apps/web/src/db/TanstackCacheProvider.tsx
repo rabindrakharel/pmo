@@ -250,7 +250,7 @@ export async function prefetchAllMetadata(): Promise<void> {
         entityCodes: results[0],
         entityLinks: results[1],
         datalabels: results[2],
-        globalSettings: results[3] ? 'loaded' : 'empty',
+        globalSettings: 'loaded',
       }
     );
   } catch (error) {
