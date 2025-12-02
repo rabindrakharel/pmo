@@ -49,6 +49,16 @@ const REFERENCE_RENDER_TYPES = new Set([
   'reference',
   'entityInstanceId',
   'entityInstanceIds',  // v8.3.2: Array of entity references
+  'component',          // v9.4.0: Component-based rendering may need refData
+]);
+
+/**
+ * Component names that require refData for entity reference resolution
+ * These map component names from YAML to their rendering behavior
+ */
+const ENTITY_REFERENCE_COMPONENTS = new Set([
+  'EntityInstanceName',   // Single entity reference (view mode)
+  'EntityInstanceNames',  // Multiple entity references (view mode)
 ]);
 
 /**
@@ -100,6 +110,7 @@ const FORMATTERS: Record<string, (value: any, meta?: ViewFieldMetadata, refData?
  * Format a single value based on metadata
  *
  * v8.3.2: Added refData parameter for entity reference resolution
+ * v9.4.0: Added component-based routing for renderType: 'component'
  */
 export function formatValue(
   value: any,
@@ -108,6 +119,28 @@ export function formatValue(
   refData?: RefData
 ): FormattedValue {
   const renderType = metadata?.renderType || 'text';
+
+  // v9.4.0: Handle component-based rendering (YAML pattern)
+  // When renderType is 'component', route based on the component field
+  if (renderType === 'component' && metadata?.component) {
+    const componentName = metadata.component;
+
+    // Entity reference components use formatReference with refData
+    if (ENTITY_REFERENCE_COMPONENTS.has(componentName)) {
+      return formatReference(value, metadata, refData);
+    }
+
+    // DAGVisualizer and MetadataTable are special view-only components
+    // They render at the component level, not value level
+    // Return formatted text as fallback for table display
+    if (componentName === 'DAGVisualizer' || componentName === 'MetadataTable') {
+      return formatText(value);
+    }
+
+    // Unknown component, fallback to text
+    return formatText(value);
+  }
+
   const formatter = FORMATTERS[renderType] || formatText;
 
   // Pass refData to formatters that need it (reference types)

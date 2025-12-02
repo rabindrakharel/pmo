@@ -1856,10 +1856,309 @@ const login = async (email: string, password: string) => {
 
 ---
 
+## 15. v9.4.0: Strict Format-at-Read Architecture
+
+### 15.1 Problem Statement (Pre-v9.4.0)
+
+Edit mode in EntityListOfInstancesTable showed **raw UUIDs instead of resolved names** because view mode and edit mode used **separate data resolution paths**:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    PRE-v9.4.0 ARCHITECTURE - CACHE MISMATCH                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  API Response                                                                │
+│  { data: [...], ref_data_entityInstance: { employee: { uuid: name } } }     │
+│       │                                                                      │
+│       ├─────────────────────────────────────┐                               │
+│       │                                     │                               │
+│       ▼                                     ▼                               │
+│  VIEW MODE PATH                        EDIT MODE PATH                       │
+│  ─────────────────                     ──────────────────                   │
+│                                                                              │
+│  formatDataset(data, metadata, refData)  EntityInstanceNameSelect           │
+│       │                                       │                             │
+│       ▼                                       ▼                             │
+│  formatReference() uses refData         useRefDataEntityInstanceOptions()   │
+│       │                                       │                             │
+│       ▼                                       ▼                             │
+│  ✅ "James Miller"                      ❌ SEPARATE CACHE                   │
+│     (from API response)                    ['ref_data_entityInstance',      │
+│                                             entityCode]                      │
+│                                                │                            │
+│                                                ▼                            │
+│                                           CACHE MISS!                       │
+│                                           Shows UUID or empty               │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Root Cause:** `useEntityInstanceData` persisted `ref_data_entityInstance` to:
+1. ✅ Dexie IndexedDB (via `persistToEntityInstanceNames`)
+2. ✅ Sync store (via `entityInstanceNamesStore.merge`)
+3. ❌ **MISSING**: TanStack Query cache for edit components
+
+### 15.2 Solution: Unified Cache Population
+
+**File:** `apps/web/src/db/cache/hooks/useEntityInstanceData.ts`
+
+```typescript
+// v9.4.0: After API response, populate ALL cache layers
+if (result.refData) {
+  for (const [code, names] of Object.entries(result.refData)) {
+    await persistToEntityInstanceNames(code, names);     // Layer 1: Dexie
+    entityInstanceNamesStore.merge(code, names);          // Layer 2: Sync Store
+  }
+  // Layer 3: TanStack Query cache (NEW in v9.4.0)
+  upsertRefDataEntityInstance(queryClient, result.refData);
+}
+```
+
+### 15.3 Data Resolution Chain (v9.4.0)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    v9.4.0 UNIFIED DATA RESOLUTION CHAIN                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  API Response                                                                │
+│  { data: [...], ref_data_entityInstance: { employee: { uuid: name } } }     │
+│       │                                                                      │
+│       ▼                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                    UNIFIED CACHE LAYER (3 Destinations)              │    │
+│  ├─────────────────────────────────────────────────────────────────────┤    │
+│  │                                                                      │    │
+│  │  1. persistToEntityInstanceNames()    → Dexie (IndexedDB)           │    │
+│  │     Purpose: Offline persistence, survives browser restart           │    │
+│  │                                                                      │    │
+│  │  2. entityInstanceNamesStore.merge()  → Sync Store (in-memory)      │    │
+│  │     Purpose: Instant synchronous access for formatters               │    │
+│  │                                                                      │    │
+│  │  3. upsertRefDataEntityInstance()     → TanStack Query Cache (NEW)  │    │
+│  │     Purpose: Edit mode dropdown population                           │    │
+│  │                                                                      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│       │                                                                      │
+│       ├─────────────────────────────────────┬───────────────────────────┐   │
+│       │                                     │                           │   │
+│       ▼                                     ▼                           ▼   │
+│  VIEW MODE                             EDIT (Single)              EDIT (Multi)
+│  ─────────────                         ─────────────              ────────────
+│                                                                              │
+│  formatDataset()                    EntityInstance-            EntityInstance-
+│  → formatReference()                NameSelect                 NameMultiSelect
+│  → refData[entity][uuid]                 │                           │      │
+│       │                                  ▼                           ▼      │
+│       ▼                         useRefDataEntity-          useRefDataEntity- │
+│  ✅ "James Miller"              InstanceOptions()          InstanceOptions() │
+│                                        +                          +         │
+│                                 entityInstance-            entityInstance-  │
+│                                 NamesStore.getName()       NamesStore.getName()
+│                                 (sync fallback)            (sync fallback)  │
+│                                        │                          │         │
+│                                        ▼                          ▼         │
+│                                 ✅ "James Miller"          ✅ ["James", ...] │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 15.4 Metadata-Driven Component Rendering
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    METADATA-DRIVEN ENTITY REFERENCE RENDERING                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  SINGLE REFERENCE (_ID)                   MULTIPLE REFERENCES (_IDS)        │
+│  ───────────────────────                  ─────────────────────────         │
+│                                                                              │
+│  Field: manager__employee_id              Field: stakeholder__employee_ids  │
+│                                                                              │
+│  BACKEND METADATA:                        BACKEND METADATA:                 │
+│  ┌─────────────────────────────┐          ┌─────────────────────────────┐   │
+│  │ viewType: {                 │          │ viewType: {                 │   │
+│  │   renderType: "entityInst-  │          │   renderType: "entityInst-  │   │
+│  │               anceId"       │          │               anceIds"      │   │
+│  │ }                           │          │ }                           │   │
+│  │ editType: {                 │          │ editType: {                 │   │
+│  │   inputType: "EntityInst-   │          │   inputType: "EntityInst-   │   │
+│  │              anceNameSelect"│          │           anceNameMultiSelect"│ │
+│  │   lookupEntity: "employee"  │          │   lookupEntity: "employee"  │   │
+│  │ }                           │          │ }                           │   │
+│  └─────────────────────────────┘          └─────────────────────────────┘   │
+│                                                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  VIEW MODE                                VIEW MODE                         │
+│  ─────────                                ─────────                         │
+│  formatReference()                        formatReference()                 │
+│  (valueFormatters.ts:232)                 (valueFormatters.ts:232)          │
+│       │                                        │                            │
+│       ▼                                        ▼                            │
+│  → "James Miller"                         → "James Miller, Sarah Smith"     │
+│                                                                              │
+│  EDIT MODE                                EDIT MODE                         │
+│  ─────────                                ─────────                         │
+│  renderEditModeFromMetadata()             renderEditModeFromMetadata()      │
+│  (frontEndFormatterService.tsx)           (frontEndFormatterService.tsx)    │
+│       │                                        │                            │
+│       ▼                                        ▼                            │
+│  case 'EntityInstanceNameSelect':         case 'EntityInstanceNameMulti-    │
+│       │                                        Select':                     │
+│       ▼                                        │                            │
+│  <EntityInstanceNameSelect                     ▼                            │
+│    entityCode="employee"                  <EntityInstanceNameMultiSelect    │
+│    value={uuid}                             entityCode="employee"           │
+│    onChange={...}                           value={[uuid1, uuid2]}          │
+│  />                                         onChange={...}                  │
+│       │                                   />                                │
+│       ▼                                        │                            │
+│  → Searchable dropdown                         ▼                            │
+│  → Single selection                       → Searchable checkbox dropdown    │
+│                                           → Multi selection with chips      │
+│                                           → Removable chips (X button)      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 15.5 Component File Reference
+
+| Component | Purpose | File Path |
+|-----------|---------|-----------|
+| `formatReference()` | VIEW mode - UUID to name | `apps/web/src/lib/formatters/valueFormatters.ts:232` |
+| `EntityInstanceNameSelect` | EDIT mode - single select | `apps/web/src/components/shared/ui/EntityInstanceNameSelect.tsx` |
+| `EntityInstanceNameMultiSelect` | EDIT mode - multi select | `apps/web/src/components/shared/ui/EntityInstanceNameMultiSelect.tsx` |
+| `renderEditModeFromMetadata()` | Routes inputType to component | `apps/web/src/lib/frontEndFormatterService.tsx` |
+| `useRefDataEntityInstanceOptions()` | Dropdown options hook | `apps/web/src/lib/hooks/useRefDataEntityInstance.ts` |
+| `entityInstanceNamesStore` | Sync store for instant access | `apps/web/src/db/cache/stores.ts` |
+| `upsertRefDataEntityInstance()` | Cache upsert function | `apps/web/src/lib/hooks/useRefDataEntityInstance.ts` |
+
+### 15.6 Sync Store Fallback Pattern
+
+Both select components use the sync store as a fallback for immediate name resolution:
+
+**EntityInstanceNameSelect.tsx:**
+```typescript
+// v9.4.0: Use sync store for immediate resolution when options not yet loaded
+const selectedOption = options.find(opt => opt.value === value);
+const syncStoreName = value ? entityInstanceNamesStore.getName(entityCode, value) : null;
+const displayLabel = selectedOption?.label || syncStoreName || currentLabel || '';
+```
+
+**EntityInstanceNameMultiSelect.tsx:**
+```typescript
+// v9.4.0: Use sync store as fallback when options not yet loaded
+const selectedOptions = value.map(uuid => {
+  // First try TanStack Query options
+  const fromOptions = options.find(opt => opt.value === uuid);
+  if (fromOptions) return fromOptions;
+
+  // Fallback to sync store for immediate resolution
+  const syncName = entityInstanceNamesStore.getName(entityCode, uuid);
+  if (syncName) return { value: uuid, label: syncName };
+
+  // Last resort: show truncated UUID
+  return { value: uuid, label: uuid.substring(0, 8) + '...' };
+});
+```
+
+### 15.7 Resolution Priority Chain
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                    NAME RESOLUTION PRIORITY (v9.4.0)                       │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  Priority 1: TanStack Query Options (from useRefDataEntityInstanceOptions) │
+│  ─────────────────────────────────────────────────────────────────────────│
+│  • Full dropdown loaded from cache or API                                  │
+│  • Most complete - has all active entities                                 │
+│  • May have loading delay on first access                                  │
+│                                                                            │
+│  Priority 2: Sync Store (entityInstanceNamesStore.getName)                 │
+│  ─────────────────────────────────────────────────────────────────────────│
+│  • Populated from API response ref_data_entityInstance                     │
+│  • Instant synchronous access                                              │
+│  • Only contains entities seen in recent API responses                     │
+│                                                                            │
+│  Priority 3: Truncated UUID Fallback                                       │
+│  ─────────────────────────────────────────────────────────────────────────│
+│  • Last resort when name cannot be resolved                                │
+│  • Shows: "8260b1b0..."                                                    │
+│  • Indicates a cache miss (should be rare)                                 │
+│                                                                            │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 16. Architecture Coherence Critique
+
+### 16.1 Strengths
+
+| Aspect | Assessment |
+|--------|------------|
+| **Single Source of Truth** | ✅ Backend metadata drives all rendering decisions |
+| **Cache Unification** | ✅ All 3 cache layers populated from same API response |
+| **Fallback Chain** | ✅ Graceful degradation: Options → Sync Store → UUID |
+| **Component Reuse** | ✅ Same select components for all entity types |
+| **Metadata-Driven** | ✅ No frontend pattern detection |
+
+### 16.2 Potential Issues
+
+| Issue | Risk Level | Mitigation |
+|-------|------------|------------|
+| **Circular Import Risk** | Medium | `queryClient` imported directly in hook - could cause issues if import order changes |
+| **Cache Staleness** | Low | 5-min staleTime may show outdated names if entity renamed |
+| **Memory Usage** | Low | Sync store grows unbounded for long sessions |
+| **Race Condition** | Low | Sync store populated before TanStack cache on API response |
+
+### 16.3 Missing Pieces
+
+| Gap | Impact | Recommendation |
+|-----|--------|----------------|
+| **View Mode Chips** | Cosmetic | Consider `ChipList` for array references in view mode |
+| **Cache Invalidation** | Medium | WebSocket should invalidate entity instance name cache on entity update |
+| **Prefetch Coverage** | Low | Verify all common entity types prefetched at login |
+
+### 16.4 Recommended Future Improvements
+
+1. **Cache Invalidation on Entity Update**
+   ```typescript
+   // When entity is renamed, invalidate name cache
+   wsManager.onMessage('ENTITY_UPDATED', (entityCode, entityId) => {
+     queryClient.invalidateQueries(['ref_data_entityInstance', entityCode]);
+     entityInstanceNamesStore.clearByCode(entityCode);
+   });
+   ```
+
+2. **Memory Cleanup for Long Sessions**
+   ```typescript
+   // Periodic cleanup of sync store
+   const MAX_SYNC_STORE_AGE = 30 * 60 * 1000; // 30 minutes
+   entityInstanceNamesStore.clearStaleEntries(MAX_SYNC_STORE_AGE);
+   ```
+
+3. **View Mode Chip Rendering**
+   ```typescript
+   // In valueFormatters.ts - return structured data for chip rendering
+   if (Array.isArray(value)) {
+     return {
+       display: names.join(', '),
+       chips: names.map((name, i) => ({ id: value[i], label: name }))
+     };
+   }
+   ```
+
+---
+
 ## Changelog
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 12.1.0 | 2025-12-02 | **v9.4.1 YAML-Frontend Alignment**: Frontend now correctly handles `renderType: 'component'` with `component: 'EntityInstanceName'/'EntityInstanceNames'` pattern from YAML. Both VIEW mode (`datasetFormatter.ts`) and EDIT mode (`frontEndFormatterService.tsx`) now route component-based metadata to appropriate formatters/components. |
+| 12.0.0 | 2025-12-01 | **v9.4.0 Strict Format-at-Read**: Unified cache population, EntityInstanceNameMultiSelect support, sync store fallback pattern, architecture critique |
 | 11.3.0 | 2025-11-28 | Added comprehensive architecture diagrams, fixed dual QueryClient bug, removed unused imports from App.tsx |
 | 11.2.0 | 2025-11-28 | Use `setQueryData` instead of `fetchQuery` - ensures prefetch always sets complete data |
 | 11.1.0 | 2025-11-28 | Fixed race condition: await prefetch, staleTime=5min, improved upsert logging |

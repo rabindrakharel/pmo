@@ -11,6 +11,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Search, Check } from 'lucide-react';
 import { useRefDataEntityInstanceOptions } from '@/lib/hooks/useRefDataEntityInstance';
+// v9.4.0: Use sync store for immediate resolution of current values
+import { entityInstanceNamesStore } from '@/db/cache/stores';
 import { InlineSpinner } from './EllipsisBounce';
 import { Chip } from './Chip';
 
@@ -63,9 +65,20 @@ export function EntityInstanceNameMultiSelect({
   );
 
   // Get selected options with labels
+  // v9.4.0: Use sync store as fallback when options not yet loaded
   const selectedOptions = value
-    .map(uuid => options.find(opt => opt.value === uuid))
-    .filter((opt): opt is { value: string; label: string } => opt !== undefined);
+    .map(uuid => {
+      // First try TanStack Query options
+      const fromOptions = options.find(opt => opt.value === uuid);
+      if (fromOptions) return fromOptions;
+
+      // Fallback to sync store for immediate resolution
+      const syncName = entityInstanceNamesStore.getName(entityCode, uuid);
+      if (syncName) return { value: uuid, label: syncName };
+
+      // Last resort: show truncated UUID
+      return { value: uuid, label: uuid.substring(0, 8) + '...' };
+    });
 
   // Close dropdown when clicking outside
   useEffect(() => {

@@ -11,6 +11,9 @@ import { apiClient } from '@/lib/api';
 import { QUERY_KEYS, createQueryHash } from '../keys';
 import { ONDEMAND_STORE_CONFIG, SESSION_STORE_CONFIG } from '../constants';
 import { entityInstanceNamesStore } from '../stores';
+// v9.4.0: Unified cache for edit mode entity reference resolution
+import { upsertRefDataEntityInstance } from '@/lib/hooks/useRefDataEntityInstance';
+import { queryClient } from '../client';
 
 // ============================================================================
 // DEBUG LOGGING - Cache Layer Diagnostics
@@ -231,6 +234,13 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
           // Update sync store
           entityInstanceNamesStore.merge(code, names);
         }
+        // v9.4.0: CRITICAL - Upsert to TanStack Query cache for edit mode
+        // This ensures EntityInstanceNameSelect can resolve UUIDs to names
+        // using the same ref_data_entityInstance data as view mode
+        upsertRefDataEntityInstance(queryClient, result.refData);
+        debugCache(`✅ ref_data_entityInstance upserted to TanStack Query cache`, {
+          entityCodes: Object.keys(result.refData),
+        });
       }
 
       debugCache(`✅ queryFn complete - returning fresh data`, {
@@ -498,6 +508,8 @@ export function useEntityInfiniteList<T = Record<string, unknown>>(
           await persistToEntityInstanceNames(refEntityCode, names as Record<string, string>);
           entityInstanceNamesStore.merge(refEntityCode, names as Record<string, string>);
         }
+        // v9.4.0: Upsert to TanStack Query cache for edit mode
+        upsertRefDataEntityInstance(queryClient, apiData.ref_data_entityInstance as Record<string, Record<string, string>>);
       }
 
       return {
