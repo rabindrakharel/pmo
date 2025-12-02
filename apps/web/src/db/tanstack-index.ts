@@ -144,16 +144,14 @@ export {
 export { wsManager, WS_URL, WS_RECONNECT_DELAY } from './realtime/manager';
 
 // ============================================================================
-// Provider
+// Provider (v11.0.0: Consolidated to CacheProvider)
 // ============================================================================
 
 export {
-  TanstackCacheProvider,
+  CacheProvider,
   useCacheContext,
   useSyncStatus,
   useIsAppReady,
   useIsMetadataLoaded,
-  connectWebSocket,
-  disconnectWebSocket,
-  prefetchAllMetadata,
-} from './TanstackCacheProvider';
+  useHydrationResult,
+} from './Provider';

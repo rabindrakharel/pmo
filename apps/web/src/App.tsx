@@ -6,8 +6,8 @@ import { NavigationHistoryProvider } from './contexts/NavigationHistoryContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { EntityPreviewProvider } from './contexts/EntityPreviewContext';
 import { EntityMetadataProvider, useEntityMetadata } from './contexts/EntityMetadataContext';
-// v9.0.0: TanStack Query + Dexie for offline-first entity storage with WebSocket sync
-import { TanstackCacheProvider } from './db/TanstackCacheProvider';
+// v11.0.0: TanStack Query + Dexie for offline-first entity storage with WebSocket sync
+import { CacheProvider } from './db';
 import { LoginForm } from './components/shared';
 import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPanel';
 import { EllipsisBounce } from './components/shared/ui/EllipsisBounce';
@@ -332,9 +332,8 @@ function AppRoutes() {
 
 function App() {
   return (
-    // v9.1.3: TanstackCacheProvider includes QueryClientProvider - no need for outer one
-    // Using single QueryClient from db/query/queryClient.ts for consistency
-    <TanstackCacheProvider>
+    // v11.0.0: CacheProvider includes QueryClientProvider - single source of truth
+    <CacheProvider>
       <AuthProvider>
         <EntityMetadataProvider>
           <Router>
@@ -351,7 +350,7 @@ function App() {
           </Router>
         </EntityMetadataProvider>
       </AuthProvider>
-    </TanstackCacheProvider>
+    </CacheProvider>
   );
 }
 
