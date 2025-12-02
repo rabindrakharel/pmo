@@ -232,7 +232,7 @@ export function formatArray(value: any): FormattedValue {
  * @param _refData - DEPRECATED: No longer used. Kept for backward compatibility.
  */
 // Debug flag for formatReference - set to true to trace name resolution issues
-const DEBUG_FORMAT_REFERENCE = true;
+const DEBUG_FORMAT_REFERENCE = false;
 
 export function formatReference(
   value: any,

@@ -45,7 +45,7 @@ import {
 // DEBUG LOGGING - Cache Layer Diagnostics
 // ============================================================================
 // Set to true to enable detailed cache debugging
-const DEBUG_CACHE = true;
+const DEBUG_CACHE = false;
 
 const debugCache = (message: string, data?: Record<string, unknown>) => {
   if (DEBUG_CACHE) {

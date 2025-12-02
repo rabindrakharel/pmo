@@ -19,7 +19,7 @@ import { queryClient } from '../client';
 // DEBUG LOGGING - Cache Layer Diagnostics
 // ============================================================================
 // Set to true to enable detailed cache debugging for staleness issues
-const DEBUG_CACHE = true;
+const DEBUG_CACHE = false;
 
 const debugCache = (message: string, data?: Record<string, unknown>) => {
   if (DEBUG_CACHE) {
@@ -169,6 +169,20 @@ export function useEntityInstanceData<T = Record<string, unknown>>(
 
         // Only return cached data if within TTL
         if (!isStale) {
+          // v10.0.1: CRITICAL - Hydrate sync store from Dexie cache
+          // This ensures formatReference() can resolve names synchronously
+          // even when data comes from Dexie cache (not fresh API fetch)
+          if (cached.refData) {
+            for (const [refEntityCode, names] of Object.entries(cached.refData)) {
+              entityInstanceNamesStore.merge(refEntityCode, names);
+            }
+            debugCache(`✅ Sync store hydrated from Dexie cache`, {
+              entityCodes: Object.keys(cached.refData),
+              counts: Object.fromEntries(
+                Object.entries(cached.refData).map(([k, v]) => [k, Object.keys(v).length])
+              ),
+            });
+          }
           return {
             data: cached.data as T[],
             total: cached.total,
