@@ -305,23 +305,17 @@ useRecoverDrafts()
 
 ```
 apps/web/src/db/
-+-- TanstackCacheProvider.tsx        # React context provider
-+-- tanstack-index.ts                # Public API exports
-+-- dexie/
-|   +-- database.ts                  # Dexie schema + helpers
-+-- query/
-|   +-- queryClient.ts               # TanStack Query config + hydration
-+-- tanstack-hooks/
-|   +-- index.ts                     # Hook exports
-|   +-- useEntity.ts                 # Single entity + mutations
-|   +-- useEntityList.ts             # Paginated list queries
-|   +-- useDatalabel.ts              # Dropdown options + sync cache
-|   +-- useEntityCodes.ts            # Entity type definitions
-|   +-- useGlobalSettings.ts         # App settings
-|   +-- useDraft.ts                  # Draft persistence + undo/redo
-|   +-- useOfflineEntity.ts          # Dexie-only access
-+-- tanstack-sync/
-    +-- WebSocketManager.ts          # WebSocket + cache invalidation
++-- Provider.tsx                     # CacheProvider - React context provider
++-- index.ts                         # Public API exports
++-- tanstack-index.ts                # Additional exports
++-- cache/
+|   +-- client.ts                    # TanStack Query config
+|   +-- hooks/                       # All data hooks
++-- persistence/
+|   +-- schema.ts                    # Dexie schema
+|   +-- hydrate.ts                   # IndexedDB hydration
++-- realtime/
+    +-- manager.ts                   # WebSocket + cache invalidation
 ```
 
 ---
@@ -330,20 +324,18 @@ apps/web/src/db/
 
 ```tsx
 // App.tsx
-import { QueryClientProvider } from '@tanstack/react-query';
-import { queryClient, TanstackCacheProvider } from '@/db/tanstack-index';
+import { CacheProvider } from '@/db';
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TanstackCacheProvider>
-        <AuthProvider>
-          <Router>
-            {/* App routes */}
-          </Router>
-        </AuthProvider>
-      </TanstackCacheProvider>
-    </QueryClientProvider>
+    // CacheProvider includes QueryClientProvider - single source of truth
+    <CacheProvider>
+      <AuthProvider>
+        <Router>
+          {/* App routes */}
+        </Router>
+      </AuthProvider>
+    </CacheProvider>
   );
 }
 ```
@@ -430,9 +422,9 @@ export function getEntityInstanceNameSync(
 App Start
     |
     v
-TanstackCacheProvider mounts
+CacheProvider mounts
     |
-    +-- hydrateQueryCache()
+    +-- hydrateFromDexie()
     |   -> Load entities from Dexie
     |   -> Set TanStack Query cache
     |   -> isHydrated = true
@@ -656,8 +648,8 @@ Project detail page with Task, Employee, Artifact tabs
 
 ### 1. Single QueryClient (CRITICAL)
 
-- **ONE QueryClient** from `db/query/queryClient.ts`
-- `TanstackCacheProvider` wraps with `QueryClientProvider`
+- **ONE QueryClient** from `db/cache/client.ts`
+- `CacheProvider` wraps with `QueryClientProvider`
 - All hooks read/write to SAME cache
 - **Anti-pattern**: Creating multiple `QueryClient` instances causes cache isolation
 

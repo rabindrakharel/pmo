@@ -134,8 +134,8 @@
 │  │  useRxDraft()                → Draft persistence with undo/redo     │     │
 │  │    └── Survives page refresh!                                       │     │
 │  │                                                                     │     │
-│  │  useRefData(refData)         → Entity reference resolution hook     │     │
-│  │    └── resolveFieldDisplay(fieldMeta, uuid)  → "James Miller"       │     │
+│  │  getEntityInstanceNameSync() → Entity reference resolution (v11.0)  │     │
+│  │    └── getEntityInstanceNameSync('employee', uuid) → "James Miller" │     │
 │  │                                                                     │     │
 │  └─────────────────────────────────────────────────────────────────────┘     │
 │                                    │                                         │
@@ -219,15 +219,15 @@
 │                       │                                                      │
 ├───────────────────────┼─────────────────────────────────────────────────────┤
 │                       │                                                      │
-│  useRefData Hook      │  • Resolve UUIDs → names via ref_data_entityInstance         │
-│                       │  • Metadata-based field detection (NO patterns)      │
-│                       │  • O(1) hash lookup                                  │
+│  Entity Reference     │  • v11.0.0: TanStack Query cache via sync accessors  │
+│  Resolution           │  • getEntityInstanceNameSync(entityCode, uuid)       │
+│                       │  • O(1) hash lookup from queryClient cache           │
 │                       │                                                      │
 ├───────────────────────┼─────────────────────────────────────────────────────┤
 │                       │                                                      │
 │  datasetFormatter     │  • Transform raw → FormattedRow in select            │
 │                       │  • Access datalabelStore for badge colors            │
-│                       │  • Resolve entity refs via ref_data_entityInstance           │
+│                       │  • Resolve entity refs via getEntityInstanceNameSync │
 │                       │  • Pure function (deterministic)                     │
 │                       │                                                      │
 ├───────────────────────┼─────────────────────────────────────────────────────┤
@@ -446,8 +446,8 @@ Entity references are resolved via a response-level lookup table instead of per-
 | Log Watcher | `apps/pubsub/src/services/log-watcher.ts` | - |
 | Subscription Manager | `apps/pubsub/src/services/subscription-manager.ts` | - |
 | Data Hooks | - | `useEntityQuery.ts` |
-| RefData Hook | - | `useRefData.ts` |
-| RefData Resolver | - | `refDataResolver.ts` |
+| Entity Instance Names | - | `db/cache/hooks/useEntityInstanceNames.ts` |
+| RefData Entity Instance | - | `lib/hooks/useRefDataEntityInstance.ts` |
 | Dataset Formatting | - | `datasetFormatter.ts` |
 | Edit Rendering | - | `frontEndFormatterService.tsx` |
 | Type Definitions | - | `lib/formatters/types.ts` |

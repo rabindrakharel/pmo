@@ -260,7 +260,6 @@
 
 ```typescript
 import type { FormattedRow } from '@/lib/formatters';
-import type { RefData } from '@/lib/hooks/useRefData';
 
 interface EntityInstanceFormContainerProps {
   /** Entity configuration (optional - can derive from metadata) */
@@ -291,11 +290,7 @@ interface EntityInstanceFormContainerProps {
   /** Pre-formatted data from format-at-read (optional) */
   formattedData?: FormattedRow<Record<string, any>>;
 
-  /**
-   * Reference data lookup table for entity reference resolution
-   * Structure: { entity_code: { uuid: name } }
-   */
-  ref_data_entityInstance?: RefData;
+  // v11.0.0: ref_data_entityInstance removed - uses TanStack Query cache via getEntityInstanceNameSync()
 }
 
 // EntityMetadata structure the component expects
@@ -469,10 +464,10 @@ interface EditFieldMetadata {
   }
 }
 
-// Component uses useRefData hook:
-const { resolveFieldDisplay, isRefField, getEntityCode } = useRefData(ref_data_entityInstance);
+// v11.0.0: Component uses TanStack Query cache via getEntityInstanceNameSync()
+import { getEntityInstanceNameSync } from '@/db';
 
-// Resolution: ref_data_entityInstance['employee']['uuid-123'] → 'John Smith'
+const resolvedName = getEntityInstanceNameSync('employee', 'uuid-123'); // → 'John Smith'
 ```
 
 ---
