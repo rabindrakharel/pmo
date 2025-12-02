@@ -100,8 +100,7 @@ export {
   getRefDataEntityInstance,
   resolveFromRefDataEntityInstance,
   prefetchRefDataEntityInstances,
-  // Query Keys
-  ref_data_entityInstanceKeys,
+  // v11.0.0: ref_data_entityInstanceKeys removed - uses unified ['entityInstanceNames', entityCode] key
 } from './useRefDataEntityInstance';
 
 export type {

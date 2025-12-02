@@ -66,13 +66,13 @@ export interface EntityInstanceOption {
 }
 
 // ============================================================================
-// Query Keys - Uses ref_data_entityInstance naming
+// Query Keys
+// v11.0.0: Uses unified key ['entityInstanceNames', entityCode] for consistency
+// with getEntityInstanceNameSync() in stores.ts
 // ============================================================================
 
-export const ref_data_entityInstanceKeys = {
-  all: ['ref_data_entityInstance'] as const,
-  byEntity: (entityCode: string) => ['ref_data_entityInstance', entityCode] as const,
-};
+// NOTE: All functions now use inline key ['entityInstanceNames', entityCode]
+// to match QUERY_KEYS.entityInstanceNames(entityCode) from keys.ts
 
 // ============================================================================
 // Cache Configuration
@@ -108,7 +108,9 @@ export function upsertRefDataEntityInstance(
   for (const [entityCode, lookups] of Object.entries(refData)) {
     if (!lookups || typeof lookups !== 'object') continue;
 
-    const queryKey = ref_data_entityInstanceKeys.byEntity(entityCode);
+    // v11.0.0: Use QUERY_KEYS.entityInstanceNames for consistency with getEntityInstanceNameSync
+    // Both read and write paths now use the same key: ['entityInstanceNames', entityCode]
+    const queryKey = ['entityInstanceNames', entityCode] as const;
 
     // Get current cache to log before/after
     const before = queryClient.getQueryData<EntityInstanceLookup>(queryKey);
@@ -137,6 +139,8 @@ export function upsertRefDataEntityInstance(
 /**
  * Get cached ref_data_entityInstance lookup for an entity type
  *
+ * v11.0.0: Uses unified key ['entityInstanceNames', entityCode] for consistency
+ *
  * @example
  * const employeeCache = getRefDataEntityInstance(queryClient, 'employee');
  * const name = employeeCache?.['uuid-123'];
@@ -145,8 +149,9 @@ export function getRefDataEntityInstance(
   queryClient: QueryClient,
   entityCode: string
 ): EntityInstanceLookup | undefined {
+  // v11.0.0: Use unified key for consistency with getEntityInstanceNameSync
   return queryClient.getQueryData<EntityInstanceLookup>(
-    ref_data_entityInstanceKeys.byEntity(entityCode)
+    ['entityInstanceNames', entityCode] as const
   );
 }
 
@@ -195,7 +200,8 @@ export async function prefetchRefDataEntityInstances(
 
   const promises = entityCodes.map(async (entityCode) => {
     try {
-      const queryKey = ref_data_entityInstanceKeys.byEntity(entityCode);
+      // v11.0.0: Use unified key for consistency with getEntityInstanceNameSync
+      const queryKey = ['entityInstanceNames', entityCode] as const;
       debugRefData(`📡 Starting prefetch for: ${entityCode}`, { queryKey });
 
       // Fetch directly and use setQueryData to ALWAYS set the complete data
@@ -256,7 +262,8 @@ if (typeof window !== 'undefined') {
     console.log('%c[ref_data_entityInstance DEBUG] Inspecting cache...', 'color: #be4bdb; font-weight: bold');
     const entityCodes = ['employee', 'project', 'business', 'office', 'role', 'cust', 'task', 'worksite'];
     entityCodes.forEach((entityCode) => {
-      const queryKey = ref_data_entityInstanceKeys.byEntity(entityCode);
+      // v11.0.0: Use unified key for consistency
+      const queryKey = ['entityInstanceNames', entityCode] as const;
       console.log(`  Query key for ${entityCode}:`, queryKey);
     });
     console.log('To check cache, use React Query DevTools or call this in a component with useQueryClient()');
@@ -289,7 +296,8 @@ export function useRefDataEntityInstanceOptions(
   const queryClient = useQueryClient();
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
-  const queryKey = ref_data_entityInstanceKeys.byEntity(entityCode || '');
+  // v11.0.0: Use unified key for consistency with getEntityInstanceNameSync
+  const queryKey = ['entityInstanceNames', entityCode || ''] as const;
 
   const query = useQuery<EntityInstanceLookup>({
     queryKey,
