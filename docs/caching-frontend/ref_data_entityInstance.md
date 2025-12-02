@@ -2157,6 +2157,7 @@ const selectedOptions = value.map(uuid => {
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 12.1.0 | 2025-12-02 | **v9.4.1 YAML-Frontend Alignment**: Frontend now correctly handles `renderType: 'component'` with `component: 'EntityInstanceName'/'EntityInstanceNames'` pattern from YAML. Both VIEW mode (`datasetFormatter.ts`) and EDIT mode (`frontEndFormatterService.tsx`) now route component-based metadata to appropriate formatters/components. |
 | 12.0.0 | 2025-12-01 | **v9.4.0 Strict Format-at-Read**: Unified cache population, EntityInstanceNameMultiSelect support, sync store fallback pattern, architecture critique |
 | 11.3.0 | 2025-11-28 | Added comprehensive architecture diagrams, fixed dual QueryClient bug, removed unused imports from App.tsx |
 | 11.2.0 | 2025-11-28 | Use `setQueryData` instead of `fetchQuery` - ensures prefetch always sets complete data |

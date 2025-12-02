@@ -507,6 +507,131 @@ export function renderEditModeFromMetadata(
       );
     }
 
+    // v9.4.0: Handle component-based inputType (YAML pattern: inputType: 'component' with component: '<name>')
+    case 'component': {
+      const componentName = metadata.component;
+
+      if (!componentName) {
+        console.warn(`[EDIT] inputType: 'component' but no component specified for field ${metadata.key}`);
+        return (
+          <DebouncedInput
+            type="text"
+            value={value ?? ''}
+            onChange={(val) => onChange(val)}
+            debounceMs={300}
+            onBlurCommit={true}
+            required={required}
+            disabled={disabled}
+            placeholder={metadata.placeholder || 'Missing component configuration'}
+            className={`px-2 py-1 border rounded ${className}`}
+          />
+        );
+      }
+
+      // Route to appropriate component based on component name
+      switch (componentName) {
+        case 'EntityInstanceNameSelect': {
+          const entityCode = metadata.lookupEntity;
+          if (!entityCode) {
+            console.warn(`[EDIT] Missing lookupEntity for EntityInstanceNameSelect field ${metadata.key}`);
+            return <DebouncedInput type="text" value={value ?? ''} onChange={(val) => onChange(val)} debounceMs={300} onBlurCommit={true} />;
+          }
+          return (
+            <EntityInstanceNameSelect
+              entityCode={entityCode}
+              value={value ?? ''}
+              onChange={(uuid, _label) => onChange(uuid)}
+              disabled={disabled}
+              required={required}
+              placeholder={metadata.placeholder || `Select ${entityCode}...`}
+              className={className}
+            />
+          );
+        }
+
+        case 'EntityInstanceNameMultiSelect': {
+          const entityCode = metadata.lookupEntity;
+          if (!entityCode) {
+            console.warn(`[EDIT] Missing lookupEntity for EntityInstanceNameMultiSelect field ${metadata.key}`);
+            return <DebouncedInput type="text" value={value ?? ''} onChange={(val) => onChange(val)} debounceMs={300} onBlurCommit={true} />;
+          }
+          const arrayValue = Array.isArray(value) ? value : (value ? [value] : []);
+          return (
+            <EntityInstanceNameMultiSelect
+              entityCode={entityCode}
+              value={arrayValue}
+              onChange={(uuids) => onChange(uuids)}
+              disabled={disabled}
+              required={required}
+              placeholder={metadata.placeholder || `Select ${entityCode}...`}
+              className={className}
+            />
+          );
+        }
+
+        case 'BadgeDropdownSelect': {
+          const datalabelKey = metadata.datalabelKey || metadata.key;
+          const datalabelOptions = getDatalabelSync(datalabelKey);
+
+          if (datalabelOptions && datalabelOptions.length > 0) {
+            const coloredOptions: BadgeDropdownSelectOption[] = datalabelOptions.map(opt => ({
+              value: opt.name,
+              label: opt.name,
+              metadata: {
+                color_code: colorCodeToTailwindClass(opt.color_code)
+              }
+            }));
+
+            return (
+              <BadgeDropdownSelect
+                value={value ?? ''}
+                options={coloredOptions}
+                onChange={onChange}
+                placeholder={metadata.placeholder || 'Select...'}
+              />
+            );
+          }
+
+          // Fallback if options not loaded
+          return (
+            <select
+              value={value ?? ''}
+              onChange={(e) => onChange(e.target.value)}
+              required={required}
+              disabled={disabled}
+              className={`px-2 py-1 border rounded ${className}`}
+            >
+              <option value="">Loading...</option>
+            </select>
+          );
+        }
+
+        case 'MetadataTable':
+        case 'DAGVisualizer':
+          // These are view-only components, not edit components
+          // Fallback to readonly display
+          return (
+            <div className="text-gray-500 italic">View-only component</div>
+          );
+
+        default:
+          console.warn(`[EDIT] Unknown component: ${componentName} for field ${metadata.key}`);
+          return (
+            <DebouncedInput
+              type="text"
+              value={value ?? ''}
+              onChange={(val) => onChange(val)}
+              debounceMs={300}
+              onBlurCommit={true}
+              required={required}
+              disabled={disabled}
+              placeholder={metadata.placeholder}
+              className={`px-2 py-1 border rounded ${className}`}
+            />
+          );
+      }
+    }
+
     case 'select': {
       // Check if this is a datalabel field (lookupSource === 'datalabel' or has datalabelKey)
       if (metadata.datalabelKey || metadata.lookupSource === 'datalabel') {
