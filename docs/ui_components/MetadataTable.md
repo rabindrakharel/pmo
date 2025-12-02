@@ -1,6 +1,8 @@
 # MetadataTable Component
 
-**Version:** 1.0.0 | **Location:** `apps/web/src/components/shared/entity/MetadataTable.tsx`
+**Version:** 12.2.0 | **Location:** `apps/web/src/components/shared/entity/MetadataTable.tsx`
+
+> **Note:** As of v12.2.0, MetadataTable is registered in both **ViewComponentRegistry** and **EditComponentRegistry**. It is resolved automatically by FieldRenderer when `vizContainer.view='MetadataTable'` or `vizContainer.edit='MetadataTable'`.
 
 ---
 
@@ -12,11 +14,100 @@ MetadataTable is a reusable component for displaying and editing JSONB metadata 
 - Pure presentation component (no API calls)
 - Receives data via props from EntityInstanceFormContainer
 - Inline editing with automatic type coercion (boolean, number, JSON, string)
-- Backend metadata drives rendering via `renderType: 'component'` + `component: 'MetadataTable'`
+- **v12.2.0:** Registered in `ViewComponentRegistry` and `EditComponentRegistry`
+- Backend metadata drives rendering via `renderType: 'component'` + `vizContainer.view: 'MetadataTable'`
 
 ---
 
-## Architectural Truth (v8.3.2)
+## FieldRenderer Integration (v12.2.0)
+
+### Component Registration
+
+MetadataTable is registered in both VIEW and EDIT registries at app initialization:
+
+```typescript
+// apps/web/src/lib/fieldRenderer/registerComponents.tsx
+import { registerViewComponent, registerEditComponent } from './ComponentRegistry';
+import { MetadataTable } from '@/components/shared/entity/MetadataTable';
+
+// VIEW mode: Read-only display
+const MetadataTableView: FC<ComponentRendererProps> = ({ value }) => (
+  <MetadataTable value={value || {}} isEditing={false} />
+);
+
+// EDIT mode: Inline editing
+const MetadataTableEdit: FC<ComponentRendererProps> = ({ value, onChange }) => (
+  <MetadataTable
+    value={value || {}}
+    onChange={onChange}
+    isEditing={true}
+  />
+);
+
+registerViewComponent('MetadataTable', MetadataTableView);
+registerEditComponent('MetadataTable', MetadataTableEdit);
+```
+
+### Resolution Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  METADATATABLE FIELDRENDERER RESOLUTION (v12.2.0)                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Backend Metadata:                                                           │
+│  ─────────────────                                                          │
+│  metadata: {                                                                 │
+│    viewType: {                                                               │
+│      renderType: 'component',                                                │
+│      component: 'MetadataTable',       // vizContainer.view                  │
+│      dtype: 'jsonb'                                                          │
+│    },                                                                        │
+│    editType: {                                                               │
+│      inputType: 'component',                                                 │
+│      component: 'MetadataTable'        // vizContainer.edit                  │
+│    }                                                                         │
+│  }                                                                           │
+│                                                                              │
+│  FieldRenderer Resolution (VIEW mode):                                       │
+│  ─────────────────────────────────────                                      │
+│  1. Check vizContainer.view → 'MetadataTable'                               │
+│  2. ViewComponentRegistry.get('MetadataTable') → MetadataTableView          │
+│  3. Render <MetadataTableView value={...} />                                │
+│                                                                              │
+│  FieldRenderer Resolution (EDIT mode):                                       │
+│  ─────────────────────────────────────                                      │
+│  1. Check vizContainer.edit → 'MetadataTable'                               │
+│  2. EditComponentRegistry.get('MetadataTable') → MetadataTableEdit          │
+│  3. Render <MetadataTableEdit value={...} onChange={...} />                 │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### FieldRenderer Usage
+
+```typescript
+// EntityInstanceFormContainer.tsx (v12.2.0)
+import { FieldRenderer } from '@/lib/fieldRenderer';
+
+{fields.map(field => (
+  <FieldRenderer
+    key={field.key}
+    field={field}                    // { vizContainer: { view: 'MetadataTable', edit: 'MetadataTable' } }
+    value={data[field.key]}          // { key1: "value1", key2: 42 }
+    isEditing={isEditing}
+    onChange={(v) => handleChange(field.key, v)}
+  />
+))}
+
+// FieldRenderer internally resolves:
+// VIEW: ViewComponentRegistry.get('MetadataTable') → MetadataTableView
+// EDIT: EditComponentRegistry.get('MetadataTable') → MetadataTableEdit
+```
+
+---
+
+## Architectural Truth (v12.2.0)
 
 **Metadata properties control MetadataTable rendering:**
 
@@ -27,37 +118,35 @@ MetadataTable is a reusable component for displaying and editing JSONB metadata 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  METADATA → COMPONENT RENDERING                                              │
+│  METADATA → FIELDRENDERER RESOLUTION (v12.2.0)                               │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  viewType.metadata:                                                          │
 │  ┌────────────────────────────────┐                                          │
 │  │ renderType: "component"        │──┐                                       │
-│  │ component: "MetadataTable"     │──┼──► viewVizContainer = "MetadataTable" │
+│  │ component: "MetadataTable"     │──┼──► vizContainer.view = "MetadataTable"│
 │  │ dtype: "jsonb"                 │  │                                       │
 │  └────────────────────────────────┘  │                                       │
 │                                      │                                       │
 │                                      ▼                                       │
-│          EntityInstanceFormContainer_viz_container: {                                │
-│            view: "MetadataTable"   ◄── VIEW mode switch                     │
-│          }                                                                   │
-│                                      │                                       │
-│                                      ▼                                       │
-│          if (vizContainer?.view === 'MetadataTable') {                       │
-│            return <MetadataTable value={...} isEditing={false} />            │
-│          }                                                                   │
+│          FieldRenderer (VIEW mode):                                          │
+│          ViewComponentRegistry.get('MetadataTable')                          │
+│                      │                                                       │
+│                      ▼                                                       │
+│          <MetadataTableView value={...} isEditing={false} />                │
 │                                                                              │
 │  editType.metadata:                                                          │
 │  ┌────────────────────────────────┐                                          │
 │  │ inputType: "component"         │──┐                                       │
-│  │ component: "MetadataTable"     │──┼──► editVizContainer = "MetadataTable" │
-│  └────────────────────────────────┘                                          │
+│  │ component: "MetadataTable"     │──┼──► vizContainer.edit = "MetadataTable"│
+│  └────────────────────────────────┘  │                                       │
 │                                      │                                       │
 │                                      ▼                                       │
-│          case 'component':                                                   │
-│            if (vizContainer?.edit === 'MetadataTable') {                     │
-│              return <MetadataTable value={...} onChange={...} isEditing />   │
-│            }                                                                 │
+│          FieldRenderer (EDIT mode):                                          │
+│          EditComponentRegistry.get('MetadataTable')                          │
+│                      │                                                       │
+│                      ▼                                                       │
+│          <MetadataTableEdit value={...} onChange={...} isEditing={true} />  │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -349,9 +438,14 @@ if (field.type === 'jsonb') {
 
 ---
 
-**Last Updated:** 2025-11-27 | **Version:** 1.0.0 | **Status:** Production Ready
+**Last Updated:** 2025-12-02 | **Version:** 12.2.0 | **Status:** Production Ready
 
 **Recent Updates:**
+- v12.2.0 (2025-12-02):
+  - Registered in ViewComponentRegistry and EditComponentRegistry
+  - FieldRenderer integration - automatic component resolution
+  - Added FieldRenderer Integration section with registration code
+  - Updated Architectural Truth to reflect FieldRenderer resolution flow
 - v1.0.0 (2025-11-27): Initial documentation
   - Documented v8.3.2 metadata-driven rendering pattern
   - Added integration with EntityInstanceFormContainer

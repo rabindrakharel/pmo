@@ -1,6 +1,8 @@
 # DAG Visualizer Component
 
-**Version:** 12.0.0 | **Library:** ReactFlow + dagre | **Location:** `apps/web/src/components/workflow/DAGVisualizer.tsx`
+**Version:** 12.2.0 | **Library:** ReactFlow + dagre | **Location:** `apps/web/src/components/workflow/DAGVisualizer.tsx`
+
+> **Note:** As of v12.2.0, DAGVisualizer is registered in both **ViewComponentRegistry** and **EditComponentRegistry**. It is resolved automatically by FieldRenderer when `vizContainer.view='DAGVisualizer'` or `renderType='component'` with `component='DAGVisualizer'`.
 
 ---
 
@@ -11,7 +13,8 @@ The DAG (Directed Acyclic Graph) Visualizer provides workflow stage visualizatio
 **Core Principles:**
 - Pure presentation component (no API calls)
 - Format-at-read: transforms DAGNode[] → ReactFlow format in `useMemo`
-- Backend metadata drives rendering
+- **v12.2.0:** Registered in `ViewComponentRegistry` and `EditComponentRegistry`
+- Backend metadata drives rendering via `vizContainer.view` and `vizContainer.edit`
 - Stages from datalabel store (cached at login via TanStack Query + Dexie)
 - Custom node component with handles for edge connections
 
@@ -52,46 +55,160 @@ const Graph = dagre.graphlib.Graph;  // Extract Graph class
 
 ---
 
-## Architectural Truth (v12.0.0)
+## FieldRenderer Integration (v12.2.0)
+
+### Component Registration
+
+DAGVisualizer is registered in both VIEW and EDIT registries at app initialization:
+
+```typescript
+// apps/web/src/lib/fieldRenderer/registerComponents.tsx
+import { registerViewComponent, registerEditComponent } from './ComponentRegistry';
+import { DAGVisualizer } from '@/components/workflow/DAGVisualizer';
+
+// VIEW mode: Graph visualization (read-only)
+const DAGVisualizerView: FC<ComponentRendererProps> = ({
+  value,
+  options,
+}) => {
+  const nodes = transformDatalabelToDAGNodes(options ?? []);
+  const currentNode = nodes.find(n => n.node_name === value);
+  return <DAGVisualizer nodes={nodes} currentNodeId={currentNode?.id} />;
+};
+
+// EDIT mode: Interactive node selection
+const DAGVisualizerEdit: FC<ComponentRendererProps> = ({
+  value,
+  options,
+  onChange,
+}) => {
+  const nodes = transformDatalabelToDAGNodes(options ?? []);
+  const currentNode = nodes.find(n => n.node_name === value);
+  return (
+    <DAGVisualizer
+      nodes={nodes}
+      currentNodeId={currentNode?.id}
+      onNodeClick={(nodeId) => {
+        const node = nodes.find(n => n.id === nodeId);
+        if (node && onChange) onChange(node.node_name);
+      }}
+    />
+  );
+};
+
+registerViewComponent('DAGVisualizer', DAGVisualizerView);
+registerEditComponent('DAGVisualizer', DAGVisualizerEdit);
+```
+
+### Resolution Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  DAGVISUALIZER RESOLUTION (v12.2.0)                                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Backend Metadata:                                                           │
+│  ─────────────────                                                          │
+│  dl__project_stage: {                                                        │
+│    viewType: {                                                               │
+│      renderType: 'component',                                                │
+│      component: 'DAGVisualizer',        // vizContainer.view                 │
+│      lookupField: 'dl__project_stage'                                        │
+│    },                                                                        │
+│    editType: {                                                               │
+│      inputType: 'select',                                                    │
+│      component: 'BadgeDropdownSelect',  // vizContainer.edit (override)      │
+│      lookupSourceTable: 'datalabel',                                         │
+│      lookupField: 'dl__project_stage'                                        │
+│    }                                                                         │
+│  }                                                                           │
+│                                                                              │
+│  FieldRenderer Resolution (VIEW mode):                                       │
+│  ─────────────────────────────────────                                      │
+│  1. Check vizContainer.view → 'DAGVisualizer'                               │
+│  2. ViewComponentRegistry.get('DAGVisualizer') → DAGVisualizerView          │
+│  3. Render <DAGVisualizerView value={...} options={...} />                  │
+│                                                                              │
+│  FieldRenderer Resolution (EDIT mode - with override):                       │
+│  ─────────────────────────────────────────────────────                      │
+│  1. Check vizContainer.edit → 'BadgeDropdownSelect'                         │
+│  2. EditComponentRegistry.get('BadgeDropdownSelect') → BadgeDropdownSelect  │
+│  3. Render <BadgeDropdownSelect value={...} options={...} onChange={...}/>  │
+│                                                                              │
+│  NOTE: In EDIT mode, DAG fields typically use BadgeDropdownSelect for       │
+│  simpler editing. Use vizContainer.edit='DAGVisualizer' for interactive DAG.│
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### FieldRenderer Usage
+
+```typescript
+// EntityInstanceFormContainer.tsx (v12.2.0)
+import { FieldRenderer } from '@/lib/fieldRenderer';
+
+{fields.map(field => (
+  <FieldRenderer
+    key={field.key}
+    field={field}                    // { vizContainer: { view: 'DAGVisualizer', edit: 'BadgeDropdownSelect' } }
+    value={data[field.key]}
+    isEditing={isEditing}
+    onChange={(v) => handleChange(field.key, v)}
+    options={labelsMetadata.get(field.key)}  // DAGNode[] from getDatalabelSync()
+  />
+))}
+
+// FieldRenderer internally resolves:
+// VIEW: ViewComponentRegistry.get('DAGVisualizer') → DAGVisualizerView
+// EDIT: EditComponentRegistry.get('BadgeDropdownSelect') → BadgeDropdownSelectEdit
+```
+
+---
+
+## Architectural Truth (v12.2.0)
 
 **Metadata properties control DAGVisualizer:**
 
 | Metadata | Property | Purpose |
 |----------|----------|---------|
 | **viewType** | `renderType: 'component'` + `component: 'DAGVisualizer'` | Controls WHICH component renders (view mode) |
-| **viewType** | `lookupField` | Field name for stage data lookup (v12.0.0) |
+| **viewType** | `lookupField` | Field name for stage data lookup |
 | **editType** | `inputType: 'select'` + `component: 'BadgeDropdownSelect'` | Controls WHICH component renders (edit mode) |
-| **editType** | `lookupSourceTable: 'datalabel'` + `lookupField` | Controls WHERE data comes from (v12.0.0) |
+| **editType** | `lookupSourceTable: 'datalabel'` + `lookupField` | Controls WHERE data comes from |
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  METADATA → COMPONENT RENDERING (v12.0.0)                                   │
+│  METADATA → FIELDRENDERER RESOLUTION (v12.2.0)                               │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  viewType.dl__project_stage:                                                 │
 │  ┌────────────────────────────────────────┐                                  │
 │  │ renderType: "component"                │──┐                               │
-│  │ component: "DAGVisualizer"             │──┼──► viewVizContainer           │
+│  │ component: "DAGVisualizer"             │──┼──► vizContainer.view          │
 │  │ lookupField: "dl__project_stage"       │──┼──► Key for getDatalabelSync() │
 │  └────────────────────────────────────────┘  │                               │
 │                                              │                               │
 │                                              ▼                               │
-│          EntityInstanceFormContainer_viz_container: {                        │
-│            view: "DAGVisualizer"   ◄── VIEW mode switch                     │
-│          }                                                                   │
-│                                              │                               │
-│                                              ▼                               │
-│          if (vizContainer?.view === 'DAGVisualizer') {                       │
-│            return <DAGVisualizer nodes={...} />                              │
-│          }                                                                   │
+│          FieldRenderer (VIEW mode):                                          │
+│          ViewComponentRegistry.get('DAGVisualizer')                          │
+│                      │                                                       │
+│                      ▼                                                       │
+│          <DAGVisualizerView value={...} options={nodes} />                  │
 │                                                                              │
 │  editType.dl__project_stage:                                                 │
 │  ┌────────────────────────────────────────┐                                  │
 │  │ inputType: "select"                    │──┐                               │
-│  │ component: "BadgeDropdownSelect"       │──┼──► editVizContainer           │
+│  │ component: "BadgeDropdownSelect"       │──┼──► vizContainer.edit          │
 │  │ lookupSourceTable: "datalabel"         │──┼──► Filter for loading options │
-│  │ lookupField: "dl__project_stage"       │──► Key for useDatalabel()        │
+│  │ lookupField: "dl__project_stage"       │──► Key for getDatalabelSync()    │
 │  └────────────────────────────────────────┘                                  │
+│                      │                                                       │
+│                      ▼                                                       │
+│          FieldRenderer (EDIT mode):                                          │
+│          EditComponentRegistry.get('BadgeDropdownSelect')                    │
+│                      │                                                       │
+│                      ▼                                                       │
+│          <BadgeDropdownSelectEdit value={...} options={...} onChange={...}/> │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -547,9 +664,14 @@ const { options } = useDatalabel(lookupField);          // ✅ TanStack Query ho
 
 ---
 
-**Last Updated:** 2025-12-02 | **Version:** 12.0.0 | **Status:** Production Ready
+**Last Updated:** 2025-12-02 | **Version:** 12.2.0 | **Status:** Production Ready
 
 **Recent Updates:**
+- v12.2.0 (2025-12-02):
+  - Registered in ViewComponentRegistry and EditComponentRegistry
+  - FieldRenderer integration - automatic component resolution
+  - Added FieldRenderer Integration section with registration code
+  - Updated Architectural Truth to reflect FieldRenderer resolution flow
 - v12.0.0 (2025-12-02):
   - Renamed `lookupSource` → `lookupSourceTable`
   - Renamed `datalabelKey` → `lookupField`

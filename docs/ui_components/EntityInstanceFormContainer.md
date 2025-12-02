@@ -12,13 +12,13 @@
 
 ---
 
-## Architectural Truth (v11.1.0)
+## Architectural Truth (v12.2.0)
 
-**Two-Query Architecture with Flat Metadata Format:**
+**Two-Query Architecture with FieldRenderer Component Registry:**
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  EntitySpecificInstancePage (v11.1.0)                                        │
+│  EntitySpecificInstancePage (v12.2.0)                                        │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  QUERY 1: DATA                           QUERY 2: METADATA                   │
@@ -30,23 +30,209 @@
 │                                          └── Returns: { viewType, editType } │
 │                                          └── Cache: 30 min                   │
 │                                                                              │
-│  PAGE CONSTRUCTS (v11.1.0 - FLAT FORMAT):                                   │
+│  PAGE CONSTRUCTS (v11.1.0+ - FLAT FORMAT):                                  │
 │  ─────────────────────────────────────────                                  │
 │  formMetadata = {                        ◄── SAME format as EntityListOfInstancesTable  │
 │    viewType: formViewType,                                                   │
 │    editType: formEditType                                                    │
 │  }                                                                           │
 │                                                                              │
-│  // Both formatRow AND component receive the SAME flat structure             │
-│  // v11.1.0: Component supports BOTH flat and nested for compatibility       │
-│                                                                              │
-│  CACHE ACCESS (v11.0.0):                                                     │
+│  CACHE ACCESS (v11.0.0+):                                                    │
 │  ─────────────────────────                                                   │
 │  • Entity reference resolution: getEntityInstanceNameSync(entityCode, uuid)  │
+│  • Datalabel options: getDatalabelSync(fieldKey)                             │
 │  • Reads directly from queryClient.getQueryData()                            │
-│  • No separate sync stores - TanStack Query is single source of truth        │
+│                                                                              │
+│  v12.2.0: FIELDRENDERER DELEGATION                                          │
+│  ─────────────────────────────────                                          │
+│  {fields.map(field => (                                                      │
+│    <FieldRenderer                                                            │
+│      field={field}           // { key, renderType, inputType, vizContainer } │
+│      value={data[field.key]} // Raw value                                    │
+│      isEditing={isEditing}   // VIEW or EDIT mode                            │
+│      onChange={handleChange} // Edit callback                                │
+│      options={labelsMetadata.get(field.key)}  // Datalabel options           │
+│      formattedData={{ display, styles }}      // Pre-formatted for VIEW      │
+│    />                                                                        │
+│  ))}                                                                         │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## FieldRenderer Architecture (v12.2.0)
+
+### Overview
+
+v12.2.0 introduces the **FieldRenderer component registry pattern**, replacing the 900+ line hardcoded switch statement with a modular, metadata-driven approach. Each field is rendered via a single `<FieldRenderer>` call that resolves components dynamically based on backend metadata.
+
+### Component Resolution Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                 FIELDRENDERER RESOLUTION FLOW (v12.2.0)                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Backend Metadata (viewType / editType)                                      │
+│  ─────────────────────────────────────                                      │
+│                                                                              │
+│  budget_allocated_amt: {                dl__project_stage: {                │
+│    renderType: 'currency',                renderType: 'component',          │
+│    inputType: 'number',                   component: 'DAGVisualizer',       │
+│    style: { symbol: '$' }                 inputType: 'select',              │
+│  }                                        vizContainer: {                   │
+│                                             view: 'DAGVisualizer',          │
+│                                             edit: 'BadgeDropdownSelect'     │
+│                                           }                                 │
+│                                         }                                   │
+│           │                                        │                        │
+│           ▼                                        ▼                        │
+│  ┌─────────────────────┐              ┌─────────────────────┐              │
+│  │ INLINE RENDERING    │              │ COMPONENT REGISTRY  │              │
+│  │ (No lookup needed)  │              │ (Lookup by name)    │              │
+│  └─────────────────────┘              └─────────────────────┘              │
+│           │                                        │                        │
+│           ▼                                        ▼                        │
+│  ┌─────────────────────┐              ┌─────────────────────────────────┐  │
+│  │ ViewFieldRenderer   │              │ VIEW: ViewComponentRegistry     │  │
+│  │ (currency, badge,   │              │       .get('DAGVisualizer')     │  │
+│  │  date, text, etc.)  │              │ EDIT: EditComponentRegistry     │  │
+│  │                     │              │       .get('BadgeDropdownSelect')│  │
+│  │ EditFieldRenderer   │              └─────────────────────────────────┘  │
+│  │ (HTML5 inputs)      │                                                   │
+│  └─────────────────────┘                                                   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Field Generation (v12.2.0)
+
+The component generates fields from metadata with full FieldRenderer support:
+
+```typescript
+// EntityInstanceFormContainer.tsx - Field generation
+const fields = Object.entries(viewType)
+  .filter(([_, meta]) => meta.behavior?.visible !== false)
+  .map(([key, viewMeta]) => {
+    const editMeta = editType[key];
+    return {
+      key,
+      label: viewMeta.label,
+      // VIEW mode: renderType determines how value is displayed
+      renderType: viewMeta.renderType || 'text',
+      // EDIT mode: inputType determines input component
+      inputType: editMeta?.inputType || 'text',
+      // Component-based rendering: explicit component name
+      vizContainer: {
+        view: viewMeta.component,        // e.g., 'DAGVisualizer'
+        edit: editMeta?.component,       // e.g., 'BadgeDropdownSelect'
+      },
+      // Lookup configuration
+      lookupEntity: viewMeta?.lookupEntity || editMeta?.lookupEntity,
+      lookupSourceTable: editMeta?.lookupSourceTable,
+      lookupField: editMeta?.lookupField,
+      // Styling & behavior
+      style: viewMeta.style,
+      behavior: viewMeta.behavior,
+      validation: editMeta?.validation,
+    };
+  });
+```
+
+### FieldRenderer Props
+
+```typescript
+import { FieldRenderer } from '@/lib/fieldRenderer';
+
+{fields.map(field => (
+  <FieldRenderer
+    key={field.key}
+    field={field}                    // Field definition with metadata
+    value={data[field.key]}          // Raw value for editing
+    isEditing={isEditing}            // VIEW or EDIT mode
+    onChange={(v) => handleChange(field.key, v)}  // Edit callback
+    options={labelsMetadata.get(field.key)}       // Datalabel options (from getDatalabelSync)
+    formattedData={{                 // Pre-formatted for VIEW mode
+      display: formattedRow.display,
+      styles: formattedRow.styles,
+    }}
+    refData={refData}                // Entity instance lookup data
+  />
+))}
+```
+
+### Before vs After (v12.2.0)
+
+| Before (v11.x) | After (v12.2.0) |
+|----------------|-----------------|
+| 900+ line `renderField()` switch | Single `<FieldRenderer>` call |
+| Hardcoded component selection | `ViewComponentRegistry.get(name)` |
+| Pattern detection in frontend | `field.vizContainer.view` from metadata |
+| Duplicated logic across files | Centralized in `fieldRenderer/` module |
+
+**Before (Hardcoded):**
+```typescript
+// 900+ lines of switch statements
+switch (field.renderType) {
+  case 'currency':
+    return <span className="font-mono">{formatCurrency(value)}</span>;
+  case 'component':
+    if (field.component === 'DAGVisualizer') {
+      return <DAGVisualizer value={value} options={options} />;
+    } else if (field.component === 'MetadataTable') {
+      return <MetadataTable data={value} />;
+    }
+    // ... 50+ more cases
+}
+```
+
+**After (Modular):**
+```typescript
+// Single call - FieldRenderer handles all resolution
+<FieldRenderer
+  field={field}
+  value={value}
+  isEditing={isEditing}
+  onChange={onChange}
+  options={options}
+  formattedData={formattedData}
+/>
+```
+
+### Registered Components (EntityInstanceFormContainer)
+
+| Component Name | VIEW Mode | EDIT Mode | Use Case |
+|----------------|-----------|-----------|----------|
+| `DAGVisualizer` | Graph visualization | Interactive selection | Workflow stages (dl__*_stage) |
+| `MetadataTable` | Key-value display | Editable JSON | JSONB metadata fields |
+| `EntityInstanceName` | Display name | - | Single entity reference |
+| `EntityInstanceNames` | Chip list | - | Multi-entity references |
+| `BadgeDropdownSelect` | - | Colored dropdown | Datalabel fields |
+| `EntityInstanceNameSelect` | - | Searchable dropdown | Entity reference edit |
+| `EntityInstanceNameMultiSelect` | - | Multi-select | Multi-reference edit |
+
+### vizContainer Configuration
+
+The `vizContainer` in metadata specifies component overrides:
+
+```yaml
+# view-type-mapping.yaml
+datalabel_dag:
+  entityInstanceFormContainer:
+    renderType: component
+    component: DAGVisualizer      # VIEW: DAGVisualizer
+    vizContainer:
+      view: DAGVisualizer
+      edit: BadgeDropdownSelect   # EDIT: BadgeDropdownSelect (not interactive DAG)
+
+json:
+  entityInstanceFormContainer:
+    renderType: component
+    component: MetadataTable      # Both VIEW and EDIT use MetadataTable
+    vizContainer:
+      view: MetadataTable
+      edit: MetadataTable
 ```
 
 ---
@@ -603,9 +789,16 @@ export const EntityInstanceFormContainer = React.memo(EntityInstanceFormContaine
 
 ---
 
-**Last Updated:** 2025-12-02 | **Version:** 11.1.0 | **Status:** Production Ready
+**Last Updated:** 2025-12-02 | **Version:** 12.2.0 | **Status:** Production Ready
 
 **Recent Updates:**
+- v12.2.0 (2025-12-02): **FieldRenderer Architecture**
+  - Replaced 900+ line hardcoded switch statement with `<FieldRenderer>` component
+  - Component registries: `ViewComponentRegistry` and `EditComponentRegistry`
+  - Field generation extracts `renderType`, `inputType`, `vizContainer` from metadata
+  - YAML alignment: `renderType` (VIEW) and `inputType` (EDIT) match backend configuration
+  - `vizContainer.view` and `vizContainer.edit` specify component overrides
+  - See: `apps/web/src/lib/fieldRenderer/` for implementation
 - v11.1.0 (2025-12-02): **Flat Metadata Format**
   - Both `EntityListOfInstancesTable` and `EntityInstanceFormContainer` now use flat `{ viewType, editType }` format
   - Component supports both flat and nested formats for backward compatibility

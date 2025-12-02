@@ -1,7 +1,13 @@
 # Datalabel System - End-to-End Data Flow
 
-**Version:** 12.0.0 | **Updated:** 2025-12-02
+**Version:** 12.2.0 | **Updated:** 2025-12-02
 
+> **v12.2.0 Updates:**
+> - FieldRenderer integration - datalabel components registered in component registries
+> - `BadgeDropdownSelect` registered in `EditComponentRegistry`
+> - `badge` renderType handled by `ViewFieldRenderer` inline
+> - See [FIELD_RENDERER_ARCHITECTURE.md](../design_pattern/FIELD_RENDERER_ARCHITECTURE.md)
+>
 > **v12.0.0 Breaking Changes:**
 > - `lookupSource` → `lookupSourceTable`
 > - `datalabelKey` → `lookupField`
@@ -230,7 +236,95 @@ const options = getDatalabelSync('dl__project_stage');
 
 ---
 
-## Phase 5: Frontend Rendering
+## FieldRenderer Integration (v12.2.0)
+
+### Datalabel Field Resolution
+
+With v12.2.0, datalabel fields are rendered via FieldRenderer, which resolves components automatically:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  DATALABEL FIELDRENDERER RESOLUTION (v12.2.0)                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Field: dl__project_stage = "Execution"                                      │
+│                                                                              │
+│  VIEW MODE (isEditing=false):                                                │
+│  ─────────────────────────────                                              │
+│  1. FieldRenderer receives field with renderType='badge'                     │
+│  2. resolveViewComponent('badge') → null (inline type)                       │
+│  3. ViewFieldRenderer handles inline:                                        │
+│     - Uses formattedData.display['dl__project_stage'] = "Execution"          │
+│     - Uses formattedData.styles['dl__project_stage'] = "bg-green-100..."     │
+│     - Renders: <span className={style}>{display}</span>                      │
+│                                                                              │
+│  EDIT MODE (isEditing=true):                                                 │
+│  ────────────────────────────                                               │
+│  1. FieldRenderer receives field with:                                       │
+│     - inputType='select' OR vizContainer.edit='BadgeDropdownSelect'          │
+│     - lookupField='dl__project_stage'                                        │
+│  2. resolveEditComponent('select', 'BadgeDropdownSelect')                    │
+│     → EditComponentRegistry.get('BadgeDropdownSelect')                       │
+│  3. Renders: <BadgeDropdownSelectEdit value={...} options={...} />          │
+│                                                                              │
+│  OPTIONS LOADING:                                                            │
+│  ─────────────────                                                          │
+│  const options = getDatalabelSync('dl__project_stage');                      │
+│  // Passed to FieldRenderer as props.options                                 │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### FieldRenderer Usage for Datalabel Fields
+
+```typescript
+// EntityInstanceFormContainer.tsx (v12.2.0)
+import { FieldRenderer } from '@/lib/fieldRenderer';
+import { getDatalabelSync } from '@/db/tanstack-index';
+
+// Pre-load datalabel options for fields
+const labelsMetadata = useMemo(() => {
+  const map = new Map<string, DatalabelOption[]>();
+  fields.forEach(field => {
+    if (field.lookupSourceTable === 'datalabel' && field.lookupField) {
+      const options = getDatalabelSync(field.lookupField);
+      if (options) map.set(field.key, options);
+    }
+  });
+  return map;
+}, [fields]);
+
+// Render fields via FieldRenderer
+{fields.map(field => (
+  <FieldRenderer
+    key={field.key}
+    field={field}                    // { renderType: 'badge', inputType: 'select', lookupField: 'dl__...' }
+    value={data[field.key]}          // "Execution"
+    isEditing={isEditing}
+    onChange={(v) => handleChange(field.key, v)}
+    options={labelsMetadata.get(field.key)}  // DatalabelOption[] from cache
+    formattedData={{                 // Pre-formatted for VIEW mode
+      display: formattedRow.display,
+      styles: formattedRow.styles,
+    }}
+  />
+))}
+```
+
+### Component Resolution Matrix
+
+| renderType/inputType | vizContainer | Registry | Component |
+|----------------------|--------------|----------|-----------|
+| `badge` | - | Inline | `ViewFieldRenderer` (uses formattedData) |
+| `component` | `DAGVisualizer` | VIEW | `ViewComponentRegistry.get('DAGVisualizer')` |
+| `select` | `BadgeDropdownSelect` | EDIT | `EditComponentRegistry.get('BadgeDropdownSelect')` |
+| `select` | - | EDIT | `EditComponentRegistry.get('select')` → BadgeDropdownSelect |
+
+---
+
+## Phase 5: Frontend Rendering (Legacy)
+
+> **Note:** v12.2.0 uses FieldRenderer. This section documents the underlying formatters that FieldRenderer calls.
 
 ### Badge Color Resolution (viewType)
 
@@ -437,9 +531,15 @@ const options = getDatalabelSync(lookupField);          // ✅ Sync cache
 
 ---
 
-**Version:** 12.0.0 | **Updated:** 2025-12-02 | **Status:** Production Ready
+**Version:** 12.2.0 | **Updated:** 2025-12-02 | **Status:** Production Ready
 
 **Recent Updates:**
+- v12.2.0 (2025-12-02):
+  - FieldRenderer integration for datalabel fields
+  - `BadgeDropdownSelect` registered in EditComponentRegistry
+  - `badge` renderType handled by ViewFieldRenderer inline
+  - Added FieldRenderer resolution flow diagram
+  - Added Component Resolution Matrix
 - v12.0.0 (2025-12-02):
   - Renamed `lookupSource` → `lookupSourceTable`
   - Renamed `datalabelKey` → `lookupField`

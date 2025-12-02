@@ -1,6 +1,8 @@
 # BadgeDropdownSelect Component
 
-**Version:** 1.0.0 | **Location:** `apps/web/src/components/shared/ui/BadgeDropdownSelect.tsx`
+**Version:** 12.2.0 | **Location:** `apps/web/src/components/shared/ui/BadgeDropdownSelect.tsx`
+
+> **Note:** As of v12.2.0, BadgeDropdownSelect is registered in the **EditComponentRegistry** and resolved automatically by FieldRenderer when `inputType='select'` or `vizContainer.edit='BadgeDropdownSelect'`.
 
 ---
 
@@ -11,8 +13,9 @@ BadgeDropdownSelect is a shared dropdown component for selecting datalabel value
 **Core Principles:**
 - Pure presentation component (no API calls)
 - Portal rendering for table compatibility
-- Options loaded from datalabel cache (format-at-read pattern)
-- Backend metadata drives rendering via `inputType: 'BadgeDropdownSelect'` or `inputType: 'select'` with datalabel lookup
+- Options loaded from datalabel cache via `getDatalabelSync()`
+- **v12.2.0:** Registered in `EditComponentRegistry` as `'BadgeDropdownSelect'`
+- Backend metadata drives rendering via `inputType: 'BadgeDropdownSelect'` or `vizContainer.edit: 'BadgeDropdownSelect'`
 
 ---
 
@@ -161,12 +164,103 @@ Each option renders as a colored badge using Tailwind classes:
 
 ---
 
-## Integration Patterns
+## FieldRenderer Integration (v12.2.0)
+
+### Component Registration
+
+BadgeDropdownSelect is registered in the EditComponentRegistry at app initialization:
+
+```typescript
+// apps/web/src/lib/fieldRenderer/registerComponents.tsx
+import { registerEditComponent } from './ComponentRegistry';
+import { BadgeDropdownSelect } from '@/components/shared/ui/BadgeDropdownSelect';
+
+// Wrapper to conform to ComponentRendererProps interface
+const BadgeDropdownSelectEdit: FC<ComponentRendererProps> = ({
+  value,
+  options,
+  onChange,
+  disabled,
+}) => (
+  <BadgeDropdownSelect
+    value={value ?? ''}
+    options={options?.map(opt => ({
+      value: opt.value,
+      label: opt.label,
+      metadata: { color_code: opt.colorClass },
+    })) ?? []}
+    onChange={onChange}
+    disabled={disabled}
+  />
+);
+
+registerEditComponent('BadgeDropdownSelect', BadgeDropdownSelectEdit);
+registerEditComponent('select', BadgeDropdownSelectEdit);  // Alias
+```
+
+### Resolution Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  BADGEDROPDOWNSELECT RESOLUTION (v12.2.0)                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Backend Metadata (editType):                                                │
+│  ─────────────────────────────                                              │
+│  dl__project_stage: {                                                        │
+│    inputType: 'select',                    // or 'BadgeDropdownSelect'       │
+│    component: 'BadgeDropdownSelect',       // vizContainer.edit              │
+│    lookupSourceTable: 'datalabel',                                           │
+│    lookupField: 'dl__project_stage'                                          │
+│  }                                                                           │
+│                                                                              │
+│  FieldRenderer Resolution:                                                   │
+│  ─────────────────────────                                                   │
+│  1. Check vizContainer.edit → 'BadgeDropdownSelect'                         │
+│  2. EditComponentRegistry.get('BadgeDropdownSelect') → BadgeDropdownSelectEdit │
+│  3. Render <BadgeDropdownSelectEdit value={...} options={...} onChange={...}/> │
+│                                                                              │
+│  Options Loading (Sync):                                                     │
+│  ───────────────────────                                                    │
+│  const options = getDatalabelSync('dl__project_stage');                      │
+│  // Returns: [{ value, label, colorClass }, ...]                             │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### FieldRenderer Usage
+
+With v12.2.0, no switch statement is needed. FieldRenderer handles resolution:
+
+```typescript
+// EntityInstanceFormContainer.tsx (v12.2.0)
+import { FieldRenderer } from '@/lib/fieldRenderer';
+
+{fields.map(field => (
+  <FieldRenderer
+    key={field.key}
+    field={field}                    // { inputType: 'select', vizContainer: { edit: 'BadgeDropdownSelect' } }
+    value={data[field.key]}
+    isEditing={true}
+    onChange={(v) => handleChange(field.key, v)}
+    options={labelsMetadata.get(field.key)}  // Pre-loaded from getDatalabelSync()
+  />
+))}
+
+// FieldRenderer internally calls:
+// EditComponentRegistry.get('BadgeDropdownSelect') → renders <BadgeDropdownSelectEdit />
+```
+
+---
+
+## Integration Patterns (Legacy)
+
+> **Note:** These patterns are from v11.x and earlier. v12.2.0 uses FieldRenderer instead.
 
 ### With EntityListOfInstancesTable (Inline Editing)
 
 ```typescript
-// EntityListOfInstancesTable.tsx - Inline cell editing
+// EntityListOfInstancesTable.tsx - Inline cell editing (legacy v11.x)
 case 'select':
   if (hasLabelsMetadata) {
     return (
@@ -186,7 +280,7 @@ case 'select':
 ### With EntityInstanceFormContainer (Form Fields)
 
 ```typescript
-// EntityInstanceFormContainer.tsx - Form field rendering
+// EntityInstanceFormContainer.tsx - Form field rendering (legacy v11.x)
 case 'BadgeDropdownSelect':
 case 'select':
   if (hasLabelsMetadata && options.length > 0) {
@@ -401,15 +495,16 @@ export function colorCodeToTailwindClass(colorCode: string): string {
 
 | Version | Date | Changes |
 |---------|------|---------|
+| v12.2.0 | 2025-12-02 | Registered in EditComponentRegistry, FieldRenderer integration |
 | v8.3.2 | 2025-11-27 | Renamed from ColoredDropdown to BadgeDropdownSelect |
 | v8.3.0 | 2025-11-25 | Extracted as shared component (DRY) |
 | v8.0.0 | 2025-11-20 | Original inline implementation per component |
 
 ---
 
-**Last Updated:** 2025-11-27 | **Version:** 1.0.0 | **Status:** Production Ready
+**Last Updated:** 2025-12-02 | **Version:** 12.2.0 | **Status:** Production Ready
 
 **Related Documentation:**
 - [EntityInstanceFormContainer.md](./EntityInstanceFormContainer.md) - Form field rendering
 - [DAGVisualizer.md](./DAGVisualizer.md) - Stage visualization (view mode)
-- [Layout_Component_Architecture.md](./Layout_Component_Architecture.md) - Component hierarchy
+- [FIELD_RENDERER_ARCHITECTURE.md](../design_pattern/FIELD_RENDERER_ARCHITECTURE.md) - FieldRenderer component registry
