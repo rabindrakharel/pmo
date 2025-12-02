@@ -6,15 +6,9 @@
  * This module provides the core formatDataset() function that transforms
  * raw API data into pre-formatted rows for instant rendering.
  *
- * v8.2.0: Removed legacy flat metadata support - only accepts nested
- * component metadata structure { viewType: {...}, editType: {...} }
- *
- * v8.3.2: Added ref_data_entityInstance support for entity reference resolution.
- * Reference fields (renderType: 'entityInstanceId') now resolve UUID to names.
- *
  * v11.0.0: Entity reference resolution uses TanStack Query cache via
- * getEntityInstanceNameSync(). The refData parameter is deprecated.
- * API responses populate the cache via upsertRefDataEntityInstance().
+ * getEntityInstanceNameSync(). API responses populate the cache via
+ * upsertRefDataEntityInstance().
  *
  * PERFORMANCE: Called once when data is fetched, not during scroll/render.
  */
@@ -40,15 +34,6 @@ import {
   formatReference,
 } from './valueFormatters';
 
-/**
- * RefData type for entity instance name resolution (v8.3.2)
- * Structure: { entityCode: { uuid: name } }
- *
- * @deprecated v11.0.0: refData is no longer passed through component tree.
- * Entity reference resolution uses TanStack Query cache via getEntityInstanceNameSync().
- * This type is kept for backward compatibility but the refData parameter is ignored.
- */
-export type RefData = Record<string, Record<string, string>>;
 
 /**
  * Reference render types that use TanStack Query cache for name resolution
@@ -74,7 +59,7 @@ const ENTITY_REFERENCE_COMPONENTS = new Set([
  * Formatter registry - maps renderType to formatter function
  * v11.0.0: formatReference uses TanStack Query cache via getEntityInstanceNameSync()
  */
-const FORMATTERS: Record<string, (value: any, meta?: ViewFieldMetadata, refData?: RefData) => FormattedValue> = {
+const FORMATTERS: Record<string, (value: any, meta?: ViewFieldMetadata) => FormattedValue> = {
   // Currency
   'currency': formatCurrency,
 
@@ -120,18 +105,16 @@ const FORMATTERS: Record<string, (value: any, meta?: ViewFieldMetadata, refData?
  *
  * v8.3.2: Added refData parameter for entity reference resolution
  * v9.4.0: Added component-based routing for renderType: 'component'
- * v11.0.0: refData deprecated - uses TanStack Query cache via getEntityInstanceNameSync()
+ * v11.0.0: Uses TanStack Query cache via getEntityInstanceNameSync()
  *
  * @param value - The raw value to format
  * @param key - The field key
  * @param metadata - View field metadata from backend
- * @param _refData - DEPRECATED: No longer used. Kept for backward compatibility.
  */
 export function formatValue(
   value: any,
   key: string,
-  metadata: ViewFieldMetadata | undefined,
-  _refData?: RefData
+  metadata: ViewFieldMetadata | undefined
 ): FormattedValue {
   const renderType = metadata?.renderType || 'text';
 
@@ -170,17 +153,14 @@ export function formatValue(
  * Format a single row using viewType metadata
  *
  * v8.2.0: Only accepts ComponentMetadata with { viewType, editType } structure
- * v8.3.2: Added refData parameter for entity reference resolution
- * v11.0.0: refData deprecated - uses TanStack Query cache via getEntityInstanceNameSync()
+ * v11.0.0: Uses TanStack Query cache via getEntityInstanceNameSync()
  *
  * @param row - The raw data row
  * @param metadata - Component metadata with viewType and editType
- * @param _refData - DEPRECATED: No longer used. Kept for backward compatibility.
  */
 export function formatRow<T extends Record<string, any>>(
   row: T,
-  metadata: ComponentMetadata | null,
-  _refData?: RefData
+  metadata: ComponentMetadata | null
 ): FormattedRow<T> {
   const display: Record<string, string> = {};
   const styles: Record<string, string> = {};
@@ -205,14 +185,12 @@ export function formatRow<T extends Record<string, any>>(
  * Format entire dataset (call ONCE at fetch time)
  *
  * v8.2.0: Only accepts ComponentMetadata with { viewType, editType } structure
- * v8.3.2: Added refData parameter for entity reference resolution
- * v11.0.0: refData deprecated - entity reference resolution uses TanStack Query
- *          cache via getEntityInstanceNameSync(). API responses populate the cache
+ * v11.0.0: Entity reference resolution uses TanStack Query cache via
+ *          getEntityInstanceNameSync(). API responses populate the cache
  *          via upsertRefDataEntityInstance().
  *
  * @param data - Raw data array from API
  * @param metadata - Component metadata with viewType and editType
- * @param _refData - DEPRECATED: No longer used. Kept for backward compatibility.
  * @returns Array of formatted rows with raw, display, and styles
  *
  * @example
@@ -221,8 +199,7 @@ export function formatRow<T extends Record<string, any>>(
  */
 export function formatDataset<T extends Record<string, any>>(
   data: T[],
-  metadata: ComponentMetadata | null,
-  _refData?: RefData
+  metadata: ComponentMetadata | null
 ): FormattedRow<T>[] {
   if (!data || data.length === 0) {
     return [];
@@ -234,17 +211,14 @@ export function formatDataset<T extends Record<string, any>>(
 /**
  * Re-format a single row after update (for optimistic updates)
  *
- * v8.3.2: Added refData parameter for entity reference resolution
- * v11.0.0: refData deprecated - uses TanStack Query cache via getEntityInstanceNameSync()
+ * v11.0.0: Uses TanStack Query cache via getEntityInstanceNameSync()
  *
  * @param row - The raw data row
  * @param metadata - Component metadata with viewType and editType
- * @param _refData - DEPRECATED: No longer used. Kept for backward compatibility.
  */
 export function reformatRow<T extends Record<string, any>>(
   row: T,
-  metadata: ComponentMetadata | null,
-  _refData?: RefData
+  metadata: ComponentMetadata | null
 ): FormattedRow<T> {
   return formatRow(row, metadata);
 }

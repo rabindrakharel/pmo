@@ -228,15 +228,13 @@ export function formatArray(value: any): FormattedValue {
  *
  * @param value - UUID or array of UUIDs
  * @param metadata - Field metadata with lookupEntity
- * @param _refData - DEPRECATED: No longer used. Kept for backward compatibility.
  */
 // Debug flag for formatReference - set to true to trace name resolution issues
 const DEBUG_FORMAT_REFERENCE = false;
 
 export function formatReference(
   value: any,
-  metadata?: FieldMetadata,
-  _refData?: Record<string, Record<string, string>>
+  metadata?: FieldMetadata
 ): FormattedValue {
   if (value === null || value === undefined || value === '') {
     return { display: '—' };
