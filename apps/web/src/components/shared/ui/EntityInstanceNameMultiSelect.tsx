@@ -53,7 +53,13 @@ export function EntityInstanceNameMultiSelect({
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Local state for immediate UI feedback (before parent re-renders from async Dexie update)
+  // ============================================================================
+  // LOCAL-FIRST CONTROLLED COMPONENT PATTERN
+  // ============================================================================
+  // Pattern: docs/design_pattern/update_edit_statemanagement.md
+  // Local state for immediate UI feedback before parent re-renders from async Dexie update
+  // localValue: Current selected UUIDs array for instant display
+  // ============================================================================
   const [localValue, setLocalValue] = useState<string[]>(value);
 
   const containerRef = useRef<HTMLDivElement>(null);

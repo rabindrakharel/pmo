@@ -49,15 +49,16 @@ export function EntityCreatePage({ entityCode }: EntityCreatePageProps) {
     };
 
     // Set defaults for required fields based on entity type
+    // v12.1.0: Using inputType from editType metadata
     config?.fields.forEach(field => {
-      if (field.type === 'array') {
+      if (field.inputType === 'array') {
         defaults[field.key] = [];
-      } else if (field.type === 'jsonb') {
+      } else if (field.inputType === 'jsonb') {
         defaults[field.key] = {};
-      } else if (field.type === 'select' && field.defaultValue) {
+      } else if (field.inputType === 'select' && field.defaultValue) {
         // Use defaultValue from field config if specified
         defaults[field.key] = field.defaultValue;
-      } else if (field.type === 'select' && field.options) {
+      } else if (field.inputType === 'select' && field.options) {
         // Don't set a default value for select fields without defaultValue
         defaults[field.key] = '';
       }

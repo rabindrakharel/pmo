@@ -1,10 +1,14 @@
 # Frontend Formatter Service
 
-**Version:** 11.0.0 | **Location:** `apps/web/src/lib/` | **Updated:** 2025-12-02
+**Version:** 12.2.0 | **Location:** `apps/web/src/lib/` | **Updated:** 2025-12-02
 
-> **Note:** As of v11.0.0, the frontend uses TanStack Query + Dexie v4 (IndexedDB) for offline-first data storage. Metadata and data are fetched separately (two-query architecture). The formatter service works with data from TanStack Query hooks, formatting on read via `useMemo`. Pages construct appropriate metadata structures for each component.
+> **Note:** As of v12.2.0, the frontend uses a **FieldRenderer architecture** with component registries for modular field rendering. This replaces hardcoded switch statements with metadata-driven component resolution. The formatter service generates `FormattedRow` data via format-at-read, which FieldRenderer consumes for VIEW mode display.
 >
-> **v11.0.0 Key Change:** Entity reference resolution now uses **TanStack Query cache** via `getEntityInstanceNameSync()` instead of passing `ref_data_entityInstance` through the component tree. The `refData` parameter is deprecated and ignored. Formatters read directly from `queryClient.getQueryData(['entityInstanceNames', entityCode])`.
+> **v12.2.0 Key Changes:**
+> - **FieldRenderer** - Unified component for VIEW/EDIT rendering via ComponentRegistry
+> - **renderType/inputType** - YAML-aligned property names (not `type`)
+> - **vizContainer** - Component overrides for special renderers (DAGVisualizer, MetadataTable)
+> - **Format-at-read** - TanStack Query `select` transforms raw data to FormattedRow
 
 ---
 
@@ -306,6 +310,123 @@ const options = getDatalabelSync('project_stage');
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## FieldRenderer Architecture (v12.2.0)
+
+The FieldRenderer system provides **modular, metadata-driven** field rendering that replaces hardcoded switch statements with a component registry pattern.
+
+### Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    FIELDRENDERER RESOLUTION (v12.2.0)                            │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  FieldRenderer receives:                                                         │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐│
+│  │ field: { key, renderType, inputType, vizContainer, lookupEntity, ... }      ││
+│  │ value: row.raw[key]              // Raw value for potential editing          ││
+│  │ formattedData: { display, styles } // Pre-formatted for VIEW mode           ││
+│  │ options: LabelMetadata[]          // Datalabel options (if applicable)       ││
+│  │ isEditing: boolean                // VIEW or EDIT mode toggle               ││
+│  └─────────────────────────────────────────────────────────────────────────────┘│
+│                                        │                                         │
+│                    ┌───────────────────┴───────────────────┐                    │
+│                    │                                       │                    │
+│                    ▼                                       ▼                    │
+│          ┌─────────────────────┐             ┌─────────────────────┐           │
+│          │ VIEW MODE           │             │ EDIT MODE           │           │
+│          │ (isEditing=false)   │             │ (isEditing=true)    │           │
+│          │ Uses: renderType    │             │ Uses: inputType     │           │
+│          └─────────┬───────────┘             └─────────┬───────────┘           │
+│                    │                                   │                        │
+│       ┌────────────┼────────────┐         ┌────────────┼────────────┐          │
+│       │            │            │         │            │            │          │
+│       ▼            ▼            ▼         ▼            ▼            ▼          │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐      │
+│  │component│ │ badge   │ │currency │ │component│ │ select  │ │ text    │      │
+│  │         │ │timestamp│ │  text   │ │         │ │         │ │ number  │      │
+│  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘      │
+│       │           │           │           │           │           │            │
+│       ▼           ▼           ▼           ▼           ▼           ▼            │
+│  ViewComponent  Registered  ViewField  EditComponent  Registered  EditField   │
+│  Registry.get() Inline View  Renderer   Registry.get() Inline Edit Renderer   │
+│  (DAGVisualizer) (badge)    (currency)  (BadgeDropdown)(select)   (input)     │
+│                                                                                  │
+│  Uses:                       Uses:       Uses:                    Uses:         │
+│  value                       formattedData value                  value         │
+│  options                     .display[key] options                              │
+│                              .styles[key]                                       │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Usage in Components
+
+```typescript
+import { FieldRenderer } from '@/lib/fieldRenderer';
+
+// In EntityInstanceFormContainer or EntityListOfInstancesTable
+{fields.map(field => (
+  <FieldRenderer
+    key={field.key}
+    field={field}                      // { key, renderType, inputType, vizContainer }
+    value={row.raw[field.key]}         // Raw value for editing
+    isEditing={isEditing}              // VIEW or EDIT mode
+    onChange={(v) => handleChange(field.key, v)}
+    options={labelsMetadata.get(field.key)}  // Datalabel options
+    formattedData={{                   // Pre-formatted for VIEW
+      display: row.display,
+      styles: row.styles
+    }}
+  />
+))}
+```
+
+### Component Registries
+
+| Registry | Mode | Resolution |
+|----------|------|------------|
+| `ViewComponentRegistry` | VIEW | `renderType='component'` → lookup by `vizContainer.view` |
+| `EditComponentRegistry` | EDIT | `inputType='component'` → lookup by `vizContainer.edit` |
+| `ViewFieldRenderer` | VIEW | Inline render types (`currency`, `badge`, `timestamp`) |
+| `EditFieldRenderer` | EDIT | HTML5 input types (`text`, `number`, `date`) |
+
+### Registered Components
+
+**VIEW Mode:**
+| Name | Use Case |
+|------|----------|
+| `DAGVisualizer` | Workflow stage visualization |
+| `MetadataTable` | JSONB key-value display |
+| `EntityInstanceName` | Single entity reference |
+| `EntityInstanceNames` | Multiple entity references (chips) |
+| `timestamp` | Relative time with tooltip |
+| `badge` | Colored status badge |
+
+**EDIT Mode:**
+| Name | Use Case |
+|------|----------|
+| `BadgeDropdownSelect` | Colored dropdown for datalabels |
+| `EntityInstanceNameSelect` | Single entity selector |
+| `EntityInstanceNameMultiSelect` | Multi-entity selector |
+| `text` | Debounced text input |
+| `number` | Debounced number input |
+| `textarea` | Debounced textarea |
+
+### Related Files
+
+| File | Purpose |
+|------|---------|
+| `lib/fieldRenderer/FieldRenderer.tsx` | Main unified component |
+| `lib/fieldRenderer/ComponentRegistry.ts` | VIEW/EDIT registries |
+| `lib/fieldRenderer/ViewFieldRenderer.tsx` | Inline view rendering |
+| `lib/fieldRenderer/EditFieldRenderer.tsx` | Inline edit rendering |
+| `lib/fieldRenderer/registerComponents.tsx` | Component registration |
+
+See [FIELD_RENDERER_ARCHITECTURE.md](../design_pattern/FIELD_RENDERER_ARCHITECTURE.md) for full documentation.
 
 ---
 
@@ -736,9 +857,15 @@ See `docs/caching/TANSTACK_DEXIE_SYNC_ARCHITECTURE.md` for full sync architectur
 
 ---
 
-**Version:** 11.0.0 | **Updated:** 2025-12-02
+**Version:** 12.2.0 | **Updated:** 2025-12-02
 
 **Recent Updates:**
+- v12.2.0 (2025-12-02):
+  - **FieldRenderer architecture** - Modular component registry pattern
+  - Replaces hardcoded switch statements with `ViewComponentRegistry` and `EditComponentRegistry`
+  - `renderType` (VIEW) and `inputType` (EDIT) aligned with YAML configuration
+  - `vizContainer` property for component-based rendering overrides
+  - Added FieldRenderer integration section with architecture diagram
 - v11.0.0 (2025-12-02):
   - **TanStack Query cache for entity references** - Removed redundant sync stores
   - `formatReference()` now uses `getEntityInstanceNameSync()` (reads from `queryClient.getQueryData()`)

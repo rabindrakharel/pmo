@@ -779,28 +779,35 @@ export function EntitySpecificInstancePage({ entityCode }: EntitySpecificInstanc
     await discardDraft();
   }, [discardDraft]);
 
-  // Use refs for debouncing field updates (Dexie draft handles state)
+  // ============================================================================
+  // DEBOUNCING STRATEGY FOR FIELD UPDATES
+  // ============================================================================
+  // Pattern: docs/design_pattern/update_edit_statemanagement.md (Debouncing Strategy section)
+  //
+  // BLACKLIST approach (not whitelist) - only these primitive text-entry fields are debounced:
+  // - text, textarea, number, currency: User is typing multiple characters
+  //
+  // ALL OTHER inputTypes update immediately:
+  // - Component inputTypes (PascalCase like EntityInstanceNameSelect, BadgeDropdownSelect)
+  // - Selection inputs (select, checkbox, date, toggle)
+  //
+  // This is future-proof: any new component inputType will default to immediate updates.
+  // ============================================================================
   const updateTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const DEBOUNCED_INPUT_TYPES = ['text', 'textarea', 'number', 'currency'];
 
   const handleFieldChange = useCallback((fieldName: string, value: any, inputType?: string) => {
-    // Clear any pending update
     if (updateTimeoutRef.current) {
       clearTimeout(updateTimeoutRef.current);
     }
 
-    // Only primitive text-entry fields need debouncing (user is typing)
-    // Components (PascalCase inputType like EntityInstanceNameSelect, BadgeDropdownSelect)
-    // and selection inputs (select, checkbox, date) update immediately
-    const debouncedInputTypes = ['text', 'textarea', 'number', 'currency'];
-    const isDebounced = inputType && debouncedInputTypes.includes(inputType);
+    const isDebounced = inputType && DEBOUNCED_INPUT_TYPES.includes(inputType);
 
     if (isDebounced) {
-      // Debounce text field updates (1 second)
       updateTimeoutRef.current = setTimeout(() => {
         updateDraftField(fieldName, value);
       }, 1000);
     } else {
-      // Components and selection inputs update immediately
       updateDraftField(fieldName, value);
     }
   }, [updateDraftField]);

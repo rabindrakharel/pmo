@@ -1,0 +1,270 @@
+/**
+ * Settings Loader Utility
+ *
+ * Dynamically loads dropdown options from setting tables in the database.
+ * Provides a centralized, reusable way to fetch and cache setting values
+ * for use in forms, inline editing, and filters.
+ */
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+/**
+ * Convert color code from database to Tailwind badge classes
+ */
+function colorCodeToTailwindClass(colorCode) {
+    if (!colorCode)
+        return undefined;
+    const colorMap = {
+        blue: 'bg-dark-100 text-dark-600',
+        purple: 'bg-purple-100 text-purple-800',
+        yellow: 'bg-yellow-100 text-yellow-800',
+        orange: 'bg-orange-100 text-orange-800',
+        green: 'bg-green-100 text-green-800',
+        red: 'bg-red-100 text-red-800',
+        gray: 'bg-dark-100 text-dark-600',
+        cyan: 'bg-cyan-100 text-cyan-800',
+        indigo: 'bg-indigo-100 text-indigo-800',
+        amber: 'bg-amber-100 text-amber-800',
+        rose: 'bg-rose-100 text-rose-800',
+        emerald: 'bg-emerald-100 text-emerald-800',
+    };
+    return colorMap[colorCode.toLowerCase()] || 'bg-dark-100 text-dark-600';
+}
+// In-memory cache for settings to avoid repeated API calls
+const settingsCache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+// Track in-flight requests to prevent duplicate fetches (fixes React StrictMode double-mounting)
+const inFlightRequests = new Map();
+/**
+ * Mapping of field names to their corresponding setting datalabels
+ * This defines which fields should load from which settings tables
+ * Format: field_name -> datalabel_name (using dl__entity_attribute format - matches database exactly)
+ */
+export const FIELD_TO_SETTING_MAP = {
+    // Project fields (dl__ prefix columns from database)
+    'dl__project_stage': 'dl__project_stage',
+    'project_stage': 'dl__project_stage',
+    // Task fields (dl__ prefix columns from database)
+    'dl__task_stage': 'dl__task_stage',
+    'dl__task_priority': 'dl__task_priority',
+    'stage': 'dl__task_stage',
+    'task_stage': 'dl__task_stage',
+    'status': 'dl__task_stage',
+    'priority_level': 'dl__task_priority',
+    // Client/Customer fields (dl__ prefix columns from database)
+    'dl__customer_opportunity_funnel': 'dl__customer_opportunity_funnel',
+    'dl__customer_industry_sector': 'dl__customer_industry_sector',
+    'dl__customer_acquisition_channel': 'dl__customer_acquisition_channel',
+    'dl__customer_tier': 'dl__customer_tier',
+    'dl__client_status': 'dl__client_status',
+    'opportunity_funnel_stage_name': 'dl__customer_opportunity_funnel',
+    'industry_sector_name': 'dl__customer_industry_sector',
+    'acquisition_channel_name': 'dl__customer_acquisition_channel',
+    'customer_tier_name': 'dl__customer_tier',
+    'client_status': 'dl__client_status',
+    // Business fields (dl__ prefix columns from database)
+    'dl__business_level': 'dl__business_level',
+    'level_id': 'dl__business_level', // Context-dependent
+    'name': 'dl__business_level',
+    'business_level_id': 'dl__business_level',
+    'operational_status': 'dl__business_operational_status',
+    'dl__business_operational_status': 'dl__business_operational_status',
+    // Office fields (dl__ prefix columns from database)
+    'dl__office_level': 'dl__office_level',
+    'office_level_id': 'dl__office_level',
+    // Position fields (dl__ prefix columns from database)
+    'dl__position_level': 'dl__position_level',
+    'position_level_id': 'dl__position_level',
+    // Form fields (dl__ prefix columns from database)
+    'dl__form_submission_status': 'dl__form_submission_status',
+    'dl__form_approval_status': 'dl__form_approval_status',
+    'submission_status': 'dl__form_submission_status',
+    'approval_status': 'dl__form_approval_status',
+    // Wiki fields
+    'publication_status': 'dl__wiki_publication_status',
+    // Task activity fields
+    'update_type': 'dl__task_update_type',
+    // Quote fields (dl__ prefix columns from database)
+    'dl__quote_stage': 'dl__quote_stage',
+    'quote_stage': 'dl__quote_stage',
+    // Work Order fields (dl__ prefix columns from database)
+    'dl__work_order_status': 'dl__work_order_status',
+    'work_order_status': 'dl__work_order_status',
+};
+/**
+ * Check if a field name maps to a settings table
+ */
+export function isSettingField(fieldKey) {
+    return fieldKey in FIELD_TO_SETTING_MAP;
+}
+/**
+ * Get the setting datalabel for a given field key
+ */
+export function getSettingDatalabel(fieldKey) {
+    return FIELD_TO_SETTING_MAP[fieldKey] || null;
+}
+/**
+ * Generate API endpoint for a datalabel
+ * Format: /api/v1/datalabel?name={datalabel}
+ * All datalabel names use dl__entity_attribute format (e.g., dl__task_stage)
+ */
+export function getSettingEndpoint(datalabel) {
+    return `/api/v1/datalabel?name=${datalabel}`;
+}
+/**
+ * Load settings options from the API with caching and in-flight request deduplication
+ *
+ * Handles React StrictMode double-mounting by tracking in-flight requests.
+ * If the same datalabel is requested multiple times before the first request completes,
+ * all callers will share the same promise and avoid duplicate API calls.
+ */
+export async function loadSettingOptions(datalabel, forceRefresh = false) {
+    // Check cache first
+    if (!forceRefresh) {
+        const cached = settingsCache.get(datalabel);
+        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+            return cached.data;
+        }
+    }
+    // Check if there's already an in-flight request for this datalabel
+    // This prevents duplicate API calls during React StrictMode double-mounting
+    const existingRequest = inFlightRequests.get(datalabel);
+    if (existingRequest) {
+        return existingRequest;
+    }
+    // Create new request promise
+    const requestPromise = (async () => {
+        // Generate API endpoint
+        const endpoint = getSettingEndpoint(datalabel);
+        try {
+            const token = localStorage.getItem('auth_token');
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+            if (token) {
+                headers.Authorization = `Bearer ${token}`;
+            }
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, { headers });
+            if (!response.ok) {
+                throw new Error(`Failed to fetch settings: ${response.statusText}`);
+            }
+            const result = await response.json();
+            const data = result.data || result || [];
+            // Transform to LabelMetadata format
+            const options = data
+                .filter((item) => item.active_flag !== false) // Only active items
+                .map((item) => {
+                // Support both stage_* and level_* field naming patterns
+                const name = item.stage_name || item.level_name || item.name || item.title;
+                const id = item.stage_id ?? item.level_id ?? item.id;
+                const descr = item.stage_descr || item.level_descr || item.descr;
+                const colorCode = item.color_code;
+                return {
+                    // Use name as value for text-based fields, otherwise use id
+                    value: name || (id !== undefined ? id : item.id),
+                    label: name || String(item.id),
+                    colorClass: colorCodeToTailwindClass(colorCode),
+                    metadata: {
+                        level_id: id,
+                        descr: descr,
+                        sort_order: item.sort_order ?? item.position,
+                        active_flag: item.active_flag,
+                        color_code: colorCode,
+                    }
+                };
+            })
+                .sort((a, b) => {
+                // Sort by sort_order if available, otherwise by label
+                const orderA = a.metadata?.sort_order ?? 999;
+                const orderB = b.metadata?.sort_order ?? 999;
+                if (orderA !== orderB)
+                    return orderA - orderB;
+                return String(a.label).localeCompare(String(b.label));
+            });
+            // Cache the results
+            settingsCache.set(datalabel, {
+                data: options,
+                timestamp: Date.now()
+            });
+            return options;
+        }
+        catch (error) {
+            console.error(`Error loading setting options for ${datalabel}:`, error);
+            return [];
+        }
+        finally {
+            // Clean up in-flight request tracking
+            inFlightRequests.delete(datalabel);
+        }
+    })();
+    // Track this request
+    inFlightRequests.set(datalabel, requestPromise);
+    return requestPromise;
+}
+/**
+ * Load settings options for a specific field key
+ * This is the main function to use in components
+ */
+export async function loadFieldOptions(fieldKey) {
+    const datalabel = getSettingDatalabel(fieldKey);
+    if (!datalabel) {
+        return [];
+    }
+    return loadSettingOptions(datalabel);
+}
+/**
+ * Preload multiple setting datalabels at once
+ * Useful for preloading all settings needed for a form
+ */
+export async function preloadSettings(datalabels) {
+    await Promise.all(datalabels.map(datalabel => loadSettingOptions(datalabel)));
+}
+/**
+ * Clear the settings cache (useful after updates)
+ */
+export function clearSettingsCache(datalabel) {
+    if (datalabel) {
+        settingsCache.delete(datalabel);
+    }
+    else {
+        settingsCache.clear();
+    }
+}
+/**
+ * Get all available setting datalabels
+ * Returns unique datalabel names from FIELD_TO_SETTING_MAP
+ */
+export function getAllSettingDatalabels() {
+    return Array.from(new Set(Object.values(FIELD_TO_SETTING_MAP)));
+}
+/**
+ * Batch load settings for multiple fields at once
+ * Returns a map of fieldKey -> options
+ */
+export async function batchLoadFieldOptions(fieldKeys) {
+    const resultMap = new Map();
+    // Get unique datalabels
+    const datalabels = new Set(fieldKeys
+        .map(key => getSettingDatalabel(key))
+        .filter((dl) => dl !== null));
+    // Load all datalabels in parallel
+    const datalabelResults = await Promise.all(Array.from(datalabels).map(async (datalabel) => ({
+        datalabel,
+        options: await loadSettingOptions(datalabel)
+    })));
+    // Build a datalabel -> options map
+    const datalabelMap = new Map(datalabelResults.map(({ datalabel, options }) => [datalabel, options]));
+    // Map field keys to their options
+    for (const fieldKey of fieldKeys) {
+        const datalabel = getSettingDatalabel(fieldKey);
+        if (datalabel) {
+            resultMap.set(fieldKey, datalabelMap.get(datalabel) || []);
+        }
+    }
+    return resultMap;
+}
+/**
+ * Helper to get the display label for a setting value
+ */
+export function getSettingLabel(fieldKey, value, options) {
+    const option = options.find(opt => String(opt.value) === String(value));
+    return option ? option.label : null;
+}

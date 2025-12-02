@@ -52,7 +52,14 @@ export function EntityInstanceNameSelect({
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
-  // Local state for immediate UI feedback (before parent re-renders from async Dexie update)
+  // ============================================================================
+  // LOCAL-FIRST CONTROLLED COMPONENT PATTERN
+  // ============================================================================
+  // Pattern: docs/design_pattern/update_edit_statemanagement.md
+  // Local state for immediate UI feedback before parent re-renders from async Dexie update
+  // localValue: Current selected UUID for instant display
+  // localLabel: Current selected label for instant display (cleared when prop changes)
+  // ============================================================================
   const [localValue, setLocalValue] = useState(value);
   const [localLabel, setLocalLabel] = useState<string | null>(null);
 

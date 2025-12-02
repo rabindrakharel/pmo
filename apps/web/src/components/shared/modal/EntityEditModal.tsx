@@ -89,7 +89,7 @@ export function EntityEditModal({
 
       // Find all date fields from config and normalize them
       config.fields.forEach(field => {
-        if (field.type === 'date' && normalizedData[field.key]) {
+        if (field.inputType === 'date' && normalizedData[field.key]) {
           const value = normalizedData[field.key];
           if (value && typeof value === 'string' && value.includes('T')) {
             // Already ISO format, extract date part

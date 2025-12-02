@@ -1,8 +1,14 @@
 # EntityInstanceFormContainer Component
 
-**Version:** 11.1.0 | **Location:** `apps/web/src/components/shared/entity/EntityInstanceFormContainer.tsx`
+**Version:** 12.2.0 | **Location:** `apps/web/src/components/shared/entity/EntityInstanceFormContainer.tsx`
 
-> **Note:** As of v11.1.0, both `EntityInstanceFormContainer` and `EntityListOfInstancesTable` use the same **flat metadata format**: `{ viewType, editType }`. This matches the pattern used by the list page. The component supports both flat and nested formats for backward compatibility, but flat format is the standard.
+> **Note:** As of v12.2.0, EntityInstanceFormContainer uses the **FieldRenderer architecture** for modular, metadata-driven field rendering. This replaces the 900+ line hardcoded switch statement with a component registry pattern. Fields are rendered via `<FieldRenderer>` which resolves components using `renderType` (VIEW) and `inputType` (EDIT) from backend metadata.
+>
+> **v12.2.0 Key Changes:**
+> - **FieldRenderer delegation** - Single `<FieldRenderer>` call per field (no switch statements)
+> - **Component registries** - `ViewComponentRegistry` and `EditComponentRegistry`
+> - **YAML alignment** - `renderType` and `inputType` match backend YAML configuration
+> - **vizContainer** - Component overrides for DAGVisualizer, MetadataTable, etc.
 
 ---
 

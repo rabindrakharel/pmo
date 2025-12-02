@@ -11,6 +11,11 @@ import { CacheProvider } from './db';
 import { LoginForm } from './components/shared';
 import { EntityPreviewPanel } from './components/shared/preview/EntityPreviewPanel';
 import { EllipsisBounce } from './components/shared/ui/EllipsisBounce';
+// v12.2.0: Register field renderer components at app initialization
+import { registerAllComponents } from './lib/fieldRenderer/registerComponents';
+
+// Initialize field renderer component registry
+registerAllComponents();
 
 // Landing & Auth Pages
 import { LandingPage } from './pages/LandingPage';

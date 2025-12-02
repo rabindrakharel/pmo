@@ -152,12 +152,20 @@ export interface ColumnDef {
 export interface FieldDef {
   key: string;
   label: string;
-  // v8.3.2: Added entityInstanceId for entity reference dropdowns
-  type: 'text' | 'textarea' | 'richtext' | 'number' | 'date' | 'timestamp' | 'select' | 'multiselect' | 'jsonb' | 'array' | 'BadgeDropdownSelect' | 'component' | 'entityInstanceId';
+  // v12.1.0: Aligned with YAML view-type-mapping.yaml and edit-type-mapping.yaml
+  // renderType: From viewType metadata - controls VIEW mode rendering (e.g., 'text', 'badge', 'currency', 'component')
+  // inputType: From editType metadata - controls EDIT mode input (e.g., 'text', 'select', 'component', 'BadgeDropdownSelect')
+  // Both are strings loaded from backend metadata via TanStack Query
+  // Optional for backward compatibility with settings factory (which uses 'type' property)
+  renderType?: string;
+  inputType?: string;
+  // Legacy type property (used by settings factory)
+  type?: string;
   required?: boolean;
   readonly?: boolean;
   disabled?: boolean;
   placeholder?: string;
+  defaultValue?: any;  // Default value for new entity creation
   options?: { value: string; label: string }[];
   validation?: (value: any) => string | null;
   /**
@@ -175,14 +183,14 @@ export interface FieldDef {
   lookupField?: string;
   editable?: boolean;
   /**
-   * v8.3.2: EntityInstanceFormContainer visualization container (backend metadata driven)
+   * v12.2.0: Visualization container for component-based rendering
    *
    * ONLY used by EntityInstanceFormContainer (EntityListOfInstancesTable IGNORES this field completely).
    * When set, this OVERRIDES the default rendering logic based on field type.
    *
    * Structure:
-   * - view: Component for view mode (from viewMeta.renderType === 'component' && viewMeta.component)
-   * - edit: Component for edit mode (from editMeta.inputType === 'component' && editMeta.component)
+   * - view: Component name for view mode (from viewMeta.renderType === 'component' && viewMeta.component)
+   * - edit: Component name for edit mode (from editMeta.inputType === 'component' && editMeta.component)
    *
    * Examples:
    * - { view: 'DAGVisualizer', edit: 'DAGVisualizer' } → DAG for both modes
@@ -191,10 +199,14 @@ export interface FieldDef {
    *
    * @see apps/api/src/services/backend-formatter.service.ts
    */
-  EntityInstanceFormContainer_viz_container?: {
+  vizContainer?: {
     view?: string;
     edit?: string;
   };
+  /**
+   * Field style configuration (from metadata)
+   */
+  style?: Record<string, any>;
 }
 
 export interface EntityConfig {
@@ -947,20 +959,14 @@ export const entityConfigs: Record<string, EntityConfig> = {
     supportedViews: ['table', 'kanban', 'calendar'],
     defaultView: 'table',
 
-    kanbanConfig: {
+    // Kanban config for person_calendar
+    kanban: {
       groupByField: 'availability_flag',
-      titleField: 'title',
-      subtitleField: 'from_ts'
-    },
-
-    calendarConfig: {
-      dateField: 'from_ts',
-      endDateField: 'to_ts',
-      titleField: 'title',
-      personField: 'person_entity_id',
-      personTypeField: 'person_entity_type',
-      statusField: 'availability_flag'
+      cardFields: ['title', 'from_ts', 'to_ts']
     }
+
+    // Note: calendarConfig is not part of EntityConfig interface
+    // Calendar rendering is handled by CalendarView component directly
   },
 
   // --------------------------------------------------------------------------
