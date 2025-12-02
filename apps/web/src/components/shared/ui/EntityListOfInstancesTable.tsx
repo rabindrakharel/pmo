@@ -95,9 +95,10 @@ export interface Column<T = any> {
   width?: string | number;
   align?: 'left' | 'center' | 'right';
   // Inline editing (now supports all 15 EditTypes from universal detector)
+  // v12.2.0: 'select' replaced with 'component' - use component field for specific component
   editable?: boolean;
   editType?: 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time' |
-             'select' | 'multiselect' | 'checkbox' | 'textarea' | 'tags' |
+             'component' | 'multiselect' | 'checkbox' | 'textarea' | 'tags' |
              'jsonb' | 'datatable' | 'file' | 'dag-select';
   // v12.0.0: Renamed lookupSource → lookupSourceTable, datalabelKey → lookupField
   lookupSourceTable?: 'datalabel' | 'entityInstance';  // Backend lookup type
@@ -1891,7 +1892,8 @@ export function EntityListOfInstancesTable<T = any>({
                       // Data columns: Extract metadata and render based on field type
                       const backendMeta = (column as any).backendMetadata as BackendFieldMetadata | undefined;
                       const fieldEditable = backendMeta?.editable ?? column.editable ?? false;
-                      const editType = backendMeta?.inputType ?? column.editType ?? 'text';
+                      // v12.2.0: inputType determines rendering (e.g., 'text', 'number', 'component')
+                      const inputType = backendMeta?.inputType ?? column.editType ?? 'text';
                       const hasLabelsMetadata = labelsMetadata.has(column.key);
                       const columnOptions = hasLabelsMetadata ? labelsMetadata.get(column.key)! : [];
                       const formattedRecord = record as FormattedRow<any>;
@@ -1927,10 +1929,10 @@ export function EntityListOfInstancesTable<T = any>({
                           {(isCellBeingEdited || (isEditing && fieldEditable)) ? (
                             <div
                               ref={isCellBeingEdited ? editingCellRef : undefined}
-                              onKeyDown={(e) => handleCellKeyDown(e, recordId, column.key, record, editType)}
+                              onKeyDown={(e) => handleCellKeyDown(e, recordId, column.key, record, inputType)}
                               className="w-full"
                             >
-                              {editType === 'file' ? (
+                              {inputType === 'file' ? (
                                 <InlineFileUploadCell
                                   value={rawValue}
                                   entityCode={onEdit ? 'artifact' : 'cost'}
@@ -1965,7 +1967,8 @@ export function EntityListOfInstancesTable<T = any>({
                                   </select>
                                   <ChevronDown className="h-4 w-4 text-dark-700 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                                 </div>
-                              ) : editType === 'select' && hasLabelsMetadata ? (
+                              ) : inputType === 'component' && hasLabelsMetadata ? (
+                                // v12.2.0: inputType 'component' with datalabel options renders BadgeDropdownSelect
                                 <BadgeDropdownSelect
                                   value={(isCellBeingEdited ? localCellValue : editedData[column.key]) ?? rawValue ?? ''}
                                 options={columnOptions.map(opt => ({
@@ -2145,7 +2148,8 @@ export function EntityListOfInstancesTable<T = any>({
                       // Data columns: Extract metadata and render based on field type
                       const backendMeta = (column as any).backendMetadata as BackendFieldMetadata | undefined;
                       const fieldEditable = backendMeta?.editable ?? column.editable ?? false;
-                      const editType = backendMeta?.inputType ?? column.editType ?? 'text';
+                      // v12.2.0: inputType determines rendering (e.g., 'text', 'number', 'component')
+                      const inputType = backendMeta?.inputType ?? column.editType ?? 'text';
                       const hasLabelsMetadata = labelsMetadata.has(column.key);
                       const columnOptions = hasLabelsMetadata ? labelsMetadata.get(column.key)! : [];
                       const formattedRecord = record as FormattedRow<any>;
@@ -2185,10 +2189,10 @@ export function EntityListOfInstancesTable<T = any>({
                             // ============================================================================
                             <div
                               ref={isCellBeingEdited ? editingCellRef : undefined}
-                              onKeyDown={(e) => handleCellKeyDown(e, recordId, column.key, record, editType)}
+                              onKeyDown={(e) => handleCellKeyDown(e, recordId, column.key, record, inputType)}
                               className="w-full"
                             >
-                              {editType === 'file' ? (
+                              {inputType === 'file' ? (
                                 // FILE UPLOAD - Complex drag-drop component
                                 <InlineFileUploadCell
                                   value={rawValue}
@@ -2235,8 +2239,8 @@ export function EntityListOfInstancesTable<T = any>({
                                   </select>
                                   <ChevronDown className="h-4 w-4 text-dark-700 absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none" />
                                 </div>
-                              ) : editType === 'select' && hasLabelsMetadata ? (
-                                // v8.3.2: Use shared BadgeDropdownSelect (DRY principle)
+                              ) : inputType === 'component' && hasLabelsMetadata ? (
+                                // v12.2.0: inputType 'component' with datalabel options renders BadgeDropdownSelect
                                 <BadgeDropdownSelect
                                   value={(isCellBeingEdited ? localCellValue : editedData[column.key]) ?? rawValue ?? ''}
                                   options={columnOptions.map(opt => ({

@@ -1069,7 +1069,7 @@ interface ViewFieldMetadata {
 interface EditFieldMetadata {
   dtype: string;
   label: string;
-  inputType: string;      // 'text', 'number', 'select', 'date', 'checkbox', etc.
+  inputType: string;      // 'text', 'number', 'date', 'checkbox', 'component', etc.
   behavior: { editable?: boolean };
   validation: { required?: boolean; min?: number; max?: number };
   lookupSourceTable?: 'datalabel' | 'entityInstance';  // v12.0.0: renamed from lookupSource

@@ -700,7 +700,8 @@ const cacheKey = `entity:fields:${entityCode}`;
         "dl__project_stage": {
           "dtype": "str",
           "label": "Project Stage",
-          "inputType": "select",
+          "inputType": "component",
+          "component": "BadgeDropdownSelect",
           "lookupSourceTable": "datalabel",
           "lookupField": "dl__project_stage",
           "behavior": { "editable": true }

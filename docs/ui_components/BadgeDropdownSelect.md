@@ -2,7 +2,7 @@
 
 **Version:** 12.2.0 | **Location:** `apps/web/src/components/shared/ui/BadgeDropdownSelect.tsx`
 
-> **Note:** As of v12.2.0, BadgeDropdownSelect is registered in the **EditComponentRegistry** and resolved automatically by FieldRenderer when `inputType='select'` or `vizContainer.edit='BadgeDropdownSelect'`.
+> **Note:** As of v12.2.0, BadgeDropdownSelect is registered in the **EditComponentRegistry** and resolved automatically by FieldRenderer when `inputType='component'` with `component='BadgeDropdownSelect'`.
 
 ---
 
@@ -15,7 +15,7 @@ BadgeDropdownSelect is a shared dropdown component for selecting datalabel value
 - Portal rendering for table compatibility
 - Options loaded from datalabel cache via `getDatalabelSync()`
 - **v12.2.0:** Registered in `EditComponentRegistry` as `'BadgeDropdownSelect'`
-- Backend metadata drives rendering via `inputType: 'BadgeDropdownSelect'` or `vizContainer.edit: 'BadgeDropdownSelect'`
+- Backend metadata drives rendering via `inputType: 'component'` with `component: 'BadgeDropdownSelect'`
 
 ---
 
@@ -195,7 +195,6 @@ const BadgeDropdownSelectEdit: FC<ComponentRendererProps> = ({
 );
 
 registerEditComponent('BadgeDropdownSelect', BadgeDropdownSelectEdit);
-registerEditComponent('select', BadgeDropdownSelectEdit);  // Alias
 ```
 
 ### Resolution Flow
@@ -208,8 +207,8 @@ registerEditComponent('select', BadgeDropdownSelectEdit);  // Alias
 │  Backend Metadata (editType):                                                │
 │  ─────────────────────────────                                              │
 │  dl__project_stage: {                                                        │
-│    inputType: 'select',                    // or 'BadgeDropdownSelect'       │
-│    component: 'BadgeDropdownSelect',       // vizContainer.edit              │
+│    inputType: 'component',                 // MUST be 'component' when component is set │
+│    component: 'BadgeDropdownSelect',                                         │
 │    lookupSourceTable: 'datalabel',                                           │
 │    lookupField: 'dl__project_stage'                                          │
 │  }                                                                           │
@@ -239,7 +238,7 @@ import { FieldRenderer } from '@/lib/fieldRenderer';
 {fields.map(field => (
   <FieldRenderer
     key={field.key}
-    field={field}                    // { inputType: 'select', vizContainer: { edit: 'BadgeDropdownSelect' } }
+    field={field}                    // { inputType: 'component', component: 'BadgeDropdownSelect' }
     value={data[field.key]}
     isEditing={true}
     onChange={(v) => handleChange(field.key, v)}
@@ -332,7 +331,7 @@ case 'color_code':
 │                                                                              │
 │  2. API RESPONSE:                                                            │
 │     metadata.entityInstanceFormContainer.editType.dl__project_stage = {     │
-│       inputType: "select",                                                   │
+│       inputType: "component",                                                │
 │       component: "BadgeDropdownSelect",                                      │
 │       lookupSourceTable: "datalabel",                                        │
 │       lookupField: "dl__project_stage"                                       │
@@ -364,15 +363,17 @@ Backend metadata configures BadgeDropdownSelect via `edit-type-mapping.yaml`:
 
 ```yaml
 # Standard datalabel fields (non-DAG)
-datalabel_standard:
+datalabel:
   dtype: str
   lookupSourceTable: datalabel    # v12.0.0: renamed from lookupSource
   entityListOfInstancesTable:
     renderType: badge
-    inputType: select  # Falls back to BadgeDropdownSelect when hasLabelsMetadata
+    inputType: component           # MUST be 'component' when component is specified
+    component: DataLabelSelect
     behavior: { editable: true, filterable: true }
   entityInstanceFormContainer:
-    inputType: select  # Uses BadgeDropdownSelect for datalabel fields
+    inputType: component
+    component: DataLabelSelect
   # lookupField auto-set by backend-formatter.service.ts
 
 # DAG datalabels (stage/state/status with parent-child)
@@ -383,8 +384,8 @@ datalabel_dag:
     renderType: component
     component: DAGVisualizer
   entityInstanceFormContainer:
-    inputType: select
-    component: BadgeDropdownSelect  # Edit mode uses dropdown, not DAG
+    inputType: component           # MUST be 'component' when component is specified
+    component: BadgeDropdownSelect
   # lookupField auto-set by backend-formatter.service.ts
 ```
 

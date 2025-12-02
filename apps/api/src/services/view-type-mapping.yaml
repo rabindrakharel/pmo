@@ -347,7 +347,7 @@
 # │   date            → <input type="date">                                 │
 # │   datetime        → <input type="datetime-local">                       │
 # │   checkbox        → <input type="checkbox">                             │
-# │   select          → BadgeDropdownSelect (with datalabel colors)         │
+# │   component       → Component from `component` field (DataLabelSelect)  │
 # │   multiselect     → MultiSelect                                         │
 # │                                                                          │
 # │ Source: apps/web/src/lib/frontEndFormatterService.tsx                   │

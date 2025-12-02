@@ -73,8 +73,8 @@
 #           "dl__project_stage": {               ← Datalabel dropdown field
 #             "dtype": "str",
 #             "label": "Project Stage",
-#             "inputType": "select",
-#             "component": "BadgeDropdownSelect",
+#             "inputType": "component",          ← MUST be "component" when component is specified
+#             "component": "DataLabelSelect",
 #             "behavior": { "editable": true },
 #             "lookupSourceTable": "datalabel",  ← Where to load options
 #             "lookupField": "dl__project_stage" ← Datalabel key for lookup
@@ -190,19 +190,14 @@
 #   - hidden       : Hidden field (not rendered)
 #   - readonly     : Display only, not editable
 #
-#   Custom types (REQUIRES component field):
+#   Custom component type:
 #   - component    : Custom React component - MUST specify component: <name>
-#   - select       : Dropdown select - MUST specify component: <name>
-#
-#   v8.3.2 Special inputTypes (standalone, no component needed):
-#   - BadgeDropdownSelect : Datalabel dropdown with colored badges
-#                           Uses datalabel cache, renders colored badge options
-#                           lookupSource: datalabel required
 #
 # component - React component name:
-#   - ONLY allowed when inputType is "component" or "select"
+#   - ONLY allowed when inputType is "component"
 #   - NEVER use with HTML5 inputTypes (text, number, email, date, etc.)
-#   - Examples: DatalabelSelect, EntitySelect, CurrencyInput, RichTextEditor, DAGVisualizer
+#   - If component has a value, inputType MUST be "component"
+#   - Examples: DataLabelSelect, EditableTags, StatusSelect, EntityInstanceNameSelect
 #
 # behavior - Field behavior settings (differs by UI component):
 #   For entityListOfInstancesTable:
@@ -715,20 +710,20 @@ fieldBusinessTypes:
     dtype: str
     lookupSourceTable: datalabel
     entityListOfInstancesTable:
-      inputType: select
+      inputType: component
       component: DataLabelSelect
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
     entityInstanceFormContainer:
-      inputType: select
+      inputType: component
       component: DataLabelSelect
       behavior: { editable: true }
       style: { showColor: true, searchable: true }
     kanbanView:
-      inputType: select
+      inputType: component
       component: DataLabelSelect
       behavior: { editable: true }
     dagView:
-      inputType: select
+      inputType: component
       component: DataLabelSelect
       behavior: { editable: true }
 
@@ -739,7 +734,7 @@ fieldBusinessTypes:
     dtype: str
     lookupSourceTable: datalabel
     entityListOfInstancesTable:
-      inputType: select
+      inputType: component
       component: DataLabelSelect
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
     entityInstanceFormContainer:
@@ -747,11 +742,11 @@ fieldBusinessTypes:
       component: BadgeDropdownSelect
       behavior: { editable: true }
     kanbanView:
-      inputType: select
+      inputType: component
       component: DataLabelSelect
       behavior: { editable: true }
     dagView:
-      inputType: select
+      inputType: component
       component: DataLabelSelect
       behavior: { editable: true }
 
@@ -992,11 +987,11 @@ fieldBusinessTypes:
   tags:
     dtype: array[str]
     entityListOfInstancesTable:
-      inputType: select
+      inputType: component
       component: EditableTags
       behavior: { editable: true, filterable: true, sortable: false, visible: true }
     entityInstanceFormContainer:
-      inputType: select
+      inputType: component
       component: EditableTags
       behavior: { editable: true }
       style: { allowCreate: true, maxTags: null }
@@ -1154,11 +1149,11 @@ fieldBusinessTypes:
   status:
     dtype: str
     entityListOfInstancesTable:
-      inputType: select
+      inputType: component
       component: StatusSelect
       behavior: { editable: true, filterable: true, sortable: true, visible: true }
     entityInstanceFormContainer:
-      inputType: select
+      inputType: component
       component: StatusSelect
       behavior: { editable: true }
 

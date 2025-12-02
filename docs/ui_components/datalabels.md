@@ -18,14 +18,74 @@
 
 ## Architectural Truth
 
-**Metadata properties control datalabel field rendering:**
+### Terminology Clarification
 
-| Metadata | Property | Purpose |
-|----------|----------|---------|
+**Container vs Property:**
+
+| Term | Type | Description |
+|------|------|-------------|
+| `viewType` | **Container** | Object holding all VIEW mode metadata for a field |
+| `editType` | **Container** | Object holding all EDIT mode metadata for a field |
+| `renderType` | **Property** | Property INSIDE `viewType` - controls view rendering |
+| `inputType` | **Property** | Property INSIDE `editType` - controls edit rendering |
+
+**API Response Structure:**
+```
+metadata.entityListOfInstancesTable
+├── viewType                          ← CONTAINER for view metadata
+│   └── dl__project_stage
+│       ├── renderType: "badge"       ← PROPERTY (how to render in view mode)
+│       ├── lookupField: "..."
+│       └── ...
+└── editType                          ← CONTAINER for edit metadata
+    └── dl__project_stage
+        ├── inputType: "component"    ← PROPERTY (how to render in edit mode)
+        ├── component: "DataLabelSelect"
+        └── ...
+```
+
+### Metadata Properties
+
+| Container | Property | Purpose |
+|-----------|----------|---------|
 | **viewType** | `renderType` + `component` | Controls WHICH component renders (view mode) |
 | **viewType** | `lookupField` | Field name for badge color lookup (v12.0.0) |
-| **editType** | `inputType` + `component` | Controls WHICH component renders (edit mode) |
+| **editType** | `inputType` + `component` (when needed) | Controls WHICH component renders (edit mode) |
 | **editType** | `lookupSourceTable` + `lookupField` | Controls WHERE data comes from (v12.0.0) |
+
+### inputType Values (property inside editType)
+
+`inputType` can be either a **standard HTML5 input type** OR `"component"`:
+
+| inputType | component field | What Renders |
+|-----------|-----------------|--------------|
+| `text` | - | `<input type="text">` |
+| `number` | - | `<input type="number">` |
+| `date` | - | `<input type="date">` |
+| `datetime-local` | - | `<input type="datetime-local">` |
+| `checkbox` | - | `<input type="checkbox">` |
+| `email` | - | `<input type="email">` |
+| `textarea` | - | `<textarea>` |
+| `component` | **REQUIRED** | Component from registry (e.g., `DataLabelSelect`) |
+
+**Rule:** If `component` has a value, `inputType` MUST be `"component"`.
+
+### renderType Values (property inside viewType)
+
+`renderType` controls VIEW mode rendering. Can be **inline types** OR `"component"`:
+
+| renderType | component field | What Renders |
+|------------|-----------------|--------------|
+| `text` | - | Plain text display |
+| `badge` | - | Colored badge (uses `lookupField` for color) |
+| `currency` | - | Formatted currency (e.g., `$50,000.00`) |
+| `date` | - | Formatted date |
+| `timestamp` | - | Formatted datetime |
+| `boolean` | - | Yes/No or checkmark |
+| `entityLink` | - | Clickable entity link |
+| `component` | **REQUIRED** | Component from registry (e.g., `DAGVisualizer`) |
+
+**Rule:** If `component` has a value for view mode, `renderType` MUST be `"component"`.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -44,8 +104,8 @@
 │                                                                              │
 │  editType.dl__project_stage:                                                 │
 │  ┌────────────────────────────────────────┐                                  │
-│  │ inputType: "select"                    │──► Dropdown component           │
-│  │ component: "BadgeDropdownSelect"       │──► Colored badge dropdown       │
+│  │ inputType: "component"                 │──► Custom component rendering   │
+│  │ component: "DataLabelSelect"           │──► Colored badge dropdown       │
 │  │ lookupSourceTable: "datalabel"         │──► Load from datalabel cache    │
 │  │ lookupField: "dl__project_stage"       │──► Key for useDatalabel()       │
 │  └────────────────────────────────────────┘                                  │
@@ -120,8 +180,8 @@ datalabel:
   dtype: str
   lookupSourceTable: datalabel           # ← v12.0.0: WHERE data comes from
   entityListOfInstancesTable:
-    inputType: select
-    component: BadgeDropdownSelect
+    inputType: component                 # ← MUST be "component" when component is specified
+    component: DataLabelSelect
     behavior: { editable: true, filterable: true }
   # lookupField is auto-set by backend-formatter.service.ts
 ```
@@ -161,8 +221,8 @@ if (edit.lookupSourceTable === 'datalabel') {
         "dl__project_stage": {
           "dtype": "str",
           "label": "Project Stage",
-          "inputType": "select",
-          "component": "BadgeDropdownSelect",
+          "inputType": "component",
+          "component": "DataLabelSelect",
           "lookupSourceTable": "datalabel",
           "lookupField": "dl__project_stage",
           "behavior": { "editable": true }
@@ -261,11 +321,12 @@ With v12.2.0, datalabel fields are rendered via FieldRenderer, which resolves co
 │  EDIT MODE (isEditing=true):                                                 │
 │  ────────────────────────────                                               │
 │  1. FieldRenderer receives field with:                                       │
-│     - inputType='select' OR vizContainer.edit='BadgeDropdownSelect'          │
+│     - inputType='component'                                                  │
+│     - component='DataLabelSelect'                                            │
 │     - lookupField='dl__project_stage'                                        │
-│  2. resolveEditComponent('select', 'BadgeDropdownSelect')                    │
-│     → EditComponentRegistry.get('BadgeDropdownSelect')                       │
-│  3. Renders: <BadgeDropdownSelectEdit value={...} options={...} />          │
+│  2. resolveEditComponent('component', 'DataLabelSelect')                     │
+│     → EditComponentRegistry.get('DataLabelSelect')                           │
+│  3. Renders: <DataLabelSelect value={...} options={...} />          │
 │                                                                              │
 │  OPTIONS LOADING:                                                            │
 │  ─────────────────                                                          │
@@ -298,7 +359,7 @@ const labelsMetadata = useMemo(() => {
 {fields.map(field => (
   <FieldRenderer
     key={field.key}
-    field={field}                    // { renderType: 'badge', inputType: 'select', lookupField: 'dl__...' }
+    field={field}                    // { renderType: 'badge', inputType: 'component', component: 'DataLabelSelect', lookupField: 'dl__...' }
     value={data[field.key]}          // "Execution"
     isEditing={isEditing}
     onChange={(v) => handleChange(field.key, v)}
@@ -313,12 +374,12 @@ const labelsMetadata = useMemo(() => {
 
 ### Component Resolution Matrix
 
-| renderType/inputType | vizContainer | Registry | Component |
-|----------------------|--------------|----------|-----------|
+| renderType/inputType | component | Registry | Resolved Component |
+|----------------------|-----------|----------|-----------|
 | `badge` | - | Inline | `ViewFieldRenderer` (uses formattedData) |
 | `component` | `DAGVisualizer` | VIEW | `ViewComponentRegistry.get('DAGVisualizer')` |
-| `select` | `BadgeDropdownSelect` | EDIT | `EditComponentRegistry.get('BadgeDropdownSelect')` |
-| `select` | - | EDIT | `EditComponentRegistry.get('select')` → BadgeDropdownSelect |
+| `component` | `DataLabelSelect` | EDIT | `EditComponentRegistry.get('DataLabelSelect')` |
+| `component` | `BadgeDropdownSelect` | EDIT | `EditComponentRegistry.get('BadgeDropdownSelect')` |
 
 ---
 
@@ -431,15 +492,17 @@ if (viewMeta.renderType === 'badge') {
 }
 ```
 
-### Edit Mode Rendering (BadgeDropdownSelect)
+### Edit Mode Rendering (DataLabelSelect)
 
 ```typescript
-if (editMeta?.component === 'BadgeDropdownSelect') {
+// When inputType === 'component', render the component from editMeta.component
+if (editMeta?.inputType === 'component' && editMeta?.component) {
   const lookupField = editMeta.lookupField;
   const options = getDatalabelSync(lookupField) || [];
+  const Component = EditComponentRegistry.get(editMeta.component);
 
   return (
-    <BadgeDropdownSelect
+    <Component
       value={value}
       options={options.map(opt => ({
         value: opt.name,

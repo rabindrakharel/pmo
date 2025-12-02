@@ -116,8 +116,8 @@ registerEditComponent('DAGVisualizer', DAGVisualizerEdit);
 │      lookupField: 'dl__project_stage'                                        │
 │    },                                                                        │
 │    editType: {                                                               │
-│      inputType: 'select',                                                    │
-│      component: 'BadgeDropdownSelect',  // vizContainer.edit (override)      │
+│      inputType: 'component',            // MUST be 'component' when component is set │
+│      component: 'BadgeDropdownSelect',                                       │
 │      lookupSourceTable: 'datalabel',                                         │
 │      lookupField: 'dl__project_stage'                                        │
 │    }                                                                         │
@@ -173,7 +173,7 @@ import { FieldRenderer } from '@/lib/fieldRenderer';
 |----------|----------|---------|
 | **viewType** | `renderType: 'component'` + `component: 'DAGVisualizer'` | Controls WHICH component renders (view mode) |
 | **viewType** | `lookupField` | Field name for stage data lookup |
-| **editType** | `inputType: 'select'` + `component: 'BadgeDropdownSelect'` | Controls WHICH component renders (edit mode) |
+| **editType** | `inputType: 'component'` + `component: 'BadgeDropdownSelect'` | Controls WHICH component renders (edit mode) |
 | **editType** | `lookupSourceTable: 'datalabel'` + `lookupField` | Controls WHERE data comes from |
 
 ```
@@ -197,7 +197,7 @@ import { FieldRenderer } from '@/lib/fieldRenderer';
 │                                                                              │
 │  editType.dl__project_stage:                                                 │
 │  ┌────────────────────────────────────────┐                                  │
-│  │ inputType: "select"                    │──┐                               │
+│  │ inputType: "component"                 │──┐                               │
 │  │ component: "BadgeDropdownSelect"       │──┼──► vizContainer.edit          │
 │  │ lookupSourceTable: "datalabel"         │──┼──► Filter for loading options │
 │  │ lookupField: "dl__project_stage"       │──► Key for getDatalabelSync()    │
@@ -543,7 +543,7 @@ if (vizContainer?.view === 'DAGVisualizer' && dagNodes.has(field.key)) {
         "dl__project_stage": {
           "dtype": "str",
           "label": "Project Stage",
-          "inputType": "select",
+          "inputType": "component",
           "component": "BadgeDropdownSelect",
           "lookupSourceTable": "datalabel",
           "lookupField": "dl__project_stage",

@@ -32,7 +32,7 @@ function detectFieldType(columnName: string, dataType?: string): {
     inputType = 'checkbox';
   } else if (columnName.startsWith('dl__')) {
     renderType = 'badge';
-    inputType = 'select';
+    inputType = 'component';  // v12.2.0: Use 'component' with component='DataLabelSelect'
   }
 
   return {

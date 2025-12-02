@@ -171,7 +171,8 @@ interface ViewFieldMetadata {
 interface EditFieldMetadata {
   dtype: string;
   label: string;
-  inputType: string;      // 'text', 'number', 'select', 'date', 'checkbox', 'BadgeDropdownSelect', etc.
+  inputType: string;      // 'text', 'number', 'date', 'checkbox', 'component', etc.
+  component?: string;     // Component name when inputType='component' (e.g., 'DataLabelSelect', 'BadgeDropdownSelect')
   behavior: {
     editable?: boolean;   // Allow editing
   };
@@ -182,10 +183,12 @@ interface EditFieldMetadata {
     pattern?: string;
   };
   lookupSourceTable?: 'datalabel' | 'entityInstance';  // v12.0.0: renamed from lookupSource
-  lookupField?: string;   // v12.0.0: For select fields (renamed from datalabelKey)
+  lookupField?: string;   // v12.0.0: For component fields (renamed from datalabelKey)
   lookupEntity?: string;  // For entity reference fields
 }
 ```
+
+**Rule:** If `component` has a value, `inputType` MUST be `'component'`.
 
 ---
 

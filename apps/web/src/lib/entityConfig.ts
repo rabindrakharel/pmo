@@ -152,9 +152,10 @@ export interface ColumnDef {
 export interface FieldDef {
   key: string;
   label: string;
-  // v12.1.0: Aligned with YAML view-type-mapping.yaml and edit-type-mapping.yaml
+  // v12.2.0: Aligned with YAML view-type-mapping.yaml and edit-type-mapping.yaml
   // renderType: From viewType metadata - controls VIEW mode rendering (e.g., 'text', 'badge', 'currency', 'component')
-  // inputType: From editType metadata - controls EDIT mode input (e.g., 'text', 'select', 'component', 'BadgeDropdownSelect')
+  // inputType: From editType metadata - controls EDIT mode input (e.g., 'text', 'number', 'component')
+  //            When inputType is 'component', the `component` field specifies which component to use
   // Both are strings loaded from backend metadata via TanStack Query
   // Optional for backward compatibility with settings factory (which uses 'type' property)
   renderType?: string;

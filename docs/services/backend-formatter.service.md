@@ -219,7 +219,7 @@
 │                                                                              │
 │  dl__project_stage     ──>  dl__*                  ──>  dtype: str          │
 │                                                         renderType: badge   │
-│                                                         inputType: select   │
+│                                                         inputType: component│
 │                                                         lookupSourceTable: datalabel
 │                                                         lookupField: dl__project_stage
 │                                                                              │
@@ -566,7 +566,8 @@ interface EditTypeMetadata {
         "dl__project_stage": {
           "dtype": "str",
           "label": "Project Stage",
-          "inputType": "select",
+          "inputType": "component",
+          "component": "BadgeDropdownSelect",
           "lookupSourceTable": "datalabel",
           "lookupField": "dl__project_stage",
           "behavior": { "editable": true }
@@ -802,7 +803,8 @@ patterns:
   - pattern: "dl__*"
     dtype: str
     renderType: badge
-    inputType: select
+    inputType: component
+    component: BadgeDropdownSelect
     lookupSourceTable: datalabel  # v12.0.0: renamed from lookupSource
 
   # Percentage

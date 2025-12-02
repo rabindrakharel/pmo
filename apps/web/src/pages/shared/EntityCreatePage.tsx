@@ -48,18 +48,18 @@ export function EntityCreatePage({ entityCode }: EntityCreatePageProps) {
       active_flag: true
     };
 
-    // Set defaults for required fields based on entity type
-    // v12.1.0: Using inputType from editType metadata
+    // Set defaults for required fields based on field types
+    // v12.2.0: inputType is now 'component' when component is specified
     config?.fields.forEach(field => {
       if (field.inputType === 'array') {
         defaults[field.key] = [];
       } else if (field.inputType === 'jsonb') {
         defaults[field.key] = {};
-      } else if (field.inputType === 'select' && field.defaultValue) {
-        // Use defaultValue from field config if specified
+      } else if (field.inputType === 'component' && field.defaultValue) {
+        // Use defaultValue from field config if specified (for dropdown components)
         defaults[field.key] = field.defaultValue;
-      } else if (field.inputType === 'select' && field.options) {
-        // Don't set a default value for select fields without defaultValue
+      } else if (field.inputType === 'component' && field.options) {
+        // Don't set a default value for component fields with options but no defaultValue
         defaults[field.key] = '';
       }
     });

@@ -68,7 +68,7 @@ export type FieldMetadata = ViewFieldMetadata;
 export interface EditFieldMetadata {
   dtype: string;                    // Data type
   label: string;                    // Input label
-  inputType: string;                // Input control: 'text', 'number', 'select', 'date', etc.
+  inputType: string;                // Input control: 'text', 'number', 'date', 'component', etc.
   behavior: {
     editable: boolean;              // Can edit this field
   };

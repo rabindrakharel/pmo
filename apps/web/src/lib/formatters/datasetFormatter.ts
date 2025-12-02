@@ -64,11 +64,11 @@ const FORMATTERS: Record<string, (value: any, meta?: ViewFieldMetadata) => Forma
   'currency': formatCurrency,
 
   // Badges/Datalabels
+  // v12.2.0: renderType 'badge' is used for VIEW mode, inputType 'component' for EDIT mode
   'badge': formatBadge,
   'datalabel': formatBadge,
   'datalabels': formatBadge,
   'dag': formatBadge,
-  'select': formatBadge,
 
   // Dates
   'date': formatDate,

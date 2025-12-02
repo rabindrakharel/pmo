@@ -80,7 +80,7 @@ v12.2.0 introduces the **FieldRenderer component registry pattern**, replacing t
 │  budget_allocated_amt: {                dl__project_stage: {                │
 │    renderType: 'currency',                renderType: 'component',          │
 │    inputType: 'number',                   component: 'DAGVisualizer',       │
-│    style: { symbol: '$' }                 inputType: 'select',              │
+│    style: { symbol: '$' }                 inputType: 'component',           │
 │  }                                        vizContainer: {                   │
 │                                             view: 'DAGVisualizer',          │
 │                                             edit: 'BadgeDropdownSelect'     │
@@ -619,7 +619,8 @@ interface ViewFieldMetadata {
 interface EditFieldMetadata {
   dtype: string;
   label: string;
-  inputType: string;      // 'text', 'number', 'select', 'date', 'checkbox', 'textarea', etc.
+  inputType: string;      // 'text', 'number', 'date', 'checkbox', 'textarea', 'component', etc.
+  component?: string;     // Component name when inputType='component' (e.g., 'BadgeDropdownSelect')
   behavior: {
     editable?: boolean;   // Allow editing
   };
@@ -642,8 +643,8 @@ interface EditFieldMetadata {
 | viewType.renderType | viewType.component | View Display | editType.inputType | Edit Component |
 |---------------------|--------------------|--------------|--------------------|----------------|
 | `currency` | - | `$50,000.00` | `number` | `<DebouncedInput type="number">` |
-| `badge` | - | Badge with color | `select` | `<BadgeDropdownSelect>` |
-| `component` | `DAGVisualizer` | DAGVisualizer graph | `select` | Interactive `<DAGVisualizer>` or `<BadgeDropdownSelect>` |
+| `badge` | - | Badge with color | `component` | `<BadgeDropdownSelect>` |
+| `component` | `DAGVisualizer` | DAGVisualizer graph | `component` | Interactive `<DAGVisualizer>` or `<BadgeDropdownSelect>` |
 | `date` | - | `Jan 15, 2025` | `date` | `<input type="date">` |
 | `boolean` | - | Check/X icon | `checkbox` | `<input type="checkbox">` |
 | `entityInstanceId` | - | Entity name (via ref_data) | `entityInstanceId` | `<EntityInstanceNameLookup>` |

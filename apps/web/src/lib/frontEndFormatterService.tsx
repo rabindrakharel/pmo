@@ -139,7 +139,7 @@ export interface BackendFieldMetadata {
     view?: string;
     edit?: string;
   };
-  EntityListOfInstancesTable_edit_component?: 'BadgeDropdownSelect' | 'select' | 'input';
+  EntityListOfInstancesTable_edit_component?: 'BadgeDropdownSelect' | 'DataLabelSelect' | 'input';
 }
 
 /**
@@ -569,6 +569,8 @@ export function renderEditModeFromMetadata(
           );
         }
 
+        // v12.2.0: DataLabelSelect and BadgeDropdownSelect both handle datalabel dropdowns
+        case 'DataLabelSelect':
         case 'BadgeDropdownSelect': {
           // v12.0.0: Use lookupField instead of datalabelKey
           const lookupField = metadata.lookupField || metadata.key;
@@ -633,50 +635,7 @@ export function renderEditModeFromMetadata(
       }
     }
 
-    case 'select': {
-      // v12.0.0: Check if this is a datalabel field (lookupSourceTable === 'datalabel' or has lookupField)
-      if (metadata.lookupField || metadata.lookupSourceTable === 'datalabel') {
-        const lookupField = metadata.lookupField || metadata.key;
-
-        // v9.0.0: Load options from Dexie sync cache (cached at login via prefetchAllMetadata)
-        const datalabelOptions = getDatalabelSync(lookupField);
-
-        if (datalabelOptions && datalabelOptions.length > 0) {
-          // Convert datalabel options to BadgeDropdownSelect format with Tailwind color classes
-          const coloredOptions: BadgeDropdownSelectOption[] = datalabelOptions.map(opt => ({
-            value: opt.name,
-            label: opt.name,
-            metadata: {
-              // Convert color_code (e.g., "blue") to Tailwind classes (e.g., "bg-blue-100 text-blue-700")
-              color_code: colorCodeToTailwindClass(opt.color_code)
-            }
-          }));
-
-          return (
-            <BadgeDropdownSelect
-              value={value ?? ''}
-              options={coloredOptions}
-              onChange={onChange}
-              placeholder={metadata.placeholder || 'Select...'}
-            />
-          );
-        }
-      }
-
-      // Fallback to plain select if not a datalabel field or options not loaded
-      return (
-        <select
-          value={value ?? ''}
-          onChange={(e) => onChange(e.target.value)}
-          required={required}
-          disabled={disabled}
-          className={`px-2 py-1 border rounded ${className}`}
-        >
-          <option value="">Select...</option>
-          {/* Options would be loaded from backend via lookupEntity */}
-        </select>
-      );
-    }
+    // v12.2.0: Legacy 'select' inputType removed - use inputType: 'component' with component: 'DataLabelSelect'
 
     case 'text':
     default:

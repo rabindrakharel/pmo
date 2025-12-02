@@ -301,20 +301,21 @@ export function resolveViewComponent(
  * Resolve an edit component from metadata
  *
  * Resolution order:
- * 1. If inputType is 'component' or 'select', look up by component name
+ * 1. If inputType is 'component', look up by component name
  * 2. Look up by inputType directly in registry (for registered types like 'text', 'number')
  * 3. Return null for unregistered types (handled by EditFieldRenderer)
  *
  * @param inputType - The inputType from editType metadata
- * @param componentName - Optional component name (when inputType is 'component' or 'select')
+ * @param componentName - Optional component name (REQUIRED when inputType is 'component')
  * @returns The component to render, or null for HTML5 input
  */
 export function resolveEditComponent(
   inputType: string,
   componentName?: string
 ): ComponentRenderer | null {
-  // When inputType is 'component' or 'select', use the component name
-  if ((inputType === 'component' || inputType === 'select') && componentName) {
+  // When inputType is 'component', use the component name from metadata
+  // Rule: If component has a value, inputType MUST be 'component'
+  if (inputType === 'component' && componentName) {
     return EditComponentRegistry.get(componentName) || null;
   }
 
