@@ -277,7 +277,8 @@ export function EntityListOfInstancesTable<T = any>({
         const datalabelKey = editMeta?.datalabelKey;
 
         // Inject key into metadata for downstream use
-        const enrichedMeta = { key: fieldKey, ...viewMeta, inputType, editable };
+        // v9.4.1: Include lookupSource, lookupEntity, datalabelKey for edit mode rendering
+        const enrichedMeta = { key: fieldKey, ...viewMeta, inputType, editable, lookupSource, lookupEntity, datalabelKey };
 
         return {
           key: fieldKey,

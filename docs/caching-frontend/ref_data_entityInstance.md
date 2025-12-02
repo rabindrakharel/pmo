@@ -2153,10 +2153,121 @@ const selectedOptions = value.map(uuid => {
 
 ---
 
+## 17. VIEW Mode vs EDIT Mode: Architectural Differences
+
+### 17.1 Conceptual Separation
+
+VIEW mode and EDIT mode serve fundamentally different purposes and thus use different architectural patterns:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    VIEW MODE vs EDIT MODE ARCHITECTURE                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  VIEW MODE (Pure Data Transformation)    EDIT MODE (Interactive Components) │
+│  ─────────────────────────────────────   ─────────────────────────────────  │
+│                                                                              │
+│  Purpose: Display pre-formatted strings  Purpose: User input controls       │
+│  Output: String for table cell           Output: React component             │
+│  Data: Read-only, already fetched        Data: Needs dropdown options        │
+│  File: datasetFormatter.ts               File: frontEndFormatterService.tsx  │
+│  Pattern: format-at-read (select)        Pattern: React component rendering  │
+│                                                                              │
+│  API Response                            API Response                        │
+│       │                                       │                              │
+│       ▼                                       ▼                              │
+│  ┌─────────────────────────┐            ┌─────────────────────────┐         │
+│  │ ref_data_entityInstance │            │ enrichedMeta (column)   │         │
+│  │ { employee: {           │            │ { lookupEntity,         │         │
+│  │    uuid: name           │            │   lookupSource,         │         │
+│  │   }                     │            │   inputType             │         │
+│  │ }                       │            │ }                       │         │
+│  └─────────────────────────┘            └─────────────────────────┘         │
+│       │                                       │                              │
+│       ▼                                       ▼                              │
+│  formatReference(value,                 renderEditModeFromMetadata(         │
+│    metadata, refData)                     value, metadata, onChange)        │
+│       │                                       │                              │
+│       ▼                                       ▼                              │
+│  return refData[entity][uuid]           return <EntityInstanceNameSelect    │
+│  // "James Miller"                        entityCode={metadata.lookupEntity} │
+│                                           ... />                             │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 17.2 Data Flow Differences
+
+| Aspect | VIEW Mode | EDIT Mode |
+|--------|-----------|-----------|
+| **Input** | Raw value + `refData` from API response | Raw value + `metadata` with lookup config |
+| **Processing** | Pure function: `formatReference(uuid, meta, refData)` | React component with hooks: `<EntityInstanceNameSelect />` |
+| **Data Source** | `refData[entityCode][uuid]` passed directly | TanStack Query cache + sync store fallback |
+| **Output** | `FormattedValue` (string + optional styles) | JSX element (interactive dropdown) |
+| **File** | `datasetFormatter.ts` | `frontEndFormatterService.tsx` |
+
+### 17.3 Why Two Files?
+
+**`datasetFormatter.ts`** - Pure data transformation layer:
+- Works on entire datasets at once (via `select` in TanStack Query)
+- Returns plain strings/objects, not React elements
+- Called during query hydration (memoized)
+- No React hooks allowed (pure function)
+
+**`frontEndFormatterService.tsx`** - React component rendering:
+- Renders interactive JSX components
+- Uses React hooks (`useRefDataEntityInstanceOptions`, `useDatalabel`)
+- Called during render cycle
+- Needs access to React context (QueryClient, stores)
+
+### 17.4 Metadata Propagation (v9.4.2 Fix)
+
+The critical fix in v9.4.2 was ensuring YAML metadata fields propagate to edit mode:
+
+```typescript
+// EntityListOfInstancesTable.tsx - Column generation
+
+// Step 1: Extract from backend editType metadata
+const lookupSource = editMeta?.lookupSource;    // "entityInstance" or "datalabel"
+const lookupEntity = editMeta?.lookupEntity;    // "employee", "project", etc.
+const datalabelKey = editMeta?.datalabelKey;    // For badge dropdowns
+
+// Step 2: Create enrichedMeta (becomes backendMetadata on column)
+// v9.4.2: MUST include these fields for edit mode to work
+const enrichedMeta = {
+  key: fieldKey,
+  ...viewMeta,
+  inputType,
+  editable,
+  lookupSource,   // ✅ Added in v9.4.2
+  lookupEntity,   // ✅ Added in v9.4.2
+  datalabelKey    // ✅ Added in v9.4.2
+};
+
+// Step 3: Edit mode renderer receives these via column.backendMetadata
+renderEditModeFromMetadata(value, column.backendMetadata, onChange)
+// → metadata.lookupEntity is now available
+// → Routes to correct component (EntityInstanceNameSelect, etc.)
+```
+
+### 17.5 Component Routing Summary
+
+| YAML inputType | lookupSource | Component | Data Needed |
+|----------------|--------------|-----------|-------------|
+| `entityInstanceId` | `entityInstance` | `EntityInstanceNameSelect` | `lookupEntity` |
+| `entityInstanceIds` | `entityInstance` | `EntityInstanceNameMultiSelect` | `lookupEntity` |
+| `component` + `EntityInstanceNameSelect` | `entityInstance` | `EntityInstanceNameSelect` | `lookupEntity` |
+| `component` + `EntityInstanceNameMultiSelect` | `entityInstance` | `EntityInstanceNameMultiSelect` | `lookupEntity` |
+| `component` + `BadgeDropdownSelect` | `datalabel` | `BadgeDropdownSelect` | `datalabelKey` |
+| `select` | `datalabel` | `BadgeDropdownSelect` | `datalabelKey` |
+
+---
+
 ## Changelog
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 12.2.0 | 2025-12-02 | **v9.4.2 enrichedMeta Fix**: Fixed edit mode showing UUIDs instead of names. Root cause: `lookupSource`, `lookupEntity`, `datalabelKey` were extracted from `editMeta` but not added to `enrichedMeta`, so `renderEditModeFromMetadata` received undefined values. Added Section 17: VIEW vs EDIT Mode architectural differences. |
 | 12.1.0 | 2025-12-02 | **v9.4.1 YAML-Frontend Alignment**: Frontend now correctly handles `renderType: 'component'` with `component: 'EntityInstanceName'/'EntityInstanceNames'` pattern from YAML. Both VIEW mode (`datasetFormatter.ts`) and EDIT mode (`frontEndFormatterService.tsx`) now route component-based metadata to appropriate formatters/components. |
 | 12.0.0 | 2025-12-01 | **v9.4.0 Strict Format-at-Read**: Unified cache population, EntityInstanceNameMultiSelect support, sync store fallback pattern, architecture critique |
 | 11.3.0 | 2025-11-28 | Added comprehensive architecture diagrams, fixed dual QueryClient bug, removed unused imports from App.tsx |
