@@ -242,28 +242,3 @@ export function useHydrationResult(): HydrationResult | null {
   return useContext(CacheContext).hydrationResult;
 }
 
-// ============================================================================
-// Legacy Exports (for backward compatibility)
-// ============================================================================
-
-/** @deprecated Use CacheProvider instead */
-export const TanstackCacheProvider = CacheProvider;
-
-/** @deprecated Use connect from useCacheContext instead */
-export function connectWebSocket(token: string): void {
-  wsManager.connect(token);
-}
-
-/** @deprecated Use disconnect from useCacheContext instead */
-export function disconnectWebSocket(): void {
-  wsManager.disconnect();
-}
-
-/** @deprecated Use prefetch from useCacheContext instead */
-export async function prefetchAllMetadata(): Promise<void> {
-  await Promise.all([
-    prefetchGlobalSettings(),
-    prefetchAllDatalabels(),
-    prefetchEntityCodes(),
-  ]);
-}

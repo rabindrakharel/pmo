@@ -22,11 +22,6 @@ export {
   useIsAppReady,
   useIsMetadataLoaded,
   useHydrationResult,
-  // Legacy exports
-  TanstackCacheProvider,
-  connectWebSocket,
-  disconnectWebSocket,
-  prefetchAllMetadata,
 } from './Provider';
 
 // ============================================================================
@@ -117,16 +112,6 @@ export {
   STORE_STALE_TIMES,
   STORE_GC_TIMES,
   STORE_PERSIST_TTL,
-  // Legacy aliases
-  CACHE_STALE_TIME,
-  CACHE_STALE_TIME_LIST,
-  CACHE_STALE_TIME_METADATA,
-  CACHE_STALE_TIME_DATALABEL,
-  CACHE_STALE_TIME_ENTITY_CODES,
-  CACHE_STALE_TIME_ENTITY_LINKS,
-  CACHE_GC_TIME,
-  DEXIE_HYDRATION_MAX_AGE,
-  DEXIE_DATA_MAX_AGE,
   // Store types
   type SessionStore,
   type OndemandStore,
@@ -233,12 +218,3 @@ export type {
   EntityInstanceDataRecord,
   DraftRecord,
 } from './persistence/schema';
-
-// ============================================================================
-// Legacy Re-exports (for backward compatibility during migration)
-// ============================================================================
-
-// These are exported from the old locations and will be removed in a future version
-// Import from the new locations above instead
-
-export * from './tanstack-index';
