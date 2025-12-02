@@ -1,6 +1,6 @@
 # Entity Reference Resolution Pattern
 
-**Version:** 13.0.0 | **Pattern Type:** Centralized Sync Store + TanStack Query + Dexie | **Updated:** 2025-12-02
+**Version:** 14.0.0 | **Pattern Type:** TanStack Query Cache + Dexie | **Updated:** 2025-12-02
 
 ---
 
@@ -18,13 +18,13 @@ Database stores foreign key references as UUIDs, but users need human-readable n
 | `business_id` | `f0e9d8c7-b6a5-...` | "Huron Home Services" |
 | `stakeholder__employee_ids` | `["uuid-1", "uuid-2"]` | "James, Sarah" |
 
-### v10.0.0 Key Change: Centralized Cache
+### v11.0.0 Key Change: Single In-Memory Cache
 
-Both VIEW and EDIT modes now use the same centralized `entityInstanceNamesStore` sync store. This solves the problem where entity reference fields showed UUIDs after optimistic updates.
+**Removed sync stores.** Both VIEW and EDIT modes now read directly from the TanStack Query cache using `queryClient.getQueryData()`. This eliminates duplicate in-memory caches while maintaining synchronous access for formatters.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│           ENTITY REFERENCE RESOLUTION PATTERN (v13.0.0)                      │
+│           ENTITY REFERENCE RESOLUTION PATTERN (v11.0.0)                      │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
@@ -39,12 +39,13 @@ Both VIEW and EDIT modes now use the same centralized `entityInstanceNamesStore`
 │                              │                                               │
 │                              ▼                                               │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │  LAYER 6: FRONTEND CACHE POPULATION (v10.0.0)                        │   │
+│  │  LAYER 6: FRONTEND CACHE POPULATION (v11.0.0)                        │   │
 │  │                                                                       │   │
 │  │  useEntityInstanceData() receives API response:                      │   │
-│  │  ├── entityInstanceNamesStore.merge(entityCode, names) [SYNC STORE]  │   │
-│  │  ├── persistToEntityInstanceNames(entityCode, names)  [DEXIE]        │   │
-│  │  └── upsertRefDataEntityInstance(queryClient, ...)    [TANSTACK]     │   │
+│  │  ├── queryClient.setQueryData(entityCode, names)  [TANSTACK QUERY]   │   │
+│  │  └── persistToEntityInstanceNames(entityCode, names)  [DEXIE]        │   │
+│  │                                                                       │   │
+│  │  (v11.0.0: Removed separate sync stores - TanStack Query is cache)   │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
 │                              │                                               │
 │                              ▼                                               │
@@ -52,7 +53,9 @@ Both VIEW and EDIT modes now use the same centralized `entityInstanceNamesStore`
 │  │  LAYER 7: FRONTEND RENDERING (Unified Cache Access)                  │   │
 │  │                                                                       │   │
 │  │  VIEW: formatReference() → getEntityInstanceNameSync(entityCode,uuid)│   │
-│  │  EDIT: useRefDataEntityInstanceOptions() → same centralized cache    │   │
+│  │  EDIT: useRefDataEntityInstanceOptions() → same TanStack Query cache │   │
+│  │                                                                       │   │
+│  │  getEntityInstanceNameSync() reads from queryClient.getQueryData()   │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -62,26 +65,29 @@ Both VIEW and EDIT modes now use the same centralized `entityInstanceNamesStore`
 
 ## 2. Data Flow Architecture
 
-### 2.1 API Response → Cache Population
+### 2.1 API Response → Cache Population (v11.0.0)
 
-When `useEntityInstanceData` fetches data, it receives `ref_data_entityInstance` and populates **three cache tiers**:
+When `useEntityInstanceData` fetches data, it receives `ref_data_entityInstance` and populates **two cache tiers**:
 
-**File:** `apps/web/src/db/cache/hooks/useEntityInstanceData.ts:506-513`
+**File:** `apps/web/src/db/cache/hooks/useEntityInstanceData.ts`
 
 ```typescript
 if (apiData.ref_data_entityInstance) {
   for (const [refEntityCode, names] of Object.entries(apiData.ref_data_entityInstance)) {
-    await persistToEntityInstanceNames(refEntityCode, names);  // Dexie (IndexedDB)
-    entityInstanceNamesStore.merge(refEntityCode, names);       // Sync store (in-memory)
+    // v11.0.0: Set directly in TanStack Query cache (sync store removed)
+    queryClient.setQueryData(
+      QUERY_KEYS.entityInstanceNames(refEntityCode),
+      (existing: Record<string, string> | undefined) => ({ ...existing, ...names })
+    );
+    // Persist to Dexie for offline access
+    await persistToEntityInstanceNames(refEntityCode, names);
   }
-  // Also upsert to TanStack Query cache for edit mode hooks
-  upsertRefDataEntityInstance(queryClient, apiData.ref_data_entityInstance);
 }
 ```
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    API RESPONSE → CACHE POPULATION                           │
+│                    API RESPONSE → CACHE POPULATION (v11.0.0)                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  API Response                                                                │
@@ -92,45 +98,55 @@ if (apiData.ref_data_entityInstance) {
 │      ├──────────────────────────────────────────────────────────────────┐    │
 │      │                                                                  │    │
 │      ▼                                                                  ▼    │
-│  ┌────────────────────────────┐  ┌────────────────────────────────────┐│    │
-│  │ entityInstanceNamesStore   │  │ persistToEntityInstanceNames()     ││    │
-│  │ .merge('employee', names)  │  │ → Dexie IndexedDB                  ││    │
-│  │                            │  │                                    ││    │
-│  │ IN-MEMORY SYNC STORE       │  │ PERSISTENT STORAGE                 ││    │
-│  │ • Instant access           │  │ • Survives browser restart         ││    │
-│  │ • Used by formatReference()│  │ • Hydrated on app start            ││    │
-│  └────────────────────────────┘  └────────────────────────────────────┘│    │
-│      │                                                                  │    │
-│      └──────────────────────────────────────────────────────────────────┘    │
-│      │                                                                       │
-│      ▼                                                                       │
-│  ┌────────────────────────────────────────────────────────────────────┐     │
-│  │ upsertRefDataEntityInstance(queryClient, ref_data)                 │     │
-│  │ → TanStack Query Cache                                              │     │
-│  │ • Cache key: ['ref_data_entityInstance', entityCode]                │     │
-│  │ • Used by useRefDataEntityInstanceOptions() for edit dropdowns      │     │
-│  └────────────────────────────────────────────────────────────────────┘     │
-│                                                                              │
+│  ┌────────────────────────────────┐  ┌────────────────────────────────┐│    │
+│  │ TanStack Query Cache           │  │ persistToEntityInstanceNames() ││    │
+│  │ queryClient.setQueryData(...)  │  │ → Dexie IndexedDB              ││    │
+│  │                                │  │                                ││    │
+│  │ SINGLE IN-MEMORY CACHE         │  │ PERSISTENT STORAGE             ││    │
+│  │ • Used by hooks (useQuery)     │  │ • Survives browser restart     ││    │
+│  │ • Used by sync accessors       │  │ • Hydrated on app start        ││    │
+│  │   (getEntityInstanceNameSync)  │  │                                ││    │
+│  └────────────────────────────────┘  └────────────────────────────────┘│    │
+│                                                                        │    │
+│  v11.0.0: Removed separate sync stores                                 │    │
+│  • getEntityInstanceNameSync() reads from queryClient.getQueryData()   │    │
+│  • Single source of truth for all in-memory cache access               │    │
+│                                                                        │    │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 Format-on-Read Uses Centralized Cache
+### 2.2 Format-on-Read Uses TanStack Query Cache
 
-When `formatDataset()` is called, `formatReference()` reads from the centralized sync store:
+When `formatDataset()` is called, `formatReference()` reads from the TanStack Query cache via sync accessor:
 
-**File:** `apps/web/src/lib/formatters/valueFormatters.ts:265-268`
+**File:** `apps/web/src/lib/formatters/valueFormatters.ts`
 
 ```typescript
-// v10.0.0: Try to resolve from centralized sync store
+// v11.0.0: Read from TanStack Query cache via sync accessor
 if (entityCode) {
   const name = getEntityInstanceNameSync(entityCode, uuid);
   if (name) return { display: name };
 }
 ```
 
+**File:** `apps/web/src/db/cache/stores.ts`
+
+```typescript
+// v11.0.0: Sync accessor reads directly from queryClient.getQueryData()
+export function getEntityInstanceNameSync(
+  entityCode: string,
+  entityInstanceId: string
+): string | null {
+  const names = queryClient.getQueryData<Record<string, string>>(
+    QUERY_KEYS.entityInstanceNames(entityCode)
+  );
+  return names?.[entityInstanceId] ?? null;
+}
+```
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    FORMAT-ON-READ FLOW (v10.0.0)                             │
+│                    FORMAT-ON-READ FLOW (v11.0.0)                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  Component calls formatDataset(rawData, metadata)                            │
@@ -159,7 +175,9 @@ if (entityCode) {
 │              │           ↓                                 │                 │
 │              │ getEntityInstanceNameSync(entityCode, uuid) │                 │
 │              │           ↓                                 │                 │
-│              │ entityInstanceNamesStore.getName()          │                 │
+│              │ queryClient.getQueryData(                   │                 │
+│              │   QUERY_KEYS.entityInstanceNames(entityCode)│                 │
+│              │ )?.[uuid]                                   │                 │
 │              │           ↓                                 │                 │
 │              │ return { display: "James Miller" }          │                 │
 │              └─────────────────────────────────────────────┘                 │
@@ -176,84 +194,77 @@ if (entityCode) {
 
 ## 3. Cache Architecture
 
-### 3.1 Three-Tier Cache System
+### 3.1 Two-Tier Cache System (v11.0.0)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    CACHE HIERARCHY (v10.0.0)                                 │
+│                    CACHE HIERARCHY (v11.0.0)                                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │  TIER 1: entityInstanceNamesStore (In-Memory Sync Store)               │ │
-│  │  ─────────────────────────────────────────────────────────            │ │
-│  │  • Fastest access - synchronous                                        │ │
-│  │  • Used by: formatReference() via getEntityInstanceNameSync()          │ │
-│  │  • Structure: Map<entityCode, Record<uuid, name>>                      │ │
-│  │  • Populated: entityInstanceNamesStore.merge(entityCode, names)        │ │
-│  │  • Access: getEntityInstanceNameSync('employee', 'uuid') → 'James'     │ │
+│  │  TIER 1: TanStack Query Cache (In-Memory - Single Source of Truth)    │ │
+│  │  ────────────────────────────────────────────────────────────────────│ │
+│  │  • Cache key: ['entityInstanceNames', entityCode]                     │ │
+│  │  • Used by: React hooks (useEntityInstanceNames)                      │ │
+│  │  • Used by: Sync accessors (getEntityInstanceNameSync)                │ │
+│  │  • Populated: queryClient.setQueryData() after API fetch              │ │
+│  │  • Access: queryClient.getQueryData(QUERY_KEYS.entityInstanceNames()) │ │
+│  │  • gcTime: 30 minutes, staleTime: 10 minutes                          │ │
+│  │                                                                        │ │
+│  │  v11.0.0: Sync accessors now read from this cache directly            │ │
+│  │  (no separate Map-based sync stores)                                  │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                              │                                               │
 │                              ▼                                               │
 │  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │  TIER 2: TanStack Query Cache (In-Memory Reactive)                     │ │
-│  │  ─────────────────────────────────────────────────────                │ │
-│  │  • Cache key: ['ref_data_entityInstance', entityCode]                  │ │
-│  │  • Used by: useRefDataEntityInstanceOptions() for edit dropdowns       │ │
-│  │  • Populated: upsertRefDataEntityInstance(queryClient, ref_data)       │ │
-│  │  • gcTime: 30 minutes, staleTime: 5 minutes                            │ │
-│  └────────────────────────────────────────────────────────────────────────┘ │
-│                              │                                               │
-│                              ▼                                               │
-│  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │  TIER 3: Dexie (IndexedDB Persistent)                                  │ │
-│  │  ─────────────────────────────────────────                            │ │
+│  │  TIER 2: Dexie (IndexedDB Persistent)                                  │ │
+│  │  ─────────────────────────────────────                                │ │
 │  │  • Persists across browser restart                                     │ │
-│  │  • Table: entityInstanceName                                           │ │
-│  │  • Hydrated to sync store on app start                                 │ │
+│  │  • Table: entityInstanceNames                                          │ │
+│  │  • Hydrated to TanStack Query cache on app start                       │ │
 │  │  • Populated: persistToEntityInstanceNames(entityCode, names)          │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.2 Sync Store Implementation
+### 3.2 Sync Accessor Implementation (v11.0.0)
 
 **File:** `apps/web/src/db/cache/stores.ts`
 
 ```typescript
-class EntityInstanceNamesStore {
-  private byType = new Map<string, Record<string, string>>();
+import { queryClient } from './client';
+import { QUERY_KEYS } from './keys';
 
-  // Set single name
-  set(entityCode: string, entityInstanceId: string, name: string): void;
-  // Set multiple names
-  set(entityCode: string, names: Record<string, string>): void;
-
-  // Merge new names with existing (preserves existing entries)
-  merge(entityCode: string, names: Record<string, string>): void {
-    const existing = this.byType.get(entityCode) || {};
-    this.byType.set(entityCode, { ...existing, ...names });
-  }
-
-  // Get single name - used by formatReference()
-  getName(entityCode: string, entityInstanceId: string): string | null {
-    return this.byType.get(entityCode)?.[entityInstanceId] ?? null;
-  }
-
-  // Get all names for entity type - used by edit dropdowns
-  getNames(entityCode: string): Record<string, string> {
-    return this.byType.get(entityCode) || {};
-  }
-}
-
-export const entityInstanceNamesStore = new EntityInstanceNamesStore();
-
-// Convenience function for formatReference()
+/**
+ * Get entity instance name synchronously from TanStack Query cache
+ *
+ * v11.0.0: Reads directly from queryClient.getQueryData() - no separate sync stores
+ *
+ * Used by:
+ * - formatReference() for VIEW mode display
+ * - EntityInstanceNameSelect for immediate label resolution
+ * - EntityInstanceNameMultiSelect for chip labels
+ */
 export function getEntityInstanceNameSync(
   entityCode: string,
   entityInstanceId: string
 ): string | null {
-  return entityInstanceNamesStore.getName(entityCode, entityInstanceId);
+  const names = queryClient.getQueryData<Record<string, string>>(
+    QUERY_KEYS.entityInstanceNames(entityCode)
+  );
+  return names?.[entityInstanceId] ?? null;
+}
+
+/**
+ * Get all entity instance names for a type synchronously
+ */
+export function getEntityInstanceNamesForTypeSync(
+  entityCode: string
+): Record<string, string> {
+  return queryClient.getQueryData<Record<string, string>>(
+    QUERY_KEYS.entityInstanceNames(entityCode)
+  ) ?? {};
 }
 ```
 
@@ -357,7 +368,7 @@ async build_ref_data_entityInstance(
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         VIEW MODE FLOW (v10.0.0)                             │
+│                         VIEW MODE FLOW (v11.0.0)                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  useEntityInstanceData() returns:                                            │
@@ -382,7 +393,8 @@ async build_ref_data_entityInstance(
 │  │                                                                  │        │
 │  │ const name = getEntityInstanceNameSync('employee', 'uuid-james')│        │
 │  │                         ↓                                        │        │
-│  │ entityInstanceNamesStore.getName('employee', 'uuid-james')       │        │
+│  │ queryClient.getQueryData(['entityInstanceNames', 'employee'])    │        │
+│  │ ?.[uuid-james]                                                   │        │
 │  │                         ↓                                        │        │
 │  │ return { display: "James Miller" }                               │        │
 │  └─────────────────────────────────────────────────────────────────┘        │
@@ -400,12 +412,11 @@ async build_ref_data_entityInstance(
 **File:** `apps/web/src/lib/formatters/valueFormatters.ts`
 
 ```typescript
-import { getEntityInstanceNameSync } from '../../db/tanstack-index';
+import { getEntityInstanceNameSync } from '@/db/cache/stores';
 
 export function formatReference(
   value: any,
-  metadata?: FieldMetadata,
-  _refData?: Record<string, Record<string, string>>  // DEPRECATED v10.0.0
+  metadata?: FieldMetadata
 ): FormattedValue {
   if (value === null || value === undefined || value === '') {
     return { display: '—' };
@@ -418,7 +429,7 @@ export function formatReference(
     if (value.length === 0) return { display: '—' };
 
     const names = value.map(uuid => {
-      // v10.0.0: Use centralized sync store
+      // v11.0.0: Use TanStack Query cache via sync accessor
       if (entityCode) {
         const name = getEntityInstanceNameSync(entityCode, uuid);
         if (name) return name;
@@ -432,7 +443,7 @@ export function formatReference(
   // Single UUID
   const uuid = String(value);
 
-  // v10.0.0: Try to resolve from centralized sync store
+  // v11.0.0: Read from TanStack Query cache via sync accessor
   if (entityCode) {
     const name = getEntityInstanceNameSync(entityCode, uuid);
     if (name) return { display: name };
@@ -443,24 +454,6 @@ export function formatReference(
 }
 ```
 
-**File:** `apps/web/src/pages/shared/EntityListOfInstancesPage.tsx`
-
-```typescript
-// v10.0.0: refData removed from destructuring - using centralized entityInstanceNames sync store
-const {
-  data: rawData,
-  total: totalRecords,
-  isLoading: dataLoading,
-  // ref_data_entityInstance no longer needed - cache populated automatically
-} = useEntityInstanceData(entityCode, queryParams, { enabled: !!config });
-
-// v10.0.0: refData no longer passed - formatDataset uses centralized sync store
-const formattedData = useMemo(() => {
-  if (!rawData || rawData.length === 0) return [];
-  return formatDataset(rawData, metadata as ComponentMetadata | undefined);
-}, [rawData, metadata]);
-```
-
 ---
 
 ## 6. Edit Mode Rendering
@@ -469,7 +462,7 @@ const formattedData = useMemo(() => {
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         EDIT MODE FLOW                                       │
+│                         EDIT MODE FLOW (v11.0.0)                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  metadata.editType.manager__employee_id:                                     │
@@ -486,8 +479,10 @@ const formattedData = useMemo(() => {
 │  EntityInstanceNameSelect component                                          │
 │  └── useRefDataEntityInstanceOptions('employee')                             │
 │        └── Reads from TanStack Query cache                                   │
-│        └── Cache key: ['ref_data_entityInstance', 'employee']                │
+│        └── Cache key: ['entityInstanceNames', 'employee']                    │
 │        └── Returns: { options: [{ value: uuid, label: name }] }              │
+│  └── For immediate label resolution:                                         │
+│        └── getEntityInstanceNameSync(entityCode, value)                      │
 │                              │                                               │
 │                              ▼                                               │
 │  Dropdown renders with employee names                                        │
@@ -505,9 +500,9 @@ const formattedData = useMemo(() => {
 export function useRefDataEntityInstanceOptions(entityCode: string) {
   const queryClient = useQueryClient();
 
-  // Read from TanStack Query cache (same data as sync store)
+  // Read from TanStack Query cache
   const data = queryClient.getQueryData<Record<string, string>>(
-    ['ref_data_entityInstance', entityCode]
+    QUERY_KEYS.entityInstanceNames(entityCode)
   );
 
   const options = useMemo(() => {
@@ -522,25 +517,43 @@ export function useRefDataEntityInstanceOptions(entityCode: string) {
 }
 ```
 
+**File:** `apps/web/src/components/shared/ui/EntityInstanceNameSelect.tsx`
+
+```typescript
+import { getEntityInstanceNameSync } from '@/db/cache/stores';
+
+// Get current selected option label
+// v11.0.0: Use TanStack Query cache accessor for immediate resolution
+const selectedOption = options.find(opt => opt.value === value);
+const cachedName = value ? getEntityInstanceNameSync(entityCode, value) : null;
+const displayLabel = selectedOption?.label || cachedName || currentLabel || '';
+```
+
 ---
 
 ## 7. Optimistic Updates
 
-### 7.1 Why Centralized Cache Solves the Problem
+### 7.1 Why Single Cache Solves the Problem
 
 **Before v10.0.0:**
 - `refData` was passed through component props
 - After optimistic update, cache updated but `refData` not re-fetched
 - UUIDs displayed instead of names
 
-**After v10.0.0:**
-- `entityInstanceNamesStore` persists across renders
-- `formatReference()` reads from store, not props
+**v10.0.0 (Sync Stores):**
+- `entityInstanceNamesStore` persisted across renders
+- `formatReference()` read from store
+- Names resolved correctly
+
+**v11.0.0 (TanStack Query Only):**
+- TanStack Query cache is single source of truth
+- `getEntityInstanceNameSync()` reads from queryClient
+- No duplicate sync stores - same cache as React hooks
 - Names resolve correctly after optimistic updates
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    OPTIMISTIC UPDATE FLOW (v10.0.0)                          │
+│                    OPTIMISTIC UPDATE FLOW (v11.0.0)                          │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  1. User edits a field                                                       │
@@ -559,8 +572,8 @@ export function useRefDataEntityInstanceOptions(entityCode: string) {
 │  5. formatReference() → getEntityInstanceNameSync()                          │
 │      │                                                                       │
 │      ▼                                                                       │
-│  6. entityInstanceNamesStore still has the name! ✓                           │
-│     (Store persists across re-renders, populated on initial fetch)           │
+│  6. queryClient.getQueryData(['entityInstanceNames', entityCode])            │
+│     └── Name still in TanStack Query cache! ✓                                │
 │      │                                                                       │
 │      ▼                                                                       │
 │  7. "James Miller" displays correctly                                        │
@@ -570,45 +583,9 @@ export function useRefDataEntityInstanceOptions(entityCode: string) {
 
 ---
 
-## 8. Conditional Branching Summary
+## 8. Key Design Principles
 
-### 8.1 View Mode Branching
-
-```
-formatValue(value, key, metadata)
-  │
-  ├─ renderType === 'component'?
-  │   └─ component in ['EntityInstanceName', 'EntityInstanceNames']?
-  │       └─ YES → formatReference(value, metadata)
-  │                  └─ getEntityInstanceNameSync(entityCode, uuid)
-  │       └─ NO → formatText(value)
-  │
-  ├─ renderType in ['entityInstanceId', 'entityInstanceIds', 'reference']?
-  │   └─ YES → formatReference(value, metadata)
-  │
-  └─ default → FORMATTERS[renderType](value, metadata)
-```
-
-### 8.2 Edit Mode Branching
-
-```
-renderEditModeFromMetadata(value, metadata, onChange)
-  │
-  ├─ inputType === 'EntityInstanceNameSelect'?
-  │   └─ YES → <EntityInstanceNameSelect entityCode={metadata.lookupEntity} />
-  │              └─ useRefDataEntityInstanceOptions(entityCode)
-  │
-  ├─ inputType === 'EntityInstanceNameMultiSelect'?
-  │   └─ YES → <EntityInstanceNameMultiSelect entityCode={metadata.lookupEntity} />
-  │
-  └─ default → other input types
-```
-
----
-
-## 9. Key Design Principles
-
-### 9.1 Backend is Single Source of Truth
+### 8.1 Backend is Single Source of Truth
 
 The backend owns field semantics. Frontend does NOT:
 - Parse field names to detect types
@@ -623,22 +600,23 @@ The backend owns field semantics. Frontend does NOT:
   if (metadata.lookupEntity) → use getEntityInstanceNameSync(metadata.lookupEntity, uuid)
 ```
 
-### 9.2 Unified Cache for View and Edit
+### 8.2 Single In-Memory Cache (v11.0.0)
 
-One centralized store serves both display and dropdown population:
+TanStack Query cache serves both React hooks and sync accessors:
 
 ```
-BEFORE v10.0.0:                      AFTER v10.0.0:
+v10.0.0:                              v11.0.0:
 ┌─────────────┐  ┌─────────────┐    ┌─────────────────────────────────┐
-│ refData prop│  │ TanStack    │    │    entityInstanceNamesStore     │
-│ passed down │  │ Query cache │ →  │    (centralized sync store)     │
+│ Sync Stores │  │ TanStack    │    │    TanStack Query Cache         │
+│ (Map-based) │  │ Query cache │ →  │    (Single Source of Truth)     │
 └─────────────┘  └─────────────┘    └─────────────────────────────────┘
-                                           ↑              ↑
-                                    formatReference()  useRefDataEntityInstanceOptions()
-                                    (VIEW mode)        (EDIT mode)
+      ↑                ↑                      ↑              ↑
+formatReference()  useQuery()        getEntityInstanceNameSync()  useQuery()
+(sync accessor)   (React hook)       (sync accessor - reads      (React hook)
+                                      from queryClient)
 ```
 
-### 9.3 Format-at-Read Pattern
+### 8.3 Format-at-Read Pattern
 
 Data is stored raw in cache, formatted when read:
 
@@ -654,7 +632,7 @@ API Response → TanStack Query Cache (RAW data)
 
 ---
 
-## 10. File Reference
+## 9. File Reference
 
 | Component | File Path |
 |-----------|-----------|
@@ -665,37 +643,49 @@ API Response → TanStack Query Cache (RAW data)
 | Entity Infrastructure | `apps/api/src/services/entity-infrastructure.service.ts` |
 | Dataset Formatter | `apps/web/src/lib/formatters/datasetFormatter.ts` |
 | Value Formatters | `apps/web/src/lib/formatters/valueFormatters.ts` |
-| Sync Store | `apps/web/src/db/cache/stores.ts` |
+| Sync Accessors | `apps/web/src/db/cache/stores.ts` |
 | useEntityInstanceData | `apps/web/src/db/cache/hooks/useEntityInstanceData.ts` |
 | RefData Hooks | `apps/web/src/lib/hooks/useRefDataEntityInstance.ts` |
+| EntityInstanceNameSelect | `apps/web/src/components/shared/ui/EntityInstanceNameSelect.tsx` |
+| EntityInstanceNameMultiSelect | `apps/web/src/components/shared/ui/EntityInstanceNameMultiSelect.tsx` |
 
 ---
 
-## 11. Migration Notes (v10.0.0)
+## 10. Migration Notes (v11.0.0)
 
-### 11.1 Deprecated Parameters
+### 10.1 Removed
 
-The `refData` parameter is deprecated in these functions but kept for backward compatibility:
+- `entityInstanceNamesStore` class
+- `entityInstanceNamesStore.merge()` method
+- `entityInstanceNamesStore.getName()` method
+- `clearAllSyncStores()` function
 
-- `formatDataset(data, metadata, _refData?)`
-- `formatRow(row, metadata, _refData?)`
-- `formatValue(value, key, metadata, _refData?)`
-- `formatReference(value, metadata, _refData?)`
+### 10.2 Changed
 
-### 11.2 Deprecated Props
+| Before (v10.0.0) | After (v11.0.0) |
+|------------------|-----------------|
+| `entityInstanceNamesStore.getName(code, uuid)` | `getEntityInstanceNameSync(code, uuid)` |
+| `entityInstanceNamesStore.merge(code, names)` | `queryClient.setQueryData(...)` |
 
-The `ref_data_entityInstance` prop is deprecated in:
+### 10.3 Same API, Different Implementation
 
-- `EntityListOfInstancesTable` component
+The sync accessor functions have the same API but now read from `queryClient.getQueryData()`:
 
-### 11.3 What Changed
+```typescript
+// Before v11.0.0 (stores.ts):
+export function getEntityInstanceNameSync(entityCode: string, entityInstanceId: string): string | null {
+  return entityInstanceNamesStore.getName(entityCode, entityInstanceId);
+}
 
-| Before v10.0.0 | After v10.0.0 |
-|----------------|---------------|
-| `refData` passed through component tree | Centralized `entityInstanceNamesStore` |
-| `formatReference(value, meta, refData)` | `formatReference(value, meta)` + `getEntityInstanceNameSync()` |
-| Names lost after optimistic updates | Names persist in sync store |
+// After v11.0.0 (stores.ts):
+export function getEntityInstanceNameSync(entityCode: string, entityInstanceId: string): string | null {
+  const names = queryClient.getQueryData<Record<string, string>>(
+    QUERY_KEYS.entityInstanceNames(entityCode)
+  );
+  return names?.[entityInstanceId] ?? null;
+}
+```
 
 ---
 
-**Version:** 13.0.0 | **Updated:** 2025-12-02 | **Architecture:** Centralized Sync Store + TanStack Query + Dexie
+**Version:** 14.0.0 | **Updated:** 2025-12-02 | **Architecture:** TanStack Query Cache + Dexie (v11.0.0 - Sync Stores Removed)
