@@ -272,12 +272,16 @@ export function EntityListOfInstancesTable<T = any>({
         const align = viewMeta.style?.align;
         const editable = editMeta?.behavior?.editable ?? false;
         const inputType = editMeta?.inputType ?? 'text';
-        const lookupSource = editMeta?.lookupSource;
-        const lookupEntity = editMeta?.lookupEntity;
-        const datalabelKey = editMeta?.datalabelKey;
+        // v9.4.3: Use nullish coalescing to prevent undefined from overwriting viewMeta values
+        // Backend sets lookupEntity on BOTH view AND edit; if editMeta is stale/missing,
+        // fall back to viewMeta to preserve the entity reference metadata
+        const lookupSource = editMeta?.lookupSource ?? viewMeta.lookupSource;
+        const lookupEntity = editMeta?.lookupEntity ?? viewMeta.lookupEntity;
+        const datalabelKey = editMeta?.datalabelKey ?? (viewMeta as any).datalabelKey;
 
         // Inject key into metadata for downstream use
-        // v9.4.1: Include lookupSource, lookupEntity, datalabelKey for edit mode rendering
+        // v9.4.2: Include lookupSource, lookupEntity, datalabelKey for edit mode rendering
+        // v9.4.3: Values now properly fall back to viewMeta if editMeta is undefined
         const enrichedMeta = { key: fieldKey, ...viewMeta, inputType, editable, lookupSource, lookupEntity, datalabelKey };
 
         return {
